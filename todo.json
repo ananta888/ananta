@@ -2,7 +2,8 @@
   "project": "ananta-mobile-local-model-runtime",
   "version": "0.1.0",
   "goal": "Android APK mit lokaler Modellruntime für Voxtral und weitere kleine Modelle aufbauen",
-  "status": "draft",
+  "status": "in_progress",
+  "reviewed_at": "2026-04-30",
   "principles": [
     "local-first",
     "offline-capable",
@@ -22,7 +23,7 @@
           "id": "ANM-001",
           "title": "Android-Projektstruktur prüfen",
           "description": "Klären, ob APK-Projekt im aktuellen Repo, anderem Branch oder separatem Repo liegt.",
-          "status": "open",
+          "status": "done",
           "labels": ["android", "repo", "setup"]
         },
         {
@@ -176,21 +177,21 @@
           "id": "ANM-030",
           "title": "Voxtral-Runtime-Anforderungen klären",
           "description": "Prüfen, welches Format und welche Runtime für Voxtral auf Android realistisch sind.",
-          "status": "open",
+          "status": "done",
           "labels": ["voxtral", "research"]
         },
         {
           "id": "ANM-031",
           "title": "Audioaufnahme-Schicht erstellen",
           "description": "Mikrofonaufnahme mit klarer Permission-Grenze implementieren.",
-          "status": "open",
+          "status": "done",
           "labels": ["audio", "android-permissions"]
         },
         {
           "id": "ANM-032",
           "title": "Audio-Pufferformat definieren",
           "description": "Sample Rate, Mono/Stereo, PCM-Format und Chunking festlegen.",
-          "status": "open",
+          "status": "done",
           "labels": ["audio"]
         },
         {
@@ -204,7 +205,7 @@
           "id": "ANM-034",
           "title": "Push-to-talk-Modus implementieren",
           "description": "Einfachen sicheren Modus für manuelle Sprachaufnahme bereitstellen.",
-          "status": "open",
+          "status": "done",
           "labels": ["ux", "audio"]
         },
         {
@@ -239,14 +240,14 @@
           "id": "ANM-042",
           "title": "Modell-Download vorbereiten",
           "description": "Optionalen Download mit Hash-Prüfung und Abbruchmöglichkeit vorbereiten.",
-          "status": "open",
+          "status": "done",
           "labels": ["download", "security"]
         },
         {
           "id": "ANM-043",
           "title": "Hash-Prüfung implementieren",
           "description": "Modellintegrität per SHA256 prüfen.",
-          "status": "open",
+          "status": "done",
           "labels": ["security", "models"]
         },
         {
@@ -407,14 +408,14 @@
           "id": "ANM-073",
           "title": "Audioaufnahme UI",
           "description": "Push-to-talk und Transkriptanzeige für Voxtral vorbereiten.",
-          "status": "open",
+          "status": "done",
           "labels": ["ui", "audio"]
         },
         {
           "id": "ANM-074",
           "title": "Fehler verständlich anzeigen",
           "description": "OOM, inkompatibles Modell, fehlende Permission oder ungültiger Pfad klar melden.",
-          "status": "open",
+          "status": "done",
           "labels": ["ux", "errors"]
         }
       ]
@@ -502,7 +503,46 @@
           "labels": ["docs", "models"]
         }
       ]
+    },
+    {
+      "id": "phase-11-hardening",
+      "title": "Mobile Runtime Hardening",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "ANM-100",
+          "title": "Immer-hoerend-Modus explizit sperren",
+          "description": "Sicherstellen, dass Live-Transkription nur nach expliziter Nutzeraktion startet und niemals automatisch im Hintergrund aktiviert wird.",
+          "status": "open",
+          "labels": ["privacy", "security", "audio"]
+        },
+        {
+          "id": "ANM-101",
+          "title": "RAM-Vorabschätzung vor Transkription ergänzen",
+          "description": "Vor Runner-Start grobe RAM-Schwellen prüfen und bei zu wenig Speicher klar abbrechen.",
+          "status": "open",
+          "labels": ["memory", "runtime", "safety"]
+        },
+        {
+          "id": "ANM-102",
+          "title": "Kompatibilitätscheck für Model/Runner härten",
+          "description": "Vor Ausführung prüfen, ob Modellformat, Dateiendung und Runner-Typ zueinander passen.",
+          "status": "open",
+          "labels": ["compatibility", "runtime", "gguf"]
+        }
+      ]
     }
+  ],
+  "status_summary": {
+    "done": 9,
+    "open": 54,
+    "blocked": 0,
+    "total": 63
+  },
+  "notes": [
+    "Abgeschlossene Aufgaben wurden bewusst nicht entfernt, sondern auf done gesetzt.",
+    "Done-Markierungen basieren auf vorhandenen Android-/Voxtral-Artefakten im Repository.",
+    "Offene Punkte betreffen vor allem Runtime-Hardening, Security-Absicherung und vollständige Integrationsabnahme."
   ],
   "recommended_first_milestone": {
     "id": "milestone-01-local-gguf-smoke-test",
