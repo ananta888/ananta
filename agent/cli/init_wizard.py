@@ -72,6 +72,7 @@ class InitAnswers:
     model: str | None
     api_key_env: str | None
     manual_backend_config: dict[str, Any] | None
+    workflow_automation_enabled: bool = False
 
 
 def detect_runtime_mode(
@@ -226,6 +227,7 @@ def collect_answers(
     model: str | None = None
     api_key_env: str | None = None
     manual_backend_config: dict[str, Any] | None = None
+    workflow_automation_enabled = bool(getattr(args, "workflow_automation", False))
 
     if llm_backend in {"ollama", "lmstudio", "openai-compatible"}:
         default_endpoint = _DEFAULT_ENDPOINTS[llm_backend]
@@ -279,6 +281,7 @@ def collect_answers(
         model=model,
         api_key_env=api_key_env,
         manual_backend_config=manual_backend_config,
+        workflow_automation_enabled=workflow_automation_enabled,
     )
 
 
@@ -316,6 +319,22 @@ def _build_backend_config_patch(answers: InitAnswers) -> dict[str, Any]:
     return dict(answers.manual_backend_config)
 
 
+def _build_workflow_config_patch(answers: InitAnswers) -> dict[str, Any]:
+    if not answers.workflow_automation_enabled:
+        return {
+            "workflow_automation": {
+                "enabled": False,
+            }
+        }
+    return {
+        "workflow_automation": {
+            "enabled": True,
+            "default_mode": "dry_run",
+            "provider": "mock",
+        }
+    }
+
+
 def build_runtime_profile_document(
     answers: InitAnswers,
     *,
@@ -339,7 +358,8 @@ def build_runtime_profile_document(
         )
     )
     backend_patch = _build_backend_config_patch(answers)
-    config_patch = _deep_merge(base_patch, backend_patch)
+    workflow_patch = _build_workflow_config_patch(answers)
+    config_patch = _deep_merge(_deep_merge(base_patch, backend_patch), workflow_patch)
 
     backend_payload: dict[str, Any] = {
         "kind": answers.llm_backend,
@@ -362,6 +382,10 @@ def build_runtime_profile_document(
         "platform_mode": str(defaults["platform_mode"]),
         "runtime_recommendation": _recommendation_payload(recommendation),
         "llm_backend": backend_payload,
+        "workflow_automation": {
+            "enabled": bool(answers.workflow_automation_enabled),
+            "default_mode": "dry_run" if answers.workflow_automation_enabled else "disabled",
+        },
         "container_runtime": {
             "required": bool(defaults["container_required"]),
             "recommendation": str(defaults["container_recommendation"]),
@@ -561,6 +585,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path for the generated runtime profile file.",
     )
     parser.add_argument("--apply-config", action="store_true", help="Apply generated config patch to config.json.")
+    parser.add_argument(
+        "--workflow-automation",
+        action="store_true",
+        help="Enable optional workflow automation adapter profile (dry-run first).",
+    )
     parser.add_argument("--config-path", default="config.json", help="Config path used with --apply-config.")
     parser.add_argument(
         "--deployment-target",

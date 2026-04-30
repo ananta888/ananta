@@ -1,6 +1,7 @@
 import uuid
 from typing import List, Optional
 
+from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
 from agent.task_models import TaskStatus  # noqa: F401 - re-exported for legacy imports
@@ -955,6 +956,25 @@ class TeamTypeRoleLinkCreateRequest(SQLModel):
 
 class TeamTypeRoleLinkPatchRequest(SQLModel):
     template_id: Optional[str] = None
+
+
+class WorkflowExecutionRequestModel(SQLModel):
+    provider: str
+    workflow_id: str
+    task_id: Optional[str] = None
+    goal_id: Optional[str] = None
+    trace_id: Optional[str] = None
+    input_payload: dict = Field(default_factory=dict)
+    dry_run: bool = True
+    requested_by: str
+    correlation_id: Optional[str] = None
+
+    @field_validator("provider", "workflow_id", "requested_by")
+    @classmethod
+    def _non_empty(cls, value: str) -> str:
+        if not str(value or "").strip():
+            raise ValueError("must not be empty")
+        return str(value).strip()
 
 
 TaskScopedStepProposeResponse.model_rebuild()

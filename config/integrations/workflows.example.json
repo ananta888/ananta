@@ -1,0 +1,28 @@
+[
+  {
+    "provider": "mock",
+    "workflow_id": "wf-task-status-digest",
+    "display_name": "Task Status Digest",
+    "description": "Send read-only task status digest notification.",
+    "capability": "read",
+    "risk_class": "low",
+    "default_mode": "dry_run",
+    "approval_required": false,
+    "dry_run_supported": true,
+    "callback_required": false,
+    "secret_refs": [],
+    "input_schema": {
+      "type": "object",
+      "required": ["goal_id"],
+      "properties": {
+        "goal_id": {"type": "string"}
+      }
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "message": {"type": "string"}
+      }
+    }
+  }
+]
