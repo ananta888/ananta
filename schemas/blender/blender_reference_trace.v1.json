@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/blender/blender_reference_trace.v1.json",
+  "type": "object",
+  "additionalProperties": true
+}

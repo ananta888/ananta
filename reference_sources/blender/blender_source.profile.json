@@ -1,0 +1,10 @@
+{
+  "source": "repo",
+  "ref": "blender-source",
+  "allowed_globs": [
+    "**/*.py",
+    "**/*.h",
+    "**/*.cc"
+  ],
+  "usage": "engine_reference"
+}

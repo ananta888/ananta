@@ -1,0 +1,20 @@
+{
+  "version": "1",
+  "default": "deny",
+  "rules": [
+    {
+      "capability_prefix": "blender.scene.read",
+      "decision": "allow"
+    },
+    {
+      "capability_prefix": "blender.script.execute",
+      "decision": "deny",
+      "requires_approval": true
+    },
+    {
+      "capability_prefix": "blender.object.mutate",
+      "decision": "confirm_required",
+      "requires_approval": true
+    }
+  ]
+}

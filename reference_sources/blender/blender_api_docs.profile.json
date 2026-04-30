@@ -1,0 +1,9 @@
+{
+  "source": "docs",
+  "ref": "blender-api",
+  "allowed_globs": [
+    "**/*.md",
+    "**/*.rst"
+  ],
+  "usage": "api_reference"
+}

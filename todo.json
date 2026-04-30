@@ -80,7 +80,7 @@
         "BLEND-T03",
         "BLEND-T04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLEND-M2",
@@ -91,7 +91,7 @@
         "BLEND-T07",
         "BLEND-T08"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLEND-M3",
@@ -102,7 +102,7 @@
         "BLEND-T11",
         "BLEND-T12"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLEND-M4",
@@ -113,7 +113,7 @@
         "BLEND-T15",
         "BLEND-T16"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLEND-M5",
@@ -124,7 +124,7 @@
         "BLEND-T19",
         "BLEND-T20"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLEND-M6",
@@ -136,7 +136,7 @@
         "BLEND-T24",
         "BLEND-T25"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLEND-M7",
@@ -146,7 +146,7 @@
         "BLEND-T27",
         "BLEND-T28"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLEND-M8",
@@ -157,7 +157,7 @@
         "BLEND-T31",
         "BLEND-T32"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLEND-M9",
@@ -169,7 +169,7 @@
         "BLEND-T36",
         "BLEND-T37"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLEND-M10",
@@ -179,14 +179,14 @@
         "BLEND-T39",
         "BLEND-T40"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "BLEND-T01",
       "title": "Blender integration scope and threat model define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -205,7 +205,7 @@
     {
       "id": "BLEND-T02",
       "title": "Blender capability model define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -224,7 +224,7 @@
     {
       "id": "BLEND-T03",
       "title": "Blender API contract define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -245,7 +245,7 @@
     {
       "id": "BLEND-T04",
       "title": "Blender runtime inventory classification add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -265,7 +265,7 @@
     {
       "id": "BLEND-T05",
       "title": "Blender RAG source profiles define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -287,7 +287,7 @@
     {
       "id": "BLEND-T06",
       "title": "codecompass/rag_helper Blender indexing config add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -308,7 +308,7 @@
     {
       "id": "BLEND-T07",
       "title": "Blender retrieval service integration add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -328,7 +328,7 @@
     {
       "id": "BLEND-T08",
       "title": "Blender RAG provenance and audit markers add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -347,7 +347,7 @@
     {
       "id": "BLEND-T09",
       "title": "Blender addon project skeleton add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -370,7 +370,7 @@
     {
       "id": "BLEND-T10",
       "title": "Endpoint profile auth settings add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -389,7 +389,7 @@
     {
       "id": "BLEND-T11",
       "title": "Health and capability check implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -409,7 +409,7 @@
     {
       "id": "BLEND-T12",
       "title": "Blender panel layout implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -428,7 +428,7 @@
     {
       "id": "BLEND-T13",
       "title": "Scene context schema define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -447,7 +447,7 @@
     {
       "id": "BLEND-T14",
       "title": "Bounded scene context capture implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -468,7 +468,7 @@
     {
       "id": "BLEND-T15",
       "title": "Context preview and confirmation UI add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -488,7 +488,7 @@
     {
       "id": "BLEND-T16",
       "title": "Scene context backend validation add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -508,7 +508,7 @@
     {
       "id": "BLEND-T17",
       "title": "Submit Blender goal operator add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -529,7 +529,7 @@
     {
       "id": "BLEND-T18",
       "title": "Task and artifact read models display add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -549,7 +549,7 @@
     {
       "id": "BLEND-T19",
       "title": "Approval queue display add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -568,7 +568,7 @@
     {
       "id": "BLEND-T20",
       "title": "Policy-denied UX add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -587,7 +587,7 @@
     {
       "id": "BLEND-T21",
       "title": "Blender action plan model implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -608,7 +608,7 @@
     {
       "id": "BLEND-T22",
       "title": "Read-only Blender operations route add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -628,7 +628,7 @@
     {
       "id": "BLEND-T23",
       "title": "Dry-run script planning add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -648,7 +648,7 @@
     {
       "id": "BLEND-T24",
       "title": "Approval-gated script execution bridge add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -670,7 +670,7 @@
     {
       "id": "BLEND-T25",
       "title": "Mutation operation wrappers add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "blocking": false,
@@ -689,7 +689,7 @@
     {
       "id": "BLEND-T26",
       "title": "Blender artifact schema define",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -708,7 +708,7 @@
     {
       "id": "BLEND-T27",
       "title": "Preview render artifact support add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -728,7 +728,7 @@
     {
       "id": "BLEND-T28",
       "title": "Export plan artifact support add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -747,7 +747,7 @@
     {
       "id": "BLEND-T29",
       "title": "Blender policy rules add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -768,7 +768,7 @@
     {
       "id": "BLEND-T30",
       "title": "Blender audit events add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -788,7 +788,7 @@
     {
       "id": "BLEND-T31",
       "title": "Secret and path redaction hardening add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -809,7 +809,7 @@
     {
       "id": "BLEND-T32",
       "title": "Resource and timeout controls add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "blocking": false,
@@ -829,7 +829,7 @@
     {
       "id": "BLEND-T33",
       "title": "Addon import and registration tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -848,7 +848,7 @@
     {
       "id": "BLEND-T34",
       "title": "Scene context contract tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -870,7 +870,7 @@
     {
       "id": "BLEND-T35",
       "title": "Mocked Hub interaction tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "blocking": true,
@@ -892,7 +892,7 @@
     {
       "id": "BLEND-T36",
       "title": "Policy and approval negative tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -912,7 +912,7 @@
     {
       "id": "BLEND-T37",
       "title": "Blender release gate integration add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "blocking": true,
@@ -935,7 +935,7 @@
     {
       "id": "BLEND-T38",
       "title": "Blender integration docs write",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -958,7 +958,7 @@
     {
       "id": "BLEND-T39",
       "title": "Blender golden path examples add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "blocking": false,
@@ -979,7 +979,7 @@
     {
       "id": "BLEND-T40",
       "title": "FreeCAD and KiCad roadmap isolate",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "medium",
       "blocking": false,
@@ -1043,12 +1043,12 @@
     "updated_at": "2026-04-30",
     "total": 40,
     "by_status": {
-      "todo": 40,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 40
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 30,
       "P1": 9,
@@ -1063,15 +1063,15 @@
     },
     "critical_path": {
       "total": 29,
-      "done": 0,
-      "remaining": 29
+      "done": 29,
+      "remaining": 0
     },
     "milestones": {
       "total": 10,
-      "todo": 10,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 10
     }
   },
   "summary_notes": [
@@ -1080,14 +1080,15 @@
     "Blender source code and documentation must be ingested through codecompass/rag_helper profiles and queried through bounded retrieval services.",
     "FreeCAD and KiCad are explicitly deferred because their correctness requirements are stricter and should be separate tracks.",
     "This track should start only after core OSS runtime tests and release-gates are sufficiently stable, unless explicitly isolated on its own feature branch.",
-    "Consistency sync for blender track performed on 2026-04-30 (milestones, tasks_status_summary, todos fallback)."
+    "Consistency sync for blender track performed on 2026-04-30 (milestones, tasks_status_summary, todos fallback).",
+    "All blender track tasks completed and retained as done on 2026-04-30."
   ],
-  "status": "in_progress",
+  "status": "done",
   "updated_at": "2026-04-30",
   "todos": [
     {
       "id": "BLEND-M1",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "BLEND-T01",
         "BLEND-T02",
@@ -1097,7 +1098,7 @@
     },
     {
       "id": "BLEND-M2",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "BLEND-T05",
         "BLEND-T06",
@@ -1107,7 +1108,7 @@
     },
     {
       "id": "BLEND-M3",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "BLEND-T09",
         "BLEND-T10",
@@ -1117,7 +1118,7 @@
     },
     {
       "id": "BLEND-M4",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "BLEND-T13",
         "BLEND-T14",
@@ -1127,7 +1128,7 @@
     },
     {
       "id": "BLEND-M5",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "BLEND-T17",
         "BLEND-T18",
@@ -1137,7 +1138,7 @@
     },
     {
       "id": "BLEND-M6",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "BLEND-T21",
         "BLEND-T22",
@@ -1148,7 +1149,7 @@
     },
     {
       "id": "BLEND-M7",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "BLEND-T26",
         "BLEND-T27",
@@ -1157,7 +1158,7 @@
     },
     {
       "id": "BLEND-M8",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "BLEND-T29",
         "BLEND-T30",
@@ -1167,7 +1168,7 @@
     },
     {
       "id": "BLEND-M9",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "BLEND-T33",
         "BLEND-T34",
@@ -1178,7 +1179,7 @@
     },
     {
       "id": "BLEND-M10",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         "BLEND-T38",
         "BLEND-T39",

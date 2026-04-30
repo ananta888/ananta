@@ -1,0 +1,8 @@
+{
+  "source": "examples",
+  "ref": "addon-examples",
+  "allowed_globs": [
+    "**/*.py"
+  ],
+  "usage": "addon_patterns"
+}
