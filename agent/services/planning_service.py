@@ -23,6 +23,12 @@ from agent.services.worker_routing_policy_utils import (
     extract_blueprint_role_defaults,
     merge_capabilities_with_blueprint_defaults,
 )
+from agent.services.planning_proposal_service import (
+    build_plan_proposal,
+    normalize_planning_policy_config,
+    select_planning_agent_candidate,
+    validate_plan_proposal_payload,
+)
 
 PLAN_FEATURE_FLAGS_KEY = "goal_workflow_feature_flags"
 
@@ -228,6 +234,14 @@ def get_plan_generation_limits() -> dict[str, int]:
 
 
 class PlanningService:
+    def _resolve_planning_policy(self) -> dict[str, Any]:
+        try:
+            cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        except Exception:
+            cfg = {}
+        raw = cfg.get("planning_policy") if isinstance(cfg.get("planning_policy"), dict) else {}
+        return normalize_planning_policy_config(raw)
+
     def _compute_plan_depth(self, probe_nodes: list[PlanNodeDB]) -> int:
         depth_by_key: dict[str, int] = {}
         max_depth = 0
@@ -582,11 +596,25 @@ class PlanningService:
             return {"subtasks": [], "created_task_ids": [], "error": str(exc)}
 
         subtasks = resolved["subtasks"]
+        planning_policy = self._resolve_planning_policy()
         subtasks, limits, limit_exceeded = self._apply_plan_generation_limits(subtasks)
         raw_response = resolved["raw_response"]
         planning_mode = resolved["planning_mode"]
         context = resolved["context"]
         template_used = resolved["template_used"]
+        planner_selection: dict[str, Any] = {
+            "delegated_planning_enabled": bool(planning_policy.get("delegated_planning_enabled")),
+            "selected_agent": None,
+            "selection_reason": "hub_local_planning",
+        }
+        if planning_policy.get("delegated_planning_enabled"):
+            agents = [agent.model_dump() for agent in get_repository_registry().agent_repo.get_all()]
+            candidate = select_planning_agent_candidate(agents=agents, planning_policy=planning_policy)
+            if candidate:
+                planner_selection["selected_agent"] = candidate
+                planner_selection["selection_reason"] = "planning_agent_selected"
+            else:
+                planner_selection["selection_reason"] = "no_planning_agent_available_fallback_to_hub"
 
         if limit_exceeded:
             planner._stats["errors"] += 1
@@ -600,6 +628,8 @@ class PlanningService:
                 "error": f"limit_exceeded:{limit_exceeded}",
                 "error_classification": "limit_exceeded",
                 "limit_exceeded_reason": limit_exceeded,
+                "planning_policy": planning_policy,
+                "planner_selection": planner_selection,
             }
 
         if not subtasks:
@@ -608,6 +638,46 @@ class PlanningService:
                 "created_task_ids": [],
                 "raw_response": raw_response,
                 "error_classification": "unstructured_llm_response",
+                "planning_policy": planning_policy,
+                "planner_selection": planner_selection,
+            }
+
+        proposal_payload = build_plan_proposal(
+            goal_id=str(goal_id or "").strip() or "ad-hoc-goal",
+            trace_id=str(goal_trace_id or "").strip() or f"trace-{uuid.uuid4().hex[:8]}",
+            summary=goal,
+            subtasks=subtasks,
+            required_capabilities=[],
+        )
+        known_capabilities = {
+            "planning",
+            "coding",
+            "testing",
+            "review",
+            "research",
+            "ops",
+            "analysis",
+            "doc",
+            "plan.propose",
+            "risk.estimate",
+            "dependencies.suggest",
+            "clarifying_questions.suggest",
+        }
+        proposal_validation = validate_plan_proposal_payload(proposal_payload, known_capabilities=known_capabilities)
+        if not proposal_validation.ok:
+            planner._stats["errors"] += 1
+            return {
+                "subtasks": [],
+                "created_task_ids": [],
+                "raw_response": raw_response if not create_tasks else None,
+                "template_used": template_used,
+                "feature_flags": flags,
+                "plan_limits": limits,
+                "error": "invalid_plan_proposal",
+                "error_classification": "invalid_plan_proposal",
+                "proposal_validation_errors": proposal_validation.errors,
+                "planning_policy": planning_policy,
+                "planner_selection": planner_selection,
             }
 
         plan = None
@@ -648,6 +718,10 @@ class PlanningService:
                     "plan_limits": limits,
                     "error": materialization_error,
                     "error_classification": materialization_error,
+                    "plan_proposal": proposal_validation.normalized_payload,
+                    "proposal_validation_errors": proposal_validation.errors,
+                    "planning_policy": planning_policy,
+                    "planner_selection": planner_selection,
                 }
             planner._stats["goals_processed"] += 1
             planner._persist_state()
@@ -661,6 +735,10 @@ class PlanningService:
             "plan_node_ids": [node.id for node in nodes],
             "feature_flags": flags,
             "plan_limits": limits,
+            "plan_proposal": proposal_validation.normalized_payload,
+            "proposal_validation_errors": proposal_validation.errors,
+            "planning_policy": planning_policy,
+            "planner_selection": planner_selection,
         }
 
     def get_latest_plan_for_goal(self, goal_id: str) -> tuple[PlanDB | None, list[PlanNodeDB]]:

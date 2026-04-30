@@ -359,6 +359,15 @@ def build_default_agent_config() -> dict:
                 "fallback_backend": "sgpt",
             },
         },
+        "planning_policy": {
+            "delegated_planning_enabled": False,
+            "allowed_planner_roles": ["planning-agent", "planner"],
+            "require_review": True,
+            "allow_remote_planners": False,
+            "max_nodes": 8,
+            "max_depth": 8,
+            "timeout_seconds": 45,
+        },
         "research_backend": {
             "provider": "deerflow",
             "enabled": False,

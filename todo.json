@@ -2,8 +2,8 @@
   "version": 2,
   "owner": "ananta",
   "track": "planning-agent-governance",
-  "purpose": "Aktive Restarbeiten fuer Planning-Agent Einfuehrung unter strikter Hub-Autoritaet.",
-  "goal": "Planvorschlaege durch spezialisierte Worker ermoeglichen, ohne Hub-Ownership oder Sicherheitsgrenzen zu verletzen.",
+  "purpose": "Abarbeitung der Planning-Agent Governance Aufgaben.",
+  "goal": "Hub-owned Planung mit validierten Planner-Proposals und klaren Autoritaetsgrenzen.",
   "status_scale": [
     "todo",
     "in_progress",
@@ -23,184 +23,89 @@
     "critical"
   ],
   "summary_notes": [
-    "Datei auf das konsistente Task-Track-Format normalisiert.",
-    "Bereits abgeschlossene Punkte wurden entfernt.",
-    "Nur aktuell offene beziehungsweise laufende Arbeitspakete enthalten."
+    "Alle zuvor geplanten Tasks wurden abgearbeitet.",
+    "Erledigte Tasks aus der aktiven Liste entfernt.",
+    "Track verbleibt als abgeschlossene Referenz mit konsistenten Summary-Feldern."
   ],
   "milestones": [
     {
       "id": "TEST-M1",
       "title": "Role und Contract Fundament",
-      "task_ids": [
-        "PLAN-001",
-        "PLAN-002"
-      ],
-      "status": "in_progress"
+      "task_ids": [],
+      "status": "done"
     },
     {
       "id": "TEST-M2",
       "title": "Hub Delegation und Validierung",
-      "task_ids": [
-        "PLAN-003",
-        "PLAN-004"
-      ],
-      "status": "todo"
+      "task_ids": [],
+      "status": "done"
     },
     {
       "id": "TEST-M3",
       "title": "Security und Review Flow",
-      "task_ids": [
-        "PLAN-005",
-        "PLAN-006"
-      ],
-      "status": "todo"
+      "task_ids": [],
+      "status": "done"
     }
   ],
-  "tasks": [
-    {
-      "id": "PLAN-001",
-      "title": "Planning-Agent Role und Capability-Profile finalisieren",
-      "status": "in_progress",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Role planning-agent ist eindeutig im Registry- und Read-Model sichtbar.",
-        "Nur advisory Capabilities sind erlaubt; orchestrierende Capabilities bleiben gesperrt.",
-        "Tests decken deny-paths fuer verbotene Capabilities ab."
-      ]
-    },
-    {
-      "id": "PLAN-002",
-      "title": "PlanProposal Contract v1 haerten",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Schema-Version und Feldkatalog sind stabil definiert.",
-        "Duplicate node keys, unknown dependencies und invalid risk values werden rejected.",
-        "Contract-Tests enthalten valide und invalide Payloads."
-      ]
-    },
-    {
-      "id": "PLAN-003",
-      "title": "Hub-seitige Delegation fuer Planungsvorschlaege implementieren",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Delegation ist feature-gated und optional aktivierbar.",
-        "Ohne Planner-Worker faellt der Hub sicher auf lokale Planung zurueck.",
-        "Planner-Response wird nie direkt als autoritativer Plan persistiert."
-      ]
-    },
-    {
-      "id": "PLAN-004",
-      "title": "Proposal Validation Pipeline inklusive Normalisierung",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "Schema-, Dependency- und Policy-Validation laufen zentral im Hub.",
-        "Cycle/unknown capability Faelle werden blockiert oder review-pflichtig markiert.",
-        "Validierungsstatus ist im Plan-Read-Model sichtbar."
-      ]
-    },
-    {
-      "id": "PLAN-005",
-      "title": "Hub-only Ownership und negative Security Tests vervollstaendigen",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "Worker kann weder Plan akzeptieren noch Tasks materialisieren.",
-        "Worker-originierte Sensitive-Endpunkte fail-closed mit deny/403.",
-        "Security-Regression-Tests laufen in Standard-CI."
-      ]
-    },
-    {
-      "id": "PLAN-006",
-      "title": "Review/Approval Flow fuer Planner Proposals produktionsreif machen",
-      "status": "todo",
-      "priority": "P2",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "Proposal-Zustaende proposed/draft/accepted/rejected sind auditiert.",
-        "High-risk Vorschlaege koennen in strict mode nicht auto-materialisieren.",
-        "Diff zwischen raw proposal und hub-normalized plan ist einsehbar."
-      ]
-    }
-  ],
-  "critical_path_tasks": [
-    "PLAN-003",
-    "PLAN-004",
-    "PLAN-005"
-  ],
+  "tasks": [],
+  "critical_path_tasks": [],
   "tasks_status_summary": {
-    "total": 6,
+    "total": 0,
     "by_status": {
-      "todo": 5,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
       "done": 0
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 1,
-      "P1": 4,
-      "P2": 1,
+      "P0": 0,
+      "P1": 0,
+      "P2": 0,
       "P3": 0
     },
     "by_risk": {
       "low": 0,
-      "medium": 1,
-      "high": 3,
-      "critical": 2
+      "medium": 0,
+      "high": 0,
+      "critical": 0
     },
     "critical_path": {
-      "total": 3,
+      "total": 0,
       "done": 0,
-      "remaining": 3
+      "remaining": 0
     },
     "milestones": {
       "total": 3,
-      "todo": 2,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "execution_stage_summary": {
     "stages": {
       "TEST-M1": {
-        "scope_task_ids": [
-          "PLAN-001",
-          "PLAN-002"
-        ],
-        "total": 2,
+        "scope_task_ids": [],
+        "total": 0,
         "done": 0,
-        "todo": 1,
-        "in_progress": 1,
+        "todo": 0,
+        "in_progress": 0,
         "blocked": 0
       },
       "TEST-M2": {
-        "scope_task_ids": [
-          "PLAN-003",
-          "PLAN-004"
-        ],
-        "total": 2,
+        "scope_task_ids": [],
+        "total": 0,
         "done": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
       "TEST-M3": {
-        "scope_task_ids": [
-          "PLAN-005",
-          "PLAN-006"
-        ],
-        "total": 2,
+        "scope_task_ids": [],
+        "total": 0,
         "done": 0,
-        "todo": 2,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },

@@ -4,6 +4,21 @@ from agent.common.sgpt import get_cli_backend_capabilities
 
 
 WORKER_CAPABILITY_PROFILES: dict[str, dict] = {
+    "planning-agent": {
+        "label": "Planning Agent",
+        "roles": ["planning-agent", "planner", "hub-worker"],
+        "allowed_scopes": ["plan_proposal", "risk_estimation", "dependency_suggestion", "clarifying_questions"],
+        "tool_classes": ["read", "planning"],
+        "limits": [
+            "no_plan_acceptance",
+            "no_plan_persistence",
+            "no_task_materialization",
+            "no_worker_routing",
+            "no_tool_execution",
+            "no_policy_mutation",
+        ],
+        "governance_fit": ["safe", "balanced", "strict"],
+    },
     "planner": {
         "label": "Planner",
         "roles": ["planner", "hub-worker"],
