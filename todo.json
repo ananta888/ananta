@@ -443,7 +443,7 @@
           "id": "ANM-060",
           "title": "Default-Deny-Policy definieren",
           "description": "Alle Tools, Permissions und Systemaktionen standardmäßig blockieren.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "security",
             "policy"
@@ -453,7 +453,7 @@
           "id": "ANM-061",
           "title": "PermissionBroker erstellen",
           "description": "Zentrale Schicht für alle Android-Permissions und Tool-Freigaben bauen.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "security",
             "android-permissions"
@@ -463,7 +463,7 @@
           "id": "ANM-062",
           "title": "User-Confirmation für riskante Aktionen",
           "description": "Dateizugriff, Netzwerkzugriff, Kontakte, Mikrofon und externe Apps nur mit expliziter Freigabe.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "security",
             "ux"
@@ -473,7 +473,7 @@
           "id": "ANM-063",
           "title": "Prompt-Injection-Grenzen definieren",
           "description": "Lokale Modelle dürfen Policies nicht durch Prompt-Inhalte überschreiben.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "security",
             "prompt-injection"
@@ -483,7 +483,7 @@
           "id": "ANM-064",
           "title": "Filesystem-Sandbox festlegen",
           "description": "Modell/Agent darf nur auf freigegebene Verzeichnisse zugreifen.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "sandbox",
             "filesystem"
@@ -493,7 +493,7 @@
           "id": "ANM-065",
           "title": "Netzwerkzugriff separat absichern",
           "description": "Lokale Modelle sollen offline funktionieren; Netzwerk nur explizit.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "network",
             "security"
@@ -503,7 +503,7 @@
           "id": "ANM-066",
           "title": "Audit-Log für Tool-Anfragen",
           "description": "Jede Agent-Tool-Anfrage mit Entscheidung und Grund protokollieren.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "audit",
             "security"
@@ -520,7 +520,7 @@
           "id": "ANM-070",
           "title": "Modellauswahl-Screen erstellen",
           "description": "Installierte lokale Modelle anzeigen und auswählbar machen.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "ui",
             "models"
@@ -530,7 +530,7 @@
           "id": "ANM-071",
           "title": "Runtime-Status anzeigen",
           "description": "Geladenes Modell, RAM-Schätzung, Threads und Kontextgröße anzeigen.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "ui",
             "runtime"
@@ -540,7 +540,7 @@
           "id": "ANM-072",
           "title": "Generation abbrechen Button",
           "description": "Nutzer kann laufende Modellantwort jederzeit stoppen.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "ui",
             "safety"
@@ -577,7 +577,7 @@
           "id": "ANM-080",
           "title": "Smoke-Test mit kleinem GGUF-Modell",
           "description": "Ein sehr kleines Modell laden und eine kurze Antwort generieren.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "test",
             "gguf"
@@ -587,7 +587,7 @@
           "id": "ANM-081",
           "title": "Speicherleck-Test",
           "description": "Modelle wiederholt laden und entladen, Speicherverbrauch beobachten.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "test",
             "memory"
@@ -597,7 +597,7 @@
           "id": "ANM-082",
           "title": "Abbruch-Test",
           "description": "Lange Generierung starten und sicher abbrechen.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "test",
             "runtime"
@@ -607,7 +607,7 @@
           "id": "ANM-083",
           "title": "Offline-Test",
           "description": "App vollständig ohne Netzwerk mit lokalem Modell betreiben.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "test",
             "offline"
@@ -617,7 +617,7 @@
           "id": "ANM-084",
           "title": "Audio-Test",
           "description": "Kurze Aufnahme erzeugen und Transkriptionspipeline prüfen.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "test",
             "voxtral",
@@ -628,7 +628,7 @@
           "id": "ANM-085",
           "title": "Benchmark-Matrix erstellen",
           "description": "Tokens/s, Ladezeit, RAM-Verbrauch und Stabilität pro Gerät/Modell erfassen.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "benchmark",
             "performance"
@@ -725,8 +725,8 @@
     }
   ],
   "status_summary": {
-    "done": 40,
-    "open": 23,
+    "done": 56,
+    "open": 7,
     "blocked": 0,
     "total": 63
   },
@@ -735,7 +735,8 @@
     "Done-Markierungen basieren auf vorhandenen Android-/Voxtral-Artefakten im Repository.",
     "Offene Punkte betreffen vor allem Runtime-Hardening, Security-Absicherung und vollständige Integrationsabnahme.",
     "Phasen 1-3 wurden mit Analyse-Doku, Runtime-Abstraktion und llama.cpp/JNI-Scaffold abgearbeitet (2026-04-30).",
-    "Phasen 4-6 wurden mit Voxtral-Guardrails, Model-Management-Haertung und Agent-Runtime-Adapter abgearbeitet (2026-04-30)."
+    "Phasen 4-6 wurden mit Voxtral-Guardrails, Model-Management-Haertung und Agent-Runtime-Adapter abgearbeitet (2026-04-30).",
+    "Phasen 7-9 wurden mit Security-Guardrails, Runtime-UI-Erweiterung und Mobile-Testmatrix abgearbeitet (2026-04-30)."
   ],
   "recommended_first_milestone": {
     "id": "milestone-01-local-gguf-smoke-test",
@@ -779,6 +780,137 @@
       "name": "Voxtral",
       "purpose": "lokale Spracheingabe und Audiofunktionen",
       "priority": "high"
+    }
+  ],
+  "todos": [
+    {
+      "id": "phase-01-analysis",
+      "status": "done",
+      "tasks": [
+        "ANM-001",
+        "ANM-002",
+        "ANM-003",
+        "ANM-004",
+        "ANM-005"
+      ]
+    },
+    {
+      "id": "phase-02-runtime-abstraction",
+      "status": "done",
+      "tasks": [
+        "ANM-010",
+        "ANM-011",
+        "ANM-012",
+        "ANM-013",
+        "ANM-014",
+        "ANM-015"
+      ]
+    },
+    {
+      "id": "phase-03-llama-cpp-backend",
+      "status": "done",
+      "tasks": [
+        "ANM-020",
+        "ANM-021",
+        "ANM-022",
+        "ANM-023",
+        "ANM-024",
+        "ANM-025",
+        "ANM-026",
+        "ANM-027"
+      ]
+    },
+    {
+      "id": "phase-04-voxtral-backend",
+      "status": "done",
+      "tasks": [
+        "ANM-030",
+        "ANM-031",
+        "ANM-032",
+        "ANM-033",
+        "ANM-034",
+        "ANM-035"
+      ]
+    },
+    {
+      "id": "phase-05-model-management",
+      "status": "done",
+      "tasks": [
+        "ANM-040",
+        "ANM-041",
+        "ANM-042",
+        "ANM-043",
+        "ANM-044",
+        "ANM-045",
+        "ANM-046"
+      ]
+    },
+    {
+      "id": "phase-06-agent-integration",
+      "status": "done",
+      "tasks": [
+        "ANM-050",
+        "ANM-051",
+        "ANM-052",
+        "ANM-053",
+        "ANM-054",
+        "ANM-055"
+      ]
+    },
+    {
+      "id": "phase-07-security",
+      "status": "done",
+      "tasks": [
+        "ANM-060",
+        "ANM-061",
+        "ANM-062",
+        "ANM-063",
+        "ANM-064",
+        "ANM-065",
+        "ANM-066"
+      ]
+    },
+    {
+      "id": "phase-08-ui-ux",
+      "status": "done",
+      "tasks": [
+        "ANM-070",
+        "ANM-071",
+        "ANM-072",
+        "ANM-073",
+        "ANM-074"
+      ]
+    },
+    {
+      "id": "phase-09-testing",
+      "status": "done",
+      "tasks": [
+        "ANM-080",
+        "ANM-081",
+        "ANM-082",
+        "ANM-083",
+        "ANM-084",
+        "ANM-085"
+      ]
+    },
+    {
+      "id": "phase-10-documentation",
+      "status": "open",
+      "tasks": [
+        "ANM-090",
+        "ANM-091",
+        "ANM-092",
+        "ANM-093"
+      ]
+    },
+    {
+      "id": "phase-11-hardening",
+      "status": "open",
+      "tasks": [
+        "ANM-100",
+        "ANM-101",
+        "ANM-102"
+      ]
     }
   ]
 }

@@ -346,8 +346,8 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
   async verifySetup(): Promise<void> {
     await this.run(async () => {
       const check = await this.voxtral.verifySetup(this.modelPath.trim(), this.runnerPath.trim());
-      this.setupStatus = `Speicher frei: ${this.formatBytes(check.availableBytes)} | Modell: ${check.modelExists ? 'ok' : 'fehlt'} | Runner: ${check.runnerExecutable ? 'ok' : 'nicht ausfuehrbar'}`;
-      if (!check.modelExists || !check.runnerExecutable) {
+      this.setupStatus = `Speicher frei: ${this.formatBytes(check.availableBytes)} | Bedarf: ${this.formatBytes(check.estimatedRequiredBytes || 0)} | Modell: ${check.modelExists && check.modelCompatible ? 'ok' : 'inkompatibel/fehlt'} | Runner: ${check.runnerExecutable && check.runnerCompatible ? 'ok' : 'inkompatibel/nicht ausfuehrbar'}`;
+      if (!check.modelExists || !check.runnerExecutable || !check.modelCompatible || !check.runnerCompatible || !check.hasEnoughStorage) {
         throw new Error('Setup unvollstaendig. Bitte Modell/Runner pruefen.');
       }
       this.toast.success('Setup ist bereit.');

@@ -6,6 +6,7 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.StatFs;
 
+import com.ananta.mobile.security.PermissionBroker;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
@@ -47,6 +48,11 @@ public class VoxtralOfflinePlugin extends Plugin {
     private static final long DEFAULT_MIN_FREE_BYTES = 512L * 1024L * 1024L;
     private static final long LIVE_SESSION_MAX_SECONDS = 120L;
     private static final String MODEL_EXTENSION = ".gguf";
+    private static final List<String> ALLOWED_DOWNLOAD_HOST_SUFFIXES = Arrays.asList(
+            "huggingface.co",
+            "github.com",
+            "githubusercontent.com"
+    );
     private static final List<String> RUNNER_CANDIDATE_NAMES = Arrays.asList(
             "voxtral4b-main",
             "voxtral-stream-cli",
@@ -57,6 +63,7 @@ public class VoxtralOfflinePlugin extends Plugin {
 
     private final Object recordingLock = new Object();
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+    private final PermissionBroker permissionBroker = new PermissionBroker();
 
     private AudioRecord audioRecord;
     private Thread recordingThread;
@@ -191,16 +198,19 @@ public class VoxtralOfflinePlugin extends Plugin {
 
     @PluginMethod
     public void downloadModel(PluginCall call) {
+        if (!guardAction(call, "download_model")) return;
         downloadFile(call, "modelUrl", "fileName", "voxtral/models", false, "modelPath", "model");
     }
 
     @PluginMethod
     public void downloadRunner(PluginCall call) {
+        if (!guardAction(call, "download_runner")) return;
         downloadFile(call, "runnerUrl", "fileName", "voxtral/bin", true, "runnerPath", "runner");
     }
 
     @PluginMethod
     public void transcribe(PluginCall call) {
+        if (!guardAction(call, "transcribe")) return;
         if (isLiveRunning) {
             call.reject("Live transcription is running. Stop live mode first.");
             return;
@@ -224,6 +234,10 @@ public class VoxtralOfflinePlugin extends Plugin {
         File audioFile = new File(audioPath);
         File modelFile = new File(modelPath);
         File runnerFile = new File(runnerPath);
+        if (!isPathInsideAppSandbox(audioFile) || !isPathInsideAppSandbox(modelFile) || !isPathInsideAppSandbox(runnerFile)) {
+            call.reject("Filesystem sandbox violation: paths must be inside app-local storage.");
+            return;
+        }
         if (!audioFile.exists()) {
             call.reject("Audio file not found: " + audioPath);
             return;
@@ -311,6 +325,7 @@ public class VoxtralOfflinePlugin extends Plugin {
 
     @PluginMethod
     public void startLiveTranscription(PluginCall call) {
+        if (!guardAction(call, "start_live")) return;
         if (getPermissionState("microphone") != PermissionState.GRANTED) {
             call.reject("Microphone permission is required.");
             return;
@@ -344,6 +359,10 @@ public class VoxtralOfflinePlugin extends Plugin {
 
         File modelFile = new File(modelPath);
         File runnerFile = new File(runnerPath);
+        if (!isPathInsideAppSandbox(modelFile) || !isPathInsideAppSandbox(runnerFile)) {
+            call.reject("Filesystem sandbox violation: paths must be inside app-local storage.");
+            return;
+        }
         if (!modelFile.exists()) {
             call.reject("Model file not found: " + modelPath);
             return;
@@ -695,6 +714,10 @@ public class VoxtralOfflinePlugin extends Plugin {
             HttpURLConnection connection = null;
             try {
                 URL url = new URL(rawUrl);
+                if (!isAllowedDownloadUrl(url)) {
+                    call.reject("Network policy denied URL: only trusted HTTPS hosts are allowed.");
+                    return;
+                }
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setConnectTimeout(15000);
                 connection.setReadTimeout(120000);
@@ -767,8 +790,10 @@ public class VoxtralOfflinePlugin extends Plugin {
                 result.put(outputField, effectiveFile.getAbsolutePath());
                 result.put("bytes", effectiveFile.length());
                 result.put("sha256", sha256);
+                appendAudit("allow", downloadType, "download_success " + effectiveFile.getName());
                 call.resolve(result);
             } catch (Exception error) {
+                appendAudit("deny", downloadType, "download_failed " + error.getMessage());
                 call.reject("Download failed: " + error.getMessage());
             } finally {
                 if (connection != null) connection.disconnect();
@@ -885,6 +910,56 @@ public class VoxtralOfflinePlugin extends Plugin {
         long availableBytes = statFs.getAvailableBytes();
         long estimatedNeeded = Math.max(safetyFloorBytes, modelFile.length() + (128L * 1024L * 1024L));
         return availableBytes >= estimatedNeeded;
+    }
+
+    private boolean guardAction(PluginCall call, String action) {
+        boolean confirmed = call.getBoolean("confirmed", false);
+        boolean allowed = permissionBroker.allows(action, confirmed);
+        if (!allowed) {
+            appendAudit("deny", action, "default_deny_or_missing_confirmation");
+            call.reject("Action blocked by default-deny policy. Explicit confirmation required.");
+            return false;
+        }
+        appendAudit("allow", action, "confirmed_by_user");
+        return true;
+    }
+
+    private boolean isPathInsideAppSandbox(File file) {
+        try {
+            File filesDir = getContext().getFilesDir().getCanonicalFile();
+            File cacheDir = getContext().getCacheDir().getCanonicalFile();
+            File codeCacheDir = getContext().getCodeCacheDir().getCanonicalFile();
+            File target = file.getCanonicalFile();
+            String path = target.getPath();
+            return path.startsWith(filesDir.getPath())
+                    || path.startsWith(cacheDir.getPath())
+                    || path.startsWith(codeCacheDir.getPath());
+        } catch (Exception error) {
+            return false;
+        }
+    }
+
+    private boolean isAllowedDownloadUrl(URL url) {
+        String protocol = String.valueOf(url.getProtocol()).toLowerCase();
+        if (!"https".equals(protocol)) return false;
+        String host = String.valueOf(url.getHost()).toLowerCase();
+        for (String suffix : ALLOWED_DOWNLOAD_HOST_SUFFIXES) {
+            if (host.equals(suffix) || host.endsWith("." + suffix)) return true;
+        }
+        return false;
+    }
+
+    private void appendAudit(String decision, String action, String reason) {
+        try {
+            File auditDir = ensureDir("voxtral");
+            if (auditDir == null) return;
+            File auditFile = new File(auditDir, "audit.log");
+            String line = System.currentTimeMillis() + " decision=" + decision + " action=" + action + " reason=" + reason + "\n";
+            try (FileOutputStream out = new FileOutputStream(auditFile, true)) {
+                out.write(line.getBytes(StandardCharsets.UTF_8));
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private void skipFully(InputStream input, long bytes) throws IOException {

@@ -29,12 +29,12 @@ interface VoxtralOfflinePlugin {
   requestMicrophonePermission(): Promise<{ state: string }>;
   startRecording(options?: { maxSeconds?: number; sampleRate?: number }): Promise<{ audioPath: string; maxSeconds: number; sampleRate: number }>;
   stopRecording(): Promise<{ audioPath: string }>;
-  downloadModel(options: { modelUrl: string; fileName?: string; sha256?: string }): Promise<{ modelPath: string; bytes: number; sha256: string }>;
-  downloadRunner(options: { runnerUrl: string; fileName?: string; sha256?: string }): Promise<{ runnerPath: string; bytes: number; sha256: string }>;
+  downloadModel(options: { modelUrl: string; fileName?: string; sha256?: string; confirmed?: boolean }): Promise<{ modelPath: string; bytes: number; sha256: string }>;
+  downloadRunner(options: { runnerUrl: string; fileName?: string; sha256?: string; confirmed?: boolean }): Promise<{ runnerPath: string; bytes: number; sha256: string }>;
   listLocalAssets(): Promise<{ models: VoxtralLocalAsset[]; runners: VoxtralLocalAsset[] }>;
-  verifySetup(options: { modelPath: string; runnerPath: string; minFreeBytes?: number }): Promise<{ availableBytes: number; hasEnoughStorage: boolean; modelExists: boolean; modelBytes: number; runnerExists: boolean; runnerExecutable: boolean }>;
-  transcribe(options: { audioPath: string; modelPath: string; runnerPath: string }): Promise<{ transcript: string; rawOutput: string; exitCode: number }>;
-  startLiveTranscription(options: { modelPath: string; runnerPath: string; chunkSeconds?: number; sampleRate?: number }): Promise<{ started: boolean; chunkSeconds: number; sampleRate: number }>;
+  verifySetup(options: { modelPath: string; runnerPath: string; minFreeBytes?: number }): Promise<{ availableBytes: number; hasEnoughStorage: boolean; modelExists: boolean; modelBytes: number; modelCompatible?: boolean; estimatedRequiredBytes?: number; runnerExists: boolean; runnerExecutable: boolean; runnerCompatible?: boolean }>;
+  transcribe(options: { audioPath: string; modelPath: string; runnerPath: string; confirmed?: boolean }): Promise<{ transcript: string; rawOutput: string; exitCode: number }>;
+  startLiveTranscription(options: { modelPath: string; runnerPath: string; chunkSeconds?: number; sampleRate?: number; confirmed?: boolean }): Promise<{ started: boolean; chunkSeconds: number; sampleRate: number }>;
   stopLiveTranscription(): Promise<{ transcript: string }>;
   clearLastAudio(): Promise<void>;
   addListener(eventName: 'voxtralLivePartial', listener: (data: { partial: string; transcript: string; chunkPath: string }) => void): Promise<PluginListenerHandle>;
@@ -85,14 +85,14 @@ export class VoxtralOfflineService {
     if (!this.isNative) {
       throw new Error('Nur auf nativer Android-App verfuegbar.');
     }
-    return VoxtralOffline.downloadModel({ modelUrl, fileName, sha256 });
+    return VoxtralOffline.downloadModel({ modelUrl, fileName, sha256, confirmed: true });
   }
 
   async downloadRunner(runnerUrl: string, fileName?: string, sha256?: string): Promise<{ runnerPath: string; bytes: number; sha256: string }> {
     if (!this.isNative) {
       throw new Error('Nur auf nativer Android-App verfuegbar.');
     }
-    return VoxtralOffline.downloadRunner({ runnerUrl, fileName, sha256 });
+    return VoxtralOffline.downloadRunner({ runnerUrl, fileName, sha256, confirmed: true });
   }
 
   async listLocalAssets(): Promise<{ models: VoxtralLocalAsset[]; runners: VoxtralLocalAsset[] }> {
@@ -102,7 +102,7 @@ export class VoxtralOfflineService {
     return VoxtralOffline.listLocalAssets();
   }
 
-  async verifySetup(modelPath: string, runnerPath: string, minFreeBytes = 512 * 1024 * 1024): Promise<{ availableBytes: number; hasEnoughStorage: boolean; modelExists: boolean; modelBytes: number; runnerExists: boolean; runnerExecutable: boolean }> {
+  async verifySetup(modelPath: string, runnerPath: string, minFreeBytes = 512 * 1024 * 1024): Promise<{ availableBytes: number; hasEnoughStorage: boolean; modelExists: boolean; modelBytes: number; modelCompatible?: boolean; estimatedRequiredBytes?: number; runnerExists: boolean; runnerExecutable: boolean; runnerCompatible?: boolean }> {
     if (!this.isNative) {
       throw new Error('Nur auf nativer Android-App verfuegbar.');
     }
@@ -113,14 +113,14 @@ export class VoxtralOfflineService {
     if (!this.isNative) {
       throw new Error('Nur auf nativer Android-App verfuegbar.');
     }
-    return VoxtralOffline.transcribe({ audioPath, modelPath, runnerPath });
+    return VoxtralOffline.transcribe({ audioPath, modelPath, runnerPath, confirmed: true });
   }
 
   async startLiveTranscription(modelPath: string, runnerPath: string, chunkSeconds = 3, sampleRate = 16000): Promise<{ started: boolean; chunkSeconds: number; sampleRate: number }> {
     if (!this.isNative) {
       throw new Error('Nur auf nativer Android-App verfuegbar.');
     }
-    return VoxtralOffline.startLiveTranscription({ modelPath, runnerPath, chunkSeconds, sampleRate });
+    return VoxtralOffline.startLiveTranscription({ modelPath, runnerPath, chunkSeconds, sampleRate, confirmed: true });
   }
 
   async stopLiveTranscription(): Promise<{ transcript: string }> {
