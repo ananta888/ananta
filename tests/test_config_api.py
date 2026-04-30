@@ -1003,6 +1003,37 @@ def test_set_config_validates_auth_provider(client, admin_token):
     assert (cfg.json.get("data") or {}).get("auth_provider") == "oidc_bff"
 
 
+def test_set_config_validates_planning_policy(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    invalid = client.post("/config", json={"planning_policy": "on"}, headers=headers)
+    assert invalid.status_code == 400
+    assert invalid.json["message"] == "invalid_planning_policy"
+
+    ok = client.post(
+        "/config",
+        json={
+            "planning_policy": {
+                "delegated_planning_enabled": True,
+                "allowed_planner_roles": ["planning-agent", "planner"],
+                "require_review": True,
+                "allow_remote_planners": False,
+                "max_nodes": 9,
+                "max_depth": 6,
+                "timeout_seconds": 40,
+            }
+        },
+        headers=headers,
+    )
+    assert ok.status_code == 200
+    cfg = client.get("/config", headers=headers)
+    assert cfg.status_code == 200
+    planning_policy = (cfg.json.get("data") or {}).get("planning_policy") or {}
+    assert planning_policy.get("delegated_planning_enabled") is True
+    assert planning_policy.get("max_nodes") == 9
+    assert planning_policy.get("max_depth") == 6
+
+
 def test_set_config_validates_routing_fallback_policy(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
 

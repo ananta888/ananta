@@ -326,6 +326,11 @@ def set_config():
             new_cfg["worker_runtime"]["semantic_output_correction"] = semantic_output_correction
         if todo_contract is not None:
             new_cfg["worker_runtime"]["todo_contract"] = todo_contract
+    if "planning_policy" in new_cfg:
+        planning_policy_cfg = new_cfg.get("planning_policy")
+        if not isinstance(planning_policy_cfg, dict):
+            return api_response(status="error", message="invalid_planning_policy", code=400)
+        new_cfg["planning_policy"] = shared.normalize_planning_policy_config(planning_policy_cfg)
     for key in ("role_model_overrides", "template_model_overrides", "task_kind_model_overrides"):
         if key not in new_cfg:
             continue
@@ -338,6 +343,7 @@ def set_config():
         "research_backend",
         "opencode_runtime",
         "worker_runtime",
+        "planning_policy",
         "specialized_worker_profiles",
         "ml_intern_spike",
     ):
@@ -357,6 +363,10 @@ def set_config():
         merged_artifact_flow = (current_cfg.get("artifact_flow", {}) or {}).copy()
         merged_artifact_flow.update(new_cfg["artifact_flow"])
         new_cfg = {**new_cfg, "artifact_flow": shared.normalize_artifact_flow_config(merged_artifact_flow)}
+    if "planning_policy" in new_cfg and isinstance(new_cfg["planning_policy"], dict):
+        merged_planning_policy = (current_cfg.get("planning_policy", {}) or {}).copy()
+        merged_planning_policy.update(new_cfg["planning_policy"])
+        new_cfg = {**new_cfg, "planning_policy": shared.normalize_planning_policy_config(merged_planning_policy)}
     if "doom_loop_policy" in new_cfg:
         doom_loop_cfg = new_cfg.get("doom_loop_policy")
         if not isinstance(doom_loop_cfg, dict):

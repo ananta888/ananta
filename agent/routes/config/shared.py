@@ -18,6 +18,7 @@ from agent.local_llm_backends import resolve_local_openai_backend
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config, resolve_context_bundle_policy
 from agent.services.ml_intern_spike_config_service import normalize_ml_intern_spike_config as _normalize_ml_intern_spike_config
 from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
+from agent.services.planning_proposal_service import normalize_planning_policy_config
 
 _LMSTUDIO_CATALOG_CACHE: dict[str, dict] = {}
 _LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES = 64
@@ -326,6 +327,23 @@ def worker_runtime_settings_summary(cfg: dict) -> dict:
             "workspace_reuse_mode": "worker_runtime.workspace_reuse_mode",
             "default_execution_profile": "worker_runtime.default_execution_profile",
             "todo_contract": "worker_runtime.todo_contract",
+        },
+    }
+
+
+def planning_policy_settings_summary(cfg: dict) -> dict:
+    requested = normalize_planning_policy_config((cfg or {}).get("planning_policy") if isinstance(cfg, dict) else {})
+    return {
+        "requested": requested,
+        "effective": requested,
+        "source": {
+            "delegated_planning_enabled": "planning_policy.delegated_planning_enabled",
+            "allowed_planner_roles": "planning_policy.allowed_planner_roles",
+            "require_review": "planning_policy.require_review",
+            "allow_remote_planners": "planning_policy.allow_remote_planners",
+            "max_nodes": "planning_policy.max_nodes",
+            "max_depth": "planning_policy.max_depth",
+            "timeout_seconds": "planning_policy.timeout_seconds",
         },
     }
 
