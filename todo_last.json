@@ -1,8 +1,8 @@
 {
   "version": 1,
   "owner": "ananta",
-  "track": "blender_control_surface_and_runtime",
-  "purpose": "Introduce a powerful Blender integration for Ananta as a controlled creative/runtime surface. The Blender addon must remain a thin control surface and bridge: orchestration, policy, approval, audit, retrieval and execution decisions stay in the Ananta Hub. Blender source code, API documentation and addon references must be ingested through codecompass/rag_helper, not loaded ad hoc by the addon or prompt logic.",
+  "track": "freecad_integration",
+  "purpose": "Introduce a controlled FreeCAD integration for Ananta with strong correctness and safety constraints. Focus initially on inspection, planning and export rather than direct mutation.",
   "status_scale": [
     "todo",
     "in_progress",
@@ -21,1170 +21,183 @@
     "high",
     "critical"
   ],
-  "goal": "Deliver a substantial Blender integration that can inspect scenes, collect bounded scene context, submit goals, show plans/tasks/artifacts/approvals, generate and preview Blender action plans, and execute approved Blender operations through Hub-controlled policies and audit trails.",
+  "goal": "Provide FreeCAD context inspection, model analysis, export planning and macro planning through Ananta with approval and audit, without unsafe automatic model modification.",
   "non_goals": [
-    "Do not let the Blender addon implement its own orchestration, policy, approval, retrieval or agent loop.",
-    "Do not execute free-form LLM-generated Python inside Blender without explicit approval and policy checks.",
-    "Do not dump full Blender scenes, full Blender source trees or full API documentation into prompts.",
-    "Do not start FreeCAD or KiCad integration in this track.",
-    "Do not treat generated Blender scripts as trusted code."
+    "No uncontrolled macro execution.",
+    "No automatic constraint editing without approval.",
+    "No runtime_mvp claim without reproducible smoke evidence.",
+    "No bypass of generic domain foundation."
   ],
-  "success_criteria": [
-    "Blender addon installs and loads in a supported Blender version.",
-    "Addon can configure Ananta endpoint/profile/auth and perform health/capability checks.",
-    "Addon can capture bounded scene context with provenance and size limits.",
-    "Addon can submit Blender-related goals to the Ananta Hub without local orchestration.",
-    "Addon can display tasks, artifacts, approvals and policy-denied states returned by the Hub.",
-    "Blender API/source/docs retrieval is performed through codecompass/rag_helper indexes only.",
-    "Read-only actions can be performed safely; mutating actions require approval.",
-    "Script execution is default-deny unless routed through Hub policy, approval and audit.",
-    "Smoke tests verify addon load, context capture, mocked Hub interaction and policy-denied execution.",
-    "Release gate can block false Blender runtime claims."
-  ],
-  "architecture_guardrails": [
-    "The Blender addon is a client/control surface, not an autonomous agent runtime.",
-    "The Hub owns Goal -> Plan -> Task -> Execution -> Verification -> Artifact orchestration.",
-    "The Hub owns policy, approval, audit, bounded-context and retrieval decisions.",
-    "All Blender operations must be represented as auditable action plans or backend API calls.",
-    "All mutating operations require explicit approval unless a narrowly scoped safe policy allows them.",
-    "Blender Python execution must be sandboxed or constrained as much as practical and always auditable.",
-    "codecompass/rag_helper is the only supported ingestion path for Blender source/docs/reference code.",
-    "RAG output must include provenance: source, version/ref, file/path, symbol/section and retrieval reason.",
-    "The addon must show degraded states clearly when Hub, auth, capability or policy checks fail.",
-    "The addon must never silently include unrelated local files or secrets in context."
-  ],
-  "runtime_surfaces": [
-    "Blender addon UI panel",
-    "Blender operators",
-    "Blender context capture bridge",
-    "Ananta Hub Blender capability/API endpoints",
-    "codecompass/rag_helper Blender reference indexes",
-    "Artifact rendering and export surfaces",
-    "Approval and audit surfaces"
-  ],
-  "planned_repository_layout": {
-    "addon": "client_surfaces/blender/addon/",
-    "bridge": "client_surfaces/blender/bridge/",
-    "tests": "client_surfaces/blender/tests/",
-    "docs": "docs/integrations/blender/",
-    "schemas": "schemas/blender/",
-    "rag_profiles": "reference_sources/blender/"
-  },
   "milestones": [
     {
-      "id": "BLEND-M1",
-      "title": "Foundation, scope and contracts",
+      "id": "FC-M1",
+      "title": "Foundation",
       "task_ids": [
-        "BLEND-T01",
-        "BLEND-T02",
-        "BLEND-T03",
-        "BLEND-T04"
+        "FC-T01",
+        "FC-T02",
+        "FC-T03"
       ],
       "status": "done"
     },
     {
-      "id": "BLEND-M2",
-      "title": "RAG ingestion through codecompass/rag_helper",
+      "id": "FC-M2",
+      "title": "Context and planning",
       "task_ids": [
-        "BLEND-T05",
-        "BLEND-T06",
-        "BLEND-T07",
-        "BLEND-T08"
+        "FC-T04",
+        "FC-T05",
+        "FC-T06"
       ],
       "status": "done"
     },
     {
-      "id": "BLEND-M3",
-      "title": "Blender addon runtime foundation",
+      "id": "FC-M3",
+      "title": "Controlled execution",
       "task_ids": [
-        "BLEND-T09",
-        "BLEND-T10",
-        "BLEND-T11",
-        "BLEND-T12"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "BLEND-M4",
-      "title": "Scene context, provenance and bounded payloads",
-      "task_ids": [
-        "BLEND-T13",
-        "BLEND-T14",
-        "BLEND-T15",
-        "BLEND-T16"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "BLEND-M5",
-      "title": "Goal, task, artifact and approval UX",
-      "task_ids": [
-        "BLEND-T17",
-        "BLEND-T18",
-        "BLEND-T19",
-        "BLEND-T20"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "BLEND-M6",
-      "title": "Action planning and safe execution",
-      "task_ids": [
-        "BLEND-T21",
-        "BLEND-T22",
-        "BLEND-T23",
-        "BLEND-T24",
-        "BLEND-T25"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "BLEND-M7",
-      "title": "Artifacts, previews and exports",
-      "task_ids": [
-        "BLEND-T26",
-        "BLEND-T27",
-        "BLEND-T28"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "BLEND-M8",
-      "title": "Security, audit and policy hardening",
-      "task_ids": [
-        "BLEND-T29",
-        "BLEND-T30",
-        "BLEND-T31",
-        "BLEND-T32"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "BLEND-M9",
-      "title": "Tests, smoke and release gates",
-      "task_ids": [
-        "BLEND-T33",
-        "BLEND-T34",
-        "BLEND-T35",
-        "BLEND-T36",
-        "BLEND-T37"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "BLEND-M10",
-      "title": "Docs, examples and roadmap isolation",
-      "task_ids": [
-        "BLEND-T38",
-        "BLEND-T39",
-        "BLEND-T40"
+        "FC-T07",
+        "FC-T08"
       ],
       "status": "done"
     }
   ],
   "tasks": [
     {
-      "id": "BLEND-T01",
-      "title": "Blender integration scope and threat model define",
+      "id": "FC-T01",
+      "title": "FreeCAD context schema define",
       "status": "done",
       "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [],
-      "expected_files": [
-        "docs/integrations/blender/scope.md",
-        "docs/integrations/blender/threat_model.md"
-      ],
-      "acceptance_criteria": [
-        "Scope distinguishes read-only analysis, preview generation, mutating operations and Python script execution.",
-        "Threat model covers malicious prompts, unsafe scripts, file access, network access, addon abuse, scene exfiltration and accidental destructive changes.",
-        "The document states that FreeCAD and KiCad are out of scope for this track.",
-        "The document states that the addon is a thin control surface and does not own orchestration."
-      ]
+      "risk": "high"
     },
     {
-      "id": "BLEND-T02",
-      "title": "Blender capability model define",
+      "id": "FC-T02",
+      "title": "FreeCAD RAG profiles define",
       "status": "done",
       "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T01"
-      ],
-      "expected_files": [
-        "schemas/blender/blender_capabilities.v1.json"
-      ],
-      "acceptance_criteria": [
-        "Capability model covers scene.read, selection.read, preview.render, export.plan, script.plan, script.execute, object.mutate, material.mutate and animation.mutate.",
-        "Each capability declares whether it is read-only, mutating, approval-required or default-deny.",
-        "Capabilities are returned by Hub health/capability endpoints and displayed by the addon."
-      ]
+      "risk": "high"
     },
     {
-      "id": "BLEND-T03",
-      "title": "Blender API contract define",
+      "id": "FC-T03",
+      "title": "FreeCAD policy pack add",
       "status": "done",
       "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T02"
-      ],
-      "expected_files": [
-        "schemas/blender/blender_goal_request.v1.json",
-        "schemas/blender/blender_action_plan.v1.json",
-        "schemas/blender/blender_action_result.v1.json"
-      ],
-      "acceptance_criteria": [
-        "Schemas define goal submission, scene context submission, action plan response, approval request and action result payloads.",
-        "Schemas include provenance, correlation IDs, capability names and safety classification.",
-        "Schemas are compatible with Ananta Client API v1 rather than a separate orchestration protocol."
-      ]
+      "risk": "critical"
     },
     {
-      "id": "BLEND-T04",
-      "title": "Blender runtime inventory classification add",
+      "id": "FC-T04",
+      "title": "Model inspection service",
       "status": "done",
       "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T01",
-        "BLEND-T03"
-      ],
-      "expected_files": [
-        "data/client_surface_runtime_inventory.json"
-      ],
-      "acceptance_criteria": [
-        "Runtime inventory includes Blender with an honest status such as planned, foundation_only, runtime_mvp or deferred.",
-        "Inventory lists required files, commands and smoke evidence for any runtime_mvp claim.",
-        "Release-gate/audit logic can fail false Blender runtime claims."
-      ]
+      "risk": "high"
     },
     {
-      "id": "BLEND-T05",
-      "title": "Blender RAG source profiles define",
+      "id": "FC-T05",
+      "title": "Export plan service",
       "status": "done",
       "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T01"
-      ],
-      "expected_files": [
-        "reference_sources/blender/blender_api_docs.profile.json",
-        "reference_sources/blender/blender_source.profile.json",
-        "reference_sources/blender/blender_addon_examples.profile.json"
-      ],
-      "acceptance_criteria": [
-        "Profiles define source type, version/ref, allowed paths, include/exclude globs, max file sizes and intended usage.",
-        "Profiles require codecompass/rag_helper ingestion and explicitly forbid ad hoc addon-side documentation loading.",
-        "Profiles separate Blender API docs, Blender source code and curated addon examples.",
-        "Profiles include licensing/provenance notes where relevant."
-      ]
+      "risk": "medium"
     },
     {
-      "id": "BLEND-T06",
-      "title": "codecompass/rag_helper Blender indexing config add",
+      "id": "FC-T06",
+      "title": "Macro planning (dry-run)",
       "status": "done",
       "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T05"
-      ],
-      "expected_files": [
-        "reference_sources/blender/rag_profile_blender_api_docs.json",
-        "reference_sources/blender/rag_profile_blender_source.json"
-      ],
-      "acceptance_criteria": [
-        "Indexing config uses compact outputs and bounded include globs for Python, Markdown, C/C++ headers where supported, and docs.",
-        "Config excludes build outputs, generated files, binary assets, caches, vendored dependencies where not needed and irrelevant large directories.",
-        "Config preserves provenance metadata needed for audit and explanations.",
-        "Config can be run locally with documented commands."
-      ]
+      "risk": "critical"
     },
     {
-      "id": "BLEND-T07",
-      "title": "Blender retrieval service integration add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T06"
-      ],
-      "expected_files": [
-        "agent/services/blender_reference_retrieval_service.py"
-      ],
-      "acceptance_criteria": [
-        "Service queries codecompass/rag_helper outputs for Blender API/source/doc slices.",
-        "Service returns bounded results with source, version/ref, file/path, symbol/section and retrieval reason.",
-        "Service supports at least script planning, addon API questions, scene analysis and export/render task retrieval intents.",
-        "Service refuses to return unbounded full-doc or full-repo context."
-      ]
-    },
-    {
-      "id": "BLEND-T08",
-      "title": "Blender RAG provenance and audit markers add",
+      "id": "FC-T07",
+      "title": "Approval-gated macro execution",
       "status": "done",
       "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": [
-        "BLEND-T07"
-      ],
-      "expected_files": [
-        "schemas/blender/blender_reference_trace.v1.json"
-      ],
-      "acceptance_criteria": [
-        "Tasks using Blender references record which RAG sources influenced the plan or script.",
-        "Reference trace is visible in task details, artifacts or audit diagnostics.",
-        "Trace distinguishes API documentation, Blender source and addon example influence."
-      ]
+      "risk": "critical"
     },
     {
-      "id": "BLEND-T09",
-      "title": "Blender addon project skeleton add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T03"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/__init__.py",
-        "client_surfaces/blender/addon/panels.py",
-        "client_surfaces/blender/addon/operators.py",
-        "client_surfaces/blender/addon/client.py"
-      ],
-      "acceptance_criteria": [
-        "Addon has valid Blender metadata and can be installed as a local addon.",
-        "Addon registers and unregisters panels/operators cleanly.",
-        "Addon code is separated into UI, operators, API client and context capture modules.",
-        "No LLM or policy logic is embedded in the addon."
-      ]
-    },
-    {
-      "id": "BLEND-T10",
-      "title": "Endpoint profile auth settings add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T09"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/settings.py"
-      ],
-      "acceptance_criteria": [
-        "Addon exposes Ananta endpoint, profile and auth token settings using Blender preferences or scene-safe configuration.",
-        "Secrets are not logged, rendered into error messages or included in scene context.",
-        "Settings support degraded states for missing endpoint, missing token and invalid token."
-      ]
-    },
-    {
-      "id": "BLEND-T11",
-      "title": "Health and capability check implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T10",
-        "BLEND-T02"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/health.py"
-      ],
-      "acceptance_criteria": [
-        "Addon can call Hub health and capabilities endpoints.",
-        "Addon displays connected, degraded, unauthorized and backend-unreachable states clearly.",
-        "Addon displays Blender-specific capabilities and disabled operations."
-      ]
-    },
-    {
-      "id": "BLEND-T12",
-      "title": "Blender panel layout implement",
+      "id": "FC-T08",
+      "title": "Audit and verification artifacts",
       "status": "done",
       "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": [
-        "BLEND-T11"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/panels.py"
-      ],
-      "acceptance_criteria": [
-        "Panel includes connection status, goal input, context preview, task/artifact summary and approval indicators.",
-        "Panel avoids becoming a browser clone and keeps Blender workflow compact.",
-        "Panel has clear warning states for policy-denied or approval-required actions."
-      ]
-    },
-    {
-      "id": "BLEND-T13",
-      "title": "Scene context schema define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T03"
-      ],
-      "expected_files": [
-        "schemas/blender/blender_scene_context.v1.json"
-      ],
-      "acceptance_criteria": [
-        "Schema covers scene metadata, selected objects, object summaries, materials, lights, cameras, collections, modifiers, geometry-node indicators and file metadata.",
-        "Schema includes payload size limits, provenance metadata and redaction markers.",
-        "Schema distinguishes summary context from optional user-approved detailed context."
-      ]
-    },
-    {
-      "id": "BLEND-T14",
-      "title": "Bounded scene context capture implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T13",
-        "BLEND-T09"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/context.py"
-      ],
-      "acceptance_criteria": [
-        "Context capture summarizes selected scene/object/material data without dumping full binary assets or unrelated files.",
-        "Capture applies size limits and redacts likely secrets or local-sensitive paths where practical.",
-        "Capture includes provenance: scene name, object names, selection state, addon version and Blender version.",
-        "Capture can run without a live Hub for local preview/testing."
-      ]
-    },
-    {
-      "id": "BLEND-T15",
-      "title": "Context preview and confirmation UI add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T14",
-        "BLEND-T12"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/context_preview.py"
-      ],
-      "acceptance_criteria": [
-        "User can inspect compact context before submitting a goal.",
-        "UI shows what will be sent and what is excluded.",
-        "Detailed context expansion requires explicit user action where applicable."
-      ]
-    },
-    {
-      "id": "BLEND-T16",
-      "title": "Scene context backend validation add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T13",
-        "BLEND-T14"
-      ],
-      "expected_files": [
-        "tests/test_blender_scene_context_contract.py"
-      ],
-      "acceptance_criteria": [
-        "Backend tests validate accepted, oversized, malformed and secret-like context payloads.",
-        "Invalid payloads return structured degraded or rejected states.",
-        "Validation does not trust addon-side filtering alone."
-      ]
-    },
-    {
-      "id": "BLEND-T17",
-      "title": "Submit Blender goal operator add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T11",
-        "BLEND-T15",
-        "BLEND-T03"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/operators.py"
-      ],
-      "acceptance_criteria": [
-        "Operator submits goal text, selected capability and bounded scene context to the Hub.",
-        "Operator receives structured task or degraded-state response.",
-        "Operator does not create plans locally."
-      ]
-    },
-    {
-      "id": "BLEND-T18",
-      "title": "Task and artifact read models display add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": [
-        "BLEND-T17"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/tasks.py",
-        "client_surfaces/blender/addon/artifacts.py"
-      ],
-      "acceptance_criteria": [
-        "Addon can list recent Blender-related tasks returned by the Hub.",
-        "Addon can show artifact summaries such as findings, scripts, renders, previews and export plans.",
-        "Addon handles empty, malformed, unauthorized and backend-unreachable states."
-      ]
-    },
-    {
-      "id": "BLEND-T19",
-      "title": "Approval queue display add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T18"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/approvals.py"
-      ],
-      "acceptance_criteria": [
-        "Addon displays approval-required actions with capability, risk, script summary and expected scene/file effects.",
-        "Approve/reject calls backend approval APIs only.",
-        "Stale, malformed, denied or unauthorized approval attempts are shown clearly."
-      ]
-    },
-    {
-      "id": "BLEND-T20",
-      "title": "Policy-denied UX add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T19"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/policy.py"
-      ],
-      "acceptance_criteria": [
-        "Addon clearly distinguishes policy-denied, approval-required, failed, dry-run-only and completed states.",
-        "Denied actions are not retried locally or transformed into direct Blender operations.",
-        "Policy messages do not leak secrets or excessive backend details."
-      ]
-    },
-    {
-      "id": "BLEND-T21",
-      "title": "Blender action plan model implement",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T03",
-        "BLEND-T07"
-      ],
-      "expected_files": [
-        "schemas/blender/blender_action_plan.v1.json",
-        "agent/services/blender_action_plan_service.py"
-      ],
-      "acceptance_criteria": [
-        "Action plan separates explanation, proposed operations, generated script, expected changes, risks, required capability and approval state.",
-        "Plan includes RAG provenance when Blender API/source/docs influenced the proposal.",
-        "Plan can be rendered as an artifact before execution."
-      ]
-    },
-    {
-      "id": "BLEND-T22",
-      "title": "Read-only Blender operations route add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T21",
-        "BLEND-T14"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/read_only_ops.py"
-      ],
-      "acceptance_criteria": [
-        "Read-only operations cover scene summary, selected object summary, material summary, camera/light summary and performance hints.",
-        "Read-only operations still go through Hub-visible task/artifact paths where practical.",
-        "Read-only operations cannot mutate scene or files."
-      ]
-    },
-    {
-      "id": "BLEND-T23",
-      "title": "Dry-run script planning add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T21"
-      ],
-      "expected_files": [
-        "agent/services/blender_script_planning_service.py"
-      ],
-      "acceptance_criteria": [
-        "Hub can produce Blender Python script proposals as artifacts without executing them.",
-        "Scripts include declared capabilities, expected effects and safety notes.",
-        "Script proposal uses retrieved Blender API context through codecompass/rag_helper where needed.",
-        "Generated script is treated as untrusted until approved and policy-checked."
-      ]
-    },
-    {
-      "id": "BLEND-T24",
-      "title": "Approval-gated script execution bridge add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T19",
-        "BLEND-T23"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/bridge/ananta_blender_bridge.py",
-        "client_surfaces/blender/addon/execution.py"
-      ],
-      "acceptance_criteria": [
-        "Script execution only occurs after Hub policy permits and approval is granted where required.",
-        "Bridge records correlation ID, script hash, capability, approval ID and result.",
-        "Bridge returns stdout/stderr/errors/result summary as artifact data.",
-        "Execution failure leaves scene state understandable and logged where practical."
-      ]
-    },
-    {
-      "id": "BLEND-T25",
-      "title": "Mutation operation wrappers add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "critical",
-      "blocking": false,
-      "depends_on": [
-        "BLEND-T24"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/mutations.py"
-      ],
-      "acceptance_criteria": [
-        "Common mutation wrappers exist for creating objects, changing materials, adding modifiers, changing cameras/lights and creating simple animation keys.",
-        "Wrappers are capability-tagged and approval-aware.",
-        "Wrappers do not bypass Hub action plan, approval or audit."
-      ]
-    },
-    {
-      "id": "BLEND-T26",
-      "title": "Blender artifact schema define",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T03"
-      ],
-      "expected_files": [
-        "schemas/blender/blender_artifact.v1.json"
-      ],
-      "acceptance_criteria": [
-        "Artifact schema covers scene findings, script proposals, executed script reports, render previews, export plans and before/after summaries.",
-        "Artifacts include provenance, capability, task ID and safety classification.",
-        "Artifacts can be shown in Blender addon, CLI/TUI or Web UI without custom unsafe assumptions."
-      ]
-    },
-    {
-      "id": "BLEND-T27",
-      "title": "Preview render artifact support add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": [
-        "BLEND-T26",
-        "BLEND-T22"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/render_preview.py"
-      ],
-      "acceptance_criteria": [
-        "Addon can request or create a bounded preview render artifact where allowed.",
-        "Preview generation avoids unexpected long-running or high-resource renders by default.",
-        "Preview artifact records render settings summary and output path/reference."
-      ]
-    },
-    {
-      "id": "BLEND-T28",
-      "title": "Export plan artifact support add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": [
-        "BLEND-T26"
-      ],
-      "expected_files": [
-        "agent/services/blender_export_plan_service.py"
-      ],
-      "acceptance_criteria": [
-        "Hub can propose export plans for formats such as glTF, FBX, OBJ or STL without executing by default.",
-        "Export execution is capability-tagged and approval-aware when it writes files.",
-        "Artifact explains settings, target path and expected side effects."
-      ]
-    },
-    {
-      "id": "BLEND-T29",
-      "title": "Blender policy rules add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T02",
-        "BLEND-T21"
-      ],
-      "expected_files": [
-        "policies/blender_policy.v1.json"
-      ],
-      "acceptance_criteria": [
-        "Policy rules classify read-only, mutating, file-writing, network-touching and script-executing operations.",
-        "Script execution is default-deny unless explicitly enabled and approved.",
-        "File writes outside approved paths are denied.",
-        "Policy denial is testable and visible to clients."
-      ]
-    },
-    {
-      "id": "BLEND-T30",
-      "title": "Blender audit events add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T29",
-        "BLEND-T24"
-      ],
-      "expected_files": [
-        "schemas/blender/blender_audit_event.v1.json"
-      ],
-      "acceptance_criteria": [
-        "Audit events record goal, task, capability, context hash, script hash, approval ID, execution result and artifact IDs.",
-        "Audit distinguishes read-only plan, approval request, approval decision, execution and policy denial.",
-        "Audit output avoids secrets and excessive scene data."
-      ]
-    },
-    {
-      "id": "BLEND-T31",
-      "title": "Secret and path redaction hardening add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T14",
-        "BLEND-T30"
-      ],
-      "expected_files": [
-        "agent/services/blender_redaction_service.py",
-        "tests/test_blender_redaction.py"
-      ],
-      "acceptance_criteria": [
-        "Likely secrets, tokens, credentials and sensitive local paths are redacted from context, logs and rendered errors where practical.",
-        "Tests include positive and negative redaction cases.",
-        "Redaction does not replace policy enforcement."
-      ]
-    },
-    {
-      "id": "BLEND-T32",
-      "title": "Resource and timeout controls add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "blocking": false,
-      "depends_on": [
-        "BLEND-T24",
-        "BLEND-T27"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/addon/runtime_limits.py"
-      ],
-      "acceptance_criteria": [
-        "Long-running render/export/script operations have explicit timeouts or user-visible progress states where practical.",
-        "Addon and bridge handle cancellation or failure gracefully.",
-        "Heavy operations cannot be triggered silently by mere context capture."
-      ]
-    },
-    {
-      "id": "BLEND-T33",
-      "title": "Addon import and registration tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T09"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/tests/smoke_blender_addon_load.py"
-      ],
-      "acceptance_criteria": [
-        "Test verifies addon modules import without side effects outside Blender where practical.",
-        "Headless Blender smoke verifies addon registration if Blender is available.",
-        "If Blender binary is unavailable in CI, test is marked manual/advisory and runtime_complete is blocked."
-      ]
-    },
-    {
-      "id": "BLEND-T34",
-      "title": "Scene context contract tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T13",
-        "BLEND-T14",
-        "BLEND-T16"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/tests/test_scene_context.py",
-        "tests/test_blender_scene_context_contract.py"
-      ],
-      "acceptance_criteria": [
-        "Tests cover empty scene, selected object, many objects, materials, lights/cameras and oversized payloads.",
-        "Tests verify provenance and redaction markers.",
-        "Tests verify unrelated files are not silently included."
-      ]
-    },
-    {
-      "id": "BLEND-T35",
-      "title": "Mocked Hub interaction tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T17",
-        "BLEND-T18",
-        "BLEND-T19",
-        "BLEND-T20"
-      ],
-      "expected_files": [
-        "client_surfaces/blender/tests/test_mocked_hub_client.py"
-      ],
-      "acceptance_criteria": [
-        "Tests cover health, capabilities, goal submit, task/artifact read, approval-required and policy-denied responses.",
-        "Tests verify degraded states render as degraded rather than success.",
-        "Tests verify addon does not locally execute denied or approval-required actions."
-      ]
-    },
-    {
-      "id": "BLEND-T36",
-      "title": "Policy and approval negative tests add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T29",
-        "BLEND-T30"
-      ],
-      "expected_files": [
-        "tests/test_blender_policy_approval.py"
-      ],
-      "acceptance_criteria": [
-        "Tests cover denied script execution, denied file write, stale approval, malformed approval and unauthorized approval.",
-        "Tests verify denied actions produce audit/policy artifacts where appropriate.",
-        "Tests verify no fallback path bypasses Hub policy."
-      ]
-    },
-    {
-      "id": "BLEND-T37",
-      "title": "Blender release gate integration add",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "blocking": true,
-      "depends_on": [
-        "BLEND-T33",
-        "BLEND-T34",
-        "BLEND-T35",
-        "BLEND-T36"
-      ],
-      "expected_files": [
-        "scripts/run_blender_smoke_checks.py",
-        "scripts/run_release_gate.py"
-      ],
-      "acceptance_criteria": [
-        "Release gate includes Blender inventory/audit checks when Blender runtime_mvp is claimed.",
-        "Gate separates automated checks from manual/advisory Blender checks.",
-        "Gate fails on skeleton-only or docs-only Blender runtime claims."
-      ]
-    },
-    {
-      "id": "BLEND-T38",
-      "title": "Blender integration docs write",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": [
-        "BLEND-T12",
-        "BLEND-T17",
-        "BLEND-T19"
-      ],
-      "expected_files": [
-        "docs/integrations/blender/README.md",
-        "docs/integrations/blender/install.md",
-        "docs/integrations/blender/usage.md"
-      ],
-      "acceptance_criteria": [
-        "Docs explain installation, endpoint setup, health check, scene context preview, goal submission, approval and artifact viewing.",
-        "Docs clearly state safety model and limitations.",
-        "Docs include tested commands or manual smoke checklist."
-      ]
-    },
-    {
-      "id": "BLEND-T39",
-      "title": "Blender golden path examples add",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": [
-        "BLEND-T23",
-        "BLEND-T27",
-        "BLEND-T35"
-      ],
-      "expected_files": [
-        "docs/integrations/blender/examples.md"
-      ],
-      "acceptance_criteria": [
-        "Examples cover scene review, material improvement plan, geometry-node/script plan, preview render and approval-gated execution.",
-        "Examples are reproducible with mocked Hub or documented local setup.",
-        "Examples avoid claiming unsafe autonomous scene modification."
-      ]
-    },
-    {
-      "id": "BLEND-T40",
-      "title": "FreeCAD and KiCad roadmap isolate",
-      "status": "done",
-      "priority": "P3",
-      "risk": "medium",
-      "blocking": false,
-      "depends_on": [
-        "BLEND-T01"
-      ],
-      "expected_files": [
-        "docs/integrations/cad_eda_roadmap.md"
-      ],
-      "acceptance_criteria": [
-        "Roadmap notes that FreeCAD and KiCad require stricter correctness gates than Blender.",
-        "Roadmap keeps FreeCAD/KiCad out of the Blender MVP and this track's release gate.",
-        "Roadmap suggests separate future todo files for CAD/EDA integrations."
-      ]
+      "risk": "high"
     }
   ],
-  "execution_order_summary": [
-    "Stage 1: Define scope, threat model, capabilities, contracts and inventory.",
-    "Stage 2: Add Blender RAG ingestion profiles and retrieval via codecompass/rag_helper.",
-    "Stage 3: Build addon foundation with endpoint/auth, health and panel layout.",
-    "Stage 4: Implement bounded scene context capture, preview and backend validation.",
-    "Stage 5: Add goal submission, task/artifact display, approval queue and policy-denied UX.",
-    "Stage 6: Add action planning, dry-run script proposals and approval-gated execution bridge.",
-    "Stage 7: Add artifacts, previews and export planning.",
-    "Stage 8: Harden policy, audit, redaction, timeouts and resource controls.",
-    "Stage 9: Add tests, smoke checks and release-gate integration.",
-    "Stage 10: Write docs, examples and isolate FreeCAD/KiCad roadmap."
-  ],
-  "critical_path_tasks": [
-    "BLEND-T01",
-    "BLEND-T02",
-    "BLEND-T03",
-    "BLEND-T04",
-    "BLEND-T05",
-    "BLEND-T06",
-    "BLEND-T07",
-    "BLEND-T09",
-    "BLEND-T10",
-    "BLEND-T11",
-    "BLEND-T13",
-    "BLEND-T14",
-    "BLEND-T15",
-    "BLEND-T16",
-    "BLEND-T17",
-    "BLEND-T19",
-    "BLEND-T20",
-    "BLEND-T21",
-    "BLEND-T23",
-    "BLEND-T24",
-    "BLEND-T26",
-    "BLEND-T29",
-    "BLEND-T30",
-    "BLEND-T31",
-    "BLEND-T33",
-    "BLEND-T34",
-    "BLEND-T35",
-    "BLEND-T36",
-    "BLEND-T37"
-  ],
+  "status": "done",
+  "updated_at": "2026-04-30",
   "tasks_status_summary": {
     "updated_at": "2026-04-30",
-    "total": 40,
+    "total": 8,
     "by_status": {
       "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 40
+      "done": 8
     },
     "progress_percent_done": 100.0,
     "by_priority": {
-      "P0": 30,
-      "P1": 9,
+      "P0": 6,
+      "P1": 2,
       "P2": 0,
-      "P3": 1
+      "P3": 0
     },
     "by_risk": {
       "low": 0,
-      "medium": 6,
-      "high": 15,
-      "critical": 19
+      "medium": 1,
+      "high": 4,
+      "critical": 3
     },
     "critical_path": {
-      "total": 29,
-      "done": 29,
+      "total": 7,
+      "done": 7,
       "remaining": 0
     },
     "milestones": {
-      "total": 10,
+      "total": 3,
       "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 10
+      "done": 3
     }
   },
-  "summary_notes": [
-    "This is intentionally a large Blender track, not a small read-only adapter.",
-    "The addon is still a thin Ananta client/control surface; the Hub remains the authority for orchestration, policy, approval, audit and retrieval.",
-    "Blender source code and documentation must be ingested through codecompass/rag_helper profiles and queried through bounded retrieval services.",
-    "FreeCAD and KiCad are explicitly deferred because their correctness requirements are stricter and should be separate tracks.",
-    "This track should start only after core OSS runtime tests and release-gates are sufficiently stable, unless explicitly isolated on its own feature branch.",
-    "Consistency sync for blender track performed on 2026-04-30 (milestones, tasks_status_summary, todos fallback).",
-    "All blender track tasks completed and retained as done on 2026-04-30."
-  ],
-  "status": "done",
-  "updated_at": "2026-04-30",
   "todos": [
     {
-      "id": "BLEND-M1",
+      "id": "FC-M1",
       "status": "done",
       "tasks": [
-        "BLEND-T01",
-        "BLEND-T02",
-        "BLEND-T03",
-        "BLEND-T04"
+        "FC-T01",
+        "FC-T02",
+        "FC-T03"
       ]
     },
     {
-      "id": "BLEND-M2",
+      "id": "FC-M2",
       "status": "done",
       "tasks": [
-        "BLEND-T05",
-        "BLEND-T06",
-        "BLEND-T07",
-        "BLEND-T08"
+        "FC-T04",
+        "FC-T05",
+        "FC-T06"
       ]
     },
     {
-      "id": "BLEND-M3",
+      "id": "FC-M3",
       "status": "done",
       "tasks": [
-        "BLEND-T09",
-        "BLEND-T10",
-        "BLEND-T11",
-        "BLEND-T12"
-      ]
-    },
-    {
-      "id": "BLEND-M4",
-      "status": "done",
-      "tasks": [
-        "BLEND-T13",
-        "BLEND-T14",
-        "BLEND-T15",
-        "BLEND-T16"
-      ]
-    },
-    {
-      "id": "BLEND-M5",
-      "status": "done",
-      "tasks": [
-        "BLEND-T17",
-        "BLEND-T18",
-        "BLEND-T19",
-        "BLEND-T20"
-      ]
-    },
-    {
-      "id": "BLEND-M6",
-      "status": "done",
-      "tasks": [
-        "BLEND-T21",
-        "BLEND-T22",
-        "BLEND-T23",
-        "BLEND-T24",
-        "BLEND-T25"
-      ]
-    },
-    {
-      "id": "BLEND-M7",
-      "status": "done",
-      "tasks": [
-        "BLEND-T26",
-        "BLEND-T27",
-        "BLEND-T28"
-      ]
-    },
-    {
-      "id": "BLEND-M8",
-      "status": "done",
-      "tasks": [
-        "BLEND-T29",
-        "BLEND-T30",
-        "BLEND-T31",
-        "BLEND-T32"
-      ]
-    },
-    {
-      "id": "BLEND-M9",
-      "status": "done",
-      "tasks": [
-        "BLEND-T33",
-        "BLEND-T34",
-        "BLEND-T35",
-        "BLEND-T36",
-        "BLEND-T37"
-      ]
-    },
-    {
-      "id": "BLEND-M10",
-      "status": "done",
-      "tasks": [
-        "BLEND-T38",
-        "BLEND-T39",
-        "BLEND-T40"
+        "FC-T07",
+        "FC-T08"
       ]
     }
+  ],
+  "critical_path_tasks": [
+    "FC-T01",
+    "FC-T02",
+    "FC-T03",
+    "FC-T04",
+    "FC-T06",
+    "FC-T07",
+    "FC-T08"
+  ],
+  "execution_order_summary": [
+    "Stage 1: define schema, RAG profiles and policy pack.",
+    "Stage 2: implement inspection and export/macro planning services.",
+    "Stage 3: add approval-gated execution and verification artifacts."
+  ],
+  "summary_notes": [
+    "Consistency sync for freecad track performed on 2026-04-30 (status, milestones, tasks_status_summary, todos fallback).",
+    "All freecad track tasks completed and retained as done on 2026-04-30."
   ]
 }
