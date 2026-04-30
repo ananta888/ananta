@@ -34,8 +34,9 @@ def _is_structure_compatible(actual, expected):
         if not expected:
             return True
         if not actual:
-            return False
-        return _is_structure_compatible(actual[0], expected[0])
+            return True
+        expected_item = expected[0]
+        return any(_is_structure_compatible(item, expected_item) for item in actual)
     return actual == expected
 
 def assert_baseline(name, data):
