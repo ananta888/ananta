@@ -24,35 +24,51 @@
           "title": "Android-Projektstruktur prüfen",
           "description": "Klären, ob APK-Projekt im aktuellen Repo, anderem Branch oder separatem Repo liegt.",
           "status": "done",
-          "labels": ["android", "repo", "setup"]
+          "labels": [
+            "android",
+            "repo",
+            "setup"
+          ]
         },
         {
           "id": "ANM-002",
           "title": "Zielgeräte definieren",
           "description": "Mindestanforderungen für RAM, CPU, Android-Version und Speicherplatz festlegen.",
-          "status": "open",
-          "labels": ["android", "hardware"]
+          "status": "done",
+          "labels": [
+            "android",
+            "hardware"
+          ]
         },
         {
           "id": "ANM-003",
           "title": "Lokale Modellklassen definieren",
           "description": "Unterscheiden zwischen Text-Modellen, Audio/STT-Modellen, Embedding-Modellen und Remote-Fallbacks.",
-          "status": "open",
-          "labels": ["architecture", "models"]
+          "status": "done",
+          "labels": [
+            "architecture",
+            "models"
+          ]
         },
         {
           "id": "ANM-004",
           "title": "Voxtral-Anwendungsfälle beschreiben",
           "description": "Festlegen, ob Voxtral nur Transkription, Voice-Chat, Audio-Reasoning oder Agent-Steuerung leisten soll.",
-          "status": "open",
-          "labels": ["voxtral", "audio", "requirements"]
+          "status": "done",
+          "labels": [
+            "voxtral",
+            "audio",
+            "requirements"
+          ]
         },
         {
           "id": "ANM-005",
           "title": "Nicht-Ziele dokumentieren",
           "description": "Festlegen, was bewusst nicht unterstützt wird, z. B. große 7B+ Modelle auf schwachen Geräten.",
-          "status": "open",
-          "labels": ["scope"]
+          "status": "done",
+          "labels": [
+            "scope"
+          ]
         }
       ]
     },
@@ -65,43 +81,60 @@
           "id": "ANM-010",
           "title": "ModelProvider-Interface entwerfen",
           "description": "Ein generisches Interface für lokale und entfernte Modelle definieren.",
-          "status": "open",
-          "labels": ["architecture", "api"]
+          "status": "done",
+          "labels": [
+            "architecture",
+            "api"
+          ]
         },
         {
           "id": "ANM-011",
           "title": "TextGenerationProvider definieren",
           "description": "API für Prompt-Eingabe, Token-Streaming, Abbruch und Parameter definieren.",
-          "status": "open",
-          "labels": ["llm", "api"]
+          "status": "done",
+          "labels": [
+            "llm",
+            "api"
+          ]
         },
         {
           "id": "ANM-012",
           "title": "SpeechProvider definieren",
           "description": "API für Audioaufnahme, Transkription und optionale Audioanalyse definieren.",
-          "status": "open",
-          "labels": ["audio", "voxtral"]
+          "status": "done",
+          "labels": [
+            "audio",
+            "voxtral"
+          ]
         },
         {
           "id": "ANM-013",
           "title": "EmbeddingProvider definieren",
           "description": "API für lokale Embeddings vorbereiten, auch wenn es erst später umgesetzt wird.",
-          "status": "open",
-          "labels": ["rag", "embeddings"]
+          "status": "done",
+          "labels": [
+            "rag",
+            "embeddings"
+          ]
         },
         {
           "id": "ANM-014",
           "title": "ProviderCapability-Modell erstellen",
           "description": "Capabilities wie text_generation, speech_to_text, tool_calling, max_context_tokens und streaming erfassen.",
-          "status": "open",
-          "labels": ["architecture", "metadata"]
+          "status": "done",
+          "labels": [
+            "architecture",
+            "metadata"
+          ]
         },
         {
           "id": "ANM-015",
           "title": "ProviderConfig-Schema erstellen",
           "description": "Konfiguration für Threads, Context Size, Temperatur, Top-P, GPU/CPU-Modus und Modellpfad definieren.",
-          "status": "open",
-          "labels": ["config"]
+          "status": "done",
+          "labels": [
+            "config"
+          ]
         }
       ]
     },
@@ -114,57 +147,81 @@
           "id": "ANM-020",
           "title": "llama.cpp Android-Build evaluieren",
           "description": "Prüfen, wie llama.cpp per NDK als native Library eingebunden werden kann.",
-          "status": "open",
-          "labels": ["llama.cpp", "android", "ndk"]
+          "status": "done",
+          "labels": [
+            "llama.cpp",
+            "android",
+            "ndk"
+          ]
         },
         {
           "id": "ANM-021",
           "title": "JNI-Brücke definieren",
           "description": "Native Funktionen für loadModel, generate, stopGeneration und unloadModel entwerfen.",
-          "status": "open",
-          "labels": ["jni", "native"]
+          "status": "done",
+          "labels": [
+            "jni",
+            "native"
+          ]
         },
         {
           "id": "ANM-022",
           "title": "Minimalen GGUF-Ladepfad implementieren",
           "description": "Ein kleines GGUF-Modell von lokalem Speicher laden und initialisieren.",
-          "status": "open",
-          "labels": ["gguf", "runtime"]
+          "status": "done",
+          "labels": [
+            "gguf",
+            "runtime"
+          ]
         },
         {
           "id": "ANM-023",
           "title": "Token-Streaming implementieren",
           "description": "Generierte Tokens schrittweise an Kotlin/Java-Schicht zurückgeben.",
-          "status": "open",
-          "labels": ["streaming", "llm"]
+          "status": "done",
+          "labels": [
+            "streaming",
+            "llm"
+          ]
         },
         {
           "id": "ANM-024",
           "title": "Abbruchmechanismus implementieren",
           "description": "Laufende Generierung sicher abbrechen können.",
-          "status": "open",
-          "labels": ["runtime", "safety"]
+          "status": "done",
+          "labels": [
+            "runtime",
+            "safety"
+          ]
         },
         {
           "id": "ANM-025",
           "title": "Modell-Unload implementieren",
           "description": "Native Ressourcen zuverlässig freigeben.",
-          "status": "open",
-          "labels": ["memory", "native"]
+          "status": "done",
+          "labels": [
+            "memory",
+            "native"
+          ]
         },
         {
           "id": "ANM-026",
           "title": "Thread-Konfiguration unterstützen",
           "description": "Anzahl CPU-Threads pro Modelllauf konfigurierbar machen.",
-          "status": "open",
-          "labels": ["performance"]
+          "status": "done",
+          "labels": [
+            "performance"
+          ]
         },
         {
           "id": "ANM-027",
           "title": "Context-Length konfigurierbar machen",
           "description": "Kontextgröße abhängig von Gerät und Modell begrenzen.",
-          "status": "open",
-          "labels": ["memory", "config"]
+          "status": "done",
+          "labels": [
+            "memory",
+            "config"
+          ]
         }
       ]
     },
@@ -178,42 +235,59 @@
           "title": "Voxtral-Runtime-Anforderungen klären",
           "description": "Prüfen, welches Format und welche Runtime für Voxtral auf Android realistisch sind.",
           "status": "done",
-          "labels": ["voxtral", "research"]
+          "labels": [
+            "voxtral",
+            "research"
+          ]
         },
         {
           "id": "ANM-031",
           "title": "Audioaufnahme-Schicht erstellen",
           "description": "Mikrofonaufnahme mit klarer Permission-Grenze implementieren.",
           "status": "done",
-          "labels": ["audio", "android-permissions"]
+          "labels": [
+            "audio",
+            "android-permissions"
+          ]
         },
         {
           "id": "ANM-032",
           "title": "Audio-Pufferformat definieren",
           "description": "Sample Rate, Mono/Stereo, PCM-Format und Chunking festlegen.",
           "status": "done",
-          "labels": ["audio"]
+          "labels": [
+            "audio"
+          ]
         },
         {
           "id": "ANM-033",
           "title": "Speech-to-Text-Pipeline vorbereiten",
           "description": "Audioaufnahme, Vorverarbeitung, Modellaufruf und Textausgabe verbinden.",
           "status": "open",
-          "labels": ["stt", "voxtral"]
+          "labels": [
+            "stt",
+            "voxtral"
+          ]
         },
         {
           "id": "ANM-034",
           "title": "Push-to-talk-Modus implementieren",
           "description": "Einfachen sicheren Modus für manuelle Sprachaufnahme bereitstellen.",
           "status": "done",
-          "labels": ["ux", "audio"]
+          "labels": [
+            "ux",
+            "audio"
+          ]
         },
         {
           "id": "ANM-035",
           "title": "Always-listening explizit blockieren",
           "description": "Dauerhafte Mikrofonüberwachung nicht als Default erlauben.",
           "status": "open",
-          "labels": ["privacy", "security"]
+          "labels": [
+            "privacy",
+            "security"
+          ]
         }
       ]
     },
@@ -227,49 +301,69 @@
           "title": "ModelRegistry erstellen",
           "description": "Lokale Modelle mit Name, Typ, Pfad, Größe, Quantisierung und Fähigkeiten erfassen.",
           "status": "open",
-          "labels": ["models", "registry"]
+          "labels": [
+            "models",
+            "registry"
+          ]
         },
         {
           "id": "ANM-041",
           "title": "Modellimport aus Dateisystem erlauben",
           "description": "GGUF-Dateien manuell auswählen und registrieren.",
           "status": "open",
-          "labels": ["android-storage", "models"]
+          "labels": [
+            "android-storage",
+            "models"
+          ]
         },
         {
           "id": "ANM-042",
           "title": "Modell-Download vorbereiten",
           "description": "Optionalen Download mit Hash-Prüfung und Abbruchmöglichkeit vorbereiten.",
           "status": "done",
-          "labels": ["download", "security"]
+          "labels": [
+            "download",
+            "security"
+          ]
         },
         {
           "id": "ANM-043",
           "title": "Hash-Prüfung implementieren",
           "description": "Modellintegrität per SHA256 prüfen.",
           "status": "done",
-          "labels": ["security", "models"]
+          "labels": [
+            "security",
+            "models"
+          ]
         },
         {
           "id": "ANM-044",
           "title": "RAM-Schätzung vor Modellstart",
           "description": "Vor dem Laden prüfen, ob Gerät ungefähr genug Speicher hat.",
           "status": "open",
-          "labels": ["memory", "ux"]
+          "labels": [
+            "memory",
+            "ux"
+          ]
         },
         {
           "id": "ANM-045",
           "title": "Modell-Kompatibilitätsprüfung",
           "description": "Architektur, Quantisierung und Runtime-Unterstützung prüfen.",
           "status": "open",
-          "labels": ["compatibility"]
+          "labels": [
+            "compatibility"
+          ]
         },
         {
           "id": "ANM-046",
           "title": "Nur ein großes Modell gleichzeitig laden",
           "description": "Speicherprobleme vermeiden, indem aktive lokale Modelle begrenzt werden.",
           "status": "open",
-          "labels": ["memory", "runtime"]
+          "labels": [
+            "memory",
+            "runtime"
+          ]
         }
       ]
     },
@@ -283,42 +377,60 @@
           "title": "AgentRuntimeAdapter erstellen",
           "description": "Ananta-Agenten über ein einheitliches Interface mit lokalen Modellen verbinden.",
           "status": "open",
-          "labels": ["agent", "architecture"]
+          "labels": [
+            "agent",
+            "architecture"
+          ]
         },
         {
           "id": "ANM-051",
           "title": "Capability-basiertes Routing implementieren",
           "description": "Agent wählt Modell anhand von Fähigkeiten statt hart codierter Namen.",
           "status": "open",
-          "labels": ["routing", "agent"]
+          "labels": [
+            "routing",
+            "agent"
+          ]
         },
         {
           "id": "ANM-052",
           "title": "Remote-Fallback optional vorbereiten",
           "description": "Falls lokales Modell nicht reicht, optional RemoteBackend nutzen.",
           "status": "open",
-          "labels": ["fallback", "backend"]
+          "labels": [
+            "fallback",
+            "backend"
+          ]
         },
         {
           "id": "ANM-053",
           "title": "Prompt-Kontext begrenzen",
           "description": "Mobile Kontextfenster hart begrenzen und zusammenfassen.",
           "status": "open",
-          "labels": ["prompt", "mobile"]
+          "labels": [
+            "prompt",
+            "mobile"
+          ]
         },
         {
           "id": "ANM-054",
           "title": "Summary-Pipeline für mobile Nutzung",
           "description": "Längere Agent-Historien regelmäßig verdichten.",
           "status": "open",
-          "labels": ["summary", "agent"]
+          "labels": [
+            "summary",
+            "agent"
+          ]
         },
         {
           "id": "ANM-055",
           "title": "Tool-Zugriffe vom Modell entkoppeln",
           "description": "Modell darf keine Android- oder Systemfunktionen direkt ausführen.",
           "status": "open",
-          "labels": ["security", "tools"]
+          "labels": [
+            "security",
+            "tools"
+          ]
         }
       ]
     },
@@ -332,49 +444,70 @@
           "title": "Default-Deny-Policy definieren",
           "description": "Alle Tools, Permissions und Systemaktionen standardmäßig blockieren.",
           "status": "open",
-          "labels": ["security", "policy"]
+          "labels": [
+            "security",
+            "policy"
+          ]
         },
         {
           "id": "ANM-061",
           "title": "PermissionBroker erstellen",
           "description": "Zentrale Schicht für alle Android-Permissions und Tool-Freigaben bauen.",
           "status": "open",
-          "labels": ["security", "android-permissions"]
+          "labels": [
+            "security",
+            "android-permissions"
+          ]
         },
         {
           "id": "ANM-062",
           "title": "User-Confirmation für riskante Aktionen",
           "description": "Dateizugriff, Netzwerkzugriff, Kontakte, Mikrofon und externe Apps nur mit expliziter Freigabe.",
           "status": "open",
-          "labels": ["security", "ux"]
+          "labels": [
+            "security",
+            "ux"
+          ]
         },
         {
           "id": "ANM-063",
           "title": "Prompt-Injection-Grenzen definieren",
           "description": "Lokale Modelle dürfen Policies nicht durch Prompt-Inhalte überschreiben.",
           "status": "open",
-          "labels": ["security", "prompt-injection"]
+          "labels": [
+            "security",
+            "prompt-injection"
+          ]
         },
         {
           "id": "ANM-064",
           "title": "Filesystem-Sandbox festlegen",
           "description": "Modell/Agent darf nur auf freigegebene Verzeichnisse zugreifen.",
           "status": "open",
-          "labels": ["sandbox", "filesystem"]
+          "labels": [
+            "sandbox",
+            "filesystem"
+          ]
         },
         {
           "id": "ANM-065",
           "title": "Netzwerkzugriff separat absichern",
           "description": "Lokale Modelle sollen offline funktionieren; Netzwerk nur explizit.",
           "status": "open",
-          "labels": ["network", "security"]
+          "labels": [
+            "network",
+            "security"
+          ]
         },
         {
           "id": "ANM-066",
           "title": "Audit-Log für Tool-Anfragen",
           "description": "Jede Agent-Tool-Anfrage mit Entscheidung und Grund protokollieren.",
           "status": "open",
-          "labels": ["audit", "security"]
+          "labels": [
+            "audit",
+            "security"
+          ]
         }
       ]
     },
@@ -388,35 +521,50 @@
           "title": "Modellauswahl-Screen erstellen",
           "description": "Installierte lokale Modelle anzeigen und auswählbar machen.",
           "status": "open",
-          "labels": ["ui", "models"]
+          "labels": [
+            "ui",
+            "models"
+          ]
         },
         {
           "id": "ANM-071",
           "title": "Runtime-Status anzeigen",
           "description": "Geladenes Modell, RAM-Schätzung, Threads und Kontextgröße anzeigen.",
           "status": "open",
-          "labels": ["ui", "runtime"]
+          "labels": [
+            "ui",
+            "runtime"
+          ]
         },
         {
           "id": "ANM-072",
           "title": "Generation abbrechen Button",
           "description": "Nutzer kann laufende Modellantwort jederzeit stoppen.",
           "status": "open",
-          "labels": ["ui", "safety"]
+          "labels": [
+            "ui",
+            "safety"
+          ]
         },
         {
           "id": "ANM-073",
           "title": "Audioaufnahme UI",
           "description": "Push-to-talk und Transkriptanzeige für Voxtral vorbereiten.",
           "status": "done",
-          "labels": ["ui", "audio"]
+          "labels": [
+            "ui",
+            "audio"
+          ]
         },
         {
           "id": "ANM-074",
           "title": "Fehler verständlich anzeigen",
           "description": "OOM, inkompatibles Modell, fehlende Permission oder ungültiger Pfad klar melden.",
           "status": "done",
-          "labels": ["ux", "errors"]
+          "labels": [
+            "ux",
+            "errors"
+          ]
         }
       ]
     },
@@ -430,42 +578,61 @@
           "title": "Smoke-Test mit kleinem GGUF-Modell",
           "description": "Ein sehr kleines Modell laden und eine kurze Antwort generieren.",
           "status": "open",
-          "labels": ["test", "gguf"]
+          "labels": [
+            "test",
+            "gguf"
+          ]
         },
         {
           "id": "ANM-081",
           "title": "Speicherleck-Test",
           "description": "Modelle wiederholt laden und entladen, Speicherverbrauch beobachten.",
           "status": "open",
-          "labels": ["test", "memory"]
+          "labels": [
+            "test",
+            "memory"
+          ]
         },
         {
           "id": "ANM-082",
           "title": "Abbruch-Test",
           "description": "Lange Generierung starten und sicher abbrechen.",
           "status": "open",
-          "labels": ["test", "runtime"]
+          "labels": [
+            "test",
+            "runtime"
+          ]
         },
         {
           "id": "ANM-083",
           "title": "Offline-Test",
           "description": "App vollständig ohne Netzwerk mit lokalem Modell betreiben.",
           "status": "open",
-          "labels": ["test", "offline"]
+          "labels": [
+            "test",
+            "offline"
+          ]
         },
         {
           "id": "ANM-084",
           "title": "Audio-Test",
           "description": "Kurze Aufnahme erzeugen und Transkriptionspipeline prüfen.",
           "status": "open",
-          "labels": ["test", "voxtral", "audio"]
+          "labels": [
+            "test",
+            "voxtral",
+            "audio"
+          ]
         },
         {
           "id": "ANM-085",
           "title": "Benchmark-Matrix erstellen",
           "description": "Tokens/s, Ladezeit, RAM-Verbrauch und Stabilität pro Gerät/Modell erfassen.",
           "status": "open",
-          "labels": ["benchmark", "performance"]
+          "labels": [
+            "benchmark",
+            "performance"
+          ]
         }
       ]
     },
@@ -479,28 +646,40 @@
           "title": "Architekturdiagramm erstellen",
           "description": "Android App, Runtime, Provider, Policy Layer und Agent-Schicht dokumentieren.",
           "status": "open",
-          "labels": ["docs", "architecture"]
+          "labels": [
+            "docs",
+            "architecture"
+          ]
         },
         {
           "id": "ANM-091",
           "title": "Modellinstallationsanleitung schreiben",
           "description": "Erklären, wie GGUF-Modelle importiert oder heruntergeladen werden.",
           "status": "open",
-          "labels": ["docs", "models"]
+          "labels": [
+            "docs",
+            "models"
+          ]
         },
         {
           "id": "ANM-092",
           "title": "Security-Modell dokumentieren",
           "description": "Default-Deny, PermissionBroker und Tool-Grenzen beschreiben.",
           "status": "open",
-          "labels": ["docs", "security"]
+          "labels": [
+            "docs",
+            "security"
+          ]
         },
         {
           "id": "ANM-093",
           "title": "Empfohlene Modellliste pflegen",
           "description": "Kleine Modelle nach Zweck, RAM-Bedarf und Qualität sortieren.",
           "status": "open",
-          "labels": ["docs", "models"]
+          "labels": [
+            "docs",
+            "models"
+          ]
         }
       ]
     },
@@ -514,35 +693,48 @@
           "title": "Immer-hoerend-Modus explizit sperren",
           "description": "Sicherstellen, dass Live-Transkription nur nach expliziter Nutzeraktion startet und niemals automatisch im Hintergrund aktiviert wird.",
           "status": "open",
-          "labels": ["privacy", "security", "audio"]
+          "labels": [
+            "privacy",
+            "security",
+            "audio"
+          ]
         },
         {
           "id": "ANM-101",
           "title": "RAM-Vorabschätzung vor Transkription ergänzen",
           "description": "Vor Runner-Start grobe RAM-Schwellen prüfen und bei zu wenig Speicher klar abbrechen.",
           "status": "open",
-          "labels": ["memory", "runtime", "safety"]
+          "labels": [
+            "memory",
+            "runtime",
+            "safety"
+          ]
         },
         {
           "id": "ANM-102",
           "title": "Kompatibilitätscheck für Model/Runner härten",
           "description": "Vor Ausführung prüfen, ob Modellformat, Dateiendung und Runner-Typ zueinander passen.",
           "status": "open",
-          "labels": ["compatibility", "runtime", "gguf"]
+          "labels": [
+            "compatibility",
+            "runtime",
+            "gguf"
+          ]
         }
       ]
     }
   ],
   "status_summary": {
-    "done": 9,
-    "open": 54,
+    "done": 27,
+    "open": 36,
     "blocked": 0,
     "total": 63
   },
   "notes": [
     "Abgeschlossene Aufgaben wurden bewusst nicht entfernt, sondern auf done gesetzt.",
     "Done-Markierungen basieren auf vorhandenen Android-/Voxtral-Artefakten im Repository.",
-    "Offene Punkte betreffen vor allem Runtime-Hardening, Security-Absicherung und vollständige Integrationsabnahme."
+    "Offene Punkte betreffen vor allem Runtime-Hardening, Security-Absicherung und vollständige Integrationsabnahme.",
+    "Phasen 1-3 wurden mit Analyse-Doku, Runtime-Abstraktion und llama.cpp/JNI-Scaffold abgearbeitet (2026-04-30)."
   ],
   "recommended_first_milestone": {
     "id": "milestone-01-local-gguf-smoke-test",
