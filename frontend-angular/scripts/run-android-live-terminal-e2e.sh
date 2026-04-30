@@ -31,11 +31,6 @@ if ! command -v adb >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! command -v emulator >/dev/null 2>&1; then
-  echo "emulator binary nicht gefunden. Android SDK Emulator installieren."
-  exit 1
-fi
-
 cleanup_stale_avd_locks() {
   local avd_home="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
   local avd_dir="$avd_home/${AVD_NAME}.avd"
@@ -70,6 +65,10 @@ ensure_avd() {
 }
 
 if [[ "$SKIP_EMULATOR_START" != "1" ]]; then
+  if ! command -v emulator >/dev/null 2>&1; then
+    echo "emulator binary nicht gefunden. Android SDK Emulator installieren."
+    exit 1
+  fi
   ensure_avd
   cleanup_stale_avd_locks
 
@@ -80,7 +79,7 @@ if [[ "$SKIP_EMULATOR_START" != "1" ]]; then
   fi
 fi
 
-echo "Warte auf Emulator $EMULATOR_SERIAL..."
+echo "Warte auf Android-Device $EMULATOR_SERIAL..."
 adb wait-for-device
 adb -s "$EMULATOR_SERIAL" shell getprop sys.boot_completed | tr -d '\r' | grep -q "1" || true
 until adb -s "$EMULATOR_SERIAL" shell getprop sys.boot_completed | tr -d '\r' | grep -q "1"; do
@@ -95,8 +94,31 @@ cd "$FRONTEND_DIR"
 npm run android:prepare
 
 cd "$ANDROID_DIR"
+AAPT2_ARG=()
+if [[ -x /tmp/aapt2 ]]; then
+  AAPT2_ARG=(-Pandroid.aapt2FromMavenOverride=/tmp/aapt2)
+fi
 ./gradlew \
-  :app:connectedDebugAndroidTest \
-  "-Pandroid.testInstrumentationRunnerArguments.ananta.e2e.username=$USERNAME" \
-  "-Pandroid.testInstrumentationRunnerArguments.ananta.e2e.password=$PASSWORD" \
-  -Pandroid.testInstrumentationRunnerArguments.class=com.ananta.mobile.LiveTerminalAndroidE2ETest
+  :app:assembleDebug \
+  :app:assembleDebugAndroidTest \
+  "${AAPT2_ARG[@]}"
+
+APP_APK="$ANDROID_DIR/app/build/outputs/apk/debug/app-debug.apk"
+TEST_APK="$ANDROID_DIR/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+if [[ ! -f "$APP_APK" || ! -f "$TEST_APK" ]]; then
+  echo "APK output fehlt (app oder androidTest)."
+  exit 1
+fi
+
+adb -s "$EMULATOR_SERIAL" install -r "$APP_APK" >/dev/null
+adb -s "$EMULATOR_SERIAL" install -r -t "$TEST_APK" >/dev/null
+INSTRUMENTATION_OUTPUT="$(adb -s "$EMULATOR_SERIAL" shell am instrument -w -r \
+  -e ananta.e2e.username "$USERNAME" \
+  -e ananta.e2e.password "$PASSWORD" \
+  -e class com.ananta.mobile.LiveTerminalAndroidE2ETest \
+  com.ananta.mobile.test/androidx.test.runner.AndroidJUnitRunner | cat)"
+echo "$INSTRUMENTATION_OUTPUT"
+if echo "$INSTRUMENTATION_OUTPUT" | grep -q "FAILURES!!!"; then
+  echo "Instrumentation-Tests fehlgeschlagen."
+  exit 1
+fi

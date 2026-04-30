@@ -18,6 +18,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
@@ -517,6 +518,17 @@ public class PythonRuntimePlugin extends Plugin {
                 File distrosDir = ensureDir(runtimeRoot, "distros");
                 File distroDir = ensureDir(distrosDir, distro);
                 File rootfsDir = ensureDir(distroDir, "rootfs");
+                File existingRootfs = resolveInstalledRootfs(rootfsDir);
+                if (existingRootfs != null) {
+                    ensureDistroBootstrap(distro, runtimeRoot, existingRootfs);
+                    JSObject result = new JSObject();
+                    result.put("distro", distro);
+                    result.put("rootfsPath", existingRootfs.getAbsolutePath());
+                    result.put("alreadyInstalled", true);
+                    notifyProotProgress("distro", "done", "Distro bereits installiert.", -1, -1, distro);
+                    call.resolve(result);
+                    return;
+                }
                 File tmpDir = ensureDir(runtimeRoot, "tmp");
                 File archive = new File(tmpDir, distro + "-rootfs.tar.xz");
                 downloadToFile(assetUrl, archive, "distro", distro);
@@ -529,10 +541,15 @@ public class PythonRuntimePlugin extends Plugin {
                 }
                 clearDirectory(rootfsDir);
                 extractTarXzToDirectory(archive, rootfsDir);
+                File installedRootfs = resolveInstalledRootfs(rootfsDir);
+                if (installedRootfs == null) {
+                    throw new IOException("Distro extraction completed, but no usable rootfs was detected.");
+                }
+                ensureDistroBootstrap(distro, runtimeRoot, installedRootfs);
 
                 JSObject result = new JSObject();
                 result.put("distro", distro);
-                result.put("rootfsPath", rootfsDir.getAbsolutePath());
+                result.put("rootfsPath", installedRootfs.getAbsolutePath());
                 notifyProotProgress("distro", "done", "Distro installiert.", -1, -1, distro);
                 call.resolve(result);
             } catch (Exception error) {
@@ -984,10 +1001,132 @@ public class PythonRuntimePlugin extends Plugin {
 
     private void extractTarXzToDirectory(File archive, File targetDir) throws IOException {
         try (InputStream fis = new FileInputStream(archive);
-             InputStream xis = new XZInputStream(fis);
-             BufferedInputStream input = new BufferedInputStream(xis)) {
-            extractTarStreamToDirectory(input, targetDir);
+             InputStream xis = new XZInputStream(fis)) {
+            String systemTarError = extractTarStreamWithSystemTar(xis, targetDir);
+            if (systemTarError == null) {
+                return;
+            }
+            try (InputStream fallbackFis = new FileInputStream(archive);
+                 InputStream fallbackXis = new XZInputStream(fallbackFis);
+                 BufferedInputStream input = new BufferedInputStream(fallbackXis)) {
+                extractTarStreamToDirectory(input, targetDir);
+            } catch (IOException parseError) {
+                throw new IOException(parseError.getMessage() + " | system tar: " + systemTarError, parseError);
+            }
+        } catch (IOException parseError) {
+            throw parseError;
         }
+    }
+
+    private String extractTarStreamWithSystemTar(InputStream tarStream, File targetDir) {
+        Process process = null;
+        try {
+            process = new ProcessBuilder(
+                "/system/bin/tar",
+                "-xf",
+                "-",
+                "-C",
+                targetDir.getAbsolutePath()
+            )
+                .redirectErrorStream(true)
+                .start();
+            try (OutputStream processInput = process.getOutputStream()) {
+                copyStream(tarStream, processInput);
+            }
+            boolean finished = process.waitFor(240, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                return "timeout";
+            }
+            String output = readProcessOutput(process.getInputStream(), 8_000);
+            if (process.exitValue() == 0) return null;
+            return output.isBlank() ? "exit " + process.exitValue() : output;
+        } catch (Exception error) {
+            String message = String.valueOf(error.getMessage() == null ? "" : error.getMessage()).trim();
+            if (message.isEmpty()) message = error.getClass().getSimpleName();
+            return message;
+        } finally {
+            if (process != null) process.destroy();
+        }
+    }
+
+    private File resolveInstalledRootfs(File rootfsDir) {
+        if (rootfsDir == null || !rootfsDir.isDirectory()) return null;
+        if (resolveLoginShellPath(rootfsDir) != null) return rootfsDir;
+        File[] children = rootfsDir.listFiles();
+        if (children == null) return null;
+        for (File child : children) {
+            if (!child.isDirectory()) continue;
+            if (resolveLoginShellPath(child) != null) return child;
+        }
+        return null;
+    }
+
+    private void ensureDistroBootstrap(String distro, File runtimeRoot, File rootfsDir) throws Exception {
+        if (!requiresPythonBootstrap(distro)) return;
+        if (distroHasPython(runtimeRoot, rootfsDir)) return;
+        notifyProotProgress("distro", "extracting", "Installiere Python in Distro.", -1, -1, distro);
+        ShellExecutionResult install = runInProot(
+            runtimeRoot,
+            rootfsDir,
+            "if command -v apt-get >/dev/null 2>&1; then export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y python3; else echo ANANTA_APT_MISSING; exit 2; fi; if command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then echo ANANTA_PY_OK; else echo ANANTA_PY_MISSING; exit 3; fi",
+            600
+        );
+        String output = String.valueOf(install.output == null ? "" : install.output);
+        if (install.timedOut || install.exitCode != 0 || !output.contains("ANANTA_PY_OK")) {
+            throw new IOException("Python bootstrap failed: " + output.trim());
+        }
+    }
+
+    private boolean requiresPythonBootstrap(String distro) {
+        String normalized = String.valueOf(distro == null ? "" : distro).trim().toLowerCase();
+        return "ubuntu".equals(normalized) || "debian".equals(normalized);
+    }
+
+    private boolean distroHasPython(File runtimeRoot, File rootfsDir) throws Exception {
+        ShellExecutionResult probe = runInProot(
+            runtimeRoot,
+            rootfsDir,
+            "if command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then echo ANANTA_PY_OK; else echo ANANTA_PY_MISSING; fi",
+            120
+        );
+        String output = String.valueOf(probe.output == null ? "" : probe.output);
+        return !probe.timedOut && probe.exitCode == 0 && output.contains("ANANTA_PY_OK");
+    }
+
+    private ShellExecutionResult runInProot(File runtimeRoot, File rootfsDir, String innerCommand, int timeoutSeconds) throws Exception {
+        String runtimePath = runtimeRoot.getAbsolutePath();
+        String rootfsPath = rootfsDir.getAbsolutePath();
+        String command = ""
+            + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "
+            + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
+            + "ANANTA_PROOT_WRAPPER=\"$ANANTA_PROOT_RUNTIME/bin/proot\"; "
+            + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; "
+            + "mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
+            + "chmod 700 \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
+            + "PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color "
+            + "/system/bin/sh \"$ANANTA_PROOT_WRAPPER\" "
+            + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" "
+            + "-w / /bin/sh -lc " + shQuote(innerCommand);
+        return executeShellCommand(command, timeoutSeconds);
+    }
+
+    private String shQuote(String value) {
+        String text = String.valueOf(value == null ? "" : value);
+        return "'" + text.replace("'", "'\"'\"'") + "'";
+    }
+
+    private String resolveLoginShellPath(File rootfsDir) {
+        if (rootfsDir == null || !rootfsDir.isDirectory()) return null;
+        String[] candidates = {
+            "/usr/bin/bash", "/usr/bin/dash", "/usr/bin/sh",
+            "/bin/bash", "/bin/sh", "/bin/dash", "/bin/ash"
+        };
+        for (String candidate : candidates) {
+            File file = new File(rootfsDir, candidate.startsWith("/") ? candidate.substring(1) : candidate);
+            if (file.isFile()) return candidate;
+        }
+        return null;
     }
 
     private void extractTarStreamToDirectory(InputStream input, File targetDir) throws IOException {
@@ -1087,6 +1226,15 @@ public class PythonRuntimePlugin extends Plugin {
         output.flush();
     }
 
+    private void copyStream(InputStream input, OutputStream output) throws IOException {
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = input.read(buffer)) != -1) {
+            output.write(buffer, 0, read);
+        }
+        output.flush();
+    }
+
     private void applyMode(File file, int mode) {
         if ((mode & 0400) != 0) file.setReadable(true, true);
         if ((mode & 0004) != 0) file.setReadable(true, false);
@@ -1153,6 +1301,14 @@ public class PythonRuntimePlugin extends Plugin {
     }
 
     private long parseTarOctal(byte[] buffer, int offset, int len) {
+        // GNU tar may encode numeric fields in base-256 when values exceed octal field width.
+        if ((buffer[offset] & 0x80) != 0) {
+            long value = buffer[offset] & 0x7fL;
+            for (int i = 1; i < len; i++) {
+                value = (value << 8) | (buffer[offset + i] & 0xffL);
+            }
+            return value;
+        }
         String raw = readTarString(buffer, offset, len);
         if (raw.isEmpty()) return 0L;
         try {

@@ -428,7 +428,8 @@ export class MobileShellComponent implements OnDestroy, OnInit {
     this.installProgressPercent = Number.isFinite(progress) && progress >= 0
       ? Math.max(0, Math.min(100, Math.round(progress * 100)))
       : -1;
-    this.installProgressLabel = String(event?.message || event?.stage || 'Installiere...');
+    const baseLabel = String(event?.message || event?.stage || 'Installiere...');
+    this.installProgressLabel = `${baseLabel}${this.progressDetailsSuffix(event)}`;
     const operation = String(event?.operation || '').trim();
     const distro = String(event?.distro || '').trim();
     const prefix = operation === 'distro'
@@ -441,6 +442,30 @@ export class MobileShellComponent implements OnDestroy, OnInit {
       if (event.stage === 'error') this.installProgressPercent = -1;
       this.refreshProotRuntimeStatus().catch(() => undefined);
     }
+  }
+
+  private progressDetailsSuffix(event: ProotInstallProgressEvent): string {
+    const downloaded = Number(event?.downloadedBytes);
+    const total = Number(event?.totalBytes);
+    if (Number.isFinite(total) && total > 0 && Number.isFinite(downloaded) && downloaded >= 0) {
+      return ` (${this.formatBytes(downloaded)} / ${this.formatBytes(total)})`;
+    }
+    if (Number.isFinite(downloaded) && downloaded > 0) {
+      return ` (${this.formatBytes(downloaded)} geladen)`;
+    }
+    return '';
+  }
+
+  private formatBytes(bytes: number): string {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let value = Math.max(0, Number(bytes) || 0);
+    let unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+    const decimals = value >= 100 || unitIndex === 0 ? 0 : 1;
+    return `${value.toFixed(decimals)} ${units[unitIndex]}`;
   }
 
   clearOutput(): void {
