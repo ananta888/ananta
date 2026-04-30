@@ -1,6 +1,7 @@
 package com.ananta.mobile.python;
 
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -195,7 +196,14 @@ public class PythonRuntimePlugin extends Plugin {
         worker.execute(() -> {
             try {
                 File workingDir = resolveShellWorkingDirectory(selectedCwd);
-                ProcessBuilder builder = new ProcessBuilder(selectedShell);
+                ProcessBuilder builder;
+                if (!selectedInitialCommand.isEmpty()) {
+                    // Use -c to pass the command as argument instead of writing to stdin.
+                    // This matches executeShellCommand behavior where proot works correctly.
+                    builder = new ProcessBuilder("/system/bin/sh", "-c", selectedInitialCommand);
+                } else {
+                    builder = new ProcessBuilder(selectedShell);
+                }
                 builder.directory(workingDir);
                 applyShellEnvironment(builder, workingDir);
                 Process process = builder.redirectErrorStream(true).start();
@@ -203,9 +211,6 @@ public class PythonRuntimePlugin extends Plugin {
                 String sessionId = UUID.randomUUID().toString();
                 shellSessions.put(sessionId, session);
                 session.startReaderThread();
-                if (!selectedInitialCommand.isEmpty()) {
-                    session.write(selectedInitialCommand + "\n");
-                }
 
                 JSObject result = new JSObject();
                 result.put("sessionId", sessionId);
@@ -689,10 +694,69 @@ public class PythonRuntimePlugin extends Plugin {
         String existingPath = String.valueOf(env.getOrDefault("PATH", ""));
         env.put("PATH", prootBin.getAbsolutePath() + (existingPath.isEmpty() ? "" : ":" + existingPath));
         env.putIfAbsent("TERM", "xterm-256color");
+        env.put("PROOT_FORCE_KOMPAT", "1");
+        env.put("GLIBC_TUNABLES", "glibc.pthread.rseq=0");
+        File prootTmp = new File(runtimeRoot, "tmp");
+        if (!prootTmp.exists()) prootTmp.mkdirs();
+        env.put("PROOT_TMP_DIR", prootTmp.getAbsolutePath());
+        // Resolve proot-loader from APK native libs — required for execve under untrusted_app SELinux domain
+        String prootLoaderPath = resolveNativeLibPath("libproot-loader.so");
+        if (prootLoaderPath != null) {
+            env.put("PROOT_LOADER", prootLoaderPath);
+        }
+        ensureProotLoaderSymlink();
+        // libtalloc.so is needed by Termux-forked proot; ensure it's findable
+        String nativeLibDir = resolveNativeLibPath("libprootclassic.so");
+        if (nativeLibDir != null) {
+            String nativeDir = new File(nativeLibDir).getParent();
+            String ldPath = env.getOrDefault("LD_LIBRARY_PATH", "");
+            if (ldPath.isEmpty()) {
+                env.put("LD_LIBRARY_PATH", nativeDir);
+            } else if (!ldPath.contains(nativeDir)) {
+                env.put("LD_LIBRARY_PATH", nativeDir + ":" + ldPath);
+            }
+        }
     }
 
     private File runtimeRootDir() {
         return new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR);
+    }
+
+    private String resolveNativeLibPath(String libName) {
+        Context context = getContext();
+        if (context == null) return null;
+        ApplicationInfo appInfo = context.getApplicationInfo();
+        if (appInfo == null || appInfo.nativeLibraryDir == null) return null;
+        File lib = new File(appInfo.nativeLibraryDir, libName);
+        return lib.isFile() ? lib.getAbsolutePath() : null;
+    }
+
+    /**
+     * Ensures a symlink at /data/data/com.ananta.mobile/ldr/<libName> pointing
+     * to the actual native lib in the APK directory. Required because proot
+     * has a hardcoded loader path that must resolve at runtime.
+     */
+    private void ensureProotLoaderSymlink() {
+        Context context = getContext();
+        if (context == null) return;
+        try {
+            String loaderSrc = resolveNativeLibPath("libproot-loader.so");
+            if (loaderSrc == null) return;
+            File ldrDir = new File(context.getDataDir(), "ldr");
+            if (!ldrDir.exists()) ldrDir.mkdirs();
+            File symlinkFile = new File(ldrDir, "libproot-loader.so");
+            Path symlinkPath = symlinkFile.toPath();
+            if (Files.isSymbolicLink(symlinkPath)) {
+                String existing = Files.readSymbolicLink(symlinkPath).toString();
+                if (existing.equals(loaderSrc)) return;
+                Files.delete(symlinkPath);
+            } else if (symlinkFile.exists()) {
+                symlinkFile.delete();
+            }
+            Files.createSymbolicLink(symlinkPath, Paths.get(loaderSrc));
+        } catch (Exception e) {
+            // Loader symlink creation failed — proot will fall back to embedded loader
+        }
     }
 
     private File ensureDir(File parent, String child) throws IOException {
