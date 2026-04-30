@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/blender/blender_capabilities.v1.json",
+  "type": "object",
+  "required": [
+    "capabilities"
+  ],
+  "properties": {
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "class",
+          "approval_required"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string",
+            "enum": [
+              "read",
+              "mutate",
+              "script",
+              "export",
+              "render"
+            ]
+          },
+          "approval_required": {
+            "type": "boolean"
+          },
+          "default_deny": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

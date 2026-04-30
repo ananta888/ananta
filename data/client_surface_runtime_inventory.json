@@ -195,6 +195,26 @@
           ".github/workflows/quality-and-docs.yml"
         ]
       }
+    },
+    {
+      "surface": "blender",
+      "classification": "foundation_only",
+      "delivery_status": "runtime_mvp_foundation",
+      "decision": "addon_bridge_and_smoke_present_policy_smoke_required_for_higher_claims",
+      "evidence": {
+        "foundation": [
+          "client_surfaces/blender/addon/__init__.py",
+          "client_surfaces/blender/bridge/ananta_blender_bridge.py"
+        ],
+        "docs": [
+          "docs/integrations/blender/scope.md",
+          "docs/integrations/blender/threat_model.md"
+        ],
+        "runtime": [
+          "scripts/run_blender_smoke_checks.py",
+          "client_surfaces/blender/tests/smoke_blender_addon_load.py"
+        ]
+      }
     }
   ],
   "gap_summary": {

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/blender/blender_action_plan.v1.json",
+  "type": "object",
+  "required": [
+    "plan_id",
+    "capability",
+    "operations",
+    "approval_state",
+    "provenance"
+  ],
+  "properties": {
+    "plan_id": {
+      "type": "string"
+    },
+    "capability": {
+      "type": "string"
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "script": {
+      "type": "string"
+    },
+    "approval_state": {
+      "type": "string"
+    },
+    "provenance": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}
