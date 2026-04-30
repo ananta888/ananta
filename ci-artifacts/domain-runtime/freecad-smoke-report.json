@@ -1,0 +1,37 @@
+{
+  "schema": "freecad_runtime_smoke_report_v1",
+  "domain_id": "freecad",
+  "ok": true,
+  "checks": [
+    {
+      "check_id": "file_exists:client_surfaces/freecad/workbench/InitGui.py",
+      "ok": true,
+      "detail": "found"
+    },
+    {
+      "check_id": "file_exists:client_surfaces/freecad/bridge/ananta_freecad_bridge.py",
+      "ok": true,
+      "detail": "found"
+    },
+    {
+      "check_id": "workbench_contract",
+      "ok": true,
+      "detail": {
+        "has_workbench": true,
+        "has_initialize": true,
+        "has_class_name": true
+      }
+    },
+    {
+      "check_id": "bridge_envelope_contract",
+      "ok": true,
+      "detail": {
+        "errors": []
+      }
+    }
+  ],
+  "required_runtime_files": [
+    "client_surfaces/freecad/workbench/InitGui.py",
+    "client_surfaces/freecad/bridge/ananta_freecad_bridge.py"
+  ]
+}

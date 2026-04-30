@@ -1,25 +1,48 @@
 {
   "schema": "domain_descriptor.v1",
   "domain_id": "freecad",
-  "display_name": "FreeCAD Foundation Domain",
-  "version": "1.0.0",
-  "lifecycle_status": "planned",
-  "runtime_status": "descriptor_only",
+  "display_name": "FreeCAD Runtime Domain",
+  "version": "1.1.0",
+  "lifecycle_status": "runtime_mvp",
+  "runtime_status": "runtime_available",
   "owner": "ananta",
-  "description": "Planned FreeCAD domain baseline for strict CAD correctness, approval and audit readiness.",
-  "supported_clients": ["bridge", "cli", "tui", "web"],
+  "description": "FreeCAD runtime surface for bounded context capture, approval-aware planning and hub-routed execution.",
+  "supported_clients": ["bridge", "cli", "tui", "web", "api"],
   "source_paths": {
     "descriptor_root": "domains/freecad",
-    "code_paths": [],
-    "docs_paths": ["docs/architecture/domain_integration_foundation.md"]
+    "code_paths": [
+      "client_surfaces/freecad/workbench",
+      "client_surfaces/freecad/bridge",
+      "agent/services/freecad_model_inspection_service.py",
+      "agent/services/freecad_export_plan_service.py",
+      "agent/services/freecad_macro_planning_service.py",
+      "agent/services/freecad_macro_execution_service.py"
+    ],
+    "docs_paths": [
+      "docs/integrations/freecad/README.md",
+      "docs/integrations/freecad/install.md",
+      "docs/integrations/freecad/usage.md"
+    ]
   },
   "capability_pack": "domains/freecad/capabilities.json",
-  "context_schemas": [],
-  "artifact_schemas": [],
-  "policy_packs": [],
-  "rag_profiles": [],
-  "bridge_adapter_type": "none",
+  "context_schemas": [
+    "domains/freecad/schemas/context.v1.json"
+  ],
+  "artifact_schemas": [
+    "domains/freecad/schemas/audit_event.v1.json",
+    "domains/freecad/schemas/verification_artifact.v1.json"
+  ],
+  "policy_packs": [
+    "domains/freecad/policies/policy.v1.json"
+  ],
+  "rag_profiles": [
+    "domains/freecad/rag_sources/freecad_api_docs.profile.json",
+    "domains/freecad/rag_sources/freecad_source.profile.json",
+    "domains/freecad/rag_sources/freecad_macro_examples.profile.json"
+  ],
+  "bridge_adapter_type": "freecad_workbench_bridge",
   "extensions": {
-    "runtime_claim": "descriptor_only"
+    "runtime_claim": "runtime_mvp",
+    "surface_root": "client_surfaces/freecad"
   }
 }

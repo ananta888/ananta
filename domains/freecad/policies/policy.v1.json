@@ -1,0 +1,44 @@
+{
+  "schema": "policy_pack.v1",
+  "domain_id": "freecad",
+  "version": "1.0.0",
+  "default_decision": "default_deny",
+  "rules": [
+    {
+      "capability_id": "freecad.document.read",
+      "action_id": "capture_context",
+      "decision": "allow",
+      "reason": "Bounded document capture is read-only."
+    },
+    {
+      "capability_id": "freecad.model.inspect",
+      "action_id": "inspect_model",
+      "decision": "allow",
+      "reason": "Inspection remains read-only and hub-routed."
+    },
+    {
+      "capability_id": "freecad.export.plan",
+      "action_id": "preview_export_plan",
+      "decision": "allow",
+      "reason": "Export planning is non-executing."
+    },
+    {
+      "capability_id": "freecad.macro.plan",
+      "action_id": "preview_macro_plan",
+      "decision": "allow",
+      "reason": "Macro planning stays dry-run only."
+    },
+    {
+      "capability_id": "freecad.model.mutate",
+      "action_id": "apply_model_mutation",
+      "decision": "approval_required",
+      "reason": "Model mutation must stay approval-gated."
+    },
+    {
+      "capability_id": "freecad.macro.execute",
+      "action_id": "execute_macro",
+      "decision": "approval_required",
+      "reason": "Macro execution requires explicit approval binding."
+    }
+  ]
+}

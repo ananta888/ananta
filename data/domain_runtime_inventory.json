@@ -41,13 +41,23 @@
     },
     {
       "domain_id": "freecad",
-      "inventory_status": "planned",
+      "inventory_status": "runtime_mvp",
       "descriptor_path": "domains/freecad/domain.json",
-      "required_runtime_files": [],
-      "smoke_commands": [],
-      "runtime_evidence_refs": [],
+      "required_runtime_files": [
+        "client_surfaces/freecad/workbench/InitGui.py",
+        "client_surfaces/freecad/workbench/ananta_freecad_workbench.py",
+        "client_surfaces/freecad/bridge/ananta_freecad_bridge.py",
+        "scripts/run_freecad_smoke_checks.py"
+      ],
+      "smoke_commands": [
+        "python scripts/run_freecad_smoke_checks.py --report-out ci-artifacts/domain-runtime/freecad-smoke-report.json"
+      ],
+      "runtime_evidence_refs": [
+        "ci-artifacts/domain-runtime/freecad-smoke-report.json"
+      ],
       "notes": [
-        "Planned-only baseline: runtime_mvp promotion requires smoke commands, runtime evidence refs and explicit policy packs."
+        "Runtime MVP claim is limited to bounded context capture, hub-routed planning and approval-gated execution envelope validation.",
+        "This claim does not imply autonomous local macro execution or a production-ready FreeCAD addon manager package."
       ]
     },
     {
@@ -63,9 +73,9 @@
     }
   ],
   "status_counters": {
-    "planned": 2,
+    "planned": 1,
     "foundation_only": 2,
-    "runtime_mvp": 0,
+    "runtime_mvp": 1,
     "runtime_complete": 0,
     "deferred": 0,
     "blocked": 0
