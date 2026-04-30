@@ -628,7 +628,7 @@ public class PythonRuntimePlugin extends Plugin {
 
     private ShellExecutionResult executeShellCommand(String command, int timeoutSeconds) throws Exception {
         File workingDir = resolveShellWorkingDirectory("");
-        ProcessBuilder builder = new ProcessBuilder("sh", "-lc", command);
+        ProcessBuilder builder = new ProcessBuilder("/system/bin/sh", "-lc", command);
         builder.directory(workingDir);
         applyShellEnvironment(builder, workingDir);
         Process process = builder
