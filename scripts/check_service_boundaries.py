@@ -11,6 +11,7 @@ ALLOWED_SERVICE_TO_ROUTE_IMPORTS = {
     ("agent.services.autopilot_runtime_service", "agent.routes.tasks.autopilot"),
     ("agent.services.planning_service", "agent.routes.tasks.dependency_policy"),
     ("agent.services.task_claim_service", "agent.routes.tasks.orchestration_policy"),
+    ("agent.services.task_delegation_services", "agent.routes.tasks.orchestration_policy"),
     ("agent.services.task_management_service", "agent.routes.tasks.dependency_policy"),
     ("agent.services.task_management_service", "agent.routes.tasks.orchestration_policy"),
     ("agent.services.task_orchestration_service", "agent.routes.tasks.orchestration_policy"),

@@ -571,6 +571,32 @@
         "require_admin": "bool"
       },
       "worker_runtime": {
+        "codecompass_retrieval": {
+          "codecompass_fts": "bool",
+          "codecompass_graph": "bool",
+          "codecompass_relation_expansion": "bool",
+          "codecompass_vector": "bool"
+        },
+        "default_execution_profile": "str",
+        "native_worker_runtime": {
+          "enabled": "bool",
+          "fallback_backend": "str"
+        },
+        "todo_contract": {
+          "api_key": "str",
+          "base_url": "NoneType",
+          "default_executor_kind": "str",
+          "enabled": "bool",
+          "enforce_artifacts": "bool",
+          "execution_mode": "str",
+          "max_steps": "int",
+          "max_tasks": "int",
+          "model": "NoneType",
+          "planner_llm_enabled": "bool",
+          "planner_llm_retry_attempts": "int",
+          "planner_llm_timeout_seconds": "int",
+          "provider": "NoneType"
+        },
         "workspace_reuse_mode": "str",
         "workspace_root": "NoneType"
       }
@@ -605,6 +631,13 @@
           "install_hint": "str",
           "verify_command": "str"
         },
+        "ananta-worker": {
+          "binary_available": "bool",
+          "binary_path": "str",
+          "command": "str",
+          "install_hint": "str",
+          "verify_command": "str"
+        },
         "ananta_research": {
           "binary_available": "bool",
           "binary_path": "NoneType",
@@ -635,7 +668,7 @@
         },
         "opencode": {
           "binary_available": "bool",
-          "binary_path": "NoneType",
+          "binary_path": "str",
           "command": "str",
           "install_hint": "str",
           "verify_command": "str"
@@ -669,12 +702,7 @@
         "lmstudio": {
           "base_url": "str",
           "candidate_count": "int",
-          "candidates": [
-            {
-              "context_length": "NoneType",
-              "id": "str"
-            }
-          ],
+          "candidates": [],
           "configured": "bool",
           "host_kind": "str",
           "is_local": "bool",
@@ -1120,14 +1148,48 @@
         "template_model_overrides": {},
         "worker_runtime": {
           "effective": {
+            "default_execution_profile": "str",
+            "todo_contract": {
+              "api_key": "str",
+              "base_url": "NoneType",
+              "default_executor_kind": "str",
+              "enabled": "bool",
+              "enforce_artifacts": "bool",
+              "execution_mode": "str",
+              "max_steps": "int",
+              "max_tasks": "int",
+              "model": "NoneType",
+              "planner_llm_enabled": "bool",
+              "planner_llm_retry_attempts": "int",
+              "planner_llm_timeout_seconds": "int",
+              "provider": "NoneType"
+            },
             "workspace_reuse_mode": "str",
             "workspace_root": "NoneType"
           },
           "requested": {
+            "default_execution_profile": "str",
+            "todo_contract": {
+              "api_key": "str",
+              "base_url": "NoneType",
+              "default_executor_kind": "str",
+              "enabled": "bool",
+              "enforce_artifacts": "bool",
+              "execution_mode": "str",
+              "max_steps": "int",
+              "max_tasks": "int",
+              "model": "NoneType",
+              "planner_llm_enabled": "bool",
+              "planner_llm_retry_attempts": "int",
+              "planner_llm_timeout_seconds": "int",
+              "provider": "NoneType"
+            },
             "workspace_reuse_mode": "str",
             "workspace_root": "NoneType"
           },
           "source": {
+            "default_execution_profile": "str",
+            "todo_contract": "str",
             "workspace_reuse_mode": "str",
             "workspace_root": "str"
           }

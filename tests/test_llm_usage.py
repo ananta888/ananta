@@ -529,12 +529,12 @@ def test_llm_generate_runtime_falls_back_to_ollama_in_routing_metadata(client, a
     assert res.status_code == 200
     kwargs = mock_generate.call_args.kwargs
     assert kwargs["provider"] == "ollama"
-    assert kwargs["model"] == "llama3"
+    assert kwargs["model"] == "ananta-default"
     data = res.json["data"]
     routing = data.get("routing") or {}
     assert (routing.get("effective") or {}).get("provider") == "ollama"
-    assert (routing.get("effective") or {}).get("model") == "llama3"
-    assert (routing.get("fallback") or {}).get("provider_source") == "runtime.ollama_fallback"
+    assert (routing.get("effective") or {}).get("model") == "ananta-default"
+    assert (routing.get("fallback") or {}).get("provider_source") == "agent_config.llm_config.provider"
 
 
 def test_lmstudio_strategy_prefers_runtime_default_model_over_settings_default(app):

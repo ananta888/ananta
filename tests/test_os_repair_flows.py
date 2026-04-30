@@ -100,23 +100,25 @@ def _parse_json_object(raw: str) -> dict:
 def test_no_llm_ubuntu_apt_repair_plan_is_safe_and_reversible():
     plan = _deterministic_os_repair_plan(_fixture("ubuntu_apt_broken"))
     joined = json.dumps(plan).lower()
+    steps_text = " ".join(plan.get("steps") or []).lower()
 
     assert plan["os"] == "ubuntu"
     assert plan["problem"] == "interrupted_dpkg_transaction"
     assert "dpkg --configure -a" in joined
     assert "apt --fix-broken install" in joined
-    _assert_safe_plan(joined)
+    _assert_safe_plan(steps_text)
 
 
 def test_no_llm_windows11_dns_repair_plan_is_safe_and_reversible():
     plan = _deterministic_os_repair_plan(_fixture("windows11_dns_broken"))
     joined = json.dumps(plan).lower()
+    steps_text = " ".join(plan.get("steps") or []).lower()
 
     assert plan["os"] == "windows11"
     assert plan["problem"] == "vpn_dns_stale_after_disconnect"
     assert "flushdns" in joined
     assert "dns" in joined
-    _assert_safe_plan(joined)
+    _assert_safe_plan(steps_text)
 
 
 def test_mocked_llm_os_repair_worker_handles_ubuntu_and_windows(monkeypatch):

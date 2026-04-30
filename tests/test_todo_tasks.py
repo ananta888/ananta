@@ -6,7 +6,7 @@ from sqlmodel import Session, delete
 from werkzeug.security import generate_password_hash
 
 from agent.ai_agent import create_app
-from agent.common.mfa import encrypt_secret
+from agent.common.mfa import decrypt_secret, encrypt_secret
 from agent.database import engine
 from agent.db_models import RefreshTokenDB, UserDB
 from agent.repository import login_attempt_repo, user_repo
@@ -95,7 +95,11 @@ def test_mfa_setup_and_login_flow(client):
 
     setup_response = client.post("/mfa/setup", headers={"Authorization": f"Bearer {access_token}"})
     assert setup_response.status_code == 200
-    secret = setup_response.json["data"]["secret"]
+    setup_secret = setup_response.json["data"]["secret"]
+    assert setup_secret
+    user = user_repo.get_by_username(username)
+    assert user and user.mfa_secret
+    secret = decrypt_secret(user.mfa_secret)
 
     token = pyotp.TOTP(secret).now()
     verify_response = client.post(

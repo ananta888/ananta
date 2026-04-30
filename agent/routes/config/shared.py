@@ -16,6 +16,7 @@ from agent.llm_benchmarks import (
 from agent.llm_integration import _list_lmstudio_candidates
 from agent.local_llm_backends import resolve_local_openai_backend
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config, resolve_context_bundle_policy
+from agent.services.ml_intern_spike_config_service import normalize_ml_intern_spike_config as _normalize_ml_intern_spike_config
 from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 
 _LMSTUDIO_CATALOG_CACHE: dict[str, dict] = {}
@@ -46,6 +47,10 @@ _SPECIALIZED_PROFILE_CAPABILITY_CLASSES = {
     "ml_research",
     "dataset_ops",
 }
+
+
+def normalize_ml_intern_spike_config(value: dict | None) -> dict:
+    return _normalize_ml_intern_spike_config(value)
 
 
 def normalize_artifact_flow_config(value: dict | None) -> dict:
