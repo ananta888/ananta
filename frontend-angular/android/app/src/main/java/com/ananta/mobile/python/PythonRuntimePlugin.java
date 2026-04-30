@@ -704,6 +704,18 @@ public class PythonRuntimePlugin extends Plugin {
         if (prootLoaderPath != null) {
             env.put("PROOT_LOADER", prootLoaderPath);
         }
+        ensureProotLoaderSymlink();
+        // libtalloc.so is needed by Termux-forked proot; ensure it's findable
+        String nativeLibDir = resolveNativeLibPath("libprootclassic.so");
+        if (nativeLibDir != null) {
+            String nativeDir = new File(nativeLibDir).getParent();
+            String ldPath = env.getOrDefault("LD_LIBRARY_PATH", "");
+            if (ldPath.isEmpty()) {
+                env.put("LD_LIBRARY_PATH", nativeDir);
+            } else if (!ldPath.contains(nativeDir)) {
+                env.put("LD_LIBRARY_PATH", nativeDir + ":" + ldPath);
+            }
+        }
     }
 
     private File runtimeRootDir() {
@@ -717,6 +729,34 @@ public class PythonRuntimePlugin extends Plugin {
         if (appInfo == null || appInfo.nativeLibraryDir == null) return null;
         File lib = new File(appInfo.nativeLibraryDir, libName);
         return lib.isFile() ? lib.getAbsolutePath() : null;
+    }
+
+    /**
+     * Ensures a symlink at /data/data/com.ananta.mobile/ldr/<libName> pointing
+     * to the actual native lib in the APK directory. Required because proot
+     * has a hardcoded loader path that must resolve at runtime.
+     */
+    private void ensureProotLoaderSymlink() {
+        Context context = getContext();
+        if (context == null) return;
+        try {
+            String loaderSrc = resolveNativeLibPath("libproot-loader.so");
+            if (loaderSrc == null) return;
+            File ldrDir = new File(context.getDataDir(), "ldr");
+            if (!ldrDir.exists()) ldrDir.mkdirs();
+            File symlinkFile = new File(ldrDir, "libproot-loader.so");
+            Path symlinkPath = symlinkFile.toPath();
+            if (Files.isSymbolicLink(symlinkPath)) {
+                String existing = Files.readSymbolicLink(symlinkPath).toString();
+                if (existing.equals(loaderSrc)) return;
+                Files.delete(symlinkPath);
+            } else if (symlinkFile.exists()) {
+                symlinkFile.delete();
+            }
+            Files.createSymbolicLink(symlinkPath, Paths.get(loaderSrc));
+        } catch (Exception e) {
+            // Loader symlink creation failed — proot will fall back to embedded loader
+        }
     }
 
     private File ensureDir(File parent, String child) throws IOException {
