@@ -1,5 +1,5 @@
 Artefakt-Kontext:
-- Artifact 1f2be9ab-ec5b-4c33-bd4c-a209e331dc28 (README.md):
+- Artifact 116277a5-5d95-4981-a50a-ac47109f8285 (README.md):
 # Hello
 artifact body
 
@@ -10,6 +10,10 @@ Knowledge-Kontext:
 Repo-Kontext:
 - Repo-Scope README.md: file
 # Ananta
+
+[![Quality And Docs](https://github.com/ananta888/ananta/actions/workflows/quality-and-docs.yml/badge.svg)](https://github.com/ananta888/ananta/actions/workflows/quality-and-docs.yml)
+[![Backend Isolated Flows](https://github.com/ananta888/ananta/actions/workflows/backend-isolated-flows.yml/badge.svg)](https://github.com/ananta888/ananta/actions/workflows/backend-isolated-flows.yml)
+[![Live LLM Smoke](https://github.com/ananta888/ananta/actions/workflows/live-llm-smoke.yml/badge.svg)](https://github.com/ananta888/ananta/actions/workflows/live-llm-smoke.yml)
 
 Ananta ist eine kontrollierte Hub-Worker-Plattform fuer goal-basierte Agentenarbeit. Du beschreibst ein Ziel; der Hub plant, priorisiert und delegiert Aufgaben, Worker fuehren die Arbeit in getrennten Laufzeitkontexten aus, und Ergebnisse werden ueber Pruefung und Artefakte nachvollziehbar gemacht.
 
@@ -45,16 +49,4 @@ Ananta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwend
 - Change Review (Risiken, Tests, Governance)
 - Gefuehrte Goal-Erstellung fuer Erstnutzer
 - Neues Softwareprojekt anlegen
-- Existierendes Softwareprojekt weiterentwickeln
-- Research-gestuetzte Projektweiterentwicklung mit DeerFlow und Evolver
-
-Details: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-flows.md`, inklusive des offiziellen DeerFlow+Evolver-Standardpfads. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`.
-
-## Schnellstart in 5 Minuten
-
-### A) CLI-first ohne Docker (lokal)
-
-Wenn du primar die CLI nutzen willst, brauchst du keinen Docker-Stack:
-
-```bash
-ananta init --yes --runtime-mode local-dev --llm-backend ollama --mo...
+- Existierend...

@@ -9,9 +9,9 @@ def test_playwright_config_keeps_structured_failure_artifacts_enabled():
 
     assert "['junit', { outputFile: 'test-results/junit-results.xml' }]" in config
     assert "['json', { outputFile: 'test-results/results.json' }]" in config
-    assert "trace: 'on-first-retry'" in config
-    assert "screenshot: 'only-on-failure'" in config
-    assert "video: 'retain-on-failure'" in config
+    assert "trace: retainEvidenceArtifacts ? 'on' : 'on-first-retry'" in config
+    assert "screenshot: retainEvidenceArtifacts ? 'on' : 'only-on-failure'" in config
+    assert "video: retainEvidenceArtifacts ? 'on' : 'retain-on-failure'" in config
 
 
 def test_e2e_failure_summary_includes_project_status_retry_and_sanitized_error_context():

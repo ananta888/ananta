@@ -483,6 +483,30 @@
           "default": null,
           "title": "Max Hops"
         },
+        "policy_classification_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Policy Classification Summary"
+        },
+        "profile_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Profile Source"
+        },
         "reason": {
           "anyOf": [
             {
@@ -590,6 +614,30 @@
           ],
           "default": null,
           "title": "Task Kind"
+        },
+        "worker_profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Worker Profile"
+        },
+        "worker_runtime_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Worker Runtime Path"
         }
       },
       "title": "TaskRoutingContract",

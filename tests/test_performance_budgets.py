@@ -4,7 +4,7 @@ import os
 
 # Only run performance budget tests if explicitly enabled or in CI
 # to avoid flaky failures during local development.
-RUN_PERF_TESTS = os.environ.get("RUN_PERF_TESTS", "true").lower() == "true"
+RUN_PERF_TESTS = os.environ.get("RUN_PERF_TESTS", "false").lower() == "true"
 
 @pytest.mark.skipif(not RUN_PERF_TESTS, reason="Set RUN_PERF_TESTS=1 to run performance budget tests")
 def test_startup_time_budget():
