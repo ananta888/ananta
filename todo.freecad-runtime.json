@@ -1,0 +1,583 @@
+{
+  "version": 2,
+  "owner": "ananta",
+  "track": "freecad_control_surface_runtime",
+  "purpose": "Detaillierter Umsetzungsplan fuer den echten FreeCAD-Client-Surface, inklusive Workbench/Add-on, Hub-Anbindung, bounded context capture, Approval-UX, kontrollierter Makro-Ausfuehrung und belastbarer Smoke-Evidence.",
+  "goal": "Aus der bereits vorhandenen FreeCAD-Foundation einen realen, testbaren FreeCAD-Control-Surface machen, ohne Hub-Ownership, Policy, Approval oder Audit in den Client zu verlagern.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "cross_track_references": [
+    "todo.json",
+    "domains/freecad/domain.json",
+    "domains/freecad/capabilities.json",
+    "docs/architecture/domain_integration_foundation.md",
+    "docs/architecture/creative_cad_eda_domain_taxonomy.md"
+  ],
+  "design_principles": [
+    "FreeCAD bleibt ein duennes Client-/Workbench-Surface; Hub bleibt Owner von Policy, Approval, Audit, Task-State und Orchestrierung.",
+    "Makros und Modellmutationen sind default-deny oder approval-gated.",
+    "Erster produktiver Fokus liegt auf Inspektion, Export-Planung und Dry-Run-Makroplanung statt unkontrollierter Mutation.",
+    "Kontext bleibt bounded, provenance-markiert und redaktionsfaehig.",
+    "Runtime-Claims duerfen nur mit reproduzierbarer Smoke-Evidence angehoben werden."
+  ],
+  "non_goals": [
+    "Kein autonomer FreeCAD-Agent im Client.",
+    "Keine unkontrollierte Makro-Ausfuehrung aus LLM-Output.",
+    "Kein direkter Bypass von Hub-Approval fuer Dateischreiben oder Modellmutation.",
+    "Keine Vermischung mit Blender-, KiCad- oder allgemeiner CAD/EDA-UX in diesem Track."
+  ],
+  "milestones": [
+    {
+      "id": "FCR-M1",
+      "title": "Foundation uebernehmen",
+      "task_ids": [
+        "FCR-T01",
+        "FCR-T02",
+        "FCR-T03",
+        "FCR-T04",
+        "FCR-T05"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "FCR-M2",
+      "title": "Workbench Skeleton und Verbindung",
+      "task_ids": [
+        "FCR-T06",
+        "FCR-T07",
+        "FCR-T08"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "FCR-M3",
+      "title": "Kontext und Goal UX",
+      "task_ids": [
+        "FCR-T09",
+        "FCR-T10",
+        "FCR-T11",
+        "FCR-T12"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "FCR-M4",
+      "title": "Tasks, Artifacts und Approvals",
+      "task_ids": [
+        "FCR-T13",
+        "FCR-T14",
+        "FCR-T15"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "FCR-M5",
+      "title": "Planung und kontrollierte Ausfuehrung",
+      "task_ids": [
+        "FCR-T16",
+        "FCR-T17",
+        "FCR-T18",
+        "FCR-T19"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "FCR-M6",
+      "title": "Tests und Runtime-Evidence",
+      "task_ids": [
+        "FCR-T20",
+        "FCR-T21",
+        "FCR-T22",
+        "FCR-T23"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "FCR-M7",
+      "title": "Doku und Release-Reife",
+      "task_ids": [
+        "FCR-T24"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FCR-T01",
+      "title": "FreeCAD Context Schema als Runtime-Vorbedingung uebernehmen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Der Runtime-Track verweist auf `schemas/freecad/freecad_context.v1.json` als kanonisches bounded-context-Schema.",
+        "Contract-Tests fuer den Kontext sind vorhanden.",
+        "Die Runtime muss dieses Schema verwenden statt einen eigenen Payload-Shape einzufuehren."
+      ]
+    },
+    {
+      "id": "FCR-T02",
+      "title": "FreeCAD RAG Source Profiles uebernehmen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "API-Doku-, Source- und Makro-Beispiel-Profile unter `reference_sources/freecad/` bleiben die einzige vorgesehene Ingestion-Basis.",
+        "Runtime-Konzept setzt auf diese Profile auf und fuehrt keine ad-hoc Client-Dokumentenladung ein."
+      ]
+    },
+    {
+      "id": "FCR-T03",
+      "title": "FreeCAD Policy Pack als Default-Deny Basis uebernehmen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "`policies/freecad_policy.v1.json` klassifiziert Read/Plan/Mutate/Macro korrekt.",
+        "Makro-Ausfuehrung bleibt default-deny oder approval-gated.",
+        "Runtime-UI muss die Policy-Entscheidungen sichtbar machen."
+      ]
+    },
+    {
+      "id": "FCR-T04",
+      "title": "Inspection, Export- und Macro-Planning Services uebernehmen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Die bestehenden Service-Bausteine unter `agent/services/freecad_*` werden als Hub-seitige Runtime-Basis genutzt.",
+        "Es existiert keine zweite Planungsschicht im Client."
+      ]
+    },
+    {
+      "id": "FCR-T05",
+      "title": "Audit- und Verification-Schemas uebernehmen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Audit- und Verification-Artefakte fuer FreeCAD sind vorhanden und testbar.",
+        "Runtime-Track nutzt diese Artefakte fuer Smoke- und Review-Evidence."
+      ]
+    },
+    {
+      "id": "FCR-T06",
+      "title": "FreeCAD Workbench/Add-on Skeleton anlegen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "FCR-T01",
+        "FCR-T03"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/Init.py",
+        "client_surfaces/freecad/workbench/InitGui.py",
+        "client_surfaces/freecad/workbench/ananta_freecad_workbench.py"
+      ],
+      "acceptance_criteria": [
+        "Es gibt eine echte FreeCAD-Workbench-Struktur statt nur Backend/Foundation-Dateien.",
+        "Der Einstiegspunkt registriert Workbench, Commands und UI-Surface sauber.",
+        "Der Code bleibt duenn und lagert Logik in klar getrennte Module aus."
+      ]
+    },
+    {
+      "id": "FCR-T07",
+      "title": "Endpoint-, Profile- und Auth-Settings fuer FreeCAD-Client bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "FCR-T06"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/settings.py",
+        "client_surfaces/freecad/workbench/client.py"
+      ],
+      "acceptance_criteria": [
+        "FreeCAD-Client kann Endpoint, Profile und Token referenzieren.",
+        "Secrets werden nicht in Klartext geloggt.",
+        "Fehlende oder ungueltige Konfiguration fuehrt zu klaren degraded states."
+      ]
+    },
+    {
+      "id": "FCR-T08",
+      "title": "Health- und Capability-Check fuer FreeCAD-Client implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "FCR-T07"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/health.py"
+      ],
+      "acceptance_criteria": [
+        "Client kann Hub-Health und FreeCAD-Capabilities laden.",
+        "UI unterscheidet connected, degraded, unauthorized und policy-limited.",
+        "Capabilities werden nicht lokal erfunden, sondern vom Hub gespiegelt."
+      ]
+    },
+    {
+      "id": "FCR-T09",
+      "title": "FreeCAD Document/Selection Context Adapter implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "FCR-T06",
+        "FCR-T08"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/context.py"
+      ],
+      "acceptance_criteria": [
+        "Der Adapter mappt FreeCAD-Dokumentdaten in das kanonische Context-Schema.",
+        "Objekte, Selektion und einfache Kennzahlen werden bounded erfasst.",
+        "Der Adapter liest keine unnoetigen lokalen Dateien ein."
+      ]
+    },
+    {
+      "id": "FCR-T10",
+      "title": "Bounded Context Preview und User-Consent UI bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "FCR-T09"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/context_preview.py"
+      ],
+      "acceptance_criteria": [
+        "User sieht vor Goal-Submit, was gesendet wird und was nicht.",
+        "Oversized oder sensible Felder koennen sichtbar markiert werden.",
+        "Detailed context expansion bleibt explizit und user-initiiert."
+      ]
+    },
+    {
+      "id": "FCR-T11",
+      "title": "Goal Submission Command fuer FreeCAD bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "FCR-T10"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/commands.py"
+      ],
+      "acceptance_criteria": [
+        "FreeCAD-User kann bounded context plus Zieltext an den Hub schicken.",
+        "Es wird kein lokaler Plan im Client erzeugt.",
+        "Antworten werden als structured accepted/degraded/policy-denied verarbeitet."
+      ]
+    },
+    {
+      "id": "FCR-T12",
+      "title": "Inspection-Result UX fuer Modellanalyse aufbauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "FCR-T09",
+        "FCR-T11"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/inspection_panel.py"
+      ],
+      "acceptance_criteria": [
+        "Read-only Analyseergebnisse werden in FreeCAD verstaendlich angezeigt.",
+        "Warnungen und Modellbefunde werden nicht als sichere Mutation missverstanden."
+      ]
+    },
+    {
+      "id": "FCR-T13",
+      "title": "Task- und Artifact-Read-Models in FreeCAD anzeigen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "FCR-T11"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/tasks.py",
+        "client_surfaces/freecad/workbench/artifacts.py"
+      ],
+      "acceptance_criteria": [
+        "FreeCAD-UI kann Tasks, Artefakte und degradierte Antworten lesen und darstellen.",
+        "Leere und fehlerhafte Antworten erzeugen klare Zustandsanzeigen."
+      ]
+    },
+    {
+      "id": "FCR-T14",
+      "title": "Approval Inbox und Denial UX fuer FreeCAD bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "FCR-T13"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/approvals.py",
+        "client_surfaces/freecad/workbench/policy.py"
+      ],
+      "acceptance_criteria": [
+        "Approval-required und denied states sind klar getrennt.",
+        "Der Client fuehrt denied oder pending Aktionen niemals lokal aus.",
+        "Approval/Reject geht nur ueber Hub-APIs."
+      ]
+    },
+    {
+      "id": "FCR-T15",
+      "title": "Export-Plan Preview im FreeCAD-Client integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [
+        "FCR-T13"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/export_preview.py"
+      ],
+      "acceptance_criteria": [
+        "User kann geplante STEP/STL/OBJ/glTF-Exporte als Plan einsehen.",
+        "Plan bleibt standardmaessig non-executing und approval-aware."
+      ]
+    },
+    {
+      "id": "FCR-T16",
+      "title": "Dry-Run Macro Planning UX im Client aufbauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "FCR-T11",
+        "FCR-T14"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/macro_planning.py"
+      ],
+      "acceptance_criteria": [
+        "Makroplanung zeigt Outline, Safety Notes und Untrusted-Status.",
+        "Es erfolgt keine Makro-Ausfuehrung in diesem Schritt."
+      ]
+    },
+    {
+      "id": "FCR-T17",
+      "title": "Approval-Gated Macro Execution Bridge bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "depends_on": [
+        "FCR-T16"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/bridge/ananta_freecad_bridge.py",
+        "client_surfaces/freecad/workbench/execution.py"
+      ],
+      "acceptance_criteria": [
+        "Ausfuehrung ist nur mit approval-bound request moeglich.",
+        "Correlation ID, approval ID und script hash werden mitgefuehrt.",
+        "Fehler- und Resultatsdaten sind artifact-faehig."
+      ]
+    },
+    {
+      "id": "FCR-T18",
+      "title": "Sichere Wrapper fuer read/export/macro execution bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "FCR-T17"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/runtime_wrappers.py"
+      ],
+      "acceptance_criteria": [
+        "Client-seitige Aufrufe sind capability-tagged und auditable.",
+        "Keine freie Python-Ausfuehrung ausserhalb der approval-gated Bridge."
+      ]
+    },
+    {
+      "id": "FCR-T19",
+      "title": "Timeout-, Cancel- und Progress-Zustaende fuer laengere FreeCAD-Operationen einfuehren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "FCR-T17"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/workbench/runtime_limits.py"
+      ],
+      "acceptance_criteria": [
+        "Laengere Operationen haben explizite user-visible Zustandswechsel.",
+        "Cancel oder Fail fuehrt nicht zu stillen Success-Anzeigen."
+      ]
+    },
+    {
+      "id": "FCR-T20",
+      "title": "Workbench Import- und Registration-Smoke-Tests schreiben",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "FCR-T06"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/tests/smoke_freecad_workbench_load.py"
+      ],
+      "acceptance_criteria": [
+        "Test prueft Import und Grundvertrag der Workbench-Dateien.",
+        "Docs-only oder backend-only Status reichen nicht mehr fuer echten Runtime-Claim."
+      ]
+    },
+    {
+      "id": "FCR-T21",
+      "title": "Mocked Hub Interaction Tests fuer FreeCAD-Client schreiben",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "FCR-T08",
+        "FCR-T11",
+        "FCR-T14"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/tests/test_mocked_hub_client.py"
+      ],
+      "acceptance_criteria": [
+        "Tests decken health, capability, goal-submit, approval-required und denied states ab.",
+        "Denied actions fuehren nicht zur lokalen Ausfuehrung."
+      ]
+    },
+    {
+      "id": "FCR-T22",
+      "title": "Context Contract und Oversize/Redaction Tests erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "FCR-T09",
+        "FCR-T10"
+      ],
+      "expected_files": [
+        "client_surfaces/freecad/tests/test_context_capture.py"
+      ],
+      "acceptance_criteria": [
+        "Tests decken leere Doku, einfache Selektion, viele Objekte und bounded payload ab.",
+        "Oversized oder sensible Felder koennen als rejected/degraded erkannt werden."
+      ]
+    },
+    {
+      "id": "FCR-T23",
+      "title": "Runtime-Evidence und Release-Gate-Anschluss fuer FreeCAD vorbereiten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "FCR-T20",
+        "FCR-T21",
+        "FCR-T22"
+      ],
+      "expected_files": [
+        "scripts/run_freecad_smoke_checks.py",
+        "data/client_surface_runtime_inventory.json"
+      ],
+      "acceptance_criteria": [
+        "Es gibt eine reproduzierbare Smoke-Evidence fuer den echten FreeCAD-Surface.",
+        "Inventory-Claim kann spaeter nur auf Basis echter Runtime-Dateien und Smoke-Evidence angehoben werden."
+      ]
+    },
+    {
+      "id": "FCR-T24",
+      "title": "FreeCAD Runtime Doku als eigener Surface-Track schreiben",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "FCR-T23"
+      ],
+      "expected_files": [
+        "docs/integrations/freecad/README.md",
+        "docs/integrations/freecad/install.md",
+        "docs/integrations/freecad/usage.md"
+      ],
+      "acceptance_criteria": [
+        "Doku beschreibt Installation, Konfiguration, bounded context, goal submit, approvals und safety model.",
+        "Doku unterscheidet klar zwischen bestehender Foundation und echter Runtime."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "FCR-T06",
+    "FCR-T07",
+    "FCR-T08",
+    "FCR-T09",
+    "FCR-T10",
+    "FCR-T11",
+    "FCR-T14",
+    "FCR-T16",
+    "FCR-T17",
+    "FCR-T20",
+    "FCR-T21",
+    "FCR-T22",
+    "FCR-T23"
+  ],
+  "tasks_status_summary": {
+    "updated_at": "2026-04-30",
+    "total": 24,
+    "by_status": {
+      "todo": 19,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 5
+    },
+    "progress_percent_done": 20.83,
+    "by_priority": {
+      "P0": 15,
+      "P1": 9,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 4,
+      "high": 11,
+      "critical": 9
+    },
+    "critical_path": {
+      "total": 13,
+      "done": 0,
+      "remaining": 13
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 1
+    }
+  },
+  "summary_notes": [
+    "Diese Datei beschreibt bewusst den echten FreeCAD-Control-Surface/Workbench-Track und nicht nur die vorhandene Backend-Foundation.",
+    "Bereits vorhandene Foundation-Artefakte bleiben als done erhalten und werden nicht entfernt.",
+    "Der Runtime-Claim darf erst nach echter Workbench-Struktur, Smoke-Evidence und Hub-integrierter Approval-UX angehoben werden."
+  ]
+}
