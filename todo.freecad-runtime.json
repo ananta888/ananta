@@ -63,7 +63,7 @@
         "FCR-T07",
         "FCR-T08"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "FCR-M3",
@@ -74,7 +74,7 @@
         "FCR-T11",
         "FCR-T12"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "FCR-M4",
@@ -84,7 +84,7 @@
         "FCR-T14",
         "FCR-T15"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "FCR-M5",
@@ -95,7 +95,7 @@
         "FCR-T18",
         "FCR-T19"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "FCR-M6",
@@ -106,7 +106,7 @@
         "FCR-T22",
         "FCR-T23"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "FCR-M7",
@@ -114,7 +114,7 @@
       "task_ids": [
         "FCR-T24"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -178,7 +178,7 @@
     {
       "id": "FCR-T06",
       "title": "FreeCAD Workbench/Add-on Skeleton anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -199,7 +199,7 @@
     {
       "id": "FCR-T07",
       "title": "Endpoint-, Profile- und Auth-Settings fuer FreeCAD-Client bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -218,7 +218,7 @@
     {
       "id": "FCR-T08",
       "title": "Health- und Capability-Check fuer FreeCAD-Client implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -236,7 +236,7 @@
     {
       "id": "FCR-T09",
       "title": "FreeCAD Document/Selection Context Adapter implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -255,7 +255,7 @@
     {
       "id": "FCR-T10",
       "title": "Bounded Context Preview und User-Consent UI bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -273,7 +273,7 @@
     {
       "id": "FCR-T11",
       "title": "Goal Submission Command fuer FreeCAD bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -291,7 +291,7 @@
     {
       "id": "FCR-T12",
       "title": "Inspection-Result UX fuer Modellanalyse aufbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -309,7 +309,7 @@
     {
       "id": "FCR-T13",
       "title": "Task- und Artifact-Read-Models in FreeCAD anzeigen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -327,7 +327,7 @@
     {
       "id": "FCR-T14",
       "title": "Approval Inbox und Denial UX fuer FreeCAD bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -346,7 +346,7 @@
     {
       "id": "FCR-T15",
       "title": "Export-Plan Preview im FreeCAD-Client integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "depends_on": [
@@ -363,7 +363,7 @@
     {
       "id": "FCR-T16",
       "title": "Dry-Run Macro Planning UX im Client aufbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -381,7 +381,7 @@
     {
       "id": "FCR-T17",
       "title": "Approval-Gated Macro Execution Bridge bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "depends_on": [
@@ -400,7 +400,7 @@
     {
       "id": "FCR-T18",
       "title": "Sichere Wrapper fuer read/export/macro execution bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -417,7 +417,7 @@
     {
       "id": "FCR-T19",
       "title": "Timeout-, Cancel- und Progress-Zustaende fuer laengere FreeCAD-Operationen einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -434,7 +434,7 @@
     {
       "id": "FCR-T20",
       "title": "Workbench Import- und Registration-Smoke-Tests schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -451,7 +451,7 @@
     {
       "id": "FCR-T21",
       "title": "Mocked Hub Interaction Tests fuer FreeCAD-Client schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -470,7 +470,7 @@
     {
       "id": "FCR-T22",
       "title": "Context Contract und Oversize/Redaction Tests erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -488,7 +488,7 @@
     {
       "id": "FCR-T23",
       "title": "Runtime-Evidence und Release-Gate-Anschluss fuer FreeCAD vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -508,7 +508,7 @@
     {
       "id": "FCR-T24",
       "title": "FreeCAD Runtime Doku als eigener Surface-Track schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -544,40 +544,40 @@
     "updated_at": "2026-04-30",
     "total": 24,
     "by_status": {
-      "todo": 19,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 5
+      "done": 24
     },
-    "progress_percent_done": 20.83,
+    "progress_percent_done": 100.0,
     "by_priority": {
-      "P0": 15,
-      "P1": 9,
+      "P0": 17,
+      "P1": 7,
       "P2": 0,
       "P3": 0
     },
     "by_risk": {
       "low": 0,
       "medium": 4,
-      "high": 11,
-      "critical": 9
+      "high": 12,
+      "critical": 8
     },
     "critical_path": {
       "total": 13,
-      "done": 0,
-      "remaining": 13
+      "done": 13,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
-      "todo": 6,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 1
+      "done": 7
     }
   },
   "summary_notes": [
-    "Diese Datei beschreibt bewusst den echten FreeCAD-Control-Surface/Workbench-Track und nicht nur die vorhandene Backend-Foundation.",
-    "Bereits vorhandene Foundation-Artefakte bleiben als done erhalten und werden nicht entfernt.",
-    "Der Runtime-Claim darf erst nach echter Workbench-Struktur, Smoke-Evidence und Hub-integrierter Approval-UX angehoben werden."
+    "Diese Datei beschreibt den echten FreeCAD-Control-Surface/Workbench-Track, nicht nur die Backend-Foundation.",
+    "Bereits vorhandene Foundation-Artefakte bleiben erhalten; der Runtime-Track wurde additiv darauf aufgebaut.",
+    "Runtime-Claim ist jetzt mit Workbench-Struktur, Smoke-Evidence, Domain-Descriptor, Policy-Pack, RAG-Profilen und Hub-integrierter Approval-UX hinterlegt."
   ]
 }

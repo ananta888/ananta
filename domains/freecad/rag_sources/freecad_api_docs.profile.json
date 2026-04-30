@@ -1,0 +1,31 @@
+{
+  "schema": "rag_source_profile.v1",
+  "source_id": "freecad.api.docs",
+  "domain_id": "freecad",
+  "source_type": "api_docs",
+  "repo": "ananta888/ananta",
+  "path": "docs/integrations/freecad",
+  "ref": "main",
+  "allowed_paths": [
+    "docs/integrations/freecad/",
+    "client_surfaces/freecad/workbench/"
+  ],
+  "include_globs": [
+    "docs/integrations/freecad/**/*.md",
+    "client_surfaces/freecad/workbench/**/*.py"
+  ],
+  "exclude_globs": [
+    "**/__pycache__/**",
+    "**/*.FCStd"
+  ],
+  "license_note": "Project-owned FreeCAD runtime docs and bounded client code only.",
+  "intended_usage": "FreeCAD workbench runtime questions, bounded context capture behavior, and hub-routed command guidance.",
+  "indexing_config_ref": "rag-helper/spring-large-project-profile.json",
+  "ingestion_path": "codecompass/rag_helper",
+  "retrieval_source_types": ["repo", "artifact"],
+  "provenance": {
+    "owner": "ananta",
+    "captured_at": "2026-04-30T15:00:00+02:00",
+    "explanation": "FreeCAD runtime MVP API/doc retrieval profile."
+  }
+}

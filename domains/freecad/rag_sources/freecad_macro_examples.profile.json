@@ -1,0 +1,30 @@
+{
+  "schema": "rag_source_profile.v1",
+  "source_id": "freecad.macro.examples",
+  "domain_id": "freecad",
+  "source_type": "examples",
+  "repo": "ananta888/ananta",
+  "path": "reference_sources/freecad",
+  "ref": "main",
+  "allowed_paths": [
+    "reference_sources/freecad/",
+    "docs/integrations/freecad/"
+  ],
+  "include_globs": [
+    "reference_sources/freecad/**/*.json",
+    "docs/integrations/freecad/**/*.md"
+  ],
+  "exclude_globs": [
+    "**/__pycache__/**"
+  ],
+  "license_note": "Project-curated FreeCAD example metadata and integration docs only.",
+  "intended_usage": "Macro planning examples, export-plan examples, and safety-model retrieval for FreeCAD runtime tasks.",
+  "indexing_config_ref": "rag-helper/spring-large-project-profile.json",
+  "ingestion_path": "codecompass/rag_helper",
+  "retrieval_source_types": ["repo", "artifact"],
+  "provenance": {
+    "owner": "ananta",
+    "captured_at": "2026-04-30T15:00:00+02:00",
+    "explanation": "FreeCAD example retrieval profile for bounded planning guidance."
+  }
+}

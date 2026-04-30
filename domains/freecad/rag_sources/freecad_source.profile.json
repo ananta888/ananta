@@ -1,0 +1,30 @@
+{
+  "schema": "rag_source_profile.v1",
+  "source_id": "freecad.runtime.source",
+  "domain_id": "freecad",
+  "source_type": "source_code",
+  "repo": "ananta888/ananta",
+  "path": "client_surfaces/freecad",
+  "ref": "main",
+  "allowed_paths": [
+    "client_surfaces/freecad/",
+    "agent/services/freecad_"
+  ],
+  "include_globs": [
+    "client_surfaces/freecad/**/*.py",
+    "agent/services/freecad_*.py"
+  ],
+  "exclude_globs": [
+    "**/__pycache__/**"
+  ],
+  "license_note": "Repository-owned FreeCAD runtime and service source only.",
+  "intended_usage": "FreeCAD bridge behavior, workbench command flow, and service/runtime contract debugging.",
+  "indexing_config_ref": "rag-helper/spring-large-project-profile.json",
+  "ingestion_path": "codecompass/rag_helper",
+  "retrieval_source_types": ["repo"],
+  "provenance": {
+    "owner": "ananta",
+    "captured_at": "2026-04-30T15:00:00+02:00",
+    "explanation": "FreeCAD runtime source retrieval profile for bounded implementation lookup."
+  }
+}

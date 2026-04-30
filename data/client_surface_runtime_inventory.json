@@ -7,7 +7,9 @@
     "eclipse_views_extension",
     "nvim_plugin",
     "vim_plugin",
-    "vscode_plugin"
+    "vscode_plugin",
+    "blender",
+    "freecad"
   ],
   "classification_scale": [
     "real_implementation",
@@ -113,6 +115,8 @@
           "docs/eclipse-plugin-views-extension-foundation.md"
         ],
         "runtime": [
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseViewsExtensionRegistry.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTaskRuntimeView.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseArtifactRuntimeView.java",
@@ -213,6 +217,38 @@
         "runtime": [
           "scripts/run_blender_smoke_checks.py",
           "client_surfaces/blender/tests/smoke_blender_addon_load.py"
+        ]
+      }
+    },
+    {
+      "surface": "freecad",
+      "classification": "real_implementation",
+      "delivery_status": "runtime_mvp_operational",
+      "decision": "workbench_bridge_context_and_smoke_delivery_completed",
+      "evidence": {
+        "foundation": [
+          "schemas/freecad/freecad_context.v1.json",
+          "policies/freecad_policy.v1.json",
+          "agent/services/freecad_model_inspection_service.py",
+          "agent/services/freecad_export_plan_service.py",
+          "agent/services/freecad_macro_planning_service.py",
+          "agent/services/freecad_macro_execution_service.py"
+        ],
+        "docs": [
+          "docs/integrations/freecad/README.md",
+          "docs/integrations/freecad/install.md",
+          "docs/integrations/freecad/usage.md"
+        ],
+        "runtime": [
+          "client_surfaces/freecad/workbench/InitGui.py",
+          "client_surfaces/freecad/workbench/ananta_freecad_workbench.py",
+          "client_surfaces/freecad/workbench/client.py",
+          "client_surfaces/freecad/workbench/context.py",
+          "client_surfaces/freecad/workbench/commands.py",
+          "client_surfaces/freecad/workbench/execution.py",
+          "client_surfaces/freecad/bridge/ananta_freecad_bridge.py",
+          "client_surfaces/freecad/tests/smoke_freecad_workbench_load.py",
+          "scripts/run_freecad_smoke_checks.py"
         ]
       }
     }
