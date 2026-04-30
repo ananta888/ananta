@@ -1,920 +1,370 @@
 {
-  "schema_version": "1.1",
-  "title": "Ananta Test Coverage and CI Workflow Roadmap",
-  "purpose": "Track missing tests, CI workflow hardening, and quality visibility without slowing the default development loop.",
-  "principles": [
-    "Keep push and pull_request CI fast enough for normal development.",
-    "Run expensive E2E, chaos, and upgrade tests in isolated workflows.",
-    "Prefer deterministic local mocks in default CI; keep paid live-provider checks opt-in.",
-    "Do not disable valuable tests; isolate heavy checks with explicit workflows and strict timeouts.",
-    "Focus roadmap scope on open work only and remove already implemented tasks."
-  ],
-  "ci_policy": {
-    "standard_ci": {
-      "trigger": [
-        "push",
-        "pull_request"
-      ],
-      "target_runtime_minutes": "10-20",
-      "allowed_cost": "low",
-      "must_include": [
-        "backend smoke tests",
-        "backend non-heavy regression tests",
-        "frontend lint and unit tests",
-        "frontend build",
-        "compose config validation",
-        "release reproducibility gate without image build",
-        "docs link checks"
-      ],
-      "must_avoid": [
-        "full browser E2E on every PR",
-        "full release image publish/push gates on every PR",
-        "real paid LLM calls in default CI",
-        "chaos and long-running concurrency tests"
-      ]
-    },
-    "main_branch_ci": {
-      "trigger": [
-        "push to main"
-      ],
-      "target_runtime_minutes": "20-40",
-      "allowed_cost": "medium",
-      "must_include": [
-        "standard_ci",
-        "compose E2E",
-        "isolated backend integration flows",
-        "artifact upload for failed E2E"
-      ]
-    },
-    "manual_heavy_ci": {
-      "trigger": [
-        "workflow_dispatch",
-        "pull_request label full-ci"
-      ],
-      "target_runtime_minutes": "30-90",
-      "allowed_cost": "medium-high",
-      "must_include": [
-        "compose E2E",
-        "coverage report generation",
-        "security workflow split",
-        "migration upgrade scenarios",
-        "multi-agent concurrency and race tests"
-      ]
-    },
-    "scheduled_ci": {
-      "trigger": [
-        "nightly",
-        "weekly"
-      ],
-      "target_runtime_minutes": "60-120",
-      "allowed_cost": "controlled",
-      "must_include": [
-        "dependency audit",
-        "coverage report",
-        "slow integration tests",
-        "chaos and timeout tests",
-        "release-candidate image gate",
-        "optional live LLM smoke with strict token limits"
-      ]
-    }
-  },
-  "recommended_workflows": [
-    {
-      "name": "Quality And Docs",
-      "file": ".github/workflows/quality-and-docs.yml",
-      "trigger": [
-        "push",
-        "pull_request",
-        "workflow_dispatch"
-      ],
-      "cost_class": "low-medium",
-      "purpose": "Fast default CI for normal development.",
-      "jobs": [
-        "backend-checks",
-        "backend-smoke",
-        "backend-compose-image",
-        "frontend-build",
-        "eclipse-runtime-headless",
-        "vscode-extension",
-        "compose-config",
-        "release-gate",
-        "docs-links",
-        "todo-validation"
-      ]
-    },
-    {
-      "name": "Backend Isolated Flows",
-      "file": ".github/workflows/backend-isolated-flows.yml",
-      "trigger": [
-        "push",
-        "pull_request",
-        "workflow_dispatch"
-      ],
-      "cost_class": "medium",
-      "purpose": "Run heavier backend integration paths outside the default CI set.",
-      "jobs": [
-        "isolated-flows"
-      ],
-      "todo": false
-    },
-    {
-      "name": "Coverage Report",
-      "file": ".github/workflows/coverage.yml",
-      "trigger": [
-        "workflow_dispatch",
-        "schedule weekly",
-        "pull_request label coverage"
-      ],
-      "cost_class": "medium",
-      "purpose": "Generate backend and frontend coverage artifacts without slowing each PR.",
-      "jobs": [
-        "backend-coverage",
-        "frontend-coverage",
-        "coverage-summary"
-      ],
-      "todo": false
-    },
-    {
-      "name": "Security Abuse Split",
-      "file": ".github/workflows/security-abuse.yml",
-      "trigger": [
-        "workflow_dispatch",
-        "schedule nightly",
-        "pull_request label security-ci"
-      ],
-      "cost_class": "medium",
-      "purpose": "Isolate heavy negative security tests from default CI.",
-      "jobs": [
-        "agent-tool-abuse-tests",
-        "authz-matrix-tests"
-      ],
-      "todo": false
-    },
-    {
-      "name": "E2E Compose",
-      "file": ".github/workflows/e2e-compose.yml",
-      "trigger": [
-        "workflow_dispatch",
-        "schedule weekly"
-      ],
-      "cost_class": "medium-high",
-      "purpose": "Run Docker Compose browser/API E2E and upload artifacts.",
-      "jobs": [
-        "e2e-compose"
-      ],
-      "todo": true,
-      "notes": "Workflow exists; trigger policy now includes main and full-ci label."
-    },
-    {
-      "name": "Chaos And Timeout Tests",
-      "file": ".github/workflows/chaos-timeout.yml",
-      "trigger": [
-        "workflow_dispatch",
-        "schedule weekly"
-      ],
-      "cost_class": "high",
-      "purpose": "Validate timeout handling, recovery, and multi-agent race boundaries.",
-      "jobs": [
-        "worker-timeout-tests",
-        "race-condition-tests",
-        "failure-recovery-tests"
-      ],
-      "todo": false
-    },
-    {
-      "name": "Container Pull Smoke",
-      "file": ".github/workflows/container-pull-smoke.yml",
-      "trigger": [
-        "workflow_dispatch",
-        "tag push",
-        "release published"
-      ],
-      "cost_class": "medium",
-      "purpose": "Verify published GHCR image pull/start/health after release.",
-      "jobs": [
-        "pull-and-smoke"
-      ],
-      "todo": false
-    },
-    {
-      "name": "Live Provider Smoke",
-      "file": ".github/workflows/live-llm-smoke.yml",
-      "trigger": [
-        "workflow_dispatch",
-        "schedule nightly",
-        "pull_request label live-llm"
-      ],
-      "cost_class": "paid-low-controlled",
-      "purpose": "One minimal hosted LLM request with strict token and timeout limits.",
-      "jobs": [
-        "openai-mini-smoke"
-      ],
-      "todo": false
-    }
-  ],
-  "todo_groups": [
-    {
-      "id": "coverage-reporting",
-      "priority": "P0",
-      "status": "todo",
-      "goal": "Add explicit backend and frontend coverage reporting.",
-      "why": "Current CI is broad but still lacks a dedicated coverage workflow and baseline reporting output.",
-      "workflow": "Coverage Report",
-      "tasks": [
-        {
-          "id": "coverage-backend-pytest-cov",
-          "title": "Add backend coverage workflow job and artifact upload",
-          "suggested_command": "pytest tests --cov=agent --cov-report=term-missing --cov-report=xml",
-          "acceptance": [
-            "coverage.xml is uploaded as artifact",
-            "terminal summary includes total backend coverage",
-            "job remains outside mandatory PR blocking until baseline is stable"
-          ]
-        },
-        {
-          "id": "coverage-frontend-vitest",
-          "title": "Add frontend unit coverage execution and artifact upload",
-          "suggested_command": "npm run test:unit -- --coverage",
-          "acceptance": [
-            "frontend coverage artifact is uploaded",
-            "coverage summary appears in logs",
-            "default frontend-build path stays fast"
-          ]
-        },
-        {
-          "id": "coverage-thresholds-later",
-          "title": "Introduce realistic coverage thresholds after baseline",
-          "acceptance": [
-            "thresholds are based on measured baseline",
-            "critical backend modules get stricter gates than glue code"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "authz-and-security-workflows",
-      "priority": "P0",
-      "status": "todo",
-      "goal": "Close remaining authz matrix and security-workflow split gaps.",
-      "why": "Security tests exist, but workflow separation and explicit endpoint-role matrix coverage are still open.",
-      "workflow": "Security Abuse Split",
-      "tasks": [
-        {
-          "id": "security-abuse-workflow-split",
-          "title": "Create dedicated security-abuse workflow using existing negative tests",
-          "acceptance": [
-            "workflow file exists and runs selected negative tests",
-            "workflow supports nightly and label-based execution",
-            "default PR CI runtime is not impacted"
-          ]
-        },
-        {
-          "id": "endpoint-role-matrix",
-          "title": "Add explicit endpoint x role authorization matrix tests",
-          "acceptance": [
-            "anonymous is denied for protected endpoints",
-            "user role cannot perform admin actions",
-            "worker identity cannot perform hub-admin actions",
-            "table-driven tests document expected role behavior"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "concurrency-and-timeout-tests",
-      "priority": "P1",
-      "status": "todo",
-      "goal": "Add deterministic race and timeout regression tests.",
-      "why": "Multi-agent orchestration is vulnerable to duplicate claims and timeout corruption without explicit tests.",
-      "workflow": "Chaos And Timeout Tests",
-      "tasks": [
-        {
-          "id": "double-claim-same-task",
-          "title": "Ensure two workers cannot claim the same task simultaneously",
-          "acceptance": [
-            "parallel claim requests produce exactly one winner",
-            "loser receives deterministic conflict response",
-            "task history stores only one claim event"
-          ]
-        },
-        {
-          "id": "lease-expiry-reclaim",
-          "title": "Ensure expired leases can be reclaimed safely",
-          "acceptance": [
-            "expired lease is not treated as active",
-            "new worker can reclaim after expiry",
-            "late completion from expired lease is rejected or reconciled"
-          ]
-        },
-        {
-          "id": "parallel-autopilot-ticks",
-          "title": "Ensure concurrent autopilot ticks do not duplicate dispatch",
-          "acceptance": [
-            "concurrent tick_once calls do not duplicate execution",
-            "locking or idempotency behavior is asserted"
-          ]
-        },
-        {
-          "id": "research-backend-timeout",
-          "title": "Research backend timeout is bounded and auditable",
-          "acceptance": [
-            "timeout is enforced",
-            "partial result is not treated as verified",
-            "review remains required on uncertain result"
-          ]
-        },
-        {
-          "id": "shell-session-crash",
-          "title": "Shell session crash cannot corrupt task state",
-          "acceptance": [
-            "crash marks execution failed with explicit reason",
-            "task history captures failure context",
-            "subsequent execution can start a fresh session"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "migration-upgrade-tests",
-      "priority": "P1",
-      "status": "todo",
-      "goal": "Test upgrade behavior against older persisted structures.",
-      "why": "Legacy task/config/artifact records must remain readable across releases.",
-      "workflow": "Manual Heavy CI",
-      "tasks": [
-        {
-          "id": "old-config-upgrade",
-          "title": "Validate old config upgrades to current model safely",
-          "acceptance": [
-            "missing new keys get safe defaults",
-            "legacy values are preserved where compatible",
-            "unsafe implicit defaults are not introduced"
-          ]
-        },
-        {
-          "id": "old-task-read-model-upgrade",
-          "title": "Validate old task records render in current read models",
-          "acceptance": [
-            "legacy records without new fields do not crash",
-            "new fields receive deterministic defaults",
-            "frontend read model contract remains satisfied"
-          ]
-        },
-        {
-          "id": "artifact-memory-upgrade",
-          "title": "Validate old artifact and memory records remain queryable",
-          "acceptance": [
-            "legacy artifacts can still be listed",
-            "legacy extracted docs are handled safely",
-            "legacy memory entries do not break detail views"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "compose-release-hardening",
-      "priority": "P1",
-      "status": "todo",
-      "goal": "Close release-adjacent runtime validation gaps.",
-      "why": "Release pipelines should verify pull/start behavior on published images and strengthen main-branch compose signal.",
-      "workflow": "E2E Compose / Container Pull Smoke",
-      "tasks": [
-        {
-          "id": "docker-pull-smoke",
-          "title": "After GHCR publish, verify docker pull, start, and health",
-          "acceptance": [
-            "docker pull ghcr.io/<owner>/ananta-quickstart-no-ollama:<tag> succeeds",
-            "container starts with expected runtime env",
-            "health endpoint responds successfully"
-          ]
-        },
-        {
-          "id": "e2e-compose-main-trigger",
-          "title": "Expand compose E2E trigger policy for main and full-ci label",
-          "acceptance": [
-            "workflow supports push-to-main or equivalent protected branch signal",
-            "workflow supports full-ci label trigger for PRs",
-            "expansion does not regress normal PR runtime budget"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "docs-and-ci-signals",
-      "priority": "P2",
-      "status": "todo",
-      "goal": "Improve quick visibility of CI health and test surface size.",
-      "why": "Maintainers need immediate workflow and test-count visibility from README and CI logs.",
-      "workflow": "Quality And Docs",
-      "tasks": [
-        {
-          "id": "workflow-badges",
-          "title": "Add useful CI workflow badges to README",
-          "acceptance": [
-            "Quality And Docs badge exists",
-            "Backend Isolated Flows badge exists",
-            "optional smoke badge can be included where stable"
-          ]
-        },
-        {
-          "id": "test-count-summary",
-          "title": "Print collected backend/frontend test counts in CI summaries",
-          "acceptance": [
-            "backend pipeline prints collected test count summary",
-            "frontend pipeline prints unit test count summary",
-            "isolated flow workflow prints a test-count signal"
-          ]
-        },
-        {
-          "id": "ci-depth-strategy-doc-alignment",
-          "title": "Align CI depth strategy docs with actual workflow split",
-          "acceptance": [
-            "CI depth docs match current workflow triggers and ownership",
-            "e2e-compose trigger policy is documented at workflow boundaries",
-            "no stale workflow-location statements remain"
-          ]
-        }
-      ]
-    }
-  ],
-  "manual_workflow_candidates": [
-    {
-      "workflow": "coverage.yml",
-      "reason": "Coverage is valuable but can slow PR CI; run weekly or manually until thresholds stabilize.",
-      "recommended_trigger": [
-        "workflow_dispatch",
-        "weekly schedule",
-        "label coverage"
-      ]
-    },
-    {
-      "workflow": "security-abuse.yml",
-      "reason": "Heavy negative security scenarios should run nightly or on explicitly labeled PRs.",
-      "recommended_trigger": [
-        "workflow_dispatch",
-        "nightly schedule",
-        "label security-ci"
-      ]
-    },
-    {
-      "workflow": "chaos-timeout.yml",
-      "reason": "Race and timeout simulations are expensive and not ideal for every PR.",
-      "recommended_trigger": [
-        "workflow_dispatch",
-        "weekly schedule"
-      ]
-    },
-    {
-      "workflow": "e2e-compose.yml",
-      "reason": "Full Docker browser checks are expensive but valuable on main and before releases.",
-      "recommended_trigger": [
-        "workflow_dispatch",
-        "push main",
-        "label full-ci"
-      ]
-    },
-    {
-      "workflow": "container-pull-smoke.yml",
-      "reason": "Validates publishability and runtime viability of release artifacts.",
-      "recommended_trigger": [
-        "workflow_dispatch",
-        "tag push",
-        "release published"
-      ]
-    }
-  ],
-  "quality_targets": {
-    "short_term": [
-      "Coverage workflow exists and uploads backend/frontend artifacts",
-      "Security-abuse split workflow exists",
-      "Container pull smoke workflow exists",
-      "README includes useful CI badges"
-    ],
-    "medium_term": [
-      "Coverage thresholds are introduced after baseline",
-      "Race and timeout tests cover claim, lease, and crash paths",
-      "Migration tests replace current scaffold-only contract",
-      "Compose E2E trigger policy includes main and full-ci label"
-    ],
-    "long_term": [
-      "Release-candidate validation includes pull smoke and migration checks",
-      "Weekly chaos workflow validates failure recovery",
-      "Security-sensitive code paths have explicit negative-test ownership"
-    ]
-  },
+  "project": "ananta",
+  "source": "github.com/ananta888/ananta",
+  "created_from_review": true,
   "notes": [
-    "Already implemented roadmap items were removed from this file to keep execution focus.",
-    "Security boundary and golden-path E2E coverage already exists in current test suites.",
-    "docs/testing.md already documents workflow/test categories; this roadmap keeps only remaining docs tasks.",
-    "Keep heavy workflows opt-in or scheduled to protect contributor feedback loop speed."
+    "Bewertung basiert auf einer statischen Sichtung zentraler Dateien im GitHub-Repo.",
+    "Einige Punkte sind sicherheitsrelevant, andere Refactoring-/Quality-Themen.",
+    "Priorität: P0 kritisch, P1 hoch, P2 mittel, P3 niedrig."
   ],
-  "version": 3,
-  "owner": "ananta888/ananta",
-  "track": "test_coverage_ci_roadmap_open_items",
-  "goal": "Close remaining CI and test roadmap gaps while preserving fast default development feedback loops.",
-  "status_scale": [
-    "todo",
-    "in_progress",
-    "blocked",
-    "done"
-  ],
-  "priority_scale": [
-    "P0",
-    "P1",
-    "P2",
-    "P3"
-  ],
-  "risk_scale": [
-    "low",
-    "medium",
-    "high",
-    "critical"
-  ],
-  "milestones": [
+  "todos": [
     {
-      "id": "TEST-M1",
-      "title": "Coverage foundation",
-      "task_ids": [
-        "coverage-backend-pytest-cov",
-        "coverage-frontend-vitest",
-        "coverage-thresholds-later"
+      "id": "SEC-001",
+      "title": "Persistent password history entfernen",
+      "priority": "P1",
+      "category": "security/auth",
+      "status": "todo",
+      "finding": "Alte Passwort-Hashes werden persistent in password_history gespeichert.",
+      "risk": "Erhöht Schaden bei DB-Leak; speichert absichtlich zusätzliches passwortabgeleitetes Material.",
+      "files_observed": [
+        "agent/db_models.py",
+        "agent/routes/auth.py"
       ],
-      "status": "done"
-    },
-    {
-      "id": "TEST-M2",
-      "title": "Security workflow and role matrix",
-      "task_ids": [
-        "security-abuse-workflow-split",
-        "endpoint-role-matrix"
+      "tasks": [
+        "PasswordHistoryDB aus agent/db_models.py entfernen.",
+        "password_history_repo und Repository-Wiring entfernen.",
+        "check_password_history() entfernen.",
+        "Aufrufe in change_password() und reset_password() entfernen.",
+        "Speichern alter password_hash-Werte beim Passwortwechsel entfernen.",
+        "Alembic-Migration: password_history-Tabelle droppen, falls vorhanden.",
+        "Betroffene Tests anpassen oder entfernen.",
+        "MFA, Lockout, Rate-Limiting und Refresh-Token-Invalidation unverändert lassen."
       ],
-      "status": "done"
+      "suggested_commit": "sec(auth): remove persistent password history"
     },
     {
-      "id": "TEST-M3",
-      "title": "Concurrency and timeout hardening",
-      "task_ids": [
-        "double-claim-same-task",
-        "lease-expiry-reclaim",
-        "parallel-autopilot-ticks",
-        "research-backend-timeout",
-        "shell-session-crash"
+      "id": "SEC-002",
+      "title": "OIDC+BFF-Auth-Modus vorbereiten",
+      "priority": "P1",
+      "category": "security/auth",
+      "status": "todo",
+      "finding": "Aktuell kein OIDC/Keycloak; lokale JWTs werden mit HS256/SECRET_KEY validiert.",
+      "risk": "Für Team-/Remote-Betrieb fehlen externe Identity, zentrale Rollenverwaltung und sichere Browser-Session-Grenzen.",
+      "files_observed": [
+        "agent/auth.py",
+        "agent/routes/auth.py",
+        "frontend-angular/src/app/services/user-auth.service.ts",
+        "frontend-angular/src/app/services/agent-api-transport.service.ts"
       ],
-      "status": "done"
-    },
-    {
-      "id": "TEST-M4",
-      "title": "Migration and upgrade contracts",
-      "task_ids": [
-        "old-config-upgrade",
-        "old-task-read-model-upgrade",
-        "artifact-memory-upgrade"
+      "tasks": [
+        "AUTH_PROVIDER=local|oidc_bff einführen.",
+        "Keycloak/OIDC als User-Identity integrieren.",
+        "Authorization Code Flow mit PKCE über BFF implementieren.",
+        "Browser darf im oidc_bff-Modus keine Access/Refresh Tokens in localStorage/sessionStorage speichern.",
+        "HttpOnly, Secure, SameSite Cookies für Browser-Session verwenden.",
+        "CSRF-Schutz für Cookie-basierte state-changing Requests einbauen.",
+        "Keycloak Rollen/Groups nach Ananta-Rollen admin/user mappen.",
+        "Hub/Worker AGENT_TOKEN strikt getrennt von User-OIDC halten.",
+        "Docs für Keycloak Realm/Client Setup ergänzen."
       ],
-      "status": "done"
+      "suggested_commit": "feat(auth): add oidc bff authentication mode"
     },
     {
-      "id": "TEST-M5",
-      "title": "Compose and release runtime checks",
-      "task_ids": [
-        "docker-pull-smoke",
-        "e2e-compose-main-trigger"
+      "id": "SEC-003",
+      "title": "Browser localStorage Token-Speicherung für Produktionsprofile entfernen",
+      "priority": "P1",
+      "category": "security/frontend",
+      "status": "todo",
+      "finding": "Access Token und Refresh Token werden im Browser-localStorage gespeichert.",
+      "risk": "Bei XSS sind insbesondere Refresh Tokens auslesbar.",
+      "files_observed": [
+        "frontend-angular/src/app/services/user-auth.service.ts",
+        "frontend-angular/src/app/services/agent-api-transport.service.ts"
       ],
-      "status": "done"
-    },
-    {
-      "id": "TEST-M6",
-      "title": "CI visibility signals",
-      "task_ids": [
-        "workflow-badges",
-        "test-count-summary",
-        "ci-depth-strategy-doc-alignment"
+      "tasks": [
+        "localStorage Token-Speicherung nur für local-dev/demo erlauben.",
+        "Für team-controlled/secure-enterprise Tokens nicht im JS-Zugriff speichern.",
+        "Access Token höchstens im Memory halten.",
+        "Refresh Token serverseitig/BFF-gebunden halten.",
+        "Profilabhängige Auth-Strategie dokumentieren."
       ],
-      "status": "done"
-    }
-  ],
-  "tasks": [
-    {
-      "id": "coverage-backend-pytest-cov",
-      "title": "Add backend coverage workflow job and artifact upload",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "acceptance_criteria": [
-        "coverage.xml artifact is uploaded",
-        "backend coverage summary appears in logs"
-      ]
+      "suggested_commit": "sec(frontend): avoid browser token storage in secure profiles"
     },
     {
-      "id": "coverage-frontend-vitest",
-      "title": "Add frontend coverage workflow job and artifact upload",
-      "status": "done",
-      "priority": "P0",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "frontend coverage artifact is uploaded",
-        "coverage summary appears in logs"
-      ]
-    },
-    {
-      "id": "coverage-thresholds-later",
-      "title": "Introduce coverage thresholds after baseline",
-      "status": "done",
+      "id": "SEC-004",
+      "title": "SECRET_KEY in Compose verpflichtend machen",
       "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "thresholds are based on measured baseline",
-        "critical modules use stricter thresholds"
-      ]
+      "category": "security/config",
+      "status": "todo",
+      "finding": "docker-compose.base.yml hat einen unsicheren DEV-Fallback für SECRET_KEY.",
+      "risk": "Unverändert betriebene Deployments teilen vorhersehbaren JWT-Schlüssel.",
+      "files_observed": [
+        "docker-compose.base.yml"
+      ],
+      "tasks": [
+        "SECRET_KEY ohne unsicheren Default erzwingen.",
+        "Analog INITIAL_ADMIN_PASSWORD mit ${SECRET_KEY:?Error: SECRET_KEY must be set} behandeln.",
+        ".env.example klar mit sicherem zufälligem SECRET_KEY versehen.",
+        "Setup-Skripte sollen SECRET_KEY sicher generieren."
+      ],
+      "suggested_commit": "sec(config): require explicit secret key in compose"
     },
     {
-      "id": "security-abuse-workflow-split",
-      "title": "Create dedicated security-abuse workflow",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "security-abuse workflow exists",
-        "workflow runs nightly and on label trigger"
-      ]
-    },
-    {
-      "id": "endpoint-role-matrix",
-      "title": "Add endpoint x role authorization matrix tests",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "acceptance_criteria": [
-        "anonymous, user, worker, admin role expectations are table-tested",
-        "forbidden actions fail deterministically"
-      ]
-    },
-    {
-      "id": "double-claim-same-task",
-      "title": "Prevent duplicate claim winner in parallel task claims",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "parallel claim race yields exactly one winner",
-        "loser gets deterministic conflict response"
-      ]
-    },
-    {
-      "id": "lease-expiry-reclaim",
-      "title": "Allow safe reclaim after lease expiry",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "expired lease can be reclaimed",
-        "late completion from expired lease is handled safely"
-      ]
-    },
-    {
-      "id": "parallel-autopilot-ticks",
-      "title": "Avoid duplicate dispatch on concurrent autopilot ticks",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "concurrent tick calls do not duplicate execution",
-        "idempotency or lock behavior is asserted"
-      ]
-    },
-    {
-      "id": "research-backend-timeout",
-      "title": "Ensure research backend timeout remains bounded and auditable",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "timeout is enforced",
-        "partial output is not treated as verified"
-      ]
-    },
-    {
-      "id": "shell-session-crash",
-      "title": "Ensure shell crash does not corrupt orchestration state",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "shell crash is recorded with explicit failure reason",
-        "new execution can use a fresh session"
-      ]
-    },
-    {
-      "id": "old-config-upgrade",
-      "title": "Validate legacy config upgrade compatibility",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "legacy config keys upgrade with safe defaults",
-        "compatible legacy values are preserved"
-      ]
-    },
-    {
-      "id": "old-task-read-model-upgrade",
-      "title": "Validate legacy task read model compatibility",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "legacy task records render without crashes",
-        "missing fields get deterministic defaults"
-      ]
-    },
-    {
-      "id": "artifact-memory-upgrade",
-      "title": "Validate legacy artifact and memory compatibility",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "acceptance_criteria": [
-        "legacy artifacts remain listable",
-        "legacy memory entries remain readable in detail views"
-      ]
-    },
-    {
-      "id": "docker-pull-smoke",
-      "title": "Add post-release GHCR pull and start smoke test workflow",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "published image can be pulled by tag",
-        "container starts and health endpoint responds"
-      ]
-    },
-    {
-      "id": "workflow-badges",
-      "title": "Add CI workflow badges in README",
-      "status": "done",
+      "id": "SEC-005",
+      "title": "CORS-Defaults für Nicht-Dev härten",
       "priority": "P2",
-      "risk": "low",
-      "acceptance_criteria": [
-        "README includes quality workflow badge",
-        "README includes isolated flow badge"
-      ]
+      "category": "security/config",
+      "status": "todo",
+      "finding": "cors_origins defaultet auf '*'.",
+      "risk": "Für Team-/Remote-Betrieb zu breite Browser-Origin-Fläche.",
+      "files_observed": [
+        "agent/config.py"
+      ],
+      "tasks": [
+        "CORS_ORIGINS='*' nur in local-dev/demo erlauben.",
+        "Für team-controlled/secure-enterprise explizite Origins verlangen.",
+        "Startwarnung oder Fail-Fast bei unsicherem CORS in Produktionsprofilen."
+      ],
+      "suggested_commit": "sec(config): restrict cors defaults by runtime profile"
     },
     {
-      "id": "test-count-summary",
-      "title": "Add collected test-count summary to CI logs",
-      "status": "done",
+      "id": "BUILD-001",
+      "title": "Lokale Installer konsequent auf requirements.lock umstellen",
       "priority": "P2",
-      "risk": "low",
-      "acceptance_criteria": [
-        "backend and frontend pipelines print test-count summary",
-        "isolated flow workflow reports test count signal"
-      ]
+      "category": "build/reproducibility",
+      "status": "todo",
+      "finding": "Docker/CI nutzen requirements.lock, lokale Installer teilweise nicht.",
+      "risk": "Lokale Installationen können andere Dependency-Versionen ziehen als Docker/CI.",
+      "files_observed": [
+        "Dockerfile",
+        "Dockerfile.quickstart-no-ollama",
+        ".github/workflows/quality-and-docs.yml",
+        ".github/workflows/backend-isolated-flows.yml",
+        ".github/workflows/live-llm-smoke.yml",
+        "setup.ps1",
+        "scripts/install-ananta.sh",
+        "scripts/install-ananta.ps1",
+        "requirements.lock",
+        "requirements-dev.lock",
+        "requirements.txt"
+      ],
+      "tasks": [
+        "setup.ps1: requirements.lock verwenden, wenn vorhanden.",
+        "scripts/install-ananta.sh: zuerst pip install -r requirements.lock.",
+        "scripts/install-ananta.ps1: zuerst pip install -r requirements.lock.",
+        "Danach editable install mit --no-deps, z. B. pip install -e . --no-deps.",
+        "Fallback auf requirements.txt nur mit deutlicher Warnung.",
+        "Docs für lokale Installation aktualisieren."
+      ],
+      "suggested_commit": "build(setup): use locked Python dependencies in local installers"
     },
     {
-      "id": "e2e-compose-main-trigger",
-      "title": "Expand compose E2E trigger policy to main and full-ci label",
-      "status": "done",
+      "id": "ARCH-001",
+      "title": "Architektur-Exceptions abbauen",
       "priority": "P2",
-      "risk": "medium",
-      "acceptance_criteria": [
-        "compose E2E runs on main branch updates or equivalent protected trigger",
-        "compose E2E can be requested by PR full-ci label"
-      ]
+      "category": "architecture/refactoring",
+      "status": "todo",
+      "finding": "check_imports.py erzwingt Layer-Regeln, enthält aber mehrere Technical-Debt-Exceptions.",
+      "risk": "Langfristig können Services/Routes/Common wieder enger koppeln als gewünscht.",
+      "files_observed": [
+        "scripts/check_imports.py"
+      ],
+      "tasks": [
+        "Alle EXCEPTIONS in check_imports.py einzeln als Refactoring-Tickets erfassen.",
+        "services -> routes Abhängigkeiten priorisiert entfernen.",
+        "Gemeinsame Policy-/Utility-Logik aus routes.tasks.* in services/common verschieben.",
+        "common -> services Abhängigkeiten prüfen und invertieren.",
+        "CI-Regel beibehalten: keine neuen Exceptions ohne explizite Begründung."
+      ],
+      "suggested_commit": "refactor(arch): reduce import boundary exceptions"
     },
     {
-      "id": "ci-depth-strategy-doc-alignment",
-      "title": "Align CI depth docs with actual workflow topology",
-      "status": "done",
+      "id": "ARCH-002",
+      "title": "Bekannte Import-Zyklen reduzieren",
       "priority": "P2",
-      "risk": "low",
-      "acceptance_criteria": [
-        "docs/ci-test-depth-strategy.md reflects current workflows and triggers",
-        "optional deep checks are documented at their actual workflow files",
-        "no documentation claims e2e-compose is in quality-and-docs when it is not"
-      ]
+      "category": "architecture/refactoring",
+      "status": "todo",
+      "finding": "check_cycles.py ignoriert bekannte Zyklen als Technical Debt.",
+      "risk": "Zyklen erschweren Testbarkeit, Initialisierung und saubere Service-Grenzen.",
+      "files_observed": [
+        "scripts/check_cycles.py"
+      ],
+      "tasks": [
+        "KNOWN_CYCLES einzeln analysieren.",
+        "service_registry-Zyklen priorisiert entkoppeln.",
+        "autopilot/auto_planner-Zyklus durch Interface/Service-Schicht brechen.",
+        "common.sgpt ↔ runtime-service Abhängigkeiten invertieren.",
+        "Jede entfernte Cycle-Exception aus check_cycles.py löschen."
+      ],
+      "suggested_commit": "refactor(arch): remove known import cycles"
+    },
+    {
+      "id": "CONTRACT-001",
+      "title": "API-Contract-Tests gegen echte Endpunkte härten",
+      "priority": "P2",
+      "category": "testing/contracts",
+      "status": "todo",
+      "finding": "tests/test_api_contract_tasks.py enthält echte Contract-Modelle, aber ein zentraler Integrationstest ist nur pass.",
+      "risk": "API-Contracts können brechen, ohne dass Tests es merken.",
+      "files_observed": [
+        "tests/test_api_contract_tasks.py"
+      ],
+      "tasks": [
+        "pass-Test durch echten Flask-Client-Test ersetzen.",
+        "TaskListResponse gegen echte /api/tasks oder korrekten Task-Endpunkt validieren.",
+        "GovernanceResponse gegen echten Governance-Endpunkt validieren.",
+        "Contract-Tests für Error-Shapes ergänzen.",
+        "Contract-Modelle optional aus zentralen Pydantic-Schemas generieren statt doppelt pflegen."
+      ],
+      "suggested_commit": "test(contracts): validate task api contracts against real responses"
+    },
+    {
+      "id": "CONTRACT-002",
+      "title": "Tool-Contract-Katalog als stabile öffentliche Schnittstelle pflegen",
+      "priority": "P2",
+      "category": "testing/contracts",
+      "status": "todo",
+      "finding": "Tool-Contracts sind gut modelliert; sollten als stabile API behandelt werden.",
+      "risk": "Neue Tools könnten ohne vollständigen Contract exposed werden.",
+      "files_observed": [
+        "agent/tool_contracts.py",
+        "agent/tool_capabilities.py",
+        "tests/test_tool_capabilities_contract.py",
+        "docs/tool-contracts.md"
+      ],
+      "tasks": [
+        "Test erzwingen: jedes exposed Tool muss im Contract-Katalog auftauchen.",
+        "Test erzwingen: jedes mutating Tool hat audit.required_for_mutation=true.",
+        "Test erzwingen: unbekannte Tool-Namen bleiben fail-closed.",
+        "Contract-Versionierung dokumentieren: v1, v2 etc.",
+        "Breaking Changes im Tool-Contract explizit markieren."
+      ],
+      "suggested_commit": "test(tools): enforce complete tool contract catalog"
+    },
+    {
+      "id": "POLICY-001",
+      "title": "Default-Deny Enforcement-Pfade tiefer absichern",
+      "priority": "P1",
+      "category": "security/policy",
+      "status": "todo",
+      "finding": "Tool-Capabilities sind fail-closed; Gesamtplattform-Enforcement für Terminal/MCP/OpenAI-Compat sollte tiefer geprüft werden.",
+      "risk": "Read-Model-Policy kann sauber aussehen, ohne dass jeder Execution-Pfad hart blockt.",
+      "files_observed": [
+        "agent/tool_capabilities.py",
+        "agent/tool_contracts.py",
+        "agent/tool_guardrails.py",
+        "agent/services/governance_profile_service.py",
+        "agent/routes/config/settings.py",
+        "docs/governance-modes.md"
+      ],
+      "tasks": [
+        "Für Terminal, MCP, OpenAI-Compat, Webhooks und Worker-Execution je einen Enforcement-Test erstellen.",
+        "Sicherstellen: unknown operation => deny.",
+        "Sicherstellen: mutating operation ohne Admin/Approval => deny.",
+        "Sicherstellen: secure-enterprise/review-first erzwingt strengere Defaults.",
+        "Policy-Read-Model nicht als Enforcement-Ersatz behandeln.",
+        "Negative Tests für deaktivierte/unsichere Policy-Blöcke ergänzen."
+      ],
+      "suggested_commit": "test(policy): enforce default deny across execution surfaces"
+    },
+    {
+      "id": "POLICY-002",
+      "title": "Tool-Guardrails nicht in sicheren Profilen deaktivierbar machen",
+      "priority": "P2",
+      "category": "security/policy",
+      "status": "todo",
+      "finding": "Tool-Guardrails sind default enabled, können aber per Config deaktiviert werden.",
+      "risk": "In secure/team Profilen könnten Schutzmechanismen versehentlich abgeschaltet werden.",
+      "files_observed": [
+        "agent/tool_guardrails.py",
+        "agent/runtime_profiles.py"
+      ],
+      "tasks": [
+        "In secure-enterprise/review-first Guardrails erzwingen oder Abschalten admin-auditpflichtig machen.",
+        "Config-Validation: llm_tool_guardrails.enabled=false in strict Profilen blocken oder warnen.",
+        "Audit-Event bei Guardrail-Deaktivierung erzeugen.",
+        "Tests für Profilabhängigkeit ergänzen."
+      ],
+      "suggested_commit": "sec(policy): prevent disabling tool guardrails in strict profiles"
+    },
+    {
+      "id": "PROFILE-001",
+      "title": "Runtime-/Governance-Profile mit realen Enforcement-Defaults verbinden",
+      "priority": "P2",
+      "category": "profiles/governance",
+      "status": "todo",
+      "finding": "Profile sind gut modellierte Read-Model-Signale; harte Durchsetzung bleibt in Policy-Blöcken.",
+      "risk": "Profilnamen können Sicherheit suggerieren, ohne alle Defaults tatsächlich zu setzen.",
+      "files_observed": [
+        "agent/runtime_profiles.py",
+        "agent/governance_modes.py",
+        "agent/services/governance_profile_service.py",
+        "docs/product-profiles.md",
+        "docs/governance-modes.md"
+      ],
+      "tasks": [
+        "Für jedes Profil konkrete Policy-Defaults definieren.",
+        "secure-enterprise: MCP/OpenAI-Compat default off, terminal restricted, review required.",
+        "developer-local: lockere Defaults explizit sichtbar machen.",
+        "team-controlled: production-taugliche Auth/CORS/Review-Defaults setzen.",
+        "Tests: Profilauflösung erzeugt erwartete effektive Policy."
+      ],
+      "suggested_commit": "feat(profiles): bind runtime profiles to effective policy defaults"
+    },
+    {
+      "id": "AUTH-001",
+      "title": "Eigene lokale JWT-Auth langfristig hinter Provider-Abstraktion kapseln",
+      "priority": "P2",
+      "category": "security/auth",
+      "status": "todo",
+      "finding": "Lokale Auth, Agent-Token und User-JWT sind aktuell in eigener Auth-Logik gebündelt.",
+      "risk": "OIDC/BFF-Nachrüstung wird riskant, wenn Maschinen-Trust und User-Identity vermischt werden.",
+      "files_observed": [
+        "agent/auth.py",
+        "agent/routes/auth.py"
+      ],
+      "tasks": [
+        "UserAuthProvider Interface einführen.",
+        "LocalAuthProvider für bestehenden Login.",
+        "OidcBffAuthProvider für Keycloak/BFF.",
+        "MachineAuth separat halten: AgentTokenAuth/WorkerAuth.",
+        "admin_required/check_user_auth intern auf Provider-Kontext umstellen.",
+        "Tests für local und oidc_bff Modi vorbereiten."
+      ],
+      "suggested_commit": "refactor(auth): separate user and machine authentication"
+    },
+    {
+      "id": "DOC-001",
+      "title": "Review-Ergebnisse in Security-/Architecture-Doku übertragen",
+      "priority": "P3",
+      "category": "docs",
+      "status": "todo",
+      "finding": "Mehrere Sicherheitsentscheidungen sind wichtig genug für explizite Dokumentation.",
+      "risk": "Spätere KI-/Copilot-Änderungen könnten alte Muster wieder einführen.",
+      "files_observed": [
+        "docs/tool-contracts.md",
+        "docs/governance-modes.md",
+        "docs/product-profiles.md"
+      ],
+      "tasks": [
+        "Dokumentieren: keine persistent password history.",
+        "Dokumentieren: keine Browser Tokens in sicheren Profilen.",
+        "Dokumentieren: OIDC/BFF Zielbild.",
+        "Dokumentieren: Hub/Worker-Token sind Maschinen-Trust, nicht User-Identity.",
+        "Dokumentieren: Default-Deny und Approval-Gates als Sicherheitsprinzip."
+      ],
+      "suggested_commit": "docs(security): document auth and default-deny decisions"
+    },
+    {
+      "id": "TEST-001",
+      "title": "Regressionstest gegen erneute Password-History-Einführung",
+      "priority": "P2",
+      "category": "testing/security",
+      "status": "todo",
+      "finding": "Copilot/Agenten könnten password_history später wieder als Compliance-Feature hinzufügen.",
+      "risk": "Entferntes Anti-Pattern kann unbemerkt zurückkommen.",
+      "files_observed": [
+        "agent/db_models.py",
+        "agent/routes/auth.py",
+        "tests"
+      ],
+      "tasks": [
+        "Test: keine Tabelle/Model-Klasse PasswordHistoryDB vorhanden.",
+        "Test: Passwortwechsel speichert keine alten password_hash-Werte.",
+        "Test: kein Repository password_history_repo registriert.",
+        "Optional Architektur-Regel: password_history als verbotenes Pattern scannen."
+      ],
+      "suggested_commit": "test(auth): prevent reintroducing password history"
     }
-  ],
-  "critical_path_tasks": [
-    "coverage-backend-pytest-cov",
-    "endpoint-role-matrix",
-    "double-claim-same-task",
-    "old-config-upgrade",
-    "docker-pull-smoke"
-  ],
-  "tasks_status_summary": {
-    "total": 18,
-    "by_status": {
-      "todo": 0,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 18
-    },
-    "progress_percent_done": 100,
-    "by_priority": {
-      "P0": 3,
-      "P1": 11,
-      "P2": 4,
-      "P3": 0
-    },
-    "by_risk": {
-      "low": 3,
-      "medium": 7,
-      "high": 7,
-      "critical": 1
-    },
-    "critical_path": {
-      "total": 5,
-      "done": 5,
-      "remaining": 0
-    },
-    "milestones": {
-      "total": 6,
-      "todo": 0,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 6
-    }
-  },
-  "execution_stage_summary": {
-    "stages": {
-      "TEST-M1": {
-        "scope_task_ids": [
-          "coverage-backend-pytest-cov",
-          "coverage-frontend-vitest",
-          "coverage-thresholds-later"
-        ],
-        "total": 3,
-        "done": 3,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M2": {
-        "scope_task_ids": [
-          "security-abuse-workflow-split",
-          "endpoint-role-matrix"
-        ],
-        "total": 2,
-        "done": 2,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M3": {
-        "scope_task_ids": [
-          "double-claim-same-task",
-          "lease-expiry-reclaim",
-          "parallel-autopilot-ticks",
-          "research-backend-timeout",
-          "shell-session-crash"
-        ],
-        "total": 5,
-        "done": 5,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M4": {
-        "scope_task_ids": [
-          "old-config-upgrade",
-          "old-task-read-model-upgrade",
-          "artifact-memory-upgrade"
-        ],
-        "total": 3,
-        "done": 3,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M5": {
-        "scope_task_ids": [
-          "docker-pull-smoke",
-          "e2e-compose-main-trigger"
-        ],
-        "total": 2,
-        "done": 2,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M6": {
-        "scope_task_ids": [
-          "workflow-badges",
-          "test-count-summary",
-          "ci-depth-strategy-doc-alignment"
-        ],
-        "total": 3,
-        "done": 3,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      }
-    }
-  },
-  "summary_notes": [
-    "Removed already-implemented items (security boundary tests, frontend golden-path E2E coverage, compose log artifact upload, release image gate split, testing guide matrix).",
-    "Roadmap now contains open items only and aligns with current workflow filenames.",
-    "Task-track summary fields were restored for consistency checks and stage progress accounting.",
-    "Updated after codebase validation pass: removed worker-timeout (covered), added CI depth doc alignment task.",
-    "All tracked roadmap tasks are now marked done after implementation and targeted .venv pytest validation."
   ]
 }
