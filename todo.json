@@ -1,262 +1,542 @@
 {
-  "version": 2,
-  "owner": "ananta",
-  "track": "stability-and-security",
-  "purpose": "Arbeitsliste fuer Stabilitaet, Security-Haertung und Vertragskonsistenz.",
-  "goal": "Aktive Risiken priorisiert abarbeiten, abgeschlossene Punkte entfernen, Test- und Policy-Signale stabil halten.",
-  "status_scale": [
-    "todo",
-    "in_progress",
-    "blocked",
-    "done"
+  "project": "ananta",
+  "topic": "hub-owned planning with specialized planning-agent worker",
+  "created_from_discussion": true,
+  "core_principle": "Planner as Advisor, Hub as Authority",
+  "architecture_rule": "A planning agent may generate plan proposals for the hub. Only the hub may accept, persist, approve, route or materialize plans.",
+  "assumptions": [
+    "The hub remains the sole plan owner and orchestration authority.",
+    "The planning agent runs as a specialized worker role.",
+    "The planning agent produces draft proposals only.",
+    "The planning agent must not execute tools, persist authoritative plans, route work, select workers, or materialize tasks.",
+    "All plans created by the planning agent are treated as untrusted input until the hub validates them."
   ],
-  "priority_scale": [
-    "P0",
-    "P1",
-    "P2",
-    "P3"
-  ],
-  "risk_scale": [
-    "low",
-    "medium",
-    "high",
-    "critical"
-  ],
-  "summary_notes": [
-    "Abgeschlossene Aufgaben wurden aus dieser Datei entfernt.",
-    "Nur derzeit offene oder laufende Tasks sind enthalten.",
-    "Konsistenzfelder sind auf aktuelle Taskdaten synchronisiert.",
-    "Alle aktuell geplanten Aufgaben sind erledigt und auf done gesetzt."
-  ],
-  "milestones": [
+  "todos": [
     {
-      "id": "TEST-M1",
-      "title": "Auth und LLM-Stabilitaet",
-      "task_ids": [
-        "T-SEC-001",
-        "T-SEC-002",
-        "T-TEST-001"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "TEST-M2",
-      "title": "Schema und Contract-Haertung",
-      "task_ids": [
-        "T-TEST-002",
-        "T-CONTRACT-001"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "TEST-M3",
-      "title": "Build, Architektur und Doku",
-      "task_ids": [
-        "T-BUILD-001",
-        "T-ARCH-001",
-        "T-DOC-001"
-      ],
-      "status": "done"
-    }
-  ],
-  "tasks": [
-    {
-      "id": "T-SEC-001",
-      "title": "Flaky LLM-Routing-Test robust machen",
-      "status": "done",
+      "id": "PLAN-AGENT-001",
+      "title": "Define planning-agent role and capability model",
       "priority": "P1",
-      "risk": "high",
+      "category": "architecture/capabilities",
+      "status": "todo",
+      "goal": "Introduce a dedicated worker role for planning proposals without granting orchestration authority.",
+      "tasks": [
+        "Add worker role `planning-agent` or equivalent role identifier.",
+        "Add capabilities: `plan.propose`, `risk.estimate`, `dependencies.suggest`, `clarifying_questions.suggest`.",
+        "Explicitly forbid capabilities: `plan.accept`, `plan.persist`, `task.materialize`, `worker.route`, `tool.execute`, `policy.modify`.",
+        "Represent planning-agent capabilities in the agent registry.",
+        "Ensure UI/API can display planning-agent role separately from normal execution workers.",
+        "Document that planning-agent output is advisory and untrusted until hub validation."
+      ],
       "acceptance_criteria": [
-        "test_llm_generate_runtime_falls_back_to_ollama_in_routing_metadata ist im Suite-Kontext stabil.",
-        "Der Test akzeptiert validierte Preflight-400-Pfade ohne False-Positive.",
-        "Routing-Assertions bleiben fuer den 200-Pfad erhalten."
-      ]
+        "A worker can register as planning-agent.",
+        "Hub can identify planning-agent candidates by role/capability.",
+        "Planning-agent cannot be selected for normal task execution unless explicitly allowed by a separate profile.",
+        "Tests prove forbidden capabilities are not granted."
+      ],
+      "suggested_commit": "feat(planning): add dedicated planning agent role"
     },
     {
-      "id": "T-SEC-002",
-      "title": "OIDC/BFF Zielbild fuer sichere Browser-Sessions vorbereiten",
-      "status": "done",
+      "id": "PLAN-AGENT-002",
+      "title": "Create plan proposal contract",
       "priority": "P1",
-      "risk": "critical",
+      "category": "contracts/schema",
+      "status": "todo",
+      "goal": "Define a strict JSON schema for plan proposals returned by planning agents.",
+      "tasks": [
+        "Create Pydantic model or JSON schema for `PlanProposal`.",
+        "Include fields: `goal_id`, `trace_id`, `summary`, `assumptions`, `clarifying_questions`, `nodes`, `dependencies`, `risks`, `required_capabilities`, `acceptance_criteria`, `estimated_complexity`, `confidence`.",
+        "Define `PlanNodeProposal` with stable fields: `node_key`, `title`, `description`, `task_kind`, `depends_on`, `required_capabilities`, `risk_level`, `verification_spec`, `suggested_worker_profile`.",
+        "Require deterministic node keys or validate uniqueness.",
+        "Reject unknown top-level fields unless intentionally allowed.",
+        "Add schema version, e.g. `plan_proposal_contract_version: v1`."
+      ],
       "acceptance_criteria": [
-        "AUTH_PROVIDER=local|oidc_bff ist konzeptionell und in Config vorbereitet.",
-        "Tokenpersistenz im Browser ist fuer sichere Profile ausgeschlossen.",
-        "Rollenmapping admin/user ist eindeutig dokumentiert."
-      ]
+        "Invalid proposal payloads are rejected by hub validation.",
+        "Duplicate node keys are rejected.",
+        "Unknown dependencies are rejected.",
+        "Risk level values are normalized and validated.",
+        "Contract tests cover valid and invalid proposals."
+      ],
+      "suggested_commit": "feat(planning): define plan proposal contract"
     },
     {
-      "id": "T-TEST-001",
-      "title": "Read-Model-Baselines deterministic halten",
-      "status": "done",
+      "id": "PLAN-AGENT-003",
+      "title": "Implement hub-side planning delegation service",
       "priority": "P1",
-      "risk": "high",
+      "category": "backend/service",
+      "status": "todo",
+      "goal": "Hub delegates draft generation to planning-agent while retaining ownership.",
+      "tasks": [
+        "Create service, e.g. `PlanningDelegationService`.",
+        "Input: goal, context, constraints, acceptance criteria, governance mode, runtime profile.",
+        "Select a planning-agent worker from registry based on role/capability.",
+        "Build minimal planning context bundle for the planner.",
+        "Send planning request to selected planning-agent.",
+        "Receive proposal payload.",
+        "Never persist proposal as authoritative plan before validation.",
+        "Return proposal plus validation result to hub planning pipeline."
+      ],
       "acceptance_criteria": [
-        "Schema-Baseline-Tests schlagen nicht sporadisch fehl.",
-        "Dynamische/volatile Felder sind fuer Strukturvergleiche kontrolliert.",
-        "Assistant- und Dashboard-Read-Model laufen stabil in Folge-Runs."
-      ]
+        "Planning delegation is optional and feature-gated.",
+        "If no planning-agent is available, hub falls back to existing hub-side planning.",
+        "Timeouts/failures do not break goal creation flow.",
+        "All planner responses are logged/audited as proposals, not accepted plans."
+      ],
+      "suggested_commit": "feat(planning): delegate draft generation to planning agents"
     },
     {
-      "id": "T-TEST-002",
-      "title": "TODO-Track-Tests auf aktuelles Format absichern",
-      "status": "done",
+      "id": "PLAN-AGENT-004",
+      "title": "Keep hub as only plan owner and materializer",
+      "priority": "P0",
+      "category": "security/control-plane",
+      "status": "todo",
+      "goal": "Prevent planning-agent from gaining orchestration authority.",
+      "tasks": [
+        "Ensure only hub code can create persisted `PlanDB`, `PlanNodeDB`, and materialized `TaskDB` records.",
+        "Planning-agent responses must be stored only as proposal artifacts or draft metadata until accepted.",
+        "Planning-agent must not call task creation endpoints directly.",
+        "Block worker-originated calls to plan acceptance/materialization endpoints.",
+        "Add policy check: only hub/admin context may accept or materialize plans.",
+        "Add audit event for every accepted, rejected, or modified planning-agent proposal."
+      ],
+      "acceptance_criteria": [
+        "Planning-agent cannot persist authoritative plans.",
+        "Planning-agent cannot materialize tasks.",
+        "Direct worker call to materialization endpoint returns 403/deny.",
+        "Tests verify hub-only authority."
+      ],
+      "suggested_commit": "sec(planning): enforce hub-only plan ownership"
+    },
+    {
+      "id": "PLAN-AGENT-005",
+      "title": "Add proposal validation pipeline",
+      "priority": "P1",
+      "category": "backend/validation",
+      "status": "todo",
+      "goal": "Validate and normalize every plan proposal before it can become a draft plan.",
+      "tasks": [
+        "Validate proposal against schema.",
+        "Normalize risk levels, task kinds, dependency references and capability names.",
+        "Reject nodes with impossible dependencies or cycles.",
+        "Reject required capabilities not known to the hub capability registry.",
+        "Check each proposed node against governance/profile policy.",
+        "Annotate each node with validation status and reasons.",
+        "Produce a hub-owned normalized plan draft."
+      ],
+      "acceptance_criteria": [
+        "Malformed proposal is rejected with clear error.",
+        "Dependency cycle is rejected.",
+        "Unknown capability is rejected or flagged for human review.",
+        "Policy violations block materialization.",
+        "Validation output is visible in plan detail/read model."
+      ],
+      "suggested_commit": "feat(planning): validate planning agent proposals"
+    },
+    {
+      "id": "PLAN-AGENT-006",
+      "title": "Add approval and human review flow for planner proposals",
+      "priority": "P1",
+      "category": "governance/review",
+      "status": "todo",
+      "goal": "Make planning-agent output reviewable before task materialization.",
+      "tasks": [
+        "Store proposal as `draft` or `proposed` state.",
+        "Expose proposal diff: original goal -> proposed plan -> hub-normalized plan.",
+        "Allow human/admin to accept, reject, or edit proposal.",
+        "Require review for high/critical risk plans.",
+        "In strict/review-first profile, require approval before materializing tasks.",
+        "Record reviewer, timestamp, reason and resulting plan version."
+      ],
+      "acceptance_criteria": [
+        "High-risk proposal cannot auto-materialize in strict mode.",
+        "Accepted plan creates an immutable/auditable version.",
+        "Rejected proposal remains traceable.",
+        "Edited proposal records hub/human modifications."
+      ],
+      "suggested_commit": "feat(planning): add review flow for planner proposals"
+    },
+    {
+      "id": "PLAN-AGENT-007",
+      "title": "Create planning-agent request prompt/context contract",
+      "priority": "P1",
+      "category": "contracts/prompting",
+      "status": "todo",
+      "goal": "Give planning-agent consistent, bounded input without leaking unnecessary data.",
+      "tasks": [
+        "Define `PlanningRequest` schema.",
+        "Include goal text, constraints, acceptance criteria, available capabilities, governance mode, runtime profile, allowed task kinds.",
+        "Include explicit forbidden actions in every planning request.",
+        "Include output schema instruction.",
+        "Limit context size and redact secrets.",
+        "Avoid sending raw credentials, tokens or unrelated history.",
+        "Add prompt template file for planning-agent."
+      ],
+      "acceptance_criteria": [
+        "Planning-agent receives only bounded context.",
+        "Planner prompt includes explicit authority limits.",
+        "Output is machine-parseable JSON.",
+        "Secrets are redacted in tests."
+      ],
+      "suggested_commit": "feat(planning): add planning request contract"
+    },
+    {
+      "id": "PLAN-AGENT-008",
+      "title": "Add planner selection and routing policy",
       "priority": "P2",
-      "risk": "medium",
+      "category": "routing/policy",
+      "status": "todo",
+      "goal": "Select planning-agent safely and deterministically.",
+      "tasks": [
+        "Add policy for selecting planning-agent by role/capability/status/load.",
+        "Prefer local trusted planner in local-first profile.",
+        "Prefer strict trusted planner in secure-enterprise profile.",
+        "Reject remote/untrusted planners unless remote federation policy allows it.",
+        "Add timeout, retry, and fallback behavior.",
+        "Audit planner selection decision."
+      ],
       "acceptance_criteria": [
-        "test_test_track_todo_consistency bleibt kompatibel mit aktuellem todo.json-Format.",
-        "validate_todo_consistency und validate_todo_schema bestehen fuer dieses Dokument.",
-        "Counter-Felder und Stage-Summaries sind intern konsistent."
-      ]
+        "Planner selection is deterministic enough for testing.",
+        "Untrusted planner is not selected in strict profile.",
+        "No planner available triggers safe fallback.",
+        "Selection decision is included in audit/read model."
+      ],
+      "suggested_commit": "feat(planning): add planner routing policy"
     },
     {
-      "id": "T-BUILD-001",
-      "title": "Lokale Installer auf Lockfiles ausrichten",
-      "status": "done",
+      "id": "PLAN-AGENT-009",
+      "title": "Introduce planner proposal persistence separate from accepted plans",
       "priority": "P2",
-      "risk": "medium",
+      "category": "database/model",
+      "status": "todo",
+      "goal": "Preserve planner output without treating it as authoritative.",
+      "tasks": [
+        "Add model/table, e.g. `PlanProposalDB` or reuse artifact/proposal model if appropriate.",
+        "Fields: proposal_id, goal_id, trace_id, planner_agent_url/name, raw_payload, normalized_payload, validation_status, validation_errors, created_at.",
+        "Link accepted plan version to source proposal_id.",
+        "Store rejected proposals for audit.",
+        "Ensure proposal storage redacts sensitive context."
+      ],
       "acceptance_criteria": [
-        "Installationsskripte priorisieren requirements.lock.",
-        "Editable Install erfolgt ohne unkontrollierte Dependency-Aufloesung.",
-        "Abweichungen gegen Docker/CI werden reduziert."
-      ]
+        "Raw planner proposal is traceable.",
+        "Accepted plan references source proposal.",
+        "Rejected/invalid proposal is visible to admins.",
+        "Sensitive fields are redacted."
+      ],
+      "suggested_commit": "feat(planning): persist planner proposals separately"
     },
     {
-      "id": "T-ARCH-001",
-      "title": "Service-Route-Grenzen weiter entkoppeln",
-      "status": "done",
+      "id": "PLAN-AGENT-010",
+      "title": "Add plan diff and normalization read model",
       "priority": "P2",
-      "risk": "medium",
+      "category": "ui/read-model",
+      "status": "todo",
+      "goal": "Expose what the planning-agent proposed and what the hub accepted/changed.",
+      "tasks": [
+        "Add read model for plan proposal details.",
+        "Show raw proposal summary, normalized hub draft, validation warnings, policy blocks.",
+        "Expose per-node changes: risk, dependencies, required capabilities, task kind.",
+        "Expose approval state and audit metadata.",
+        "Add frontend view or extend goal/plan detail page."
+      ],
       "acceptance_criteria": [
-        "Neue Service->Route-Imports entstehen nur mit begruendeter Ausnahme.",
-        "Bestehende Ausnahmen werden schrittweise reduziert.",
-        "Boundary-Checks bleiben gruen."
-      ]
+        "Admin can see planner proposal before approval.",
+        "Admin can see why proposal was blocked or modified.",
+        "Accepted plan links back to proposal source."
+      ],
+      "suggested_commit": "feat(ui): show planner proposal validation and diff"
     },
     {
-      "id": "T-CONTRACT-001",
-      "title": "Contract-Tests gegen reale Responses konsolidieren",
-      "status": "done",
+      "id": "PLAN-AGENT-011",
+      "title": "Feature gate delegated planning",
+      "priority": "P1",
+      "category": "config/profiles",
+      "status": "todo",
+      "goal": "Make delegated planning explicit and controllable per profile.",
+      "tasks": [
+        "Add config block, e.g. `planning_policy`.",
+        "Fields: `delegated_planning_enabled`, `allowed_planner_roles`, `require_review`, `allow_remote_planners`, `max_nodes`, `max_depth`, `timeout_seconds`.",
+        "Default disabled or safe fallback for early rollout.",
+        "Enable in selected profile only after tests pass.",
+        "Strict profile requires review before materialization.",
+        "Expose effective planning policy in `/config` and dashboard read model."
+      ],
+      "acceptance_criteria": [
+        "Delegated planning can be disabled without breaking hub planning.",
+        "Effective planning policy is visible.",
+        "Profile-specific defaults are tested.",
+        "Strict mode cannot silently auto-materialize unreviewed planner proposals."
+      ],
+      "suggested_commit": "feat(config): add delegated planning policy"
+    },
+    {
+      "id": "PLAN-AGENT-012",
+      "title": "Add negative security tests for planning-agent authority boundaries",
+      "priority": "P0",
+      "category": "testing/security",
+      "status": "todo",
+      "goal": "Prevent accidental privilege creep of planning-agent.",
+      "tasks": [
+        "Test planning-agent cannot create tasks directly.",
+        "Test planning-agent cannot accept plan.",
+        "Test planning-agent cannot modify policy/config.",
+        "Test planning-agent cannot route work to another worker.",
+        "Test planning-agent cannot call execution tools.",
+        "Test forged proposal with hidden tool instructions is rejected or sanitized."
+      ],
+      "acceptance_criteria": [
+        "All forbidden actions fail closed.",
+        "Tests run in standard CI.",
+        "Failure messages identify violated authority boundary."
+      ],
+      "suggested_commit": "test(planning): enforce planning agent authority boundaries"
+    },
+    {
+      "id": "PLAN-AGENT-013",
+      "title": "Add proposal quality tests",
       "priority": "P2",
-      "risk": "high",
+      "category": "testing/quality",
+      "status": "todo",
+      "goal": "Ensure useful planning output without granting authority.",
+      "tasks": [
+        "Test simple goal produces valid plan proposal.",
+        "Test complex goal includes dependencies and risks.",
+        "Test ambiguous goal produces clarifying questions.",
+        "Test high-risk goal marks risk correctly.",
+        "Test proposal stays within max_nodes/max_depth.",
+        "Test no tools are executed during planning."
+      ],
       "acceptance_criteria": [
-        "Zentrale Contract-Tests validieren echte Endpunkte.",
-        "Error-Response-Shapes sind explizit abgedeckt.",
-        "Schema-Drifts werden frueh erkannt."
-      ]
+        "Planner proposal quality is measurable.",
+        "Bad proposals fail validation cleanly.",
+        "No side effects occur during proposal generation."
+      ],
+      "suggested_commit": "test(planning): add planner proposal quality tests"
     },
     {
-      "id": "T-DOC-001",
-      "title": "Security- und Governance-Entscheidungen dokumentieren",
-      "status": "done",
+      "id": "PLAN-AGENT-014",
+      "title": "Add planning-agent worker endpoint/handler",
+      "priority": "P1",
+      "category": "worker/backend",
+      "status": "todo",
+      "goal": "Give planning-agent a dedicated handler that only returns proposals.",
+      "tasks": [
+        "Add worker-side endpoint or job type for `planning.propose`.",
+        "Accept `PlanningRequest` only.",
+        "Return `PlanProposal` only.",
+        "Disable shell/tool execution for this job type.",
+        "Run LLM call with planning-specific system prompt.",
+        "Apply timeout and output size limit.",
+        "Return structured error on invalid LLM output."
+      ],
+      "acceptance_criteria": [
+        "Planning job cannot execute arbitrary commands.",
+        "Planning job cannot call normal tool execution path.",
+        "Planner returns schema-valid proposal or error.",
+        "Hub treats result as proposal only."
+      ],
+      "suggested_commit": "feat(worker): add planning proposal job type"
+    },
+    {
+      "id": "PLAN-AGENT-015",
+      "title": "Integrate delegated planner into existing goal workflow",
+      "priority": "P1",
+      "category": "workflow",
+      "status": "todo",
+      "goal": "Use planning-agent proposals in the Goal -> Plan -> Task flow without changing authority.",
+      "tasks": [
+        "At goal planning stage, check planning_policy.delegated_planning_enabled.",
+        "If enabled, call PlanningDelegationService.",
+        "Validate and normalize proposal.",
+        "Create hub-owned draft plan.",
+        "Do not create tasks until approval/materialization policy passes.",
+        "Fallback to existing planner if delegated planner fails."
+      ],
+      "acceptance_criteria": [
+        "Existing goal flow still works when delegated planning is off.",
+        "Delegated planning creates draft plan only.",
+        "Task materialization remains hub-controlled.",
+        "Audit trail shows planner contribution."
+      ],
+      "suggested_commit": "feat(workflow): integrate planning agent proposals into goal planning"
+    },
+    {
+      "id": "PLAN-AGENT-016",
+      "title": "Add audit events for delegated planning lifecycle",
+      "priority": "P1",
+      "category": "audit/governance",
+      "status": "todo",
+      "goal": "Make planner involvement fully traceable.",
+      "tasks": [
+        "Audit event: planning_delegation_started.",
+        "Audit event: planning_agent_selected.",
+        "Audit event: planning_proposal_received.",
+        "Audit event: planning_proposal_validated.",
+        "Audit event: planning_proposal_rejected.",
+        "Audit event: planning_proposal_accepted.",
+        "Audit event: plan_materialized_from_proposal.",
+        "Include trace_id, goal_id, proposal_id, planner identity, validation result."
+      ],
+      "acceptance_criteria": [
+        "Every delegated planning attempt is visible in audit logs.",
+        "Accepted plans can be traced to planner proposal.",
+        "Rejected/invalid proposals leave audit trail."
+      ],
+      "suggested_commit": "feat(audit): track delegated planning lifecycle"
+    },
+    {
+      "id": "PLAN-AGENT-017",
+      "title": "Add documentation for Planner-as-Advisor architecture",
+      "priority": "P2",
+      "category": "docs/architecture",
+      "status": "todo",
+      "goal": "Document the control-plane boundary clearly.",
+      "tasks": [
+        "Add docs page: `docs/planning-agent-architecture.md`.",
+        "Document Hub = Owner, Planning Worker = Advisor.",
+        "Document allowed and forbidden planning-agent actions.",
+        "Document proposal lifecycle.",
+        "Document policy and approval behavior.",
+        "Add sequence diagram: Goal -> Hub -> Planning Agent -> Hub Validation -> Draft Plan -> Approval -> Tasks.",
+        "Document why planning-agent must not orchestrate workers."
+      ],
+      "acceptance_criteria": [
+        "Architecture docs make authority boundary obvious.",
+        "New contributors can implement planner features without violating Hub ownership.",
+        "Docs include security rationale."
+      ],
+      "suggested_commit": "docs(planning): document planner as advisor architecture"
+    },
+    {
+      "id": "PLAN-AGENT-018",
+      "title": "Add UI controls for delegated planning",
       "priority": "P3",
-      "risk": "low",
+      "category": "frontend/ui",
+      "status": "todo",
+      "goal": "Let admins/operators understand and control delegated planning.",
+      "tasks": [
+        "Show whether delegated planning is enabled.",
+        "Show selected planning-agent.",
+        "Show proposal validation status.",
+        "Allow admin to accept/reject/edit proposed plan.",
+        "Show policy reasons for blocked materialization.",
+        "Add clear labels: proposed by planner, normalized by hub, approved by human/policy."
+      ],
       "acceptance_criteria": [
-        "Default-Deny, Guardrails und Auth-Trennung sind nachvollziehbar dokumentiert.",
-        "Profile-Zusagen stimmen mit effektivem Enforcement ueberein.",
-        "Doku ist fuer Team- und Enterprise-Betrieb verwertbar."
-      ]
+        "User cannot mistake proposal for accepted plan.",
+        "Approval state is visible.",
+        "Blocked reasons are actionable."
+      ],
+      "suggested_commit": "feat(ui): add delegated planning controls"
+    },
+    {
+      "id": "PLAN-AGENT-019",
+      "title": "Add safe fallback and failure behavior",
+      "priority": "P1",
+      "category": "resilience",
+      "status": "todo",
+      "goal": "Delegated planning must fail safely.",
+      "tasks": [
+        "If planner unavailable: fallback to hub-side planner or mark planning pending.",
+        "If planner times out: no task materialization.",
+        "If planner returns invalid JSON: store invalid proposal diagnostic and fail safely.",
+        "If validation fails: keep proposal rejected/pending, no side effects.",
+        "If policy blocks: show policy reason and require human action.",
+        "Add retry limits."
+      ],
+      "acceptance_criteria": [
+        "Planner failure never creates tasks.",
+        "Planner failure never accepts a plan.",
+        "All failures are visible and auditable.",
+        "Fallback behavior is profile-controlled."
+      ],
+      "suggested_commit": "feat(planning): add safe fallback behavior"
+    },
+    {
+      "id": "PLAN-AGENT-020",
+      "title": "Add threat model for delegated planning",
+      "priority": "P1",
+      "category": "security/threat-model",
+      "status": "todo",
+      "goal": "Explicitly model risks introduced by LLM-generated plans.",
+      "tasks": [
+        "Threat: malicious/compromised planning-agent proposes unsafe tasks.",
+        "Threat: prompt injection in goal/context manipulates plan.",
+        "Threat: planner tries to smuggle tool execution instructions.",
+        "Threat: planner proposes dependency graph that bypasses review.",
+        "Threat: planner leaks sensitive context into proposal.",
+        "For each threat, document mitigation and tests."
+      ],
+      "acceptance_criteria": [
+        "Threat model exists in docs.",
+        "Each critical threat maps to an automated test or policy check.",
+        "Security assumptions are explicit."
+      ],
+      "suggested_commit": "docs(security): add delegated planning threat model"
+    },
+    {
+      "id": "PLAN-AGENT-021",
+      "title": "Add config migration/defaults for planning_policy",
+      "priority": "P2",
+      "category": "database/config",
+      "status": "todo",
+      "goal": "Introduce delegated planning config without breaking existing installs.",
+      "tasks": [
+        "Add default planning_policy config.",
+        "Default to disabled or safe mode.",
+        "Ensure existing config records still load.",
+        "Expose normalized planning_policy in GET /config.",
+        "Persist changes via existing config repository.",
+        "Add tests for missing/partial/invalid planning_policy."
+      ],
+      "acceptance_criteria": [
+        "Existing installs continue to run.",
+        "Invalid planning_policy is rejected.",
+        "Default policy is safe."
+      ],
+      "suggested_commit": "feat(config): add planning policy defaults"
+    },
+    {
+      "id": "PLAN-AGENT-022",
+      "title": "Add capability registry checks for proposed tasks",
+      "priority": "P1",
+      "category": "capabilities/policy",
+      "status": "todo",
+      "goal": "Ensure proposed plan nodes can only reference known and permitted capabilities.",
+      "tasks": [
+        "Validate each node.required_capabilities against hub registry.",
+        "Reject unknown capabilities.",
+        "Mark unavailable capabilities as blocked/pending.",
+        "Do not route based solely on planner-suggested worker profile.",
+        "Hub routing service makes final worker decision.",
+        "Add tests for unknown, unavailable and forbidden capabilities."
+      ],
+      "acceptance_criteria": [
+        "Planner cannot invent capabilities to gain access.",
+        "Hub decides final routing.",
+        "Capability mismatch blocks materialization or requires review."
+      ],
+      "suggested_commit": "sec(planning): validate proposed task capabilities"
+    },
+    {
+      "id": "PLAN-AGENT-023",
+      "title": "Support multiple planner types later without changing authority model",
+      "priority": "P3",
+      "category": "architecture/extensibility",
+      "status": "todo",
+      "goal": "Allow future specialized planners while preserving the same boundary.",
+      "tasks": [
+        "Design planner type field: `generic`, `coding`, `security`, `release`, `migration`, `test-planning`.",
+        "Allow hub to choose planner type based on goal/task kind.",
+        "Keep same proposal contract or versioned extensions.",
+        "Do not grant planner type additional authority by default.",
+        "Add tests that specialized planner still cannot materialize tasks."
+      ],
+      "acceptance_criteria": [
+        "New planner types can be added without control-plane changes.",
+        "Authority boundary remains unchanged.",
+        "Contract versioning supports planner extensions."
+      ],
+      "suggested_commit": "feat(planning): prepare specialized planner types"
     }
-  ],
-  "critical_path_tasks": [
-    "T-SEC-001",
-    "T-SEC-002",
-    "T-TEST-001"
-  ],
-  "tasks_status_summary": {
-    "total": 8,
-    "by_status": {
-      "todo": 0,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 8
-    },
-    "progress_percent_done": 100.0,
-    "by_priority": {
-      "P0": 0,
-      "P1": 3,
-      "P2": 4,
-      "P3": 1
-    },
-    "by_risk": {
-      "low": 1,
-      "medium": 3,
-      "high": 3,
-      "critical": 1
-    },
-    "critical_path": {
-      "total": 3,
-      "done": 3,
-      "remaining": 0
-    },
-    "milestones": {
-      "total": 3,
-      "todo": 0,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 3
-    }
-  },
-  "execution_stage_summary": {
-    "stages": {
-      "TEST-M1": {
-        "scope_task_ids": [
-          "T-SEC-001",
-          "T-SEC-002",
-          "T-TEST-001"
-        ],
-        "total": 3,
-        "done": 3,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M2": {
-        "scope_task_ids": [
-          "T-TEST-002",
-          "T-CONTRACT-001"
-        ],
-        "total": 2,
-        "done": 2,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M3": {
-        "scope_task_ids": [
-          "T-BUILD-001",
-          "T-ARCH-001",
-          "T-DOC-001"
-        ],
-        "total": 3,
-        "done": 3,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M4": {
-        "scope_task_ids": [],
-        "total": 0,
-        "done": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M5": {
-        "scope_task_ids": [],
-        "total": 0,
-        "done": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      },
-      "TEST-M6": {
-        "scope_task_ids": [],
-        "total": 0,
-        "done": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "blocked": 0
-      }
-    }
-  }
+  ]
 }
