@@ -82,7 +82,7 @@ export class MobileProotService {
   }
 
   private runtimeRootResolverSnippet(): string {
-    return 'ANANTA_PROOT_RUNTIME=""; for d in /data/user/0/com.ananta.mobile/files/proot-runtime /data/data/com.ananta.mobile/files/proot-runtime; do if [ -d "$d" ]; then ANANTA_PROOT_RUNTIME="$d"; break; fi; done; if [ -z "$ANANTA_PROOT_RUNTIME" ]; then ANANTA_PROOT_RUNTIME="/data/user/0/com.ananta.mobile/files/proot-runtime"; fi';
+    return 'ANANTA_PROOT_RUNTIME=""; if [ -d "proot-runtime" ]; then ANANTA_PROOT_RUNTIME="proot-runtime"; elif [ -d "$PWD/proot-runtime" ]; then ANANTA_PROOT_RUNTIME="$PWD/proot-runtime"; fi; if [ -z "$ANANTA_PROOT_RUNTIME" ]; then for d in /data/user/0/com.ananta.mobile/files/proot-runtime /data/data/com.ananta.mobile/files/proot-runtime; do if [ -d "$d" ]; then ANANTA_PROOT_RUNTIME="$d"; break; fi; done; fi; if [ -z "$ANANTA_PROOT_RUNTIME" ]; then ANANTA_PROOT_RUNTIME="/data/user/0/com.ananta.mobile/files/proot-runtime"; fi';
   }
 
   private rootfsResolverSnippet(selectedDistro?: string): string {
@@ -90,11 +90,12 @@ export class MobileProotService {
     return [
       `ANANTA_DISTRO="${distro}"`,
       'ANANTA_PROOT_RUNTIME=""',
-      'for d in /data/user/0/com.ananta.mobile/files/proot-runtime /data/data/com.ananta.mobile/files/proot-runtime; do if [ -f "$d/bin/proot" ] && [ -d "$d/distros/$ANANTA_DISTRO/rootfs" ]; then ANANTA_PROOT_RUNTIME="$d"; break; fi; done',
+      'if [ -d "proot-runtime" ]; then ANANTA_PROOT_RUNTIME="proot-runtime"; elif [ -d "$PWD/proot-runtime" ]; then ANANTA_PROOT_RUNTIME="$PWD/proot-runtime"; fi',
+      'if [ -z "$ANANTA_PROOT_RUNTIME" ]; then for d in /data/user/0/com.ananta.mobile/files/proot-runtime /data/data/com.ananta.mobile/files/proot-runtime; do if [ -f "$d/bin/proot" ] && [ -d "$d/distros/$ANANTA_DISTRO/rootfs" ]; then ANANTA_PROOT_RUNTIME="$d"; break; fi; done; fi',
       'if [ -z "$ANANTA_PROOT_RUNTIME" ]; then for d in /data/user/0/com.ananta.mobile/files/proot-runtime /data/data/com.ananta.mobile/files/proot-runtime; do if [ -d "$d" ]; then ANANTA_PROOT_RUNTIME="$d"; break; fi; done; fi',
       'if [ -z "$ANANTA_PROOT_RUNTIME" ]; then ANANTA_PROOT_RUNTIME="/data/user/0/com.ananta.mobile/files/proot-runtime"; fi',
       'ANANTA_ROOTFS="$ANANTA_PROOT_RUNTIME/distros/$ANANTA_DISTRO/rootfs"',
-      'if [ -d "$ANANTA_ROOTFS" ] && [ ! -e "$ANANTA_ROOTFS/bin" ] && [ ! -e "$ANANTA_ROOTFS/usr/bin" ]; then for child in "$ANANTA_ROOTFS"/*; do if [ -d "$child" ] && { [ -e "$child/bin" ] || [ -e "$child/usr/bin" ]; }; then ANANTA_ROOTFS="$child"; break; fi; done; fi',
+      'if [ -d "$ANANTA_ROOTFS" ] && [ ! -e "$ANANTA_ROOTFS/bin" ] && [ ! -e "$ANANTA_ROOTFS/usr/bin" ]; then ANANTA_ROOTFS_MATCH=""; for child in "$ANANTA_ROOTFS"/*; do if [ ! -d "$child" ]; then continue; fi; if [ -f "$child/etc/os-release" ] && grep -qi "^ID=$ANANTA_DISTRO$" "$child/etc/os-release" 2>/dev/null; then ANANTA_ROOTFS_MATCH="$child"; break; fi; done; if [ -n "$ANANTA_ROOTFS_MATCH" ]; then ANANTA_ROOTFS="$ANANTA_ROOTFS_MATCH"; else for child in "$ANANTA_ROOTFS"/*; do if [ -d "$child" ] && { [ -e "$child/bin" ] || [ -e "$child/usr/bin" ]; } && [ -f "$child/etc/os-release" ]; then ANANTA_ROOTFS="$child"; break; fi; done; fi; fi',
     ].join(' && ');
   }
 
