@@ -1,0 +1,10 @@
+{
+  "source": "docs",
+  "ref": "freecad-api-docs",
+  "allowed_globs": [
+    "**/*.md",
+    "**/*.rst"
+  ],
+  "usage": "api_reference",
+  "license_notes": "Respect upstream documentation licenses."
+}
