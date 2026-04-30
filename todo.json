@@ -1,9 +1,9 @@
 {
   "version": 2,
   "owner": "ananta",
-  "track": "planning-agent-governance",
-  "purpose": "Abarbeitung der Planning-Agent Governance Aufgaben.",
-  "goal": "Hub-owned Planung mit validierten Planner-Proposals und klaren Autoritaetsgrenzen.",
+  "track": "rag-policy-context",
+  "purpose": "Aktive Restarbeiten fuer RAG-Policy-Kontextsteuerung und sichere Worker-/LLM-Routinggrenzen.",
+  "goal": "Kontextaufbau strikt policy-gesteuert machen, sensible Daten wirksam trennen und Routingentscheidungen nachvollziehbar halten.",
   "status_scale": [
     "todo",
     "in_progress",
@@ -23,89 +23,184 @@
     "critical"
   ],
   "summary_notes": [
-    "Alle zuvor geplanten Tasks wurden abgearbeitet.",
-    "Erledigte Tasks aus der aktiven Liste entfernt.",
-    "Track verbleibt als abgeschlossene Referenz mit konsistenten Summary-Feldern."
+    "Legacy-Todoformat konsistent auf Task-Track-Format migriert.",
+    "Abgeschlossene Altpunkte entfernt; nur aktive Restarbeiten enthalten.",
+    "Stages und Summaries sind auf Validatoren abgestimmt."
   ],
   "milestones": [
     {
       "id": "TEST-M1",
-      "title": "Role und Contract Fundament",
-      "task_ids": [],
-      "status": "done"
+      "title": "Policy- und Datenmodell",
+      "task_ids": [
+        "RAG-001",
+        "RAG-002"
+      ],
+      "status": "in_progress"
     },
     {
       "id": "TEST-M2",
-      "title": "Hub Delegation und Validierung",
-      "task_ids": [],
-      "status": "done"
+      "title": "Sicherer Context Builder",
+      "task_ids": [
+        "RAG-003",
+        "RAG-004"
+      ],
+      "status": "todo"
     },
     {
       "id": "TEST-M3",
-      "title": "Security und Review Flow",
-      "task_ids": [],
-      "status": "done"
+      "title": "Routing und Security Gates",
+      "task_ids": [
+        "RAG-005",
+        "RAG-006"
+      ],
+      "status": "todo"
     }
   ],
-  "tasks": [],
-  "critical_path_tasks": [],
+  "tasks": [
+    {
+      "id": "RAG-001",
+      "title": "Sensitivity- und LLM-Scope-Modelle vereinheitlichen",
+      "status": "in_progress",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Datenklassen und LLM-Scopes sind als kanonische Enums im Runtime-Pfad konsistent.",
+        "Unklassifizierte Quellen fallen deterministisch auf sichere Defaults.",
+        "Model- und Normalisierungs-Tests decken Grenzfaelle ab."
+      ]
+    },
+    {
+      "id": "RAG-002",
+      "title": "RAG-Node/Edge-Metadaten fuer Policy-Filter absichern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Node/Edge-Metadaten enthalten sensitivity-/scope-relevante Felder.",
+        "Traversal respektiert Zielknoten-Policy pro Schritt.",
+        "Unknown/unsichere Kanten werden fail-closed behandelt."
+      ]
+    },
+    {
+      "id": "RAG-003",
+      "title": "PolicyDecision vor Context-Building hart durchsetzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "PolicyDecision entscheidet allow/deny vor finalem Kontextbau.",
+        "Denied Nodes/Egdes werden nachvollziehbar protokolliert.",
+        "Fehlende Policy fuehrt zu Default-Deny statt permissivem Fallback."
+      ]
+    },
+    {
+      "id": "RAG-004",
+      "title": "Kontextmodi raw/summary/redacted konsequent trennen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "acceptance_criteria": [
+        "Cloud/externe LLM-Pfade erhalten nur minimierte/redacted Kontexte.",
+        "Lokale Pfade koennen erweitert sein, aber Secrets bleiben kontrolliert.",
+        "Kontextmode-Auswahl ist im Read-Model transparent."
+      ]
+    },
+    {
+      "id": "RAG-005",
+      "title": "Worker-/LLM-Routing mit Policy koppeln",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Routing nutzt Task-Kind, Sensitivity und Worker-Capabilities gemeinsam.",
+        "Untrusted/remote Profile werden in strict Konfiguration nicht gewählt.",
+        "Routingentscheidung inklusive Policy-Reason wird auditiert."
+      ]
+    },
+    {
+      "id": "RAG-006",
+      "title": "Negative Security-/Regressionstests fuer Policy-Bypass",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "acceptance_criteria": [
+        "Bypass-Versuche gegen Context-Policy fail-closed.",
+        "Sensitive Payloads gelangen nicht in externe Kontextmodi.",
+        "Tests laufen stabil in Non-Docker Standard-Suite."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "RAG-003",
+    "RAG-005",
+    "RAG-006"
+  ],
   "tasks_status_summary": {
-    "total": 0,
+    "total": 6,
     "by_status": {
-      "todo": 0,
-      "in_progress": 0,
+      "todo": 5,
+      "in_progress": 1,
       "blocked": 0,
       "done": 0
     },
     "progress_percent_done": 0.0,
     "by_priority": {
-      "P0": 0,
-      "P1": 0,
+      "P0": 2,
+      "P1": 4,
       "P2": 0,
       "P3": 0
     },
     "by_risk": {
       "low": 0,
       "medium": 0,
-      "high": 0,
-      "critical": 0
+      "high": 3,
+      "critical": 3
     },
     "critical_path": {
-      "total": 0,
+      "total": 3,
       "done": 0,
-      "remaining": 0
+      "remaining": 3
     },
     "milestones": {
       "total": 3,
-      "todo": 0,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 3
+      "done": 0
     }
   },
   "execution_stage_summary": {
     "stages": {
       "TEST-M1": {
-        "scope_task_ids": [],
-        "total": 0,
+        "scope_task_ids": [
+          "RAG-001",
+          "RAG-002"
+        ],
+        "total": 2,
         "done": 0,
-        "todo": 0,
-        "in_progress": 0,
+        "todo": 1,
+        "in_progress": 1,
         "blocked": 0
       },
       "TEST-M2": {
-        "scope_task_ids": [],
-        "total": 0,
+        "scope_task_ids": [
+          "RAG-003",
+          "RAG-004"
+        ],
+        "total": 2,
         "done": 0,
-        "todo": 0,
+        "todo": 2,
         "in_progress": 0,
         "blocked": 0
       },
       "TEST-M3": {
-        "scope_task_ids": [],
-        "total": 0,
+        "scope_task_ids": [
+          "RAG-005",
+          "RAG-006"
+        ],
+        "total": 2,
         "done": 0,
-        "todo": 0,
+        "todo": 2,
         "in_progress": 0,
         "blocked": 0
       },
