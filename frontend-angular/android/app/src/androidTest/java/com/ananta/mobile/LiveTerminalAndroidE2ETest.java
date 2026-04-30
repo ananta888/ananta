@@ -1,10 +1,10 @@
 package com.ananta.mobile;
 
 import static androidx.test.espresso.web.assertion.WebViewAssertions.webMatches;
-import static androidx.test.espresso.web.model.Atoms.getText;
-import static androidx.test.espresso.web.model.Atoms.webClick;
-import static androidx.test.espresso.web.model.Atoms.webKeys;
-import static androidx.test.espresso.web.model.DriverAtoms.findElement;
+import static androidx.test.espresso.web.webdriver.DriverAtoms.findElement;
+import static androidx.test.espresso.web.webdriver.DriverAtoms.getText;
+import static androidx.test.espresso.web.webdriver.DriverAtoms.webClick;
+import static androidx.test.espresso.web.webdriver.DriverAtoms.webKeys;
 import static androidx.test.espresso.web.sugar.Web.onWebView;
 import static org.hamcrest.Matchers.containsString;
 
