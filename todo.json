@@ -645,7 +645,7 @@
           "id": "ANM-090",
           "title": "Architekturdiagramm erstellen",
           "description": "Android App, Runtime, Provider, Policy Layer und Agent-Schicht dokumentieren.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "docs",
             "architecture"
@@ -655,7 +655,7 @@
           "id": "ANM-091",
           "title": "Modellinstallationsanleitung schreiben",
           "description": "Erklären, wie GGUF-Modelle importiert oder heruntergeladen werden.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "docs",
             "models"
@@ -665,7 +665,7 @@
           "id": "ANM-092",
           "title": "Security-Modell dokumentieren",
           "description": "Default-Deny, PermissionBroker und Tool-Grenzen beschreiben.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "docs",
             "security"
@@ -675,7 +675,7 @@
           "id": "ANM-093",
           "title": "Empfohlene Modellliste pflegen",
           "description": "Kleine Modelle nach Zweck, RAM-Bedarf und Qualität sortieren.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "docs",
             "models"
@@ -692,7 +692,7 @@
           "id": "ANM-100",
           "title": "Immer-hoerend-Modus explizit sperren",
           "description": "Sicherstellen, dass Live-Transkription nur nach expliziter Nutzeraktion startet und niemals automatisch im Hintergrund aktiviert wird.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "privacy",
             "security",
@@ -703,7 +703,7 @@
           "id": "ANM-101",
           "title": "RAM-Vorabschätzung vor Transkription ergänzen",
           "description": "Vor Runner-Start grobe RAM-Schwellen prüfen und bei zu wenig Speicher klar abbrechen.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "memory",
             "runtime",
@@ -714,7 +714,7 @@
           "id": "ANM-102",
           "title": "Kompatibilitätscheck für Model/Runner härten",
           "description": "Vor Ausführung prüfen, ob Modellformat, Dateiendung und Runner-Typ zueinander passen.",
-          "status": "open",
+          "status": "done",
           "labels": [
             "compatibility",
             "runtime",
@@ -725,8 +725,8 @@
     }
   ],
   "status_summary": {
-    "done": 56,
-    "open": 7,
+    "done": 63,
+    "open": 0,
     "blocked": 0,
     "total": 63
   },
@@ -736,7 +736,8 @@
     "Offene Punkte betreffen vor allem Runtime-Hardening, Security-Absicherung und vollständige Integrationsabnahme.",
     "Phasen 1-3 wurden mit Analyse-Doku, Runtime-Abstraktion und llama.cpp/JNI-Scaffold abgearbeitet (2026-04-30).",
     "Phasen 4-6 wurden mit Voxtral-Guardrails, Model-Management-Haertung und Agent-Runtime-Adapter abgearbeitet (2026-04-30).",
-    "Phasen 7-9 wurden mit Security-Guardrails, Runtime-UI-Erweiterung und Mobile-Testmatrix abgearbeitet (2026-04-30)."
+    "Phasen 7-9 wurden mit Security-Guardrails, Runtime-UI-Erweiterung und Mobile-Testmatrix abgearbeitet (2026-04-30).",
+    "Phasen 10-11 wurden mit Architektur-/Security-Doku und finalen Hardening-Nachweisen abgeschlossen (2026-04-30)."
   ],
   "recommended_first_milestone": {
     "id": "milestone-01-local-gguf-smoke-test",
@@ -895,7 +896,7 @@
     },
     {
       "id": "phase-10-documentation",
-      "status": "open",
+      "status": "done",
       "tasks": [
         "ANM-090",
         "ANM-091",
@@ -905,7 +906,7 @@
     },
     {
       "id": "phase-11-hardening",
-      "status": "open",
+      "status": "done",
       "tasks": [
         "ANM-100",
         "ANM-101",
