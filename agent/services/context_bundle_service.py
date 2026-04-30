@@ -7,6 +7,7 @@ import re
 from agent.common.redaction import redact
 from agent.config import settings
 from agent.metrics import RAG_BUNDLE_BUDGET_UTILIZATION, RAG_BUNDLE_DUPLICATE_RATE, RAG_BUNDLE_NOISE_RATE
+from agent.services.rag_policy_service import is_chunk_allowed_for_scope, normalize_llm_scope, normalize_sensitivity
 
 CONTEXT_BUNDLE_POLICY_MODES = {"compact", "standard", "full"}
 CONTEXT_WINDOW_PROFILES = {"compact_12k", "standard_32k", "full_64k"}
@@ -645,12 +646,43 @@ class ContextBundleService:
         budget_tokens_by_mode: dict[str, int] | None = None,
         window_profile: str | None = None,
         provenance_visibility: str | None = None,
+        llm_scope: str | None = None,
     ) -> dict[str, object]:
         payload = dict(context_payload or {})
         chunks = list(payload.get("chunks") or [])
+        effective_llm_scope = normalize_llm_scope(llm_scope if llm_scope is not None else "local_only")
+        allowed_chunks: list[dict[str, object]] = []
+        denied_chunks: list[dict[str, object]] = []
+        for chunk in chunks:
+            if not isinstance(chunk, dict):
+                continue
+            allowed, reason = is_chunk_allowed_for_scope(chunk=chunk, llm_scope=effective_llm_scope)
+            if allowed:
+                metadata = dict(chunk.get("metadata") or {})
+                metadata["sensitivity"] = normalize_sensitivity(metadata.get("sensitivity"))
+                chunk = {**chunk, "metadata": metadata}
+                allowed_chunks.append(chunk)
+            else:
+                denied_chunks.append(
+                    {
+                        "source": self._redact_debug_value(str(chunk.get("source") or "").strip() or None),
+                        "reason": reason,
+                        "sensitivity": normalize_sensitivity((chunk.get("metadata") or {}).get("sensitivity")),
+                    }
+                )
+        chunks = allowed_chunks
         if max_chunks is not None:
             chunks = chunks[: max(1, int(max_chunks))]
         payload["chunks"] = chunks
+        payload["policy_filter"] = {
+            "llm_scope": effective_llm_scope,
+            "allowed_count": len(allowed_chunks),
+            "denied_count": len(denied_chunks),
+            "denied_preview": denied_chunks[:20],
+            "default_deny": True,
+        }
+        if not chunks:
+            payload["context_text"] = ""
         if not include_context_text:
             payload.pop("context_text", None)
         payload.setdefault("query", query)
@@ -742,6 +774,11 @@ class ContextBundleService:
             "retrieval_trace_id": retrieval_trace.get("trace_id"),
             "context_hash": retrieval_trace.get("context_hash"),
             "manifest_hash": retrieval_trace.get("manifest_hash"),
+            "policy_filter": {
+                "llm_scope": effective_llm_scope,
+                "allowed_count": len(allowed_chunks),
+                "denied_count": len(denied_chunks),
+            },
         }
         payload["selection_trace"] = self._redact_debug_value(payload["selection_trace"])
         payload["context_policy"] = {
@@ -775,6 +812,8 @@ class ContextBundleService:
                     "reason": "Residual context is included only after higher priority reservations",
                 },
             ],
+            "llm_scope": effective_llm_scope,
+            "default_deny": True,
         }
         payload["provenance_policy"] = {
             "policy_version": "multi-source-provenance-v1",

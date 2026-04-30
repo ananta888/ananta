@@ -26,6 +26,7 @@ class RagService:
         budget_tokens_by_mode: dict[str, int] | None = None,
         window_profile: str | None = None,
         provenance_visibility: str | None = None,
+        llm_scope: str | None = None,
         task_id: str | None = None,
         goal_id: str | None = None,
         neighbor_task_ids: list[str] | None = None,
@@ -54,6 +55,7 @@ class RagService:
             budget_tokens_by_mode=budget_tokens_by_mode,
             window_profile=window_profile,
             provenance_visibility=provenance_visibility,
+            llm_scope=llm_scope,
         )
 
     def build_execution_context(
