@@ -5,6 +5,7 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.StatFs;
+import android.content.SharedPreferences;
 
 import com.ananta.mobile.security.PermissionBroker;
 import com.getcapacitor.JSArray;
@@ -62,6 +63,9 @@ public class VoxtralOfflinePlugin extends Plugin {
     );
     private static final String PROOT_RUNTIME_SUBDIR = "proot-runtime";
     private static final String LLM_RUNTIME_SUBDIR = "llm-runtime";
+    private static final String PREFS_NAME = "voxtral_offline_prefs";
+    private static final String PREF_MODEL_PATH = "last_model_path";
+    private static final String PREF_RUNNER_PATH = "last_runner_path";
 
     private final Object recordingLock = new Object();
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
@@ -79,6 +83,7 @@ public class VoxtralOfflinePlugin extends Plugin {
 
     @PluginMethod
     public void getStatus(PluginCall call) {
+        restoreSelectionState();
         JSObject result = new JSObject();
         result.put("isNative", true);
         result.put("isRecording", isRecording);
@@ -274,6 +279,8 @@ public class VoxtralOfflinePlugin extends Plugin {
 
         lastModelPath = modelPath;
         lastRunnerPath = runnerPath;
+        persistSelection(PREF_MODEL_PATH, lastModelPath);
+        persistSelection(PREF_RUNNER_PATH, lastRunnerPath);
 
         ioExecutor.execute(() -> {
             try {
@@ -396,6 +403,8 @@ public class VoxtralOfflinePlugin extends Plugin {
         }
         lastModelPath = modelPath;
         lastRunnerPath = runnerPath;
+        persistSelection(PREF_MODEL_PATH, lastModelPath);
+        persistSelection(PREF_RUNNER_PATH, lastRunnerPath);
 
         long startedAtMs = System.currentTimeMillis();
         liveThread = new Thread(
@@ -825,8 +834,10 @@ public class VoxtralOfflinePlugin extends Plugin {
 
                 if ("modelPath".equals(outputField)) {
                     lastModelPath = effectiveFile.getAbsolutePath();
+                    persistSelection(PREF_MODEL_PATH, lastModelPath);
                 } else if ("runnerPath".equals(outputField)) {
                     lastRunnerPath = effectiveFile.getAbsolutePath();
+                    persistSelection(PREF_RUNNER_PATH, lastRunnerPath);
                 }
 
                 JSObject result = new JSObject();
@@ -1103,6 +1114,65 @@ public class VoxtralOfflinePlugin extends Plugin {
             hex.append(part);
         }
         return hex.toString();
+    }
+
+    private void restoreSelectionState() {
+        if (lastModelPath == null || lastModelPath.isBlank() || !new File(lastModelPath).isFile()) {
+            String persistedModel = prefs().getString(PREF_MODEL_PATH, "");
+            if (persistedModel != null && !persistedModel.isBlank() && new File(persistedModel).isFile()) {
+                lastModelPath = persistedModel;
+            } else {
+                File model = selectDefaultAsset(ensureDir("voxtral/models"), MODEL_EXTENSION);
+                lastModelPath = model != null ? model.getAbsolutePath() : null;
+                if (lastModelPath != null) persistSelection(PREF_MODEL_PATH, lastModelPath);
+            }
+        }
+        if (lastRunnerPath == null || lastRunnerPath.isBlank() || !new File(lastRunnerPath).isFile()) {
+            String persistedRunner = prefs().getString(PREF_RUNNER_PATH, "");
+            if (persistedRunner != null && !persistedRunner.isBlank() && new File(persistedRunner).isFile()) {
+                lastRunnerPath = persistedRunner;
+            } else {
+                File runner = selectDefaultRunner(ensureDir("voxtral/bin"));
+                lastRunnerPath = runner != null ? runner.getAbsolutePath() : null;
+                if (lastRunnerPath != null) persistSelection(PREF_RUNNER_PATH, lastRunnerPath);
+            }
+        }
+    }
+
+    private SharedPreferences prefs() {
+        return getContext().getSharedPreferences(PREFS_NAME, 0);
+    }
+
+    private void persistSelection(String key, String value) {
+        prefs().edit().putString(key, String.valueOf(value == null ? "" : value)).apply();
+    }
+
+    private File selectDefaultAsset(File dir, String extensionFilter) {
+        if (dir == null || !dir.isDirectory()) return null;
+        File[] files = dir.listFiles();
+        if (files == null) return null;
+        File best = null;
+        for (File file : files) {
+            if (file == null || !file.isFile()) continue;
+            if (extensionFilter != null && !file.getName().toLowerCase().endsWith(extensionFilter)) continue;
+            if (best == null || file.lastModified() > best.lastModified()) best = file;
+        }
+        return best;
+    }
+
+    private File selectDefaultRunner(File dir) {
+        if (dir == null || !dir.isDirectory()) return null;
+        File[] files = dir.listFiles();
+        if (files == null) return null;
+        File best = null;
+        for (File file : files) {
+            if (file == null || !file.isFile()) continue;
+            if (!isRunnerCandidate(file.getName())) continue;
+            String name = file.getName().toLowerCase();
+            if ("llama-cli".equals(name)) return file;
+            if (best == null || file.lastModified() > best.lastModified()) best = file;
+        }
+        return best;
     }
 
     private File prepareRunnerForExecution(File sourceRunner) throws IOException {
