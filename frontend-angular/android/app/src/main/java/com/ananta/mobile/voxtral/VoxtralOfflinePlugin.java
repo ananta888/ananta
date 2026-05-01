@@ -72,6 +72,9 @@ public class VoxtralOfflinePlugin extends Plugin {
     private static final String PREFS_NAME = "voxtral_offline_prefs";
     private static final String PREF_MODEL_PATH = "last_model_path";
     private static final String PREF_RUNNER_PATH = "last_runner_path";
+    private static final String CMAKE_VERSION = "3.30.5";
+    private static final String CMAKE_ARCHIVE_NAME = "cmake-" + CMAKE_VERSION + "-linux-aarch64.tar.gz";
+    private static final String CMAKE_DOWNLOAD_URL = "https://github.com/Kitware/CMake/releases/download/v" + CMAKE_VERSION + "/" + CMAKE_ARCHIVE_NAME;
 
     private final Object recordingLock = new Object();
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
@@ -236,14 +239,29 @@ public class VoxtralOfflinePlugin extends Plugin {
 
         File buildDir = ensureDir("voxtral/build");
         File binDir = ensureDir("voxtral/bin");
-        if (buildDir == null || binDir == null) {
-            call.reject("Could not prepare voxtral build/bin directories.");
+        File toolsDir = ensureDir("voxtral/tools");
+        if (buildDir == null || binDir == null || toolsDir == null) {
+            call.reject("Could not prepare voxtral build/bin/tools directories.");
             return;
         }
 
         ioExecutor.execute(() -> {
             HttpURLConnection connection = null;
             try {
+                // Bootstrap cmake locally so provisioning does not depend on apt/dpkg.
+                File cmakeHome = new File(toolsDir, "cmake-" + CMAKE_VERSION + "-linux-aarch64");
+                File cmakeBin = new File(cmakeHome, "bin/cmake");
+                if (!cmakeBin.isFile()) {
+                    File cmakeArchive = new File(buildDir, CMAKE_ARCHIVE_NAME);
+                    downloadHttpToFile(CMAKE_DOWNLOAD_URL, cmakeArchive, "runner");
+                    extractTarGzArchive(cmakeArchive, toolsDir);
+                    if (!cmakeBin.isFile()) {
+                        throw new IOException("CMake bootstrap failed: cmake binary not found after extraction.");
+                    }
+                }
+                cmakeBin.setReadable(true, false);
+                cmakeBin.setExecutable(true, false);
+
                 URL url = new URL(sourceUrl);
                 if (!isAllowedDownloadUrl(url)) {
                     call.reject("Network policy denied source URL.");
@@ -302,10 +320,11 @@ public class VoxtralOfflinePlugin extends Plugin {
                 File runnerWrapper = new File(binDir, "voxtral-cli");
                 String innerCommand = ""
                     + "set -e; "
-                    + "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
+                    + "export PATH=" + shQuote(cmakeHome.getAbsolutePath() + "/bin") + ":/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
                     + "BUILD_DIR=" + shQuote(buildDir.getAbsolutePath()) + "; "
                     + "ARCHIVE=" + shQuote(sourceArchive.getAbsolutePath()) + "; "
                     + "SRC_DIR=\"$BUILD_DIR/CrispASR\"; "
+                    + "command -v cmake >/dev/null 2>&1 || { echo 'cmake bootstrap missing'; exit 41; }; "
                     + "rm -rf \"$SRC_DIR\" \"$BUILD_DIR/CrispASR-\"*; "
                     + "mkdir -p \"$BUILD_DIR\"; "
                     + "tar -xzf \"$ARCHIVE\" -C \"$BUILD_DIR\"; "
@@ -351,7 +370,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             } catch (Exception error) {
                 appendAudit("deny", "provision_runner", "failed " + error.getMessage());
                 call.reject("Runner provisioning failed: " + error.getMessage()
-                    + "\nIf apt/dpkg is blocked in proot, place a Voxtral-compatible ARM64 runner manually in .../files/voxtral/bin.");
+                    + "\nIf build tools are unavailable in proot, install Ubuntu distro + toolchain first or place a Voxtral-compatible ARM64 runner manually in .../files/voxtral/bin.");
             } finally {
                 if (connection != null) connection.disconnect();
             }
@@ -1354,6 +1373,107 @@ public class VoxtralOfflinePlugin extends Plugin {
                 out.write(line.getBytes(StandardCharsets.UTF_8));
             }
         } catch (Exception ignored) {
+        }
+    }
+
+    private void downloadHttpToFile(String rawUrl, File outFile, String downloadType) throws IOException {
+        HttpURLConnection connection = null;
+        try {
+            URL url = new URL(rawUrl);
+            if (!isAllowedDownloadUrl(url)) {
+                throw new IOException("Network policy denied URL: " + rawUrl);
+            }
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(120000);
+            connection.setInstanceFollowRedirects(true);
+            int status = connection.getResponseCode();
+            if (status < 200 || status >= 300) {
+                throw new IOException("Download failed with HTTP status " + status + " for " + rawUrl);
+            }
+            long totalBytes = connection.getContentLengthLong();
+            try (InputStream input = new BufferedInputStream(connection.getInputStream());
+                 FileOutputStream output = new FileOutputStream(outFile, false)) {
+                byte[] buffer = new byte[8192];
+                int read;
+                long downloaded = 0;
+                long lastNotified = 0;
+                while ((read = input.read(buffer)) != -1) {
+                    output.write(buffer, 0, read);
+                    downloaded += read;
+                    if (downloaded - lastNotified >= (256 * 1024)) {
+                        JSObject event = new JSObject();
+                        event.put("type", downloadType);
+                        event.put("downloadedBytes", downloaded);
+                        event.put("totalBytes", totalBytes > 0 ? totalBytes : -1);
+                        event.put("progress", totalBytes > 0 ? (double) downloaded / (double) totalBytes : -1);
+                        notifyListeners("voxtralDownloadProgress", event);
+                        lastNotified = downloaded;
+                    }
+                }
+                output.flush();
+            }
+            if (!outFile.exists() || outFile.length() == 0) {
+                throw new IOException("Downloaded file is empty: " + outFile.getAbsolutePath());
+            }
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private void extractTarGzArchive(File archive, File targetDir) throws IOException {
+        String targetRoot = targetDir.getCanonicalPath() + File.separator;
+        try (InputStream fis = new FileInputStream(archive);
+             InputStream gis = new GZIPInputStream(fis);
+             BufferedInputStream input = new BufferedInputStream(gis)) {
+            byte[] header = new byte[512];
+            while (readFully(input, header, 0, header.length)) {
+                if (isZeroBlock(header)) break;
+                String entryName = readTarString(header, 0, 100);
+                long size = parseTarOctal(header, 124, 12);
+                long mode = parseTarOctal(header, 100, 8);
+                char type = (char) (header[156] & 0xff);
+                if (entryName == null || entryName.isBlank()) {
+                    skipFully(input, size);
+                    long padding = (512 - (size % 512)) % 512;
+                    skipFully(input, padding);
+                    continue;
+                }
+                File outFile = new File(targetDir, entryName).getCanonicalFile();
+                String outPath = outFile.getCanonicalPath();
+                if (!outPath.equals(targetDir.getCanonicalPath()) && !outPath.startsWith(targetRoot)) {
+                    throw new IOException("Blocked archive entry outside target dir: " + entryName);
+                }
+                if (type == '5') {
+                    if (!outFile.exists() && !outFile.mkdirs()) {
+                        throw new IOException("Could not create directory: " + outFile.getAbsolutePath());
+                    }
+                } else if (type == 0 || type == '0') {
+                    File parent = outFile.getParentFile();
+                    if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                        throw new IOException("Could not create parent directory: " + parent.getAbsolutePath());
+                    }
+                    try (FileOutputStream output = new FileOutputStream(outFile, false)) {
+                        long remaining = size;
+                        byte[] buffer = new byte[8192];
+                        while (remaining > 0) {
+                            int read = input.read(buffer, 0, (int) Math.min(buffer.length, remaining));
+                            if (read == -1) throw new IOException("Unexpected EOF while extracting archive.");
+                            output.write(buffer, 0, read);
+                            remaining -= read;
+                        }
+                        output.flush();
+                    }
+                    outFile.setReadable(true, false);
+                    if ((mode & 0100) != 0) {
+                        outFile.setExecutable(true, false);
+                    }
+                } else {
+                    skipFully(input, size);
+                }
+                long padding = (512 - (size % 512)) % 512;
+                skipFully(input, padding);
+            }
         }
     }
 
