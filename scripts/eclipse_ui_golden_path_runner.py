@@ -79,6 +79,7 @@ def run_container_golden_path(
     })
 
     eclipse_home = eclipse_binary.parent
+    _promote_eclipse_test_shims(eclipse_home)
     eclipse_product = _eclipse_product(eclipse_home)
     checks.append({"check_id": "eclipse_product_detected", "ok": bool(eclipse_product), "product": eclipse_product})
 
@@ -139,6 +140,28 @@ def _eclipse_product(eclipse_home: Path) -> dict[str, str]:
     return values
 
 
+def _promote_eclipse_test_shims(eclipse_home: Path) -> None:
+    dropins_persistence = eclipse_home / "dropins" / "javax.persistence_2.2.0.jar"
+    plugins_persistence = eclipse_home / "plugins" / "javax.persistence_2.2.0.jar"
+    if dropins_persistence.exists():
+        manifest = (
+            "Manifest-Version: 1.0\n"
+            "Bundle-ManifestVersion: 2\n"
+            "Bundle-SymbolicName: javax.persistence\n"
+            "Bundle-Name: Javax Persistence API\n"
+            "Bundle-Version: 2.2.0\n"
+            "Export-Package: javax.persistence;version=\"2.2.0\";jpa=\"2.2\","
+            "javax.persistence.criteria;version=\"2.2.0\","
+            "javax.persistence.metamodel;version=\"2.2.0\","
+            "javax.persistence.spi;version=\"2.2.0\"\n"
+        )
+        with zipfile.ZipFile(dropins_persistence) as source, zipfile.ZipFile(plugins_persistence, "w", zipfile.ZIP_DEFLATED) as target:
+            target.writestr("META-INF/MANIFEST.MF", manifest)
+            for name in source.namelist():
+                if name.upper() != "META-INF/MANIFEST.MF":
+                    target.writestr(name, source.read(name))
+
+
 def _detect_profile(eclipse_home: Path) -> str:
     profile_registry = eclipse_home / "p2" / "org.eclipse.equinox.p2.engine" / "profileRegistry"
     if profile_registry.exists():
@@ -189,6 +212,7 @@ def _run_ui_availability_verifier(
         "xvfb-run",
         "-a",
         str(eclipse_binary),
+        "-clean",
         "-consoleLog",
         "-nosplash",
         "-data",
