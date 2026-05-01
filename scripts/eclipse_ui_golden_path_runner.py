@@ -58,6 +58,7 @@ def run_container_golden_path(
     *,
     eclipse_binary: Path,
     plugin_jar: Path,
+    update_site: Path | None,
     workspace: Path,
     report_path: Path,
     root: Path,
@@ -77,8 +78,19 @@ def run_container_golden_path(
         "missing": missing_surfaces,
     })
 
-    dropins_plugins = eclipse_binary.parent / "dropins"
-    if checks[1]["ok"] and surfaces_ok:
+    eclipse_home = eclipse_binary.parent
+    eclipse_product = _eclipse_product(eclipse_home)
+    checks.append({"check_id": "eclipse_product_detected", "ok": bool(eclipse_product), "product": eclipse_product})
+
+    if update_site is not None:
+        install_report = _install_from_p2_site(
+            eclipse_binary=eclipse_binary,
+            update_site=update_site,
+            timeout_seconds=timeout_seconds,
+        )
+        checks.append(install_report)
+    else:
+        dropins_plugins = eclipse_home / "dropins"
         dropins_plugins.mkdir(parents=True, exist_ok=True)
         installed_plugin = dropins_plugins / plugin_jar.name
         shutil.copy2(plugin_jar, installed_plugin)
@@ -87,39 +99,19 @@ def run_container_golden_path(
             "ok": installed_plugin.exists(),
             "installed_plugin": str(installed_plugin),
         })
-    else:
-        checks.append({"check_id": "plugin_dropins_install", "ok": False, "reason": "plugin_jar_missing_or_invalid"})
 
     workspace.mkdir(parents=True, exist_ok=True)
     if eclipse_binary.exists():
-        command = [
-            "xvfb-run",
-            "-a",
-            str(eclipse_binary),
-            "-clean",
-            "-nosplash",
-            "-data",
-            str(workspace),
-            "-application",
-            "org.eclipse.ui.ide.workbench",
-        ]
-        try:
-            result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=timeout_seconds)
-            output = (result.stdout + "\n" + result.stderr).strip()
-            launch_ok = result.returncode == 0
-            returncode: int | str = result.returncode
-        except subprocess.TimeoutExpired as exc:
-            output = _timeout_output(exc)
-            launch_ok = True
-            returncode = "timeout_after_successful_startup_window"
-        checks.append({
-            "check_id": "xvfb_eclipse_launch_with_installed_plugin",
-            "ok": launch_ok,
-            "returncode": returncode,
-            "output_tail": output[-4000:],
-        })
+        availability_report = report_path.with_name("eclipse-ui-availability-report.json")
+        verifier = _run_ui_availability_verifier(
+            eclipse_binary=eclipse_binary,
+            workspace=workspace,
+            availability_report=availability_report,
+            timeout_seconds=timeout_seconds,
+        )
+        checks.append(verifier)
     else:
-        checks.append({"check_id": "xvfb_eclipse_launch_with_installed_plugin", "ok": False, "reason": "eclipse_binary_missing"})
+        checks.append({"check_id": "ui_availability_verifier", "ok": False, "reason": "eclipse_binary_missing"})
 
     report = {
         "schema": "eclipse_ui_golden_path_report_v1",
@@ -135,10 +127,97 @@ def run_container_golden_path(
     return report
 
 
+def _eclipse_product(eclipse_home: Path) -> dict[str, str]:
+    product_file = eclipse_home / ".eclipseproduct"
+    if not product_file.exists():
+        return {}
+    values: dict[str, str] = {}
+    for line in product_file.read_text(encoding="utf-8", errors="replace").splitlines():
+        if "=" in line:
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip()
+    return values
+
+
+def _detect_profile(eclipse_home: Path) -> str:
+    profile_registry = eclipse_home / "p2" / "org.eclipse.equinox.p2.engine" / "profileRegistry"
+    if profile_registry.exists():
+        profiles = sorted(path.name.removesuffix(".profile") for path in profile_registry.glob("*.profile"))
+        if profiles:
+            return profiles[0]
+    return "SDKProfile"
+
+
+def _install_from_p2_site(*, eclipse_binary: Path, update_site: Path, timeout_seconds: int) -> dict[str, Any]:
+    profile = _detect_profile(eclipse_binary.parent)
+    command = [
+        str(eclipse_binary),
+        "-nosplash",
+        "-application",
+        "org.eclipse.equinox.p2.director",
+        "-repository",
+        update_site.as_uri(),
+        "-installIU",
+        "io.ananta.eclipse.runtime.feature.feature.group",
+        "-destination",
+        str(eclipse_binary.parent),
+        "-profile",
+        profile,
+        "-profileProperties",
+        "org.eclipse.update.install.features=true",
+    ]
+    result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=timeout_seconds)
+    output = (result.stdout + "\n" + result.stderr).strip()
+    return {
+        "check_id": "p2_install_from_update_site",
+        "ok": result.returncode == 0,
+        "profile": profile,
+        "update_site": str(update_site),
+        "returncode": result.returncode,
+        "output_tail": output[-4000:],
+    }
+
+
+def _run_ui_availability_verifier(
+    *,
+    eclipse_binary: Path,
+    workspace: Path,
+    availability_report: Path,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    command = [
+        "xvfb-run",
+        "-a",
+        str(eclipse_binary),
+        "-clean",
+        "-nosplash",
+        "-data",
+        str(workspace),
+        "-application",
+        "io.ananta.eclipse.runtime.uiAvailabilityVerifier",
+        "-anantaVerifierReport",
+        str(availability_report),
+    ]
+    result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=timeout_seconds)
+    output = (result.stdout + "\n" + result.stderr).strip()
+    verifier_report: dict[str, Any] = {}
+    if availability_report.exists():
+        verifier_report = json.loads(availability_report.read_text(encoding="utf-8"))
+    return {
+        "check_id": "ui_availability_verifier",
+        "ok": result.returncode == 0 and bool(verifier_report.get("ok")),
+        "returncode": result.returncode,
+        "availability_report": str(availability_report),
+        "verifier_report": verifier_report,
+        "output_tail": output[-4000:],
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run installed Eclipse UI golden path evidence inside Docker/Xvfb.")
     parser.add_argument("--eclipse-binary", default="/opt/eclipse/eclipse")
     parser.add_argument("--plugin-jar", required=True)
+    parser.add_argument("--update-site")
     parser.add_argument("--workspace", default="/tmp/ananta-eclipse-workspace")
     parser.add_argument("--report", required=True)
     parser.add_argument("--root", default="/workspace")
@@ -148,6 +227,7 @@ def main() -> int:
     report = run_container_golden_path(
         eclipse_binary=Path(args.eclipse_binary),
         plugin_jar=Path(args.plugin_jar),
+        update_site=Path(args.update_site) if args.update_site else None,
         workspace=Path(args.workspace),
         report_path=Path(args.report),
         root=Path(args.root),

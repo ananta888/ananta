@@ -6,14 +6,16 @@ Bundle-Version: 0.1.0.qualifier
 Bundle-Vendor: Ananta
 Bundle-RequiredExecutionEnvironment: JavaSE-17
 Require-Bundle: org.eclipse.core.runtime,
+ org.eclipse.equinox.app,
  org.eclipse.core.commands,
  org.eclipse.ui,
  org.eclipse.swt
 Export-Package: io.ananta.eclipse.runtime.core,
- io.ananta.eclipse.runtime.chat,
- io.ananta.eclipse.runtime.commands.handlers,
- io.ananta.eclipse.runtime.completion,
- io.ananta.eclipse.runtime.patch,
+  io.ananta.eclipse.runtime.chat,
+  io.ananta.eclipse.runtime.commands.handlers,
+  io.ananta.eclipse.runtime.completion,
+  io.ananta.eclipse.runtime.e2e,
+  io.ananta.eclipse.runtime.patch,
  io.ananta.eclipse.runtime.platform,
  io.ananta.eclipse.runtime.preferences,
  io.ananta.eclipse.runtime.project,

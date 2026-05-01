@@ -16,6 +16,7 @@ repositories {
 }
 
 dependencies {
+    compileOnly('org.eclipse.platform:org.eclipse.equinox.app:1.6.400')
     compileOnly('org.eclipse.platform:org.eclipse.core.commands:3.11.200')
     compileOnly('org.eclipse.platform:org.eclipse.ui:3.202.0') {
         exclude group: 'org.eclipse.platform', module: 'org.eclipse.swt'

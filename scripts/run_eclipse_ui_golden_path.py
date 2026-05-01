@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REPORT = ROOT / "ci-artifacts" / "eclipse" / "eclipse-ui-golden-path-report.json"
 PLUGIN_ROOT = ROOT / "client_surfaces" / "eclipse_runtime" / "ananta_eclipse_plugin"
 DEFAULT_PLUGIN_JAR = PLUGIN_ROOT / "build" / "libs" / "ananta-eclipse-plugin-runtime-0.1.0-bootstrap.jar"
+DEFAULT_UPDATE_SITE = ROOT / "ci-artifacts" / "eclipse" / "ananta-eclipse-update-site"
 DEFAULT_DOCKER_IMAGE = "ananta/eclipse-ui-e2e:local"
 DOCKERFILE = ROOT / "docker" / "eclipse-ui-e2e" / "Dockerfile"
 
@@ -49,8 +50,15 @@ def _docker_env() -> dict[str, str]:
     return env
 
 
-def _docker_command(*, image: str, plugin_jar: Path, report_path: Path, timeout_seconds: int) -> list[str]:
-    return [
+def _docker_command(
+    *,
+    image: str,
+    plugin_jar: Path,
+    update_site: Path | None,
+    report_path: Path,
+    timeout_seconds: int,
+) -> list[str]:
+    command = [
         "docker",
         "run",
         "--rm",
@@ -66,6 +74,12 @@ def _docker_command(*, image: str, plugin_jar: Path, report_path: Path, timeout_
         "--timeout-seconds",
         str(timeout_seconds),
     ]
+    if update_site is not None:
+        command.extend([
+            "--update-site",
+            f"/workspace/{update_site.resolve().relative_to(ROOT.resolve()).as_posix()}",
+        ])
+    return command
 
 
 def _run_docker_golden_path(
@@ -76,6 +90,7 @@ def _run_docker_golden_path(
     docker_image: str,
     build_docker_image: bool,
     build_plugin: bool,
+    update_site: Path | None,
     timeout_seconds: int,
 ) -> dict[str, Any]:
     checks: list[dict[str, Any]] = [
@@ -125,6 +140,25 @@ def _run_docker_golden_path(
             "runtime_complete_claim_allowed": False,
         })
 
+    if update_site is not None:
+        checks.append({"check_id": "p2_update_site_present", "ok": update_site.exists(), "update_site": _relative_or_absolute(update_site)})
+        for metadata_name in ("content.jar", "artifacts.jar"):
+            checks.append({
+                "check_id": f"p2_{metadata_name}_present",
+                "ok": (update_site / metadata_name).exists(),
+                "path": _relative_or_absolute(update_site / metadata_name),
+            })
+        if not all(bool(item.get("ok")) for item in checks):
+            return _write_report(report_path, {
+                "schema": "eclipse_ui_golden_path_report_v1",
+                "environment": "docker_xvfb_eclipse_jee_2026_03",
+                "ok": False,
+                "skipped": False,
+                "skip_reason": "",
+                "checks": checks,
+                "runtime_complete_claim_allowed": False,
+            })
+
     if build_docker_image:
         build_result = subprocess.run(
             ["docker", "build", "-f", str(DOCKERFILE), "-t", docker_image, str(ROOT)],
@@ -153,7 +187,13 @@ def _run_docker_golden_path(
             })
 
     run_result = subprocess.run(
-        _docker_command(image=docker_image, plugin_jar=plugin_jar, report_path=report_path, timeout_seconds=timeout_seconds),
+        _docker_command(
+            image=docker_image,
+            plugin_jar=plugin_jar,
+            update_site=update_site,
+            report_path=report_path,
+            timeout_seconds=timeout_seconds,
+        ),
         cwd=str(ROOT),
         check=False,
         capture_output=True,
@@ -197,6 +237,7 @@ def run_eclipse_ui_golden_path(
     build_docker_image: bool = True,
     build_plugin: bool = False,
     plugin_jar: Path = DEFAULT_PLUGIN_JAR,
+    update_site: Path | None = DEFAULT_UPDATE_SITE,
     timeout_seconds: int = 120,
 ) -> dict[str, Any]:
     if use_docker:
@@ -207,6 +248,7 @@ def run_eclipse_ui_golden_path(
             docker_image=docker_image,
             build_docker_image=build_docker_image,
             build_plugin=build_plugin,
+            update_site=update_site,
             timeout_seconds=timeout_seconds,
         )
 
@@ -262,6 +304,8 @@ def main() -> int:
     parser.add_argument("--skip-docker-build", action="store_true")
     parser.add_argument("--build-plugin", action="store_true")
     parser.add_argument("--plugin-jar", default=str(DEFAULT_PLUGIN_JAR))
+    parser.add_argument("--update-site", default=str(DEFAULT_UPDATE_SITE))
+    parser.add_argument("--dropins", action="store_true", help="Use dropins instead of p2 update-site installation.")
     parser.add_argument("--timeout-seconds", type=int, default=120)
     args = parser.parse_args()
     out = Path(args.out)
@@ -270,6 +314,11 @@ def main() -> int:
     plugin_jar = Path(args.plugin_jar)
     if not plugin_jar.is_absolute():
         plugin_jar = ROOT / plugin_jar
+    update_site = None
+    if not args.dropins:
+        update_site = Path(args.update_site)
+        if not update_site.is_absolute():
+            update_site = ROOT / update_site
     eclipse_binary = Path(args.eclipse_binary) if args.eclipse_binary else None
     report = run_eclipse_ui_golden_path(
         report_path=out,
@@ -280,6 +329,7 @@ def main() -> int:
         build_docker_image=not args.skip_docker_build,
         build_plugin=args.build_plugin,
         plugin_jar=plugin_jar,
+        update_site=update_site,
         timeout_seconds=args.timeout_seconds,
     )
     print(json.dumps(report, indent=2))
