@@ -2,17 +2,29 @@ import base64
 import hashlib
 import io
 
-import pyotp
-import qrcode
-from cryptography.fernet import Fernet
+try:
+    import pyotp
+except ImportError:
+    pyotp = None
+
+try:
+    import qrcode
+except ImportError:
+    qrcode = None
+
+try:
+    from cryptography.fernet import Fernet
+except ImportError:
+    Fernet = None
 
 from agent.config import settings
 
 
 def _get_fernet():
+    if Fernet is None:
+        raise RuntimeError("cryptography package not installed")
     key = settings.mfa_encryption_key
     if not key:
-        # Fallback: Key aus secret_key ableiten
         key = base64.urlsafe_b64encode(hashlib.sha256(settings.secret_key.encode()).digest())
     else:
         try:
@@ -41,16 +53,20 @@ def decrypt_secret(encrypted_secret: str) -> str:
 
 
 def generate_mfa_secret():
+    if pyotp is None:
+        raise RuntimeError("pyotp package not installed")
     return pyotp.random_base32()
 
 
 def get_totp_uri(username: str, secret: str, issuer: str = "Ananta"):
-    # Das Secret muss hier im Klartext vorliegen
+    if pyotp is None:
+        raise RuntimeError("pyotp package not installed")
     return pyotp.totp.TOTP(secret).provisioning_uri(name=username, issuer_name=issuer)
 
 
 def verify_totp(secret: str, token: str):
-    # Das Secret muss hier im Klartext vorliegen
+    if pyotp is None:
+        raise RuntimeError("pyotp package not installed")
     if not secret:
         return False
     totp = pyotp.totp.TOTP(secret)
@@ -58,6 +74,8 @@ def verify_totp(secret: str, token: str):
 
 
 def generate_qr_code_base64(uri: str):
+    if qrcode is None:
+        raise RuntimeError("qrcode package not installed")
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(uri)
     qr.make(fit=True)
