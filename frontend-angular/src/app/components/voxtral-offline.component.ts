@@ -51,6 +51,14 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
             <input [(ngModel)]="runnerUrl" placeholder="https://.../voxtral-cli" />
           </label>
           <label class="field">
+            <span>Erwartete SHA256 Modell (optional)</span>
+            <input [(ngModel)]="modelExpectedSha256" placeholder="z. B. 64-stellige sha256 hex" />
+          </label>
+          <label class="field">
+            <span>Erwartete SHA256 Runner (optional)</span>
+            <input [(ngModel)]="runnerExpectedSha256" placeholder="z. B. 64-stellige sha256 hex" />
+          </label>
+          <label class="field">
             <span>Installiertes Modell</span>
             <select [(ngModel)]="selectedLocalModelPath">
               <option value="">-</option>
@@ -89,6 +97,10 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
           <button class="secondary" type="button" (click)="stopRecording()" [disabled]="busy || !recording">Aufnahme stoppen</button>
           <button class="secondary" type="button" (click)="downloadModel()" [disabled]="busy || !modelUrl.trim()">Model laden</button>
           <button class="secondary" type="button" (click)="downloadRunner()" [disabled]="busy || !runnerUrl.trim()">Runner laden</button>
+          <button class="secondary" type="button" (click)="verifyModelHash()" [disabled]="busy || !modelPath.trim()">Hash Modell pruefen</button>
+          <button class="secondary" type="button" (click)="verifyRunnerHash()" [disabled]="busy || !runnerPath.trim()">Hash Runner pruefen</button>
+          <button class="secondary" type="button" (click)="deleteModel()" [disabled]="busy || !modelPath.trim()">Modell loeschen</button>
+          <button class="secondary" type="button" (click)="deleteRunner()" [disabled]="busy || !runnerPath.trim()">Runner loeschen</button>
           <button class="secondary" type="button" (click)="verifySetup()" [disabled]="busy || !modelPath.trim() || !runnerPath.trim()">Setup pruefen</button>
           <button class="primary" type="button" (click)="transcribe()" [disabled]="busy || !audioPath || !modelPath.trim() || !runnerPath.trim()">Transkribieren</button>
           <button class="primary" type="button" (click)="startLive()" [disabled]="busy || liveRunning || !modelPath.trim() || !runnerPath.trim()">Live starten</button>
@@ -105,6 +117,8 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
           <div><strong>Runner:</strong> {{ runnerPath || '-' }}</div>
           <div><strong>Download Modell:</strong> {{ modelDownloadProgress }}</div>
           <div><strong>Download Runner:</strong> {{ runnerDownloadProgress }}</div>
+          <div><strong>SHA256 Modell:</strong> {{ modelSha256 || '-' }}</div>
+          <div><strong>SHA256 Runner:</strong> {{ runnerSha256 || '-' }}</div>
           <div><strong>Lokale Assets:</strong> Modell {{ localModelAvailable ? 'vorhanden' : 'fehlt' }} | Runner {{ localRunnerAvailable ? 'vorhanden' : 'fehlt' }}</div>
           @if (localModelAvailable && localRunnerAvailable) {
             <div class="muted"><small>Lokale Dateien erkannt: Kein erneuter Download noetig.</small></div>
@@ -209,6 +223,10 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
   localRunners: Array<{ name: string; path: string; bytes: number }> = [];
   modelUrl = '';
   runnerUrl = '';
+  modelExpectedSha256 = '';
+  runnerExpectedSha256 = '';
+  modelSha256 = '';
+  runnerSha256 = '';
   transcript = '';
   rawOutput = '';
   liveTranscript = '';
@@ -407,8 +425,13 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
       try {
         const preset = this.modelPresets.find(item => item.id === this.selectedModelPresetId);
         const fileName = preset?.fileName;
-        const result = await this.voxtral.downloadModel(this.modelUrl.trim(), fileName);
+        const result = await this.voxtral.downloadModel(
+          this.modelUrl.trim(),
+          fileName,
+          this.modelExpectedSha256.trim() || undefined
+        );
         this.modelPath = result.modelPath;
+        this.modelSha256 = result.sha256 || '';
         this.modelDownloadProgress = '100%';
         this.persistSelections();
         await this.refreshLocalAssets();
@@ -425,8 +448,13 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
       this.runnerDownloadActive = true;
       this.runnerDownloadProgress = '0%';
       try {
-        const result = await this.voxtral.downloadRunner(this.runnerUrl.trim());
+        const result = await this.voxtral.downloadRunner(
+          this.runnerUrl.trim(),
+          undefined,
+          this.runnerExpectedSha256.trim() || undefined
+        );
         this.runnerPath = result.runnerPath;
+        this.runnerSha256 = result.sha256 || '';
         this.runnerDownloadProgress = '100%';
         this.persistSelections();
         await this.refreshLocalAssets();
@@ -487,6 +515,70 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     });
   }
 
+  async verifyModelHash(): Promise<void> {
+    await this.run(async () => {
+      const result = await this.voxtral.getFileSha256(this.modelPath.trim());
+      this.modelSha256 = result.sha256 || '';
+      if (this.modelExpectedSha256.trim()) {
+        const expected = this.modelExpectedSha256.trim().toLowerCase();
+        const actual = this.modelSha256.toLowerCase();
+        if (expected !== actual) {
+          throw new Error(`Modell-SHA256 stimmt nicht. Erwartet: ${expected}, Ist: ${actual}`);
+        }
+      }
+      this.toast.success('Modell-SHA256 erfolgreich geprueft.');
+      this.persistSelections();
+    });
+  }
+
+  async verifyRunnerHash(): Promise<void> {
+    await this.run(async () => {
+      const result = await this.voxtral.getFileSha256(this.runnerPath.trim());
+      this.runnerSha256 = result.sha256 || '';
+      if (this.runnerExpectedSha256.trim()) {
+        const expected = this.runnerExpectedSha256.trim().toLowerCase();
+        const actual = this.runnerSha256.toLowerCase();
+        if (expected !== actual) {
+          throw new Error(`Runner-SHA256 stimmt nicht. Erwartet: ${expected}, Ist: ${actual}`);
+        }
+      }
+      this.toast.success('Runner-SHA256 erfolgreich geprueft.');
+      this.persistSelections();
+    });
+  }
+
+  async deleteModel(): Promise<void> {
+    if (!this.modelPath.trim()) return;
+    const confirmed = window.confirm(`Modell wirklich loeschen?\n${this.modelPath}`);
+    if (!confirmed) return;
+    await this.run(async () => {
+      await this.voxtral.deleteAsset(this.modelPath.trim());
+      this.modelPath = '';
+      this.selectedLocalModelPath = '';
+      this.modelSha256 = '';
+      this.setupStatus = '';
+      await this.refreshLocalAssets();
+      this.persistSelections();
+      this.toast.info('Modell geloescht.');
+    });
+  }
+
+  async deleteRunner(): Promise<void> {
+    if (!this.runnerPath.trim()) return;
+    const confirmed = window.confirm(`Runner wirklich loeschen?\n${this.runnerPath}`);
+    if (!confirmed) return;
+    await this.run(async () => {
+      await this.voxtral.deleteAsset(this.runnerPath.trim());
+      this.runnerPath = '';
+      this.selectedLocalRunnerPath = '';
+      this.runnerSha256 = '';
+      this.setupStatus = '';
+      await this.refreshLocalAssets();
+      this.persistSelections();
+      this.toast.info('Runner geloescht.');
+    });
+  }
+
   private async refreshStatus(): Promise<void> {
     await this.run(async () => {
       const status = await this.voxtral.getStatus();
@@ -515,6 +607,10 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     this.runnerPath = localStorage.getItem('voxtral.runnerPath') || '';
     this.modelUrl = localStorage.getItem('voxtral.modelUrl') || this.modelUrl;
     this.runnerUrl = localStorage.getItem('voxtral.runnerUrl') || '';
+    this.modelExpectedSha256 = localStorage.getItem('voxtral.modelExpectedSha256') || '';
+    this.runnerExpectedSha256 = localStorage.getItem('voxtral.runnerExpectedSha256') || '';
+    this.modelSha256 = localStorage.getItem('voxtral.modelSha256') || '';
+    this.runnerSha256 = localStorage.getItem('voxtral.runnerSha256') || '';
     this.selectedModelPresetId = localStorage.getItem('voxtral.modelPresetId') || this.selectedModelPresetId;
     if (!this.modelUrl) {
       const preset = this.modelPresets.find(item => item.id === this.selectedModelPresetId);
@@ -527,6 +623,10 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     localStorage.setItem('voxtral.runnerPath', this.runnerPath || '');
     localStorage.setItem('voxtral.modelUrl', this.modelUrl || '');
     localStorage.setItem('voxtral.runnerUrl', this.runnerUrl || '');
+    localStorage.setItem('voxtral.modelExpectedSha256', this.modelExpectedSha256 || '');
+    localStorage.setItem('voxtral.runnerExpectedSha256', this.runnerExpectedSha256 || '');
+    localStorage.setItem('voxtral.modelSha256', this.modelSha256 || '');
+    localStorage.setItem('voxtral.runnerSha256', this.runnerSha256 || '');
     localStorage.setItem('voxtral.modelPresetId', this.selectedModelPresetId || '');
   }
 

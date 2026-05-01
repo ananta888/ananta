@@ -473,6 +473,87 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getFileSha256(PluginCall call) {
+        String rawPath = call.getString("path");
+        if (rawPath == null || rawPath.isBlank()) {
+            call.reject("path is required.");
+            return;
+        }
+        File file = new File(rawPath);
+        if (!isPathInsideAppSandbox(file)) {
+            call.reject("Filesystem sandbox violation: path must be inside app-local storage.");
+            return;
+        }
+        if (!file.exists() || !file.isFile()) {
+            call.reject("File not found: " + rawPath);
+            return;
+        }
+        ioExecutor.execute(() -> {
+            try {
+                JSObject result = new JSObject();
+                result.put("path", file.getAbsolutePath());
+                result.put("bytes", file.length());
+                result.put("sha256", computeSha256(file));
+                call.resolve(result);
+            } catch (Exception error) {
+                call.reject("SHA256 failed: " + error.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void deleteAsset(PluginCall call) {
+        if (!guardAction(call, "delete_asset")) return;
+        String rawPath = call.getString("path");
+        if (rawPath == null || rawPath.isBlank()) {
+            call.reject("path is required.");
+            return;
+        }
+        File target = new File(rawPath);
+        if (!isPathInsideAppSandbox(target)) {
+            call.reject("Filesystem sandbox violation: path must be inside app-local storage.");
+            return;
+        }
+        File modelDir = ensureDir("voxtral/models");
+        File runnerDir = ensureDir("voxtral/bin");
+        File audioDir = ensureDir("voxtral/audio");
+        if (!isPathInsideAny(target, modelDir, runnerDir, audioDir)) {
+            call.reject("Deletion is only allowed for Voxtral model/runner/audio files.");
+            return;
+        }
+        if (!target.exists()) {
+            call.reject("File not found: " + rawPath);
+            return;
+        }
+        if (!target.isFile()) {
+            call.reject("Path is not a file: " + rawPath);
+            return;
+        }
+        if (!target.delete()) {
+            call.reject("Could not delete file: " + rawPath);
+            return;
+        }
+
+        String deletedPath = target.getAbsolutePath();
+        if (deletedPath.equals(lastModelPath)) {
+            lastModelPath = "";
+            persistSelection(PREF_MODEL_PATH, lastModelPath);
+        }
+        if (deletedPath.equals(lastRunnerPath)) {
+            lastRunnerPath = "";
+            persistSelection(PREF_RUNNER_PATH, lastRunnerPath);
+        }
+        if (deletedPath.equals(currentAudioPath)) {
+            currentAudioPath = null;
+        }
+
+        JSObject result = new JSObject();
+        result.put("path", deletedPath);
+        result.put("deleted", true);
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void verifySetup(PluginCall call) {
         String modelPath = call.getString("modelPath");
         String runnerPath = call.getString("runnerPath");
@@ -1160,6 +1241,23 @@ public class VoxtralOfflinePlugin extends Plugin {
             return path.startsWith(filesDir.getPath())
                     || path.startsWith(cacheDir.getPath())
                     || path.startsWith(codeCacheDir.getPath());
+        } catch (Exception error) {
+            return false;
+        }
+    }
+
+    private boolean isPathInsideAny(File target, File... allowedDirs) {
+        if (target == null || allowedDirs == null) return false;
+        try {
+            String targetPath = target.getCanonicalPath();
+            for (File dir : allowedDirs) {
+                if (dir == null) continue;
+                String basePath = dir.getCanonicalPath();
+                if (targetPath.equals(basePath) || targetPath.startsWith(basePath + File.separator)) {
+                    return true;
+                }
+            }
+            return false;
         } catch (Exception error) {
             return false;
         }
