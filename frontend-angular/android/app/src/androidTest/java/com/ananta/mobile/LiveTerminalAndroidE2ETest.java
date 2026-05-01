@@ -261,7 +261,7 @@ public class LiveTerminalAndroidE2ETest {
     public void ubuntuProotIsUsableFromInstalledApp() throws InterruptedException {
         String smokeCommand = prootPreamble()
                 + prootEnvPrefix()
-                + "\"$ANANTA_PROOT_DIRECT\" "
+                + "\"$ANANTA_PROOT_DIRECT\" -0 --link2symlink "
                 + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" -w / \"$ANANTA_LOGIN_SHELL\" "
                 + "-c 'echo ANANTA_UBUNTU_OK; if command -v python3 >/dev/null 2>&1; then python3 --version; echo ANANTA_PY_OK; elif command -v python >/dev/null 2>&1; then python --version; echo ANANTA_PY_OK; else echo ANANTA_PY_MISSING; fi'";
 
