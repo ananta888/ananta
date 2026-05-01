@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package format="1">
+  <name>Ananta FreeCAD Runtime</name>
+  <description>Bounded FreeCAD workbench surface for hub-routed context capture, planning and approval-gated execution.</description>
+  <version>0.1.0</version>
+  <date>2026-04-30</date>
+  <maintainer email="maintainers@ananta.local">ananta</maintainer>
+  <license file="LICENSE">Proprietary</license>
+  <url type="repository">https://example.invalid/ananta</url>
+  <content>
+    <workbench>
+      <name>Ananta FreeCAD Runtime</name>
+      <classname>AnantaFreecadWorkbench</classname>
+      <subdirectory>client_surfaces/freecad/workbench</subdirectory>
+      <icon></icon>
+    </workbench>
+  </content>
+</package>

@@ -14,5 +14,7 @@ Bereits vorher vorhanden war nur die Foundation:
 Neu in diesem Track ist die echte Runtime-Struktur:
 - `client_surfaces/freecad/workbench/*`
 - `client_surfaces/freecad/bridge/*`
+- `client_surfaces/freecad/package/*`
 - `client_surfaces/freecad/tests/*`
 - `scripts/run_freecad_smoke_checks.py`
+- `scripts/build_freecad_workbench_package.py`

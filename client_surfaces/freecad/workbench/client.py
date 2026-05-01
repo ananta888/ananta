@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from client_surfaces.freecad.workbench.http_transport import HttpJsonTransport, RouteSpec
 from client_surfaces.freecad.workbench.settings import FreecadWorkbenchSettings
 
 Transport = Callable[[str, dict[str, Any]], dict[str, Any]]
@@ -11,7 +12,7 @@ Transport = Callable[[str, dict[str, Any]], dict[str, Any]]
 class FreecadHubClient:
     def __init__(self, settings: FreecadWorkbenchSettings, transport: Transport | None = None) -> None:
         self.settings = settings
-        self._transport = transport or self._default_transport
+        self._transport = transport or self._build_default_transport()
 
     def configuration_state(self) -> dict[str, Any]:
         problems = self.settings.validate()
@@ -59,7 +60,23 @@ class FreecadHubClient:
     def execute_macro(self, envelope: dict[str, Any]) -> dict[str, Any]:
         return self._transport("macro_execute", dict(envelope or {}))
 
-    def _default_transport(self, action: str, payload: dict[str, Any]) -> dict[str, Any]:
+    @classmethod
+    def with_http_transport(
+        cls,
+        settings: FreecadWorkbenchSettings,
+        *,
+        route_map: dict[str, RouteSpec] | None = None,
+        opener: Any | None = None,
+    ) -> "FreecadHubClient":
+        transport = HttpJsonTransport(settings, route_map=route_map, opener=opener)
+        return cls(settings, transport=transport.send)
+
+    def _build_default_transport(self) -> Transport:
+        if self.settings.transport_mode == "http":
+            return HttpJsonTransport(self.settings).send
+        return self._stub_transport
+
+    def _stub_transport(self, action: str, payload: dict[str, Any]) -> dict[str, Any]:
         if action == "health":
             status = "connected" if self.settings.endpoint and not self.settings.validate() else "degraded"
             return {

@@ -243,12 +243,16 @@
           "client_surfaces/freecad/workbench/InitGui.py",
           "client_surfaces/freecad/workbench/ananta_freecad_workbench.py",
           "client_surfaces/freecad/workbench/client.py",
+          "client_surfaces/freecad/workbench/http_transport.py",
           "client_surfaces/freecad/workbench/context.py",
+          "client_surfaces/freecad/workbench/freecad_api.py",
           "client_surfaces/freecad/workbench/commands.py",
           "client_surfaces/freecad/workbench/execution.py",
           "client_surfaces/freecad/bridge/ananta_freecad_bridge.py",
+          "client_surfaces/freecad/package/package.xml",
           "client_surfaces/freecad/tests/smoke_freecad_workbench_load.py",
-          "scripts/run_freecad_smoke_checks.py"
+          "scripts/run_freecad_smoke_checks.py",
+          "scripts/build_freecad_workbench_package.py"
         ]
       }
     }
