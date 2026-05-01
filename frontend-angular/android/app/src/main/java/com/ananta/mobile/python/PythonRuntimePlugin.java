@@ -45,7 +45,7 @@ import org.tukaani.xz.XZInputStream;
 @CapacitorPlugin(name = "PythonRuntime")
 public class PythonRuntimePlugin extends Plugin {
     private static final int DEFAULT_SHELL_TIMEOUT_SECONDS = 20;
-    private static final int MAX_SHELL_TIMEOUT_SECONDS = 600;
+    private static final int MAX_SHELL_TIMEOUT_SECONDS = 1800;
     private static final int MAX_SHELL_OUTPUT_CHARS = 120_000;
     private static final int MAX_SESSION_OUTPUT_CHARS = 200_000;
     private static final String PROOT_RUNTIME_SUBDIR = "proot-runtime";
