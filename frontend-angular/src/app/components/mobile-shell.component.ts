@@ -350,7 +350,16 @@ export class MobileShellComponent implements OnDestroy, OnInit {
   }
 
   async sendCtrlC(): Promise<void> {
-    await this.sendSpecialInput('\u0003');
+    if (!this.shellSessionId || this.shellBusy) return;
+    this.shellBusy = true;
+    try {
+      await this.python.interruptShellSession(this.shellSessionId);
+      await this.pullShellOutput();
+    } catch (error: any) {
+      this.shellMeta = `Ctrl+C fehlgeschlagen: ${error?.message || String(error)}`;
+    } finally {
+      this.shellBusy = false;
+    }
   }
 
   async sendSpecialInput(sequence: string): Promise<void> {
