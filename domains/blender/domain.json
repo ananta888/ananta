@@ -1,18 +1,23 @@
 {
   "schema": "domain_descriptor.v1",
   "domain_id": "blender",
-  "display_name": "Blender Domain Foundation",
-  "version": "1.0.0",
-  "lifecycle_status": "foundation_only",
-  "runtime_status": "descriptor_only",
+  "display_name": "Blender Runtime Domain",
+  "version": "1.1.0",
+  "lifecycle_status": "runtime_mvp",
+  "runtime_status": "runtime_available",
   "owner": "ananta",
-  "description": "Foundation descriptor for Blender as a thin control-surface domain under hub-governed orchestration, policy, approval and audit.",
-  "supported_clients": ["bridge", "cli", "tui", "web"],
+  "description": "Blender runtime surface for bounded context capture, hub-routed planning and approval-gated execution.",
+  "supported_clients": ["bridge", "cli", "tui", "web", "api"],
   "source_paths": {
     "descriptor_root": "domains/blender",
-    "code_paths": ["client_surfaces/blender"],
+    "code_paths": [
+      "client_surfaces/blender",
+      "agent/routes/blender_client_surface.py",
+      "agent/services/blender_client_surface_service.py"
+    ],
     "docs_paths": [
       "docs/integrations/blender/generic_domain_alignment.md",
+      "docs/integrations/blender/runtime_profile.md",
       "docs/architecture/domain_integration_foundation.md"
     ]
   },
@@ -23,6 +28,7 @@
   "rag_profiles": ["domains/blender/rag_sources/blender_api_docs.profile.json"],
   "bridge_adapter_type": "local_client_bridge_v1",
   "extensions": {
-    "runtime_claim": "descriptor_only"
+    "runtime_claim": "runtime_mvp",
+    "surface_root": "client_surfaces/blender"
   }
 }
