@@ -4,6 +4,14 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
+from client_surfaces.freecad.workbench.freecad_api import (
+    capture_runtime_snapshot,
+    extract_constraints,
+    extract_document_payload,
+    extract_object_payload,
+    extract_selection_names,
+)
+
 
 def _safe_object_payload(raw: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -57,3 +65,46 @@ def capture_bounded_document_context(
         payload.setdefault("limits", {})["truncated"] = True
         payload.setdefault("limits", {})["object_count_before_truncation"] = len(raw_objects)
     return payload
+
+
+def capture_context_from_freecad_document(
+    document: Any,
+    *,
+    selection_objects: list[Any] | None = None,
+    max_objects: int = 128,
+    max_payload_bytes: int = 32768,
+) -> dict[str, Any]:
+    raw_objects = list(getattr(document, "Objects", None) or [])
+    return capture_bounded_document_context(
+        extract_document_payload(document),
+        [extract_object_payload(item) for item in raw_objects],
+        selection=extract_selection_names(selection_objects),
+        constraints=extract_constraints(raw_objects),
+        max_objects=max_objects,
+        max_payload_bytes=max_payload_bytes,
+    )
+
+
+def capture_active_freecad_context(
+    *,
+    app_module: Any | None = None,
+    gui_module: Any | None = None,
+    max_objects: int = 128,
+    max_payload_bytes: int = 32768,
+) -> dict[str, Any]:
+    if app_module is None:
+        import FreeCAD as app_module  # type: ignore
+    if gui_module is None:
+        try:
+            import FreeCADGui as gui_module  # type: ignore
+        except ImportError:
+            gui_module = None
+    snapshot = capture_runtime_snapshot(app_module=app_module, gui_module=gui_module)
+    return capture_bounded_document_context(
+        snapshot["document"],
+        snapshot["objects"],
+        selection=snapshot["selection"],
+        constraints=snapshot["constraints"],
+        max_objects=max_objects,
+        max_payload_bytes=max_payload_bytes,
+    )
