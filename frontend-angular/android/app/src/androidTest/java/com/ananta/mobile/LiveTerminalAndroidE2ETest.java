@@ -487,6 +487,70 @@ public class LiveTerminalAndroidE2ETest {
         );
     }
 
+    @Test
+    public void voxtralRunnerProvisionButtonActionWorks() throws InterruptedException {
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "run voxtral runner provisioning action",
+            "window.__anantaVoxtralProvision='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var py=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PythonRuntime;"
+                + "    var vx=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.VoxtralOffline;"
+                + "    if(!py){window.__anantaVoxtralProvision='ERR:NO_PY_PLUGIN';return;}"
+                + "    if(!vx){window.__anantaVoxtralProvision='ERR:NO_VOXTRAL_PLUGIN';return;}"
+                + "    var st=await py.getProotRuntimeStatus();"
+                + "    if(!(st && st.prootExecutable)){"
+                + "      window.__anantaVoxtralProvision='INSTALLING_PROOT_RUNTIME';"
+                + "      await py.installProotRuntime({confirmed:true});"
+                + "      st=await py.getProotRuntimeStatus();"
+                + "    }"
+                + "    var distros=(st && Array.isArray(st.distros)) ? st.distros : [];"
+                + "    var ubuntuOk=distros.some(function(item){ return String(item && item.name || '').toLowerCase()==='ubuntu'; });"
+                + "    if(!ubuntuOk){"
+                + "      window.__anantaVoxtralProvision='INSTALLING_UBUNTU';"
+                + "      await py.installProotDistro({distro:'ubuntu', confirmed:true});"
+                + "    }"
+                + "    window.__anantaVoxtralProvision='PROVISIONING';"
+                + "    var res=await vx.provisionVoxtralRunner({confirmed:true});"
+                + "    var rp=String((res && res.runnerPath) ? res.runnerPath : '');"
+                + "    if(!rp){window.__anantaVoxtralProvision='ERR:NO_RUNNER_PATH';return;}"
+                + "    var assets=await vx.listLocalAssets();"
+                + "    var runners=(assets && Array.isArray(assets.runners)) ? assets.runners : [];"
+                + "    var hasRunner=runners.some(function(r){ return String((r&&r.path)||'')===rp; });"
+                + "    if(!hasRunner){window.__anantaVoxtralProvision='ERR:RUNNER_NOT_LISTED';return;}"
+                + "    window.__anantaVoxtralProvision='OK:' + rp;"
+                + "  }catch(e){"
+                + "    window.__anantaVoxtralProvision='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "voxtral provisioning action finished",
+            "var v=String(window.__anantaVoxtralProvision||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            1800,
+            1_000L
+        );
+
+        runIfPresent(
+            "log voxtral provisioning result",
+            "console.log('ANANTA_VOXTRAL_PROVISION_RESULT:' + String(window.__anantaVoxtralProvision||'').slice(-3000)); return true;"
+        );
+
+        waitForTrueWithRetry(
+            "voxtral provisioning succeeded",
+            "var v=String(window.__anantaVoxtralProvision||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "return v.indexOf('OK:')===0;",
+            30,
+            1_000L
+        );
+    }
+
     private void waitForTrue(String step, String scriptExpression) throws InterruptedException {
         waitForTrueWithRetry(step, scriptExpression, RETRY_COUNT, RETRY_DELAY_MS);
     }
