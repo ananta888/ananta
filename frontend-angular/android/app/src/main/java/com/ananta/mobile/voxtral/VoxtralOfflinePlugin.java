@@ -5,6 +5,7 @@ import android.content.pm.ApplicationInfo;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.os.Build;
 import android.os.StatFs;
 import android.content.SharedPreferences;
 
@@ -70,6 +71,13 @@ public class VoxtralOfflinePlugin extends Plugin {
 
     private final Object recordingLock = new Object();
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+
+    @Override
+    public void load() {
+        super.load();
+        // Self-heal stale proot wrapper targets after APK updates (native lib path changes each install).
+        resolveProotWrapper();
+    }
     private final PermissionBroker permissionBroker = new PermissionBroker();
 
     private AudioRecord audioRecord;
@@ -690,6 +698,8 @@ public class VoxtralOfflinePlugin extends Plugin {
         String modelPath = modelFile.getAbsolutePath();
         String audioPath = audioFile.getAbsolutePath();
         String nativeLibDir = resolveNativeLibDir();
+        String prootLoaderSrc = resolveNativeLibPath("libproot-loader.so");
+        String prootLoaderLink = new File(getContext().getDataDir(), "ldr/libproot-loader.so").getAbsolutePath();
         String wrappedInnerCommand = "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
             + "export HOME=/root; export TERM=xterm-256color; "
             + shQuote(llamaPath) + " -m " + shQuote(modelPath) + " -f " + shQuote(audioPath);
@@ -698,10 +708,17 @@ public class VoxtralOfflinePlugin extends Plugin {
             + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
             + "ANANTA_PROOT_WRAPPER=" + shQuote(prootWrapper.getAbsolutePath()) + "; "
             + "ANANTA_LIB_DIR=" + shQuote(nativeLibDir == null ? "" : nativeLibDir) + "; "
+            + "ANANTA_PROOT_LOADER_SRC=" + shQuote(prootLoaderSrc == null ? "" : prootLoaderSrc) + "; "
+            + "ANANTA_PROOT_LOADER_LINK=" + shQuote(prootLoaderLink) + "; "
             + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; "
             + "mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
             + "chmod 700 \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
-            + "PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
+            + "chmod 755 \"$ANANTA_PROOT_WRAPPER\" 2>/dev/null || true; "
+            + "if [ -n \"$ANANTA_PROOT_LOADER_SRC\" ]; then "
+            + "mkdir -p \"$(dirname \"$ANANTA_PROOT_LOADER_LINK\")\" 2>/dev/null || true; "
+            + "ln -sfn \"$ANANTA_PROOT_LOADER_SRC\" \"$ANANTA_PROOT_LOADER_LINK\" 2>/dev/null || true; "
+            + "fi; "
+            + "PROOT_LOADER=\"$ANANTA_PROOT_LOADER_LINK\" PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
             + "LD_LIBRARY_PATH=\"$ANANTA_LIB_DIR:${LD_LIBRARY_PATH:-}\" "
             + "PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color "
             + "/system/bin/sh \"$ANANTA_PROOT_WRAPPER\" "
@@ -779,6 +796,8 @@ public class VoxtralOfflinePlugin extends Plugin {
         String llamaPath = llamaCli.getAbsolutePath();
         String modelPath = modelFile.getAbsolutePath();
         String nativeLibDir = resolveNativeLibDir();
+        String prootLoaderSrc = resolveNativeLibPath("libproot-loader.so");
+        String prootLoaderLink = new File(getContext().getDataDir(), "ldr/libproot-loader.so").getAbsolutePath();
         String wrappedInnerCommand = "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
             + "export HOME=/root; export TERM=xterm-256color; "
             + shQuote(llamaPath) + " -m " + shQuote(modelPath) + " -n 1 -p ok";
@@ -787,9 +806,16 @@ public class VoxtralOfflinePlugin extends Plugin {
             + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
             + "ANANTA_PROOT_WRAPPER=" + shQuote(prootWrapper.getAbsolutePath()) + "; "
             + "ANANTA_LIB_DIR=" + shQuote(nativeLibDir == null ? "" : nativeLibDir) + "; "
+            + "ANANTA_PROOT_LOADER_SRC=" + shQuote(prootLoaderSrc == null ? "" : prootLoaderSrc) + "; "
+            + "ANANTA_PROOT_LOADER_LINK=" + shQuote(prootLoaderLink) + "; "
             + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; "
             + "mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
-            + "PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
+            + "chmod 755 \"$ANANTA_PROOT_WRAPPER\" 2>/dev/null || true; "
+            + "if [ -n \"$ANANTA_PROOT_LOADER_SRC\" ]; then "
+            + "mkdir -p \"$(dirname \"$ANANTA_PROOT_LOADER_LINK\")\" 2>/dev/null || true; "
+            + "ln -sfn \"$ANANTA_PROOT_LOADER_SRC\" \"$ANANTA_PROOT_LOADER_LINK\" 2>/dev/null || true; "
+            + "fi; "
+            + "PROOT_LOADER=\"$ANANTA_PROOT_LOADER_LINK\" PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
             + "LD_LIBRARY_PATH=\"$ANANTA_LIB_DIR:${LD_LIBRARY_PATH:-}\" "
             + "PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color "
             + "/system/bin/sh \"$ANANTA_PROOT_WRAPPER\" "
@@ -1406,6 +1432,8 @@ public class VoxtralOfflinePlugin extends Plugin {
             String runtimePath = new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR).getAbsolutePath();
             String rootfsPath = ubuntuRootfs.getAbsolutePath();
             String nativeLibDir = resolveNativeLibDir();
+            String prootLoaderSrc = resolveNativeLibPath("libproot-loader.so");
+            String prootLoaderLink = new File(getContext().getDataDir(), "ldr/libproot-loader.so").getAbsolutePath();
             String wrappedInnerCommand = "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
                 + "export HOME=/root; export TERM=xterm-256color; "
                 + shQuote(llamaCli.getAbsolutePath()) + " --help >/dev/null 2>&1";
@@ -1414,9 +1442,16 @@ public class VoxtralOfflinePlugin extends Plugin {
                 + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
                 + "ANANTA_PROOT_WRAPPER=" + shQuote(prootWrapper.getAbsolutePath()) + "; "
                 + "ANANTA_LIB_DIR=" + shQuote(nativeLibDir == null ? "" : nativeLibDir) + "; "
+                + "ANANTA_PROOT_LOADER_SRC=" + shQuote(prootLoaderSrc == null ? "" : prootLoaderSrc) + "; "
+                + "ANANTA_PROOT_LOADER_LINK=" + shQuote(prootLoaderLink) + "; "
                 + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; "
                 + "mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
-                + "PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
+                + "chmod 755 \"$ANANTA_PROOT_WRAPPER\" 2>/dev/null || true; "
+                + "if [ -n \"$ANANTA_PROOT_LOADER_SRC\" ]; then "
+                + "mkdir -p \"$(dirname \"$ANANTA_PROOT_LOADER_LINK\")\" 2>/dev/null || true; "
+                + "ln -sfn \"$ANANTA_PROOT_LOADER_SRC\" \"$ANANTA_PROOT_LOADER_LINK\" 2>/dev/null || true; "
+                + "fi; "
+                + "PROOT_LOADER=\"$ANANTA_PROOT_LOADER_LINK\" PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
                 + "LD_LIBRARY_PATH=\"$ANANTA_LIB_DIR:${LD_LIBRARY_PATH:-}\" "
                 + "PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color "
                 + "/system/bin/sh \"$ANANTA_PROOT_WRAPPER\" "
@@ -1437,11 +1472,19 @@ public class VoxtralOfflinePlugin extends Plugin {
     private File resolveProotWrapper() {
         File runtimeProot = new File(new File(new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR), "bin"), "proot");
         String nativeProotPath = resolveNativeLibPath("libprootclassic.so");
-        if (runtimeProot.isFile() && nativeProotPath != null && !nativeProotPath.isBlank()) {
+        if (nativeProotPath != null && !nativeProotPath.isBlank()) {
+            File parent = runtimeProot.getParentFile();
+            if (parent != null && !parent.isDirectory()) {
+                parent.mkdirs();
+            }
             ensureWrapperTargets(runtimeProot, nativeProotPath);
-            if (runtimeProot.canExecute()) return runtimeProot;
+            if (runtimeProot.canRead() && runtimeProot.canExecute()) return runtimeProot;
         }
-        if (runtimeProot.isFile()) return runtimeProot;
+        if (runtimeProot.isFile()) {
+            runtimeProot.setReadable(true, false);
+            runtimeProot.setExecutable(true, false);
+            if (runtimeProot.canRead() && runtimeProot.canExecute()) return runtimeProot;
+        }
         if (nativeProotPath != null && !nativeProotPath.isBlank()) {
             File direct = new File(nativeProotPath);
             if (direct.isFile() && direct.canExecute()) return direct;
@@ -1493,6 +1536,8 @@ public class VoxtralOfflinePlugin extends Plugin {
                     out.flush();
                 }
             }
+            wrapperFile.setReadable(true, false);
+            wrapperFile.setWritable(true, true);
             wrapperFile.setExecutable(true, false);
         } catch (Exception ignored) {
             // Best effort only.
@@ -1501,9 +1546,29 @@ public class VoxtralOfflinePlugin extends Plugin {
 
     private String resolveNativeLibPath(String libName) {
         ApplicationInfo appInfo = getContext().getApplicationInfo();
-        if (appInfo == null || appInfo.nativeLibraryDir == null) return null;
-        File lib = new File(appInfo.nativeLibraryDir, libName);
-        return lib.isFile() ? lib.getAbsolutePath() : null;
+        if (appInfo == null) return null;
+        if (appInfo.nativeLibraryDir != null) {
+            File lib = new File(appInfo.nativeLibraryDir, libName);
+            if (lib.isFile()) return lib.getAbsolutePath();
+        }
+
+        // Fallback path derivation when nativeLibraryDir is stale/unavailable.
+        String sourceDir = appInfo.sourceDir;
+        if (sourceDir != null && !sourceDir.isBlank()) {
+            File apkDir = new File(sourceDir).getParentFile();
+            if (apkDir != null) {
+                String abi = Build.SUPPORTED_ABIS != null && Build.SUPPORTED_ABIS.length > 0
+                    ? String.valueOf(Build.SUPPORTED_ABIS[0])
+                    : "";
+                String libSubdir = abi.startsWith("arm64") ? "arm64"
+                    : abi.startsWith("armeabi") ? "arm"
+                    : abi.startsWith("x86_64") ? "x86_64"
+                    : abi.startsWith("x86") ? "x86" : "arm64";
+                File derived = new File(new File(new File(apkDir, "lib"), libSubdir), libName);
+                if (derived.isFile()) return derived.getAbsolutePath();
+            }
+        }
+        return null;
     }
 
     private String resolveNativeLibDir() {
