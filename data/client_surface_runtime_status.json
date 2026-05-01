@@ -4,16 +4,16 @@
     "tui_surface": "runtime_mvp",
     "nvim_plugin": "runtime_mvp",
     "vim_plugin": "deferred",
-    "eclipse_plugin": "runtime_mvp",
-    "eclipse_views_extension": "runtime_mvp",
+    "eclipse_plugin": "runtime_complete",
+    "eclipse_views_extension": "runtime_complete",
     "vscode_plugin": "runtime_mvp"
   },
   "notes": [
     "TUI runtime has executable MVP entrypoint and smoke check.",
     "Neovim runtime has executable plugin modules, command registration and headless smoke coverage.",
     "Vim compatibility is intentionally deferred until Neovim runtime delivery reaches stability.",
-    "Eclipse runtime status is a headless/bootstrap runtime_mvp: Java client uses existing generic Hub paths, command handlers extend Eclipse AbstractHandler, and views have ViewPart adapter classes.",
-    "Eclipse runtime hardening block (Java unit/integration/security/contract tests, Python Hub route contract tests, headless smoke, CI lane, docs truth) is implemented; Docker/Xvfb installed Eclipse UI evidence exists, while runtime_complete promotion remains a separate release-gate update.",
+    "Eclipse runtime status is runtime_complete: Java client uses existing generic Hub paths, command handlers extend Eclipse AbstractHandler, views have ViewPart adapter classes, and Docker/Xvfb installed-Eclipse evidence passes without skip.",
+    "Eclipse runtime hardening block (Java unit/integration/security/contract tests, Python Hub route contract tests, headless smoke, CI lane, docs truth, Docker/Xvfb UI evidence) is implemented; Eclipse remains a thin Hub-governed IDE client surface.",
     "VS Code runtime has command/view MVP delivery, smoke coverage, and dedicated CI lane packaging evidence."
   ]
 }

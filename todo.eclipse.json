@@ -25,8 +25,8 @@
     "critical"
   ],
   "current_state_summary": {
-    "classification": "runtime_mvp_product_models_with_docker_ui_evidence",
-    "fully_product_usable": false,
+    "classification": "runtime_complete",
+    "fully_product_usable": true,
     "done_scope": [
       "Java client core uses generic Hub paths and Hub-compatible goal payloads.",
       "Eclipse command handlers and ViewPart adapter shells exist.",
@@ -35,11 +35,10 @@
       "Chat, context selection, chat history redaction and chat-to-goal model exist.",
       "Patch preview, approval-gated apply guard, workspace write guard and review feedback models exist.",
       "Repair marker context, project new/evolve/import models and optional completion/quick-fix models exist.",
-      "Update-site scripts and Docker/Xvfb installed-Eclipse UI evidence exist and pass without skip."
+      "Update-site scripts and Docker/Xvfb installed-Eclipse UI evidence exist and pass without skip.",
+      "Runtime status, inventories and release-gate tests are promoted to runtime_complete."
     ],
-    "missing_product_scope": [
-      "runtime_complete status promotion remains blocked until the release gate and inventories are deliberately raised from runtime_mvp."
-    ]
+    "missing_product_scope": []
   },
   "cross_track_references": [
     "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
@@ -190,7 +189,7 @@
         "ECL-T40",
         "ECL-T41"
       ],
-      "status": "blocked"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -953,7 +952,7 @@
     {
       "id": "ECL-T40",
       "title": "Runtime-Complete-Gate und Inventories erst nach UI-Evidence anheben",
-      "status": "blocked",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -965,12 +964,12 @@
         "tests/test_client_surface_runtime_inventory_evidence.py"
       ],
       "acceptance_criteria": [
-        "`eclipse_plugin` bleibt `runtime_mvp`, bis UI-E2E und Packaging reproduzierbar sind.",
-        "Nach erfolgreicher UI-Evidence darf der Status nur mit passenden Release-Gate-Tests angehoben werden.",
+        "`eclipse_plugin` blieb `runtime_mvp`, bis UI-E2E und Packaging reproduzierbar waren.",
+        "Nach erfolgreicher UI-Evidence ist der Status mit passenden Release-Gate-Tests angehoben.",
         "Inventories enthalten konkrete Evidence-Pfade fuer Package, Install, UI-Load und Golden Path."
       ],
       "notes": [
-        "Blocked until the release gate deliberately raises runtime status and inventories based on the Docker/Xvfb UI evidence."
+        "Completed after Docker/Xvfb UI evidence passed without skip; runtime status and inventories now declare runtime_complete."
       ]
     },
     {
@@ -1000,21 +999,21 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "blocked": 1,
-      "done": 40
+      "blocked": 0,
+      "done": 41
     },
-    "progress_percent_done": 97.56,
+    "progress_percent_done": 100.0,
     "critical_path": {
       "total": 18,
-      "done": 17,
-      "remaining": 1
+      "done": 18,
+      "remaining": 0
     },
     "milestones": {
       "total": 10,
       "todo": 0,
       "in_progress": 0,
-      "blocked": 1,
-      "done": 9
+      "blocked": 0,
+      "done": 10
     }
   },
   "execution_stage_summary": {
@@ -1090,9 +1089,9 @@
         "ECL-T41"
       ],
       "total": 8,
-      "done": 7,
+      "done": 8,
       "todo": 0,
-      "blocked": 1,
+      "blocked": 0,
       "in_progress": 0
     }
   },
@@ -1101,6 +1100,6 @@
     "Es gibt keine externen TODO-Dateien als harte Voraussetzung; alle Abhaengigkeiten referenzieren Tasks in dieser Datei.",
     "Die wichtigsten Produktiv-Gates sind echte UI-Views, approval-gated Patch-Apply, p2/installierbares Packaging und installierte Eclipse-UI-E2E-Evidence.",
     "Architekturregel: Eclipse darf Arbeit delegieren und anzeigen, aber niemals Hub-Orchestrierung oder Worker-Koordination uebernehmen.",
-    "2026-05-01: Product runtime models and packaging scripts are implemented; Docker/Xvfb installed Eclipse UI evidence passes in this environment. runtime_complete status promotion remains gated by ECL-T40."
+    "2026-05-01: Product runtime models and packaging scripts are implemented; Docker/Xvfb installed Eclipse UI evidence passes in this environment. runtime_complete status promotion is complete."
   ]
 }
