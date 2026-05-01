@@ -615,6 +615,9 @@ public class PythonRuntimePlugin extends Plugin {
                 boolean pipReady = false;
                 boolean libgompReady = false;
                 boolean opencodeReady = false;
+                boolean anantaCliReady = false;
+                boolean anantaTuiReady = false;
+                boolean workerCommandReady = false;
                 boolean workerImportReady = false;
                 String workerProbeMessage = "";
 
@@ -630,6 +633,12 @@ public class PythonRuntimePlugin extends Plugin {
                         "if [ -f /lib/aarch64-linux-gnu/libgomp.so.1 ] || [ -f /usr/lib/aarch64-linux-gnu/libgomp.so.1 ]; then echo ANANTA_OK; else echo ANANTA_MISSING; fi");
                     opencodeReady = probeInProot(runtimeRoot, ubuntuRootfs,
                         "if command -v opencode >/dev/null 2>&1; then echo ANANTA_OK; else echo ANANTA_MISSING; fi");
+                    anantaCliReady = probeInProot(runtimeRoot, ubuntuRootfs,
+                        "if command -v ananta >/dev/null 2>&1 || [ -x /usr/local/bin/ananta ] || [ -x /home/ananta/.local/bin/ananta ] || [ -x /root/.local/bin/ananta ]; then echo ANANTA_OK; else echo ANANTA_MISSING; fi");
+                    anantaTuiReady = probeInProot(runtimeRoot, ubuntuRootfs,
+                        "if command -v ananta >/dev/null 2>&1; then ananta tui --help >/dev/null 2>&1 && echo ANANTA_OK || echo ANANTA_MISSING; elif [ -x /usr/local/bin/ananta ]; then /usr/local/bin/ananta tui --help >/dev/null 2>&1 && echo ANANTA_OK || echo ANANTA_MISSING; else echo ANANTA_MISSING; fi");
+                    workerCommandReady = probeInProot(runtimeRoot, ubuntuRootfs,
+                        "if command -v ananta-worker >/dev/null 2>&1 || [ -x /usr/local/bin/ananta-worker ] || [ -x /home/ananta/.local/bin/ananta-worker ] || [ -x /root/.local/bin/ananta-worker ]; then echo ANANTA_OK; else echo ANANTA_MISSING; fi");
 
                     if (workspaceInstalled) {
                         String importCmd = "cd " + shQuote(workspaceRoot.getAbsolutePath())
@@ -652,6 +661,9 @@ public class PythonRuntimePlugin extends Plugin {
                 result.put("pipReady", pipReady);
                 result.put("libgompReady", libgompReady);
                 result.put("opencodeReady", opencodeReady);
+                result.put("anantaCliReady", anantaCliReady);
+                result.put("anantaTuiReady", anantaTuiReady);
+                result.put("workerCommandReady", workerCommandReady);
                 result.put("workspaceInstalled", workspaceInstalled);
                 result.put("workerImportReady", workerImportReady);
                 result.put("workerProbeMessage", workerProbeMessage);
@@ -719,11 +731,56 @@ public class PythonRuntimePlugin extends Plugin {
                     + "apt-get update && apt-get install -y --no-install-recommends "
                     + "python3 python3-pip git curl ca-certificates tar libgomp1; "
                     + "else echo ANANTA_APT_MISSING; exit 2; fi; "
+                    + "ANANTA_WORKSPACE=" + shQuote(new File(getContext().getFilesDir(), "ananta").getAbsolutePath()) + "; "
+                    + "if [ ! -f \"$ANANTA_WORKSPACE/pyproject.toml\" ]; then echo ANANTA_WORKSPACE_MISSING; exit 4; fi; "
                     + "python3 -m pip install --break-system-packages --ignore-installed --no-input --progress-bar off "
                     + "flask requests flask-cors pydantic pydantic-settings python-dotenv prometheus-client pyjwt "
                     + "portalocker psutil sqlmodel typer click gitpython flask-sock simple-websocket "
                     + "pypdf python-docx openpyxl python-pptx; "
-                    + "python3 -c \"import flask,pydantic,requests,sqlmodel,portalocker; print('ANANTA_WORKER_DEPS_OK')\"";
+                    + "python3 -m pip install --break-system-packages --ignore-installed --no-input --progress-bar off -e \"$ANANTA_WORKSPACE\"; "
+                    + "export PATH=\"/home/ananta/.local/bin:/root/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH\"; "
+                    + "if ! command -v ananta >/dev/null 2>&1; then "
+                    + "mkdir -p /usr/local/bin /home/ananta/.local/bin /root/.local/bin 2>/dev/null || true; "
+                    + "for target in /usr/local/bin/ananta /home/ananta/.local/bin/ananta /root/.local/bin/ananta; do "
+                    + "cat >\"$target\" <<'EOF'\n"
+                    + "#!/bin/sh\n"
+                    + "ANANTA_WORKSPACE=" + new File(getContext().getFilesDir(), "ananta").getAbsolutePath() + "\n"
+                    + "PYTHONPATH=\"$ANANTA_WORKSPACE:${PYTHONPATH:-}\" exec python3 -m agent.cli.main \"$@\"\n"
+                    + "EOF\n"
+                    + "chmod 755 \"$target\" 2>/dev/null || true; "
+                    + "done; "
+                    + "fi; "
+                    + "if ! command -v ananta >/dev/null 2>&1 && [ -x /usr/local/bin/ananta ]; then ln -sf /usr/local/bin/ananta /usr/bin/ananta 2>/dev/null || true; fi; "
+                    + "if ! command -v ananta >/dev/null 2>&1; then "
+                    + "if [ -x /usr/local/bin/ananta ]; then ANANTA_CLI=/usr/local/bin/ananta; "
+                    + "elif [ -x /home/ananta/.local/bin/ananta ]; then ANANTA_CLI=/home/ananta/.local/bin/ananta; "
+                    + "elif [ -x /root/.local/bin/ananta ]; then ANANTA_CLI=/root/.local/bin/ananta; "
+                    + "else echo ANANTA_CLI_MISSING; exit 5; fi; "
+                    + "else ANANTA_CLI=$(command -v ananta); fi; "
+                    + "for worker_target in /usr/local/bin/ananta-worker /home/ananta/.local/bin/ananta-worker /root/.local/bin/ananta-worker; do "
+                    + "cat >\"$worker_target\" <<'EOF'\n"
+                    + "#!/bin/sh\n"
+                    + "ANANTA_WORKSPACE=" + new File(getContext().getFilesDir(), "ananta").getAbsolutePath() + "\n"
+                    + "export ROLE=${ROLE:-worker}\n"
+                    + "export AGENT_NAME=${AGENT_NAME:-android-worker}\n"
+                    + "export PORT=${PORT:-5001}\n"
+                    + "export HUB_URL=${HUB_URL:-http://127.0.0.1:5000}\n"
+                    + "export AGENT_URL=${AGENT_URL:-http://127.0.0.1:${PORT}}\n"
+                    + "PYTHONPATH=\"$ANANTA_WORKSPACE:${PYTHONPATH:-}\" exec python3 -m agent.ai_agent \"$@\"\n"
+                    + "EOF\n"
+                    + "chmod 755 \"$worker_target\" 2>/dev/null || true; "
+                    + "done; "
+                    + "for tui_target in /usr/local/bin/ananta-tui /home/ananta/.local/bin/ananta-tui /root/.local/bin/ananta-tui; do "
+                    + "cat >\"$tui_target\" <<'EOF'\n"
+                    + "#!/bin/sh\n"
+                    + "exec ananta tui \"$@\"\n"
+                    + "EOF\n"
+                    + "chmod 755 \"$tui_target\" 2>/dev/null || true; "
+                    + "done; "
+                    + "\"$ANANTA_CLI\" --help >/dev/null 2>&1; "
+                    + "\"$ANANTA_CLI\" tui --help >/dev/null 2>&1; "
+                    + "if ! command -v ananta-worker >/dev/null 2>&1 && [ ! -x /usr/local/bin/ananta-worker ] && [ ! -x /home/ananta/.local/bin/ananta-worker ] && [ ! -x /root/.local/bin/ananta-worker ]; then echo ANANTA_WORKER_CMD_MISSING; exit 6; fi; "
+                    + "PYTHONPATH=\"$ANANTA_WORKSPACE:${PYTHONPATH:-}\" python3 -c \"from agent.ai_agent import create_app; print('ANANTA_WORKER_DEPS_OK')\"";
                 ShellExecutionResult install = runInProot(runtimeRoot, ubuntuRootfs, command, 1200);
                 String output = String.valueOf(install.output == null ? "" : install.output);
                 if (install.timedOut || install.exitCode != 0 || !output.contains("ANANTA_WORKER_DEPS_OK")) {

@@ -60,6 +60,9 @@ import { MobileProotService } from '../services/mobile-proot.service';
               Python: {{ guidedStatus.pythonReady ? 'ok' : 'fehlt' }} |
               pip: {{ guidedStatus.pipReady ? 'ok' : 'fehlt' }} |
               libgomp: {{ guidedStatus.libgompReady ? 'ok' : 'fehlt' }} |
+              ananta: {{ guidedStatus.anantaCliReady ? 'ok' : 'fehlt' }} |
+              ananta tui: {{ guidedStatus.anantaTuiReady ? 'ok' : 'fehlt' }} |
+              ananta-worker: {{ guidedStatus.workerCommandReady ? 'ok' : 'fehlt' }} |
               Worker-Import: {{ guidedStatus.workerImportReady ? 'ok' : 'fehlt' }} |
               opencode: {{ guidedStatus.opencodeReady ? 'ok' : 'fehlt' }}
             </div>
@@ -187,6 +190,9 @@ export class MobileShellComponent implements OnDestroy, OnInit {
     pipReady: false,
     libgompReady: false,
     opencodeReady: false,
+    anantaCliReady: false,
+    anantaTuiReady: false,
+    workerCommandReady: false,
     workspaceInstalled: false,
     workerImportReady: false,
   };
