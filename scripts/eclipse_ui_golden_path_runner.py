@@ -197,6 +197,8 @@ def _run_ui_availability_verifier(
         "org.eclipse.ui.ide.workbench",
         "-vmargs",
         f"-Dananta.e2e.report={availability_report}",
+        "-Doomph.setup.skip=true",
+        "-Doomph.setup.sync.skip=true",
     ]
     result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=timeout_seconds)
     output = (result.stdout + "\n" + result.stderr).strip()
