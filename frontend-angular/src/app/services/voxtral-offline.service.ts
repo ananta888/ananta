@@ -31,6 +31,7 @@ interface VoxtralOfflinePlugin {
   stopRecording(): Promise<{ audioPath: string }>;
   downloadModel(options: { modelUrl: string; fileName?: string; sha256?: string; minBytes?: number; confirmed?: boolean }): Promise<{ modelPath: string; bytes: number; sha256: string }>;
   downloadRunner(options: { runnerUrl: string; fileName?: string; sha256?: string; confirmed?: boolean }): Promise<{ runnerPath: string; bytes: number; sha256: string }>;
+  provisionVoxtralRunner(options: { sourceUrl?: string; sourceSha256?: string; confirmed?: boolean }): Promise<{ runnerPath: string; binaryPath: string; sourceArchivePath: string; sourceBytes: number; sourceSha256: string; rawOutput: string }>;
   listLocalAssets(): Promise<{ models: VoxtralLocalAsset[]; runners: VoxtralLocalAsset[] }>;
   verifySetup(options: { modelPath: string; runnerPath: string; minFreeBytes?: number }): Promise<{ availableBytes: number; hasEnoughStorage: boolean; modelExists: boolean; modelBytes: number; modelCompatible?: boolean; estimatedRequiredBytes?: number; runnerExists: boolean; runnerExecutable: boolean; runnerCompatible?: boolean; runnerModelCompatible?: boolean; runnerProbeMessage?: string }>;
   getFileSha256(options: { path: string }): Promise<{ path: string; bytes: number; sha256: string }>;
@@ -95,6 +96,13 @@ export class VoxtralOfflineService {
       throw new Error('Nur auf nativer Android-App verfuegbar.');
     }
     return VoxtralOffline.downloadRunner({ runnerUrl, fileName, sha256, confirmed: true });
+  }
+
+  async provisionVoxtralRunner(sourceUrl?: string, sourceSha256?: string): Promise<{ runnerPath: string; binaryPath: string; sourceArchivePath: string; sourceBytes: number; sourceSha256: string; rawOutput: string }> {
+    if (!this.isNative) {
+      throw new Error('Nur auf nativer Android-App verfuegbar.');
+    }
+    return VoxtralOffline.provisionVoxtralRunner({ sourceUrl, sourceSha256, confirmed: true });
   }
 
   async listLocalAssets(): Promise<{ models: VoxtralLocalAsset[]; runners: VoxtralLocalAsset[] }> {

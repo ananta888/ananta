@@ -61,8 +61,12 @@ public class VoxtralOfflinePlugin extends Plugin {
             "voxtral-stream-cli",
             "voxtral-cli",
             "llama-voxtral-cli",
-            "llama-cli"
+            "llama-cli",
+            "crispasr",
+            "crispasr-cli",
+            "crispasr-voxtral"
     );
+    private static final String DEFAULT_CRISPASR_SOURCE_URL = "https://github.com/CrispStrobe/CrispASR/archive/refs/tags/v0.5.3.tar.gz";
     private static final String PROOT_RUNTIME_SUBDIR = "proot-runtime";
     private static final String LLM_RUNTIME_SUBDIR = "llm-runtime";
     private static final String PREFS_NAME = "voxtral_offline_prefs";
@@ -222,6 +226,136 @@ public class VoxtralOfflinePlugin extends Plugin {
     public void downloadRunner(PluginCall call) {
         if (!guardAction(call, "download_runner")) return;
         downloadFile(call, "runnerUrl", "fileName", "voxtral/bin", true, "runnerPath", "runner");
+    }
+
+    @PluginMethod
+    public void provisionVoxtralRunner(PluginCall call) {
+        if (!guardAction(call, "provision_runner")) return;
+        String sourceUrl = call.getString("sourceUrl", DEFAULT_CRISPASR_SOURCE_URL);
+        String expectedSourceSha256 = call.getString("sourceSha256");
+
+        File buildDir = ensureDir("voxtral/build");
+        File binDir = ensureDir("voxtral/bin");
+        if (buildDir == null || binDir == null) {
+            call.reject("Could not prepare voxtral build/bin directories.");
+            return;
+        }
+
+        ioExecutor.execute(() -> {
+            HttpURLConnection connection = null;
+            try {
+                URL url = new URL(sourceUrl);
+                if (!isAllowedDownloadUrl(url)) {
+                    call.reject("Network policy denied source URL.");
+                    return;
+                }
+
+                File sourceArchive = new File(buildDir, "crispasr-source.tar.gz");
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setConnectTimeout(15000);
+                connection.setReadTimeout(120000);
+                connection.setInstanceFollowRedirects(true);
+
+                int status = connection.getResponseCode();
+                if (status < 200 || status >= 300) {
+                    call.reject("Source download failed with HTTP status: " + status);
+                    return;
+                }
+
+                long totalBytes = connection.getContentLengthLong();
+                try (InputStream input = new BufferedInputStream(connection.getInputStream());
+                     FileOutputStream output = new FileOutputStream(sourceArchive, false)) {
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    long downloaded = 0;
+                    long lastNotified = 0;
+                    while ((read = input.read(buffer)) != -1) {
+                        output.write(buffer, 0, read);
+                        downloaded += read;
+                        if (downloaded - lastNotified >= (256 * 1024)) {
+                            JSObject event = new JSObject();
+                            event.put("type", "runner");
+                            event.put("downloadedBytes", downloaded);
+                            event.put("totalBytes", totalBytes > 0 ? totalBytes : -1);
+                            event.put("progress", totalBytes > 0 ? (double) downloaded / (double) totalBytes : -1);
+                            notifyListeners("voxtralDownloadProgress", event);
+                            lastNotified = downloaded;
+                        }
+                    }
+                }
+
+                if (!sourceArchive.exists() || sourceArchive.length() == 0) {
+                    call.reject("Downloaded source archive is empty.");
+                    return;
+                }
+                if (expectedSourceSha256 != null && !expectedSourceSha256.isBlank()) {
+                    String actualSha = computeSha256(sourceArchive);
+                    String expectedSha = expectedSourceSha256.trim().toLowerCase();
+                    if (!expectedSha.equals(actualSha)) {
+                        sourceArchive.delete();
+                        call.reject("Source SHA256 mismatch.");
+                        return;
+                    }
+                }
+
+                File runnerBinary = new File(binDir, "crispasr-voxtral");
+                File runnerWrapper = new File(binDir, "voxtral-cli");
+                String innerCommand = ""
+                    + "set -e; "
+                    + "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
+                    + "BUILD_DIR=" + shQuote(buildDir.getAbsolutePath()) + "; "
+                    + "ARCHIVE=" + shQuote(sourceArchive.getAbsolutePath()) + "; "
+                    + "SRC_DIR=\"$BUILD_DIR/CrispASR\"; "
+                    + "rm -rf \"$SRC_DIR\" \"$BUILD_DIR/CrispASR-\"*; "
+                    + "mkdir -p \"$BUILD_DIR\"; "
+                    + "tar -xzf \"$ARCHIVE\" -C \"$BUILD_DIR\"; "
+                    + "SRC_CANDIDATE=$(find \"$BUILD_DIR\" -maxdepth 1 -type d -name 'CrispASR-*' | head -n 1); "
+                    + "if [ -z \"$SRC_CANDIDATE\" ]; then echo 'CrispASR source dir not found after extract'; exit 31; fi; "
+                    + "mv \"$SRC_CANDIDATE\" \"$SRC_DIR\"; "
+                    + "cmake -B \"$SRC_DIR/build\" "
+                    + "-DCMAKE_BUILD_TYPE=Release "
+                    + "-DCRISPASR_BUILD_TESTS=OFF "
+                    + "-DCRISPASR_BUILD_EXAMPLES=ON "
+                    + "-DCRISPASR_BUILD_SERVER=OFF "
+                    + "-DGGML_OPENMP=OFF "
+                    + "-DCMAKE_DISABLE_FIND_PACKAGE_OpenMP=ON "
+                    + "\"$SRC_DIR\"; "
+                    + "cmake --build \"$SRC_DIR/build\" -j2 --target crispasr-cli; "
+                    + "cp -f \"$SRC_DIR/build/bin/crispasr\" " + shQuote(runnerBinary.getAbsolutePath()) + "; "
+                    + "chmod 700 " + shQuote(runnerBinary.getAbsolutePath()) + "; "
+                    + "cat > " + shQuote(runnerWrapper.getAbsolutePath()) + " <<'EOF'\n"
+                    + "#!/bin/sh\n"
+                    + "exec " + runnerBinary.getAbsolutePath() + " --backend voxtral4b \"$@\"\n"
+                    + "EOF\n"
+                    + "chmod 700 " + shQuote(runnerWrapper.getAbsolutePath()) + "; ";
+
+                String output = runShellCommandViaProot(innerCommand);
+                File stagedRunner = prepareRunnerForExecution(runnerWrapper);
+                if (!canSpawnRunner(stagedRunner) && !canSpawnRunnerViaProot(stagedRunner)) {
+                    call.reject("Runner provisioning finished but executable check failed.\n" + output);
+                    return;
+                }
+
+                lastRunnerPath = runnerWrapper.getAbsolutePath();
+                persistSelection(PREF_RUNNER_PATH, lastRunnerPath);
+                appendAudit("allow", "provision_runner", "success " + runnerWrapper.getName());
+
+                JSObject result = new JSObject();
+                result.put("runnerPath", runnerWrapper.getAbsolutePath());
+                result.put("binaryPath", runnerBinary.getAbsolutePath());
+                result.put("sourceArchivePath", sourceArchive.getAbsolutePath());
+                result.put("sourceBytes", sourceArchive.length());
+                result.put("sourceSha256", computeSha256(sourceArchive));
+                result.put("rawOutput", output);
+                call.resolve(result);
+            } catch (Exception error) {
+                appendAudit("deny", "provision_runner", "failed " + error.getMessage());
+                call.reject("Runner provisioning failed: " + error.getMessage()
+                    + "\nIf apt/dpkg is blocked in proot, place a Voxtral-compatible ARM64 runner manually in .../files/voxtral/bin.");
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        });
     }
 
     @PluginMethod
@@ -771,52 +905,19 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (prootWrapper == null || ubuntuRootfs == null || runnerFile == null || !runnerFile.exists()) {
             throw new IOException("Runner execution blocked by Android (permission denied) and proot fallback is unavailable.");
         }
-
-        String runtimePath = new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR).getAbsolutePath();
-        String rootfsPath = ubuntuRootfs.getAbsolutePath();
-        String runnerPath = runnerFile.getAbsolutePath();
-        String modelPath = modelFile.getAbsolutePath();
-        String audioPath = audioFile.getAbsolutePath();
-        String nativeLibDir = resolveNativeLibDir();
-        String prootLoaderSrc = resolveNativeLibPath("libproot-loader.so");
-        String prootLoaderLink = new File(getContext().getDataDir(), "ldr/libproot-loader.so").getAbsolutePath();
         String wrappedInnerCommand = "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
             + "export HOME=/root; export TERM=xterm-256color; "
-            + shQuote(runnerPath) + " -m " + shQuote(modelPath) + " -f " + shQuote(audioPath);
-        String shellCommand = ""
-            + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "
-            + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
-            + "ANANTA_PROOT_WRAPPER=" + shQuote(prootWrapper.getAbsolutePath()) + "; "
-            + "ANANTA_LIB_DIR=" + shQuote(nativeLibDir == null ? "" : nativeLibDir) + "; "
-            + "ANANTA_PROOT_LOADER_SRC=" + shQuote(prootLoaderSrc == null ? "" : prootLoaderSrc) + "; "
-            + "ANANTA_PROOT_LOADER_LINK=" + shQuote(prootLoaderLink) + "; "
-            + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; "
-            + "mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
-            + "chmod 700 \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
-            + "chmod 755 \"$ANANTA_PROOT_WRAPPER\" 2>/dev/null || true; "
-            + "if [ -n \"$ANANTA_PROOT_LOADER_SRC\" ]; then "
-            + "mkdir -p \"$(dirname \"$ANANTA_PROOT_LOADER_LINK\")\" 2>/dev/null || true; "
-            + "ln -sfn \"$ANANTA_PROOT_LOADER_SRC\" \"$ANANTA_PROOT_LOADER_LINK\" 2>/dev/null || true; "
-            + "fi; "
-            + "PROOT_LOADER=\"$ANANTA_PROOT_LOADER_LINK\" PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
-            + "LD_LIBRARY_PATH=\"$ANANTA_LIB_DIR:${LD_LIBRARY_PATH:-}\" "
-            + "PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color "
-            + "/system/bin/sh \"$ANANTA_PROOT_WRAPPER\" "
-            + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" "
-            + "-w / /bin/sh -c "
-            + shQuote(wrappedInnerCommand);
-        Process process = new ProcessBuilder("/system/bin/sh", "-lc", shellCommand)
-            .redirectErrorStream(true)
-            .start();
-        String output = readAll(process.getInputStream());
-        int exitCode = process.waitFor();
-        if (exitCode != 0) {
-            if (containsUnsupportedModelArchitecture(output)) {
+            + joinShellArgs(buildRunnerCommand(runnerFile, modelFile, audioFile));
+        try {
+            String output = runShellCommandViaProot(wrappedInnerCommand);
+            return extractTranscript(output);
+        } catch (IOException error) {
+            String message = String.valueOf(error.getMessage() == null ? "" : error.getMessage());
+            if (containsUnsupportedModelArchitecture(message)) {
                 throw new IOException("Runner is incompatible with model architecture 'voxtral4b'. Use a Voxtral-compatible runner (not plain llama.cpp).");
             }
-            throw new IOException("Runner (proot fallback) failed with exit code " + exitCode + "\n" + output);
+            throw new IOException("Runner (proot fallback) failed.\n" + message);
         }
-        return extractTranscript(output);
     }
 
     private RunnerProbe probeRunnerModelCompatibility(File runnerFile, File modelFile) {
@@ -840,14 +941,7 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     private String runModelProbe(File runnerFile, File modelFile) throws IOException, InterruptedException {
-        List<String> command = new ArrayList<>();
-        command.add(runnerFile.getAbsolutePath());
-        command.add("-m");
-        command.add(modelFile.getAbsolutePath());
-        command.add("-n");
-        command.add("1");
-        command.add("-p");
-        command.add("ok");
+        List<String> command = buildRunnerProbeCommand(runnerFile, modelFile);
         Process process = new ProcessBuilder(command)
             .redirectErrorStream(true)
             .start();
@@ -869,43 +963,10 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (prootWrapper == null || ubuntuRootfs == null || runnerFile == null || !runnerFile.exists()) {
             return "";
         }
-        String runtimePath = new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR).getAbsolutePath();
-        String rootfsPath = ubuntuRootfs.getAbsolutePath();
-        String runnerPath = runnerFile.getAbsolutePath();
-        String modelPath = modelFile.getAbsolutePath();
-        String nativeLibDir = resolveNativeLibDir();
-        String prootLoaderSrc = resolveNativeLibPath("libproot-loader.so");
-        String prootLoaderLink = new File(getContext().getDataDir(), "ldr/libproot-loader.so").getAbsolutePath();
         String wrappedInnerCommand = "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
             + "export HOME=/root; export TERM=xterm-256color; "
-            + shQuote(runnerPath) + " -m " + shQuote(modelPath) + " -n 1 -p ok";
-        String shellCommand = ""
-            + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "
-            + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
-            + "ANANTA_PROOT_WRAPPER=" + shQuote(prootWrapper.getAbsolutePath()) + "; "
-            + "ANANTA_LIB_DIR=" + shQuote(nativeLibDir == null ? "" : nativeLibDir) + "; "
-            + "ANANTA_PROOT_LOADER_SRC=" + shQuote(prootLoaderSrc == null ? "" : prootLoaderSrc) + "; "
-            + "ANANTA_PROOT_LOADER_LINK=" + shQuote(prootLoaderLink) + "; "
-            + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; "
-            + "mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
-            + "chmod 755 \"$ANANTA_PROOT_WRAPPER\" 2>/dev/null || true; "
-            + "if [ -n \"$ANANTA_PROOT_LOADER_SRC\" ]; then "
-            + "mkdir -p \"$(dirname \"$ANANTA_PROOT_LOADER_LINK\")\" 2>/dev/null || true; "
-            + "ln -sfn \"$ANANTA_PROOT_LOADER_SRC\" \"$ANANTA_PROOT_LOADER_LINK\" 2>/dev/null || true; "
-            + "fi; "
-            + "PROOT_LOADER=\"$ANANTA_PROOT_LOADER_LINK\" PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
-            + "LD_LIBRARY_PATH=\"$ANANTA_LIB_DIR:${LD_LIBRARY_PATH:-}\" "
-            + "PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color "
-            + "/system/bin/sh \"$ANANTA_PROOT_WRAPPER\" "
-            + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" "
-            + "-w / /bin/sh -c "
-            + shQuote(wrappedInnerCommand);
-        Process process = new ProcessBuilder("/system/bin/sh", "-lc", shellCommand)
-            .redirectErrorStream(true)
-            .start();
-        String output = readAll(process.getInputStream());
-        process.waitFor();
-        return output;
+            + joinShellArgs(buildRunnerProbeCommand(runnerFile, modelFile));
+        return runShellCommandViaProot(wrappedInnerCommand);
     }
 
     private boolean containsUnsupportedModelArchitecture(String text) {
@@ -1213,7 +1274,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (baseName == null || baseName.isBlank()) return false;
         String name = baseName.toLowerCase();
         if (RUNNER_CANDIDATE_NAMES.contains(name)) return true;
-        return name.contains("voxtral") || name.equals("llama-cli");
+        return name.contains("voxtral") || name.equals("llama-cli") || name.startsWith("crispasr");
     }
 
     private boolean isCompatibleModelFile(File modelFile) {
@@ -1337,11 +1398,51 @@ public class VoxtralOfflinePlugin extends Plugin {
             command.add(audioFile.getAbsolutePath());
             return command;
         }
+        if (shouldInjectVoxtralBackend(runnerFile)) {
+            command.add("--backend");
+            command.add("voxtral4b");
+        }
         command.add("-m");
         command.add(modelFile.getAbsolutePath());
         command.add("-f");
         command.add(audioFile.getAbsolutePath());
         return command;
+    }
+
+    private List<String> buildRunnerProbeCommand(File runnerFile, File modelFile) {
+        List<String> command = new ArrayList<>();
+        command.add(runnerFile.getAbsolutePath());
+        String binaryName = runnerFile.getName();
+        if ("voxtral4b-main".equals(binaryName)) {
+            command.add(modelFile.getAbsolutePath());
+            return command;
+        }
+        if (shouldInjectVoxtralBackend(runnerFile)) {
+            command.add("--backend");
+            command.add("voxtral4b");
+        }
+        command.add("-m");
+        command.add(modelFile.getAbsolutePath());
+        command.add("-n");
+        command.add("1");
+        command.add("-p");
+        command.add("ok");
+        return command;
+    }
+
+    private boolean shouldInjectVoxtralBackend(File runnerFile) {
+        if (runnerFile == null) return false;
+        String name = String.valueOf(runnerFile.getName()).toLowerCase();
+        return name.startsWith("crispasr");
+    }
+
+    private String joinShellArgs(List<String> args) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < args.size(); i++) {
+            if (i > 0) builder.append(' ');
+            builder.append(shQuote(args.get(i)));
+        }
+        return builder.toString();
     }
 
     private String extractTranscript(String output) {
@@ -1582,6 +1683,50 @@ public class VoxtralOfflinePlugin extends Plugin {
         } finally {
             if (process != null && process.isAlive()) process.destroy();
         }
+    }
+
+    private String runShellCommandViaProot(String wrappedInnerCommand) throws IOException, InterruptedException {
+        File prootWrapper = resolveProotWrapper();
+        File ubuntuRootfs = resolveUbuntuRootfs();
+        if (prootWrapper == null || ubuntuRootfs == null) {
+            throw new IOException("Proot runtime is unavailable.");
+        }
+        String runtimePath = new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR).getAbsolutePath();
+        String rootfsPath = ubuntuRootfs.getAbsolutePath();
+        String nativeLibDir = resolveNativeLibDir();
+        String prootLoaderSrc = resolveNativeLibPath("libproot-loader.so");
+        String prootLoaderLink = new File(getContext().getDataDir(), "ldr/libproot-loader.so").getAbsolutePath();
+        String shellCommand = ""
+            + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "
+            + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
+            + "ANANTA_PROOT_WRAPPER=" + shQuote(prootWrapper.getAbsolutePath()) + "; "
+            + "ANANTA_LIB_DIR=" + shQuote(nativeLibDir == null ? "" : nativeLibDir) + "; "
+            + "ANANTA_PROOT_LOADER_SRC=" + shQuote(prootLoaderSrc == null ? "" : prootLoaderSrc) + "; "
+            + "ANANTA_PROOT_LOADER_LINK=" + shQuote(prootLoaderLink) + "; "
+            + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; "
+            + "mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
+            + "chmod 700 \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
+            + "chmod 755 \"$ANANTA_PROOT_WRAPPER\" 2>/dev/null || true; "
+            + "if [ -n \"$ANANTA_PROOT_LOADER_SRC\" ]; then "
+            + "mkdir -p \"$(dirname \"$ANANTA_PROOT_LOADER_LINK\")\" 2>/dev/null || true; "
+            + "ln -sfn \"$ANANTA_PROOT_LOADER_SRC\" \"$ANANTA_PROOT_LOADER_LINK\" 2>/dev/null || true; "
+            + "fi; "
+            + "PROOT_LOADER=\"$ANANTA_PROOT_LOADER_LINK\" PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
+            + "LD_LIBRARY_PATH=\"$ANANTA_LIB_DIR:${LD_LIBRARY_PATH:-}\" "
+            + "PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color "
+            + "/system/bin/sh \"$ANANTA_PROOT_WRAPPER\" "
+            + "-0 -r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" "
+            + "-w / /bin/sh -c "
+            + shQuote(wrappedInnerCommand);
+        Process process = new ProcessBuilder("/system/bin/sh", "-lc", shellCommand)
+            .redirectErrorStream(true)
+            .start();
+        String output = readAll(process.getInputStream());
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            throw new IOException("Proot command failed with exit code " + exitCode + "\n" + output);
+        }
+        return output;
     }
 
     private File resolveProotWrapper() {
