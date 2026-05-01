@@ -591,7 +591,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             if (runner.exists()) {
                 try {
                     File preparedRunner = prepareRunnerForExecution(runner);
-                    executable = canSpawnRunner(preparedRunner) || canSpawnRunnerViaProot();
+                    executable = canSpawnRunner(preparedRunner) || canSpawnRunnerViaProot(preparedRunner);
                     if (executable && modelPath != null && !modelPath.isBlank()) {
                         File model = new File(modelPath);
                         if (model.exists() && isCompatibleModelFile(model)) {
@@ -601,7 +601,7 @@ public class VoxtralOfflinePlugin extends Plugin {
                         }
                     }
                 } catch (Exception ignored) {
-                    executable = canSpawnRunnerViaProot();
+                    executable = canSpawnRunnerViaProot(runner);
                     runnerModelCompatible = false;
                 }
             }
@@ -745,7 +745,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             if (!msg.contains("Permission denied") && !msg.contains("error=13")) {
                 throw directError;
             }
-            return runRunnerSyncViaProot(modelFile, audioFile);
+            return runRunnerSyncViaProot(runnerFile, modelFile, audioFile);
         }
     }
 
@@ -765,17 +765,16 @@ public class VoxtralOfflinePlugin extends Plugin {
         return extractTranscript(output);
     }
 
-    private String runRunnerSyncViaProot(File modelFile, File audioFile) throws IOException, InterruptedException {
+    private String runRunnerSyncViaProot(File runnerFile, File modelFile, File audioFile) throws IOException, InterruptedException {
         File prootWrapper = resolveProotWrapper();
         File ubuntuRootfs = resolveUbuntuRootfs();
-        File llamaCli = resolveRuntimeLlamaCli();
-        if (prootWrapper == null || ubuntuRootfs == null || llamaCli == null) {
+        if (prootWrapper == null || ubuntuRootfs == null || runnerFile == null || !runnerFile.exists()) {
             throw new IOException("Runner execution blocked by Android (permission denied) and proot fallback is unavailable.");
         }
 
         String runtimePath = new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR).getAbsolutePath();
         String rootfsPath = ubuntuRootfs.getAbsolutePath();
-        String llamaPath = llamaCli.getAbsolutePath();
+        String runnerPath = runnerFile.getAbsolutePath();
         String modelPath = modelFile.getAbsolutePath();
         String audioPath = audioFile.getAbsolutePath();
         String nativeLibDir = resolveNativeLibDir();
@@ -783,7 +782,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         String prootLoaderLink = new File(getContext().getDataDir(), "ldr/libproot-loader.so").getAbsolutePath();
         String wrappedInnerCommand = "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
             + "export HOME=/root; export TERM=xterm-256color; "
-            + shQuote(llamaPath) + " -m " + shQuote(modelPath) + " -f " + shQuote(audioPath);
+            + shQuote(runnerPath) + " -m " + shQuote(modelPath) + " -f " + shQuote(audioPath);
         String shellCommand = ""
             + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "
             + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
@@ -856,32 +855,30 @@ public class VoxtralOfflinePlugin extends Plugin {
         int exitCode = process.waitFor();
         if (exitCode != 0) {
             File ubuntuRootfs = resolveUbuntuRootfs();
-            File llamaCli = resolveRuntimeLlamaCli();
             File prootWrapper = resolveProotWrapper();
-            if (ubuntuRootfs != null && llamaCli != null && prootWrapper != null) {
-                return runModelProbeViaProot(modelFile);
+            if (ubuntuRootfs != null && prootWrapper != null) {
+                return runModelProbeViaProot(runnerFile, modelFile);
             }
         }
         return output;
     }
 
-    private String runModelProbeViaProot(File modelFile) throws IOException, InterruptedException {
+    private String runModelProbeViaProot(File runnerFile, File modelFile) throws IOException, InterruptedException {
         File prootWrapper = resolveProotWrapper();
         File ubuntuRootfs = resolveUbuntuRootfs();
-        File llamaCli = resolveRuntimeLlamaCli();
-        if (prootWrapper == null || ubuntuRootfs == null || llamaCli == null) {
+        if (prootWrapper == null || ubuntuRootfs == null || runnerFile == null || !runnerFile.exists()) {
             return "";
         }
         String runtimePath = new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR).getAbsolutePath();
         String rootfsPath = ubuntuRootfs.getAbsolutePath();
-        String llamaPath = llamaCli.getAbsolutePath();
+        String runnerPath = runnerFile.getAbsolutePath();
         String modelPath = modelFile.getAbsolutePath();
         String nativeLibDir = resolveNativeLibDir();
         String prootLoaderSrc = resolveNativeLibPath("libproot-loader.so");
         String prootLoaderLink = new File(getContext().getDataDir(), "ldr/libproot-loader.so").getAbsolutePath();
         String wrappedInnerCommand = "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
             + "export HOME=/root; export TERM=xterm-256color; "
-            + shQuote(llamaPath) + " -m " + shQuote(modelPath) + " -n 1 -p ok";
+            + shQuote(runnerPath) + " -m " + shQuote(modelPath) + " -n 1 -p ok";
         String shellCommand = ""
             + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "
             + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
@@ -968,6 +965,8 @@ public class VoxtralOfflinePlugin extends Plugin {
         String rawUrl = call.getString(urlField);
         String fileName = call.getString(fileNameField);
         String expectedSha256 = call.getString("sha256");
+        Double maybeMinBytes = call.getDouble("minBytes");
+        long expectedMinBytes = maybeMinBytes == null ? 0L : Math.max(0L, maybeMinBytes.longValue());
         if (rawUrl == null || rawUrl.isBlank()) {
             call.reject(urlField + " is required.");
             return;
@@ -989,19 +988,25 @@ public class VoxtralOfflinePlugin extends Plugin {
             try {
                 // Idempotent behavior: if the requested file already exists, reuse it and skip network.
                 if (outFile.exists() && outFile.length() > 0) {
-                    File existingEffective = finalizeDownloadedFile(
-                            outFile,
-                            targetDir,
-                            executable,
-                            expectedSha256,
-                            outputField
-                    );
-                    JSObject existingResult = new JSObject();
-                    existingResult.put(outputField, existingEffective.getAbsolutePath());
-                    existingResult.put("bytes", existingEffective.length());
-                    existingResult.put("sha256", computeSha256(existingEffective));
-                    call.resolve(existingResult);
-                    return;
+                    // If minimum expected size is known and existing file is too small, force clean re-download.
+                    if (expectedMinBytes > 0 && outFile.length() < expectedMinBytes) {
+                        outFile.delete();
+                    } else {
+                        File existingEffective = finalizeDownloadedFile(
+                                outFile,
+                                targetDir,
+                                executable,
+                                expectedSha256,
+                                expectedMinBytes,
+                                outputField
+                        );
+                        JSObject existingResult = new JSObject();
+                        existingResult.put(outputField, existingEffective.getAbsolutePath());
+                        existingResult.put("bytes", existingEffective.length());
+                        existingResult.put("sha256", computeSha256(existingEffective));
+                        call.resolve(existingResult);
+                        return;
+                    }
                 }
 
                 URL url = new URL(rawUrl);
@@ -1047,7 +1052,7 @@ public class VoxtralOfflinePlugin extends Plugin {
                     return;
                 }
 
-                File effectiveFile = finalizeDownloadedFile(outFile, targetDir, executable, expectedSha256, outputField);
+                File effectiveFile = finalizeDownloadedFile(outFile, targetDir, executable, expectedSha256, expectedMinBytes, outputField);
                 String sha256 = computeSha256(effectiveFile);
 
                 JSObject result = new JSObject();
@@ -1070,6 +1075,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             File targetDir,
             boolean executable,
             String expectedSha256,
+            long expectedMinBytes,
             String outputField
     ) throws Exception {
         File effectiveFile = downloadedFile;
@@ -1091,6 +1097,10 @@ public class VoxtralOfflinePlugin extends Plugin {
                 effectiveFile.delete();
                 throw new IOException("SHA256 mismatch for " + effectiveFile.getName());
             }
+        }
+        if (expectedMinBytes > 0 && effectiveFile.length() < expectedMinBytes) {
+            effectiveFile.delete();
+            throw new IOException("File is smaller than expected minimum size for " + effectiveFile.getName());
         }
 
         if (executable && !effectiveFile.canExecute()) {
@@ -1444,15 +1454,23 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (dir == null || !dir.isDirectory()) return null;
         File[] files = dir.listFiles();
         if (files == null) return null;
-        File best = null;
+        File bestPreferred = null;
+        File bestFallback = null;
         for (File file : files) {
             if (file == null || !file.isFile()) continue;
             if (!isRunnerCandidate(file.getName())) continue;
             String name = file.getName().toLowerCase();
-            if ("llama-cli".equals(name)) return file;
-            if (best == null || file.lastModified() > best.lastModified()) best = file;
+            if (name.contains("voxtral")) {
+                if (bestPreferred == null || file.lastModified() > bestPreferred.lastModified()) {
+                    bestPreferred = file;
+                }
+            } else {
+                if (bestFallback == null || file.lastModified() > bestFallback.lastModified()) {
+                    bestFallback = file;
+                }
+            }
         }
-        return best;
+        return bestPreferred != null ? bestPreferred : bestFallback;
     }
 
     private File prepareRunnerForExecution(File sourceRunner) throws IOException {
@@ -1520,13 +1538,12 @@ public class VoxtralOfflinePlugin extends Plugin {
         }
     }
 
-    private boolean canSpawnRunnerViaProot() {
+    private boolean canSpawnRunnerViaProot(File runnerFile) {
         Process process = null;
         try {
             File prootWrapper = resolveProotWrapper();
             File ubuntuRootfs = resolveUbuntuRootfs();
-            File llamaCli = resolveRuntimeLlamaCli();
-            if (prootWrapper == null || ubuntuRootfs == null || llamaCli == null) return false;
+            if (prootWrapper == null || ubuntuRootfs == null || runnerFile == null || !runnerFile.exists()) return false;
             String runtimePath = new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR).getAbsolutePath();
             String rootfsPath = ubuntuRootfs.getAbsolutePath();
             String nativeLibDir = resolveNativeLibDir();
@@ -1534,7 +1551,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             String prootLoaderLink = new File(getContext().getDataDir(), "ldr/libproot-loader.so").getAbsolutePath();
             String wrappedInnerCommand = "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
                 + "export HOME=/root; export TERM=xterm-256color; "
-                + shQuote(llamaCli.getAbsolutePath()) + " --help >/dev/null 2>&1";
+                + shQuote(runnerFile.getAbsolutePath()) + " --help >/dev/null 2>&1";
             String cmd = ""
                 + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "
                 + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
