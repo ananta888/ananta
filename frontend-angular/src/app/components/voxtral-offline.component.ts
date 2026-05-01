@@ -1,8 +1,11 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PluginListenerHandle } from '@capacitor/core';
+import { firstValueFrom } from 'rxjs';
 
 import { VOXTRAL_MODEL_PRESETS } from '../models/voxtral-catalog';
+import { AgentDirectoryService } from '../services/agent-directory.service';
+import { HubApiService } from '../services/hub-api.service';
 import { ToastService } from '../services/toast.service';
 import { VoxtralOfflineService } from '../services/voxtral-offline.service';
 
@@ -115,6 +118,32 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
         @if (liveTranscript) {
           <pre class="card card-light transcript-box">{{ liveTranscript }}</pre>
         }
+        <div class="card card-light mt-sm">
+          <strong>Ananta Goal aus Transkript starten</strong>
+          <div class="muted mt-sm">
+            Nutzt den Hub-Endpoint direkt in der App und erstellt daraus Aufgaben.
+          </div>
+          <label class="field mt-sm">
+            <span>Kontext (optional)</span>
+            <input [(ngModel)]="goalContext" placeholder="z. B. Erstelle konkrete naechste Schritte fuer dieses Sprachziel" />
+          </label>
+          <div class="row gap-sm mt-sm wrap">
+            <button
+              class="primary"
+              type="button"
+              (click)="startGoalFromTranscript()"
+              [disabled]="busy || goalBusy || !effectiveTranscript.trim()">
+              {{ goalBusy ? 'Starte Goal...' : 'Transkript als Goal starten' }}
+            </button>
+          </div>
+          <div class="muted mt-sm"><strong>Aktives Transkript:</strong> {{ effectiveTranscript || '-' }}</div>
+          @if (goalResult) {
+            <pre class="card card-light mt-sm transcript-box">{{ goalResult }}</pre>
+          }
+          @if (goalError) {
+            <pre class="card card-light error-box mt-sm">{{ goalError }}</pre>
+          }
+        </div>
         @if (rawOutput) {
           <pre class="card card-light">{{ rawOutput }}</pre>
         }
@@ -157,6 +186,8 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
 })
 export class VoxtralOfflineComponent implements OnInit, OnDestroy {
   voxtral = inject(VoxtralOfflineService);
+  private hubApi = inject(HubApiService);
+  private dir = inject(AgentDirectoryService);
   private toast = inject(ToastService);
   modelPresets = VOXTRAL_MODEL_PRESETS;
 
@@ -183,10 +214,18 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
   setupStatus = '';
   maxSeconds = 5;
   liveChunkSeconds = 3;
+  goalContext = 'Voxtral Sprachtranskript';
+  goalBusy = false;
+  goalResult = '';
+  goalError = '';
   private livePartialHandle?: PluginListenerHandle;
   private liveFinalHandle?: PluginListenerHandle;
   private liveErrorHandle?: PluginListenerHandle;
   private downloadProgressHandle?: PluginListenerHandle;
+
+  get effectiveTranscript(): string {
+    return String(this.transcript || this.liveTranscript || '').trim();
+  }
 
   async ngOnInit(): Promise<void> {
     this.restoreSelections();
@@ -309,6 +348,44 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     });
   }
 
+  async startGoalFromTranscript(): Promise<void> {
+    if (this.goalBusy) return;
+    const goalText = this.effectiveTranscript;
+    if (!goalText) {
+      this.goalError = 'Kein Transkript vorhanden.';
+      return;
+    }
+    const hubUrl = this.resolveHubUrl();
+    if (!hubUrl) {
+      this.goalError = 'Kein Hub konfiguriert. Bitte Agenten-Directory pruefen.';
+      return;
+    }
+    this.goalBusy = true;
+    this.goalError = '';
+    this.goalResult = '';
+    try {
+      const result: any = await firstValueFrom(this.hubApi.planGoal(hubUrl, {
+        goal: goalText,
+        context: this.goalContext?.trim() || undefined,
+        create_tasks: true,
+      }));
+      const goalId = String(result?.goal_id || '').trim();
+      const taskIds = Array.isArray(result?.created_task_ids) ? result.created_task_ids : [];
+      this.goalResult = [
+        `Goal gestartet${goalId ? `: ${goalId}` : ''}`,
+        `Erstellte Tasks: ${taskIds.length}`,
+        taskIds.length ? `Task IDs: ${taskIds.slice(0, 5).join(', ')}${taskIds.length > 5 ? ' ...' : ''}` : '',
+      ].filter(Boolean).join('\n');
+      this.toast.success(`Voxtral-Goal gestartet (${taskIds.length} Tasks).`);
+    } catch (error: any) {
+      const message = error?.error?.message || error?.message || String(error);
+      this.goalError = `Goal konnte nicht gestartet werden: ${message}`;
+      this.toast.error(this.goalError);
+    } finally {
+      this.goalBusy = false;
+    }
+  }
+
   async downloadModel(): Promise<void> {
     await this.run(async () => {
       const preset = this.modelPresets.find(item => item.id === this.selectedModelPresetId);
@@ -397,6 +474,13 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     localStorage.setItem('voxtral.modelUrl', this.modelUrl || '');
     localStorage.setItem('voxtral.runnerUrl', this.runnerUrl || '');
     localStorage.setItem('voxtral.modelPresetId', this.selectedModelPresetId || '');
+  }
+
+  private resolveHubUrl(): string | null {
+    const agents = this.dir.list();
+    const hub = agents.find((item) => item.role === 'hub') || agents.find((item) => item.name === 'hub');
+    const url = String(hub?.url || '').trim();
+    return url || null;
   }
 
   formatBytes(bytes: number): string {
