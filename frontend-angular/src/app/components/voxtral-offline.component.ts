@@ -415,8 +415,18 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
       const assets = await this.voxtral.listLocalAssets();
       this.localModels = assets.models || [];
       this.localRunners = assets.runners || [];
-      if (this.modelPath && !this.selectedLocalModelPath) this.selectedLocalModelPath = this.modelPath;
-      if (this.runnerPath && !this.selectedLocalRunnerPath) this.selectedLocalRunnerPath = this.runnerPath;
+      const modelExists = !!this.modelPath && this.localModels.some(item => item.path === this.modelPath);
+      const runnerExists = !!this.runnerPath && this.localRunners.some(item => item.path === this.runnerPath);
+      if (!modelExists && this.localModels.length) {
+        this.modelPath = this.localModels[0].path;
+      }
+      if (!runnerExists && this.localRunners.length) {
+        const preferredRunner = this.localRunners.find(item => item.name.toLowerCase() === 'llama-cli');
+        this.runnerPath = (preferredRunner || this.localRunners[0]).path;
+      }
+      if (this.modelPath) this.selectedLocalModelPath = this.modelPath;
+      if (this.runnerPath) this.selectedLocalRunnerPath = this.runnerPath;
+      this.persistSelections();
     }, false);
   }
 
