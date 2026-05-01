@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin>
    <extension
+         point="org.eclipse.core.runtime.applications">
+      <application
+            id="uiAvailabilityVerifier"
+            thread="main"
+            visible="false">
+         <run
+               class="io.ananta.eclipse.runtime.e2e.EclipseUiAvailabilityVerifier"/>
+      </application>
+   </extension>
+
+   <extension
          point="org.eclipse.ui.commands">
       <command
             categoryId="io.ananta.eclipse.category"

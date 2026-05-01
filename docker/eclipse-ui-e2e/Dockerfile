@@ -1,6 +1,6 @@
-FROM eclipse-temurin:17-jdk-jammy
+FROM eclipse-temurin:21-jdk-jammy
 
-ARG ECLIPSE_TARBALL_URL=https://archive.eclipse.org/eclipse/downloads/drops4/R-4.30-202312010110/eclipse-platform-4.30-linux-gtk-x86_64.tar.gz
+ARG ECLIPSE_TARBALL_URL=https://www.eclipse.org/downloads/download.php?file=/technology/epp/downloads/release/2026-03/R/eclipse-jee-2026-03-R-linux-gtk-x86_64.tar.gz&r=1
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ECLIPSE_HOME=/opt/eclipse
