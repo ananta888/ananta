@@ -9,5 +9,5 @@ def test_blender_policy_denies_without_approval():
 
 
 def test_blender_policy_allows_with_approval():
-    out=execute_approved_action(approved=True,script_hash='h',correlation_id='c')
+    out=execute_approved_action(approved=True,script_hash='h',correlation_id='c',approval_id='approval-1')
     assert out["status"]=="completed"

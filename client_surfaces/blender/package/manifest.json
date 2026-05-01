@@ -1,0 +1,12 @@
+{
+  "schema": "ananta_blender_addon_package_manifest_v1",
+  "name": "ananta_blender_bridge",
+  "version": "0.1.0",
+  "addon_root": "client_surfaces/blender/addon",
+  "bridge_root": "client_surfaces/blender/bridge",
+  "entrypoint": "client_surfaces/blender/addon/__init__.py",
+  "included_paths": [
+    "client_surfaces/blender/addon",
+    "client_surfaces/blender/bridge"
+  ]
+}

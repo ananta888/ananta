@@ -44,15 +44,32 @@ def evaluate_blender_runtime(*, root: Path = ROOT) -> dict[str, Any]:
         has_bl_info = isinstance(getattr(addon_module, "bl_info", None), dict)
         has_register = callable(getattr(addon_module, "register", None))
         has_unregister = callable(getattr(addon_module, "unregister", None))
+        addon_module.register()
+        registered_modules = list(getattr(addon_module, "registered_modules", lambda: [])())
+        addon_module.unregister()
         checks.append(
             {
                 "check_id": "addon_contract",
-                "ok": has_bl_info and has_register and has_unregister,
+                "ok": has_bl_info and has_register and has_unregister and bool(registered_modules),
                 "detail": {
                     "has_bl_info": has_bl_info,
                     "has_register": has_register,
                     "has_unregister": has_unregister,
+                    "registered_modules": registered_modules,
                 },
+            }
+        )
+        context_module = _load_module("ananta_blender_context", root / "client_surfaces/blender/addon/context.py")
+        ctx = context_module.capture_bounded_scene_context(
+            "Smoke",
+            [{"name": "Cube", "type": "MESH", "selected": True}],
+            max_objects=4,
+        )
+        checks.append(
+            {
+                "check_id": "context_capture_contract",
+                "ok": ctx.get("schema") == "blender_scene_context.v1" and ctx.get("selection") == ["Cube"],
+                "detail": {"scene_name": ctx.get("scene_name"), "object_count": len(list(ctx.get("objects") or []))},
             }
         )
 

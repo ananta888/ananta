@@ -1,6 +1,128 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ananta.local/schemas/blender/blender_scene_context.v1.json",
+  "title": "Blender Scene Context v1",
   "type": "object",
-  "additionalProperties": true
+  "required": ["schema", "scene_name", "selection", "objects", "provenance"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "blender_scene_context.v1"
+    },
+    "domain_schema": {
+      "type": "string",
+      "const": "blender_context.v1"
+    },
+    "scene_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "blender_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "selection": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      }
+    },
+    "scene": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      },
+      "additionalProperties": false
+    },
+    "collections": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "required": ["name", "object_count"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 128 },
+          "object_count": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "objects": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "selected", "visible"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 160 },
+          "type": { "type": "string", "maxLength": 64 },
+          "selected": { "type": "boolean" },
+          "visible": { "type": "boolean" },
+          "collection": { "type": ["string", "null"], "maxLength": 128 },
+          "material_slots": {
+            "type": "array",
+            "maxItems": 8,
+            "items": { "type": "string", "maxLength": 128 }
+          },
+          "modifiers": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "properties": {
+                "name": { "type": "string", "maxLength": 128 },
+                "type": { "type": "string", "maxLength": 64 }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "materials": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "required": ["name", "users"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 128 },
+          "users": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "render_settings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "integer", "boolean", "null"]
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["capture", "bounded", "captured_at", "object_count_total", "object_count_included"],
+      "properties": {
+        "capture": { "type": "string", "const": "addon" },
+        "bounded": { "type": "boolean", "const": true },
+        "captured_at": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "object_count_total": { "type": "integer", "minimum": 0 },
+        "object_count_included": { "type": "integer", "minimum": 0 },
+        "objects_clipped": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
 }
