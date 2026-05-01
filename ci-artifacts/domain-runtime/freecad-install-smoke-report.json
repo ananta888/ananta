@@ -1,0 +1,6 @@
+{
+  "schema": "freecad_install_smoke_report_v1",
+  "ok": false,
+  "status": "skipped",
+  "reason": "freecad_binary_not_found"
+}
