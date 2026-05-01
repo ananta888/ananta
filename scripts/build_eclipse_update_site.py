@@ -175,7 +175,7 @@ def _build_docker_image(*, docker_image: str) -> dict[str, Any]:
     if not shutil.which("docker"):
         return {"ok": False, "reason": "docker_missing"}
     result = subprocess.run(
-        ["docker", "build", "-f", str(DOCKERFILE), "-t", docker_image, str(ROOT)],
+        ["docker", "build", "-f", str(DOCKERFILE), "-t", docker_image, str(DOCKERFILE.parent)],
         cwd=str(ROOT),
         check=False,
         capture_output=True,
