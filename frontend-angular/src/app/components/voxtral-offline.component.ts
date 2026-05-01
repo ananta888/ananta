@@ -97,6 +97,7 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
           <button class="secondary" type="button" (click)="stopRecording()" [disabled]="busy || !recording">Aufnahme stoppen</button>
           <button class="secondary" type="button" (click)="downloadModel()" [disabled]="busy || !modelUrl.trim()">Model laden</button>
           <button class="secondary" type="button" (click)="downloadRunner()" [disabled]="busy || !runnerUrl.trim()">Runner laden</button>
+          <button class="secondary" type="button" (click)="provisionVoxtralRunner()" [disabled]="busy">Voxtral-Runner automatisch bauen</button>
           <button class="secondary" type="button" (click)="verifyModelHash()" [disabled]="busy || !modelPath.trim()">Hash Modell pruefen</button>
           <button class="secondary" type="button" (click)="verifyRunnerHash()" [disabled]="busy || !runnerPath.trim()">Hash Runner pruefen</button>
           <button class="secondary" type="button" (click)="deleteModel()" [disabled]="busy || !modelPath.trim()">Modell loeschen</button>
@@ -123,7 +124,7 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
           @if (localModelAvailable && localRunnerAvailable) {
             <div class="muted"><small>Lokale Dateien erkannt: Kein erneuter Download noetig.</small></div>
           }
-          <div class="muted"><small>Runner-Tipp: Fuer Voxtral wird ein Voxtral-Runner benoetigt (z. B. voxtral-cli/voxtral4b-main im Ordner .../files/voxtral/bin). Der llama.cpp-Runner alleine ist hier nicht kompatibel. Falls apt/dpkg in Proot blockiert ist, Runner direkt als Datei in .../files/voxtral/bin bereitstellen.</small></div>
+          <div class="muted"><small>Runner-Tipp: Fuer Voxtral wird ein Voxtral-Runner benoetigt (z. B. voxtral-cli/voxtral4b-main im Ordner .../files/voxtral/bin). Nutze am besten "Voxtral-Runner automatisch bauen". Falls apt/dpkg in Proot blockiert ist, Runner direkt als Datei in .../files/voxtral/bin bereitstellen.</small></div>
           <div><strong>Setup:</strong> {{ setupStatus || '-' }}</div>
         </div>
 
@@ -461,6 +462,23 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
         this.persistSelections();
         await this.refreshLocalAssets();
         this.toast.success(`Runner geladen (${this.formatBytes(result.bytes)}).`);
+      } finally {
+        this.runnerDownloadActive = false;
+        this.updateDownloadIndicatorsFromLocalAssets();
+      }
+    });
+  }
+
+  async provisionVoxtralRunner(): Promise<void> {
+    await this.run(async () => {
+      this.runnerDownloadActive = true;
+      this.runnerDownloadProgress = '0%';
+      try {
+        const result = await this.voxtral.provisionVoxtralRunner();
+        this.runnerPath = result.runnerPath;
+        this.persistSelections();
+        await this.refreshLocalAssets();
+        this.toast.success('Voxtral-Runner erfolgreich bereitgestellt.');
       } finally {
         this.runnerDownloadActive = false;
         this.updateDownloadIndicatorsFromLocalAssets();
