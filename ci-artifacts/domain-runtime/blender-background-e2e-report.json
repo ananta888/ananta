@@ -1,0 +1,23 @@
+{
+  "schema": "blender_background_e2e_report_v1",
+  "ok": true,
+  "skipped": true,
+  "skip_reason": "blender_binary_missing",
+  "install_smoke": {
+    "schema": "blender_install_smoke_report_v1",
+    "ok": true,
+    "package_path": "ci-artifacts/domain-runtime/ananta-blender-addon.zip",
+    "checks": [
+      {
+        "check_id": "package_contains_addon_init",
+        "ok": true
+      },
+      {
+        "check_id": "blender_background_available",
+        "ok": true,
+        "skipped": true,
+        "reason": "blender_binary_missing"
+      }
+    ]
+  }
+}

@@ -3,8 +3,13 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
+
+_ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 from scripts.build_blender_addon_package import DEFAULT_OUT, ROOT
 from scripts.run_blender_install_smoke import run_install_smoke
