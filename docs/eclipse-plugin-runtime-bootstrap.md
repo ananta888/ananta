@@ -47,6 +47,16 @@ Build update-site style evidence:
 
 `python3 scripts/build_eclipse_update_site.py --out ci-artifacts/eclipse/ananta-eclipse-update-site`
 
+Build a real local p2 update site for **Help -> Install New Software...**:
+
+`ANANTA_DOCKER_CLEAN_PATH=1 python3 scripts/build_eclipse_update_site.py --out ci-artifacts/eclipse/ananta-eclipse-update-site`
+
+Install it in Eclipse with:
+
+`Help -> Install New Software... -> Add... -> Local... -> ci-artifacts/eclipse/ananta-eclipse-update-site`
+
+The generated p2 site contains `content.jar`, `artifacts.jar`, `plugins/` and `features/`. If Eclipse shows no items because categories are grouped, disable **Group items by category** and select `Ananta Eclipse Runtime`.
+
 Run optional installed Eclipse UI evidence:
 
 `python3 scripts/run_eclipse_ui_golden_path.py --out ci-artifacts/eclipse/eclipse-ui-golden-path-report.json`

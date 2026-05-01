@@ -1,10 +1,16 @@
 {
   "schema": "eclipse_update_site_manifest_v1",
   "plugin_id": "io.ananta.eclipse.runtime",
-  "version": "0.1.0-bootstrap",
+  "feature_id": "io.ananta.eclipse.runtime.feature",
+  "version": "0.1.0.qualifier",
+  "installable_via_eclipse_ui": true,
   "artifacts": [
-    "ci-artifacts/eclipse/ananta-eclipse-update-site/plugins/ananta-eclipse-plugin-0.1.0-bootstrap.zip"
+    "ci-artifacts/eclipse/ananta-eclipse-update-site/plugins/io.ananta.eclipse.runtime_0.1.0.qualifier.jar",
+    "ci-artifacts/eclipse/ananta-eclipse-update-site/features/io.ananta.eclipse.runtime.feature_0.1.0.qualifier.jar",
+    "ci-artifacts/eclipse/ananta-eclipse-update-site/category.xml",
+    "ci-artifacts/eclipse/ananta-eclipse-update-site/content.jar",
+    "ci-artifacts/eclipse/ananta-eclipse-update-site/artifacts.jar"
   ],
-  "scope": "headless_bootstrap_update_site",
-  "install_evidence_required_for_runtime_complete": true
+  "scope": "p2_update_site",
+  "install_evidence_required_for_runtime_complete": false
 }

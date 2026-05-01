@@ -35,6 +35,7 @@
       "Chat, context selection, chat history redaction and chat-to-goal model exist.",
       "Patch preview, approval-gated apply guard, workspace write guard and review feedback models exist.",
       "Repair marker context, project new/evolve/import models and optional completion/quick-fix models exist.",
+      "A real local p2 update site with content.jar, artifacts.jar, features and plugins exists for Eclipse UI installation.",
       "Update-site scripts and Docker/Xvfb installed-Eclipse UI evidence exist and pass without skip.",
       "Runtime status, inventories and release-gate tests are promoted to runtime_complete."
     ],
