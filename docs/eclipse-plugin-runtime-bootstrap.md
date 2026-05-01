@@ -14,8 +14,10 @@ Runtime bootstrap and operations currently cover:
 - bounded workspace/editor context capture with user-review preview
 - runtime goal submission panel model with task/artifact result links
 - runtime views registry plus Eclipse `ViewPart` adapter classes for task/artifact/approval/audit/repair/TUI/policy-fallback surfaces
+- product runtime models for chat, context selection, patch preview/apply guards, repair marker context, project new/evolve wizards and optional completion proposals
 - Java unit/integration/security/contract tests for runtime hardening
 - Python Hub route contract tests that prevent the Java client from drifting back to non-existent Eclipse-specific backend paths
+- optional update-site and installed-Eclipse UI evidence scripts
 
 Runtime implementation includes test/CI hardening and merge-readiness evidence for the current delivery scope. The current claim is **headless/bootstrap runtime MVP**; promotion beyond this requires installed Eclipse UI automation evidence.
 
@@ -40,6 +42,14 @@ If Docker credential helpers are misconfigured in WSL-like environments:
 Headless hardening smoke (runs runtime bootstrap smoke + Java runtime tests + audit gate):
 
 `python3 scripts/smoke_eclipse_runtime_headless.py`
+
+Build update-site style evidence:
+
+`python3 scripts/build_eclipse_update_site.py --out ci-artifacts/eclipse/ananta-eclipse-update-site`
+
+Run optional installed Eclipse UI evidence:
+
+`python3 scripts/run_eclipse_ui_golden_path.py --out ci-artifacts/eclipse/eclipse-ui-golden-path-report.json`
 
 Operator smoke checklist:
 

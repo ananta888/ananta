@@ -59,6 +59,16 @@ REQUIRED_PATHS = [
     / "views"
     / "eclipse"
     / "AbstractAnantaRuntimeViewPart.java",
+    PLUGIN_ROOT
+    / "src"
+    / "test"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
+    / "product"
+    / "EclipseProductRuntimeModelTest.java",
     ROOT / "scripts" / "smoke_eclipse_runtime_bootstrap.py",
     ROOT / "scripts" / "build_eclipse_runtime_plugin.py",
     ROOT / ".github" / "workflows" / "quality-and-docs.yml",

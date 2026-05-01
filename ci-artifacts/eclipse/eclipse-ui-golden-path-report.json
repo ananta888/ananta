@@ -1,0 +1,23 @@
+{
+  "schema": "eclipse_ui_golden_path_report_v1",
+  "ok": true,
+  "skipped": true,
+  "skip_reason": "eclipse_binary_missing",
+  "checks": [
+    {
+      "check_id": "plugin_metadata_present",
+      "ok": true
+    },
+    {
+      "check_id": "viewpart_adapters_present",
+      "ok": true
+    },
+    {
+      "check_id": "installed_eclipse_launch",
+      "ok": true,
+      "skipped": true,
+      "reason": "eclipse_binary_missing"
+    }
+  ],
+  "runtime_complete_claim_allowed": false
+}

@@ -128,6 +128,10 @@ def test_eclipse_runtime_bootstrap_files_exist() -> None:
         / "views"
         / "eclipse"
         / "AbstractAnantaRuntimeViewPart.java",
+        PLUGIN_ROOT / "src" / "main" / "java" / "io" / "ananta" / "eclipse" / "runtime" / "chat" / "ChatRuntimeModel.java",
+        PLUGIN_ROOT / "src" / "main" / "java" / "io" / "ananta" / "eclipse" / "runtime" / "patch" / "ApprovalGatedPatchApplier.java",
+        PLUGIN_ROOT / "src" / "main" / "java" / "io" / "ananta" / "eclipse" / "runtime" / "project" / "NewAnantaProjectWizard.java",
+        PLUGIN_ROOT / "src" / "main" / "java" / "io" / "ananta" / "eclipse" / "runtime" / "completion" / "AnantaCompletionProposalComputer.java",
         ROOT / "scripts" / "build_eclipse_runtime_plugin.py",
         ROOT / "scripts" / "smoke_eclipse_runtime_bootstrap.py",
         ROOT / "scripts" / "smoke_eclipse_runtime_headless.py",
@@ -159,6 +163,9 @@ def test_eclipse_plugin_metadata_registers_core_commands() -> None:
     assert "io.ananta.eclipse.view.policy_fallback" in plugin_xml
     assert "io.ananta.eclipse.runtime.views.eclipse.AnantaGoalViewPart" in plugin_xml
     assert "io.ananta.eclipse.runtime.views.eclipse.AnantaTaskListViewPart" in plugin_xml
+    assert "io.ananta.eclipse.runtime.views.eclipse.AnantaChatViewPart" in plugin_xml
+    assert "io.ananta.eclipse.view.status" in plugin_xml
+    assert "io.ananta.eclipse.perspective" in plugin_xml
     assert "io.ananta.eclipse.runtime.views.EclipseViewsExtensionRegistry" not in plugin_xml
 
 
