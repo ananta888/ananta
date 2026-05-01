@@ -1532,7 +1532,8 @@ public class PythonRuntimePlugin extends Plugin {
         }
 
         void write(String input) throws IOException {
-            stdin.write(input);
+            // Translate CR to LF (no TTY driver to perform ICRNL)
+            stdin.write(input.replace("\r\n", "\n").replace("\r", "\n"));
             stdin.flush();
         }
 
