@@ -63,6 +63,36 @@ REQUIRED_PATHS = [
     / "ananta"
     / "eclipse"
     / "runtime"
+    / "chat"
+    / "ChatRuntimeModel.java",
+    PLUGIN_ROOT
+    / "src"
+    / "main"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
+    / "patch"
+    / "ApprovalGatedPatchApplier.java",
+    PLUGIN_ROOT
+    / "src"
+    / "main"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
+    / "project"
+    / "NewAnantaProjectWizard.java",
+    PLUGIN_ROOT
+    / "src"
+    / "main"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
     / "security"
     / "TokenRedaction.java",
     PLUGIN_ROOT
@@ -145,6 +175,8 @@ def run_smoke_once() -> tuple[bool, str]:
         "io.ananta.eclipse.runtime.views.eclipse.AnantaRepairViewPart",
         "io.ananta.eclipse.runtime.views.eclipse.AnantaTuiStatusViewPart",
         "io.ananta.eclipse.runtime.views.eclipse.AnantaPolicyFallbackViewPart",
+        "io.ananta.eclipse.runtime.views.eclipse.AnantaChatViewPart",
+        "io.ananta.eclipse.runtime.views.eclipse.AnantaStatusViewPart",
     ]
     missing_view_classes = [view_class for view_class in required_view_classes if view_class not in plugin_xml]
     if missing_view_classes:
