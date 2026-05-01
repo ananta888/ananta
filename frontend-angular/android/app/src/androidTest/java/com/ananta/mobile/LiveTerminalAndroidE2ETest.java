@@ -261,7 +261,11 @@ public class LiveTerminalAndroidE2ETest {
     public void ubuntuProotIsUsableFromInstalledApp() throws InterruptedException {
         String smokeCommand = prootPreamble()
                 + prootEnvPrefix()
+<<<<<<< HEAD
                 + "\"$ANANTA_PROOT_DIRECT\" -0 --link2symlink "
+=======
+                + "\"$ANANTA_PROOT_DIRECT\" "
+>>>>>>> dce1235236da1ca11f837c878093b5131a91f000
                 + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" -w / \"$ANANTA_LOGIN_SHELL\" "
                 + "-c 'echo ANANTA_UBUNTU_OK; if command -v python3 >/dev/null 2>&1; then python3 --version; echo ANANTA_PY_OK; elif command -v python >/dev/null 2>&1; then python --version; echo ANANTA_PY_OK; else echo ANANTA_PY_MISSING; fi'";
 
@@ -317,6 +321,7 @@ public class LiveTerminalAndroidE2ETest {
 
     @Test
     public void proxyEnabledAptGetUpdateWorks() throws InterruptedException {
+<<<<<<< HEAD
         // Verifies the HTTP CONNECT proxy allows apt-get update + install from within proot
         String aptCommand = prootPreamble()
                 + "chmod -R 777 \"$ANANTA_ROOTFS/var/lib/dpkg\" \"$ANANTA_ROOTFS/var/cache/apt\" \"$ANANTA_ROOTFS/var/log\" 2>/dev/null; "
@@ -325,10 +330,19 @@ public class LiveTerminalAndroidE2ETest {
                 + "http_proxy=\"http://127.0.0.1:18080\" https_proxy=\"http://127.0.0.1:18080\" "
                 + "HTTP_PROXY=\"http://127.0.0.1:18080\" HTTPS_PROXY=\"http://127.0.0.1:18080\" "
                 + "\"$ANANTA_PROOT_DIRECT\" -0 --link2symlink "
+=======
+        // Verifies the HTTP CONNECT proxy allows apt-get update from within proot
+        String aptCommand = prootPreamble()
+                + prootEnvPrefix()
+                + "http_proxy=\"http://127.0.0.1:18080\" https_proxy=\"http://127.0.0.1:18080\" "
+                + "HTTP_PROXY=\"http://127.0.0.1:18080\" HTTPS_PROXY=\"http://127.0.0.1:18080\" "
+                + "\"$ANANTA_PROOT_DIRECT\" "
+>>>>>>> dce1235236da1ca11f837c878093b5131a91f000
                 + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" -w / \"$ANANTA_LOGIN_SHELL\" "
                 + "-c '"
                 + "echo nameserver 8.8.8.8 > /etc/resolv.conf 2>/dev/null; "
                 + "mkdir -p /etc/apt/apt.conf.d 2>/dev/null; "
+<<<<<<< HEAD
                 + "printf \"Acquire::http::Proxy \\\"http://127.0.0.1:18080\\\";\\nAcquire::https::Proxy \\\"http://127.0.0.1:18080\\\";\\n\" > /etc/apt/apt.conf.d/99proxy; "
                 + "export http_proxy=http://127.0.0.1:18080; "
                 + "export https_proxy=http://127.0.0.1:18080; "
@@ -337,6 +351,13 @@ public class LiveTerminalAndroidE2ETest {
                 + "apt-get update 2>&1 && echo ANANTA_APT_UPDATE_OK; "
                 + "apt-get -f install -y 2>&1 || true; "
                 + "apt-get install -y --no-install-recommends python3-pip git curl 2>&1; "
+=======
+                + "echo Acquire::http::Proxy \\\"http://127.0.0.1:18080\\\"; > /etc/apt/apt.conf.d/99proxy; "
+                + "echo Acquire::https::Proxy \\\"http://127.0.0.1:18080\\\"; >> /etc/apt/apt.conf.d/99proxy; "
+                + "export http_proxy=http://127.0.0.1:18080; "
+                + "export https_proxy=http://127.0.0.1:18080; "
+                + "apt-get update 2>&1; "
+>>>>>>> dce1235236da1ca11f837c878093b5131a91f000
                 + "APT_RC=$?; "
                 + "if [ $APT_RC -eq 0 ]; then echo ANANTA_APT_OK; else echo ANANTA_APT_FAIL:$APT_RC; fi"
                 + "'";
