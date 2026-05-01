@@ -74,7 +74,7 @@
         "BLP-T08",
         "BLP-T09"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLP-M3",
@@ -86,7 +86,7 @@
         "BLP-T13",
         "BLP-T14"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLP-M4",
@@ -98,7 +98,7 @@
         "BLP-T18",
         "BLP-T19"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLP-M5",
@@ -109,7 +109,7 @@
         "BLP-T22",
         "BLP-T23"
       ],
-      "status": "blocked"
+      "status": "done"
     },
     {
       "id": "BLP-M6",
@@ -121,7 +121,7 @@
         "BLP-T27",
         "BLP-T28"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLP-M7",
@@ -131,7 +131,7 @@
         "BLP-T30",
         "BLP-T31"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLP-M8",
@@ -142,7 +142,7 @@
         "BLP-T34",
         "BLP-T35"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "BLP-M9",
@@ -150,7 +150,7 @@
       "task_ids": [
         "BLP-T36"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -237,7 +237,7 @@
     {
       "id": "BLP-T06",
       "title": "Addon-Registrierung von Platzhalter auf echte Modulregistrierung umstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -259,7 +259,7 @@
     {
       "id": "BLP-T07",
       "title": "HTTP-Transport, Endpoint-Settings und Secret-Handling fuer Blender-Client bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -279,7 +279,7 @@
     {
       "id": "BLP-T08",
       "title": "Hub-Health-, Capability- und Profile-Handshake real implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -299,7 +299,7 @@
     {
       "id": "BLP-T09",
       "title": "Degraded-, Unauthorized- und Policy-Limited-States in ein zentrales Runtime-State-Modell heben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -320,7 +320,7 @@
     {
       "id": "BLP-T10",
       "title": "Kanonisches Blender-Scene-Context-Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "expected_files": [
@@ -338,7 +338,7 @@
     {
       "id": "BLP-T11",
       "title": "Echten `bpy`-Context-Adapter fuer Szene, Auswahl und Objektinventar bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -357,7 +357,7 @@
     {
       "id": "BLP-T12",
       "title": "Material-, Geometry-Node-, Modifier- und Render-Zusammenfassungen bounded erfassen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -377,7 +377,7 @@
     {
       "id": "BLP-T13",
       "title": "Context-Preview, Redaction und Payload-Budget-Checks als Nutzerkontrolle einbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -399,7 +399,7 @@
     {
       "id": "BLP-T14",
       "title": "Context-Capture-Contract-Tests fuer Fake-`bpy` und Hintergrund-Blender aufbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -421,7 +421,7 @@
     {
       "id": "BLP-T15",
       "title": "Goal-Submission-Operator auf echten Client-Call und aktiven Kontext verdrahten",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -442,7 +442,7 @@
     {
       "id": "BLP-T16",
       "title": "Settings-, Health- und Capability-Panel mit klaren Zustandsanzeigen bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -462,7 +462,7 @@
     {
       "id": "BLP-T17",
       "title": "Task-, Artifact- und Approval-Panels mit Refresh- und Selektionsfluss liefern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -483,7 +483,7 @@
     {
       "id": "BLP-T18",
       "title": "Lokalen Runtime-State und Polling-Schicht ohne UI-Hardcoupling einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -504,7 +504,7 @@
     {
       "id": "BLP-T19",
       "title": "Leere Zustaende, Fehlermeldungen und Recovery-Aktionen UX-seitig standardisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "depends_on": [
@@ -525,7 +525,7 @@
     {
       "id": "BLP-T20",
       "title": "Hub-seitigen Blender-API-Contract (generic-first) vervollstaendigen und versionieren",
-      "status": "blocked",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -552,7 +552,7 @@
     {
       "id": "BLP-T21",
       "title": "Approval-Decision-Operatoren mit exaktem Scope, Risiko und Aktionstext bauen",
-      "status": "blocked",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -572,7 +572,7 @@
     {
       "id": "BLP-T22",
       "title": "Artifact-Mapping und Vorschau fuer Text-, JSON- und Bild-Artefakte implementieren",
-      "status": "blocked",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -592,7 +592,7 @@
     {
       "id": "BLP-T23",
       "title": "Audit- und Ereignisverlauf fuer Blender-Surface sichtbar machen",
-      "status": "blocked",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "depends_on": [
@@ -613,7 +613,7 @@
     {
       "id": "BLP-T24",
       "title": "Read-only Analyseoperatoren fuer Scene Summary, Render Readiness und Export Readiness liefern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -634,7 +634,7 @@
     {
       "id": "BLP-T25",
       "title": "Export-Planung fuer GLTF, FBX, OBJ und USD als sichere Planungsoberflaeche umsetzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -654,7 +654,7 @@
     {
       "id": "BLP-T26",
       "title": "Render-Planung fuer Kamera, Output und Preview-Runs sauber trennen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -674,7 +674,7 @@
     {
       "id": "BLP-T27",
       "title": "Mutationsplanung strikt von Mutationsausfuehrung trennen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -694,7 +694,7 @@
     {
       "id": "BLP-T28",
       "title": "Approval-gated Ausfuehrungsbridge fuer klar begrenzte Blender-Operationen bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -717,7 +717,7 @@
     {
       "id": "BLP-T29",
       "title": "Installierbares Blender-Addon-Paket und Build-Skript bereitstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -737,7 +737,7 @@
     {
       "id": "BLP-T30",
       "title": "Install- und Load-Smoke gegen gebautes Paket automatisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -756,7 +756,7 @@
     {
       "id": "BLP-T31",
       "title": "Runtime-Profil, Endpoint-Konfiguration und Deployment-Konventionen dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "depends_on": [
@@ -777,7 +777,7 @@
     {
       "id": "BLP-T32",
       "title": "Unit-Tests fuer Client, Runtime-State, Policy-Mapping und Packaging-Netz ausbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -800,7 +800,7 @@
     {
       "id": "BLP-T33",
       "title": "Headless-Smokes fuer Addon-Load, Command-Registrierung und Context-Capture ergaenzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -822,7 +822,7 @@
     {
       "id": "BLP-T34",
       "title": "Vollautomatischen Golden-Path-E2E fuer Blender-Addon, Hub-Routen und Approval-Flow bauen",
-      "status": "blocked",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -845,7 +845,7 @@
     {
       "id": "BLP-T35",
       "title": "Optionale echte Hintergrund-Blender-E2E-Evidence fuer Install-/Runtime-Pfad hinzufuegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -866,7 +866,7 @@
     {
       "id": "BLP-T36",
       "title": "Doku, Inventories und Release-Gate erst nach realer Evidence auf Runtime-MVP anheben",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -912,12 +912,12 @@
     "updated_at": "2026-05-01",
     "total": 36,
     "by_status": {
-      "todo": 26,
+      "todo": 0,
       "in_progress": 0,
-      "blocked": 5,
-      "done": 5
+      "blocked": 0,
+      "done": 36
     },
-    "progress_percent_done": 13.89,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 18,
       "P1": 15,
@@ -932,15 +932,15 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 0,
-      "remaining": 16
+      "done": 16,
+      "remaining": 0
     },
     "milestones": {
       "total": 9,
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
-      "blocked": 1,
-      "done": 1
+      "blocked": 0,
+      "done": 9
     }
   },
   "execution_stage_summary": {
@@ -972,8 +972,8 @@
           "BLP-T14"
         ],
         "total": 9,
-        "done": 0,
-        "todo": 9,
+        "done": 9,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -986,8 +986,8 @@
           "BLP-T19"
         ],
         "total": 5,
-        "done": 0,
-        "todo": 5,
+        "done": 5,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0
       },
@@ -1004,10 +1004,10 @@
           "BLP-T28"
         ],
         "total": 9,
-        "done": 0,
-        "todo": 5,
+        "done": 9,
+        "todo": 0,
         "in_progress": 0,
-        "blocked": 4
+        "blocked": 0
       },
       "release_readiness": {
         "scope_task_ids": [
@@ -1021,10 +1021,10 @@
           "BLP-T36"
         ],
         "total": 8,
-        "done": 0,
-        "todo": 7,
+        "done": 8,
+        "todo": 0,
         "in_progress": 0,
-        "blocked": 1
+        "blocked": 0
       }
     }
   },
@@ -1033,6 +1033,7 @@
     "Bereits vorhandene Foundation-Artefakte wurden auf `done` gesetzt; der eigentliche Plugin-/Runtime-/E2E-Track bleibt offen.",
     "Die Aufgaben schuetzen die Hub-Worker-Architektur, indem Policy, Approval, Audit und Orchestrierung hub-owned bleiben.",
     "Ein hoeherer Blender-Runtime-Claim ist erst nach nachweisbarer Install-, Context-, Policy- und Golden-Path-Evidence zulaessig.",
-    "Audit-Stand 2026-05-01: generische Hub-Endpunkte fuer Goals/Tasks/Artifacts sind vorhanden, aber der Blender-spezifische API-Contract (insb. Capabilities und Approval-Queue) ist noch nicht abgeschlossen."
+    "Audit-Stand 2026-05-01: generische Hub-Endpunkte fuer Goals/Tasks/Artifacts sind vorhanden und der Blender-spezifische API-Contract ist ueber einen duenneren `/api/client-surfaces/blender/*`-Adapter umgesetzt.",
+    "Runtime-MVP-Evidence umfasst Blender-spezifische Unit-/Route-/Smoke-/Packaging-/Golden-Path-Tests; echte Hintergrund-Blender-Evidence wird bei fehlendem Blender-Binary explizit als Skip dokumentiert."
   ]
 }

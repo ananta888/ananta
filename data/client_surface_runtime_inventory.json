@@ -202,9 +202,9 @@
     },
     {
       "surface": "blender",
-      "classification": "foundation_only",
-      "delivery_status": "runtime_mvp_foundation",
-      "decision": "addon_bridge_and_smoke_present_policy_smoke_required_for_higher_claims",
+      "classification": "real_implementation",
+      "delivery_status": "runtime_mvp_operational",
+      "decision": "addon_bridge_context_hub_contract_packaging_and_smoke_delivery_completed",
       "evidence": {
         "foundation": [
           "client_surfaces/blender/addon/__init__.py",
@@ -212,11 +212,26 @@
         ],
         "docs": [
           "docs/integrations/blender/scope.md",
-          "docs/integrations/blender/threat_model.md"
+          "docs/integrations/blender/threat_model.md",
+          "docs/integrations/blender/runtime_profile.md",
+          "docs/integrations/blender/install.md",
+          "docs/integrations/blender/usage.md"
         ],
         "runtime": [
+          "agent/routes/blender_client_surface.py",
+          "agent/services/blender_client_surface_service.py",
+          "client_surfaces/blender/addon/client.py",
+          "client_surfaces/blender/addon/context.py",
+          "client_surfaces/blender/addon/operators.py",
+          "client_surfaces/blender/addon/panels.py",
+          "client_surfaces/blender/addon/execution.py",
+          "client_surfaces/blender/package/manifest.json",
           "scripts/run_blender_smoke_checks.py",
-          "client_surfaces/blender/tests/smoke_blender_addon_load.py"
+          "scripts/build_blender_addon_package.py",
+          "scripts/run_blender_install_smoke.py",
+          "scripts/run_blender_background_e2e.py",
+          "client_surfaces/blender/tests/smoke_blender_addon_load.py",
+          "tests/e2e/test_blender_runtime_golden_path.py"
         ]
       }
     },

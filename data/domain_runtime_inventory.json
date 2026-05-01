@@ -23,20 +23,32 @@
     },
     {
       "domain_id": "blender",
-      "inventory_status": "foundation_only",
+      "inventory_status": "runtime_mvp",
       "descriptor_path": "domains/blender/domain.json",
       "required_runtime_files": [
         "client_surfaces/blender/addon/__init__.py",
-        "client_surfaces/blender/bridge/ananta_blender_bridge.py"
+        "client_surfaces/blender/bridge/ananta_blender_bridge.py",
+        "agent/routes/blender_client_surface.py",
+        "agent/services/blender_client_surface_service.py",
+        "scripts/build_blender_addon_package.py",
+        "scripts/run_blender_install_smoke.py",
+        "scripts/run_blender_background_e2e.py"
       ],
       "smoke_commands": [
-        "python scripts/run_blender_smoke_checks.py --report-out ci-artifacts/domain-runtime/blender-smoke-report.json"
+        "python scripts/run_blender_smoke_checks.py --report-out ci-artifacts/domain-runtime/blender-smoke-report.json",
+        "python scripts/build_blender_addon_package.py --out ci-artifacts/domain-runtime/ananta-blender-addon.zip",
+        "python scripts/run_blender_install_smoke.py --out ci-artifacts/domain-runtime/blender-install-smoke-report.json",
+        "python scripts/run_blender_background_e2e.py --out ci-artifacts/domain-runtime/blender-background-e2e-report.json"
       ],
       "runtime_evidence_refs": [
-        "ci-artifacts/domain-runtime/blender-smoke-report.json"
+        "ci-artifacts/domain-runtime/blender-smoke-report.json",
+        "ci-artifacts/domain-runtime/ananta-blender-addon.zip",
+        "ci-artifacts/domain-runtime/blender-install-smoke-report.json",
+        "ci-artifacts/domain-runtime/blender-background-e2e-report.json"
       ],
       "notes": [
-        "Foundation-only declaration with additive runtime skeleton/evidence; promotion to runtime_mvp requires policy-approved execution wiring."
+        "Runtime MVP claim is limited to bounded context capture, hub-routed planning, package/install smoke and approval-gated execution envelope validation.",
+        "If no local Blender binary is available, background E2E reports an explicit skip rather than false green."
       ]
     },
     {
@@ -78,8 +90,8 @@
   ],
   "status_counters": {
     "planned": 1,
-    "foundation_only": 2,
-    "runtime_mvp": 1,
+    "foundation_only": 1,
+    "runtime_mvp": 2,
     "runtime_complete": 0,
     "deferred": 0,
     "blocked": 0

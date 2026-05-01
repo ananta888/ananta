@@ -222,8 +222,9 @@ class BlenderHubClient:
 
     def _stub_transport(self, action: str, payload: dict[str, Any]) -> dict[str, Any]:
         if action == "health":
-            status = "connected" if self.settings.endpoint and not self.settings.validate() else "degraded"
-            return {"status": status, "surface": "blender", "endpoint": self.settings.endpoint}
+            status = "ok" if self.settings.endpoint else "degraded"
+            state = "connected" if status == "ok" else "degraded"
+            return {"status": status, "state": state, "surface": "blender", "endpoint": self.settings.endpoint}
         if action == "capabilities":
             return {
                 "status": "ok" if self.settings.endpoint else "degraded",

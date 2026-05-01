@@ -82,7 +82,7 @@ def capture_context_from_bpy(bpy_module: Any, *, max_objects: int = 128) -> dict
     data = getattr(bpy_module, "data", None)
     scene = getattr(context, "scene", None)
     scene_name = str(getattr(scene, "name", "") or "Scene")
-    selected = set(getattr(context, "selected_objects", []) or [])
+    selected_objects = list(getattr(context, "selected_objects", []) or [])
     objects: list[dict[str, Any]] = []
     for obj in list(getattr(data, "objects", []) or []):
         visible_get = getattr(obj, "visible_get", None)
@@ -90,7 +90,7 @@ def capture_context_from_bpy(bpy_module: Any, *, max_objects: int = 128) -> dict
             {
                 "name": getattr(obj, "name", ""),
                 "type": getattr(obj, "type", "UNKNOWN"),
-                "selected": obj in selected,
+                "selected": any(obj is selected_obj or getattr(obj, "name", None) == getattr(selected_obj, "name", None) for selected_obj in selected_objects),
                 "visible": bool(visible_get()) if callable(visible_get) else True,
                 "materials": [getattr(slot, "name", "") for slot in list(getattr(obj, "material_slots", []) or [])],
                 "modifiers": [
