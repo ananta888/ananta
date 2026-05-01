@@ -38,6 +38,7 @@ These are explicitly out of MVP scope to keep the adapter maintainable and thin.
 
 ## Runtime delivery status for current CRT track
 
-- Eclipse runtime command/view MVP is active for the EAC track.
-- Runtime artifacts include plugin metadata, deterministic dockerized build command, command registry, bounded context capture, runtime views extension registry and runtime smoke checks.
-- Hardening block is implemented: deeper runtime Java test coverage, headless smoke gate, CI lane and merge-readiness evidence.
+- Eclipse runtime command/view MVP is active for the EAC track as a headless/bootstrap claim.
+- Runtime artifacts include plugin metadata, deterministic dockerized build command, generic Hub Java client paths, command registry, Eclipse command/view adapter classes, bounded context capture, runtime views extension registry and runtime smoke checks.
+- Hardening block is implemented: deeper runtime Java test coverage, Python Hub route contract tests, headless smoke gate, CI lane and merge-readiness evidence.
+- Promotion beyond this scope requires installed Eclipse UI automation evidence.

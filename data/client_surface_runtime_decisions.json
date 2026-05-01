@@ -74,9 +74,9 @@
     {
       "decision_id": "EAC-T40",
       "surface": "eclipse_plugin",
-      "status": "runtime_mvp_operational",
-      "summary": "Eclipse runtime command registry and handlers are now implemented for analyze/review/patch/new/evolve.",
-      "reason": "Command execution is routed through capability gates and explicit degraded/policy-denied handling.",
+      "status": "runtime_mvp_headless_bootstrap",
+      "summary": "Eclipse runtime command registry and Eclipse AbstractHandler adapters are implemented for analyze/review/patch/new/evolve.",
+      "reason": "Command execution is routed through capability gates, existing generic Hub goal paths and explicit degraded/policy-denied handling.",
       "runtime_scope_included": [
         "command_registry",
         "command_handlers",
@@ -87,9 +87,9 @@
     {
       "decision_id": "EAC-T45",
       "surface": "eclipse_views_extension",
-      "status": "runtime_mvp_operational",
-      "summary": "Task/artifact/approval/audit/repair/TUI/policy-fallback runtime views are wired through a runtime views extension registry.",
-      "reason": "Core operational views now load backend runtime data and preserve thin-adapter boundaries.",
+      "status": "runtime_mvp_headless_bootstrap",
+      "summary": "Task/artifact/approval/audit/repair/TUI/policy-fallback runtime views are wired through runtime models and Eclipse ViewPart adapters.",
+      "reason": "Core operational views load Hub runtime data through testable models while Eclipse UI classes remain thin adapter shells.",
       "runtime_scope_included": [
         "task_list_and_detail_views",
         "artifact_and_diff_rendering",
@@ -136,8 +136,8 @@
       "decision_id": "EAC-T55",
       "surface": "eclipse_plugin",
       "status": "runtime_mvp_hardened",
-      "summary": "API contract compatibility tests lock runtime request/response shapes and endpoint contracts.",
-      "reason": "Breaking payload or routing changes now fail the runtime contract suite."
+      "summary": "API contract compatibility tests lock runtime request/response shapes and generic Hub endpoint contracts.",
+      "reason": "Breaking payload or routing changes now fail the Java runtime contract suite and Python Hub route contract suite."
     },
     {
       "decision_id": "EAC-T56",

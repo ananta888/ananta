@@ -54,11 +54,11 @@ public final class EclipsePolicyFallbackUx {
             links.add(link("artifact", normalizedBase + "/artifacts/" + artifactId));
         }
         if (!Objects.toString(auditId, "").isBlank()) {
-            links.add(link("audit_trace", normalizedBase + "/audit?trace_id=" + auditId));
+            links.add(link("audit_trace", normalizedBase + "/api/system/audit-logs?object=" + auditId));
         }
         if (links.isEmpty()) {
             links.add(link("governance", normalizedBase + "/governance"));
-            links.add(link("audit", normalizedBase + "/audit"));
+            links.add(link("audit", normalizedBase + "/api/system/audit-logs"));
         }
         return links;
     }

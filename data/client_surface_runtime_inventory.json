@@ -58,8 +58,8 @@
     {
       "surface": "eclipse_plugin",
       "classification": "real_implementation",
-      "delivery_status": "runtime_mvp_operational",
-      "decision": "runtime_commands_views_and_hardening_delivered",
+      "delivery_status": "runtime_mvp_headless_bootstrap",
+      "decision": "generic_hub_client_paths_eclipse_adapters_and_headless_hardening_delivered",
       "evidence": {
         "foundation": [
           "agent/services/eclipse_plugin_adapter_foundation_service.py",
@@ -90,7 +90,9 @@
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseRepairRuntimeView.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTuiRuntimeBridge.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipsePolicyFallbackUx.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AbstractAnantaRuntimeViewPart.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/security/TokenRedaction.java",
+          "tests/test_eclipse_hub_contract_routes.py",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/test/java/io/ananta/eclipse/runtime/core/EclipseRuntimeUnitTest.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/test/java/io/ananta/eclipse/runtime/integration/EclipseRuntimeIntegrationUiTest.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/test/java/io/ananta/eclipse/runtime/security/EclipseRuntimeSecurityGovernanceTest.java",
@@ -104,8 +106,8 @@
     {
       "surface": "eclipse_views_extension",
       "classification": "real_implementation",
-      "delivery_status": "runtime_mvp_operational",
-      "decision": "views_runtime_delivery_completed_with_hardening_gates",
+      "delivery_status": "runtime_mvp_headless_bootstrap",
+      "decision": "views_runtime_models_and_eclipse_viewpart_adapters_completed_with_headless_gates",
       "evidence": {
         "foundation": [
           "agent/services/eclipse_plugin_adapter_foundation_service.py",
@@ -125,6 +127,7 @@
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseRepairRuntimeView.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTuiRuntimeBridge.java",
           "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipsePolicyFallbackUx.java",
+          "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AbstractAnantaRuntimeViewPart.java",
           "scripts/smoke_eclipse_runtime_bootstrap.py",
           "scripts/smoke_eclipse_runtime_headless.py"
         ]

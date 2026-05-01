@@ -4,14 +4,15 @@ This document captures the first implementation block of the Eclipse plugin adap
 
 ## Current runtime decision (EAC-T33..EAC-T51 runtime phase)
 
-- Current track decision: Eclipse runtime is **unblocked and operational for command/view MVP delivery**.
-- Current state: foundation contracts/tests/docs remain valid, and runtime command/context/view handlers now exist.
-- Runtime status truth: Eclipse plugin and views are `runtime_mvp` for operational use, including hardening and CI gates.
+- Current track decision: Eclipse runtime is **unblocked for headless/bootstrap command/view MVP delivery**.
+- Current state: foundation contracts/tests/docs remain valid, runtime command/context/view models exist, and Eclipse platform adapter classes are present.
+- Runtime status truth: Eclipse plugin and views remain `runtime_mvp`, scoped to headless/bootstrap evidence until installed Eclipse UI automation is available.
 - Runtime artifacts:
   - Eclipse plugin project with `plugin.xml`
   - `META-INF/MANIFEST.MF`
   - deterministic dockerized Gradle build command
   - runtime command registry and views extension registry
+  - Eclipse `AbstractHandler` and `ViewPart` adapter classes
   - runtime smoke script
 
 See `docs/eclipse-plugin-runtime-bootstrap.md` for build and smoke commands.

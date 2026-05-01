@@ -175,7 +175,8 @@ def test_eclipse_requires_command_registry_for_runtime_classification() -> None:
         "agent/services/eclipse_plugin_adapter_foundation_service.py",
     }
     with_runtime_registry = bootstrap_only | {
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/EclipseCommandRegistry.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/EclipseCommandRegistry.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AbstractAnantaRuntimeViewPart.java",
     }
 
     report_bootstrap_only = classify_surface("eclipse_plugin", bootstrap_only)
@@ -194,7 +195,8 @@ def test_eclipse_views_extension_requires_runtime_registry_for_classification() 
         "agent/services/eclipse_plugin_adapter_foundation_service.py",
     }
     with_views_registry = bootstrap_only | {
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseViewsExtensionRegistry.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseViewsExtensionRegistry.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AbstractAnantaRuntimeViewPart.java",
     }
 
     report_bootstrap_only = classify_surface("eclipse_views_extension", bootstrap_only)
