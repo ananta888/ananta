@@ -8,6 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Any
+from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_SCRIPT = ROOT / "scripts" / "build_freecad_workbench_package.py"
@@ -58,7 +59,11 @@ def evaluate_install_smoke(*, root: Path = ROOT, binary: str | None = None) -> d
         }
 
     with tempfile.TemporaryDirectory(prefix="ananta-freecad-install-smoke-") as tmp_dir:
-        script_path = Path(tmp_dir) / "freecad_install_smoke.py"
+        temp_root = Path(tmp_dir)
+        extract_root = temp_root / "extracted"
+        with ZipFile(package_path) as archive:
+            archive.extractall(extract_root)
+        script_path = temp_root / "freecad_install_smoke.py"
         script_path.write_text(
             "from client_surfaces.freecad.workbench.InitGui import WORKBENCH\n"
             "print('workbench=' + WORKBENCH.GetClassName())\n"
@@ -66,10 +71,10 @@ def evaluate_install_smoke(*, root: Path = ROOT, binary: str | None = None) -> d
             encoding="utf-8",
         )
         env = dict(**__import__("os").environ)
-        env["PYTHONPATH"] = f"{root}:{env.get('PYTHONPATH', '')}".rstrip(":")
+        env["PYTHONPATH"] = f"{extract_root}:{env.get('PYTHONPATH', '')}".rstrip(":")
         result = subprocess.run(
             [freecad_binary, str(script_path)],
-            cwd=str(root),
+            cwd=str(extract_root),
             check=False,
             capture_output=True,
             text=True,

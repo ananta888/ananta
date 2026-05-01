@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ARTIFACT_ROOT = ROOT / "artifacts" / "e2e"
 DEFAULT_E2E_TEST_TARGETS = [
     "tests/e2e/test_core_golden_path.py",
+    "tests/e2e/test_freecad_runtime_golden_path.py",
     "tests/e2e/test_cli_golden_path_snapshots.py",
     "tests/e2e/test_cli_degraded_policy_snapshots.py",
     "tests/e2e/test_tui_scripted_smoke.py",
