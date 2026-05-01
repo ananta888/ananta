@@ -194,9 +194,9 @@ def _run_ui_availability_verifier(
         "-data",
         str(workspace),
         "-application",
-        "io.ananta.eclipse.runtime.uiAvailabilityVerifier",
-        "-anantaVerifierReport",
-        str(availability_report),
+        "org.eclipse.ui.ide.workbench",
+        "-vmargs",
+        f"-Dananta.e2e.report={availability_report}",
     ]
     result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=timeout_seconds)
     output = (result.stdout + "\n" + result.stderr).strip()

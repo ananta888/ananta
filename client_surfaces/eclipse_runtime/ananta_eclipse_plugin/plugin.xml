@@ -12,6 +12,12 @@
    </extension>
 
    <extension
+         point="org.eclipse.ui.startup">
+      <startup
+            class="io.ananta.eclipse.runtime.e2e.EclipseUiStartupVerifier"/>
+   </extension>
+
+   <extension
          point="org.eclipse.ui.commands">
       <command
             categoryId="io.ananta.eclipse.category"
