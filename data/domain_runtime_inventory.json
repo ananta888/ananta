@@ -36,12 +36,16 @@
       ],
       "smoke_commands": [
         "python scripts/run_blender_smoke_checks.py --report-out ci-artifacts/domain-runtime/blender-smoke-report.json",
+        "python scripts/run_blender_smoke_checks.py --report-out ci-artifacts/domain-runtime/blender-context-smoke-report.json",
+        "python scripts/run_blender_smoke_checks.py --report-out ci-artifacts/domain-runtime/blender-policy-smoke-report.json",
         "python scripts/build_blender_addon_package.py --out ci-artifacts/domain-runtime/ananta-blender-addon.zip",
         "python scripts/run_blender_install_smoke.py --out ci-artifacts/domain-runtime/blender-install-smoke-report.json",
         "python scripts/run_blender_background_e2e.py --out ci-artifacts/domain-runtime/blender-background-e2e-report.json"
       ],
       "runtime_evidence_refs": [
         "ci-artifacts/domain-runtime/blender-smoke-report.json",
+        "ci-artifacts/domain-runtime/blender-context-smoke-report.json",
+        "ci-artifacts/domain-runtime/blender-policy-smoke-report.json",
         "ci-artifacts/domain-runtime/ananta-blender-addon.zip",
         "ci-artifacts/domain-runtime/blender-install-smoke-report.json",
         "ci-artifacts/domain-runtime/blender-background-e2e-report.json"

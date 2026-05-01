@@ -26,6 +26,8 @@ def _load_module(module_name: str, file_path: Path):
 
 def evaluate_blender_runtime(*, root: Path = ROOT) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
     addon_file = root / ADDON_PATH
     bridge_file = root / BRIDGE_PATH
 
@@ -70,6 +72,18 @@ def evaluate_blender_runtime(*, root: Path = ROOT) -> dict[str, Any]:
                 "check_id": "context_capture_contract",
                 "ok": ctx.get("schema") == "blender_scene_context.v1" and ctx.get("selection") == ["Cube"],
                 "detail": {"scene_name": ctx.get("scene_name"), "object_count": len(list(ctx.get("objects") or []))},
+            }
+        )
+        policy_module = _load_module("ananta_blender_policy", root / "client_surfaces/blender/addon/policy.py")
+        checks.append(
+            {
+                "check_id": "policy_mapping_contract",
+                "ok": policy_module.render_policy_state("deny") == "policy_denied"
+                and policy_module.capability_policy_state({"approval_required": True}) == "approval_required",
+                "detail": {
+                    "deny_state": policy_module.render_policy_state("deny"),
+                    "approval_state": policy_module.capability_policy_state({"approval_required": True}),
+                },
             }
         )
 
