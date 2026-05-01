@@ -340,7 +340,7 @@ public class LiveTerminalAndroidE2ETest {
                 + "python3-flask python3-pydantic python3-sqlalchemy python3-yaml python3-psutil python3-jwt python3-dotenv python3-requests 2>&1; "
                 + "echo ANANTA_APT_INSTALL_RC=$?; "
                 + "pip3 --version 2>&1 || echo ANANTA_PIP3_MISSING; "
-                + "pip3 install --break-system-packages --no-input --progress-bar off "
+                + "pip3 install --break-system-packages --ignore-installed --no-input --progress-bar off "
                 + "pydantic-settings sqlmodel portalocker 2>&1; "
                 + "echo ANANTA_PIP_INSTALL_RC=$?; "
                 + "python3 -c \"import sys; print(sys.path)\" 2>&1; "
