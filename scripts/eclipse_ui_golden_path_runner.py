@@ -151,9 +151,9 @@ def _promote_eclipse_test_shims(eclipse_home: Path) -> None:
             "Bundle-Name: Javax Persistence API\n"
             "Bundle-Version: 2.2.0\n"
             "Export-Package: javax.persistence;version=\"2.2.0\";jpa=\"2.2\","
-            "javax.persistence.criteria;version=\"2.2.0\","
-            "javax.persistence.metamodel;version=\"2.2.0\","
-            "javax.persistence.spi;version=\"2.2.0\"\n"
+            "javax.persistence.criteria;version=\"2.2.0\";jpa=\"2.2\","
+            "javax.persistence.metamodel;version=\"2.2.0\";jpa=\"2.2\","
+            "javax.persistence.spi;version=\"2.2.0\";jpa=\"2.2\"\n"
         )
         with zipfile.ZipFile(dropins_persistence) as source, zipfile.ZipFile(plugins_persistence, "w", zipfile.ZIP_DEFLATED) as target:
             target.writestr("META-INF/MANIFEST.MF", manifest)
