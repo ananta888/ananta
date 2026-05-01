@@ -33,6 +33,8 @@ interface VoxtralOfflinePlugin {
   downloadRunner(options: { runnerUrl: string; fileName?: string; sha256?: string; confirmed?: boolean }): Promise<{ runnerPath: string; bytes: number; sha256: string }>;
   listLocalAssets(): Promise<{ models: VoxtralLocalAsset[]; runners: VoxtralLocalAsset[] }>;
   verifySetup(options: { modelPath: string; runnerPath: string; minFreeBytes?: number }): Promise<{ availableBytes: number; hasEnoughStorage: boolean; modelExists: boolean; modelBytes: number; modelCompatible?: boolean; estimatedRequiredBytes?: number; runnerExists: boolean; runnerExecutable: boolean; runnerCompatible?: boolean; runnerModelCompatible?: boolean; runnerProbeMessage?: string }>;
+  getFileSha256(options: { path: string }): Promise<{ path: string; bytes: number; sha256: string }>;
+  deleteAsset(options: { path: string; confirmed?: boolean }): Promise<{ path: string; deleted: boolean }>;
   transcribe(options: { audioPath: string; modelPath: string; runnerPath: string; confirmed?: boolean }): Promise<{ transcript: string; rawOutput: string; exitCode: number }>;
   startLiveTranscription(options: { modelPath: string; runnerPath: string; chunkSeconds?: number; sampleRate?: number; confirmed?: boolean }): Promise<{ started: boolean; chunkSeconds: number; sampleRate: number }>;
   stopLiveTranscription(): Promise<{ transcript: string }>;
@@ -107,6 +109,20 @@ export class VoxtralOfflineService {
       throw new Error('Nur auf nativer Android-App verfuegbar.');
     }
     return VoxtralOffline.verifySetup({ modelPath, runnerPath, minFreeBytes });
+  }
+
+  async getFileSha256(path: string): Promise<{ path: string; bytes: number; sha256: string }> {
+    if (!this.isNative) {
+      throw new Error('Nur auf nativer Android-App verfuegbar.');
+    }
+    return VoxtralOffline.getFileSha256({ path });
+  }
+
+  async deleteAsset(path: string): Promise<{ path: string; deleted: boolean }> {
+    if (!this.isNative) {
+      throw new Error('Nur auf nativer Android-App verfuegbar.');
+    }
+    return VoxtralOffline.deleteAsset({ path, confirmed: true });
   }
 
   async transcribe(audioPath: string, modelPath: string, runnerPath: string): Promise<{ transcript: string; rawOutput: string; exitCode: number }> {
