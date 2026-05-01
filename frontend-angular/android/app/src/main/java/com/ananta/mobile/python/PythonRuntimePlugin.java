@@ -308,6 +308,32 @@ public class PythonRuntimePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void interruptShellSession(PluginCall call) {
+        String sessionId = String.valueOf(call.getString("sessionId", "")).trim();
+        if (sessionId.isEmpty()) {
+            call.reject("sessionId is required");
+            return;
+        }
+        ShellSession session = shellSessions.get(sessionId);
+        if (session == null) {
+            call.reject("Shell session not found");
+            return;
+        }
+        worker.execute(() -> {
+            try {
+                session.interrupt();
+                JSObject result = new JSObject();
+                result.put("ok", true);
+                result.put("running", session.isRunning());
+                call.resolve(result);
+            } catch (Exception error) {
+                lastError = error.getMessage();
+                call.reject("Shell interrupt failed: " + error.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
     public void closeShellSession(PluginCall call) {
         String sessionId = String.valueOf(call.getString("sessionId", "")).trim();
         if (sessionId.isEmpty()) {
@@ -1874,6 +1900,24 @@ public class PythonRuntimePlugin extends Plugin {
             // Translate CR to LF (no TTY driver to perform ICRNL)
             stdin.write(input.replace("\r\n", "\n").replace("\r", "\n"));
             stdin.flush();
+        }
+
+        void interrupt() throws IOException {
+            long pid = process.pid();
+            String pidText = Long.toString(pid);
+            Process signal = null;
+            try {
+                signal = new ProcessBuilder(
+                    "/system/bin/sh",
+                    "-c",
+                    "kill -INT -" + pidText + " >/dev/null 2>&1 || kill -INT " + pidText + " >/dev/null 2>&1"
+                ).redirectErrorStream(true).start();
+                signal.waitFor(2, TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            } finally {
+                if (signal != null) signal.destroy();
+            }
         }
 
         ShellSessionRead readDelta(int maxChars) {

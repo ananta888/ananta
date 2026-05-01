@@ -75,6 +75,7 @@ interface PythonRuntimePlugin {
   writeShellSession(options: { sessionId: string; input: string }): Promise<{ ok: boolean; running: boolean }>;
   readShellSession(options: { sessionId: string; maxChars?: number }): Promise<ShellSessionReadResult>;
   closeShellSession(options: { sessionId: string }): Promise<{ closed: boolean }>;
+  interruptShellSession(options: { sessionId: string }): Promise<{ ok: boolean; running: boolean }>;
   getProotRuntimeStatus(): Promise<ProotRuntimeStatus>;
   installProotRuntime(options?: { prootUrl?: string }): Promise<{ runtimeRoot: string; prootPath: string }>;
   installProotDistro(options: { distro: string }): Promise<{ distro: string; rootfsPath: string }>;
@@ -168,6 +169,15 @@ export class PythonRuntimeService {
     const id = String(sessionId || '').trim();
     if (!id) throw new Error('sessionId fehlt.');
     return PythonRuntime.closeShellSession({ sessionId: id });
+  }
+
+  async interruptShellSession(sessionId: string): Promise<{ ok: boolean; running: boolean }> {
+    if (!this.isNative) {
+      throw new Error('Mobile shell ist nur in der nativen App verfuegbar.');
+    }
+    const id = String(sessionId || '').trim();
+    if (!id) throw new Error('sessionId fehlt.');
+    return PythonRuntime.interruptShellSession({ sessionId: id });
   }
 
   async getProotRuntimeStatus(): Promise<ProotRuntimeStatus> {
