@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Use this checklist when validating the Eclipse runtime MVP without full Eclipse UI automation.
+Use this checklist when validating the Eclipse runtime with Docker/Xvfb installed-Eclipse UI automation.
 
 ## Preconditions
 
-1. Runtime status declares `eclipse_plugin=runtime_mvp` in `data/client_surface_runtime_status.json`, scoped to headless/bootstrap evidence.
+1. Runtime status declares `eclipse_plugin=runtime_complete` in `data/client_surface_runtime_status.json`, backed by headless/bootstrap and Docker/Xvfb installed-Eclipse evidence.
 2. Plugin metadata exists (`plugin.xml`, `META-INF/MANIFEST.MF`, `build.properties`).
 3. Build bootstrap command is available:
    - `python3 scripts/build_eclipse_runtime_plugin.py --mode validate`
@@ -17,6 +17,8 @@ Use this checklist when validating the Eclipse runtime MVP without full Eclipse 
    - `python3 scripts/smoke_eclipse_runtime_bootstrap.py`
 2. Validate headless hardening gate when local tooling is available:
    - `python3 scripts/smoke_eclipse_runtime_headless.py`
+3. Validate installed Eclipse UI evidence through Docker/Xvfb:
+   - `ANANTA_DOCKER_CLEAN_PATH=1 python3 scripts/run_eclipse_ui_golden_path.py --docker --require-eclipse --out ci-artifacts/eclipse/eclipse-ui-golden-path-report.json --timeout-seconds 45`
 
 Expected result:
 - Both commands report `*-ok` status.
@@ -45,6 +47,6 @@ Known failure symptoms:
 
 ## Notes
 
-- Runtime claim stays at `runtime_mvp`; promotion to `runtime_complete` requires additional automation and packaging evidence.
-- Installed Eclipse UI automation is required before claiming more than headless/bootstrap runtime MVP.
+- Runtime claim is `runtime_complete` only while Docker/Xvfb installed-Eclipse evidence remains non-skipped and passing.
+- Installed Eclipse UI automation is provided by the Docker evidence lane.
 - This checklist is non-governance-bypassing: all actions remain backend-authorized.
