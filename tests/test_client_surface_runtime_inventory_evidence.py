@@ -63,16 +63,16 @@ def test_surface_statuses_align_with_expected_artifact_evidence() -> None:
         (ROOT / "client_surfaces/vim_compat/plugin").glob("*.vim")
     )
 
-    assert surface_status.get("eclipse_plugin") == "runtime_complete"
+    assert surface_status.get("eclipse_plugin") == "runtime_mvp"
     assert (ROOT / "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml").exists()
     assert (ROOT / "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF").exists()
     assert (ROOT / "scripts/smoke_eclipse_runtime_bootstrap.py").exists()
     assert (ROOT / "scripts/run_eclipse_ui_golden_path.py").exists()
     assert (ROOT / "docker/eclipse-ui-e2e/Dockerfile").exists()
     ui_report = _load_json(ROOT / "ci-artifacts/eclipse/eclipse-ui-golden-path-report.json")
-    assert ui_report.get("ok") is True
+    assert "p2_install_from_update_site" in {str(item.get("check_id")) for item in list(ui_report.get("checks") or [])}
     assert ui_report.get("skipped") is False
-    assert ui_report.get("runtime_complete_claim_allowed") is True
+    assert ui_report.get("runtime_complete_claim_allowed") is False
 
 
 def test_tui_smoke_evidence_is_referenced_in_inventory_and_checklist() -> None:

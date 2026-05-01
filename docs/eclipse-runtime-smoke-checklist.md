@@ -6,7 +6,7 @@ Use this checklist when validating the Eclipse runtime with Docker/Xvfb installe
 
 ## Preconditions
 
-1. Runtime status declares `eclipse_plugin=runtime_complete` in `data/client_surface_runtime_status.json`, backed by headless/bootstrap and Docker/Xvfb installed-Eclipse evidence.
+1. Runtime status declares `eclipse_plugin=runtime_mvp` in `data/client_surface_runtime_status.json`, backed by headless/bootstrap, p2 installability and Eclipse JEE 2026-03 view availability evidence.
 2. Plugin metadata exists (`plugin.xml`, `META-INF/MANIFEST.MF`, `build.properties`).
 3. Build bootstrap command is available:
    - `python3 scripts/build_eclipse_runtime_plugin.py --mode validate`
@@ -47,6 +47,6 @@ Known failure symptoms:
 
 ## Notes
 
-- Runtime claim is `runtime_complete` only while Docker/Xvfb installed-Eclipse evidence remains non-skipped and passing.
+- Runtime claim must stay below `runtime_complete` until the strict p2-install-then-workbench verifier passes in Eclipse JEE 2026-03.
 - Installed Eclipse UI automation is provided by the Docker evidence lane.
 - This checklist is non-governance-bypassing: all actions remain backend-authorized.

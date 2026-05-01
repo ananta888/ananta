@@ -25,8 +25,8 @@
     "critical"
   ],
   "current_state_summary": {
-    "classification": "runtime_complete",
-    "fully_product_usable": true,
+    "classification": "runtime_mvp_p2_installable_with_jee_view_verifier_blocked",
+    "fully_product_usable": false,
     "done_scope": [
       "Java client core uses generic Hub paths and Hub-compatible goal payloads.",
       "Eclipse command handlers and ViewPart adapter shells exist.",
@@ -37,9 +37,11 @@
       "Repair marker context, project new/evolve/import models and optional completion/quick-fix models exist.",
       "A real local p2 update site with content.jar, artifacts.jar, features and plugins exists for Eclipse UI installation.",
       "Update-site scripts and Docker/Xvfb installed-Eclipse UI evidence exist and pass without skip.",
-      "Runtime status, inventories and release-gate tests are promoted to runtime_complete."
+      "Runtime status remains at runtime_mvp until p2-install-then-workbench verification passes in Eclipse JEE 2026-03."
     ],
-    "missing_product_scope": []
+    "missing_product_scope": [
+      "The strict p2-install-then-workbench verifier for Eclipse JEE 2026-03 is blocked by Eclipse JEE/Oomph profile startup instability in Docker."
+    ]
   },
   "cross_track_references": [
     "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
@@ -91,7 +93,7 @@
         "ECL-T04",
         "ECL-T05"
       ],
-      "status": "done"
+      "status": "blocked"
     },
     {
       "id": "ECL-M2",
@@ -197,7 +199,7 @@
     {
       "id": "ECL-T01",
       "title": "Eclipse Runtime-Baseline analysieren und Headless-Scope festhalten",
-      "status": "done",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
       "expected_files": [
@@ -966,11 +968,11 @@
       ],
       "acceptance_criteria": [
         "`eclipse_plugin` blieb `runtime_mvp`, bis UI-E2E und Packaging reproduzierbar waren.",
-        "Nach erfolgreicher UI-Evidence ist der Status mit passenden Release-Gate-Tests angehoben.",
+        "Nach erfolgreicher UI-Evidence wird der Status nur mit passenden Release-Gate-Tests angehoben.",
         "Inventories enthalten konkrete Evidence-Pfade fuer Package, Install, UI-Load und Golden Path."
       ],
       "notes": [
-        "Completed after Docker/Xvfb UI evidence passed without skip; runtime status and inventories now declare runtime_complete."
+        "Blocked by the stricter Eclipse JEE 2026-03 p2-install-then-workbench verifier. p2 installability and dropins-based view availability are proven separately."
       ]
     },
     {
@@ -1000,21 +1002,21 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "blocked": 0,
-      "done": 41
+      "blocked": 1,
+      "done": 40
     },
-    "progress_percent_done": 100.0,
+    "progress_percent_done": 97.56,
     "critical_path": {
       "total": 18,
-      "done": 18,
-      "remaining": 0
+      "done": 17,
+      "remaining": 1
     },
     "milestones": {
       "total": 10,
       "todo": 0,
       "in_progress": 0,
-      "blocked": 0,
-      "done": 10
+      "blocked": 1,
+      "done": 9
     }
   },
   "execution_stage_summary": {
@@ -1090,9 +1092,9 @@
         "ECL-T41"
       ],
       "total": 8,
-      "done": 8,
+      "done": 7,
       "todo": 0,
-      "blocked": 0,
+      "blocked": 1,
       "in_progress": 0
     }
   },
@@ -1101,6 +1103,6 @@
     "Es gibt keine externen TODO-Dateien als harte Voraussetzung; alle Abhaengigkeiten referenzieren Tasks in dieser Datei.",
     "Die wichtigsten Produktiv-Gates sind echte UI-Views, approval-gated Patch-Apply, p2/installierbares Packaging und installierte Eclipse-UI-E2E-Evidence.",
     "Architekturregel: Eclipse darf Arbeit delegieren und anzeigen, aber niemals Hub-Orchestrierung oder Worker-Koordination uebernehmen.",
-    "2026-05-01: Product runtime models and packaging scripts are implemented; Docker/Xvfb installed Eclipse UI evidence passes in this environment. runtime_complete status promotion is complete."
+    "2026-05-01: Product runtime models, packaging scripts and p2 site are implemented. Eclipse JEE 2026-03 p2 installability and dropins-based view availability are proven, but p2-install-then-workbench verification remains blocked by Eclipse JEE/Oomph profile startup instability."
   ]
 }

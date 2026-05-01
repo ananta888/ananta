@@ -58,8 +58,8 @@
     {
       "surface": "eclipse_plugin",
       "classification": "real_implementation",
-      "delivery_status": "runtime_complete",
-      "decision": "generic_hub_client_paths_eclipse_adapters_headless_hardening_and_docker_ui_evidence_delivered",
+      "delivery_status": "runtime_mvp_p2_installable",
+      "decision": "generic_hub_client_paths_eclipse_adapters_headless_hardening_p2_site_and_jee_view_evidence_delivered",
       "evidence": {
         "foundation": [
           "agent/services/eclipse_plugin_adapter_foundation_service.py",
@@ -123,8 +123,8 @@
     {
       "surface": "eclipse_views_extension",
       "classification": "real_implementation",
-      "delivery_status": "runtime_complete",
-      "decision": "views_runtime_models_eclipse_viewpart_adapters_and_docker_ui_evidence_completed",
+      "delivery_status": "runtime_mvp_p2_installable",
+      "decision": "views_runtime_models_eclipse_viewpart_adapters_and_jee_view_evidence_completed",
       "evidence": {
         "foundation": [
           "agent/services/eclipse_plugin_adapter_foundation_service.py",
