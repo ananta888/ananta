@@ -57,8 +57,9 @@ class HttpJsonTransport:
                 body = response.read().decode("utf-8") or "{}"
                 parsed = json.loads(body)
                 if isinstance(parsed, dict):
-                    parsed.setdefault("http_status", status_code)
-                    return parsed
+                    normalized = self._normalize_enveloped_response(parsed, status_code=status_code)
+                    normalized.setdefault("http_status", status_code)
+                    return normalized
                 return {"status": "degraded", "reason": "non_object_response", "http_status": status_code}
         except error.HTTPError as exc:
             return self._http_error_payload(exc)
@@ -101,3 +102,24 @@ class HttpJsonTransport:
         except Exception:
             pass
         return {"status": status, "http_status": exc.code, "reason": exc.reason}
+
+    @staticmethod
+    def _normalize_enveloped_response(payload: dict[str, Any], *, status_code: int) -> dict[str, Any]:
+        envelope_status = str(payload.get("status") or "").strip().lower()
+        data = payload.get("data")
+        if envelope_status == "success" and isinstance(data, dict):
+            normalized = dict(data)
+            normalized.setdefault("status", str(data.get("status") or "accepted"))
+            normalized.setdefault("envelope_status", envelope_status)
+            return normalized
+        if envelope_status == "error":
+            normalized = dict(data) if isinstance(data, dict) else {}
+            normalized.setdefault("status", "degraded")
+            normalized.setdefault("reason", str(payload.get("message") or normalized.get("reason") or "request_failed"))
+            normalized.setdefault("envelope_status", envelope_status)
+            return normalized
+        if isinstance(data, dict):
+            normalized = dict(data)
+            normalized.setdefault("status", envelope_status or str(data.get("status") or "degraded"))
+            return normalized
+        return dict(payload)
