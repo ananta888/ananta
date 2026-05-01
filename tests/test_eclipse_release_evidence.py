@@ -25,3 +25,18 @@ def test_eclipse_ui_golden_path_reports_skip_without_binary(tmp_path: Path) -> N
     assert report["ok"] is True
     assert "runtime_complete_claim_allowed" in report
     assert (tmp_path / "ui-report.json").exists()
+
+
+def test_eclipse_ui_golden_path_reports_skip_without_docker(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr("scripts.run_eclipse_ui_golden_path.shutil.which", lambda name: None)
+
+    report = run_eclipse_ui_golden_path(
+        report_path=tmp_path / "docker-ui-report.json",
+        require_eclipse=False,
+        use_docker=True,
+    )
+
+    assert report["ok"] is True
+    assert report["skipped"] is True
+    assert report["skip_reason"] == "docker_missing"
+    assert report["runtime_complete_claim_allowed"] is False

@@ -51,6 +51,16 @@ Run optional installed Eclipse UI evidence:
 
 `python3 scripts/run_eclipse_ui_golden_path.py --out ci-artifacts/eclipse/eclipse-ui-golden-path-report.json`
 
+Run reproducible Docker/Xvfb installed-Eclipse evidence:
+
+`python3 scripts/run_eclipse_ui_golden_path.py --docker --build-plugin --require-eclipse --out ci-artifacts/eclipse/eclipse-ui-golden-path-report.json`
+
+The Docker lane builds the plugin, builds `docker/eclipse-ui-e2e/Dockerfile`, mounts the repository, installs the plugin JAR into Eclipse `dropins`, and launches the Eclipse workbench under Xvfb with a fresh workspace. A missing Docker daemon remains an explicit skip/failure depending on `--require-eclipse`; it must not be interpreted as `runtime_complete`.
+
+In WSL-like environments with a broken Docker credential helper, use the same clean Docker environment flag as the Gradle lane:
+
+`ANANTA_DOCKER_CLEAN_PATH=1 python3 scripts/run_eclipse_ui_golden_path.py --docker --require-eclipse --out ci-artifacts/eclipse/eclipse-ui-golden-path-report.json --timeout-seconds 45`
+
 Operator smoke checklist:
 
 `docs/eclipse-runtime-smoke-checklist.md`

@@ -25,7 +25,7 @@
     "critical"
   ],
   "current_state_summary": {
-    "classification": "runtime_mvp_product_models_with_ui_evidence_blocked",
+    "classification": "runtime_mvp_product_models_with_docker_ui_evidence",
     "fully_product_usable": false,
     "done_scope": [
       "Java client core uses generic Hub paths and Hub-compatible goal payloads.",
@@ -35,11 +35,10 @@
       "Chat, context selection, chat history redaction and chat-to-goal model exist.",
       "Patch preview, approval-gated apply guard, workspace write guard and review feedback models exist.",
       "Repair marker context, project new/evolve/import models and optional completion/quick-fix models exist.",
-      "Update-site and optional installed-Eclipse UI evidence scripts exist."
+      "Update-site scripts and Docker/Xvfb installed-Eclipse UI evidence exist and pass without skip."
     ],
     "missing_product_scope": [
-      "Installed Eclipse UI golden-path evidence is blocked by missing local Eclipse binary.",
-      "runtime_complete must remain disabled until installed UI automation passes without skip."
+      "runtime_complete status promotion remains blocked until the release gate and inventories are deliberately raised from runtime_mvp."
     ]
   },
   "cross_track_references": [
@@ -926,7 +925,7 @@
     {
       "id": "ECL-T39",
       "title": "Installierte Eclipse UI-Automation fuer Golden Path einfuehren",
-      "status": "blocked",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -938,6 +937,8 @@
       ],
       "expected_files": [
         "scripts/run_eclipse_ui_golden_path.py",
+        "scripts/eclipse_ui_golden_path_runner.py",
+        "docker/eclipse-ui-e2e/Dockerfile",
         "tests/e2e/test_eclipse_plugin_golden_path.py"
       ],
       "acceptance_criteria": [
@@ -946,7 +947,7 @@
         "Fehlendes Eclipse-Binary fuehrt zu explizitem Skip, nicht zu falschem Gruen."
       ],
       "notes": [
-        "Blocked until an installed Eclipse binary/UI automation environment is available; scripts exist and skip cleanly without it."
+        "Implemented through Docker/Xvfb installed Eclipse evidence. The report at ci-artifacts/eclipse/eclipse-ui-golden-path-report.json is non-skipped and runtime_complete_claim_allowed=true."
       ]
     },
     {
@@ -969,7 +970,7 @@
         "Inventories enthalten konkrete Evidence-Pfade fuer Package, Install, UI-Load und Golden Path."
       ],
       "notes": [
-        "Blocked until an installed Eclipse binary/UI automation environment is available; scripts exist and skip cleanly without it."
+        "Blocked until the release gate deliberately raises runtime status and inventories based on the Docker/Xvfb UI evidence."
       ]
     },
     {
@@ -999,14 +1000,14 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "blocked": 2,
-      "done": 39
+      "blocked": 1,
+      "done": 40
     },
-    "progress_percent_done": 95.12,
+    "progress_percent_done": 97.56,
     "critical_path": {
       "total": 18,
-      "done": 16,
-      "remaining": 2
+      "done": 17,
+      "remaining": 1
     },
     "milestones": {
       "total": 10,
@@ -1089,9 +1090,9 @@
         "ECL-T41"
       ],
       "total": 8,
-      "done": 6,
+      "done": 7,
       "todo": 0,
-      "blocked": 2,
+      "blocked": 1,
       "in_progress": 0
     }
   },
@@ -1100,6 +1101,6 @@
     "Es gibt keine externen TODO-Dateien als harte Voraussetzung; alle Abhaengigkeiten referenzieren Tasks in dieser Datei.",
     "Die wichtigsten Produktiv-Gates sind echte UI-Views, approval-gated Patch-Apply, p2/installierbares Packaging und installierte Eclipse-UI-E2E-Evidence.",
     "Architekturregel: Eclipse darf Arbeit delegieren und anzeigen, aber niemals Hub-Orchestrierung oder Worker-Koordination uebernehmen.",
-    "2026-05-01: Product runtime models and packaging scripts are implemented; installed Eclipse UI evidence remains blocked because no Eclipse binary is available in this environment."
+    "2026-05-01: Product runtime models and packaging scripts are implemented; Docker/Xvfb installed Eclipse UI evidence passes in this environment. runtime_complete status promotion remains gated by ECL-T40."
   ]
 }

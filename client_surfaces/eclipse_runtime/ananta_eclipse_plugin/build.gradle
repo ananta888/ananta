@@ -40,7 +40,9 @@ jar {
     archiveBaseName = 'ananta-eclipse-plugin-runtime'
     preserveFileTimestamps = false
     reproducibleFileOrder = true
+    from('plugin.xml')
     manifest {
+        from('META-INF/MANIFEST.MF')
         attributes(
             'Implementation-Title': 'Ananta Eclipse Runtime Bootstrap',
             'Implementation-Version': project.version

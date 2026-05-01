@@ -107,6 +107,9 @@
           "scripts/build_eclipse_runtime_plugin.py",
           "scripts/build_eclipse_update_site.py",
           "scripts/run_eclipse_ui_golden_path.py",
+          "scripts/eclipse_ui_golden_path_runner.py",
+          "docker/eclipse-ui-e2e/Dockerfile",
+          "tests/e2e/test_eclipse_plugin_golden_path.py",
           "scripts/smoke_eclipse_runtime_bootstrap.py",
           "scripts/smoke_eclipse_runtime_headless.py"
         ]
