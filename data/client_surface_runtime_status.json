@@ -12,8 +12,8 @@
     "TUI runtime has executable MVP entrypoint and smoke check.",
     "Neovim runtime has executable plugin modules, command registration and headless smoke coverage.",
     "Vim compatibility is intentionally deferred until Neovim runtime delivery reaches stability.",
-    "Eclipse runtime has command/view MVP delivery (command registry, bounded context capture, runtime views registry, smoke evidence).",
-    "Eclipse runtime hardening block (Java unit/integration/security/contract tests, headless smoke, CI lane, docs truth, merge-readiness report) is implemented.",
+    "Eclipse runtime status is a headless/bootstrap runtime_mvp: Java client uses existing generic Hub paths, command handlers extend Eclipse AbstractHandler, and views have ViewPart adapter classes.",
+    "Eclipse runtime hardening block (Java unit/integration/security/contract tests, Python Hub route contract tests, headless smoke, CI lane, docs truth) is implemented; installed Eclipse UI automation remains required before runtime_complete.",
     "VS Code runtime has command/view MVP delivery, smoke coverage, and dedicated CI lane packaging evidence."
   ]
 }

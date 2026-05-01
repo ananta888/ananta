@@ -51,6 +51,7 @@ SURFACE_RULES: dict[str, dict[str, list[str]]] = {
             "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF",
             "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build.properties",
             "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/EclipseCommandRegistry.java",
+            "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AbstractAnantaRuntimeViewPart.java",
             "scripts/smoke_eclipse_runtime_bootstrap.py",
             "scripts/smoke_eclipse_runtime_headless.py",
         ],
@@ -70,6 +71,7 @@ SURFACE_RULES: dict[str, dict[str, list[str]]] = {
         ],
         "runtime_required_patterns": [
             "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseViewsExtensionRegistry.java",
+            "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AbstractAnantaRuntimeViewPart.java",
             "scripts/smoke_eclipse_runtime_bootstrap.py",
             "scripts/smoke_eclipse_runtime_headless.py",
         ],

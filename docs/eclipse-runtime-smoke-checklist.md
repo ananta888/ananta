@@ -6,7 +6,7 @@ Use this checklist when validating the Eclipse runtime MVP without full Eclipse 
 
 ## Preconditions
 
-1. Runtime status declares `eclipse_plugin=runtime_mvp` in `data/client_surface_runtime_status.json`.
+1. Runtime status declares `eclipse_plugin=runtime_mvp` in `data/client_surface_runtime_status.json`, scoped to headless/bootstrap evidence.
 2. Plugin metadata exists (`plugin.xml`, `META-INF/MANIFEST.MF`, `build.properties`).
 3. Build bootstrap command is available:
    - `python3 scripts/build_eclipse_runtime_plugin.py --mode validate`
@@ -46,4 +46,5 @@ Known failure symptoms:
 ## Notes
 
 - Runtime claim stays at `runtime_mvp`; promotion to `runtime_complete` requires additional automation and packaging evidence.
+- Installed Eclipse UI automation is required before claiming more than headless/bootstrap runtime MVP.
 - This checklist is non-governance-bypassing: all actions remain backend-authorized.

@@ -34,7 +34,7 @@
     }
   ],
   "notes": [
-    "TUI and Neovim runtime now contain executable MVP modules while Vim stays deferred and Eclipse remains foundation-only.",
+    "TUI, Neovim and Eclipse now contain executable runtime MVP modules while Vim stays deferred. Eclipse is scoped to headless/bootstrap runtime evidence until installed UI automation exists.",
     "Runtime completion is tracked by CRT tasks and completion definitions."
   ]
 }
