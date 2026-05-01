@@ -25,7 +25,7 @@
     "critical"
   ],
   "current_state_summary": {
-    "classification": "runtime_mvp_p2_installable_with_stub_ui",
+    "classification": "runtime_productized_with_e2e_blocker",
     "fully_product_usable": false,
     "done_scope": [
       "Plugin ist als JAR und lokale p2-Site installierbar.",
@@ -34,9 +34,6 @@
       "Headless-/Bootstrap- und Packaging-Skripte existieren."
     ],
     "missing_product_scope": [
-      "Keine echte Eclipse-Settings-Seite zur Hub-Konfiguration (Base URL/Auth/Profile/Test Connection).",
-      "Views sind weitgehend statische Platzhalter ohne echte Datenbindung.",
-      "Command- und Review-/Patch-Flows sind nicht Ende-zu-Ende nutzbar.",
       "Robuste UI-E2E-Verifikation im Zielprofil (Eclipse JEE) ist noch nicht stabil gruen."
     ]
   },
@@ -80,7 +77,7 @@
         "ECL-T12",
         "ECL-T13"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "ECL-M3",
@@ -91,7 +88,7 @@
         "ECL-T16",
         "ECL-T17"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "ECL-M4",
@@ -103,7 +100,7 @@
         "ECL-T21",
         "ECL-T22"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "ECL-M5",
@@ -114,7 +111,7 @@
         "ECL-T25",
         "ECL-T26"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "ECL-M6",
@@ -125,7 +122,7 @@
         "ECL-T29",
         "ECL-T30"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "ECL-M7",
@@ -136,7 +133,7 @@
         "ECL-T33",
         "ECL-T34"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "ECL-M8",
@@ -145,7 +142,7 @@
         "ECL-T35",
         "ECL-T36"
       ],
-      "status": "todo"
+      "status": "blocked"
     }
   ],
   "tasks": [
@@ -380,7 +377,7 @@
     {
       "id": "ECL-T14",
       "title": "Chat-View von statischem Label auf echte Message-UI umbauen",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -398,7 +395,7 @@
     {
       "id": "ECL-T15",
       "title": "Chat-Kontextauswahl (Projekt/Datei/Selektion) mit Preview und Limits umsetzen",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -415,7 +412,7 @@
     {
       "id": "ECL-T16",
       "title": "Chat-Antworten mit Task-/Artifact-Links klickbar machen",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -431,7 +428,7 @@
     {
       "id": "ECL-T17",
       "title": "Goal-Panel mit Templates, Context-Preview und Submit-Feedback produktiv machen",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -449,7 +446,7 @@
     {
       "id": "ECL-T18",
       "title": "Task List View mit JFace Viewer, Sortierung, Filter und Paging anbinden",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -466,7 +463,7 @@
     {
       "id": "ECL-T19",
       "title": "Task Detail View mit Verlauf, next_step und Fehlerdetails anbinden",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -483,7 +480,7 @@
     {
       "id": "ECL-T20",
       "title": "Artifact View mit Markdown/Text/JSON/Diff-Renderer realisieren",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -500,7 +497,7 @@
     {
       "id": "ECL-T21",
       "title": "Approval Queue mit Approve/Reject und Kommentaren funktional machen",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -518,7 +515,7 @@
     {
       "id": "ECL-T22",
       "title": "Audit View mit Filter (severity/type/object) und Pagination aktivieren",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "depends_on": [
@@ -534,7 +531,7 @@
     {
       "id": "ECL-T23",
       "title": "Repair View an reale failed-Tasks und Marker-Kontext koppeln",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -551,7 +548,7 @@
     {
       "id": "ECL-T24",
       "title": "Patch Preview und Diff-Dialog als echter Confirm-Flow bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -569,7 +566,7 @@
     {
       "id": "ECL-T25",
       "title": "Workspace Write Guard und Trust Policy fuer Apply/Import erzwingen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -587,7 +584,7 @@
     {
       "id": "ECL-T26",
       "title": "Review-Feedback pro Hunk/Datei erfassen und senden",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "depends_on": [
@@ -603,7 +600,7 @@
     {
       "id": "ECL-T27",
       "title": "New Project Wizard Ende-zu-Ende an Hub anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -619,7 +616,7 @@
     {
       "id": "ECL-T28",
       "title": "Blueprint-/Profile-Seite im Wizard mit Hub-Lookup fuellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "depends_on": [
@@ -635,7 +632,7 @@
     {
       "id": "ECL-T29",
       "title": "Generated Project Import mit Konfliktbehandlung und Preview umsetzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -652,7 +649,7 @@
     {
       "id": "ECL-T30",
       "title": "Evolve Project Wizard inkl. Proposal-Liste und Apply-Flow liefern",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "depends_on": [
@@ -670,7 +667,7 @@
     {
       "id": "ECL-T31",
       "title": "Capability/Policy Gates fuer alle Actions zentral erzwingen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -688,7 +685,7 @@
     {
       "id": "ECL-T32",
       "title": "UI Empty/Loading/Error/Retry Zustandsmatrix fuer alle Hauptviews vervollstaendigen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -706,7 +703,7 @@
     {
       "id": "ECL-T33",
       "title": "Telemetry/Audit-Korrelation fuer wichtige User-Aktionen einbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "depends_on": [
@@ -722,7 +719,7 @@
     {
       "id": "ECL-T34",
       "title": "Berechtigte Browser-Fallbacks fuer gesperrte oder fehlende Aktionen verbessern",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "depends_on": [
@@ -738,7 +735,7 @@
     {
       "id": "ECL-T35",
       "title": "Strikten Eclipse-JEE-p2-UI-E2E-Test stabil gruen bekommen",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -757,13 +754,13 @@
         "Report ist non-skipped und runtime_complete_claim_allowed=true."
       ],
       "notes": [
-        "Derzeit durch JEE-Profil-/Oomph-Instabilitaet in Docker erschwert."
+        "Aktueller Docker/Xvfb Lauf erreicht p2_install_from_update_site=ok, scheitert aber weiterhin bei ui_availability_verifier durch Eclipse/JEE Framework-Fehler im Container-Shutdown-Lifecycle."
       ]
     },
     {
       "id": "ECL-T36",
       "title": "User Guide + Operator Runbook + Troubleshooting fuer reale Nutzung fertigstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -785,23 +782,23 @@
   "tasks_status_summary": {
     "total": 36,
     "by_status": {
-      "todo": 13,
-      "in_progress": 10,
-      "blocked": 0,
-      "done": 13
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 1,
+      "done": 35
     },
-    "progress_percent_done": 36.11,
+    "progress_percent_done": 97.22,
     "critical_path": {
       "total": 16,
-      "done": 9,
-      "remaining": 7
+      "done": 15,
+      "remaining": 1
     },
     "milestones": {
       "total": 9,
-      "todo": 4,
-      "in_progress": 3,
-      "blocked": 0,
-      "done": 2
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 1,
+      "done": 8
     }
   },
   "notes": [
