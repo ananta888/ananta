@@ -16,9 +16,13 @@ repositories {
 }
 
 dependencies {
-    compileOnly('org.eclipse.platform:org.eclipse.core.commands:3.12.500')
-    compileOnly('org.eclipse.platform:org.eclipse.ui:3.208.0')
-    compileOnly('org.eclipse.platform:org.eclipse.swt:3.133.0')
+    compileOnly('org.eclipse.platform:org.eclipse.core.commands:3.11.200')
+    compileOnly('org.eclipse.platform:org.eclipse.ui:3.202.0') {
+        exclude group: 'org.eclipse.platform', module: 'org.eclipse.swt'
+    }
+    compileOnly('org.eclipse.platform:org.eclipse.swt.gtk.linux.x86_64:3.125.0') {
+        exclude group: 'org.eclipse.platform', module: 'org.eclipse.swt'
+    }
     testImplementation(platform('org.junit:junit-bom:5.11.4'))
     testImplementation('org.junit.jupiter:junit-jupiter')
 }
