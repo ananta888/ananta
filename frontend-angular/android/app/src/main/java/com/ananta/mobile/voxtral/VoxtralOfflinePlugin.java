@@ -60,6 +60,8 @@ public class VoxtralOfflinePlugin extends Plugin {
             "llama-voxtral-cli",
             "llama-cli"
     );
+    private static final String PROOT_RUNTIME_SUBDIR = "proot-runtime";
+    private static final String LLM_RUNTIME_SUBDIR = "llm-runtime";
 
     private final Object recordingLock = new Object();
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
@@ -275,20 +277,11 @@ public class VoxtralOfflinePlugin extends Plugin {
 
         ioExecutor.execute(() -> {
             try {
-                List<String> command = buildRunnerCommand(executableRunnerFile, modelFile, audioFile);
-                ProcessBuilder pb = new ProcessBuilder(command);
-                pb.redirectErrorStream(true);
-                Process process = pb.start();
-                String output = readAll(process.getInputStream());
-                int exitCode = process.waitFor();
-                if (exitCode != 0) {
-                    call.reject("Runner failed with exit code " + exitCode + "\n" + output);
-                    return;
-                }
+                String output = runRunnerSync(executableRunnerFile, modelFile, audioFile);
                 JSObject result = new JSObject();
                 result.put("transcript", extractTranscript(output));
                 result.put("rawOutput", output);
-                result.put("exitCode", exitCode);
+                result.put("exitCode", 0);
                 call.resolve(result);
             } catch (Exception error) {
                 call.reject("Transcription failed: " + error.getMessage());
@@ -497,9 +490,9 @@ public class VoxtralOfflinePlugin extends Plugin {
             if (runner.exists()) {
                 try {
                     File preparedRunner = prepareRunnerForExecution(runner);
-                    executable = canSpawnRunner(preparedRunner);
+                    executable = canSpawnRunner(preparedRunner) || canSpawnRunnerViaProot();
                 } catch (Exception ignored) {
-                    executable = false;
+                    executable = canSpawnRunnerViaProot();
                 }
             }
             result.put("runnerExists", runner.exists());
@@ -631,6 +624,18 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     private String runRunnerSync(File runnerFile, File modelFile, File audioFile) throws IOException, InterruptedException {
+        try {
+            return runRunnerSyncDirect(runnerFile, modelFile, audioFile);
+        } catch (IOException directError) {
+            String msg = String.valueOf(directError.getMessage() == null ? "" : directError.getMessage());
+            if (!msg.contains("Permission denied") && !msg.contains("error=13")) {
+                throw directError;
+            }
+            return runRunnerSyncViaProot(modelFile, audioFile);
+        }
+    }
+
+    private String runRunnerSyncDirect(File runnerFile, File modelFile, File audioFile) throws IOException, InterruptedException {
         List<String> command = buildRunnerCommand(runnerFile, modelFile, audioFile);
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.redirectErrorStream(true);
@@ -639,6 +644,44 @@ public class VoxtralOfflinePlugin extends Plugin {
         int exitCode = process.waitFor();
         if (exitCode != 0) {
             throw new IOException("Runner failed with exit code " + exitCode + "\n" + output);
+        }
+        return extractTranscript(output);
+    }
+
+    private String runRunnerSyncViaProot(File modelFile, File audioFile) throws IOException, InterruptedException {
+        File prootWrapper = resolveProotWrapper();
+        File ubuntuRootfs = resolveUbuntuRootfs();
+        File llamaCli = resolveRuntimeLlamaCli();
+        if (prootWrapper == null || ubuntuRootfs == null || llamaCli == null) {
+            throw new IOException("Runner execution blocked by Android (permission denied) and proot fallback is unavailable.");
+        }
+
+        String runtimePath = new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR).getAbsolutePath();
+        String rootfsPath = ubuntuRootfs.getAbsolutePath();
+        String llamaPath = llamaCli.getAbsolutePath();
+        String modelPath = modelFile.getAbsolutePath();
+        String audioPath = audioFile.getAbsolutePath();
+        String shellCommand = ""
+            + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "
+            + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
+            + "ANANTA_PROOT_WRAPPER=" + shQuote(prootWrapper.getAbsolutePath()) + "; "
+            + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; "
+            + "mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
+            + "chmod 700 \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
+            + "PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
+            + "PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color "
+            + "/system/bin/sh \"$ANANTA_PROOT_WRAPPER\" "
+            + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" "
+            + "-w / /bin/sh -lc "
+            + shQuote("export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
+                + shQuote(llamaPath) + " -m " + shQuote(modelPath) + " -f " + shQuote(audioPath));
+        Process process = new ProcessBuilder("/system/bin/sh", "-lc", shellCommand)
+            .redirectErrorStream(true)
+            .start();
+        String output = readAll(process.getInputStream());
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            throw new IOException("Runner (proot fallback) failed with exit code " + exitCode + "\n" + output);
         }
         return extractTranscript(output);
     }
@@ -1091,7 +1134,8 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     private File ensureExecDir() {
-        File dir = new File(getContext().getCodeCacheDir(), "voxtral/exec");
+        // code_cache may be mounted non-executable on some Android builds.
+        File dir = new File(getContext().getFilesDir(), "voxtral/exec");
         if (dir.exists()) return dir;
         if (dir.mkdirs()) return dir;
         return null;
@@ -1124,6 +1168,67 @@ public class VoxtralOfflinePlugin extends Plugin {
                 process.destroy();
             }
         }
+    }
+
+    private boolean canSpawnRunnerViaProot() {
+        Process process = null;
+        try {
+            File prootWrapper = resolveProotWrapper();
+            File ubuntuRootfs = resolveUbuntuRootfs();
+            File llamaCli = resolveRuntimeLlamaCli();
+            if (prootWrapper == null || ubuntuRootfs == null || llamaCli == null) return false;
+            String runtimePath = new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR).getAbsolutePath();
+            String rootfsPath = ubuntuRootfs.getAbsolutePath();
+            String cmd = ""
+                + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "
+                + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
+                + "ANANTA_PROOT_WRAPPER=" + shQuote(prootWrapper.getAbsolutePath()) + "; "
+                + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; "
+                + "mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
+                + "PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
+                + "PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color "
+                + "/system/bin/sh \"$ANANTA_PROOT_WRAPPER\" "
+                + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" "
+                + "-w / /bin/sh -lc "
+                + shQuote(shQuote(llamaCli.getAbsolutePath()) + " --help >/dev/null 2>&1");
+            process = new ProcessBuilder("/system/bin/sh", "-lc", cmd)
+                .redirectErrorStream(true)
+                .start();
+            return process.waitFor(3, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+            return false;
+        } finally {
+            if (process != null && process.isAlive()) process.destroy();
+        }
+    }
+
+    private File resolveProotWrapper() {
+        File runtimeProot = new File(new File(new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR), "bin"), "proot");
+        if (runtimeProot.isFile()) return runtimeProot;
+        return null;
+    }
+
+    private File resolveUbuntuRootfs() {
+        File rootfsDir = new File(new File(new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR), "distros/ubuntu"), "rootfs");
+        if (!rootfsDir.isDirectory()) return null;
+        if (new File(rootfsDir, "bin/sh").isFile() || new File(rootfsDir, "usr/bin/sh").isFile()) return rootfsDir;
+        File[] children = rootfsDir.listFiles();
+        if (children == null) return null;
+        for (File child : children) {
+            if (!child.isDirectory()) continue;
+            if (new File(child, "bin/sh").isFile() || new File(child, "usr/bin/sh").isFile()) return child;
+        }
+        return null;
+    }
+
+    private File resolveRuntimeLlamaCli() {
+        File llamaCli = new File(new File(new File(getContext().getFilesDir(), LLM_RUNTIME_SUBDIR), "llama-cpp"), "llama-cli");
+        return llamaCli.isFile() ? llamaCli : null;
+    }
+
+    private String shQuote(String value) {
+        String text = String.valueOf(value == null ? "" : value);
+        return "'" + text.replace("'", "'\"'\"'") + "'";
     }
 
     private String inferFileNameFromUrl(String rawUrl) {
