@@ -1,9 +1,9 @@
 {
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
-  "track": "eclipse_plugin_product_runtime",
-  "purpose": "Umfangreicher Umsetzungsplan, um aus dem vorhandenen Eclipse Headless-/Bootstrap-Runtime-MVP ein voll verwendbares Eclipse-Plugin fuer Chat, Goal-/Task-Verwaltung, Code-Weiterentwicklung, Code-Reparatur, Projekt-Neuanlage, Review-/Approval-Flows, Inline-Code-Aktionen und installierbare UI-Evidence zu machen.",
-  "goal": "Ein produktiv nutzbares Eclipse-Plugin liefern, das als duennes Client-Surface gegen den Ananta-Hub arbeitet, ohne Hub-Orchestrierung, Task-Queue, Policy, Approval, Audit oder Worker-Steuerung in Eclipse zu verlagern.",
+  "track": "eclipse_plugin_real_productization",
+  "purpose": "Detaillierter Produktisierungs-Plan, um das installierbare Eclipse-Plugin von View-/Command-Stubs zu einer real nutzbaren Hub-angebundenen IDE-Erweiterung mit echter Settings-Seite, Datenbindung, Action-Flows und verifizierbarer UI-Funktion auszubauen.",
+  "goal": "Ein im Eclipse-Alltag nutzbares Plugin liefern: konfigurierbare Hub-Verbindung, funktionale Chat/Task/Artifact/Approval/Repair-Views, sichere Patch- und Projekt-Flows, klare Fehlerzustände, reproduzierbare Installation und belastbare UI-Evidence.",
   "created": "2026-05-01",
   "updated": "2026-05-01",
   "status_scale": [
@@ -25,196 +25,150 @@
     "critical"
   ],
   "current_state_summary": {
-    "classification": "runtime_mvp_p2_installable_with_jee_view_verifier_blocked",
+    "classification": "runtime_mvp_p2_installable_with_stub_ui",
     "fully_product_usable": false,
     "done_scope": [
-      "Java client core uses generic Hub paths and Hub-compatible goal payloads.",
-      "Eclipse command handlers and ViewPart adapter shells exist.",
-      "Runtime session/services, profile validation, status/degraded-state models exist.",
-      "Goal/task/artifact/approval runtime models are preserved and extended by product models.",
-      "Chat, context selection, chat history redaction and chat-to-goal model exist.",
-      "Patch preview, approval-gated apply guard, workspace write guard and review feedback models exist.",
-      "Repair marker context, project new/evolve/import models and optional completion/quick-fix models exist.",
-      "A real local p2 update site with content.jar, artifacts.jar, features and plugins exists for Eclipse UI installation.",
-      "Update-site scripts and Docker/Xvfb installed-Eclipse UI evidence exist and pass without skip.",
-      "Runtime status remains at runtime_mvp until p2-install-then-workbench verification passes in Eclipse JEE 2026-03."
+      "Plugin ist als JAR und lokale p2-Site installierbar.",
+      "Views/Commands sind in plugin.xml registriert.",
+      "Java-Client hat generische Hub-Pfade.",
+      "Headless-/Bootstrap- und Packaging-Skripte existieren."
     ],
     "missing_product_scope": [
-      "The strict p2-install-then-workbench verifier for Eclipse JEE 2026-03 is blocked by Eclipse JEE/Oomph profile startup instability in Docker."
+      "Keine echte Eclipse-Settings-Seite zur Hub-Konfiguration (Base URL/Auth/Profile/Test Connection).",
+      "Views sind weitgehend statische Platzhalter ohne echte Datenbindung.",
+      "Command- und Review-/Patch-Flows sind nicht Ende-zu-Ende nutzbar.",
+      "Robuste UI-E2E-Verifikation im Zielprofil (Eclipse JEE) ist noch nicht stabil gruen."
     ]
   },
-  "cross_track_references": [
-    "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
-    "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF",
-    "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build.gradle",
-    "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/AnantaApiClient.java",
-    "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/EclipseCommandRegistry.java",
-    "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseViewsExtensionRegistry.java",
-    "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AbstractAnantaRuntimeViewPart.java",
-    "agent/routes/tasks/goals.py",
-    "agent/routes/tasks/management.py",
-    "agent/routes/artifacts.py",
-    "agent/routes/system.py",
-    "data/client_surface_runtime_status.json",
-    "data/client_surface_runtime_inventory.json",
-    "docs/eclipse-plugin-runtime-bootstrap.md",
-    "docs/eclipse-runtime-smoke-checklist.md",
-    "tests/test_eclipse_hub_contract_routes.py",
-    "tests/test_eclipse_runtime_bootstrap.py"
-  ],
   "design_principles": [
-    "Eclipse bleibt ein duennes IDE-Client-Surface; der Hub bleibt zentrale Control Plane.",
-    "Das Plugin nutzt vorhandene generische Hub-Pfade bevorzugt vor surface-spezifischen Endpunkten.",
-    "Eclipse darf Goals und Tasks anlegen oder anzeigen, aber keine eigene Orchestrierungsschleife starten.",
-    "Code-Aenderungen werden review-first behandelt: Vorschau, Diff, Approval und erst danach Apply.",
-    "Inline-Vorschlaege und Chat duerfen keine Policy-, Auth- oder Approval-Entscheidungen lokal umgehen.",
-    "Kontextuebertragung ist bounded, sichtbar und redigierbar.",
-    "Secrets werden nicht persistiert, nicht geloggt und nicht in Workspace-Dateien geschrieben.",
-    "Runtime-Claims werden nur angehoben, wenn installierbare Packaging- und UI-Automation-Evidence existiert.",
-    "UI-Views bleiben Adapter; testbare Runtime-Modelle bleiben von Eclipse-Platform-Code getrennt.",
-    "Neue Features werden additiv und rueckwaertskompatibel eingefuehrt."
-  ],
-  "non_goals": [
-    "Kein autonomer Eclipse-Agent, der unabhaengig vom Hub Tasks orchestriert.",
-    "Keine direkte Ausfuehrung beliebiger Shell-Kommandos aus LLM-Antworten im Plugin.",
-    "Kein stilles Auto-Apply von Patches ohne sichtbare Diff-Pruefung und Freigabe.",
-    "Kein Ersatz der Hub-Web-UI; Eclipse bietet IDE-nahe Arbeitsflaechen und Browser-Deep-Links.",
-    "Keine lokale Speicherung von Tokens im Klartext.",
-    "Keine `runtime_complete`-Deklaration ohne installierte Eclipse-UI-E2E-Evidence."
+    "Eclipse bleibt duennes Client-Surface; Hub bleibt Control Plane.",
+    "Keine lokale Orchestrierung oder Policy-Entscheidung im Plugin.",
+    "Review-first und approval-gated fuer schreibende Aktionen.",
+    "Klare Degraded-/Error-Zustaende statt stiller Fallbacks.",
+    "Sichere Token-Behandlung und kein Klartext-Logging."
   ],
   "milestones": [
     {
-      "id": "ECL-M1",
-      "title": "Vorhandenen Headless-/Bootstrap-MVP konsolidieren",
+      "id": "ECL-M0",
+      "title": "Installierbare Baseline sichern",
       "task_ids": [
         "ECL-T01",
         "ECL-T02",
         "ECL-T03",
-        "ECL-T04",
-        "ECL-T05"
+        "ECL-T04"
       ],
-      "status": "blocked"
+      "status": "done"
     },
     {
-      "id": "ECL-M2",
-      "title": "Echte UI-Grundlagen und Runtime-Shell",
+      "id": "ECL-M1",
+      "title": "Echte Eclipse Settings und Profile",
       "task_ids": [
+        "ECL-T05",
         "ECL-T06",
         "ECL-T07",
         "ECL-T08",
         "ECL-T09"
       ],
-      "status": "done"
+      "status": "todo"
     },
     {
-      "id": "ECL-M3",
-      "title": "Goal-, Task- und Artifact-Verwaltung",
+      "id": "ECL-M2",
+      "title": "Runtime Session und Connection-State",
       "task_ids": [
         "ECL-T10",
         "ECL-T11",
         "ECL-T12",
-        "ECL-T13",
-        "ECL-T14"
+        "ECL-T13"
       ],
-      "status": "done"
+      "status": "todo"
+    },
+    {
+      "id": "ECL-M3",
+      "title": "Chat und Goal-Flow real nutzbar",
+      "task_ids": [
+        "ECL-T14",
+        "ECL-T15",
+        "ECL-T16",
+        "ECL-T17"
+      ],
+      "status": "todo"
     },
     {
       "id": "ECL-M4",
-      "title": "Chat-Fenster und kontextbewusste Interaktion",
+      "title": "Task/Artifact/Approval Views mit echter Datenbindung",
       "task_ids": [
-        "ECL-T15",
-        "ECL-T16",
-        "ECL-T17",
-        "ECL-T18"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "ECL-M5",
-      "title": "Editor-Code-Aktionen, Review und Patch-Apply",
-      "task_ids": [
+        "ECL-T18",
         "ECL-T19",
         "ECL-T20",
         "ECL-T21",
-        "ECL-T22",
-        "ECL-T23"
+        "ECL-T22"
       ],
-      "status": "done"
+      "status": "todo"
+    },
+    {
+      "id": "ECL-M5",
+      "title": "Repair und Patch-Review/Apply Flows",
+      "task_ids": [
+        "ECL-T23",
+        "ECL-T24",
+        "ECL-T25",
+        "ECL-T26"
+      ],
+      "status": "todo"
     },
     {
       "id": "ECL-M6",
-      "title": "Code-Reparatur und Projekt-Evolution",
+      "title": "Projekt-Neuanlage und Evolution",
       "task_ids": [
-        "ECL-T24",
-        "ECL-T25",
-        "ECL-T26",
-        "ECL-T27"
-      ],
-      "status": "done"
-    },
-    {
-      "id": "ECL-M7",
-      "title": "Projekt-Neuanlage und Work-Profile",
-      "task_ids": [
+        "ECL-T27",
         "ECL-T28",
         "ECL-T29",
         "ECL-T30"
       ],
-      "status": "done"
+      "status": "todo"
     },
     {
-      "id": "ECL-M8",
-      "title": "Inline Completion und IDE-native Assistenz",
+      "id": "ECL-M7",
+      "title": "UX, Degraded Handling, Security und Observability",
       "task_ids": [
         "ECL-T31",
         "ECL-T32",
-        "ECL-T33"
+        "ECL-T33",
+        "ECL-T34"
       ],
-      "status": "done"
+      "status": "todo"
     },
     {
-      "id": "ECL-M9",
-      "title": "Security, Policy, Settings und Observability",
+      "id": "ECL-M8",
+      "title": "Release-Reife, UI-E2E und Runbook",
       "task_ids": [
-        "ECL-T34",
         "ECL-T35",
-        "ECL-T36",
-        "ECL-T37"
+        "ECL-T36"
       ],
-      "status": "done"
-    },
-    {
-      "id": "ECL-M10",
-      "title": "Packaging, UI-Automation und Release-Reife",
-      "task_ids": [
-        "ECL-T38",
-        "ECL-T39",
-        "ECL-T40",
-        "ECL-T41"
-      ],
-      "status": "done"
+      "status": "todo"
     }
   ],
   "tasks": [
     {
       "id": "ECL-T01",
-      "title": "Eclipse Runtime-Baseline analysieren und Headless-Scope festhalten",
-      "status": "blocked",
+      "title": "Plugin als installierbare p2-Site bereitstellen",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "expected_files": [
-        "docs/eclipse-plugin-runtime-bootstrap.md",
-        "data/client_surface_runtime_status.json"
+        "scripts/build_eclipse_update_site.py",
+        "ci-artifacts/eclipse/ananta-eclipse-update-site/content.jar",
+        "ci-artifacts/eclipse/ananta-eclipse-update-site/artifacts.jar"
       ],
       "acceptance_criteria": [
-        "Der aktuelle Stand ist als Headless-/Bootstrap-Runtime-MVP dokumentiert.",
-        "Es ist explizit festgehalten, dass noch kein vollstaendiges Produktiv-Plugin existiert.",
-        "Die Grenze zu `runtime_complete` ist an installierte Eclipse-UI-Evidence gebunden."
+        "Lokale Site kann in Install New Software als Repository gelesen werden.",
+        "Feature group ist installierbar.",
+        "site.json beschreibt installierbare Artefakte korrekt."
       ]
     },
     {
       "id": "ECL-T02",
-      "title": "Java-Client auf vorhandene generische Hub-Pfade umstellen",
+      "title": "Core-Hub-Routen im Java-Client stabilisieren",
       "status": "done",
       "priority": "P0",
       "risk": "critical",
@@ -223,107 +177,121 @@
         "tests/test_eclipse_hub_contract_routes.py"
       ],
       "acceptance_criteria": [
-        "Der Client nutzt `POST /goals` statt nicht existierender `/tasks/analyze`, `/tasks/review`, `/tasks/patch-plan`, `/projects/new` oder `/projects/evolve`.",
-        "Goal-Payloads senden `goal` statt `goal_text`.",
-        "Ein Python-Hub-Contract-Test prueft registrierte Flask-Routen gegen den Java-Client-Vertrag."
+        "Goals/Tasks/Artifacts/Audit verwenden existierende generische Hub-Routen.",
+        "Goal-Payload nutzt Feld goal.",
+        "Route-Contract-Test bleibt gruen."
       ]
     },
     {
       "id": "ECL-T03",
-      "title": "Echte Eclipse AbstractHandler- und ViewPart-Adapter einfuehren",
+      "title": "ViewPart-/Command-Registrierung vervollstaendigen",
       "status": "done",
       "priority": "P0",
-      "risk": "critical",
+      "risk": "high",
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/handlers/AnalyzeCommandHandler.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AbstractAnantaRuntimeViewPart.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml"
       ],
       "acceptance_criteria": [
-        "Command-Handler erweitern Eclipse `AbstractHandler`.",
-        "Views referenzieren `ViewPart`-Adapter statt reine Runtime-Registry-POJOs.",
-        "Die testbaren Runtime-Modelle bleiben von den Eclipse-Platform-Klassen getrennt."
+        "Alle geplanten Views und Commands sind in plugin.xml registriert.",
+        "Keine kaputten class references.",
+        "Plugin laedt ohne Registry-Fehler."
       ]
     },
     {
       "id": "ECL-T04",
-      "title": "Headless Java-, Python- und Smoke-Gates stabil halten",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "expected_files": [
-        "scripts/build_eclipse_runtime_plugin.py",
-        "scripts/smoke_eclipse_runtime_bootstrap.py",
-        "scripts/smoke_eclipse_runtime_headless.py",
-        "tests/test_eclipse_runtime_bootstrap.py"
-      ],
-      "acceptance_criteria": [
-        "Docker-Gradle Java-Tests laufen im Headless-Modus.",
-        "Python-Contract- und Inventory-Tests laufen gegen die neue Runtime-Definition.",
-        "Smoke-Skripte pruefen AbstractHandler-/ViewPart-Praesenz."
-      ]
-    },
-    {
-      "id": "ECL-T05",
-      "title": "Status, Inventory und Doku auf Headless-/Bootstrap-Scope schaerfen",
+      "title": "Build-/Smoke-Baseline fuer Eclipse Runtime absichern",
       "status": "done",
       "priority": "P1",
       "risk": "medium",
       "expected_files": [
-        "data/client_surface_runtime_inventory.json",
-        "data/client_surface_runtime_status.json",
-        "docs/eclipse-plugin-adapter-foundation.md",
-        "docs/eclipse-runtime-smoke-checklist.md"
+        "scripts/build_eclipse_runtime_plugin.py",
+        "scripts/smoke_eclipse_runtime_bootstrap.py",
+        "scripts/smoke_eclipse_runtime_headless.py"
       ],
       "acceptance_criteria": [
-        "`runtime_mvp` bleibt als Headless-/Bootstrap-Claim beschrieben.",
-        "`runtime_complete` bleibt ausgeschlossen, bis installierte UI-Automation vorhanden ist.",
-        "Inventory-Evidence nennt die generischen Hub-Pfade und Eclipse-Adapterklassen."
+        "Bootstrap- und Headless-Smoke laufen reproduzierbar.",
+        "Build produziert keine commit-pflichtigen Cache-Artefakte."
+      ]
+    },
+    {
+      "id": "ECL-T05",
+      "title": "Ananta Eclipse-Settings-Seite als echte Preference Page registrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "ECL-T03"
+      ],
+      "expected_files": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/preferences/AnantaPreferencePage.java"
+      ],
+      "acceptance_criteria": [
+        "Preferences sind unter Window > Preferences > Ananta sichtbar.",
+        "Seite ist echte Eclipse-UI und nicht nur DTO/Validator.",
+        "Alle Felder haben Labels, Hilfe-Text und Validierung."
       ]
     },
     {
       "id": "ECL-T06",
-      "title": "Gemeinsame Eclipse Runtime-Session und Service-Locator-Schicht bauen",
-      "status": "done",
+      "title": "Settings-Felder fuer Hub URL, Auth, Profil, Timeout und Workspace-Policy liefern",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
-        "ECL-T02",
-        "ECL-T03"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/platform/AnantaRuntimeSession.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/platform/AnantaRuntimeServices.java"
-      ],
-      "acceptance_criteria": [
-        "Alle Handler und ViewParts beziehen Client, Profile, CapabilityGate und Runtime-State aus einer klaren Session-Schicht.",
-        "Die Session startet keine eigene Orchestrierung und haelt nur IDE-lokalen UI-/Connection-State.",
-        "Unit-Tests koennen Runtime-Services ohne Eclipse-Workbench instanziieren."
-      ]
-    },
-    {
-      "id": "ECL-T07",
-      "title": "Connection/Profile Preferences UI implementieren",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "depends_on": [
-        "ECL-T06"
+        "ECL-T05"
       ],
       "expected_files": [
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/preferences/AnantaPreferencePage.java",
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/ClientProfile.java"
       ],
       "acceptance_criteria": [
-        "Nutzer koennen Hub-Base-URL, Profilname, Timeout und Auth-Modus in Eclipse konfigurieren.",
-        "Tokens werden sicher gespeichert oder nur session-lokal gehalten; keine Klartextpersistenz.",
-        "Die Preferences validieren URL, Timeout und Token-Praesenz mit klarer UI-Rueckmeldung."
+        "Base URL, Auth mode, Token, Profilname, Timeout sind editierbar.",
+        "Ungueltige Eingaben blockieren Save mit klarer Fehlermeldung.",
+        "Workspace-trust Option fuer schreibende Aktionen ist konfigurierbar."
+      ]
+    },
+    {
+      "id": "ECL-T07",
+      "title": "Secure Storage fuer Tokens integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "ECL-T06"
+      ],
+      "expected_files": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/security/TokenRedaction.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/preferences/AnantaPreferencePage.java"
+      ],
+      "acceptance_criteria": [
+        "Token wird nicht im Klartext in Prefs-Dateien persistiert.",
+        "Error- und Audit-Ausgaben redigieren sensitive Daten.",
+        "Optionaler session-only Modus funktioniert."
       ]
     },
     {
       "id": "ECL-T08",
-      "title": "Health-, Capability- und Degraded-State UI liefern",
-      "status": "done",
+      "title": "Test-Connection Button in Settings implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "ECL-T06"
+      ],
+      "expected_files": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/preferences/AnantaPreferencePage.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/AnantaApiClient.java"
+      ],
+      "acceptance_criteria": [
+        "Button prueft /health und optional /v1/ananta/capabilities.",
+        "UI zeigt klar connected/unauthorized/unreachable."
+      ]
+    },
+    {
+      "id": "ECL-T09",
+      "title": "Aktives Profil zentral laden und Runtime Services darauf verdrahten",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -331,659 +299,477 @@
         "ECL-T07"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaStatusViewPart.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/DegradedState.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/platform/AnantaRuntimeServices.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/platform/AnantaRuntimeSession.java"
       ],
       "acceptance_criteria": [
-        "Eclipse zeigt connected, unauthorized, degraded, policy_denied und backend_unreachable unterscheidbar an.",
-        "Capability-Status kommt vom Hub und wird nicht lokal erfunden.",
-        "Fehlerzustaende blockieren riskante Aktionen sichtbar statt stillschweigend weiterzumachen."
-      ]
-    },
-    {
-      "id": "ECL-T09",
-      "title": "Eclipse Perspective, Menus, Toolbar und Command Placement definieren",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "depends_on": [
-        "ECL-T06"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/platform/AnantaPerspectiveFactory.java"
-      ],
-      "acceptance_criteria": [
-        "Analyze, Review, Patch, Chat, Repair, New Project und Evolve Project sind sinnvoll in Menus/Toolbar/Context-Menu erreichbar.",
-        "Die Perspective ordnet Chat, Tasks, Artifacts und Status nachvollziehbar an.",
-        "Command Placement ist dokumentiert und in Smoke-Tests pruefbar."
+        "Views und Commands nutzen dasselbe aktive Profil.",
+        "Profilwechsel aktualisiert API-Client ohne Eclipse-Neustart."
       ]
     },
     {
       "id": "ECL-T10",
-      "title": "Goal-Verwaltungsview mit Create-, Preset- und History-Flow bauen",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
+      "title": "Runtime Session lifecycle (startup/shutdown/reconnect) robust machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
       "depends_on": [
-        "ECL-T06",
-        "ECL-T08"
+        "ECL-T09"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaGoalViewPart.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/GoalSubmissionRuntimePanel.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/platform/AnantaRuntimeSession.java"
       ],
       "acceptance_criteria": [
-        "Nutzer koennen Goals aus Eclipse erstellen und Presets fuer analyze, review, patch, new_project und evolve_project waehlen.",
-        "Der aktive Workspace-/Editor-Kontext wird vor dem Senden angezeigt und bestaetigt.",
-        "Gesendete Goals erscheinen mit Hub-ID, Status und Deep-Link."
+        "Session startet lazy und reconnectet bei Verbindungsausfall.",
+        "Shutdown hinterlaesst keine hängenden Threads/Timer."
       ]
     },
     {
       "id": "ECL-T11",
-      "title": "Task-Liste mit Filtern, Refresh, Status und Auswahl-Synchronisation implementieren",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
+      "title": "Status-View mit echtem Health/Capability Polling und manueller Refresh-Aktion",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
       "depends_on": [
         "ECL-T10"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaTaskListViewPart.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTaskRuntimeView.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaStatusViewPart.java"
       ],
       "acceptance_criteria": [
-        "Tasks werden ueber `GET /tasks` geladen und nach Status, Goal, Reviewbedarf und Fehlerzustand filterbar.",
-        "Auswahl in der Task-Liste aktualisiert Detail- und Artifact-Views.",
-        "Refresh ist manuell und optional polling-basiert, ohne Backend-Spam."
+        "Status-View zeigt reale Daten statt statischem Text.",
+        "Refresh ist explizit und throttled."
       ]
     },
     {
       "id": "ECL-T12",
-      "title": "Task-Detail-View mit Logs, Next-Step, Reviewbedarf und Browser-Links liefern",
-      "status": "done",
+      "title": "Globalen Error-/Degraded-State Banner fuer alle Ananta Views einbauen",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
         "ECL-T11"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaTaskDetailViewPart.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseTaskRuntimeView.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/DegradedViewModel.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AbstractAnantaRuntimeViewPart.java"
       ],
       "acceptance_criteria": [
-        "Task-Details kommen ueber `GET /tasks/<id>`.",
-        "Reviewrequired, next_step, owner, status und Fehlermeldungen sind sichtbar.",
-        "Deep-Links zur Hub-Web-UI sind vorhanden, aber kein Ersatz fuer Hub-Governance."
+        "Unauthorized/Policy-denied/Backend-offline sind klar unterscheidbar.",
+        "Keine View zeigt leeren Platzhalter ohne Fehlerkontext."
       ]
     },
     {
       "id": "ECL-T13",
-      "title": "Artifact- und Diff-View fuer Ergebnisse, Markdown und Patch-Vorschlaege bauen",
-      "status": "done",
+      "title": "Command-Handler an zentrale Runtime-Session und Connection-Checks binden",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
-        "ECL-T11",
+        "ECL-T09",
         "ECL-T12"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaArtifactViewPart.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseArtifactRuntimeView.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/handlers/*.java"
       ],
       "acceptance_criteria": [
-        "Artifacts werden ueber `GET /artifacts` und `GET /artifacts/<id>` geladen.",
-        "Markdown, Text, JSON und Diff-/Patch-Artefakte haben passende Render-Modi.",
-        "Patch-Artefakte werden nie automatisch angewendet, sondern nur als Review-Vorschlag angezeigt."
+        "Commands brechen nicht still ab; sie liefern konkrete Fehlermeldungen.",
+        "Nicht verbundene Session verhindert riskante Aktionen."
       ]
     },
     {
       "id": "ECL-T14",
-      "title": "Approval-Queue und Review-Actions im Eclipse UI verdrahten",
-      "status": "done",
+      "title": "Chat-View von statischem Label auf echte Message-UI umbauen",
+      "status": "todo",
       "priority": "P0",
-      "risk": "critical",
+      "risk": "high",
       "depends_on": [
-        "ECL-T11",
-        "ECL-T13"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaApprovalQueueViewPart.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseApprovalRuntimeView.java"
-      ],
-      "acceptance_criteria": [
-        "Pending Review/Approval Items werden sichtbar und auf Hub-Task-Review-Flows gemappt.",
-        "Approve/Reject erfordert explizite Nutzerbestaetigung und Kommentarunterstuetzung.",
-        "Policy-denied und unauthorized werden sichtbar, nicht als Erfolg behandelt."
-      ]
-    },
-    {
-      "id": "ECL-T15",
-      "title": "Chat-View als echte Eclipse ViewPart implementieren",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "depends_on": [
-        "ECL-T06",
-        "ECL-T08"
+        "ECL-T09"
       ],
       "expected_files": [
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaChatViewPart.java",
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/chat/ChatRuntimeModel.java"
       ],
       "acceptance_criteria": [
-        "Chat-View enthaelt Verlauf, Eingabefeld, Send-Button und Statusanzeige.",
-        "Nachrichten werden an einen Hub-kompatiblen Chat-/Goal-/Task-Flow angebunden, ohne lokale Orchestrierung.",
-        "Antworten koennen Task-/Artifact-/Patch-Referenzen anzeigen."
+        "Chat zeigt Verlauf, Input, Send, Pending und Error-Zustand.",
+        "Nachrichten werden an den Hub-Flow gesendet und Antworten dargestellt."
+      ]
+    },
+    {
+      "id": "ECL-T15",
+      "title": "Chat-Kontextauswahl (Projekt/Datei/Selektion) mit Preview und Limits umsetzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "ECL-T14"
+      ],
+      "expected_files": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/chat/ChatContextSelector.java"
+      ],
+      "acceptance_criteria": [
+        "Nutzer sieht vor Send die übertragenen Kontextteile.",
+        "Kontext ist bounded und redigierbar."
       ]
     },
     {
       "id": "ECL-T16",
-      "title": "Chat-Kontextauswahl fuer Workspace, Projekt, Datei und Selektion bauen",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "depends_on": [
-        "ECL-T15"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/context/EclipseContextCaptureRuntime.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/chat/ChatContextSelector.java"
-      ],
-      "acceptance_criteria": [
-        "Nutzer koennen bewusst waehlen, ob aktive Selektion, Datei, Projektpfade oder kein Kontext gesendet wird.",
-        "Kontext ist bounded, previewed und vor dem Senden redigierbar.",
-        "Ausserhalb des Workspace liegende Pfade werden abgelehnt oder sichtbar markiert."
-      ]
-    },
-    {
-      "id": "ECL-T17",
-      "title": "Chat-zu-Goal- und Chat-zu-Task-Konvertierung implementieren",
-      "status": "done",
+      "title": "Chat-Antworten mit Task-/Artifact-Links klickbar machen",
+      "status": "todo",
       "priority": "P1",
-      "risk": "high",
+      "risk": "medium",
       "depends_on": [
-        "ECL-T15",
-        "ECL-T16"
+        "ECL-T14"
       ],
       "expected_files": [
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/chat/ChatActionRuntime.java"
       ],
       "acceptance_criteria": [
-        "Ein Chat-Verlauf kann explizit in ein Hub-Goal umgewandelt werden.",
-        "Chat-Antworten koennen Task-Erstellung vorschlagen, aber nicht stillschweigend ausloesen.",
-        "Die erzeugten Goal-/Task-Referenzen erscheinen in Goal- und Task-Views."
+        "Links oeffnen Task-/Artifact-Views und selektieren passende IDs."
+      ]
+    },
+    {
+      "id": "ECL-T17",
+      "title": "Goal-Panel mit Templates, Context-Preview und Submit-Feedback produktiv machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "ECL-T13",
+        "ECL-T15"
+      ],
+      "expected_files": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaGoalViewPart.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/GoalSubmissionRuntimePanel.java"
+      ],
+      "acceptance_criteria": [
+        "Goal-Erstellung zeigt Hub-ID/State und nachvollziehbares Ergebnis."
       ]
     },
     {
       "id": "ECL-T18",
-      "title": "Chat-Verlauf, Redaction und Privacy-Modus absichern",
-      "status": "done",
-      "priority": "P1",
+      "title": "Task List View mit JFace Viewer, Sortierung, Filter und Paging anbinden",
+      "status": "todo",
+      "priority": "P0",
       "risk": "high",
       "depends_on": [
-        "ECL-T15",
-        "ECL-T16"
+        "ECL-T09"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/chat/ChatHistoryStore.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/security/TokenRedaction.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaTaskListViewPart.java"
       ],
       "acceptance_criteria": [
-        "Chat-History speichert keine Tokens, Secrets oder unredigierte Header.",
-        "Nutzer koennen Verlauf loeschen und optional nur session-lokal halten.",
-        "Redaction-Tests decken typische Secret-Patterns ab."
+        "Task-Liste zeigt echte /tasks Daten.",
+        "Filter fuer status/owner/review_required funktionieren."
       ]
     },
     {
       "id": "ECL-T19",
-      "title": "Editor-Kontextmenue fuer Analyze, Review, Patch und Repair anbinden",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
+      "title": "Task Detail View mit Verlauf, next_step und Fehlerdetails anbinden",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
       "depends_on": [
-        "ECL-T09",
-        "ECL-T10",
-        "ECL-T16"
+        "ECL-T18"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/handlers/PatchCommandHandler.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaTaskDetailViewPart.java"
       ],
       "acceptance_criteria": [
-        "Commands sind aus Editor-Selection und Package Explorer erreichbar.",
-        "Aktive Selektion wird als bounded Kontext an Hub-Goal-Flows gesendet.",
-        "Fehlende Auswahl fuehrt zu Datei-/Projektkontext oder klarer Rueckfrage."
+        "Detail-View zeigt selektierte Task aus Task-Liste.",
+        "Refresh und Retry haben klare UI-Rueckmeldung."
       ]
     },
     {
       "id": "ECL-T20",
-      "title": "Diff Preview und Patch Proposal Review UI bauen",
-      "status": "done",
+      "title": "Artifact View mit Markdown/Text/JSON/Diff-Renderer realisieren",
+      "status": "todo",
       "priority": "P0",
-      "risk": "critical",
+      "risk": "high",
       "depends_on": [
-        "ECL-T13",
-        "ECL-T19"
+        "ECL-T18"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/patch/PatchPreviewViewModel.java",
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaArtifactViewPart.java"
       ],
       "acceptance_criteria": [
-        "Patch-Vorschlaege werden als Diff gegen Workspace-Dateien angezeigt.",
-        "Jeder Hunk ist pruefbar, auswaehlbar und mit Quellposition verlinkt.",
-        "Kein Patch wird ohne explizite Review-Entscheidung angewendet."
+        "Artifact-Liste und Detail funktionieren Ende-zu-Ende.",
+        "Diff-/Patch-Artefakte werden als Vorschau angezeigt."
       ]
     },
     {
       "id": "ECL-T21",
-      "title": "Approval-gated Patch Apply implementieren",
-      "status": "done",
+      "title": "Approval Queue mit Approve/Reject und Kommentaren funktional machen",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
-        "ECL-T14",
+        "ECL-T18",
         "ECL-T20"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/patch/ApprovalGatedPatchApplier.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaApprovalQueueViewPart.java"
       ],
       "acceptance_criteria": [
-        "Patch-Apply ist nur moeglich, wenn Hub-Approval/Review erfolgreich ist.",
-        "Vor dem Schreiben werden Workspace-Dateien erneut auf Drift/Staleness geprueft.",
-        "Apply-Ergebnis erzeugt sichtbare Erfolgs-/Fehlerdetails und Audit-Referenz."
+        "Approve/Reject ruft /tasks/<id>/review korrekt auf.",
+        "Ergebnis und Fehler werden eindeutig angezeigt."
       ]
     },
     {
       "id": "ECL-T22",
-      "title": "Workspace-Safety fuer Dateischreibzugriffe und Rollback vorbereiten",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
+      "title": "Audit View mit Filter (severity/type/object) und Pagination aktivieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
       "depends_on": [
-        "ECL-T21"
+        "ECL-T09"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/workspace/WorkspaceWriteGuard.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaAuditViewPart.java"
       ],
       "acceptance_criteria": [
-        "Dateischreibzugriffe sind auf Workspace-Ressourcen begrenzt.",
-        "Schreibzugriffe pruefen Dirty Editor State und konkurrierende Aenderungen.",
-        "Rollback- oder Backup-Strategie ist dokumentiert und testbar."
+        "Audit-Events werden real geladen und filterbar dargestellt."
       ]
     },
     {
       "id": "ECL-T23",
-      "title": "Review-Kommentare und Hunk-spezifisches Feedback an Hub zurueckspielen",
-      "status": "done",
+      "title": "Repair View an reale failed-Tasks und Marker-Kontext koppeln",
+      "status": "todo",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
+        "ECL-T18"
+      ],
+      "expected_files": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaRepairViewPart.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/repair/ProblemMarkerContextCapture.java"
+      ],
+      "acceptance_criteria": [
+        "Repair-Flow zeigt konkrete Schritte statt Placeholder."
+      ]
+    },
+    {
+      "id": "ECL-T24",
+      "title": "Patch Preview und Diff-Dialog als echter Confirm-Flow bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
         "ECL-T20",
-        "ECL-T14"
+        "ECL-T21"
+      ],
+      "expected_files": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/patch/PatchPreviewViewModel.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/patch/ApprovalGatedPatchApplier.java"
+      ],
+      "acceptance_criteria": [
+        "Patch wird nie ohne sichtbaren Diff und explizite Zustimmung angewendet."
+      ]
+    },
+    {
+      "id": "ECL-T25",
+      "title": "Workspace Write Guard und Trust Policy fuer Apply/Import erzwingen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "ECL-T24",
+        "ECL-T06"
+      ],
+      "expected_files": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/workspace/WorkspaceWriteGuard.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/security/WorkspaceTrustGuard.java"
+      ],
+      "acceptance_criteria": [
+        "Nicht vertrauenswuerdige Workspaces blockieren schreibende Aktionen sichtbar."
+      ]
+    },
+    {
+      "id": "ECL-T26",
+      "title": "Review-Feedback pro Hunk/Datei erfassen und senden",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "depends_on": [
+        "ECL-T21"
       ],
       "expected_files": [
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/review/ReviewFeedbackRuntime.java"
       ],
       "acceptance_criteria": [
-        "Nutzer koennen Hunk-spezifische Kommentare erfassen.",
-        "Feedback wird an Hub-Task-/Review-Flows gesendet.",
-        "Die UI zeigt, ob Feedback angenommen, abgelehnt oder policy-limited ist."
-      ]
-    },
-    {
-      "id": "ECL-T24",
-      "title": "Code-Reparatur-View mit Fehlerliste, Repair-Sessions und Vorschlaegen bauen",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "depends_on": [
-        "ECL-T11",
-        "ECL-T13",
-        "ECL-T19"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaRepairViewPart.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseRepairRuntimeView.java"
-      ],
-      "acceptance_criteria": [
-        "Repair-View zeigt erkannte Fehler, Hub-Repair-Tasks und vorgeschlagene Schritte.",
-        "Oeffnen oder Refresh fuehrt keine Reparatur automatisch aus.",
-        "Repair-Schritte nutzen denselben Review-/Approval-/Patch-Apply-Sicherheitsfluss."
-      ]
-    },
-    {
-      "id": "ECL-T25",
-      "title": "Compiler-, Marker- und Problems-View-Kontext in Repair-Flows einspeisen",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "depends_on": [
-        "ECL-T24"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/repair/ProblemMarkerContextCapture.java"
-      ],
-      "acceptance_criteria": [
-        "Eclipse Problem Markers koennen bounded in Repair-Goals aufgenommen werden.",
-        "Fehlerkontext enthaelt Projekt, Datei, Zeile, Severity und Message.",
-        "Grosse Marker-Mengen werden gekappt und sichtbar zusammengefasst."
-      ]
-    },
-    {
-      "id": "ECL-T26",
-      "title": "Projekt-Evolution-Flow fuer bestehende Projekte als Wizard/Command liefern",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
-      "depends_on": [
-        "ECL-T10",
-        "ECL-T16",
-        "ECL-T20"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/project/EvolveProjectWizard.java"
-      ],
-      "acceptance_criteria": [
-        "Nutzer koennen ein bestehendes Projekt, Ziel und Constraints waehlen.",
-        "Der Flow erstellt ein Hub-Goal mit Projektkontext und Work-Profile-Hinweisen.",
-        "Ergebnisse erscheinen als Tasks/Artifacts und koennen review-first angewendet werden."
+        "Feedback ist task/review-bezogen und nachvollziehbar."
       ]
     },
     {
       "id": "ECL-T27",
-      "title": "Refactoring- und Evolution-Proposals IDE-nativ anzeigen",
-      "status": "done",
+      "title": "New Project Wizard Ende-zu-Ende an Hub anbinden",
+      "status": "todo",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
-        "ECL-T26",
-        "ECL-T20"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/project/EvolutionProposalViewModel.java"
-      ],
-      "acceptance_criteria": [
-        "Evolution-Proposals zeigen betroffene Dateien, Risiken, Tests und vorgeschlagene Reihenfolge.",
-        "Vorschlaege koennen akzeptiert, kommentiert oder abgelehnt werden.",
-        "Akzeptierte Vorschlaege folgen dem Approval-gated Patch-Apply-Fluss."
-      ]
-    },
-    {
-      "id": "ECL-T28",
-      "title": "New Project Wizard fuer Ananta-gestuetzte Projektanlage bauen",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "depends_on": [
-        "ECL-T07",
-        "ECL-T10"
+        "ECL-T17"
       ],
       "expected_files": [
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/project/NewAnantaProjectWizard.java"
       ],
       "acceptance_criteria": [
-        "Wizard fragt Zielordner, Sprache/Stack, Architekturziel, Constraints und Work-Profile ab.",
-        "Der Wizard erzeugt zunaechst ein Hub-Goal und zeigt Task-Fortschritt an.",
-        "Lokale Projektdateien werden erst nach Review/Approval geschrieben oder importiert."
+        "Wizard erstellt Goal/Tasks und importiert Ergebnis nur nach Bestätigung."
       ]
     },
     {
-      "id": "ECL-T29",
-      "title": "Blueprint- und Work-Profile-Auswahl im Wizard integrieren",
-      "status": "done",
-      "priority": "P1",
+      "id": "ECL-T28",
+      "title": "Blueprint-/Profile-Seite im Wizard mit Hub-Lookup fuellen",
+      "status": "todo",
+      "priority": "P2",
       "risk": "medium",
       "depends_on": [
-        "ECL-T28"
+        "ECL-T27"
       ],
       "expected_files": [
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/project/BlueprintSelectionPage.java"
       ],
       "acceptance_criteria": [
-        "Verfuegbare Blueprints/Work-Profile werden vom Hub geladen oder als degraded markiert.",
-        "Nutzer sehen Beschreibung, Risiken und Defaults vor dem Absenden.",
-        "Fehlende Blueprints blockieren den Wizard nicht still, sondern zeigen klare Fallbacks."
+        "Blueprints zeigen Beschreibung, Constraints, Auswahlvalidierung."
       ]
     },
     {
-      "id": "ECL-T30",
-      "title": "Generated Project Import, Preview und Workspace-Safety liefern",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
+      "id": "ECL-T29",
+      "title": "Generated Project Import mit Konfliktbehandlung und Preview umsetzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
       "depends_on": [
-        "ECL-T28",
-        "ECL-T29",
-        "ECL-T22"
+        "ECL-T27",
+        "ECL-T25"
       ],
       "expected_files": [
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/project/GeneratedProjectImporter.java"
       ],
       "acceptance_criteria": [
-        "Generierte Projektartefakte werden vor Import als Baum-/Diff-Preview angezeigt.",
-        "Import prueft Zielordner, existierende Dateien und Schreibrechte.",
-        "Import erzeugt nachvollziehbare Task-/Artifact-/Audit-Referenzen."
+        "Dateikonflikte werden nicht still ueberschrieben."
+      ]
+    },
+    {
+      "id": "ECL-T30",
+      "title": "Evolve Project Wizard inkl. Proposal-Liste und Apply-Flow liefern",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "depends_on": [
+        "ECL-T27",
+        "ECL-T24"
+      ],
+      "expected_files": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/project/EvolveProjectWizard.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/project/EvolutionProposalViewModel.java"
+      ],
+      "acceptance_criteria": [
+        "Vorschlaege sind pruefbar und folgen review-first."
       ]
     },
     {
       "id": "ECL-T31",
-      "title": "Inline Completion Provider als optionalen, policy-gated Pfad evaluieren und implementieren",
-      "status": "done",
-      "priority": "P1",
-      "risk": "critical",
-      "depends_on": [
-        "ECL-T07",
-        "ECL-T16",
-        "ECL-T34"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/completion/AnantaCompletionProposalComputer.java"
-      ],
-      "acceptance_criteria": [
-        "Inline Completion ist optional und default-off, bis Policy/Capability dies erlaubt.",
-        "Completion-Kontext ist streng bounded und enthaelt keine unkontrollierten Projekt-Dumps.",
-        "Vorschlaege werden als IDE-Proposals angezeigt und nicht automatisch angewendet."
-      ]
-    },
-    {
-      "id": "ECL-T32",
-      "title": "Code-Assist und Quick-Fix Integration fuer erkannte Vorschlaege bauen",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "depends_on": [
-        "ECL-T24",
-        "ECL-T31"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/completion/AnantaQuickFixProcessor.java"
-      ],
-      "acceptance_criteria": [
-        "Quick-Fixes koennen aus Problem Markers und Review-Vorschlaegen entstehen.",
-        "Jeder Quick-Fix zeigt Preview und benoetigt Freigabe fuer Schreibzugriffe.",
-        "Nicht erlaubte Quick-Fixes erscheinen mit policy-limited Hinweis."
-      ]
-    },
-    {
-      "id": "ECL-T33",
-      "title": "Completion-Qualitaets-, Latenz- und Rate-Limit-Guards testen",
-      "status": "done",
-      "priority": "P2",
-      "risk": "medium",
-      "depends_on": [
-        "ECL-T31"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/test/java/io/ananta/eclipse/runtime/completion/EclipseCompletionRuntimeTest.java"
-      ],
-      "acceptance_criteria": [
-        "Completion-Anfragen werden gedrosselt und abbrechbar gemacht.",
-        "Timeouts und Hub-Fehler erzeugen keine blockierende UI.",
-        "Tests pruefen leeren Kontext, grosse Dateien und policy-denied Antworten."
-      ]
-    },
-    {
-      "id": "ECL-T34",
-      "title": "Capability-, Policy- und Permission-Modell fuer alle UI-Actions zentralisieren",
-      "status": "done",
+      "title": "Capability/Policy Gates fuer alle Actions zentral erzwingen",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
-        "ECL-T08"
+        "ECL-T13"
       ],
       "expected_files": [
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/CapabilityGate.java",
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/security/ActionPolicyRuntime.java"
       ],
       "acceptance_criteria": [
-        "Alle Actions laufen durch ein zentrales Gate: chat, goal, task, approval, repair, patch, completion, new_project.",
-        "Unbekannte Actions failen closed.",
-        "UI erklaert fehlende Capabilities und bietet Browser-Fallbacks ohne Policy-Bypass."
+        "Fail-closed bei unbekannten Aktionen.",
+        "Policy-denied UI ohne Success-Schein."
+      ]
+    },
+    {
+      "id": "ECL-T32",
+      "title": "UI Empty/Loading/Error/Retry Zustandsmatrix fuer alle Hauptviews vervollstaendigen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "ECL-T18",
+        "ECL-T20",
+        "ECL-T21"
+      ],
+      "expected_files": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/*.java"
+      ],
+      "acceptance_criteria": [
+        "Keine Hauptview bleibt still leer ohne Zustandshinweis."
+      ]
+    },
+    {
+      "id": "ECL-T33",
+      "title": "Telemetry/Audit-Korrelation fuer wichtige User-Aktionen einbauen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "depends_on": [
+        "ECL-T22"
+      ],
+      "expected_files": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseAuditRuntimeView.java"
+      ],
+      "acceptance_criteria": [
+        "Goal/Review/Apply Aktionen sind auf Audit-IDs rueckfuehrbar."
+      ]
+    },
+    {
+      "id": "ECL-T34",
+      "title": "Berechtigte Browser-Fallbacks fuer gesperrte oder fehlende Aktionen verbessern",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "depends_on": [
+        "ECL-T31"
+      ],
+      "expected_files": [
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipsePolicyFallbackUx.java"
+      ],
+      "acceptance_criteria": [
+        "Fallback-Links sind kontextbezogen und klar als Fallback markiert."
       ]
     },
     {
       "id": "ECL-T35",
-      "title": "Audit-, Trace- und Observability-View ausbauen",
-      "status": "done",
-      "priority": "P1",
-      "risk": "medium",
-      "depends_on": [
-        "ECL-T11",
-        "ECL-T34"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AnantaAuditViewPart.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/EclipseAuditRuntimeView.java"
-      ],
-      "acceptance_criteria": [
-        "Audit-/Trace-View zeigt relevante Hub-Audit-Referenzen, Task-IDs und Fehlerzustaende.",
-        "Filter fuer Severity, Type und Object funktionieren gegen vorhandene Hub- oder Fallback-Routen.",
-        "Sensitive Felder werden redigiert."
-      ]
-    },
-    {
-      "id": "ECL-T36",
-      "title": "Settings-, Secrets- und Workspace-Trust-Hardening abschliessen",
-      "status": "done",
+      "title": "Strikten Eclipse-JEE-p2-UI-E2E-Test stabil gruen bekommen",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
-        "ECL-T07",
-        "ECL-T22",
-        "ECL-T34"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/security/WorkspaceTrustGuard.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/test/java/io/ananta/eclipse/runtime/security/EclipseRuntimeSecurityGovernanceTest.java"
-      ],
-      "acceptance_criteria": [
-        "Untrusted Workspaces duerfen keine Schreib-/Apply-/Repair-Aktionen ausfuehren.",
-        "Secrets werden nie in Workspace-Metadaten, Logs oder Chat-History geschrieben.",
-        "Security-Tests decken Token, API-Key, private-key und Passwort-Patterns ab."
-      ]
-    },
-    {
-      "id": "ECL-T37",
-      "title": "Offline-, degraded- und retry-faehige UX fuer alle Hauptviews liefern",
-      "status": "done",
-      "priority": "P1",
-      "risk": "high",
-      "depends_on": [
-        "ECL-T08",
-        "ECL-T11",
-        "ECL-T15"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/DegradedViewModel.java"
-      ],
-      "acceptance_criteria": [
-        "Alle Hauptviews zeigen sinnvolle Empty-, Loading-, Error- und Retry-Zustaende.",
-        "Auth-Fehler, Policy-Denials und Backend-Ausfall sind unterscheidbar.",
-        "Retry-Aktionen sind idempotent oder zeigen klare Warnungen."
-      ]
-    },
-    {
-      "id": "ECL-T38",
-      "title": "Installierbares Eclipse-Plugin-Package und p2 Update Site bauen",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "depends_on": [
-        "ECL-T09",
-        "ECL-T36"
-      ],
-      "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/category.xml",
-        "scripts/build_eclipse_update_site.py"
-      ],
-      "acceptance_criteria": [
-        "Es gibt ein reproduzierbares installierbares Plugin-Artefakt oder p2 Update Site.",
-        "Dependency-Versionen sind Java-17-kompatibel und dokumentiert.",
-        "Build erzeugt keine zu committenden Gradle-Cache-Artefakte."
-      ]
-    },
-    {
-      "id": "ECL-T39",
-      "title": "Installierte Eclipse UI-Automation fuer Golden Path einfuehren",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "depends_on": [
-        "ECL-T38",
-        "ECL-T10",
-        "ECL-T11",
-        "ECL-T15",
-        "ECL-T20"
+        "ECL-T01",
+        "ECL-T31",
+        "ECL-T32"
       ],
       "expected_files": [
         "scripts/run_eclipse_ui_golden_path.py",
         "scripts/eclipse_ui_golden_path_runner.py",
-        "docker/eclipse-ui-e2e/Dockerfile",
-        "tests/e2e/test_eclipse_plugin_golden_path.py"
+        "ci-artifacts/eclipse/eclipse-ui-golden-path-report.json"
       ],
       "acceptance_criteria": [
-        "Eine echte Eclipse-Instanz startet mit installiertem Plugin.",
-        "Golden Path prueft Connection, Goal-Erstellung, Task-Anzeige, Chat-Nachricht und Patch-Preview.",
-        "Fehlendes Eclipse-Binary fuehrt zu explizitem Skip, nicht zu falschem Gruen."
+        "E2E prueft p2-install-then-workbench.",
+        "Verifier bestaetigt registrierte und oeffenbare Views.",
+        "Report ist non-skipped und runtime_complete_claim_allowed=true."
       ],
       "notes": [
-        "Implemented through Docker/Xvfb installed Eclipse evidence. The report at ci-artifacts/eclipse/eclipse-ui-golden-path-report.json is non-skipped and runtime_complete_claim_allowed=true."
+        "Derzeit durch JEE-Profil-/Oomph-Instabilitaet in Docker erschwert."
       ]
     },
     {
-      "id": "ECL-T40",
-      "title": "Runtime-Complete-Gate und Inventories erst nach UI-Evidence anheben",
-      "status": "done",
-      "priority": "P0",
-      "risk": "critical",
-      "depends_on": [
-        "ECL-T39"
-      ],
-      "expected_files": [
-        "data/client_surface_runtime_status.json",
-        "data/client_surface_runtime_inventory.json",
-        "tests/test_client_surface_runtime_inventory_evidence.py"
-      ],
-      "acceptance_criteria": [
-        "`eclipse_plugin` blieb `runtime_mvp`, bis UI-E2E und Packaging reproduzierbar waren.",
-        "Nach erfolgreicher UI-Evidence wird der Status nur mit passenden Release-Gate-Tests angehoben.",
-        "Inventories enthalten konkrete Evidence-Pfade fuer Package, Install, UI-Load und Golden Path."
-      ],
-      "notes": [
-        "Blocked by the stricter Eclipse JEE 2026-03 p2-install-then-workbench verifier. p2 installability and dropins-based view availability are proven separately."
-      ]
-    },
-    {
-      "id": "ECL-T41",
-      "title": "User Guide, Operator Runbook und Troubleshooting fuer produktive Nutzung schreiben",
-      "status": "done",
+      "id": "ECL-T36",
+      "title": "User Guide + Operator Runbook + Troubleshooting fuer reale Nutzung fertigstellen",
+      "status": "todo",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
-        "ECL-T38",
-        "ECL-T39"
+        "ECL-T05",
+        "ECL-T18",
+        "ECL-T35"
       ],
       "expected_files": [
         "docs/eclipse-plugin-user-guide.md",
@@ -991,118 +777,36 @@
         "docs/eclipse-plugin-troubleshooting.md"
       ],
       "acceptance_criteria": [
-        "Doku beschreibt Installation, Verbindung, Chat, Goals, Tasks, Repair, Patch-Review, New Project und Completion.",
-        "Troubleshooting deckt Auth, Policy, Backend offline, Eclipse dependency issues und workspace trust ab.",
-        "Runbook benennt klar, welche Aktionen Hub-gated sind und welche lokal im Workspace passieren."
+        "Doku beschreibt Settings, Verbindung, Chat/Tasks/Artifacts/Approval/Repair.",
+        "Troubleshooting deckt p2, Bundle-Pool, already-installed/no-views und Auth ab."
       ]
     }
   ],
   "tasks_status_summary": {
-    "total": 41,
+    "total": 36,
     "by_status": {
-      "todo": 0,
+      "todo": 32,
       "in_progress": 0,
-      "blocked": 1,
-      "done": 40
+      "blocked": 0,
+      "done": 4
     },
-    "progress_percent_done": 97.56,
+    "progress_percent_done": 11.11,
     "critical_path": {
-      "total": 18,
-      "done": 17,
-      "remaining": 1
+      "total": 16,
+      "done": 2,
+      "remaining": 14
     },
     "milestones": {
-      "total": 10,
-      "todo": 0,
+      "total": 9,
+      "todo": 8,
       "in_progress": 0,
-      "blocked": 1,
-      "done": 9
-    }
-  },
-  "execution_stage_summary": {
-    "foundation_and_contract": {
-      "task_ids": [
-        "ECL-T01",
-        "ECL-T02",
-        "ECL-T03",
-        "ECL-T04",
-        "ECL-T05"
-      ],
-      "total": 5,
-      "done": 5,
-      "todo": 0,
       "blocked": 0,
-      "in_progress": 0
-    },
-    "core_product_ui": {
-      "task_ids": [
-        "ECL-T06",
-        "ECL-T07",
-        "ECL-T08",
-        "ECL-T09",
-        "ECL-T10",
-        "ECL-T11",
-        "ECL-T12",
-        "ECL-T13",
-        "ECL-T14",
-        "ECL-T15",
-        "ECL-T16",
-        "ECL-T17",
-        "ECL-T18"
-      ],
-      "total": 13,
-      "done": 13,
-      "todo": 0,
-      "blocked": 0,
-      "in_progress": 0
-    },
-    "code_workflows": {
-      "task_ids": [
-        "ECL-T19",
-        "ECL-T20",
-        "ECL-T21",
-        "ECL-T22",
-        "ECL-T23",
-        "ECL-T24",
-        "ECL-T25",
-        "ECL-T26",
-        "ECL-T27",
-        "ECL-T28",
-        "ECL-T29",
-        "ECL-T30",
-        "ECL-T31",
-        "ECL-T32",
-        "ECL-T33"
-      ],
-      "total": 15,
-      "done": 15,
-      "todo": 0,
-      "blocked": 0,
-      "in_progress": 0
-    },
-    "hardening_release": {
-      "task_ids": [
-        "ECL-T34",
-        "ECL-T35",
-        "ECL-T36",
-        "ECL-T37",
-        "ECL-T38",
-        "ECL-T39",
-        "ECL-T40",
-        "ECL-T41"
-      ],
-      "total": 8,
-      "done": 7,
-      "todo": 0,
-      "blocked": 1,
-      "in_progress": 0
+      "done": 1
     }
   },
   "notes": [
-    "Diese Datei beschreibt bewusst die Luecke zwischen aktuellem Headless-/Bootstrap-MVP und einem voll produktiven Eclipse-Plugin.",
-    "Es gibt keine externen TODO-Dateien als harte Voraussetzung; alle Abhaengigkeiten referenzieren Tasks in dieser Datei.",
-    "Die wichtigsten Produktiv-Gates sind echte UI-Views, approval-gated Patch-Apply, p2/installierbares Packaging und installierte Eclipse-UI-E2E-Evidence.",
-    "Architekturregel: Eclipse darf Arbeit delegieren und anzeigen, aber niemals Hub-Orchestrierung oder Worker-Koordination uebernehmen.",
-    "2026-05-01: Product runtime models, packaging scripts and p2 site are implemented. Eclipse JEE 2026-03 p2 installability and dropins-based view availability are proven, but p2-install-then-workbench verification remains blocked by Eclipse JEE/Oomph profile startup instability."
+    "Diese Datei ist bewusst produktorientiert und entstubbt alle zentralen Eclipse-Flows.",
+    "Fokus ist reale Nutzbarkeit fuer Anwender, nicht nur Build-/Smoke-Gruen.",
+    "Runtime_complete ist erst erlaubt, wenn ECL-T35 stabil gruen ist."
   ]
 }
