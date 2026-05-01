@@ -32,7 +32,7 @@ interface VoxtralOfflinePlugin {
   downloadModel(options: { modelUrl: string; fileName?: string; sha256?: string; confirmed?: boolean }): Promise<{ modelPath: string; bytes: number; sha256: string }>;
   downloadRunner(options: { runnerUrl: string; fileName?: string; sha256?: string; confirmed?: boolean }): Promise<{ runnerPath: string; bytes: number; sha256: string }>;
   listLocalAssets(): Promise<{ models: VoxtralLocalAsset[]; runners: VoxtralLocalAsset[] }>;
-  verifySetup(options: { modelPath: string; runnerPath: string; minFreeBytes?: number }): Promise<{ availableBytes: number; hasEnoughStorage: boolean; modelExists: boolean; modelBytes: number; modelCompatible?: boolean; estimatedRequiredBytes?: number; runnerExists: boolean; runnerExecutable: boolean; runnerCompatible?: boolean }>;
+  verifySetup(options: { modelPath: string; runnerPath: string; minFreeBytes?: number }): Promise<{ availableBytes: number; hasEnoughStorage: boolean; modelExists: boolean; modelBytes: number; modelCompatible?: boolean; estimatedRequiredBytes?: number; runnerExists: boolean; runnerExecutable: boolean; runnerCompatible?: boolean; runnerModelCompatible?: boolean; runnerProbeMessage?: string }>;
   transcribe(options: { audioPath: string; modelPath: string; runnerPath: string; confirmed?: boolean }): Promise<{ transcript: string; rawOutput: string; exitCode: number }>;
   startLiveTranscription(options: { modelPath: string; runnerPath: string; chunkSeconds?: number; sampleRate?: number; confirmed?: boolean }): Promise<{ started: boolean; chunkSeconds: number; sampleRate: number }>;
   stopLiveTranscription(): Promise<{ transcript: string }>;
@@ -102,7 +102,7 @@ export class VoxtralOfflineService {
     return VoxtralOffline.listLocalAssets();
   }
 
-  async verifySetup(modelPath: string, runnerPath: string, minFreeBytes = 512 * 1024 * 1024): Promise<{ availableBytes: number; hasEnoughStorage: boolean; modelExists: boolean; modelBytes: number; modelCompatible?: boolean; estimatedRequiredBytes?: number; runnerExists: boolean; runnerExecutable: boolean; runnerCompatible?: boolean }> {
+  async verifySetup(modelPath: string, runnerPath: string, minFreeBytes = 512 * 1024 * 1024): Promise<{ availableBytes: number; hasEnoughStorage: boolean; modelExists: boolean; modelBytes: number; modelCompatible?: boolean; estimatedRequiredBytes?: number; runnerExists: boolean; runnerExecutable: boolean; runnerCompatible?: boolean; runnerModelCompatible?: boolean; runnerProbeMessage?: string }> {
     if (!this.isNative) {
       throw new Error('Nur auf nativer Android-App verfuegbar.');
     }

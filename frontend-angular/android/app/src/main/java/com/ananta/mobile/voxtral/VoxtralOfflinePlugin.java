@@ -496,21 +496,36 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (runnerPath != null && !runnerPath.isBlank()) {
             File runner = new File(runnerPath);
             boolean executable = false;
+            boolean runnerModelCompatible = false;
+            String runnerProbeMessage = "";
             if (runner.exists()) {
                 try {
                     File preparedRunner = prepareRunnerForExecution(runner);
                     executable = canSpawnRunner(preparedRunner) || canSpawnRunnerViaProot();
+                    if (executable && modelPath != null && !modelPath.isBlank()) {
+                        File model = new File(modelPath);
+                        if (model.exists() && isCompatibleModelFile(model)) {
+                            RunnerProbe probe = probeRunnerModelCompatibility(preparedRunner, model);
+                            runnerModelCompatible = probe.compatible;
+                            runnerProbeMessage = probe.message;
+                        }
+                    }
                 } catch (Exception ignored) {
                     executable = canSpawnRunnerViaProot();
+                    runnerModelCompatible = false;
                 }
             }
             result.put("runnerExists", runner.exists());
             result.put("runnerExecutable", executable);
             result.put("runnerCompatible", isRunnerCandidate(runner.getName()));
+            result.put("runnerModelCompatible", runnerModelCompatible);
+            result.put("runnerProbeMessage", runnerProbeMessage);
         } else {
             result.put("runnerExists", false);
             result.put("runnerExecutable", false);
             result.put("runnerCompatible", false);
+            result.put("runnerModelCompatible", false);
+            result.put("runnerProbeMessage", "");
         }
 
         call.resolve(result);
@@ -652,6 +667,9 @@ public class VoxtralOfflinePlugin extends Plugin {
         String output = readAll(process.getInputStream());
         int exitCode = process.waitFor();
         if (exitCode != 0) {
+            if (containsUnsupportedModelArchitecture(output)) {
+                throw new IOException("Runner is incompatible with model architecture 'voxtral4b'. Use a Voxtral-compatible runner (not plain llama.cpp).");
+            }
             throw new IOException("Runner failed with exit code " + exitCode + "\n" + output);
         }
         return extractTranscript(output);
@@ -690,9 +708,94 @@ public class VoxtralOfflinePlugin extends Plugin {
         String output = readAll(process.getInputStream());
         int exitCode = process.waitFor();
         if (exitCode != 0) {
+            if (containsUnsupportedModelArchitecture(output)) {
+                throw new IOException("Runner is incompatible with model architecture 'voxtral4b'. Use a Voxtral-compatible runner (not plain llama.cpp).");
+            }
             throw new IOException("Runner (proot fallback) failed with exit code " + exitCode + "\n" + output);
         }
         return extractTranscript(output);
+    }
+
+    private RunnerProbe probeRunnerModelCompatibility(File runnerFile, File modelFile) {
+        if (runnerFile == null || modelFile == null) return new RunnerProbe(false, "");
+        try {
+            String output = runModelProbe(runnerFile, modelFile);
+            if (containsUnsupportedModelArchitecture(output)) {
+                return new RunnerProbe(false, "unknown model architecture: voxtral4b");
+            }
+            if (output.contains("failed to load model")) {
+                return new RunnerProbe(false, "model load failed");
+            }
+            return new RunnerProbe(true, "ok");
+        } catch (Exception error) {
+            String msg = String.valueOf(error.getMessage() == null ? "" : error.getMessage());
+            if (containsUnsupportedModelArchitecture(msg)) {
+                return new RunnerProbe(false, "unknown model architecture: voxtral4b");
+            }
+            return new RunnerProbe(false, msg.trim());
+        }
+    }
+
+    private String runModelProbe(File runnerFile, File modelFile) throws IOException, InterruptedException {
+        List<String> command = new ArrayList<>();
+        command.add(runnerFile.getAbsolutePath());
+        command.add("-m");
+        command.add(modelFile.getAbsolutePath());
+        command.add("-n");
+        command.add("1");
+        command.add("-p");
+        command.add("ok");
+        Process process = new ProcessBuilder(command)
+            .redirectErrorStream(true)
+            .start();
+        String output = readAll(process.getInputStream());
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            File ubuntuRootfs = resolveUbuntuRootfs();
+            File llamaCli = resolveRuntimeLlamaCli();
+            File prootWrapper = resolveProotWrapper();
+            if (ubuntuRootfs != null && llamaCli != null && prootWrapper != null) {
+                return runModelProbeViaProot(modelFile);
+            }
+        }
+        return output;
+    }
+
+    private String runModelProbeViaProot(File modelFile) throws IOException, InterruptedException {
+        File prootWrapper = resolveProotWrapper();
+        File ubuntuRootfs = resolveUbuntuRootfs();
+        File llamaCli = resolveRuntimeLlamaCli();
+        if (prootWrapper == null || ubuntuRootfs == null || llamaCli == null) {
+            return "";
+        }
+        String runtimePath = new File(getContext().getFilesDir(), PROOT_RUNTIME_SUBDIR).getAbsolutePath();
+        String rootfsPath = ubuntuRootfs.getAbsolutePath();
+        String llamaPath = llamaCli.getAbsolutePath();
+        String modelPath = modelFile.getAbsolutePath();
+        String shellCommand = ""
+            + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "
+            + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
+            + "ANANTA_PROOT_WRAPPER=" + shQuote(prootWrapper.getAbsolutePath()) + "; "
+            + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; "
+            + "mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
+            + "PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
+            + "PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color "
+            + "/system/bin/sh \"$ANANTA_PROOT_WRAPPER\" "
+            + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" "
+            + "-w / /bin/sh -lc "
+            + shQuote(shQuote(llamaPath) + " -m " + shQuote(modelPath) + " -n 1 -p ok");
+        Process process = new ProcessBuilder("/system/bin/sh", "-lc", shellCommand)
+            .redirectErrorStream(true)
+            .start();
+        String output = readAll(process.getInputStream());
+        process.waitFor();
+        return output;
+    }
+
+    private boolean containsUnsupportedModelArchitecture(String text) {
+        String normalized = String.valueOf(text == null ? "" : text).toLowerCase();
+        return normalized.contains("unknown model architecture")
+            || normalized.contains("voxtral4b");
     }
 
     private void recordWav(File outFile, int sampleRate, int bufferSize, int maxSeconds) {
@@ -1035,6 +1138,16 @@ public class VoxtralOfflinePlugin extends Plugin {
 
         OutputStreamHolder(FileOutputStream output) {
             this.output = output;
+        }
+    }
+
+    private static final class RunnerProbe {
+        final boolean compatible;
+        final String message;
+
+        RunnerProbe(boolean compatible, String message) {
+            this.compatible = compatible;
+            this.message = String.valueOf(message == null ? "" : message);
         }
     }
 
