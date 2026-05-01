@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.lang.reflect.Field;
 import java.security.MessageDigest;
 import java.util.Map;
 import java.util.ArrayList;
@@ -1903,10 +1904,14 @@ public class PythonRuntimePlugin extends Plugin {
         }
 
         void interrupt() throws IOException {
-            long pid = process.pid();
-            String pidText = Long.toString(pid);
+            long pid = resolveProcessPid(process);
             Process signal = null;
             try {
+                if (pid <= 0) {
+                    process.destroy();
+                    return;
+                }
+                String pidText = Long.toString(pid);
                 signal = new ProcessBuilder(
                     "/system/bin/sh",
                     "-c",
@@ -1918,6 +1923,18 @@ public class PythonRuntimePlugin extends Plugin {
             } finally {
                 if (signal != null) signal.destroy();
             }
+        }
+
+        private long resolveProcessPid(Process target) {
+            try {
+                Field pidField = target.getClass().getDeclaredField("pid");
+                pidField.setAccessible(true);
+                Object value = pidField.get(target);
+                if (value instanceof Number) return ((Number) value).longValue();
+            } catch (Exception ignored) {
+                // Fallback below.
+            }
+            return -1L;
         }
 
         ShellSessionRead readDelta(int maxChars) {
