@@ -217,6 +217,8 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
   runnerDownloadProgress = '-';
   localModelAvailable = false;
   localRunnerAvailable = false;
+  private modelDownloadActive = false;
+  private runnerDownloadActive = false;
   setupStatus = '';
   maxSeconds = 5;
   liveChunkSeconds = 3;
@@ -250,8 +252,14 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
       });
       this.downloadProgressHandle = await this.voxtral.onDownloadProgress((data) => {
         const progress = data.progress >= 0 ? `${Math.round(data.progress * 100)}%` : `${this.formatBytes(data.downloadedBytes)} geladen`;
-        if (data.type === 'model') this.modelDownloadProgress = progress;
-        if (data.type === 'runner') this.runnerDownloadProgress = progress;
+        if (data.type === 'model') {
+          this.modelDownloadActive = true;
+          this.modelDownloadProgress = progress;
+        }
+        if (data.type === 'runner') {
+          this.runnerDownloadActive = true;
+          this.runnerDownloadProgress = progress;
+        }
       });
     }
     await this.refreshStatus();
@@ -394,25 +402,39 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
 
   async downloadModel(): Promise<void> {
     await this.run(async () => {
-      const preset = this.modelPresets.find(item => item.id === this.selectedModelPresetId);
-      const fileName = preset?.fileName;
-      const result = await this.voxtral.downloadModel(this.modelUrl.trim(), fileName);
-      this.modelPath = result.modelPath;
-      this.modelDownloadProgress = '100%';
-      this.persistSelections();
-      await this.refreshLocalAssets();
-      this.toast.success(`Model geladen (${this.formatBytes(result.bytes)}).`);
+      this.modelDownloadActive = true;
+      this.modelDownloadProgress = '0%';
+      try {
+        const preset = this.modelPresets.find(item => item.id === this.selectedModelPresetId);
+        const fileName = preset?.fileName;
+        const result = await this.voxtral.downloadModel(this.modelUrl.trim(), fileName);
+        this.modelPath = result.modelPath;
+        this.modelDownloadProgress = '100%';
+        this.persistSelections();
+        await this.refreshLocalAssets();
+        this.toast.success(`Model geladen (${this.formatBytes(result.bytes)}).`);
+      } finally {
+        this.modelDownloadActive = false;
+        this.updateDownloadIndicatorsFromLocalAssets();
+      }
     });
   }
 
   async downloadRunner(): Promise<void> {
     await this.run(async () => {
-      const result = await this.voxtral.downloadRunner(this.runnerUrl.trim());
-      this.runnerPath = result.runnerPath;
-      this.runnerDownloadProgress = '100%';
-      this.persistSelections();
-      await this.refreshLocalAssets();
-      this.toast.success(`Runner geladen (${this.formatBytes(result.bytes)}).`);
+      this.runnerDownloadActive = true;
+      this.runnerDownloadProgress = '0%';
+      try {
+        const result = await this.voxtral.downloadRunner(this.runnerUrl.trim());
+        this.runnerPath = result.runnerPath;
+        this.runnerDownloadProgress = '100%';
+        this.persistSelections();
+        await this.refreshLocalAssets();
+        this.toast.success(`Runner geladen (${this.formatBytes(result.bytes)}).`);
+      } finally {
+        this.runnerDownloadActive = false;
+        this.updateDownloadIndicatorsFromLocalAssets();
+      }
     });
   }
 
@@ -435,6 +457,7 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
       if (this.modelPath) this.selectedLocalModelPath = this.modelPath;
       if (this.runnerPath) this.selectedLocalRunnerPath = this.runnerPath;
       this.persistSelections();
+      this.updateDownloadIndicatorsFromLocalAssets();
     }, false);
   }
 
@@ -474,7 +497,17 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
       if (status.modelPath) this.modelPath = status.modelPath;
       if (status.runnerPath) this.runnerPath = status.runnerPath;
       this.persistSelections();
+      this.updateDownloadIndicatorsFromLocalAssets();
     }, false);
+  }
+
+  private updateDownloadIndicatorsFromLocalAssets(): void {
+    if (!this.modelDownloadActive) {
+      this.modelDownloadProgress = this.localModelAvailable ? 'vorhanden' : '-';
+    }
+    if (!this.runnerDownloadActive) {
+      this.runnerDownloadProgress = this.localRunnerAvailable ? 'vorhanden' : '-';
+    }
   }
 
   private restoreSelections(): void {
