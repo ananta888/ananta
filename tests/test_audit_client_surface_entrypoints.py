@@ -177,6 +177,10 @@ def test_eclipse_requires_command_registry_for_runtime_classification() -> None:
     with_runtime_registry = bootstrap_only | {
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/commands/EclipseCommandRegistry.java",
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/views/eclipse/AbstractAnantaRuntimeViewPart.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/chat/ChatRuntimeModel.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/patch/ApprovalGatedPatchApplier.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/project/NewAnantaProjectWizard.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/test/java/io/ananta/eclipse/runtime/product/EclipseProductRuntimeModelTest.java",
     }
 
     report_bootstrap_only = classify_surface("eclipse_plugin", bootstrap_only)

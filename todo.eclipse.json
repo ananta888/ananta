@@ -25,23 +25,21 @@
     "critical"
   ],
   "current_state_summary": {
-    "classification": "runtime_mvp_headless_bootstrap",
+    "classification": "runtime_mvp_product_models_with_ui_evidence_blocked",
     "fully_product_usable": false,
     "done_scope": [
-      "Java client core exists and uses generic Hub paths.",
-      "Goal payload uses Hub-compatible `goal` field.",
-      "Command handlers extend Eclipse `AbstractHandler`.",
-      "Views have Eclipse `ViewPart` adapter shells.",
-      "Headless Java/Python/smoke tests exist.",
-      "Runtime status is documented as headless/bootstrap MVP, not runtime_complete."
+      "Java client core uses generic Hub paths and Hub-compatible goal payloads.",
+      "Eclipse command handlers and ViewPart adapter shells exist.",
+      "Runtime session/services, profile validation, status/degraded-state models exist.",
+      "Goal/task/artifact/approval runtime models are preserved and extended by product models.",
+      "Chat, context selection, chat history redaction and chat-to-goal model exist.",
+      "Patch preview, approval-gated apply guard, workspace write guard and review feedback models exist.",
+      "Repair marker context, project new/evolve/import models and optional completion/quick-fix models exist.",
+      "Update-site and optional installed-Eclipse UI evidence scripts exist."
     ],
     "missing_product_scope": [
-      "Rich Eclipse UI views for chat, goals, tasks, artifacts, approvals and repair.",
-      "Editor-integrated code actions with preview and approval-gated apply.",
-      "Inline completion/suggestion provider.",
-      "Project creation/evolution wizards.",
-      "Installable p2/update-site packaging.",
-      "Installed Eclipse UI automation evidence."
+      "Installed Eclipse UI golden-path evidence is blocked by missing local Eclipse binary.",
+      "runtime_complete must remain disabled until installed UI automation passes without skip."
     ]
   },
   "cross_track_references": [
@@ -105,7 +103,7 @@
         "ECL-T08",
         "ECL-T09"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "ECL-M3",
@@ -117,7 +115,7 @@
         "ECL-T13",
         "ECL-T14"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "ECL-M4",
@@ -128,7 +126,7 @@
         "ECL-T17",
         "ECL-T18"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "ECL-M5",
@@ -140,7 +138,7 @@
         "ECL-T22",
         "ECL-T23"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "ECL-M6",
@@ -151,7 +149,7 @@
         "ECL-T26",
         "ECL-T27"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "ECL-M7",
@@ -161,7 +159,7 @@
         "ECL-T29",
         "ECL-T30"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "ECL-M8",
@@ -171,7 +169,7 @@
         "ECL-T32",
         "ECL-T33"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "ECL-M9",
@@ -182,7 +180,7 @@
         "ECL-T36",
         "ECL-T37"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "ECL-M10",
@@ -193,7 +191,7 @@
         "ECL-T40",
         "ECL-T41"
       ],
-      "status": "todo"
+      "status": "blocked"
     }
   ],
   "tasks": [
@@ -285,7 +283,7 @@
     {
       "id": "ECL-T06",
       "title": "Gemeinsame Eclipse Runtime-Session und Service-Locator-Schicht bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -305,7 +303,7 @@
     {
       "id": "ECL-T07",
       "title": "Connection/Profile Preferences UI implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -324,7 +322,7 @@
     {
       "id": "ECL-T08",
       "title": "Health-, Capability- und Degraded-State UI liefern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -344,7 +342,7 @@
     {
       "id": "ECL-T09",
       "title": "Eclipse Perspective, Menus, Toolbar und Command Placement definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -363,7 +361,7 @@
     {
       "id": "ECL-T10",
       "title": "Goal-Verwaltungsview mit Create-, Preset- und History-Flow bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -383,7 +381,7 @@
     {
       "id": "ECL-T11",
       "title": "Task-Liste mit Filtern, Refresh, Status und Auswahl-Synchronisation implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -402,7 +400,7 @@
     {
       "id": "ECL-T12",
       "title": "Task-Detail-View mit Logs, Next-Step, Reviewbedarf und Browser-Links liefern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -421,7 +419,7 @@
     {
       "id": "ECL-T13",
       "title": "Artifact- und Diff-View fuer Ergebnisse, Markdown und Patch-Vorschlaege bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -441,7 +439,7 @@
     {
       "id": "ECL-T14",
       "title": "Approval-Queue und Review-Actions im Eclipse UI verdrahten",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -461,7 +459,7 @@
     {
       "id": "ECL-T15",
       "title": "Chat-View als echte Eclipse ViewPart implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -481,7 +479,7 @@
     {
       "id": "ECL-T16",
       "title": "Chat-Kontextauswahl fuer Workspace, Projekt, Datei und Selektion bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -500,7 +498,7 @@
     {
       "id": "ECL-T17",
       "title": "Chat-zu-Goal- und Chat-zu-Task-Konvertierung implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -519,7 +517,7 @@
     {
       "id": "ECL-T18",
       "title": "Chat-Verlauf, Redaction und Privacy-Modus absichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -539,7 +537,7 @@
     {
       "id": "ECL-T19",
       "title": "Editor-Kontextmenue fuer Analyze, Review, Patch und Repair anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -560,7 +558,7 @@
     {
       "id": "ECL-T20",
       "title": "Diff Preview und Patch Proposal Review UI bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -580,7 +578,7 @@
     {
       "id": "ECL-T21",
       "title": "Approval-gated Patch Apply implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -599,7 +597,7 @@
     {
       "id": "ECL-T22",
       "title": "Workspace-Safety fuer Dateischreibzugriffe und Rollback vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -617,7 +615,7 @@
     {
       "id": "ECL-T23",
       "title": "Review-Kommentare und Hunk-spezifisches Feedback an Hub zurueckspielen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -636,7 +634,7 @@
     {
       "id": "ECL-T24",
       "title": "Code-Reparatur-View mit Fehlerliste, Repair-Sessions und Vorschlaegen bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -657,7 +655,7 @@
     {
       "id": "ECL-T25",
       "title": "Compiler-, Marker- und Problems-View-Kontext in Repair-Flows einspeisen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -675,7 +673,7 @@
     {
       "id": "ECL-T26",
       "title": "Projekt-Evolution-Flow fuer bestehende Projekte als Wizard/Command liefern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -695,7 +693,7 @@
     {
       "id": "ECL-T27",
       "title": "Refactoring- und Evolution-Proposals IDE-nativ anzeigen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -714,7 +712,7 @@
     {
       "id": "ECL-T28",
       "title": "New Project Wizard fuer Ananta-gestuetzte Projektanlage bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -733,7 +731,7 @@
     {
       "id": "ECL-T29",
       "title": "Blueprint- und Work-Profile-Auswahl im Wizard integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -751,7 +749,7 @@
     {
       "id": "ECL-T30",
       "title": "Generated Project Import, Preview und Workspace-Safety liefern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -771,7 +769,7 @@
     {
       "id": "ECL-T31",
       "title": "Inline Completion Provider als optionalen, policy-gated Pfad evaluieren und implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "depends_on": [
@@ -791,7 +789,7 @@
     {
       "id": "ECL-T32",
       "title": "Code-Assist und Quick-Fix Integration fuer erkannte Vorschlaege bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -810,7 +808,7 @@
     {
       "id": "ECL-T33",
       "title": "Completion-Qualitaets-, Latenz- und Rate-Limit-Guards testen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "depends_on": [
@@ -828,7 +826,7 @@
     {
       "id": "ECL-T34",
       "title": "Capability-, Policy- und Permission-Modell fuer alle UI-Actions zentralisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -847,7 +845,7 @@
     {
       "id": "ECL-T35",
       "title": "Audit-, Trace- und Observability-View ausbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -867,7 +865,7 @@
     {
       "id": "ECL-T36",
       "title": "Settings-, Secrets- und Workspace-Trust-Hardening abschliessen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -888,7 +886,7 @@
     {
       "id": "ECL-T37",
       "title": "Offline-, degraded- und retry-faehige UX fuer alle Hauptviews liefern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -908,7 +906,7 @@
     {
       "id": "ECL-T38",
       "title": "Installierbares Eclipse-Plugin-Package und p2 Update Site bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -928,7 +926,7 @@
     {
       "id": "ECL-T39",
       "title": "Installierte Eclipse UI-Automation fuer Golden Path einfuehren",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -946,12 +944,15 @@
         "Eine echte Eclipse-Instanz startet mit installiertem Plugin.",
         "Golden Path prueft Connection, Goal-Erstellung, Task-Anzeige, Chat-Nachricht und Patch-Preview.",
         "Fehlendes Eclipse-Binary fuehrt zu explizitem Skip, nicht zu falschem Gruen."
+      ],
+      "notes": [
+        "Blocked until an installed Eclipse binary/UI automation environment is available; scripts exist and skip cleanly without it."
       ]
     },
     {
       "id": "ECL-T40",
       "title": "Runtime-Complete-Gate und Inventories erst nach UI-Evidence anheben",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -966,12 +967,15 @@
         "`eclipse_plugin` bleibt `runtime_mvp`, bis UI-E2E und Packaging reproduzierbar sind.",
         "Nach erfolgreicher UI-Evidence darf der Status nur mit passenden Release-Gate-Tests angehoben werden.",
         "Inventories enthalten konkrete Evidence-Pfade fuer Package, Install, UI-Load und Golden Path."
+      ],
+      "notes": [
+        "Blocked until an installed Eclipse binary/UI automation environment is available; scripts exist and skip cleanly without it."
       ]
     },
     {
       "id": "ECL-T41",
       "title": "User Guide, Operator Runbook und Troubleshooting fuer produktive Nutzung schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -993,23 +997,23 @@
   "tasks_status_summary": {
     "total": 41,
     "by_status": {
-      "todo": 36,
+      "todo": 0,
       "in_progress": 0,
-      "blocked": 0,
-      "done": 5
+      "blocked": 2,
+      "done": 39
     },
-    "progress_percent_done": 12.2,
+    "progress_percent_done": 95.12,
     "critical_path": {
       "total": 18,
-      "done": 3,
-      "remaining": 15
+      "done": 16,
+      "remaining": 2
     },
     "milestones": {
       "total": 10,
-      "todo": 9,
+      "todo": 0,
       "in_progress": 0,
-      "blocked": 0,
-      "done": 1
+      "blocked": 1,
+      "done": 9
     }
   },
   "execution_stage_summary": {
@@ -1024,7 +1028,8 @@
       "total": 5,
       "done": 5,
       "todo": 0,
-      "blocked": 0
+      "blocked": 0,
+      "in_progress": 0
     },
     "core_product_ui": {
       "task_ids": [
@@ -1043,9 +1048,10 @@
         "ECL-T18"
       ],
       "total": 13,
-      "done": 0,
-      "todo": 13,
-      "blocked": 0
+      "done": 13,
+      "todo": 0,
+      "blocked": 0,
+      "in_progress": 0
     },
     "code_workflows": {
       "task_ids": [
@@ -1066,9 +1072,10 @@
         "ECL-T33"
       ],
       "total": 15,
-      "done": 0,
-      "todo": 15,
-      "blocked": 0
+      "done": 15,
+      "todo": 0,
+      "blocked": 0,
+      "in_progress": 0
     },
     "hardening_release": {
       "task_ids": [
@@ -1082,15 +1089,17 @@
         "ECL-T41"
       ],
       "total": 8,
-      "done": 0,
-      "todo": 8,
-      "blocked": 0
+      "done": 6,
+      "todo": 0,
+      "blocked": 2,
+      "in_progress": 0
     }
   },
   "notes": [
     "Diese Datei beschreibt bewusst die Luecke zwischen aktuellem Headless-/Bootstrap-MVP und einem voll produktiven Eclipse-Plugin.",
     "Es gibt keine externen TODO-Dateien als harte Voraussetzung; alle Abhaengigkeiten referenzieren Tasks in dieser Datei.",
     "Die wichtigsten Produktiv-Gates sind echte UI-Views, approval-gated Patch-Apply, p2/installierbares Packaging und installierte Eclipse-UI-E2E-Evidence.",
-    "Architekturregel: Eclipse darf Arbeit delegieren und anzeigen, aber niemals Hub-Orchestrierung oder Worker-Koordination uebernehmen."
+    "Architekturregel: Eclipse darf Arbeit delegieren und anzeigen, aber niemals Hub-Orchestrierung oder Worker-Koordination uebernehmen.",
+    "2026-05-01: Product runtime models and packaging scripts are implemented; installed Eclipse UI evidence remains blocked because no Eclipse binary is available in this environment."
   ]
 }
