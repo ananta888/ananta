@@ -29,7 +29,7 @@ interface VoxtralOfflinePlugin {
   requestMicrophonePermission(): Promise<{ state: string }>;
   startRecording(options?: { maxSeconds?: number; sampleRate?: number }): Promise<{ audioPath: string; maxSeconds: number; sampleRate: number }>;
   stopRecording(): Promise<{ audioPath: string }>;
-  downloadModel(options: { modelUrl: string; fileName?: string; sha256?: string; confirmed?: boolean }): Promise<{ modelPath: string; bytes: number; sha256: string }>;
+  downloadModel(options: { modelUrl: string; fileName?: string; sha256?: string; minBytes?: number; confirmed?: boolean }): Promise<{ modelPath: string; bytes: number; sha256: string }>;
   downloadRunner(options: { runnerUrl: string; fileName?: string; sha256?: string; confirmed?: boolean }): Promise<{ runnerPath: string; bytes: number; sha256: string }>;
   listLocalAssets(): Promise<{ models: VoxtralLocalAsset[]; runners: VoxtralLocalAsset[] }>;
   verifySetup(options: { modelPath: string; runnerPath: string; minFreeBytes?: number }): Promise<{ availableBytes: number; hasEnoughStorage: boolean; modelExists: boolean; modelBytes: number; modelCompatible?: boolean; estimatedRequiredBytes?: number; runnerExists: boolean; runnerExecutable: boolean; runnerCompatible?: boolean; runnerModelCompatible?: boolean; runnerProbeMessage?: string }>;
@@ -83,11 +83,11 @@ export class VoxtralOfflineService {
     return VoxtralOffline.stopRecording();
   }
 
-  async downloadModel(modelUrl: string, fileName?: string, sha256?: string): Promise<{ modelPath: string; bytes: number; sha256: string }> {
+  async downloadModel(modelUrl: string, fileName?: string, sha256?: string, minBytes?: number): Promise<{ modelPath: string; bytes: number; sha256: string }> {
     if (!this.isNative) {
       throw new Error('Nur auf nativer Android-App verfuegbar.');
     }
-    return VoxtralOffline.downloadModel({ modelUrl, fileName, sha256, confirmed: true });
+    return VoxtralOffline.downloadModel({ modelUrl, fileName, sha256, minBytes, confirmed: true });
   }
 
   async downloadRunner(runnerUrl: string, fileName?: string, sha256?: string): Promise<{ runnerPath: string; bytes: number; sha256: string }> {

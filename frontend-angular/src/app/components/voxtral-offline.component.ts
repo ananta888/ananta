@@ -123,7 +123,7 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
           @if (localModelAvailable && localRunnerAvailable) {
             <div class="muted"><small>Lokale Dateien erkannt: Kein erneuter Download noetig.</small></div>
           }
-          <div class="muted"><small>Runner-Tipp: "Runner-Preset (auto)" liefert einen aktuellen llama.cpp-Runner. Falls bei Voxtral "unknown model architecture: voxtral4b" erscheint, ist ein Voxtral-kompatibler Spezial-Runner erforderlich.</small></div>
+          <div class="muted"><small>Runner-Tipp: Fuer Voxtral wird ein Voxtral-Runner benoetigt (z. B. voxtral-cli/voxtral4b-main im Ordner .../files/voxtral/bin). Der llama.cpp-Runner alleine ist hier nicht kompatibel. Falls apt/dpkg in Proot blockiert ist, Runner direkt als Datei in .../files/voxtral/bin bereitstellen.</small></div>
           <div><strong>Setup:</strong> {{ setupStatus || '-' }}</div>
         </div>
 
@@ -425,10 +425,12 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
       try {
         const preset = this.modelPresets.find(item => item.id === this.selectedModelPresetId);
         const fileName = preset?.fileName;
+        const minBytes = preset?.minBytes;
         const result = await this.voxtral.downloadModel(
           this.modelUrl.trim(),
           fileName,
-          this.modelExpectedSha256.trim() || undefined
+          this.modelExpectedSha256.trim() || undefined,
+          minBytes
         );
         this.modelPath = result.modelPath;
         this.modelSha256 = result.sha256 || '';
@@ -479,7 +481,7 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
         this.modelPath = this.localModels[0].path;
       }
       if (!runnerExists && this.localRunners.length) {
-        const preferredRunner = this.localRunners.find(item => item.name.toLowerCase() === 'llama-cli');
+        const preferredRunner = this.localRunners.find(item => item.name.toLowerCase().includes('voxtral'));
         this.runnerPath = (preferredRunner || this.localRunners[0]).path;
       }
       if (this.modelPath) this.selectedLocalModelPath = this.modelPath;
