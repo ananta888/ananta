@@ -1,14 +1,17 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { AsyncPipe } from '@angular/common';
 import { Capacitor } from '@capacitor/core';
 
 import { PythonRuntimeService, ShellCommandResult, ProotInstallProgressEvent, GuidedSetupStatus } from '../services/python-runtime.service';
 import { MobileProotService } from '../services/mobile-proot.service';
+import { AppShellStateService } from '../services/app-shell-state.service';
+import { UserAuthService } from '../services/user-auth.service';
 
 @Component({
   standalone: true,
   selector: 'app-mobile-shell',
-  imports: [FormsModule],
+  imports: [FormsModule, AsyncPipe],
   template: `
     <section class="card shell-page">
       <h2>In-App Terminal (Android)</h2>
@@ -17,6 +20,19 @@ import { MobileProotService } from '../services/mobile-proot.service';
       @if (!isAndroidNative) {
         <div class="card card-light">Nur in der nativen Android-App verfuegbar.</div>
       } @else {
+          <div class="card card-light mt-sm row gap-sm wrap mobile-shell-toolbar">
+            @if (auth.user$ | async; as user) {
+              <span class="muted">User: {{ user.sub }} ({{ user.role }})</span>
+            } @else {
+              <span class="muted">User: -</span>
+            }
+            <button type="button" class="secondary" (click)="toggleDarkMode()">
+              {{ shellState.darkMode() ? 'Hell' : 'Dunkel' }}
+            </button>
+            <button type="button" class="secondary" (click)="toggleMode()">
+              {{ shellState.mode() === 'simple' ? 'Experte' : 'Einfach' }}
+            </button>
+          </div>
           <div class="card card-light mt-sm">
             <strong>Gefuehrter Setup</strong>
             <div class="muted">1) Runtime installieren -> 2) Distro installieren -> 3) Worker + opencode Setup -> 4) Distro starten</div>
@@ -97,6 +113,19 @@ import { MobileProotService } from '../services/mobile-proot.service';
             <button type="button" class="secondary" (click)="sendCtrlC()" [disabled]="shellBusy || !shellSessionId">Ctrl+C</button>
             <button type="button" class="secondary" (click)="pullShellOutput()" [disabled]="shellBusy || !shellSessionId">Ausgabe aktualisieren</button>
           </div>
+          <div class="row gap-sm wrap terminal-keys">
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u0004')" [disabled]="shellBusy || !shellSessionId">Ctrl+D</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u001a')" [disabled]="shellBusy || !shellSessionId">Ctrl+Z</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u000c')" [disabled]="shellBusy || !shellSessionId">Ctrl+L</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u001b')" [disabled]="shellBusy || !shellSessionId">Esc</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\t')" [disabled]="shellBusy || !shellSessionId">Tab</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\r')" [disabled]="shellBusy || !shellSessionId">Enter</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u007f')" [disabled]="shellBusy || !shellSessionId">Backspace</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u001b[A')" [disabled]="shellBusy || !shellSessionId">↑</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u001b[B')" [disabled]="shellBusy || !shellSessionId">↓</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u001b[D')" [disabled]="shellBusy || !shellSessionId">←</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u001b[C')" [disabled]="shellBusy || !shellSessionId">→</button>
+          </div>
         </div>
 
         <details class="mt-sm">
@@ -157,11 +186,20 @@ import { MobileProotService } from '../services/mobile-proot.service';
       flex-wrap: wrap;
       align-items: center;
     }
+    .mobile-shell-toolbar {
+      justify-content: flex-start;
+    }
+    .terminal-keys button {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      min-width: 74px;
+    }
   `],
 })
 export class MobileShellComponent implements OnDestroy, OnInit {
   private python = inject(PythonRuntimeService);
   private proot = inject(MobileProotService);
+  shellState = inject(AppShellStateService);
+  auth = inject(UserAuthService);
 
   command = 'pwd && ls -la';
   timeoutSeconds = 20;
@@ -312,16 +350,28 @@ export class MobileShellComponent implements OnDestroy, OnInit {
   }
 
   async sendCtrlC(): Promise<void> {
+    await this.sendSpecialInput('\u0003');
+  }
+
+  async sendSpecialInput(sequence: string): Promise<void> {
     if (!this.shellSessionId || this.shellBusy) return;
     this.shellBusy = true;
     try {
-      await this.python.writeShellSession(this.shellSessionId, '\u0003');
+      await this.python.writeShellSession(this.shellSessionId, sequence);
       await this.pullShellOutput();
     } catch (error: any) {
-      this.shellMeta = `Ctrl+C fehlgeschlagen: ${error?.message || String(error)}`;
+      this.shellMeta = `Sondertaste fehlgeschlagen: ${error?.message || String(error)}`;
     } finally {
       this.shellBusy = false;
     }
+  }
+
+  toggleDarkMode(): void {
+    this.shellState.toggleDarkMode();
+  }
+
+  toggleMode(): void {
+    this.shellState.toggleMode();
   }
 
   async pullShellOutput(): Promise<void> {
