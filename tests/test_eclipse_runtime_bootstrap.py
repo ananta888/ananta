@@ -302,15 +302,15 @@ def test_eclipse_build_script_pins_java17_baseline_and_build_command() -> None:
     assert "org.eclipse.platform:org.eclipse.ui" in build_gradle
 
 
-def test_eclipse_runtime_status_is_runtime_complete_after_docker_ui_evidence() -> None:
+def test_eclipse_runtime_status_stays_mvp_until_p2_workbench_verifier_passes() -> None:
     status_payload = json.loads((ROOT / "data" / "client_surface_runtime_status.json").read_text(encoding="utf-8"))
     surface_status = dict(status_payload.get("surface_status") or {})
-    assert surface_status.get("eclipse_plugin") == "runtime_complete"
-    assert surface_status.get("eclipse_views_extension") == "runtime_complete"
+    assert surface_status.get("eclipse_plugin") == "runtime_mvp"
+    assert surface_status.get("eclipse_views_extension") == "runtime_mvp"
     ui_report = json.loads((ROOT / "ci-artifacts" / "eclipse" / "eclipse-ui-golden-path-report.json").read_text(encoding="utf-8"))
-    assert ui_report.get("ok") is True
+    assert "p2_install_from_update_site" in {str(item.get("check_id")) for item in list(ui_report.get("checks") or [])}
     assert ui_report.get("skipped") is False
-    assert ui_report.get("runtime_complete_claim_allowed") is True
+    assert ui_report.get("runtime_complete_claim_allowed") is False
 
 
 def test_eclipse_command_handlers_route_via_api_client_only() -> None:

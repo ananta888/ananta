@@ -74,7 +74,7 @@
     {
       "decision_id": "EAC-T40",
       "surface": "eclipse_plugin",
-      "status": "runtime_complete",
+      "status": "runtime_mvp_p2_installable",
       "summary": "Eclipse runtime command registry, Eclipse AbstractHandler adapters and Docker/Xvfb installed-Eclipse evidence are implemented for analyze/review/patch/new/evolve.",
       "reason": "Command execution is routed through capability gates, existing generic Hub goal paths and explicit degraded/policy-denied handling; installed Eclipse evidence now passes without skip.",
       "runtime_scope_included": [
@@ -87,7 +87,7 @@
     {
       "decision_id": "EAC-T45",
       "surface": "eclipse_views_extension",
-      "status": "runtime_complete",
+      "status": "runtime_mvp_p2_installable",
       "summary": "Task/artifact/approval/audit/repair/TUI/policy-fallback runtime views are wired through runtime models, Eclipse ViewPart adapters and Docker/Xvfb installed-Eclipse evidence.",
       "reason": "Core operational views load Hub runtime data through testable models while Eclipse UI classes remain thin adapter shells; installed UI startup evidence passes without skip.",
       "runtime_scope_included": [
