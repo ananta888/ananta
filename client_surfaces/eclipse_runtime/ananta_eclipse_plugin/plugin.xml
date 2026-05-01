@@ -27,6 +27,11 @@
             description="Evolve project flow in Ananta"
             id="io.ananta.eclipse.command.evolve_project"
             name="Ananta Project Evolve"/>
+      <command
+            categoryId="io.ananta.eclipse.category"
+            description="Open Ananta Chat"
+            id="io.ananta.eclipse.command.chat"
+            name="Ananta Chat"/>
    </extension>
 
    <extension
@@ -53,10 +58,21 @@
       <handler
             class="io.ananta.eclipse.runtime.commands.handlers.EvolveProjectCommandHandler"
             commandId="io.ananta.eclipse.command.evolve_project"/>
+      <handler
+            class="io.ananta.eclipse.runtime.commands.handlers.ChatCommandHandler"
+            commandId="io.ananta.eclipse.command.chat"/>
    </extension>
 
    <extension
          point="org.eclipse.ui.views">
+      <view
+            id="io.ananta.eclipse.view.chat"
+            name="Ananta Chat"
+            class="io.ananta.eclipse.runtime.views.eclipse.AnantaChatViewPart"/>
+      <view
+            id="io.ananta.eclipse.view.status"
+            name="Ananta Runtime Status"
+            class="io.ananta.eclipse.runtime.views.eclipse.AnantaStatusViewPart"/>
       <view
             id="io.ananta.eclipse.view.goal"
             name="Ananta Goal Panel"
@@ -93,5 +109,13 @@
             id="io.ananta.eclipse.view.policy_fallback"
             name="Ananta Policy and Browser Fallback"
             class="io.ananta.eclipse.runtime.views.eclipse.AnantaPolicyFallbackViewPart"/>
+   </extension>
+
+   <extension
+         point="org.eclipse.ui.perspectives">
+      <perspective
+            id="io.ananta.eclipse.perspective"
+            name="Ananta"
+            class="io.ananta.eclipse.runtime.platform.AnantaPerspectiveFactory"/>
    </extension>
 </plugin>
