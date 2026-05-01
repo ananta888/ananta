@@ -1442,6 +1442,11 @@ public class PythonRuntimePlugin extends Plugin {
     private ShellExecutionResult runInProot(File runtimeRoot, File rootfsDir, String innerCommand, int timeoutSeconds) throws Exception {
         String runtimePath = runtimeRoot.getAbsolutePath();
         String rootfsPath = rootfsDir.getAbsolutePath();
+        String wrappedInnerCommand =
+            "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
+                + "export HOME=/root; "
+                + "export TERM=xterm-256color; "
+                + String.valueOf(innerCommand == null ? "" : innerCommand).trim();
         String command = ""
             + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "
             + "ANANTA_ROOTFS=" + shQuote(rootfsPath) + "; "
@@ -1449,10 +1454,11 @@ public class PythonRuntimePlugin extends Plugin {
             + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; "
             + "mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
             + "chmod 700 \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
+            + "PROOT_FORCE_KOMPAT=1 GLIBC_TUNABLES=glibc.pthread.rseq=0 "
             + "PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color "
             + "/system/bin/sh \"$ANANTA_PROOT_WRAPPER\" "
             + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" "
-            + "-w / /bin/sh -lc " + shQuote(innerCommand);
+            + "-w / /bin/sh -c " + shQuote(wrappedInnerCommand);
         return executeShellCommand(command, timeoutSeconds);
     }
 
