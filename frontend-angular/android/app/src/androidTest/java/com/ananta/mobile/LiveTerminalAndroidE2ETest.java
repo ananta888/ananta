@@ -219,37 +219,48 @@ public class LiveTerminalAndroidE2ETest {
         );
     }
 
+    /** Shared proot setup preamble used by multiple tests (DRY). */
+    private static String prootPreamble() {
+        return "ANANTA_PROOT_RUNTIME=\"proot-runtime\"; "
+            + "if [ ! -d \"$ANANTA_PROOT_RUNTIME\" ]; then ANANTA_PROOT_RUNTIME=\"$(pwd)/proot-runtime\"; fi; "
+            + "if [ ! -d \"$ANANTA_PROOT_RUNTIME\" ]; then for d in /data/user/0/com.ananta.mobile/files/proot-runtime; do "
+            + "if [ -d \"$d\" ]; then ANANTA_PROOT_RUNTIME=\"$d\"; break; fi; done; fi; "
+            + "[ -n \"$ANANTA_PROOT_RUNTIME\" ] || { echo ANANTA_RUNTIME_MISSING; exit 11; }; "
+            + "ANANTA_APK_PATH=\"$(pm path com.ananta.mobile | sed -n '1s/^package://p')\"; "
+            + "ANANTA_LIB_DIR=\"\"; ANANTA_PROOT_DIRECT=\"\"; "
+            + "if [ -n \"$ANANTA_APK_PATH\" ]; then "
+            + "ANANTA_LIB_DIR=\"$(dirname \"$ANANTA_APK_PATH\")/lib/arm64\"; "
+            + "if [ -f \"$ANANTA_LIB_DIR/libprootclassic.so\" ]; then "
+            + "ANANTA_PROOT_DIRECT=\"$ANANTA_LIB_DIR/libprootclassic.so\"; "
+            + "fi; "
+            + "fi; "
+            + "[ -n \"$ANANTA_PROOT_DIRECT\" ] || { echo ANANTA_PROOT_MISSING; exit 14; }; "
+            + "ANANTA_ROOTFS=\"$ANANTA_PROOT_RUNTIME/distros/ubuntu/rootfs\"; "
+            + "[ -d \"$ANANTA_ROOTFS\" ] || { echo ANANTA_UBUNTU_MISSING; exit 12; }; "
+            + "if [ ! -e \"$ANANTA_ROOTFS/bin\" ] && [ ! -e \"$ANANTA_ROOTFS/usr/bin\" ]; then "
+            + "for child in \"$ANANTA_ROOTFS\"/*; do "
+            + "if [ -d \"$child\" ] && { [ -e \"$child/bin\" ] || [ -e \"$child/usr/bin\" ]; }; then ANANTA_ROOTFS=\"$child\"; break; fi; "
+            + "done; "
+            + "fi; "
+            + "ANANTA_LOGIN_SHELL=\"\"; "
+            + "for c in /usr/bin/bash /usr/bin/dash /usr/bin/sh /bin/bash /bin/sh /bin/dash /bin/ash; do "
+            + "if [ -f \"$ANANTA_ROOTFS$c\" ]; then ANANTA_LOGIN_SHELL=\"$c\"; break; fi; "
+            + "done; "
+            + "[ -n \"$ANANTA_LOGIN_SHELL\" ] || { echo ANANTA_LOGIN_SHELL_MISSING; exit 13; }; "
+            + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; chmod 700 \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; ";
+    }
+
+    /** Standard proot env vars passed before the proot binary invocation. */
+    private static String prootEnvPrefix() {
+        return "PROOT_FORCE_KOMPAT=1 PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" "
+            + "HOME=/root TERM=xterm-256color LD_LIBRARY_PATH=\"$ANANTA_LIB_DIR\" GLIBC_TUNABLES=glibc.pthread.rseq=0 "
+            + "PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\" ";
+    }
+
     @Test
     public void ubuntuProotIsUsableFromInstalledApp() throws InterruptedException {
-        String smokeCommand =
-            "ANANTA_PROOT_RUNTIME=\"proot-runtime\"; "
-                + "if [ ! -d \"$ANANTA_PROOT_RUNTIME\" ]; then ANANTA_PROOT_RUNTIME=\"$(pwd)/proot-runtime\"; fi; "
-                + "if [ ! -d \"$ANANTA_PROOT_RUNTIME\" ]; then for d in /data/user/0/com.ananta.mobile/files/proot-runtime; do "
-                + "if [ -d \"$d\" ]; then ANANTA_PROOT_RUNTIME=\"$d\"; break; fi; done; fi; "
-                + "[ -n \"$ANANTA_PROOT_RUNTIME\" ] || { echo ANANTA_RUNTIME_MISSING; exit 11; }; "
-                + "ANANTA_APK_PATH=\"$(pm path com.ananta.mobile | sed -n '1s/^package://p')\"; "
-                + "ANANTA_LIB_DIR=\"\"; ANANTA_PROOT_DIRECT=\"\"; "
-                + "if [ -n \"$ANANTA_APK_PATH\" ]; then "
-                + "ANANTA_LIB_DIR=\"$(dirname \"$ANANTA_APK_PATH\")/lib/arm64\"; "
-                + "if [ -f \"$ANANTA_LIB_DIR/libprootclassic.so\" ]; then "
-                + "ANANTA_PROOT_DIRECT=\"$ANANTA_LIB_DIR/libprootclassic.so\"; "
-                + "fi; "
-                + "fi; "
-                + "[ -n \"$ANANTA_PROOT_DIRECT\" ] || { echo ANANTA_PROOT_MISSING; exit 14; }; "
-                + "ANANTA_ROOTFS=\"$ANANTA_PROOT_RUNTIME/distros/ubuntu/rootfs\"; "
-                + "[ -d \"$ANANTA_ROOTFS\" ] || { echo ANANTA_UBUNTU_MISSING; exit 12; }; "
-                + "if [ ! -e \"$ANANTA_ROOTFS/bin\" ] && [ ! -e \"$ANANTA_ROOTFS/usr/bin\" ]; then "
-                + "for child in \"$ANANTA_ROOTFS\"/*; do "
-                + "if [ -d \"$child\" ] && { [ -e \"$child/bin\" ] || [ -e \"$child/usr/bin\" ]; }; then ANANTA_ROOTFS=\"$child\"; break; fi; "
-                + "done; "
-                + "fi; "
-                + "ANANTA_LOGIN_SHELL=\"\"; "
-                + "for c in /usr/bin/bash /usr/bin/dash /usr/bin/sh /bin/bash /bin/sh /bin/dash /bin/ash; do "
-                + "if [ -f \"$ANANTA_ROOTFS$c\" ]; then ANANTA_LOGIN_SHELL=\"$c\"; break; fi; "
-                + "done; "
-                + "[ -n \"$ANANTA_LOGIN_SHELL\" ] || { echo ANANTA_LOGIN_SHELL_MISSING; exit 13; }; "
-                + "ANANTA_PROOT_TMP=\"$ANANTA_PROOT_RUNTIME/tmp\"; mkdir -p \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; chmod 700 \"$ANANTA_PROOT_TMP\" 2>/dev/null || true; "
-                + "PROOT_FORCE_KOMPAT=1 PROOT_TMP_DIR=\"$ANANTA_PROOT_TMP\" TMPDIR=\"$ANANTA_PROOT_TMP\" HOME=/root TERM=xterm-256color LD_LIBRARY_PATH=\"$ANANTA_LIB_DIR\" GLIBC_TUNABLES=glibc.pthread.rseq=0 "
+        String smokeCommand = prootPreamble()
+                + prootEnvPrefix()
                 + "\"$ANANTA_PROOT_DIRECT\" "
                 + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" -w / \"$ANANTA_LOGIN_SHELL\" "
                 + "-c 'echo ANANTA_UBUNTU_OK; if command -v python3 >/dev/null 2>&1; then python3 --version; echo ANANTA_PY_OK; elif command -v python >/dev/null 2>&1; then python --version; echo ANANTA_PY_OK; else echo ANANTA_PY_MISSING; fi'";
@@ -299,6 +310,76 @@ public class LiveTerminalAndroidE2ETest {
         waitForTrueWithRetry(
             "ubuntu is usable",
             "var v=String(window.__anantaProotSmoke||''); if(v.indexOf('ERR:')===0){ throw new Error(v); } if(v.indexOf('OK:')===0 && v.indexOf('ANANTA_UBUNTU_OK')<0){ throw new Error(v); } return v.indexOf('ANANTA_UBUNTU_OK')>=0;",
+            30,
+            1_000L
+        );
+    }
+
+    @Test
+    public void proxyEnabledAptGetUpdateWorks() throws InterruptedException {
+        // Verifies the HTTP CONNECT proxy allows apt-get update from within proot
+        String aptCommand = prootPreamble()
+                + prootEnvPrefix()
+                + "http_proxy=\"http://127.0.0.1:18080\" https_proxy=\"http://127.0.0.1:18080\" "
+                + "HTTP_PROXY=\"http://127.0.0.1:18080\" HTTPS_PROXY=\"http://127.0.0.1:18080\" "
+                + "\"$ANANTA_PROOT_DIRECT\" "
+                + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" -w / \"$ANANTA_LOGIN_SHELL\" "
+                + "-c '"
+                + "echo nameserver 8.8.8.8 > /etc/resolv.conf 2>/dev/null; "
+                + "mkdir -p /etc/apt/apt.conf.d 2>/dev/null; "
+                + "echo Acquire::http::Proxy \\\"http://127.0.0.1:18080\\\"; > /etc/apt/apt.conf.d/99proxy; "
+                + "echo Acquire::https::Proxy \\\"http://127.0.0.1:18080\\\"; >> /etc/apt/apt.conf.d/99proxy; "
+                + "export http_proxy=http://127.0.0.1:18080; "
+                + "export https_proxy=http://127.0.0.1:18080; "
+                + "apt-get update 2>&1; "
+                + "APT_RC=$?; "
+                + "if [ $APT_RC -eq 0 ]; then echo ANANTA_APT_OK; else echo ANANTA_APT_FAIL:$APT_RC; fi"
+                + "'";
+
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "run apt-get update via proxy",
+            "window.__anantaAptSmoke='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var p=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PythonRuntime;"
+                + "    if(!p){window.__anantaAptSmoke='ERR:NO_PLUGIN';return;}"
+                + "    var status=await p.getProotRuntimeStatus();"
+                + "    var distros=(status && Array.isArray(status.distros)) ? status.distros : [];"
+                + "    var ubuntuOk=distros.some(function(item){ return String(item && item.name || '').toLowerCase()==='ubuntu'; });"
+                + "    if(!ubuntuOk){"
+                + "      window.__anantaAptSmoke='INSTALLING_UBUNTU';"
+                + "      await p.installProotDistro({distro:'ubuntu'});"
+                + "    }"
+                + "    window.__anantaAptSmoke='RUN_APT';"
+                + "    var res=await p.runShellCommand({command:" + jsLiteral(aptCommand) + ",timeoutSeconds:300});"
+                + "    var out=(res && res.output) ? String(res.output) : '';"
+                + "    window.__anantaAptSmoke='OK:' + out;"
+                + "  }catch(e){"
+                + "    window.__anantaAptSmoke='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "apt-get update finished",
+            "var v=String(window.__anantaAptSmoke||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            600,
+            1_000L
+        );
+        runIfPresent(
+            "log apt result",
+            "console.log('ANANTA_APT_RESULT:' + String(window.__anantaAptSmoke||'')); return true;"
+        );
+        waitForTrueWithRetry(
+            "apt-get update succeeded",
+            "var v=String(window.__anantaAptSmoke||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "if(v.indexOf('OK:')===0 && v.indexOf('ANANTA_APT_OK')<0){ throw new Error('FATAL_E2E:apt failed: ' + v.slice(-2000)); }"
+                + "return v.indexOf('ANANTA_APT_OK')>=0;",
             30,
             1_000L
         );
