@@ -1,12 +1,51 @@
 import { Injectable } from '@angular/core';
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor, registerPlugin, PluginListenerHandle } from '@capacitor/core';
+
+export interface LlmSetupStatus {
+  prootReady: boolean;
+  serverInstalled: boolean;
+  modelInstalled: boolean;
+  serverRunning: boolean;
+  state: string;
+  lastError?: string;
+  llamaVersion: string;
+  modelName: string;
+  serverPort: number;
+}
+
+export interface LlmInstallProgressEvent {
+  component: 'server' | 'model' | string;
+  stage: 'downloading' | 'verifying' | 'extracting' | 'done' | 'error' | string;
+  message: string;
+  downloadedBytes: number;
+  totalBytes: number;
+  progress: number;
+}
 
 interface LlamaRuntimePlugin {
-  health(): Promise<{ nativeAvailable: boolean }>;
+  health(): Promise<{
+    nativeAvailable: boolean;
+    serverInstalled?: boolean;
+    modelInstalled?: boolean;
+    serverRunning?: boolean;
+  }>;
   loadModel(options: { modelPath: string; threads?: number; contextSize?: number }): Promise<{ ok: boolean; modelPath: string; threads: number; contextSize: number }>;
   generate(options: { prompt: string; maxTokens?: number }): Promise<{ text: string }>;
   stopGeneration(): Promise<{ stopped: boolean }>;
   unloadModel(): Promise<{ unloaded: boolean }>;
+
+  // Server-based LLM management
+  getLlmSetupStatus(): Promise<LlmSetupStatus>;
+  installLlamaServer(): Promise<{ installed: boolean }>;
+  installModel(): Promise<{ installed: boolean }>;
+  startLlmServer(): Promise<{ running: boolean; port: number }>;
+  stopLlmServer(): Promise<{ stopped: boolean }>;
+  getLlmServerHealth(): Promise<{ ok: boolean; response?: string; error?: string }>;
+
+  addListener(
+    eventName: 'llmInstallProgress',
+    listenerFunc: (event: LlmInstallProgressEvent) => void
+  ): Promise<PluginListenerHandle>;
 }
 
 const LlamaCppRuntime = registerPlugin<LlamaRuntimePlugin>('LlamaCppRuntime');
@@ -15,7 +54,9 @@ const LlamaCppRuntime = registerPlugin<LlamaRuntimePlugin>('LlamaCppRuntime');
 export class LlamaRuntimeService {
   readonly isNative = Capacitor.isNativePlatform();
 
-  async health(): Promise<{ nativeAvailable: boolean }> {
+  // ── Legacy JNI methods ──────────────────────────────────────────────
+
+  async health(): Promise<{ nativeAvailable: boolean; serverInstalled?: boolean; modelInstalled?: boolean; serverRunning?: boolean }> {
     if (!this.isNative) return { nativeAvailable: false };
     return LlamaCppRuntime.health();
   }
@@ -38,5 +79,50 @@ export class LlamaRuntimeService {
   async unloadModel(): Promise<{ unloaded: boolean }> {
     if (!this.isNative) throw new Error('Nur auf nativer Android-App verfuegbar.');
     return LlamaCppRuntime.unloadModel();
+  }
+
+  // ── Server-based LLM management ────────────────────────────────────
+
+  async getLlmSetupStatus(): Promise<LlmSetupStatus> {
+    if (!this.isNative) {
+      return {
+        prootReady: false, serverInstalled: false, modelInstalled: false,
+        serverRunning: false, state: 'IDLE', llamaVersion: '', modelName: '', serverPort: 0,
+      };
+    }
+    return LlamaCppRuntime.getLlmSetupStatus();
+  }
+
+  async installLlamaServer(): Promise<{ installed: boolean }> {
+    if (!this.isNative) throw new Error('Nur auf nativer Android-App verfuegbar.');
+    return LlamaCppRuntime.installLlamaServer();
+  }
+
+  async installModel(): Promise<{ installed: boolean }> {
+    if (!this.isNative) throw new Error('Nur auf nativer Android-App verfuegbar.');
+    return LlamaCppRuntime.installModel();
+  }
+
+  async startLlmServer(): Promise<{ running: boolean; port: number }> {
+    if (!this.isNative) throw new Error('Nur auf nativer Android-App verfuegbar.');
+    return LlamaCppRuntime.startLlmServer();
+  }
+
+  async stopLlmServer(): Promise<{ stopped: boolean }> {
+    if (!this.isNative) throw new Error('Nur auf nativer Android-App verfuegbar.');
+    return LlamaCppRuntime.stopLlmServer();
+  }
+
+  async getLlmServerHealth(): Promise<{ ok: boolean; response?: string; error?: string }> {
+    if (!this.isNative) throw new Error('Nur auf nativer Android-App verfuegbar.');
+    return LlamaCppRuntime.getLlmServerHealth();
+  }
+
+  async onLlmInstallProgress(
+    listener: (event: LlmInstallProgressEvent) => void
+  ): Promise<() => Promise<void>> {
+    if (!this.isNative) return async () => undefined;
+    const handle = await LlamaCppRuntime.addListener('llmInstallProgress', listener);
+    return async () => { await handle.remove(); };
   }
 }
