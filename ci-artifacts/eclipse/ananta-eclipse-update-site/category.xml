@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+   <feature url="features/io.ananta.eclipse.runtime.feature_0.1.0.qualifier.jar" id="io.ananta.eclipse.runtime.feature" version="0.1.0.qualifier">
+      <category name="ananta"/>
+   </feature>
+   <category-def name="ananta" label="Ananta"/>
+</site>
