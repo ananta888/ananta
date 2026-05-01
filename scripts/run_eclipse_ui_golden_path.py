@@ -186,6 +186,8 @@ def _run_docker_golden_path(
                 "runtime_complete_claim_allowed": False,
             })
 
+    report_path.unlink(missing_ok=True)
+    report_path.with_name("eclipse-ui-availability-report.json").unlink(missing_ok=True)
     run_result = subprocess.run(
         _docker_command(
             image=docker_image,
@@ -211,9 +213,17 @@ def _run_docker_golden_path(
     if report_path.exists():
         report = json.loads(report_path.read_text(encoding="utf-8"))
         report.setdefault("host_checks", checks)
+        expected_container_checks = {str(item.get("check_id")) for item in list(report.get("checks") or [])}
+        if update_site is not None and not {"p2_install_from_update_site", "ui_availability_verifier"}.issubset(expected_container_checks):
+            checks.append({
+                "check_id": "fresh_p2_ui_report",
+                "ok": False,
+                "reason": "container report did not include p2 install and UI availability checks",
+            })
         report["runtime_complete_claim_allowed"] = bool(report.get("runtime_complete_claim_allowed")) and all(
             bool(item.get("ok")) for item in checks
         )
+        report["ok"] = bool(report.get("ok")) and all(bool(item.get("ok")) for item in checks)
         return _write_report(report_path, report)
 
     return _write_report(report_path, {

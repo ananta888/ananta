@@ -189,7 +189,7 @@ def _run_ui_availability_verifier(
         "xvfb-run",
         "-a",
         str(eclipse_binary),
-        "-clean",
+        "-consoleLog",
         "-nosplash",
         "-data",
         str(workspace),
