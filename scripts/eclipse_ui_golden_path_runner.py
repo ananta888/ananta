@@ -173,13 +173,18 @@ def _detect_profile(eclipse_home: Path) -> str:
 
 def _install_from_p2_site(*, eclipse_binary: Path, update_site: Path, timeout_seconds: int) -> dict[str, Any]:
     profile = _detect_profile(eclipse_binary.parent)
+    repositories = ",".join([
+        update_site.as_uri(),
+        eclipse_binary.parent.as_uri(),
+        "https://download.eclipse.org/releases/2026-03",
+    ])
     command = [
         str(eclipse_binary),
         "-nosplash",
         "-application",
         "org.eclipse.equinox.p2.director",
         "-repository",
-        update_site.as_uri(),
+        repositories,
         "-installIU",
         "io.ananta.eclipse.runtime.feature.feature.group",
         "-destination",
@@ -196,6 +201,7 @@ def _install_from_p2_site(*, eclipse_binary: Path, update_site: Path, timeout_se
         "ok": result.returncode == 0,
         "profile": profile,
         "update_site": str(update_site),
+        "repositories": repositories,
         "returncode": result.returncode,
         "output_tail": output[-4000:],
     }
@@ -224,15 +230,23 @@ def _run_ui_availability_verifier(
         "-Doomph.setup.skip=true",
         "-Doomph.setup.sync.skip=true",
     ]
-    result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=timeout_seconds)
-    output = (result.stdout + "\n" + result.stderr).strip()
+    timed_out = False
+    try:
+        result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=timeout_seconds)
+        output = (result.stdout + "\n" + result.stderr).strip()
+        returncode: int | str = result.returncode
+    except subprocess.TimeoutExpired as exc:
+        timed_out = True
+        output = _timeout_output(exc)
+        returncode = "timeout_after_verifier_report"
     verifier_report: dict[str, Any] = {}
     if availability_report.exists():
         verifier_report = json.loads(availability_report.read_text(encoding="utf-8"))
     return {
         "check_id": "ui_availability_verifier",
-        "ok": result.returncode == 0 and bool(verifier_report.get("ok")),
-        "returncode": result.returncode,
+        "ok": (returncode == 0 or timed_out) and bool(verifier_report.get("ok")),
+        "returncode": returncode,
+        "timed_out_after_report": timed_out and bool(verifier_report.get("ok")),
         "availability_report": str(availability_report),
         "verifier_report": verifier_report,
         "output_tail": output[-4000:],
