@@ -105,7 +105,11 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
           <div><strong>Runner:</strong> {{ runnerPath || '-' }}</div>
           <div><strong>Download Modell:</strong> {{ modelDownloadProgress }}</div>
           <div><strong>Download Runner:</strong> {{ runnerDownloadProgress }}</div>
-          <div class="muted"><small>Runner-Tipp: Mit "Runner-Preset (auto)" wird das aktuelle llama.cpp Android-Archiv gesetzt; beim Download wird ein passender Runner automatisch extrahiert.</small></div>
+          <div><strong>Lokale Assets:</strong> Modell {{ localModelAvailable ? 'vorhanden' : 'fehlt' }} | Runner {{ localRunnerAvailable ? 'vorhanden' : 'fehlt' }}</div>
+          @if (localModelAvailable && localRunnerAvailable) {
+            <div class="muted"><small>Lokale Dateien erkannt: Kein erneuter Download noetig.</small></div>
+          }
+          <div class="muted"><small>Runner-Tipp: "Runner-Preset (auto)" liefert einen aktuellen llama.cpp-Runner. Falls bei Voxtral "unknown model architecture: voxtral4b" erscheint, ist ein Voxtral-kompatibler Spezial-Runner erforderlich.</small></div>
           <div><strong>Setup:</strong> {{ setupStatus || '-' }}</div>
         </div>
 
@@ -211,6 +215,8 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
   errorMessage = '';
   modelDownloadProgress = '-';
   runnerDownloadProgress = '-';
+  localModelAvailable = false;
+  localRunnerAvailable = false;
   setupStatus = '';
   maxSeconds = 5;
   liveChunkSeconds = 3;
@@ -415,6 +421,8 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
       const assets = await this.voxtral.listLocalAssets();
       this.localModels = assets.models || [];
       this.localRunners = assets.runners || [];
+      this.localModelAvailable = this.localModels.length > 0;
+      this.localRunnerAvailable = this.localRunners.length > 0;
       const modelExists = !!this.modelPath && this.localModels.some(item => item.path === this.modelPath);
       const runnerExists = !!this.runnerPath && this.localRunners.some(item => item.path === this.runnerPath);
       if (!modelExists && this.localModels.length) {
@@ -433,8 +441,11 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
   async verifySetup(): Promise<void> {
     await this.run(async () => {
       const check = await this.voxtral.verifySetup(this.modelPath.trim(), this.runnerPath.trim());
-      this.setupStatus = `Speicher frei: ${this.formatBytes(check.availableBytes)} | Bedarf: ${this.formatBytes(check.estimatedRequiredBytes || 0)} | Modell: ${check.modelExists && check.modelCompatible ? 'ok' : 'inkompatibel/fehlt'} | Runner: ${check.runnerExecutable && check.runnerCompatible ? 'ok' : 'inkompatibel/nicht ausfuehrbar'}`;
-      if (!check.modelExists || !check.runnerExecutable || !check.modelCompatible || !check.runnerCompatible || !check.hasEnoughStorage) {
+      const runnerExecOk = !!check.runnerExecutable && !!check.runnerCompatible;
+      const runnerModelOk = check.runnerModelCompatible !== false;
+      const probeHint = String(check.runnerProbeMessage || '').trim();
+      this.setupStatus = `Speicher frei: ${this.formatBytes(check.availableBytes)} | Bedarf: ${this.formatBytes(check.estimatedRequiredBytes || 0)} | Modell: ${check.modelExists && check.modelCompatible ? 'ok' : 'inkompatibel/fehlt'} | Runner: ${runnerExecOk ? 'ok' : 'inkompatibel/nicht ausfuehrbar'}${runnerModelOk ? '' : ' (modellinkompatibel)'}${probeHint ? ` | Probe: ${probeHint}` : ''}`;
+      if (!check.modelExists || !runnerExecOk || !check.modelCompatible || !runnerModelOk || !check.hasEnoughStorage) {
         throw new Error('Setup unvollstaendig. Bitte Modell/Runner pruefen.');
       }
       this.toast.success('Setup ist bereit.');
