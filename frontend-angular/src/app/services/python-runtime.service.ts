@@ -54,6 +54,9 @@ export interface GuidedSetupStatus {
   pipReady: boolean;
   libgompReady: boolean;
   opencodeReady: boolean;
+  anantaCliReady?: boolean;
+  anantaTuiReady?: boolean;
+  workerCommandReady?: boolean;
   workspaceInstalled: boolean;
   workerImportReady: boolean;
   workerProbeMessage?: string;
