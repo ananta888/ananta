@@ -29,15 +29,15 @@ class EclipseRuntimeIntegrationUiTest {
     @Test
     void commandExecutionAndMainViewsLoadFromRuntime() throws IOException {
         try (StubBackendServer backend = StubBackendServer.start()) {
-            backend.stub("POST", "/tasks/review", 200, "{\"task_id\":\"task-review-1\",\"status\":\"queued\"}");
+            backend.stub("POST", "/goals", 200, "{\"goal_id\":\"goal-review-1\",\"status\":\"queued\"}");
             backend.stub("GET", "/tasks", 200, "{\"items\":[{\"id\":\"task-1\",\"status\":\"in_progress\"}]}");
             backend.stub("GET", "/tasks/task-1", 200, "{\"id\":\"task-1\",\"status\":\"in_progress\"}");
             backend.stub("GET", "/artifacts", 200, "{\"items\":[{\"id\":\"artifact-1\",\"type\":\"diff\"}]}");
             backend.stub("GET", "/artifacts/artifact-1", 200, "{\"id\":\"artifact-1\",\"type\":\"diff\"}");
-            backend.stub("GET", "/approvals", 200, "{\"items\":[{\"id\":\"approval-1\",\"state\":\"pending\"}]}");
-            backend.stub("GET", "/audit?severity=high&type=policy&object=task-1", 200, "{\"items\":[{\"id\":\"audit-1\"}]}");
-            backend.stub("GET", "/repairs", 200, "{\"items\":[{\"id\":\"repair-1\"}]}");
-            backend.stub("GET", "/repairs/repair-1", 200, "{\"id\":\"repair-1\",\"state\":\"open\"}");
+            backend.stub("GET", "/tasks?status=review_required", 200, "{\"items\":[{\"id\":\"approval-1\",\"state\":\"pending\"}]}");
+            backend.stub("GET", "/api/system/audit-logs?limit=100&severity=high&type=policy&object=task-1", 200, "{\"items\":[{\"id\":\"audit-1\"}]}");
+            backend.stub("GET", "/tasks?status=failed", 200, "{\"items\":[{\"id\":\"repair-1\"}]}");
+            backend.stub("GET", "/tasks/repair-1", 200, "{\"id\":\"repair-1\",\"state\":\"open\"}");
 
             ClientProfile profile = new ClientProfile("dev", backend.baseUrl(), "session_token", "local", "token", 15);
             AnantaApiClient apiClient = new AnantaApiClient(profile);
@@ -93,17 +93,17 @@ class EclipseRuntimeIntegrationUiTest {
             assertEquals(DegradedState.HEALTHY, auditView.response().getState());
 
             assertTrue(viewsRegistry.listRuntimeViewIds().contains("io.ananta.eclipse.view.task_detail"));
-            assertFalse(backend.findRequests("POST", "/tasks/review").isEmpty());
+            assertFalse(backend.findRequests("POST", "/goals").isEmpty());
         }
     }
 
     @Test
     void contextPreviewAndExplicitConfirmationPathsAreEnforced() throws IOException {
         try (StubBackendServer backend = StubBackendServer.start()) {
-            backend.stub("POST", "/tasks/patch-plan", 200, "{\"task_id\":\"task-patch-1\",\"status\":\"queued\"}");
-            backend.stub("GET", "/approvals", 200, "{\"items\":[{\"id\":\"approval-1\"}]}");
-            backend.stub("GET", "/repairs", 200, "{\"items\":[{\"id\":\"repair-1\"}]}");
-            backend.stub("GET", "/repairs/repair-1", 200, "{\"id\":\"repair-1\"}");
+            backend.stub("POST", "/goals", 200, "{\"goal_id\":\"goal-patch-1\",\"status\":\"queued\"}");
+            backend.stub("GET", "/tasks?status=review_required", 200, "{\"items\":[{\"id\":\"approval-1\"}]}");
+            backend.stub("GET", "/tasks?status=failed", 200, "{\"items\":[{\"id\":\"repair-1\"}]}");
+            backend.stub("GET", "/tasks/repair-1", 200, "{\"id\":\"repair-1\"}");
 
             ClientProfile profile = new ClientProfile("dev", backend.baseUrl(), "session_token", "local", "token", 15);
             AnantaApiClient apiClient = new AnantaApiClient(profile);
@@ -160,8 +160,8 @@ class EclipseRuntimeIntegrationUiTest {
     @Test
     void uiModelsNeverAutoApplyOrImplicitlyExecuteRepairSteps() throws IOException {
         try (StubBackendServer backend = StubBackendServer.start()) {
-            backend.stub("GET", "/repairs", 200, "{\"items\":[{\"id\":\"repair-1\"}]}");
-            backend.stub("GET", "/repairs/repair-1", 200, "{\"id\":\"repair-1\",\"state\":\"open\"}");
+            backend.stub("GET", "/tasks?status=failed", 200, "{\"items\":[{\"id\":\"repair-1\"}]}");
+            backend.stub("GET", "/tasks/repair-1", 200, "{\"id\":\"repair-1\",\"state\":\"open\"}");
 
             ClientProfile profile = new ClientProfile("dev", backend.baseUrl(), "session_token", "local", "token", 15);
             AnantaApiClient apiClient = new AnantaApiClient(profile);
@@ -181,7 +181,7 @@ class EclipseRuntimeIntegrationUiTest {
             assertTrue(explorer.noExecutionOnOpenOrRefresh());
             assertEquals(DegradedState.HEALTHY, explorer.sessionsResponse().getState());
             assertEquals(DegradedState.HEALTHY, explorer.detailResponse().getState());
-            assertTrue(backend.findRequests("POST", "/repairs/repair-1/steps/step-1/approve").isEmpty());
+            assertTrue(backend.findRequests("POST", "/tasks/repair-1/review").isEmpty());
         }
     }
 }

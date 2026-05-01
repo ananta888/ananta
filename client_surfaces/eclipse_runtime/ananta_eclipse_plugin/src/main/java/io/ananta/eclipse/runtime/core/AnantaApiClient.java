@@ -32,7 +32,7 @@ public final class AnantaApiClient {
     }
 
     public ClientResponse getCapabilities() {
-        return request("GET", "/capabilities", null);
+        return request("GET", "/v1/ananta/capabilities", null);
     }
 
     public ClientResponse listTasks() {
@@ -44,11 +44,11 @@ public final class AnantaApiClient {
     }
 
     public ClientResponse listApprovals() {
-        return request("GET", "/approvals", null);
+        return request("GET", "/tasks?status=review_required", null);
     }
 
     public ClientResponse listAuditEvents() {
-        return request("GET", "/audit", null);
+        return request("GET", "/api/system/audit-logs?limit=100", null);
     }
 
     public ClientResponse listAuditEvents(String severity, String eventType, String objectId) {
@@ -62,12 +62,12 @@ public final class AnantaApiClient {
         if (!Objects.toString(objectId, "").isBlank()) {
             params.add("object=" + encodeQueryValue(objectId));
         }
-        String suffix = params.isEmpty() ? "" : "?" + String.join("&", params);
-        return request("GET", "/audit" + suffix, null);
+        params.add(0, "limit=100");
+        return request("GET", "/api/system/audit-logs?" + String.join("&", params), null);
     }
 
     public ClientResponse listRepairs() {
-        return request("GET", "/repairs", null);
+        return request("GET", "/tasks?status=failed", null);
     }
 
     public ClientResponse getTask(String taskId) {
@@ -79,30 +79,30 @@ public final class AnantaApiClient {
     }
 
     public ClientResponse getRepairSession(String sessionId) {
-        return request("GET", "/repairs/" + encodePathSegment(sessionId), null);
+        return getTask(sessionId);
     }
 
     public ClientResponse approveApproval(String approvalId, String comment) {
         return request(
                 "POST",
-                "/approvals/" + encodePathSegment(approvalId) + "/approve",
-                buildCommentPayload(comment)
+                "/tasks/" + encodePathSegment(approvalId) + "/review",
+                buildReviewPayload("approve", comment)
         );
     }
 
     public ClientResponse rejectApproval(String approvalId, String comment) {
         return request(
                 "POST",
-                "/approvals/" + encodePathSegment(approvalId) + "/reject",
-                buildCommentPayload(comment)
+                "/tasks/" + encodePathSegment(approvalId) + "/review",
+                buildReviewPayload("reject", comment)
         );
     }
 
     public ClientResponse approveRepairStep(String repairSessionId, String stepId, String comment) {
         return request(
                 "POST",
-                "/repairs/" + encodePathSegment(repairSessionId) + "/steps/" + encodePathSegment(stepId) + "/approve",
-                buildCommentPayload(comment)
+                "/tasks/" + encodePathSegment(repairSessionId) + "/review",
+                buildReviewPayload("approve", appendStepComment(stepId, comment))
         );
     }
 
@@ -120,7 +120,7 @@ public final class AnantaApiClient {
         String safeGoal = Objects.toString(goalText, "").trim();
         String safeContext = ensureJsonObject(contextPayloadJson);
         StringBuilder body = new StringBuilder();
-        body.append("{\"goal_text\":\"").append(escapeJson(safeGoal)).append("\",\"context\":").append(safeContext);
+        body.append("{\"goal\":\"").append(escapeJson(safeGoal)).append("\",\"context\":").append(safeContext);
         appendOptionalString(body, "operation_preset", operationPreset);
         appendOptionalString(body, "command_id", commandId);
         appendOptionalString(body, "profile_id", profileId);
@@ -129,15 +129,15 @@ public final class AnantaApiClient {
     }
 
     public ClientResponse analyzeContext(String contextPayloadJson) {
-        return request("POST", "/tasks/analyze", wrapContextPayload(contextPayloadJson));
+        return submitGoal("Analyze current workspace context", contextPayloadJson, "repository_understanding", "io.ananta.eclipse.command.analyze", null);
     }
 
     public ClientResponse reviewContext(String contextPayloadJson) {
-        return request("POST", "/tasks/review", wrapContextPayload(contextPayloadJson));
+        return submitGoal("Review selected code changes", contextPayloadJson, "change_review", "io.ananta.eclipse.command.review", null);
     }
 
     public ClientResponse patchPlan(String contextPayloadJson) {
-        return request("POST", "/tasks/patch-plan", wrapContextPayload(contextPayloadJson));
+        return submitGoal("Create patch plan for selected context", contextPayloadJson, "bugfix_planning", "io.ananta.eclipse.command.patch", null);
     }
 
     public ClientResponse createProjectNew(
@@ -146,14 +146,7 @@ public final class AnantaApiClient {
             String blueprintId,
             String workProfileId
     ) {
-        String safeGoal = Objects.toString(goalText, "").trim();
-        String safeContext = ensureJsonObject(contextPayloadJson);
-        StringBuilder body = new StringBuilder();
-        body.append("{\"goal_text\":\"").append(escapeJson(safeGoal)).append("\",\"context\":").append(safeContext);
-        appendOptionalString(body, "blueprint_id", blueprintId);
-        appendOptionalString(body, "work_profile_id", workProfileId);
-        body.append("}");
-        return request("POST", "/projects/new", body.toString());
+        return submitGoal(goalText, contextPayloadJson, "new_project", "io.ananta.eclipse.command.new_project", null);
     }
 
     public ClientResponse createProjectEvolve(
@@ -162,26 +155,35 @@ public final class AnantaApiClient {
             String blueprintId,
             String workProfileId
     ) {
-        String safeGoal = Objects.toString(goalText, "").trim();
-        String safeContext = ensureJsonObject(contextPayloadJson);
-        StringBuilder body = new StringBuilder();
-        body.append("{\"goal_text\":\"").append(escapeJson(safeGoal)).append("\",\"context\":").append(safeContext);
-        appendOptionalString(body, "blueprint_id", blueprintId);
-        appendOptionalString(body, "work_profile_id", workProfileId);
-        body.append("}");
-        return request("POST", "/projects/evolve", body.toString());
+        return submitGoal(goalText, contextPayloadJson, "project_evolution", "io.ananta.eclipse.command.evolve_project", null);
     }
 
     private static String wrapContextPayload(String contextPayloadJson) {
         return "{\"context\":" + ensureJsonObject(contextPayloadJson) + "}";
     }
 
-    private static String buildCommentPayload(String comment) {
+    private static String buildReviewPayload(String action, String comment) {
         String normalizedComment = Objects.toString(comment, "").trim();
+        StringBuilder body = new StringBuilder();
+        body.append("{\"action\":\"").append(escapeJson(action)).append("\"");
         if (normalizedComment.isEmpty()) {
-            return "{}";
+            body.append("}");
+            return body.toString();
         }
-        return "{\"comment\":\"" + escapeJson(normalizedComment) + "\"}";
+        body.append(",\"comment\":\"").append(escapeJson(normalizedComment)).append("\"}");
+        return body.toString();
+    }
+
+    private static String appendStepComment(String stepId, String comment) {
+        String normalizedStep = Objects.toString(stepId, "").trim();
+        String normalizedComment = Objects.toString(comment, "").trim();
+        if (normalizedStep.isEmpty()) {
+            return normalizedComment;
+        }
+        if (normalizedComment.isEmpty()) {
+            return "repair_step=" + normalizedStep;
+        }
+        return normalizedComment + " repair_step=" + normalizedStep;
     }
 
     private static String ensureJsonObject(String payload) {

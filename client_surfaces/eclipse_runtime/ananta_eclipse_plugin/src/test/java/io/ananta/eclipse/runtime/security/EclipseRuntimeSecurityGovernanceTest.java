@@ -24,7 +24,7 @@ class EclipseRuntimeSecurityGovernanceTest {
     @Test
     void runtimeActionsCannotBypassCapabilityOrPolicyGates() throws IOException {
         try (StubBackendServer backend = StubBackendServer.start()) {
-            backend.stub("POST", "/tasks/review", 200, "{\"task_id\":\"task-review-1\"}");
+            backend.stub("POST", "/goals", 200, "{\"goal_id\":\"goal-review-1\"}");
             ClientProfile profile = new ClientProfile("dev", backend.baseUrl(), "session_token", "local", "token", 15);
             AnantaApiClient apiClient = new AnantaApiClient(profile);
             CapabilityGate gate = new CapabilityGate(Set.of("review"), Map.of(RuntimeCommandType.REVIEW.commandId(), false));
@@ -54,7 +54,7 @@ class EclipseRuntimeSecurityGovernanceTest {
 
             assertFalse(denied.isAllowed());
             assertEquals("permission_denied", denied.getDenialReason());
-            assertTrue(backend.findRequests("POST", "/tasks/review").isEmpty());
+            assertTrue(backend.findRequests("POST", "/goals").isEmpty());
         }
     }
 
@@ -72,18 +72,18 @@ class EclipseRuntimeSecurityGovernanceTest {
     @Test
     void deniedUnauthorizedStaleAndMalformedResponsesMapToExplicitStates() throws IOException {
         try (StubBackendServer backend = StubBackendServer.start()) {
-            backend.stub("POST", "/tasks/review", 200, "not-json");
-            backend.stub("POST", "/tasks/patch-plan", 403, "{\"error\":\"policy_denied\"}");
-            backend.stub("POST", "/projects/evolve", 401, "{\"error\":\"unauthorized\"}");
-            backend.stub("POST", "/tasks/analyze", 409, "{\"error\":\"stale_state\"}");
+            backend.stub("POST", "/goals", 200, "not-json");
 
             ClientProfile profile = new ClientProfile("dev", backend.baseUrl(), "session_token", "local", "token", 15);
             AnantaApiClient apiClient = new AnantaApiClient(profile);
             String contextJson = "{\"schema\":\"client_bounded_context_payload_v1\",\"selection_text\":\"x\"}";
 
             var malformed = apiClient.reviewContext(contextJson);
+            backend.stub("POST", "/goals", 403, "{\"error\":\"policy_denied\"}");
             var denied = apiClient.patchPlan(contextJson);
+            backend.stub("POST", "/goals", 401, "{\"error\":\"unauthorized\"}");
             var unauthorized = apiClient.createProjectEvolve("Evolve", contextJson, "bp-1", "wp-1");
+            backend.stub("POST", "/goals", 409, "{\"error\":\"stale_state\"}");
             var stale = apiClient.analyzeContext(contextJson);
 
             assertEquals(DegradedState.MALFORMED_RESPONSE, malformed.getState());
