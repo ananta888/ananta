@@ -2,6 +2,7 @@ package com.ananta.mobile.python;
 
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
+import android.util.Log;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -58,8 +59,11 @@ public class PythonRuntimePlugin extends Plugin {
     private static final String PROOT_DISTRO_RELEASE_API = "https://api.github.com/repos/termux/proot-distro/releases/latest";
     private static final String PROOT_DISTRO_PLUGIN_BASE = "https://raw.githubusercontent.com/termux/proot-distro/master/distro-plugins/";
 
+    private static final int PROXY_PORT = 18080;
+
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Map<String, ShellSession> shellSessions = new ConcurrentHashMap<>();
+    private final HttpConnectProxy httpProxy = new HttpConnectProxy(PROXY_PORT);
     private volatile boolean hubRunning;
     private volatile boolean workerRunning;
     private volatile String lastError;
@@ -71,6 +75,8 @@ public class PythonRuntimePlugin extends Plugin {
         result.put("hubRunning", hubRunning);
         result.put("workerRunning", workerRunning);
         result.put("lastError", lastError);
+        result.put("proxyRunning", httpProxy.isRunning());
+        result.put("proxyPort", PROXY_PORT);
         call.resolve(result);
     }
 
@@ -190,6 +196,9 @@ public class PythonRuntimePlugin extends Plugin {
         String shell = String.valueOf(call.getString("shell", "sh")).trim();
         if (shell.isEmpty()) shell = "sh";
 
+        // Auto-start HTTP proxy for proot network access
+        ensureProxyRunning();
+
         final String selectedShell = shell;
         final String selectedCwd = cwd;
         final String selectedInitialCommand = initialCommand;
@@ -221,6 +230,16 @@ public class PythonRuntimePlugin extends Plugin {
                 call.reject("Shell session start failed: " + error.getMessage());
             }
         });
+    }
+
+    private void ensureProxyRunning() {
+        if (httpProxy.isRunning()) return;
+        try {
+            httpProxy.start();
+        } catch (IOException e) {
+            // Log but don't block shell session
+            lastError = "HTTP proxy start failed: " + e.getMessage();
+        }
     }
 
     @PluginMethod
@@ -566,7 +585,16 @@ public class PythonRuntimePlugin extends Plugin {
     }
 
     @Override
+    public void load() {
+        super.load();
+        Log.i("AnantaProxy", "PythonRuntimePlugin loaded, starting HTTP proxy on port " + PROXY_PORT);
+        ensureProxyRunning();
+        Log.i("AnantaProxy", "Proxy running: " + httpProxy.isRunning());
+    }
+
+    @Override
     protected void handleOnDestroy() {
+        httpProxy.stop();
         for (ShellSession session : shellSessions.values()) {
             session.close();
         }
@@ -720,6 +748,14 @@ public class PythonRuntimePlugin extends Plugin {
             } else if (!ldPath.contains(nativeDir)) {
                 env.put("LD_LIBRARY_PATH", nativeDir + ":" + ldPath);
             }
+        }
+        // HTTP proxy for proot external network access
+        if (httpProxy.isRunning()) {
+            String proxyUrl = "http://127.0.0.1:" + PROXY_PORT;
+            env.put("http_proxy", proxyUrl);
+            env.put("https_proxy", proxyUrl);
+            env.put("HTTP_PROXY", proxyUrl);
+            env.put("HTTPS_PROXY", proxyUrl);
         }
     }
 
