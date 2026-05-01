@@ -639,6 +639,9 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     const sessionId = this.embeddedSessionId;
     if (!sessionId) return;
     this.pythonRuntime.writeShellSession(sessionId, input).then(() => {
+      // Small delay to let shell process input before reading
+      return new Promise<void>((resolve) => setTimeout(resolve, 10));
+    }).then(() => {
       return this.pullEmbeddedOutput();
     }).catch((error: any) => {
       const message = String(error?.message || 'embedded_shell_write_failed').trim();
@@ -650,7 +653,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   private startEmbeddedPolling(): void {
     this.stopEmbeddedPolling();
-    const intervalMs = this.lowLatencyMode ? 180 : 420;
+    const intervalMs = this.lowLatencyMode ? 80 : 200;
     this.embeddedPollHandle = setInterval(() => {
       this.pullEmbeddedOutput().catch(() => undefined);
     }, intervalMs);

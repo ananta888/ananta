@@ -1538,6 +1538,14 @@ public class PythonRuntimePlugin extends Plugin {
 
         ShellSessionRead readDelta(int maxChars) {
             synchronized (outputLock) {
+                // If no data yet but process is alive, briefly wait for output
+                if (readOffset >= output.length() && process.isAlive()) {
+                    try {
+                        outputLock.wait(15);
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
                 if (readOffset >= output.length()) {
                     return new ShellSessionRead("", false);
                 }
@@ -1579,6 +1587,7 @@ public class PythonRuntimePlugin extends Plugin {
                     output.delete(0, overflow);
                     readOffset = Math.max(0, readOffset - overflow);
                 }
+                outputLock.notifyAll();
             }
         }
     }
