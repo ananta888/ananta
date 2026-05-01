@@ -251,16 +251,11 @@ public class VoxtralOfflinePlugin extends Plugin {
                 // Bootstrap cmake locally so provisioning does not depend on apt/dpkg.
                 File cmakeHome = new File(toolsDir, "cmake-" + CMAKE_VERSION + "-linux-aarch64");
                 File cmakeBin = new File(cmakeHome, "bin/cmake");
-                if (!cmakeBin.isFile()) {
-                    File cmakeArchive = new File(buildDir, CMAKE_ARCHIVE_NAME);
+                File cmakeRequiredModule = new File(cmakeHome, "share/cmake-3.30/Modules/Compiler/IBMCPP-CXX-DetermineVersionInternal.cmake");
+                File cmakeArchive = new File(buildDir, CMAKE_ARCHIVE_NAME);
+                if (!cmakeArchive.exists() || cmakeArchive.length() < (2L * 1024L * 1024L)) {
                     downloadHttpToFile(CMAKE_DOWNLOAD_URL, cmakeArchive, "runner");
-                    extractTarGzArchive(cmakeArchive, toolsDir);
-                    if (!cmakeBin.isFile()) {
-                        throw new IOException("CMake bootstrap failed: cmake binary not found after extraction.");
-                    }
                 }
-                cmakeBin.setReadable(true, false);
-                cmakeBin.setExecutable(true, false);
 
                 URL url = new URL(sourceUrl);
                 if (!isAllowedDownloadUrl(url)) {
@@ -322,8 +317,20 @@ public class VoxtralOfflinePlugin extends Plugin {
                     + "set -e; "
                     + "export PATH=" + shQuote(cmakeHome.getAbsolutePath() + "/bin") + ":/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
                     + "BUILD_DIR=" + shQuote(buildDir.getAbsolutePath()) + "; "
+                    + "TOOLS_DIR=" + shQuote(toolsDir.getAbsolutePath()) + "; "
                     + "ARCHIVE=" + shQuote(sourceArchive.getAbsolutePath()) + "; "
+                    + "CMAKE_ARCHIVE=" + shQuote(cmakeArchive.getAbsolutePath()) + "; "
+                    + "CMAKE_HOME=" + shQuote(cmakeHome.getAbsolutePath()) + "; "
+                    + "CMAKE_BIN=\"$CMAKE_HOME/bin/cmake\"; "
+                    + "CMAKE_REQUIRED=" + shQuote(cmakeRequiredModule.getAbsolutePath()) + "; "
                     + "SRC_DIR=\"$BUILD_DIR/CrispASR\"; "
+                    + "if [ ! -x \"$CMAKE_BIN\" ] || [ ! -f \"$CMAKE_REQUIRED\" ]; then "
+                    + "rm -rf \"$CMAKE_HOME\"; "
+                    + "mkdir -p \"$TOOLS_DIR\"; "
+                    + "tar -xzf \"$CMAKE_ARCHIVE\" -C \"$TOOLS_DIR\"; "
+                    + "fi; "
+                    + "[ -x \"$CMAKE_BIN\" ] || { echo 'cmake bootstrap missing'; exit 41; }; "
+                    + "[ -f \"$CMAKE_REQUIRED\" ] || { echo 'cmake modules incomplete'; exit 45; }; "
                     + "command -v cmake >/dev/null 2>&1 || { echo 'cmake bootstrap missing'; exit 41; }; "
                     + "if ! command -v gcc >/dev/null 2>&1 || ! command -v g++ >/dev/null 2>&1 || ! command -v make >/dev/null 2>&1; then "
                     + "if command -v apt-get >/dev/null 2>&1; then "
@@ -348,8 +355,16 @@ public class VoxtralOfflinePlugin extends Plugin {
                     + "-DGGML_OPENMP=OFF "
                     + "-DCMAKE_DISABLE_FIND_PACKAGE_OpenMP=ON "
                     + "\"$SRC_DIR\"; "
-                    + "cmake --build \"$SRC_DIR/build\" -j2 --target crispasr-cli; "
-                    + "cp -f \"$SRC_DIR/build/bin/crispasr\" " + shQuote(runnerBinary.getAbsolutePath()) + "; "
+                    + "cmake --build \"$SRC_DIR/build\" -j2; "
+                    + "RUNNER_SRC=\"\"; "
+                    + "for c in "
+                    + "\"$SRC_DIR/build/bin/crispasr\" "
+                    + "\"$SRC_DIR/build/bin/crispasr-cli\" "
+                    + "\"$SRC_DIR/build/examples/cli/crispasr\" "
+                    + "\"$SRC_DIR/build/examples/cli/crispasr-cli\"; "
+                    + "do if [ -x \"$c\" ]; then RUNNER_SRC=\"$c\"; break; fi; done; "
+                    + "[ -n \"$RUNNER_SRC\" ] || { echo 'crispasr runner binary not found after build'; find \"$SRC_DIR/build\" -maxdepth 4 -type f -name 'crispasr*' 2>/dev/null; exit 46; }; "
+                    + "cp -f \"$RUNNER_SRC\" " + shQuote(runnerBinary.getAbsolutePath()) + "; "
                     + "chmod 700 " + shQuote(runnerBinary.getAbsolutePath()) + "; "
                     + "cat > " + shQuote(runnerWrapper.getAbsolutePath()) + " <<'EOF'\n"
                     + "#!/bin/sh\n"
@@ -358,6 +373,8 @@ public class VoxtralOfflinePlugin extends Plugin {
                     + "chmod 700 " + shQuote(runnerWrapper.getAbsolutePath()) + "; ";
 
                 String output = runShellCommandViaProot(innerCommand);
+                cmakeBin.setReadable(true, false);
+                cmakeBin.setExecutable(true, false);
                 File stagedRunner = prepareRunnerForExecution(runnerWrapper);
                 if (!canSpawnRunner(stagedRunner) && !canSpawnRunnerViaProot(stagedRunner)) {
                     call.reject("Runner provisioning finished but executable check failed.\n" + output);
@@ -1427,62 +1444,6 @@ public class VoxtralOfflinePlugin extends Plugin {
             }
         } finally {
             if (connection != null) connection.disconnect();
-        }
-    }
-
-    private void extractTarGzArchive(File archive, File targetDir) throws IOException {
-        String targetRoot = targetDir.getCanonicalPath() + File.separator;
-        try (InputStream fis = new FileInputStream(archive);
-             InputStream gis = new GZIPInputStream(fis);
-             BufferedInputStream input = new BufferedInputStream(gis)) {
-            byte[] header = new byte[512];
-            while (readFully(input, header, 0, header.length)) {
-                if (isZeroBlock(header)) break;
-                String entryName = readTarString(header, 0, 100);
-                long size = parseTarOctal(header, 124, 12);
-                long mode = parseTarOctal(header, 100, 8);
-                char type = (char) (header[156] & 0xff);
-                if (entryName == null || entryName.isBlank()) {
-                    skipFully(input, size);
-                    long padding = (512 - (size % 512)) % 512;
-                    skipFully(input, padding);
-                    continue;
-                }
-                File outFile = new File(targetDir, entryName).getCanonicalFile();
-                String outPath = outFile.getCanonicalPath();
-                if (!outPath.equals(targetDir.getCanonicalPath()) && !outPath.startsWith(targetRoot)) {
-                    throw new IOException("Blocked archive entry outside target dir: " + entryName);
-                }
-                if (type == '5') {
-                    if (!outFile.exists() && !outFile.mkdirs()) {
-                        throw new IOException("Could not create directory: " + outFile.getAbsolutePath());
-                    }
-                } else if (type == 0 || type == '0') {
-                    File parent = outFile.getParentFile();
-                    if (parent != null && !parent.exists() && !parent.mkdirs()) {
-                        throw new IOException("Could not create parent directory: " + parent.getAbsolutePath());
-                    }
-                    try (FileOutputStream output = new FileOutputStream(outFile, false)) {
-                        long remaining = size;
-                        byte[] buffer = new byte[8192];
-                        while (remaining > 0) {
-                            int read = input.read(buffer, 0, (int) Math.min(buffer.length, remaining));
-                            if (read == -1) throw new IOException("Unexpected EOF while extracting archive.");
-                            output.write(buffer, 0, read);
-                            remaining -= read;
-                        }
-                        output.flush();
-                    }
-                    outFile.setReadable(true, false);
-                    if ((mode & 0100) != 0) {
-                        outFile.setExecutable(true, false);
-                    }
-                } else {
-                    skipFully(input, size);
-                }
-                long padding = (512 - (size % 512)) % 512;
-                skipFully(input, padding);
-            }
         }
     }
 
