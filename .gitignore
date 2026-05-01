@@ -133,3 +133,4 @@ __pycache__/
 /.ananta/
 /tests/venv/
 /venv/
+/client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build/
