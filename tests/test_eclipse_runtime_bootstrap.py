@@ -117,6 +117,17 @@ def test_eclipse_runtime_bootstrap_files_exist() -> None:
         / "runtime"
         / "security"
         / "TokenRedaction.java",
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "views"
+        / "eclipse"
+        / "AbstractAnantaRuntimeViewPart.java",
         ROOT / "scripts" / "build_eclipse_runtime_plugin.py",
         ROOT / "scripts" / "smoke_eclipse_runtime_bootstrap.py",
         ROOT / "scripts" / "smoke_eclipse_runtime_headless.py",
@@ -146,6 +157,9 @@ def test_eclipse_plugin_metadata_registers_core_commands() -> None:
     assert "io.ananta.eclipse.view.repair" in plugin_xml
     assert "io.ananta.eclipse.view.tui_status" in plugin_xml
     assert "io.ananta.eclipse.view.policy_fallback" in plugin_xml
+    assert "io.ananta.eclipse.runtime.views.eclipse.AnantaGoalViewPart" in plugin_xml
+    assert "io.ananta.eclipse.runtime.views.eclipse.AnantaTaskListViewPart" in plugin_xml
+    assert "io.ananta.eclipse.runtime.views.EclipseViewsExtensionRegistry" not in plugin_xml
 
 
 def test_runtime_operation_sources_cover_command_registry_context_and_views() -> None:
@@ -168,6 +182,18 @@ def test_runtime_operation_sources_cover_command_registry_context_and_views() ->
     assert "RuntimeCommandType.NEW_PROJECT.commandId()" in command_registry
     assert "RuntimeCommandType.EVOLVE_PROJECT.commandId()" in command_registry
     assert "submitGoalFromPanel" in command_registry
+    assert '"/tasks/analyze"' not in (
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "core"
+        / "AnantaApiClient.java"
+    ).read_text(encoding="utf-8")
 
     context_capture = (
         PLUGIN_ROOT
@@ -207,6 +233,20 @@ def test_runtime_operation_sources_cover_command_registry_context_and_views() ->
     assert "io.ananta.eclipse.view.repair" in views_registry
     assert "io.ananta.eclipse.view.tui_status" in views_registry
     assert "io.ananta.eclipse.view.policy_fallback" in views_registry
+    view_part = (
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "views"
+        / "eclipse"
+        / "AbstractAnantaRuntimeViewPart.java"
+    ).read_text(encoding="utf-8")
+    assert "extends ViewPart" in view_part
 
 
 def test_build_script_validate_mode_succeeds() -> None:
@@ -250,6 +290,9 @@ def test_eclipse_build_script_pins_java17_baseline_and_build_command() -> None:
     assert 'DEFAULT_GRADLE_IMAGE = "gradle:8.10.2-jdk17"' in build_script
     assert 'parser.add_argument("--mode", choices=["validate", "build", "test"], default="validate")' in build_script
     assert 'gradle_tasks = ["clean", "build"] if args.mode == "build" else ["clean", "test"]' in build_script
+    build_gradle = (PLUGIN_ROOT / "build.gradle").read_text(encoding="utf-8")
+    assert "org.eclipse.platform:org.eclipse.core.commands" in build_gradle
+    assert "org.eclipse.platform:org.eclipse.ui" in build_gradle
 
 
 def test_eclipse_runtime_status_is_mvp_not_runtime_complete() -> None:

@@ -48,6 +48,17 @@ REQUIRED_PATHS = [
     / "runtime"
     / "core"
     / "EclipseRuntimeApiContractCompatibilityTest.java",
+    PLUGIN_ROOT
+    / "src"
+    / "main"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
+    / "views"
+    / "eclipse"
+    / "AbstractAnantaRuntimeViewPart.java",
     ROOT / "scripts" / "smoke_eclipse_runtime_bootstrap.py",
     ROOT / "scripts" / "build_eclipse_runtime_plugin.py",
     ROOT / ".github" / "workflows" / "quality-and-docs.yml",

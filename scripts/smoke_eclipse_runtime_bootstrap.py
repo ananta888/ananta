@@ -52,6 +52,17 @@ REQUIRED_PATHS = [
     / "ananta"
     / "eclipse"
     / "runtime"
+    / "views"
+    / "eclipse"
+    / "AbstractAnantaRuntimeViewPart.java",
+    PLUGIN_ROOT
+    / "src"
+    / "main"
+    / "java"
+    / "io"
+    / "ananta"
+    / "eclipse"
+    / "runtime"
     / "security"
     / "TokenRedaction.java",
     PLUGIN_ROOT
@@ -124,6 +135,20 @@ def run_smoke_once() -> tuple[bool, str]:
     missing_handlers = [handler for handler in required_handlers if handler not in plugin_xml]
     if missing_handlers:
         return False, f"missing_plugin_handlers={missing_handlers}"
+    required_view_classes = [
+        "io.ananta.eclipse.runtime.views.eclipse.AnantaGoalViewPart",
+        "io.ananta.eclipse.runtime.views.eclipse.AnantaTaskListViewPart",
+        "io.ananta.eclipse.runtime.views.eclipse.AnantaTaskDetailViewPart",
+        "io.ananta.eclipse.runtime.views.eclipse.AnantaArtifactViewPart",
+        "io.ananta.eclipse.runtime.views.eclipse.AnantaApprovalQueueViewPart",
+        "io.ananta.eclipse.runtime.views.eclipse.AnantaAuditViewPart",
+        "io.ananta.eclipse.runtime.views.eclipse.AnantaRepairViewPart",
+        "io.ananta.eclipse.runtime.views.eclipse.AnantaTuiStatusViewPart",
+        "io.ananta.eclipse.runtime.views.eclipse.AnantaPolicyFallbackViewPart",
+    ]
+    missing_view_classes = [view_class for view_class in required_view_classes if view_class not in plugin_xml]
+    if missing_view_classes:
+        return False, f"missing_eclipse_viewpart_classes={missing_view_classes}"
     required_views = [
         "io.ananta.eclipse.view.goal",
         "io.ananta.eclipse.view.task_list",
@@ -248,6 +273,38 @@ def run_smoke_once() -> tuple[bool, str]:
 
     if "mapStatusToState" not in api_client_source or "isRetriable" not in api_client_source:
         return False, "client_core_degraded_state_mapping_missing"
+    if 'body.append("{\\"goal\\":\\"")' not in api_client_source or '"/tasks/analyze"' in api_client_source:
+        return False, "client_core_hub_goal_contract_mismatch"
+    handler_source = (
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "commands"
+        / "handlers"
+        / "AnalyzeCommandHandler.java"
+    ).read_text(encoding="utf-8")
+    view_part_source = (
+        PLUGIN_ROOT
+        / "src"
+        / "main"
+        / "java"
+        / "io"
+        / "ananta"
+        / "eclipse"
+        / "runtime"
+        / "views"
+        / "eclipse"
+        / "AbstractAnantaRuntimeViewPart.java"
+    ).read_text(encoding="utf-8")
+    if "extends AbstractHandler" not in handler_source:
+        return False, "eclipse_command_handler_adapter_missing"
+    if "extends ViewPart" not in view_part_source:
+        return False, "eclipse_viewpart_adapter_missing"
 
     validate_result = subprocess.run(
         [sys.executable, "scripts/build_eclipse_runtime_plugin.py", "--mode", "validate"],
