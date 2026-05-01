@@ -1,23 +1,64 @@
 {
   "schema": "eclipse_ui_golden_path_report_v1",
+  "environment": "docker_xvfb_eclipse",
   "ok": true,
-  "skipped": true,
-  "skip_reason": "eclipse_binary_missing",
+  "skipped": false,
+  "skip_reason": "",
   "checks": [
     {
-      "check_id": "plugin_metadata_present",
-      "ok": true
-    },
-    {
-      "check_id": "viewpart_adapters_present",
-      "ok": true
-    },
-    {
-      "check_id": "installed_eclipse_launch",
+      "check_id": "installed_eclipse_binary_present",
       "ok": true,
-      "skipped": true,
-      "reason": "eclipse_binary_missing"
+      "path": "/opt/eclipse/eclipse"
+    },
+    {
+      "check_id": "plugin_jar_contains_eclipse_metadata",
+      "ok": true,
+      "plugin_jar": "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build/libs/ananta-eclipse-plugin-runtime-0.1.0-bootstrap.jar"
+    },
+    {
+      "check_id": "plugin_declares_golden_path_surfaces",
+      "ok": true,
+      "missing": []
+    },
+    {
+      "check_id": "plugin_dropins_install",
+      "ok": true,
+      "installed_plugin": "/opt/eclipse/dropins/ananta-eclipse-plugin-runtime-0.1.0-bootstrap.jar"
+    },
+    {
+      "check_id": "xvfb_eclipse_launch_with_installed_plugin",
+      "ok": true,
+      "returncode": "timeout_after_successful_startup_window",
+      "output_tail": "WARNING: Using incubator modules: jdk.incubator.foreign, jdk.incubator.vector\nMay 01, 2026 11:00:39 AM org.apache.aries.spifly.BaseActivator log\nINFO: Registered provider org.slf4j.simple.SimpleServiceProvider of service org.slf4j.spi.SLF4JServiceProvider in bundle slf4j.simple\n\n(java:41): dbind-WARNING **: 11:00:41.714: AT-SPI: Error retrieving accessibility bus address: org.freedesktop.DBus.Error.ServiceUnknown: The name org.a11y.Bus was not provided by any .service files"
     }
   ],
-  "runtime_complete_claim_allowed": false
+  "runtime_complete_claim_allowed": true,
+  "host_checks": [
+    {
+      "check_id": "docker_available",
+      "ok": true
+    },
+    {
+      "check_id": "dockerfile_present",
+      "ok": true,
+      "dockerfile": "docker/eclipse-ui-e2e/Dockerfile"
+    },
+    {
+      "check_id": "plugin_jar_present",
+      "ok": true,
+      "plugin_jar": "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build/libs/ananta-eclipse-plugin-runtime-0.1.0-bootstrap.jar"
+    },
+    {
+      "check_id": "docker_image_build",
+      "ok": true,
+      "image": "ananta/eclipse-ui-e2e:local",
+      "output_tail": " header keyword 'LIBARCHIVE.creationtime'\n#5 48.81 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.81 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.81 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.81 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.81 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.81 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.81 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.81 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.82 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 48.83 tar: Ignoring unknown extended header keyword 'LIBARCHIVE.creationtime'\n#5 DONE 49.1s\n\n#6 [3/3] WORKDIR /workspace\n#6 DONE 0.2s\n\n#7 exporting to image\n#7 exporting layers\n#7 exporting layers 13.8s done\n#7 exporting manifest sha256:ce080ac5b2e401ddc49ebe9365de31f5d1c0be6ad32e1c2b4d2c8a9dde7b5bc6 0.0s done\n#7 exporting config sha256:cfb5e596e8f638983b2c47411c21b593f29ab9382d592262ac2197f0e596e0e5 0.0s done\n#7 exporting attestation manifest sha256:41217aecd3fb428e5b90e40ceb68b40258504571e3b432542f96f83ab16e8c2e 0.0s done\n#7 exporting manifest list sha256:3c544f7d6f132d23a7f09aa6d2d067dc4c7c946c55961e42923d486a4a18fc4a 0.0s done\n#7 naming to docker.io/ananta/eclipse-ui-e2e:local\n#7 naming to docker.io/ananta/eclipse-ui-e2e:local done\n#7 unpacking to docker.io/ananta/eclipse-ui-e2e:local\n#7 unpacking to docker.io/ananta/eclipse-ui-e2e:local 6.2s done\n#7 DONE 20.2s"
+    },
+    {
+      "check_id": "docker_container_golden_path",
+      "ok": true,
+      "image": "ananta/eclipse-ui-e2e:local",
+      "output_tail": "{\n  \"schema\": \"eclipse_ui_golden_path_report_v1\",\n  \"environment\": \"docker_xvfb_eclipse\",\n  \"ok\": true,\n  \"skipped\": false,\n  \"skip_reason\": \"\",\n  \"checks\": [\n    {\n      \"check_id\": \"installed_eclipse_binary_present\",\n      \"ok\": true,\n      \"path\": \"/opt/eclipse/eclipse\"\n    },\n    {\n      \"check_id\": \"plugin_jar_contains_eclipse_metadata\",\n      \"ok\": true,\n      \"plugin_jar\": \"client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build/libs/ananta-eclipse-plugin-runtime-0.1.0-bootstrap.jar\"\n    },\n    {\n      \"check_id\": \"plugin_declares_golden_path_surfaces\",\n      \"ok\": true,\n      \"missing\": []\n    },\n    {\n      \"check_id\": \"plugin_dropins_install\",\n      \"ok\": true,\n      \"installed_plugin\": \"/opt/eclipse/dropins/ananta-eclipse-plugin-runtime-0.1.0-bootstrap.jar\"\n    },\n    {\n      \"check_id\": \"xvfb_eclipse_launch_with_installed_plugin\",\n      \"ok\": true,\n      \"returncode\": \"timeout_after_successful_startup_window\",\n      \"output_tail\": \"WARNING: Using incubator modules: jdk.incubator.foreign, jdk.incubator.vector\\nMay 01, 2026 11:00:39 AM org.apache.aries.spifly.BaseActivator log\\nINFO: Registered provider org.slf4j.simple.SimpleServiceProvider of service org.slf4j.spi.SLF4JServiceProvider in bundle slf4j.simple\\n\\n(java:41): dbind-WARNING **: 11:00:41.714: AT-SPI: Error retrieving accessibility bus address: org.freedesktop.DBus.Error.ServiceUnknown: The name org.a11y.Bus was not provided by any .service files\"\n    }\n  ],\n  \"runtime_complete_claim_allowed\": true\n}"
+    }
+  ]
 }
