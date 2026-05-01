@@ -1,6 +1,9 @@
 import logging
 
-import redis
+try:
+    import redis
+except ImportError:
+    redis = None
 
 from agent.config import settings
 
@@ -16,6 +19,10 @@ def get_redis_client():
 
     if _redis_client is not None:
         return _redis_client
+
+    if redis is None:
+        logging.info("Redis package not installed, skipping.")
+        return None
 
     if not settings.redis_url:
         logging.info("Redis is not configured (REDIS_URL missing).")

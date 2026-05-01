@@ -341,7 +341,9 @@ public class LiveTerminalAndroidE2ETest {
                 + "echo ANANTA_APT_INSTALL_RC=$?; "
                 + "pip3 --version 2>&1 || echo ANANTA_PIP3_MISSING; "
                 + "pip3 install --break-system-packages --ignore-installed --no-input --progress-bar off "
-                + "pydantic-settings sqlmodel portalocker 2>&1; "
+                + "pydantic-settings sqlmodel portalocker jsonschema click alembic gitpython "
+                + "flask-cors prometheus-client typer prompt-toolkit "
+                + "flask-sock simple-websocket hvac pypdf python-docx openpyxl python-pptx 2>&1; "
                 + "echo ANANTA_PIP_INSTALL_RC=$?; "
                 + "python3 -c \"import sys; print(sys.path)\" 2>&1; "
                 + "python3 -c \"import flask; print(\\\"flask_ok\\\")\" 2>&1; "
@@ -398,6 +400,88 @@ public class LiveTerminalAndroidE2ETest {
             "var v=String(window.__anantaAptSmoke||'');"
                 + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
                 + "return v.indexOf('ANANTA_APT_OK')>=0;",
+            30,
+            1_000L
+        );
+    }
+
+    @Test
+    public void workerAgentCanStartInProot() throws InterruptedException {
+        // Test that the ananta worker can import and start inside proot Ubuntu
+        String workerCommand = prootPreamble()
+                + prootEnvPrefix()
+                + "http_proxy=\"http://127.0.0.1:18080\" https_proxy=\"http://127.0.0.1:18080\" "
+                + "\"$ANANTA_PROOT_DIRECT\" -0 --link2symlink "
+                + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" -w / \"$ANANTA_LOGIN_SHELL\" "
+                + "-c '"
+                + "export PYTHONPATH=/data/local/tmp/ananta-agent/..; "
+                + "export ROLE=worker; "
+                + "export ANANTA_WORKER_PORT=15080; "
+                + "export DATA_DIR=/tmp/ananta-data; "
+                + "cd /data/local/tmp; "
+                + "python3 -c \"import sys; sys.path.insert(0,\\\"/data/local/tmp\\\"); from agent.config import settings; print(\\\"ANANTA_CONFIG_IMPORT_OK\\\")\" 2>&1; "
+                + "echo CONFIG_RC=$?; "
+                + "python3 -c \"import sys; sys.path.insert(0,\\\"/data/local/tmp\\\"); from agent.ai_agent import create_app; print(\\\"ANANTA_APP_CREATE_OK\\\")\" 2>&1; "
+                + "echo APP_RC=$?; "
+                + "timeout 15 python3 -c \""
+                + "import sys, os, threading, time; "
+                + "sys.path.insert(0,\\\"/data/local/tmp\\\"); "
+                + "os.environ[\\\"ROLE\\\"] = \\\"worker\\\"; "
+                + "os.environ[\\\"DATA_DIR\\\"] = \\\"/tmp/ananta-data\\\"; "
+                + "os.environ[\\\"PORT\\\"] = \\\"15080\\\"; "
+                + "os.environ[\\\"SECRET_KEY\\\"] = \\\"test-secret-key-for-e2e\\\"; "
+                + "from agent.ai_agent import create_app; "
+                + "app = create_app(); "
+                + "print(\\\"ANANTA_FLASK_CREATED\\\"); "
+                + "threading.Thread(target=lambda: (time.sleep(5), os._exit(0)), daemon=True).start(); "
+                + "app.run(host=\\\"0.0.0.0\\\", port=15080, debug=False)"
+                + "\" 2>&1; "
+                + "echo FLASK_RC=$?; "
+                + "echo ANANTA_WORKER_DONE"
+                + "'";
+
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "run worker import test",
+            "window.__anantaWorkerSmoke='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var p=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PythonRuntime;"
+                + "    if(!p){window.__anantaWorkerSmoke='ERR:NO_PLUGIN';return;}"
+                + "    var status=await p.getProotRuntimeStatus();"
+                + "    var distros=(status && Array.isArray(status.distros)) ? status.distros : [];"
+                + "    var ubuntuOk=distros.some(function(item){ return String(item && item.name || '').toLowerCase()==='ubuntu'; });"
+                + "    if(!ubuntuOk){"
+                + "      window.__anantaWorkerSmoke='ERR:UBUNTU_NOT_INSTALLED';return;"
+                + "    }"
+                + "    window.__anantaWorkerSmoke='RUNNING';"
+                + "    var res=await p.runShellCommand({command:" + jsLiteral(workerCommand) + ",timeoutSeconds:120});"
+                + "    var out=(res && res.output) ? String(res.output) : '';"
+                + "    window.__anantaWorkerSmoke='OK:' + out;"
+                + "  }catch(e){"
+                + "    window.__anantaWorkerSmoke='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "worker import test finished",
+            "var v=String(window.__anantaWorkerSmoke||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            180,
+            1_000L
+        );
+        runIfPresent(
+            "log worker result",
+            "console.log('ANANTA_WORKER_RESULT:' + String(window.__anantaWorkerSmoke||'').slice(-3000)); return true;"
+        );
+        waitForTrueWithRetry(
+            "worker imports succeeded",
+            "var v=String(window.__anantaWorkerSmoke||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "return v.indexOf('ANANTA_WORKER_DONE')>=0;",
             30,
             1_000L
         );
