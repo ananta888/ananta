@@ -3,26 +3,72 @@
   "$id": "https://ananta.local/domains/blender/schemas/context.v1.json",
   "title": "Blender Context v1",
   "type": "object",
-  "required": ["schema", "scene_name", "selection", "blender_version"],
+  "required": ["schema", "scene_name", "selection", "objects", "provenance"],
   "properties": {
-    "schema": {
-      "type": "string",
-      "const": "blender_context.v1"
-    },
-    "scene_name": {
-      "type": "string",
-      "minLength": 1
-    },
+    "schema": { "type": "string", "const": "blender_scene_context.v1" },
+    "domain_schema": { "type": "string", "const": "blender_context.v1" },
+    "scene_name": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "blender_version": { "type": "string", "minLength": 1, "maxLength": 64 },
     "selection": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 }
+      "maxItems": 512,
+      "items": { "type": "string", "minLength": 1, "maxLength": 160 }
     },
-    "blender_version": {
-      "type": "string",
-      "minLength": 1
+    "scene": {
+      "type": "object",
+      "required": ["name"],
+      "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 160 } },
+      "additionalProperties": false
     },
-    "summary": {
-      "type": "string"
+    "objects": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "selected", "visible"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 160 },
+          "type": { "type": "string", "maxLength": 64 },
+          "selected": { "type": "boolean" },
+          "visible": { "type": "boolean" },
+          "collection": { "type": ["string", "null"], "maxLength": 128 },
+          "material_slots": {
+            "type": "array",
+            "maxItems": 8,
+            "items": { "type": "string", "maxLength": 128 }
+          },
+          "modifiers": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "properties": {
+                "name": { "type": "string", "maxLength": 128 },
+                "type": { "type": "string", "maxLength": 64 }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "collections": { "type": "array", "maxItems": 64 },
+    "materials": { "type": "array", "maxItems": 128 },
+    "render_settings": { "type": "object" },
+    "provenance": {
+      "type": "object",
+      "required": ["capture", "bounded", "captured_at", "object_count_total", "object_count_included"],
+      "properties": {
+        "capture": { "type": "string", "const": "addon" },
+        "bounded": { "type": "boolean", "const": true },
+        "captured_at": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "object_count_total": { "type": "integer", "minimum": 0 },
+        "object_count_included": { "type": "integer", "minimum": 0 },
+        "objects_clipped": { "type": "boolean" }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

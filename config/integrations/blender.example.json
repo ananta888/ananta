@@ -1,0 +1,10 @@
+{
+  "profile": "blender",
+  "endpoint": "http://localhost:5000",
+  "transport_mode": "http",
+  "request_timeout_seconds": 30,
+  "max_context_objects": 128,
+  "max_payload_bytes": 32768,
+  "allow_insecure_http": true,
+  "token_env": "ANANTA_BLENDER_TOKEN"
+}

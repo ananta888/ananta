@@ -8,6 +8,7 @@ from agent.routes.auth import auth_bp
 from agent.routes.config import register_config_blueprints
 from agent.routes.demo import demo_bp
 from agent.routes.evolution import evolution_bp
+from agent.routes.blender_client_surface import blender_client_surface_bp
 from agent.routes.freecad_client_surface import freecad_client_surface_bp
 from agent.routes.hub_benchmark import hub_benchmark_bp
 from agent.routes.instruction_layers import instruction_layers_bp
@@ -40,6 +41,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(teams_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(instruction_layers_bp)
+    app.register_blueprint(blender_client_surface_bp, url_prefix="/api/client-surfaces/blender")
     app.register_blueprint(freecad_client_surface_bp, url_prefix="/api/client-surfaces/freecad")
     app.register_blueprint(integrations_workflows_bp)
     app.register_blueprint(webhooks_bp)
