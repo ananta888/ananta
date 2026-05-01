@@ -18,6 +18,13 @@
    </extension>
 
    <extension
+         point="org.eclipse.ui.commandCategories">
+      <category
+            id="io.ananta.eclipse.category"
+            name="Ananta"/>
+   </extension>
+
+   <extension
          point="org.eclipse.ui.commands">
       <command
             categoryId="io.ananta.eclipse.category"
@@ -49,13 +56,6 @@
             description="Open Ananta Chat"
             id="io.ananta.eclipse.command.chat"
             name="Ananta Chat"/>
-   </extension>
-
-   <extension
-         point="org.eclipse.ui.commandCategories">
-      <category
-            id="io.ananta.eclipse.category"
-            name="Ananta"/>
    </extension>
 
    <extension
