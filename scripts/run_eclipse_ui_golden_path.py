@@ -161,7 +161,7 @@ def _run_docker_golden_path(
 
     if build_docker_image:
         build_result = subprocess.run(
-            ["docker", "build", "-f", str(DOCKERFILE), "-t", docker_image, str(ROOT)],
+            ["docker", "build", "-f", str(DOCKERFILE), "-t", docker_image, str(DOCKERFILE.parent)],
             cwd=str(ROOT),
             check=False,
             capture_output=True,
