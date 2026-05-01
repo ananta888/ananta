@@ -8,8 +8,10 @@ Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-17
 Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.equinox.app,
+ org.eclipse.equinox.security,
  org.eclipse.core.commands,
  org.eclipse.ui,
+ org.eclipse.jface,
  org.eclipse.swt
 Export-Package: io.ananta.eclipse.runtime.core,
   io.ananta.eclipse.runtime.chat,

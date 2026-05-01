@@ -69,7 +69,7 @@
         "ECL-T08",
         "ECL-T09"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "ECL-M2",
@@ -80,7 +80,7 @@
         "ECL-T12",
         "ECL-T13"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "ECL-M3",
@@ -91,7 +91,7 @@
         "ECL-T16",
         "ECL-T17"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "ECL-M4",
@@ -103,7 +103,7 @@
         "ECL-T21",
         "ECL-T22"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "ECL-M5",
@@ -216,7 +216,7 @@
     {
       "id": "ECL-T05",
       "title": "Ananta Eclipse-Settings-Seite als echte Preference Page registrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -224,7 +224,7 @@
       ],
       "expected_files": [
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/plugin.xml",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/preferences/AnantaPreferencePage.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/preferences/AnantaWorkbenchPreferencePage.java"
       ],
       "acceptance_criteria": [
         "Preferences sind unter Window > Preferences > Ananta sichtbar.",
@@ -235,14 +235,14 @@
     {
       "id": "ECL-T06",
       "title": "Settings-Felder fuer Hub URL, Auth, Profil, Timeout und Workspace-Policy liefern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
         "ECL-T05"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/preferences/AnantaPreferencePage.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/preferences/AnantaWorkbenchPreferencePage.java",
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/ClientProfile.java"
       ],
       "acceptance_criteria": [
@@ -254,7 +254,7 @@
     {
       "id": "ECL-T07",
       "title": "Secure Storage fuer Tokens integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -262,7 +262,7 @@
       ],
       "expected_files": [
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/security/TokenRedaction.java",
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/preferences/AnantaPreferencePage.java"
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/preferences/AnantaPreferenceRuntimeStore.java"
       ],
       "acceptance_criteria": [
         "Token wird nicht im Klartext in Prefs-Dateien persistiert.",
@@ -273,14 +273,14 @@
     {
       "id": "ECL-T08",
       "title": "Test-Connection Button in Settings implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
         "ECL-T06"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/preferences/AnantaPreferencePage.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/preferences/AnantaWorkbenchPreferencePage.java",
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/core/AnantaApiClient.java"
       ],
       "acceptance_criteria": [
@@ -291,7 +291,7 @@
     {
       "id": "ECL-T09",
       "title": "Aktives Profil zentral laden und Runtime Services darauf verdrahten",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -299,7 +299,7 @@
         "ECL-T07"
       ],
       "expected_files": [
-        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/platform/AnantaRuntimeServices.java",
+        "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/platform/AnantaRuntimeBootstrap.java",
         "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/src/main/java/io/ananta/eclipse/runtime/platform/AnantaRuntimeSession.java"
       ],
       "acceptance_criteria": [
@@ -310,7 +310,7 @@
     {
       "id": "ECL-T10",
       "title": "Runtime Session lifecycle (startup/shutdown/reconnect) robust machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -327,7 +327,7 @@
     {
       "id": "ECL-T11",
       "title": "Status-View mit echtem Health/Capability Polling und manueller Refresh-Aktion",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -344,7 +344,7 @@
     {
       "id": "ECL-T12",
       "title": "Globalen Error-/Degraded-State Banner fuer alle Ananta Views einbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -362,7 +362,7 @@
     {
       "id": "ECL-T13",
       "title": "Command-Handler an zentrale Runtime-Session und Connection-Checks binden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -380,7 +380,7 @@
     {
       "id": "ECL-T14",
       "title": "Chat-View von statischem Label auf echte Message-UI umbauen",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -398,7 +398,7 @@
     {
       "id": "ECL-T15",
       "title": "Chat-Kontextauswahl (Projekt/Datei/Selektion) mit Preview und Limits umsetzen",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -415,7 +415,7 @@
     {
       "id": "ECL-T16",
       "title": "Chat-Antworten mit Task-/Artifact-Links klickbar machen",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -431,7 +431,7 @@
     {
       "id": "ECL-T17",
       "title": "Goal-Panel mit Templates, Context-Preview und Submit-Feedback produktiv machen",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -449,7 +449,7 @@
     {
       "id": "ECL-T18",
       "title": "Task List View mit JFace Viewer, Sortierung, Filter und Paging anbinden",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -466,7 +466,7 @@
     {
       "id": "ECL-T19",
       "title": "Task Detail View mit Verlauf, next_step und Fehlerdetails anbinden",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -483,7 +483,7 @@
     {
       "id": "ECL-T20",
       "title": "Artifact View mit Markdown/Text/JSON/Diff-Renderer realisieren",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -500,7 +500,7 @@
     {
       "id": "ECL-T21",
       "title": "Approval Queue mit Approve/Reject und Kommentaren funktional machen",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -518,7 +518,7 @@
     {
       "id": "ECL-T22",
       "title": "Audit View mit Filter (severity/type/object) und Pagination aktivieren",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P2",
       "risk": "medium",
       "depends_on": [
@@ -534,7 +534,7 @@
     {
       "id": "ECL-T23",
       "title": "Repair View an reale failed-Tasks und Marker-Kontext koppeln",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -785,23 +785,23 @@
   "tasks_status_summary": {
     "total": 36,
     "by_status": {
-      "todo": 32,
-      "in_progress": 0,
+      "todo": 13,
+      "in_progress": 10,
       "blocked": 0,
-      "done": 4
+      "done": 13
     },
-    "progress_percent_done": 11.11,
+    "progress_percent_done": 36.11,
     "critical_path": {
       "total": 16,
-      "done": 2,
-      "remaining": 14
+      "done": 9,
+      "remaining": 7
     },
     "milestones": {
       "total": 9,
-      "todo": 8,
-      "in_progress": 0,
+      "todo": 4,
+      "in_progress": 3,
       "blocked": 0,
-      "done": 1
+      "done": 2
     }
   },
   "notes": [

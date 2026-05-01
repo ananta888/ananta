@@ -135,4 +135,12 @@
             name="Ananta"
             class="io.ananta.eclipse.runtime.platform.AnantaPerspectiveFactory"/>
    </extension>
+
+   <extension
+         point="org.eclipse.ui.preferencePages">
+      <page
+            id="io.ananta.eclipse.preferences"
+            name="Ananta"
+            class="io.ananta.eclipse.runtime.preferences.AnantaWorkbenchPreferencePage"/>
+   </extension>
 </plugin>
