@@ -230,7 +230,7 @@ public class VoxtralOfflinePlugin extends Plugin {
 
     @PluginMethod
     public void provisionVoxtralRunner(PluginCall call) {
-        if (!guardAction(call, "provision_runner")) return;
+        if (!guardAction(call, "download_runner")) return;
         String sourceUrl = call.getString("sourceUrl", DEFAULT_CRISPASR_SOURCE_URL);
         String expectedSourceSha256 = call.getString("sourceSha256");
 
