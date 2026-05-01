@@ -234,6 +234,9 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.zone.runOutsideAngular(() => {
       this.terminal?.onData((data) => {
         if (this.mode !== 'interactive') return;
+        if (this.embeddedShellMode) {
+          this.echoLocalInput(data);
+        }
         this.sendInputToBackend(data);
       });
     });
@@ -633,6 +636,22 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
       this.writeTerminalMarker(`\r\n[connection error: ${message}]\r\n`);
       this.cdr.markForCheck();
     }
+  }
+
+  private echoLocalInput(data: string): void {
+    if (!this.terminal) return;
+    let echo = '';
+    for (const ch of data) {
+      const code = ch.charCodeAt(0);
+      if (ch === '\r' || ch === '\n') {
+        echo += '\r\n';
+      } else if (ch === '\x7f' || ch === '\b') {
+        echo += '\b \b';
+      } else if (code >= 32) {
+        echo += ch;
+      }
+    }
+    if (echo) this.terminal.write(echo);
   }
 
   private sendEmbeddedInput(input: string): void {
