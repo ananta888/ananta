@@ -685,6 +685,11 @@ public class PythonRuntimePlugin extends Plugin {
 
     private void applyShellEnvironment(ProcessBuilder builder, File workingDir) {
         Map<String, String> env = builder.environment();
+        // Prevent Chaquopy's Python 3.11 env from leaking into proot sessions running Python 3.13
+        env.remove("PYTHONPATH");
+        env.remove("PYTHONHOME");
+        env.remove("PYTHONDONTWRITEBYTECODE");
+        env.remove("PYTHONSTARTUP");
         String path = workingDir.getAbsolutePath();
         env.put("HOME", path);
         env.put("PWD", path);
@@ -1527,12 +1532,21 @@ public class PythonRuntimePlugin extends Plugin {
         }
 
         void write(String input) throws IOException {
-            stdin.write(input);
+            // Translate CR to LF (no TTY driver to perform ICRNL)
+            stdin.write(input.replace("\r\n", "\n").replace("\r", "\n"));
             stdin.flush();
         }
 
         ShellSessionRead readDelta(int maxChars) {
             synchronized (outputLock) {
+                // If no data yet but process is alive, briefly wait for output
+                if (readOffset >= output.length() && process.isAlive()) {
+                    try {
+                        outputLock.wait(15);
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
                 if (readOffset >= output.length()) {
                     return new ShellSessionRead("", false);
                 }
@@ -1574,6 +1588,7 @@ public class PythonRuntimePlugin extends Plugin {
                     output.delete(0, overflow);
                     readOffset = Math.max(0, readOffset - overflow);
                 }
+                outputLock.notifyAll();
             }
         }
     }
