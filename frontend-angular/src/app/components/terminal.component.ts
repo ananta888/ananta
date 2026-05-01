@@ -234,6 +234,9 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.zone.runOutsideAngular(() => {
       this.terminal?.onData((data) => {
         if (this.mode !== 'interactive') return;
+        if (this.embeddedShellMode) {
+          this.echoLocalInput(data);
+        }
         this.sendInputToBackend(data);
       });
     });
@@ -635,10 +638,29 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
   }
 
+  private echoLocalInput(data: string): void {
+    if (!this.terminal) return;
+    let echo = '';
+    for (const ch of data) {
+      const code = ch.charCodeAt(0);
+      if (ch === '\r' || ch === '\n') {
+        echo += '\r\n';
+      } else if (ch === '\x7f' || ch === '\b') {
+        echo += '\b \b';
+      } else if (code >= 32) {
+        echo += ch;
+      }
+    }
+    if (echo) this.terminal.write(echo);
+  }
+
   private sendEmbeddedInput(input: string): void {
     const sessionId = this.embeddedSessionId;
     if (!sessionId) return;
     this.pythonRuntime.writeShellSession(sessionId, input).then(() => {
+      // Small delay to let shell process input before reading
+      return new Promise<void>((resolve) => setTimeout(resolve, 10));
+    }).then(() => {
       return this.pullEmbeddedOutput();
     }).catch((error: any) => {
       const message = String(error?.message || 'embedded_shell_write_failed').trim();
@@ -650,7 +672,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   private startEmbeddedPolling(): void {
     this.stopEmbeddedPolling();
-    const intervalMs = this.lowLatencyMode ? 180 : 420;
+    const intervalMs = this.lowLatencyMode ? 80 : 200;
     this.embeddedPollHandle = setInterval(() => {
       this.pullEmbeddedOutput().catch(() => undefined);
     }, intervalMs);
