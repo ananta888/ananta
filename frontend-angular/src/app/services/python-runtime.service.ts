@@ -45,6 +45,21 @@ export interface ProotInstallProgressEvent {
   distro?: string;
 }
 
+export interface GuidedSetupStatus {
+  runtimeInstalled: boolean;
+  runtimeReady: boolean;
+  runtimeMessage?: string;
+  ubuntuInstalled: boolean;
+  pythonReady: boolean;
+  pipReady: boolean;
+  libgompReady: boolean;
+  opencodeReady: boolean;
+  workspaceInstalled: boolean;
+  workerImportReady: boolean;
+  workerProbeMessage?: string;
+  workspacePath?: string;
+}
+
 interface PythonRuntimePlugin {
   getRuntimeStatus(): Promise<PythonRuntimeStatus>;
   startHub(): Promise<{ hubRunning: boolean }>;
@@ -60,6 +75,10 @@ interface PythonRuntimePlugin {
   getProotRuntimeStatus(): Promise<ProotRuntimeStatus>;
   installProotRuntime(options?: { prootUrl?: string }): Promise<{ runtimeRoot: string; prootPath: string }>;
   installProotDistro(options: { distro: string }): Promise<{ distro: string; rootfsPath: string }>;
+  getGuidedSetupStatus(): Promise<GuidedSetupStatus>;
+  installAnantaWorkspace(options?: { repoUrl?: string }): Promise<{ workspacePath: string; repoUrl: string }>;
+  installWorkerDependencies(): Promise<{ ok: boolean; message: string }>;
+  installOpencode(options?: { opencodeUrl?: string }): Promise<{ ok: boolean; version: string; output: string }>;
   addListener(
     eventName: 'prootInstallProgress',
     listenerFunc: (event: ProotInstallProgressEvent) => void
@@ -170,6 +189,36 @@ export class PythonRuntimeService {
     const normalized = String(distro || '').trim().toLowerCase();
     if (!normalized) throw new Error('Distro ist erforderlich.');
     return PythonRuntime.installProotDistro({ distro: normalized });
+  }
+
+  async getGuidedSetupStatus(): Promise<GuidedSetupStatus> {
+    if (!this.isNative) {
+      throw new Error('Guided setup ist nur in der nativen App verfuegbar.');
+    }
+    return PythonRuntime.getGuidedSetupStatus();
+  }
+
+  async installAnantaWorkspace(repoUrl?: string): Promise<{ workspacePath: string; repoUrl: string }> {
+    if (!this.isNative) {
+      throw new Error('Guided setup ist nur in der nativen App verfuegbar.');
+    }
+    const normalizedUrl = String(repoUrl || '').trim();
+    return PythonRuntime.installAnantaWorkspace(normalizedUrl ? { repoUrl: normalizedUrl } : {});
+  }
+
+  async installWorkerDependencies(): Promise<{ ok: boolean; message: string }> {
+    if (!this.isNative) {
+      throw new Error('Guided setup ist nur in der nativen App verfuegbar.');
+    }
+    return PythonRuntime.installWorkerDependencies();
+  }
+
+  async installOpencode(opencodeUrl?: string): Promise<{ ok: boolean; version: string; output: string }> {
+    if (!this.isNative) {
+      throw new Error('Guided setup ist nur in der nativen App verfuegbar.');
+    }
+    const normalizedUrl = String(opencodeUrl || '').trim();
+    return PythonRuntime.installOpencode(normalizedUrl ? { opencodeUrl: normalizedUrl } : {});
   }
 
   async onProotInstallProgress(

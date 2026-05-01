@@ -58,6 +58,9 @@ public class PythonRuntimePlugin extends Plugin {
     private static final String PROOT_CLASSIC_RELEASE_URL = "https://github.com/proot-me/proot/releases/download/v5.3.0/proot-v5.3.0-aarch64-static";
     private static final String PROOT_DISTRO_RELEASE_API = "https://api.github.com/repos/termux/proot-distro/releases/latest";
     private static final String PROOT_DISTRO_PLUGIN_BASE = "https://raw.githubusercontent.com/termux/proot-distro/master/distro-plugins/";
+    private static final String ANANTA_REPO_URL = "https://github.com/ananta888/ananta/archive/refs/heads/main.tar.gz";
+    private static final String OPENCODE_VERSION = "v0.0.55";
+    private static final String OPENCODE_URL = "https://github.com/opencode-ai/opencode/releases/download/" + OPENCODE_VERSION + "/opencode-linux-arm64.tar.gz";
 
     private static final int PROXY_PORT = 18080;
 
@@ -584,6 +587,203 @@ public class PythonRuntimePlugin extends Plugin {
         });
     }
 
+    @PluginMethod
+    public void getGuidedSetupStatus(PluginCall call) {
+        worker.execute(() -> {
+            try {
+                File runtimeRoot = runtimeRootDir();
+                File prootWrapper = new File(runtimeRoot, "bin/" + PROOT_WRAPPER_FILE);
+                File selectedBinary = resolveProotBinaryCandidate(
+                    embeddedNativeClassicProotBinary(),
+                    embeddedNativeProotBinary(),
+                    new File(runtimeRoot, "bin/" + PROOT_CLASSIC_FILE),
+                    new File(runtimeRoot, "bin/" + PROOT_BIN_FILE)
+                );
+                boolean runtimeInstalled = prootWrapper.exists() && selectedBinary != null && selectedBinary.exists();
+                boolean runtimeReady = false;
+                String runtimeMessage = "Runtime nicht installiert.";
+                if (runtimeInstalled) {
+                    createProotWrapper(new File(runtimeRoot, "bin"), selectedBinary);
+                    ProotProbeResult probe = probeProotWrapper(prootWrapper);
+                    runtimeReady = probe.runnable;
+                    runtimeMessage = probe.message;
+                }
+
+                File ubuntuRootfs = resolveInstalledRootfs(new File(new File(runtimeRoot, "distros/ubuntu"), "rootfs"));
+                boolean ubuntuInstalled = ubuntuRootfs != null;
+                boolean pythonReady = false;
+                boolean pipReady = false;
+                boolean libgompReady = false;
+                boolean opencodeReady = false;
+                boolean workerImportReady = false;
+                String workerProbeMessage = "";
+
+                File workspaceRoot = new File(getContext().getFilesDir(), "ananta");
+                boolean workspaceInstalled = new File(workspaceRoot, "agent/ai_agent.py").isFile();
+
+                if (runtimeReady && ubuntuInstalled) {
+                    pythonReady = probeInProot(runtimeRoot, ubuntuRootfs,
+                        "if command -v python3 >/dev/null 2>&1; then echo ANANTA_OK; else echo ANANTA_MISSING; fi");
+                    pipReady = probeInProot(runtimeRoot, ubuntuRootfs,
+                        "if command -v pip3 >/dev/null 2>&1 || python3 -m pip --version >/dev/null 2>&1; then echo ANANTA_OK; else echo ANANTA_MISSING; fi");
+                    libgompReady = probeInProot(runtimeRoot, ubuntuRootfs,
+                        "if [ -f /lib/aarch64-linux-gnu/libgomp.so.1 ] || [ -f /usr/lib/aarch64-linux-gnu/libgomp.so.1 ]; then echo ANANTA_OK; else echo ANANTA_MISSING; fi");
+                    opencodeReady = probeInProot(runtimeRoot, ubuntuRootfs,
+                        "if command -v opencode >/dev/null 2>&1; then echo ANANTA_OK; else echo ANANTA_MISSING; fi");
+
+                    if (workspaceInstalled) {
+                        String importCmd = "cd " + shQuote(workspaceRoot.getAbsolutePath())
+                            + " && if [ -f ./agent/ai_agent.py ]; then PYTHONPATH="
+                            + shQuote(workspaceRoot.getAbsolutePath())
+                            + " python3 -c \"from agent.ai_agent import create_app; print('ANANTA_WORKER_IMPORT_OK')\"; else echo ANANTA_WORKER_MISSING; exit 3; fi";
+                        ShellExecutionResult importProbe = runInProot(runtimeRoot, ubuntuRootfs, importCmd, 120);
+                        String out = String.valueOf(importProbe.output == null ? "" : importProbe.output);
+                        workerImportReady = !importProbe.timedOut && importProbe.exitCode == 0 && out.contains("ANANTA_WORKER_IMPORT_OK");
+                        workerProbeMessage = out.trim();
+                    }
+                }
+
+                JSObject result = new JSObject();
+                result.put("runtimeInstalled", runtimeInstalled);
+                result.put("runtimeReady", runtimeReady);
+                result.put("runtimeMessage", runtimeMessage);
+                result.put("ubuntuInstalled", ubuntuInstalled);
+                result.put("pythonReady", pythonReady);
+                result.put("pipReady", pipReady);
+                result.put("libgompReady", libgompReady);
+                result.put("opencodeReady", opencodeReady);
+                result.put("workspaceInstalled", workspaceInstalled);
+                result.put("workerImportReady", workerImportReady);
+                result.put("workerProbeMessage", workerProbeMessage);
+                result.put("workspacePath", workspaceRoot.getAbsolutePath());
+                call.resolve(result);
+            } catch (Exception error) {
+                lastError = error.getMessage();
+                call.reject("Could not read guided setup status: " + error.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void installAnantaWorkspace(PluginCall call) {
+        worker.execute(() -> {
+            try {
+                String repoUrl = String.valueOf(call.getString("repoUrl", ANANTA_REPO_URL)).trim();
+                if (repoUrl.isEmpty()) repoUrl = ANANTA_REPO_URL;
+                notifyProotProgress("workspace", "preparing", "Ananta-Workspace Installation gestartet.", -1, -1, "ubuntu");
+                File runtimeRoot = runtimeRootDir();
+                File tmpDir = ensureDir(runtimeRoot, "tmp");
+                File archive = new File(tmpDir, "ananta-workspace.tar.gz");
+                downloadToFile(repoUrl, archive, "workspace", "ubuntu");
+                notifyProotProgress("workspace", "extracting", "Workspace wird entpackt.", -1, -1, "ubuntu");
+
+                File workspaceRoot = new File(getContext().getFilesDir(), "ananta");
+                if (workspaceRoot.exists()) {
+                    clearDirectory(workspaceRoot);
+                } else if (!workspaceRoot.mkdirs()) {
+                    throw new IOException("Could not create workspace directory: " + workspaceRoot.getAbsolutePath());
+                }
+                extractTarGzToDirectory(archive, workspaceRoot);
+                File marker = new File(workspaceRoot, "agent/ai_agent.py");
+                if (!marker.isFile()) {
+                    throw new IOException("Workspace extraction incomplete: agent/ai_agent.py not found.");
+                }
+                JSObject result = new JSObject();
+                result.put("workspacePath", workspaceRoot.getAbsolutePath());
+                result.put("repoUrl", repoUrl);
+                notifyProotProgress("workspace", "done", "Ananta-Workspace installiert.", -1, -1, "ubuntu");
+                call.resolve(result);
+            } catch (Exception error) {
+                lastError = error.getMessage();
+                notifyProotProgress("workspace", "error", error.getMessage(), -1, -1, "ubuntu");
+                call.reject("Workspace installation failed: " + error.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void installWorkerDependencies(PluginCall call) {
+        worker.execute(() -> {
+            try {
+                notifyProotProgress("worker", "preparing", "Worker-Dependencies werden installiert.", -1, -1, "ubuntu");
+                File runtimeRoot = runtimeRootDir();
+                File ubuntuRootfs = resolveInstalledRootfs(new File(new File(runtimeRoot, "distros/ubuntu"), "rootfs"));
+                if (ubuntuRootfs == null) {
+                    throw new IOException("Ubuntu rootfs fehlt. Bitte zuerst Distro installieren.");
+                }
+                String command = ""
+                    + "unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY; "
+                    + "rm -f /etc/apt/apt.conf.d/99proxy 2>/dev/null || true; "
+                    + "export DEBIAN_FRONTEND=noninteractive; "
+                    + "if command -v apt-get >/dev/null 2>&1; then "
+                    + "apt-get update && apt-get install -y --no-install-recommends "
+                    + "python3 python3-pip git curl ca-certificates tar libgomp1; "
+                    + "else echo ANANTA_APT_MISSING; exit 2; fi; "
+                    + "python3 -m pip install --break-system-packages --ignore-installed --no-input --progress-bar off "
+                    + "flask requests flask-cors pydantic pydantic-settings python-dotenv prometheus-client pyjwt "
+                    + "portalocker psutil sqlmodel typer click gitpython flask-sock simple-websocket "
+                    + "pypdf python-docx openpyxl python-pptx; "
+                    + "python3 -c \"import flask,pydantic,requests,sqlmodel,portalocker; print('ANANTA_WORKER_DEPS_OK')\"";
+                ShellExecutionResult install = runInProot(runtimeRoot, ubuntuRootfs, command, 1200);
+                String output = String.valueOf(install.output == null ? "" : install.output);
+                if (install.timedOut || install.exitCode != 0 || !output.contains("ANANTA_WORKER_DEPS_OK")) {
+                    throw new IOException("Worker dependency install failed: " + output.trim());
+                }
+                JSObject result = new JSObject();
+                result.put("ok", true);
+                result.put("message", "Worker-Dependencies installiert.");
+                notifyProotProgress("worker", "done", "Worker-Dependencies installiert.", -1, -1, "ubuntu");
+                call.resolve(result);
+            } catch (Exception error) {
+                lastError = error.getMessage();
+                notifyProotProgress("worker", "error", error.getMessage(), -1, -1, "ubuntu");
+                call.reject("Worker dependency installation failed: " + error.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void installOpencode(PluginCall call) {
+        worker.execute(() -> {
+            try {
+                notifyProotProgress("opencode", "preparing", "opencode wird installiert.", -1, -1, "ubuntu");
+                File runtimeRoot = runtimeRootDir();
+                File ubuntuRootfs = resolveInstalledRootfs(new File(new File(runtimeRoot, "distros/ubuntu"), "rootfs"));
+                if (ubuntuRootfs == null) {
+                    throw new IOException("Ubuntu rootfs fehlt. Bitte zuerst Distro installieren.");
+                }
+                String url = String.valueOf(call.getString("opencodeUrl", OPENCODE_URL)).trim();
+                if (url.isEmpty()) url = OPENCODE_URL;
+                String cmd = ""
+                    + "unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY; rm -f /etc/apt/apt.conf.d/99proxy 2>/dev/null || true; "
+                    + "export DEBIAN_FRONTEND=noninteractive; "
+                    + "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y --no-install-recommends curl ca-certificates tar; fi; "
+                    + "TMP_TGZ=/tmp/opencode-linux-arm64.tar.gz; TMP_DIR=/tmp/opencode-install; rm -rf \"$TMP_DIR\"; mkdir -p \"$TMP_DIR\"; "
+                    + "curl -L --fail --connect-timeout 20 --max-time 600 " + shQuote(url) + " -o \"$TMP_TGZ\"; "
+                    + "tar xzf \"$TMP_TGZ\" -C \"$TMP_DIR\"; "
+                    + "if [ -f \"$TMP_DIR/opencode\" ]; then install -m 0755 \"$TMP_DIR/opencode\" /usr/local/bin/opencode; "
+                    + "elif [ -f \"$TMP_DIR/bin/opencode\" ]; then install -m 0755 \"$TMP_DIR/bin/opencode\" /usr/local/bin/opencode; "
+                    + "else CAND=$(find \"$TMP_DIR\" -type f -name opencode | head -n 1); [ -n \"$CAND\" ] && install -m 0755 \"$CAND\" /usr/local/bin/opencode || { echo ANANTA_OPENCODE_BIN_MISSING; exit 3; }; fi; "
+                    + "opencode --version; echo ANANTA_OPENCODE_OK";
+                ShellExecutionResult install = runInProot(runtimeRoot, ubuntuRootfs, cmd, 1200);
+                String output = String.valueOf(install.output == null ? "" : install.output);
+                if (install.timedOut || install.exitCode != 0 || !output.contains("ANANTA_OPENCODE_OK")) {
+                    throw new IOException("opencode install failed: " + output.trim());
+                }
+                JSObject result = new JSObject();
+                result.put("ok", true);
+                result.put("version", OPENCODE_VERSION);
+                result.put("output", output);
+                notifyProotProgress("opencode", "done", "opencode installiert.", -1, -1, "ubuntu");
+                call.resolve(result);
+            } catch (Exception error) {
+                lastError = error.getMessage();
+                notifyProotProgress("opencode", "error", error.getMessage(), -1, -1, "ubuntu");
+                call.reject("opencode installation failed: " + error.getMessage());
+            }
+        });
+    }
+
     @Override
     public void load() {
         super.load();
@@ -1104,6 +1304,36 @@ public class PythonRuntimePlugin extends Plugin {
         return null;
     }
 
+    private void extractTarGzToDirectory(File archive, File targetDir) throws IOException {
+        Process process = null;
+        try {
+            process = new ProcessBuilder(
+                "/system/bin/tar",
+                "xzf",
+                archive.getAbsolutePath(),
+                "-C",
+                targetDir.getAbsolutePath(),
+                "--strip-components=1"
+            )
+                .redirectErrorStream(true)
+                .start();
+            boolean finished = process.waitFor(240, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                throw new IOException("tar extraction timeout");
+            }
+            String output = readProcessOutput(process.getInputStream(), 8_000);
+            if (process.exitValue() != 0) {
+                throw new IOException(output.isBlank() ? "tar extraction failed with exit " + process.exitValue() : output);
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IOException("tar extraction interrupted", interrupted);
+        } finally {
+            if (process != null) process.destroy();
+        }
+    }
+
     private void extractTarXzToDirectory(File archive, File targetDir) throws IOException {
         try (InputStream fis = new FileInputStream(archive);
              InputStream xis = new XZInputStream(fis)) {
@@ -1197,6 +1427,16 @@ public class PythonRuntimePlugin extends Plugin {
         );
         String output = String.valueOf(probe.output == null ? "" : probe.output);
         return !probe.timedOut && probe.exitCode == 0 && output.contains("ANANTA_PY_OK");
+    }
+
+    private boolean probeInProot(File runtimeRoot, File rootfsDir, String command) {
+        try {
+            ShellExecutionResult probe = runInProot(runtimeRoot, rootfsDir, command, 180);
+            String output = String.valueOf(probe.output == null ? "" : probe.output);
+            return !probe.timedOut && probe.exitCode == 0 && output.contains("ANANTA_OK");
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private ShellExecutionResult runInProot(File runtimeRoot, File rootfsDir, String innerCommand, int timeoutSeconds) throws Exception {
