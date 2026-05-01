@@ -35,7 +35,7 @@ RUN apt-get update \
     && curl -fsSL "${ECLIPSE_TARBALL_URL}" -o /tmp/eclipse.tar.gz \
     && tar -xzf /tmp/eclipse.tar.gz -C /opt \
     && curl -fsSL https://repo1.maven.org/maven2/javax/persistence/javax.persistence-api/2.2/javax.persistence-api-2.2.jar -o /tmp/javax.persistence-api.jar \
-    && mkdir -p /tmp/javax-persistence-bundle /opt/eclipse/dropins \
+    && mkdir -p /tmp/javax-persistence-bundle /opt/eclipse/plugins \
     && cd /tmp/javax-persistence-bundle \
     && jar xf /tmp/javax.persistence-api.jar \
     && printf '%s\n' \
@@ -46,7 +46,7 @@ RUN apt-get update \
         'Bundle-Version: 2.2.0' \
         'Export-Package: javax.persistence;version="2.2.0",javax.persistence.criteria;version="2.2.0",javax.persistence.metamodel;version="2.2.0",javax.persistence.spi;version="2.2.0"' \
         > /tmp/javax-persistence-bundle/MANIFEST.MF \
-    && jar cfm /opt/eclipse/dropins/javax.persistence_2.2.0.jar /tmp/javax-persistence-bundle/MANIFEST.MF -C /tmp/javax-persistence-bundle . \
+    && jar cfm /opt/eclipse/plugins/javax.persistence_2.2.0.jar /tmp/javax-persistence-bundle/MANIFEST.MF -C /tmp/javax-persistence-bundle . \
     && rm -rf /var/lib/apt/lists/* /tmp/eclipse.tar.gz \
         /tmp/javax.persistence-api.jar /tmp/javax-persistence-bundle \
     && mkdir -p /workspace /tmp/ananta-eclipse-workspace
