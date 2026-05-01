@@ -99,7 +99,7 @@ class EclipseRuntimeUnitTest {
     @Test
     void commandRegistryDispatchesAnalyzeWithCapabilityGate() throws IOException {
         try (StubBackendServer backend = StubBackendServer.start()) {
-            backend.stub("POST", "/tasks/analyze", 200, "{\"task_id\":\"task-analyze-1\",\"status\":\"queued\"}");
+            backend.stub("POST", "/goals", 200, "{\"goal_id\":\"goal-analyze-1\",\"status\":\"queued\"}");
             ClientProfile profile = new ClientProfile("dev", backend.baseUrl(), "session_token", "local", "token", 15);
             AnantaApiClient apiClient = new AnantaApiClient(profile);
             CapabilityGate gate = new CapabilityGate(
@@ -135,7 +135,7 @@ class EclipseRuntimeUnitTest {
 
             assertTrue(result.isAllowed());
             assertEquals(DegradedState.HEALTHY, result.getResponse().getState());
-            assertFalse(backend.findRequests("POST", "/tasks/analyze").isEmpty());
+            assertFalse(backend.findRequests("POST", "/goals").isEmpty());
         }
     }
 }

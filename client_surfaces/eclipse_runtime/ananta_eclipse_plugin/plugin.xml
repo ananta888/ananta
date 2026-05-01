@@ -60,38 +60,38 @@
       <view
             id="io.ananta.eclipse.view.goal"
             name="Ananta Goal Panel"
-            class="io.ananta.eclipse.runtime.views.EclipseViewsExtensionRegistry"/>
+            class="io.ananta.eclipse.runtime.views.eclipse.AnantaGoalViewPart"/>
       <view
             id="io.ananta.eclipse.view.task_list"
             name="Ananta Task List"
-            class="io.ananta.eclipse.runtime.views.EclipseViewsExtensionRegistry"/>
+            class="io.ananta.eclipse.runtime.views.eclipse.AnantaTaskListViewPart"/>
       <view
             id="io.ananta.eclipse.view.task_detail"
             name="Ananta Task Detail"
-            class="io.ananta.eclipse.runtime.views.EclipseViewsExtensionRegistry"/>
+            class="io.ananta.eclipse.runtime.views.eclipse.AnantaTaskDetailViewPart"/>
       <view
             id="io.ananta.eclipse.view.artifact"
             name="Ananta Artifact View"
-            class="io.ananta.eclipse.runtime.views.EclipseViewsExtensionRegistry"/>
+            class="io.ananta.eclipse.runtime.views.eclipse.AnantaArtifactViewPart"/>
       <view
             id="io.ananta.eclipse.view.approval_queue"
             name="Ananta Approval Queue"
-            class="io.ananta.eclipse.runtime.views.EclipseViewsExtensionRegistry"/>
+            class="io.ananta.eclipse.runtime.views.eclipse.AnantaApprovalQueueViewPart"/>
       <view
             id="io.ananta.eclipse.view.audit"
             name="Ananta Audit Explorer"
-            class="io.ananta.eclipse.runtime.views.EclipseViewsExtensionRegistry"/>
+            class="io.ananta.eclipse.runtime.views.eclipse.AnantaAuditViewPart"/>
       <view
             id="io.ananta.eclipse.view.repair"
             name="Ananta Repair Explorer"
-            class="io.ananta.eclipse.runtime.views.EclipseViewsExtensionRegistry"/>
+            class="io.ananta.eclipse.runtime.views.eclipse.AnantaRepairViewPart"/>
       <view
             id="io.ananta.eclipse.view.tui_status"
             name="Ananta TUI Status"
-            class="io.ananta.eclipse.runtime.views.EclipseViewsExtensionRegistry"/>
+            class="io.ananta.eclipse.runtime.views.eclipse.AnantaTuiStatusViewPart"/>
       <view
             id="io.ananta.eclipse.view.policy_fallback"
             name="Ananta Policy and Browser Fallback"
-            class="io.ananta.eclipse.runtime.views.EclipseViewsExtensionRegistry"/>
+            class="io.ananta.eclipse.runtime.views.eclipse.AnantaPolicyFallbackViewPart"/>
    </extension>
 </plugin>
