@@ -54,9 +54,9 @@ public class VoxtralRunnerService extends Service {
         String resultPath = String.valueOf(intent.getStringExtra(EXTRA_RESULT_PATH) == null ? "" : intent.getStringExtra(EXTRA_RESULT_PATH)).trim();
         String heartbeatPath = String.valueOf(intent.getStringExtra(EXTRA_HEARTBEAT_PATH) == null ? "" : intent.getStringExtra(EXTRA_HEARTBEAT_PATH)).trim();
         JSONObject result = new JSONObject();
-        result.put("status", "error");
-        result.put("error", "runner_service_unknown_error");
-        result.put("rawOutput", "");
+        safePut(result, "status", "error");
+        safePut(result, "error", "runner_service_unknown_error");
+        safePut(result, "rawOutput", "");
         try {
             String mode = String.valueOf(intent.getStringExtra(EXTRA_MODE) == null ? "transcribe" : intent.getStringExtra(EXTRA_MODE)).trim().toLowerCase(Locale.US);
             File runnerFile = new File(String.valueOf(intent.getStringExtra(EXTRA_RUNNER_PATH) == null ? "" : intent.getStringExtra(EXTRA_RUNNER_PATH)).trim());
@@ -85,9 +85,9 @@ public class VoxtralRunnerService extends Service {
                 } else {
                     output = runTranscriptionSync(runnerFile, modelFile, audioFile, lowMemoryMode, timeoutMs);
                 }
-                result.put("status", "ok");
-                result.put("rawOutput", output);
-                result.put("transcript", extractTranscript(output));
+                safePut(result, "status", "ok");
+                safePut(result, "rawOutput", output);
+                safePut(result, "transcript", extractTranscript(output));
             } finally {
                 alive.set(false);
                 if (heartbeatThread != null) {
@@ -100,8 +100,8 @@ public class VoxtralRunnerService extends Service {
             }
         } catch (Exception error) {
             String message = String.valueOf(error.getMessage() == null ? error.toString() : error.getMessage()).trim();
-            result.put("status", "error");
-            result.put("error", message.isBlank() ? "runner_service_failure" : message);
+            safePut(result, "status", "error");
+            safePut(result, "error", message.isBlank() ? "runner_service_failure" : message);
         }
 
         writeJsonResult(resultPath, result);
@@ -136,6 +136,13 @@ public class VoxtralRunnerService extends Service {
         try (FileOutputStream output = new FileOutputStream(out, false)) {
             output.write(payload.toString().getBytes(StandardCharsets.UTF_8));
             output.flush();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void safePut(JSONObject payload, String key, String value) {
+        try {
+            payload.put(key, value);
         } catch (Exception ignored) {
         }
     }
