@@ -1162,11 +1162,42 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     private String runRunnerSyncIsolated(File runnerFile, File modelFile, File audioFile, boolean lowMemoryMode) throws IOException {
-        return runRunnerServiceJob("transcribe", runnerFile, modelFile, audioFile, lowMemoryMode);
+        try {
+            return runRunnerServiceJob("transcribe", runnerFile, modelFile, audioFile, lowMemoryMode);
+        } catch (IOException error) {
+            if (!shouldFallbackToProot(error)) throw error;
+            try {
+                return runRunnerSyncViaProot(runnerFile, modelFile, audioFile, lowMemoryMode);
+            } catch (InterruptedException interruptedException) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Runner proot fallback interrupted.");
+            }
+        }
     }
 
     private String runRunnerProbeIsolated(File runnerFile, File modelFile) throws IOException {
-        return runRunnerServiceJob("probe", runnerFile, modelFile, null, false);
+        try {
+            return runRunnerServiceJob("probe", runnerFile, modelFile, null, false);
+        } catch (IOException error) {
+            if (!shouldFallbackToProot(error)) throw error;
+            try {
+                return runModelProbeViaProot(runnerFile, modelFile);
+            } catch (InterruptedException interruptedException) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Runner probe proot fallback interrupted.");
+            }
+        }
+    }
+
+    private boolean shouldFallbackToProot(IOException error) {
+        String message = String.valueOf(error == null ? "" : error.getMessage()).toLowerCase(Locale.US);
+        return message.contains("permission denied")
+                || message.contains("cannot run program")
+                || message.contains("tls segment is underaligned")
+                || message.contains("exec format")
+                || message.contains("bad executable")
+                || message.contains("runner service heartbeat lost")
+                || message.contains("runner service timeout");
     }
 
     private String runRunnerServiceJob(String mode, File runnerFile, File modelFile, File audioFile, boolean lowMemoryMode) throws IOException {
