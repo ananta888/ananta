@@ -1521,7 +1521,14 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     private String runModelProbe(File runnerFile, File modelFile) throws IOException, InterruptedException {
-        return runRunnerProbeIsolated(runnerFile, modelFile);
+        File probeAudio = createProbeAudioFile();
+        try {
+            return runRunnerSyncIsolated(runnerFile, modelFile, probeAudio, true);
+        } finally {
+            if (probeAudio != null && probeAudio.exists()) {
+                probeAudio.delete();
+            }
+        }
     }
 
     private String runModelProbeViaProot(File runnerFile, File modelFile) throws IOException, InterruptedException {
@@ -1530,10 +1537,32 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (prootWrapper == null || ubuntuRootfs == null || runnerFile == null || !runnerFile.exists()) {
             return "";
         }
-        String wrappedInnerCommand = "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
-            + "export HOME=/root; export TERM=xterm-256color; "
-            + joinShellArgs(buildRunnerProbeCommand(runnerFile, modelFile));
-        return runShellCommandViaProot(wrappedInnerCommand);
+        File probeAudio = createProbeAudioFile();
+        try {
+            return runRunnerSyncViaProot(runnerFile, modelFile, probeAudio, true);
+        } finally {
+            if (probeAudio != null && probeAudio.exists()) {
+                probeAudio.delete();
+            }
+        }
+    }
+
+    private File createProbeAudioFile() throws IOException {
+        File probeDir = ensureDir("voxtral/probe");
+        if (probeDir == null) {
+            throw new IOException("Probe audio directory is unavailable.");
+        }
+        File probeAudio = new File(probeDir, "probe.wav");
+        final int sampleRate = 16000;
+        final int channels = 1;
+        final int bitsPerSample = 16;
+        final int pcmBytes = 3200; // ~100ms silence
+        try (FileOutputStream output = new FileOutputStream(probeAudio, false)) {
+            writeWavHeader(output, sampleRate, channels, bitsPerSample, pcmBytes);
+            output.write(new byte[pcmBytes]);
+            output.flush();
+        }
+        return probeAudio;
     }
 
     private boolean containsUnsupportedModelArchitecture(String text) {
@@ -2138,10 +2167,6 @@ public class VoxtralOfflinePlugin extends Plugin {
         }
         command.add("-m");
         command.add(modelFile.getAbsolutePath());
-        command.add("-n");
-        command.add("1");
-        command.add("-p");
-        command.add("ok");
         return command;
     }
 
