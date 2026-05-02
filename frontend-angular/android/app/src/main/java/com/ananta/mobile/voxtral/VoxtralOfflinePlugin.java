@@ -1137,9 +1137,8 @@ public class VoxtralOfflinePlugin extends Plugin {
         List<String> directCommand = buildRunnerCommand(runnerFile, modelFile, audioFile);
         String linkerPath = resolveSystemLinkerPath();
         if (linkerPath != null && !linkerPath.isBlank()) {
-            List<String> linkerCommand = buildLinkerWrappedCommand(linkerPath, directCommand);
             try {
-                return executeRunnerCommand(linkerCommand);
+                return executeRunnerViaShellLinker(linkerPath, directCommand);
             } catch (IOException linkerError) {
                 String linkerMsg = String.valueOf(linkerError.getMessage() == null ? "" : linkerError.getMessage());
                 // If linker mode fails with runtime/model issues, propagate directly.
@@ -1158,6 +1157,37 @@ public class VoxtralOfflinePlugin extends Plugin {
             }
             throw directError;
         }
+    }
+
+    private String executeRunnerViaShellLinker(String linkerPath, List<String> runnerCommand) throws IOException, InterruptedException {
+        String runnerBinaryPath = resolveRunnerBinaryPath(runnerCommand);
+        if (runnerBinaryPath == null || runnerBinaryPath.isBlank()) {
+            throw new IOException("Runner command is empty.");
+        }
+        File runnerBinary = new File(runnerBinaryPath);
+        File runnerDir = runnerBinary.getParentFile();
+        String nativeLibDir = resolveNativeLibDir();
+        String ldLibraryPath = buildRunnerLibraryPath(runnerDir, nativeLibDir);
+        String ggmlBackendPath = runnerDir != null ? runnerDir.getAbsolutePath() : "";
+        String shellCommand = ""
+                + "LD_LIBRARY_PATH=" + shQuote(ldLibraryPath) + " "
+                + "GGML_BACKEND_PATH=" + shQuote(ggmlBackendPath) + " "
+                + "exec " + shQuote(linkerPath) + " " + joinShellArgs(runnerCommand);
+        Process process = new ProcessBuilder("/system/bin/sh", "-lc", shellCommand)
+                .redirectErrorStream(true)
+                .start();
+        String output = readAllLimited(process.getInputStream(), MAX_PROCESS_OUTPUT_CHARS);
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            if (containsMissingAudioTensorError(output)) {
+                throw new IOException("Model file is not compatible with Voxtral speech backend: required audio tensors are missing. Use a realtime Voxtral GGUF.");
+            }
+            if (containsUnsupportedModelArchitecture(output)) {
+                throw new IOException("Runner is incompatible with model architecture 'voxtral4b'. Use a Voxtral-compatible runner (not plain llama.cpp).");
+            }
+            throw new IOException("Runner failed with exit code " + exitCode + "\n" + output);
+        }
+        return extractTranscript(output);
     }
 
     private String runRunnerSyncViaProot(File runnerFile, File modelFile, File audioFile) throws IOException, InterruptedException {
@@ -1250,6 +1280,20 @@ public class VoxtralOfflinePlugin extends Plugin {
             return null;
         }
         return first;
+    }
+
+    private String buildRunnerLibraryPath(File runnerDir, String nativeLibDir) {
+        StringBuilder builder = new StringBuilder();
+        if (runnerDir != null) {
+            builder.append(runnerDir.getAbsolutePath());
+        }
+        if (nativeLibDir != null && !nativeLibDir.isBlank()) {
+            if (builder.length() > 0) builder.append(':');
+            builder.append(nativeLibDir);
+        }
+        if (builder.length() > 0) builder.append(':');
+        builder.append("${LD_LIBRARY_PATH:-}");
+        return builder.toString();
     }
 
     private RunnerProbe probeRunnerModelCompatibility(File runnerFile, File modelFile) {
