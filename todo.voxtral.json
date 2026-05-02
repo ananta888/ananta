@@ -1,9 +1,40 @@
 {
-  "schema": "ananta.todo.voxtral.v1",
+  "schema": "ananta.todo.voxtral.v2",
   "title": "Voxtral / Speech Integration via dedicated voice-runtime service",
-  "status": "draft",
+  "status": "active_planning",
   "created_for": "ananta local-first multi-agent platform",
+  "updated": "2026-05-02",
   "goal": "Integrate Voxtral and speech/audio capabilities for Android, laptops and local desktop setups through a dedicated voice-runtime service instead of hard-coding model/runtime logic into each client.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "high",
+    "medium",
+    "low"
+  ],
+  "current_state_summary": {
+    "classification": "design_complete_execution_not_started",
+    "done_scope": [
+      "Architecture option C is defined and aligned with hub-worker boundaries.",
+      "Core API and environment contract outlines exist.",
+      "Phased implementation breakdown is comprehensive."
+    ],
+    "missing_scope": [
+      "No execution tracking (task statuses/dependencies) existed.",
+      "No explicit release blocker path existed.",
+      "No implementation evidence was linked to phase progress."
+    ]
+  },
+  "architecture_guardrails": [
+    "Hub remains control plane: routing, policy, approvals, and audit ownership stay in Hub.",
+    "voice-runtime is execution worker only; no worker-to-worker orchestration.",
+    "Clients stay thin and backend-agnostic.",
+    "Dangerous actions from voice never bypass existing approval mechanisms."
+  ],
   "core_decision": {
     "selected_option": "C",
     "name": "Dedicated voice-runtime service",
@@ -100,7 +131,7 @@
       },
       {
         "name": "VOICE_RUNTIME_URL",
-        "default": "http://voice-runtime:8090/v1",
+        "default": "http://voice-runtime:8090",
         "description": "Base URL for the dedicated voice-runtime service."
       },
       {
@@ -249,11 +280,107 @@
       }
     ]
   },
+  "api_contract_examples": {
+    "success_cases": [
+      {
+        "name": "hub_transcribe_success",
+        "endpoint": "POST /v1/voice/transcribe",
+        "request": {
+          "content_type": "multipart/form-data",
+          "fields": {
+            "file": "<audio.webm>",
+            "language": "de",
+            "mode": "transcription"
+          }
+        },
+        "response_200": {
+          "text": "Bitte erstelle ein neues Task fuer die Eclipse Plugin Installation.",
+          "language": "de",
+          "duration_ms": 4231,
+          "model": "mock-whisper-small",
+          "provider": "voice-runtime",
+          "warnings": []
+        }
+      },
+      {
+        "name": "hub_command_success_requires_approval",
+        "endpoint": "POST /v1/voice/command",
+        "request": {
+          "content_type": "multipart/form-data",
+          "fields": {
+            "file": "<command.wav>",
+            "command_context": "{\"workspace\":\"ananta\"}"
+          }
+        },
+        "response_200": {
+          "transcript": "Bitte analysiere todo.voxtral.json und schlage Verbesserungen vor.",
+          "intent": "analyze_todo_file",
+          "confidence": 0.91,
+          "proposed_goal": "Analyze and improve todo.voxtral.json",
+          "requires_approval": true,
+          "audit_id": "audit-vox-001"
+        }
+      },
+      {
+        "name": "hub_goal_success",
+        "endpoint": "POST /v1/voice/goal",
+        "request": {
+          "content_type": "multipart/form-data",
+          "fields": {
+            "file": "<goal.m4a>",
+            "create_tasks": "false",
+            "governance_mode": "strict"
+          }
+        },
+        "response_200": {
+          "goal_id": "goal-1234",
+          "transcript": "Implementiere Voice Runtime MVP mit Mock Backend.",
+          "created_tasks": false,
+          "requires_review": true
+        }
+      }
+    ],
+    "error_cases": [
+      {
+        "name": "oversized_upload",
+        "endpoint": "POST /v1/voice/transcribe",
+        "response_413": {
+          "error": {
+            "code": "audio_too_large",
+            "message": "Audio file exceeds VOICE_MAX_AUDIO_MB limit.",
+            "limit_mb": 25
+          }
+        }
+      },
+      {
+        "name": "runtime_unavailable",
+        "endpoint": "POST /v1/voice/command",
+        "response_503": {
+          "error": {
+            "code": "voice_runtime_unavailable",
+            "message": "Voice runtime is unavailable.",
+            "retriable": true
+          }
+        }
+      },
+      {
+        "name": "policy_denied",
+        "endpoint": "POST /v1/voice/goal",
+        "response_403": {
+          "error": {
+            "code": "policy_denied",
+            "message": "Voice goal creation is not allowed for current user/policy mode.",
+            "audit_id": "audit-vox-403"
+          }
+        }
+      }
+    ]
+  },
   "implementation_phases": [
     {
       "phase": "P0",
       "name": "Design and contracts",
-      "status": "open",
+      "status": "todo",
       "tasks": [
         {
           "id": "VOX-P0-001",
@@ -296,7 +423,7 @@
     {
       "phase": "P1",
       "name": "Minimal voice-runtime service",
-      "status": "open",
+      "status": "todo",
       "tasks": [
         {
           "id": "VOX-P1-001",
@@ -351,7 +478,7 @@
     {
       "phase": "P2",
       "name": "Ananta Hub integration",
-      "status": "open",
+      "status": "todo",
       "tasks": [
         {
           "id": "VOX-P2-001",
@@ -406,7 +533,7 @@
     {
       "phase": "P3",
       "name": "Voxtral backend",
-      "status": "open",
+      "status": "todo",
       "tasks": [
         {
           "id": "VOX-P3-001",
@@ -461,7 +588,7 @@
     {
       "phase": "P4",
       "name": "Docker and install profiles",
-      "status": "open",
+      "status": "todo",
       "tasks": [
         {
           "id": "VOX-P4-001",
@@ -482,7 +609,7 @@
           "files_hint": ["docker-compose.voice-runtime.yml"],
           "acceptance": [
             "Service name is voice-runtime.",
-            "Ananta Hub gets VOICE_RUNTIME_URL=http://voice-runtime:8090/v1.",
+            "Ananta Hub gets VOICE_RUNTIME_URL=http://voice-runtime:8090.",
             "Host access mode documented for LM Studio/Ollama-style host runtimes."
           ],
           "priority": "high"
@@ -516,7 +643,7 @@
     {
       "phase": "P5",
       "name": "Android and desktop client cleanup",
-      "status": "open",
+      "status": "todo",
       "tasks": [
         {
           "id": "VOX-P5-001",
@@ -559,7 +686,7 @@
     {
       "phase": "P6",
       "name": "Security, governance and policy",
-      "status": "open",
+      "status": "todo",
       "tasks": [
         {
           "id": "VOX-P6-001",
@@ -602,7 +729,7 @@
     {
       "phase": "P7",
       "name": "Testing and CI",
-      "status": "open",
+      "status": "todo",
       "tasks": [
         {
           "id": "VOX-P7-001",
@@ -657,7 +784,7 @@
     {
       "phase": "P8",
       "name": "Documentation and release readiness",
-      "status": "open",
+      "status": "todo",
       "tasks": [
         {
           "id": "VOX-P8-001",
@@ -698,6 +825,163 @@
       ]
     }
   ],
+  "tasks": [
+    {"id": "VOX-P0-001", "phase": "P0", "title": "Document voice-runtime architecture decision", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P0-002", "phase": "P0", "title": "Define capability names", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P0-003", "phase": "P0", "title": "Define public Ananta voice API contract", "status": "todo", "priority": "high", "depends_on": []},
+
+    {"id": "VOX-P1-001", "phase": "P1", "title": "Create voice-runtime package skeleton", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P1-002", "phase": "P1", "title": "Implement mock transcription backend", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P1-003", "phase": "P1", "title": "Implement /v1/audio/transcriptions endpoint", "status": "todo", "priority": "high", "depends_on": ["VOX-P1-001", "VOX-P1-002", "VOX-P0-003"]},
+    {"id": "VOX-P1-004", "phase": "P1", "title": "Add model catalog endpoint", "status": "todo", "priority": "medium", "depends_on": []},
+
+    {"id": "VOX-P2-001", "phase": "P2", "title": "Add VoiceProvider adapter in Ananta backend", "status": "todo", "priority": "high", "depends_on": ["VOX-P1-003"]},
+    {"id": "VOX-P2-002", "phase": "P2", "title": "Expose Ananta Hub voice routes", "status": "todo", "priority": "high", "depends_on": ["VOX-P2-001", "VOX-P0-003"]},
+    {"id": "VOX-P2-003", "phase": "P2", "title": "Register voice capabilities in provider catalog", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P2-004", "phase": "P2", "title": "Add audit metadata for voice actions", "status": "todo", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P6-003"]},
+
+    {"id": "VOX-P3-001", "phase": "P3", "title": "Implement Voxtral backend adapter", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P3-002", "phase": "P3", "title": "Add audio normalization pipeline", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P3-003", "phase": "P3", "title": "Implement backend fallback chain", "status": "todo", "priority": "high", "depends_on": ["VOX-P3-001", "VOX-P3-002"]},
+    {"id": "VOX-P3-004", "phase": "P3", "title": "Add hardware/device detection", "status": "todo", "priority": "medium", "depends_on": []},
+
+    {"id": "VOX-P4-001", "phase": "P4", "title": "Add Dockerfile for voice-runtime", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P4-002", "phase": "P4", "title": "Add docker-compose voice overlay", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P4-003", "phase": "P4", "title": "Extend setup templates", "status": "todo", "priority": "medium", "depends_on": ["VOX-P4-001", "VOX-P4-002", "VOX-P7-003"]},
+    {"id": "VOX-P4-004", "phase": "P4", "title": "Add laptop profile docs", "status": "todo", "priority": "medium", "depends_on": []},
+
+    {"id": "VOX-P5-001", "phase": "P5", "title": "Refactor Android Voxtral integration to use Ananta voice API", "status": "todo", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P2-003"]},
+    {"id": "VOX-P5-002", "phase": "P5", "title": "Add desktop microphone flow", "status": "todo", "priority": "medium", "depends_on": []},
+    {"id": "VOX-P5-003", "phase": "P5", "title": "Add CLI voice file command", "status": "todo", "priority": "medium", "depends_on": []},
+
+    {"id": "VOX-P6-001", "phase": "P6", "title": "Add voice exposure policy", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P6-002", "phase": "P6", "title": "Add approval boundary for voice-created actions", "status": "todo", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P0-003"]},
+    {"id": "VOX-P6-003", "phase": "P6", "title": "Add privacy defaults", "status": "todo", "priority": "high", "depends_on": []},
+
+    {"id": "VOX-P7-001", "phase": "P7", "title": "Add unit tests for voice-runtime mock backend", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P7-002", "phase": "P7", "title": "Add Ananta Hub contract tests for voice routes", "status": "todo", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P1-002"]},
+    {"id": "VOX-P7-003", "phase": "P7", "title": "Add Docker smoke test", "status": "todo", "priority": "medium", "depends_on": []},
+    {"id": "VOX-P7-004", "phase": "P7", "title": "Add optional live Voxtral test flag", "status": "todo", "priority": "medium", "depends_on": []},
+
+    {"id": "VOX-P8-001", "phase": "P8", "title": "Write user-facing voice quickstart", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P8-002", "phase": "P8", "title": "Add release checklist entries", "status": "todo", "priority": "medium", "depends_on": ["VOX-P6-001", "VOX-P6-002", "VOX-P6-003"]},
+    {"id": "VOX-P8-003", "phase": "P8", "title": "Document known limitations", "status": "todo", "priority": "medium", "depends_on": []}
+  ],
+  "phase_exit_criteria": {
+    "P0": [
+      "Architecture decision note committed and reviewed.",
+      "Capability names published in provider contracts.",
+      "Public voice API contract documented including auth, limits, and error shape."
+    ],
+    "P1": [
+      "voice-runtime starts locally and exposes /health.",
+      "Mock backend supports success + timeout/unavailable simulation.",
+      "/v1/audio/transcriptions enforces file-size and returns stable error JSON."
+    ],
+    "P2": [
+      "Hub routes /v1/voice/transcribe, /command, /goal are wired through adapter.",
+      "Provider catalog reports voice capability availability/degraded status.",
+      "Voice route contract tests pass with mock runtime."
+    ],
+    "P3": [
+      "Voxtral adapter loads model with explicit error reporting.",
+      "Audio normalization handles targeted input formats and cleanup.",
+      "Fallback chain works and exposes warning when fallback backend is used."
+    ],
+    "P4": [
+      "Docker image builds without default heavy model download.",
+      "Compose overlay starts Hub + voice-runtime integration path.",
+      "Environment templates include safe defaults and preserve non-voice setup."
+    ],
+    "P5": [
+      "Android, desktop, and CLI use Hub voice API instead of runtime-specific coupling.",
+      "Transcript preview appears before risky action/goal execution.",
+      "Capability-gated UX visibility works."
+    ],
+    "P6": [
+      "Auth and exposure policy enforced on all voice routes.",
+      "Risky voice-created actions require explicit approval.",
+      "Raw audio persistence remains opt-in and disabled by default."
+    ],
+    "P7": [
+      "Unit + contract tests pass in CI without GPU/model downloads.",
+      "Docker smoke test verifies health and capability endpoints.",
+      "Optional live Voxtral test remains opt-in and clearly documented."
+    ],
+    "P8": [
+      "Quickstart and limitation docs are published and accurate.",
+      "Release checklist includes privacy/security/fallback checks.",
+      "Release evidence references voice runtime readiness and degraded behavior."
+    ]
+  },
+  "execution_tracking": {
+    "phase_sequence": [
+      "P0",
+      "P1",
+      "P2",
+      "P3",
+      "P4",
+      "P5",
+      "P6",
+      "P7",
+      "P8"
+    ],
+    "critical_dependencies": [
+      {
+        "task": "VOX-P1-003",
+        "depends_on": ["VOX-P1-001", "VOX-P1-002", "VOX-P0-003"]
+      },
+      {
+        "task": "VOX-P2-001",
+        "depends_on": ["VOX-P1-003"]
+      },
+      {
+        "task": "VOX-P2-002",
+        "depends_on": ["VOX-P2-001", "VOX-P0-003"]
+      },
+      {
+        "task": "VOX-P2-004",
+        "depends_on": ["VOX-P2-002", "VOX-P6-003"]
+      },
+      {
+        "task": "VOX-P3-003",
+        "depends_on": ["VOX-P3-001", "VOX-P3-002"]
+      },
+      {
+        "task": "VOX-P4-003",
+        "depends_on": ["VOX-P4-001", "VOX-P4-002", "VOX-P7-003"]
+      },
+      {
+        "task": "VOX-P5-001",
+        "depends_on": ["VOX-P2-002", "VOX-P2-003"]
+      },
+      {
+        "task": "VOX-P6-002",
+        "depends_on": ["VOX-P2-002", "VOX-P0-003"]
+      },
+      {
+        "task": "VOX-P7-002",
+        "depends_on": ["VOX-P2-002", "VOX-P1-002"]
+      },
+      {
+        "task": "VOX-P8-002",
+        "depends_on": ["VOX-P6-001", "VOX-P6-002", "VOX-P6-003"]
+      }
+    ],
+    "task_status_summary": {
+      "total_tasks": 32,
+      "todo": 32,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "release_blockers": [
+      "VOX-P2-002",
+      "VOX-P6-001",
+      "VOX-P6-002",
+      "VOX-P7-002"
+    ]
+  },
   "suggested_initial_files": [
     "docs/voice-runtime-architecture.md",
     "docs/voice-quickstart.md",
@@ -754,7 +1038,7 @@
     }
   ],
   "recommended_first_milestone": {
-    "name": "MVP voice-runtime mock + Hub transcription route",
+    "name": "MVP voice-runtime mock + Hub-safe voice command route",
     "tasks": [
       "VOX-P0-001",
       "VOX-P0-003",
@@ -763,11 +1047,27 @@
       "VOX-P1-003",
       "VOX-P2-001",
       "VOX-P2-002",
+      "VOX-P2-003",
+      "VOX-P6-002",
       "VOX-P7-001",
-      "VOX-P7-002"
+      "VOX-P7-002",
+      "VOX-P7-003"
     ],
-    "success_signal": "A user can send an audio file to Ananta Hub, receive a transcript from mock voice-runtime, and see voice capability status without any real model installed."
+    "success_signal": "A user can send an audio file to Ananta Hub, receive a transcript from mock voice-runtime, and create only approval-routed voice intents while capability status is exposed in provider catalog."
   },
+  "recommended_execution_order": [
+    "1) P0 contracts first, then P1 mock runtime, then P2 Hub integration.",
+    "2) Land P6 security/approval boundaries before enabling client UX paths in P5.",
+    "3) Keep P3 Voxtral adapter optional until mock+fallback path is stable in CI.",
+    "4) Treat P7 contract tests as a merge gate for any voice API change.",
+    "5) Run P8 docs and release checklist before claiming production readiness."
+  ],
+  "quality_gates": [
+    "No endpoint merges without auth and policy checks.",
+    "No default raw audio persistence.",
+    "Every new route has contract tests and degraded-path tests.",
+    "Fallback backend behavior must be explicit in response warnings."
+  ],
   "notes": [
     "Keep this file as planning source, not runtime config.",
     "Prefer small, reviewable PRs per phase.",
