@@ -1,0 +1,351 @@
+Voxtral Android crash report
+============================
+
+Context
+-------
+
+Device/test target:
+- Android device via adb: 192.168.178.93:45315 (Fairphone 6 in Gradle output).
+- App package: com.ananta.mobile
+- Instrumentation package: com.ananta.mobile.test
+- Main E2E test:
+  com.ananta.mobile.LiveTerminalAndroidE2ETest#voxtralDirectTranscriptionWorks
+
+Current relevant files changed in the worktree:
+- frontend-angular/android/app/src/main/java/com/ananta/mobile/voxtral/VoxtralOfflinePlugin.java
+- frontend-angular/android/app/src/androidTest/java/com/ananta/mobile/LiveTerminalAndroidE2ETest.java
+- frontend-angular/src/app/models/voxtral-catalog.ts
+
+Short summary
+-------------
+
+The repeated "app crashed / Termux or instrumentation stopped" symptom is not one single bug.
+Several earlier blockers were fixed or narrowed down, then the remaining blocker became native
+Voxtral model execution memory pressure.
+
+The current crash pattern is:
+- instrumentation starts normally,
+- app starts normally,
+- Voxtral transcription starts,
+- Android reports many mem-pressure events,
+- WebView sandbox service and then the app process die,
+- instrumentation receives only "Process crashed",
+- no Java exception is available from the plugin because the process is killed outside Java.
+
+This means the current failure is a hard process death, most likely Android LMK / native memory
+pressure during CrispASR/Voxtral model execution.
+
+
+Timeline / findings
+-------------------
+
+1. Initial crash after pressing "Transkribieren"
+
+Observed symptom:
+- App crashed during transcription after recording.
+- Termux/adb session also became unstable during some attempts.
+
+Initial finding:
+- The first version could attempt to start too-heavy Voxtral execution without a sufficiently
+  conservative guard.
+- Memory checks existed but were not enough for the native runner peak memory behavior.
+
+Mitigation added:
+- Low-memory mode was wired into normal transcribe(), not only live mode.
+- Runtime memory check got a retry after GC/finalization.
+- UI passes the low-memory toggle into normal transcription.
+
+Result:
+- Some crashes changed into controlled RAM guard failures, but not all paths were safe yet.
+
+
+2. Runner path / runner execution problems
+
+Observed errors during E2E:
+- ERR:NO_RUNNER_PATH
+- Cannot run program ".../files/voxtral/bin/llama-cli": error=13, Permission denied
+- Proot runtime is unavailable.
+- Runner execution blocked by Android (permission denied) and proot fallback is unavailable.
+
+Findings:
+- Direct execution from app-private files can fail on this Android setup with EACCES.
+- The previously solved workaround was linker-based execution:
+  /system/bin/linker64 <runner> ...
+- The app-side direct exec path remains unreliable; linker path is the viable path.
+
+Fixes/attempts:
+- Added shell+linker execution path.
+- Added LD_LIBRARY_PATH construction for runner directory and APK native lib directory.
+- Added GGML CPU backend alias handling (libggml-cpu.so).
+- Reinstalled runner and shared libraries into app sandbox.
+
+Result:
+- Linker execution started working far enough to expose real runner/model compatibility errors.
+
+
+3. llama-cli was the wrong runner
+
+Observed error:
+- Runner is incompatible with model architecture 'voxtral4b'. Use a Voxtral-compatible runner
+  (not plain llama.cpp).
+
+Finding:
+- llama-cli can run normal text GGUF models, but it is not a Voxtral speech/audio runner.
+- It should not be selected as a valid Voxtral speech runner.
+
+Fix:
+- llama-cli was removed from supported Voxtral runner candidate names.
+- Runner selection now prefers names containing "voxtral" or starting with "crispasr".
+- The "latest Android runner preset" path was changed to fail explicitly instead of suggesting
+  plain llama.cpp Android binaries as if they were Voxtral-compatible.
+
+Result:
+- The app no longer treats llama-cli as a valid Voxtral transcription runner.
+
+
+4. CrispASR runner restored
+
+Runner installed:
+- files/voxtral/bin/crispasr-voxtral
+
+Dependencies installed into app sandbox:
+- libc++_shared.so
+- libwhisper.so, libwhisper.so.1, libwhisper.so.1.8.4
+- libggml.so, libggml.so.0, libggml.so.0.10.0
+- libggml-base.so, libggml-base.so.0, libggml-base.so.0.10.0
+- libggml-cpu.so, libggml-cpu.so.0, libggml-cpu.so.0.10.0
+- previous llama.cpp libs also remain present but should not be selected for Voxtral speech.
+
+Observed dependency errors fixed in order:
+- libmtmd.so not found
+- libwhisper.so.1 not found
+- libggml.so.0 not found
+- libc++_shared.so not found
+
+Result:
+- CrispASR/linker path progressed beyond loader errors.
+
+
+5. Wrong / incompatible model: Q2_K.gguf from andrijdavid repo
+
+Model used:
+- Q2_K.gguf, size 1,471,130,784 bytes
+- URL used in tests:
+  https://huggingface.co/andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF/resolve/main/Q2_K.gguf
+
+Observed error:
+- Model file is not compatible with Voxtral speech backend: required audio tensors are missing.
+  Use a realtime Voxtral GGUF.
+
+Finding:
+- This Q2_K file is smaller, but CrispASR says required audio tensors are missing.
+- Therefore this file is not usable for the current Voxtral speech backend, even though it is a
+  GGUF and has "Voxtral" naming.
+
+Result:
+- The smaller Q2_K candidate is not a viable fix for current APK transcription.
+
+
+6. Partial/corrupt model download problem
+
+Observed state:
+- A Q4_K realtime model file existed at only about 143 MB after an interrupted run.
+- It was then considered "present" by local asset selection.
+
+Root cause:
+- downloadModel previously wrote directly to the final .gguf path.
+- If a download was interrupted, a partial file could remain under the final name.
+- Later runs could reuse the partial file unless minBytes forced re-download in exactly the
+  tested path.
+
+Fix:
+- Downloads now write to "<file>.part" first.
+- Existing final file is replaced only after the temporary file is fully downloaded.
+- The .part file is removed on failure.
+- E2E model selection checks file name AND minimum byte size.
+
+Result:
+- Interrupted downloads should no longer poison later runs as valid model files.
+
+
+7. Q4_K realtime model: complete download but hard app crash
+
+Model:
+- voxtral-mini-4b-realtime-q4_k.gguf
+- URL:
+  https://huggingface.co/cstr/voxtral-mini-4b-realtime-GGUF/resolve/main/voxtral-mini-4b-realtime-q4_k.gguf
+- Remote size from headers:
+  2,524,137,216 bytes
+- Confirmed local size:
+  2,524,137,216 bytes
+
+E2E outputs:
+- /tmp/e2e_voxtral_fixed_q4k.txt:
+  INSTRUMENTATION_RESULT: shortMsg=Process crashed.
+  INSTRUMENTATION_CODE: 0
+- /tmp/e2e_lowmem_fixed_q4k.txt:
+  only reached:
+  INSTRUMENTATION_STATUS_CODE: 1
+  then the test/app was interrupted/crashed.
+
+Important logcat evidence around 13:23:
+- "Scheduling restart of crashed service com.ananta.mobile/org.chromium.content.app.SandboxedProcessService0:0"
+- "WINDOW DIED Window{... com.ananta.mobile/com.ananta.mobile.MainActivity}"
+- "Process com.ananta.mobile (pid 29631) has died: fg TOP"
+- "Force removing ActivityRecord{... com.ananta.mobile/.MainActivity ...}: app died, no saved state"
+- "Crash of app com.ananta.mobile running instrumentation ComponentInfo{com.ananta.mobile.test/androidx.test.runner.AndroidJUnitRunner}"
+- "Failure reporting to instrumentation watcher ... shortMsg=Process crashed."
+- Many concurrent "mem-pressure-event" service reschedules.
+
+Interpretation:
+- This is not a handled plugin error and not a Java exception.
+- The app process dies externally during native execution / memory pressure.
+- Q4_K is unsafe for in-process APK execution on this device in the current architecture.
+
+Fix added:
+- Hard in-app model size safety limit:
+  MAX_IN_PROCESS_VOXTRAL_MODEL_BYTES = 2,100,000,000
+- Models larger than this are rejected before runner start.
+- Q4_K and Q4_0 are therefore blocked inside the APK rather than allowed to kill the process.
+
+
+8. Q3_K realtime model attempt: latest/current crash
+
+Model selected after Q4_K was found unsafe:
+- Q3_K.gguf
+- URL:
+  https://huggingface.co/andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF/resolve/main/Q3_K.gguf
+- Remote size from headers:
+  1,920,164,512 bytes
+
+Why Q3_K was selected:
+- It is below the new 2.1 GB in-process safety limit.
+- It is the smallest found candidate that appears to be a realtime model and is below Q4_K.
+- Q2_K is smaller but already failed as missing required audio tensors.
+
+E2E output:
+- /tmp/e2e_q3_lowmem.txt:
+  INSTRUMENTATION_STATUS: test=voxtralDirectTranscriptionWorks
+  INSTRUMENTATION_STATUS_CODE: 1
+  then the command/session was interrupted; no OK/FAILURE footer was written.
+
+Current interpretation:
+- The latest Q3 run also appears to have killed or interrupted the app/test process before a
+  Java/plugin error could be returned.
+- At the time of the last status check, Q3 output only showed test start; no success, no handled
+  rejection, and no final instrumentation result.
+- This suggests that even the 1.92 GB Q3_K model may still be too close to the native runner
+  memory ceiling for safe in-process execution on the Fairphone/App/WebView/instrumentation setup.
+
+Open point:
+- Need a clean post-Q3 logcat slice after a reproduced run to confirm whether Q3 dies with the
+  same "Process has died / mem-pressure-event" pattern as Q4_K.
+- Given the user observed "wieder abgestuerzt" during Q3, treat Q3 as currently unsafe until a
+  controlled rejection or successful run proves otherwise.
+
+
+Memory observations
+-------------------
+
+Representative memory states captured:
+- MemTotal: about 7,579,252 kB
+- MemAvailable before one Q4/Q3 run: about 3.5 GB to 4.4 GB
+- SwapTotal: about 6,291,452 kB
+- SwapFree: about 5.6 GB
+
+Important:
+- Android MemAvailable/SwapFree did not prevent native process death.
+- The native runner likely has a peak resident memory requirement much higher than the model file
+  size and higher than the Java-side estimate.
+- Swap does not make this safe enough for foreground WebView + instrumentation + native runner.
+
+
+Current code-level mitigations already made
+-------------------------------------------
+
+VoxtralOfflinePlugin.java:
+- Low-memory mode passed into transcribe().
+- Runtime memory check retry with GC/finalization.
+- More conservative safety reserve.
+- Fresh memory re-check immediately before starting runner.
+- Atomic downloads using ".part" files.
+- Partial downloads removed on failure.
+- llama-cli no longer accepted as Voxtral speech runner.
+- Runner selection prefers CrispASR/Voxtral runner names.
+- linker64-based runner execution with LD_LIBRARY_PATH.
+- GGML backend alias handling.
+- Model size guard for too-large in-process models.
+- Low-memory CrispASR command adds:
+  -n 96
+  -ck 4
+
+LiveTerminalAndroidE2ETest.java:
+- E2E defaults changed from Q4_0/Q4_K to Q3_K.
+- E2E checks minimum model bytes before reusing local files.
+- E2E records shorter audio:
+  maxSeconds=1, sampleRate=8000
+- E2E calls transcribe with lowMemoryMode=true.
+- E2E runner selection ignores plain llama-cli and only selects CrispASR/Voxtral-like runners.
+
+voxtral-catalog.ts:
+- Recommended preset changed to Q3_K.
+- Q4_K kept as non-default and described as only for high free RAM.
+- minBytes values raised to avoid accepting partial downloads.
+
+voxtral-offline.service.ts:
+- "latest llama.cpp Android runner" auto-preset now fails explicitly because llama.cpp Android
+  runner is not a valid Voxtral speech runner.
+
+
+Remaining root problem
+----------------------
+
+The APK currently tries to run a very large native Voxtral/CrispASR model from inside the same
+Android app process context that also hosts WebView/Capacitor and instrumentation.
+
+Even after:
+- restoring CrispASR,
+- fixing missing libs,
+- using linker64,
+- using low-memory recording,
+- reducing tokens/chunks,
+- switching from Q4_K to Q3_K,
+
+the app can still die without Java stack trace. This points to native memory/process pressure,
+not to a normal recoverable Java exception.
+
+
+Recommended next technical direction
+------------------------------------
+
+1. Do not allow in-process APK transcription for models that can kill the foreground process.
+   The crash guard should be made even stricter if Q3_K is confirmed unsafe.
+
+2. Move Voxtral execution out of the app process boundary:
+   - separate Android service process if possible,
+   - proot/Termux-side runner,
+   - or a separate external native runtime supervised by the app.
+   This preserves the app UI even if the runner dies.
+
+3. If staying inside the APK, only enable models after a dedicated probe proves they can load
+   without killing the process. File size alone is not enough.
+
+4. Search for a truly smaller compatible realtime GGUF below Q3_K. Current known results:
+   - Q2_K: smaller but not compatible with CrispASR speech backend (missing audio tensors).
+   - Q3_K: latest attempted, still observed as crash by user.
+   - Q4_K/Q4_0: complete realtime models but unsafe in APK on current device.
+
+5. E2E should include two separate checks:
+   - "unsafe model is rejected without process death" for Q4_K.
+   - "small compatible model transcribes" only after a model is found that survives native load.
+
+
+Most important conclusion
+-------------------------
+
+The earlier "same problem solved before" part was the runner execution problem: it required the
+CrispASR/Voxtral runner and linker64/library setup, not plain llama-cli. That part was restored.
+
+The current crash is the next layer: the model/runner combination now reaches native Voxtral
+execution, but memory pressure kills the Android app process. This is why the symptom still looks
+like the old crash even though the immediate cause has changed.
