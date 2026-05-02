@@ -567,18 +567,28 @@ public class LiveTerminalAndroidE2ETest {
                 + "  try{"
                 + "    var vx=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.VoxtralOffline;"
                 + "    if(!vx){window.__anantaVoxtralTranscribe='ERR:NO_VOXTRAL_PLUGIN';return;}"
+                + "    var q2Url='https://huggingface.co/andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF/resolve/main/Q2_K.gguf';"
+                + "    var q2File='Q2_K.gguf';"
                 + "    var status=await vx.getStatus();"
                 + "    var modelPath=String((status && status.modelPath) ? status.modelPath : '').trim();"
                 + "    var runnerPath=String((status && status.runnerPath) ? status.runnerPath : '').trim();"
-                + "    if(!modelPath || !runnerPath){"
-                + "      var assets=await vx.listLocalAssets();"
-                + "      var models=(assets && Array.isArray(assets.models)) ? assets.models : [];"
-                + "      var runners=(assets && Array.isArray(assets.runners)) ? assets.runners : [];"
-                + "      if(!modelPath && models.length>0){modelPath=String((models[0]&&models[0].path)||'').trim();}"
-                + "      if(!runnerPath && runners.length>0){"
-                + "        var pref=runners.find(function(r){return String((r&&r.name)||'').toLowerCase().indexOf('voxtral')>=0;});"
-                + "        runnerPath=String(((pref||runners[0])&&((pref||runners[0]).path))||'').trim();"
-                + "      }"
+                + "    var assets=await vx.listLocalAssets();"
+                + "    var models=(assets && Array.isArray(assets.models)) ? assets.models : [];"
+                + "    var runners=(assets && Array.isArray(assets.runners)) ? assets.runners : [];"
+                + "    var q2=models.find(function(m){ var n=String((m&&m.name)||'').toLowerCase(); return n===q2File.toLowerCase() || n.indexOf('q2')>=0; });"
+                + "    if(q2){ modelPath=String((q2&&q2.path)||'').trim(); }"
+                + "    if(!q2){"
+                + "      window.__anantaVoxtralTranscribe='DOWNLOADING_Q2';"
+                + "      var dl=await vx.downloadModel({modelUrl:q2Url,fileName:q2File,minBytes:734003200,confirmed:true});"
+                + "      modelPath=String((dl&&dl.modelPath)||'').trim();"
+                + "      assets=await vx.listLocalAssets();"
+                + "      models=(assets && Array.isArray(assets.models)) ? assets.models : [];"
+                + "      q2=models.find(function(m){ var n=String((m&&m.name)||'').toLowerCase(); return n===q2File.toLowerCase() || n.indexOf('q2')>=0; });"
+                + "      if(q2){ modelPath=String((q2&&q2.path)||'').trim(); }"
+                + "    }"
+                + "    if(runners.length>0){"
+                + "      var pref=runners.find(function(r){return String((r&&r.name)||'').toLowerCase().indexOf('voxtral')>=0;});"
+                + "      runnerPath=String(((pref||runners[0])&&((pref||runners[0]).path))||'').trim();"
                 + "    }"
                 + "    if(!modelPath){window.__anantaVoxtralTranscribe='ERR:NO_MODEL_PATH';return;}"
                 + "    if(!runnerPath){window.__anantaVoxtralTranscribe='ERR:NO_RUNNER_PATH';return;}"
@@ -605,7 +615,7 @@ public class LiveTerminalAndroidE2ETest {
         waitForTrueWithRetry(
             "voxtral direct transcription finished",
             "var v=String(window.__anantaVoxtralTranscribe||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
-            240,
+            2400,
             1_000L
         );
 
