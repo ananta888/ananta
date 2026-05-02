@@ -2024,33 +2024,58 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (!sourceRunner.exists()) {
             throw new IOException("Runner file not found: " + sourceRunner.getAbsolutePath());
         }
+        List<File> candidateDirs = buildExecDirCandidates(sourceRunner);
+        IOException lastError = null;
 
-        File execDir = ensureExecDir();
-        if (execDir == null) {
-            throw new IOException("Could not create executable runner directory.");
-        }
+        for (File candidateDir : candidateDirs) {
+            File execDir = ensureDir(candidateDir);
+            if (execDir == null) continue;
+            File stagedRunner = new File(execDir, sourceRunner.getName());
+            try {
+                boolean needsCopy = !stagedRunner.exists()
+                        || stagedRunner.length() != sourceRunner.length()
+                        || stagedRunner.lastModified() < sourceRunner.lastModified();
+                if (needsCopy) {
+                    copyFile(sourceRunner, stagedRunner);
+                    stagedRunner.setLastModified(sourceRunner.lastModified());
+                }
 
-        File stagedRunner = new File(execDir, sourceRunner.getName());
-        boolean needsCopy = !stagedRunner.exists()
-                || stagedRunner.length() != sourceRunner.length()
-                || stagedRunner.lastModified() < sourceRunner.lastModified();
-        if (needsCopy) {
-            copyFile(sourceRunner, stagedRunner);
-            stagedRunner.setLastModified(sourceRunner.lastModified());
+                stagedRunner.setReadable(true, false);
+                stagedRunner.setWritable(true, true);
+                stagedRunner.setExecutable(true, false);
+                if (!stagedRunner.canExecute()) {
+                    throw new IOException("Runner is not executable after staging: " + stagedRunner.getAbsolutePath());
+                }
+                if (canSpawnRunner(stagedRunner) || canSpawnRunnerViaProot(stagedRunner)) {
+                    return stagedRunner;
+                }
+                lastError = new IOException("Runner cannot be executed from " + stagedRunner.getAbsolutePath());
+            } catch (IOException error) {
+                lastError = error;
+            }
         }
-
-        stagedRunner.setReadable(true, false);
-        stagedRunner.setWritable(true, true);
-        stagedRunner.setExecutable(true, false);
-        if (!stagedRunner.canExecute()) {
-            throw new IOException("Runner is not executable after staging: " + stagedRunner.getAbsolutePath());
+        if (lastError != null) {
+            throw lastError;
         }
-        return stagedRunner;
+        throw new IOException("Could not stage runner in an executable directory.");
     }
 
-    private File ensureExecDir() {
-        // code_cache may be mounted non-executable on some Android builds.
-        File dir = new File(getContext().getFilesDir(), "voxtral/exec");
+    private List<File> buildExecDirCandidates(File sourceRunner) {
+        List<File> dirs = new ArrayList<>();
+        if (sourceRunner != null && sourceRunner.getParentFile() != null) {
+            dirs.add(sourceRunner.getParentFile());
+        }
+        dirs.add(new File(getContext().getFilesDir(), "voxtral/exec"));
+        dirs.add(new File(getContext().getNoBackupFilesDir(), "voxtral/exec"));
+        dirs.add(new File(getContext().getCacheDir(), "voxtral/exec"));
+        if (getContext().getCodeCacheDir() != null) {
+            dirs.add(new File(getContext().getCodeCacheDir(), "voxtral/exec"));
+        }
+        return dirs;
+    }
+
+    private File ensureDir(File dir) {
+        if (dir == null) return null;
         if (dir.exists()) return dir;
         if (dir.mkdirs()) return dir;
         return null;
