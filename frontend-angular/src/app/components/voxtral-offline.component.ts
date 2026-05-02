@@ -518,22 +518,50 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
       const assets = await this.voxtral.listLocalAssets();
       this.localModels = assets.models || [];
       this.localRunners = assets.runners || [];
-      this.localModelAvailable = this.localModels.length > 0;
-      this.localRunnerAvailable = this.localRunners.length > 0;
-      const modelExists = !!this.modelPath && this.localModels.some(item => item.path === this.modelPath);
-      const runnerExists = !!this.runnerPath && this.localRunners.some(item => item.path === this.runnerPath);
-      if (!modelExists && this.localModels.length) {
-        this.modelPath = this.localModels[0].path;
+      const preset = this.currentModelPreset();
+      const presetModel = preset
+        ? this.localModels.find(item => this.matchesPresetModel(item, preset) && this.meetsPresetMinBytes(item, preset))
+        : undefined;
+      this.localModelAvailable = preset ? !!presetModel : this.localModels.length > 0;
+      this.localRunnerAvailable = this.localRunners.some(item => this.isVoxtralRunner(item.name));
+      const modelExists = !!this.modelPath && this.localModels.some(item => {
+        if (item.path !== this.modelPath) return false;
+        return !preset || !this.matchesPresetModel(item, preset) || this.meetsPresetMinBytes(item, preset);
+      });
+      const runnerExists = !!this.runnerPath && this.localRunners.some(item => item.path === this.runnerPath && this.isVoxtralRunner(item.name));
+      if (!modelExists) {
+        if (presetModel) {
+          this.modelPath = presetModel.path;
+        } else if (!preset && this.localModels.length) {
+          this.modelPath = this.localModels[0].path;
+        }
       }
-      if (!runnerExists && this.localRunners.length) {
-        const preferredRunner = this.localRunners.find(item => item.name.toLowerCase().includes('voxtral'));
-        this.runnerPath = (preferredRunner || this.localRunners[0]).path;
+      if (!runnerExists) {
+        const preferredRunner = this.localRunners.find(item => this.isVoxtralRunner(item.name));
+        if (preferredRunner) this.runnerPath = preferredRunner.path;
       }
       if (this.modelPath) this.selectedLocalModelPath = this.modelPath;
       if (this.runnerPath) this.selectedLocalRunnerPath = this.runnerPath;
       this.persistSelections();
       this.updateDownloadIndicatorsFromLocalAssets();
     }, false);
+  }
+
+  private currentModelPreset() {
+    return this.modelPresets.find(item => item.id === this.selectedModelPresetId);
+  }
+
+  private matchesPresetModel(item: { name: string }, preset: { fileName: string }): boolean {
+    return item.name.toLowerCase() === preset.fileName.toLowerCase();
+  }
+
+  private meetsPresetMinBytes(item: { bytes: number }, preset: { minBytes?: number }): boolean {
+    return !preset.minBytes || item.bytes >= preset.minBytes;
+  }
+
+  private isVoxtralRunner(name: string): boolean {
+    const normalized = name.toLowerCase();
+    return normalized.includes('voxtral') || normalized.startsWith('crispasr');
   }
 
   async verifySetup(): Promise<void> {
