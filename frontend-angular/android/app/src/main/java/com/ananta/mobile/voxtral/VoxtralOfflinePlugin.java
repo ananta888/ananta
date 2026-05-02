@@ -1208,6 +1208,9 @@ public class VoxtralOfflinePlugin extends Plugin {
             if (ld.length() > 0) {
                 pb.environment().put("LD_LIBRARY_PATH", ld.toString());
             }
+            if (runnerDir != null) {
+                pb.environment().put("GGML_BACKEND_PATH", runnerDir.getAbsolutePath());
+            }
         }
         Process process = pb.start();
         String output = readAllLimited(process.getInputStream(), MAX_PROCESS_OUTPUT_CHARS);
