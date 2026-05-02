@@ -1,6 +1,7 @@
 package com.ananta.mobile.voxtral;
 
 import android.Manifest;
+import android.app.ActivityManager;
 import android.content.pm.ApplicationInfo;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -49,6 +50,8 @@ import java.util.zip.GZIPInputStream;
 )
 public class VoxtralOfflinePlugin extends Plugin {
     private static final long DEFAULT_MIN_FREE_BYTES = 512L * 1024L * 1024L;
+    private static final long DEFAULT_MIN_RUNTIME_FREE_BYTES = 768L * 1024L * 1024L;
+    private static final long RUNTIME_OVERHEAD_BYTES = 384L * 1024L * 1024L;
     private static final long LIVE_SESSION_MAX_SECONDS = 120L;
     private static final int MAX_PROCESS_OUTPUT_CHARS = 64 * 1024;
     private static final String MODEL_EXTENSION = ".gguf";
@@ -495,6 +498,14 @@ public class VoxtralOfflinePlugin extends Plugin {
             call.reject("Not enough free storage for model execution safety margin.");
             return;
         }
+        RuntimeMemoryCheck runtimeMemory = evaluateRuntimeMemory(modelFile);
+        if (!runtimeMemory.hasEnoughMemory) {
+            call.reject("Not enough available RAM for transcription. Available: "
+                    + formatBytes(runtimeMemory.availableBytes)
+                    + ", required: " + formatBytes(runtimeMemory.estimatedRequiredBytes)
+                    + ". Close other apps or use a smaller model.");
+            return;
+        }
         File executableRunnerFile;
         try {
             executableRunnerFile = prepareRunnerForExecution(runnerFile);
@@ -607,6 +618,14 @@ public class VoxtralOfflinePlugin extends Plugin {
         }
         if (!hasEnoughStorageForModel(modelFile, DEFAULT_MIN_FREE_BYTES)) {
             call.reject("Not enough free storage for model execution safety margin.");
+            return;
+        }
+        RuntimeMemoryCheck runtimeMemory = evaluateRuntimeMemory(modelFile);
+        if (!runtimeMemory.hasEnoughMemory) {
+            call.reject("Not enough available RAM for live transcription. Available: "
+                    + formatBytes(runtimeMemory.availableBytes)
+                    + ", required: " + formatBytes(runtimeMemory.estimatedRequiredBytes)
+                    + ". Close other apps or use a smaller model.");
             return;
         }
         File executableRunnerFile;
@@ -793,11 +812,18 @@ public class VoxtralOfflinePlugin extends Plugin {
             result.put("modelBytes", model.exists() ? model.length() : 0);
             result.put("modelCompatible", model.exists() && isCompatibleModelFile(model));
             result.put("estimatedRequiredBytes", model.exists() ? Math.max(DEFAULT_MIN_FREE_BYTES, model.length() + (128L * 1024L * 1024L)) : DEFAULT_MIN_FREE_BYTES);
+            RuntimeMemoryCheck runtimeMemory = evaluateRuntimeMemory(model);
+            result.put("availableRuntimeMemoryBytes", runtimeMemory.availableBytes);
+            result.put("estimatedRuntimeRequiredBytes", runtimeMemory.estimatedRequiredBytes);
+            result.put("hasEnoughRuntimeMemory", runtimeMemory.hasEnoughMemory);
         } else {
             result.put("modelExists", false);
             result.put("modelBytes", 0);
             result.put("modelCompatible", false);
             result.put("estimatedRequiredBytes", DEFAULT_MIN_FREE_BYTES);
+            result.put("availableRuntimeMemoryBytes", 0);
+            result.put("estimatedRuntimeRequiredBytes", DEFAULT_MIN_RUNTIME_FREE_BYTES);
+            result.put("hasEnoughRuntimeMemory", false);
         }
 
         if (runnerPath != null && !runnerPath.isBlank()) {
@@ -1524,6 +1550,18 @@ public class VoxtralOfflinePlugin extends Plugin {
         }
     }
 
+    private static final class RuntimeMemoryCheck {
+        final boolean hasEnoughMemory;
+        final long availableBytes;
+        final long estimatedRequiredBytes;
+
+        RuntimeMemoryCheck(boolean hasEnoughMemory, long availableBytes, long estimatedRequiredBytes) {
+            this.hasEnoughMemory = hasEnoughMemory;
+            this.availableBytes = availableBytes;
+            this.estimatedRequiredBytes = estimatedRequiredBytes;
+        }
+    }
+
     private List<String> buildRunnerCommand(File runnerFile, File modelFile, File audioFile) {
         List<String> command = new ArrayList<>();
         command.add(runnerFile.getAbsolutePath());
@@ -1569,6 +1607,35 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (runnerFile == null) return false;
         String name = String.valueOf(runnerFile.getName()).toLowerCase();
         return name.startsWith("crispasr");
+    }
+
+    private RuntimeMemoryCheck evaluateRuntimeMemory(File modelFile) {
+        ActivityManager activityManager = (ActivityManager) getContext().getSystemService(android.content.Context.ACTIVITY_SERVICE);
+        if (activityManager == null) {
+            return new RuntimeMemoryCheck(false, 0, DEFAULT_MIN_RUNTIME_FREE_BYTES);
+        }
+        ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
+        activityManager.getMemoryInfo(memoryInfo);
+        long availableBytes = Math.max(0L, memoryInfo.availMem);
+        long modelBytes = (modelFile != null && modelFile.exists()) ? Math.max(0L, modelFile.length()) : 0L;
+        long estimatedRequiredBytes = Math.max(
+                DEFAULT_MIN_RUNTIME_FREE_BYTES,
+                Math.max(modelBytes + RUNTIME_OVERHEAD_BYTES, (modelBytes * 9L) / 5L)
+        );
+        boolean hasEnoughMemory = !memoryInfo.lowMemory && availableBytes >= estimatedRequiredBytes;
+        return new RuntimeMemoryCheck(hasEnoughMemory, availableBytes, estimatedRequiredBytes);
+    }
+
+    private String formatBytes(long bytes) {
+        if (bytes <= 0) return "0 B";
+        String[] units = new String[]{"B", "KB", "MB", "GB", "TB"};
+        double value = bytes;
+        int index = 0;
+        while (value >= 1024 && index < units.length - 1) {
+            value /= 1024d;
+            index += 1;
+        }
+        return String.format(java.util.Locale.US, index < 2 ? "%.0f %s" : "%.1f %s", value, units[index]);
     }
 
     private String joinShellArgs(List<String> args) {
