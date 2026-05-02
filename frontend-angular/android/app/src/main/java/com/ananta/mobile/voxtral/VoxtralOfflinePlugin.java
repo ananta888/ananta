@@ -1135,6 +1135,20 @@ public class VoxtralOfflinePlugin extends Plugin {
 
     private String runRunnerSyncDirect(File runnerFile, File modelFile, File audioFile) throws IOException, InterruptedException {
         List<String> directCommand = buildRunnerCommand(runnerFile, modelFile, audioFile);
+        String linkerPath = resolveSystemLinkerPath();
+        if (linkerPath != null && !linkerPath.isBlank()) {
+            List<String> linkerCommand = buildLinkerWrappedCommand(linkerPath, directCommand);
+            try {
+                return executeRunnerCommand(linkerCommand);
+            } catch (IOException linkerError) {
+                String linkerMsg = String.valueOf(linkerError.getMessage() == null ? "" : linkerError.getMessage());
+                // If linker mode fails with runtime/model issues, propagate directly.
+                if (containsMissingAudioTensorError(linkerMsg) || containsUnsupportedModelArchitecture(linkerMsg)) {
+                    throw linkerError;
+                }
+                // Fall through and attempt direct exec only as a fallback.
+            }
+        }
         try {
             return executeRunnerCommand(directCommand);
         } catch (IOException directError) {
@@ -1142,12 +1156,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             if (!shouldFallbackToProot(message)) {
                 throw directError;
             }
-            String linkerPath = resolveSystemLinkerPath();
-            if (linkerPath == null || linkerPath.isBlank()) {
-                throw directError;
-            }
-            List<String> linkerCommand = buildLinkerWrappedCommand(linkerPath, directCommand);
-            return executeRunnerCommand(linkerCommand);
+            throw directError;
         }
     }
 
