@@ -23,7 +23,7 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
       @if (!voxtral.isNative) {
         <div class="card card-light warning">
           Native Voxtral-Funktionen sind nur in der Android-App verfuegbar.
-          Desktop kann trotzdem Hub-Voice nutzen (Browser-Mikrofon + `/v1/voice/transcribe`).
+          Desktop kann trotzdem Hub-Voice nutzen (Browser-Mikrofon + <code>/v1/voice/transcribe</code>).
         </div>
         <div class="row gap-sm mt-md wrap">
           <button class="primary" type="button" (click)="startDesktopRecording()" [disabled]="busy || desktopRecording">Desktop-Aufnahme starten</button>
