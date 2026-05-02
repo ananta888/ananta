@@ -45,6 +45,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 @CapacitorPlugin(
@@ -1199,7 +1200,12 @@ public class VoxtralOfflinePlugin extends Plugin {
                 String json = readTextFile(resultFile);
                 resultFile.delete();
                 heartbeatFile.delete();
-                JSONObject payload = new JSONObject(json);
+                JSONObject payload;
+                try {
+                    payload = new JSONObject(json);
+                } catch (JSONException jsonException) {
+                    throw new IOException("Invalid runner service response JSON.");
+                }
                 String status = String.valueOf(payload.optString("status", "error")).trim().toLowerCase(Locale.US);
                 String rawOutput = String.valueOf(payload.optString("rawOutput", ""));
                 if ("ok".equals(status)) {
