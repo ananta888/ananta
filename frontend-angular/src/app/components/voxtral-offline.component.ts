@@ -89,7 +89,7 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
             <span>Low-Memory-Modus</span>
             <label class="inline-toggle">
               <input type="checkbox" [(ngModel)]="liveLowMemoryMode" />
-              <span>8 kHz + 1s Chunks, Modell-Load erst beim Stop (RAM-schonender)</span>
+              <span>RAM-schonend: 8 kHz bei Aufnahme + 1s Live-Chunks, und lockerer RAM-Guard fuer Transkribieren</span>
             </label>
           </label>
         </div>
@@ -365,7 +365,12 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
       if (!this.audioPath) throw new Error('Kein Audio vorhanden.');
       if (!this.modelPath.trim()) throw new Error('Bitte zuerst den Model-Pfad setzen.');
       if (!this.runnerPath.trim()) throw new Error('Bitte zuerst den Runner-Pfad setzen.');
-      const result = await this.voxtral.transcribe(this.audioPath, this.modelPath.trim(), this.runnerPath.trim());
+      const result = await this.voxtral.transcribe(
+        this.audioPath,
+        this.modelPath.trim(),
+        this.runnerPath.trim(),
+        this.liveLowMemoryMode
+      );
       this.transcript = result.transcript || '';
       this.rawOutput = result.rawOutput || '';
       this.liveTranscript = '';
