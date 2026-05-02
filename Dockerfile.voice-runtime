@@ -1,0 +1,20 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    VOICE_RUNTIME_HOST=0.0.0.0 \
+    VOICE_RUNTIME_PORT=8090 \
+    VOICE_BACKEND_FALLBACK_ORDER=voxtral,mock \
+    VOICE_MODEL=voxtral \
+    VOICE_FALLBACK_MODEL=whisper-small \
+    VOICE_RUNTIME_DEVICE=auto
+
+RUN pip install --no-cache-dir flask requests
+
+COPY voice_runtime /app/voice_runtime
+
+EXPOSE 8090
+
+CMD ["python", "-m", "voice_runtime.app"]

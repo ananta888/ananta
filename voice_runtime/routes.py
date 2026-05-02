@@ -16,10 +16,14 @@ def health() -> tuple[dict, int]:
     return (
         {
             "ok": True,
+            "status": "ok",
             "service": "voice-runtime",
             "provider": config.provider,
             "backend": config.backend,
-            "model": config.model,
+            "loaded_model": config.model,
+            "fallback_model": config.fallback_model,
+            "device": config.device,
+            "backend_fallback_order": list(config.backend_fallback_order),
         },
         HTTPStatus.OK,
     )

@@ -40,6 +40,7 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
   - `VOICE_DIRECT_CLIENT_ACCESS`
   - `VOICE_RUNTIME_DEVICE`
   - `VOICE_RUNTIME_MODEL_PATH`
+  - `VOICE_BACKEND_FALLBACK_ORDER`
   - `VOICE_ENABLE_STREAMING`
   - `VOICE_STORE_AUDIO`
 - Runtime-Endpunkte (Service-intern):
