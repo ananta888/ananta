@@ -54,10 +54,12 @@ public class VoxtralOfflinePlugin extends Plugin {
     private static final long RUNTIME_MODEL_HEADROOM_BYTES = 192L * 1024L * 1024L;
     private static final long RUNTIME_MODEL_MULTIPLIER_NUM = 5L;
     private static final long RUNTIME_MODEL_MULTIPLIER_DEN = 4L;
+    private static final long RUNTIME_SAFETY_RESERVE_BYTES = 384L * 1024L * 1024L;
     private static final long LOW_MEMORY_LIVE_MIN_RUNTIME_FREE_BYTES = 512L * 1024L * 1024L;
     private static final long LOW_MEMORY_LIVE_HEADROOM_BYTES = 96L * 1024L * 1024L;
     private static final long LOW_MEMORY_LIVE_MULTIPLIER_NUM = 11L;
     private static final long LOW_MEMORY_LIVE_MULTIPLIER_DEN = 10L;
+    private static final long LOW_MEMORY_LIVE_SAFETY_RESERVE_BYTES = 256L * 1024L * 1024L;
     private static final long LIVE_SESSION_MAX_SECONDS = 120L;
     private static final int MAX_PROCESS_OUTPUT_CHARS = 64 * 1024;
     private static final String MODEL_EXTENSION = ".gguf";
@@ -462,6 +464,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         String audioPath = call.getString("audioPath");
         String modelPath = call.getString("modelPath");
         String runnerPath = call.getString("runnerPath");
+        final boolean lowMemoryMode = call.getBoolean("lowMemoryMode", false);
         if (audioPath == null || audioPath.isBlank()) {
             call.reject("audioPath is required.");
             return;
@@ -510,12 +513,13 @@ public class VoxtralOfflinePlugin extends Plugin {
             call.reject("Not enough free storage for model execution safety margin.");
             return;
         }
-        RuntimeMemoryCheck runtimeMemory = evaluateRuntimeMemory(modelFile);
+        RuntimeMemoryCheck runtimeMemory = evaluateRuntimeMemoryWithRetry(modelFile, lowMemoryMode);
         if (!runtimeMemory.hasEnoughMemory) {
             call.reject("Not enough available RAM for transcription. Available: "
                     + formatBytes(runtimeMemory.availableBytes)
                     + ", required: " + formatBytes(runtimeMemory.estimatedRequiredBytes)
-                    + ". Close other apps or use a smaller model.");
+                    + ". Close other apps or use a smaller model."
+                    + (lowMemoryMode ? "" : " You can also enable low-memory mode."));
             return;
         }
         File executableRunnerFile;
@@ -635,7 +639,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             call.reject("Not enough free storage for model execution safety margin.");
             return;
         }
-        RuntimeMemoryCheck runtimeMemory = evaluateRuntimeMemory(modelFile, lowMemoryMode);
+        RuntimeMemoryCheck runtimeMemory = evaluateRuntimeMemoryWithRetry(modelFile, lowMemoryMode);
         if (!runtimeMemory.hasEnoughMemory) {
             call.reject("Not enough available RAM for live transcription. Available: "
                     + formatBytes(runtimeMemory.availableBytes)
@@ -1772,6 +1776,21 @@ public class VoxtralOfflinePlugin extends Plugin {
         return evaluateRuntimeMemory(modelFile, false);
     }
 
+    private RuntimeMemoryCheck evaluateRuntimeMemoryWithRetry(File modelFile, boolean lowMemoryMode) {
+        RuntimeMemoryCheck firstCheck = evaluateRuntimeMemory(modelFile, lowMemoryMode);
+        if (firstCheck.hasEnoughMemory) return firstCheck;
+
+        // Try to reclaim Java heap before making a hard reject on tight-memory devices.
+        Runtime runtime = Runtime.getRuntime();
+        runtime.gc();
+        runtime.runFinalization();
+        System.gc();
+
+        RuntimeMemoryCheck secondCheck = evaluateRuntimeMemory(modelFile, lowMemoryMode);
+        if (secondCheck.availableBytes > firstCheck.availableBytes) return secondCheck;
+        return firstCheck;
+    }
+
     private RuntimeMemoryCheck evaluateRuntimeMemory(File modelFile, boolean lowMemoryLiveMode) {
         ActivityManager activityManager = (ActivityManager) getContext().getSystemService(android.content.Context.ACTIVITY_SERVICE);
         if (activityManager == null) {
@@ -1782,6 +1801,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         long availableBytes = Math.max(0L, memoryInfo.availMem);
         long modelBytes = (modelFile != null && modelFile.exists()) ? Math.max(0L, modelFile.length()) : 0L;
         long estimatedRequiredBytes;
+        long reserveBytes;
         if (lowMemoryLiveMode) {
             estimatedRequiredBytes = Math.max(
                     LOW_MEMORY_LIVE_MIN_RUNTIME_FREE_BYTES,
@@ -1790,6 +1810,7 @@ public class VoxtralOfflinePlugin extends Plugin {
                             (modelBytes * LOW_MEMORY_LIVE_MULTIPLIER_NUM) / LOW_MEMORY_LIVE_MULTIPLIER_DEN
                     )
             );
+            reserveBytes = LOW_MEMORY_LIVE_SAFETY_RESERVE_BYTES;
         } else {
             estimatedRequiredBytes = Math.max(
                     DEFAULT_MIN_RUNTIME_FREE_BYTES,
@@ -1798,9 +1819,11 @@ public class VoxtralOfflinePlugin extends Plugin {
                             (modelBytes * RUNTIME_MODEL_MULTIPLIER_NUM) / RUNTIME_MODEL_MULTIPLIER_DEN
                     )
             );
+            reserveBytes = RUNTIME_SAFETY_RESERVE_BYTES;
         }
-        boolean hasEnoughMemory = !memoryInfo.lowMemory && availableBytes >= estimatedRequiredBytes;
-        return new RuntimeMemoryCheck(hasEnoughMemory, availableBytes, estimatedRequiredBytes);
+        long guardedRequiredBytes = estimatedRequiredBytes + reserveBytes;
+        boolean hasEnoughMemory = !memoryInfo.lowMemory && availableBytes >= guardedRequiredBytes;
+        return new RuntimeMemoryCheck(hasEnoughMemory, availableBytes, guardedRequiredBytes);
     }
 
     private String formatBytes(long bytes) {
