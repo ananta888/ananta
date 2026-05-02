@@ -1,14 +1,17 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { AsyncPipe } from '@angular/common';
 import { Capacitor } from '@capacitor/core';
 
-import { PythonRuntimeService, ShellCommandResult, ProotInstallProgressEvent } from '../services/python-runtime.service';
+import { PythonRuntimeService, ShellCommandResult, ProotInstallProgressEvent, GuidedSetupStatus } from '../services/python-runtime.service';
 import { MobileProotService } from '../services/mobile-proot.service';
+import { AppShellStateService } from '../services/app-shell-state.service';
+import { UserAuthService } from '../services/user-auth.service';
 
 @Component({
   standalone: true,
   selector: 'app-mobile-shell',
-  imports: [FormsModule],
+  imports: [FormsModule, AsyncPipe],
   template: `
     <section class="card shell-page">
       <h2>In-App Terminal (Android)</h2>
@@ -17,11 +20,24 @@ import { MobileProotService } from '../services/mobile-proot.service';
       @if (!isAndroidNative) {
         <div class="card card-light">Nur in der nativen Android-App verfuegbar.</div>
       } @else {
-        <div class="card card-light mt-sm">
-          <strong>Gefuehrter Setup</strong>
-          <div class="muted">1) Runtime installieren -> 2) Distro installieren -> 3) Distro starten</div>
-        </div>
-        <div class="card card-light grid gap-sm mt-sm">
+          <div class="card card-light mt-sm row gap-sm wrap mobile-shell-toolbar">
+            @if (auth.user$ | async; as user) {
+              <span class="muted">User: {{ user.sub }} ({{ user.role }})</span>
+            } @else {
+              <span class="muted">User: -</span>
+            }
+            <button type="button" class="secondary" (click)="toggleDarkMode()">
+              {{ shellState.darkMode() ? 'Hell' : 'Dunkel' }}
+            </button>
+            <button type="button" class="secondary" (click)="toggleMode()">
+              {{ shellState.mode() === 'simple' ? 'Experte' : 'Einfach' }}
+            </button>
+          </div>
+          <div class="card card-light mt-sm">
+            <strong>Gefuehrter Setup</strong>
+            <div class="muted">1) Runtime installieren -> 2) Distro installieren -> 3) Worker + opencode Setup -> 4) Distro starten</div>
+          </div>
+          <div class="card card-light grid gap-sm mt-sm">
           <div class="row gap-sm wrap">
             <label>
               Distro
@@ -52,10 +68,32 @@ import { MobileProotService } from '../services/mobile-proot.service';
           @if (runtimeProbeMessage && !runtimeReady) {
             <div class="muted">{{ runtimeProbeMessage }}</div>
           }
-          <div class="muted">Installierte Distros: {{ installedDistros.length ? installedDistros.join(', ') : '-' }}</div>
-          <div class="row gap-sm wrap">
-            <button type="button" class="primary" (click)="startInteractiveShell()" [disabled]="shellBusy || shellRunning">Interaktive Shell starten</button>
-            <button type="button" class="secondary" (click)="startProotSession()" [disabled]="shellBusy || shellRunning">Distro-Session starten</button>
+            <div class="muted">Installierte Distros: {{ installedDistros.length ? installedDistros.join(', ') : '-' }}</div>
+            <hr />
+            <div><strong>Schritt 3: Worker + opencode (fuer normale Anwender)</strong></div>
+            <div class="muted">
+              Workspace: {{ guidedStatus.workspaceInstalled ? 'ok' : 'fehlt' }} |
+              Python: {{ guidedStatus.pythonReady ? 'ok' : 'fehlt' }} |
+              pip: {{ guidedStatus.pipReady ? 'ok' : 'fehlt' }} |
+              libgomp: {{ guidedStatus.libgompReady ? 'ok' : 'fehlt' }} |
+              ananta: {{ guidedStatus.anantaCliReady ? 'ok' : 'fehlt' }} |
+              ananta tui: {{ guidedStatus.anantaTuiReady ? 'ok' : 'fehlt' }} |
+              ananta-worker: {{ guidedStatus.workerCommandReady ? 'ok' : 'fehlt' }} |
+              Worker-Import: {{ guidedStatus.workerImportReady ? 'ok' : 'fehlt' }} |
+              opencode: {{ guidedStatus.opencodeReady ? 'ok' : 'fehlt' }}
+            </div>
+            @if (guidedStatus.workerProbeMessage) {
+              <div class="muted">{{ guidedStatus.workerProbeMessage }}</div>
+            }
+            <div class="row gap-sm wrap">
+              <button type="button" class="secondary" (click)="installAnantaWorkspace()" [disabled]="running || prootBusy || !selectedDistroInstalled">3a) Workspace installieren</button>
+              <button type="button" class="secondary" (click)="installWorkerDependencies()" [disabled]="running || prootBusy || !selectedDistroInstalled">3b) Worker-Dependencies</button>
+              <button type="button" class="secondary" (click)="installOpencode()" [disabled]="running || prootBusy || !selectedDistroInstalled">3c) opencode installieren</button>
+              <button type="button" class="secondary" (click)="refreshGuidedStatus()" [disabled]="running || prootBusy">Status neu pruefen</button>
+            </div>
+            <div class="row gap-sm wrap">
+              <button type="button" class="primary" (click)="startInteractiveShell()" [disabled]="shellBusy || shellRunning">Interaktive Shell starten</button>
+              <button type="button" class="secondary" (click)="startProotSession()" [disabled]="shellBusy || shellRunning">Distro-Session starten</button>
             <button type="button" class="secondary" (click)="closeInteractiveShell()" [disabled]="shellBusy || !shellSessionId">Session beenden</button>
             <button type="button" class="secondary" (click)="clearShellOutput()" [disabled]="shellBusy">Terminal leeren</button>
           </div>
@@ -74,6 +112,19 @@ import { MobileProotService } from '../services/mobile-proot.service';
             <button type="button" class="secondary" (click)="sendInput(true)" [disabled]="shellBusy || !shellSessionId">Senden + Enter</button>
             <button type="button" class="secondary" (click)="sendCtrlC()" [disabled]="shellBusy || !shellSessionId">Ctrl+C</button>
             <button type="button" class="secondary" (click)="pullShellOutput()" [disabled]="shellBusy || !shellSessionId">Ausgabe aktualisieren</button>
+          </div>
+          <div class="row gap-sm wrap terminal-keys">
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u0004')" [disabled]="shellBusy || !shellSessionId">Ctrl+D</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u001a')" [disabled]="shellBusy || !shellSessionId">Ctrl+Z</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u000c')" [disabled]="shellBusy || !shellSessionId">Ctrl+L</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u001b')" [disabled]="shellBusy || !shellSessionId">Esc</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\t')" [disabled]="shellBusy || !shellSessionId">Tab</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\r')" [disabled]="shellBusy || !shellSessionId">Enter</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u007f')" [disabled]="shellBusy || !shellSessionId">Backspace</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u001b[A')" [disabled]="shellBusy || !shellSessionId">↑</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u001b[B')" [disabled]="shellBusy || !shellSessionId">↓</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u001b[D')" [disabled]="shellBusy || !shellSessionId">←</button>
+            <button type="button" class="secondary" (click)="sendSpecialInput('\u001b[C')" [disabled]="shellBusy || !shellSessionId">→</button>
           </div>
         </div>
 
@@ -135,11 +186,20 @@ import { MobileProotService } from '../services/mobile-proot.service';
       flex-wrap: wrap;
       align-items: center;
     }
+    .mobile-shell-toolbar {
+      justify-content: flex-start;
+    }
+    .terminal-keys button {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      min-width: 74px;
+    }
   `],
 })
 export class MobileShellComponent implements OnDestroy, OnInit {
   private python = inject(PythonRuntimeService);
   private proot = inject(MobileProotService);
+  shellState = inject(AppShellStateService);
+  auth = inject(UserAuthService);
 
   command = 'pwd && ls -la';
   timeoutSeconds = 20;
@@ -160,6 +220,20 @@ export class MobileShellComponent implements OnDestroy, OnInit {
   runtimeInstalled = false;
   runtimeReady = false;
   runtimeProbeMessage = '';
+  guidedStatus: GuidedSetupStatus = {
+    runtimeInstalled: false,
+    runtimeReady: false,
+    ubuntuInstalled: false,
+    pythonReady: false,
+    pipReady: false,
+    libgompReady: false,
+    opencodeReady: false,
+    anantaCliReady: false,
+    anantaTuiReady: false,
+    workerCommandReady: false,
+    workspaceInstalled: false,
+    workerImportReady: false,
+  };
   installProgressActive = false;
   installProgressPercent = -1;
   installProgressLabel = '';
@@ -180,6 +254,7 @@ export class MobileShellComponent implements OnDestroy, OnInit {
       this.removeProotProgressListener = remove;
     }).catch(() => undefined);
     this.refreshProotRuntimeStatus().catch(() => undefined);
+    this.refreshGuidedStatus().catch(() => undefined);
   }
 
   ngOnDestroy(): void {
@@ -278,13 +353,34 @@ export class MobileShellComponent implements OnDestroy, OnInit {
     if (!this.shellSessionId || this.shellBusy) return;
     this.shellBusy = true;
     try {
-      await this.python.writeShellSession(this.shellSessionId, '\u0003');
+      await this.python.interruptShellSession(this.shellSessionId);
       await this.pullShellOutput();
     } catch (error: any) {
       this.shellMeta = `Ctrl+C fehlgeschlagen: ${error?.message || String(error)}`;
     } finally {
       this.shellBusy = false;
     }
+  }
+
+  async sendSpecialInput(sequence: string): Promise<void> {
+    if (!this.shellSessionId || this.shellBusy) return;
+    this.shellBusy = true;
+    try {
+      await this.python.writeShellSession(this.shellSessionId, sequence);
+      await this.pullShellOutput();
+    } catch (error: any) {
+      this.shellMeta = `Sondertaste fehlgeschlagen: ${error?.message || String(error)}`;
+    } finally {
+      this.shellBusy = false;
+    }
+  }
+
+  toggleDarkMode(): void {
+    this.shellState.toggleDarkMode();
+  }
+
+  toggleMode(): void {
+    this.shellState.toggleMode();
   }
 
   async pullShellOutput(): Promise<void> {
@@ -397,7 +493,77 @@ export class MobileShellComponent implements OnDestroy, OnInit {
     ).finally(() => {
       this.prootBusy = false;
       this.installProgressActive = false;
+      this.refreshGuidedStatus().catch(() => undefined);
     });
+  }
+
+  installAnantaWorkspace(): void {
+    if (this.prootBusy) return;
+    this.prootBusy = true;
+    this.prootStatus = 'Installiere Ananta-Workspace...';
+    this.python.installAnantaWorkspace().then(
+      (result) => {
+        this.prootStatus = `Workspace installiert: ${result.workspacePath}`;
+        this.output = `Workspace installiert.\nPfad: ${result.workspacePath}\nQuelle: ${result.repoUrl}`;
+        this.lastMeta = 'Workspace installiert';
+      },
+      (error: any) => {
+        this.prootStatus = `Workspace-Install fehlgeschlagen: ${error?.message || String(error)}`;
+      }
+    ).finally(() => {
+      this.prootBusy = false;
+      this.installProgressActive = false;
+      this.refreshGuidedStatus().catch(() => undefined);
+    });
+  }
+
+  installWorkerDependencies(): void {
+    if (this.prootBusy) return;
+    this.prootBusy = true;
+    this.prootStatus = 'Installiere Worker-Dependencies...';
+    this.python.installWorkerDependencies().then(
+      (result) => {
+        this.prootStatus = result.message || 'Worker-Dependencies installiert.';
+        this.output = result.message || 'Worker-Dependencies installiert.';
+        this.lastMeta = 'Worker-Dependencies';
+      },
+      (error: any) => {
+        this.prootStatus = `Worker-Dependency-Install fehlgeschlagen: ${error?.message || String(error)}`;
+      }
+    ).finally(() => {
+      this.prootBusy = false;
+      this.installProgressActive = false;
+      this.refreshGuidedStatus().catch(() => undefined);
+    });
+  }
+
+  installOpencode(): void {
+    if (this.prootBusy) return;
+    this.prootBusy = true;
+    this.prootStatus = 'Installiere opencode...';
+    this.python.installOpencode().then(
+      (result) => {
+        this.prootStatus = `opencode installiert (${result.version})`;
+        this.output = result.output || `opencode installiert (${result.version})`;
+        this.lastMeta = 'opencode installiert';
+      },
+      (error: any) => {
+        this.prootStatus = `opencode-Install fehlgeschlagen: ${error?.message || String(error)}`;
+      }
+    ).finally(() => {
+      this.prootBusy = false;
+      this.installProgressActive = false;
+      this.refreshGuidedStatus().catch(() => undefined);
+    });
+  }
+
+  async refreshGuidedStatus(): Promise<void> {
+    try {
+      const status = await this.python.getGuidedSetupStatus();
+      this.guidedStatus = status;
+    } catch {
+      // keep current status when guided status query fails
+    }
   }
 
   private async refreshProotRuntimeStatus(): Promise<void> {
@@ -441,6 +607,7 @@ export class MobileShellComponent implements OnDestroy, OnInit {
     if (event?.stage === 'done' || event?.stage === 'error') {
       if (event.stage === 'error') this.installProgressPercent = -1;
       this.refreshProotRuntimeStatus().catch(() => undefined);
+      this.refreshGuidedStatus().catch(() => undefined);
     }
   }
 

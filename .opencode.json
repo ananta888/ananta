@@ -1,0 +1,19 @@
+{
+  "data": {
+    "directory": ".opencode"
+  },
+  "agents": {
+    "coder": {
+      "model": "local.smollm2-135m-q8.gguf",
+      "maxTokens": 100
+    },
+    "task": {
+      "model": "local.smollm2-135m-q8.gguf",
+      "maxTokens": 100
+    },
+    "title": {
+      "model": "local.smollm2-135m-q8.gguf",
+      "maxTokens": 20
+    }
+  }
+}

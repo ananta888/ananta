@@ -45,6 +45,24 @@ export interface ProotInstallProgressEvent {
   distro?: string;
 }
 
+export interface GuidedSetupStatus {
+  runtimeInstalled: boolean;
+  runtimeReady: boolean;
+  runtimeMessage?: string;
+  ubuntuInstalled: boolean;
+  pythonReady: boolean;
+  pipReady: boolean;
+  libgompReady: boolean;
+  opencodeReady: boolean;
+  anantaCliReady?: boolean;
+  anantaTuiReady?: boolean;
+  workerCommandReady?: boolean;
+  workspaceInstalled: boolean;
+  workerImportReady: boolean;
+  workerProbeMessage?: string;
+  workspacePath?: string;
+}
+
 interface PythonRuntimePlugin {
   getRuntimeStatus(): Promise<PythonRuntimeStatus>;
   startHub(): Promise<{ hubRunning: boolean }>;
@@ -57,9 +75,14 @@ interface PythonRuntimePlugin {
   writeShellSession(options: { sessionId: string; input: string }): Promise<{ ok: boolean; running: boolean }>;
   readShellSession(options: { sessionId: string; maxChars?: number }): Promise<ShellSessionReadResult>;
   closeShellSession(options: { sessionId: string }): Promise<{ closed: boolean }>;
+  interruptShellSession(options: { sessionId: string }): Promise<{ ok: boolean; running: boolean }>;
   getProotRuntimeStatus(): Promise<ProotRuntimeStatus>;
   installProotRuntime(options?: { prootUrl?: string }): Promise<{ runtimeRoot: string; prootPath: string }>;
   installProotDistro(options: { distro: string }): Promise<{ distro: string; rootfsPath: string }>;
+  getGuidedSetupStatus(): Promise<GuidedSetupStatus>;
+  installAnantaWorkspace(options?: { repoUrl?: string }): Promise<{ workspacePath: string; repoUrl: string }>;
+  installWorkerDependencies(): Promise<{ ok: boolean; message: string }>;
+  installOpencode(options?: { opencodeUrl?: string }): Promise<{ ok: boolean; version: string; output: string }>;
   addListener(
     eventName: 'prootInstallProgress',
     listenerFunc: (event: ProotInstallProgressEvent) => void
@@ -148,6 +171,15 @@ export class PythonRuntimeService {
     return PythonRuntime.closeShellSession({ sessionId: id });
   }
 
+  async interruptShellSession(sessionId: string): Promise<{ ok: boolean; running: boolean }> {
+    if (!this.isNative) {
+      throw new Error('Mobile shell ist nur in der nativen App verfuegbar.');
+    }
+    const id = String(sessionId || '').trim();
+    if (!id) throw new Error('sessionId fehlt.');
+    return PythonRuntime.interruptShellSession({ sessionId: id });
+  }
+
   async getProotRuntimeStatus(): Promise<ProotRuntimeStatus> {
     if (!this.isNative) {
       throw new Error('Proot runtime ist nur in der nativen App verfuegbar.');
@@ -170,6 +202,36 @@ export class PythonRuntimeService {
     const normalized = String(distro || '').trim().toLowerCase();
     if (!normalized) throw new Error('Distro ist erforderlich.');
     return PythonRuntime.installProotDistro({ distro: normalized });
+  }
+
+  async getGuidedSetupStatus(): Promise<GuidedSetupStatus> {
+    if (!this.isNative) {
+      throw new Error('Guided setup ist nur in der nativen App verfuegbar.');
+    }
+    return PythonRuntime.getGuidedSetupStatus();
+  }
+
+  async installAnantaWorkspace(repoUrl?: string): Promise<{ workspacePath: string; repoUrl: string }> {
+    if (!this.isNative) {
+      throw new Error('Guided setup ist nur in der nativen App verfuegbar.');
+    }
+    const normalizedUrl = String(repoUrl || '').trim();
+    return PythonRuntime.installAnantaWorkspace(normalizedUrl ? { repoUrl: normalizedUrl } : {});
+  }
+
+  async installWorkerDependencies(): Promise<{ ok: boolean; message: string }> {
+    if (!this.isNative) {
+      throw new Error('Guided setup ist nur in der nativen App verfuegbar.');
+    }
+    return PythonRuntime.installWorkerDependencies();
+  }
+
+  async installOpencode(opencodeUrl?: string): Promise<{ ok: boolean; version: string; output: string }> {
+    if (!this.isNative) {
+      throw new Error('Guided setup ist nur in der nativen App verfuegbar.');
+    }
+    const normalizedUrl = String(opencodeUrl || '').trim();
+    return PythonRuntime.installOpencode(normalizedUrl ? { opencodeUrl: normalizedUrl } : {});
   }
 
   async onProotInstallProgress(

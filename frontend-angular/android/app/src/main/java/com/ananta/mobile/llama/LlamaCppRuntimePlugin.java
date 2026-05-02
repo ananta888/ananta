@@ -1,5 +1,8 @@
 package com.ananta.mobile.llama;
 
+import com.ananta.mobile.llm.DownloadHelper;
+import com.ananta.mobile.llm.LlmServerManager;
+import com.ananta.mobile.llm.LlmServerManager.LlmSetupStatus;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -7,10 +10,18 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.File;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+/**
+ * Capacitor plugin for LLM runtime management.
+ * Combines legacy JNI stub interface with new server-based llama.cpp management.
+ */
 @CapacitorPlugin(name = "LlamaCppRuntime")
 public class LlamaCppRuntimePlugin extends Plugin {
     private static volatile boolean nativeAvailable;
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private volatile LlmServerManager serverManager;
 
     static {
         boolean loaded = false;
@@ -23,10 +34,33 @@ public class LlamaCppRuntimePlugin extends Plugin {
         nativeAvailable = loaded;
     }
 
+    @Override
+    public void load() {
+        super.load();
+        serverManager = new LlmServerManager(getContext());
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        if (serverManager != null && serverManager.isServerRunning()) {
+            serverManager.stopServer();
+        }
+        executor.shutdownNow();
+        super.handleOnDestroy();
+    }
+
+    // ── Legacy JNI methods (kept for backward compatibility) ────────────
+
     @PluginMethod
     public void health(PluginCall call) {
         JSObject result = new JSObject();
         result.put("nativeAvailable", nativeAvailable);
+        if (serverManager != null) {
+            LlmSetupStatus status = serverManager.getFullStatus();
+            result.put("serverInstalled", status.serverInstalled);
+            result.put("modelInstalled", status.modelInstalled);
+            result.put("serverRunning", status.serverRunning);
+        }
         call.resolve(result);
     }
 
@@ -103,6 +137,119 @@ public class LlamaCppRuntimePlugin extends Plugin {
         out.put("unloaded", true);
         call.resolve(out);
     }
+
+    // ── Server-based LLM management (new) ───────────────────────────────
+
+    @PluginMethod
+    public void getLlmSetupStatus(PluginCall call) {
+        LlmSetupStatus status = serverManager.getFullStatus();
+        JSObject result = new JSObject();
+        result.put("prootReady", status.prootReady);
+        result.put("serverInstalled", status.serverInstalled);
+        result.put("modelInstalled", status.modelInstalled);
+        result.put("serverRunning", status.serverRunning);
+        result.put("state", status.state);
+        result.put("lastError", status.lastError);
+        result.put("llamaVersion", status.llamaVersion);
+        result.put("modelName", status.modelName);
+        result.put("serverPort", status.serverPort);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void installLlamaServer(PluginCall call) {
+        executor.submit(() -> {
+            try {
+                serverManager.installLlamaServer((stage, message, downloaded, total) -> {
+                    notifyLlmProgress("server", stage, message, downloaded, total);
+                });
+                JSObject result = new JSObject();
+                result.put("installed", true);
+                call.resolve(result);
+            } catch (Exception e) {
+                notifyLlmProgress("server", "error", e.getMessage(), -1, -1);
+                call.reject("Server installation failed: " + e.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void installModel(PluginCall call) {
+        executor.submit(() -> {
+            try {
+                serverManager.installModel((stage, message, downloaded, total) -> {
+                    notifyLlmProgress("model", stage, message, downloaded, total);
+                });
+                JSObject result = new JSObject();
+                result.put("installed", true);
+                call.resolve(result);
+            } catch (Exception e) {
+                notifyLlmProgress("model", "error", e.getMessage(), -1, -1);
+                call.reject("Model installation failed: " + e.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void startLlmServer(PluginCall call) {
+        executor.submit(() -> {
+            try {
+                serverManager.startServer();
+                JSObject result = new JSObject();
+                result.put("running", true);
+                result.put("port", 8081);
+                call.resolve(result);
+            } catch (Exception e) {
+                call.reject("Server start failed: " + e.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void stopLlmServer(PluginCall call) {
+        serverManager.stopServer();
+        JSObject result = new JSObject();
+        result.put("stopped", true);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void getLlmServerHealth(PluginCall call) {
+        executor.submit(() -> {
+            try {
+                String body = serverManager.checkHealth();
+                JSObject result = new JSObject();
+                result.put("ok", true);
+                result.put("response", body);
+                call.resolve(result);
+            } catch (Exception e) {
+                JSObject result = new JSObject();
+                result.put("ok", false);
+                result.put("error", e.getMessage());
+                call.resolve(result);
+            }
+        });
+    }
+
+    // ── Progress events ─────────────────────────────────────────────────
+
+    private void notifyLlmProgress(String component, String stage, String message,
+                                    long downloadedBytes, long totalBytes) {
+        JSObject event = new JSObject();
+        event.put("component", component);
+        event.put("stage", stage);
+        event.put("message", message);
+        event.put("downloadedBytes", downloadedBytes);
+        event.put("totalBytes", totalBytes);
+        if (totalBytes > 0 && downloadedBytes >= 0) {
+            event.put("progress", Math.min(1.0, (double) downloadedBytes / (double) totalBytes));
+        } else {
+            event.put("progress", -1);
+        }
+        notifyListeners("llmInstallProgress", event);
+    }
+
+    // ── Native JNI declarations ─────────────────────────────────────────
 
     private static native boolean nativeLoadModel(String modelPath, int threads, int contextSize);
 

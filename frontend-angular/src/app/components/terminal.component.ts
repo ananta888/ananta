@@ -425,6 +425,10 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   sendSpecialInput(sequence: string): void {
     if (this.mode !== 'interactive' || !sequence) return;
+    if (this.embeddedShellMode && sequence === '\u0003') {
+      this.interruptEmbeddedShell();
+      return;
+    }
     this.focusTerminal();
     this.sendInputToBackend(sequence);
   }
@@ -591,10 +595,27 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   private sendInputToBackend(input: string): void {
     if (!input) return;
     if (this.embeddedShellMode) {
+      if (input === '\u0003') {
+        this.interruptEmbeddedShell();
+        return;
+      }
       this.sendEmbeddedInput(input);
       return;
     }
     this.terminalService.sendInput(input);
+  }
+
+  private interruptEmbeddedShell(): void {
+    const sessionId = this.embeddedSessionId;
+    if (!sessionId) return;
+    this.pythonRuntime.interruptShellSession(sessionId).then(() => {
+      return new Promise<void>((resolve) => setTimeout(resolve, 10));
+    }).then(() => this.pullEmbeddedOutput()).catch((error: any) => {
+      const message = String(error?.message || 'embedded_shell_interrupt_failed').trim();
+      this.status = 'error';
+      this.writeTerminalMarker(`\r\n[input error: ${message}]\r\n`);
+      this.cdr.markForCheck();
+    });
   }
 
   private reconnectEmbeddedShell(): void {
