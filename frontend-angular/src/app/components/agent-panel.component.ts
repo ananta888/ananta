@@ -1,6 +1,7 @@
 import { Component, OnDestroy, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
+import { AsyncPipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, finalize, filter, take, firstValueFrom } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
@@ -13,11 +14,12 @@ import { TerminalMode } from '../services/terminal.service';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 import { ProotInstallProgressEvent, PythonRuntimeService } from '../services/python-runtime.service';
 import { MobileProotService } from '../services/mobile-proot.service';
+import { AppShellStateService } from '../services/app-shell-state.service';
 
 @Component({
   standalone: true,
   selector: 'app-agent-panel',
-  imports: [FormsModule, TerminalComponent],
+  imports: [FormsModule, TerminalComponent, AsyncPipe],
   styles: [`
     .tab-btn {
       padding: 8px 16px;
@@ -224,6 +226,19 @@ import { MobileProotService } from '../services/mobile-proot.service';
           <input [(ngModel)]="terminalForwardParam" placeholder="z. B. cli-... fuer taskgebundene Live-Terminals" />
         </label>
         @if (terminalEmbeddedMode) {
+          <div class="card card-light row gap-sm wrap">
+            @if (auth.user$ | async; as user) {
+              <span class="muted">User: {{ user.sub }} ({{ user.role }})</span>
+            } @else {
+              <span class="muted">User: -</span>
+            }
+            <button type="button" class="button-outline" (click)="toggleDarkMode()">
+              {{ shellState.darkMode() ? 'Hell' : 'Dunkel' }}
+            </button>
+            <button type="button" class="button-outline" (click)="toggleMode()">
+              {{ shellState.mode() === 'simple' ? 'Experte' : 'Einfach' }}
+            </button>
+          </div>
           <div class="muted">Interner Live-Modus aktiv (embedded shell bridge).</div>
         }
         @if (terminalAvailable) {
@@ -291,6 +306,8 @@ export class AgentPanelComponent implements OnDestroy {
   private taskFacade = inject(TaskManagementFacade);
   private pythonRuntime = inject(PythonRuntimeService);
   private proot = inject(MobileProotService);
+  auth = inject(UserAuthService);
+  shellState = inject(AppShellStateService);
 
   agent?: AgentEntry;
   activeTab = 'interact';
@@ -315,6 +332,14 @@ export class AgentPanelComponent implements OnDestroy {
     temperature: 0.2,
     context_limit: 4096
   };
+
+  toggleDarkMode(): void {
+    this.shellState.toggleDarkMode();
+  }
+
+  toggleMode(): void {
+    this.shellState.toggleMode();
+  }
   testPrompt = '';
   testResult = '';
   terminalMode: TerminalMode = 'interactive';

@@ -1,0 +1,778 @@
+{
+  "schema": "ananta.todo.voxtral.v1",
+  "title": "Voxtral / Speech Integration via dedicated voice-runtime service",
+  "status": "draft",
+  "created_for": "ananta local-first multi-agent platform",
+  "goal": "Integrate Voxtral and speech/audio capabilities for Android, laptops and local desktop setups through a dedicated voice-runtime service instead of hard-coding model/runtime logic into each client.",
+  "core_decision": {
+    "selected_option": "C",
+    "name": "Dedicated voice-runtime service",
+    "summary": "Create a separate local voice service exposing stable Ananta-facing audio APIs. Under the hood it may use Voxtral, whisper.cpp, faster-whisper, llama.cpp, Ollama, LM Studio, or future multimodal runtimes.",
+    "reasoning": [
+      "Keeps Android, laptop UI, CLI and future clients thin.",
+      "Avoids binding Ananta to Ollama or LM Studio-specific audio behavior.",
+      "Allows fallback chains and hardware-specific optimization without changing client code.",
+      "Fits Ananta's hub-worker and provider-adapter architecture.",
+      "Makes security, audit, permissions and capability exposure easier to control centrally."
+    ]
+  },
+  "target_architecture": {
+    "high_level_flow": [
+      "Client records or uploads audio.",
+      "Client sends audio to Ananta Hub or directly to voice-runtime only when explicitly allowed.",
+      "Ananta Hub validates auth, policy, size limits and requested capability.",
+      "Ananta Hub forwards audio job to voice-runtime.",
+      "voice-runtime selects Voxtral or fallback backend.",
+      "voice-runtime returns transcript, command intent, structured result or multimodal response.",
+      "Ananta Hub stores audit metadata and dispatches resulting task/goal/action according to policy."
+    ],
+    "components": {
+      "ananta_hub": {
+        "responsibilities": [
+          "Expose stable authenticated voice endpoints.",
+          "Apply policy, rate limits, size limits and audit logging.",
+          "Map transcripts or voice commands into Ananta goals/tasks.",
+          "Hide backend-specific details from clients."
+        ]
+      },
+      "voice_runtime": {
+        "responsibilities": [
+          "Accept audio input.",
+          "Normalize audio format when needed.",
+          "Run transcription or audio-aware inference.",
+          "Expose health, model catalog and capability endpoints.",
+          "Implement fallback chain and hardware-specific backend selection."
+        ]
+      },
+      "android_client": {
+        "responsibilities": [
+          "Record audio.",
+          "Send audio to Ananta voice endpoint.",
+          "Render transcript/result.",
+          "Avoid direct runtime coupling where possible."
+        ]
+      },
+      "desktop_laptop_clients": {
+        "responsibilities": [
+          "Use the same Ananta API as Android.",
+          "Optionally provide local microphone capture.",
+          "Avoid direct dependency on Voxtral, Ollama or LM Studio."
+        ]
+      }
+    }
+  },
+  "runtime_modes": [
+    {
+      "id": "voice-local-cpu",
+      "description": "Runs voice-runtime locally on CPU with smaller/faster fallback models.",
+      "target_devices": ["NUC", "laptops without discrete GPU", "developer machines"],
+      "preferred_backends": ["whisper.cpp", "faster-whisper", "small Voxtral variant if viable"],
+      "priority": "high"
+    },
+    {
+      "id": "voice-local-gpu",
+      "description": "Runs voice-runtime locally with GPU acceleration.",
+      "target_devices": ["Framework 16 with eGPU", "RTX 3080 workstation", "Linux/WSL2 machines"],
+      "preferred_backends": ["Voxtral", "CUDA-enabled whisper/faster-whisper", "llama.cpp Vulkan/CUDA where applicable"],
+      "priority": "high"
+    },
+    {
+      "id": "voice-dev-docker",
+      "description": "Runs Ananta plus voice-runtime through Docker Compose for reproducible development.",
+      "target_devices": ["developer machines", "CI smoke tests"],
+      "preferred_backends": ["mock backend", "whisper.cpp fallback", "optional Voxtral volume-mounted model"],
+      "priority": "high"
+    },
+    {
+      "id": "voice-external-runtime",
+      "description": "Ananta talks to an already-running voice-runtime on the host or another LAN machine.",
+      "target_devices": ["multi-laptop setups", "GPU host with weaker clients"],
+      "preferred_backends": ["Voxtral service", "OpenAI-compatible audio endpoint"],
+      "priority": "medium"
+    }
+  ],
+  "environment_variables": {
+    "required_new": [
+      {
+        "name": "VOICE_PROVIDER",
+        "default": "voice-runtime",
+        "description": "Logical provider name used by Ananta for voice/audio capabilities."
+      },
+      {
+        "name": "VOICE_RUNTIME_URL",
+        "default": "http://voice-runtime:8090/v1",
+        "description": "Base URL for the dedicated voice-runtime service."
+      },
+      {
+        "name": "VOICE_MODEL",
+        "default": "voxtral",
+        "description": "Preferred primary voice/audio model."
+      },
+      {
+        "name": "VOICE_FALLBACK_MODEL",
+        "default": "whisper-small",
+        "description": "Fallback transcription model if Voxtral is unavailable or too slow."
+      },
+      {
+        "name": "VOICE_MAX_AUDIO_MB",
+        "default": "25",
+        "description": "Maximum accepted audio upload size in MiB."
+      },
+      {
+        "name": "VOICE_TIMEOUT_SEC",
+        "default": "120",
+        "description": "Maximum processing time for a voice job."
+      },
+      {
+        "name": "VOICE_DIRECT_CLIENT_ACCESS",
+        "default": "false",
+        "description": "Whether clients may call voice-runtime directly. Default false; route through Ananta Hub."
+      }
+    ],
+    "optional_new": [
+      {
+        "name": "VOICE_RUNTIME_DEVICE",
+        "default": "auto",
+        "allowed": ["auto", "cpu", "cuda", "vulkan", "metal"],
+        "description": "Preferred hardware acceleration target."
+      },
+      {
+        "name": "VOICE_RUNTIME_MODEL_PATH",
+        "default": "",
+        "description": "Optional local model path or mounted model directory."
+      },
+      {
+        "name": "VOICE_ENABLE_STREAMING",
+        "default": "false",
+        "description": "Enable streaming partial transcription once implemented."
+      },
+      {
+        "name": "VOICE_STORE_AUDIO",
+        "default": "false",
+        "description": "Whether raw audio may be stored for debugging. Default false for privacy."
+      }
+    ]
+  },
+  "api_contracts": {
+    "ananta_hub_public_api": [
+      {
+        "method": "POST",
+        "path": "/v1/voice/transcribe",
+        "auth": "required",
+        "body": "multipart/form-data with audio file plus optional language, prompt, model, mode",
+        "response": {
+          "text": "string",
+          "language": "string|null",
+          "duration_ms": "number|null",
+          "model": "string",
+          "provider": "string",
+          "warnings": "string[]"
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/v1/voice/command",
+        "auth": "required",
+        "body": "multipart/form-data with audio file plus optional command_context",
+        "response": {
+          "transcript": "string",
+          "intent": "string|null",
+          "confidence": "number|null",
+          "proposed_goal": "string|null",
+          "requires_approval": "boolean",
+          "audit_id": "string"
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/v1/voice/goal",
+        "auth": "required",
+        "body": "audio file, optional create_tasks boolean, optional governance mode",
+        "response": {
+          "goal_id": "string|null",
+          "transcript": "string",
+          "created_tasks": "boolean",
+          "requires_review": "boolean"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/v1/voice/capabilities",
+        "auth": "required",
+        "response": {
+          "available": "boolean",
+          "provider": "string",
+          "models": "array",
+          "capabilities": "array",
+          "limits": "object"
+        }
+      }
+    ],
+    "voice_runtime_internal_api": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "response": {
+          "status": "ok|degraded|unavailable",
+          "backend": "string",
+          "device": "string",
+          "loaded_model": "string|null"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/v1/models",
+        "response": {
+          "models": "array of model descriptors"
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/v1/audio/transcriptions",
+        "compatibility": "OpenAI-style where practical",
+        "response": {
+          "text": "string",
+          "segments": "array|null",
+          "language": "string|null",
+          "duration_ms": "number|null"
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/v1/audio/chat",
+        "compatibility": "Ananta extension",
+        "response": {
+          "text": "string",
+          "transcript": "string|null",
+          "tool_intent": "object|null"
+        }
+      }
+    ]
+  },
+  "implementation_phases": [
+    {
+      "phase": "P0",
+      "name": "Design and contracts",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "VOX-P0-001",
+          "title": "Document voice-runtime architecture decision",
+          "description": "Create a short architecture note explaining why voice-runtime is separate from Android, Ollama and LM Studio.",
+          "files_hint": ["docs/voice-runtime-architecture.md"],
+          "acceptance": [
+            "Architecture note contains chosen option C.",
+            "Clearly separates Ananta Hub API from runtime internals.",
+            "Mentions privacy, policy and fallback reasons."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P0-002",
+          "title": "Define capability names",
+          "description": "Add stable capability names for audio_input, transcription, voice_command and multimodal_audio_prompt.",
+          "files_hint": ["docs/worker-capability-profiles.md", "docs/backend-provider-contracts.md"],
+          "acceptance": [
+            "Capabilities are documented.",
+            "Provider catalog can expose voice capabilities.",
+            "No direct client assumption about Voxtral exists."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P0-003",
+          "title": "Define public Ananta voice API contract",
+          "description": "Specify request and response schemas for transcription, voice command and voice goal creation.",
+          "files_hint": ["api-spec.md", "docs/backend.md"],
+          "acceptance": [
+            "API contract includes auth requirement.",
+            "API contract includes size/time limits.",
+            "API contract includes error shapes."
+          ],
+          "priority": "high"
+        }
+      ]
+    },
+    {
+      "phase": "P1",
+      "name": "Minimal voice-runtime service",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "VOX-P1-001",
+          "title": "Create voice-runtime package skeleton",
+          "description": "Add a small Python service package for the dedicated voice-runtime.",
+          "files_hint": ["voice_runtime/__init__.py", "voice_runtime/app.py", "voice_runtime/config.py", "voice_runtime/backends/base.py"],
+          "acceptance": [
+            "Service starts locally.",
+            "GET /health returns status.",
+            "Config is environment-driven."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P1-002",
+          "title": "Implement mock transcription backend",
+          "description": "Add a deterministic mock backend for tests and CI without real model downloads.",
+          "files_hint": ["voice_runtime/backends/mock.py"],
+          "acceptance": [
+            "Mock backend returns stable transcript.",
+            "CI can test voice API without GPU/model.",
+            "Mock backend can simulate timeout and backend unavailable errors."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P1-003",
+          "title": "Implement /v1/audio/transcriptions endpoint",
+          "description": "Accept multipart audio upload and return transcript using selected backend.",
+          "files_hint": ["voice_runtime/routes.py", "voice_runtime/schemas.py"],
+          "acceptance": [
+            "Accepts wav, mp3, m4a and webm where available.",
+            "Rejects files above VOICE_MAX_AUDIO_MB.",
+            "Returns consistent JSON error responses."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P1-004",
+          "title": "Add model catalog endpoint",
+          "description": "Expose available voice models and capabilities from voice-runtime.",
+          "files_hint": ["voice_runtime/routes.py"],
+          "acceptance": [
+            "GET /v1/models returns primary and fallback models.",
+            "Each model declares capabilities and device preference.",
+            "Health endpoint shows selected backend and device."
+          ],
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "phase": "P2",
+      "name": "Ananta Hub integration",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "VOX-P2-001",
+          "title": "Add VoiceProvider adapter in Ananta backend",
+          "description": "Create an adapter that calls voice-runtime and hides backend-specific implementation details.",
+          "files_hint": ["agent/services/voice_provider.py", "agent/config"],
+          "acceptance": [
+            "Adapter reads VOICE_RUNTIME_URL and timeout config.",
+            "Adapter supports transcribe and voice_command calls.",
+            "Adapter maps runtime errors to Ananta errors."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P2-002",
+          "title": "Expose Ananta Hub voice routes",
+          "description": "Add authenticated Hub endpoints for transcription, command and goal creation.",
+          "files_hint": ["agent/routes/voice.py", "agent/ai_agent.py"],
+          "acceptance": [
+            "POST /v1/voice/transcribe works through Hub.",
+            "POST /v1/voice/command returns transcript and proposed intent.",
+            "POST /v1/voice/goal can create a goal only through existing policy path."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P2-003",
+          "title": "Register voice capabilities in provider catalog",
+          "description": "Extend existing provider catalog/capability response to include local_voice when available.",
+          "files_hint": ["agent/services/provider_catalog*", "docs/backend-provider-contracts.md"],
+          "acceptance": [
+            "GET /providers/catalog shows voice-runtime availability.",
+            "Unavailable runtime reports degraded/unavailable, not hard failure.",
+            "Frontend can detect whether voice UI should be shown."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P2-004",
+          "title": "Add audit metadata for voice actions",
+          "description": "Store transcript metadata and action intent without storing raw audio by default.",
+          "files_hint": ["agent/services/audit*", "docs/security*"],
+          "acceptance": [
+            "Raw audio is not stored unless VOICE_STORE_AUDIO=true.",
+            "Audit includes user, endpoint, model, duration and created goal/task id.",
+            "Security docs mention privacy defaults."
+          ],
+          "priority": "high"
+        }
+      ]
+    },
+    {
+      "phase": "P3",
+      "name": "Voxtral backend",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "VOX-P3-001",
+          "title": "Implement Voxtral backend adapter",
+          "description": "Add backend implementation for Voxtral in voice-runtime. Keep model loading isolated from API routes.",
+          "files_hint": ["voice_runtime/backends/voxtral.py"],
+          "acceptance": [
+            "Backend implements common VoiceBackend interface.",
+            "Backend supports explicit model path or model id.",
+            "Backend reports load errors clearly."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P3-002",
+          "title": "Add audio normalization pipeline",
+          "description": "Normalize incoming audio to the format expected by Voxtral/fallback backends.",
+          "files_hint": ["voice_runtime/audio.py"],
+          "acceptance": [
+            "Handles common browser/Android audio formats.",
+            "Rejects unsupported formats with useful errors.",
+            "Keeps temporary files scoped and deleted after request."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P3-003",
+          "title": "Implement backend fallback chain",
+          "description": "If Voxtral is unavailable, too slow or unsupported on current hardware, fallback to configured transcription backend.",
+          "files_hint": ["voice_runtime/backends/router.py"],
+          "acceptance": [
+            "Fallback chain is configurable.",
+            "Response includes warning when fallback was used.",
+            "Timeouts do not crash service."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P3-004",
+          "title": "Add hardware/device detection",
+          "description": "Detect cpu/cuda/vulkan/metal where practical and select the best supported backend.",
+          "files_hint": ["voice_runtime/device.py"],
+          "acceptance": [
+            "VOICE_RUNTIME_DEVICE=auto works.",
+            "Manual device override works.",
+            "Health endpoint reports chosen device."
+          ],
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "phase": "P4",
+      "name": "Docker and install profiles",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "VOX-P4-001",
+          "title": "Add Dockerfile for voice-runtime",
+          "description": "Create a dedicated Dockerfile with mock/fallback backend support by default and optional Voxtral dependencies documented.",
+          "files_hint": ["Dockerfile.voice-runtime"],
+          "acceptance": [
+            "Image builds without downloading huge models by default.",
+            "Runtime can mount model directory.",
+            "Healthcheck is included."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P4-002",
+          "title": "Add docker-compose voice overlay",
+          "description": "Create compose overlay to run voice-runtime next to Ananta Hub/Worker.",
+          "files_hint": ["docker-compose.voice-runtime.yml"],
+          "acceptance": [
+            "Service name is voice-runtime.",
+            "Ananta Hub gets VOICE_RUNTIME_URL=http://voice-runtime:8090/v1.",
+            "Host access mode documented for LM Studio/Ollama-style host runtimes."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P4-003",
+          "title": "Extend setup templates",
+          "description": "Add voice-related environment variables to env templates without enabling raw audio storage by default.",
+          "files_hint": [".env.example", ".env.template", "docs/setup/bootstrap-install.md"],
+          "acceptance": [
+            "New variables are documented.",
+            "Defaults are safe and local-first.",
+            "Existing non-voice setups keep working."
+          ],
+          "priority": "medium"
+        },
+        {
+          "id": "VOX-P4-004",
+          "title": "Add laptop profile docs",
+          "description": "Document recommended setup for CPU laptop, GPU laptop, WSL2/Linux and external GPU host.",
+          "files_hint": ["docs/voice-runtime-laptop-setup.md"],
+          "acceptance": [
+            "Includes LM Studio/Ollama as optional text backends, not required voice layer.",
+            "Includes direct host runtime URL examples.",
+            "Includes privacy and local network warning."
+          ],
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "phase": "P5",
+      "name": "Android and desktop client cleanup",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "VOX-P5-001",
+          "title": "Refactor Android Voxtral integration to use Ananta voice API",
+          "description": "Move Android-specific Voxtral logic behind the shared Hub voice endpoint.",
+          "files_hint": ["android", "frontend", "client surfaces"],
+          "acceptance": [
+            "Android no longer needs to know exact Voxtral runtime details.",
+            "Android sends audio to Hub voice endpoint.",
+            "Existing Android voice feature still works."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P5-002",
+          "title": "Add desktop microphone flow",
+          "description": "Allow browser/laptop UI to record microphone input and send to Ananta Hub.",
+          "files_hint": ["frontend-angular"],
+          "acceptance": [
+            "Voice button appears only when capability is available.",
+            "User grants browser microphone permission explicitly.",
+            "Transcript is shown before creating risky goals/actions."
+          ],
+          "priority": "medium"
+        },
+        {
+          "id": "VOX-P5-003",
+          "title": "Add CLI voice file command",
+          "description": "Allow CLI users to submit an existing audio file for transcription or goal creation.",
+          "files_hint": ["ananta CLI", "docs/cli/commands.md"],
+          "acceptance": [
+            "ananta voice transcribe <file> works.",
+            "ananta voice goal <file> asks for review before creating tasks unless explicitly allowed.",
+            "CLI errors are readable."
+          ],
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "phase": "P6",
+      "name": "Security, governance and policy",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "VOX-P6-001",
+          "title": "Add voice exposure policy",
+          "description": "Ensure voice endpoints obey existing exposure policy concepts and are not accidentally exposed remotely.",
+          "files_hint": ["docs/security*", "agent/config"],
+          "acceptance": [
+            "Voice endpoints require auth.",
+            "Direct voice-runtime access is disabled by default.",
+            "Remote/LAN exposure requires explicit configuration."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P6-002",
+          "title": "Add approval boundary for voice-created actions",
+          "description": "Voice commands must not silently execute dangerous tasks. They should propose intent/goal and route through existing approval paths.",
+          "files_hint": ["docs/unified-approval-model.md", "agent/services"],
+          "acceptance": [
+            "Voice-created shell/tool actions require approval under safe/strict modes.",
+            "Transcript is visible before action.",
+            "Ambiguous transcript does not execute."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P6-003",
+          "title": "Add privacy defaults",
+          "description": "Default to no raw audio persistence and document the implications of enabling storage.",
+          "files_hint": ["docs/voice-runtime-privacy.md"],
+          "acceptance": [
+            "VOICE_STORE_AUDIO=false by default.",
+            "Temporary files are deleted.",
+            "Logs do not contain raw audio or excessive transcript content unless debug mode is explicit."
+          ],
+          "priority": "high"
+        }
+      ]
+    },
+    {
+      "phase": "P7",
+      "name": "Testing and CI",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "VOX-P7-001",
+          "title": "Add unit tests for voice-runtime mock backend",
+          "description": "Test health, model catalog, transcription success and error handling.",
+          "files_hint": ["tests/voice_runtime/test_mock_backend.py"],
+          "acceptance": [
+            "Tests run without real model.",
+            "Oversized file rejection is tested.",
+            "Timeout/error mapping is tested."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P7-002",
+          "title": "Add Ananta Hub contract tests for voice routes",
+          "description": "Ensure public voice API response shapes remain stable.",
+          "files_hint": ["tests/test_api_contract_voice.py"],
+          "acceptance": [
+            "Contract tests use mock voice-runtime.",
+            "Auth-required behavior is tested.",
+            "Provider unavailable path is tested."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P7-003",
+          "title": "Add Docker smoke test",
+          "description": "Start compose stack with voice-runtime mock backend and verify Hub capability endpoint.",
+          "files_hint": ["scripts", ".github/workflows"],
+          "acceptance": [
+            "CI can run without GPU.",
+            "Smoke test verifies /health and /v1/voice/capabilities.",
+            "Failure logs are actionable."
+          ],
+          "priority": "medium"
+        },
+        {
+          "id": "VOX-P7-004",
+          "title": "Add optional live Voxtral test flag",
+          "description": "Live Voxtral tests must be opt-in because models/hardware are heavy.",
+          "files_hint": ["tests", ".env.example"],
+          "acceptance": [
+            "RUN_LIVE_VOXTRAL_TESTS=1 enables real model test.",
+            "Default CI skips live model test.",
+            "Skipped test explains required env/model."
+          ],
+          "priority": "medium"
+        }
+      ]
+    },
+    {
+      "phase": "P8",
+      "name": "Documentation and release readiness",
+      "status": "open",
+      "tasks": [
+        {
+          "id": "VOX-P8-001",
+          "title": "Write user-facing voice quickstart",
+          "description": "Document how to start Ananta with voice-runtime on a normal laptop.",
+          "files_hint": ["docs/voice-quickstart.md"],
+          "acceptance": [
+            "Includes CPU-only path.",
+            "Includes GPU path.",
+            "Includes troubleshooting for microphone, Docker networking and missing models."
+          ],
+          "priority": "high"
+        },
+        {
+          "id": "VOX-P8-002",
+          "title": "Add release checklist entries",
+          "description": "Extend release checklist with voice-specific security, privacy and runtime checks.",
+          "files_hint": ["docs/release-checklist.md", "docs/release-evidence-register.md"],
+          "acceptance": [
+            "Checklist includes no raw audio by default.",
+            "Checklist includes auth and exposure policy checks.",
+            "Checklist includes fallback behavior verification."
+          ],
+          "priority": "medium"
+        },
+        {
+          "id": "VOX-P8-003",
+          "title": "Document known limitations",
+          "description": "Document expected limitations around hardware, latency, model size and language quality.",
+          "files_hint": ["docs/voice-runtime-limitations.md"],
+          "acceptance": [
+            "Limitations are honest and visible.",
+            "No claim that all laptops can run Voxtral well.",
+            "Fallback path is clearly recommended."
+          ],
+          "priority": "medium"
+        }
+      ]
+    }
+  ],
+  "suggested_initial_files": [
+    "docs/voice-runtime-architecture.md",
+    "docs/voice-quickstart.md",
+    "docs/voice-runtime-privacy.md",
+    "voice_runtime/app.py",
+    "voice_runtime/config.py",
+    "voice_runtime/routes.py",
+    "voice_runtime/schemas.py",
+    "voice_runtime/audio.py",
+    "voice_runtime/device.py",
+    "voice_runtime/backends/base.py",
+    "voice_runtime/backends/mock.py",
+    "voice_runtime/backends/voxtral.py",
+    "voice_runtime/backends/router.py",
+    "agent/services/voice_provider.py",
+    "agent/routes/voice.py",
+    "Dockerfile.voice-runtime",
+    "docker-compose.voice-runtime.yml",
+    "tests/test_api_contract_voice.py",
+    "tests/voice_runtime/test_mock_backend.py"
+  ],
+  "definition_of_done": [
+    "Ananta Hub exposes authenticated voice endpoints.",
+    "voice-runtime can run with mock backend in CI.",
+    "voice-runtime can run with Voxtral or configured fallback locally.",
+    "Android uses shared Ananta voice API instead of direct hard-coded runtime coupling.",
+    "Laptop/browser/CLI clients can use the same API.",
+    "Provider catalog exposes voice capability status.",
+    "Raw audio is not stored by default.",
+    "Voice-created actions go through existing policy and approval boundaries.",
+    "Docker overlay and quickstart docs exist.",
+    "Contract tests and smoke tests cover unavailable runtime, oversized upload and successful mock transcription."
+  ],
+  "risks": [
+    {
+      "risk": "Voxtral may be too heavy for some laptops.",
+      "mitigation": "Keep fallback backend mandatory and document CPU-only profile."
+    },
+    {
+      "risk": "Ollama/LM Studio audio behavior may differ or be incomplete.",
+      "mitigation": "Treat them as optional backends, not the core abstraction."
+    },
+    {
+      "risk": "Voice commands can be misheard and trigger wrong actions.",
+      "mitigation": "Default to transcript review and approval before risky actions."
+    },
+    {
+      "risk": "Raw audio can contain sensitive data.",
+      "mitigation": "Do not store raw audio by default; document explicit opt-in."
+    },
+    {
+      "risk": "Docker networking differs between Windows, WSL2, Linux and macOS.",
+      "mitigation": "Document host.docker.internal, compose DNS and direct host mode separately."
+    }
+  ],
+  "recommended_first_milestone": {
+    "name": "MVP voice-runtime mock + Hub transcription route",
+    "tasks": [
+      "VOX-P0-001",
+      "VOX-P0-003",
+      "VOX-P1-001",
+      "VOX-P1-002",
+      "VOX-P1-003",
+      "VOX-P2-001",
+      "VOX-P2-002",
+      "VOX-P7-001",
+      "VOX-P7-002"
+    ],
+    "success_signal": "A user can send an audio file to Ananta Hub, receive a transcript from mock voice-runtime, and see voice capability status without any real model installed."
+  },
+  "notes": [
+    "Keep this file as planning source, not runtime config.",
+    "Prefer small, reviewable PRs per phase.",
+    "Do not make raw audio storage the default.",
+    "Do not let voice commands bypass existing Ananta approval and policy mechanisms.",
+    "Keep Voxtral backend replaceable so future audio models can be added without client changes."
+  ]
+}

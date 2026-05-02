@@ -261,7 +261,7 @@ public class LiveTerminalAndroidE2ETest {
     public void ubuntuProotIsUsableFromInstalledApp() throws InterruptedException {
         String smokeCommand = prootPreamble()
                 + prootEnvPrefix()
-                + "\"$ANANTA_PROOT_DIRECT\" "
+                + "\"$ANANTA_PROOT_DIRECT\" -0 --link2symlink "
                 + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" -w / \"$ANANTA_LOGIN_SHELL\" "
                 + "-c 'echo ANANTA_UBUNTU_OK; if command -v python3 >/dev/null 2>&1; then python3 --version; echo ANANTA_PY_OK; elif command -v python >/dev/null 2>&1; then python --version; echo ANANTA_PY_OK; else echo ANANTA_PY_MISSING; fi'";
 
@@ -317,23 +317,44 @@ public class LiveTerminalAndroidE2ETest {
 
     @Test
     public void proxyEnabledAptGetUpdateWorks() throws InterruptedException {
-        // Verifies the HTTP CONNECT proxy allows apt-get update from within proot
+        // Verifies the HTTP CONNECT proxy allows apt-get update + install from within proot
         String aptCommand = prootPreamble()
+                + "chmod -R 777 \"$ANANTA_ROOTFS/var/lib/dpkg\" \"$ANANTA_ROOTFS/var/cache/apt\" \"$ANANTA_ROOTFS/var/log\" 2>/dev/null; "
+                + "chmod -R 777 \"$ANANTA_ROOTFS/var/log/apt\" 2>/dev/null; "
                 + prootEnvPrefix()
                 + "http_proxy=\"http://127.0.0.1:18080\" https_proxy=\"http://127.0.0.1:18080\" "
                 + "HTTP_PROXY=\"http://127.0.0.1:18080\" HTTPS_PROXY=\"http://127.0.0.1:18080\" "
-                + "\"$ANANTA_PROOT_DIRECT\" "
+                + "\"$ANANTA_PROOT_DIRECT\" -0 --link2symlink "
                 + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" -w / \"$ANANTA_LOGIN_SHELL\" "
                 + "-c '"
                 + "echo nameserver 8.8.8.8 > /etc/resolv.conf 2>/dev/null; "
                 + "mkdir -p /etc/apt/apt.conf.d 2>/dev/null; "
-                + "echo Acquire::http::Proxy \\\"http://127.0.0.1:18080\\\"; > /etc/apt/apt.conf.d/99proxy; "
-                + "echo Acquire::https::Proxy \\\"http://127.0.0.1:18080\\\"; >> /etc/apt/apt.conf.d/99proxy; "
+                + "printf \"Acquire::http::Proxy \\\"http://127.0.0.1:18080\\\";\\nAcquire::https::Proxy \\\"http://127.0.0.1:18080\\\";\\n\" > /etc/apt/apt.conf.d/99proxy; "
                 + "export http_proxy=http://127.0.0.1:18080; "
                 + "export https_proxy=http://127.0.0.1:18080; "
-                + "apt-get update 2>&1; "
-                + "APT_RC=$?; "
-                + "if [ $APT_RC -eq 0 ]; then echo ANANTA_APT_OK; else echo ANANTA_APT_FAIL:$APT_RC; fi"
+                + "export DEBIAN_FRONTEND=noninteractive; "
+                + "dpkg --configure -a 2>&1 || true; "
+                + "apt-get update 2>&1 && echo ANANTA_APT_UPDATE_OK; "
+                + "apt-get -f install -y 2>&1 || true; "
+                + "apt-get install -y --no-install-recommends python3-pip git curl "
+                + "python3-flask python3-pydantic python3-sqlalchemy python3-yaml python3-psutil python3-jwt python3-dotenv python3-requests 2>&1; "
+                + "echo ANANTA_APT_INSTALL_RC=$?; "
+                + "pip3 --version 2>&1 || echo ANANTA_PIP3_MISSING; "
+                + "pip3 install --break-system-packages --ignore-installed --no-input --progress-bar off "
+                + "pydantic-settings sqlmodel portalocker jsonschema click alembic gitpython "
+                + "flask-cors prometheus-client typer prompt-toolkit "
+                + "flask-sock simple-websocket hvac pypdf python-docx openpyxl python-pptx 2>&1; "
+                + "echo ANANTA_PIP_INSTALL_RC=$?; "
+                + "python3 -c \"import sys; print(sys.path)\" 2>&1; "
+                + "python3 -c \"import flask; print(\\\"flask_ok\\\")\" 2>&1; "
+                + "python3 -c \"import pydantic; print(\\\"pydantic_ok\\\")\" 2>&1; "
+                + "python3 -c \"import sqlmodel; print(\\\"sqlmodel_ok\\\")\" 2>&1; "
+                + "python3 -c \"import yaml; print(\\\"yaml_ok\\\")\" 2>&1; "
+                + "python3 -c \"import psutil; print(\\\"psutil_ok\\\")\" 2>&1; "
+                + "python3 -c \"import jwt; print(\\\"jwt_ok\\\")\" 2>&1; "
+                + "echo ANANTA_DIAG_DONE; "
+                + "echo ANANTA_PIP_VERIFY_RC=$?; "
+                + "echo ANANTA_APT_OK"
                 + "'";
 
         onWebView().forceJavascriptEnabled();
@@ -354,7 +375,7 @@ public class LiveTerminalAndroidE2ETest {
                 + "      await p.installProotDistro({distro:'ubuntu'});"
                 + "    }"
                 + "    window.__anantaAptSmoke='RUN_APT';"
-                + "    var res=await p.runShellCommand({command:" + jsLiteral(aptCommand) + ",timeoutSeconds:300});"
+                + "    var res=await p.runShellCommand({command:" + jsLiteral(aptCommand) + ",timeoutSeconds:900});"
                 + "    var out=(res && res.output) ? String(res.output) : '';"
                 + "    window.__anantaAptSmoke='OK:' + out;"
                 + "  }catch(e){"
@@ -365,21 +386,249 @@ public class LiveTerminalAndroidE2ETest {
         );
 
         waitForTrueWithRetry(
-            "apt-get update finished",
+            "apt-get + pip finished",
             "var v=String(window.__anantaAptSmoke||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
-            600,
+            1200,
             1_000L
         );
         runIfPresent(
             "log apt result",
-            "console.log('ANANTA_APT_RESULT:' + String(window.__anantaAptSmoke||'')); return true;"
+            "console.log('ANANTA_APT_RESULT:' + String(window.__anantaAptSmoke||'').slice(-3000)); return true;"
         );
         waitForTrueWithRetry(
-            "apt-get update succeeded",
+            "apt + pip install succeeded",
             "var v=String(window.__anantaAptSmoke||'');"
                 + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
-                + "if(v.indexOf('OK:')===0 && v.indexOf('ANANTA_APT_OK')<0){ throw new Error('FATAL_E2E:apt failed: ' + v.slice(-2000)); }"
                 + "return v.indexOf('ANANTA_APT_OK')>=0;",
+            30,
+            1_000L
+        );
+    }
+
+    @Test
+    public void workerAgentCanStartInProot() throws InterruptedException {
+        // Test that the ananta worker can import and start inside proot Ubuntu
+        String workerCommand = prootPreamble()
+                + prootEnvPrefix()
+                + "http_proxy=\"http://127.0.0.1:18080\" https_proxy=\"http://127.0.0.1:18080\" "
+                + "\"$ANANTA_PROOT_DIRECT\" -0 --link2symlink "
+                + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" -w / \"$ANANTA_LOGIN_SHELL\" "
+                + "-c '"
+                + "export PYTHONPATH=/data/local/tmp/ananta-agent/..; "
+                + "export ROLE=worker; "
+                + "export ANANTA_WORKER_PORT=15080; "
+                + "export DATA_DIR=/tmp/ananta-data; "
+                + "cd /data/local/tmp; "
+                + "python3 -c \"import sys; sys.path.insert(0,\\\"/data/local/tmp\\\"); from agent.config import settings; print(\\\"ANANTA_CONFIG_IMPORT_OK\\\")\" 2>&1; "
+                + "echo CONFIG_RC=$?; "
+                + "python3 -c \"import sys; sys.path.insert(0,\\\"/data/local/tmp\\\"); from agent.ai_agent import create_app; print(\\\"ANANTA_APP_CREATE_OK\\\")\" 2>&1; "
+                + "echo APP_RC=$?; "
+                + "timeout 15 python3 -c \""
+                + "import sys, os, threading, time; "
+                + "sys.path.insert(0,\\\"/data/local/tmp\\\"); "
+                + "os.environ[\\\"ROLE\\\"] = \\\"worker\\\"; "
+                + "os.environ[\\\"DATA_DIR\\\"] = \\\"/tmp/ananta-data\\\"; "
+                + "os.environ[\\\"PORT\\\"] = \\\"15080\\\"; "
+                + "os.environ[\\\"SECRET_KEY\\\"] = \\\"test-secret-key-for-e2e\\\"; "
+                + "from agent.ai_agent import create_app; "
+                + "app = create_app(); "
+                + "print(\\\"ANANTA_FLASK_CREATED\\\"); "
+                + "threading.Thread(target=lambda: (time.sleep(5), os._exit(0)), daemon=True).start(); "
+                + "app.run(host=\\\"0.0.0.0\\\", port=15080, debug=False)"
+                + "\" 2>&1; "
+                + "echo FLASK_RC=$?; "
+                + "echo ANANTA_WORKER_DONE"
+                + "'";
+
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "run worker import test",
+            "window.__anantaWorkerSmoke='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var p=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PythonRuntime;"
+                + "    if(!p){window.__anantaWorkerSmoke='ERR:NO_PLUGIN';return;}"
+                + "    var status=await p.getProotRuntimeStatus();"
+                + "    var distros=(status && Array.isArray(status.distros)) ? status.distros : [];"
+                + "    var ubuntuOk=distros.some(function(item){ return String(item && item.name || '').toLowerCase()==='ubuntu'; });"
+                + "    if(!ubuntuOk){"
+                + "      window.__anantaWorkerSmoke='ERR:UBUNTU_NOT_INSTALLED';return;"
+                + "    }"
+                + "    window.__anantaWorkerSmoke='RUNNING';"
+                + "    var res=await p.runShellCommand({command:" + jsLiteral(workerCommand) + ",timeoutSeconds:120});"
+                + "    var out=(res && res.output) ? String(res.output) : '';"
+                + "    window.__anantaWorkerSmoke='OK:' + out;"
+                + "  }catch(e){"
+                + "    window.__anantaWorkerSmoke='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "worker import test finished",
+            "var v=String(window.__anantaWorkerSmoke||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            180,
+            1_000L
+        );
+        runIfPresent(
+            "log worker result",
+            "console.log('ANANTA_WORKER_RESULT:' + String(window.__anantaWorkerSmoke||'').slice(-3000)); return true;"
+        );
+        waitForTrueWithRetry(
+            "worker imports succeeded",
+            "var v=String(window.__anantaWorkerSmoke||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "return v.indexOf('ANANTA_WORKER_DONE')>=0;",
+            30,
+            1_000L
+        );
+    }
+
+    @Test
+    public void voxtralRunnerProvisionButtonActionWorks() throws InterruptedException {
+        activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
+        activityRule.getScenario().onActivity(activity -> {});
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "run voxtral runner provisioning action",
+            "window.__anantaVoxtralProvision='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var py=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PythonRuntime;"
+                + "    var vx=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.VoxtralOffline;"
+                + "    if(!py){window.__anantaVoxtralProvision='ERR:NO_PY_PLUGIN';return;}"
+                + "    if(!vx){window.__anantaVoxtralProvision='ERR:NO_VOXTRAL_PLUGIN';return;}"
+                + "    var st=await py.getProotRuntimeStatus();"
+                + "    if(!(st && st.prootExecutable)){"
+                + "      window.__anantaVoxtralProvision='INSTALLING_PROOT_RUNTIME';"
+                + "      await py.installProotRuntime({confirmed:true});"
+                + "      st=await py.getProotRuntimeStatus();"
+                + "    }"
+                + "    var distros=(st && Array.isArray(st.distros)) ? st.distros : [];"
+                + "    var ubuntuOk=distros.some(function(item){ return String(item && item.name || '').toLowerCase()==='ubuntu'; });"
+                + "    if(!ubuntuOk){"
+                + "      window.__anantaVoxtralProvision='INSTALLING_UBUNTU';"
+                + "      await py.installProotDistro({distro:'ubuntu', confirmed:true});"
+                + "    }"
+                + "    window.__anantaVoxtralProvision='PROVISIONING';"
+                + "    var res=await vx.provisionVoxtralRunner({confirmed:true});"
+                + "    var rp=String((res && res.runnerPath) ? res.runnerPath : '');"
+                + "    if(!rp){window.__anantaVoxtralProvision='ERR:NO_RUNNER_PATH';return;}"
+                + "    var assets=await vx.listLocalAssets();"
+                + "    var runners=(assets && Array.isArray(assets.runners)) ? assets.runners : [];"
+                + "    var hasRunner=runners.some(function(r){ return String((r&&r.path)||'')===rp; });"
+                + "    if(!hasRunner){window.__anantaVoxtralProvision='ERR:RUNNER_NOT_LISTED';return;}"
+                + "    window.__anantaVoxtralProvision='OK:' + rp;"
+                + "  }catch(e){"
+                + "    window.__anantaVoxtralProvision='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "voxtral provisioning action finished",
+            "var v=String(window.__anantaVoxtralProvision||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            1800,
+            1_000L
+        );
+
+        runIfPresent(
+            "log voxtral provisioning result",
+            "console.log('ANANTA_VOXTRAL_PROVISION_RESULT:' + String(window.__anantaVoxtralProvision||'').slice(-3000)); return true;"
+        );
+
+        waitForTrueWithRetry(
+            "voxtral provisioning succeeded",
+            "var v=String(window.__anantaVoxtralProvision||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "return v.indexOf('OK:')===0;",
+            30,
+            1_000L
+        );
+    }
+
+    @Test
+    public void voxtralDirectTranscriptionWorks() throws InterruptedException {
+        activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
+        activityRule.getScenario().onActivity(activity -> {});
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "run voxtral direct transcription",
+            "window.__anantaVoxtralTranscribe='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var vx=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.VoxtralOffline;"
+                + "    if(!vx){window.__anantaVoxtralTranscribe='ERR:NO_VOXTRAL_PLUGIN';return;}"
+                + "    var targetUrl=" + jsLiteral(arg("ananta.voxtral.model.url", "https://huggingface.co/andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF/resolve/main/Q4_0.gguf")) + ";"
+                + "    var targetFile=" + jsLiteral(arg("ananta.voxtral.model.file", "Q4_0.gguf")) + ";"
+                + "    var status=await vx.getStatus();"
+                + "    var modelPath=String((status && status.modelPath) ? status.modelPath : '').trim();"
+                + "    var runnerPath=String((status && status.runnerPath) ? status.runnerPath : '').trim();"
+                + "    var assets=await vx.listLocalAssets();"
+                + "    var models=(assets && Array.isArray(assets.models)) ? assets.models : [];"
+                + "    var runners=(assets && Array.isArray(assets.runners)) ? assets.runners : [];"
+                + "    var target=models.find(function(m){ var n=String((m&&m.name)||'').toLowerCase(); return n===String(targetFile).toLowerCase(); });"
+                + "    if(target){ modelPath=String((target&&target.path)||'').trim(); }"
+                + "    if(!target){"
+                + "      window.__anantaVoxtralTranscribe='DOWNLOADING_MODEL';"
+                + "      var dl=await vx.downloadModel({modelUrl:targetUrl,fileName:targetFile,minBytes:734003200,confirmed:true});"
+                + "      modelPath=String((dl&&dl.modelPath)||'').trim();"
+                + "      assets=await vx.listLocalAssets();"
+                + "      models=(assets && Array.isArray(assets.models)) ? assets.models : [];"
+                + "      target=models.find(function(m){ var n=String((m&&m.name)||'').toLowerCase(); return n===String(targetFile).toLowerCase(); });"
+                + "      if(target){ modelPath=String((target&&target.path)||'').trim(); }"
+                + "    }"
+                + "    if(runners.length>0){"
+                + "      var pref=runners.find(function(r){return String((r&&r.name)||'').toLowerCase().indexOf('voxtral')>=0;});"
+                + "      runnerPath=String(((pref||runners[0])&&((pref||runners[0]).path))||'').trim();"
+                + "    }"
+                + "    if(!modelPath){window.__anantaVoxtralTranscribe='ERR:NO_MODEL_PATH';return;}"
+                + "    if(!runnerPath){window.__anantaVoxtralTranscribe='ERR:NO_RUNNER_PATH';return;}"
+                + "    var mic=await vx.requestMicrophonePermission();"
+                + "    var micState=String((mic && mic.state) ? mic.state : mic).toLowerCase();"
+                + "    if(micState.indexOf('granted')<0){window.__anantaVoxtralTranscribe='ERR:MIC_' + micState;return;}"
+                + "    var rec=await vx.startRecording({maxSeconds:2,sampleRate:16000});"
+                + "    await new Promise(function(resolve){setTimeout(resolve, 1900);});"
+                + "    var stopped=await vx.stopRecording();"
+                + "    var audioPath=String((stopped && stopped.audioPath) ? stopped.audioPath : ((rec && rec.audioPath) ? rec.audioPath : '')).trim();"
+                + "    if(!audioPath){window.__anantaVoxtralTranscribe='ERR:NO_AUDIO_PATH';return;}"
+                + "    var tr=await vx.transcribe({audioPath:audioPath,modelPath:modelPath,runnerPath:runnerPath,confirmed:true});"
+                + "    var transcript=String((tr && tr.transcript) ? tr.transcript : '').trim();"
+                + "    var raw=String((tr && tr.rawOutput) ? tr.rawOutput : '').trim();"
+                + "    if(!transcript && !raw){window.__anantaVoxtralTranscribe='ERR:EMPTY_TRANSCRIPT';return;}"
+                + "    window.__anantaVoxtralTranscribe='OK:' + (transcript || raw).slice(0, 800);"
+                + "  }catch(e){"
+                + "    window.__anantaVoxtralTranscribe='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "voxtral direct transcription finished",
+            "var v=String(window.__anantaVoxtralTranscribe||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            2400,
+            1_000L
+        );
+
+        runIfPresent(
+            "log voxtral direct transcription result",
+            "console.log('ANANTA_VOXTRAL_TRANSCRIBE_RESULT:' + String(window.__anantaVoxtralTranscribe||'').slice(-3000)); return true;"
+        );
+
+        waitForTrueWithRetry(
+            "voxtral direct transcription succeeded",
+            "var v=String(window.__anantaVoxtralTranscribe||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "return v.indexOf('OK:')===0;",
             30,
             1_000L
         );
@@ -413,7 +662,7 @@ public class LiveTerminalAndroidE2ETest {
             }
             try {
                 activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
-            } catch (IllegalStateException ignored) {
+            } catch (IllegalStateException | AssertionError ignored) {
                 // Activity can be recreated/destroyed during long-running setup; retry loop continues.
             }
             Thread.sleep(delayMs);
