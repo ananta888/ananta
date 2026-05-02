@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { PluginListenerHandle } from '@capacitor/core';
 import { firstValueFrom } from 'rxjs';
 
-import { VOXTRAL_MODEL_PRESETS } from '../models/voxtral-catalog';
+import { VOXTRAL_MODEL_PRESETS, VoxtralModelPreset } from '../models/voxtral-catalog';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { ToastService } from '../services/toast.service';
@@ -44,7 +44,7 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
             <span>Modell-Preset</span>
             <select [(ngModel)]="selectedModelPresetId">
               @for (preset of modelPresets; track preset.id) {
-                <option [value]="preset.id">{{ preset.label }} ({{ preset.sizeHint }})</option>
+                <option [value]="preset.id" [disabled]="isPresetBlocked(preset)">{{ preset.label }} ({{ preset.sizeHint }})</option>
               }
             </select>
           </label>
@@ -335,6 +335,10 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
   applyPresetModel(): void {
     const preset = this.modelPresets.find(item => item.id === this.selectedModelPresetId);
     if (!preset) return;
+    if (this.isPresetBlocked(preset)) {
+      this.toast.error('Dieses Preset ist standardmaessig gesperrt. Bitte ein manuell freigegebenes Modell verwenden.');
+      return;
+    }
     this.modelUrl = preset.url;
     this.modelPath = this.modelPath || '';
     this.toast.info(`Preset gewaehlt: ${preset.label}`);
@@ -521,6 +525,9 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
       this.modelDownloadProgress = '0%';
       try {
         const preset = this.modelPresets.find(item => item.id === this.selectedModelPresetId);
+        if (preset && this.isPresetBlocked(preset)) {
+          throw new Error('Das gewaehlte Modell-Preset ist fail-closed gesperrt. Nutze ein manuell freigegebenes Modell.');
+        }
         const fileName = preset?.fileName;
         const minBytes = preset?.minBytes;
         const result = await this.voxtral.downloadModel(
@@ -617,7 +624,13 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
   }
 
   private currentModelPreset() {
-    return this.modelPresets.find(item => item.id === this.selectedModelPresetId);
+    const preset = this.modelPresets.find(item => item.id === this.selectedModelPresetId);
+    if (!preset || !preset.fileName) return undefined;
+    return preset;
+  }
+
+  isPresetBlocked(preset: VoxtralModelPreset): boolean {
+    return !!preset?.blockedByDefault;
   }
 
   private matchesPresetModel(item: { name: string }, preset: { fileName: string }): boolean {
