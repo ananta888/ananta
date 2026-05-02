@@ -37,7 +37,7 @@ interface VoxtralOfflinePlugin {
   getFileSha256(options: { path: string }): Promise<{ path: string; bytes: number; sha256: string }>;
   deleteAsset(options: { path: string; confirmed?: boolean }): Promise<{ path: string; deleted: boolean }>;
   transcribe(options: { audioPath: string; modelPath: string; runnerPath: string; confirmed?: boolean }): Promise<{ transcript: string; rawOutput: string; exitCode: number }>;
-  startLiveTranscription(options: { modelPath: string; runnerPath: string; chunkSeconds?: number; sampleRate?: number; confirmed?: boolean }): Promise<{ started: boolean; chunkSeconds: number; sampleRate: number }>;
+  startLiveTranscription(options: { modelPath: string; runnerPath: string; chunkSeconds?: number; sampleRate?: number; lowMemoryMode?: boolean; confirmed?: boolean }): Promise<{ started: boolean; chunkSeconds: number; sampleRate: number; lowMemoryMode?: boolean }>;
   stopLiveTranscription(): Promise<{ transcript: string }>;
   clearLastAudio(): Promise<void>;
   addListener(eventName: 'voxtralLivePartial', listener: (data: { partial: string; transcript: string; chunkPath: string }) => void): Promise<PluginListenerHandle>;
@@ -140,11 +140,11 @@ export class VoxtralOfflineService {
     return VoxtralOffline.transcribe({ audioPath, modelPath, runnerPath, confirmed: true });
   }
 
-  async startLiveTranscription(modelPath: string, runnerPath: string, chunkSeconds = 3, sampleRate = 16000): Promise<{ started: boolean; chunkSeconds: number; sampleRate: number }> {
+  async startLiveTranscription(modelPath: string, runnerPath: string, chunkSeconds = 3, sampleRate = 16000, lowMemoryMode = false): Promise<{ started: boolean; chunkSeconds: number; sampleRate: number; lowMemoryMode?: boolean }> {
     if (!this.isNative) {
       throw new Error('Nur auf nativer Android-App verfuegbar.');
     }
-    return VoxtralOffline.startLiveTranscription({ modelPath, runnerPath, chunkSeconds, sampleRate, confirmed: true });
+    return VoxtralOffline.startLiveTranscription({ modelPath, runnerPath, chunkSeconds, sampleRate, lowMemoryMode, confirmed: true });
   }
 
   async stopLiveTranscription(): Promise<{ transcript: string }> {
