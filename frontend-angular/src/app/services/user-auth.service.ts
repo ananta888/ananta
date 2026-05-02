@@ -23,6 +23,7 @@ export class UserAuthService {
 
   get token() { return this._token.value; }
   get refreshTokenValue() { return this._refreshToken.value; }
+  get userPayload() { return this._user.value; }
 
   setTokens(token: string | null, refreshToken?: string | null) {
     if (token) {

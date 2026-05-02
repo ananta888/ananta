@@ -25,7 +25,7 @@ import { PythonRuntimeService } from './services/python-runtime.service';
     <header class="app-header">
       <div class="row app-header-top">
         <div class="row app-header-title">
-          @if (isAndroidNative && (auth.user$ | async)) {
+          @if (isAndroidNative && headerUser) {
             <button
               class="secondary android-drawer-toggle"
               (click)="shell.toggleMobileNav()"
@@ -37,7 +37,7 @@ import { PythonRuntimeService } from './services/python-runtime.service';
           }
           <h1>Ananta - Agent Control</h1>
         </div>
-        @if (auth.user$ | async; as user) {
+        @if (headerUser; as user) {
           <div class="row app-header-user">
             <span class="muted" style="font-size: 14px;">{{ user.sub }} ({{ user.role }})</span>
             @if (!isAndroidNative) {
@@ -55,7 +55,7 @@ import { PythonRuntimeService } from './services/python-runtime.service';
           </div>
         }
       </div>
-      @if (auth.user$ | async; as user) {
+      @if (headerUser; as user) {
         @if (!isAndroidNative) {
           <nav
             id="primary-navigation"
@@ -81,7 +81,7 @@ import { PythonRuntimeService } from './services/python-runtime.service';
         class="android-fullscreen-menu"
         [class.open]="shell.mobileNavOpen()"
         aria-label="Hauptnavigation">
-        @for (group of navGroups((auth.user$ | async)?.role); track group.label) {
+        @for (group of navGroups(headerUser?.role); track group.label) {
           <span class="nav-group-label">{{ group.label }}</span>
           @for (item of group.items; track item.path) {
             <a [routerLink]="item.path" (click)="closeMobileNav()">{{ item.label }}</a>
@@ -106,7 +106,7 @@ import { PythonRuntimeService } from './services/python-runtime.service';
         {{ shell.mobileNavOpen() ? '×' : '☰' }}
       </button>
     }
-    @if (auth.user$ | async) {
+    @if (headerUser) {
       <app-breadcrumb />
     }
     <div class="route-context muted">
@@ -117,7 +117,7 @@ import { PythonRuntimeService } from './services/python-runtime.service';
     <main id="main-content" tabindex="-1">
       <router-outlet />
     </main>
-    @if (auth.user$ | async) {
+    @if (headerUser) {
       <app-ai-assistant data-testid="assistant-feature-root" />
     }
   `,
@@ -432,5 +432,18 @@ export class AppComponent implements OnInit, OnDestroy {
   private resetSwipeTracking(): void {
     this.trackingOpenSwipe = false;
     this.trackingCloseSwipe = false;
+  }
+
+  get headerUser(): { sub: string; role: string } | null {
+    const user = this.auth.userPayload;
+    if (user && typeof user === 'object') {
+      const sub = String((user as any).sub || '').trim() || 'angemeldet';
+      const role = String((user as any).role || '').trim() || 'user';
+      return { sub, role };
+    }
+    if (this.auth.isLoggedIn()) {
+      return { sub: 'angemeldet', role: 'user' };
+    }
+    return null;
   }
 }
