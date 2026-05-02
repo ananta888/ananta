@@ -1122,27 +1122,33 @@ public class VoxtralOfflinePlugin extends Plugin {
             if (!shouldFallbackToProot(msg)) {
                 throw directError;
             }
-            return runRunnerSyncViaProot(runnerFile, modelFile, audioFile);
+            try {
+                return runRunnerSyncViaProot(runnerFile, modelFile, audioFile);
+            } catch (IOException prootError) {
+                throw new IOException(
+                    "Runner direct failed: " + msg + "\n"
+                        + "Runner proot fallback failed: " + String.valueOf(prootError.getMessage() == null ? "" : prootError.getMessage())
+                );
+            }
         }
     }
 
     private String runRunnerSyncDirect(File runnerFile, File modelFile, File audioFile) throws IOException, InterruptedException {
-        List<String> command = buildRunnerCommand(runnerFile, modelFile, audioFile);
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.redirectErrorStream(true);
-        Process process = pb.start();
-        String output = readAllLimited(process.getInputStream(), MAX_PROCESS_OUTPUT_CHARS);
-        int exitCode = process.waitFor();
-        if (exitCode != 0) {
-            if (containsMissingAudioTensorError(output)) {
-                throw new IOException("Model file is not compatible with Voxtral speech backend: required audio tensors are missing. Use a realtime Voxtral GGUF.");
+        List<String> directCommand = buildRunnerCommand(runnerFile, modelFile, audioFile);
+        try {
+            return executeRunnerCommand(directCommand);
+        } catch (IOException directError) {
+            String message = String.valueOf(directError.getMessage() == null ? "" : directError.getMessage());
+            if (!shouldFallbackToProot(message)) {
+                throw directError;
             }
-            if (containsUnsupportedModelArchitecture(output)) {
-                throw new IOException("Runner is incompatible with model architecture 'voxtral4b'. Use a Voxtral-compatible runner (not plain llama.cpp).");
+            String linkerPath = resolveSystemLinkerPath();
+            if (linkerPath == null || linkerPath.isBlank()) {
+                throw directError;
             }
-            throw new IOException("Runner failed with exit code " + exitCode + "\n" + output);
+            List<String> linkerCommand = buildLinkerWrappedCommand(linkerPath, directCommand);
+            return executeRunnerCommand(linkerCommand);
         }
-        return extractTranscript(output);
     }
 
     private String runRunnerSyncViaProot(File runnerFile, File modelFile, File audioFile) throws IOException, InterruptedException {
@@ -1167,6 +1173,39 @@ public class VoxtralOfflinePlugin extends Plugin {
             }
             throw new IOException("Runner (proot fallback) failed.\n" + message);
         }
+    }
+
+    private String executeRunnerCommand(List<String> command) throws IOException, InterruptedException {
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+        String output = readAllLimited(process.getInputStream(), MAX_PROCESS_OUTPUT_CHARS);
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            if (containsMissingAudioTensorError(output)) {
+                throw new IOException("Model file is not compatible with Voxtral speech backend: required audio tensors are missing. Use a realtime Voxtral GGUF.");
+            }
+            if (containsUnsupportedModelArchitecture(output)) {
+                throw new IOException("Runner is incompatible with model architecture 'voxtral4b'. Use a Voxtral-compatible runner (not plain llama.cpp).");
+            }
+            throw new IOException("Runner failed with exit code " + exitCode + "\n" + output);
+        }
+        return extractTranscript(output);
+    }
+
+    private List<String> buildLinkerWrappedCommand(String linkerPath, List<String> runnerCommand) {
+        List<String> command = new ArrayList<>();
+        command.add(linkerPath);
+        command.addAll(runnerCommand);
+        return command;
+    }
+
+    private String resolveSystemLinkerPath() {
+        File linker64 = new File("/system/bin/linker64");
+        if (linker64.isFile() && linker64.canExecute()) return linker64.getAbsolutePath();
+        File linker = new File("/system/bin/linker");
+        if (linker.isFile() && linker.canExecute()) return linker.getAbsolutePath();
+        return null;
     }
 
     private RunnerProbe probeRunnerModelCompatibility(File runnerFile, File modelFile) {
@@ -2024,6 +2063,12 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (!sourceRunner.exists()) {
             throw new IOException("Runner file not found: " + sourceRunner.getAbsolutePath());
         }
+        sourceRunner.setReadable(true, false);
+        sourceRunner.setWritable(true, true);
+        sourceRunner.setExecutable(true, false);
+        if (sourceRunner.canExecute()) {
+            return sourceRunner;
+        }
         List<File> candidateDirs = buildExecDirCandidates(sourceRunner);
         IOException lastError = null;
 
@@ -2046,10 +2091,7 @@ public class VoxtralOfflinePlugin extends Plugin {
                 if (!stagedRunner.canExecute()) {
                     throw new IOException("Runner is not executable after staging: " + stagedRunner.getAbsolutePath());
                 }
-                if (canSpawnRunner(stagedRunner) || canSpawnRunnerViaProot(stagedRunner)) {
-                    return stagedRunner;
-                }
-                lastError = new IOException("Runner cannot be executed from " + stagedRunner.getAbsolutePath());
+                return stagedRunner;
             } catch (IOException error) {
                 lastError = error;
             }
@@ -2068,9 +2110,6 @@ public class VoxtralOfflinePlugin extends Plugin {
         dirs.add(new File(getContext().getFilesDir(), "voxtral/exec"));
         dirs.add(new File(getContext().getNoBackupFilesDir(), "voxtral/exec"));
         dirs.add(new File(getContext().getCacheDir(), "voxtral/exec"));
-        if (getContext().getCodeCacheDir() != null) {
-            dirs.add(new File(getContext().getCodeCacheDir(), "voxtral/exec"));
-        }
         return dirs;
     }
 
