@@ -8,6 +8,7 @@ from agent.cli import init_wizard
 from agent.cli.doctor import main as doctor_main
 from agent.cli.goal_aliases import GOAL_ALIAS_COMMANDS, run_cli_goals, run_goal_alias
 from agent.cli.update import main as update_main
+from agent.cli.voice_file import main as voice_file_main
 
 CORE_COMMANDS = (
     "init",
@@ -18,6 +19,7 @@ CORE_COMMANDS = (
     "tui",
     "doctor",
     "web",
+    "voice-file",
 )
 COMPAT_COMMANDS = ("goal", "goals")
 
@@ -41,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         help=(
             "Command: init, first-run, status, ask, plan, analyze, review, diagnose, "
-            "patch, repair-admin, new-project, evolve-project, update, tui, doctor, web"
+            "patch, repair-admin, new-project, evolve-project, update, tui, doctor, web, voice-file"
         ),
     )
     parser.add_argument("args", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
@@ -111,6 +113,10 @@ def _run_web(argv: Sequence[str]) -> int:
     return 0
 
 
+def _run_voice_file(argv: Sequence[str]) -> int:
+    return _invoke(voice_file_main, argv)
+
+
 def _run_compat_goals(argv: Sequence[str]) -> int:
     if not argv:
         print("Error: `ananta goal|goals` expects arguments.")
@@ -147,6 +153,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_tui(rest)
     if command == "web":
         return _run_web(rest)
+    if command == "voice-file":
+        return _run_voice_file(rest)
     if command in COMPAT_COMMANDS:
         return _run_compat_goals(rest)
     if command == "help":

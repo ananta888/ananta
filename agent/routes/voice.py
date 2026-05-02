@@ -8,6 +8,7 @@ from flask import Blueprint, current_app, request
 from agent.auth import check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
+from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.voice_provider import VoiceProviderError, get_voice_provider_service
 
 voice_bp = Blueprint("voice", __name__)
@@ -51,9 +52,41 @@ def _provider_error(exc: VoiceProviderError):
     )
 
 
+def _enforce_voice_policy(operation: str):
+    from flask import g
+
+    is_agent_auth = bool(getattr(g, "auth_payload", None))
+    is_user_auth = bool(getattr(g, "user", None))
+    decision = get_exposure_policy_service().evaluate_voice_access(
+        cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        is_agent_auth=is_agent_auth,
+        is_user_auth=is_user_auth,
+        is_admin=bool(getattr(g, "is_admin", False)),
+        operation=operation,
+    )
+    if decision.allowed:
+        return None, decision.policy
+    if decision.policy.get("emit_audit_events", True):
+        log_audit(
+            "voice_access_blocked",
+            {"reason": decision.reason, "auth_source": decision.auth_source, "operation": operation},
+        )
+    return (
+        api_response(
+            status="error",
+            code=403,
+            data={"error": {"code": "policy_denied", "message": decision.reason, "retriable": False}},
+        ),
+        decision.policy,
+    )
+
+
 @voice_bp.route("/v1/voice/capabilities", methods=["GET"])
 @check_auth
 def capabilities():
+    blocked, _policy = _enforce_voice_policy("capabilities")
+    if blocked:
+        return blocked
     provider = get_voice_provider_service()
     try:
         health = provider.health()
@@ -79,6 +112,9 @@ def capabilities():
 @voice_bp.route("/v1/voice/transcribe", methods=["POST"])
 @check_auth
 def transcribe():
+    blocked, _policy = _enforce_voice_policy("transcribe")
+    if blocked:
+        return blocked
     (filename, payload), error = _read_audio_field("file")
     if error:
         return error
@@ -107,6 +143,9 @@ def transcribe():
 @voice_bp.route("/v1/voice/command", methods=["POST"])
 @check_auth
 def command():
+    blocked, _policy = _enforce_voice_policy("command")
+    if blocked:
+        return blocked
     (filename, payload), error = _read_audio_field("file")
     if error:
         return error
@@ -154,6 +193,23 @@ def command():
 @voice_bp.route("/v1/voice/goal", methods=["POST"])
 @check_auth
 def goal():
+    blocked, policy = _enforce_voice_policy("goal")
+    if blocked:
+        return blocked
+    if bool(policy.get("require_explicit_approval_for_goal", True)):
+        approved = str(request.form.get("approved") or "").strip().lower() in {"1", "true", "yes", "on"}
+        if not approved:
+            return api_response(
+                status="error",
+                code=403,
+                data={
+                    "error": {
+                        "code": "policy_denied",
+                        "message": "explicit_voice_approval_required",
+                        "retriable": False,
+                    }
+                },
+            )
     (filename, payload), error = _read_audio_field("file")
     if error:
         return error

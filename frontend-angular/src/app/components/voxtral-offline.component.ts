@@ -22,8 +22,22 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
 
       @if (!voxtral.isNative) {
         <div class="card card-light warning">
-          Diese Seite funktioniert nur in der nativen Android-App.
+          Native Voxtral-Funktionen sind nur in der Android-App verfuegbar.
+          Desktop kann trotzdem Hub-Voice nutzen (Browser-Mikrofon + `/v1/voice/transcribe`).
         </div>
+        <div class="row gap-sm mt-md wrap">
+          <button class="primary" type="button" (click)="startDesktopRecording()" [disabled]="busy || desktopRecording">Desktop-Aufnahme starten</button>
+          <button class="secondary" type="button" (click)="stopDesktopRecording()" [disabled]="busy || !desktopRecording">Desktop-Aufnahme stoppen</button>
+          <button class="primary" type="button" (click)="transcribe()" [disabled]="busy || !desktopAudioBlob">Desktop-Transkript (Hub)</button>
+          <button class="secondary" type="button" (click)="clearAudio()" [disabled]="busy || !desktopAudioBlob">Desktop-Audio loeschen</button>
+        </div>
+        <div class="grid gap-sm mt-sm">
+          <div><strong>Desktop-Aufnahme:</strong> {{ desktopRecording ? 'aktiv' : 'aus' }}</div>
+          <div><strong>Desktop-Audio:</strong> {{ desktopAudioBlob ? 'vorhanden' : '-' }}</div>
+        </div>
+        @if (transcript) {
+          <pre class="card card-light transcript-box">{{ transcript }}</pre>
+        }
       } @else {
         <div class="grid gap-sm mt-md">
           <label class="field">
@@ -263,6 +277,11 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
   private liveFinalHandle?: PluginListenerHandle;
   private liveErrorHandle?: PluginListenerHandle;
   private downloadProgressHandle?: PluginListenerHandle;
+  private desktopRecorder?: MediaRecorder;
+  private desktopChunks: BlobPart[] = [];
+  desktopRecording = false;
+  desktopAudioBlob: Blob | null = null;
+  desktopAudioFileName = 'desktop-recording.webm';
 
   get effectiveTranscript(): string {
     return String(this.transcript || this.liveTranscript || '').trim();
@@ -350,6 +369,44 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     });
   }
 
+  async startDesktopRecording(): Promise<void> {
+    await this.run(async () => {
+      if (typeof window === 'undefined' || !navigator?.mediaDevices?.getUserMedia) {
+        throw new Error('Desktop-Mikrofon wird in diesem Browser nicht unterstuetzt.');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.desktopChunks = [];
+      this.desktopRecorder = new MediaRecorder(stream);
+      this.desktopRecorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data && event.data.size > 0) {
+          this.desktopChunks.push(event.data);
+        }
+      };
+      this.desktopRecorder.onstop = () => {
+        this.desktopAudioBlob = new Blob(this.desktopChunks, { type: 'audio/webm' });
+        this.desktopChunks = [];
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      this.desktopRecorder.start();
+      this.desktopRecording = true;
+      this.transcript = '';
+      this.rawOutput = '';
+      this.toast.success('Desktop-Aufnahme gestartet.');
+    });
+  }
+
+  async stopDesktopRecording(): Promise<void> {
+    await this.run(async () => {
+      if (!this.desktopRecorder || this.desktopRecorder.state === 'inactive') {
+        return;
+      }
+      this.desktopRecorder.stop();
+      this.desktopRecording = false;
+      this.audioPath = 'browser://last-recording';
+      this.toast.info('Desktop-Aufnahme gestoppt.');
+    });
+  }
+
   async stopRecording(): Promise<void> {
     await this.run(async () => {
       const result = await this.voxtral.stopRecording();
@@ -362,6 +419,18 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
 
   async transcribe(): Promise<void> {
     await this.run(async () => {
+      const hubUrl = this.resolveHubUrl();
+      if (this.desktopAudioBlob && hubUrl) {
+        const response = await firstValueFrom(this.hubApi.transcribeVoice(hubUrl, {
+          file: this.desktopAudioBlob,
+          fileName: this.desktopAudioFileName,
+        }));
+        this.transcript = String(response?.text || '').trim();
+        this.rawOutput = JSON.stringify(response || {}, null, 2);
+        this.liveTranscript = '';
+        this.toast.success('Desktop-Transkription ueber Hub abgeschlossen.');
+        return;
+      }
       if (!this.audioPath) throw new Error('Kein Audio vorhanden.');
       if (!this.modelPath.trim()) throw new Error('Bitte zuerst den Model-Pfad setzen.');
       if (!this.runnerPath.trim()) throw new Error('Bitte zuerst den Runner-Pfad setzen.');
@@ -582,7 +651,9 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     await this.run(async () => {
       await this.voxtral.clearLastAudio();
       this.audioPath = '';
+      this.desktopAudioBlob = null;
       this.recording = false;
+      this.desktopRecording = false;
       this.rawOutput = '';
       this.liveTranscript = '';
       this.setupStatus = '';

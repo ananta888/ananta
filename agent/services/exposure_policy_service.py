@@ -22,6 +22,14 @@ class MCPAccessDecision:
     policy: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class VoiceAccessDecision:
+    allowed: bool
+    reason: str
+    auth_source: str
+    policy: dict[str, Any]
+
+
 class ExposurePolicyService:
     """Resolves and enforces explicit exposure policies for external API adapters."""
 
@@ -47,6 +55,14 @@ class ExposurePolicyService:
         "require_admin_for_user_auth": True,
         "emit_audit_events": True,
         "max_hops": 3,
+    }
+    _VOICE_DEFAULTS = {
+        "enabled": True,
+        "allow_agent_auth": False,
+        "allow_user_auth": True,
+        "require_admin_for_user_auth": False,
+        "require_explicit_approval_for_goal": True,
+        "emit_audit_events": True,
     }
 
     def _normalize_openai_compat_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -99,15 +115,35 @@ class ExposurePolicyService:
             "max_hops": max_hops,
         }
 
+    def _normalize_voice_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
+        raw = raw or {}
+        return {
+            "enabled": bool(raw.get("enabled", self._VOICE_DEFAULTS["enabled"])),
+            "allow_agent_auth": bool(raw.get("allow_agent_auth", self._VOICE_DEFAULTS["allow_agent_auth"])),
+            "allow_user_auth": bool(raw.get("allow_user_auth", self._VOICE_DEFAULTS["allow_user_auth"])),
+            "require_admin_for_user_auth": bool(
+                raw.get("require_admin_for_user_auth", self._VOICE_DEFAULTS["require_admin_for_user_auth"])
+            ),
+            "require_explicit_approval_for_goal": bool(
+                raw.get(
+                    "require_explicit_approval_for_goal",
+                    self._VOICE_DEFAULTS["require_explicit_approval_for_goal"],
+                )
+            ),
+            "emit_audit_events": bool(raw.get("emit_audit_events", self._VOICE_DEFAULTS["emit_audit_events"])),
+        }
+
     def normalize_exposure_policy(self, raw: dict[str, Any] | None) -> dict[str, Any]:
         raw = raw if isinstance(raw, dict) else {}
         openai_compat = raw.get("openai_compat") if isinstance(raw.get("openai_compat"), dict) else {}
         mcp = raw.get("mcp") if isinstance(raw.get("mcp"), dict) else {}
         remote_hubs = raw.get("remote_hubs") if isinstance(raw.get("remote_hubs"), dict) else {}
+        voice = raw.get("voice") if isinstance(raw.get("voice"), dict) else {}
         return {
             "openai_compat": self._normalize_openai_compat_policy(openai_compat),
             "mcp": self._normalize_mcp_policy(mcp),
             "remote_hubs": self._normalize_remote_hubs_policy(remote_hubs),
+            "voice": self._normalize_voice_policy(voice),
         }
 
     def resolve_openai_compat_policy(self, cfg: dict[str, Any] | None) -> dict[str, Any]:
@@ -121,6 +157,10 @@ class ExposurePolicyService:
     def resolve_remote_hubs_policy(self, cfg: dict[str, Any] | None) -> dict[str, Any]:
         normalized = self.normalize_exposure_policy(get_platform_governance_service().resolve_exposure_policy(cfg))
         return normalized["remote_hubs"]
+
+    def resolve_voice_policy(self, cfg: dict[str, Any] | None) -> dict[str, Any]:
+        normalized = self.normalize_exposure_policy(get_platform_governance_service().resolve_exposure_policy(cfg))
+        return normalized["voice"]
 
     @staticmethod
     def resolve_auth_source(*, is_agent_auth: bool, is_user_auth: bool) -> str:
@@ -188,6 +228,30 @@ class ExposurePolicyService:
         if auth_source == "unknown":
             return MCPAccessDecision(False, "mcp_auth_source_unknown", auth_source, policy)
         return MCPAccessDecision(True, "ok", auth_source, policy)
+
+    def evaluate_voice_access(
+        self,
+        *,
+        cfg: dict[str, Any] | None,
+        is_agent_auth: bool,
+        is_user_auth: bool,
+        is_admin: bool,
+        operation: str = "core",
+    ) -> VoiceAccessDecision:
+        policy = self.resolve_voice_policy(cfg)
+        auth_source = self.resolve_auth_source(is_agent_auth=is_agent_auth, is_user_auth=is_user_auth)
+        if not policy["enabled"]:
+            return VoiceAccessDecision(False, "voice_exposure_disabled", auth_source, policy)
+        if is_agent_auth and not policy["allow_agent_auth"]:
+            return VoiceAccessDecision(False, "voice_agent_auth_disabled", auth_source, policy)
+        if is_user_auth:
+            if not policy["allow_user_auth"]:
+                return VoiceAccessDecision(False, "voice_user_auth_disabled", auth_source, policy)
+            if policy["require_admin_for_user_auth"] and not is_admin:
+                return VoiceAccessDecision(False, "voice_admin_required", auth_source, policy)
+        if auth_source == "unknown":
+            return VoiceAccessDecision(False, "voice_auth_source_unknown", auth_source, policy)
+        return VoiceAccessDecision(True, "ok", auth_source, policy)
 
 
 exposure_policy_service = ExposurePolicyService()

@@ -95,7 +95,7 @@ Alle Voice-Endpunkte sind authentifiziert (Bearer Token).
   ```
 
 ### `POST /v1/voice/goal`
-- **Body:** `multipart/form-data` mit `file` plus optional `create_tasks`, `governance_mode`
+- **Body:** `multipart/form-data` mit `file` plus optional `create_tasks`, `governance_mode`, `approved`
 - **Response 200:**
   ```json
   {
@@ -119,6 +119,10 @@ Alle Voice-Endpunkte sind authentifiziert (Bearer Token).
 ```
 
 Typische Codes: `validation.missing_file`, `validation.file_too_large`, `voice.timeout`, `voice.runtime_unavailable`, `policy_denied`.
+
+Voice-Exposition folgt `exposure_policy.voice`. In Standardprofilen gilt:
+- Voice-Endpunkte sind konfigurierbar aktiv/deaktivierbar.
+- Goal-Erzeugung aus Audio kann explizite Freigabe verlangen (`approved=true`).
 
 ---
 

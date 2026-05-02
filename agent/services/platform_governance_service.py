@@ -43,6 +43,14 @@ _BASE_EXPOSURE_POLICY: dict[str, Any] = {
         "emit_audit_events": True,
         "max_hops": 3,
     },
+    "voice": {
+        "enabled": True,
+        "allow_agent_auth": False,
+        "allow_user_auth": True,
+        "require_admin_for_user_auth": False,
+        "require_explicit_approval_for_goal": True,
+        "emit_audit_events": True,
+    },
 }
 
 _MODE_POLICIES: dict[str, dict[str, Any]] = {
@@ -77,6 +85,11 @@ _MODE_POLICIES: dict[str, dict[str, Any]] = {
                 **_BASE_EXPOSURE_POLICY["remote_hubs"],
                 "enabled": True,
             },
+            "voice": {
+                **_BASE_EXPOSURE_POLICY["voice"],
+                "enabled": True,
+                "require_admin_for_user_auth": False,
+            },
         },
         "terminal_policy": {
             "enabled": False,
@@ -107,6 +120,11 @@ _MODE_POLICIES: dict[str, dict[str, Any]] = {
             },
             "remote_hubs": {
                 **_BASE_EXPOSURE_POLICY["remote_hubs"],
+                "enabled": True,
+                "require_admin_for_user_auth": True,
+            },
+            "voice": {
+                **_BASE_EXPOSURE_POLICY["voice"],
                 "enabled": True,
                 "require_admin_for_user_auth": True,
             },
@@ -144,6 +162,11 @@ _MODE_POLICIES: dict[str, dict[str, Any]] = {
                 **_BASE_EXPOSURE_POLICY["remote_hubs"],
                 "enabled": False,
                 "max_hops": 1,
+            },
+            "voice": {
+                **_BASE_EXPOSURE_POLICY["voice"],
+                "enabled": False,
+                "allow_user_auth": False,
             },
         },
         "terminal_policy": {

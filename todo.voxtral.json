@@ -17,18 +17,21 @@
     "low"
   ],
   "current_state_summary": {
-    "classification": "mvp_foundation_in_progress",
+    "classification": "integration_and_policy_hardening_in_progress",
     "done_scope": [
       "Architecture option C is defined and aligned with hub-worker boundaries.",
       "Core API and environment contract outlines exist.",
       "Phased implementation breakdown is comprehensive.",
       "Hub voice routes and provider catalog capability wiring are implemented.",
-      "Voxtral adapter, normalization, fallback chain, and device detection are implemented."
+      "Voxtral adapter, normalization, fallback chain, and device detection are implemented.",
+      "Compose overlay and voice runtime packaging are integrated.",
+      "Android/Desktop/CLI voice access paths now use Hub-facing APIs.",
+      "Voice exposure policy and explicit goal-approval boundary are enforced."
     ],
     "missing_scope": [
-      "Compose overlay and runtime packaging integration are incomplete.",
-      "Client-side Android/Desktop/CLI migrations are not implemented.",
-      "Voice policy hardening + CI/release verification tasks remain."
+      "Privacy hardening for stored audio policy is still pending.",
+      "CI/release verification coverage for voice flows is still pending.",
+      "User-facing release/quickstart docs for final rollout are still pending."
     ]
   },
   "architecture_guardrails": [
@@ -590,7 +593,7 @@
     {
       "phase": "P4",
       "name": "Docker and install profiles",
-      "status": "in_progress",
+      "status": "done",
       "tasks": [
         {
           "id": "VOX-P4-001",
@@ -645,7 +648,7 @@
     {
       "phase": "P5",
       "name": "Android and desktop client cleanup",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "VOX-P5-001",
@@ -688,7 +691,7 @@
     {
       "phase": "P6",
       "name": "Security, governance and policy",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "VOX-P6-001",
@@ -848,16 +851,16 @@
     {"id": "VOX-P3-004", "phase": "P3", "title": "Add hardware/device detection", "status": "done", "priority": "medium", "depends_on": []},
 
     {"id": "VOX-P4-001", "phase": "P4", "title": "Add Dockerfile for voice-runtime", "status": "done", "priority": "high", "depends_on": []},
-    {"id": "VOX-P4-002", "phase": "P4", "title": "Add docker-compose voice overlay", "status": "todo", "priority": "high", "depends_on": []},
-    {"id": "VOX-P4-003", "phase": "P4", "title": "Extend setup templates", "status": "todo", "priority": "medium", "depends_on": ["VOX-P4-001", "VOX-P4-002", "VOX-P7-003"]},
-    {"id": "VOX-P4-004", "phase": "P4", "title": "Add laptop profile docs", "status": "todo", "priority": "medium", "depends_on": []},
+    {"id": "VOX-P4-002", "phase": "P4", "title": "Add docker-compose voice overlay", "status": "done", "priority": "high", "depends_on": []},
+    {"id": "VOX-P4-003", "phase": "P4", "title": "Extend setup templates", "status": "done", "priority": "medium", "depends_on": ["VOX-P4-001", "VOX-P4-002", "VOX-P7-003"]},
+    {"id": "VOX-P4-004", "phase": "P4", "title": "Add laptop profile docs", "status": "done", "priority": "medium", "depends_on": []},
 
-    {"id": "VOX-P5-001", "phase": "P5", "title": "Refactor Android Voxtral integration to use Ananta voice API", "status": "todo", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P2-003"]},
-    {"id": "VOX-P5-002", "phase": "P5", "title": "Add desktop microphone flow", "status": "todo", "priority": "medium", "depends_on": []},
-    {"id": "VOX-P5-003", "phase": "P5", "title": "Add CLI voice file command", "status": "todo", "priority": "medium", "depends_on": []},
+    {"id": "VOX-P5-001", "phase": "P5", "title": "Refactor Android Voxtral integration to use Ananta voice API", "status": "done", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P2-003"]},
+    {"id": "VOX-P5-002", "phase": "P5", "title": "Add desktop microphone flow", "status": "done", "priority": "medium", "depends_on": []},
+    {"id": "VOX-P5-003", "phase": "P5", "title": "Add CLI voice file command", "status": "done", "priority": "medium", "depends_on": []},
 
-    {"id": "VOX-P6-001", "phase": "P6", "title": "Add voice exposure policy", "status": "todo", "priority": "high", "depends_on": []},
-    {"id": "VOX-P6-002", "phase": "P6", "title": "Add approval boundary for voice-created actions", "status": "todo", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P0-003"]},
+    {"id": "VOX-P6-001", "phase": "P6", "title": "Add voice exposure policy", "status": "done", "priority": "high", "depends_on": []},
+    {"id": "VOX-P6-002", "phase": "P6", "title": "Add approval boundary for voice-created actions", "status": "done", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P0-003"]},
     {"id": "VOX-P6-003", "phase": "P6", "title": "Add privacy defaults", "status": "todo", "priority": "high", "depends_on": []},
 
     {"id": "VOX-P7-001", "phase": "P7", "title": "Add unit tests for voice-runtime mock backend", "status": "todo", "priority": "high", "depends_on": []},
@@ -972,14 +975,12 @@
     ],
     "task_status_summary": {
       "total_tasks": 32,
-      "todo": 16,
+      "todo": 8,
       "in_progress": 0,
       "blocked": 0,
-      "done": 16
+      "done": 24
     },
     "release_blockers": [
-      "VOX-P6-001",
-      "VOX-P6-002",
       "VOX-P7-002"
     ]
   },

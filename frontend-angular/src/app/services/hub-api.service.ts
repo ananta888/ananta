@@ -8,6 +8,7 @@ import { HubTeamsApiClient } from './hub-teams-api.client';
 import { HubAutomationApiClient } from './hub-automation-api.client';
 import { HubArtifactsApiClient } from './hub-artifacts-api.client';
 import { HubKnowledgeApiClient } from './hub-knowledge-api.client';
+import { HubVoiceApiClient } from './hub-voice-api.client';
 
 @Injectable({ providedIn: 'root' })
 export class HubApiService {
@@ -19,6 +20,7 @@ export class HubApiService {
   private automation = inject(HubAutomationApiClient);
   private artifacts = inject(HubArtifactsApiClient);
   private knowledge = inject(HubKnowledgeApiClient);
+  private voice = inject(HubVoiceApiClient);
 
   listTemplates(baseUrl: string, token?: string): Observable<any[]> { return this.templates.listTemplates(baseUrl, token); }
   createTemplate(baseUrl: string, tpl: any, token?: string): Observable<any> { return this.templates.createTemplate(baseUrl, tpl, token); }
@@ -217,4 +219,18 @@ export class HubApiService {
   getTriggersStatus(baseUrl: string, token?: string): Observable<any> { return this.automation.getTriggersStatus(baseUrl, token); }
   configureTriggers(baseUrl: string, config: any, token?: string): Observable<any> { return this.automation.configureTriggers(baseUrl, config, token); }
   testTrigger(baseUrl: string, body: { source: string; payload: any }, token?: string): Observable<any> { return this.automation.testTrigger(baseUrl, body, token); }
+  getVoiceCapabilities(baseUrl: string, token?: string): Observable<any> { return this.voice.getCapabilities(baseUrl, token); }
+  transcribeVoice(baseUrl: string, body: { file: Blob | File; fileName?: string; language?: string }, token?: string): Observable<any> {
+    return this.voice.transcribe(baseUrl, body, token);
+  }
+  voiceCommand(baseUrl: string, body: { file: Blob | File; fileName?: string; commandContext?: any }, token?: string): Observable<any> {
+    return this.voice.command(baseUrl, body, token);
+  }
+  createVoiceGoal(
+    baseUrl: string,
+    body: { file: Blob | File; fileName?: string; createTasks?: boolean; governanceMode?: string; approved?: boolean },
+    token?: string,
+  ): Observable<any> {
+    return this.voice.goal(baseUrl, body, token);
+  }
 }
