@@ -65,6 +65,24 @@ Der Hub bleibt dabei die Steuerungsebene: Externe Systeme liefern Ziele oder Ere
 
 Alle Voice-Endpunkte sind authentifiziert (Bearer Token).
 
+### `GET /v1/voice/capabilities`
+- **Response 200:**
+  ```json
+  {
+    "available": true,
+    "provider": "voice-runtime",
+    "models": [],
+    "capabilities": ["audio_input", "transcription", "voice_command", "multimodal_audio_prompt"],
+    "limits": {"max_audio_mb": 25},
+    "privacy": {
+      "store_audio_requested": false,
+      "store_audio_effective": false,
+      "raw_audio_persisted": false
+    },
+    "health": {"ok": true, "status": "ok"}
+  }
+  ```
+
 ### `POST /v1/voice/transcribe`
 - **Body:** `multipart/form-data` mit `file` plus optional `language`, `model`, `mode`
 - **Limits:** `VOICE_MAX_AUDIO_MB`, `VOICE_TIMEOUT_SEC`
@@ -123,6 +141,7 @@ Typische Codes: `validation.missing_file`, `validation.file_too_large`, `voice.t
 Voice-Exposition folgt `exposure_policy.voice`. In Standardprofilen gilt:
 - Voice-Endpunkte sind konfigurierbar aktiv/deaktivierbar.
 - Goal-Erzeugung aus Audio kann explizite Freigabe verlangen (`approved=true`).
+- Roh-Audio-Persistenz bleibt fail-closed; `GET /v1/voice/capabilities` liefert dafuer ein `privacy`-Objekt.
 
 ---
 

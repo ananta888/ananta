@@ -26,6 +26,15 @@ def _store_audio_enabled() -> bool:
     return bool(voice_cfg.get("store_audio"))
 
 
+def _voice_privacy_state() -> dict:
+    # Raw audio persistence is intentionally fail-closed until explicit storage wiring exists.
+    return {
+        "store_audio_requested": bool(_store_audio_enabled()),
+        "store_audio_effective": False,
+        "raw_audio_persisted": False,
+    }
+
+
 def _read_audio_field(field_name: str = "file") -> tuple[tuple[str, bytes], tuple | None]:
     file = request.files.get(field_name)
     if file is None:
@@ -104,6 +113,7 @@ def capabilities():
             "models": models,
             "capabilities": ["audio_input", "transcription", "voice_command", "multimodal_audio_prompt"],
             "limits": {"max_audio_mb": _max_audio_mb()},
+            "privacy": _voice_privacy_state(),
             "health": health,
         }
     )
@@ -134,7 +144,7 @@ def transcribe():
             "model": result.get("model"),
             "duration_ms": result.get("duration_ms"),
             "audio_size_bytes": len(payload),
-            "raw_audio_stored": False,
+            "raw_audio_stored": _voice_privacy_state()["raw_audio_persisted"],
         },
     )
     return api_response(data={**result, "audit_id": audit_id})
@@ -184,7 +194,7 @@ def command():
             "model": runtime.get("model"),
             "audio_size_bytes": len(payload),
             "intent": intent,
-            "raw_audio_stored": False,
+            "raw_audio_stored": _voice_privacy_state()["raw_audio_persisted"],
         },
     )
     return api_response(data=response)
@@ -276,7 +286,7 @@ def goal():
             "provider": runtime.get("provider"),
             "model": runtime.get("model"),
             "audio_size_bytes": len(payload),
-            "raw_audio_stored": bool(_store_audio_enabled() and False),
+            "raw_audio_stored": _voice_privacy_state()["raw_audio_persisted"],
         },
     )
     return api_response(

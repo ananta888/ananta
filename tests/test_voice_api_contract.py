@@ -1,6 +1,8 @@
 from unittest.mock import patch
 from io import BytesIO
 
+from agent.services.voice_provider import VoiceProviderError
+
 
 def test_voice_transcribe_requires_file(client, admin_token):
     res = client.post("/v1/voice/transcribe", headers={"Authorization": f"Bearer {admin_token}"})
@@ -62,3 +64,74 @@ def test_voice_capabilities_blocked_when_policy_disabled(client, admin_token):
         res = client.get("/v1/voice/capabilities", headers=headers)
     assert res.status_code == 403
     assert ((res.json.get("data") or {}).get("error") or {}).get("code") == "policy_denied"
+
+
+def test_voice_capabilities_privacy_stays_fail_closed(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+        provider_factory.return_value.health.return_value = {"ok": True, "status": "ok"}
+        provider_factory.return_value.models.return_value = [{"id": "voxtral"}]
+        with patch("agent.routes.voice._store_audio_enabled", return_value=True):
+            res = client.get("/v1/voice/capabilities", headers=headers)
+    assert res.status_code == 200
+    privacy = ((res.json.get("data") or {}).get("privacy") or {})
+    assert privacy.get("store_audio_requested") is True
+    assert privacy.get("store_audio_effective") is False
+    assert privacy.get("raw_audio_persisted") is False
+
+
+def test_voice_transcribe_propagates_provider_error_shape(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+        provider_factory.return_value.transcribe.side_effect = VoiceProviderError(
+            code="voice.runtime_unavailable",
+            message="voice runtime unavailable",
+            status_code=503,
+            retriable=True,
+        )
+        res = client.post(
+            "/v1/voice/transcribe",
+            headers=headers,
+            data={"file": (BytesIO(b"audio"), "sample.webm")},
+            content_type="multipart/form-data",
+        )
+    assert res.status_code == 503
+    error = ((res.json.get("data") or {}).get("error") or {})
+    assert error.get("code") == "voice.runtime_unavailable"
+    assert error.get("retriable") is True
+
+
+def test_voice_command_passes_parsed_context_to_provider(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+        provider_factory.return_value.voice_command.return_value = {
+            "text": "create repo health goal",
+            "transcript": "create repo health goal",
+            "tool_intent": {"type": "voice_command", "confidence": 0.8},
+        }
+        res = client.post(
+            "/v1/voice/command",
+            headers=headers,
+            data={
+                "file": (BytesIO(b"audio"), "sample.webm"),
+                "command_context": '{"scope":"release","priority":"high"}',
+            },
+            content_type="multipart/form-data",
+        )
+        _, kwargs = provider_factory.return_value.voice_command.call_args
+    assert res.status_code == 200
+    assert kwargs.get("context") == {"scope": "release", "priority": "high"}
+
+
+def test_voice_goal_rejects_empty_transcript_even_if_approved(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+        provider_factory.return_value.voice_command.return_value = {"text": "", "transcript": ""}
+        res = client.post(
+            "/v1/voice/goal",
+            headers=headers,
+            data={"file": (BytesIO(b"audio"), "sample.webm"), "approved": "true"},
+            content_type="multipart/form-data",
+        )
+    assert res.status_code == 422
+    assert ((res.json.get("data") or {}).get("error") or {}).get("code") == "voice.empty_transcript"

@@ -18,6 +18,9 @@ Before creating or publishing a release tag:
 8. Confirm no global repository secret is used where a protected release environment secret should be used.
 9. Confirm security-sensitive changes have human review.
 10. Create the tag only after the above evidence is available.
+11. For voice-enabled releases: keep evidence for `docs/voice-quickstart.md` and `docs/voice-runtime-privacy.md` defaults.
+12. For voice-enabled releases: verify `VOICE_STORE_AUDIO=false` by default and explicit approval enforcement for `/v1/voice/goal`.
+13. For voice-enabled releases: keep optional smoke/live evidence (`RUN_VOICE_DOCKER_SMOKE`, `RUN_LIVE_VOXTRAL_TESTS`) when executed.
 
 The GitHub release workflow publishes the official release asset bundle and `SHA256SUMS`. Build outputs not listed in `docs/release-process.md` are not official release artifacts.
 
@@ -114,6 +117,7 @@ Block the release if any of these are true:
 - backend or WSL/Ollama release Dockerfiles install apt packages without a fixed snapshot
 - `todo.json` release-pinning status counters are out of sync
 - backend or frontend image builds fail in a clean environment
+- voice-enabled release misses privacy defaults (`VOICE_STORE_AUDIO=false`) or explicit goal approval boundary
 
 ## Fixed Release Inputs
 

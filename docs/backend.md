@@ -55,6 +55,7 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
   - `POST /v1/voice/goal` (optional explicit approval via `approved=true`)
 - Exposure-Policy:
   - `exposure_policy.voice` steuert Aktivierung, Auth-Quelle und Goal-Freigabepflicht.
+  - `GET /v1/voice/capabilities` enthaelt zusaetzlich `privacy` (fail-closed Status fuer Roh-Audio-Persistenz).
 
 ## OpenAI-kompatible Exposition (Hub)
 
