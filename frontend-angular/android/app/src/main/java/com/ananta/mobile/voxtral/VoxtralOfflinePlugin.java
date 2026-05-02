@@ -54,12 +54,12 @@ public class VoxtralOfflinePlugin extends Plugin {
     private static final long RUNTIME_MODEL_HEADROOM_BYTES = 192L * 1024L * 1024L;
     private static final long RUNTIME_MODEL_MULTIPLIER_NUM = 5L;
     private static final long RUNTIME_MODEL_MULTIPLIER_DEN = 4L;
-    private static final long RUNTIME_SAFETY_RESERVE_BYTES = 384L * 1024L * 1024L;
+    private static final long RUNTIME_SAFETY_RESERVE_BYTES = 768L * 1024L * 1024L;
     private static final long LOW_MEMORY_LIVE_MIN_RUNTIME_FREE_BYTES = 512L * 1024L * 1024L;
     private static final long LOW_MEMORY_LIVE_HEADROOM_BYTES = 96L * 1024L * 1024L;
     private static final long LOW_MEMORY_LIVE_MULTIPLIER_NUM = 11L;
     private static final long LOW_MEMORY_LIVE_MULTIPLIER_DEN = 10L;
-    private static final long LOW_MEMORY_LIVE_SAFETY_RESERVE_BYTES = 256L * 1024L * 1024L;
+    private static final long LOW_MEMORY_LIVE_SAFETY_RESERVE_BYTES = 512L * 1024L * 1024L;
     private static final long LIVE_SESSION_MAX_SECONDS = 120L;
     private static final int MAX_PROCESS_OUTPUT_CHARS = 64 * 1024;
     private static final String MODEL_EXTENSION = ".gguf";
@@ -73,7 +73,6 @@ public class VoxtralOfflinePlugin extends Plugin {
             "voxtral-stream-cli",
             "voxtral-cli",
             "llama-voxtral-cli",
-            "llama-cli",
             "crispasr",
             "crispasr-cli",
             "crispasr-voxtral"
@@ -537,7 +536,16 @@ public class VoxtralOfflinePlugin extends Plugin {
 
         ioExecutor.execute(() -> {
             try {
-                String output = runRunnerSync(executableRunnerFile, modelFile, audioFile);
+                RuntimeMemoryCheck freshMemory = evaluateRuntimeMemoryWithRetry(modelFile, lowMemoryMode);
+                if (!freshMemory.hasEnoughMemory) {
+                    call.reject("Not enough available RAM for transcription. Available: "
+                            + formatBytes(freshMemory.availableBytes)
+                            + ", required: " + formatBytes(freshMemory.estimatedRequiredBytes)
+                            + ". Close other apps or use a smaller model."
+                            + (lowMemoryMode ? "" : " You can also enable low-memory mode."));
+                    return;
+                }
+                String output = runRunnerSync(executableRunnerFile, modelFile, audioFile, lowMemoryMode);
                 JSObject result = new JSObject();
                 result.put("transcript", extractTranscript(output));
                 result.put("rawOutput", output);
@@ -748,7 +756,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             ioExecutor.execute(() -> {
                 try {
                     updateWavHeader(bufferedFile, sessionSampleRate, 1, 16, bufferedPcmBytes);
-                    String transcript = runRunnerSync(sessionRunnerFile, sessionModelFile, bufferedFile);
+                    String transcript = runRunnerSync(sessionRunnerFile, sessionModelFile, bufferedFile, true);
                     synchronized (recordingLock) {
                         liveTranscriptBuffer.setLength(0);
                         if (transcript != null && !transcript.isBlank()) {
@@ -1008,7 +1016,7 @@ public class VoxtralOfflinePlugin extends Plugin {
                     notifyListeners("voxtralLivePartial", event);
                     continue;
                 }
-                String partial = runRunnerSync(runnerFile, modelFile, chunkFile);
+                String partial = runRunnerSync(runnerFile, modelFile, chunkFile, false);
                 if (partial == null || partial.isBlank()) {
                     continue;
                 }
@@ -1115,15 +1123,19 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     private String runRunnerSync(File runnerFile, File modelFile, File audioFile) throws IOException, InterruptedException {
+        return runRunnerSync(runnerFile, modelFile, audioFile, false);
+    }
+
+    private String runRunnerSync(File runnerFile, File modelFile, File audioFile, boolean lowMemoryMode) throws IOException, InterruptedException {
         try {
-            return runRunnerSyncDirect(runnerFile, modelFile, audioFile);
+            return runRunnerSyncDirect(runnerFile, modelFile, audioFile, lowMemoryMode);
         } catch (IOException directError) {
             String msg = String.valueOf(directError.getMessage() == null ? "" : directError.getMessage());
             if (!shouldFallbackToProot(msg)) {
                 throw directError;
             }
             try {
-                return runRunnerSyncViaProot(runnerFile, modelFile, audioFile);
+                return runRunnerSyncViaProot(runnerFile, modelFile, audioFile, lowMemoryMode);
             } catch (IOException prootError) {
                 throw new IOException(
                     "Runner direct failed: " + msg + "\n"
@@ -1134,7 +1146,11 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     private String runRunnerSyncDirect(File runnerFile, File modelFile, File audioFile) throws IOException, InterruptedException {
-        List<String> directCommand = buildRunnerCommand(runnerFile, modelFile, audioFile);
+        return runRunnerSyncDirect(runnerFile, modelFile, audioFile, false);
+    }
+
+    private String runRunnerSyncDirect(File runnerFile, File modelFile, File audioFile, boolean lowMemoryMode) throws IOException, InterruptedException {
+        List<String> directCommand = buildRunnerCommand(runnerFile, modelFile, audioFile, lowMemoryMode);
         String linkerPath = resolveSystemLinkerPath();
         String linkerAttemptError = null;
         if (linkerPath != null && !linkerPath.isBlank()) {
@@ -1208,6 +1224,10 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     private String runRunnerSyncViaProot(File runnerFile, File modelFile, File audioFile) throws IOException, InterruptedException {
+        return runRunnerSyncViaProot(runnerFile, modelFile, audioFile, false);
+    }
+
+    private String runRunnerSyncViaProot(File runnerFile, File modelFile, File audioFile, boolean lowMemoryMode) throws IOException, InterruptedException {
         File prootWrapper = resolveProotWrapper();
         File ubuntuRootfs = resolveUbuntuRootfs();
         if (prootWrapper == null || ubuntuRootfs == null || runnerFile == null || !runnerFile.exists()) {
@@ -1215,7 +1235,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         }
         String wrappedInnerCommand = "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
             + "export HOME=/root; export TERM=xterm-256color; "
-            + joinShellArgs(buildRunnerCommand(runnerFile, modelFile, audioFile));
+            + joinShellArgs(buildRunnerCommand(runnerFile, modelFile, audioFile, lowMemoryMode));
         try {
             String output = runShellCommandViaProot(wrappedInnerCommand);
             return extractTranscript(output);
@@ -1487,6 +1507,7 @@ public class VoxtralOfflinePlugin extends Plugin {
                 ? inferFileNameFromUrl(rawUrl)
                 : fileName.trim();
         File outFile = new File(targetDir, resolvedFileName);
+        File tempFile = new File(targetDir, resolvedFileName + ".part");
 
         ioExecutor.execute(() -> {
             HttpURLConnection connection = null;
@@ -1531,8 +1552,12 @@ public class VoxtralOfflinePlugin extends Plugin {
                 }
                 long totalBytes = connection.getContentLengthLong();
 
+                if (tempFile.exists() && !tempFile.delete()) {
+                    throw new IOException("Could not remove partial download: " + tempFile.getAbsolutePath());
+                }
+
                 try (InputStream input = new BufferedInputStream(connection.getInputStream());
-                     FileOutputStream output = new FileOutputStream(outFile)) {
+                     FileOutputStream output = new FileOutputStream(tempFile, false)) {
                     byte[] buffer = new byte[8192];
                     int read;
                     long downloaded = 0;
@@ -1552,9 +1577,18 @@ public class VoxtralOfflinePlugin extends Plugin {
                     }
                 }
 
-                if (!outFile.exists() || outFile.length() == 0) {
-                    call.reject("Downloaded file is empty: " + outFile.getAbsolutePath());
+                if (!tempFile.exists() || tempFile.length() == 0) {
+                    call.reject("Downloaded file is empty: " + tempFile.getAbsolutePath());
                     return;
+                }
+                if (outFile.exists() && !outFile.delete()) {
+                    throw new IOException("Could not replace existing file: " + outFile.getAbsolutePath());
+                }
+                if (!tempFile.renameTo(outFile)) {
+                    copyFile(tempFile, outFile);
+                    if (!tempFile.delete()) {
+                        throw new IOException("Could not remove temporary download: " + tempFile.getAbsolutePath());
+                    }
                 }
 
                 File effectiveFile = finalizeDownloadedFile(outFile, targetDir, executable, expectedSha256, expectedMinBytes, outputField);
@@ -1567,6 +1601,9 @@ public class VoxtralOfflinePlugin extends Plugin {
                 appendAudit("allow", downloadType, "download_success " + effectiveFile.getName());
                 call.resolve(result);
             } catch (Exception error) {
+                if (tempFile.exists()) {
+                    tempFile.delete();
+                }
                 appendAudit("deny", downloadType, "download_failed " + error.getMessage());
                 call.reject("Download failed: " + error.getMessage());
             } finally {
@@ -1718,7 +1755,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (baseName == null || baseName.isBlank()) return false;
         String name = baseName.toLowerCase();
         if (RUNNER_CANDIDATE_NAMES.contains(name)) return true;
-        return name.contains("voxtral") || name.equals("llama-cli") || name.startsWith("crispasr");
+        return name.contains("voxtral") || name.startsWith("crispasr");
     }
 
     private boolean isCompatibleModelFile(File modelFile) {
@@ -1891,6 +1928,10 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     private List<String> buildRunnerCommand(File runnerFile, File modelFile, File audioFile) {
+        return buildRunnerCommand(runnerFile, modelFile, audioFile, false);
+    }
+
+    private List<String> buildRunnerCommand(File runnerFile, File modelFile, File audioFile, boolean lowMemoryMode) {
         List<String> command = new ArrayList<>();
         command.add(runnerFile.getAbsolutePath());
         String binaryName = runnerFile.getName();
@@ -1902,6 +1943,12 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (shouldInjectVoxtralBackend(runnerFile)) {
             command.add("--backend");
             command.add("voxtral4b");
+            if (lowMemoryMode) {
+                command.add("-n");
+                command.add("96");
+                command.add("-ck");
+                command.add("4");
+            }
         }
         command.add("-m");
         command.add(modelFile.getAbsolutePath());
@@ -2171,18 +2218,29 @@ public class VoxtralOfflinePlugin extends Plugin {
         for (File file : files) {
             if (file == null || !file.isFile()) continue;
             if (!isRunnerCandidate(file.getName())) continue;
-            String name = file.getName().toLowerCase();
-            if (name.contains("voxtral")) {
+            if (isPreferredVoxtralRunner(file.getName())) {
                 if (bestPreferred == null || file.lastModified() > bestPreferred.lastModified()) {
                     bestPreferred = file;
                 }
-            } else {
+            } else if (!isKnownPlainLlamaRunner(file.getName())) {
                 if (bestFallback == null || file.lastModified() > bestFallback.lastModified()) {
                     bestFallback = file;
                 }
             }
         }
         return bestPreferred != null ? bestPreferred : bestFallback;
+    }
+
+    private boolean isPreferredVoxtralRunner(String baseName) {
+        if (baseName == null) return false;
+        String name = baseName.toLowerCase();
+        return name.contains("voxtral") || name.startsWith("crispasr");
+    }
+
+    private boolean isKnownPlainLlamaRunner(String baseName) {
+        if (baseName == null) return false;
+        String name = baseName.toLowerCase();
+        return name.equals("llama-cli") || name.equals("llama-server");
     }
 
     private File prepareRunnerForExecution(File sourceRunner) throws IOException {
