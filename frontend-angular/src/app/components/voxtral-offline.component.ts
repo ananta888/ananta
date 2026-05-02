@@ -613,7 +613,8 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
         }
       }
       if (!runnerExists) {
-        const preferredRunner = this.localRunners.find(item => this.isVoxtralRunner(item.name));
+        const preferredRunner = this.localRunners.find(item => this.isPreferredVoxtralRunner(item.name))
+          || this.localRunners.find(item => this.isVoxtralRunner(item.name));
         if (preferredRunner) this.runnerPath = preferredRunner.path;
       }
       if (this.modelPath) this.selectedLocalModelPath = this.modelPath;
@@ -644,6 +645,11 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
   private isVoxtralRunner(name: string): boolean {
     const normalized = name.toLowerCase();
     return normalized.includes('voxtral') || normalized.startsWith('crispasr');
+  }
+
+  private isPreferredVoxtralRunner(name: string): boolean {
+    const normalized = name.toLowerCase();
+    return normalized === 'voxtral-realtime' || normalized === 'voxtral-realtime-bin';
   }
 
   async verifySetup(): Promise<void> {

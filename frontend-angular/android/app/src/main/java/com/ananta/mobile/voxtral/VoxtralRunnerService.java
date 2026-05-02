@@ -153,6 +153,16 @@ public class VoxtralRunnerService extends Service {
     }
 
     private String runProbeSync(File runnerFile, File modelFile, long timeoutMs) throws IOException, InterruptedException {
+        if (isVoxtralRealtimeRunner(runnerFile)) {
+            File probeAudioFile = createProbeAudioFile();
+            try {
+                List<String> command = buildRunnerCommand(runnerFile, modelFile, probeAudioFile, true);
+                return executeWithLinkerFallback(command, timeoutMs);
+            } finally {
+                //noinspection ResultOfMethodCallIgnored
+                probeAudioFile.delete();
+            }
+        }
         List<String> command = buildRunnerProbeCommand(runnerFile, modelFile);
         return executeWithLinkerFallback(command, timeoutMs);
     }
@@ -299,6 +309,19 @@ public class VoxtralRunnerService extends Service {
             command.add(audioFile.getAbsolutePath());
             return command;
         }
+        if (isVoxtralRealtimeRunner(runnerFile)) {
+            command.add("--model");
+            command.add(modelFile.getAbsolutePath());
+            command.add("--audio");
+            command.add(audioFile.getAbsolutePath());
+            command.add("--threads");
+            command.add(lowMemoryMode ? "2" : "4");
+            command.add("--max-len");
+            command.add(lowMemoryMode ? "96" : "256");
+            command.add("--log-level");
+            command.add("warn");
+            return command;
+        }
         if (shouldInjectVoxtralBackend(runnerFile)) {
             command.add("--backend");
             command.add("voxtral4b");
@@ -340,6 +363,54 @@ public class VoxtralRunnerService extends Service {
         if (runnerFile == null) return false;
         String name = String.valueOf(runnerFile.getName()).toLowerCase(Locale.US);
         return name.startsWith("crispasr");
+    }
+
+    private boolean isVoxtralRealtimeRunner(File runnerFile) {
+        if (runnerFile == null) return false;
+        String name = String.valueOf(runnerFile.getName()).toLowerCase(Locale.US);
+        return "voxtral-realtime".equals(name) || "voxtral-realtime-bin".equals(name) || "voxtral".equals(name);
+    }
+
+    private File createProbeAudioFile() throws IOException {
+        File dir = new File(getCacheDir(), "voxtral-probe");
+        if (!dir.isDirectory() && !dir.mkdirs()) {
+            throw new IOException("Failed to create probe audio directory.");
+        }
+        File wavFile = File.createTempFile("probe-", ".wav", dir);
+        int sampleRate = 16000;
+        int samples = sampleRate;
+        int dataBytes = samples * 2;
+        try (FileOutputStream output = new FileOutputStream(wavFile, false)) {
+            output.write(new byte[]{'R', 'I', 'F', 'F'});
+            writeLeInt(output, 36 + dataBytes);
+            output.write(new byte[]{'W', 'A', 'V', 'E', 'f', 'm', 't', ' '});
+            writeLeInt(output, 16);
+            writeLeShort(output, 1);
+            writeLeShort(output, 1);
+            writeLeInt(output, sampleRate);
+            writeLeInt(output, sampleRate * 2);
+            writeLeShort(output, 2);
+            writeLeShort(output, 16);
+            output.write(new byte[]{'d', 'a', 't', 'a'});
+            writeLeInt(output, dataBytes);
+            for (int i = 0; i < samples; i++) {
+                short sample = (short) (Math.sin(2.0d * Math.PI * 440.0d * i / sampleRate) * 10_000.0d);
+                writeLeShort(output, sample);
+            }
+        }
+        return wavFile;
+    }
+
+    private void writeLeShort(FileOutputStream output, int value) throws IOException {
+        output.write(value & 0xff);
+        output.write((value >> 8) & 0xff);
+    }
+
+    private void writeLeInt(FileOutputStream output, int value) throws IOException {
+        output.write(value & 0xff);
+        output.write((value >> 8) & 0xff);
+        output.write((value >> 16) & 0xff);
+        output.write((value >> 24) & 0xff);
     }
 
     private String resolveSystemLinkerPath() {
