@@ -50,8 +50,10 @@ import java.util.zip.GZIPInputStream;
 )
 public class VoxtralOfflinePlugin extends Plugin {
     private static final long DEFAULT_MIN_FREE_BYTES = 512L * 1024L * 1024L;
-    private static final long DEFAULT_MIN_RUNTIME_FREE_BYTES = 768L * 1024L * 1024L;
-    private static final long RUNTIME_OVERHEAD_BYTES = 384L * 1024L * 1024L;
+    private static final long DEFAULT_MIN_RUNTIME_FREE_BYTES = 640L * 1024L * 1024L;
+    private static final long RUNTIME_MODEL_HEADROOM_BYTES = 192L * 1024L * 1024L;
+    private static final long RUNTIME_MODEL_MULTIPLIER_NUM = 5L;
+    private static final long RUNTIME_MODEL_MULTIPLIER_DEN = 4L;
     private static final long LIVE_SESSION_MAX_SECONDS = 120L;
     private static final int MAX_PROCESS_OUTPUT_CHARS = 64 * 1024;
     private static final String MODEL_EXTENSION = ".gguf";
@@ -1620,7 +1622,10 @@ public class VoxtralOfflinePlugin extends Plugin {
         long modelBytes = (modelFile != null && modelFile.exists()) ? Math.max(0L, modelFile.length()) : 0L;
         long estimatedRequiredBytes = Math.max(
                 DEFAULT_MIN_RUNTIME_FREE_BYTES,
-                Math.max(modelBytes + RUNTIME_OVERHEAD_BYTES, (modelBytes * 9L) / 5L)
+                Math.max(
+                        modelBytes + RUNTIME_MODEL_HEADROOM_BYTES,
+                        (modelBytes * RUNTIME_MODEL_MULTIPLIER_NUM) / RUNTIME_MODEL_MULTIPLIER_DEN
+                )
         );
         boolean hasEnoughMemory = !memoryInfo.lowMemory && availableBytes >= estimatedRequiredBytes;
         return new RuntimeMemoryCheck(hasEnoughMemory, availableBytes, estimatedRequiredBytes);
