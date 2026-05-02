@@ -1190,7 +1190,7 @@ public class VoxtralOfflinePlugin extends Plugin {
                 .append(shQuote(linkerPath))
                 .append(" ")
                 .append(joinShellArgs(runnerCommand));
-        Process process = new ProcessBuilder("/system/bin/sh", "-lc", shellCommand)
+        Process process = new ProcessBuilder("/system/bin/sh", "-lc", shellCommand.toString())
                 .redirectErrorStream(true)
                 .start();
         String output = readAllLimited(process.getInputStream(), MAX_PROCESS_OUTPUT_CHARS);
