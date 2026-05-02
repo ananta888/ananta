@@ -12,7 +12,7 @@ Ananta uses one contract vocabulary for local, hosted and remote providers. The 
 Every provider contract includes:
 
 - `provider`
-- `provider_type`: `local_openai_compatible`, `remote_ananta`, `hosted_api` or `cli_backend`
+- `provider_type`: `local_openai_compatible`, `remote_ananta`, `hosted_api`, `cli_backend` or `local_voice_runtime`
 - `location`: `local`, `remote` or `hosted`
 - `transport`
 - `capabilities`
@@ -33,6 +33,16 @@ Local, hosted and remote providers must expose the same eligibility, governance 
 | `ananta_remote` | `remote_ananta` | remote | governed remote hub access |
 | `codex_cli` | `cli_backend` | local | task-scoped execution |
 | `hosted_openai` | `hosted_api` | hosted | hosted inference |
+| `voice_runtime` | `local_voice_runtime` | local | voice transcription and command extraction |
+
+## Stable Voice Capability Names
+
+The voice contract uses stable capability names so clients remain backend-agnostic:
+
+- `audio_input`
+- `transcription`
+- `voice_command`
+- `multimodal_audio_prompt`
 
 ## Boundary
 

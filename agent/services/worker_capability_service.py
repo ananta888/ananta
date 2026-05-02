@@ -2,6 +2,13 @@ from __future__ import annotations
 
 from agent.common.sgpt import get_cli_backend_capabilities
 
+VOICE_CAPABILITY_NAMES: tuple[str, ...] = (
+    "audio_input",
+    "transcription",
+    "voice_command",
+    "multimodal_audio_prompt",
+)
+
 
 WORKER_CAPABILITY_PROFILES: dict[str, dict] = {
     "planning-agent": {
@@ -80,6 +87,7 @@ class WorkerCapabilityService:
                 "contract_version": "v1",
                 "orchestration_boundary": "hub_owned_task_queue",
                 "worker_rule": "execute_delegated_work_only",
+                "voice_capability_names": list(VOICE_CAPABILITY_NAMES),
             }
             for key, profile in sorted(WORKER_CAPABILITY_PROFILES.items())
         }

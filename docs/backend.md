@@ -26,6 +26,28 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 - `POST /api/sgpt/execute`, `POST /tasks/{id}/step/propose` und `POST /tasks/{id}/step/execute` geben eine explizite `pipeline` mit Stages und `trace_id` zurueck.
 - Task-Propose kann optional dieselbe CLI-Session ueber mehrere Turns fortsetzen (`routing.session_mode=stateful`, `routing.session_id`).
 
+## Voice Runtime (MVP foundation)
+
+- Hub-seitiger Adapter: `agent/services/voice_provider.py`
+- Externer Runtime-Service: `voice_runtime/`
+- Konfigurierbar ueber:
+  - `VOICE_PROVIDER`
+  - `VOICE_RUNTIME_URL`
+  - `VOICE_MODEL`
+  - `VOICE_FALLBACK_MODEL`
+  - `VOICE_MAX_AUDIO_MB`
+  - `VOICE_TIMEOUT_SEC`
+  - `VOICE_DIRECT_CLIENT_ACCESS`
+  - `VOICE_RUNTIME_DEVICE`
+  - `VOICE_RUNTIME_MODEL_PATH`
+  - `VOICE_ENABLE_STREAMING`
+  - `VOICE_STORE_AUDIO`
+- Runtime-Endpunkte (Service-intern):
+  - `GET /health`
+  - `GET /v1/models`
+  - `POST /v1/audio/transcriptions`
+  - `POST /v1/audio/chat`
+
 ## OpenAI-kompatible Exposition (Hub)
 
 - Endpunkte: `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/responses`, `GET/POST /v1/files`, `GET /v1/ananta/capabilities`

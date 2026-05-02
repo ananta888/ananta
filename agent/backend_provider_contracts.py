@@ -17,7 +17,7 @@ BACKEND_PROVIDER_CONTRACT_SCHEMA: dict[str, Any] = {
         "governance",
         "health",
     ],
-    "provider_types": ["local_openai_compatible", "remote_ananta", "hosted_api", "cli_backend"],
+    "provider_types": ["local_openai_compatible", "remote_ananta", "hosted_api", "cli_backend", "local_voice_runtime"],
     "locations": ["local", "remote", "hosted"],
 }
 
@@ -71,6 +71,22 @@ BACKEND_PROVIDER_CONTRACTS: list[dict[str, Any]] = [
         "routing": {"eligible_for_inference": True, "eligible_for_execution": False, "remote_hops": 0},
         "governance": {"trust_level": "external_api", "requires_remote_hub_policy": False, "audit_required": True},
         "health": {"preflight": "api_key_and_provider_preflight", "failure_mode": "provider_unavailable"},
+    },
+    {
+        "provider": "voice_runtime",
+        "provider_type": "local_voice_runtime",
+        "location": "local",
+        "transport": {"protocol": "http", "api_shape": "ananta_voice_runtime"},
+        "capabilities": {
+            "chat": False,
+            "audio_input": True,
+            "transcription": True,
+            "voice_command": True,
+            "multimodal_audio_prompt": True,
+        },
+        "routing": {"eligible_for_inference": False, "eligible_for_execution": True, "remote_hops": 0},
+        "governance": {"trust_level": "local", "requires_remote_hub_policy": False, "audit_required": True},
+        "health": {"preflight": "voice_runtime_health_probe", "failure_mode": "voice_runtime_unavailable"},
     },
 ]
 
