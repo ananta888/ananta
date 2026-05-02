@@ -58,6 +58,17 @@ class Settings(BaseSettings):
     http_timeout: int = Field(default=60, validation_alias="HTTP_TIMEOUT")
     command_timeout: int = Field(default=60, validation_alias="COMMAND_TIMEOUT")
     agent_offline_timeout: int = Field(default=300, validation_alias="AGENT_OFFLINE_TIMEOUT")
+    voice_provider: str = Field(default="voice-runtime", validation_alias="VOICE_PROVIDER")
+    voice_runtime_url: str = Field(default="http://voice-runtime:8090", validation_alias="VOICE_RUNTIME_URL")
+    voice_model: str = Field(default="voxtral", validation_alias="VOICE_MODEL")
+    voice_fallback_model: str = Field(default="whisper-small", validation_alias="VOICE_FALLBACK_MODEL")
+    voice_max_audio_mb: int = Field(default=25, validation_alias="VOICE_MAX_AUDIO_MB")
+    voice_timeout_sec: int = Field(default=120, validation_alias="VOICE_TIMEOUT_SEC")
+    voice_direct_client_access: bool = Field(default=False, validation_alias="VOICE_DIRECT_CLIENT_ACCESS")
+    voice_runtime_device: str = Field(default="auto", validation_alias="VOICE_RUNTIME_DEVICE")
+    voice_runtime_model_path: Optional[str] = Field(default=None, validation_alias="VOICE_RUNTIME_MODEL_PATH")
+    voice_enable_streaming: bool = Field(default=False, validation_alias="VOICE_ENABLE_STREAMING")
+    voice_store_audio: bool = Field(default=False, validation_alias="VOICE_STORE_AUDIO")
 
     # Retry Config
     retry_count: int = Field(default=3, validation_alias="RETRY_COUNT")

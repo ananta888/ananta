@@ -61,6 +61,67 @@ Der Hub bleibt dabei die Steuerungsebene: Externe Systeme liefern Ziele oder Ere
 
 ---
 
+## Voice API Contract (Hub)
+
+Alle Voice-Endpunkte sind authentifiziert (Bearer Token).
+
+### `POST /v1/voice/transcribe`
+- **Body:** `multipart/form-data` mit `file` plus optional `language`, `model`, `mode`
+- **Limits:** `VOICE_MAX_AUDIO_MB`, `VOICE_TIMEOUT_SEC`
+- **Response 200:**
+  ```json
+  {
+    "text": "string",
+    "language": "string|null",
+    "duration_ms": "number|null",
+    "model": "string",
+    "provider": "string",
+    "warnings": []
+  }
+  ```
+
+### `POST /v1/voice/command`
+- **Body:** `multipart/form-data` mit `file` plus optional `command_context`
+- **Response 200:**
+  ```json
+  {
+    "transcript": "string",
+    "intent": "string|null",
+    "confidence": "number|null",
+    "proposed_goal": "string|null",
+    "requires_approval": true,
+    "audit_id": "string"
+  }
+  ```
+
+### `POST /v1/voice/goal`
+- **Body:** `multipart/form-data` mit `file` plus optional `create_tasks`, `governance_mode`
+- **Response 200:**
+  ```json
+  {
+    "goal_id": "string|null",
+    "transcript": "string",
+    "created_tasks": false,
+    "requires_review": true
+  }
+  ```
+
+### Fehlerformat (konsistent)
+
+```json
+{
+  "error": {
+    "code": "string",
+    "message": "string",
+    "retriable": false
+  }
+}
+```
+
+Typische Codes: `validation.missing_file`, `validation.file_too_large`, `voice.timeout`, `voice.runtime_unavailable`, `policy_denied`.
+
+---
+
 ## System Endpunkte
 
 ### Health Check

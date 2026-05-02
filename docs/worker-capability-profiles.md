@@ -42,3 +42,14 @@ Worker capability profiles describe what a worker may execute after the hub dele
 ## Substitution Rule
 
 Workers are substitutable only when their profile covers the required scopes, tool classes and governance fit. This keeps routing explicit and avoids hidden assumptions about a single-process environment.
+
+## Voice Capability Vocabulary
+
+The shared voice capability names are:
+
+- `audio_input`
+- `transcription`
+- `voice_command`
+- `multimodal_audio_prompt`
+
+These names are runtime/backend neutral and must not encode direct Voxtral/Ollama/LM Studio assumptions.

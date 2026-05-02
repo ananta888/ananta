@@ -1,7 +1,7 @@
 {
   "schema": "ananta.todo.voxtral.v2",
   "title": "Voxtral / Speech Integration via dedicated voice-runtime service",
-  "status": "active_planning",
+  "status": "active_execution",
   "created_for": "ananta local-first multi-agent platform",
   "updated": "2026-05-02",
   "goal": "Integrate Voxtral and speech/audio capabilities for Android, laptops and local desktop setups through a dedicated voice-runtime service instead of hard-coding model/runtime logic into each client.",
@@ -17,16 +17,16 @@
     "low"
   ],
   "current_state_summary": {
-    "classification": "design_complete_execution_not_started",
+    "classification": "mvp_foundation_in_progress",
     "done_scope": [
       "Architecture option C is defined and aligned with hub-worker boundaries.",
       "Core API and environment contract outlines exist.",
       "Phased implementation breakdown is comprehensive."
     ],
     "missing_scope": [
-      "No execution tracking (task statuses/dependencies) existed.",
-      "No explicit release blocker path existed.",
-      "No implementation evidence was linked to phase progress."
+      "Hub public voice routes are not wired yet.",
+      "Provider catalog voice availability is not exposed yet.",
+      "Audit + policy enforcement for voice actions is not complete."
     ]
   },
   "architecture_guardrails": [
@@ -380,7 +380,7 @@
     {
       "phase": "P0",
       "name": "Design and contracts",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "VOX-P0-001",
@@ -423,7 +423,7 @@
     {
       "phase": "P1",
       "name": "Minimal voice-runtime service",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "VOX-P1-001",
@@ -478,7 +478,7 @@
     {
       "phase": "P2",
       "name": "Ananta Hub integration",
-      "status": "todo",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "VOX-P2-001",
@@ -826,16 +826,16 @@
     }
   ],
   "tasks": [
-    {"id": "VOX-P0-001", "phase": "P0", "title": "Document voice-runtime architecture decision", "status": "todo", "priority": "high", "depends_on": []},
-    {"id": "VOX-P0-002", "phase": "P0", "title": "Define capability names", "status": "todo", "priority": "high", "depends_on": []},
-    {"id": "VOX-P0-003", "phase": "P0", "title": "Define public Ananta voice API contract", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P0-001", "phase": "P0", "title": "Document voice-runtime architecture decision", "status": "done", "priority": "high", "depends_on": []},
+    {"id": "VOX-P0-002", "phase": "P0", "title": "Define capability names", "status": "done", "priority": "high", "depends_on": []},
+    {"id": "VOX-P0-003", "phase": "P0", "title": "Define public Ananta voice API contract", "status": "done", "priority": "high", "depends_on": []},
 
-    {"id": "VOX-P1-001", "phase": "P1", "title": "Create voice-runtime package skeleton", "status": "todo", "priority": "high", "depends_on": []},
-    {"id": "VOX-P1-002", "phase": "P1", "title": "Implement mock transcription backend", "status": "todo", "priority": "high", "depends_on": []},
-    {"id": "VOX-P1-003", "phase": "P1", "title": "Implement /v1/audio/transcriptions endpoint", "status": "todo", "priority": "high", "depends_on": ["VOX-P1-001", "VOX-P1-002", "VOX-P0-003"]},
-    {"id": "VOX-P1-004", "phase": "P1", "title": "Add model catalog endpoint", "status": "todo", "priority": "medium", "depends_on": []},
+    {"id": "VOX-P1-001", "phase": "P1", "title": "Create voice-runtime package skeleton", "status": "done", "priority": "high", "depends_on": []},
+    {"id": "VOX-P1-002", "phase": "P1", "title": "Implement mock transcription backend", "status": "done", "priority": "high", "depends_on": []},
+    {"id": "VOX-P1-003", "phase": "P1", "title": "Implement /v1/audio/transcriptions endpoint", "status": "done", "priority": "high", "depends_on": ["VOX-P1-001", "VOX-P1-002", "VOX-P0-003"]},
+    {"id": "VOX-P1-004", "phase": "P1", "title": "Add model catalog endpoint", "status": "done", "priority": "medium", "depends_on": []},
 
-    {"id": "VOX-P2-001", "phase": "P2", "title": "Add VoiceProvider adapter in Ananta backend", "status": "todo", "priority": "high", "depends_on": ["VOX-P1-003"]},
+    {"id": "VOX-P2-001", "phase": "P2", "title": "Add VoiceProvider adapter in Ananta backend", "status": "done", "priority": "high", "depends_on": ["VOX-P1-003"]},
     {"id": "VOX-P2-002", "phase": "P2", "title": "Expose Ananta Hub voice routes", "status": "todo", "priority": "high", "depends_on": ["VOX-P2-001", "VOX-P0-003"]},
     {"id": "VOX-P2-003", "phase": "P2", "title": "Register voice capabilities in provider catalog", "status": "todo", "priority": "high", "depends_on": []},
     {"id": "VOX-P2-004", "phase": "P2", "title": "Add audit metadata for voice actions", "status": "todo", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P6-003"]},
@@ -970,10 +970,10 @@
     ],
     "task_status_summary": {
       "total_tasks": 32,
-      "todo": 32,
+      "todo": 24,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 8
     },
     "release_blockers": [
       "VOX-P2-002",
