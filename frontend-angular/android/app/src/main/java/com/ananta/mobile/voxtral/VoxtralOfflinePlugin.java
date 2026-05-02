@@ -1136,11 +1136,13 @@ public class VoxtralOfflinePlugin extends Plugin {
     private String runRunnerSyncDirect(File runnerFile, File modelFile, File audioFile) throws IOException, InterruptedException {
         List<String> directCommand = buildRunnerCommand(runnerFile, modelFile, audioFile);
         String linkerPath = resolveSystemLinkerPath();
+        String linkerAttemptError = null;
         if (linkerPath != null && !linkerPath.isBlank()) {
             try {
                 return executeRunnerViaShellLinker(linkerPath, directCommand);
             } catch (IOException linkerError) {
                 String linkerMsg = String.valueOf(linkerError.getMessage() == null ? "" : linkerError.getMessage());
+                linkerAttemptError = linkerMsg;
                 // If linker mode fails with runtime/model issues, propagate directly.
                 if (containsMissingAudioTensorError(linkerMsg) || containsUnsupportedModelArchitecture(linkerMsg)) {
                     throw linkerError;
@@ -1155,6 +1157,9 @@ public class VoxtralOfflinePlugin extends Plugin {
             if (!shouldFallbackToProot(message)) {
                 throw directError;
             }
+            if (linkerAttemptError != null && !linkerAttemptError.isBlank()) {
+                throw new IOException("Runner linker path failed: " + linkerAttemptError + "\nRunner direct failed: " + message);
+            }
             throw directError;
         }
     }
@@ -1166,13 +1171,25 @@ public class VoxtralOfflinePlugin extends Plugin {
         }
         File runnerBinary = new File(runnerBinaryPath);
         File runnerDir = runnerBinary.getParentFile();
+        File cpuBackend = ensureCpuBackendAlias(runnerDir);
         String nativeLibDir = resolveNativeLibDir();
         String ldLibraryPath = buildRunnerLibraryPath(runnerDir, nativeLibDir);
-        String ggmlBackendPath = runnerDir != null ? runnerDir.getAbsolutePath() : "";
-        String shellCommand = ""
-                + "LD_LIBRARY_PATH=" + shQuote(ldLibraryPath) + " "
-                + "GGML_BACKEND_PATH=" + shQuote(ggmlBackendPath) + " "
-                + "exec " + shQuote(linkerPath) + " " + joinShellArgs(runnerCommand);
+        StringBuilder shellCommand = new StringBuilder();
+        shellCommand
+                .append("LD_LIBRARY_PATH=")
+                .append(shQuote(ldLibraryPath))
+                .append(" ");
+        if (cpuBackend != null && cpuBackend.isFile()) {
+            shellCommand
+                    .append("GGML_BACKEND_PATH=")
+                    .append(shQuote(cpuBackend.getAbsolutePath()))
+                    .append(" ");
+        }
+        shellCommand
+                .append("exec ")
+                .append(shQuote(linkerPath))
+                .append(" ")
+                .append(joinShellArgs(runnerCommand));
         Process process = new ProcessBuilder("/system/bin/sh", "-lc", shellCommand)
                 .redirectErrorStream(true)
                 .start();
@@ -1238,9 +1255,6 @@ public class VoxtralOfflinePlugin extends Plugin {
             if (ld.length() > 0) {
                 pb.environment().put("LD_LIBRARY_PATH", ld.toString());
             }
-            if (runnerDir != null) {
-                pb.environment().put("GGML_BACKEND_PATH", runnerDir.getAbsolutePath());
-            }
         }
         Process process = pb.start();
         String output = readAllLimited(process.getInputStream(), MAX_PROCESS_OUTPUT_CHARS);
@@ -1291,9 +1305,33 @@ public class VoxtralOfflinePlugin extends Plugin {
             if (builder.length() > 0) builder.append(':');
             builder.append(nativeLibDir);
         }
-        if (builder.length() > 0) builder.append(':');
-        builder.append("${LD_LIBRARY_PATH:-}");
         return builder.toString();
+    }
+
+    private File ensureCpuBackendAlias(File runnerDir) {
+        if (runnerDir == null || !runnerDir.isDirectory()) return null;
+        File alias = new File(runnerDir, "libggml-cpu.so");
+        if (alias.isFile()) return alias;
+        File[] files = runnerDir.listFiles();
+        if (files == null) return null;
+        File best = null;
+        for (File file : files) {
+            if (file == null || !file.isFile()) continue;
+            String name = String.valueOf(file.getName()).toLowerCase();
+            if (!name.startsWith("libggml-cpu-") || !name.endsWith(".so")) continue;
+            if (best == null || file.lastModified() > best.lastModified()) {
+                best = file;
+            }
+        }
+        if (best == null) return null;
+        try {
+            copyFile(best, alias);
+            alias.setReadable(true, false);
+            alias.setWritable(true, true);
+            return alias;
+        } catch (Exception ignored) {
+            return best;
+        }
     }
 
     private RunnerProbe probeRunnerModelCompatibility(File runnerFile, File modelFile) {
