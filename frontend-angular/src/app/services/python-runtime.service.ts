@@ -249,14 +249,27 @@ export class PythonRuntimeService {
     let status = await this.getRuntimeStatus();
     if (!status.pythonAvailable) return status;
 
-    for (let attempt = 1; attempt <= 5; attempt += 1) {
-      if (!status.hubRunning) await this.startHub();
+    for (let attempt = 1; attempt <= 8; attempt += 1) {
+      if (!status.hubRunning) {
+        try {
+          await this.startHub();
+        } catch {
+          // retry in next loop; status.lastError is surfaced on final failure
+        }
+      }
+      if (!status.workerRunning) {
+        try {
+          await this.startWorker();
+        } catch {
+          // retry in next loop; status.lastError is surfaced on final failure
+        }
+      }
       await this.sleep(250 * attempt);
       status = await this.getRuntimeStatus();
-      if (status.hubRunning) return status;
+      if (status.hubRunning && status.workerRunning) return status;
     }
 
-    throw new Error(status.lastError || 'Embedded hub did not reach running state.');
+    throw new Error(status.lastError || 'Embedded hub/worker did not reach running state.');
   }
 
   private sleep(ms: number): Promise<void> {

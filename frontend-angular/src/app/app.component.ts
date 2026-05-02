@@ -353,8 +353,8 @@ export class AppComponent implements OnInit, OnDestroy {
     const current = this.dir.list();
     const hub = current.find((a) => a.name === 'hub') ?? current.find((a) => a.role === 'hub');
     const worker = current.find((a) => a.name === 'worker');
-    const legacyAlphaWorker = current.find((a) => a.name === 'alpha' && (a.url || '').trim() === 'http://127.0.0.1:5001');
-    const workerUrl = 'http://127.0.0.1:5001';
+    const legacyAlphaWorker = current.find((a) => a.name === 'alpha' && /^http:\/\/127\.0\.0\.1:500[01]\/?$/.test((a.url || '').trim()));
+    const workerUrl = 'http://127.0.0.1:5000';
 
     if (!hub) {
       this.dir.upsert({ name: 'hub', role: 'hub', url: 'http://127.0.0.1:5000', token: '' });

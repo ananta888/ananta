@@ -77,7 +77,7 @@ export class AgentDirectoryService {
     if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
       return [
         { name: 'hub', url: 'http://127.0.0.1:5000', token: '', role: 'hub' },
-        { name: 'worker', url: 'http://127.0.0.1:5001', token: '', role: 'worker' }
+        { name: 'worker', url: 'http://127.0.0.1:5000', token: '', role: 'worker' }
       ];
     }
     if (this.isComposeInternalFrontendHost()) {
@@ -96,6 +96,22 @@ export class AgentDirectoryService {
   }
 
   private applyRuntimeDefaults() {
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+      const currentHub = this.agents.find((a) => a.name === 'hub') ?? this.agents.find((a) => a.role === 'hub');
+      const currentWorker = this.agents.find((a) => a.name === 'worker') ?? this.agents.find((a) => a.role === 'worker');
+      const normalized: AgentEntry[] = [
+        { name: 'hub', role: 'hub', url: 'http://127.0.0.1:5000', token: currentHub?.token ?? '' },
+        { name: 'worker', role: 'worker', url: 'http://127.0.0.1:5000', token: currentWorker?.token ?? '' },
+      ];
+      const before = JSON.stringify(this.agents);
+      const after = JSON.stringify(normalized);
+      if (before !== after) {
+        this.agents = normalized;
+        this.save();
+      }
+      return;
+    }
+
     if (!this.isComposeInternalFrontendHost() || this.agents.length === 0) return;
 
     let changed = false;
