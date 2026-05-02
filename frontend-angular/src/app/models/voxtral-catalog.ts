@@ -10,13 +10,21 @@ export interface VoxtralModelPreset {
 
 export const VOXTRAL_MODEL_PRESETS: VoxtralModelPreset[] = [
   {
+    id: 'voxtral-mini-4b-q3-k',
+    label: 'Voxtral Mini 4B Realtime Q3_K (kleinstes sicheres APK-Preset)',
+    fileName: 'Q3_K.gguf',
+    url: 'https://huggingface.co/andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF/resolve/main/Q3_K.gguf',
+    sizeHint: '~1.9 GB',
+    minBytes: 1_900_000_000,
+    recommended: true,
+  },
+  {
     id: 'voxtral-mini-4b-q4-k',
-    label: 'Voxtral Mini 4B Realtime Q4_K (kleinstes kompatibles Preset)',
+    label: 'Voxtral Mini 4B Realtime Q4_K (nur bei viel freiem RAM)',
     fileName: 'voxtral-mini-4b-realtime-q4_k.gguf',
     url: 'https://huggingface.co/cstr/voxtral-mini-4b-realtime-GGUF/resolve/main/voxtral-mini-4b-realtime-q4_k.gguf',
     sizeHint: '~2.4 GB',
     minBytes: 2_400_000_000,
-    recommended: true,
   },
   {
     id: 'voxtral-mini-4b-q4-0-community',

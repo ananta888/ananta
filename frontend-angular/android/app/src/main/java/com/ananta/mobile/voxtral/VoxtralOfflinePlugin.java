@@ -56,10 +56,11 @@ public class VoxtralOfflinePlugin extends Plugin {
     private static final long RUNTIME_MODEL_MULTIPLIER_DEN = 4L;
     private static final long RUNTIME_SAFETY_RESERVE_BYTES = 768L * 1024L * 1024L;
     private static final long LOW_MEMORY_LIVE_MIN_RUNTIME_FREE_BYTES = 512L * 1024L * 1024L;
-    private static final long LOW_MEMORY_LIVE_HEADROOM_BYTES = 96L * 1024L * 1024L;
-    private static final long LOW_MEMORY_LIVE_MULTIPLIER_NUM = 11L;
-    private static final long LOW_MEMORY_LIVE_MULTIPLIER_DEN = 10L;
+    private static final long LOW_MEMORY_LIVE_HEADROOM_BYTES = 384L * 1024L * 1024L;
+    private static final long LOW_MEMORY_LIVE_MULTIPLIER_NUM = 3L;
+    private static final long LOW_MEMORY_LIVE_MULTIPLIER_DEN = 2L;
     private static final long LOW_MEMORY_LIVE_SAFETY_RESERVE_BYTES = 512L * 1024L * 1024L;
+    private static final long MAX_IN_PROCESS_VOXTRAL_MODEL_BYTES = 2_100_000_000L;
     private static final long LIVE_SESSION_MAX_SECONDS = 120L;
     private static final int MAX_PROCESS_OUTPUT_CHARS = 64 * 1024;
     private static final String MODEL_EXTENSION = ".gguf";
@@ -504,6 +505,10 @@ public class VoxtralOfflinePlugin extends Plugin {
             call.reject("Model must be a .gguf file.");
             return;
         }
+        if (!isModelSizeSafeForInProcessRunner(modelFile)) {
+            call.reject(buildUnsafeModelSizeMessage(modelFile));
+            return;
+        }
         if (!isRunnerCandidate(runnerFile.getName())) {
             call.reject("Runner binary is not a supported Voxtral/llama candidate.");
             return;
@@ -637,6 +642,10 @@ public class VoxtralOfflinePlugin extends Plugin {
         }
         if (!isCompatibleModelFile(modelFile)) {
             call.reject("Model must be a .gguf file.");
+            return;
+        }
+        if (!isModelSizeSafeForInProcessRunner(modelFile)) {
+            call.reject(buildUnsafeModelSizeMessage(modelFile));
             return;
         }
         if (!isRunnerCandidate(runnerFile.getName())) {
@@ -1761,6 +1770,18 @@ public class VoxtralOfflinePlugin extends Plugin {
     private boolean isCompatibleModelFile(File modelFile) {
         String name = modelFile.getName().toLowerCase();
         return name.endsWith(MODEL_EXTENSION);
+    }
+
+    private boolean isModelSizeSafeForInProcessRunner(File modelFile) {
+        return modelFile != null && modelFile.length() <= MAX_IN_PROCESS_VOXTRAL_MODEL_BYTES;
+    }
+
+    private String buildUnsafeModelSizeMessage(File modelFile) {
+        long modelBytes = modelFile == null ? 0L : modelFile.length();
+        return "Model is too large for safe in-app Voxtral execution on this device. Model: "
+                + formatBytes(modelBytes)
+                + ", safe limit: " + formatBytes(MAX_IN_PROCESS_VOXTRAL_MODEL_BYTES)
+                + ". Use a smaller compatible realtime model (for example Q3_K) or run Voxtral outside the APK.";
     }
 
     private boolean hasEnoughStorageForModel(File modelFile, long safetyFloorBytes) {
