@@ -180,6 +180,14 @@ def build_default_agent_config() -> dict:
                 "emit_audit_events": True,
                 "max_hops": 3,
             },
+            "voice": {
+                "enabled": True,
+                "allow_agent_auth": False,
+                "allow_user_auth": True,
+                "require_admin_for_user_auth": False,
+                "require_explicit_approval_for_goal": True,
+                "emit_audit_events": True,
+            },
         },
         "platform_mode": "local-dev",
         "terminal_policy": {

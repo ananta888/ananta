@@ -47,6 +47,10 @@ export class MobileAgentRuntimeAdapterService {
     );
 
     if (request.capability === 'speech_to_text') {
+      // Prefer hub-mediated voice path when explicitly allowed, then fall back to local runtime.
+      if (request.allowRemoteFallback && this.remoteFallbackExecutor) {
+        return this.executeRemoteFallbackIfAllowed(request);
+      }
       if (this.isSpeechLocallyPossible(request)) {
         const result = await this.voxtral.transcribe(
           String(request.audioPath || ''),

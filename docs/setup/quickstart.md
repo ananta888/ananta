@@ -119,6 +119,14 @@ ananta plan "Bereite den Release-Abschluss vor"
 ananta analyze "Analysiere dieses Repository"
 ```
 
+### Optional: Audio-Datei direkt transkribieren (CLI)
+
+```bash
+ananta voice-file ./sample.webm --mode transcribe
+ananta voice-file ./sample.webm --mode command
+ananta voice-file ./sample.webm --mode goal --approved --create-tasks
+```
+
 ## 5) Optional: Produkt-Shortcuts
 
 ```bash
@@ -162,6 +170,27 @@ DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docke
 ```
 
 Hinweis: Im no-ollama Pfad bleibt Ollama deaktiviert. Bei `DEFAULT_PROVIDER=openai` muss `OPENAI_API_KEY` gesetzt sein.
+
+## Optional: Voice Runtime Overlay (Hub + voice-runtime)
+
+Fuer Sprachpfade (Transcribe/Command/Goal) kann ein dedizierter Voice-Runtime-Service additiv gestartet werden:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.voice-runtime.yml up -d --build
+```
+
+Wichtige Variablen (`.env`):
+
+```bash
+VOICE_PROVIDER=voice-runtime
+VOICE_RUNTIME_URL=http://voice-runtime:8090
+VOICE_MODEL=voxtral
+VOICE_FALLBACK_MODEL=whisper-small
+VOICE_BACKEND_FALLBACK_ORDER=voxtral,mock
+VOICE_MAX_AUDIO_MB=25
+VOICE_TIMEOUT_SEC=120
+VOICE_STORE_AUDIO=false
+```
 
 Weiterfuehrung:
 

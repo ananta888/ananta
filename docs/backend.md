@@ -48,6 +48,13 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
   - `GET /v1/models`
   - `POST /v1/audio/transcriptions`
   - `POST /v1/audio/chat`
+- Hub-Endpunkte (auth + policy):
+  - `GET /v1/voice/capabilities`
+  - `POST /v1/voice/transcribe`
+  - `POST /v1/voice/command`
+  - `POST /v1/voice/goal` (optional explicit approval via `approved=true`)
+- Exposure-Policy:
+  - `exposure_policy.voice` steuert Aktivierung, Auth-Quelle und Goal-Freigabepflicht.
 
 ## OpenAI-kompatible Exposition (Hub)
 

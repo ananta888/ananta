@@ -1,0 +1,42 @@
+services:
+  voice-runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile.voice-runtime
+    restart: unless-stopped
+    environment:
+      VOICE_RUNTIME_HOST: 0.0.0.0
+      VOICE_RUNTIME_PORT: 8090
+      VOICE_PROVIDER: ${VOICE_PROVIDER:-voice-runtime}
+      VOICE_MODEL: ${VOICE_MODEL:-voxtral}
+      VOICE_FALLBACK_MODEL: ${VOICE_FALLBACK_MODEL:-whisper-small}
+      VOICE_RUNTIME_DEVICE: ${VOICE_RUNTIME_DEVICE:-auto}
+      VOICE_RUNTIME_MODEL_PATH: ${VOICE_RUNTIME_MODEL_PATH:-}
+      VOICE_BACKEND_FALLBACK_ORDER: ${VOICE_BACKEND_FALLBACK_ORDER:-voxtral,mock}
+      VOICE_MAX_AUDIO_MB: ${VOICE_MAX_AUDIO_MB:-25}
+      VOICE_TIMEOUT_SEC: ${VOICE_TIMEOUT_SEC:-120}
+    ports:
+      - "${VOICE_RUNTIME_PORT:-8090}:8090"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8090/health', timeout=3)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  ai-agent-hub:
+    depends_on:
+      voice-runtime:
+        condition: service_healthy
+    environment:
+      VOICE_PROVIDER: ${VOICE_PROVIDER:-voice-runtime}
+      VOICE_RUNTIME_URL: ${VOICE_RUNTIME_URL:-http://voice-runtime:8090}
+      VOICE_MODEL: ${VOICE_MODEL:-voxtral}
+      VOICE_FALLBACK_MODEL: ${VOICE_FALLBACK_MODEL:-whisper-small}
+      VOICE_MAX_AUDIO_MB: ${VOICE_MAX_AUDIO_MB:-25}
+      VOICE_TIMEOUT_SEC: ${VOICE_TIMEOUT_SEC:-120}
+      VOICE_DIRECT_CLIENT_ACCESS: ${VOICE_DIRECT_CLIENT_ACCESS:-false}
+      VOICE_RUNTIME_DEVICE: ${VOICE_RUNTIME_DEVICE:-auto}
+      VOICE_RUNTIME_MODEL_PATH: ${VOICE_RUNTIME_MODEL_PATH:-}
+      VOICE_ENABLE_STREAMING: ${VOICE_ENABLE_STREAMING:-false}
+      VOICE_STORE_AUDIO: ${VOICE_STORE_AUDIO:-false}
