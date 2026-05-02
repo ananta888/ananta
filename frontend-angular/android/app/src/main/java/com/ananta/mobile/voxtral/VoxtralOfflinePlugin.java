@@ -2,6 +2,7 @@ package com.ananta.mobile.voxtral;
 
 import android.Manifest;
 import android.app.ActivityManager;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -37,10 +38,14 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
+
+import org.json.JSONObject;
 
 @CapacitorPlugin(
         name = "VoxtralOffline",
@@ -61,8 +66,11 @@ public class VoxtralOfflinePlugin extends Plugin {
     private static final long LOW_MEMORY_LIVE_MULTIPLIER_DEN = 2L;
     private static final long LOW_MEMORY_LIVE_SAFETY_RESERVE_BYTES = 512L * 1024L * 1024L;
     private static final long MAX_IN_PROCESS_VOXTRAL_MODEL_BYTES = 2_100_000_000L;
+    private static final long MAX_IN_PROCESS_SAFE_PRESET_BYTES = 1_500_000_000L;
     private static final long LIVE_SESSION_MAX_SECONDS = 120L;
     private static final int MAX_PROCESS_OUTPUT_CHARS = 64 * 1024;
+    private static final long RUNNER_SERVICE_TIMEOUT_MS = 120_000L;
+    private static final long RUNNER_SERVICE_HEARTBEAT_STALE_MS = 12_000L;
     private static final String MODEL_EXTENSION = ".gguf";
     private static final List<String> ALLOWED_DOWNLOAD_HOST_SUFFIXES = Arrays.asList(
             "huggingface.co",
@@ -84,6 +92,7 @@ public class VoxtralOfflinePlugin extends Plugin {
     private static final String PREFS_NAME = "voxtral_offline_prefs";
     private static final String PREF_MODEL_PATH = "last_model_path";
     private static final String PREF_RUNNER_PATH = "last_runner_path";
+    private static final String PREF_PROBE_OK_PREFIX = "probe_ok::";
     private static final String CMAKE_VERSION = "3.30.5";
     private static final String CMAKE_ARCHIVE_NAME = "cmake-" + CMAKE_VERSION + "-linux-aarch64.tar.gz";
     private static final String CMAKE_DOWNLOAD_URL = "https://github.com/Kitware/CMake/releases/download/v" + CMAKE_VERSION + "/" + CMAKE_ARCHIVE_NAME;
@@ -533,6 +542,11 @@ public class VoxtralOfflinePlugin extends Plugin {
             call.reject("Runner preparation failed: " + error.getMessage());
             return;
         }
+        RunnerProbe probeGate = requireRunnerProbeGate(executableRunnerFile, modelFile);
+        if (!probeGate.compatible) {
+            call.reject("Model/runner probe failed before transcription start: " + probeGate.message);
+            return;
+        }
 
         lastModelPath = modelPath;
         lastRunnerPath = runnerPath;
@@ -669,6 +683,11 @@ public class VoxtralOfflinePlugin extends Plugin {
             executableRunnerFile = prepareRunnerForExecution(runnerFile);
         } catch (Exception error) {
             call.reject("Runner preparation failed: " + error.getMessage());
+            return;
+        }
+        RunnerProbe probeGate = requireRunnerProbeGate(executableRunnerFile, modelFile);
+        if (!probeGate.compatible) {
+            call.reject("Model/runner probe failed before live start: " + probeGate.message);
             return;
         }
 
@@ -914,6 +933,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             result.put("modelExists", model.exists());
             result.put("modelBytes", model.exists() ? model.length() : 0);
             result.put("modelCompatible", model.exists() && isCompatibleModelFile(model));
+            result.put("modelSafePresetDefault", model.exists() && model.length() <= MAX_IN_PROCESS_SAFE_PRESET_BYTES);
             result.put("estimatedRequiredBytes", model.exists() ? Math.max(DEFAULT_MIN_FREE_BYTES, model.length() + (128L * 1024L * 1024L)) : DEFAULT_MIN_FREE_BYTES);
             RuntimeMemoryCheck runtimeMemory = evaluateRuntimeMemory(model);
             result.put("availableRuntimeMemoryBytes", runtimeMemory.availableBytes);
@@ -923,6 +943,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             result.put("modelExists", false);
             result.put("modelBytes", 0);
             result.put("modelCompatible", false);
+            result.put("modelSafePresetDefault", false);
             result.put("estimatedRequiredBytes", DEFAULT_MIN_FREE_BYTES);
             result.put("availableRuntimeMemoryBytes", 0);
             result.put("estimatedRuntimeRequiredBytes", DEFAULT_MIN_RUNTIME_FREE_BYTES);
@@ -1136,22 +1157,95 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     private String runRunnerSync(File runnerFile, File modelFile, File audioFile, boolean lowMemoryMode) throws IOException, InterruptedException {
-        try {
-            return runRunnerSyncDirect(runnerFile, modelFile, audioFile, lowMemoryMode);
-        } catch (IOException directError) {
-            String msg = String.valueOf(directError.getMessage() == null ? "" : directError.getMessage());
-            if (!shouldFallbackToProot(msg)) {
-                throw directError;
+        return runRunnerSyncIsolated(runnerFile, modelFile, audioFile, lowMemoryMode);
+    }
+
+    private String runRunnerSyncIsolated(File runnerFile, File modelFile, File audioFile, boolean lowMemoryMode) throws IOException {
+        return runRunnerServiceJob("transcribe", runnerFile, modelFile, audioFile, lowMemoryMode);
+    }
+
+    private String runRunnerProbeIsolated(File runnerFile, File modelFile) throws IOException {
+        return runRunnerServiceJob("probe", runnerFile, modelFile, null, false);
+    }
+
+    private String runRunnerServiceJob(String mode, File runnerFile, File modelFile, File audioFile, boolean lowMemoryMode) throws IOException {
+        File jobsDir = ensureDir("voxtral/runner-jobs");
+        if (jobsDir == null) {
+            throw new IOException("Could not create runner job directory.");
+        }
+        String jobId = String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID();
+        File resultFile = new File(jobsDir, jobId + ".result.json");
+        File heartbeatFile = new File(jobsDir, jobId + ".heartbeat");
+        long startedAt = System.currentTimeMillis();
+
+        Intent intent = new Intent(getContext(), VoxtralRunnerService.class);
+        intent.setAction(VoxtralRunnerService.ACTION_RUN);
+        intent.putExtra(VoxtralRunnerService.EXTRA_MODE, mode);
+        intent.putExtra(VoxtralRunnerService.EXTRA_RUNNER_PATH, runnerFile == null ? "" : runnerFile.getAbsolutePath());
+        intent.putExtra(VoxtralRunnerService.EXTRA_MODEL_PATH, modelFile == null ? "" : modelFile.getAbsolutePath());
+        intent.putExtra(VoxtralRunnerService.EXTRA_AUDIO_PATH, audioFile == null ? "" : audioFile.getAbsolutePath());
+        intent.putExtra(VoxtralRunnerService.EXTRA_LOW_MEMORY_MODE, lowMemoryMode);
+        intent.putExtra(VoxtralRunnerService.EXTRA_RESULT_PATH, resultFile.getAbsolutePath());
+        intent.putExtra(VoxtralRunnerService.EXTRA_HEARTBEAT_PATH, heartbeatFile.getAbsolutePath());
+        intent.putExtra(VoxtralRunnerService.EXTRA_TIMEOUT_MS, RUNNER_SERVICE_TIMEOUT_MS);
+
+        if (getContext().startService(intent) == null) {
+            throw new IOException("Runner service start failed.");
+        }
+
+        long lastHeartbeatSeenAt = -1L;
+        while (System.currentTimeMillis() - startedAt <= RUNNER_SERVICE_TIMEOUT_MS + 5_000L) {
+            if (resultFile.isFile() && resultFile.length() > 0) {
+                String json = readTextFile(resultFile);
+                resultFile.delete();
+                heartbeatFile.delete();
+                JSONObject payload = new JSONObject(json);
+                String status = String.valueOf(payload.optString("status", "error")).trim().toLowerCase(Locale.US);
+                String rawOutput = String.valueOf(payload.optString("rawOutput", ""));
+                if ("ok".equals(status)) {
+                    if ("probe".equals(mode)) {
+                        return rawOutput;
+                    }
+                    return String.valueOf(payload.optString("transcript", rawOutput == null ? "" : rawOutput)).trim();
+                }
+                String error = String.valueOf(payload.optString("error", "runner_service_failure")).trim();
+                throw new IOException(error.isBlank() ? "runner_service_failure" : error);
+            }
+
+            if (heartbeatFile.isFile()) {
+                long heartbeatTs = parseLongSafe(readTextFile(heartbeatFile));
+                if (heartbeatTs > 0) {
+                    lastHeartbeatSeenAt = System.currentTimeMillis();
+                }
+            }
+            if (lastHeartbeatSeenAt > 0 && (System.currentTimeMillis() - lastHeartbeatSeenAt) > RUNNER_SERVICE_HEARTBEAT_STALE_MS) {
+                heartbeatFile.delete();
+                resultFile.delete();
+                throw new IOException("Runner service heartbeat lost.");
             }
             try {
-                return runRunnerSyncViaProot(runnerFile, modelFile, audioFile, lowMemoryMode);
-            } catch (IOException prootError) {
-                throw new IOException(
-                    "Runner direct failed: " + msg + "\n"
-                        + "Runner proot fallback failed: " + String.valueOf(prootError.getMessage() == null ? "" : prootError.getMessage())
-                );
+                Thread.sleep(200L);
+            } catch (InterruptedException interruptedException) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Runner service wait interrupted.");
             }
         }
+        heartbeatFile.delete();
+        resultFile.delete();
+        throw new IOException("Runner service timeout.");
+    }
+
+    private String readTextFile(File file) throws IOException {
+        if (file == null || !file.isFile()) return "";
+        StringBuilder builder = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
+            char[] buffer = new char[1024];
+            int read;
+            while ((read = reader.read(buffer)) != -1) {
+                builder.append(buffer, 0, read);
+            }
+        }
+        return builder.toString();
     }
 
     private String runRunnerSyncDirect(File runnerFile, File modelFile, File audioFile) throws IOException, InterruptedException {
@@ -1390,20 +1484,7 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     private String runModelProbe(File runnerFile, File modelFile) throws IOException, InterruptedException {
-        List<String> command = buildRunnerProbeCommand(runnerFile, modelFile);
-        Process process = new ProcessBuilder(command)
-            .redirectErrorStream(true)
-            .start();
-        String output = readAllLimited(process.getInputStream(), MAX_PROCESS_OUTPUT_CHARS);
-        int exitCode = process.waitFor();
-        if (exitCode != 0) {
-            File ubuntuRootfs = resolveUbuntuRootfs();
-            File prootWrapper = resolveProotWrapper();
-            if (ubuntuRootfs != null && prootWrapper != null) {
-                return runModelProbeViaProot(runnerFile, modelFile);
-            }
-        }
-        return output;
+        return runRunnerProbeIsolated(runnerFile, modelFile);
     }
 
     private String runModelProbeViaProot(File runnerFile, File modelFile) throws IOException, InterruptedException {
@@ -1781,7 +1862,26 @@ public class VoxtralOfflinePlugin extends Plugin {
         return "Model is too large for safe in-app Voxtral execution on this device. Model: "
                 + formatBytes(modelBytes)
                 + ", safe limit: " + formatBytes(MAX_IN_PROCESS_VOXTRAL_MODEL_BYTES)
-                + ". Use a smaller compatible realtime model (for example Q3_K) or run Voxtral outside the APK.";
+                + ". Use a smaller compatible realtime model that passed runner probe on this device.";
+    }
+
+    private RunnerProbe requireRunnerProbeGate(File runnerFile, File modelFile) {
+        if (runnerFile == null || modelFile == null) {
+            return new RunnerProbe(false, "missing_model_or_runner");
+        }
+        String key = String.valueOf(runnerFile.getAbsolutePath()) + "::" + String.valueOf(modelFile.getAbsolutePath());
+        String cacheKey = PREF_PROBE_OK_PREFIX + Integer.toHexString(key.hashCode());
+        String cached = readSelection(cacheKey);
+        if ("ok".equalsIgnoreCase(String.valueOf(cached).trim())) {
+            return new RunnerProbe(true, "ok(cached)");
+        }
+        RunnerProbe probe = probeRunnerModelCompatibility(runnerFile, modelFile);
+        if (probe.compatible) {
+            persistSelection(cacheKey, "ok");
+        } else {
+            persistSelection(cacheKey, "");
+        }
+        return probe;
     }
 
     private boolean hasEnoughStorageForModel(File modelFile, long safetyFloorBytes) {
@@ -1790,6 +1890,15 @@ public class VoxtralOfflinePlugin extends Plugin {
         long availableBytes = statFs.getAvailableBytes();
         long estimatedNeeded = Math.max(safetyFloorBytes, modelFile.length() + (128L * 1024L * 1024L));
         return availableBytes >= estimatedNeeded;
+    }
+
+    private long parseLongSafe(String raw) {
+        if (raw == null) return 0L;
+        try {
+            return Long.parseLong(raw.trim());
+        } catch (Exception ignored) {
+            return 0L;
+        }
     }
 
     private boolean guardAction(PluginCall call, String action) {
@@ -2054,9 +2163,21 @@ public class VoxtralOfflinePlugin extends Plugin {
             );
             reserveBytes = RUNTIME_SAFETY_RESERVE_BYTES;
         }
-        long guardedRequiredBytes = estimatedRequiredBytes + reserveBytes;
+        long currentProcessPssBytes = readCurrentProcessPssBytes(activityManager);
+        long guardedRequiredBytes = estimatedRequiredBytes + reserveBytes + Math.max(0L, currentProcessPssBytes / 2L);
         boolean hasEnoughMemory = !memoryInfo.lowMemory && availableBytes >= guardedRequiredBytes;
         return new RuntimeMemoryCheck(hasEnoughMemory, availableBytes, guardedRequiredBytes);
+    }
+
+    private long readCurrentProcessPssBytes(ActivityManager activityManager) {
+        if (activityManager == null) return 0L;
+        try {
+            android.os.Debug.MemoryInfo[] infos = activityManager.getProcessMemoryInfo(new int[]{android.os.Process.myPid()});
+            if (infos == null || infos.length == 0 || infos[0] == null) return 0L;
+            return Math.max(0L, infos[0].getTotalPss()) * 1024L;
+        } catch (Exception ignored) {
+            return 0L;
+        }
     }
 
     private String formatBytes(long bytes) {
