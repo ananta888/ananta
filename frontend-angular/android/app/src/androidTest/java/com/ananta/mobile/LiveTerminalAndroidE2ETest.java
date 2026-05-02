@@ -553,6 +553,77 @@ public class LiveTerminalAndroidE2ETest {
         );
     }
 
+    @Test
+    public void voxtralDirectTranscriptionWorks() throws InterruptedException {
+        activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
+        activityRule.getScenario().onActivity(activity -> {});
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "run voxtral direct transcription",
+            "window.__anantaVoxtralTranscribe='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var vx=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.VoxtralOffline;"
+                + "    if(!vx){window.__anantaVoxtralTranscribe='ERR:NO_VOXTRAL_PLUGIN';return;}"
+                + "    var status=await vx.getStatus();"
+                + "    var modelPath=String((status && status.modelPath) ? status.modelPath : '').trim();"
+                + "    var runnerPath=String((status && status.runnerPath) ? status.runnerPath : '').trim();"
+                + "    if(!modelPath || !runnerPath){"
+                + "      var assets=await vx.listLocalAssets();"
+                + "      var models=(assets && Array.isArray(assets.models)) ? assets.models : [];"
+                + "      var runners=(assets && Array.isArray(assets.runners)) ? assets.runners : [];"
+                + "      if(!modelPath && models.length>0){modelPath=String((models[0]&&models[0].path)||'').trim();}"
+                + "      if(!runnerPath && runners.length>0){"
+                + "        var pref=runners.find(function(r){return String((r&&r.name)||'').toLowerCase().indexOf('voxtral')>=0;});"
+                + "        runnerPath=String(((pref||runners[0])&&((pref||runners[0]).path))||'').trim();"
+                + "      }"
+                + "    }"
+                + "    if(!modelPath){window.__anantaVoxtralTranscribe='ERR:NO_MODEL_PATH';return;}"
+                + "    if(!runnerPath){window.__anantaVoxtralTranscribe='ERR:NO_RUNNER_PATH';return;}"
+                + "    var mic=await vx.requestMicrophonePermission();"
+                + "    var micState=String((mic && mic.state) ? mic.state : mic).toLowerCase();"
+                + "    if(micState.indexOf('granted')<0){window.__anantaVoxtralTranscribe='ERR:MIC_' + micState;return;}"
+                + "    var rec=await vx.startRecording({maxSeconds:2,sampleRate:16000});"
+                + "    await new Promise(function(resolve){setTimeout(resolve, 1900);});"
+                + "    var stopped=await vx.stopRecording();"
+                + "    var audioPath=String((stopped && stopped.audioPath) ? stopped.audioPath : ((rec && rec.audioPath) ? rec.audioPath : '')).trim();"
+                + "    if(!audioPath){window.__anantaVoxtralTranscribe='ERR:NO_AUDIO_PATH';return;}"
+                + "    var tr=await vx.transcribe({audioPath:audioPath,modelPath:modelPath,runnerPath:runnerPath,confirmed:true});"
+                + "    var transcript=String((tr && tr.transcript) ? tr.transcript : '').trim();"
+                + "    var raw=String((tr && tr.rawOutput) ? tr.rawOutput : '').trim();"
+                + "    if(!transcript && !raw){window.__anantaVoxtralTranscribe='ERR:EMPTY_TRANSCRIPT';return;}"
+                + "    window.__anantaVoxtralTranscribe='OK:' + (transcript || raw).slice(0, 800);"
+                + "  }catch(e){"
+                + "    window.__anantaVoxtralTranscribe='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "voxtral direct transcription finished",
+            "var v=String(window.__anantaVoxtralTranscribe||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            240,
+            1_000L
+        );
+
+        runIfPresent(
+            "log voxtral direct transcription result",
+            "console.log('ANANTA_VOXTRAL_TRANSCRIBE_RESULT:' + String(window.__anantaVoxtralTranscribe||'').slice(-3000)); return true;"
+        );
+
+        waitForTrueWithRetry(
+            "voxtral direct transcription succeeded",
+            "var v=String(window.__anantaVoxtralTranscribe||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "return v.indexOf('OK:')===0;",
+            30,
+            1_000L
+        );
+    }
+
     private void waitForTrue(String step, String scriptExpression) throws InterruptedException {
         waitForTrueWithRetry(step, scriptExpression, RETRY_COUNT, RETRY_DELAY_MS);
     }
