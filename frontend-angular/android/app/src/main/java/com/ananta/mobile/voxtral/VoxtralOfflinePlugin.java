@@ -213,6 +213,10 @@ public class VoxtralOfflinePlugin extends Plugin {
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
             }
+            if (toJoin.isAlive()) {
+                call.reject("Recording is still finalizing. Please wait a moment and try again.");
+                return;
+            }
         }
 
         JSObject result = new JSObject();
@@ -434,6 +438,12 @@ public class VoxtralOfflinePlugin extends Plugin {
             call.reject("Live transcription is running. Stop live mode first.");
             return;
         }
+        synchronized (recordingLock) {
+            if (isRecording || recordingThread != null) {
+                call.reject("Recording is still active/finalizing. Stop recording and wait a moment.");
+                return;
+            }
+        }
         String audioPath = call.getString("audioPath");
         String modelPath = call.getString("modelPath");
         String runnerPath = call.getString("runnerPath");
@@ -459,6 +469,10 @@ public class VoxtralOfflinePlugin extends Plugin {
         }
         if (!audioFile.exists()) {
             call.reject("Audio file not found: " + audioPath);
+            return;
+        }
+        if (!isValidWavAudio(audioFile)) {
+            call.reject("Audio file is invalid or incomplete. Please record again.");
             return;
         }
         if (!modelFile.exists()) {
@@ -1066,7 +1080,8 @@ public class VoxtralOfflinePlugin extends Plugin {
                 }
             }
             updateWavHeader(outFile, sampleRate, 1, 16, bytesWritten);
-        } catch (Exception ignored) {
+        } catch (Exception error) {
+            appendAudit("deny", "record_audio", "record_failed " + error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage()));
         } finally {
             synchronized (recordingLock) {
                 if (audioRecord != null) {
@@ -1076,6 +1091,12 @@ public class VoxtralOfflinePlugin extends Plugin {
                     }
                     audioRecord.release();
                     audioRecord = null;
+                }
+                if (bytesWritten <= 0 || !isValidWavAudio(outFile)) {
+                    if (outFile.exists()) outFile.delete();
+                    if (currentAudioPath != null && currentAudioPath.equals(outFile.getAbsolutePath())) {
+                        currentAudioPath = null;
+                    }
                 }
                 isRecording = false;
                 recordingThread = null;
@@ -1588,6 +1609,19 @@ public class VoxtralOfflinePlugin extends Plugin {
                 .append(" chars omitted]");
         }
         return builder.toString();
+    }
+
+    private boolean isValidWavAudio(File audioFile) {
+        if (audioFile == null || !audioFile.exists() || audioFile.length() <= 44) return false;
+        try (RandomAccessFile input = new RandomAccessFile(audioFile, "r")) {
+            byte[] header = new byte[12];
+            input.readFully(header);
+            String riff = new String(header, 0, 4, StandardCharsets.US_ASCII);
+            String wave = new String(header, 8, 4, StandardCharsets.US_ASCII);
+            return "RIFF".equals(riff) && "WAVE".equals(wave);
+        } catch (IOException error) {
+            return false;
+        }
     }
 
     private File ensureDir(String subPath) {
