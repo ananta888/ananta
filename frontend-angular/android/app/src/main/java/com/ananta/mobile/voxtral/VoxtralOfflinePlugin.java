@@ -1178,6 +1178,28 @@ public class VoxtralOfflinePlugin extends Plugin {
     private String executeRunnerCommand(List<String> command) throws IOException, InterruptedException {
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.redirectErrorStream(true);
+        String runnerBinaryPath = resolveRunnerBinaryPath(command);
+        if (runnerBinaryPath != null && !runnerBinaryPath.isBlank()) {
+            File runnerBinary = new File(runnerBinaryPath);
+            File runnerDir = runnerBinary.getParentFile();
+            String nativeLibDir = resolveNativeLibDir();
+            String existing = pb.environment().get("LD_LIBRARY_PATH");
+            StringBuilder ld = new StringBuilder();
+            if (runnerDir != null) {
+                ld.append(runnerDir.getAbsolutePath());
+            }
+            if (nativeLibDir != null && !nativeLibDir.isBlank()) {
+                if (ld.length() > 0) ld.append(':');
+                ld.append(nativeLibDir);
+            }
+            if (existing != null && !existing.isBlank()) {
+                if (ld.length() > 0) ld.append(':');
+                ld.append(existing);
+            }
+            if (ld.length() > 0) {
+                pb.environment().put("LD_LIBRARY_PATH", ld.toString());
+            }
+        }
         Process process = pb.start();
         String output = readAllLimited(process.getInputStream(), MAX_PROCESS_OUTPUT_CHARS);
         int exitCode = process.waitFor();
@@ -1206,6 +1228,16 @@ public class VoxtralOfflinePlugin extends Plugin {
         File linker = new File("/system/bin/linker");
         if (linker.isFile() && linker.canExecute()) return linker.getAbsolutePath();
         return null;
+    }
+
+    private String resolveRunnerBinaryPath(List<String> command) {
+        if (command == null || command.isEmpty()) return null;
+        String first = String.valueOf(command.get(0));
+        if ("/system/bin/linker64".equals(first) || "/system/bin/linker".equals(first)) {
+            if (command.size() >= 2) return String.valueOf(command.get(1));
+            return null;
+        }
+        return first;
     }
 
     private RunnerProbe probeRunnerModelCompatibility(File runnerFile, File modelFile) {
