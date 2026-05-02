@@ -50,6 +50,7 @@ import java.util.zip.GZIPInputStream;
 public class VoxtralOfflinePlugin extends Plugin {
     private static final long DEFAULT_MIN_FREE_BYTES = 512L * 1024L * 1024L;
     private static final long LIVE_SESSION_MAX_SECONDS = 120L;
+    private static final int MAX_PROCESS_OUTPUT_CHARS = 64 * 1024;
     private static final String MODEL_EXTENSION = ".gguf";
     private static final List<String> ALLOWED_DOWNLOAD_HOST_SUFFIXES = Arrays.asList(
             "huggingface.co",
@@ -956,7 +957,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.redirectErrorStream(true);
         Process process = pb.start();
-        String output = readAll(process.getInputStream());
+        String output = readAllLimited(process.getInputStream(), MAX_PROCESS_OUTPUT_CHARS);
         int exitCode = process.waitFor();
         if (exitCode != 0) {
             if (containsUnsupportedModelArchitecture(output)) {
@@ -1013,7 +1014,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         Process process = new ProcessBuilder(command)
             .redirectErrorStream(true)
             .start();
-        String output = readAll(process.getInputStream());
+        String output = readAllLimited(process.getInputStream(), MAX_PROCESS_OUTPUT_CHARS);
         int exitCode = process.waitFor();
         if (exitCode != 0) {
             File ubuntuRootfs = resolveUbuntuRootfs();
@@ -1563,13 +1564,28 @@ public class VoxtralOfflinePlugin extends Plugin {
         return output.trim();
     }
 
-    private String readAll(InputStream stream) throws IOException {
-        StringBuilder builder = new StringBuilder();
+    private String readAllLimited(InputStream stream, int maxChars) throws IOException {
+        StringBuilder builder = new StringBuilder(Math.min(maxChars, 8192));
+        long droppedChars = 0;
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                builder.append(line).append('\n');
+            char[] buffer = new char[2048];
+            int read;
+            while ((read = reader.read(buffer)) != -1) {
+                int remaining = maxChars - builder.length();
+                if (remaining > 0) {
+                    int toAppend = Math.min(remaining, read);
+                    builder.append(buffer, 0, toAppend);
+                    droppedChars += (read - toAppend);
+                } else {
+                    droppedChars += read;
+                }
             }
+        }
+        if (droppedChars > 0) {
+            builder
+                .append("\n...[output truncated: ")
+                .append(droppedChars)
+                .append(" chars omitted]");
         }
         return builder.toString();
     }
@@ -1834,7 +1850,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         Process process = new ProcessBuilder("/system/bin/sh", "-lc", shellCommand)
             .redirectErrorStream(true)
             .start();
-        String output = readAll(process.getInputStream());
+        String output = readAllLimited(process.getInputStream(), MAX_PROCESS_OUTPUT_CHARS);
         int exitCode = process.waitFor();
         if (exitCode != 0) {
             throw new IOException("Proot command failed with exit code " + exitCode + "\n" + output);
