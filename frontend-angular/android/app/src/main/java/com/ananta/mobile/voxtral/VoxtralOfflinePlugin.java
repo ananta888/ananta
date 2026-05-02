@@ -248,6 +248,31 @@ public class VoxtralOfflinePlugin extends Plugin {
         ioExecutor.execute(() -> {
             HttpURLConnection connection = null;
             try {
+                File runnerBinary = new File(binDir, "crispasr-voxtral");
+                File runnerWrapper = new File(binDir, "voxtral-cli");
+
+                // Fast path: avoid expensive rebuild if a valid runner is already provisioned.
+                if (runnerWrapper.isFile() && runnerBinary.isFile()) {
+                    try {
+                        File stagedRunner = prepareRunnerForExecution(runnerWrapper);
+                        if (canSpawnRunner(stagedRunner) || canSpawnRunnerViaProot(stagedRunner)) {
+                            lastRunnerPath = runnerWrapper.getAbsolutePath();
+                            persistSelection(PREF_RUNNER_PATH, lastRunnerPath);
+                            JSObject cached = new JSObject();
+                            cached.put("runnerPath", runnerWrapper.getAbsolutePath());
+                            cached.put("binaryPath", runnerBinary.getAbsolutePath());
+                            cached.put("sourceArchivePath", "");
+                            cached.put("sourceBytes", 0);
+                            cached.put("sourceSha256", "");
+                            cached.put("rawOutput", "already_provisioned");
+                            call.resolve(cached);
+                            return;
+                        }
+                    } catch (Exception ignored) {
+                        // Continue to full provisioning flow.
+                    }
+                }
+
                 // Bootstrap cmake locally so provisioning does not depend on apt/dpkg.
                 File cmakeHome = new File(toolsDir, "cmake-" + CMAKE_VERSION + "-linux-aarch64");
                 File cmakeBin = new File(cmakeHome, "bin/cmake");
@@ -311,8 +336,6 @@ public class VoxtralOfflinePlugin extends Plugin {
                     }
                 }
 
-                File runnerBinary = new File(binDir, "crispasr-voxtral");
-                File runnerWrapper = new File(binDir, "voxtral-cli");
                 String innerCommand = ""
                     + "set -e; "
                     + "export PATH=" + shQuote(cmakeHome.getAbsolutePath() + "/bin") + ":/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "

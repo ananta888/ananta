@@ -489,6 +489,8 @@ public class LiveTerminalAndroidE2ETest {
 
     @Test
     public void voxtralRunnerProvisionButtonActionWorks() throws InterruptedException {
+        activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
+        activityRule.getScenario().onActivity(activity -> {});
         onWebView().forceJavascriptEnabled();
         waitForTrue("document ready", "return document.readyState === 'complete';");
 
