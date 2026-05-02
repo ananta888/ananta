@@ -2338,6 +2338,10 @@ public class VoxtralOfflinePlugin extends Plugin {
         prefs().edit().putString(key, String.valueOf(value == null ? "" : value)).apply();
     }
 
+    private String readSelection(String key) {
+        return prefs().getString(key, "");
+    }
+
     private File selectDefaultAsset(File dir, String extensionFilter) {
         if (dir == null || !dir.isDirectory()) return null;
         File[] files = dir.listFiles();
