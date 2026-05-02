@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from flask import Flask, jsonify
 
-from .backends.mock import MockVoiceBackend
+from .backends.router import build_voice_backend_router
 from .config import VoiceRuntimeConfig
 from .routes import voice_runtime_bp
 
@@ -10,7 +10,7 @@ from .routes import voice_runtime_bp
 def create_app(config: VoiceRuntimeConfig | None = None) -> Flask:
     app = Flask(__name__)
     runtime_config = config or VoiceRuntimeConfig.from_env()
-    backend = _build_backend(runtime_config)
+    backend = build_voice_backend_router(runtime_config)
 
     app.config["voice_runtime_config"] = runtime_config
     app.config["voice_runtime_backend"] = backend
@@ -21,12 +21,6 @@ def create_app(config: VoiceRuntimeConfig | None = None) -> Flask:
         return jsonify({"error": {"code": "voice.internal_error", "message": str(exc), "retriable": False}}), 500
 
     return app
-
-
-def _build_backend(config: VoiceRuntimeConfig):
-    if config.backend == "mock":
-        return MockVoiceBackend(model=f"mock-{config.model}")
-    raise RuntimeError(f"unsupported VOICE_RUNTIME_BACKEND: {config.backend}")
 
 
 if __name__ == "__main__":

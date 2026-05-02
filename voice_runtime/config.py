@@ -30,6 +30,8 @@ class VoiceRuntimeConfig:
     enable_streaming: bool = False
     store_audio: bool = False
     device: str = "auto"
+    model_path: str | None = None
+    backend_fallback_order: tuple[str, ...] = ("voxtral", "mock")
 
     @classmethod
     def from_env(cls) -> "VoiceRuntimeConfig":
@@ -45,4 +47,11 @@ class VoiceRuntimeConfig:
             enable_streaming=_as_bool(os.getenv("VOICE_ENABLE_STREAMING"), False),
             store_audio=_as_bool(os.getenv("VOICE_STORE_AUDIO"), False),
             device=os.getenv("VOICE_RUNTIME_DEVICE", "auto").strip() or "auto",
+            model_path=(os.getenv("VOICE_RUNTIME_MODEL_PATH", "").strip() or None),
+            backend_fallback_order=tuple(
+                item.strip()
+                for item in (os.getenv("VOICE_BACKEND_FALLBACK_ORDER", "voxtral,mock").split(","))
+                if item.strip()
+            )
+            or ("voxtral", "mock"),
         )

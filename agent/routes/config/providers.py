@@ -6,6 +6,7 @@ from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.service_registry import get_core_services
+from agent.services.voice_provider import VoiceProviderError, get_voice_provider_service
 
 from . import shared
 
@@ -58,6 +59,45 @@ def _provider_specs(*, app_cfg: dict, urls: dict, default_provider: str, default
         has_openai_api_key=bool(current_app.config.get("OPENAI_API_KEY")),
         has_anthropic_api_key=bool(current_app.config.get("ANTHROPIC_API_KEY")),
     )
+
+
+def _voice_runtime_catalog_entry(app_cfg: dict) -> dict:
+    voice_cfg = app_cfg.get("voice_runtime") if isinstance(app_cfg.get("voice_runtime"), dict) else {}
+    base_url = str(voice_cfg.get("base_url") or current_app.config.get("VOICE_RUNTIME_URL") or "").strip()
+    provider_name = str(voice_cfg.get("provider") or current_app.config.get("VOICE_PROVIDER") or "voice-runtime")
+    max_audio_mb = int(voice_cfg.get("max_audio_mb") or current_app.config.get("VOICE_MAX_AUDIO_MB") or 25)
+    models: list[dict] = []
+    available = False
+    status = "unavailable"
+    reason = None
+    try:
+        provider = get_voice_provider_service()
+        models = provider.models()
+        health = provider.health()
+        available = bool(health.get("ok"))
+        status = str(health.get("status") or ("ok" if available else "degraded"))
+    except VoiceProviderError as exc:
+        reason = exc.code
+    except Exception:
+        reason = "voice.runtime_unavailable"
+    return {
+        "provider": provider_name,
+        "base_url": base_url,
+        "available": available,
+        "model_count": len(models),
+        "models": models,
+        "capabilities": {
+            "dynamic_models": True,
+            "supports_chat": False,
+            "openai_compatible": False,
+            "provider_type": "local_voice_runtime",
+            "voice_capabilities": ["audio_input", "transcription", "voice_command", "multimodal_audio_prompt"],
+            "limits": {"max_audio_mb": max_audio_mb},
+            "status": status,
+            "status_reason": reason,
+        },
+        "recommended_model": (models[0].get("id") if models else None),
+    }
 
 
 @providers_bp.route("/providers", methods=["GET"])
@@ -241,6 +281,17 @@ def list_provider_catalog():
             task_kind=task_kind,
         )
         catalog["providers"].append(provider_entry)
+
+    voice_entry = _voice_runtime_catalog_entry(app_cfg)
+    voice_entry["routing_decision"] = {
+        "provider": voice_entry["provider"],
+        "provider_type": "local_voice_runtime",
+        "eligible_for_inference": False,
+        "eligible_for_execution": True,
+        "availability": "available" if voice_entry.get("available") else "degraded",
+        "reason": "voice_runtime_health_probe",
+    }
+    catalog["providers"].append(voice_entry)
 
     if task_kind:
         recommended_items = [

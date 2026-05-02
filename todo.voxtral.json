@@ -21,12 +21,14 @@
     "done_scope": [
       "Architecture option C is defined and aligned with hub-worker boundaries.",
       "Core API and environment contract outlines exist.",
-      "Phased implementation breakdown is comprehensive."
+      "Phased implementation breakdown is comprehensive.",
+      "Hub voice routes and provider catalog capability wiring are implemented.",
+      "Voxtral adapter, normalization, fallback chain, and device detection are implemented."
     ],
     "missing_scope": [
-      "Hub public voice routes are not wired yet.",
-      "Provider catalog voice availability is not exposed yet.",
-      "Audit + policy enforcement for voice actions is not complete."
+      "Compose overlay and runtime packaging integration are incomplete.",
+      "Client-side Android/Desktop/CLI migrations are not implemented.",
+      "Voice policy hardening + CI/release verification tasks remain."
     ]
   },
   "architecture_guardrails": [
@@ -478,7 +480,7 @@
     {
       "phase": "P2",
       "name": "Ananta Hub integration",
-      "status": "in_progress",
+      "status": "done",
       "tasks": [
         {
           "id": "VOX-P2-001",
@@ -533,7 +535,7 @@
     {
       "phase": "P3",
       "name": "Voxtral backend",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "VOX-P3-001",
@@ -588,7 +590,7 @@
     {
       "phase": "P4",
       "name": "Docker and install profiles",
-      "status": "todo",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "VOX-P4-001",
@@ -836,16 +838,16 @@
     {"id": "VOX-P1-004", "phase": "P1", "title": "Add model catalog endpoint", "status": "done", "priority": "medium", "depends_on": []},
 
     {"id": "VOX-P2-001", "phase": "P2", "title": "Add VoiceProvider adapter in Ananta backend", "status": "done", "priority": "high", "depends_on": ["VOX-P1-003"]},
-    {"id": "VOX-P2-002", "phase": "P2", "title": "Expose Ananta Hub voice routes", "status": "todo", "priority": "high", "depends_on": ["VOX-P2-001", "VOX-P0-003"]},
-    {"id": "VOX-P2-003", "phase": "P2", "title": "Register voice capabilities in provider catalog", "status": "todo", "priority": "high", "depends_on": []},
-    {"id": "VOX-P2-004", "phase": "P2", "title": "Add audit metadata for voice actions", "status": "todo", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P6-003"]},
+    {"id": "VOX-P2-002", "phase": "P2", "title": "Expose Ananta Hub voice routes", "status": "done", "priority": "high", "depends_on": ["VOX-P2-001", "VOX-P0-003"]},
+    {"id": "VOX-P2-003", "phase": "P2", "title": "Register voice capabilities in provider catalog", "status": "done", "priority": "high", "depends_on": []},
+    {"id": "VOX-P2-004", "phase": "P2", "title": "Add audit metadata for voice actions", "status": "done", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P6-003"]},
 
-    {"id": "VOX-P3-001", "phase": "P3", "title": "Implement Voxtral backend adapter", "status": "todo", "priority": "high", "depends_on": []},
-    {"id": "VOX-P3-002", "phase": "P3", "title": "Add audio normalization pipeline", "status": "todo", "priority": "high", "depends_on": []},
-    {"id": "VOX-P3-003", "phase": "P3", "title": "Implement backend fallback chain", "status": "todo", "priority": "high", "depends_on": ["VOX-P3-001", "VOX-P3-002"]},
-    {"id": "VOX-P3-004", "phase": "P3", "title": "Add hardware/device detection", "status": "todo", "priority": "medium", "depends_on": []},
+    {"id": "VOX-P3-001", "phase": "P3", "title": "Implement Voxtral backend adapter", "status": "done", "priority": "high", "depends_on": []},
+    {"id": "VOX-P3-002", "phase": "P3", "title": "Add audio normalization pipeline", "status": "done", "priority": "high", "depends_on": []},
+    {"id": "VOX-P3-003", "phase": "P3", "title": "Implement backend fallback chain", "status": "done", "priority": "high", "depends_on": ["VOX-P3-001", "VOX-P3-002"]},
+    {"id": "VOX-P3-004", "phase": "P3", "title": "Add hardware/device detection", "status": "done", "priority": "medium", "depends_on": []},
 
-    {"id": "VOX-P4-001", "phase": "P4", "title": "Add Dockerfile for voice-runtime", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P4-001", "phase": "P4", "title": "Add Dockerfile for voice-runtime", "status": "done", "priority": "high", "depends_on": []},
     {"id": "VOX-P4-002", "phase": "P4", "title": "Add docker-compose voice overlay", "status": "todo", "priority": "high", "depends_on": []},
     {"id": "VOX-P4-003", "phase": "P4", "title": "Extend setup templates", "status": "todo", "priority": "medium", "depends_on": ["VOX-P4-001", "VOX-P4-002", "VOX-P7-003"]},
     {"id": "VOX-P4-004", "phase": "P4", "title": "Add laptop profile docs", "status": "todo", "priority": "medium", "depends_on": []},
@@ -970,13 +972,12 @@
     ],
     "task_status_summary": {
       "total_tasks": 32,
-      "todo": 24,
+      "todo": 16,
       "in_progress": 0,
       "blocked": 0,
-      "done": 8
+      "done": 16
     },
     "release_blockers": [
-      "VOX-P2-002",
       "VOX-P6-001",
       "VOX-P6-002",
       "VOX-P7-002"

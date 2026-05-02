@@ -64,6 +64,19 @@ class VoiceProviderService:
             "warnings": list(payload.get("warnings") or []),
         }
 
+    def models(self) -> list[dict[str, Any]]:
+        config = self._resolve_config()
+        payload = self._get_json(config=config, path="/v1/models")
+        models = payload.get("models")
+        if isinstance(models, list):
+            return [item for item in models if isinstance(item, dict)]
+        return []
+
+    def health(self) -> dict[str, Any]:
+        config = self._resolve_config()
+        payload = self._get_json(config=config, path="/health")
+        return payload if isinstance(payload, dict) else {"ok": False}
+
     def voice_command(self, *, content: bytes, filename: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
         config = self._resolve_config()
         payload = self._post_multipart(
@@ -110,6 +123,30 @@ class VoiceProviderService:
                 retriable=True,
             ) from exc
 
+        payload = self._decode_payload(response)
+        if response.status_code >= 400:
+            raise self._map_runtime_error(payload, status_code=int(response.status_code))
+        return payload
+
+    def _get_json(self, *, config: VoiceProviderConfig, path: str) -> dict[str, Any]:
+        endpoint = f"{config.base_url}{path}"
+        timeout = (5, config.timeout_sec)
+        try:
+            response = requests.get(endpoint, timeout=timeout)
+        except requests.Timeout as exc:
+            raise VoiceProviderError(
+                code="voice.timeout",
+                message=f"voice runtime timeout: {exc}",
+                status_code=504,
+                retriable=True,
+            ) from exc
+        except requests.RequestException as exc:
+            raise VoiceProviderError(
+                code="voice.runtime_unavailable",
+                message=f"voice runtime unavailable: {exc}",
+                status_code=503,
+                retriable=True,
+            ) from exc
         payload = self._decode_payload(response)
         if response.status_code >= 400:
             raise self._map_runtime_error(payload, status_code=int(response.status_code))
