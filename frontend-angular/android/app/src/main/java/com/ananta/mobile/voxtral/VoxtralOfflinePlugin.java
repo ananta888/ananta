@@ -80,6 +80,8 @@ public class VoxtralOfflinePlugin extends Plugin {
     );
     private static final List<String> RUNNER_CANDIDATE_NAMES = Arrays.asList(
             "voxtral4b-main",
+            "voxtral-realtime",
+            "voxtral-realtime-bin",
             "voxtral-stream-cli",
             "voxtral-cli",
             "llama-voxtral-cli",
@@ -87,7 +89,8 @@ public class VoxtralOfflinePlugin extends Plugin {
             "crispasr-cli",
             "crispasr-voxtral"
     );
-    private static final String DEFAULT_CRISPASR_SOURCE_URL = "https://github.com/CrispStrobe/CrispASR/archive/refs/tags/v0.5.3.tar.gz";
+    private static final String DEFAULT_VOXTRAL_REALTIME_SOURCE_URL = "https://github.com/andrijdavid/voxtral.cpp/archive/7deef66c8ee473d3ceffc57fb0cd17977eeebca9.tar.gz";
+    private static final String DEFAULT_GGML_SOURCE_URL = "https://github.com/ggml-org/ggml/archive/5cecdad692d868e28dbd2f7c468504770108f30c.tar.gz";
     private static final String PROOT_RUNTIME_SUBDIR = "proot-runtime";
     private static final String LLM_RUNTIME_SUBDIR = "llm-runtime";
     private static final String PREFS_NAME = "voxtral_offline_prefs";
@@ -266,7 +269,8 @@ public class VoxtralOfflinePlugin extends Plugin {
     @PluginMethod
     public void provisionVoxtralRunner(PluginCall call) {
         if (!guardAction(call, "download_runner")) return;
-        String sourceUrl = call.getString("sourceUrl", DEFAULT_CRISPASR_SOURCE_URL);
+        String sourceUrl = call.getString("sourceUrl", DEFAULT_VOXTRAL_REALTIME_SOURCE_URL);
+        String ggmlSourceUrl = call.getString("ggmlSourceUrl", DEFAULT_GGML_SOURCE_URL);
         String expectedSourceSha256 = call.getString("sourceSha256");
 
         File buildDir = ensureDir("voxtral/build");
@@ -280,8 +284,8 @@ public class VoxtralOfflinePlugin extends Plugin {
         ioExecutor.execute(() -> {
             HttpURLConnection connection = null;
             try {
-                File runnerBinary = new File(binDir, "crispasr-voxtral");
-                File runnerWrapper = new File(binDir, "voxtral-cli");
+                File runnerBinary = new File(binDir, "voxtral-realtime-bin");
+                File runnerWrapper = new File(binDir, "voxtral-realtime");
 
                 // Fast path: avoid expensive rebuild if a valid runner is already provisioned.
                 if (runnerWrapper.isFile() && runnerBinary.isFile()) {
@@ -314,44 +318,13 @@ public class VoxtralOfflinePlugin extends Plugin {
                     downloadHttpToFile(CMAKE_DOWNLOAD_URL, cmakeArchive, "runner");
                 }
 
-                URL url = new URL(sourceUrl);
-                if (!isAllowedDownloadUrl(url)) {
-                    call.reject("Network policy denied source URL.");
-                    return;
+                File sourceArchive = new File(buildDir, "voxtral-realtime-source.tar.gz");
+                if (!sourceArchive.exists() || sourceArchive.length() < (128L * 1024L)) {
+                    downloadHttpToFile(sourceUrl, sourceArchive, "runner");
                 }
-
-                File sourceArchive = new File(buildDir, "crispasr-source.tar.gz");
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setConnectTimeout(15000);
-                connection.setReadTimeout(120000);
-                connection.setInstanceFollowRedirects(true);
-
-                int status = connection.getResponseCode();
-                if (status < 200 || status >= 300) {
-                    call.reject("Source download failed with HTTP status: " + status);
-                    return;
-                }
-
-                long totalBytes = connection.getContentLengthLong();
-                try (InputStream input = new BufferedInputStream(connection.getInputStream());
-                     FileOutputStream output = new FileOutputStream(sourceArchive, false)) {
-                    byte[] buffer = new byte[8192];
-                    int read;
-                    long downloaded = 0;
-                    long lastNotified = 0;
-                    while ((read = input.read(buffer)) != -1) {
-                        output.write(buffer, 0, read);
-                        downloaded += read;
-                        if (downloaded - lastNotified >= (256 * 1024)) {
-                            JSObject event = new JSObject();
-                            event.put("type", "runner");
-                            event.put("downloadedBytes", downloaded);
-                            event.put("totalBytes", totalBytes > 0 ? totalBytes : -1);
-                            event.put("progress", totalBytes > 0 ? (double) downloaded / (double) totalBytes : -1);
-                            notifyListeners("voxtralDownloadProgress", event);
-                            lastNotified = downloaded;
-                        }
-                    }
+                File ggmlArchive = new File(buildDir, "ggml-source.tar.gz");
+                if (!ggmlArchive.exists() || ggmlArchive.length() < (128L * 1024L)) {
+                    downloadHttpToFile(ggmlSourceUrl, ggmlArchive, "runner");
                 }
 
                 if (!sourceArchive.exists() || sourceArchive.length() == 0) {
@@ -374,11 +347,12 @@ public class VoxtralOfflinePlugin extends Plugin {
                     + "BUILD_DIR=" + shQuote(buildDir.getAbsolutePath()) + "; "
                     + "TOOLS_DIR=" + shQuote(toolsDir.getAbsolutePath()) + "; "
                     + "ARCHIVE=" + shQuote(sourceArchive.getAbsolutePath()) + "; "
+                    + "GGML_ARCHIVE=" + shQuote(ggmlArchive.getAbsolutePath()) + "; "
                     + "CMAKE_ARCHIVE=" + shQuote(cmakeArchive.getAbsolutePath()) + "; "
                     + "CMAKE_HOME=" + shQuote(cmakeHome.getAbsolutePath()) + "; "
                     + "CMAKE_BIN=\"$CMAKE_HOME/bin/cmake\"; "
                     + "CMAKE_REQUIRED=" + shQuote(cmakeRequiredModule.getAbsolutePath()) + "; "
-                    + "SRC_DIR=\"$BUILD_DIR/CrispASR\"; "
+                    + "SRC_DIR=\"$BUILD_DIR/voxtral.cpp\"; "
                     + "if [ ! -x \"$CMAKE_BIN\" ] || [ ! -f \"$CMAKE_REQUIRED\" ]; then "
                     + "rm -rf \"$CMAKE_HOME\"; "
                     + "mkdir -p \"$TOOLS_DIR\"; "
@@ -396,34 +370,38 @@ public class VoxtralOfflinePlugin extends Plugin {
                     + "command -v gcc >/dev/null 2>&1 || { echo 'gcc not found in proot rootfs'; exit 42; }; "
                     + "command -v g++ >/dev/null 2>&1 || { echo 'g++ not found in proot rootfs'; exit 43; }; "
                     + "command -v make >/dev/null 2>&1 || { echo 'make not found in proot rootfs'; exit 44; }; "
-                    + "rm -rf \"$SRC_DIR\" \"$BUILD_DIR/CrispASR-\"*; "
+                    + "rm -rf \"$SRC_DIR\" \"$BUILD_DIR/voxtral.cpp-\"* \"$BUILD_DIR/ggml-\"*; "
                     + "mkdir -p \"$BUILD_DIR\"; "
                     + "tar -xzf \"$ARCHIVE\" -C \"$BUILD_DIR\"; "
-                    + "SRC_CANDIDATE=$(find \"$BUILD_DIR\" -maxdepth 1 -type d -name 'CrispASR-*' | head -n 1); "
-                    + "if [ -z \"$SRC_CANDIDATE\" ]; then echo 'CrispASR source dir not found after extract'; exit 31; fi; "
+                    + "SRC_CANDIDATE=$(find \"$BUILD_DIR\" -maxdepth 1 -type d -name 'voxtral.cpp-*' | head -n 1); "
+                    + "if [ -z \"$SRC_CANDIDATE\" ]; then echo 'voxtral.cpp source dir not found after extract'; exit 31; fi; "
                     + "mv \"$SRC_CANDIDATE\" \"$SRC_DIR\"; "
+                    + "tar -xzf \"$GGML_ARCHIVE\" -C \"$BUILD_DIR\"; "
+                    + "GGML_CANDIDATE=$(find \"$BUILD_DIR\" -maxdepth 1 -type d -name 'ggml-*' | head -n 1); "
+                    + "if [ -z \"$GGML_CANDIDATE\" ]; then echo 'ggml source dir not found after extract'; exit 32; fi; "
+                    + "rm -rf \"$SRC_DIR/ggml\"; "
+                    + "mv \"$GGML_CANDIDATE\" \"$SRC_DIR/ggml\"; "
                     + "cmake -B \"$SRC_DIR/build\" "
                     + "-DCMAKE_BUILD_TYPE=Release "
-                    + "-DCRISPASR_BUILD_TESTS=OFF "
-                    + "-DCRISPASR_BUILD_EXAMPLES=ON "
-                    + "-DCRISPASR_BUILD_SERVER=OFF "
+                    + "-DVOXTRAL_NATIVE_OPT=OFF "
+                    + "-DVOXTRAL_AUTO_DETECT_BLAS=OFF "
+                    + "-DVOXTRAL_AUTO_DETECT_CUDA=OFF "
+                    + "-DVOXTRAL_AUTO_DETECT_VULKAN=OFF "
                     + "-DGGML_OPENMP=OFF "
                     + "-DCMAKE_DISABLE_FIND_PACKAGE_OpenMP=ON "
                     + "\"$SRC_DIR\"; "
-                    + "cmake --build \"$SRC_DIR/build\" -j2; "
+                    + "cmake --build \"$SRC_DIR/build\" -j2 --target voxtral; "
                     + "RUNNER_SRC=\"\"; "
                     + "for c in "
-                    + "\"$SRC_DIR/build/bin/crispasr\" "
-                    + "\"$SRC_DIR/build/bin/crispasr-cli\" "
-                    + "\"$SRC_DIR/build/examples/cli/crispasr\" "
-                    + "\"$SRC_DIR/build/examples/cli/crispasr-cli\"; "
+                    + "\"$SRC_DIR/build/voxtral\" "
+                    + "\"$SRC_DIR/build/bin/voxtral\"; "
                     + "do if [ -x \"$c\" ]; then RUNNER_SRC=\"$c\"; break; fi; done; "
-                    + "[ -n \"$RUNNER_SRC\" ] || { echo 'crispasr runner binary not found after build'; find \"$SRC_DIR/build\" -maxdepth 4 -type f -name 'crispasr*' 2>/dev/null; exit 46; }; "
+                    + "[ -n \"$RUNNER_SRC\" ] || { echo 'voxtral realtime runner binary not found after build'; find \"$SRC_DIR/build\" -maxdepth 4 -type f -name 'voxtral*' 2>/dev/null; exit 46; }; "
                     + "cp -f \"$RUNNER_SRC\" " + shQuote(runnerBinary.getAbsolutePath()) + "; "
                     + "chmod 700 " + shQuote(runnerBinary.getAbsolutePath()) + "; "
                     + "cat > " + shQuote(runnerWrapper.getAbsolutePath()) + " <<'EOF'\n"
                     + "#!/bin/sh\n"
-                    + "exec " + runnerBinary.getAbsolutePath() + " --backend voxtral4b \"$@\"\n"
+                    + "exec " + runnerBinary.getAbsolutePath() + " \"$@\"\n"
                     + "EOF\n"
                     + "chmod 700 " + shQuote(runnerWrapper.getAbsolutePath()) + "; ";
 
@@ -2136,6 +2114,19 @@ public class VoxtralOfflinePlugin extends Plugin {
             command.add(audioFile.getAbsolutePath());
             return command;
         }
+        if (isVoxtralRealtimeRunner(runnerFile)) {
+            command.add("--model");
+            command.add(modelFile.getAbsolutePath());
+            command.add("--audio");
+            command.add(audioFile.getAbsolutePath());
+            command.add("--threads");
+            command.add(lowMemoryMode ? "2" : "4");
+            command.add("--max-len");
+            command.add(lowMemoryMode ? "96" : "256");
+            command.add("--log-level");
+            command.add("warn");
+            return command;
+        }
         if (shouldInjectVoxtralBackend(runnerFile)) {
             command.add("--backend");
             command.add("voxtral4b");
@@ -2174,6 +2165,12 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (runnerFile == null) return false;
         String name = String.valueOf(runnerFile.getName()).toLowerCase();
         return name.startsWith("crispasr");
+    }
+
+    private boolean isVoxtralRealtimeRunner(File runnerFile) {
+        if (runnerFile == null) return false;
+        String name = String.valueOf(runnerFile.getName()).toLowerCase();
+        return "voxtral-realtime".equals(name) || "voxtral-realtime-bin".equals(name) || "voxtral".equals(name);
     }
 
     private RuntimeMemoryCheck evaluateRuntimeMemory(File modelFile) {
