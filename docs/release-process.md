@@ -61,6 +61,12 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml ps
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
 ```
 
+For voice-enabled releases, run the optional voice smoke path as additional evidence:
+
+```bash
+RUN_VOICE_DOCKER_SMOKE=1 pytest tests/smoke/test_voice_runtime_compose_smoke.py
+```
+
 ## Versioning And Tags
 
 Ananta uses SemVer-style release tags:

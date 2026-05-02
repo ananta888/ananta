@@ -933,6 +933,9 @@ def test_governance_policy_read_model_is_machine_readable(client, admin_token):
     assert isinstance(data.get("decisions"), dict)
     assert data["decisions"]["terminal_interactive"]["allowed"] is False
     assert "remote_hubs" in data.get("exposure_policy", {})
+    voice = (data.get("exposure_policy") or {}).get("voice") or {}
+    assert voice.get("enabled") in {True, False}
+    assert voice.get("require_explicit_approval_for_goal") in {True, False}
 
 
 def test_set_config_validates_platform_mode_and_terminal_policy(client, admin_token):

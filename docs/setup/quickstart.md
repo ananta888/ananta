@@ -199,3 +199,6 @@ Weiterfuehrung:
 - `docs/setup/ananta_update.md`
 - `docs/setup/deployment_targets.md`
 - `docs/cli/commands.md`
+- `docs/voice-quickstart.md`
+- `docs/voice-runtime-privacy.md`
+- `docs/voice-runtime-limitations.md`

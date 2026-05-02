@@ -734,7 +734,7 @@
     {
       "phase": "P7",
       "name": "Testing and CI",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "VOX-P7-001",
@@ -789,7 +789,7 @@
     {
       "phase": "P8",
       "name": "Documentation and release readiness",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "VOX-P8-001",
@@ -861,16 +861,16 @@
 
     {"id": "VOX-P6-001", "phase": "P6", "title": "Add voice exposure policy", "status": "done", "priority": "high", "depends_on": []},
     {"id": "VOX-P6-002", "phase": "P6", "title": "Add approval boundary for voice-created actions", "status": "done", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P0-003"]},
-    {"id": "VOX-P6-003", "phase": "P6", "title": "Add privacy defaults", "status": "todo", "priority": "high", "depends_on": []},
+    {"id": "VOX-P6-003", "phase": "P6", "title": "Add privacy defaults", "status": "done", "priority": "high", "depends_on": []},
 
-    {"id": "VOX-P7-001", "phase": "P7", "title": "Add unit tests for voice-runtime mock backend", "status": "todo", "priority": "high", "depends_on": []},
-    {"id": "VOX-P7-002", "phase": "P7", "title": "Add Ananta Hub contract tests for voice routes", "status": "todo", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P1-002"]},
-    {"id": "VOX-P7-003", "phase": "P7", "title": "Add Docker smoke test", "status": "todo", "priority": "medium", "depends_on": []},
-    {"id": "VOX-P7-004", "phase": "P7", "title": "Add optional live Voxtral test flag", "status": "todo", "priority": "medium", "depends_on": []},
+    {"id": "VOX-P7-001", "phase": "P7", "title": "Add unit tests for voice-runtime mock backend", "status": "done", "priority": "high", "depends_on": []},
+    {"id": "VOX-P7-002", "phase": "P7", "title": "Add Ananta Hub contract tests for voice routes", "status": "done", "priority": "high", "depends_on": ["VOX-P2-002", "VOX-P1-002"]},
+    {"id": "VOX-P7-003", "phase": "P7", "title": "Add Docker smoke test", "status": "done", "priority": "medium", "depends_on": []},
+    {"id": "VOX-P7-004", "phase": "P7", "title": "Add optional live Voxtral test flag", "status": "done", "priority": "medium", "depends_on": []},
 
-    {"id": "VOX-P8-001", "phase": "P8", "title": "Write user-facing voice quickstart", "status": "todo", "priority": "high", "depends_on": []},
-    {"id": "VOX-P8-002", "phase": "P8", "title": "Add release checklist entries", "status": "todo", "priority": "medium", "depends_on": ["VOX-P6-001", "VOX-P6-002", "VOX-P6-003"]},
-    {"id": "VOX-P8-003", "phase": "P8", "title": "Document known limitations", "status": "todo", "priority": "medium", "depends_on": []}
+    {"id": "VOX-P8-001", "phase": "P8", "title": "Write user-facing voice quickstart", "status": "done", "priority": "high", "depends_on": []},
+    {"id": "VOX-P8-002", "phase": "P8", "title": "Add release checklist entries", "status": "done", "priority": "medium", "depends_on": ["VOX-P6-001", "VOX-P6-002", "VOX-P6-003"]},
+    {"id": "VOX-P8-003", "phase": "P8", "title": "Document known limitations", "status": "done", "priority": "medium", "depends_on": []}
   ],
   "phase_exit_criteria": {
     "P0": [
@@ -975,14 +975,12 @@
     ],
     "task_status_summary": {
       "total_tasks": 32,
-      "todo": 8,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 24
+      "done": 32
     },
-    "release_blockers": [
-      "VOX-P7-002"
-    ]
+    "release_blockers": []
   },
   "suggested_initial_files": [
     "docs/voice-runtime-architecture.md",

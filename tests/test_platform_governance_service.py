@@ -91,6 +91,20 @@ def test_platform_governance_semi_public_limits_external_exposure():
     assert openai_compat["max_hops"] == 1
     assert mcp["enabled"] is False
     assert policy["exposure_policy"]["remote_hubs"]["enabled"] is False
+    voice = policy["exposure_policy"]["voice"]
+    assert voice["enabled"] is False
+    assert voice["allow_user_auth"] is False
+
+
+def test_platform_governance_voice_defaults_require_explicit_goal_approval():
+    service = get_platform_governance_service()
+
+    policy = service.build_policy_read_model({})
+    voice = policy["exposure_policy"]["voice"]
+
+    assert voice["enabled"] is True
+    assert voice["allow_agent_auth"] is False
+    assert voice["require_explicit_approval_for_goal"] is True
 
 
 def test_platform_governance_mode_defaults_override_legacy_base_exposure_defaults():
