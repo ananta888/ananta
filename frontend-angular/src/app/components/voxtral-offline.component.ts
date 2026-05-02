@@ -85,6 +85,13 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
             <span>Live-Chunk (Sekunden)</span>
             <input type="number" min="1" max="10" [(ngModel)]="liveChunkSeconds" />
           </label>
+          <label class="field">
+            <span>Low-Memory-Modus</span>
+            <label class="inline-toggle">
+              <input type="checkbox" [(ngModel)]="liveLowMemoryMode" />
+              <span>8 kHz + 1s Chunks, Modell-Load erst beim Stop (RAM-schonender)</span>
+            </label>
+          </label>
         </div>
 
         <div class="row gap-sm mt-md wrap">
@@ -189,6 +196,12 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
       border-radius: 6px;
       padding: 8px 10px;
     }
+    .inline-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.95rem;
+    }
     .wrap {
       flex-wrap: wrap;
     }
@@ -241,6 +254,7 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
   setupStatus = '';
   maxSeconds = 5;
   liveChunkSeconds = 3;
+  liveLowMemoryMode = true;
   goalContext = 'Voxtral Sprachtranskript';
   goalBusy = false;
   goalResult = '';
@@ -326,12 +340,13 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
 
   async startRecording(): Promise<void> {
     await this.run(async () => {
-      const result = await this.voxtral.startRecording(this.maxSeconds);
+      const sampleRate = this.liveLowMemoryMode ? 8000 : 16000;
+      const result = await this.voxtral.startRecording(this.maxSeconds, sampleRate);
       this.audioPath = result.audioPath;
       this.recording = true;
       this.transcript = '';
       this.rawOutput = '';
-      this.toast.success(`Aufnahme gestartet (${result.maxSeconds}s).`);
+      this.toast.success(`Aufnahme gestartet (${result.maxSeconds}s, ${result.sampleRate} Hz).`);
     });
   }
 
@@ -360,15 +375,22 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
 
   async startLive(): Promise<void> {
     await this.run(async () => {
+      const chunkSeconds = this.liveLowMemoryMode ? 1 : this.liveChunkSeconds;
+      const sampleRate = this.liveLowMemoryMode ? 8000 : 16000;
       const result = await this.voxtral.startLiveTranscription(
         this.modelPath.trim(),
         this.runnerPath.trim(),
-        this.liveChunkSeconds
+        chunkSeconds,
+        sampleRate,
+        this.liveLowMemoryMode
       );
       this.liveRunning = !!result.started;
       this.liveTranscript = '';
       this.rawOutput = '';
-      this.toast.success(`Live gestartet (Chunk ${result.chunkSeconds}s).`);
+      this.toast.success(
+        `Live gestartet (Chunk ${result.chunkSeconds}s, ${result.sampleRate} Hz${this.liveLowMemoryMode ? ', low-memory' : ''}).`
+      );
+      this.persistSelections();
     });
   }
 
@@ -632,6 +654,7 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     this.modelSha256 = localStorage.getItem('voxtral.modelSha256') || '';
     this.runnerSha256 = localStorage.getItem('voxtral.runnerSha256') || '';
     this.selectedModelPresetId = localStorage.getItem('voxtral.modelPresetId') || this.selectedModelPresetId;
+    this.liveLowMemoryMode = localStorage.getItem('voxtral.liveLowMemoryMode') !== '0';
     if (!this.modelUrl) {
       const preset = this.modelPresets.find(item => item.id === this.selectedModelPresetId);
       if (preset) this.modelUrl = preset.url;
@@ -648,6 +671,7 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     localStorage.setItem('voxtral.modelSha256', this.modelSha256 || '');
     localStorage.setItem('voxtral.runnerSha256', this.runnerSha256 || '');
     localStorage.setItem('voxtral.modelPresetId', this.selectedModelPresetId || '');
+    localStorage.setItem('voxtral.liveLowMemoryMode', this.liveLowMemoryMode ? '1' : '0');
   }
 
   private resolveHubUrl(): string | null {

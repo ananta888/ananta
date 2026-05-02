@@ -35,6 +35,14 @@ export const VOXTRAL_MODEL_PRESETS: VoxtralModelPreset[] = [
     recommended: true,
   },
   {
+    id: 'voxtral-mini-4b-q4-0-community',
+    label: 'Voxtral Mini 4B Q4_0 (Community)',
+    fileName: 'Q4_0.gguf',
+    url: 'https://huggingface.co/andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF/resolve/main/Q4_0.gguf',
+    sizeHint: '~2.3 GB',
+    minBytes: 1024 * 1024 * 1024,
+  },
+  {
     id: 'voxtral-mini-4b-q5-k',
     label: 'Voxtral Mini 4B Q5_K',
     fileName: 'Q5_K.gguf',

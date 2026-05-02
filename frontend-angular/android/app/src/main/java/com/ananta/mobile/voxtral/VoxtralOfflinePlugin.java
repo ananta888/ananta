@@ -54,6 +54,10 @@ public class VoxtralOfflinePlugin extends Plugin {
     private static final long RUNTIME_MODEL_HEADROOM_BYTES = 192L * 1024L * 1024L;
     private static final long RUNTIME_MODEL_MULTIPLIER_NUM = 5L;
     private static final long RUNTIME_MODEL_MULTIPLIER_DEN = 4L;
+    private static final long LOW_MEMORY_LIVE_MIN_RUNTIME_FREE_BYTES = 512L * 1024L * 1024L;
+    private static final long LOW_MEMORY_LIVE_HEADROOM_BYTES = 96L * 1024L * 1024L;
+    private static final long LOW_MEMORY_LIVE_MULTIPLIER_NUM = 11L;
+    private static final long LOW_MEMORY_LIVE_MULTIPLIER_DEN = 10L;
     private static final long LIVE_SESSION_MAX_SECONDS = 120L;
     private static final int MAX_PROCESS_OUTPUT_CHARS = 64 * 1024;
     private static final String MODEL_EXTENSION = ".gguf";
@@ -99,6 +103,12 @@ public class VoxtralOfflinePlugin extends Plugin {
     private volatile boolean isLiveRunning;
     private Thread liveThread;
     private final StringBuilder liveTranscriptBuffer = new StringBuilder();
+    private volatile boolean liveLowMemoryMode;
+    private volatile int liveSessionSampleRate = 16000;
+    private File liveBufferedWavFile;
+    private int liveBufferedPcmBytes;
+    private File liveSessionModelFile;
+    private File liveSessionRunnerFile;
     private String currentAudioPath;
     private String lastModelPath;
     private String lastRunnerPath;
@@ -584,8 +594,11 @@ public class VoxtralOfflinePlugin extends Plugin {
         String runnerPath = call.getString("runnerPath");
         Integer maybeChunkSeconds = call.getInt("chunkSeconds");
         Integer maybeSampleRate = call.getInt("sampleRate");
-        final int chunkSeconds = maybeChunkSeconds == null ? 3 : Math.max(1, Math.min(10, maybeChunkSeconds));
-        final int sampleRate = maybeSampleRate == null ? 16000 : Math.max(8000, Math.min(48000, maybeSampleRate));
+        final boolean lowMemoryMode = call.getBoolean("lowMemoryMode", false);
+        final int requestedChunkSeconds = maybeChunkSeconds == null ? 3 : Math.max(1, Math.min(10, maybeChunkSeconds));
+        final int requestedSampleRate = maybeSampleRate == null ? 16000 : Math.max(8000, Math.min(48000, maybeSampleRate));
+        final int chunkSeconds = lowMemoryMode ? 1 : requestedChunkSeconds;
+        final int sampleRate = lowMemoryMode ? 8000 : requestedSampleRate;
 
         if (modelPath == null || modelPath.isBlank()) {
             call.reject("modelPath is required.");
@@ -622,7 +635,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             call.reject("Not enough free storage for model execution safety margin.");
             return;
         }
-        RuntimeMemoryCheck runtimeMemory = evaluateRuntimeMemory(modelFile);
+        RuntimeMemoryCheck runtimeMemory = evaluateRuntimeMemory(modelFile, lowMemoryMode);
         if (!runtimeMemory.hasEnoughMemory) {
             call.reject("Not enough available RAM for live transcription. Available: "
                     + formatBytes(runtimeMemory.availableBytes)
@@ -644,8 +657,25 @@ public class VoxtralOfflinePlugin extends Plugin {
             return;
         }
 
+        File bufferedWav = null;
+        if (lowMemoryMode) {
+            bufferedWav = new File(liveDir, "live_buffer_" + System.currentTimeMillis() + ".wav");
+            try (FileOutputStream output = new FileOutputStream(bufferedWav, false)) {
+                writeWavHeader(output, sampleRate, 1, 16, 0);
+            } catch (Exception error) {
+                call.reject("Could not prepare low-memory live buffer: " + error.getMessage());
+                return;
+            }
+        }
+
         synchronized (recordingLock) {
             isLiveRunning = true;
+            liveLowMemoryMode = lowMemoryMode;
+            liveSessionSampleRate = sampleRate;
+            liveBufferedWavFile = bufferedWav;
+            liveBufferedPcmBytes = 0;
+            liveSessionModelFile = modelFile;
+            liveSessionRunnerFile = executableRunnerFile;
             liveTranscriptBuffer.setLength(0);
         }
         lastModelPath = modelPath;
@@ -655,7 +685,7 @@ public class VoxtralOfflinePlugin extends Plugin {
 
         long startedAtMs = System.currentTimeMillis();
         liveThread = new Thread(
-                () -> runLiveLoop(liveDir, modelFile, executableRunnerFile, sampleRate, chunkSeconds, startedAtMs),
+                () -> runLiveLoop(liveDir, modelFile, executableRunnerFile, sampleRate, chunkSeconds, startedAtMs, lowMemoryMode),
                 "voxtral-live-loop"
         );
         liveThread.start();
@@ -664,6 +694,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         result.put("started", true);
         result.put("chunkSeconds", chunkSeconds);
         result.put("sampleRate", sampleRate);
+        result.put("lowMemoryMode", lowMemoryMode);
         call.resolve(result);
     }
 
@@ -675,6 +706,7 @@ public class VoxtralOfflinePlugin extends Plugin {
                 JSObject result = new JSObject();
                 result.put("transcript", liveTranscriptBuffer.toString().trim());
                 call.resolve(result);
+                resetLiveSessionState(true);
                 return;
             }
             isLiveRunning = false;
@@ -689,6 +721,53 @@ public class VoxtralOfflinePlugin extends Plugin {
             }
         }
 
+        final boolean finalizeLowMemory;
+        final File bufferedFile;
+        final int bufferedPcmBytes;
+        final int sessionSampleRate;
+        final File sessionModelFile;
+        final File sessionRunnerFile;
+        synchronized (recordingLock) {
+            finalizeLowMemory = liveLowMemoryMode
+                    && liveBufferedWavFile != null
+                    && liveBufferedPcmBytes > 0
+                    && liveSessionModelFile != null
+                    && liveSessionRunnerFile != null;
+            bufferedFile = liveBufferedWavFile;
+            bufferedPcmBytes = liveBufferedPcmBytes;
+            sessionSampleRate = liveSessionSampleRate;
+            sessionModelFile = liveSessionModelFile;
+            sessionRunnerFile = liveSessionRunnerFile;
+        }
+
+        if (finalizeLowMemory && bufferedFile != null && sessionModelFile != null && sessionRunnerFile != null) {
+            ioExecutor.execute(() -> {
+                try {
+                    updateWavHeader(bufferedFile, sessionSampleRate, 1, 16, bufferedPcmBytes);
+                    String transcript = runRunnerSync(sessionRunnerFile, sessionModelFile, bufferedFile);
+                    synchronized (recordingLock) {
+                        liveTranscriptBuffer.setLength(0);
+                        if (transcript != null && !transcript.isBlank()) {
+                            liveTranscriptBuffer.append(transcript.trim());
+                        }
+                    }
+                    String finalTranscript = liveTranscriptBuffer.toString().trim();
+                    JSObject event = new JSObject();
+                    event.put("transcript", finalTranscript);
+                    notifyListeners("voxtralLiveFinal", event);
+
+                    JSObject result = new JSObject();
+                    result.put("transcript", finalTranscript);
+                    call.resolve(result);
+                } catch (Exception error) {
+                    call.reject("Live transcription finalization failed: " + error.getMessage());
+                } finally {
+                    resetLiveSessionState(true);
+                }
+            });
+            return;
+        }
+
         String finalTranscript = liveTranscriptBuffer.toString().trim();
         JSObject event = new JSObject();
         event.put("transcript", finalTranscript);
@@ -697,6 +776,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("transcript", finalTranscript);
         call.resolve(result);
+        resetLiveSessionState(true);
     }
 
     @PluginMethod
@@ -888,11 +968,12 @@ public class VoxtralOfflinePlugin extends Plugin {
             }
             liveThread = null;
         }
+        resetLiveSessionState(true);
         ioExecutor.shutdownNow();
         super.handleOnDestroy();
     }
 
-    private void runLiveLoop(File liveDir, File modelFile, File runnerFile, int sampleRate, int chunkSeconds, long startedAtMs) {
+    private void runLiveLoop(File liveDir, File modelFile, File runnerFile, int sampleRate, int chunkSeconds, long startedAtMs, boolean lowMemoryMode) {
         while (isLiveRunning) {
             long elapsedSeconds = (System.currentTimeMillis() - startedAtMs) / 1000L;
             if (elapsedSeconds >= LIVE_SESSION_MAX_SECONDS) {
@@ -908,6 +989,19 @@ public class VoxtralOfflinePlugin extends Plugin {
             try {
                 recordSingleChunk(chunkFile, sampleRate, chunkSeconds);
                 if (!chunkFile.exists() || chunkFile.length() == 0) {
+                    continue;
+                }
+                if (lowMemoryMode) {
+                    int appended = appendWavChunkData(chunkFile);
+                    chunkFile.delete();
+                    if (appended <= 0) {
+                        continue;
+                    }
+                    JSObject event = new JSObject();
+                    event.put("chunkPath", chunkFile.getAbsolutePath());
+                    event.put("partial", "[chunk captured]");
+                    event.put("transcript", liveTranscriptBuffer.toString().trim());
+                    notifyListeners("voxtralLivePartial", event);
                     continue;
                 }
                 String partial = runRunnerSync(runnerFile, modelFile, chunkFile);
@@ -938,6 +1032,40 @@ public class VoxtralOfflinePlugin extends Plugin {
         synchronized (recordingLock) {
             liveThread = null;
         }
+    }
+
+    private int appendWavChunkData(File chunkWavFile) throws IOException {
+        File target;
+        synchronized (recordingLock) {
+            target = liveBufferedWavFile;
+        }
+        if (target == null || chunkWavFile == null || !chunkWavFile.exists()) {
+            return 0;
+        }
+        int written = 0;
+        try (FileInputStream input = new FileInputStream(chunkWavFile);
+             FileOutputStream output = new FileOutputStream(target, true)) {
+            long toSkip = 44;
+            while (toSkip > 0) {
+                long skipped = input.skip(toSkip);
+                if (skipped <= 0) {
+                    if (input.read() == -1) return 0;
+                    skipped = 1;
+                }
+                toSkip -= skipped;
+            }
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                output.write(buffer, 0, read);
+                written += read;
+            }
+            output.flush();
+        }
+        synchronized (recordingLock) {
+            liveBufferedPcmBytes += written;
+        }
+        return written;
     }
 
     private void recordSingleChunk(File outFile, int sampleRate, int chunkSeconds) throws IOException {
@@ -987,7 +1115,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             return runRunnerSyncDirect(runnerFile, modelFile, audioFile);
         } catch (IOException directError) {
             String msg = String.valueOf(directError.getMessage() == null ? "" : directError.getMessage());
-            if (!msg.contains("Permission denied") && !msg.contains("error=13")) {
+            if (!shouldFallbackToProot(msg)) {
                 throw directError;
             }
             return runRunnerSyncViaProot(runnerFile, modelFile, audioFile);
@@ -1002,6 +1130,9 @@ public class VoxtralOfflinePlugin extends Plugin {
         String output = readAllLimited(process.getInputStream(), MAX_PROCESS_OUTPUT_CHARS);
         int exitCode = process.waitFor();
         if (exitCode != 0) {
+            if (containsMissingAudioTensorError(output)) {
+                throw new IOException("Model file is not compatible with Voxtral speech backend: required audio tensors are missing. Use a realtime Voxtral GGUF.");
+            }
             if (containsUnsupportedModelArchitecture(output)) {
                 throw new IOException("Runner is incompatible with model architecture 'voxtral4b'. Use a Voxtral-compatible runner (not plain llama.cpp).");
             }
@@ -1024,6 +1155,9 @@ public class VoxtralOfflinePlugin extends Plugin {
             return extractTranscript(output);
         } catch (IOException error) {
             String message = String.valueOf(error.getMessage() == null ? "" : error.getMessage());
+            if (containsMissingAudioTensorError(message)) {
+                throw new IOException("Model file is not compatible with Voxtral speech backend: required audio tensors are missing. Use a realtime Voxtral GGUF.");
+            }
             if (containsUnsupportedModelArchitecture(message)) {
                 throw new IOException("Runner is incompatible with model architecture 'voxtral4b'. Use a Voxtral-compatible runner (not plain llama.cpp).");
             }
@@ -1035,6 +1169,9 @@ public class VoxtralOfflinePlugin extends Plugin {
         if (runnerFile == null || modelFile == null) return new RunnerProbe(false, "");
         try {
             String output = runModelProbe(runnerFile, modelFile);
+            if (containsMissingAudioTensorError(output)) {
+                return new RunnerProbe(false, "model missing required audio tensors");
+            }
             if (containsUnsupportedModelArchitecture(output)) {
                 return new RunnerProbe(false, "unknown model architecture: voxtral4b");
             }
@@ -1044,6 +1181,9 @@ public class VoxtralOfflinePlugin extends Plugin {
             return new RunnerProbe(true, "ok");
         } catch (Exception error) {
             String msg = String.valueOf(error.getMessage() == null ? "" : error.getMessage());
+            if (containsMissingAudioTensorError(msg)) {
+                return new RunnerProbe(false, "model missing required audio tensors");
+            }
             if (containsUnsupportedModelArchitecture(msg)) {
                 return new RunnerProbe(false, "unknown model architecture: voxtral4b");
             }
@@ -1083,7 +1223,24 @@ public class VoxtralOfflinePlugin extends Plugin {
     private boolean containsUnsupportedModelArchitecture(String text) {
         String normalized = String.valueOf(text == null ? "" : text).toLowerCase();
         return normalized.contains("unknown model architecture")
-            || normalized.contains("voxtral4b");
+            || normalized.contains("unsupported model architecture")
+            || normalized.contains("model architecture not supported");
+    }
+
+    private boolean containsMissingAudioTensorError(String text) {
+        String normalized = String.valueOf(text == null ? "" : text).toLowerCase();
+        return normalized.contains("missing tensor 'audio.")
+            || (normalized.contains("required tensors missing") && normalized.contains("voxtral4b"));
+    }
+
+    private boolean shouldFallbackToProot(String message) {
+        String normalized = String.valueOf(message == null ? "" : message).toLowerCase();
+        return normalized.contains("permission denied")
+            || normalized.contains("error=13")
+            || normalized.contains("error=2")
+            || normalized.contains("no such file or directory")
+            || normalized.contains("exec format error")
+            || normalized.contains("cannot run program");
     }
 
     private void recordWav(File outFile, int sampleRate, int bufferSize, int maxSeconds) {
@@ -1612,6 +1769,10 @@ public class VoxtralOfflinePlugin extends Plugin {
     }
 
     private RuntimeMemoryCheck evaluateRuntimeMemory(File modelFile) {
+        return evaluateRuntimeMemory(modelFile, false);
+    }
+
+    private RuntimeMemoryCheck evaluateRuntimeMemory(File modelFile, boolean lowMemoryLiveMode) {
         ActivityManager activityManager = (ActivityManager) getContext().getSystemService(android.content.Context.ACTIVITY_SERVICE);
         if (activityManager == null) {
             return new RuntimeMemoryCheck(false, 0, DEFAULT_MIN_RUNTIME_FREE_BYTES);
@@ -1620,13 +1781,24 @@ public class VoxtralOfflinePlugin extends Plugin {
         activityManager.getMemoryInfo(memoryInfo);
         long availableBytes = Math.max(0L, memoryInfo.availMem);
         long modelBytes = (modelFile != null && modelFile.exists()) ? Math.max(0L, modelFile.length()) : 0L;
-        long estimatedRequiredBytes = Math.max(
-                DEFAULT_MIN_RUNTIME_FREE_BYTES,
-                Math.max(
-                        modelBytes + RUNTIME_MODEL_HEADROOM_BYTES,
-                        (modelBytes * RUNTIME_MODEL_MULTIPLIER_NUM) / RUNTIME_MODEL_MULTIPLIER_DEN
-                )
-        );
+        long estimatedRequiredBytes;
+        if (lowMemoryLiveMode) {
+            estimatedRequiredBytes = Math.max(
+                    LOW_MEMORY_LIVE_MIN_RUNTIME_FREE_BYTES,
+                    Math.max(
+                            modelBytes + LOW_MEMORY_LIVE_HEADROOM_BYTES,
+                            (modelBytes * LOW_MEMORY_LIVE_MULTIPLIER_NUM) / LOW_MEMORY_LIVE_MULTIPLIER_DEN
+                    )
+            );
+        } else {
+            estimatedRequiredBytes = Math.max(
+                    DEFAULT_MIN_RUNTIME_FREE_BYTES,
+                    Math.max(
+                            modelBytes + RUNTIME_MODEL_HEADROOM_BYTES,
+                            (modelBytes * RUNTIME_MODEL_MULTIPLIER_NUM) / RUNTIME_MODEL_MULTIPLIER_DEN
+                    )
+            );
+        }
         boolean hasEnoughMemory = !memoryInfo.lowMemory && availableBytes >= estimatedRequiredBytes;
         return new RuntimeMemoryCheck(hasEnoughMemory, availableBytes, estimatedRequiredBytes);
     }
@@ -1641,6 +1813,22 @@ public class VoxtralOfflinePlugin extends Plugin {
             index += 1;
         }
         return String.format(java.util.Locale.US, index < 2 ? "%.0f %s" : "%.1f %s", value, units[index]);
+    }
+
+    private void resetLiveSessionState(boolean deleteBufferedAudio) {
+        File buffered;
+        synchronized (recordingLock) {
+            buffered = liveBufferedWavFile;
+            liveLowMemoryMode = false;
+            liveSessionSampleRate = 16000;
+            liveBufferedWavFile = null;
+            liveBufferedPcmBytes = 0;
+            liveSessionModelFile = null;
+            liveSessionRunnerFile = null;
+        }
+        if (deleteBufferedAudio && buffered != null && buffered.exists()) {
+            buffered.delete();
+        }
     }
 
     private String joinShellArgs(List<String> args) {
