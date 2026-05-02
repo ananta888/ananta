@@ -1233,9 +1233,9 @@ public class VoxtralOfflinePlugin extends Plugin {
 
     private String resolveSystemLinkerPath() {
         File linker64 = new File("/system/bin/linker64");
-        if (linker64.isFile() && linker64.canExecute()) return linker64.getAbsolutePath();
+        if (linker64.isFile()) return linker64.getAbsolutePath();
         File linker = new File("/system/bin/linker");
-        if (linker.isFile() && linker.canExecute()) return linker.getAbsolutePath();
+        if (linker.isFile()) return linker.getAbsolutePath();
         return null;
     }
 
