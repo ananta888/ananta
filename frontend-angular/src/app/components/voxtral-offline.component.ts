@@ -771,6 +771,10 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     this.modelSha256 = localStorage.getItem('voxtral.modelSha256') || '';
     this.runnerSha256 = localStorage.getItem('voxtral.runnerSha256') || '';
     this.selectedModelPresetId = localStorage.getItem('voxtral.modelPresetId') || this.selectedModelPresetId;
+    if (!this.selectedModelPresetId || this.selectedModelPresetId === 'manual-compatible-model') {
+      const recommended = this.modelPresets.find(item => item.recommended);
+      if (recommended) this.selectedModelPresetId = recommended.id;
+    }
     this.liveLowMemoryMode = localStorage.getItem('voxtral.liveLowMemoryMode') !== '0';
     if (!this.modelUrl) {
       const preset = this.modelPresets.find(item => item.id === this.selectedModelPresetId);

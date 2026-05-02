@@ -16,7 +16,17 @@ export const VOXTRAL_MODEL_PRESETS: VoxtralModelPreset[] = [
     fileName: '',
     url: '',
     sizeHint: 'n/a',
+    recommended: false,
+  },
+  {
+    id: 'voxtral-mini-4b-q2-k',
+    label: 'Voxtral Mini 4B Realtime Q2_K (APK-Default, <=1.5 GB)',
+    fileName: 'Q2_K.gguf',
+    url: 'https://huggingface.co/andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF/resolve/main/Q2_K.gguf',
+    sizeHint: '~1.37 GB',
+    minBytes: 1_400_000_000,
     recommended: true,
+    blockedByDefault: false,
   },
   {
     id: 'voxtral-mini-4b-q3-k',
