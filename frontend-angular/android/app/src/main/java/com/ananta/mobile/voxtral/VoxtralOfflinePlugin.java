@@ -295,20 +295,18 @@ public class VoxtralOfflinePlugin extends Plugin {
                 // Fast path: avoid expensive rebuild if a valid runner is already provisioned.
                 if (runnerWrapper.isFile()) {
                     try {
-                        File stagedRunner = prepareRunnerForExecution(runnerWrapper);
-                        if (canSpawnRunner(stagedRunner) || canSpawnRunnerViaProot(stagedRunner)) {
-                            lastRunnerPath = runnerWrapper.getAbsolutePath();
-                            persistSelection(PREF_RUNNER_PATH, lastRunnerPath);
-                            JSObject cached = new JSObject();
-                            cached.put("runnerPath", runnerWrapper.getAbsolutePath());
-                            cached.put("binaryPath", runnerBinary.isFile() ? runnerBinary.getAbsolutePath() : runnerWrapper.getAbsolutePath());
-                            cached.put("sourceArchivePath", "");
-                            cached.put("sourceBytes", 0);
-                            cached.put("sourceSha256", "");
-                            cached.put("rawOutput", "already_provisioned");
-                            call.resolve(cached);
-                            return;
-                        }
+                        prepareRunnerForExecution(runnerWrapper);
+                        lastRunnerPath = runnerWrapper.getAbsolutePath();
+                        persistSelection(PREF_RUNNER_PATH, lastRunnerPath);
+                        JSObject cached = new JSObject();
+                        cached.put("runnerPath", runnerWrapper.getAbsolutePath());
+                        cached.put("binaryPath", runnerBinary.isFile() ? runnerBinary.getAbsolutePath() : runnerWrapper.getAbsolutePath());
+                        cached.put("sourceArchivePath", "");
+                        cached.put("sourceBytes", 0);
+                        cached.put("sourceSha256", "");
+                        cached.put("rawOutput", "already_provisioned");
+                        call.resolve(cached);
+                        return;
                     } catch (Exception ignored) {
                         // Continue to full provisioning flow.
                     }

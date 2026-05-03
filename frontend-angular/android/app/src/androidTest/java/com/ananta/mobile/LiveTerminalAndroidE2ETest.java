@@ -612,6 +612,7 @@ public class LiveTerminalAndroidE2ETest {
                 + "    var runners=(assets && Array.isArray(assets.runners)) ? assets.runners : [];"
                 + "    var runner=runners.find(function(r){return String((r&&r.name)||'')==='voxtral-realtime';});"
                 + "    if(!runner){window.__anantaBundledVoxtralRunner='ERR:NO_BUNDLED_RUNNER';return;}"
+                + "    if(!runner.executable){window.__anantaBundledVoxtralRunner='ERR:RUNNER_NOT_EXECUTABLE';return;}"
                 + "    var rp=String((status && status.runnerPath) ? status.runnerPath : runner.path || '');"
                 + "    if(rp.indexOf('/files/voxtral/bin/voxtral-realtime')<0){window.__anantaBundledVoxtralRunner='ERR:BAD_RUNNER_PATH:' + rp;return;}"
                 + "    window.__anantaBundledVoxtralRunner='OK:' + rp;"
