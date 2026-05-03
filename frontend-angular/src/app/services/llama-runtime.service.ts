@@ -22,6 +22,17 @@ export interface LlmInstallProgressEvent {
   progress: number;
 }
 
+export interface LlmModelInstallOptions {
+  modelName?: string;
+  modelUrl?: string;
+  modelSha256?: string;
+}
+
+export interface LlmInstalledModels {
+  activeModel: string;
+  models: string[];
+}
+
 interface LlamaRuntimePlugin {
   health(): Promise<{
     nativeAvailable: boolean;
@@ -37,10 +48,12 @@ interface LlamaRuntimePlugin {
   // Server-based LLM management
   getLlmSetupStatus(): Promise<LlmSetupStatus>;
   installLlamaServer(): Promise<{ installed: boolean }>;
-  installModel(): Promise<{ installed: boolean }>;
+  installModel(options?: LlmModelInstallOptions): Promise<{ installed: boolean }>;
   startLlmServer(): Promise<{ running: boolean; port: number }>;
   stopLlmServer(): Promise<{ stopped: boolean }>;
   getLlmServerHealth(): Promise<{ ok: boolean; response?: string; error?: string }>;
+  listInstalledModels(): Promise<LlmInstalledModels>;
+  setActiveModel(options: { modelName: string }): Promise<{ activeModel: string }>;
 
   addListener(
     eventName: 'llmInstallProgress',
@@ -98,9 +111,9 @@ export class LlamaRuntimeService {
     return LlamaCppRuntime.installLlamaServer();
   }
 
-  async installModel(): Promise<{ installed: boolean }> {
+  async installModel(options?: LlmModelInstallOptions): Promise<{ installed: boolean }> {
     if (!this.isNative) throw new Error('Nur auf nativer Android-App verfuegbar.');
-    return LlamaCppRuntime.installModel();
+    return LlamaCppRuntime.installModel(options ?? {});
   }
 
   async startLlmServer(): Promise<{ running: boolean; port: number }> {
@@ -116,6 +129,16 @@ export class LlamaRuntimeService {
   async getLlmServerHealth(): Promise<{ ok: boolean; response?: string; error?: string }> {
     if (!this.isNative) throw new Error('Nur auf nativer Android-App verfuegbar.');
     return LlamaCppRuntime.getLlmServerHealth();
+  }
+
+  async listInstalledModels(): Promise<LlmInstalledModels> {
+    if (!this.isNative) return { activeModel: '', models: [] };
+    return LlamaCppRuntime.listInstalledModels();
+  }
+
+  async setActiveModel(modelName: string): Promise<{ activeModel: string }> {
+    if (!this.isNative) throw new Error('Nur auf nativer Android-App verfuegbar.');
+    return LlamaCppRuntime.setActiveModel({ modelName });
   }
 
   async onLlmInstallProgress(

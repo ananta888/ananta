@@ -3,6 +3,7 @@ package com.ananta.mobile.llama;
 import com.ananta.mobile.llm.DownloadHelper;
 import com.ananta.mobile.llm.LlmServerManager;
 import com.ananta.mobile.llm.LlmServerManager.LlmSetupStatus;
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -10,6 +11,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.File;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -177,7 +179,10 @@ public class LlamaCppRuntimePlugin extends Plugin {
     public void installModel(PluginCall call) {
         executor.submit(() -> {
             try {
-                serverManager.installModel((stage, message, downloaded, total) -> {
+                String modelName = call.getString("modelName");
+                String modelUrl = call.getString("modelUrl");
+                String modelSha256 = call.getString("modelSha256");
+                serverManager.installModel(modelName, modelUrl, modelSha256, (stage, message, downloaded, total) -> {
                     notifyLlmProgress("model", stage, message, downloaded, total);
                 });
                 JSObject result = new JSObject();
@@ -227,6 +232,38 @@ public class LlamaCppRuntimePlugin extends Plugin {
                 result.put("ok", false);
                 result.put("error", e.getMessage());
                 call.resolve(result);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void listInstalledModels(PluginCall call) {
+        List<String> models = serverManager.listInstalledModels();
+        JSArray items = new JSArray();
+        for (String model : models) {
+            items.put(model);
+        }
+        JSObject result = new JSObject();
+        result.put("activeModel", serverManager.getActiveModelName());
+        result.put("models", items);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void setActiveModel(PluginCall call) {
+        executor.submit(() -> {
+            try {
+                String modelName = call.getString("modelName");
+                if (modelName == null || modelName.isBlank()) {
+                    call.reject("modelName is required.");
+                    return;
+                }
+                serverManager.setActiveModel(modelName);
+                JSObject result = new JSObject();
+                result.put("activeModel", serverManager.getActiveModelName());
+                call.resolve(result);
+            } catch (Exception e) {
+                call.reject("Active model switch failed: " + e.getMessage());
             }
         });
     }
