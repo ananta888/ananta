@@ -26,6 +26,11 @@ from agent.repository import (
 )
 from agent.services.artifact_store import get_artifact_store
 from agent.services.extraction_service import get_extraction_service
+from agent.services.wiki_import_checkpoint_service import WikiImportCheckpointService
+from agent.services.wiki_import_reporter import build_wiki_import_stats
+from agent.services.wiki_mediawiki_xml_parser import MediaWikiXmlDumpParser
+from agent.services.wiki_normalizer import WikiRecordNormalizer
+from agent.services.wiki_record_writer import sort_wiki_records, write_wiki_jsonl_cache
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +41,9 @@ class IngestionService:
     def __init__(self, artifact_store=None, extraction_service=None) -> None:
         self._artifact_store = artifact_store or get_artifact_store()
         self._extraction_service = extraction_service or get_extraction_service()
+        self._wiki_parser = MediaWikiXmlDumpParser()
+        self._wiki_normalizer = WikiRecordNormalizer()
+        self._wiki_checkpoint_service = WikiImportCheckpointService()
 
     def upload_artifact(
         self,
@@ -312,103 +320,75 @@ class IngestionService:
         page_count = 0
         doc_count = 0
         item_ordinal = 0
-        skipped_page_count = 0
-        skipped_doc_count = 0
-
-        for elem in self._iter_wiki_xml_items(path=path, index_path=resolved_index_path):
-            local_name = self._tag_local_name(elem.tag)
-            if local_name == "page":
+        checkpoint = self._wiki_checkpoint_service.load(
+            source_id=normalized_source_id,
+            corpus_path=str(path),
+            index_path=str(resolved_index_path) if resolved_index_path else None,
+        ) or {}
+        if checkpoint.get("phase") == "completed":
+            logger.info(
+                "Wiki import checkpoint indicates prior completion",
+                extra={"source_id": normalized_source_id, "corpus_path": str(path)},
+            )
+        for item in self._wiki_parser.iter_items(corpus_path=path, index_path=resolved_index_path):
+            item_ordinal += 1
+            item_kind = str(item.get("kind") or "").strip().lower()
+            if item_kind == "page":
                 page_count += 1
-                item_ordinal += 1
-                title = str(elem.findtext(".//{*}title") or "").strip()
-                text = str(elem.findtext(".//{*}revision/{*}text") or "").strip()
-                cleaned = self._clean_wiki_markup(text)
-                if not title or not cleaned:
-                    issue = {"item": item_ordinal, "error": "missing_page_content"}
-                    issues.append(issue)
-                    skipped_page_count += 1
-                    if strict:
-                        raise ValueError("wiki_corpus_invalid_record")
-                else:
-                    try:
-                        records.extend(
-                            self._normalize_wiki_record(
-                                {
-                                    "article_title": title,
-                                    "section_title": "Overview",
-                                    "language": default_language,
-                                    "content": cleaned,
-                                    "file": path.name,
-                                },
-                                source_path=path,
-                                source_id=normalized_source_id,
-                                line_number=item_ordinal,
-                                default_language=default_language,
-                                source_format="xml",
-                            )
-                        )
-                    except ValueError as exc:
-                        issue = {"item": item_ordinal, "error": str(exc)}
-                        issues.append(issue)
-                        skipped_page_count += 1
-                        if strict:
-                            raise ValueError("wiki_corpus_invalid_record") from exc
-            elif local_name == "doc":
+            elif item_kind == "doc":
                 doc_count += 1
-                item_ordinal += 1
-                title = str(elem.findtext("./title") or "").strip()
-                abstract = str(elem.findtext("./abstract") or elem.findtext("./text") or "").strip()
-                cleaned = self._clean_wiki_markup(abstract)
-                if not title or not cleaned:
-                    issue = {"item": item_ordinal, "error": "missing_doc_content"}
-                    issues.append(issue)
-                    skipped_doc_count += 1
-                    if strict:
-                        raise ValueError("wiki_corpus_invalid_record")
-                else:
-                    try:
-                        records.extend(
-                            self._normalize_wiki_record(
-                                {
-                                    "article_title": title,
-                                    "section_title": "Overview",
-                                    "language": default_language,
-                                    "content": cleaned,
-                                    "file": path.name,
-                                },
-                                source_path=path,
-                                source_id=normalized_source_id,
-                                line_number=item_ordinal,
-                                default_language=default_language,
-                                source_format="xml",
-                            )
-                        )
-                    except ValueError as exc:
-                        issue = {"item": item_ordinal, "error": str(exc)}
-                        issues.append(issue)
-                        skipped_doc_count += 1
-                        if strict:
-                            raise ValueError("wiki_corpus_invalid_record") from exc
-            elem.clear()
-
-        records = sorted(
-            records,
-            key=lambda item: (
-                str(item.get("article_title") or "").lower(),
-                str(item.get("section_title") or "").lower(),
-                str(item.get("file") or "").lower(),
-                int(item.get("chunk_ordinal") or 0),
-            ),
-        )
+            normalized_batch, issue = self._wiki_normalizer.normalize_item(
+                item=item,
+                source_path=path,
+                source_id=normalized_source_id,
+                ordinal=item_ordinal,
+                default_language=default_language,
+                source_format="xml",
+            )
+            if issue:
+                issues.append(issue)
+                if strict:
+                    raise ValueError("wiki_corpus_invalid_record")
+            if normalized_batch:
+                records.extend(normalized_batch)
+            if item_ordinal % 500 == 0:
+                self._wiki_checkpoint_service.save(
+                    source_id=normalized_source_id,
+                    corpus_path=str(path),
+                    index_path=str(resolved_index_path) if resolved_index_path else None,
+                    checkpoint={
+                        "phase": "normalizing",
+                        "processed_items": item_ordinal,
+                        "normalized_records": len(records),
+                        "issues": len(issues),
+                    },
+                )
+        records = sort_wiki_records(records)
         if not records:
             raise ValueError("wiki_corpus_no_valid_records")
         jsonl_cache_path = None
         if write_jsonl_cache:
             jsonl_cache_path = path.with_suffix(path.suffix + ".normalized.jsonl")
-            jsonl_cache_path.write_text(
-                "\n".join(json.dumps(record, ensure_ascii=False, sort_keys=True) for record in records) + "\n",
-                encoding="utf-8",
-            )
+            write_wiki_jsonl_cache(records=records, cache_path=jsonl_cache_path)
+        stats = build_wiki_import_stats(
+            input_pages=page_count,
+            input_docs=doc_count,
+            processed_items=item_ordinal,
+            issues=issues,
+            normalized_records=len(records),
+        )
+        self._wiki_checkpoint_service.save(
+            source_id=normalized_source_id,
+            corpus_path=str(path),
+            index_path=str(resolved_index_path) if resolved_index_path else None,
+            checkpoint={
+                "phase": "completed",
+                "processed_items": item_ordinal,
+                "normalized_records": len(records),
+                "issues": len(issues),
+                "index_path": str(resolved_index_path) if resolved_index_path else None,
+            },
+        )
         return {
             "source_scope": "wiki",
             "source_id": normalized_source_id,
@@ -417,16 +397,7 @@ class IngestionService:
             "jsonl_cache_path": str(jsonl_cache_path) if jsonl_cache_path else None,
             "records": records,
             "issues": issues,
-            "stats": {
-                "input_pages": page_count,
-                "input_docs": doc_count,
-                "processed_items": item_ordinal,
-                "skipped_pages": skipped_page_count,
-                "skipped_docs": skipped_doc_count,
-                "dropped_items": skipped_page_count + skipped_doc_count,
-                "normalized_records": len(records),
-                "issues": len(issues),
-            },
+            "stats": stats,
             "deterministic_order": "article_section_file_chunk_ordinal",
             "format": "xml",
             "multistream_index": {
