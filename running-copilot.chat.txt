@@ -1,0 +1,106 @@
+Du bist GitHub Copilot CLI im Repository `ananta888/ananta`.
+
+Ziel dieser Session war, eine auslieferbare Android-APK fuer Ananta zu bauen und E2E zu testen. Die APK soll fuer Nutzer direkt nutzbar sein: Proot/Ubuntu/Workspace und die grundlegenden Worker-Abhaengigkeiten sind vorinstalliert, aber LLM-/Voxtral-Modellgewichte werden nicht in die APK eingebettet. Das kleine Voxtral-Modell soll im UI als Standarddownload sichtbar sein, und der dazu passende Voxtral-Runner soll bereits in der APK enthalten sein.
+
+Architektur-Anforderungen:
+- Die Ananta-Hub-Worker-Architektur bleibt unveraendert.
+- Der Hub bleibt Control Plane und Eigentumer des Task-Systems.
+- Worker fuehren delegierte Aufgaben aus, orchestrieren aber keine anderen Worker.
+- Aenderungen muessen additiv, rueckwaertskompatibel und reproduzierbar sein.
+- Container-/Proot-Grenzen und Android-App-Sandbox-Grenzen muessen respektiert werden.
+- Keine grossen Modellgewichte in die APK einbetten; Voxtral-Modelle bleiben Downloads.
+
+Endergebnis:
+- Fertige Android-Debug-Auslieferungs-APK wurde gebaut.
+- APK enthaelt Proot/Ubuntu/Workspace-Preseed.
+- APK enthaelt Python, pip, git, curl, apt/dpkg, libgomp, Ananta CLI/TUI, `ananta-worker` und lauffaehigen Worker-Import im vorinstallierten Setup.
+- APK enthaelt den passenden Voxtral-Realtime-Runner `voxtral-realtime` inklusive benoetigter Shared Libraries.
+- Das kleine Voxtral-Q2_K-Modell ist im UI als empfohlener Standarddownload sichtbar.
+- Der alte Runner-Bereitstellen-Pfad nutzt jetzt den gebuendelten Runner statt erneut einen langen Build/Download anzustossen.
+- Der Build ist ueber `frontend-angular/scripts/build-android-delivery-apk.sh` reproduzierbar.
+- Die APK wurde wegen GitHubs 100-MB-Git-Dateilimit nicht als normale Git-Datei committed, sondern als GitHub-Release-Asset hochgeladen.
+
+Aktuelle APK:
+- Release-Download: https://github.com/ananta888/ananta/releases/download/android-delivery-proot-voxtral-debug/ananta-delivery-proot-voxtral-debug.apk
+- Lokaler Build-Pfad: `frontend-angular/android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk`
+- Groesse: ca. 173 MB
+- SHA256: `8b70d96b19db00d5dfb90de1db79ecbd9bc7e48be10dcadd6b9d95639503292d`
+
+Wichtige Commits/Stand:
+- `dab84194 Bundle Voxtral runner shared libraries`
+- Davor: `17aa5a83 fixup app intern worker`
+- `main` und `origin/main` standen nach dem Push auf `dab84194`.
+
+Wichtige Dateien:
+- `frontend-angular/android/app/src/main/java/com/ananta/mobile/python/PythonRuntimePlugin.java`
+  - Installiert gebuendelte Proot-/Ubuntu- und Workspace-Seeds aus APK-Assets.
+  - Setzt app-eigenes `DATA_DIR`, damit Worker-Import und Artefaktpfade nicht nach `/data/artifacts` schreiben.
+- `frontend-angular/android/app/src/main/java/com/ananta/mobile/voxtral/VoxtralOfflinePlugin.java`
+  - Installiert gebuendelte Voxtral-Runner-Assets aus `assets/voxtral-runner/` nach `files/voxtral/bin`.
+  - Persistiert `voxtral-realtime` als Runner-Pfad.
+  - Setzt fuer Proot-Fallback den Runner-Library-Pfad in `LD_LIBRARY_PATH`.
+  - Nutzt gebuendelten Runner im `provisionVoxtralRunner`-Fast-Path.
+- `frontend-angular/android/app/src/main/assets/proot-seed/`
+  - Lokale grosse Seed-Assets fuer APK-Build:
+    - `ubuntu-rootfs.tar.xz`
+    - `ubuntu-rootfs.version`
+    - `ananta-workspace.tar.xz`
+    - `ananta-workspace.version`
+  - Die `.tar.xz`-Dateien sind absichtlich nicht normal im Git committed.
+- `frontend-angular/android/app/src/main/assets/voxtral-runner/`
+  - Gebuendelte Runner-Assets:
+    - `voxtral-realtime`
+    - `libvoxtral_lib.so`
+    - `libggml.so*`
+    - `libggml-base.so*`
+    - `libggml-cpu.so*`
+    - SHA256-Dateien
+  - Einige `.so`-Dateien mussten mit `git add -f` committed werden, weil `.gitignore` globale `*.so`-Regeln enthaelt.
+- `frontend-angular/src/app/models/voxtral-catalog.ts`
+  - Q2_K ist der empfohlene Standard:
+    - Hugging-Face-Datei: `Q2_K.gguf`
+    - URL: `https://huggingface.co/andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF/resolve/main/Q2_K.gguf`
+    - Groesse laut Header: `1,471,130,784` Bytes, also ca. 1.37 GiB / 1.47 GB.
+- `frontend-angular/src/app/components/voxtral-offline.component.ts`
+  - Sichtbarer Button/Card fuer kleines Standardmodell:
+    - `Kleines Standard-Modell laden (~1.37 GiB)`
+  - Runner-Hinweis verweist auf vorinstallierten `voxtral-realtime`.
+- `frontend-angular/scripts/build-android-delivery-apk.sh`
+  - Reproduzierbarer Build der Delivery-APK.
+  - Prueft Proot-Seed-Assets und Voxtral-Runner-Assets.
+  - Kann mit `ANANTA_EXPORT_ANDROID_SEED=1` Seeds aus einem vorbereiteten Android-App-Sandbox-Setup exportieren.
+  - Kann mit `ANANTA_BUILD_VOXTRAL_RUNNER=1` den Voxtral-Runner reproduzierbar bauen.
+- `frontend-angular/android/app/src/androidTest/java/com/ananta/mobile/LiveTerminalAndroidE2ETest.java`
+  - E2E-Test fuer Proot-/Workspace-Preseed.
+  - E2E-Test fuer gebuendelten Voxtral-Runner.
+  - E2E-Test fuer Runner-Bereitstellen-Pfad.
+
+E2E-/Build-Ergebnisse:
+- `./scripts/build-android-delivery-apk.sh` erfolgreich.
+- `bundledVoxtralRunnerIsInstalled` erfolgreich.
+- `bundledPreseedProvidesWorkerReadySetup` erfolgreich.
+- `voxtralRunnerProvisionButtonActionWorks` erfolgreich.
+- Finale APK wurde auf dem verbundenen Android-Geraet installiert.
+
+Bekannte technische Hinweise:
+- Auf ARM64/Termux-Proot muss Gradle AAPT2 ueber den qemu-Wrapper laufen:
+  - `-Pandroid.aapt2FromMavenOverride=/tmp/aapt2`
+  - Das Build-Script erkennt `/tmp/aapt2` automatisch.
+- Android toybox `tar` hatte bei frueheren Rootfs-Seeds fehlerhafte Archive erzeugt (`bad header` / EOF). Loesung: Export vom Android-Geraet, dann lokales Repacking mit GNU tar und xz.
+- Die APK kann nicht direkt als normale Git-Datei zu GitHub gepusht werden, weil sie ueber 100 MB gross ist. Verwende GitHub Releases oder Git LFS. In dieser Session wurde ein Release-Asset verwendet.
+- Der GitHub-Release-Tag lautet `android-delivery-proot-voxtral-debug`.
+
+Wenn die Arbeit spaeter fortgesetzt wird:
+1. Zuerst `git status --short` und `git log --oneline -5` pruefen.
+2. Fuer einen frischen APK-Build:
+   - `cd frontend-angular`
+   - `./scripts/build-android-delivery-apk.sh`
+3. Danach SHA256 der APK pruefen:
+   - `sha256sum android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk`
+4. Falls ein frischer Android-E2E-Test noetig ist:
+   - Per Wireless ADB verbinden.
+   - Einzeltests mit Gradle und AAPT2-Override ausfuehren.
+5. APK nicht in Git committen; bei Auslieferung wieder als Release-Asset hochladen.
+
+Aktuelle Nutzeranforderung fuer diese Datei:
+- Diese Zusammenfassung soll als `running-copilot.chat.txt` im Repo abgelegt und committed werden.
