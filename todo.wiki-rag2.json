@@ -41,7 +41,12 @@
       "RagHelperIndexService kann source_scope=wiki indexieren.",
       "CodeCompass-Prerendering fuer Wiki ist ueber Markdown-Materialisierung verdrahtet.",
       "RetrievalService besitzt einen WikiKnowledgeSourceAdapter.",
-      "Android-E2E prueft Wiki-UI, Presets, Multistream-Index-Hinweis und ZIM-Blockierung."
+      "Android-E2E prueft Wiki-UI, Presets, Multistream-Index-Hinweis und ZIM-Blockierung.",
+      "Lokaler Wiki-Import dispatcht jetzt anhand von Dateiformat auf XML oder JSONL und akzeptiert index_path/import_format.",
+      "Wiki-Import API ist async-first (Default async=true) fuer lokale und URL-Importe.",
+      "Wiki-Import-Jobstatus ist ueber dedizierte Route /knowledge/wiki/import-jobs/<job_id> abrufbar.",
+      "Downloadreport enthaelt Resume-/Range-Metadaten, Header-Hinweise und erkennt fehlenden Speicherplatz.",
+      "Android Artifacts-Wiki-View startet nun Hintergrundjobs und pollt den Jobstatus bis completed/failed."
     ],
     "known_gaps": [
       "Voller dewiki-Dump wird aktuell nicht streaming-basiert bis in den Index geschrieben; grosse Listen im Speicher sind ein Risiko.",
@@ -118,7 +123,7 @@
         "WR2-T03",
         "WR2-T04"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "WR2-M1",
@@ -131,7 +136,7 @@
         "WR2-T09",
         "WR2-T10"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "WR2-M2",
@@ -144,7 +149,7 @@
         "WR2-T15",
         "WR2-T16"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "WR2-M3",
@@ -156,7 +161,7 @@
         "WR2-T20",
         "WR2-T21"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "WR2-M4",
@@ -251,7 +256,7 @@
     {
       "id": "WR2-T03",
       "title": "Lokalen Wiki-Import Endpoint fuer XML und XML.BZ2 korrigieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "backend_api",
@@ -269,7 +274,7 @@
     {
       "id": "WR2-T04",
       "title": "Regression-Tests fuer aktuelle APK-/Backend-Baseline erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "testing",
@@ -351,7 +356,7 @@
     {
       "id": "WR2-T08",
       "title": "Resumable Download Metadaten und Checks verbessern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "download",
@@ -369,7 +374,7 @@
     {
       "id": "WR2-T09",
       "title": "Speicherplatz- und Dateisystem-Preflight fuer grosse Dumps",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "safety",
@@ -512,7 +517,7 @@
     {
       "id": "WR2-T16",
       "title": "Qualitaetsmetriken fuer Normalisierung reporten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
@@ -773,7 +778,7 @@
     {
       "id": "WR2-T28",
       "title": "Wiki Import API auf async-first umstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "backend_api",
@@ -794,7 +799,7 @@
     {
       "id": "WR2-T29",
       "title": "Progress Events und Status API fuer APK bereitstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "observability_api",
@@ -804,7 +809,7 @@
       "expected_files": [
         "agent/routes/knowledge.py",
         "agent/services/wiki_import_job_service.py",
-        "frontend-angular/src/app/services/admin-facade.service.ts",
+        "frontend-angular/src/app/features/admin/admin.facade.ts",
         "tests/test_knowledge_routes.py"
       ],
       "acceptance_criteria": [
@@ -816,7 +821,7 @@
     {
       "id": "WR2-T30",
       "title": "Android Wiki-RAG UI fuer Hintergrundjobs umbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "frontend_android",
@@ -1063,12 +1068,12 @@
   "tasks_status_summary": {
     "total": 40,
     "by_status": {
-      "todo": 39,
+      "todo": 31,
       "in_progress": 0,
       "blocked": 1,
-      "done": 0
+      "done": 8
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 20,
     "by_priority": {
       "P0": 22,
       "P1": 15,
@@ -1083,13 +1088,13 @@
     },
     "critical_path": {
       "total": 17,
-      "done": 0,
-      "remaining": 17
+      "done": 3,
+      "remaining": 14
     },
     "milestones": {
       "total": 8,
-      "todo": 8,
-      "in_progress": 0,
+      "todo": 4,
+      "in_progress": 4,
       "blocked": 0,
       "done": 0
     }

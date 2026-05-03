@@ -161,3 +161,63 @@ def test_ingestion_service_import_wiki_multistream_uses_index(tmp_path):
     assert report["jsonl_cache_path"]
     assert Path(str(report["jsonl_cache_path"])).exists()
     assert report["records"][0]["article_title"] == "Multistream article"
+
+
+def test_ingestion_service_import_wiki_corpus_dispatches_by_extension(tmp_path):
+    corpus = tmp_path / "simplewiki.xml"
+    corpus.write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<mediawiki>
+  <page>
+    <title>Dispatch test</title>
+    <revision><text>Dispatch path for XML corpus.</text></revision>
+  </page>
+</mediawiki>
+""",
+        encoding="utf-8",
+    )
+    report = IngestionService().import_wiki_corpus(corpus_path=str(corpus), source_id="dispatch-xml")
+    assert report["format"] == "xml"
+    assert report["source_id"] == "dispatch-xml"
+    assert report["stats"]["normalized_records"] >= 1
+
+
+def test_ingestion_service_download_report_contains_resume_metadata(monkeypatch, tmp_path):
+    payload = b'{"article_title":"A","section_title":"B","content":"hello"}\n'
+
+    class FakeResponse:
+        def __init__(self, data: bytes):
+            self._buffer = BytesIO(data)
+            self.status = 200
+            self.headers = {
+                "Content-Length": str(len(data)),
+                "Accept-Ranges": "bytes",
+                "ETag": "abc",
+                "Last-Modified": "Mon, 01 Jan 2026 00:00:00 GMT",
+            }
+
+        def read(self, size: int = -1) -> bytes:
+            return self._buffer.read(size)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("agent.services.ingestion_service.settings.data_dir", str(tmp_path), raising=False)
+    monkeypatch.setattr(
+        "agent.services.ingestion_service.urllib.request.urlopen",
+        lambda *_args, **_kwargs: FakeResponse(payload),
+    )
+
+    report = IngestionService().import_wiki_jsonl_from_url(
+        corpus_url="https://example.org/wiki-sample.jsonl",
+        source_id="wiki-jsonl-download",
+    )
+
+    download = report["download"]
+    assert download["bytes"] == len(payload)
+    assert download["status_code"] == 200
+    assert download["requested_range"] is False
+    assert download["headers"]["accept_ranges"] == "bytes"

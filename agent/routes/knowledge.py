@@ -138,10 +138,12 @@ def _wiki_import_request() -> dict:
     if not corpus_path:
         raise BadRequestError("corpus_path_required")
     source_id = str(payload.get("source_id") or "").strip() or None
+    index_path = str(payload.get("index_path") or "").strip() or None
+    import_format = str(payload.get("import_format") or "").strip() or None
     profile_name = str(payload.get("profile_name") or "").strip() or None
     language = str(payload.get("language") or "en").strip().lower() or "en"
     strict = bool(payload.get("strict", False))
-    async_mode = bool(payload.get("async", False))
+    async_mode = bool(payload.get("async", True))
     codecompass_prerender = bool(payload.get("codecompass_prerender", False))
     raw_source_metadata = payload.get("source_metadata") or {}
     if not isinstance(raw_source_metadata, dict):
@@ -150,6 +152,8 @@ def _wiki_import_request() -> dict:
     return {
         "corpus_path": corpus_path,
         "source_id": source_id,
+        "index_path": index_path,
+        "import_format": import_format,
         "profile_name": profile_name,
         "language": language,
         "strict": strict,
@@ -180,7 +184,7 @@ def _wiki_import_url_request() -> dict:
     profile_name = str(payload.get("profile_name") or "").strip() or None
     language = str(payload.get("language") or (selected_preset.get("language") if selected_preset else "en")).strip().lower() or "en"
     strict = bool(payload.get("strict", False))
-    async_mode = bool(payload.get("async", False))
+    async_mode = bool(payload.get("async", True))
     codecompass_prerender = bool(payload.get("codecompass_prerender", selected_preset.get("codecompass_prerender", False) if selected_preset else False))
     raw_source_metadata = payload.get("source_metadata") or {}
     if not isinstance(raw_source_metadata, dict):
@@ -341,6 +345,17 @@ def get_knowledge_index_job(job_id: str):
     return api_response(data={"job": job})
 
 
+@knowledge_bp.route("/knowledge/wiki/import-jobs/<job_id>", methods=["GET"])
+@check_auth
+def get_wiki_import_job(job_id: str):
+    job = get_knowledge_index_job_service().get_job(job_id)
+    if job is None:
+        raise NotFoundError("wiki_import_job_not_found")
+    if str(job.get("job_type") or "") != "source_records" or str(job.get("source_scope") or "").strip().lower() != "wiki":
+        raise NotFoundError("wiki_import_job_not_found")
+    return api_response(data={"job": job})
+
+
 @knowledge_bp.route("/knowledge/wiki/presets", methods=["GET"])
 @check_auth
 def list_wiki_import_presets():
@@ -396,11 +411,13 @@ def index_knowledge_source_records():
 def import_wiki_corpus():
     payload = _wiki_import_request()
     try:
-        report = get_ingestion_service().import_wiki_jsonl(
+        report = get_ingestion_service().import_wiki_corpus(
             corpus_path=payload["corpus_path"],
+            index_path=payload["index_path"],
             source_id=payload["source_id"],
             default_language=payload["language"],
             strict=payload["strict"],
+            import_format=payload["import_format"],
         )
     except ValueError as exc:
         raise BadRequestError(str(exc)) from exc
@@ -408,6 +425,8 @@ def import_wiki_corpus():
     source_metadata = {
         **dict(payload.get("source_metadata") or {}),
         "corpus_path": report.get("corpus_path"),
+        "index_path": report.get("index_path"),
+        "import_format": payload.get("import_format") or report.get("format"),
         "issues": list(report.get("issues") or []),
         "import_stats": dict(report.get("stats") or {}),
     }
@@ -430,6 +449,9 @@ def import_wiki_corpus():
                     "source_scope": report.get("source_scope"),
                     "source_id": report.get("source_id"),
                     "corpus_path": report.get("corpus_path"),
+                    "index_path": report.get("index_path"),
+                    "jsonl_cache_path": report.get("jsonl_cache_path"),
+                    "format": report.get("format"),
                     "stats": report.get("stats"),
                     "issues": report.get("issues"),
                 },
@@ -455,6 +477,9 @@ def import_wiki_corpus():
                 "source_scope": report.get("source_scope"),
                 "source_id": report.get("source_id"),
                 "corpus_path": report.get("corpus_path"),
+                "index_path": report.get("index_path"),
+                "jsonl_cache_path": report.get("jsonl_cache_path"),
+                "format": report.get("format"),
                 "stats": report.get("stats"),
                 "issues": report.get("issues"),
             },

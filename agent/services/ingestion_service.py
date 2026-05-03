@@ -13,6 +13,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 from agent.config import settings
 from agent.db_models import ArtifactDB, ArtifactVersionDB, ExtractedDocumentDB, KnowledgeCollectionDB, KnowledgeLinkDB
@@ -263,6 +264,8 @@ class IngestionService:
         page_count = 0
         doc_count = 0
         item_ordinal = 0
+        skipped_page_count = 0
+        skipped_doc_count = 0
 
         for elem in self._iter_wiki_xml_items(path=path, index_path=resolved_index_path):
             local_name = self._tag_local_name(elem.tag)
@@ -275,6 +278,7 @@ class IngestionService:
                 if not title or not cleaned:
                     issue = {"item": item_ordinal, "error": "missing_page_content"}
                     issues.append(issue)
+                    skipped_page_count += 1
                     if strict:
                         raise ValueError("wiki_corpus_invalid_record")
                 else:
@@ -298,6 +302,7 @@ class IngestionService:
                     except ValueError as exc:
                         issue = {"item": item_ordinal, "error": str(exc)}
                         issues.append(issue)
+                        skipped_page_count += 1
                         if strict:
                             raise ValueError("wiki_corpus_invalid_record") from exc
             elif local_name == "doc":
@@ -309,6 +314,7 @@ class IngestionService:
                 if not title or not cleaned:
                     issue = {"item": item_ordinal, "error": "missing_doc_content"}
                     issues.append(issue)
+                    skipped_doc_count += 1
                     if strict:
                         raise ValueError("wiki_corpus_invalid_record")
                 else:
@@ -332,6 +338,7 @@ class IngestionService:
                     except ValueError as exc:
                         issue = {"item": item_ordinal, "error": str(exc)}
                         issues.append(issue)
+                        skipped_doc_count += 1
                         if strict:
                             raise ValueError("wiki_corpus_invalid_record") from exc
             elem.clear()
@@ -365,6 +372,10 @@ class IngestionService:
             "stats": {
                 "input_pages": page_count,
                 "input_docs": doc_count,
+                "processed_items": item_ordinal,
+                "skipped_pages": skipped_page_count,
+                "skipped_docs": skipped_doc_count,
+                "dropped_items": skipped_page_count + skipped_doc_count,
                 "normalized_records": len(records),
                 "issues": len(issues),
             },
@@ -535,7 +546,7 @@ class IngestionService:
             local_compressed = None
             local_extracted = wiki_corpus_dir / safe_name
 
-        downloaded_bytes = self._download_with_resume(
+        download_report = self._download_with_resume(
             url=url,
             destination=local_compressed or local_extracted,
             max_download_bytes=max_download_bytes,
@@ -565,7 +576,7 @@ class IngestionService:
             safe_index_name = re.sub(r"[^A-Za-z0-9._-]+", "-", index_name).strip("-") or "wiki-index.txt.bz2"
             local_index_compressed = wiki_corpus_dir / safe_index_name
             local_index_path = wiki_corpus_dir / Path(safe_index_name).stem if safe_index_name.endswith(".bz2") else local_index_compressed
-            index_bytes = self._download_with_resume(
+            index_report = self._download_with_resume(
                 url=str(index_url).strip(),
                 destination=local_index_compressed,
                 max_download_bytes=512 * 1024 * 1024,
@@ -576,32 +587,21 @@ class IngestionService:
                         shutil.copyfileobj(source, output)
             index_download = {
                 "url": str(index_url).strip(),
-                "bytes": index_bytes,
+                **index_report,
                 "stored_path": str(local_index_path),
                 "compressed_path": str(local_index_compressed) if safe_index_name.endswith(".bz2") else None,
             }
-        if lower_name.endswith(".jsonl"):
-            report = self.import_wiki_jsonl(
-                corpus_path=str(local_corpus),
-                source_id=source_id,
-                default_language=default_language,
-                strict=strict,
-            )
-        elif lower_name.endswith(".xml") or lower_name.endswith(".xml.gz") or lower_name.endswith(".xml.bz2"):
-            report = self.import_wiki_xml(
-                corpus_path=str(local_corpus),
-                index_path=str(local_index_path) if local_index_path else None,
-                source_id=source_id,
-                default_language=default_language,
-                strict=strict,
-            )
-        elif lower_name.endswith(".zim"):
-            raise ValueError("wiki_zim_import_not_supported")
-        else:
-            raise ValueError("wiki_corpus_unknown_format")
+        report = self.import_wiki_corpus(
+            corpus_path=str(local_corpus),
+            index_path=str(local_index_path) if local_index_path else None,
+            source_id=source_id,
+            default_language=default_language,
+            strict=strict,
+            import_format=None,
+        )
         report["download"] = {
             "url": url,
-            "bytes": downloaded_bytes,
+            **download_report,
             "stored_path": str(local_corpus),
             "compressed_path": str(local_compressed) if local_compressed else None,
             "resumable": True,
@@ -609,20 +609,48 @@ class IngestionService:
         }
         return report
 
-    def _download_with_resume(self, *, url: str, destination: Path, max_download_bytes: int) -> int:
+    def _download_with_resume(self, *, url: str, destination: Path, max_download_bytes: int) -> dict[str, Any]:
         destination.parent.mkdir(parents=True, exist_ok=True)
         existing_bytes = destination.stat().st_size if destination.exists() else 0
         request = urllib.request.Request(url)
         mode = "wb"
+        requested_range = False
         if existing_bytes > 0:
             request.add_header("Range", f"bytes={existing_bytes}-")
             mode = "ab"
+            requested_range = True
         downloaded_bytes = existing_bytes
+        status = 0
+        response_headers: dict[str, Any] = {}
+        restarted_without_range = False
+        storage_issue = None
         with urllib.request.urlopen(request, timeout=45) as response:
             status = int(getattr(response, "status", 200) or 200)
+            response_headers = {
+                "content_length": str(response.headers.get("Content-Length") or "").strip() or None,
+                "accept_ranges": str(response.headers.get("Accept-Ranges") or "").strip() or None,
+                "etag": str(response.headers.get("ETag") or "").strip() or None,
+                "last_modified": str(response.headers.get("Last-Modified") or "").strip() or None,
+            }
             if existing_bytes > 0 and status == 200:
                 mode = "wb"
                 downloaded_bytes = 0
+                restarted_without_range = True
+            content_length = 0
+            try:
+                content_length = int(response.headers.get("Content-Length") or 0)
+            except (TypeError, ValueError):
+                content_length = 0
+            expected_remaining = max(0, content_length)
+            free_bytes = shutil.disk_usage(destination.parent).free
+            reserve_bytes = max(128 * 1024 * 1024, max_download_bytes // 200)
+            if expected_remaining > 0 and free_bytes < expected_remaining + reserve_bytes:
+                storage_issue = {
+                    "free_bytes": int(free_bytes),
+                    "required_bytes": int(expected_remaining + reserve_bytes),
+                    "reserve_bytes": int(reserve_bytes),
+                }
+                raise ValueError("wiki_storage_insufficient")
             with destination.open(mode) as output:
                 while True:
                     chunk = response.read(1024 * 256)
@@ -632,7 +660,15 @@ class IngestionService:
                     if downloaded_bytes > max_download_bytes:
                         raise ValueError("wiki_corpus_too_large")
                     output.write(chunk)
-        return downloaded_bytes
+        return {
+            "bytes": int(downloaded_bytes),
+            "status_code": int(status),
+            "requested_range": requested_range,
+            "resumed": bool(requested_range and not restarted_without_range),
+            "restarted_without_range": restarted_without_range,
+            "headers": response_headers,
+            "storage_issue": storage_issue,
+        }
 
 
 ingestion_service = IngestionService()
@@ -640,3 +676,50 @@ ingestion_service = IngestionService()
 
 def get_ingestion_service() -> IngestionService:
     return ingestion_service
+    def _infer_wiki_format(self, *, corpus_path: Path, import_format: str | None = None) -> str:
+        explicit = str(import_format or "").strip().lower()
+        if explicit in {"jsonl", "mediawiki-jsonl"}:
+            return "jsonl"
+        if explicit in {"xml", "mediawiki-xml", "mediawiki-multistream"}:
+            return "xml"
+        if explicit == "zim":
+            return "zim"
+        name = str(corpus_path.name).lower()
+        if name.endswith(".jsonl"):
+            return "jsonl"
+        if name.endswith(".xml") or name.endswith(".xml.gz") or name.endswith(".xml.bz2"):
+            return "xml"
+        if name.endswith(".zim"):
+            return "zim"
+        raise ValueError("wiki_corpus_unknown_format")
+
+    def import_wiki_corpus(
+        self,
+        *,
+        corpus_path: str,
+        index_path: str | None = None,
+        source_id: str | None = None,
+        default_language: str = "en",
+        strict: bool = False,
+        import_format: str | None = None,
+    ) -> dict[str, object]:
+        path = Path(str(corpus_path or "").strip()).expanduser().resolve()
+        detected_format = self._infer_wiki_format(corpus_path=path, import_format=import_format)
+        if detected_format == "jsonl":
+            return self.import_wiki_jsonl(
+                corpus_path=str(path),
+                source_id=source_id,
+                default_language=default_language,
+                strict=strict,
+            )
+        if detected_format == "xml":
+            return self.import_wiki_xml(
+                corpus_path=str(path),
+                index_path=index_path,
+                source_id=source_id,
+                default_language=default_language,
+                strict=strict,
+            )
+        if detected_format == "zim":
+            raise ValueError("wiki_zim_import_not_supported")
+        raise ValueError("wiki_corpus_unknown_format")

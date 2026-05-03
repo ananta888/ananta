@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
@@ -230,6 +230,14 @@ import { SummaryMetric, SummaryPanelComponent, TableShellComponent } from '../sh
           <span class="artifact-pill">Source: {{ wikiImportResult?.source_id || wikiSourceId || 'wiki' }}</span>
           <span class="artifact-pill">Records: {{ wikiImportResult?.stats?.normalized_records || wikiImportResult?.stats?.records_total || 0 }}</span>
           <span class="artifact-pill">Issues: {{ wikiImportResult?.issues?.length || 0 }}</span>
+        </div>
+      }
+      @if (wikiImportJobId || wikiImportJob) {
+        <div class="artifact-meta mt-sm">
+          <span class="artifact-pill">Job: {{ wikiImportJobId || wikiImportJob?.job_id || 'n/a' }}</span>
+          <span class="artifact-pill">Status: {{ wikiImportJob?.status || (wikiImportBusy ? 'running' : 'unknown') }}</span>
+          <span class="artifact-pill">Phase: {{ wikiImportJob?.phase || (wikiImportBusy ? 'indexing' : 'n/a') }}</span>
+          <span class="artifact-pill">Progress: {{ wikiImportJob?.progress_percent ?? (wikiImportBusy ? 10 : 0) }}%</span>
         </div>
       }
     </div>
@@ -639,7 +647,7 @@ import { SummaryMetric, SummaryPanelComponent, TableShellComponent } from '../sh
     </div>
   `,
 })
-export class ArtifactsComponent {
+export class ArtifactsComponent implements OnDestroy {
   private dir = inject(AgentDirectoryService);
   private hubApi = inject(AdminFacade);
   private ns = inject(NotificationService);
@@ -736,6 +744,9 @@ export class ArtifactsComponent {
   wikiCodeCompassPrerender = true;
   wikiImportBusy = false;
   wikiImportResult: any = null;
+  wikiImportJobId = '';
+  wikiImportJob: any = null;
+  private wikiImportPollTimer: ReturnType<typeof setTimeout> | null = null;
   artifactFlowReadModel: any = null;
   loadingArtifactFlow = false;
   selectedWorkspaceRunKey = '';
@@ -754,6 +765,10 @@ export class ArtifactsComponent {
     this.loadProfiles();
     this.loadWikiPresets();
     this.loadArtifactFlow();
+  }
+
+  ngOnDestroy(): void {
+    this.stopWikiImportPolling();
   }
 
   selectedArtifactSummaryMetrics(): SummaryMetric[] {
@@ -923,7 +938,7 @@ export class ArtifactsComponent {
       language: (this.wikiLanguage || 'en').trim().toLowerCase() || 'en',
       strict: this.wikiStrict,
       codecompass_prerender: this.wikiCodeCompassPrerender,
-      async: false,
+      async: true,
       source_metadata: {
         imported_from: 'artifacts_component',
       },
@@ -942,18 +957,78 @@ export class ArtifactsComponent {
     }
     this.wikiImportBusy = true;
     this.wikiImportResult = null;
+    this.wikiImportJob = null;
+    this.wikiImportJobId = '';
+    this.stopWikiImportPolling();
     this.hubApi.importWikiFromUrl(this.hub.url, payload).pipe(
       finalize(() => {
-        this.wikiImportBusy = false;
+        if (!this.wikiImportJobId) {
+          this.wikiImportBusy = false;
+        }
       }),
     ).subscribe({
       next: (response) => {
         this.wikiImportResult = response?.import_report || null;
+        const jobId = String(response?.job?.job_id || response?.job?.id || '').trim();
+        if (jobId) {
+          this.wikiImportJobId = jobId;
+          this.wikiImportJob = response?.job || null;
+          this.wikiImportBusy = true;
+          this.ns.success(`Wikipedia-Import gestartet (Job ${jobId})`);
+          this.startWikiImportPolling(jobId);
+          return;
+        }
+        this.wikiImportBusy = false;
         this.ns.success('Wikipedia-Import abgeschlossen');
         this.loadCollections();
       },
-      error: (error) => this.ns.error(this.ns.fromApiError(error, 'Wikipedia-Import fehlgeschlagen')),
+      error: (error) => {
+        this.wikiImportBusy = false;
+        this.stopWikiImportPolling();
+        this.ns.error(this.ns.fromApiError(error, 'Wikipedia-Import fehlgeschlagen'));
+      },
     });
+  }
+
+  private startWikiImportPolling(jobId: string): void {
+    if (!this.hub) return;
+    this.stopWikiImportPolling();
+    const poll = () => {
+      if (!this.hub) return;
+      this.hubApi.getWikiImportJob(this.hub.url, jobId).subscribe({
+        next: (response) => {
+          const job = response?.job || null;
+          this.wikiImportJob = job;
+          const status = String(job?.status || '').trim().toLowerCase();
+          if (status === 'completed') {
+            this.wikiImportBusy = false;
+            this.stopWikiImportPolling();
+            this.ns.success('Wikipedia-Import abgeschlossen');
+            this.loadCollections();
+            return;
+          }
+          if (status === 'failed' || status === 'cancelled') {
+            this.wikiImportBusy = false;
+            this.stopWikiImportPolling();
+            const errorHint = String(job?.error || '').trim();
+            this.ns.error(errorHint ? `Wikipedia-Import fehlgeschlagen: ${errorHint}` : 'Wikipedia-Import fehlgeschlagen');
+            return;
+          }
+          this.wikiImportPollTimer = setTimeout(poll, 2000);
+        },
+        error: () => {
+          this.wikiImportPollTimer = setTimeout(poll, 4000);
+        },
+      });
+    };
+    this.wikiImportPollTimer = setTimeout(poll, 800);
+  }
+
+  private stopWikiImportPolling(): void {
+    if (this.wikiImportPollTimer) {
+      clearTimeout(this.wikiImportPollTimer);
+      this.wikiImportPollTimer = null;
+    }
   }
 
   onFileSelected(event: Event) {
