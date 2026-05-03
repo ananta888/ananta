@@ -1,0 +1,1150 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "wiki_rag2_productionization",
+  "purpose": "Umfangreicher Umsetzungsplan, um die aktuelle echte Wikimedia-Dump-Integration von einem funktionalen Prototypen zu einer robusten, lokal-first, Android-tauglichen und CodeCompass-inspirierten Wikipedia-RAG-Pipeline auszubauen.",
+  "goal": "Deutsche Wikipedia-Dumps sollen als lokale RAG-Quelle sauber heruntergeladen, fortgesetzt, normalisiert, indexiert, gesucht und in der APK bedienbar sein, ohne die Hub-Worker-Architektur zu brechen. CodeCompass-Prerendering soll sinnvoll genutzt werden, aber fuer grosse Wikipedia-Dumps streaming- und batchfaehig statt temp-file-lastig werden.",
+  "created": "2026-05-03",
+  "updated": "2026-05-03",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "current_state_summary": {
+    "classification": "real_dump_ingestion_prototype_with_scaling_gaps",
+    "production_ready_for_full_dewiki": false,
+    "apk_user_surface_present": true,
+    "device_e2e_covered": true,
+    "done_scope": [
+      "User-facing JSONL-Presets wurden entfernt.",
+      "Deutsch-Wikipedia Multistream XML.BZ2 plus Index ist als empfohlenes Preset vorhanden.",
+      "Nicht-Multistream XML.BZ2 ist als Fallback-Preset vorhanden.",
+      "ZIM-Presets sind sichtbar, aber als unsupported/prototype blockiert.",
+      "Import-URL-Route akzeptiert corpus_url und index_url.",
+      "IngestionService kann XML, XML.GZ und XML.BZ2 lesen.",
+      "Ein einfacher Multistream-Indexpfad kann BZip2-Blöcke anhand von Offsets verarbeiten.",
+      "Wiki-Records werden normalisiert, chunked und optional als JSONL-Cache geschrieben.",
+      "RagHelperIndexService kann source_scope=wiki indexieren.",
+      "CodeCompass-Prerendering fuer Wiki ist ueber Markdown-Materialisierung verdrahtet.",
+      "RetrievalService besitzt einen WikiKnowledgeSourceAdapter.",
+      "Android-E2E prueft Wiki-UI, Presets, Multistream-Index-Hinweis und ZIM-Blockierung."
+    ],
+    "known_gaps": [
+      "Voller dewiki-Dump wird aktuell nicht streaming-basiert bis in den Index geschrieben; grosse Listen im Speicher sind ein Risiko.",
+      "UI importiert derzeit synchron; grosse Dumps brauchen zwingend Hintergrundjob, Fortschritt, Pause/Resume und Fehlerfortsetzung.",
+      "CodeCompass-Prerendering materialisiert potenziell sehr viele Markdown-Dateien und ist fuer Millionen Artikel nicht geeignet.",
+      "Wikitext-Cleanup ist basic und nicht produktionsreif fuer Templates, Tabellen, Kategorien, Redirects und komplexe Links.",
+      "Lokaler /knowledge/wiki/import Endpoint dispatcht noch nicht sauber nach XML/XML.BZ2/ZIM/JSONL.",
+      "ZIM-Verarbeitung ist noch nicht implementiert.",
+      "Retrieval ueber KnowledgeIndex ist derzeit feld-/tokenbasiert; ein grosser persistenter Hybrid-/Vektorindex fehlt.",
+      "Speicherplatz-, Batterie-, Netzwerk- und Download-Policy fuer Android sind noch nicht ausreichend modelliert.",
+      "Der volle 8GB+ Dump wurde nicht end-to-end verarbeitet; bisher existieren nur Fixture- und UI/E2E-Nachweise."
+    ]
+  },
+  "architecture_guardrails": [
+    "Hub bleibt Control Plane: Preset-Auswahl, Job-Erzeugung, Policy, Audit, Status und Index-Registrierung liegen im Hub.",
+    "Worker oder Runtime-Komponenten duerfen Wiki-Daten verarbeiten, aber keine eigenen Orchestrierungsloops oder Worker-zu-Worker-Delegation einfuehren.",
+    "Android bleibt Client/UI-Surface und startet keine unabhaengige RAG-Orchestrierung ausserhalb der Hub-API.",
+    "Grosse Verarbeitung muss reproduzierbar, fortsetzbar und beobachtbar sein.",
+    "JSONL darf als internes Cache-/Austauschformat existieren, aber nicht als primaere user-facing Wiki-Quelle.",
+    "ZIM bleibt blockiert, bis ein klarer Parser- und Runtime-Pfad existiert.",
+    "Sicherheits- und Speicherlimits muessen fail-closed sein; keine stillen Success-Fallbacks bei teilweisen Imports."
+  ],
+  "design_principles": [
+    "Single Responsibility: Download, Dump-Parsing, Normalisierung, Index-Schreiben, Retrieval und UI-Jobsteuerung bleiben getrennte Services.",
+    "Open/Closed: Neue Dump-Formate werden ueber Parser-/Source-Adapter ergaenzt statt zentrale Importlogik immer weiter aufzublaehen.",
+    "Dependency Inversion: RAG-Indexierung haengt an stabilen Record-/Batch-Interfaces, nicht an konkreten XML-, ZIM- oder Markdown-Dateipfaden.",
+    "Interface Segregation: Streaming-Parser, Cache-Writer, CodeCompass-Bridge und Retrieval-Index erhalten fokussierte kleine Verträge.",
+    "Least Privilege: Downloads und lokale Verarbeitung arbeiten in dedizierten Datenverzeichnissen ohne Zugriff auf unnoetige Repo- oder Systempfade.",
+    "Observability: Jeder grosse Schritt erzeugt Status, Metriken, Fehlerdetails und wiederaufnehmbare Checkpoints."
+  ],
+  "target_architecture": {
+    "high_level_flow": [
+      "User waehlt in der APK oder im Backend ein Wikimedia-Preset oder eine eigene XML/ZIM-Quelle.",
+      "Hub validiert Quelle, Format, Groesse, Speicherplatz, Netzwerk-Policy und Benutzerrechte.",
+      "Hub erzeugt einen WikiImportJob mit Download-, Parse-, Normalize-, Index- und Verification-Phasen.",
+      "Download-Service laedt Dump und Index resumable in ein kontrolliertes RAG-Datenverzeichnis.",
+      "Dump-Parser streamt Seiten/Revisionen und gibt normalisierte Artikel-/Abschnittsereignisse aus.",
+      "Normalizer filtert Namespaces, Redirects, leere Seiten und technische Artefakte und erzeugt stabile Chunk-Records.",
+      "Index-Writer schreibt batchweise KnowledgeIndex-Outputs und optional einen JSONL-Cache.",
+      "CodeCompass-Wiki-Bridge erzeugt strukturierte Dokument-/Artikel-/Link-/Kategorie-Records ohne Millionen Temp-Markdown-Dateien.",
+      "Retrieval-Service durchsucht Wiki als eigenstaendige Source neben repo, artifact und task_memory.",
+      "Context-Bundle-Service mischt Wiki-Kontext policy-gesteuert in LLM-Prompts ein."
+    ],
+    "source_formats": {
+      "mediawiki_multistream_xml_bz2": {
+        "status": "primary_target",
+        "example_corpus": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles-multistream.xml.bz2",
+        "example_index": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles-multistream-index.txt.bz2"
+      },
+      "mediawiki_xml_bz2": {
+        "status": "fallback_target",
+        "example_corpus": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles.xml.bz2"
+      },
+      "zim": {
+        "status": "prototype_blocked_until_parser",
+        "examples": [
+          "https://dumps.wikimedia.org/kiwix/zim/wikipedia/wikipedia_de_all_mini_2026-04.zim",
+          "https://dumps.wikimedia.org/kiwix/zim/wikipedia/wikipedia_de_all_nopic_2026-01.zim"
+        ]
+      },
+      "normalized_jsonl": {
+        "status": "internal_cache_only",
+        "note": "Darf aus echten Dumps generiert werden, aber nicht als primaeres Preset erscheinen."
+      }
+    }
+  },
+  "milestones": [
+    {
+      "id": "WR2-M0",
+      "title": "Baseline und Contract absichern",
+      "task_ids": [
+        "WR2-T01",
+        "WR2-T02",
+        "WR2-T03",
+        "WR2-T04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WR2-M1",
+      "title": "Streaming Import Pipeline",
+      "task_ids": [
+        "WR2-T05",
+        "WR2-T06",
+        "WR2-T07",
+        "WR2-T08",
+        "WR2-T09",
+        "WR2-T10"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WR2-M2",
+      "title": "MediaWiki Normalisierung und Qualitaet",
+      "task_ids": [
+        "WR2-T11",
+        "WR2-T12",
+        "WR2-T13",
+        "WR2-T14",
+        "WR2-T15",
+        "WR2-T16"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WR2-M3",
+      "title": "CodeCompass-Wiki-Bridge ohne Temp-Datei-Explosion",
+      "task_ids": [
+        "WR2-T17",
+        "WR2-T18",
+        "WR2-T19",
+        "WR2-T20",
+        "WR2-T21"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WR2-M4",
+      "title": "Persistenter Hybrid-/Vektorindex",
+      "task_ids": [
+        "WR2-T22",
+        "WR2-T23",
+        "WR2-T24",
+        "WR2-T25",
+        "WR2-T26"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WR2-M5",
+      "title": "Job-System, Fortschritt und Android UX",
+      "task_ids": [
+        "WR2-T27",
+        "WR2-T28",
+        "WR2-T29",
+        "WR2-T30",
+        "WR2-T31",
+        "WR2-T32"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WR2-M6",
+      "title": "ZIM-Entscheidung und optionale Unterstuetzung",
+      "task_ids": [
+        "WR2-T33",
+        "WR2-T34",
+        "WR2-T35"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WR2-M7",
+      "title": "Verification, Benchmarks und Release-Reife",
+      "task_ids": [
+        "WR2-T36",
+        "WR2-T37",
+        "WR2-T38",
+        "WR2-T39",
+        "WR2-T40"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "WR2-T01",
+      "title": "Wiki-RAG Source Contract formal definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture_contract",
+      "principle": "ISP/DIP",
+      "expected_files": [
+        "schemas/domain/wiki_rag_source.v1.json",
+        "agent/services/wiki_rag_contracts.py",
+        "tests/test_wiki_rag_contracts.py"
+      ],
+      "acceptance_criteria": [
+        "Ein stabiler Contract fuer WikiSource, WikiImportJob, WikiArticleRecord, WikiSectionRecord und WikiChunkRecord existiert.",
+        "Der Contract trennt Source-Metadaten, Download-Metadaten, Parser-Metadaten, Normalisierung und Index-Metadaten.",
+        "Tests validieren Pflichtfelder, stabile IDs und erlaubte source_scope-Werte."
+      ]
+    },
+    {
+      "id": "WR2-T02",
+      "title": "Bestehenden Wiki-Import gegen neuen Contract mappen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "compatibility",
+      "depends_on": [
+        "WR2-T01"
+      ],
+      "expected_files": [
+        "agent/services/ingestion_service.py",
+        "agent/routes/knowledge.py",
+        "tests/test_ingestion_service.py",
+        "tests/test_knowledge_routes.py"
+      ],
+      "acceptance_criteria": [
+        "Bestehende Presets und Import-URL-Route liefern weiterhin kompatible Responses.",
+        "Neue Contract-Felder sind additiv und brechen Android/UI nicht.",
+        "JSONL bleibt nur als Cache-/Legacy-Pfad kenntlich."
+      ]
+    },
+    {
+      "id": "WR2-T03",
+      "title": "Lokalen Wiki-Import Endpoint fuer XML und XML.BZ2 korrigieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "backend_api",
+      "expected_files": [
+        "agent/routes/knowledge.py",
+        "agent/services/ingestion_service.py",
+        "tests/test_knowledge_routes.py"
+      ],
+      "acceptance_criteria": [
+        "/knowledge/wiki/import dispatcht anhand von Dateiname oder explizitem import_format auf XML, XML.BZ2, XML.GZ oder JSONL-Legacy.",
+        "Lokale Multistream-Imports koennen einen index_path entgegennehmen.",
+        "Unsupported ZIM wird weiterhin sauber mit wiki_preset_not_supported oder wiki_zim_import_not_supported blockiert."
+      ]
+    },
+    {
+      "id": "WR2-T04",
+      "title": "Regression-Tests fuer aktuelle APK-/Backend-Baseline erweitern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "testing",
+      "expected_files": [
+        "tests/test_ingestion_service.py",
+        "tests/test_knowledge_routes.py",
+        "frontend-angular/android/app/src/androidTest/java/com/ananta/mobile/LiveTerminalAndroidE2ETest.java"
+      ],
+      "acceptance_criteria": [
+        "Tests sichern, dass JSONL-Presets nicht wieder als user-facing Presets auftauchen.",
+        "Tests sichern, dass der Multistream-Index bei Preset-Import bis in source_metadata gelangt.",
+        "Android-E2E bleibt ohne grossen Download lauffaehig und prueft UI/Policy-Verhalten."
+      ]
+    },
+    {
+      "id": "WR2-T05",
+      "title": "Streaming Parser Interface einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "backend_service",
+      "principle": "SRP/OCP",
+      "depends_on": [
+        "WR2-T01"
+      ],
+      "expected_files": [
+        "agent/services/wiki_dump_parser.py",
+        "agent/services/wiki_mediawiki_xml_parser.py",
+        "tests/test_wiki_mediawiki_xml_parser.py"
+      ],
+      "acceptance_criteria": [
+        "Parser liefern Iteratoren/Generatoren statt kompletter Listen.",
+        "Parser-Events enthalten Titel, Namespace, Revision, Redirect-Status, Rohtext und Quelle.",
+        "XML, XML.GZ, XML.BZ2 und Multistream-XML.BZ2 sind ueber dasselbe Interface nutzbar."
+      ]
+    },
+    {
+      "id": "WR2-T06",
+      "title": "Multistream BZip2 Verarbeitung robust machen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "parser",
+      "depends_on": [
+        "WR2-T05"
+      ],
+      "expected_files": [
+        "agent/services/wiki_mediawiki_xml_parser.py",
+        "tests/test_wiki_multistream_parser.py"
+      ],
+      "acceptance_criteria": [
+        "Indexzeilen werden als offset:page_id:title geparst und dedupliziert.",
+        "Ungueltige Offsets, kaputte BZip2-Bloecke und leere Segmente werden als strukturierte Issues gemeldet.",
+        "Parser kann blockweise fortsetzen, ohne den kompletten Dump in den Speicher zu laden."
+      ]
+    },
+    {
+      "id": "WR2-T07",
+      "title": "Batch Writer fuer normalisierte Wiki-Records implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "storage",
+      "principle": "SRP",
+      "depends_on": [
+        "WR2-T05"
+      ],
+      "expected_files": [
+        "agent/services/wiki_record_writer.py",
+        "agent/services/rag_helper_index_service.py",
+        "tests/test_wiki_record_writer.py"
+      ],
+      "acceptance_criteria": [
+        "Normalisierte Chunks werden batchweise geschrieben statt in einer grossen Liste gehalten.",
+        "Writer erzeugt deterministische JSONL-/Index-Ausgaben mit stabilen IDs.",
+        "Writer kann nach Checkpoint fortsetzen, ohne bereits geschriebene Records zu duplizieren."
+      ]
+    },
+    {
+      "id": "WR2-T08",
+      "title": "Resumable Download Metadaten und Checks verbessern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "download",
+      "expected_files": [
+        "agent/services/wiki_download_service.py",
+        "agent/services/ingestion_service.py",
+        "tests/test_wiki_download_service.py"
+      ],
+      "acceptance_criteria": [
+        "Download speichert URL, Zielpfad, Bytes, HTTP-Status, Range-Support, ETag/Last-Modified falls vorhanden und Fehlerstatus.",
+        "Server ohne Range-Support werden erkannt und kontrolliert neu gestartet.",
+        "Partielle Dateien werden nicht als erfolgreiche Downloads markiert."
+      ]
+    },
+    {
+      "id": "WR2-T09",
+      "title": "Speicherplatz- und Dateisystem-Preflight fuer grosse Dumps",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "safety",
+      "depends_on": [
+        "WR2-T08"
+      ],
+      "expected_files": [
+        "agent/services/wiki_storage_preflight.py",
+        "agent/routes/knowledge.py",
+        "tests/test_wiki_storage_preflight.py"
+      ],
+      "acceptance_criteria": [
+        "Vor Download/Import wird freier Speicherplatz gegen Dump-, Index-, Cache- und Indexbedarf geprueft.",
+        "Fehlender Speicherplatz fuehrt zu klarer Fehlermeldung und keinem Teilimport.",
+        "Preflight unterscheidet Host-, Container- und Android-Datenverzeichnis soweit verfuegbar."
+      ]
+    },
+    {
+      "id": "WR2-T10",
+      "title": "Import Checkpoints fuer Parse- und Indexphasen einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "resumability",
+      "depends_on": [
+        "WR2-T06",
+        "WR2-T07"
+      ],
+      "expected_files": [
+        "agent/services/wiki_import_checkpoint_service.py",
+        "agent/services/wiki_import_job_service.py",
+        "tests/test_wiki_import_checkpoint_service.py"
+      ],
+      "acceptance_criteria": [
+        "Jobs speichern Phase, aktuelle Offset-/Page-Position, geschriebene Batchnummer und Issue-Zaehlung.",
+        "Ein unterbrochener Import kann kontrolliert fortgesetzt werden.",
+        "Checkpoint-Daten sind an source_id, dump_hash und index_hash gebunden."
+      ]
+    },
+    {
+      "id": "WR2-T11",
+      "title": "Namespace- und Redirect-Filter implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "normalization",
+      "depends_on": [
+        "WR2-T05"
+      ],
+      "expected_files": [
+        "agent/services/wiki_normalizer.py",
+        "tests/test_wiki_normalizer.py"
+      ],
+      "acceptance_criteria": [
+        "Standardmaessig wird nur Artikel-Namespace 0 indexiert.",
+        "Redirect-Seiten werden wahlweise ausgelassen oder als Redirect-Metadaten erfasst.",
+        "Filter sind ueber Source-Profil konfigurierbar und testgedeckt."
+      ]
+    },
+    {
+      "id": "WR2-T12",
+      "title": "Abschnittsextraktion aus MediaWiki Text verbessern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "normalization",
+      "depends_on": [
+        "WR2-T11"
+      ],
+      "expected_files": [
+        "agent/services/wiki_section_extractor.py",
+        "tests/test_wiki_section_extractor.py"
+      ],
+      "acceptance_criteria": [
+        "Ueberschriften werden in stabile section_title und section_path Felder umgewandelt.",
+        "Chunks behalten Artikel, Abschnitt, Revision und Position als Provenance.",
+        "Leere und rein technische Abschnitte werden ausgelassen."
+      ]
+    },
+    {
+      "id": "WR2-T13",
+      "title": "MediaWiki Markup Cleanup produktionsnaeher machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "normalization",
+      "depends_on": [
+        "WR2-T12"
+      ],
+      "expected_files": [
+        "agent/services/wiki_markup_cleaner.py",
+        "tests/test_wiki_markup_cleaner.py"
+      ],
+      "acceptance_criteria": [
+        "Interne Links, externe Links, refs, HTML-Tags, einfache Templates und Tabellen werden nachvollziehbar bereinigt.",
+        "Cleanup laesst keine grossen Template-Reste in Retrieval-Chunks zurueck.",
+        "Cleaner ist ohne schwere optionale Abhaengigkeiten nutzbar oder kapselt optionale Parser sauber."
+      ]
+    },
+    {
+      "id": "WR2-T14",
+      "title": "Stabile Chunking Policy fuer enzyklopaedische Texte definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "chunking",
+      "depends_on": [
+        "WR2-T12"
+      ],
+      "expected_files": [
+        "agent/services/wiki_chunking_policy.py",
+        "tests/test_wiki_chunking_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Chunking nutzt Zielgroesse, Satzgrenzen, Abschnittsgrenzen und maximale Token-/Char-Grenzen.",
+        "Chunk-IDs sind stabil bei gleicher Quelle und gleichem normalisiertem Inhalt.",
+        "Policy kann spaeter fuer kleine Android-Indizes und grosse Desktop-Indizes unterschiedlich konfiguriert werden."
+      ]
+    },
+    {
+      "id": "WR2-T15",
+      "title": "Artikel-Link-, Kategorie- und Infobox-Signale extrahieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "semantic_enrichment",
+      "depends_on": [
+        "WR2-T13"
+      ],
+      "expected_files": [
+        "agent/services/wiki_semantic_extractor.py",
+        "tests/test_wiki_semantic_extractor.py"
+      ],
+      "acceptance_criteria": [
+        "Interne Links koennen als relation_records erfasst werden.",
+        "Kategorien und Infobox-Hinweise werden als Metadaten oder Records erzeugt.",
+        "Fehlende oder komplexe Templates fuehren nicht zu Importabbruch."
+      ]
+    },
+    {
+      "id": "WR2-T16",
+      "title": "Qualitaetsmetriken fuer Normalisierung reporten",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "depends_on": [
+        "WR2-T11",
+        "WR2-T14"
+      ],
+      "expected_files": [
+        "agent/services/wiki_import_reporter.py",
+        "tests/test_wiki_import_reporter.py"
+      ],
+      "acceptance_criteria": [
+        "Import-Report zeigt Input-Seiten, ausgelassene Seiten, Redirects, Chunks, Issues und Top-Skip-Reasons.",
+        "Report unterscheidet harte Fehler und tolerierte Cleanup-Probleme.",
+        "Report wird in Job-Status und KnowledgeIndex-Metadaten sichtbar."
+      ]
+    },
+    {
+      "id": "WR2-T17",
+      "title": "CodeCompass-Wiki-Record Schema definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "codecompass_bridge",
+      "principle": "OCP/DIP",
+      "depends_on": [
+        "WR2-T01",
+        "WR2-T15"
+      ],
+      "expected_files": [
+        "schemas/worker/wiki_codecompass_record.v1.json",
+        "worker/retrieval/wiki_document_normalizer.py",
+        "tests/test_wiki_codecompass_record_schema.py"
+      ],
+      "acceptance_criteria": [
+        "Schema deckt article, section, chunk, link_relation, category_relation und source_manifest ab.",
+        "Records sind mit bestehendem CodeCompassOutputReader oder einem kompatiblen Reader konsumierbar.",
+        "Provenance enthaelt dump URL, revision, page id, namespace und chunk id soweit verfuegbar."
+      ]
+    },
+    {
+      "id": "WR2-T18",
+      "title": "Temp-Markdown-Materialisierung durch Streaming-CodeCompass-Bridge ersetzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "codecompass_bridge",
+      "depends_on": [
+        "WR2-T07",
+        "WR2-T17"
+      ],
+      "expected_files": [
+        "agent/services/wiki_codecompass_bridge.py",
+        "agent/services/rag_helper_index_service.py",
+        "tests/test_wiki_codecompass_bridge.py"
+      ],
+      "acceptance_criteria": [
+        "Wiki-Prerender schreibt strukturierte JSONL-Outputs direkt oder batchweise, ohne pro Artikel eine Markdown-Datei zu erzeugen.",
+        "Bestehender kleiner Markdown-Prerender bleibt als Kompatibilitaetspfad oder Testpfad erhalten.",
+        "Manifest markiert eindeutig die Strategie wiki_streaming_codecompass_prerender."
+      ]
+    },
+    {
+      "id": "WR2-T19",
+      "title": "Wiki-Relationen in CodeCompass Graph Outputs schreiben",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "graph",
+      "depends_on": [
+        "WR2-T15",
+        "WR2-T18"
+      ],
+      "expected_files": [
+        "worker/retrieval/codecompass_graph_store.py",
+        "agent/services/wiki_codecompass_bridge.py",
+        "tests/test_wiki_codecompass_graph_outputs.py"
+      ],
+      "acceptance_criteria": [
+        "Artikel, Abschnitte und Links koennen als graph_nodes/graph_edges exportiert werden.",
+        "Relationen bleiben optional, damit kleine Android-Indizes ohne Graph gebaut werden koennen.",
+        "Graph-Export ist durch Profil/Policy steuerbar."
+      ]
+    },
+    {
+      "id": "WR2-T20",
+      "title": "Wiki-spezifische Profile fuer rag-helper einfuehren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "profiles",
+      "depends_on": [
+        "WR2-T18"
+      ],
+      "expected_files": [
+        "agent/services/rag_helper_index_service.py",
+        "rag-helper/wiki-rag-profile-small.json",
+        "rag-helper/wiki-rag-profile-full.json",
+        "tests/test_rag_helper_index_service.py"
+      ],
+      "acceptance_criteria": [
+        "Profil wiki_small_android begrenzt Record-/Graph-/Embedding-Umfang fuer mobile Nutzung.",
+        "Profil wiki_full_desktop aktiviert reichere Relationen und groessere Batches.",
+        "Profile erscheinen in /knowledge/index-profiles mit klarer Beschreibung."
+      ]
+    },
+    {
+      "id": "WR2-T21",
+      "title": "CodeCompass-Prerender als optionalen Job-Schritt modellieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "job_pipeline",
+      "depends_on": [
+        "WR2-T18",
+        "WR2-T27"
+      ],
+      "expected_files": [
+        "agent/services/wiki_import_job_service.py",
+        "agent/routes/knowledge.py",
+        "tests/test_wiki_import_job_service.py"
+      ],
+      "acceptance_criteria": [
+        "Job-Status zeigt, ob CodeCompass-Prerender aktiviert, uebersprungen oder fehlgeschlagen ist.",
+        "Fehler im optionalen Prerender koennen je nach Policy den Job abbrechen oder auf Basischunks degradieren.",
+        "Degradation wird niemals als stiller Erfolg ohne Warnung ausgegeben."
+      ]
+    },
+    {
+      "id": "WR2-T22",
+      "title": "Wiki KnowledgeIndex Retrieval fuer grosse Outputs optimieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "retrieval",
+      "depends_on": [
+        "WR2-T07"
+      ],
+      "expected_files": [
+        "agent/services/knowledge_index_retrieval_service.py",
+        "tests/test_knowledge_index_retrieval_service.py"
+      ],
+      "acceptance_criteria": [
+        "Retrieval liest grosse JSONL-Outputs nicht bei jeder Query komplett in den Speicher.",
+        "Indexdaten werden gecached, partitioniert oder in einen persistenten Store ueberfuehrt.",
+        "Source-Scope wiki bleibt getrennt von artifact und repo."
+      ]
+    },
+    {
+      "id": "WR2-T23",
+      "title": "Persistenten FTS Store fuer Wiki-Records einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "retrieval_store",
+      "depends_on": [
+        "WR2-T22"
+      ],
+      "expected_files": [
+        "worker/retrieval/wiki_fts_store.py",
+        "agent/services/wiki_retrieval_index_service.py",
+        "tests/test_wiki_fts_store.py"
+      ],
+      "acceptance_criteria": [
+        "Wiki-Chunks koennen in einen lokalen FTS-Store geschrieben werden.",
+        "Queries liefern top_k Ergebnisse mit Score, Provenance und Source-Metadaten.",
+        "Index kann inkrementell neu aufgebaut oder validiert werden."
+      ]
+    },
+    {
+      "id": "WR2-T24",
+      "title": "Optionalen Vektorindex fuer Wiki-Chunks anbinden",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "vector_retrieval",
+      "depends_on": [
+        "WR2-T23"
+      ],
+      "expected_files": [
+        "worker/retrieval/wiki_vector_store.py",
+        "worker/retrieval/codecompass_embedding_loader.py",
+        "tests/test_wiki_vector_store.py"
+      ],
+      "acceptance_criteria": [
+        "Embeddings koennen batchweise fuer Wiki-Chunks erzeugt oder geladen werden.",
+        "Vektorindex ist optional und kann auf Android deaktiviert bleiben.",
+        "Fehlende Embeddings degradieren kontrolliert auf FTS/Token-Suche."
+      ]
+    },
+    {
+      "id": "WR2-T25",
+      "title": "Hybrid Merge fuer Wiki FTS, Vector und Graph Signale umsetzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "retrieval_ranking",
+      "depends_on": [
+        "WR2-T23",
+        "WR2-T24",
+        "WR2-T19"
+      ],
+      "expected_files": [
+        "worker/retrieval/wiki_hybrid_engine.py",
+        "agent/services/retrieval_service.py",
+        "tests/test_wiki_hybrid_retrieval.py"
+      ],
+      "acceptance_criteria": [
+        "Hybrid-Ranking kombiniert Texttreffer, Vektorscore und optional Link-/Kategorie-Signale.",
+        "Ranking erklaert Score-Komponenten in Retrieval-Metadaten.",
+        "Task-Kontext kann Wiki-Quelle gezielt ein- oder ausschliessen."
+      ]
+    },
+    {
+      "id": "WR2-T26",
+      "title": "Context Bundle Policies fuer Wiki-Kontext erweitern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "context_policy",
+      "depends_on": [
+        "WR2-T25"
+      ],
+      "expected_files": [
+        "agent/services/context_bundle_service.py",
+        "agent/services/rag_policy_service.py",
+        "tests/test_rag_policy_service.py"
+      ],
+      "acceptance_criteria": [
+        "Wiki-Kontext kann nach task_kind, retrieval_intent, source_scope und Budget gesteuert werden.",
+        "Prompts enthalten klare Quellen-/Artikel-Provenance.",
+        "Wiki-Kontext verdraengt Code-/Task-Kontext nicht unkontrolliert."
+      ]
+    },
+    {
+      "id": "WR2-T27",
+      "title": "Dedizierten WikiImportJobService implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "job_system",
+      "principle": "SRP",
+      "depends_on": [
+        "WR2-T08",
+        "WR2-T10"
+      ],
+      "expected_files": [
+        "agent/services/wiki_import_job_service.py",
+        "agent/services/service_registry.py",
+        "tests/test_wiki_import_job_service.py"
+      ],
+      "acceptance_criteria": [
+        "Download, Parse, Normalize, Index und Verify sind explizite Job-Phasen.",
+        "Job-Status ist ueber API abrufbar und bleibt nach Hub-Restart rekonstruierbar oder klar als volatile markiert.",
+        "Fehler enthalten Phase, Ursache, Resume-Hinweis und betroffene Quelle."
+      ]
+    },
+    {
+      "id": "WR2-T28",
+      "title": "Wiki Import API auf async-first umstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "backend_api",
+      "depends_on": [
+        "WR2-T27"
+      ],
+      "expected_files": [
+        "agent/routes/knowledge.py",
+        "agent/models.py",
+        "tests/test_knowledge_routes.py"
+      ],
+      "acceptance_criteria": [
+        "Grosse Preset-Imports laufen standardmaessig async und liefern 202 plus job_id.",
+        "Sync-Import bleibt nur fuer kleine Testquellen oder explizite Dev-Option erlaubt.",
+        "API ist rueckwaertskompatibel fuer bestehende Tests oder liefert klare Migrationsfelder."
+      ]
+    },
+    {
+      "id": "WR2-T29",
+      "title": "Progress Events und Status API fuer APK bereitstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "observability_api",
+      "depends_on": [
+        "WR2-T27"
+      ],
+      "expected_files": [
+        "agent/routes/knowledge.py",
+        "agent/services/wiki_import_job_service.py",
+        "frontend-angular/src/app/services/admin-facade.service.ts",
+        "tests/test_knowledge_routes.py"
+      ],
+      "acceptance_criteria": [
+        "API zeigt Phase, Prozent oder processed counters, Bytes, Pages, Chunks, Issues und letzte Fehlermeldung.",
+        "Polling ist robust und fuehrt nicht zu hoher Last.",
+        "Abgeschlossene Jobs zeigen Import-Report und KnowledgeIndex-Referenz."
+      ]
+    },
+    {
+      "id": "WR2-T30",
+      "title": "Android Wiki-RAG UI fuer Hintergrundjobs umbauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "frontend_android",
+      "depends_on": [
+        "WR2-T28",
+        "WR2-T29"
+      ],
+      "expected_files": [
+        "frontend-angular/src/app/components/artifacts.component.ts",
+        "frontend-angular/android/app/src/androidTest/java/com/ananta/mobile/LiveTerminalAndroidE2ETest.java"
+      ],
+      "acceptance_criteria": [
+        "Import Button startet async Job und zeigt Jobstatus statt synchron zu warten.",
+        "UI zeigt Download/Parse/Index-Fortschritt und klare Fehler.",
+        "E2E prueft Jobstart mit kleiner Fixture-/Mock-Quelle ohne grossen Dump."
+      ]
+    },
+    {
+      "id": "WR2-T31",
+      "title": "Pause, Resume und Cancel fuer Wiki Jobs entwerfen und implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "job_control",
+      "depends_on": [
+        "WR2-T10",
+        "WR2-T27"
+      ],
+      "expected_files": [
+        "agent/services/wiki_import_job_service.py",
+        "agent/routes/knowledge.py",
+        "frontend-angular/src/app/components/artifacts.component.ts",
+        "tests/test_wiki_import_job_service.py"
+      ],
+      "acceptance_criteria": [
+        "Cancel stoppt kontrolliert zwischen Batches und markiert Job als cancelled.",
+        "Resume nutzt Checkpoints und validiert Dump-/Index-Identitaet.",
+        "UI bietet nur Aktionen an, die zum aktuellen Jobstatus passen."
+      ]
+    },
+    {
+      "id": "WR2-T32",
+      "title": "Android-spezifische Netzwerk-, Akku- und Storage-Policy beruecksichtigen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "mobile_policy",
+      "depends_on": [
+        "WR2-T09",
+        "WR2-T30"
+      ],
+      "expected_files": [
+        "frontend-angular/src/app/components/artifacts.component.ts",
+        "frontend-angular/android/app/src/main/java/com/ananta/mobile/PythonRuntimePlugin.java",
+        "tests/test_knowledge_routes.py"
+      ],
+      "acceptance_criteria": [
+        "UI warnt bei sehr grossen Dumps und zeigt erwarteten Speicherbedarf.",
+        "Import kann optional auf WLAN/Charging-Hinweise achten, soweit im Client verfuegbar.",
+        "Fehlende mobile Signale fuehren nicht zu falscher Sicherheit, sondern zu klarer Unknown-Anzeige."
+      ]
+    },
+    {
+      "id": "WR2-T33",
+      "title": "ZIM Parser-Optionen evaluieren und Entscheidung dokumentieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "research_decision",
+      "expected_files": [
+        "docs/decisions/ADR-wiki-zim-parser.md"
+      ],
+      "acceptance_criteria": [
+        "Optionen wie libzim, pyzim, externe Kiwix-Tools und serverseitige Vorverarbeitung sind bewertet.",
+        "Android-Kompatibilitaet, Lizenz, Packaging und Performance sind beruecksichtigt.",
+        "Entscheidung haelt fest, ob ZIM in APK, Backend oder separatem Runtime-Worker verarbeitet wird."
+      ]
+    },
+    {
+      "id": "WR2-T34",
+      "title": "ZIM Import weiterhin fail-closed absichern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "safety",
+      "expected_files": [
+        "agent/routes/knowledge.py",
+        "agent/services/ingestion_service.py",
+        "tests/test_knowledge_routes.py"
+      ],
+      "acceptance_criteria": [
+        "Bis zur ADR-Entscheidung bleibt ZIM user-facing sichtbar, aber nicht importierbar.",
+        "Eigene .zim URLs werden mit klarer unsupported-Meldung blockiert.",
+        "Tests verhindern versehentliche Aktivierung ohne Parser."
+      ]
+    },
+    {
+      "id": "WR2-T35",
+      "title": "Optionalen ZIM Minimal-Prototyp nach ADR implementieren",
+      "status": "blocked",
+      "priority": "P3",
+      "risk": "high",
+      "type": "optional_feature",
+      "blocked_by": [
+        "WR2-T33"
+      ],
+      "expected_files": [
+        "agent/services/wiki_zim_parser.py",
+        "tests/test_wiki_zim_parser.py"
+      ],
+      "acceptance_criteria": [
+        "Ein kleiner ZIM-Dump kann Artikeltext streamen, falls ADR dies freigibt.",
+        "ZIM-Import nutzt denselben Normalizer und Writer wie XML.",
+        "Nicht unterstuetzte ZIM-Features werden als Issues gemeldet, nicht still ignoriert."
+      ]
+    },
+    {
+      "id": "WR2-T36",
+      "title": "Kleine echte Wikimedia-Fixture E2E bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "testing",
+      "depends_on": [
+        "WR2-T28",
+        "WR2-T30"
+      ],
+      "expected_files": [
+        "tests/fixtures/wiki/",
+        "tests/e2e/test_wiki_rag_fixture_flow.py",
+        "frontend-angular/android/app/src/androidTest/java/com/ananta/mobile/LiveTerminalAndroidE2ETest.java"
+      ],
+      "acceptance_criteria": [
+        "Eine kleine XML/XML.BZ2 Fixture durchlaeuft Download/Import/Index/Search ohne Internet.",
+        "Android-E2E prueft Jobstart und Suchbarkeit eines Fixture-Artikels.",
+        "Fixture ist klein genug fuer CI und Repo-Konventionen."
+      ]
+    },
+    {
+      "id": "WR2-T37",
+      "title": "Benchmark fuer mittelgrossen Dump-Ausschnitt einrichten",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "benchmark",
+      "depends_on": [
+        "WR2-T07",
+        "WR2-T23"
+      ],
+      "expected_files": [
+        "tests/benchmarks/wiki_rag/test_wiki_import_benchmark.py",
+        "docs/benchmarks/wiki-rag.md"
+      ],
+      "acceptance_criteria": [
+        "Benchmark misst Seiten/s, Chunks/s, Speicherverbrauch grob und Indexgroesse.",
+        "Benchmark ist optional markiert und laeuft nicht ungefragt in schneller CI.",
+        "Ergebnisse dokumentieren Grenzen fuer Android und Desktop."
+      ]
+    },
+    {
+      "id": "WR2-T38",
+      "title": "Retrieval-Qualitaets-Smoketests fuer Wiki-Fragen hinzufuegen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "retrieval_quality",
+      "depends_on": [
+        "WR2-T23",
+        "WR2-T26"
+      ],
+      "expected_files": [
+        "tests/test_wiki_retrieval_quality.py"
+      ],
+      "acceptance_criteria": [
+        "Tests pruefen, dass Artikel- und Abschnittstreffer fuer typische Fragen gefunden werden.",
+        "Tests pruefen Provenance und source_scope=wiki.",
+        "Tests bleiben deterministisch mit lokalen Fixtures."
+      ]
+    },
+    {
+      "id": "WR2-T39",
+      "title": "Runbook fuer Wiki-RAG Betrieb schreiben",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "documentation",
+      "depends_on": [
+        "WR2-T27",
+        "WR2-T30"
+      ],
+      "expected_files": [
+        "docs/wiki_rag_runbook.md"
+      ],
+      "acceptance_criteria": [
+        "Runbook beschreibt Presets, Speicherbedarf, Download/Resume, Jobstatus, Fehlerbehebung und Loeschen von Indizes.",
+        "Runbook unterscheidet Android, Desktop und Server/Container Nutzung.",
+        "Runbook erklaert, warum JSONL nur Cache ist und ZIM noch Prototyp bleibt."
+      ]
+    },
+    {
+      "id": "WR2-T40",
+      "title": "Release-Gate fuer Wiki-RAG2 definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "release_gate",
+      "depends_on": [
+        "WR2-T04",
+        "WR2-T28",
+        "WR2-T36",
+        "WR2-T38"
+      ],
+      "expected_files": [
+        ".github/workflows/android-apk.yml",
+        "docs/wiki_rag_runbook.md",
+        "tests/test_knowledge_routes.py"
+      ],
+      "acceptance_criteria": [
+        "CI baut APK mit Wiki-RAG UI und stellt Artefakt bereit.",
+        "Backend- und Android-Wiki-Smoke-Tests sind release-relevant.",
+        "Release-Gate dokumentiert, ob voller dewiki-Dump validiert wurde oder nur Fixture-/Ausschnitt-Verifikation vorliegt."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "WR2-T01",
+    "WR2-T05",
+    "WR2-T06",
+    "WR2-T07",
+    "WR2-T08",
+    "WR2-T10",
+    "WR2-T11",
+    "WR2-T14",
+    "WR2-T18",
+    "WR2-T22",
+    "WR2-T23",
+    "WR2-T27",
+    "WR2-T28",
+    "WR2-T29",
+    "WR2-T30",
+    "WR2-T36",
+    "WR2-T40"
+  ],
+  "tasks_status_summary": {
+    "total": 40,
+    "by_status": {
+      "todo": 39,
+      "in_progress": 0,
+      "blocked": 1,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 22,
+      "P1": 15,
+      "P2": 2,
+      "P3": 1
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 16,
+      "high": 16,
+      "critical": 7
+    },
+    "critical_path": {
+      "total": 17,
+      "done": 0,
+      "remaining": 17
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 8,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "execution_stage_summary": {
+    "recommended_first_stage": "WR2-M0",
+    "minimum_viable_production_slice": [
+      "WR2-M0",
+      "WR2-M1",
+      "WR2-M5",
+      "WR2-T36",
+      "WR2-T40"
+    ],
+    "full_quality_slice": [
+      "WR2-M0",
+      "WR2-M1",
+      "WR2-M2",
+      "WR2-M3",
+      "WR2-M4",
+      "WR2-M5",
+      "WR2-M7"
+    ],
+    "optional_later_slice": [
+      "WR2-M6"
+    ]
+  },
+  "summary_notes": [
+    "Die bestehende Implementierung ist als Baseline wertvoll, sollte aber fuer volle dewiki nicht unveraendert genutzt werden.",
+    "Der kritischste technische Wechsel ist von list-in-memory und temp-Markdown-Dateien zu streaming/batchorientierter Verarbeitung.",
+    "Der kritischste UX-Wechsel ist von synchronem Import zu beobachtbaren, fortsetzbaren Hintergrundjobs.",
+    "CodeCompass bleibt sinnvoll, sollte fuer Wiki aber ueber strukturierte Records und Graph-/FTS-/Vector-Kanaele angebunden werden, nicht ueber Millionen generierter Markdown-Dateien.",
+    "SOLID-Risiko: IngestionService und RagHelperIndexService duerfen nicht weiter zu God Services wachsen; neue Parser, Writer, Job- und Bridge-Services sollten getrennte Verantwortlichkeiten bekommen.",
+    "Architektur-Risiko: Weder Android noch Worker duerfen zum neuen Orchestrator werden; Hub bleibt Besitzer der Import- und Index-Jobs."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "current_assessment",
+      "title": "Aktuelle Einschaetzung",
+      "items": [
+        "Die Pipeline kann echte Wikimedia XML-Dumps grundsaetzlich verarbeiten.",
+        "Die gleiche Idee wie CodeCompass ist bereits angelegt: Normalisierung, strukturierte Records, optionale Prerender-Phase, KnowledgeIndex, Retrieval.",
+        "Fuer Java-Projekte erzeugt CodeCompass deutlich reichere Strukturinformationen als die aktuelle Wiki-Pipeline.",
+        "Fuer volle Wikipedia braucht es Streaming, Batch-Writes, Async-Jobs, bessere Normalisierung und persistenten Retrieval-Store."
+      ]
+    },
+    {
+      "summary_id": "definition_of_done",
+      "title": "Definition of Done fuer Wiki-RAG2",
+      "items": [
+        "Ein echter Wikimedia Multistream Dump kann resumable heruntergeladen und nach Unterbrechung fortgesetzt werden.",
+        "Ein mittelgrosser Dump-Ausschnitt kann ohne Speicherexplosion importiert, indexiert und durchsucht werden.",
+        "Android kann Importjobs starten, Fortschritt anzeigen und Ergebnisse suchen.",
+        "CodeCompass-Prerendering ist fuer Wiki optional, strukturiert und ohne Temp-Datei-Explosion.",
+        "CI/APK-Release-Gate prueft mindestens Fixture-E2E und dokumentiert, ob Full-Dump-Verifikation gelaufen ist."
+      ]
+    }
+  ]
+}
