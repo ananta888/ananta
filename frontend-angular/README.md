@@ -57,6 +57,10 @@ Docker-Variante (Android-SDK/Emulator im Container-Image vorinstalliert, Source 
 ANANTA_ANDROID_AVD_NAME=ananta-api35 npm run test:e2e:android:terminal:bootstrap:docker
 ```
 
+GitHub Actions:
+- Workflow `Android Delivery APK` baut bei Push/PR (aenderungen unter `frontend-angular/**`) automatisch die Delivery-APK via `scripts/build-android-delivery-apk.sh`.
+- Artifact-Name: `ananta-delivery-proot-voxtral-debug-apk` (enthaelt APK + `.sha256`).
+
 Wichtige Variablen dafuer:
 - `ANANTA_ANDROID_AVD_NAME` (Default: `ananta-api35`)
 - `ANANTA_ANDROID_EMULATOR_SERIAL` (Default: `emulator-5554`)

@@ -78,6 +78,7 @@ __pycache__/
 *.zip
 *.tar
 *.gz
+!frontend-angular/android/app/src/main/assets/llm-server/llama-b8994-bin-ubuntu-arm64.tar.gz
 *.xz
 *.7z
 *.exe
@@ -135,3 +136,4 @@ __pycache__/
 /venv/
 /client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build/
 /client_surfaces/eclipse_runtime/ananta_eclipse_plugin/.gradle/
+/frontend-angular/android/app/src/main/assets/llm-server/llama-b8994-bin-ubuntu-arm64.tar.gz

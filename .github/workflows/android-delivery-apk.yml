@@ -1,0 +1,51 @@
+name: Android Delivery APK
+
+on:
+  push:
+    paths:
+      - "frontend-angular/**"
+      - ".github/workflows/android-delivery-apk.yml"
+  pull_request:
+    paths:
+      - "frontend-angular/**"
+      - ".github/workflows/android-delivery-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-delivery-apk-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-delivery-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: frontend-angular
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20.19.5"
+          cache: "npm"
+          cache-dependency-path: frontend-angular/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Build delivery APK
+        run: bash scripts/build-android-delivery-apk.sh
+      - name: Generate APK checksum
+        run: sha256sum android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk > android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk.sha256
+      - name: Upload delivery APK artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-delivery-proot-voxtral-debug-apk
+          path: |
+            frontend-angular/android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk
+            frontend-angular/android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk.sha256
+          retention-days: 14
