@@ -154,7 +154,7 @@ import { SummaryMetric, SummaryPanelComponent, TableShellComponent } from '../sh
       <div class="row space-between">
         <div>
           <h3 class="no-margin">Wikipedia als lokale RAG-Quelle</h3>
-          <p class="muted title-muted">Preset waehlen oder eigene JSONL-URL angeben. Import erzeugt direkt Wiki-Indexdaten.</p>
+          <p class="muted title-muted">Echten Wikimedia-Dump waehlen oder eigene XML/BZ2/ZIM-URL angeben. XML-Dumps werden lokal normalisiert und indexiert.</p>
         </div>
         <button class="secondary" (click)="loadWikiPresets()" [disabled]="loadingWikiPresets || wikiImportBusy">Presets neu laden</button>
       </div>
@@ -165,14 +165,14 @@ import { SummaryMetric, SummaryPanelComponent, TableShellComponent } from '../sh
             <select [(ngModel)]="selectedWikiPresetId" (ngModelChange)="onWikiPresetChanged()">
               <option value="">Eigene Quelle (URL)</option>
               @for (preset of wikiPresets; track preset.id) {
-                <option [value]="preset.id">{{ preset.label }}</option>
+                <option [value]="preset.id" [disabled]="preset.supported === false">{{ preset.label }}</option>
               }
             </select>
           </label>
         </div>
         <div class="flex-1">
-          <label class="label-no-margin">JSONL URL
-            <input [(ngModel)]="wikiCorpusUrl" placeholder="https://.../wiki.jsonl oder .jsonl.gz" [disabled]="!!selectedWikiPresetId" />
+          <label class="label-no-margin">Dump URL
+            <input [(ngModel)]="wikiCorpusUrl" placeholder="https://.../pages-articles-multistream.xml.bz2 oder .zim" [disabled]="!!selectedWikiPresetId" />
           </label>
         </div>
       </div>
@@ -180,7 +180,7 @@ import { SummaryMetric, SummaryPanelComponent, TableShellComponent } from '../sh
       <div class="artifact-upload-row mt-sm">
         <div class="flex-1">
           <label class="label-no-margin">Source ID
-            <input [(ngModel)]="wikiSourceId" placeholder="z.B. wiki-ananta-core-en" />
+            <input [(ngModel)]="wikiSourceId" placeholder="z.B. wikipedia-de-multistream-latest" />
           </label>
         </div>
         <div class="flex-1">
@@ -216,13 +216,19 @@ import { SummaryMetric, SummaryPanelComponent, TableShellComponent } from '../sh
         <div class="artifact-meta mt-sm">
           <span class="artifact-pill">{{ selectedWikiPreset()?.description || selectedWikiPreset()?.label }}</span>
           <span class="artifact-pill">{{ selectedWikiPreset()?.size_hint || 'Groesse unbekannt' }}</span>
+          @if (selectedWikiPreset()?.index_url) {
+            <span class="artifact-pill">Multistream-Index vorhanden</span>
+          }
+          @if (selectedWikiPreset()?.supported === false) {
+            <span class="artifact-pill">Prototyp: Parser noch nicht aktiv</span>
+          }
         </div>
       }
 
       @if (wikiImportResult) {
         <div class="artifact-meta mt-sm">
           <span class="artifact-pill">Source: {{ wikiImportResult?.source_id || wikiSourceId || 'wiki' }}</span>
-          <span class="artifact-pill">Records: {{ wikiImportResult?.stats?.records_total || 0 }}</span>
+          <span class="artifact-pill">Records: {{ wikiImportResult?.stats?.normalized_records || wikiImportResult?.stats?.records_total || 0 }}</span>
           <span class="artifact-pill">Issues: {{ wikiImportResult?.issues?.length || 0 }}</span>
         </div>
       }
@@ -669,48 +675,55 @@ export class ArtifactsComponent {
   selectedCollectionProfileName = 'default';
   readonly fallbackWikiPresets: any[] = [
     {
-      id: 'wikipedia-en-abstract-latest',
-      label: 'Wikipedia Dump: English Abstracts (latest)',
-      description: 'Echter Wikimedia-Dump (XML.GZ, Abstract-Feed) fuer schnelle lokale Wissenssuche.',
-      corpus_url: 'https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-abstract1.xml.gz',
-      source_id: 'wikipedia-en-abstract-latest',
-      language: 'en',
-      size_hint: '~50-150 MB (compressed)',
-      recommended: true,
-      codecompass_prerender: true,
-    },
-    {
-      id: 'wikipedia-de-abstract-latest',
-      label: 'Wikipedia Dump: German Abstracts (latest)',
-      description: 'Echter Wikimedia-Dump (XML.GZ, Abstract-Feed) fuer deutschsprachige lokale RAG-Nutzung.',
-      corpus_url: 'https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-abstract1.xml.gz',
-      source_id: 'wikipedia-de-abstract-latest',
+      id: 'wikipedia-de-multistream-latest',
+      label: 'Wikipedia DE: Artikel Multistream (latest)',
+      description: 'Empfohlen fuer ernsthaftes deutsches RAG: echter Wikimedia XML.BZ2 Multistream-Dump plus Index.',
+      corpus_url: 'https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles-multistream.xml.bz2',
+      index_url: 'https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles-multistream-index.txt.bz2',
+      source_id: 'wikipedia-de-multistream-latest',
       language: 'de',
-      size_hint: '~40-120 MB (compressed)',
-      recommended: false,
+      size_hint: '~8.1 GB dump + ~63 MB index',
+      recommended: true,
+      import_format: 'mediawiki-multistream',
       codecompass_prerender: true,
     },
     {
-      id: 'wikipedia-simple-abstract-latest',
-      label: 'Wikipedia Dump: Simple English Abstracts (latest)',
-      description: 'Echter Wikimedia-Dump (XML.GZ) mit kompakterem Vokabular fuer ressourcenschonende Einstiege.',
-      corpus_url: 'https://dumps.wikimedia.org/simplewiki/latest/simplewiki-latest-abstract1.xml.gz',
-      source_id: 'wikipedia-simple-abstract-latest',
-      language: 'en',
-      size_hint: '~10-40 MB (compressed)',
+      id: 'wikipedia-de-pages-latest',
+      label: 'Wikipedia DE: Artikel nicht-Multistream (latest)',
+      description: 'Fallback ohne Multistream-Index; meist weniger praktisch fuer grosse lokale Verarbeitung.',
+      corpus_url: 'https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles.xml.bz2',
+      source_id: 'wikipedia-de-pages-latest',
+      language: 'de',
+      size_hint: '~7.8 GB',
       recommended: false,
+      import_format: 'mediawiki-xml',
       codecompass_prerender: true,
     },
     {
-      id: 'wikipedia-simple-pages-latest',
-      label: 'Wikipedia Dump: Simple English Pages (latest)',
-      description: 'Echter Wikimedia-Pages-Dump (XML.BZ2) mit Artikeltexten fuer tieferes lokales RAG.',
-      corpus_url: 'https://dumps.wikimedia.org/simplewiki/latest/simplewiki-latest-pages-articles-multistream.xml.bz2',
-      source_id: 'wikipedia-simple-pages-latest',
-      language: 'en',
-      size_hint: '~100-600 MB (compressed)',
+      id: 'wikipedia-de-zim-mini-2026-04',
+      label: 'Wikipedia DE: ZIM mini 2026-04 (Prototyp)',
+      description: 'Kleiner Kiwix/ZIM-Prototyp-Dump. Sichtbar fuer Download-Planung; Import benoetigt noch ZIM-Parser.',
+      corpus_url: 'https://dumps.wikimedia.org/kiwix/zim/wikipedia/wikipedia_de_all_mini_2026-04.zim',
+      source_id: 'wikipedia-de-zim-mini-2026-04',
+      language: 'de',
+      size_hint: '~3.9 GiB',
       recommended: false,
-      codecompass_prerender: true,
+      import_format: 'zim',
+      supported: false,
+      codecompass_prerender: false,
+    },
+    {
+      id: 'wikipedia-de-zim-nopic-2026-01',
+      label: 'Wikipedia DE: ZIM ohne Bilder 2026-01 (Prototyp)',
+      description: 'Groesserer Kiwix/ZIM-Dump ohne Bilder. Sichtbar fuer spaetere ZIM-Unterstuetzung.',
+      corpus_url: 'https://dumps.wikimedia.org/kiwix/zim/wikipedia/wikipedia_de_all_nopic_2026-01.zim',
+      source_id: 'wikipedia-de-zim-nopic-2026-01',
+      language: 'de',
+      size_hint: '~13.6 GiB',
+      recommended: false,
+      import_format: 'zim',
+      supported: false,
+      codecompass_prerender: false,
     },
   ];
   wikiPresets: any[] = [];
@@ -897,6 +910,8 @@ export class ArtifactsComponent {
   }
 
   canImportWiki(): boolean {
+    const preset = this.selectedWikiPreset();
+    if (preset?.supported === false) return false;
     if (this.selectedWikiPresetId) return true;
     return !!this.wikiCorpusUrl.trim();
   }
@@ -916,6 +931,9 @@ export class ArtifactsComponent {
     const preset = this.selectedWikiPreset();
     if (preset && String(preset?.corpus_url || '').trim()) {
       payload.corpus_url = String(preset.corpus_url).trim();
+      if (String(preset?.index_url || '').trim()) {
+        payload.index_url = String(preset.index_url).trim();
+      }
     } else {
       payload.corpus_url = this.wikiCorpusUrl.trim();
     }

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import gzip
+import bz2
 from io import BytesIO
 
 import pytest
@@ -90,7 +91,7 @@ def test_ingestion_service_import_wiki_xml_mediawiki_extracts_records(tmp_path):
     assert report["records"][0]["import_metadata"]["format"] == "xml"
 
 
-def test_ingestion_service_import_wiki_xml_from_url_supports_gz_abstract(monkeypatch):
+def test_ingestion_service_import_wiki_xml_from_url_supports_gz_abstract(monkeypatch, tmp_path):
     xml_payload = b"""<?xml version="1.0" encoding="UTF-8"?>
 <feed>
   <doc>
@@ -104,6 +105,7 @@ def test_ingestion_service_import_wiki_xml_from_url_supports_gz_abstract(monkeyp
     class FakeResponse:
         def __init__(self, data: bytes):
             self._buffer = BytesIO(data)
+            self.status = 200
 
         def read(self, size: int = -1) -> bytes:
             return self._buffer.read(size)
@@ -114,7 +116,7 @@ def test_ingestion_service_import_wiki_xml_from_url_supports_gz_abstract(monkeyp
         def __exit__(self, exc_type, exc, tb):
             return False
 
-    monkeypatch.setattr("agent.services.ingestion_service.settings.data_dir", "/tmp/ananta-test-data", raising=False)
+    monkeypatch.setattr("agent.services.ingestion_service.settings.data_dir", str(tmp_path), raising=False)
     monkeypatch.setattr(
         "agent.services.ingestion_service.urllib.request.urlopen",
         lambda *_args, **_kwargs: FakeResponse(compressed),
@@ -131,3 +133,31 @@ def test_ingestion_service_import_wiki_xml_from_url_supports_gz_abstract(monkeyp
     assert report["stats"]["input_docs"] == 1
     assert report["stats"]["normalized_records"] >= 1
     assert report["download"]["url"].endswith(".xml.gz")
+
+
+def test_ingestion_service_import_wiki_multistream_uses_index(tmp_path):
+    fragment = b"""
+  <page>
+    <title>Multistream article</title>
+    <revision><text>Indexed block content for German Wikipedia RAG.</text></revision>
+  </page>
+"""
+    corpus = tmp_path / "dewiki-latest-pages-articles-multistream.xml.bz2"
+    compressed = bz2.compress(fragment)
+    corpus.write_bytes(compressed)
+    index = tmp_path / "dewiki-latest-pages-articles-multistream-index.txt"
+    index.write_text("0:1:Multistream article\n", encoding="utf-8")
+
+    report = IngestionService().import_wiki_xml(
+        corpus_path=str(corpus),
+        index_path=str(index),
+        source_id="dewiki-multistream",
+        default_language="de",
+    )
+
+    assert report["source_id"] == "dewiki-multistream"
+    assert report["multistream_index"]["enabled"] is True
+    assert report["index_path"] == str(index.resolve())
+    assert report["jsonl_cache_path"]
+    assert Path(str(report["jsonl_cache_path"])).exists()
+    assert report["records"][0]["article_title"] == "Multistream article"

@@ -11,6 +11,7 @@ import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from io import BytesIO
 from pathlib import Path
 
 from agent.config import settings
@@ -171,19 +172,91 @@ class IngestionService:
         text = re.sub(r"\s+", " ", text).strip()
         return text
 
+    def _open_text_or_bz2_lines(self, path: Path):
+        if path.name.endswith(".bz2"):
+            return bz2.open(path, "rt", encoding="utf-8", errors="replace")
+        if path.name.endswith(".gz"):
+            return gzip.open(path, "rt", encoding="utf-8", errors="replace")
+        return path.open("rt", encoding="utf-8", errors="replace")
+
+    def _read_multistream_offsets(self, index_path: Path) -> list[int]:
+        offsets: set[int] = set()
+        with self._open_text_or_bz2_lines(index_path) as lines:
+            for line in lines:
+                value = str(line or "").split(":", 1)[0].strip()
+                if not value:
+                    continue
+                try:
+                    offsets.add(int(value))
+                except ValueError:
+                    continue
+        return sorted(offsets)
+
+    def _iter_multistream_pages(self, *, corpus_path: Path, index_path: Path):
+        offsets = self._read_multistream_offsets(index_path)
+        if not offsets:
+            raise ValueError("wiki_multistream_index_empty")
+        file_size = corpus_path.stat().st_size
+        offsets = [offset for offset in offsets if 0 <= offset < file_size]
+        if not offsets:
+            raise ValueError("wiki_multistream_index_no_valid_offsets")
+        with corpus_path.open("rb") as source:
+            for position, offset in enumerate(offsets):
+                next_offset = offsets[position + 1] if position + 1 < len(offsets) else file_size
+                if next_offset <= offset:
+                    continue
+                source.seek(offset)
+                compressed_block = source.read(next_offset - offset)
+                if not compressed_block:
+                    continue
+                try:
+                    xml_fragment = bz2.decompress(compressed_block)
+                except OSError as exc:
+                    logger.warning("Wiki multistream block could not be decompressed", extra={"offset": offset, "error": str(exc)})
+                    continue
+                wrapped = b"<mediawiki>" + xml_fragment + b"</mediawiki>"
+                context = ET.iterparse(BytesIO(wrapped), events=("end",))
+                for _event, elem in context:
+                    if self._tag_local_name(elem.tag) == "page":
+                        yield elem
+                        elem.clear()
+
+    def _iter_wiki_xml_items(self, *, path: Path, index_path: Path | None = None):
+        if index_path is not None:
+            yield from self._iter_multistream_pages(corpus_path=path, index_path=index_path)
+            return
+        if path.name.endswith(".bz2"):
+            raw_stream = bz2.open(path, "rb")
+        elif path.name.endswith(".gz"):
+            raw_stream = gzip.open(path, "rb")
+        else:
+            raw_stream = path.open("rb")
+        with raw_stream as stream:
+            context = ET.iterparse(stream, events=("end",))
+            for _event, elem in context:
+                local_name = self._tag_local_name(elem.tag)
+                if local_name in {"page", "doc"}:
+                    yield elem
+                    elem.clear()
+
     def import_wiki_xml(
         self,
         *,
         corpus_path: str,
+        index_path: str | None = None,
         source_id: str | None = None,
         default_language: str = "en",
         strict: bool = False,
+        write_jsonl_cache: bool = True,
     ) -> dict[str, object]:
         path = Path(str(corpus_path or "").strip()).expanduser().resolve()
         if not path.exists():
             raise ValueError("wiki_corpus_not_found")
         if not path.is_file():
             raise ValueError("wiki_corpus_not_file")
+        resolved_index_path = Path(str(index_path or "").strip()).expanduser().resolve() if index_path else None
+        if resolved_index_path is not None and not resolved_index_path.exists():
+            raise ValueError("wiki_multistream_index_not_found")
         normalized_source_id = str(source_id or "").strip() or Path(path.stem).stem
         records: list[dict] = []
         issues: list[dict] = []
@@ -191,87 +264,77 @@ class IngestionService:
         doc_count = 0
         item_ordinal = 0
 
-        if path.name.endswith(".bz2"):
-            raw_stream = bz2.open(path, "rb")
-        elif path.name.endswith(".gz"):
-            raw_stream = gzip.open(path, "rb")
-        else:
-            raw_stream = path.open("rb")
-
-        with raw_stream as stream:
-            context = ET.iterparse(stream, events=("end",))
-            for _event, elem in context:
-                local_name = self._tag_local_name(elem.tag)
-                if local_name == "page":
-                    page_count += 1
-                    item_ordinal += 1
-                    title = str(elem.findtext(".//{*}title") or "").strip()
-                    text = str(elem.findtext(".//{*}revision/{*}text") or "").strip()
-                    cleaned = self._clean_wiki_markup(text)
-                    if not title or not cleaned:
-                        issue = {"item": item_ordinal, "error": "missing_page_content"}
+        for elem in self._iter_wiki_xml_items(path=path, index_path=resolved_index_path):
+            local_name = self._tag_local_name(elem.tag)
+            if local_name == "page":
+                page_count += 1
+                item_ordinal += 1
+                title = str(elem.findtext(".//{*}title") or "").strip()
+                text = str(elem.findtext(".//{*}revision/{*}text") or "").strip()
+                cleaned = self._clean_wiki_markup(text)
+                if not title or not cleaned:
+                    issue = {"item": item_ordinal, "error": "missing_page_content"}
+                    issues.append(issue)
+                    if strict:
+                        raise ValueError("wiki_corpus_invalid_record")
+                else:
+                    try:
+                        records.extend(
+                            self._normalize_wiki_record(
+                                {
+                                    "article_title": title,
+                                    "section_title": "Overview",
+                                    "language": default_language,
+                                    "content": cleaned,
+                                    "file": path.name,
+                                },
+                                source_path=path,
+                                source_id=normalized_source_id,
+                                line_number=item_ordinal,
+                                default_language=default_language,
+                                source_format="xml",
+                            )
+                        )
+                    except ValueError as exc:
+                        issue = {"item": item_ordinal, "error": str(exc)}
                         issues.append(issue)
                         if strict:
-                            raise ValueError("wiki_corpus_invalid_record")
-                    else:
-                        try:
-                            records.extend(
-                                self._normalize_wiki_record(
-                                    {
-                                        "article_title": title,
-                                        "section_title": "Overview",
-                                        "language": default_language,
-                                        "content": cleaned,
-                                        "file": path.name,
-                                    },
-                                    source_path=path,
-                                    source_id=normalized_source_id,
-                                    line_number=item_ordinal,
-                                    default_language=default_language,
-                                    source_format="xml",
-                                )
+                            raise ValueError("wiki_corpus_invalid_record") from exc
+            elif local_name == "doc":
+                doc_count += 1
+                item_ordinal += 1
+                title = str(elem.findtext("./title") or "").strip()
+                abstract = str(elem.findtext("./abstract") or elem.findtext("./text") or "").strip()
+                cleaned = self._clean_wiki_markup(abstract)
+                if not title or not cleaned:
+                    issue = {"item": item_ordinal, "error": "missing_doc_content"}
+                    issues.append(issue)
+                    if strict:
+                        raise ValueError("wiki_corpus_invalid_record")
+                else:
+                    try:
+                        records.extend(
+                            self._normalize_wiki_record(
+                                {
+                                    "article_title": title,
+                                    "section_title": "Overview",
+                                    "language": default_language,
+                                    "content": cleaned,
+                                    "file": path.name,
+                                },
+                                source_path=path,
+                                source_id=normalized_source_id,
+                                line_number=item_ordinal,
+                                default_language=default_language,
+                                source_format="xml",
                             )
-                        except ValueError as exc:
-                            issue = {"item": item_ordinal, "error": str(exc)}
-                            issues.append(issue)
-                            if strict:
-                                raise ValueError("wiki_corpus_invalid_record") from exc
-                    elem.clear()
-                elif local_name == "doc":
-                    doc_count += 1
-                    item_ordinal += 1
-                    title = str(elem.findtext("./title") or "").strip()
-                    abstract = str(elem.findtext("./abstract") or elem.findtext("./text") or "").strip()
-                    cleaned = self._clean_wiki_markup(abstract)
-                    if not title or not cleaned:
-                        issue = {"item": item_ordinal, "error": "missing_doc_content"}
+                        )
+                    except ValueError as exc:
+                        issue = {"item": item_ordinal, "error": str(exc)}
                         issues.append(issue)
                         if strict:
-                            raise ValueError("wiki_corpus_invalid_record")
-                    else:
-                        try:
-                            records.extend(
-                                self._normalize_wiki_record(
-                                    {
-                                        "article_title": title,
-                                        "section_title": "Overview",
-                                        "language": default_language,
-                                        "content": cleaned,
-                                        "file": path.name,
-                                    },
-                                    source_path=path,
-                                    source_id=normalized_source_id,
-                                    line_number=item_ordinal,
-                                    default_language=default_language,
-                                    source_format="xml",
-                                )
-                            )
-                        except ValueError as exc:
-                            issue = {"item": item_ordinal, "error": str(exc)}
-                            issues.append(issue)
-                            if strict:
-                                raise ValueError("wiki_corpus_invalid_record") from exc
-                    elem.clear()
+                            raise ValueError("wiki_corpus_invalid_record") from exc
+            elem.clear()
 
         records = sorted(
             records,
@@ -284,10 +347,19 @@ class IngestionService:
         )
         if not records:
             raise ValueError("wiki_corpus_no_valid_records")
+        jsonl_cache_path = None
+        if write_jsonl_cache:
+            jsonl_cache_path = path.with_suffix(path.suffix + ".normalized.jsonl")
+            jsonl_cache_path.write_text(
+                "\n".join(json.dumps(record, ensure_ascii=False, sort_keys=True) for record in records) + "\n",
+                encoding="utf-8",
+            )
         return {
             "source_scope": "wiki",
             "source_id": normalized_source_id,
             "corpus_path": str(path),
+            "index_path": str(resolved_index_path) if resolved_index_path else None,
+            "jsonl_cache_path": str(jsonl_cache_path) if jsonl_cache_path else None,
             "records": records,
             "issues": issues,
             "stats": {
@@ -298,6 +370,10 @@ class IngestionService:
             },
             "deterministic_order": "article_section_file_chunk_ordinal",
             "format": "xml",
+            "multistream_index": {
+                "enabled": resolved_index_path is not None,
+                "path": str(resolved_index_path) if resolved_index_path else None,
+            },
         }
 
     def _normalize_wiki_record(
@@ -435,10 +511,11 @@ class IngestionService:
         self,
         *,
         corpus_url: str,
+        index_url: str | None = None,
         source_id: str | None = None,
         default_language: str = "en",
         strict: bool = False,
-        max_download_bytes: int = 128 * 1024 * 1024,
+        max_download_bytes: int = 20 * 1024 * 1024 * 1024,
     ) -> dict[str, object]:
         url = str(corpus_url or "").strip()
         if not url:
@@ -458,19 +535,14 @@ class IngestionService:
             local_compressed = None
             local_extracted = wiki_corpus_dir / safe_name
 
-        downloaded_bytes = 0
-        with urllib.request.urlopen(url, timeout=45) as response:
-            with (local_compressed or local_extracted).open("wb") as output:
-                while True:
-                    chunk = response.read(1024 * 128)
-                    if not chunk:
-                        break
-                    downloaded_bytes += len(chunk)
-                    if downloaded_bytes > max_download_bytes:
-                        raise ValueError("wiki_corpus_too_large")
-                    output.write(chunk)
+        downloaded_bytes = self._download_with_resume(
+            url=url,
+            destination=local_compressed or local_extracted,
+            max_download_bytes=max_download_bytes,
+        )
 
-        if local_compressed is not None:
+        lower_safe_name = safe_name.lower()
+        if local_compressed is not None and lower_safe_name.endswith(".jsonl.gz"):
             if str(local_compressed).endswith(".gz"):
                 source_stream = gzip.open(local_compressed, "rb")
             else:
@@ -478,9 +550,36 @@ class IngestionService:
             with source_stream as source:
                 with local_extracted.open("wb") as output:
                     shutil.copyfileobj(source, output)
-        local_corpus = local_extracted
+            local_corpus = local_extracted
+        else:
+            local_corpus = local_compressed or local_extracted
 
         lower_name = str(local_corpus.name).lower()
+        local_index_path = None
+        index_download = None
+        if index_url:
+            parsed_index = urllib.parse.urlparse(str(index_url).strip())
+            if parsed_index.scheme not in {"https", "http"}:
+                raise ValueError("wiki_index_url_invalid_scheme")
+            index_name = Path(parsed_index.path or "").name or "wiki-index.txt.bz2"
+            safe_index_name = re.sub(r"[^A-Za-z0-9._-]+", "-", index_name).strip("-") or "wiki-index.txt.bz2"
+            local_index_compressed = wiki_corpus_dir / safe_index_name
+            local_index_path = wiki_corpus_dir / Path(safe_index_name).stem if safe_index_name.endswith(".bz2") else local_index_compressed
+            index_bytes = self._download_with_resume(
+                url=str(index_url).strip(),
+                destination=local_index_compressed,
+                max_download_bytes=512 * 1024 * 1024,
+            )
+            if safe_index_name.endswith(".bz2"):
+                with bz2.open(local_index_compressed, "rb") as source:
+                    with local_index_path.open("wb") as output:
+                        shutil.copyfileobj(source, output)
+            index_download = {
+                "url": str(index_url).strip(),
+                "bytes": index_bytes,
+                "stored_path": str(local_index_path),
+                "compressed_path": str(local_index_compressed) if safe_index_name.endswith(".bz2") else None,
+            }
         if lower_name.endswith(".jsonl"):
             report = self.import_wiki_jsonl(
                 corpus_path=str(local_corpus),
@@ -488,13 +587,16 @@ class IngestionService:
                 default_language=default_language,
                 strict=strict,
             )
-        elif lower_name.endswith(".xml"):
+        elif lower_name.endswith(".xml") or lower_name.endswith(".xml.gz") or lower_name.endswith(".xml.bz2"):
             report = self.import_wiki_xml(
                 corpus_path=str(local_corpus),
+                index_path=str(local_index_path) if local_index_path else None,
                 source_id=source_id,
                 default_language=default_language,
                 strict=strict,
             )
+        elif lower_name.endswith(".zim"):
+            raise ValueError("wiki_zim_import_not_supported")
         else:
             raise ValueError("wiki_corpus_unknown_format")
         report["download"] = {
@@ -502,8 +604,35 @@ class IngestionService:
             "bytes": downloaded_bytes,
             "stored_path": str(local_corpus),
             "compressed_path": str(local_compressed) if local_compressed else None,
+            "resumable": True,
+            "index": index_download,
         }
         return report
+
+    def _download_with_resume(self, *, url: str, destination: Path, max_download_bytes: int) -> int:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        existing_bytes = destination.stat().st_size if destination.exists() else 0
+        request = urllib.request.Request(url)
+        mode = "wb"
+        if existing_bytes > 0:
+            request.add_header("Range", f"bytes={existing_bytes}-")
+            mode = "ab"
+        downloaded_bytes = existing_bytes
+        with urllib.request.urlopen(request, timeout=45) as response:
+            status = int(getattr(response, "status", 200) or 200)
+            if existing_bytes > 0 and status == 200:
+                mode = "wb"
+                downloaded_bytes = 0
+            with destination.open(mode) as output:
+                while True:
+                    chunk = response.read(1024 * 256)
+                    if not chunk:
+                        break
+                    downloaded_bytes += len(chunk)
+                    if downloaded_bytes > max_download_bytes:
+                        raise ValueError("wiki_corpus_too_large")
+                    output.write(chunk)
+        return downloaded_bytes
 
 
 ingestion_service = IngestionService()

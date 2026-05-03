@@ -21,48 +21,55 @@ knowledge_bp = Blueprint("knowledge", __name__)
 
 WIKI_IMPORT_PRESETS = [
     {
-        "id": "wikipedia-en-abstract-latest",
-        "label": "Wikipedia Dump: English Abstracts (latest)",
-        "description": "Echter Wikimedia-Dump (XML.GZ, Abstract-Feed) fuer schnelle lokale Wissenssuche.",
-        "corpus_url": "https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-abstract1.xml.gz",
-        "source_id": "wikipedia-en-abstract-latest",
-        "language": "en",
-        "size_hint": "~50-150 MB (compressed)",
-        "recommended": True,
-        "codecompass_prerender": True,
-    },
-    {
-        "id": "wikipedia-de-abstract-latest",
-        "label": "Wikipedia Dump: German Abstracts (latest)",
-        "description": "Echter Wikimedia-Dump (XML.GZ, Abstract-Feed) fuer deutschsprachige lokale RAG-Nutzung.",
-        "corpus_url": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-abstract1.xml.gz",
-        "source_id": "wikipedia-de-abstract-latest",
+        "id": "wikipedia-de-multistream-latest",
+        "label": "Wikipedia DE: Artikel Multistream (latest)",
+        "description": "Empfohlen fuer ernsthaftes deutsches RAG: echter Wikimedia XML.BZ2 Multistream-Dump plus Index.",
+        "corpus_url": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles-multistream.xml.bz2",
+        "index_url": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles-multistream-index.txt.bz2",
+        "source_id": "wikipedia-de-multistream-latest",
         "language": "de",
-        "size_hint": "~40-120 MB (compressed)",
-        "recommended": False,
+        "size_hint": "~8.1 GB dump + ~63 MB index",
+        "recommended": True,
+        "import_format": "mediawiki-multistream",
         "codecompass_prerender": True,
     },
     {
-        "id": "wikipedia-simple-abstract-latest",
-        "label": "Wikipedia Dump: Simple English Abstracts (latest)",
-        "description": "Echter Wikimedia-Dump (XML.GZ) mit kompakterem Vokabular fuer ressourcenschonende Einstiege.",
-        "corpus_url": "https://dumps.wikimedia.org/simplewiki/latest/simplewiki-latest-abstract1.xml.gz",
-        "source_id": "wikipedia-simple-abstract-latest",
-        "language": "en",
-        "size_hint": "~10-40 MB (compressed)",
+        "id": "wikipedia-de-pages-latest",
+        "label": "Wikipedia DE: Artikel nicht-Multistream (latest)",
+        "description": "Fallback ohne Multistream-Index; meist weniger praktisch fuer grosse lokale Verarbeitung.",
+        "corpus_url": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles.xml.bz2",
+        "source_id": "wikipedia-de-pages-latest",
+        "language": "de",
+        "size_hint": "~7.8 GB",
         "recommended": False,
+        "import_format": "mediawiki-xml",
         "codecompass_prerender": True,
     },
     {
-        "id": "wikipedia-simple-pages-latest",
-        "label": "Wikipedia Dump: Simple English Pages (latest)",
-        "description": "Echter Wikimedia-Pages-Dump (XML.BZ2) mit Artikeltexten fuer tieferes lokales RAG.",
-        "corpus_url": "https://dumps.wikimedia.org/simplewiki/latest/simplewiki-latest-pages-articles-multistream.xml.bz2",
-        "source_id": "wikipedia-simple-pages-latest",
-        "language": "en",
-        "size_hint": "~100-600 MB (compressed)",
+        "id": "wikipedia-de-zim-mini-2026-04",
+        "label": "Wikipedia DE: ZIM mini 2026-04 (Prototyp)",
+        "description": "Kleiner Kiwix/ZIM-Prototyp-Dump. Sichtbar fuer Download-Planung; Import benoetigt noch ZIM-Parser.",
+        "corpus_url": "https://dumps.wikimedia.org/kiwix/zim/wikipedia/wikipedia_de_all_mini_2026-04.zim",
+        "source_id": "wikipedia-de-zim-mini-2026-04",
+        "language": "de",
+        "size_hint": "~3.9 GiB",
         "recommended": False,
-        "codecompass_prerender": True,
+        "import_format": "zim",
+        "supported": False,
+        "codecompass_prerender": False,
+    },
+    {
+        "id": "wikipedia-de-zim-nopic-2026-01",
+        "label": "Wikipedia DE: ZIM ohne Bilder 2026-01 (Prototyp)",
+        "description": "Groesserer Kiwix/ZIM-Dump ohne Bilder. Sichtbar fuer spaetere ZIM-Unterstuetzung.",
+        "corpus_url": "https://dumps.wikimedia.org/kiwix/zim/wikipedia/wikipedia_de_all_nopic_2026-01.zim",
+        "source_id": "wikipedia-de-zim-nopic-2026-01",
+        "language": "de",
+        "size_hint": "~13.6 GiB",
+        "recommended": False,
+        "import_format": "zim",
+        "supported": False,
+        "codecompass_prerender": False,
     },
 ]
 
@@ -158,6 +165,7 @@ def _wiki_import_url_request() -> dict:
         raise BadRequestError("invalid_payload")
     preset_id = str(payload.get("preset_id") or "").strip()
     corpus_url = str(payload.get("corpus_url") or "").strip()
+    index_url = str(payload.get("index_url") or "").strip()
     if not preset_id and not corpus_url:
         raise BadRequestError("wiki_corpus_url_required")
     selected_preset = next((item for item in WIKI_IMPORT_PRESETS if item["id"] == preset_id), None) if preset_id else None
@@ -179,10 +187,15 @@ def _wiki_import_url_request() -> dict:
         raise BadRequestError("invalid_source_metadata")
     source_metadata = dict(raw_source_metadata)
     if selected_preset is not None:
+        index_url = str(selected_preset.get("index_url") or index_url).strip()
+        if selected_preset.get("supported") is False:
+            raise BadRequestError("wiki_preset_not_supported")
         source_metadata.setdefault("preset_id", selected_preset["id"])
         source_metadata.setdefault("preset_label", selected_preset["label"])
+        source_metadata.setdefault("import_format", selected_preset.get("import_format"))
     return {
         "corpus_url": effective_url,
+        "index_url": index_url or None,
         "source_id": source_id or None,
         "profile_name": profile_name,
         "language": language,
@@ -458,6 +471,7 @@ def import_wiki_corpus_from_url():
     try:
         report = get_ingestion_service().import_wiki_jsonl_from_url(
             corpus_url=payload["corpus_url"],
+            index_url=payload["index_url"],
             source_id=payload["source_id"],
             default_language=payload["language"],
             strict=payload["strict"],
@@ -468,7 +482,10 @@ def import_wiki_corpus_from_url():
     source_metadata = {
         **dict(payload.get("source_metadata") or {}),
         "corpus_url": payload["corpus_url"],
+        "index_url": payload["index_url"],
         "corpus_path": report.get("corpus_path"),
+        "index_path": report.get("index_path"),
+        "jsonl_cache_path": report.get("jsonl_cache_path"),
         "download": dict(report.get("download") or {}),
         "issues": list(report.get("issues") or []),
         "import_stats": dict(report.get("stats") or {}),
@@ -492,7 +509,10 @@ def import_wiki_corpus_from_url():
                     "source_scope": report.get("source_scope"),
                     "source_id": report.get("source_id"),
                     "corpus_path": report.get("corpus_path"),
+                    "index_path": report.get("index_path"),
+                    "jsonl_cache_path": report.get("jsonl_cache_path"),
                     "corpus_url": payload["corpus_url"],
+                    "index_url": payload["index_url"],
                     "download": report.get("download"),
                     "stats": report.get("stats"),
                     "issues": report.get("issues"),
@@ -519,7 +539,10 @@ def import_wiki_corpus_from_url():
                 "source_scope": report.get("source_scope"),
                 "source_id": report.get("source_id"),
                 "corpus_path": report.get("corpus_path"),
+                "index_path": report.get("index_path"),
+                "jsonl_cache_path": report.get("jsonl_cache_path"),
                 "corpus_url": payload["corpus_url"],
+                "index_url": payload["index_url"],
                 "download": report.get("download"),
                 "stats": report.get("stats"),
                 "issues": report.get("issues"),
