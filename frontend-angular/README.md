@@ -137,12 +137,12 @@ Falls `npm run android:prepare` beim Angular-Build fehlschlägt, liegt es derzei
 ## Voxtral Offline in der App
 
 In der nativen Android-App gibt es die Route `/voxtral-offline` mit:
-- Modell-Presets (Q4_K/Q5_K/Q8_0) direkt auswaehlbar
+- Modell-Presets, mit `Voxtral Mini 4B Realtime Q2_K` (<1.4 GiB) als Standard fuer Nutzer
 - Mikrofon-Permission anfragen
 - WAV-Aufnahme (16 kHz mono) im App-Storage starten/stoppen
 - Modell direkt in App-Storage herunterladen
 - Runner-Binary direkt in App-Storage herunterladen (wird ausfuehrbar gesetzt)
-- Runner-Preset (auto): setzt die aktuelle `llama.cpp` Android-ARM64 Release-URL
+- Passenden Voxtral-Runner bereitstellen: baut den kompatiblen Voxtral-Realtime-Runner aus dem fest verdrahteten funktionierenden Source-Stand
 - Runner-Archive (`.tar.gz`) werden beim Download automatisch entpackt und ein passender Runner extrahiert
 - Lokale Modelle/Runner auflisten und auswaehlen
 - Setup-Pruefung (Speicher, Modell vorhanden, Runner ausfuehrbar)
