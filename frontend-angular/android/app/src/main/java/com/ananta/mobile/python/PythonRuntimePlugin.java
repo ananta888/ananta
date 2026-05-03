@@ -62,6 +62,11 @@ public class PythonRuntimePlugin extends Plugin {
     private static final String ANANTA_REPO_URL = "https://github.com/ananta888/ananta/archive/refs/heads/main.tar.gz";
     private static final String OPENCODE_VERSION = "v0.0.55";
     private static final String OPENCODE_URL = "https://github.com/opencode-ai/opencode/releases/download/" + OPENCODE_VERSION + "/opencode-linux-arm64.tar.gz";
+    private static final String UBUNTU_ROOTFS_PRESEED_ASSET = "proot-seed/ubuntu-rootfs.tar.xz";
+    private static final String UBUNTU_ROOTFS_PRESEED_VERSION_ASSET = "proot-seed/ubuntu-rootfs.version";
+    private static final String ANANTA_WORKSPACE_PRESEED_ASSET = "proot-seed/ananta-workspace.tar.xz";
+    private static final String ANANTA_WORKSPACE_PRESEED_VERSION_ASSET = "proot-seed/ananta-workspace.version";
+    private static final String ROOTFS_PRESEED_MARKER_FILE = ".ananta-preseed-version";
 
     private static final int PROXY_PORT = 18080;
 
@@ -562,12 +567,6 @@ public class PythonRuntimePlugin extends Plugin {
             try {
                 notifyProotProgress("distro", "preparing", "Distro-Installation gestartet.", -1, -1, distro);
                 ensureProotInstalled();
-                DistroDownloadMeta downloadMeta = resolveDistroDownloadMeta(distro);
-                String assetUrl = downloadMeta.url;
-                if (assetUrl == null || assetUrl.isBlank()) {
-                    throw new IOException("No aarch64 archive found for distro: " + distro);
-                }
-
                 File runtimeRoot = runtimeRootDir();
                 File distrosDir = ensureDir(runtimeRoot, "distros");
                 File distroDir = ensureDir(distrosDir, distro);
@@ -582,6 +581,29 @@ public class PythonRuntimePlugin extends Plugin {
                     notifyProotProgress("distro", "done", "Distro bereits installiert.", -1, -1, distro);
                     call.resolve(result);
                     return;
+                }
+                String bundledVersion = installBundledDistroIfAvailable(distro, rootfsDir);
+                if (bundledVersion != null) {
+                    File installedRootfs = resolveInstalledRootfs(rootfsDir);
+                    if (installedRootfs == null) {
+                        throw new IOException("Bundled distro extraction completed, but no usable rootfs was detected.");
+                    }
+                    writeTextFile(new File(installedRootfs, ROOTFS_PRESEED_MARKER_FILE), bundledVersion);
+                    ensureDistroBootstrap(distro, runtimeRoot, installedRootfs);
+
+                    JSObject result = new JSObject();
+                    result.put("distro", distro);
+                    result.put("rootfsPath", installedRootfs.getAbsolutePath());
+                    result.put("source", "bundled-apk-asset");
+                    result.put("preseedVersion", bundledVersion);
+                    notifyProotProgress("distro", "done", "Gebuendelte Distro installiert.", -1, -1, distro);
+                    call.resolve(result);
+                    return;
+                }
+                DistroDownloadMeta downloadMeta = resolveDistroDownloadMeta(distro);
+                String assetUrl = downloadMeta.url;
+                if (assetUrl == null || assetUrl.isBlank()) {
+                    throw new IOException("No aarch64 archive found for distro: " + distro);
                 }
                 File tmpDir = ensureDir(runtimeRoot, "tmp");
                 File archive = new File(tmpDir, distro + "-rootfs.tar.xz");
@@ -668,9 +690,11 @@ public class PythonRuntimePlugin extends Plugin {
                         "if command -v ananta-worker >/dev/null 2>&1 || [ -x /usr/local/bin/ananta-worker ] || [ -x /home/ananta/.local/bin/ananta-worker ] || [ -x /root/.local/bin/ananta-worker ]; then echo ANANTA_OK; else echo ANANTA_MISSING; fi");
 
                     if (workspaceInstalled) {
+                        File dataRoot = new File(getContext().getFilesDir(), "ananta-data");
                         String importCmd = "cd " + shQuote(workspaceRoot.getAbsolutePath())
                             + " && if [ -f ./agent/ai_agent.py ]; then PYTHONPATH="
                             + shQuote(workspaceRoot.getAbsolutePath())
+                            + " DATA_DIR=" + shQuote(dataRoot.getAbsolutePath())
                             + " python3 -c \"from agent.ai_agent import create_app; print('ANANTA_WORKER_IMPORT_OK')\"; else echo ANANTA_WORKER_MISSING; exit 3; fi";
                         ShellExecutionResult importProbe = runInProot(runtimeRoot, ubuntuRootfs, importCmd, 120);
                         String out = String.valueOf(importProbe.output == null ? "" : importProbe.output);
@@ -711,12 +735,28 @@ public class PythonRuntimePlugin extends Plugin {
                 if (repoUrl.isEmpty()) repoUrl = ANANTA_REPO_URL;
                 notifyProotProgress("workspace", "preparing", "Ananta-Workspace Installation gestartet.", -1, -1, "ubuntu");
                 File runtimeRoot = runtimeRootDir();
+                File workspaceRoot = new File(getContext().getFilesDir(), "ananta");
+                String bundledVersion = installBundledWorkspaceIfAvailable(workspaceRoot);
+                if (bundledVersion != null) {
+                    File marker = new File(workspaceRoot, "agent/ai_agent.py");
+                    if (!marker.isFile()) {
+                        throw new IOException("Bundled workspace extraction incomplete: agent/ai_agent.py not found.");
+                    }
+                    JSObject result = new JSObject();
+                    result.put("workspacePath", workspaceRoot.getAbsolutePath());
+                    result.put("repoUrl", "apk-asset:" + ANANTA_WORKSPACE_PRESEED_ASSET);
+                    result.put("source", "bundled-apk-asset");
+                    result.put("preseedVersion", bundledVersion);
+                    notifyProotProgress("workspace", "done", "Gebuendelter Workspace installiert.", -1, -1, "ubuntu");
+                    call.resolve(result);
+                    return;
+                }
+
                 File tmpDir = ensureDir(runtimeRoot, "tmp");
                 File archive = new File(tmpDir, "ananta-workspace.tar.gz");
                 downloadToFile(repoUrl, archive, "workspace", "ubuntu");
                 notifyProotProgress("workspace", "extracting", "Workspace wird entpackt.", -1, -1, "ubuntu");
 
-                File workspaceRoot = new File(getContext().getFilesDir(), "ananta");
                 if (workspaceRoot.exists()) {
                     clearDirectory(workspaceRoot);
                 } else if (!workspaceRoot.mkdirs()) {
@@ -759,6 +799,8 @@ public class PythonRuntimePlugin extends Plugin {
                     + "python3 python3-pip git curl ca-certificates tar libgomp1; "
                     + "else echo ANANTA_APT_MISSING; exit 2; fi; "
                     + "ANANTA_WORKSPACE=" + shQuote(new File(getContext().getFilesDir(), "ananta").getAbsolutePath()) + "; "
+                    + "ANANTA_DATA_DIR=" + shQuote(new File(getContext().getFilesDir(), "ananta-data").getAbsolutePath()) + "; "
+                    + "mkdir -p \"$ANANTA_DATA_DIR\"; "
                     + "if [ ! -f \"$ANANTA_WORKSPACE/pyproject.toml\" ]; then echo ANANTA_WORKSPACE_MISSING; exit 4; fi; "
                     + "python3 -m pip install --break-system-packages --ignore-installed --no-input --progress-bar off "
                     + "flask requests flask-cors pydantic pydantic-settings python-dotenv prometheus-client pyjwt "
@@ -772,6 +814,8 @@ public class PythonRuntimePlugin extends Plugin {
                     + "cat >\"$target\" <<'EOF'\n"
                     + "#!/bin/sh\n"
                     + "ANANTA_WORKSPACE=" + new File(getContext().getFilesDir(), "ananta").getAbsolutePath() + "\n"
+                    + "DATA_DIR=${DATA_DIR:-" + new File(getContext().getFilesDir(), "ananta-data").getAbsolutePath() + "}\n"
+                    + "export DATA_DIR\n"
                     + "PYTHONPATH=\"$ANANTA_WORKSPACE:${PYTHONPATH:-}\" exec python3 -m agent.cli.main \"$@\"\n"
                     + "EOF\n"
                     + "chmod 755 \"$target\" 2>/dev/null || true; "
@@ -793,6 +837,7 @@ public class PythonRuntimePlugin extends Plugin {
                     + "export PORT=${PORT:-5001}\n"
                     + "export HUB_URL=${HUB_URL:-http://127.0.0.1:5000}\n"
                     + "export AGENT_URL=${AGENT_URL:-http://127.0.0.1:${PORT}}\n"
+                    + "export DATA_DIR=${DATA_DIR:-" + new File(getContext().getFilesDir(), "ananta-data").getAbsolutePath() + "}\n"
                     + "PYTHONPATH=\"$ANANTA_WORKSPACE:${PYTHONPATH:-}\" exec python3 -m agent.ai_agent \"$@\"\n"
                     + "EOF\n"
                     + "chmod 755 \"$worker_target\" 2>/dev/null || true; "
@@ -807,7 +852,7 @@ public class PythonRuntimePlugin extends Plugin {
                     + "\"$ANANTA_CLI\" --help >/dev/null 2>&1; "
                     + "\"$ANANTA_CLI\" tui --help >/dev/null 2>&1; "
                     + "if ! command -v ananta-worker >/dev/null 2>&1 && [ ! -x /usr/local/bin/ananta-worker ] && [ ! -x /home/ananta/.local/bin/ananta-worker ] && [ ! -x /root/.local/bin/ananta-worker ]; then echo ANANTA_WORKER_CMD_MISSING; exit 6; fi; "
-                    + "PYTHONPATH=\"$ANANTA_WORKSPACE:${PYTHONPATH:-}\" python3 -c \"from agent.ai_agent import create_app; print('ANANTA_WORKER_DEPS_OK')\"";
+                    + "DATA_DIR=\"$ANANTA_DATA_DIR\" PYTHONPATH=\"$ANANTA_WORKSPACE:${PYTHONPATH:-}\" python3 -c \"from agent.ai_agent import create_app; print('ANANTA_WORKER_DEPS_OK')\"";
                 ShellExecutionResult install = runInProot(runtimeRoot, ubuntuRootfs, command, 1200);
                 String output = String.valueOf(install.output == null ? "" : install.output);
                 if (install.timedOut || install.exitCode != 0 || !output.contains("ANANTA_WORKER_DEPS_OK")) {
@@ -1437,7 +1482,124 @@ public class PythonRuntimePlugin extends Plugin {
         }
     }
 
+    private String installBundledDistroIfAvailable(String distro, File rootfsDir) throws IOException {
+        if (!"ubuntu".equals(distro) || !assetExists(UBUNTU_ROOTFS_PRESEED_ASSET)) {
+            return null;
+        }
+
+        notifyProotProgress("distro", "extracting", "Gebuendelte Ubuntu-Distro wird entpackt.", -1, -1, distro);
+        clearDirectory(rootfsDir);
+        try {
+            extractTarXzAssetToDirectory(UBUNTU_ROOTFS_PRESEED_ASSET, rootfsDir);
+        } catch (IOException error) {
+            clearDirectory(rootfsDir);
+            throw error;
+        }
+
+        String version = readAssetTextIfExists(UBUNTU_ROOTFS_PRESEED_VERSION_ASSET);
+        if (version == null || version.isBlank()) {
+            version = "bundled-ubuntu-rootfs";
+        }
+        return version.trim();
+    }
+
+    private String installBundledWorkspaceIfAvailable(File workspaceRoot) throws IOException {
+        if (!assetExists(ANANTA_WORKSPACE_PRESEED_ASSET)) {
+            return null;
+        }
+
+        notifyProotProgress("workspace", "extracting", "Gebuendelter Workspace wird entpackt.", -1, -1, "ubuntu");
+        if (workspaceRoot.exists()) {
+            clearDirectory(workspaceRoot);
+        } else if (!workspaceRoot.mkdirs()) {
+            throw new IOException("Could not create workspace directory: " + workspaceRoot.getAbsolutePath());
+        }
+
+        try {
+            extractTarXzAssetToDirectory(ANANTA_WORKSPACE_PRESEED_ASSET, workspaceRoot);
+        } catch (IOException error) {
+            clearDirectory(workspaceRoot);
+            throw error;
+        }
+
+        String version = readAssetTextIfExists(ANANTA_WORKSPACE_PRESEED_VERSION_ASSET);
+        if (version == null || version.isBlank()) {
+            version = "bundled-ananta-workspace";
+        }
+        return version.trim();
+    }
+
+    private void extractTarXzAssetToDirectory(String assetPath, File targetDir) throws IOException {
+        String systemTarError;
+        try (InputStream assetInput = new BufferedInputStream(getContext().getAssets().open(assetPath));
+             InputStream xzInput = new XZInputStream(assetInput)) {
+            systemTarError = extractTarStreamWithSystemTar(xzInput, targetDir, 900);
+            if (systemTarError == null) {
+                return;
+            }
+        }
+
+        clearDirectory(targetDir);
+        try (InputStream assetInput = new BufferedInputStream(getContext().getAssets().open(assetPath));
+             InputStream xzInput = new XZInputStream(assetInput);
+             BufferedInputStream input = new BufferedInputStream(xzInput)) {
+            extractTarStreamToDirectory(input, targetDir);
+        } catch (IOException parseError) {
+            throw new IOException(parseError.getMessage() + " | system tar: " + systemTarError, parseError);
+        }
+    }
+
+    private void extractTarGzAssetToDirectory(String assetPath, File targetDir) throws IOException {
+        String systemTarError;
+        try (InputStream assetInput = new BufferedInputStream(getContext().getAssets().open(assetPath));
+             InputStream gzipInput = new GZIPInputStream(assetInput)) {
+            systemTarError = extractTarStreamWithSystemTar(gzipInput, targetDir, 300);
+            if (systemTarError == null) {
+                return;
+            }
+        }
+
+        clearDirectory(targetDir);
+        try (InputStream assetInput = new BufferedInputStream(getContext().getAssets().open(assetPath));
+             InputStream gzipInput = new GZIPInputStream(assetInput);
+             BufferedInputStream input = new BufferedInputStream(gzipInput)) {
+            extractTarStreamToDirectory(input, targetDir);
+        } catch (IOException parseError) {
+            throw new IOException(parseError.getMessage() + " | system tar: " + systemTarError, parseError);
+        }
+    }
+
+    private boolean assetExists(String assetPath) {
+        Context context = getContext();
+        if (context == null) return false;
+        try (InputStream ignored = context.getAssets().open(assetPath)) {
+            return true;
+        } catch (IOException ignored) {
+            return false;
+        }
+    }
+
+    private String readAssetTextIfExists(String assetPath) throws IOException {
+        Context context = getContext();
+        if (context == null || !assetExists(assetPath)) return null;
+        try (InputStream input = context.getAssets().open(assetPath)) {
+            return readProcessOutput(input, 4_000).trim();
+        }
+    }
+
+    private void writeTextFile(File file, String content) throws IOException {
+        ensureParent(file);
+        try (FileOutputStream output = new FileOutputStream(file, false)) {
+            output.write(String.valueOf(content == null ? "" : content).getBytes(StandardCharsets.UTF_8));
+            output.flush();
+        }
+    }
+
     private String extractTarStreamWithSystemTar(InputStream tarStream, File targetDir) {
+        return extractTarStreamWithSystemTar(tarStream, targetDir, 240);
+    }
+
+    private String extractTarStreamWithSystemTar(InputStream tarStream, File targetDir, int timeoutSeconds) {
         Process process = null;
         try {
             process = new ProcessBuilder(
@@ -1452,7 +1614,7 @@ public class PythonRuntimePlugin extends Plugin {
             try (OutputStream processInput = process.getOutputStream()) {
                 copyStream(tarStream, processInput);
             }
-            boolean finished = process.waitFor(240, TimeUnit.SECONDS);
+            boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
                 return "timeout";
