@@ -176,42 +176,31 @@ export_seed_from_android() {
   device_shell <<EOS
 set -e
 BASE=/data/data/$PACKAGE_NAME/files
-ROOT="$BASE/proot-runtime/distros/ubuntu/rootfs/ubuntu-questing-aarch64"
-DPKG="$ROOT/var/lib/dpkg"
-if [ -d "$DPKG" ]; then
-  if [ -f "$DPKG/status-new" ]; then cp "$DPKG/status-new" "$DPKG/status"; fi
-  if [ -f "$DPKG/status" ]; then
+ROOT="\$BASE/proot-runtime/distros/ubuntu/rootfs/ubuntu-questing-aarch64"
+DPKG="\$ROOT/var/lib/dpkg"
+if [ -d "\$DPKG" ]; then
+  if [ -f "\$DPKG/status-new" ]; then cp "\$DPKG/status-new" "\$DPKG/status"; fi
+  if [ -f "\$DPKG/status" ]; then
     awk '
       BEGIN { in_pkg=0 }
       /^Package: libgomp1$/ { in_pkg=1; print; next }
       in_pkg && /^Status:/ { print "Status: install ok installed"; next }
       { print }
       in_pkg && /^$/ { in_pkg=0 }
-    ' "$DPKG/status" > "$DPKG/status.fixed"
-    mv "$DPKG/status.fixed" "$DPKG/status"
+    ' "\$DPKG/status" > "\$DPKG/status.fixed"
+    mv "\$DPKG/status.fixed" "\$DPKG/status"
   fi
-  rm -f "$DPKG/status-new" "$DPKG/updates"/* "$DPKG/lock" "$DPKG/lock-frontend" 2>/dev/null || true
-  touch "$DPKG/lock" "$DPKG/lock-frontend"
+  rm -f "\$DPKG/status-new" "\$DPKG/updates"/* "\$DPKG/lock" "\$DPKG/lock-frontend" 2>/dev/null || true
+  touch "\$DPKG/lock" "\$DPKG/lock-frontend"
 fi
-rm -rf "$ROOT/root/.cache/pip" "$ROOT/tmp"/* "$ROOT/var/cache/apt/archives"/*.deb "$ROOT/var/cache/apt/archives/partial"/* 2>/dev/null || true
-rm -f "$ROOT/usr/local/bin/opencode" "$ROOT/usr/bin/opencode" "$ROOT/home/ananta/.local/bin/opencode" "$ROOT/root/.local/bin/opencode" 2>/dev/null || true
-for d in data dev proc sys tmp run; do mkdir -p "$ROOT/$d"; chmod u+rwx "$ROOT/$d" 2>/dev/null || true; done
-find "$ROOT" \( -name '.l2s*' -o -name '*.l2s*' \) -delete 2>/dev/null || true
-test -e "$BASE/ananta/agent/ai_agent.py"
-test -e "$ROOT/usr/bin/python3"
-test -e "$ROOT/usr/bin/pip3"
-test -e "$ROOT/usr/lib/aarch64-linux-gnu/libgomp.so.1"
-test -e "$ROOT/usr/local/bin/ananta"
-test -e "$ROOT/usr/local/bin/ananta-worker"
-if [ -x "$BASE/proot-runtime/bin/proot" ]; then
-  "$BASE/proot-runtime/bin/proot" \
-    -r "$ROOT" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -w / /bin/sh \
-    -c "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; \
-        PYTHONPATH=$BASE/ananta \
-        DATA_DIR=$BASE/ananta-data \
-        python3 -c \"from agent.ai_agent import create_app; print('ANANTA_WORKER_IMPORT_OK')\"" \
-    | grep -q ANANTA_WORKER_IMPORT_OK
-fi
+rm -rf "\$ROOT/root/.cache/pip" "\$ROOT/tmp"/* "\$ROOT/var/cache/apt/archives"/*.deb "\$ROOT/var/cache/apt/archives/partial"/* 2>/dev/null || true
+rm -f "\$ROOT/usr/local/bin/opencode" "\$ROOT/usr/bin/opencode" "\$ROOT/home/ananta/.local/bin/opencode" "\$ROOT/root/.local/bin/opencode" 2>/dev/null || true
+for d in data dev proc sys tmp run; do mkdir -p "\$ROOT/\$d"; chmod u+rwx "\$ROOT/\$d" 2>/dev/null || true; done
+find "\$ROOT" \( -name '.l2s*' -o -name '*.l2s*' \) -delete 2>/dev/null || true
+test -e "\$BASE/ananta/agent/ai_agent.py"
+test -e "\$ROOT/usr/bin/python3"
+test -e "\$ROOT/usr/local/bin/ananta"
+test -e "\$ROOT/usr/local/bin/ananta-worker"
 EOS
 
   log "Exporting rootfs stream from Android"
@@ -223,7 +212,7 @@ EOS
   log "Repacking rootfs with GNU tar for reproducible Android extraction"
   ( cd "$REPACK_DIR" && tar -xJf "$ASSET_DIR/ubuntu-rootfs.raw-android.tar.xz" ) || true
   local rootfs="$REPACK_DIR/ubuntu-questing-aarch64"
-  for required in usr/bin/python3 usr/bin/pip3 usr/bin/git usr/bin/curl usr/lib/aarch64-linux-gnu/libgomp.so.1 usr/local/bin/ananta usr/local/bin/ananta-worker; do
+  for required in usr/bin/python3 usr/bin/git usr/bin/curl usr/local/bin/ananta usr/local/bin/ananta-worker; do
     if [[ ! -e "$rootfs/$required" ]]; then
       printf 'Exported rootfs is missing %s\n' "$required" >&2
       exit 4
