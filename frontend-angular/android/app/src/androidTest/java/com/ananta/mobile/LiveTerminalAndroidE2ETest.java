@@ -794,6 +794,74 @@ public class LiveTerminalAndroidE2ETest {
     }
 
     @Test
+    public void opencodeDownloadsOnDemandAndBecomesReady() throws InterruptedException {
+        activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
+        activityRule.getScenario().onActivity(activity -> {});
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "run on-demand opencode install",
+            "window.__anantaOpencodeInstall='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var py=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PythonRuntime;"
+                + "    if(!py){window.__anantaOpencodeInstall='ERR:NO_PY_PLUGIN';return;}"
+                + "    var st=await py.getProotRuntimeStatus();"
+                + "    if(!(st && st.prootExecutable)){ await py.installProotRuntime({confirmed:true}); }"
+                + "    st=await py.getProotRuntimeStatus();"
+                + "    var distros=(st && Array.isArray(st.distros)) ? st.distros : [];"
+                + "    var ubuntuOk=distros.some(function(item){ return String(item && item.name || '').toLowerCase()==='ubuntu'; });"
+                + "    if(!ubuntuOk){ await py.installProotDistro({distro:'ubuntu', confirmed:true}); }"
+                + "    await py.installAnantaWorkspace({});"
+                + "    await py.installWorkerDependencies({confirmed:true});"
+                + "    var removeCmd=" + jsLiteral(
+                    prootPreamble()
+                        + prootEnvPrefix()
+                        + "\"$ANANTA_PROOT_DIRECT\" -0 --link2symlink "
+                        + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" -w / \"$ANANTA_LOGIN_SHELL\" "
+                        + "-c 'rm -f /usr/local/bin/opencode /usr/bin/opencode /home/ananta/.local/bin/opencode /root/.local/bin/opencode; echo ANANTA_OPENCODE_REMOVED'"
+                ) + ";"
+                + "    var rm=await py.runShellCommand({command:removeCmd,timeoutSeconds:120});"
+                + "    var rmOut=String((rm && rm.output) ? rm.output : '');"
+                + "    if(rmOut.indexOf('ANANTA_OPENCODE_REMOVED')<0){window.__anantaOpencodeInstall='ERR:OPENCODE_REMOVE_FAILED';return;}"
+                + "    var before=await py.getGuidedSetupStatus();"
+                + "    if(before && before.opencodeReady){window.__anantaOpencodeInstall='ERR:OPENCODE_STILL_READY_BEFORE_INSTALL';return;}"
+                + "    var ins=await py.installOpencode({confirmed:true});"
+                + "    var out=String((ins && ins.output) ? ins.output : '');"
+                + "    var after=await py.getGuidedSetupStatus();"
+                + "    if(!(after && after.opencodeReady)){window.__anantaOpencodeInstall='ERR:OPENCODE_NOT_READY_AFTER_INSTALL';return;}"
+                + "    window.__anantaOpencodeInstall='OK:' + out.slice(-500);"
+                + "  }catch(e){"
+                + "    window.__anantaOpencodeInstall='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "opencode install flow finished",
+            "var v=String(window.__anantaOpencodeInstall||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            1800,
+            1_000L
+        );
+
+        runIfPresent(
+            "log on-demand opencode result",
+            "console.log('ANANTA_OPENCODE_INSTALL_RESULT:' + String(window.__anantaOpencodeInstall||'').slice(-3000)); return true;"
+        );
+
+        waitForTrueWithRetry(
+            "opencode install succeeded",
+            "var v=String(window.__anantaOpencodeInstall||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "return v.indexOf('OK:')===0;",
+            30,
+            1_000L
+        );
+    }
+
+    @Test
     public void voxtralDirectTranscriptionWorks() throws InterruptedException {
         activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
         activityRule.getScenario().onActivity(activity -> {});

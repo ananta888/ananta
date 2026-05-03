@@ -122,7 +122,7 @@ if ! echo "$install_output" | grep -q "Success"; then
 fi
 
 adb -s "$EMULATOR_SERIAL" install -r -t "$TEST_APK" >/dev/null
-INSTRUMENTATION_OUTPUT="$(adb -s "$EMULATOR_SERIAL" shell am instrument -w -r \
+INSTRUMENTATION_OUTPUT="$(adb -s "$EMULATOR_SERIAL" shell am instrument -w -r --user 0 \
   -e ananta.e2e.username "$USERNAME" \
   -e ananta.e2e.password "$PASSWORD" \
   -e class com.ananta.mobile.LiveTerminalAndroidE2ETest \

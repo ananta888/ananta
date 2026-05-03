@@ -202,6 +202,8 @@ Die App enthaelt eine Python-Runtime (Chaquopy) fuer lokalen Hub/Worker-Betrieb:
 - Android Plugin: `PythonRuntime` (Start/Stop/Status/Health)
 - Python Entry-Points: `android/app/src/main/python/ananta_runtime.py`
 - UI-Seite: Route `/python-runtime`
+- Delivery-APK kann Ubuntu + Ananta-Workspace inkl. Worker-Abhaengigkeiten (python3/pip/libgomp/ananta-worker) als Seed-Assets mitliefern.
+- `opencode` wird bewusst **nicht** im Seed ausgeliefert und bleibt ein On-Demand-Download (`installOpencode`).
 
 Standardmaessig ist die Python-Runtime fuer Android-Builds aktiviert.
 
