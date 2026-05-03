@@ -885,13 +885,23 @@ public class PythonRuntimePlugin extends Plugin {
         String workspacePath = workspaceRoot.getAbsolutePath();
         String dataPath = dataRoot.getAbsolutePath();
         return ""
+            + "set -e; "
             + "unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY; "
             + "rm -f /etc/apt/apt.conf.d/99proxy 2>/dev/null || true; "
+            + "if [ ! -s /etc/resolv.conf ] || ! grep -Eq '^nameserver[[:space:]]+' /etc/resolv.conf 2>/dev/null; then "
+            + "printf 'nameserver 1.1.1.1\\nnameserver 8.8.8.8\\n' > /etc/resolv.conf 2>/dev/null || true; "
+            + "fi; "
             + "export DEBIAN_FRONTEND=noninteractive; "
+            + "MISSING_PACKAGES=''; "
+            + "for bin in python3 git curl tar; do command -v \"$bin\" >/dev/null 2>&1 || MISSING_PACKAGES=\"$MISSING_PACKAGES $bin\"; done; "
+            + "if ! command -v pip3 >/dev/null 2>&1 && ! python3 -m pip --version >/dev/null 2>&1; then MISSING_PACKAGES=\"$MISSING_PACKAGES python3-pip\"; fi; "
+            + "if [ ! -f /lib/aarch64-linux-gnu/libgomp.so.1 ] && [ ! -f /usr/lib/aarch64-linux-gnu/libgomp.so.1 ]; then MISSING_PACKAGES=\"$MISSING_PACKAGES libgomp1\"; fi; "
+            + "if [ -n \"$MISSING_PACKAGES\" ]; then "
             + "if command -v apt-get >/dev/null 2>&1; then "
-            + "apt-get update && apt-get install -y --no-install-recommends "
-            + "python3 python3-pip git curl ca-certificates tar libgomp1; "
-            + "else echo ANANTA_APT_MISSING; exit 2; fi; "
+            + "apt-get update; "
+            + "apt-get install -y --no-install-recommends ca-certificates $MISSING_PACKAGES; "
+            + "else echo ANANTA_APT_MISSING:$MISSING_PACKAGES; exit 2; fi; "
+            + "fi; "
             + "ANANTA_WORKSPACE=" + shQuote(workspacePath) + "; "
             + "ANANTA_DATA_DIR=" + shQuote(dataPath) + "; "
             + "mkdir -p \"$ANANTA_DATA_DIR\"; "
@@ -962,9 +972,16 @@ public class PythonRuntimePlugin extends Plugin {
                 String url = String.valueOf(call.getString("opencodeUrl", OPENCODE_URL)).trim();
                 if (url.isEmpty()) url = OPENCODE_URL;
                 String cmd = ""
+                    + "set -e; "
                     + "unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY; rm -f /etc/apt/apt.conf.d/99proxy 2>/dev/null || true; "
+                    + "if [ ! -s /etc/resolv.conf ] || ! grep -Eq '^nameserver[[:space:]]+' /etc/resolv.conf 2>/dev/null; then "
+                    + "printf 'nameserver 1.1.1.1\\nnameserver 8.8.8.8\\n' > /etc/resolv.conf 2>/dev/null || true; "
+                    + "fi; "
                     + "export DEBIAN_FRONTEND=noninteractive; "
-                    + "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y --no-install-recommends curl ca-certificates tar; fi; "
+                    + "if ! command -v curl >/dev/null 2>&1 || ! command -v tar >/dev/null 2>&1; then "
+                    + "if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y --no-install-recommends curl ca-certificates tar; "
+                    + "else echo ANANTA_APT_MISSING; exit 2; fi; "
+                    + "fi; "
                     + "TMP_TGZ=/tmp/opencode-linux-arm64.tar.gz; TMP_DIR=/tmp/opencode-install; rm -rf \"$TMP_DIR\"; mkdir -p \"$TMP_DIR\"; "
                     + "curl -L --fail --connect-timeout 20 --max-time 600 " + shQuote(url) + " -o \"$TMP_TGZ\"; "
                     + "tar xzf \"$TMP_TGZ\" -C \"$TMP_DIR\"; "
@@ -1728,7 +1745,12 @@ public class PythonRuntimePlugin extends Plugin {
         ShellExecutionResult install = runInProot(
             runtimeRoot,
             rootfsDir,
-            "if command -v apt-get >/dev/null 2>&1; then export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y python3; else echo ANANTA_APT_MISSING; exit 2; fi; if command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then echo ANANTA_PY_OK; else echo ANANTA_PY_MISSING; exit 3; fi",
+            "set -e; "
+                + "if [ ! -s /etc/resolv.conf ] || ! grep -Eq '^nameserver[[:space:]]+' /etc/resolv.conf 2>/dev/null; then "
+                + "printf 'nameserver 1.1.1.1\\nnameserver 8.8.8.8\\n' > /etc/resolv.conf 2>/dev/null || true; "
+                + "fi; "
+                + "if command -v apt-get >/dev/null 2>&1; then export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y python3; else echo ANANTA_APT_MISSING; exit 2; fi; "
+                + "if command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then echo ANANTA_PY_OK; else echo ANANTA_PY_MISSING; exit 3; fi",
             600
         );
         String output = String.valueOf(install.output == null ? "" : install.output);
