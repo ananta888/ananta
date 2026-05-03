@@ -112,6 +112,33 @@ cd android
 APK-Pfad:
 `frontend-angular/android/app/build/outputs/apk/debug/app-debug.apk`
 
+### Reproduzierbare Auslieferungs-APK mit Proot/Voxtral-Defaults
+
+Die Auslieferungs-APK wird mit den gebuendelten Proot/Ubuntu- und Workspace-Seeds gebaut. LLM/Voxtral-Modelle werden dabei **nicht** eingebettet; das Standardmodell `Voxtral Mini 4B Realtime Q2_K` wird im UI als Download angeboten.
+
+```bash
+cd frontend-angular
+./scripts/build-android-delivery-apk.sh
+```
+
+Output:
+`frontend-angular/android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk`
+
+Wenn die Seed-Assets neu aus einer vorbereiteten Android-App-Sandbox erzeugt werden sollen:
+
+```bash
+cd frontend-angular
+ANANTA_ADB_CONNECT=192.168.x.x:PORT \
+ANANTA_EXPORT_ANDROID_SEED=1 \
+./scripts/build-android-delivery-apk.sh
+```
+
+Voraussetzungen fuer den Seed-Export:
+- Die App-Sandbox enthaelt `files/proot-runtime/distros/ubuntu/rootfs/ubuntu-questing-aarch64`.
+- `files/ananta` ist installiert.
+- Python, pip, git, curl, libgomp, `ananta`, `ananta tui` und `ananta-worker` sind im Rootfs bereit.
+- Auf ARM64/Termux-Proot nutzt das Script automatisch `/tmp/aapt2`, wenn vorhanden, oder erzeugt einen qemu-basierten Wrapper aus dem Gradle-Cache.
+
 ### Android Studio öffnen
 ```bash
 npm run cap:open:android
