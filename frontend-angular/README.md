@@ -112,6 +112,17 @@ cd android
 APK-Pfad:
 `frontend-angular/android/app/build/outputs/apk/debug/app-debug.apk`
 
+### Persistente App-Daten bei Deploys (Modelle nicht neu laden)
+
+Damit lokale Modelle/Runner nach `adb install -r` erhalten bleiben, muss die APK bei Folgebuilds mit demselben Signatur-Key gebaut werden.
+
+- Build nutzt bevorzugt einen stabilen Debug-Keystore:
+  1. `-PanantaDebugKeystorePath=/pfad/zur/debug.keystore`
+  2. `ANANTA_DEBUG_KEYSTORE_PATH=/pfad/zur/debug.keystore`
+  3. Fallbacks: `/mnt/c/Users/pst/.android/debug.keystore`, dann `~/.android/debug.keystore`
+- Deploy immer als Update: `adb install -r ...`
+- Nur bei `INSTALL_FAILED_UPDATE_INCOMPATIBLE` ist ein einmaliges Uninstall noetig; dabei gehen App-Daten (inkl. heruntergeladener Modelle) verloren.
+
 ### Reproduzierbare Auslieferungs-APK mit Proot/Voxtral-Defaults
 
 Die Auslieferungs-APK wird mit den gebuendelten Proot/Ubuntu- und Workspace-Seeds sowie dem passenden Voxtral-Realtime-Runner gebaut. LLM/Voxtral-Modelle werden dabei **nicht** eingebettet; das Standardmodell `Voxtral Mini 4B Realtime Q2_K` wird im UI als Download angeboten.
