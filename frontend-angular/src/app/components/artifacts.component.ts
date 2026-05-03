@@ -153,6 +153,84 @@ import { SummaryMetric, SummaryPanelComponent, TableShellComponent } from '../sh
     <div class="card mt-md">
       <div class="row space-between">
         <div>
+          <h3 class="no-margin">Wikipedia als lokale RAG-Quelle</h3>
+          <p class="muted title-muted">Preset waehlen oder eigene JSONL-URL angeben. Import erzeugt direkt Wiki-Indexdaten.</p>
+        </div>
+        <button class="secondary" (click)="loadWikiPresets()" [disabled]="loadingWikiPresets || wikiImportBusy">Presets neu laden</button>
+      </div>
+
+      <div class="artifact-upload-row mt-sm">
+        <div class="flex-1">
+          <label class="label-no-margin">Preset
+            <select [(ngModel)]="selectedWikiPresetId" (ngModelChange)="onWikiPresetChanged()">
+              <option value="">Eigene Quelle (URL)</option>
+              @for (preset of wikiPresets; track preset.id) {
+                <option [value]="preset.id">{{ preset.label }}</option>
+              }
+            </select>
+          </label>
+        </div>
+        <div class="flex-1">
+          <label class="label-no-margin">JSONL URL
+            <input [(ngModel)]="wikiCorpusUrl" placeholder="https://.../wiki.jsonl oder .jsonl.gz" [disabled]="!!selectedWikiPresetId" />
+          </label>
+        </div>
+      </div>
+
+      <div class="artifact-upload-row mt-sm">
+        <div class="flex-1">
+          <label class="label-no-margin">Source ID
+            <input [(ngModel)]="wikiSourceId" placeholder="z.B. wiki-ananta-core-en" />
+          </label>
+        </div>
+        <div class="flex-1">
+          <label class="label-no-margin">Sprache
+            <input [(ngModel)]="wikiLanguage" placeholder="en/de/..." />
+          </label>
+        </div>
+        <label class="label-no-margin">
+          <span class="muted font-sm">Profil</span>
+          <select [(ngModel)]="selectedCollectionProfileName">
+            @for (profile of knowledgeProfiles; track profile.name) {
+              <option [value]="profile.name">{{ profile.label }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <div class="artifact-upload-row mt-sm">
+        <label class="checkbox-inline">
+          <input type="checkbox" [(ngModel)]="wikiCodeCompassPrerender" />
+          CodeCompass Vor-Rendering verwenden
+        </label>
+        <label class="checkbox-inline">
+          <input type="checkbox" [(ngModel)]="wikiStrict" />
+          Strikter Import (fehlerhafte Zeilen abbrechen)
+        </label>
+        <button (click)="importWiki()" [disabled]="wikiImportBusy || !canImportWiki()">
+          {{ wikiImportBusy ? 'Importiere...' : 'Wikipedia importieren' }}
+        </button>
+      </div>
+
+      @if (selectedWikiPreset()) {
+        <div class="artifact-meta mt-sm">
+          <span class="artifact-pill">{{ selectedWikiPreset()?.description || selectedWikiPreset()?.label }}</span>
+          <span class="artifact-pill">{{ selectedWikiPreset()?.size_hint || 'Groesse unbekannt' }}</span>
+        </div>
+      }
+
+      @if (wikiImportResult) {
+        <div class="artifact-meta mt-sm">
+          <span class="artifact-pill">Source: {{ wikiImportResult?.source_id || wikiSourceId || 'wiki' }}</span>
+          <span class="artifact-pill">Records: {{ wikiImportResult?.stats?.records_total || 0 }}</span>
+          <span class="artifact-pill">Issues: {{ wikiImportResult?.issues?.length || 0 }}</span>
+        </div>
+      }
+    </div>
+
+    <div class="card mt-md">
+      <div class="row space-between">
+        <div>
           <h3 class="no-margin">Execution Artifact Explorer</h3>
           <p class="muted title-muted">Transparente Sicht auf Ergebnisse pro Aufgabe, Worker und Vorlage. {{ decisionExplanation('routing') }}</p>
         </div>
@@ -589,6 +667,16 @@ export class ArtifactsComponent {
   knowledgeSearchResults: any[] = [];
   selectedArtifactProfileName = 'default';
   selectedCollectionProfileName = 'default';
+  wikiPresets: any[] = [];
+  loadingWikiPresets = false;
+  selectedWikiPresetId = '';
+  wikiCorpusUrl = '';
+  wikiSourceId = '';
+  wikiLanguage = 'en';
+  wikiStrict = false;
+  wikiCodeCompassPrerender = true;
+  wikiImportBusy = false;
+  wikiImportResult: any = null;
   artifactFlowReadModel: any = null;
   loadingArtifactFlow = false;
   selectedWorkspaceRunKey = '';
@@ -604,6 +692,7 @@ export class ArtifactsComponent {
     this.refresh();
     this.loadCollections();
     this.loadProfiles();
+    this.loadWikiPresets();
     this.loadArtifactFlow();
   }
 
@@ -705,6 +794,84 @@ export class ArtifactsComponent {
       error: () => {
         this.knowledgeProfiles = [];
       },
+    });
+  }
+
+  loadWikiPresets() {
+    if (!this.hub) return;
+    this.loadingWikiPresets = true;
+    this.hubApi.listWikiPresets(this.hub.url).pipe(
+      finalize(() => {
+        this.loadingWikiPresets = false;
+      }),
+    ).subscribe({
+      next: (payload) => {
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        this.wikiPresets = items;
+        if (!this.selectedWikiPresetId && items.length) {
+          const recommended = items.find((item: any) => !!item?.recommended) || items[0];
+          this.selectedWikiPresetId = String(recommended?.id || '').trim();
+          this.onWikiPresetChanged();
+        }
+      },
+      error: () => {
+        this.wikiPresets = [];
+      },
+    });
+  }
+
+  selectedWikiPreset(): any | null {
+    if (!this.selectedWikiPresetId) return null;
+    return this.wikiPresets.find((item: any) => String(item?.id || '') === this.selectedWikiPresetId) || null;
+  }
+
+  onWikiPresetChanged() {
+    const preset = this.selectedWikiPreset();
+    if (!preset) return;
+    this.wikiCorpusUrl = String(preset?.corpus_url || '').trim();
+    this.wikiSourceId = String(preset?.source_id || '').trim();
+    this.wikiLanguage = String(preset?.language || 'en').trim() || 'en';
+    this.wikiCodeCompassPrerender = Boolean(preset?.codecompass_prerender);
+  }
+
+  canImportWiki(): boolean {
+    if (this.selectedWikiPresetId) return true;
+    return !!this.wikiCorpusUrl.trim();
+  }
+
+  importWiki() {
+    if (!this.hub || !this.canImportWiki()) return;
+    const payload: any = {
+      profile_name: this.selectedCollectionProfileName || 'default',
+      language: (this.wikiLanguage || 'en').trim().toLowerCase() || 'en',
+      strict: this.wikiStrict,
+      codecompass_prerender: this.wikiCodeCompassPrerender,
+      async: false,
+      source_metadata: {
+        imported_from: 'artifacts_component',
+      },
+    };
+    if (this.selectedWikiPresetId) {
+      payload.preset_id = this.selectedWikiPresetId;
+    } else {
+      payload.corpus_url = this.wikiCorpusUrl.trim();
+    }
+    if (this.wikiSourceId.trim()) {
+      payload.source_id = this.wikiSourceId.trim();
+    }
+    this.wikiImportBusy = true;
+    this.wikiImportResult = null;
+    this.hubApi.importWikiFromUrl(this.hub.url, payload).pipe(
+      finalize(() => {
+        this.wikiImportBusy = false;
+      }),
+    ).subscribe({
+      next: (response) => {
+        this.wikiImportResult = response?.import_report || null;
+        this.ns.success('Wikipedia-Import abgeschlossen');
+        this.loadCollections();
+      },
+      error: (error) => this.ns.error(this.ns.fromApiError(error, 'Wikipedia-Import fehlgeschlagen')),
     });
   }
 

@@ -565,6 +565,98 @@ class RagHelperIndexService:
             ),
         )
 
+    def _materialize_wiki_markdown_corpus(self, records: list[dict[str, Any]], *, root: Path) -> set[str]:
+        corpus_root = root / "wiki"
+        corpus_root.mkdir(parents=True, exist_ok=True)
+        by_article: dict[str, list[dict[str, Any]]] = {}
+        for record in records:
+            article_id = str(record.get("wiki_article_id") or self._wiki_slug(str(record.get("article_title") or ""))).strip()
+            if not article_id:
+                article_id = "wiki-article"
+            by_article.setdefault(article_id, []).append(record)
+
+        include_globs: set[str] = set()
+        for article_id, article_records in by_article.items():
+            article_title = str(article_records[0].get("article_title") or article_id).strip() or article_id
+            article_file = corpus_root / f"{article_id}.md"
+            article_records.sort(key=lambda item: int(item.get("chunk_ordinal") or 0))
+            markdown_lines = [f"# {article_title}", ""]
+            for entry in article_records:
+                section_title = str(entry.get("section_title") or "Overview").strip() or "Overview"
+                content = str(entry.get("content") or "").strip()
+                if not content:
+                    continue
+                markdown_lines.append(f"## {section_title}")
+                markdown_lines.append("")
+                markdown_lines.append(content)
+                markdown_lines.append("")
+            article_file.write_text("\n".join(markdown_lines).strip() + "\n", encoding="utf-8")
+            include_globs.add(f"wiki/{article_file.name}")
+        return include_globs
+
+    def _index_wiki_records_with_codecompass(
+        self,
+        *,
+        records: list[dict[str, Any]],
+        output_dir: Path,
+        profile: dict[str, Any],
+    ) -> dict[str, Any]:
+        helper_modules = self._ensure_helper_imports()
+        runtime_extensions = {"md"}
+        if profile.get("extensions"):
+            runtime_extensions = {ext for ext in set(profile["extensions"] or []) if ext in {"md", "txt", "rst", "adoc"}}
+            if not runtime_extensions:
+                runtime_extensions = {"md"}
+
+        cache_file = self._resolve_runtime_path(
+            profile.get("paths", {}).get("cache_file"),
+            output_dir=output_dir,
+            fallback=output_dir / ".cache" / "code_to_rag_cache.json",
+        )
+        error_log_file = self._resolve_runtime_path(
+            profile.get("paths", {}).get("error_log_file"),
+            output_dir=output_dir,
+            fallback=output_dir / ".errors" / "errors.jsonl",
+        )
+        if cache_file is not None:
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+        if error_log_file is not None:
+            error_log_file.parent.mkdir(parents=True, exist_ok=True)
+
+        incremental = bool(profile.get("flags", {}).get("incremental", False))
+        resume = bool(profile.get("flags", {}).get("resume", False))
+        show_progress = bool(profile.get("flags", {}).get("progress", False))
+        rebuild = not incremental and not resume
+        limits = helper_modules["ProcessingLimits"](**profile["limits"])
+        with tempfile.TemporaryDirectory(prefix="ananta-wiki-rag-helper-") as staging_dir:
+            staging_root = Path(staging_dir)
+            include_globs = sorted(self._materialize_wiki_markdown_corpus(records, root=staging_root))
+            helper_modules["process_project"](
+                root=staging_root,
+                out_dir=output_dir,
+                extensions=runtime_extensions,
+                excludes=getattr(helper_modules["codecompass"], "DEFAULT_EXCLUDES", set()),
+                include_code_snippets=profile["options"]["include_code_snippets"],
+                exclude_trivial_methods=profile["options"]["exclude_trivial_methods"],
+                include_xml_node_details=profile["options"]["include_xml_node_details"],
+                include_globs=include_globs,
+                exclude_globs=list(profile.get("filters", {}).get("exclude_globs") or []),
+                limits=limits,
+                java_extractor_cls=helper_modules["codecompass"].JavaExtractor,
+                adoc_extractor_cls=helper_modules["codecompass"].AdocExtractor,
+                xml_extractor_cls=helper_modules["codecompass"].XmlExtractor,
+                xsd_extractor_cls=helper_modules["codecompass"].XsdExtractor,
+                text_extractor_cls=helper_modules["codecompass"].TextFileExtractor,
+                incremental=incremental,
+                rebuild=rebuild,
+                resume=resume,
+                cache_file=cache_file,
+                dry_run=False,
+                show_progress=show_progress,
+                error_log_file=error_log_file,
+            )
+        return self._load_manifest(output_dir / "manifest.json")
+
     def _build_or_create_index(
         self,
         *,
@@ -871,6 +963,7 @@ class RagHelperIndexService:
         created_by: str | None,
         profile_name: str | None = None,
         source_metadata: dict[str, Any] | None = None,
+        codecompass_prerender: bool = False,
     ) -> tuple[KnowledgeIndexDB, KnowledgeIndexRunDB]:
         normalized_scope = self._normalize_source_scope(source_scope)
         normalized_source_id = str(source_id or "").strip()
@@ -943,32 +1036,47 @@ class RagHelperIndexService:
         started = time.perf_counter()
         try:
             serialized = sorted(json.dumps(dict(record), sort_keys=True, ensure_ascii=True) for record in normalized_records)
-            index_path.write_text("\n".join(serialized) + ("\n" if serialized else ""), encoding="utf-8")
-            parsed_records = [json.loads(line) for line in serialized]
             source_files = {
                 str((item or {}).get("file") or (item or {}).get("path") or "").strip()
-                for item in parsed_records
+                for item in normalized_records
             }
             source_files.discard("")
-            manifest = {
-                "source_scope": normalized_scope,
-                "source_id": normalized_source_id,
-                "profile_name": profile["name"],
-                "file_count": len(source_files),
-                "index_record_count": len(serialized),
-                "detail_record_count": 0,
-                "relation_record_count": 0,
-                "error_count": 0,
-                "partitioned_outputs": {},
-                "deterministic_order": "json_sort_keys",
-                "chunking": {
+            if normalized_scope == "wiki" and codecompass_prerender:
+                manifest = self._index_wiki_records_with_codecompass(
+                    records=normalized_records,
+                    output_dir=output_dir,
+                    profile=profile,
+                )
+                manifest = {
+                    **manifest,
+                    "chunking": {
+                        "source_scope": normalized_scope,
+                        "input_record_count": len(records),
+                        "normalized_record_count": len(normalized_records),
+                        "strategy": "wiki_sentence_chunks+codecompass_prerender",
+                    },
+                }
+            else:
+                index_path.write_text("\n".join(serialized) + ("\n" if serialized else ""), encoding="utf-8")
+                manifest = {
                     "source_scope": normalized_scope,
-                    "input_record_count": len(records),
-                    "normalized_record_count": len(normalized_records),
-                    "strategy": "wiki_sentence_chunks" if normalized_scope == "wiki" else "identity",
-                },
-                "generated_at": time.time(),
-            }
+                    "source_id": normalized_source_id,
+                    "profile_name": profile["name"],
+                    "file_count": len(source_files),
+                    "index_record_count": len(serialized),
+                    "detail_record_count": 0,
+                    "relation_record_count": 0,
+                    "error_count": 0,
+                    "partitioned_outputs": {},
+                    "deterministic_order": "json_sort_keys",
+                    "chunking": {
+                        "source_scope": normalized_scope,
+                        "input_record_count": len(records),
+                        "normalized_record_count": len(normalized_records),
+                        "strategy": "wiki_sentence_chunks" if normalized_scope == "wiki" else "identity",
+                    },
+                    "generated_at": time.time(),
+                }
             manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, sort_keys=True), encoding="utf-8")
             duration_ms = round((time.perf_counter() - started) * 1000, 3)
 

@@ -14,6 +14,10 @@ export class HubKnowledgeApiClient {
     return this.core.get<any>(`${baseUrl}/knowledge/index-profiles`, baseUrl, token, true, 120000);
   }
 
+  listWikiPresets(baseUrl: string, token?: string): Observable<any> {
+    return this.core.get<any>(`${baseUrl}/knowledge/wiki/presets`, baseUrl, token, true, 120000);
+  }
+
   createCollection(baseUrl: string, payload: { name: string; description?: string }, token?: string): Observable<any> {
     return this.core.post<any>(`${baseUrl}/knowledge/collections`, payload, baseUrl, token, false, 120000);
   }
@@ -33,5 +37,9 @@ export class HubKnowledgeApiClient {
     token?: string,
   ): Observable<any> {
     return this.core.post<any>(`${baseUrl}/knowledge/collections/${collectionId}/search`, payload, baseUrl, token, false, 120000);
+  }
+
+  importWikiFromUrl(baseUrl: string, payload: any, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/knowledge/wiki/import-url`, payload, baseUrl, token, false, 120000);
   }
 }

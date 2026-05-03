@@ -181,6 +181,7 @@ class KnowledgeIndexJobService:
         created_by: str | None,
         profile_name: str | None,
         source_metadata: dict[str, Any] | None,
+        codecompass_prerender: bool = False,
     ) -> None:
         KNOWLEDGE_INDEX_ACTIVE_JOBS.inc()
         started_at = time.time()
@@ -206,6 +207,7 @@ class KnowledgeIndexJobService:
                 created_by=created_by,
                 profile_name=profile_name,
                 source_metadata=source_metadata,
+                codecompass_prerender=codecompass_prerender,
             )
             self._save_job(
                 {
@@ -317,6 +319,7 @@ class KnowledgeIndexJobService:
         created_by: str | None,
         profile_name: str | None,
         source_metadata: dict[str, Any] | None = None,
+        codecompass_prerender: bool = False,
     ) -> dict[str, Any]:
         job_id = str(uuid.uuid4())
         self._save_job(
@@ -341,6 +344,7 @@ class KnowledgeIndexJobService:
             created_by=created_by,
             profile_name=profile_name,
             source_metadata=source_metadata,
+            codecompass_prerender=codecompass_prerender,
         )
         return self.get_job(job_id) or {}
 

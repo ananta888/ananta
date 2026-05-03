@@ -165,6 +165,7 @@ export class HubApiService {
   }
   listKnowledgeCollections(baseUrl: string, token?: string): Observable<any[]> { return this.knowledge.listCollections(baseUrl, token); }
   listKnowledgeIndexProfiles(baseUrl: string, token?: string): Observable<any> { return this.knowledge.listIndexProfiles(baseUrl, token); }
+  listWikiPresets(baseUrl: string, token?: string): Observable<any> { return this.knowledge.listWikiPresets(baseUrl, token); }
   createKnowledgeCollection(baseUrl: string, payload: { name: string; description?: string }, token?: string): Observable<any> {
     return this.knowledge.createCollection(baseUrl, payload, token);
   }
@@ -172,6 +173,9 @@ export class HubApiService {
   indexKnowledgeCollection(baseUrl: string, collectionId: string, body?: any, token?: string): Observable<any> { return this.knowledge.indexCollection(baseUrl, collectionId, body, token); }
   searchKnowledgeCollection(baseUrl: string, collectionId: string, payload: { query: string; top_k?: number }, token?: string): Observable<any> {
     return this.knowledge.searchCollection(baseUrl, collectionId, payload, token);
+  }
+  importWikiFromUrl(baseUrl: string, payload: any, token?: string): Observable<any> {
+    return this.knowledge.importWikiFromUrl(baseUrl, payload, token);
   }
 
   streamSystemEvents(baseUrl: string, token?: string): Observable<any> { return this.system.streamSystemEvents(baseUrl, token); }

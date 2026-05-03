@@ -28,10 +28,12 @@ export class AdminFacade {
   getArtifactRagPreview(baseUrl: string, artifactId: string, limit = 5, token?: string) { return this.hubApi.getArtifactRagPreview(baseUrl, artifactId, limit, token); }
   listKnowledgeCollections(baseUrl: string, token?: string) { return this.hubApi.listKnowledgeCollections(baseUrl, token); }
   listKnowledgeIndexProfiles(baseUrl: string, token?: string) { return this.hubApi.listKnowledgeIndexProfiles(baseUrl, token); }
+  listWikiPresets(baseUrl: string, token?: string) { return this.hubApi.listWikiPresets(baseUrl, token); }
   createKnowledgeCollection(baseUrl: string, payload: { name: string; description?: string }, token?: string) { return this.hubApi.createKnowledgeCollection(baseUrl, payload, token); }
   getKnowledgeCollection(baseUrl: string, collectionId: string, token?: string) { return this.hubApi.getKnowledgeCollection(baseUrl, collectionId, token); }
   indexKnowledgeCollection(baseUrl: string, collectionId: string, body?: any, token?: string) { return this.hubApi.indexKnowledgeCollection(baseUrl, collectionId, body, token); }
   searchKnowledgeCollection(baseUrl: string, collectionId: string, payload: { query: string; top_k?: number }, token?: string) { return this.hubApi.searchKnowledgeCollection(baseUrl, collectionId, payload, token); }
+  importWikiFromUrl(baseUrl: string, payload: any, token?: string) { return this.hubApi.importWikiFromUrl(baseUrl, payload, token); }
 
   listTeams(baseUrl: string, token?: string) { return this.hubApi.listTeams(baseUrl, token); }
   getTaskOrchestrationReadModel(baseUrl: string, token?: string) { return this.hubApi.getTaskOrchestrationReadModel(baseUrl, token); }

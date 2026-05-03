@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import hashlib
+import gzip
 import json
 import logging
 import re
+import shutil
 import time
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
+from agent.config import settings
 from agent.db_models import ArtifactDB, ArtifactVersionDB, ExtractedDocumentDB, KnowledgeCollectionDB, KnowledgeLinkDB
 from agent.repository import (
     artifact_repo,
@@ -274,6 +279,64 @@ class IngestionService:
             },
             "deterministic_order": "article_section_file_chunk_ordinal",
         }
+
+    def import_wiki_jsonl_from_url(
+        self,
+        *,
+        corpus_url: str,
+        source_id: str | None = None,
+        default_language: str = "en",
+        strict: bool = False,
+        max_download_bytes: int = 128 * 1024 * 1024,
+    ) -> dict[str, object]:
+        url = str(corpus_url or "").strip()
+        if not url:
+            raise ValueError("wiki_corpus_url_required")
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in {"https", "http"}:
+            raise ValueError("wiki_corpus_url_invalid_scheme")
+
+        wiki_corpus_dir = Path(settings.data_dir) / "wiki_corpora"
+        wiki_corpus_dir.mkdir(parents=True, exist_ok=True)
+        filename = Path(parsed.path or "").name or "wiki-corpus.jsonl"
+        safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", filename).strip("-") or "wiki-corpus.jsonl"
+        if safe_name.endswith(".gz"):
+            local_compressed = wiki_corpus_dir / safe_name
+            local_jsonl = wiki_corpus_dir / f"{Path(safe_name).stem}.jsonl"
+        else:
+            local_compressed = None
+            local_jsonl = wiki_corpus_dir / safe_name
+
+        downloaded_bytes = 0
+        with urllib.request.urlopen(url, timeout=45) as response:
+            with (local_compressed or local_jsonl).open("wb") as output:
+                while True:
+                    chunk = response.read(1024 * 128)
+                    if not chunk:
+                        break
+                    downloaded_bytes += len(chunk)
+                    if downloaded_bytes > max_download_bytes:
+                        raise ValueError("wiki_corpus_too_large")
+                    output.write(chunk)
+
+        if local_compressed is not None:
+            with gzip.open(local_compressed, "rb") as source:
+                with local_jsonl.open("wb") as output:
+                    shutil.copyfileobj(source, output)
+
+        report = self.import_wiki_jsonl(
+            corpus_path=str(local_jsonl),
+            source_id=source_id,
+            default_language=default_language,
+            strict=strict,
+        )
+        report["download"] = {
+            "url": url,
+            "bytes": downloaded_bytes,
+            "stored_path": str(local_jsonl),
+            "compressed_path": str(local_compressed) if local_compressed else None,
+        }
+        return report
 
 
 ingestion_service = IngestionService()
