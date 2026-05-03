@@ -91,6 +91,8 @@ public class VoxtralOfflinePlugin extends Plugin {
     );
     private static final String DEFAULT_VOXTRAL_REALTIME_SOURCE_URL = "https://github.com/andrijdavid/voxtral.cpp/archive/7deef66c8ee473d3ceffc57fb0cd17977eeebca9.tar.gz";
     private static final String DEFAULT_GGML_SOURCE_URL = "https://github.com/ggml-org/ggml/archive/5cecdad692d868e28dbd2f7c468504770108f30c.tar.gz";
+    private static final String BUNDLED_VOXTRAL_RUNNER_ASSET_DIR = "voxtral-runner";
+    private static final String BUNDLED_VOXTRAL_RUNNER_FILE = "voxtral-realtime";
     private static final String PROOT_RUNTIME_SUBDIR = "proot-runtime";
     private static final String LLM_RUNTIME_SUBDIR = "llm-runtime";
     private static final String PREFS_NAME = "voxtral_offline_prefs";
@@ -109,6 +111,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         super.load();
         // Self-heal stale proot wrapper targets after APK updates (native lib path changes each install).
         resolveProotWrapper();
+        installBundledVoxtralRunnerIfAvailable();
     }
     private final PermissionBroker permissionBroker = new PermissionBroker();
 
@@ -130,6 +133,7 @@ public class VoxtralOfflinePlugin extends Plugin {
 
     @PluginMethod
     public void getStatus(PluginCall call) {
+        installBundledVoxtralRunnerIfAvailable();
         restoreSelectionState();
         JSObject result = new JSObject();
         result.put("isNative", true);
@@ -286,9 +290,10 @@ public class VoxtralOfflinePlugin extends Plugin {
             try {
                 File runnerBinary = new File(binDir, "voxtral-realtime-bin");
                 File runnerWrapper = new File(binDir, "voxtral-realtime");
+                installBundledVoxtralRunnerIfAvailable();
 
                 // Fast path: avoid expensive rebuild if a valid runner is already provisioned.
-                if (runnerWrapper.isFile() && runnerBinary.isFile()) {
+                if (runnerWrapper.isFile()) {
                     try {
                         File stagedRunner = prepareRunnerForExecution(runnerWrapper);
                         if (canSpawnRunner(stagedRunner) || canSpawnRunnerViaProot(stagedRunner)) {
@@ -296,7 +301,7 @@ public class VoxtralOfflinePlugin extends Plugin {
                             persistSelection(PREF_RUNNER_PATH, lastRunnerPath);
                             JSObject cached = new JSObject();
                             cached.put("runnerPath", runnerWrapper.getAbsolutePath());
-                            cached.put("binaryPath", runnerBinary.getAbsolutePath());
+                            cached.put("binaryPath", runnerBinary.isFile() ? runnerBinary.getAbsolutePath() : runnerWrapper.getAbsolutePath());
                             cached.put("sourceArchivePath", "");
                             cached.put("sourceBytes", 0);
                             cached.put("sourceSha256", "");
@@ -801,6 +806,7 @@ public class VoxtralOfflinePlugin extends Plugin {
 
     @PluginMethod
     public void listLocalAssets(PluginCall call) {
+        installBundledVoxtralRunnerIfAvailable();
         File modelDir = ensureDir("voxtral/models");
         File runnerDir = ensureDir("voxtral/bin");
 
@@ -1346,6 +1352,11 @@ public class VoxtralOfflinePlugin extends Plugin {
         return runRunnerSyncViaProot(runnerFile, modelFile, audioFile, false);
     }
 
+    private String runnerLibraryPathExport(File runnerFile) {
+        if (runnerFile == null || runnerFile.getParentFile() == null) return "";
+        return "export LD_LIBRARY_PATH=" + shQuote(runnerFile.getParentFile().getAbsolutePath()) + ":${LD_LIBRARY_PATH:-}; ";
+    }
+
     private String runRunnerSyncViaProot(File runnerFile, File modelFile, File audioFile, boolean lowMemoryMode) throws IOException, InterruptedException {
         File prootWrapper = resolveProotWrapper();
         File ubuntuRootfs = resolveUbuntuRootfs();
@@ -1354,6 +1365,7 @@ public class VoxtralOfflinePlugin extends Plugin {
         }
         String wrappedInnerCommand = "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
             + "export HOME=/root; export TERM=xterm-256color; "
+            + runnerLibraryPathExport(runnerFile)
             + joinShellArgs(buildRunnerCommand(runnerFile, modelFile, audioFile, lowMemoryMode));
         try {
             String output = runShellCommandViaProot(wrappedInnerCommand);
@@ -2402,6 +2414,59 @@ public class VoxtralOfflinePlugin extends Plugin {
         return prefs().getString(key, "");
     }
 
+    private void installBundledVoxtralRunnerIfAvailable() {
+        try {
+            String[] assets = getContext().getAssets().list(BUNDLED_VOXTRAL_RUNNER_ASSET_DIR);
+            if (assets == null || assets.length == 0) return;
+            boolean hasRunner = false;
+            for (String asset : assets) {
+                if (BUNDLED_VOXTRAL_RUNNER_FILE.equals(asset)) {
+                    hasRunner = true;
+                    break;
+                }
+            }
+            if (!hasRunner) return;
+
+            File runnerDir = ensureDir("voxtral/bin");
+            if (runnerDir == null) {
+                appendAudit("deny", "voxtral_runner_asset", "missing_runner_directory");
+                return;
+            }
+            for (String asset : assets) {
+                if (asset == null || asset.isBlank()) continue;
+                copyAssetToFile(BUNDLED_VOXTRAL_RUNNER_ASSET_DIR + "/" + asset, new File(runnerDir, asset));
+            }
+
+            File runner = new File(runnerDir, BUNDLED_VOXTRAL_RUNNER_FILE);
+            if (runner.isFile()) {
+                runner.setReadable(true, false);
+                runner.setWritable(true, true);
+                runner.setExecutable(true, false);
+                lastRunnerPath = runner.getAbsolutePath();
+                persistSelection(PREF_RUNNER_PATH, lastRunnerPath);
+            }
+        } catch (IOException error) {
+            appendAudit("deny", "voxtral_runner_asset", "install_failed " + error.getMessage());
+        }
+    }
+
+    private void copyAssetToFile(String assetPath, File target) throws IOException {
+        try (InputStream input = new BufferedInputStream(getContext().getAssets().open(assetPath));
+             FileOutputStream output = new FileOutputStream(target, false)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                output.write(buffer, 0, read);
+            }
+            output.flush();
+        }
+        target.setReadable(true, false);
+        target.setWritable(true, true);
+        if (BUNDLED_VOXTRAL_RUNNER_FILE.equals(target.getName())) {
+            target.setExecutable(true, false);
+        }
+    }
+
     private File selectDefaultAsset(File dir, String extensionFilter) {
         if (dir == null || !dir.isDirectory()) return null;
         File[] files = dir.listFiles();
@@ -2552,6 +2617,7 @@ public class VoxtralOfflinePlugin extends Plugin {
             String prootLoaderLink = new File(getContext().getDataDir(), "ldr/libproot-loader.so").getAbsolutePath();
             String wrappedInnerCommand = "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; "
                 + "export HOME=/root; export TERM=xterm-256color; "
+                + runnerLibraryPathExport(runnerFile)
                 + shQuote(runnerFile.getAbsolutePath()) + " --help >/dev/null 2>&1";
             String cmd = ""
                 + "ANANTA_PROOT_RUNTIME=" + shQuote(runtimePath) + "; "

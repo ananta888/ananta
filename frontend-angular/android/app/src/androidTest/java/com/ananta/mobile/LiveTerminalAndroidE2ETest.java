@@ -594,6 +594,57 @@ public class LiveTerminalAndroidE2ETest {
     }
 
     @Test
+    public void bundledVoxtralRunnerIsInstalled() throws InterruptedException {
+        activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
+        activityRule.getScenario().onActivity(activity -> {});
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "inspect bundled voxtral runner",
+            "window.__anantaBundledVoxtralRunner='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var vx=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.VoxtralOffline;"
+                + "    if(!vx){window.__anantaBundledVoxtralRunner='ERR:NO_VOXTRAL_PLUGIN';return;}"
+                + "    var status=await vx.getStatus();"
+                + "    var assets=await vx.listLocalAssets();"
+                + "    var runners=(assets && Array.isArray(assets.runners)) ? assets.runners : [];"
+                + "    var runner=runners.find(function(r){return String((r&&r.name)||'')==='voxtral-realtime';});"
+                + "    if(!runner){window.__anantaBundledVoxtralRunner='ERR:NO_BUNDLED_RUNNER';return;}"
+                + "    var rp=String((status && status.runnerPath) ? status.runnerPath : runner.path || '');"
+                + "    if(rp.indexOf('/files/voxtral/bin/voxtral-realtime')<0){window.__anantaBundledVoxtralRunner='ERR:BAD_RUNNER_PATH:' + rp;return;}"
+                + "    window.__anantaBundledVoxtralRunner='OK:' + rp;"
+                + "  }catch(e){"
+                + "    window.__anantaBundledVoxtralRunner='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "bundled voxtral runner detected",
+            "var v=String(window.__anantaBundledVoxtralRunner||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            60,
+            1_000L
+        );
+
+        runIfPresent(
+            "log bundled voxtral runner result",
+            "console.log('ANANTA_BUNDLED_VOXTRAL_RUNNER_RESULT:' + String(window.__anantaBundledVoxtralRunner||'').slice(-3000)); return true;"
+        );
+
+        waitForTrueWithRetry(
+            "bundled voxtral runner installed",
+            "var v=String(window.__anantaBundledVoxtralRunner||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "return v.indexOf('OK:')===0;",
+            30,
+            1_000L
+        );
+    }
+
+    @Test
     public void voxtralRunnerProvisionButtonActionWorks() throws InterruptedException {
         activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
         activityRule.getScenario().onActivity(activity -> {});
