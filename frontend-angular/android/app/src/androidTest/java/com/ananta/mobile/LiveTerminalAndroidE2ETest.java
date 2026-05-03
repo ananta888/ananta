@@ -808,6 +808,150 @@ public class LiveTerminalAndroidE2ETest {
     }
 
     @Test
+    public void wikiPresetImportFlowWorks() throws InterruptedException {
+        activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
+        activityRule.getScenario().onActivity(activity -> {});
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "start hub runtime and seed auth",
+            "window.__anantaWikiSetup='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var py=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PythonRuntime;"
+                + "    if(!py){window.__anantaWikiSetup='ERR:NO_PY_PLUGIN';return;}"
+                + "    await py.startHub();"
+                + "    await py.startWorker();"
+                + "    var rs=await py.getRuntimeStatus();"
+                + "    if(!(rs && rs.hubRunning && rs.workerRunning)){window.__anantaWikiSetup='ERR:RUNTIME_NOT_RUNNING';return;}"
+                + "    var loginResp=await fetch('http://127.0.0.1:5000/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin'})});"
+                + "    var loginJson=await loginResp.json();"
+                + "    var loginData=loginJson && loginJson.data ? loginJson.data : {};"
+                + "    var token=String(loginData.access_token||'').trim();"
+                + "    if(!token){window.__anantaWikiSetup='ERR:NO_ACCESS_TOKEN';return;}"
+                + "    localStorage.setItem('ananta.user.token', token);"
+                + "    localStorage.setItem('ananta.mobile.proot.distro','ubuntu');"
+                + "    window.__anantaWikiSetup='OK:' + token.slice(0, 12);"
+                + "  }catch(e){"
+                + "    window.__anantaWikiSetup='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "wiki setup finished",
+            "var v=String(window.__anantaWikiSetup||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            120,
+            1_000L
+        );
+
+        waitForTrueWithRetry(
+            "wiki setup successful",
+            "var v=String(window.__anantaWikiSetup||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "return v.indexOf('OK:')===0;",
+            30,
+            1_000L
+        );
+
+        runIfPresent(
+            "navigate to artifacts route",
+            "if(!(window.location.pathname||'').includes('/artifacts')){window.location.assign('/artifacts');}"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "artifacts wiki section visible",
+            "return (window.location.pathname||'').includes('/artifacts') "
+                + "&& Array.from(document.querySelectorAll('h3')).some(function(el){ return (el.textContent||'').indexOf('Wikipedia als lokale RAG-Quelle')>=0; }) "
+                + "&& Array.from(document.querySelectorAll('button')).some(function(btn){ return (btn.textContent||'').indexOf('Wikipedia importieren')>=0; });",
+            90,
+            1_000L
+        );
+
+        runIfPresent(
+            "run wiki preset import API flow",
+            "window.__anantaWikiImport='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var token=String(localStorage.getItem('ananta.user.token')||'').trim();"
+                + "    if(!token){window.__anantaWikiImport='ERR:NO_TOKEN';return;}"
+                + "    var headers={Authorization:'Bearer '+token};"
+                + "    var presetsResp=await fetch('http://127.0.0.1:5000/api/knowledge/wiki/presets',{headers:headers});"
+                + "    if(!(presetsResp && presetsResp.ok)){"
+                + "      presetsResp=await fetch('http://127.0.0.1:5000/knowledge/wiki/presets',{headers:headers});"
+                + "    }"
+                + "    var presetsJson=await presetsResp.json();"
+                + "    var presetsPayload=(presetsJson && presetsJson.data) ? presetsJson.data : presetsJson;"
+                + "    var items=[];"
+                + "    if(Array.isArray(presetsPayload)){ items=presetsPayload; }"
+                + "    else if(presetsPayload && Array.isArray(presetsPayload.items)){ items=presetsPayload.items; }"
+                + "    var preset=items.find(function(item){ return !!item && !!item.recommended; }) || items[0] || null;"
+                + "    var sourceId='android-e2e-wiki-' + Date.now();"
+                + "    var importBody=(preset && preset.id)"
+                + "      ? {preset_id:String(preset.id),source_id:sourceId,strict:false,codecompass_prerender:false,async:false}"
+                + "      : {"
+                + "          corpus_url:'https://raw.githubusercontent.com/ananta888/ananta/refs/heads/main/data/wiki-presets/wiki-ananta-core-en.jsonl',"
+                + "          source_id:sourceId,"
+                + "          language:'en',"
+                + "          strict:false,"
+                + "          codecompass_prerender:false,"
+                + "          async:false"
+                + "        };"
+                + "    var importResp=await fetch('http://127.0.0.1:5000/api/knowledge/wiki/import-url',{"
+                + "      method:'POST',"
+                + "      headers:{'Content-Type':'application/json', Authorization:'Bearer '+token},"
+                + "      body:JSON.stringify(importBody)"
+                + "    });"
+                + "    if(!(importResp && importResp.ok)){"
+                + "      importResp=await fetch('http://127.0.0.1:5000/knowledge/wiki/import-url',{"
+                + "        method:'POST',"
+                + "        headers:{'Content-Type':'application/json', Authorization:'Bearer '+token},"
+                + "        body:JSON.stringify(importBody)"
+                + "      });"
+                + "    }"
+                + "    var importJson=await importResp.json();"
+                + "    var importData=(importJson && importJson.data) ? importJson.data : {};"
+                + "    var report=importData.import_report || {};"
+                + "    var stats=report.stats || {};"
+                + "    var run=importData.run || {};"
+                + "    if(String(report.source_id||'').trim()!==sourceId){window.__anantaWikiImport='ERR:SOURCE_ID_MISMATCH';return;}"
+                + "    if(Number(stats.records_total||0) <= 0){window.__anantaWikiImport='ERR:NO_IMPORTED_RECORDS';return;}"
+                + "    var runStatus=String(run.status||'').trim().toLowerCase();"
+                + "    if(runStatus && runStatus!=='completed'){window.__anantaWikiImport='ERR:RUN_NOT_COMPLETED:' + runStatus;return;}"
+                + "    window.__anantaWikiImport='OK:' + JSON.stringify({presetId:String((preset&&preset.id)||'custom-url'),sourceId:sourceId,records:Number(stats.records_total||0),runStatus:runStatus||'completed'});"
+                + "  }catch(e){"
+                + "    window.__anantaWikiImport='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "wiki import flow finished",
+            "var v=String(window.__anantaWikiImport||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            1200,
+            1_000L
+        );
+
+        runIfPresent(
+            "log wiki import result",
+            "console.log('ANANTA_WIKI_IMPORT_RESULT:' + String(window.__anantaWikiImport||'').slice(-3000)); return true;"
+        );
+
+        waitForTrueWithRetry(
+            "wiki import succeeded",
+            "var v=String(window.__anantaWikiImport||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "return v.indexOf('OK:')===0;",
+            30,
+            1_000L
+        );
+    }
+
+    @Test
     public void opencodeDownloadsOnDemandAndBecomesReady() throws InterruptedException {
         activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
         activityRule.getScenario().onActivity(activity -> {});
