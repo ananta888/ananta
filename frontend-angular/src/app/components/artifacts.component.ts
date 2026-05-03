@@ -667,6 +667,52 @@ export class ArtifactsComponent {
   knowledgeSearchResults: any[] = [];
   selectedArtifactProfileName = 'default';
   selectedCollectionProfileName = 'default';
+  readonly fallbackWikiPresets: any[] = [
+    {
+      id: 'wikipedia-en-abstract-latest',
+      label: 'Wikipedia Dump: English Abstracts (latest)',
+      description: 'Echter Wikimedia-Dump (XML.GZ, Abstract-Feed) fuer schnelle lokale Wissenssuche.',
+      corpus_url: 'https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-abstract1.xml.gz',
+      source_id: 'wikipedia-en-abstract-latest',
+      language: 'en',
+      size_hint: '~50-150 MB (compressed)',
+      recommended: true,
+      codecompass_prerender: true,
+    },
+    {
+      id: 'wikipedia-de-abstract-latest',
+      label: 'Wikipedia Dump: German Abstracts (latest)',
+      description: 'Echter Wikimedia-Dump (XML.GZ, Abstract-Feed) fuer deutschsprachige lokale RAG-Nutzung.',
+      corpus_url: 'https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-abstract1.xml.gz',
+      source_id: 'wikipedia-de-abstract-latest',
+      language: 'de',
+      size_hint: '~40-120 MB (compressed)',
+      recommended: false,
+      codecompass_prerender: true,
+    },
+    {
+      id: 'wikipedia-simple-abstract-latest',
+      label: 'Wikipedia Dump: Simple English Abstracts (latest)',
+      description: 'Echter Wikimedia-Dump (XML.GZ) mit kompakterem Vokabular fuer ressourcenschonende Einstiege.',
+      corpus_url: 'https://dumps.wikimedia.org/simplewiki/latest/simplewiki-latest-abstract1.xml.gz',
+      source_id: 'wikipedia-simple-abstract-latest',
+      language: 'en',
+      size_hint: '~10-40 MB (compressed)',
+      recommended: false,
+      codecompass_prerender: true,
+    },
+    {
+      id: 'wikipedia-simple-pages-latest',
+      label: 'Wikipedia Dump: Simple English Pages (latest)',
+      description: 'Echter Wikimedia-Pages-Dump (XML.BZ2) mit Artikeltexten fuer tieferes lokales RAG.',
+      corpus_url: 'https://dumps.wikimedia.org/simplewiki/latest/simplewiki-latest-pages-articles-multistream.xml.bz2',
+      source_id: 'wikipedia-simple-pages-latest',
+      language: 'en',
+      size_hint: '~100-600 MB (compressed)',
+      recommended: false,
+      codecompass_prerender: true,
+    },
+  ];
   wikiPresets: any[] = [];
   loadingWikiPresets = false;
   selectedWikiPresetId = '';
@@ -689,6 +735,7 @@ export class ArtifactsComponent {
   decisionExplanation = decisionExplanation;
 
   constructor() {
+    this.applyWikiPresets([]);
     this.refresh();
     this.loadCollections();
     this.loadProfiles();
@@ -807,17 +854,32 @@ export class ArtifactsComponent {
     ).subscribe({
       next: (payload) => {
         const items = Array.isArray(payload?.items) ? payload.items : [];
-        this.wikiPresets = items;
-        if (!this.selectedWikiPresetId && items.length) {
-          const recommended = items.find((item: any) => !!item?.recommended) || items[0];
-          this.selectedWikiPresetId = String(recommended?.id || '').trim();
-          this.onWikiPresetChanged();
-        }
+        this.applyWikiPresets(items);
       },
       error: () => {
-        this.wikiPresets = [];
+        this.applyWikiPresets([]);
       },
     });
+  }
+
+  private applyWikiPresets(items: any[]) {
+    const remote = Array.isArray(items) ? items : [];
+    const merged = [...remote, ...this.fallbackWikiPresets];
+    const deduped: any[] = [];
+    const seen = new Set<string>();
+    for (const item of merged) {
+      const id = String(item?.id || '').trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      deduped.push(item);
+    }
+    const effective = deduped.length ? deduped : this.fallbackWikiPresets;
+    this.wikiPresets = effective;
+    if (!this.selectedWikiPresetId && effective.length) {
+      const recommended = effective.find((item: any) => !!item?.recommended) || effective[0];
+      this.selectedWikiPresetId = String(recommended?.id || '').trim();
+      this.onWikiPresetChanged();
+    }
   }
 
   selectedWikiPreset(): any | null {
@@ -851,8 +913,9 @@ export class ArtifactsComponent {
         imported_from: 'artifacts_component',
       },
     };
-    if (this.selectedWikiPresetId) {
-      payload.preset_id = this.selectedWikiPresetId;
+    const preset = this.selectedWikiPreset();
+    if (preset && String(preset?.corpus_url || '').trim()) {
+      payload.corpus_url = String(preset.corpus_url).trim();
     } else {
       payload.corpus_url = this.wikiCorpusUrl.trim();
     }

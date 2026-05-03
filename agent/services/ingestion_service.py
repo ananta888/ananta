@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import bz2
 import gzip
 import json
 import logging
@@ -9,6 +10,7 @@ import shutil
 import time
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from agent.config import settings
@@ -151,6 +153,153 @@ class IngestionService:
         normalized = re.sub(r"[^a-z0-9]+", "-", str(article_title or "").strip().lower()).strip("-")
         return normalized or "wiki-article"
 
+    def _tag_local_name(self, tag: str) -> str:
+        return str(tag or "").rsplit("}", 1)[-1].strip().lower()
+
+    def _clean_wiki_markup(self, raw_text: str) -> str:
+        text = str(raw_text or "")
+        if not text:
+            return ""
+        # Basic wikitext cleanup for retrieval quality without full MediaWiki parsing.
+        text = re.sub(r"\{\{[^{}]{0,4000}\}\}", " ", text)
+        text = re.sub(r"\[\[([^|\]]+)\|([^\]]+)\]\]", r"\2", text)
+        text = re.sub(r"\[\[([^\]]+)\]\]", r"\1", text)
+        text = re.sub(r"==+\s*([^=\n]+?)\s*==+", r" \1 ", text)
+        text = re.sub(r"<ref[^>/]*>.*?</ref>", " ", text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r"<ref[^>]*/>", " ", text, flags=re.IGNORECASE)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
+    def import_wiki_xml(
+        self,
+        *,
+        corpus_path: str,
+        source_id: str | None = None,
+        default_language: str = "en",
+        strict: bool = False,
+    ) -> dict[str, object]:
+        path = Path(str(corpus_path or "").strip()).expanduser().resolve()
+        if not path.exists():
+            raise ValueError("wiki_corpus_not_found")
+        if not path.is_file():
+            raise ValueError("wiki_corpus_not_file")
+        normalized_source_id = str(source_id or "").strip() or Path(path.stem).stem
+        records: list[dict] = []
+        issues: list[dict] = []
+        page_count = 0
+        doc_count = 0
+        item_ordinal = 0
+
+        if path.name.endswith(".bz2"):
+            raw_stream = bz2.open(path, "rb")
+        elif path.name.endswith(".gz"):
+            raw_stream = gzip.open(path, "rb")
+        else:
+            raw_stream = path.open("rb")
+
+        with raw_stream as stream:
+            context = ET.iterparse(stream, events=("end",))
+            for _event, elem in context:
+                local_name = self._tag_local_name(elem.tag)
+                if local_name == "page":
+                    page_count += 1
+                    item_ordinal += 1
+                    title = str(elem.findtext(".//{*}title") or "").strip()
+                    text = str(elem.findtext(".//{*}revision/{*}text") or "").strip()
+                    cleaned = self._clean_wiki_markup(text)
+                    if not title or not cleaned:
+                        issue = {"item": item_ordinal, "error": "missing_page_content"}
+                        issues.append(issue)
+                        if strict:
+                            raise ValueError("wiki_corpus_invalid_record")
+                    else:
+                        try:
+                            records.extend(
+                                self._normalize_wiki_record(
+                                    {
+                                        "article_title": title,
+                                        "section_title": "Overview",
+                                        "language": default_language,
+                                        "content": cleaned,
+                                        "file": path.name,
+                                    },
+                                    source_path=path,
+                                    source_id=normalized_source_id,
+                                    line_number=item_ordinal,
+                                    default_language=default_language,
+                                    source_format="xml",
+                                )
+                            )
+                        except ValueError as exc:
+                            issue = {"item": item_ordinal, "error": str(exc)}
+                            issues.append(issue)
+                            if strict:
+                                raise ValueError("wiki_corpus_invalid_record") from exc
+                    elem.clear()
+                elif local_name == "doc":
+                    doc_count += 1
+                    item_ordinal += 1
+                    title = str(elem.findtext("./title") or "").strip()
+                    abstract = str(elem.findtext("./abstract") or elem.findtext("./text") or "").strip()
+                    cleaned = self._clean_wiki_markup(abstract)
+                    if not title or not cleaned:
+                        issue = {"item": item_ordinal, "error": "missing_doc_content"}
+                        issues.append(issue)
+                        if strict:
+                            raise ValueError("wiki_corpus_invalid_record")
+                    else:
+                        try:
+                            records.extend(
+                                self._normalize_wiki_record(
+                                    {
+                                        "article_title": title,
+                                        "section_title": "Overview",
+                                        "language": default_language,
+                                        "content": cleaned,
+                                        "file": path.name,
+                                    },
+                                    source_path=path,
+                                    source_id=normalized_source_id,
+                                    line_number=item_ordinal,
+                                    default_language=default_language,
+                                    source_format="xml",
+                                )
+                            )
+                        except ValueError as exc:
+                            issue = {"item": item_ordinal, "error": str(exc)}
+                            issues.append(issue)
+                            if strict:
+                                raise ValueError("wiki_corpus_invalid_record") from exc
+                    elem.clear()
+
+        records = sorted(
+            records,
+            key=lambda item: (
+                str(item.get("article_title") or "").lower(),
+                str(item.get("section_title") or "").lower(),
+                str(item.get("file") or "").lower(),
+                int(item.get("chunk_ordinal") or 0),
+            ),
+        )
+        if not records:
+            raise ValueError("wiki_corpus_no_valid_records")
+        return {
+            "source_scope": "wiki",
+            "source_id": normalized_source_id,
+            "corpus_path": str(path),
+            "records": records,
+            "issues": issues,
+            "stats": {
+                "input_pages": page_count,
+                "input_docs": doc_count,
+                "normalized_records": len(records),
+                "issues": len(issues),
+            },
+            "deterministic_order": "article_section_file_chunk_ordinal",
+            "format": "xml",
+        }
+
     def _normalize_wiki_record(
         self,
         record: dict,
@@ -159,6 +308,7 @@ class IngestionService:
         source_id: str,
         line_number: int,
         default_language: str,
+        source_format: str = "jsonl",
     ) -> list[dict]:
         file_hint = str(record.get("file") or record.get("path") or source_path.name).strip() or source_path.name
         article_title = str(record.get("article_title") or record.get("title") or "").strip()
@@ -196,7 +346,7 @@ class IngestionService:
                         "source_id": source_id,
                         "source_line": line_number,
                         "source_path": str(source_path),
-                        "format": "jsonl",
+                        "format": source_format,
                     },
                     "content": chunk_text,
                 }
@@ -247,6 +397,7 @@ class IngestionService:
                         source_id=normalized_source_id,
                         line_number=line_number,
                         default_language=default_language,
+                        source_format="jsonl",
                     )
                 )
             except ValueError as exc:
@@ -300,16 +451,16 @@ class IngestionService:
         wiki_corpus_dir.mkdir(parents=True, exist_ok=True)
         filename = Path(parsed.path or "").name or "wiki-corpus.jsonl"
         safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", filename).strip("-") or "wiki-corpus.jsonl"
-        if safe_name.endswith(".gz"):
+        if safe_name.endswith(".gz") or safe_name.endswith(".bz2"):
             local_compressed = wiki_corpus_dir / safe_name
-            local_jsonl = wiki_corpus_dir / f"{Path(safe_name).stem}.jsonl"
+            local_extracted = wiki_corpus_dir / Path(safe_name).stem
         else:
             local_compressed = None
-            local_jsonl = wiki_corpus_dir / safe_name
+            local_extracted = wiki_corpus_dir / safe_name
 
         downloaded_bytes = 0
         with urllib.request.urlopen(url, timeout=45) as response:
-            with (local_compressed or local_jsonl).open("wb") as output:
+            with (local_compressed or local_extracted).open("wb") as output:
                 while True:
                     chunk = response.read(1024 * 128)
                     if not chunk:
@@ -320,20 +471,36 @@ class IngestionService:
                     output.write(chunk)
 
         if local_compressed is not None:
-            with gzip.open(local_compressed, "rb") as source:
-                with local_jsonl.open("wb") as output:
+            if str(local_compressed).endswith(".gz"):
+                source_stream = gzip.open(local_compressed, "rb")
+            else:
+                source_stream = bz2.open(local_compressed, "rb")
+            with source_stream as source:
+                with local_extracted.open("wb") as output:
                     shutil.copyfileobj(source, output)
+        local_corpus = local_extracted
 
-        report = self.import_wiki_jsonl(
-            corpus_path=str(local_jsonl),
-            source_id=source_id,
-            default_language=default_language,
-            strict=strict,
-        )
+        lower_name = str(local_corpus.name).lower()
+        if lower_name.endswith(".jsonl"):
+            report = self.import_wiki_jsonl(
+                corpus_path=str(local_corpus),
+                source_id=source_id,
+                default_language=default_language,
+                strict=strict,
+            )
+        elif lower_name.endswith(".xml"):
+            report = self.import_wiki_xml(
+                corpus_path=str(local_corpus),
+                source_id=source_id,
+                default_language=default_language,
+                strict=strict,
+            )
+        else:
+            raise ValueError("wiki_corpus_unknown_format")
         report["download"] = {
             "url": url,
             "bytes": downloaded_bytes,
-            "stored_path": str(local_jsonl),
+            "stored_path": str(local_corpus),
             "compressed_path": str(local_compressed) if local_compressed else None,
         }
         return report

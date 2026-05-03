@@ -149,6 +149,18 @@ def test_knowledge_index_profiles_route_returns_catalog(client, admin_auth_heade
     assert payload["items"][0]["name"] == "default"
 
 
+def test_knowledge_wiki_presets_route_returns_multiple_download_sources(client, admin_auth_header):
+    response = client.get("/knowledge/wiki/presets", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    items = payload["items"]
+    assert len(items) >= 4
+    assert any(item["id"] == "wikipedia-en-abstract-latest" for item in items)
+    assert any(item["id"] == "wikipedia-de-abstract-latest" for item in items)
+    assert any(item["id"] == "wikipedia-simple-pages-latest" for item in items)
+
+
 def test_knowledge_collection_index_route_supports_async_jobs(client, admin_auth_header, monkeypatch):
     create_res = client.post(
         "/knowledge/collections",

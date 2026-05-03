@@ -130,7 +130,9 @@ __pycache__/
 /frontend-angular/.node-version
 /client_surfaces/vscode_extension/node_modules/
 /.rag/
-/data/
+/data/*
+!/data/wiki-presets/
+!/data/wiki-presets/*.jsonl
 /.ananta/
 /tests/venv/
 /venv/
