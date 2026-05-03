@@ -18,12 +18,6 @@ export interface VoxtralLocalAsset {
   executable?: boolean;
 }
 
-export interface VoxtralRunnerDownloadPreset {
-  label: string;
-  url: string;
-  fileName?: string;
-}
-
 interface VoxtralOfflinePlugin {
   getStatus(): Promise<VoxtralStatus>;
   requestMicrophonePermission(): Promise<{ state: string }>;
@@ -172,9 +166,5 @@ export class VoxtralOfflineService {
   async clearLastAudio(): Promise<void> {
     if (!this.isNative) return;
     await VoxtralOffline.clearLastAudio();
-  }
-
-  async resolveLatestAndroidRunnerPreset(): Promise<VoxtralRunnerDownloadPreset> {
-    throw new Error('Kein sicheres Runner-Preset verfuegbar: llama.cpp Android-Runner unterstuetzen Voxtral-Speech nicht. Nutze "Voxtral-Runner automatisch bauen" oder stelle einen CrispASR/Voxtral-Runner direkt bereit.');
   }
 }

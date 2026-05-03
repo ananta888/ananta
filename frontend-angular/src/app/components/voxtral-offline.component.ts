@@ -110,15 +110,14 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
 
         <div class="row gap-sm mt-md wrap">
           <button class="secondary" type="button" (click)="requestMic()">Mikrofon erlauben</button>
-          <button class="secondary" type="button" (click)="applyPresetModel()" [disabled]="busy">Preset uebernehmen</button>
-          <button class="secondary" type="button" (click)="applyLatestRunnerPreset()" [disabled]="busy">Runner-Preset (auto)</button>
+          <button class="secondary" type="button" (click)="applyPresetModel()" [disabled]="busy">Standard-Modell uebernehmen</button>
+          <button class="secondary" type="button" (click)="provisionVoxtralRunner()" [disabled]="busy">Passenden Voxtral-Runner bereitstellen</button>
           <button class="secondary" type="button" (click)="applyLocalSelection()" [disabled]="busy">Auswahl uebernehmen</button>
           <button class="secondary" type="button" (click)="refreshLocalAssets()" [disabled]="busy">Lokale Dateien neu laden</button>
           <button class="primary" type="button" (click)="startRecording()" [disabled]="busy || recording">Aufnahme starten</button>
           <button class="secondary" type="button" (click)="stopRecording()" [disabled]="busy || !recording">Aufnahme stoppen</button>
           <button class="secondary" type="button" (click)="downloadModel()" [disabled]="busy || !modelUrl.trim()">Model laden</button>
           <button class="secondary" type="button" (click)="downloadRunner()" [disabled]="busy || !runnerUrl.trim()">Runner laden</button>
-          <button class="secondary" type="button" (click)="provisionVoxtralRunner()" [disabled]="busy">Voxtral-Runner automatisch bauen</button>
           <button class="secondary" type="button" (click)="verifyModelHash()" [disabled]="busy || !modelPath.trim()">Hash Modell pruefen</button>
           <button class="secondary" type="button" (click)="verifyRunnerHash()" [disabled]="busy || !runnerPath.trim()">Hash Runner pruefen</button>
           <button class="secondary" type="button" (click)="deleteModel()" [disabled]="busy || !modelPath.trim()">Modell loeschen</button>
@@ -145,7 +144,7 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
           @if (localModelAvailable && localRunnerAvailable) {
             <div class="muted"><small>Lokale Dateien erkannt: Kein erneuter Download noetig.</small></div>
           }
-          <div class="muted"><small>Runner-Tipp: Fuer Voxtral wird ein Voxtral-Runner benoetigt (z. B. voxtral-cli/voxtral4b-main im Ordner .../files/voxtral/bin). Nutze am besten "Voxtral-Runner automatisch bauen". Falls apt/dpkg in Proot blockiert ist, Runner direkt als Datei in .../files/voxtral/bin bereitstellen.</small></div>
+          <div class="muted"><small>Standard fuer Nutzer: Modell-Preset "Voxtral Mini 4B Realtime Q2_K" herunterladen und danach "Passenden Voxtral-Runner bereitstellen" nutzen. Der Runner wird aus dem kompatiblen Voxtral-Realtime-Stand gebaut und als .../files/voxtral/bin/voxtral-realtime gespeichert.</small></div>
           <div><strong>Setup:</strong> {{ setupStatus || '-' }}</div>
         </div>
 
@@ -343,15 +342,6 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     this.modelPath = this.modelPath || '';
     this.toast.info(`Preset gewaehlt: ${preset.label}`);
     this.persistSelections();
-  }
-
-  async applyLatestRunnerPreset(): Promise<void> {
-    await this.run(async () => {
-      const preset = await this.voxtral.resolveLatestAndroidRunnerPreset();
-      this.runnerUrl = preset.url;
-      this.persistSelections();
-      this.toast.info(`Runner-Preset gesetzt: ${preset.label}`);
-    });
   }
 
   applyLocalSelection(): void {
