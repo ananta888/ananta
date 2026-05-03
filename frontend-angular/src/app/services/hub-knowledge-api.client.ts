@@ -42,4 +42,8 @@ export class HubKnowledgeApiClient {
   importWikiFromUrl(baseUrl: string, payload: any, token?: string): Observable<any> {
     return this.core.post<any>(`${baseUrl}/knowledge/wiki/import-url`, payload, baseUrl, token, false, 120000);
   }
+
+  getWikiImportJob(baseUrl: string, jobId: string, token?: string): Observable<any> {
+    return this.core.get<any>(`${baseUrl}/knowledge/wiki/import-jobs/${encodeURIComponent(jobId)}`, baseUrl, token, true, 120000);
+  }
 }
