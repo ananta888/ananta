@@ -156,9 +156,12 @@ def test_knowledge_wiki_presets_route_returns_multiple_download_sources(client, 
     payload = response.get_json()["data"]
     items = payload["items"]
     assert len(items) >= 4
-    assert any(item["id"] == "wikipedia-en-abstract-latest" for item in items)
-    assert any(item["id"] == "wikipedia-de-abstract-latest" for item in items)
-    assert any(item["id"] == "wikipedia-simple-pages-latest" for item in items)
+    de_multistream = next(item for item in items if item["id"] == "wikipedia-de-multistream-latest")
+    assert de_multistream["corpus_url"].endswith("dewiki-latest-pages-articles-multistream.xml.bz2")
+    assert de_multistream["index_url"].endswith("dewiki-latest-pages-articles-multistream-index.txt.bz2")
+    assert any(item["id"] == "wikipedia-de-pages-latest" for item in items)
+    zim_mini = next(item for item in items if item["id"] == "wikipedia-de-zim-mini-2026-04")
+    assert zim_mini["supported"] is False
 
 
 def test_knowledge_collection_index_route_supports_async_jobs(client, admin_auth_header, monkeypatch):
@@ -442,3 +445,54 @@ def test_knowledge_wiki_import_route_rejects_missing_corpus_path(client, admin_a
     response = client.post("/knowledge/wiki/import", headers=admin_auth_header, json={"source_id": "wiki-mvp"})
     assert response.status_code == 400
     assert response.get_json()["message"] == "corpus_path_required"
+
+
+def test_knowledge_wiki_import_url_route_passes_multistream_index(client, admin_auth_header, monkeypatch):
+    captured: dict[str, object] = {}
+
+    class StubIngestionService:
+        def import_wiki_jsonl_from_url(self, **kwargs):
+            captured.update(kwargs)
+            return {
+                "source_scope": "wiki",
+                "source_id": "dewiki",
+                "corpus_path": "/tmp/dewiki.xml.bz2",
+                "index_path": "/tmp/dewiki-index.txt",
+                "jsonl_cache_path": "/tmp/dewiki.normalized.jsonl",
+                "records": [{"kind": "wiki_section_chunk", "content": "x"}],
+                "issues": [],
+                "stats": {"normalized_records": 1, "issues": 0},
+                "download": {"url": kwargs["corpus_url"], "index": {"url": kwargs["index_url"]}},
+            }
+
+    class StubRagService:
+        def index_source_records(self, **kwargs):
+            return (
+                SimpleNamespace(model_dump=lambda: {"id": "idx-wiki", "source_scope": "wiki", "status": "completed"}),
+                SimpleNamespace(model_dump=lambda: {"id": "run-wiki", "status": "completed"}),
+            )
+
+    monkeypatch.setattr("agent.routes.knowledge.get_ingestion_service", lambda: StubIngestionService())
+    monkeypatch.setattr("agent.routes.knowledge.get_rag_helper_index_service", lambda: StubRagService())
+
+    response = client.post(
+        "/knowledge/wiki/import-url",
+        headers=admin_auth_header,
+        json={"preset_id": "wikipedia-de-multistream-latest", "async": False, "codecompass_prerender": False},
+    )
+
+    assert response.status_code == 200
+    assert captured["corpus_url"].endswith("dewiki-latest-pages-articles-multistream.xml.bz2")
+    assert captured["index_url"].endswith("dewiki-latest-pages-articles-multistream-index.txt.bz2")
+    assert response.get_json()["data"]["import_report"]["jsonl_cache_path"] == "/tmp/dewiki.normalized.jsonl"
+
+
+def test_knowledge_wiki_import_url_route_rejects_zim_prototype(client, admin_auth_header):
+    response = client.post(
+        "/knowledge/wiki/import-url",
+        headers=admin_auth_header,
+        json={"preset_id": "wikipedia-de-zim-mini-2026-04"},
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "wiki_preset_not_supported"
