@@ -2,8 +2,17 @@ import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Capacitor } from '@capacitor/core';
 
-import { LlamaRuntimeService, LlmSetupStatus, LlmInstallProgressEvent } from '../services/llama-runtime.service';
+import { LlamaRuntimeService, LlmInstallProgressEvent, LlmSetupStatus } from '../services/llama-runtime.service';
 import { ToastService } from '../services/toast.service';
+
+interface LlmModelPreset {
+  id: string;
+  label: string;
+  modelName: string;
+  modelUrl: string;
+  modelSha256?: string;
+  sizeHint: string;
+}
 
 @Component({
   standalone: true,
@@ -12,13 +21,12 @@ import { ToastService } from '../services/toast.service';
   template: `
     <section class="card runtime-page">
       <h2>LLM Runtime Setup</h2>
-      <p class="muted">Lokales KI-Modell herunterladen, starten und nutzen — alles direkt auf dem Geraet.</p>
+      <p class="muted">Lokale Modelle direkt auf dem Geraet installieren und den LLM-Server starten.</p>
 
       @if (!isAndroidNative) {
         <div class="card card-light">Nur in der nativen Android-App verfuegbar.</div>
       } @else {
 
-        <!-- Status Overview -->
         <div class="card card-light mt-sm status-grid">
           <div class="status-row">
             <span class="status-icon">{{ status.prootReady ? '✅' : '❌' }}</span>
@@ -28,12 +36,12 @@ import { ToastService } from '../services/toast.service';
           <div class="status-row">
             <span class="status-icon">{{ status.serverInstalled ? '✅' : '❌' }}</span>
             <span>2. LLM Server (llama.cpp {{ status.llamaVersion }})</span>
-            <span class="muted">{{ status.serverInstalled ? 'Installiert' : 'Nicht installiert' }}</span>
+            <span class="muted">{{ status.serverInstalled ? 'In APK enthalten / installiert' : 'Noch nicht installiert' }}</span>
           </div>
           <div class="status-row">
             <span class="status-icon">{{ status.modelInstalled ? '✅' : '❌' }}</span>
-            <span>3. KI-Modell ({{ status.modelName || 'SmolLM2-135M' }})</span>
-            <span class="muted">{{ status.modelInstalled ? 'Heruntergeladen' : 'Nicht heruntergeladen (~139 MB)' }}</span>
+            <span>3. Aktives Modell ({{ status.modelName || 'noch keines' }})</span>
+            <span class="muted">{{ status.modelInstalled ? ('Installierte Modelle: ' + installedModels.length) : 'Noch kein Modell installiert' }}</span>
           </div>
           <div class="status-row">
             <span class="status-icon">{{ status.serverRunning ? '🟢' : '⚪' }}</span>
@@ -42,7 +50,6 @@ import { ToastService } from '../services/toast.service';
           </div>
         </div>
 
-        <!-- Progress Bar -->
         @if (progressActive) {
           <div class="card card-light mt-sm">
             <div class="muted">{{ progressLabel }}</div>
@@ -53,36 +60,85 @@ import { ToastService } from '../services/toast.service';
           </div>
         }
 
-        <!-- Action Buttons -->
         <div class="row gap-sm mt-md wrap">
-          <button type="button" class="secondary" (click)="refreshStatus()" [disabled]="busy">
-            Status aktualisieren
-          </button>
+          <button type="button" class="secondary" (click)="refreshStatus()" [disabled]="busy">Status aktualisieren</button>
           <button type="button" class="primary" (click)="installServer()" [disabled]="busy || !status.prootReady || status.serverInstalled">
             {{ status.serverInstalled ? 'Server installiert ✓' : 'LLM Server installieren' }}
           </button>
-          <button type="button" class="primary" (click)="installModel()" [disabled]="busy || !status.serverInstalled || status.modelInstalled">
-            {{ status.modelInstalled ? 'Modell vorhanden ✓' : 'Modell herunterladen (~139 MB)' }}
-          </button>
+        </div>
+
+        <div class="card card-light mt-sm">
+          <h3 class="mt-0">Modelle (bis ~2 GB)</h3>
+          <label class="field">
+            <span>Preset auswaehlen</span>
+            <select [(ngModel)]="selectedPresetId">
+              @for (preset of modelPresets; track preset.id) {
+                <option [value]="preset.id">{{ preset.label }} ({{ preset.sizeHint }})</option>
+              }
+              <option value="custom">Eigene Quelle (URL)</option>
+            </select>
+          </label>
+
+          @if (isCustomPreset) {
+            <div class="grid gap-sm mt-sm">
+              <label class="field">
+                <span>Model URL (.gguf)</span>
+                <input [(ngModel)]="customModelUrl" placeholder="https://.../model.gguf" />
+              </label>
+              <label class="field">
+                <span>Dateiname</span>
+                <input [(ngModel)]="customModelName" placeholder="model.gguf" />
+              </label>
+              <label class="field">
+                <span>SHA256 (optional)</span>
+                <input [(ngModel)]="customModelSha256" placeholder="optional" />
+              </label>
+            </div>
+          } @else {
+            <div class="muted mt-sm">Quelle: {{ selectedPreset?.modelUrl }}</div>
+          }
+
+          <div class="row gap-sm mt-sm wrap">
+            <button type="button" class="primary" (click)="installModel()" [disabled]="busy || !status.serverInstalled || !canInstallSelectedModel">
+              Modell installieren / aktualisieren
+            </button>
+          </div>
+        </div>
+
+        <div class="card card-light mt-sm">
+          <h3 class="mt-0">Installierte Modelle</h3>
+          @if (installedModels.length === 0) {
+            <div class="muted">Noch keine Modelle installiert.</div>
+          } @else {
+            <label class="field">
+              <span>Aktives Modell</span>
+              <select [(ngModel)]="selectedInstalledModel">
+                @for (model of installedModels; track model) {
+                  <option [value]="model">{{ model }}</option>
+                }
+              </select>
+            </label>
+            <div class="row gap-sm mt-sm wrap">
+              <button type="button" class="secondary" (click)="activateSelectedModel()" [disabled]="busy || !selectedInstalledModel || selectedInstalledModel === status.modelName">
+                Als aktiv setzen
+              </button>
+            </div>
+          }
         </div>
 
         <div class="row gap-sm mt-sm wrap">
           @if (!status.serverRunning) {
-            <button type="button" class="primary" (click)="startServer()"
-              [disabled]="busy || !status.serverInstalled || !status.modelInstalled || !status.prootReady">
+            <button type="button" class="primary" (click)="startServer()" [disabled]="busy || !status.serverInstalled || !status.modelInstalled || !status.prootReady">
               Server starten
             </button>
           } @else {
-            <button type="button" class="secondary" (click)="stopServer()" [disabled]="busy">
-              Server stoppen
-            </button>
+            <button type="button" class="secondary" (click)="stopServer()" [disabled]="busy">Server stoppen</button>
           }
           <button type="button" class="secondary" (click)="checkHealth()" [disabled]="busy || !status.serverRunning">
             Health Check
           </button>
         </div>
 
-        <!-- Error / Info -->
         @if (errorMessage) {
           <pre class="card card-light error-box mt-sm">{{ errorMessage }}</pre>
         }
@@ -90,7 +146,6 @@ import { ToastService } from '../services/toast.service';
           <pre class="card card-light output-box mt-sm">{{ infoMessage }}</pre>
         }
 
-        <!-- Quick Test -->
         @if (status.serverRunning) {
           <details class="mt-md">
             <summary>Schnelltest</summary>
@@ -117,7 +172,7 @@ import { ToastService } from '../services/toast.service';
     .status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .status-icon { font-size: 1.2em; min-width: 24px; text-align: center; }
     .field { display: flex; flex-direction: column; gap: 6px; }
-    .field input, .field textarea {
+    .field input, .field textarea, .field select {
       border: 1px solid var(--border);
       background: var(--card-bg);
       color: var(--fg);
@@ -150,10 +205,62 @@ export class LlamaRuntimeComponent implements OnInit, OnDestroy {
   progressLabel = '';
   progressSize = '';
 
+  installedModels: string[] = [];
+  selectedInstalledModel = '';
+  selectedPresetId = 'smollm2-135m-q8';
+  customModelUrl = '';
+  customModelName = '';
+  customModelSha256 = '';
+
+  readonly modelPresets: LlmModelPreset[] = [
+    {
+      id: 'smollm2-135m-q8',
+      label: 'SmolLM2 135M Instruct Q8_0 (Standard)',
+      modelName: 'SmolLM2-135M-Instruct-Q8_0.gguf',
+      modelUrl: 'https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf',
+      modelSha256: '5a1395716f7913741cc51d98581b9b1228d80987a9f7d3664106742eb06bba83',
+      sizeHint: '~139 MB',
+    },
+    {
+      id: 'qwen2-0-5b-q4-km',
+      label: 'Qwen2.5 0.5B Instruct Q4_K_M',
+      modelName: 'Qwen2.5-0.5B-Instruct-Q4_K_M.gguf',
+      modelUrl: 'https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf',
+      sizeHint: '~400 MB',
+    },
+    {
+      id: 'llama3-2-1b-q4-km',
+      label: 'Llama 3.2 1B Instruct Q4_K_M',
+      modelName: 'Llama-3.2-1B-Instruct-Q4_K_M.gguf',
+      modelUrl: 'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
+      sizeHint: '~800 MB',
+    },
+    {
+      id: 'smollm2-1-7b-q4-km',
+      label: 'SmolLM2 1.7B Instruct Q4_K_M',
+      modelName: 'SmolLM2-1.7B-Instruct-Q4_K_M.gguf',
+      modelUrl: 'https://huggingface.co/bartowski/SmolLM2-1.7B-Instruct-GGUF/resolve/main/SmolLM2-1.7B-Instruct-Q4_K_M.gguf',
+      sizeHint: '~1.1 GB',
+    },
+  ];
+
   private removeProgressListener?: () => Promise<void>;
 
   get isAndroidNative(): boolean {
     return this.runtime.isNative && Capacitor.getPlatform() === 'android';
+  }
+
+  get selectedPreset(): LlmModelPreset | undefined {
+    return this.modelPresets.find((preset) => preset.id === this.selectedPresetId);
+  }
+
+  get isCustomPreset(): boolean {
+    return this.selectedPresetId === 'custom';
+  }
+
+  get canInstallSelectedModel(): boolean {
+    if (!this.isCustomPreset) return !!this.selectedPreset;
+    return !!this.customModelUrl.trim() && !!this.customModelName.trim();
   }
 
   ngOnInit(): void {
@@ -173,6 +280,9 @@ export class LlamaRuntimeComponent implements OnInit, OnDestroy {
   async refreshStatus(): Promise<void> {
     await this.run(async () => {
       this.status = await this.runtime.getLlmSetupStatus();
+      const installed = await this.runtime.listInstalledModels();
+      this.installedModels = installed.models ?? [];
+      this.selectedInstalledModel = installed.activeModel || this.installedModels[0] || '';
     });
   }
 
@@ -193,11 +303,34 @@ export class LlamaRuntimeComponent implements OnInit, OnDestroy {
     this.progressLabel = 'Modell wird heruntergeladen...';
     this.progressPercent = -1;
     await this.run(async () => {
-      await this.runtime.installModel();
+      if (this.isCustomPreset) {
+        await this.runtime.installModel({
+          modelName: this.customModelName.trim(),
+          modelUrl: this.customModelUrl.trim(),
+          modelSha256: this.customModelSha256.trim() || undefined,
+        });
+      } else {
+        const preset = this.selectedPreset;
+        if (!preset) throw new Error('Kein Modell-Preset ausgewaehlt.');
+        await this.runtime.installModel({
+          modelName: preset.modelName,
+          modelUrl: preset.modelUrl,
+          modelSha256: preset.modelSha256,
+        });
+      }
       this.toast.success('Modell heruntergeladen.');
       await this.refreshStatusQuiet();
     });
     this.progressActive = false;
+  }
+
+  async activateSelectedModel(): Promise<void> {
+    if (!this.selectedInstalledModel) return;
+    await this.run(async () => {
+      await this.runtime.setActiveModel(this.selectedInstalledModel);
+      this.toast.success('Aktives Modell gesetzt: ' + this.selectedInstalledModel);
+      await this.refreshStatusQuiet();
+    });
   }
 
   async startServer(): Promise<void> {
@@ -253,7 +386,12 @@ export class LlamaRuntimeComponent implements OnInit, OnDestroy {
   }
 
   private async refreshStatusQuiet(): Promise<void> {
-    try { this.status = await this.runtime.getLlmSetupStatus(); } catch {}
+    try {
+      this.status = await this.runtime.getLlmSetupStatus();
+      const installed = await this.runtime.listInstalledModels();
+      this.installedModels = installed.models ?? [];
+      this.selectedInstalledModel = installed.activeModel || this.installedModels[0] || '';
+    } catch {}
   }
 
   private onProgress(event: LlmInstallProgressEvent): void {
