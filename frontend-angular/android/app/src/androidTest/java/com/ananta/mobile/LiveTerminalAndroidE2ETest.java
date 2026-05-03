@@ -540,7 +540,7 @@ public class LiveTerminalAndroidE2ETest {
                 + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
                 + "var st=JSON.parse(v.substring(3));"
                 + "return !!(st.runtimeReady && st.ubuntuInstalled && st.workspaceInstalled && st.pythonReady "
-                + "&& st.pipReady && st.libgompReady && st.anantaCliReady && st.anantaTuiReady "
+                + "&& st.pipReady && st.anantaCliReady && st.anantaTuiReady "
                 + "&& st.workerCommandReady && st.workerImportReady);",
             30,
             1_000L
@@ -600,7 +600,7 @@ public class LiveTerminalAndroidE2ETest {
                 + "var payload=JSON.parse(v.substring(3));"
                 + "var st=payload.status || {};"
                 + "return !!(st.runtimeReady && st.ubuntuInstalled && st.workspaceInstalled && st.pythonReady "
-                + "&& st.pipReady && st.libgompReady && st.anantaCliReady && st.anantaTuiReady "
+                + "&& st.pipReady && st.anantaCliReady && st.anantaTuiReady "
                 + "&& st.workerCommandReady && st.workerImportReady);",
             30,
             1_000L

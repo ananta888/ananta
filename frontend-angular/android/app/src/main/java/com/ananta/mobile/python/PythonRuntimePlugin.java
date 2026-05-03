@@ -871,7 +871,6 @@ public class PythonRuntimePlugin extends Plugin {
                 + "mkdir -p \"$ANANTA_DATA_DIR\"; "
                 + "if ! command -v python3 >/dev/null 2>&1; then echo ANANTA_MISSING_PYTHON; exit 2; fi; "
                 + "if ! command -v pip3 >/dev/null 2>&1 && ! python3 -m pip --version >/dev/null 2>&1; then echo ANANTA_MISSING_PIP; exit 3; fi; "
-                + "if [ ! -f /lib/aarch64-linux-gnu/libgomp.so.1 ] && [ ! -f /usr/lib/aarch64-linux-gnu/libgomp.so.1 ]; then echo ANANTA_MISSING_LIBGOMP; exit 4; fi; "
                 + "if ! command -v ananta-worker >/dev/null 2>&1 && [ ! -x /usr/local/bin/ananta-worker ] && [ ! -x /home/ananta/.local/bin/ananta-worker ] && [ ! -x /root/.local/bin/ananta-worker ]; then echo ANANTA_MISSING_WORKER_CMD; exit 5; fi; "
                 + "DATA_DIR=\"$ANANTA_DATA_DIR\" PYTHONPATH=\"$ANANTA_WORKSPACE:${PYTHONPATH:-}\" python3 -c \"from agent.ai_agent import create_app; print('ANANTA_WORKER_IMPORT_OK')\"; "
                 + "echo ANANTA_WORKER_DEPS_READY",
@@ -895,7 +894,6 @@ public class PythonRuntimePlugin extends Plugin {
             + "MISSING_PACKAGES=''; "
             + "for bin in python3 git curl tar; do command -v \"$bin\" >/dev/null 2>&1 || MISSING_PACKAGES=\"$MISSING_PACKAGES $bin\"; done; "
             + "if ! command -v pip3 >/dev/null 2>&1 && ! python3 -m pip --version >/dev/null 2>&1; then MISSING_PACKAGES=\"$MISSING_PACKAGES python3-pip\"; fi; "
-            + "if [ ! -f /lib/aarch64-linux-gnu/libgomp.so.1 ] && [ ! -f /usr/lib/aarch64-linux-gnu/libgomp.so.1 ]; then MISSING_PACKAGES=\"$MISSING_PACKAGES libgomp1\"; fi; "
             + "if [ -n \"$MISSING_PACKAGES\" ]; then "
             + "if command -v apt-get >/dev/null 2>&1; then "
             + "apt-get update; "
