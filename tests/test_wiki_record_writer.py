@@ -1,18 +1,16 @@
 import json
 
-from agent.services.wiki_record_writer import WikiRecordWriter
+from agent.services.wiki_record_writer import write_wiki_jsonl_cache
 
 
-def test_wiki_record_writer_writes_valid_records(tmp_path):
-    writer = WikiRecordWriter(tmp_path / "out.jsonl")
-    writer.write_records(
-        [
+def test_write_wiki_jsonl_cache_writes_all_records(tmp_path):
+    out = write_wiki_jsonl_cache(
+        records=[
             {"id": "ok", "kind": "wiki_section_chunk", "content": "x", "source": "s"},
-            {"id": "bad", "kind": "wiki_section_chunk"},
-        ]
+            {"id": "ok2", "kind": "wiki_section_chunk", "content": "y", "source": "s"},
+        ],
+        cache_path=tmp_path / "out.jsonl",
     )
-    writer.close()
-    lines = (tmp_path / "out.jsonl").read_text(encoding="utf-8").splitlines()
-    assert len(lines) == 1
+    lines = out.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2
     assert json.loads(lines[0])["id"] == "ok"
-
