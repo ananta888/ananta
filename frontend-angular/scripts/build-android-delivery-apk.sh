@@ -5,13 +5,18 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FRONTEND_DIR="$ROOT_DIR/frontend-angular"
 ANDROID_DIR="$FRONTEND_DIR/android"
 ASSET_DIR="$ANDROID_DIR/app/src/main/assets/proot-seed"
+VOXTRAL_RUNNER_ASSET_DIR="$ANDROID_DIR/app/src/main/assets/voxtral-runner"
 APK_SOURCE="$ANDROID_DIR/app/build/outputs/apk/debug/app-debug.apk"
 APK_OUTPUT="${ANANTA_DELIVERY_APK_OUTPUT:-$ANDROID_DIR/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk}"
 PACKAGE_NAME="${ANANTA_ANDROID_PACKAGE:-com.ananta.mobile}"
 DEVICE_SERIAL="${ANANTA_ANDROID_SERIAL:-}"
 ADB_CONNECT="${ANANTA_ADB_CONNECT:-}"
 EXPORT_ANDROID_SEED="${ANANTA_EXPORT_ANDROID_SEED:-0}"
+BUILD_VOXTRAL_RUNNER="${ANANTA_BUILD_VOXTRAL_RUNNER:-0}"
 REPACK_DIR="${ANANTA_SEED_REPACK_DIR:-$ROOT_DIR/.artifacts/proot-seed-repack}"
+VOXTRAL_RUNNER_BUILD_DIR="${ANANTA_VOXTRAL_RUNNER_BUILD_DIR:-$ROOT_DIR/.artifacts/voxtral-runner-build}"
+VOXTRAL_REALTIME_SOURCE_URL="${ANANTA_VOXTRAL_REALTIME_SOURCE_URL:-https://github.com/andrijdavid/voxtral.cpp/archive/7deef66c8ee473d3ceffc57fb0cd17977eeebca9.tar.gz}"
+GGML_SOURCE_URL="${ANANTA_GGML_SOURCE_URL:-https://github.com/ggml-org/ggml/archive/5cecdad692d868e28dbd2f7c468504770108f30c.tar.gz}"
 
 log() {
   printf '[ananta-delivery-apk] %s\n' "$*"
@@ -71,6 +76,85 @@ verify_seed_assets() {
   fi
   xz -t "$ASSET_DIR/ubuntu-rootfs.tar.xz"
   xz -t "$ASSET_DIR/ananta-workspace.tar.xz"
+}
+
+verify_voxtral_runner_assets() {
+  local missing=0
+  for file in \
+    "$VOXTRAL_RUNNER_ASSET_DIR/voxtral-realtime" \
+    "$VOXTRAL_RUNNER_ASSET_DIR/libvoxtral_lib.so" \
+    "$VOXTRAL_RUNNER_ASSET_DIR/libggml.so.0" \
+    "$VOXTRAL_RUNNER_ASSET_DIR/libggml-base.so.0" \
+    "$VOXTRAL_RUNNER_ASSET_DIR/libggml-cpu.so.0" \
+    "$VOXTRAL_RUNNER_ASSET_DIR/voxtral-runner.sha256"; do
+    if [[ ! -s "$file" ]]; then
+      printf 'Missing Voxtral runner asset: %s\n' "$file" >&2
+      missing=1
+    fi
+  done
+  if [[ "$missing" -ne 0 ]]; then
+    printf 'Run with ANANTA_BUILD_VOXTRAL_RUNNER=1 to build the bundled Voxtral runner assets.\n' >&2
+    exit 5
+  fi
+}
+
+build_voxtral_runner_assets() {
+  require_cmd curl
+  require_cmd tar
+  require_cmd cmake
+  require_cmd sha256sum
+
+  log "Building bundled Voxtral realtime runner"
+  rm -rf "$VOXTRAL_RUNNER_BUILD_DIR"
+  mkdir -p "$VOXTRAL_RUNNER_BUILD_DIR" "$VOXTRAL_RUNNER_ASSET_DIR"
+  (
+    cd "$VOXTRAL_RUNNER_BUILD_DIR"
+    curl -L --fail -o voxtral.cpp.tar.gz "$VOXTRAL_REALTIME_SOURCE_URL"
+    curl -L --fail -o ggml.tar.gz "$GGML_SOURCE_URL"
+    tar -xzf voxtral.cpp.tar.gz
+    mv voxtral.cpp-* voxtral.cpp
+    tar -xzf ggml.tar.gz
+    rm -rf voxtral.cpp/ggml
+    mv ggml-* voxtral.cpp/ggml
+    PREFIX="${PREFIX:-/data/data/com.termux/files/usr}" cmake -B voxtral.cpp/build \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DVOXTRAL_NATIVE_OPT=OFF \
+      -DVOXTRAL_AUTO_DETECT_BLAS=OFF \
+      -DVOXTRAL_AUTO_DETECT_CUDA=OFF \
+      -DVOXTRAL_AUTO_DETECT_VULKAN=OFF \
+      -DGGML_OPENMP=OFF \
+      voxtral.cpp
+    PREFIX="${PREFIX:-/data/data/com.termux/files/usr}" cmake --build voxtral.cpp/build -j2 --target voxtral
+  )
+
+  local build="$VOXTRAL_RUNNER_BUILD_DIR/voxtral.cpp/build"
+  local runner=""
+  for candidate in "$build/voxtral" "$build/bin/voxtral"; do
+    if [[ -x "$candidate" ]]; then
+      runner="$candidate"
+      break
+    fi
+  done
+  if [[ -z "$runner" ]]; then
+    printf 'Voxtral runner binary not found after build.\n' >&2
+    exit 6
+  fi
+
+  rm -rf "$VOXTRAL_RUNNER_ASSET_DIR"
+  mkdir -p "$VOXTRAL_RUNNER_ASSET_DIR"
+  cp "$runner" "$VOXTRAL_RUNNER_ASSET_DIR/voxtral-realtime"
+  cp "$build/libvoxtral_lib.so" "$VOXTRAL_RUNNER_ASSET_DIR/libvoxtral_lib.so"
+  local ggml="$build/ggml/src"
+  for file in \
+    libggml.so libggml.so.0 libggml.so.0.9.6 \
+    libggml-base.so libggml-base.so.0 libggml-base.so.0.9.6 \
+    libggml-cpu.so libggml-cpu.so.0 libggml-cpu.so.0.9.6; do
+    cp -L "$ggml/$file" "$VOXTRAL_RUNNER_ASSET_DIR/$file"
+  done
+  chmod 755 "$VOXTRAL_RUNNER_ASSET_DIR/voxtral-realtime"
+  chmod 644 "$VOXTRAL_RUNNER_ASSET_DIR"/*.so*
+  ( cd "$VOXTRAL_RUNNER_ASSET_DIR" && sha256sum voxtral-realtime libvoxtral_lib.so libggml*.so* > voxtral-runner.sha256 )
+  verify_voxtral_runner_assets
 }
 
 device_shell() {
@@ -189,6 +273,7 @@ build_apk() {
   ( cd "$FRONTEND_DIR" && npm run android:prepare )
 
   verify_seed_assets
+  verify_voxtral_runner_assets
   ensure_aapt2_override
 
   log "Building Android debug APK"
@@ -204,10 +289,14 @@ build_apk() {
   sha256sum "$APK_OUTPUT"
   ls -lh "$APK_OUTPUT"
   unzip -l "$APK_OUTPUT" | grep 'assets/proot-seed/' >/dev/null
+  unzip -l "$APK_OUTPUT" | grep 'assets/voxtral-runner/voxtral-realtime' >/dev/null
 }
 
 if [[ "$EXPORT_ANDROID_SEED" == "1" ]]; then
   export_seed_from_android
+fi
+if [[ "$BUILD_VOXTRAL_RUNNER" == "1" ]]; then
+  build_voxtral_runner_assets
 fi
 
 build_apk

@@ -11,16 +11,8 @@ export interface VoxtralModelPreset {
 
 export const VOXTRAL_MODEL_PRESETS: VoxtralModelPreset[] = [
   {
-    id: 'manual-compatible-model',
-    label: 'Kein Auto-Preset (manuell kompatibles Modell angeben)',
-    fileName: '',
-    url: '',
-    sizeHint: 'n/a',
-    recommended: false,
-  },
-  {
     id: 'voxtral-mini-4b-q2-k',
-    label: 'Voxtral Mini 4B Realtime Q2_K (Standard, <1.4 GiB)',
+    label: 'EMPFOHLEN: kleines Voxtral Mini 4B Realtime Q2_K (<1.4 GiB)',
     fileName: 'Q2_K.gguf',
     url: 'https://huggingface.co/andrijdavid/Voxtral-Mini-4B-Realtime-2602-GGUF/resolve/main/Q2_K.gguf',
     sizeHint: '~1.37 GiB / 1.47 GB',
@@ -72,5 +64,13 @@ export const VOXTRAL_MODEL_PRESETS: VoxtralModelPreset[] = [
     sizeHint: '~4.9 GB',
     minBytes: 4_000_000_000,
     blockedByDefault: true,
+  },
+  {
+    id: 'manual-compatible-model',
+    label: 'Manuell: kompatibles Modell selbst angeben',
+    fileName: '',
+    url: '',
+    sizeHint: 'n/a',
+    recommended: false,
   },
 ];

@@ -40,6 +40,11 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
         }
       } @else {
         <div class="grid gap-sm mt-md">
+          <div class="card card-light">
+            <strong>Empfohlen fuer Nutzer:</strong>
+            kleines Voxtral Mini 4B Realtime Q2_K herunterladen (~1.37 GiB) und den vorinstallierten Runner
+            <code>voxtral-realtime</code> verwenden.
+          </div>
           <label class="field">
             <span>Modell-Preset</span>
             <select [(ngModel)]="selectedModelPresetId">
@@ -110,7 +115,8 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
 
         <div class="row gap-sm mt-md wrap">
           <button class="secondary" type="button" (click)="requestMic()">Mikrofon erlauben</button>
-          <button class="secondary" type="button" (click)="applyPresetModel()" [disabled]="busy">Standard-Modell uebernehmen</button>
+          <button class="primary" type="button" (click)="downloadRecommendedModel()" [disabled]="busy">Kleines Standard-Modell laden (~1.37 GiB)</button>
+          <button class="secondary" type="button" (click)="applyPresetModel()" [disabled]="busy">Modell-Preset uebernehmen</button>
           <button class="secondary" type="button" (click)="provisionVoxtralRunner()" [disabled]="busy">Passenden Voxtral-Runner bereitstellen</button>
           <button class="secondary" type="button" (click)="applyLocalSelection()" [disabled]="busy">Auswahl uebernehmen</button>
           <button class="secondary" type="button" (click)="refreshLocalAssets()" [disabled]="busy">Lokale Dateien neu laden</button>
@@ -342,6 +348,16 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     this.modelPath = this.modelPath || '';
     this.toast.info(`Preset gewaehlt: ${preset.label}`);
     this.persistSelections();
+  }
+
+  async downloadRecommendedModel(): Promise<void> {
+    const recommended = this.modelPresets.find(item => item.recommended && !this.isPresetBlocked(item));
+    if (recommended) {
+      this.selectedModelPresetId = recommended.id;
+      this.modelUrl = recommended.url;
+      this.persistSelections();
+    }
+    await this.downloadModel();
   }
 
   applyLocalSelection(): void {
@@ -767,8 +783,9 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     this.modelSha256 = localStorage.getItem('voxtral.modelSha256') || '';
     this.runnerSha256 = localStorage.getItem('voxtral.runnerSha256') || '';
     this.selectedModelPresetId = localStorage.getItem('voxtral.modelPresetId') || this.selectedModelPresetId;
-    if (!this.selectedModelPresetId || this.selectedModelPresetId === 'manual-compatible-model') {
-      const recommended = this.modelPresets.find(item => item.recommended);
+    const selectedPreset = this.modelPresets.find(item => item.id === this.selectedModelPresetId);
+    if (!selectedPreset || selectedPreset.id === 'manual-compatible-model' || this.isPresetBlocked(selectedPreset)) {
+      const recommended = this.modelPresets.find(item => item.recommended && !this.isPresetBlocked(item));
       if (recommended) this.selectedModelPresetId = recommended.id;
     }
     this.liveLowMemoryMode = localStorage.getItem('voxtral.liveLowMemoryMode') !== '0';
