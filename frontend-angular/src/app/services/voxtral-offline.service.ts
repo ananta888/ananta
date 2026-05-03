@@ -21,6 +21,7 @@ export interface VoxtralLocalAsset {
 interface VoxtralOfflinePlugin {
   getStatus(): Promise<VoxtralStatus>;
   requestMicrophonePermission(): Promise<{ state: string }>;
+  openAppSettings(): Promise<void>;
   startRecording(options?: { maxSeconds?: number; sampleRate?: number }): Promise<{ audioPath: string; maxSeconds: number; sampleRate: number }>;
   stopRecording(): Promise<{ audioPath: string }>;
   downloadModel(options: { modelUrl: string; fileName?: string; sha256?: string; minBytes?: number; confirmed?: boolean }): Promise<{ modelPath: string; bytes: number; sha256: string }>;
@@ -61,6 +62,11 @@ export class VoxtralOfflineService {
     if (!this.isNative) return 'denied';
     const result = await VoxtralOffline.requestMicrophonePermission();
     return result.state;
+  }
+
+  async openAppSettings(): Promise<void> {
+    if (!this.isNative) return;
+    await VoxtralOffline.openAppSettings();
   }
 
   async startRecording(maxSeconds = 5, sampleRate = 16000): Promise<{ audioPath: string; maxSeconds: number; sampleRate: number }> {

@@ -712,6 +712,88 @@ public class LiveTerminalAndroidE2ETest {
     }
 
     @Test
+    public void tinyGoalCreationUsesWorkerRuntime() throws InterruptedException {
+        String tinyWorkerCommand = prootPreamble()
+                + prootEnvPrefix()
+                + "\"$ANANTA_PROOT_DIRECT\" -0 --link2symlink "
+                + "-r \"$ANANTA_ROOTFS\" -b /dev:/dev -b /proc:/proc -b /sys:/sys -b /data:/data -b \"$ANANTA_PROOT_TMP:/tmp\" -w / \"$ANANTA_LOGIN_SHELL\" "
+                + "-c '"
+                + "export ROLE=worker; "
+                + "export DATA_DIR=/tmp/ananta-data; "
+                + "cd /data/local/tmp; "
+                + "python3 -c \"print(\\\"ANANTA_SMALL_WORKER_TASK_OK\\\")\" 2>&1; "
+                + "echo ANANTA_SMALL_TASK_DONE"
+                + "'";
+
+        activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
+        activityRule.getScenario().onActivity(activity -> {});
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "create tiny goal and verify worker runtime",
+            "window.__anantaTinyGoalWorker='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var py=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PythonRuntime;"
+                + "    if(!py){window.__anantaTinyGoalWorker='ERR:NO_PY_PLUGIN';return;}"
+                + "    await py.startHub();"
+                + "    await py.startWorker();"
+                + "    var rs=await py.getRuntimeStatus();"
+                + "    if(!(rs && rs.hubRunning && rs.workerRunning)){window.__anantaTinyGoalWorker='ERR:RUNTIME_NOT_RUNNING';return;}"
+                + "    var loginResp=await fetch('http://127.0.0.1:5000/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password:'admin'})});"
+                + "    var loginJson=await loginResp.json();"
+                + "    var loginData=loginJson && loginJson.data ? loginJson.data : {};"
+                + "    var token=String(loginData.access_token||'').trim();"
+                + "    if(!token){window.__anantaTinyGoalWorker='ERR:NO_ACCESS_TOKEN';return;}"
+                + "    localStorage.setItem('ananta.user.token', token);"
+                + "    var agentsResp=await fetch('http://127.0.0.1:5000/api/system/agents',{headers:{Authorization:'Bearer '+token}});"
+                + "    var agentsJson=await agentsResp.json();"
+                + "    var agents=Array.isArray(agentsJson && agentsJson.data) ? agentsJson.data : [];"
+                + "    var worker=agents.find(function(a){ return String((a&&a.role)||'').toLowerCase()==='worker'; });"
+                + "    if(!worker){window.__anantaTinyGoalWorker='ERR:NO_WORKER_AGENT';return;}"
+                + "    if(String((worker&&worker.status)||'').toLowerCase()!=='online'){window.__anantaTinyGoalWorker='ERR:WORKER_OFFLINE';return;}"
+                + "    var title='Android Tiny Goal ' + Date.now();"
+                + "    var goalResp=await fetch('http://127.0.0.1:5000/goals',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({title:title,goal:title})});"
+                + "    var goalJson=await goalResp.json();"
+                + "    var goal=goalJson && goalJson.data ? goalJson.data : {};"
+                + "    if(!goal.id){window.__anantaTinyGoalWorker='ERR:NO_GOAL_ID';return;}"
+                + "    var cmd=await py.runShellCommand({command:" + jsLiteral(tinyWorkerCommand) + ",timeoutSeconds:120});"
+                + "    var out=String((cmd && cmd.output) ? cmd.output : '');"
+                + "    if(out.indexOf('ANANTA_SMALL_WORKER_TASK_OK')<0 || out.indexOf('ANANTA_SMALL_TASK_DONE')<0){"
+                + "      window.__anantaTinyGoalWorker='ERR:WORKER_TASK_FAILED:' + out.slice(-400);return;"
+                + "    }"
+                + "    window.__anantaTinyGoalWorker='OK:' + JSON.stringify({goalId:goal.id,workerUrl:String((worker&&worker.url)||''),workerStatus:String((worker&&worker.status)||''),tinyTask:'ok'});"
+                + "  }catch(e){"
+                + "    window.__anantaTinyGoalWorker='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "tiny goal/worker flow finished",
+            "var v=String(window.__anantaTinyGoalWorker||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            240,
+            1_000L
+        );
+
+        runIfPresent(
+            "log tiny goal/worker result",
+            "console.log('ANANTA_TINY_GOAL_WORKER_RESULT:' + String(window.__anantaTinyGoalWorker||'').slice(-3000)); return true;"
+        );
+
+        waitForTrueWithRetry(
+            "tiny goal creation used worker runtime",
+            "var v=String(window.__anantaTinyGoalWorker||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "return v.indexOf('OK:')===0;",
+            30,
+            1_000L
+        );
+    }
+
+    @Test
     public void voxtralDirectTranscriptionWorks() throws InterruptedException {
         activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
         activityRule.getScenario().onActivity(activity -> {});
