@@ -488,6 +488,112 @@ public class LiveTerminalAndroidE2ETest {
     }
 
     @Test
+    public void guidedWorkerSetupCompletesInProot() throws InterruptedException {
+        activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
+        activityRule.getScenario().onActivity(activity -> {});
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "run guided worker setup",
+            "window.__anantaGuidedSetup='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var p=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PythonRuntime;"
+                + "    if(!p){window.__anantaGuidedSetup='ERR:NO_PLUGIN';return;}"
+                + "    window.__anantaGuidedSetup='INSTALL_RUNTIME';"
+                + "    await p.installProotRuntime({confirmed:true});"
+                + "    window.__anantaGuidedSetup='INSTALL_UBUNTU';"
+                + "    await p.installProotDistro({distro:'ubuntu', confirmed:true});"
+                + "    window.__anantaGuidedSetup='INSTALL_WORKSPACE';"
+                + "    await p.installAnantaWorkspace({});"
+                + "    window.__anantaGuidedSetup='INSTALL_WORKER_DEPS';"
+                + "    await p.installWorkerDependencies({});"
+                + "    var st=await p.getGuidedSetupStatus();"
+                + "    window.__anantaGuidedSetup='OK:' + JSON.stringify(st);"
+                + "  }catch(e){"
+                + "    window.__anantaGuidedSetup='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "guided worker setup finished",
+            "var v=String(window.__anantaGuidedSetup||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            1800,
+            1_000L
+        );
+        runIfPresent(
+            "log guided setup result",
+            "console.log('ANANTA_GUIDED_SETUP_RESULT:' + String(window.__anantaGuidedSetup||'').slice(-3000)); return true;"
+        );
+        waitForTrueWithRetry(
+            "guided worker setup ready",
+            "var v=String(window.__anantaGuidedSetup||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "var st=JSON.parse(v.substring(3));"
+                + "return !!(st.runtimeReady && st.ubuntuInstalled && st.workspaceInstalled && st.pythonReady "
+                + "&& st.pipReady && st.libgompReady && st.anantaCliReady && st.anantaTuiReady "
+                + "&& st.workerCommandReady && st.workerImportReady);",
+            30,
+            1_000L
+        );
+    }
+
+    @Test
+    public void bundledPreseedProvidesWorkerReadySetup() throws InterruptedException {
+        activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
+        activityRule.getScenario().onActivity(activity -> {});
+        onWebView().forceJavascriptEnabled();
+        waitForTrue("document ready", "return document.readyState === 'complete';");
+
+        runIfPresent(
+            "run bundled preseed setup",
+            "window.__anantaPreseedSetup='PENDING';"
+                + "(async function(){"
+                + "  try{"
+                + "    var p=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PythonRuntime;"
+                + "    if(!p){window.__anantaPreseedSetup='ERR:NO_PLUGIN';return;}"
+                + "    var runtime=await p.installProotRuntime({confirmed:true});"
+                + "    var distro=await p.installProotDistro({distro:'ubuntu', confirmed:true});"
+                + "    var workspace=await p.installAnantaWorkspace({});"
+                + "    var st=await p.getGuidedSetupStatus();"
+                + "    window.__anantaPreseedSetup='OK:' + JSON.stringify({runtime:runtime,distro:distro,workspace:workspace,status:st});"
+                + "  }catch(e){"
+                + "    window.__anantaPreseedSetup='ERR:' + String((e && e.message) ? e.message : e);"
+                + "  }"
+                + "})();"
+                + "return true;"
+        );
+
+        waitForTrueWithRetry(
+            "bundled preseed setup finished",
+            "var v=String(window.__anantaPreseedSetup||''); return v.indexOf('OK:')===0 || v.indexOf('ERR:')===0;",
+            900,
+            1_000L
+        );
+        runIfPresent(
+            "log bundled preseed result",
+            "console.log('ANANTA_PRESEED_SETUP_RESULT:' + String(window.__anantaPreseedSetup||'').slice(-3000)); return true;"
+        );
+        waitForTrueWithRetry(
+            "bundled preseed worker setup ready",
+            "var v=String(window.__anantaPreseedSetup||'');"
+                + "if(v.indexOf('ERR:')===0){ throw new Error('FATAL_E2E:' + v); }"
+                + "var payload=JSON.parse(v.substring(3));"
+                + "var st=payload.status || {};"
+                + "return payload.distro && payload.distro.source==='bundled-apk-asset' "
+                + "&& payload.workspace && payload.workspace.source==='bundled-apk-asset' "
+                + "&& !!(st.runtimeReady && st.ubuntuInstalled && st.workspaceInstalled && st.pythonReady "
+                + "&& st.pipReady && st.libgompReady && st.anantaCliReady && st.anantaTuiReady "
+                + "&& st.workerCommandReady && st.workerImportReady);",
+            30,
+            1_000L
+        );
+    }
+
+    @Test
     public void voxtralRunnerProvisionButtonActionWorks() throws InterruptedException {
         activityRule.getScenario().moveToState(Lifecycle.State.RESUMED);
         activityRule.getScenario().onActivity(activity -> {});
