@@ -240,6 +240,54 @@ class IngestionService:
                     yield elem
                     elem.clear()
 
+    def _infer_wiki_format(self, *, corpus_path: Path, import_format: str | None = None) -> str:
+        explicit = str(import_format or "").strip().lower()
+        if explicit in {"jsonl", "mediawiki-jsonl"}:
+            return "jsonl"
+        if explicit in {"xml", "mediawiki-xml", "mediawiki-multistream"}:
+            return "xml"
+        if explicit == "zim":
+            return "zim"
+        name = str(corpus_path.name).lower()
+        if name.endswith(".jsonl"):
+            return "jsonl"
+        if name.endswith(".xml") or name.endswith(".xml.gz") or name.endswith(".xml.bz2"):
+            return "xml"
+        if name.endswith(".zim"):
+            return "zim"
+        raise ValueError("wiki_corpus_unknown_format")
+
+    def import_wiki_corpus(
+        self,
+        *,
+        corpus_path: str,
+        index_path: str | None = None,
+        source_id: str | None = None,
+        default_language: str = "en",
+        strict: bool = False,
+        import_format: str | None = None,
+    ) -> dict[str, object]:
+        path = Path(str(corpus_path or "").strip()).expanduser().resolve()
+        detected_format = self._infer_wiki_format(corpus_path=path, import_format=import_format)
+        if detected_format == "jsonl":
+            return self.import_wiki_jsonl(
+                corpus_path=str(path),
+                source_id=source_id,
+                default_language=default_language,
+                strict=strict,
+            )
+        if detected_format == "xml":
+            return self.import_wiki_xml(
+                corpus_path=str(path),
+                index_path=index_path,
+                source_id=source_id,
+                default_language=default_language,
+                strict=strict,
+            )
+        if detected_format == "zim":
+            raise ValueError("wiki_zim_import_not_supported")
+        raise ValueError("wiki_corpus_unknown_format")
+
     def import_wiki_xml(
         self,
         *,
@@ -626,11 +674,12 @@ class IngestionService:
         storage_issue = None
         with urllib.request.urlopen(request, timeout=45) as response:
             status = int(getattr(response, "status", 200) or 200)
+            headers = getattr(response, "headers", {}) or {}
             response_headers = {
-                "content_length": str(response.headers.get("Content-Length") or "").strip() or None,
-                "accept_ranges": str(response.headers.get("Accept-Ranges") or "").strip() or None,
-                "etag": str(response.headers.get("ETag") or "").strip() or None,
-                "last_modified": str(response.headers.get("Last-Modified") or "").strip() or None,
+                "content_length": str(headers.get("Content-Length") or "").strip() or None,
+                "accept_ranges": str(headers.get("Accept-Ranges") or "").strip() or None,
+                "etag": str(headers.get("ETag") or "").strip() or None,
+                "last_modified": str(headers.get("Last-Modified") or "").strip() or None,
             }
             if existing_bytes > 0 and status == 200:
                 mode = "wb"
@@ -638,7 +687,7 @@ class IngestionService:
                 restarted_without_range = True
             content_length = 0
             try:
-                content_length = int(response.headers.get("Content-Length") or 0)
+                content_length = int(headers.get("Content-Length") or 0)
             except (TypeError, ValueError):
                 content_length = 0
             expected_remaining = max(0, content_length)
@@ -676,50 +725,3 @@ ingestion_service = IngestionService()
 
 def get_ingestion_service() -> IngestionService:
     return ingestion_service
-    def _infer_wiki_format(self, *, corpus_path: Path, import_format: str | None = None) -> str:
-        explicit = str(import_format or "").strip().lower()
-        if explicit in {"jsonl", "mediawiki-jsonl"}:
-            return "jsonl"
-        if explicit in {"xml", "mediawiki-xml", "mediawiki-multistream"}:
-            return "xml"
-        if explicit == "zim":
-            return "zim"
-        name = str(corpus_path.name).lower()
-        if name.endswith(".jsonl"):
-            return "jsonl"
-        if name.endswith(".xml") or name.endswith(".xml.gz") or name.endswith(".xml.bz2"):
-            return "xml"
-        if name.endswith(".zim"):
-            return "zim"
-        raise ValueError("wiki_corpus_unknown_format")
-
-    def import_wiki_corpus(
-        self,
-        *,
-        corpus_path: str,
-        index_path: str | None = None,
-        source_id: str | None = None,
-        default_language: str = "en",
-        strict: bool = False,
-        import_format: str | None = None,
-    ) -> dict[str, object]:
-        path = Path(str(corpus_path or "").strip()).expanduser().resolve()
-        detected_format = self._infer_wiki_format(corpus_path=path, import_format=import_format)
-        if detected_format == "jsonl":
-            return self.import_wiki_jsonl(
-                corpus_path=str(path),
-                source_id=source_id,
-                default_language=default_language,
-                strict=strict,
-            )
-        if detected_format == "xml":
-            return self.import_wiki_xml(
-                corpus_path=str(path),
-                index_path=index_path,
-                source_id=source_id,
-                default_language=default_language,
-                strict=strict,
-            )
-        if detected_format == "zim":
-            raise ValueError("wiki_zim_import_not_supported")
-        raise ValueError("wiki_corpus_unknown_format")
