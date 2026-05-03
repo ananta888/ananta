@@ -813,7 +813,10 @@ public class LiveTerminalAndroidE2ETest {
                 + "    var distros=(st && Array.isArray(st.distros)) ? st.distros : [];"
                 + "    var ubuntuOk=distros.some(function(item){ return String(item && item.name || '').toLowerCase()==='ubuntu'; });"
                 + "    if(!ubuntuOk){ await py.installProotDistro({distro:'ubuntu', confirmed:true}); }"
-                + "    await py.installAnantaWorkspace({});"
+                + "    var statusBeforeWorkspace=await py.getGuidedSetupStatus();"
+                + "    if(!(statusBeforeWorkspace && statusBeforeWorkspace.workspaceInstalled)){"
+                + "      await py.installAnantaWorkspace({});"
+                + "    }"
                 + "    await py.installWorkerDependencies({confirmed:true});"
                 + "    var removeCmd=" + jsLiteral(
                     prootPreamble()
