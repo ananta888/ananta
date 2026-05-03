@@ -110,7 +110,17 @@ if [[ ! -f "$APP_APK" || ! -f "$TEST_APK" ]]; then
   exit 1
 fi
 
-adb -s "$EMULATOR_SERIAL" install -r "$APP_APK" >/dev/null
+install_output="$(adb -s "$EMULATOR_SERIAL" install -r "$APP_APK" 2>&1 | cat)"
+if ! echo "$install_output" | grep -q "Success"; then
+  echo "$install_output"
+  if echo "$install_output" | grep -q "INSTALL_FAILED_UPDATE_INCOMPATIBLE"; then
+    echo "APK-Signatur passt nicht zur installierten App."
+    echo "Hinweis: Fuer persistente lokale Modelle (z. B. Voxtral) immer denselben Debug-Keystore nutzen."
+    echo "Setze ggf. -PanantaDebugKeystorePath=<pfad> oder ANANTA_DEBUG_KEYSTORE_PATH."
+  fi
+  exit 1
+fi
+
 adb -s "$EMULATOR_SERIAL" install -r -t "$TEST_APK" >/dev/null
 INSTRUMENTATION_OUTPUT="$(adb -s "$EMULATOR_SERIAL" shell am instrument -w -r \
   -e ananta.e2e.username "$USERNAME" \
