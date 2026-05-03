@@ -123,7 +123,7 @@
         "WR2-T03",
         "WR2-T04"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "WR2-M1",
@@ -136,7 +136,7 @@
         "WR2-T09",
         "WR2-T10"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "WR2-M2",
@@ -149,7 +149,7 @@
         "WR2-T15",
         "WR2-T16"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "WR2-M3",
@@ -186,7 +186,7 @@
         "WR2-T31",
         "WR2-T32"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "WR2-M6",
@@ -215,7 +215,7 @@
     {
       "id": "WR2-T01",
       "title": "Wiki-RAG Source Contract formal definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture_contract",
@@ -234,7 +234,7 @@
     {
       "id": "WR2-T02",
       "title": "Bestehenden Wiki-Import gegen neuen Contract mappen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "compatibility",
@@ -292,7 +292,7 @@
     {
       "id": "WR2-T05",
       "title": "Streaming Parser Interface einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "backend_service",
@@ -314,7 +314,7 @@
     {
       "id": "WR2-T06",
       "title": "Multistream BZip2 Verarbeitung robust machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "parser",
@@ -334,7 +334,7 @@
     {
       "id": "WR2-T07",
       "title": "Batch Writer fuer normalisierte Wiki-Records implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "storage",
@@ -395,7 +395,7 @@
     {
       "id": "WR2-T10",
       "title": "Import Checkpoints fuer Parse- und Indexphasen einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "resumability",
@@ -417,7 +417,7 @@
     {
       "id": "WR2-T11",
       "title": "Namespace- und Redirect-Filter implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "normalization",
@@ -437,7 +437,7 @@
     {
       "id": "WR2-T12",
       "title": "Abschnittsextraktion aus MediaWiki Text verbessern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "normalization",
@@ -457,7 +457,7 @@
     {
       "id": "WR2-T13",
       "title": "MediaWiki Markup Cleanup produktionsnaeher machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "normalization",
@@ -477,7 +477,7 @@
     {
       "id": "WR2-T14",
       "title": "Stabile Chunking Policy fuer enzyklopaedische Texte definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "chunking",
@@ -497,7 +497,7 @@
     {
       "id": "WR2-T15",
       "title": "Artikel-Link-, Kategorie- und Infobox-Signale extrahieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "semantic_enrichment",
@@ -538,7 +538,7 @@
     {
       "id": "WR2-T17",
       "title": "CodeCompass-Wiki-Record Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "codecompass_bridge",
@@ -1068,12 +1068,12 @@
   "tasks_status_summary": {
     "total": 40,
     "by_status": {
-      "todo": 31,
+      "todo": 19,
       "in_progress": 0,
       "blocked": 1,
-      "done": 8
+      "done": 20
     },
-    "progress_percent_done": 20,
+    "progress_percent_done": 50,
     "by_priority": {
       "P0": 22,
       "P1": 15,
@@ -1088,15 +1088,15 @@
     },
     "critical_path": {
       "total": 17,
-      "done": 3,
-      "remaining": 14
+      "done": 11,
+      "remaining": 6
     },
     "milestones": {
       "total": 8,
-      "todo": 4,
-      "in_progress": 4,
+      "todo": 3,
+      "in_progress": 2,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "execution_stage_summary": {
