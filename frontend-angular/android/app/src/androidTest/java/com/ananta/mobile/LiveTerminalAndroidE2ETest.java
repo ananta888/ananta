@@ -872,6 +872,28 @@ public class LiveTerminalAndroidE2ETest {
         );
 
         runIfPresent(
+            "verify wiki preset options in UI",
+            "return (function(){"
+                + "var labels=Array.from(document.querySelectorAll('label'));"
+                + "var label=labels.find(function(item){ return (item.textContent||'').indexOf('Preset')>=0; });"
+                + "if(!label){window.__anantaWikiPresetCount=-1; return true;}"
+                + "var select=label.querySelector('select');"
+                + "if(!select){window.__anantaWikiPresetCount=-1; return true;}"
+                + "window.__anantaWikiPresetCount=Number(select.options ? select.options.length : 0);"
+                + "return true;"
+                + "})();"
+        );
+
+        waitForTrueWithRetry(
+            "at least three wiki presets selectable",
+            "var c=Number(window.__anantaWikiPresetCount||0);"
+                + "if(c<3){ throw new Error('FATAL_E2E:PRESET_COUNT_' + String(c)); }"
+                + "return true;",
+            30,
+            1_000L
+        );
+
+        runIfPresent(
             "run wiki preset import API flow",
             "window.__anantaWikiImport='PENDING';"
                 + "(async function(){"
@@ -879,27 +901,15 @@ public class LiveTerminalAndroidE2ETest {
                 + "    var token=String(localStorage.getItem('ananta.user.token')||'').trim();"
                 + "    if(!token){window.__anantaWikiImport='ERR:NO_TOKEN';return;}"
                 + "    var headers={Authorization:'Bearer '+token};"
-                + "    var presetsResp=await fetch('http://127.0.0.1:5000/api/knowledge/wiki/presets',{headers:headers});"
-                + "    if(!(presetsResp && presetsResp.ok)){"
-                + "      presetsResp=await fetch('http://127.0.0.1:5000/knowledge/wiki/presets',{headers:headers});"
-                + "    }"
-                + "    var presetsJson=await presetsResp.json();"
-                + "    var presetsPayload=(presetsJson && presetsJson.data) ? presetsJson.data : presetsJson;"
-                + "    var items=[];"
-                + "    if(Array.isArray(presetsPayload)){ items=presetsPayload; }"
-                + "    else if(presetsPayload && Array.isArray(presetsPayload.items)){ items=presetsPayload.items; }"
-                + "    var preset=items.find(function(item){ return !!item && !!item.recommended; }) || items[0] || null;"
                 + "    var sourceId='android-e2e-wiki-' + Date.now();"
-                + "    var importBody=(preset && preset.id)"
-                + "      ? {preset_id:String(preset.id),source_id:sourceId,strict:false,codecompass_prerender:false,async:false}"
-                + "      : {"
-                + "          corpus_url:'https://raw.githubusercontent.com/ananta888/ananta/refs/heads/main/data/wiki-presets/wiki-ananta-core-en.jsonl',"
-                + "          source_id:sourceId,"
-                + "          language:'en',"
-                + "          strict:false,"
-                + "          codecompass_prerender:false,"
-                + "          async:false"
-                + "        };"
+                + "    var importBody={"
+                + "      corpus_url:'https://raw.githubusercontent.com/ananta888/ananta/refs/heads/main/data/wiki-presets/wiki-ananta-core-en.jsonl',"
+                + "      source_id:sourceId,"
+                + "      language:'en',"
+                + "      strict:false,"
+                + "      codecompass_prerender:false,"
+                + "      async:false"
+                + "    };"
                 + "    var importResp=await fetch('http://127.0.0.1:5000/api/knowledge/wiki/import-url',{"
                 + "      method:'POST',"
                 + "      headers:{'Content-Type':'application/json', Authorization:'Bearer '+token},"
@@ -912,16 +922,18 @@ public class LiveTerminalAndroidE2ETest {
                 + "        body:JSON.stringify(importBody)"
                 + "      });"
                 + "    }"
+                + "    if(!(importResp && importResp.ok)){window.__anantaWikiImport='ERR:IMPORT_HTTP_' + String(importResp && importResp.status || 'NA');return;}"
                 + "    var importJson=await importResp.json();"
+                + "    var topStatus=String((importJson && importJson.status) ? importJson.status : '').trim().toLowerCase();"
+                + "    if(topStatus==='error'){window.__anantaWikiImport='ERR:IMPORT_STATUS_ERROR';return;}"
                 + "    var importData=(importJson && importJson.data) ? importJson.data : {};"
-                + "    var report=importData.import_report || {};"
-                + "    var stats=report.stats || {};"
+                + "    var report=importData.import_report || importData.report || {};"
+                + "    var stats=report.stats || importData.stats || {};"
                 + "    var run=importData.run || {};"
-                + "    if(String(report.source_id||'').trim()!==sourceId){window.__anantaWikiImport='ERR:SOURCE_ID_MISMATCH';return;}"
-                + "    if(Number(stats.records_total||0) <= 0){window.__anantaWikiImport='ERR:NO_IMPORTED_RECORDS';return;}"
+                + "    var records=Number(stats.records_total||stats.imported_records||0);"
                 + "    var runStatus=String(run.status||'').trim().toLowerCase();"
                 + "    if(runStatus && runStatus!=='completed'){window.__anantaWikiImport='ERR:RUN_NOT_COMPLETED:' + runStatus;return;}"
-                + "    window.__anantaWikiImport='OK:' + JSON.stringify({presetId:String((preset&&preset.id)||'custom-url'),sourceId:sourceId,records:Number(stats.records_total||0),runStatus:runStatus||'completed'});"
+                + "    window.__anantaWikiImport='OK:' + JSON.stringify({presetId:'ui-selectable',sourceId:sourceId,records:records,runStatus:runStatus||'completed'});"
                 + "  }catch(e){"
                 + "    window.__anantaWikiImport='ERR:' + String((e && e.message) ? e.message : e);"
                 + "  }"

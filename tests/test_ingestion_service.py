@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import gzip
+from io import BytesIO
+
 import pytest
 
 from agent.services.ingestion_service import IngestionService
@@ -60,3 +63,71 @@ def test_ingestion_service_import_wiki_jsonl_is_deterministic_for_same_input(tmp
     assert [item["chunk_id"] for item in first["records"]] == [item["chunk_id"] for item in second["records"]]
     assert first["records"] == second["records"]
     assert Path(first["corpus_path"]).name == "wiki-deterministic.jsonl"
+
+
+def test_ingestion_service_import_wiki_xml_mediawiki_extracts_records(tmp_path):
+    corpus = tmp_path / "simplewiki.xml"
+    corpus.write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<mediawiki>
+  <page>
+    <title>Payment retries</title>
+    <revision><text>Workers retry after timeout. Backoff applies.</text></revision>
+  </page>
+</mediawiki>
+""",
+        encoding="utf-8",
+    )
+
+    report = IngestionService().import_wiki_xml(corpus_path=str(corpus), source_id="wiki-xml")
+
+    assert report["source_scope"] == "wiki"
+    assert report["source_id"] == "wiki-xml"
+    assert report["format"] == "xml"
+    assert report["stats"]["input_pages"] == 1
+    assert report["stats"]["normalized_records"] >= 1
+    assert report["records"][0]["article_title"] == "Payment retries"
+    assert report["records"][0]["import_metadata"]["format"] == "xml"
+
+
+def test_ingestion_service_import_wiki_xml_from_url_supports_gz_abstract(monkeypatch):
+    xml_payload = b"""<?xml version="1.0" encoding="UTF-8"?>
+<feed>
+  <doc>
+    <title>Retrieval-augmented generation</title>
+    <abstract>RAG combines retrieval and generation for grounded answers.</abstract>
+  </doc>
+</feed>
+"""
+    compressed = gzip.compress(xml_payload)
+
+    class FakeResponse:
+        def __init__(self, data: bytes):
+            self._buffer = BytesIO(data)
+
+        def read(self, size: int = -1) -> bytes:
+            return self._buffer.read(size)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("agent.services.ingestion_service.settings.data_dir", "/tmp/ananta-test-data", raising=False)
+    monkeypatch.setattr(
+        "agent.services.ingestion_service.urllib.request.urlopen",
+        lambda *_args, **_kwargs: FakeResponse(compressed),
+    )
+
+    report = IngestionService().import_wiki_jsonl_from_url(
+        corpus_url="https://dumps.wikimedia.org/simplewiki/latest/simplewiki-latest-abstract1.xml.gz",
+        source_id="wiki-abstract-gz",
+    )
+
+    assert report["source_scope"] == "wiki"
+    assert report["source_id"] == "wiki-abstract-gz"
+    assert report["format"] == "xml"
+    assert report["stats"]["input_docs"] == 1
+    assert report["stats"]["normalized_records"] >= 1
+    assert report["download"]["url"].endswith(".xml.gz")
