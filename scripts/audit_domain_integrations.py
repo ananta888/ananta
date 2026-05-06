@@ -59,6 +59,15 @@ def _is_runtime_artifact(path: str) -> bool:
     return True
 
 
+def _requires_repo_evidence_check(path: str) -> bool:
+    normalized = str(path).strip().lower()
+    if not normalized:
+        return False
+    # CI/runtime artifacts can be generated during pipelines and are not expected
+    # to exist in a clean repository checkout.
+    return not normalized.startswith("ci-artifacts/")
+
+
 def validate_domain_runtime_inventory(
     *,
     root: Path,
@@ -147,7 +156,8 @@ def validate_domain_runtime_inventory(
                 missing_evidence = [
                     evidence_ref
                     for evidence_ref in evidence_refs
-                    if not _normalize_rel(evidence_ref, root=root).exists()
+                    if _requires_repo_evidence_check(evidence_ref)
+                    and not _normalize_rel(evidence_ref, root=root).exists()
                 ]
                 if missing_evidence:
                     blockers.append(f"{domain_id}: missing runtime evidence refs: {missing_evidence}")
