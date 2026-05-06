@@ -13,7 +13,12 @@ def test_voice_transcribe_requires_file(client, admin_auth_header):
 
 def test_voice_capabilities_degraded_when_runtime_unavailable(client, admin_auth_header):
     with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
-        provider_factory.return_value.health.side_effect = RuntimeError("down")
+        provider_factory.return_value.health.side_effect = VoiceProviderError(
+            code="voice.runtime_unavailable",
+            message="voice runtime unavailable",
+            status_code=503,
+            retriable=True,
+        )
         res = client.get("/v1/voice/capabilities", headers=admin_auth_header)
     assert res.status_code == 200
     data = res.json["data"]

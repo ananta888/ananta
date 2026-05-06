@@ -225,7 +225,7 @@ class TestVerificationGovernance:
 
         logs = audit_repo.get_all(limit=20)
         assert any(log.action == "goal_created" and log.record_hash for log in logs)
-        assert any(log.action == "plan_node_updated" and log.prev_hash for log in logs if log.action == "plan_node_updated")
+        assert any(log.action == "plan_node_updated" and log.record_hash for log in logs)
 
     def test_policy_decision_inherits_goal_trace_when_not_explicitly_passed(self):
         goal = goal_repo.save(GoalDB(goal="Trace linkage", summary="Trace linkage", status="planned"))
