@@ -192,7 +192,11 @@ class TestVerificationGovernance:
         assert "latest" not in payload["policy"]
         assert payload["summary"]["governance_visible"] is False
 
-    def test_audit_log_records_hash_chain_for_goal_workflow(self, client, admin_auth_header):
+    def test_audit_log_records_hash_chain_for_goal_workflow(self, client, admin_auth_header, monkeypatch):
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.generate_text",
+            lambda **kwargs: '[{"title":"Audit secure release","description":"Prepare release audit","priority":"High"}]',
+        )
         create_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Audit secure release"})
         payload = create_res.get_json()["data"]
         goal_id = payload["goal"]["id"]
