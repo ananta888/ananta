@@ -41,6 +41,7 @@ def test_e2e_autonomous_scrum_progress_with_followup_chain(app, monkeypatch):
             raise AssertionError(f"unexpected endpoint: {endpoint}")
 
         monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", lambda **kwargs: "[]")
 
         # Tick 1: Parent wird erledigt, Child bleibt noch blocked.
         autonomous_loop.tick_once()
