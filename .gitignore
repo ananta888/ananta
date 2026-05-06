@@ -135,3 +135,4 @@ __pycache__/
 /venv/
 /client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build/
 /client_surfaces/eclipse_runtime/ananta_eclipse_plugin/.gradle/
+/.idea/
