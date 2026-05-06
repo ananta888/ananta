@@ -25,10 +25,8 @@ def test_e2e_failure_summary_includes_project_status_retry_and_sanitized_error_c
 
 
 def test_ci_uploads_e2e_diagnostics_even_when_compose_test_fails():
-    workflow = (ROOT / ".github" / "workflows" / "quality-and-docs.yml").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github" / "workflows" / "e2e-compose.yml").read_text(encoding="utf-8")
 
     assert "continue-on-error: true" in workflow
     assert "if: always()" in workflow
-    assert "frontend-angular/test-results/junit-results.xml" in workflow
-    assert "frontend-angular/test-results/results.json" in workflow
-    assert "frontend-angular/test-results/failure-summary.md" in workflow
+    assert "frontend-angular/test-results/**" in workflow
