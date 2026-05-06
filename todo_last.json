@@ -199,5 +199,9 @@
   "summary_notes": [
     "Consistency sync for freecad track performed on 2026-04-30 (status, milestones, tasks_status_summary, todos fallback).",
     "All freecad track tasks completed and retained as done on 2026-04-30."
-  ]
+  ],
+  "statistics": {
+    "completed_this_session": 0,
+    "remaining_tasks": 0
+  }
 }

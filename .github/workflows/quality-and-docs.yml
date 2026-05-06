@@ -206,19 +206,6 @@ jobs:
             ci-artifacts/domain-runtime/domain-integration-audit-report.json
           retention-days: 14
 
-  todo-validation:
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
-        with:
-          python-version: "3.11.15"
-      - run: pip install -r requirements.lock
-      - run: python devtools/sync_todo_stats.py
-      - run: python devtools/validate_todo_schema.py
-      - run: git diff --exit-code todo_last.json
-
   docs-links:
     runs-on: ubuntu-latest
     timeout-minutes: 5

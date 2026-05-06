@@ -5,14 +5,27 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TODO_PATH = ROOT / "todo.json"
+TODO_PATH_CANDIDATES = (
+    ROOT / "todo.json",
+    ROOT / "todo_last.json",
+)
 
 
-def _load_todo() -> dict:
-    with TODO_PATH.open("r", encoding="utf-8") as fh:
+def _resolve_todo_path() -> Path:
+    for candidate in TODO_PATH_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        "No todo source file found. Expected one of: "
+        + ", ".join(str(path.relative_to(ROOT)) for path in TODO_PATH_CANDIDATES)
+    )
+
+
+def _load_todo(path: Path) -> dict:
+    with path.open("r", encoding="utf-8") as fh:
         data = json.load(fh)
     if not isinstance(data, dict):
-        raise ValueError("todo.json root must be an object")
+        raise ValueError(f"{path.name} root must be an object")
     return data
 
 
@@ -60,12 +73,13 @@ def _recompute(data: dict) -> dict:
 
 
 def main() -> int:
-    data = _load_todo()
+    todo_path = _resolve_todo_path()
+    data = _load_todo(todo_path)
     updated = _recompute(data)
-    with TODO_PATH.open("w", encoding="utf-8") as fh:
+    with todo_path.open("w", encoding="utf-8") as fh:
         json.dump(updated, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
-    print("todo.json statistics synchronized")
+    print(f"{todo_path.name} statistics synchronized")
     return 0
 
 
