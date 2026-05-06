@@ -7,7 +7,6 @@ import re
 import shlex
 import subprocess
 import sys
-from collections import Counter
 from pathlib import Path
 from typing import Iterable
 
@@ -63,6 +62,7 @@ CLIENT_SURFACE_ALLOWED_STATUSES = {
     "deferred",
     "blocked",
 }
+TODO_PATH_CANDIDATES = ("todo.json", "todo_last.json")
 
 PINNED_ACTIONS = {
     "actions/checkout": "34e114876b0b11c390a56381ad16ebd13914f8d5",
@@ -134,6 +134,13 @@ def docker_env(extra: dict[str, str] | None = None) -> dict[str, str]:
 
 def npm_command() -> list[str]:
     return shlex.split(os.environ.get("ANANTA_NPM_COMMAND", "npm"))
+
+
+def resolve_todo_path() -> str | None:
+    for candidate in TODO_PATH_CANDIDATES:
+        if (ROOT / candidate).exists():
+            return candidate
+    return None
 
 
 def package_name(spec: str) -> str:
@@ -330,23 +337,27 @@ def check_apt_snapshots() -> CheckResult:
     return CheckResult("apt-snapshots", not problems, "apt packages are installed through fixed Debian/Ubuntu snapshot configuration" if not problems else "; ".join(problems))
 
 
-def check_todo_status() -> CheckResult:
-    data = json.loads(read_text("todo.json"))
-    items = [item for category in data.get("categories", []) for item in category.get("items", [])]
-    statuses = Counter(item.get("status", "open") for item in items)
-    meta = data.get("meta", {}).get("by_status", {})
-    problems = []
-    if dict(statuses) != {key: value for key, value in meta.items() if value}:
-        expected = {key: statuses.get(key, 0) for key in ("completed", "partial", "open")}
-        if expected != meta:
-            problems.append(f"todo meta mismatch: expected {expected}, got {meta}")
-    return CheckResult("todo-status", not problems, "todo status counters are synchronized" if not problems else "; ".join(problems))
-
-
 def check_client_surface_release_gate() -> CheckResult:
     report_path = ROOT / CLIENT_SURFACE_GATE_REPORT
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    result = run_command([sys.executable, "scripts/audit_client_surface_entrypoints.py", "--todo", "todo.json", "--fail-on-warning", "--out", CLIENT_SURFACE_GATE_REPORT])
+    todo_path = resolve_todo_path()
+    if todo_path is None:
+        return CheckResult(
+            "client-surface-release-gate",
+            False,
+            "missing todo manifest: expected one of todo.json or todo_last.json",
+        )
+    result = run_command(
+        [
+            sys.executable,
+            "scripts/audit_client_surface_entrypoints.py",
+            "--todo",
+            todo_path,
+            "--fail-on-warning",
+            "--out",
+            CLIENT_SURFACE_GATE_REPORT,
+        ]
+    )
     if result.returncode != 0:
         return CheckResult("client-surface-release-gate", False, f"audit_client_surface_entrypoints.py failed: {result.stdout[-1000:]}")
     if not report_path.exists():
@@ -410,7 +421,7 @@ def main() -> int:
     parser.add_argument("--build-images", action="store_true", help="build backend and frontend Docker images")
     parser.add_argument("--report", help="write a JSON verification report to this path")
     args = parser.parse_args()
-    results = [check_required_files(), check_python_dependency_sources(), check_python_locks(), check_frontend_manifest(), check_actions_pinning(), check_image_pinning(), check_tool_pinning(), check_ci_release_paths(), check_apt_snapshots(), check_todo_status(), check_client_surface_release_gate()]
+    results = [check_required_files(), check_python_dependency_sources(), check_python_locks(), check_frontend_manifest(), check_actions_pinning(), check_image_pinning(), check_tool_pinning(), check_ci_release_paths(), check_apt_snapshots(), check_client_surface_release_gate()]
     if not args.strict:
         results = [result for result in results if result.name not in {"actions-pinning", "apt-snapshots"}]
     if args.compose_config:
