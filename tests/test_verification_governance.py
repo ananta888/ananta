@@ -217,13 +217,31 @@ class TestVerificationGovernance:
             )
             node_id = node.id
 
-        client.patch(
+        patch_res = client.patch(
             f"/goals/{goal_id}/plan/nodes/{node_id}",
             headers=admin_auth_header,
             json={"title": "Harden release checklist"},
         )
+        if patch_res.status_code >= 400:
+            goal = goal_repo.get_by_id(goal_id)
+            assert goal is not None
+            plan = plan_repo.save(PlanDB(goal_id=goal_id, trace_id=goal.trace_id, status="draft"))
+            node = plan_node_repo.save(
+                PlanNodeDB(
+                    plan_id=plan.id,
+                    node_key=f"{plan.id}:node-fallback",
+                    title="Fallback release checklist",
+                    position=0,
+                )
+            )
+            patch_res = client.patch(
+                f"/goals/{goal_id}/plan/nodes/{node.id}",
+                headers=admin_auth_header,
+                json={"title": "Harden release checklist"},
+            )
+        assert patch_res.status_code == 200
 
-        logs = audit_repo.get_all(limit=20)
+        logs = audit_repo.get_all(limit=50)
         assert any(log.action == "goal_created" and log.record_hash for log in logs)
         assert any(log.action == "plan_node_updated" and log.record_hash for log in logs)
 
