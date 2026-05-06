@@ -1,16 +1,45 @@
 version: 2
 updates:
+  # GitHub Actions - Daily security updates, weekly regular updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    security-updates-only: true
+    labels:
+      - dependencies
+      - ci
+      - security
+    commit-message:
+      prefix: "security(actions)"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "06:00"
+    allow-multiple-major-targets: true
     labels:
       - dependencies
       - ci
     commit-message:
       prefix: "deps(actions)"
+    ignore-conditions:
+      - dependency-type: "indirect"
+
+  # Python/pip - Daily security updates, weekly regular updates
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    security-updates-only: true
+    labels:
+      - dependencies
+      - backend
+      - security
+    commit-message:
+      prefix: "security(python)"
 
   - package-ecosystem: "pip"
     directory: "/"
@@ -18,11 +47,27 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "06:30"
+    allow-multiple-major-targets: true
     labels:
       - dependencies
       - backend
     commit-message:
       prefix: "deps(python)"
+    ignore-conditions:
+      - dependency-type: "indirect"
+
+  # npm/Frontend - Daily security updates, weekly regular updates
+  - package-ecosystem: "npm"
+    directory: "/frontend-angular"
+    schedule:
+      interval: "daily"
+    security-updates-only: true
+    labels:
+      - dependencies
+      - frontend
+      - security
+    commit-message:
+      prefix: "security(frontend)"
 
   - package-ecosystem: "npm"
     directory: "/frontend-angular"
@@ -30,8 +75,11 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "07:00"
+    allow-multiple-major-targets: true
     labels:
       - dependencies
       - frontend
     commit-message:
       prefix: "deps(frontend)"
+    ignore-conditions:
+      - dependency-type: "indirect"
