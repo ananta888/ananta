@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import stat
+import sys
 from urllib.parse import urlsplit
 from pathlib import Path
 from types import SimpleNamespace
@@ -143,7 +144,8 @@ def test_freecad_runtime_golden_path_end_to_end(app, client, tmp_path: Path) -> 
     assert blocked_exec["status"] == "blocked"
     assert approved_exec["status"] == "accepted"
 
-    os.environ["PYTHON_FOR_FREECAD_E2E"] = str(ROOT / ".venv" / "bin" / "python")
+    venv_python = ROOT / ".venv" / "bin" / "python"
+    os.environ["PYTHON_FOR_FREECAD_E2E"] = str(venv_python if venv_python.exists() else Path(sys.executable))
     try:
         fake_binary = _fake_freecad_binary(tmp_path)
         install_report = evaluate_install_smoke(root=ROOT, binary=str(fake_binary))

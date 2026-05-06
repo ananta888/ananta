@@ -27,7 +27,8 @@
         "repair-admin",
         "tui",
         "doctor",
-        "web"
+        "web",
+        "voice-file"
       ],
       "compatibility_commands": ["goal", "goals"]
     },
