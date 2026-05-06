@@ -6,6 +6,8 @@ from agent.shell import PersistentShell
 class TestShellSanitization(unittest.TestCase):
     def setUp(self):
         self.shell = PersistentShell(shell_cmd="sh")
+        # Keep tests deterministic even when no blacklist file is present in CI.
+        self.shell.blacklist = [r"rm\s+-rf\s+.*"]
 
     def tearDown(self):
         self.shell.close()
