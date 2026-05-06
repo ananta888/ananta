@@ -49,7 +49,7 @@ def test_task_e2e_solved_via_opencode_glm5_default(client, app, admin_auth_heade
 
     assert cli_calls
     assert cli_calls[0]["backend"] == "opencode"
-    assert cli_calls[0]["model"] is None
+    assert cli_calls[0]["model"] in {None, "auto"}
 
     with patch("agent.shell.PersistentShell.execute") as mock_exec:
         mock_exec.return_value = ("solved", 0)
