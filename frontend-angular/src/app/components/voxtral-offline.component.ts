@@ -115,6 +115,9 @@ import { VoxtralOfflineService } from '../services/voxtral-offline.service';
 
         <div class="row gap-sm mt-md wrap">
           <button class="secondary" type="button" (click)="requestMic()">Mikrofon erlauben</button>
+          @if (permissionState !== 'granted') {
+            <button class="secondary" type="button" (click)="openAppSettings()">App-Einstellungen oeffnen</button>
+          }
           <button class="primary" type="button" (click)="downloadRecommendedModel()" [disabled]="busy">Kleines Standard-Modell laden (~1.37 GiB)</button>
           <button class="secondary" type="button" (click)="applyPresetModel()" [disabled]="busy">Modell-Preset uebernehmen</button>
           <button class="secondary" type="button" (click)="provisionVoxtralRunner()" [disabled]="busy">Passenden Voxtral-Runner bereitstellen</button>
@@ -334,6 +337,17 @@ export class VoxtralOfflineComponent implements OnInit, OnDestroy {
     await this.run(async () => {
       this.permissionState = await this.voxtral.requestMicrophonePermission();
       this.toast.info(`Mikrofon-Permission: ${this.permissionState}`);
+      if (this.permissionState !== 'granted') {
+        this.toast.error('Android zeigt den Dialog ggf. nur einmal. Bitte "App-Einstellungen oeffnen" nutzen und Mikrofon erlauben.');
+      }
+      await this.refreshStatus();
+    });
+  }
+
+  async openAppSettings(): Promise<void> {
+    await this.run(async () => {
+      await this.voxtral.openAppSettings();
+      this.toast.info('App-Einstellungen geoeffnet.');
     });
   }
 

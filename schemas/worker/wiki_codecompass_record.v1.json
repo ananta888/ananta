@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/wiki_codecompass_record.v1.json",
+  "title": "Wiki CodeCompass Record v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "kind",
+    "record_id",
+    "article_title",
+    "source"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "wiki_codecompass_record.v1"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "article",
+        "section",
+        "chunk",
+        "link_relation",
+        "category_relation",
+        "source_manifest"
+      ]
+    },
+    "record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "article_title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "section_title": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "content": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "format"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "dump_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "page_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "namespace": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
+

@@ -441,11 +441,11 @@ class KnowledgeIndexRetrievalService:
         profile = self._task_profile(task_kind, retrieval_intent)
         candidates: list[ContextChunk] = []
         for knowledge_index in self._iter_completed_indices():
-            artifact_id = str(getattr(knowledge_index, "artifact_id", "") or "")
-            if artifact_ids is not None and artifact_id not in artifact_ids:
-                continue
             source_scope = str(getattr(knowledge_index, "source_scope", "artifact") or "artifact").strip().lower() or "artifact"
             if source_scopes is not None and source_scope not in source_scopes:
+                continue
+            artifact_id = str(getattr(knowledge_index, "artifact_id", "") or "")
+            if artifact_ids is not None and source_scope == "artifact" and artifact_id not in artifact_ids:
                 continue
             collection_ids, collection_names = self._collection_metadata(artifact_id)
             output_dir_raw = getattr(knowledge_index, "output_dir", None)

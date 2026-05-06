@@ -19,6 +19,60 @@ from agent.services.service_registry import get_core_services
 
 knowledge_bp = Blueprint("knowledge", __name__)
 
+WIKI_IMPORT_PRESETS = [
+    {
+        "id": "wikipedia-de-multistream-latest",
+        "label": "Wikipedia DE: Artikel Multistream (latest)",
+        "description": "Empfohlen fuer ernsthaftes deutsches RAG: echter Wikimedia XML.BZ2 Multistream-Dump plus Index.",
+        "corpus_url": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles-multistream.xml.bz2",
+        "index_url": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles-multistream-index.txt.bz2",
+        "source_id": "wikipedia-de-multistream-latest",
+        "language": "de",
+        "size_hint": "~8.1 GB dump + ~63 MB index",
+        "recommended": True,
+        "import_format": "mediawiki-multistream",
+        "codecompass_prerender": True,
+    },
+    {
+        "id": "wikipedia-de-pages-latest",
+        "label": "Wikipedia DE: Artikel nicht-Multistream (latest)",
+        "description": "Fallback ohne Multistream-Index; meist weniger praktisch fuer grosse lokale Verarbeitung.",
+        "corpus_url": "https://dumps.wikimedia.org/dewiki/latest/dewiki-latest-pages-articles.xml.bz2",
+        "source_id": "wikipedia-de-pages-latest",
+        "language": "de",
+        "size_hint": "~7.8 GB",
+        "recommended": False,
+        "import_format": "mediawiki-xml",
+        "codecompass_prerender": True,
+    },
+    {
+        "id": "wikipedia-de-zim-mini-2026-04",
+        "label": "Wikipedia DE: ZIM mini 2026-04 (Prototyp)",
+        "description": "Kleiner Kiwix/ZIM-Prototyp-Dump. Sichtbar fuer Download-Planung; Import benoetigt noch ZIM-Parser.",
+        "corpus_url": "https://dumps.wikimedia.org/kiwix/zim/wikipedia/wikipedia_de_all_mini_2026-04.zim",
+        "source_id": "wikipedia-de-zim-mini-2026-04",
+        "language": "de",
+        "size_hint": "~3.9 GiB",
+        "recommended": False,
+        "import_format": "zim",
+        "supported": False,
+        "codecompass_prerender": False,
+    },
+    {
+        "id": "wikipedia-de-zim-nopic-2026-01",
+        "label": "Wikipedia DE: ZIM ohne Bilder 2026-01 (Prototyp)",
+        "description": "Groesserer Kiwix/ZIM-Dump ohne Bilder. Sichtbar fuer spaetere ZIM-Unterstuetzung.",
+        "corpus_url": "https://dumps.wikimedia.org/kiwix/zim/wikipedia/wikipedia_de_all_nopic_2026-01.zim",
+        "source_id": "wikipedia-de-zim-nopic-2026-01",
+        "language": "de",
+        "size_hint": "~13.6 GiB",
+        "recommended": False,
+        "import_format": "zim",
+        "supported": False,
+        "codecompass_prerender": False,
+    },
+]
+
 
 def get_knowledge_index_job_service():
     return get_core_services().knowledge_index_job_service
@@ -84,10 +138,13 @@ def _wiki_import_request() -> dict:
     if not corpus_path:
         raise BadRequestError("corpus_path_required")
     source_id = str(payload.get("source_id") or "").strip() or None
+    index_path = str(payload.get("index_path") or "").strip() or None
+    import_format = str(payload.get("import_format") or "").strip() or None
     profile_name = str(payload.get("profile_name") or "").strip() or None
     language = str(payload.get("language") or "en").strip().lower() or "en"
     strict = bool(payload.get("strict", False))
-    async_mode = bool(payload.get("async", False))
+    async_mode = bool(payload.get("async", True))
+    codecompass_prerender = bool(payload.get("codecompass_prerender", False))
     raw_source_metadata = payload.get("source_metadata") or {}
     if not isinstance(raw_source_metadata, dict):
         raise BadRequestError("invalid_source_metadata")
@@ -95,10 +152,60 @@ def _wiki_import_request() -> dict:
     return {
         "corpus_path": corpus_path,
         "source_id": source_id,
+        "index_path": index_path,
+        "import_format": import_format,
         "profile_name": profile_name,
         "language": language,
         "strict": strict,
         "async_mode": async_mode,
+        "codecompass_prerender": codecompass_prerender,
+        "source_metadata": source_metadata,
+    }
+
+
+def _wiki_import_url_request() -> dict:
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        raise BadRequestError("invalid_payload")
+    preset_id = str(payload.get("preset_id") or "").strip()
+    corpus_url = str(payload.get("corpus_url") or "").strip()
+    index_url = str(payload.get("index_url") or "").strip()
+    if not preset_id and not corpus_url:
+        raise BadRequestError("wiki_corpus_url_required")
+    selected_preset = next((item for item in WIKI_IMPORT_PRESETS if item["id"] == preset_id), None) if preset_id else None
+    if preset_id and selected_preset is None:
+        raise BadRequestError("invalid_wiki_preset")
+    effective_url = str(selected_preset.get("corpus_url") if selected_preset else corpus_url).strip()
+    if not effective_url:
+        raise BadRequestError("wiki_corpus_url_required")
+    source_id = str(payload.get("source_id") or "").strip() or (
+        str(selected_preset.get("source_id") or "").strip() if selected_preset else None
+    )
+    profile_name = str(payload.get("profile_name") or "").strip() or None
+    language = str(payload.get("language") or (selected_preset.get("language") if selected_preset else "en")).strip().lower() or "en"
+    strict = bool(payload.get("strict", False))
+    async_mode = bool(payload.get("async", True))
+    codecompass_prerender = bool(payload.get("codecompass_prerender", selected_preset.get("codecompass_prerender", False) if selected_preset else False))
+    raw_source_metadata = payload.get("source_metadata") or {}
+    if not isinstance(raw_source_metadata, dict):
+        raise BadRequestError("invalid_source_metadata")
+    source_metadata = dict(raw_source_metadata)
+    if selected_preset is not None:
+        index_url = str(selected_preset.get("index_url") or index_url).strip()
+        if selected_preset.get("supported") is False:
+            raise BadRequestError("wiki_preset_not_supported")
+        source_metadata.setdefault("preset_id", selected_preset["id"])
+        source_metadata.setdefault("preset_label", selected_preset["label"])
+        source_metadata.setdefault("import_format", selected_preset.get("import_format"))
+    return {
+        "corpus_url": effective_url,
+        "index_url": index_url or None,
+        "source_id": source_id or None,
+        "profile_name": profile_name,
+        "language": language,
+        "strict": strict,
+        "async_mode": async_mode,
+        "codecompass_prerender": codecompass_prerender,
         "source_metadata": source_metadata,
     }
 
@@ -238,6 +345,23 @@ def get_knowledge_index_job(job_id: str):
     return api_response(data={"job": job})
 
 
+@knowledge_bp.route("/knowledge/wiki/import-jobs/<job_id>", methods=["GET"])
+@check_auth
+def get_wiki_import_job(job_id: str):
+    job = get_knowledge_index_job_service().get_job(job_id)
+    if job is None:
+        raise NotFoundError("wiki_import_job_not_found")
+    if str(job.get("job_type") or "") != "source_records" or str(job.get("source_scope") or "").strip().lower() != "wiki":
+        raise NotFoundError("wiki_import_job_not_found")
+    return api_response(data={"job": job})
+
+
+@knowledge_bp.route("/knowledge/wiki/presets", methods=["GET"])
+@check_auth
+def list_wiki_import_presets():
+    return api_response(data={"items": WIKI_IMPORT_PRESETS})
+
+
 @knowledge_bp.route("/knowledge/sources/index-records", methods=["POST"])
 @check_auth
 def index_knowledge_source_records():
@@ -287,11 +411,13 @@ def index_knowledge_source_records():
 def import_wiki_corpus():
     payload = _wiki_import_request()
     try:
-        report = get_ingestion_service().import_wiki_jsonl(
+        report = get_ingestion_service().import_wiki_corpus(
             corpus_path=payload["corpus_path"],
+            index_path=payload["index_path"],
             source_id=payload["source_id"],
             default_language=payload["language"],
             strict=payload["strict"],
+            import_format=payload["import_format"],
         )
     except ValueError as exc:
         raise BadRequestError(str(exc)) from exc
@@ -299,6 +425,8 @@ def import_wiki_corpus():
     source_metadata = {
         **dict(payload.get("source_metadata") or {}),
         "corpus_path": report.get("corpus_path"),
+        "index_path": report.get("index_path"),
+        "import_format": payload.get("import_format") or report.get("format"),
         "issues": list(report.get("issues") or []),
         "import_stats": dict(report.get("stats") or {}),
     }
@@ -311,6 +439,7 @@ def import_wiki_corpus():
             created_by=_current_username(),
             profile_name=payload["profile_name"],
             source_metadata=source_metadata,
+            codecompass_prerender=payload["codecompass_prerender"],
         )
         return api_response(
             status="accepted",
@@ -320,6 +449,9 @@ def import_wiki_corpus():
                     "source_scope": report.get("source_scope"),
                     "source_id": report.get("source_id"),
                     "corpus_path": report.get("corpus_path"),
+                    "index_path": report.get("index_path"),
+                    "jsonl_cache_path": report.get("jsonl_cache_path"),
+                    "format": report.get("format"),
                     "stats": report.get("stats"),
                     "issues": report.get("issues"),
                 },
@@ -333,6 +465,7 @@ def import_wiki_corpus():
         created_by=_current_username(),
         profile_name=payload["profile_name"],
         source_metadata=source_metadata,
+        codecompass_prerender=payload["codecompass_prerender"],
     )
     run_status = _model_status(run)
     return api_response(
@@ -344,6 +477,98 @@ def import_wiki_corpus():
                 "source_scope": report.get("source_scope"),
                 "source_id": report.get("source_id"),
                 "corpus_path": report.get("corpus_path"),
+                "index_path": report.get("index_path"),
+                "jsonl_cache_path": report.get("jsonl_cache_path"),
+                "format": report.get("format"),
+                "stats": report.get("stats"),
+                "issues": report.get("issues"),
+            },
+            "knowledge_index": knowledge_index.model_dump(),
+            "run": run.model_dump(),
+        },
+    )
+
+
+@knowledge_bp.route("/knowledge/wiki/import-url", methods=["POST"])
+@check_auth
+def import_wiki_corpus_from_url():
+    payload = _wiki_import_url_request()
+    try:
+        report = get_ingestion_service().import_wiki_jsonl_from_url(
+            corpus_url=payload["corpus_url"],
+            index_url=payload["index_url"],
+            source_id=payload["source_id"],
+            default_language=payload["language"],
+            strict=payload["strict"],
+        )
+    except ValueError as exc:
+        raise BadRequestError(str(exc)) from exc
+
+    source_metadata = {
+        **dict(payload.get("source_metadata") or {}),
+        "corpus_url": payload["corpus_url"],
+        "index_url": payload["index_url"],
+        "corpus_path": report.get("corpus_path"),
+        "index_path": report.get("index_path"),
+        "jsonl_cache_path": report.get("jsonl_cache_path"),
+        "download": dict(report.get("download") or {}),
+        "issues": list(report.get("issues") or []),
+        "import_stats": dict(report.get("stats") or {}),
+    }
+
+    if payload["async_mode"]:
+        job = get_knowledge_index_job_service().submit_source_records_job(
+            source_scope="wiki",
+            source_id=str(report.get("source_id") or ""),
+            records=list(report.get("records") or []),
+            created_by=_current_username(),
+            profile_name=payload["profile_name"],
+            source_metadata=source_metadata,
+            codecompass_prerender=payload["codecompass_prerender"],
+        )
+        return api_response(
+            status="accepted",
+            code=202,
+            data={
+                "import_report": {
+                    "source_scope": report.get("source_scope"),
+                    "source_id": report.get("source_id"),
+                    "corpus_path": report.get("corpus_path"),
+                    "index_path": report.get("index_path"),
+                    "jsonl_cache_path": report.get("jsonl_cache_path"),
+                    "corpus_url": payload["corpus_url"],
+                    "index_url": payload["index_url"],
+                    "download": report.get("download"),
+                    "stats": report.get("stats"),
+                    "issues": report.get("issues"),
+                },
+                "job": job,
+            },
+        )
+    knowledge_index, run = get_rag_helper_index_service().index_source_records(
+        source_scope="wiki",
+        source_id=str(report.get("source_id") or ""),
+        records=list(report.get("records") or []),
+        created_by=_current_username(),
+        profile_name=payload["profile_name"],
+        source_metadata=source_metadata,
+        codecompass_prerender=payload["codecompass_prerender"],
+    )
+    run_status = _model_status(run)
+    return api_response(
+        status="success" if run_status == "completed" else "error",
+        code=200 if run_status == "completed" else 500,
+        message=None if run_status == "completed" else "wiki_import_failed",
+        data={
+            "import_report": {
+                "source_scope": report.get("source_scope"),
+                "source_id": report.get("source_id"),
+                "corpus_path": report.get("corpus_path"),
+                "index_path": report.get("index_path"),
+                "jsonl_cache_path": report.get("jsonl_cache_path"),
+                "corpus_url": payload["corpus_url"],
+                "index_url": payload["index_url"],
+                "download": report.get("download"),
                 "stats": report.get("stats"),
                 "issues": report.get("issues"),
             },
