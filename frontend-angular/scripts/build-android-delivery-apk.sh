@@ -173,51 +173,56 @@ export_seed_from_android() {
 
   mkdir -p "$ASSET_DIR" "$REPACK_DIR"
   log "Sanitizing app-sandbox Proot rootfs before export"
-  device_shell <<'EOS'
+  device_shell <<EOS
 set -e
-ROOT=files/proot-runtime/distros/ubuntu/rootfs/ubuntu-questing-aarch64
-DPKG="$ROOT/var/lib/dpkg"
-if [ -d "$DPKG" ]; then
-  if [ -f "$DPKG/status-new" ]; then cp "$DPKG/status-new" "$DPKG/status"; fi
-  if [ -f "$DPKG/status" ]; then
+BASE=/data/data/$PACKAGE_NAME/files
+ROOT="\$BASE/proot-runtime/distros/ubuntu/rootfs/ubuntu-questing-aarch64"
+DPKG="\$ROOT/var/lib/dpkg"
+if [ -d "\$DPKG" ]; then
+  if [ -f "\$DPKG/status-new" ]; then cp "\$DPKG/status-new" "\$DPKG/status"; fi
+  if [ -f "\$DPKG/status" ]; then
     awk '
       BEGIN { in_pkg=0 }
       /^Package: libgomp1$/ { in_pkg=1; print; next }
       in_pkg && /^Status:/ { print "Status: install ok installed"; next }
       { print }
       in_pkg && /^$/ { in_pkg=0 }
-    ' "$DPKG/status" > "$DPKG/status.fixed"
-    mv "$DPKG/status.fixed" "$DPKG/status"
+    ' "\$DPKG/status" > "\$DPKG/status.fixed"
+    mv "\$DPKG/status.fixed" "\$DPKG/status"
   fi
-  rm -f "$DPKG/status-new" "$DPKG/updates"/* "$DPKG/lock" "$DPKG/lock-frontend" 2>/dev/null || true
-  touch "$DPKG/lock" "$DPKG/lock-frontend"
+  rm -f "\$DPKG/status-new" "\$DPKG/updates"/* "\$DPKG/lock" "\$DPKG/lock-frontend" 2>/dev/null || true
+  touch "\$DPKG/lock" "\$DPKG/lock-frontend"
 fi
-rm -rf "$ROOT/root/.cache/pip" "$ROOT/tmp"/* "$ROOT/var/cache/apt/archives"/*.deb "$ROOT/var/cache/apt/archives/partial"/* 2>/dev/null || true
-for d in data dev proc sys tmp run; do mkdir -p "$ROOT/$d"; chmod u+rwx "$ROOT/$d" 2>/dev/null || true; done
-find "$ROOT" \( -name '.l2s*' -o -name '*.l2s*' \) -delete 2>/dev/null || true
-test -e files/ananta/agent/ai_agent.py
-test -e "$ROOT/usr/bin/python3"
-test -e "$ROOT/usr/bin/pip3"
-test -e "$ROOT/usr/lib/aarch64-linux-gnu/libgomp.so.1"
-test -e "$ROOT/usr/local/bin/ananta"
-test -e "$ROOT/usr/local/bin/ananta-worker"
+rm -rf "\$ROOT/root/.cache/pip" "\$ROOT/tmp"/* "\$ROOT/var/cache/apt/archives"/*.deb "\$ROOT/var/cache/apt/archives/partial"/* 2>/dev/null || true
+rm -f "\$ROOT/usr/local/bin/opencode" "\$ROOT/usr/bin/opencode" "\$ROOT/home/ananta/.local/bin/opencode" "\$ROOT/root/.local/bin/opencode" 2>/dev/null || true
+for d in data dev proc sys tmp run; do mkdir -p "\$ROOT/\$d"; chmod u+rwx "\$ROOT/\$d" 2>/dev/null || true; done
+find "\$ROOT" \( -name '.l2s*' -o -name '*.l2s*' \) -delete 2>/dev/null || true
+test -e "\$BASE/ananta/agent/ai_agent.py"
+test -e "\$ROOT/usr/bin/python3"
+test -e "\$ROOT/usr/local/bin/ananta"
+test -e "\$ROOT/usr/local/bin/ananta-worker"
 EOS
 
   log "Exporting rootfs stream from Android"
   rm -rf "$REPACK_DIR"
   mkdir -p "$REPACK_DIR"
-  adb_cmd exec-out run-as "$PACKAGE_NAME" sh -c 'cd files/proot-runtime/distros/ubuntu/rootfs && tar -cf - ubuntu-questing-aarch64' \
+  adb_cmd exec-out run-as "$PACKAGE_NAME" sh -c "cd /data/data/$PACKAGE_NAME/files/proot-runtime/distros/ubuntu/rootfs && tar -cf - ubuntu-questing-aarch64" \
     | xz -T0 -6 > "$ASSET_DIR/ubuntu-rootfs.raw-android.tar.xz"
 
   log "Repacking rootfs with GNU tar for reproducible Android extraction"
   ( cd "$REPACK_DIR" && tar -xJf "$ASSET_DIR/ubuntu-rootfs.raw-android.tar.xz" ) || true
   local rootfs="$REPACK_DIR/ubuntu-questing-aarch64"
-  for required in usr/bin/python3 usr/bin/pip3 usr/bin/git usr/bin/curl usr/lib/aarch64-linux-gnu/libgomp.so.1 usr/local/bin/ananta usr/local/bin/ananta-worker; do
+  for required in usr/bin/python3 usr/bin/git usr/bin/curl usr/local/bin/ananta usr/local/bin/ananta-worker; do
     if [[ ! -e "$rootfs/$required" ]]; then
       printf 'Exported rootfs is missing %s\n' "$required" >&2
       exit 4
     fi
   done
+  rm -f "$rootfs/usr/local/bin/opencode" "$rootfs/usr/bin/opencode" "$rootfs/home/ananta/.local/bin/opencode" "$rootfs/root/.local/bin/opencode"
+  if [[ -e "$rootfs/usr/local/bin/opencode" || -e "$rootfs/usr/bin/opencode" || -e "$rootfs/home/ananta/.local/bin/opencode" || -e "$rootfs/root/.local/bin/opencode" ]]; then
+    printf 'Bundled rootfs must not include opencode binary.\n' >&2
+    exit 4
+  fi
   rm -f "$rootfs/usr/bin/perlbug" "$rootfs/usr/bin/perlthanks"
   ln -s /usr/bin/perl "$rootfs/usr/bin/perlbug"
   ln -s /usr/bin/perl "$rootfs/usr/bin/perlthanks"
@@ -257,7 +262,7 @@ EOF
   printf 'android-ubuntu-base-%s\n' "$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || printf unknown)" > "$ASSET_DIR/ubuntu-rootfs.version"
 
   log "Exporting Ananta workspace seed"
-  adb_cmd exec-out run-as "$PACKAGE_NAME" sh -c 'cd files/ananta && tar -cf - .' \
+  adb_cmd exec-out run-as "$PACKAGE_NAME" sh -c "cd /data/data/$PACKAGE_NAME/files/ananta && tar -cf - ." \
     | xz -T0 -6 > "$ASSET_DIR/ananta-workspace.tar.xz"
   printf 'ananta-workspace-%s\n' "$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || printf unknown)" > "$ASSET_DIR/ananta-workspace.version"
 

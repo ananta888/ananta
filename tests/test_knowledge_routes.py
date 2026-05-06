@@ -149,6 +149,21 @@ def test_knowledge_index_profiles_route_returns_catalog(client, admin_auth_heade
     assert payload["items"][0]["name"] == "default"
 
 
+def test_knowledge_wiki_presets_route_returns_multiple_download_sources(client, admin_auth_header):
+    response = client.get("/knowledge/wiki/presets", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    items = payload["items"]
+    assert len(items) >= 4
+    de_multistream = next(item for item in items if item["id"] == "wikipedia-de-multistream-latest")
+    assert de_multistream["corpus_url"].endswith("dewiki-latest-pages-articles-multistream.xml.bz2")
+    assert de_multistream["index_url"].endswith("dewiki-latest-pages-articles-multistream-index.txt.bz2")
+    assert any(item["id"] == "wikipedia-de-pages-latest" for item in items)
+    zim_mini = next(item for item in items if item["id"] == "wikipedia-de-zim-mini-2026-04")
+    assert zim_mini["supported"] is False
+
+
 def test_knowledge_collection_index_route_supports_async_jobs(client, admin_auth_header, monkeypatch):
     create_res = client.post(
         "/knowledge/collections",
@@ -347,15 +362,27 @@ def test_knowledge_orchestration_contract_route_exposes_hub_owned_states(client,
 
 def test_knowledge_wiki_import_route_indexes_normalized_records(client, admin_auth_header, monkeypatch):
     class StubIngestionService:
-        def import_wiki_jsonl(self, *, corpus_path: str, source_id: str | None, default_language: str, strict: bool):
+        def import_wiki_corpus(
+            self,
+            *,
+            corpus_path: str,
+            index_path: str | None,
+            source_id: str | None,
+            default_language: str,
+            strict: bool,
+            import_format: str | None,
+        ):
             assert corpus_path == "/tmp/wiki.jsonl"
+            assert index_path is None
             assert source_id == "wiki-mvp"
             assert default_language == "en"
             assert strict is False
+            assert import_format is None
             return {
                 "source_scope": "wiki",
                 "source_id": "wiki-mvp",
                 "corpus_path": corpus_path,
+                "format": "jsonl",
                 "records": [
                     {
                         "kind": "wiki_section_chunk",
@@ -385,7 +412,7 @@ def test_knowledge_wiki_import_route_indexes_normalized_records(client, admin_au
     response = client.post(
         "/knowledge/wiki/import",
         headers=admin_auth_header,
-        json={"corpus_path": "/tmp/wiki.jsonl", "source_id": "wiki-mvp"},
+        json={"corpus_path": "/tmp/wiki.jsonl", "source_id": "wiki-mvp", "async": False},
     )
 
     assert response.status_code == 200
@@ -397,11 +424,12 @@ def test_knowledge_wiki_import_route_indexes_normalized_records(client, admin_au
 
 def test_knowledge_wiki_import_route_supports_async_jobs(client, admin_auth_header, monkeypatch):
     class StubIngestionService:
-        def import_wiki_jsonl(self, **kwargs):
+        def import_wiki_corpus(self, **kwargs):
             return {
                 "source_scope": "wiki",
                 "source_id": "wiki-mvp",
                 "corpus_path": kwargs["corpus_path"],
+                "format": "jsonl",
                 "records": [{"kind": "wiki_section_chunk", "content": "x"}],
                 "issues": [],
                 "stats": {"input_lines": 1, "normalized_records": 1, "issues": 0},
@@ -426,7 +454,142 @@ def test_knowledge_wiki_import_route_supports_async_jobs(client, admin_auth_head
     assert payload["job"]["job_id"] == "job-wiki-import-1"
 
 
+def test_knowledge_wiki_import_route_defaults_to_async_jobs(client, admin_auth_header, monkeypatch):
+    class StubIngestionService:
+        def import_wiki_corpus(self, **kwargs):
+            return {
+                "source_scope": "wiki",
+                "source_id": "wiki-mvp",
+                "corpus_path": kwargs["corpus_path"],
+                "format": "jsonl",
+                "records": [{"kind": "wiki_section_chunk", "content": "x"}],
+                "issues": [],
+                "stats": {"input_lines": 1, "normalized_records": 1, "issues": 0},
+            }
+
+    class StubJobService:
+        def submit_source_records_job(self, **kwargs):
+            return {"job_id": "job-wiki-import-default-async", "status": "queued"}
+
+    monkeypatch.setattr("agent.routes.knowledge.get_ingestion_service", lambda: StubIngestionService())
+    monkeypatch.setattr("agent.routes.knowledge.get_knowledge_index_job_service", lambda: StubJobService())
+
+    response = client.post(
+        "/knowledge/wiki/import",
+        headers=admin_auth_header,
+        json={"corpus_path": "/tmp/wiki.jsonl", "source_id": "wiki-mvp"},
+    )
+
+    assert response.status_code == 202
+    assert response.get_json()["data"]["job"]["job_id"] == "job-wiki-import-default-async"
+
+
 def test_knowledge_wiki_import_route_rejects_missing_corpus_path(client, admin_auth_header):
     response = client.post("/knowledge/wiki/import", headers=admin_auth_header, json={"source_id": "wiki-mvp"})
     assert response.status_code == 400
     assert response.get_json()["message"] == "corpus_path_required"
+
+
+def test_knowledge_wiki_import_url_route_passes_multistream_index(client, admin_auth_header, monkeypatch):
+    captured: dict[str, object] = {}
+
+    class StubIngestionService:
+        def import_wiki_jsonl_from_url(self, **kwargs):
+            captured.update(kwargs)
+            return {
+                "source_scope": "wiki",
+                "source_id": "dewiki",
+                "corpus_path": "/tmp/dewiki.xml.bz2",
+                "index_path": "/tmp/dewiki-index.txt",
+                "jsonl_cache_path": "/tmp/dewiki.normalized.jsonl",
+                "records": [{"kind": "wiki_section_chunk", "content": "x"}],
+                "issues": [],
+                "stats": {"normalized_records": 1, "issues": 0},
+                "download": {"url": kwargs["corpus_url"], "index": {"url": kwargs["index_url"]}},
+            }
+
+    class StubRagService:
+        def index_source_records(self, **kwargs):
+            return (
+                SimpleNamespace(model_dump=lambda: {"id": "idx-wiki", "source_scope": "wiki", "status": "completed"}),
+                SimpleNamespace(model_dump=lambda: {"id": "run-wiki", "status": "completed"}),
+            )
+
+    monkeypatch.setattr("agent.routes.knowledge.get_ingestion_service", lambda: StubIngestionService())
+    monkeypatch.setattr("agent.routes.knowledge.get_rag_helper_index_service", lambda: StubRagService())
+
+    response = client.post(
+        "/knowledge/wiki/import-url",
+        headers=admin_auth_header,
+        json={"preset_id": "wikipedia-de-multistream-latest", "async": False, "codecompass_prerender": False},
+    )
+
+    assert response.status_code == 200
+    assert captured["corpus_url"].endswith("dewiki-latest-pages-articles-multistream.xml.bz2")
+    assert captured["index_url"].endswith("dewiki-latest-pages-articles-multistream-index.txt.bz2")
+    assert response.get_json()["data"]["import_report"]["jsonl_cache_path"] == "/tmp/dewiki.normalized.jsonl"
+
+
+def test_knowledge_wiki_import_url_route_defaults_to_async_jobs(client, admin_auth_header, monkeypatch):
+    class StubIngestionService:
+        def import_wiki_jsonl_from_url(self, **kwargs):
+            return {
+                "source_scope": "wiki",
+                "source_id": "dewiki",
+                "corpus_path": "/tmp/dewiki.xml.bz2",
+                "index_path": "/tmp/dewiki-index.txt",
+                "jsonl_cache_path": "/tmp/dewiki.normalized.jsonl",
+                "records": [{"kind": "wiki_section_chunk", "content": "x"}],
+                "issues": [],
+                "stats": {"normalized_records": 1, "issues": 0},
+                "download": {"url": kwargs["corpus_url"]},
+            }
+
+    class StubJobService:
+        def submit_source_records_job(self, **kwargs):
+            return {"job_id": "job-wiki-url-default-async", "status": "queued", "source_scope": "wiki"}
+
+        def get_job(self, job_id: str):
+            if job_id == "job-wiki-url-default-async":
+                return {"job_id": job_id, "job_type": "source_records", "source_scope": "wiki", "status": "running"}
+            return None
+
+    monkeypatch.setattr("agent.routes.knowledge.get_ingestion_service", lambda: StubIngestionService())
+    monkeypatch.setattr("agent.routes.knowledge.get_knowledge_index_job_service", lambda: StubJobService())
+
+    response = client.post(
+        "/knowledge/wiki/import-url",
+        headers=admin_auth_header,
+        json={"preset_id": "wikipedia-de-multistream-latest"},
+    )
+
+    assert response.status_code == 202
+    data = response.get_json()["data"]
+    assert data["job"]["job_id"] == "job-wiki-url-default-async"
+
+    status_res = client.get("/knowledge/wiki/import-jobs/job-wiki-url-default-async", headers=admin_auth_header)
+    assert status_res.status_code == 200
+    assert status_res.get_json()["data"]["job"]["source_scope"] == "wiki"
+
+
+def test_knowledge_wiki_import_job_route_rejects_non_wiki_jobs(client, admin_auth_header, monkeypatch):
+    class StubJobService:
+        def get_job(self, job_id: str):
+            return {"job_id": job_id, "job_type": "collection", "source_scope": "artifact", "status": "running"}
+
+    monkeypatch.setattr("agent.routes.knowledge.get_knowledge_index_job_service", lambda: StubJobService())
+
+    response = client.get("/knowledge/wiki/import-jobs/not-wiki", headers=admin_auth_header)
+    assert response.status_code == 404
+    assert response.get_json()["message"] == "wiki_import_job_not_found"
+
+
+def test_knowledge_wiki_import_url_route_rejects_zim_prototype(client, admin_auth_header):
+    response = client.post(
+        "/knowledge/wiki/import-url",
+        headers=admin_auth_header,
+        json={"preset_id": "wikipedia-de-zim-mini-2026-04"},
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "wiki_preset_not_supported"

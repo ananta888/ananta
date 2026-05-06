@@ -6,6 +6,7 @@ import android.util.Log;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -18,6 +19,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 
@@ -40,6 +46,8 @@ public class LlmServerManager {
             + "/llama-" + LLAMA_VERSION + "-bin-ubuntu-arm64.tar.gz";
     private static final String LLAMA_TARBALL_SHA256 =
         "50e857be7a77a2a591550834a590f01b8189f5fa6f84290db749a371e4d61287";
+    private static final String BUNDLED_LLAMA_TARBALL_ASSET =
+        "llm-server/llama-" + LLAMA_VERSION + "-bin-ubuntu-arm64.tar.gz";
 
     private static final String MODEL_NAME = "SmolLM2-135M-Instruct-Q8_0.gguf";
     private static final String MODEL_URL =
@@ -55,6 +63,7 @@ public class LlmServerManager {
     private static final String LLAMA_DIR = "llama-cpp";
     private static final String MODELS_DIR = "models";
     private static final String DOWNLOADS_DIR = "downloads";
+    private static final String ACTIVE_MODEL_MARKER = ".active-model";
 
     /** Possible states for the manager. */
     public enum State {
@@ -83,8 +92,7 @@ public class LlmServerManager {
     }
 
     public boolean isModelInstalled() {
-        File model = modelFile();
-        return model.exists() && model.length() > 0;
+        return getActiveModelFile() != null;
     }
 
     public boolean isServerRunning() {
@@ -99,6 +107,7 @@ public class LlmServerManager {
     }
 
     public LlmSetupStatus getFullStatus() {
+        tryAutoInstallBundledServer();
         return new LlmSetupStatus(
             isProotReady(),
             isServerInstalled(),
@@ -107,7 +116,7 @@ public class LlmServerManager {
             state.name(),
             lastError,
             LLAMA_VERSION,
-            MODEL_NAME,
+            getActiveModelName(),
             SERVER_PORT
         );
     }
@@ -129,6 +138,11 @@ public class LlmServerManager {
                 if (listener != null) {
                     listener.onProgress("done", "llama.cpp bereits installiert.", -1, -1);
                 }
+                state = State.IDLE;
+                return;
+            }
+
+            if (installBundledServerIfAvailable(listener)) {
                 state = State.IDLE;
                 return;
             }
@@ -176,6 +190,15 @@ public class LlmServerManager {
     // ── Install model ───────────────────────────────────────────────────
 
     public void installModel(DownloadHelper.ProgressListener listener) throws Exception {
+        installModel(null, null, null, listener);
+    }
+
+    public void installModel(
+        String requestedModelName,
+        String requestedModelUrl,
+        String requestedModelSha256,
+        DownloadHelper.ProgressListener listener
+    ) throws Exception {
         if (state == State.INSTALLING_SERVER || state == State.INSTALLING_MODEL) {
             throw new IllegalStateException("Installation already in progress.");
         }
@@ -183,29 +206,44 @@ public class LlmServerManager {
         lastError = null;
         try {
             File modelsDir = DownloadHelper.ensureDirectory(modelsDir());
-            File model = new File(modelsDir, MODEL_NAME);
+            String modelUrl = normalizeModelUrl(requestedModelUrl);
+            String modelName = normalizeModelName(requestedModelName, modelUrl);
+            String modelSha256 = normalizeModelSha256(requestedModelSha256, modelName, modelUrl);
+            File model = new File(modelsDir, modelName);
 
             if (model.exists() && model.length() > 0) {
-                // Verify existing model
-                try {
-                    DownloadHelper.verifySha256(model, MODEL_SHA256);
+                if (modelSha256 != null) {
+                    try {
+                        DownloadHelper.verifySha256(model, modelSha256);
+                        setActiveModel(modelName);
+                        if (listener != null) {
+                            listener.onProgress("done", "Modell bereits vorhanden.", -1, -1);
+                        }
+                        state = State.IDLE;
+                        return;
+                    } catch (Exception e) {
+                        Log.w(TAG, "Existing model has wrong checksum, re-downloading.");
+                        model.delete();
+                    }
+                } else {
+                    setActiveModel(modelName);
                     if (listener != null) {
                         listener.onProgress("done", "Modell bereits vorhanden.", -1, -1);
                     }
                     state = State.IDLE;
                     return;
-                } catch (Exception e) {
-                    Log.w(TAG, "Existing model has wrong checksum, re-downloading.");
-                    model.delete();
                 }
             }
 
-            DownloadHelper.downloadAtomically(MODEL_URL, model, listener);
+            DownloadHelper.downloadAtomically(modelUrl, model, listener);
 
-            if (listener != null) {
+            if (listener != null && modelSha256 != null) {
                 listener.onProgress("verifying", "SHA256 wird geprueft...", -1, -1);
             }
-            DownloadHelper.verifySha256(model, MODEL_SHA256);
+            if (modelSha256 != null) {
+                DownloadHelper.verifySha256(model, modelSha256);
+            }
+            setActiveModel(modelName);
 
             if (listener != null) {
                 listener.onProgress("done", "Modell installiert.", -1, -1);
@@ -362,7 +400,11 @@ public class LlmServerManager {
 
     private String[] buildProotServerCommand(File prootBin, File rootfs) {
         String llamaDir = llamaCppDir().getAbsolutePath();
-        String modelPath = modelFile().getAbsolutePath();
+        File selectedModel = getActiveModelFile();
+        if (selectedModel == null) {
+            throw new IllegalStateException("Kein installierbares Modell gefunden.");
+        }
+        String modelPath = selectedModel.getAbsolutePath();
 
         File prootTmp = new File(prootRuntimeDir(), "tmp");
         if (!prootTmp.exists()) prootTmp.mkdirs();
@@ -443,6 +485,177 @@ public class LlmServerManager {
 
     private File modelFile() {
         return new File(modelsDir(), MODEL_NAME);
+    }
+
+    private File activeModelMarkerFile() {
+        return new File(modelsDir(), ACTIVE_MODEL_MARKER);
+    }
+
+    public synchronized List<String> listInstalledModels() {
+        File dir = modelsDir();
+        if (!dir.isDirectory()) return Collections.emptyList();
+        File[] entries = dir.listFiles((file) -> file != null && file.isFile() && file.getName().toLowerCase().endsWith(".gguf"));
+        if (entries == null || entries.length == 0) return Collections.emptyList();
+        Arrays.sort(entries, Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
+        List<String> names = new ArrayList<>(entries.length);
+        for (File entry : entries) {
+            names.add(entry.getName());
+        }
+        return names;
+    }
+
+    public synchronized String getActiveModelName() {
+        File active = getActiveModelFile();
+        return active == null ? "" : active.getName();
+    }
+
+    public synchronized void setActiveModel(String modelName) throws IOException {
+        String normalized = normalizeModelName(modelName, null);
+        File model = new File(modelsDir(), normalized);
+        if (!model.isFile() || model.length() <= 0) {
+            throw new IOException("Modell nicht gefunden: " + normalized);
+        }
+        DownloadHelper.ensureDirectory(modelsDir());
+        try (FileOutputStream output = new FileOutputStream(activeModelMarkerFile(), false)) {
+            output.write(normalized.getBytes(StandardCharsets.UTF_8));
+            output.flush();
+        }
+    }
+
+    private synchronized File getActiveModelFile() {
+        File dir = modelsDir();
+        if (!dir.isDirectory()) return null;
+
+        String marker = readTextQuiet(activeModelMarkerFile()).trim();
+        if (!marker.isBlank()) {
+            File active = new File(dir, marker);
+            if (active.isFile() && active.length() > 0) return active;
+        }
+
+        File defaultModel = modelFile();
+        if (defaultModel.isFile() && defaultModel.length() > 0) {
+            return defaultModel;
+        }
+
+        List<String> installed = listInstalledModels();
+        if (installed.isEmpty()) return null;
+        File first = new File(dir, installed.get(0));
+        return first.isFile() ? first : null;
+    }
+
+    private void tryAutoInstallBundledServer() {
+        if (state != State.IDLE || isServerInstalled()) return;
+        try {
+            installBundledServerIfAvailable(null);
+        } catch (Exception error) {
+            Log.w(TAG, "Bundled llama-server setup failed: " + error.getMessage());
+        }
+    }
+
+    private boolean installBundledServerIfAvailable(DownloadHelper.ProgressListener listener) throws Exception {
+        if (!assetExists(BUNDLED_LLAMA_TARBALL_ASSET)) return false;
+
+        File llamaDir = DownloadHelper.ensureDirectory(llamaCppDir());
+        File downloadsDir = DownloadHelper.ensureDirectory(downloadsDir());
+        File bundledTarball = new File(downloadsDir, "bundled-llama-" + LLAMA_VERSION + ".tar.gz");
+
+        if (listener != null) {
+            listener.onProgress("extracting", "Gebuendelten llama.cpp Server aus APK vorbereiten...", -1, -1);
+        }
+        copyAssetToFile(BUNDLED_LLAMA_TARBALL_ASSET, bundledTarball);
+        DownloadHelper.verifySha256(bundledTarball, LLAMA_TARBALL_SHA256);
+        extractTarGzToDirectory(bundledTarball, llamaDir);
+        bundledTarball.delete();
+
+        for (String bin : new String[]{"llama-server", "llama-cli"}) {
+            File f = new File(llamaDir, bin);
+            if (f.exists()) f.setExecutable(true, false);
+        }
+        new FileOutputStream(new File(llamaDir, ".version-" + LLAMA_VERSION)).close();
+        if (listener != null) {
+            listener.onProgress("done", "Gebuendelter llama.cpp Server installiert.", -1, -1);
+        }
+        return true;
+    }
+
+    private boolean assetExists(String assetPath) {
+        try (InputStream ignored = context.getAssets().open(assetPath)) {
+            return true;
+        } catch (IOException ignored) {
+            return false;
+        }
+    }
+
+    private void copyAssetToFile(String assetPath, File target) throws IOException {
+        File parent = target.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IOException("Could not create directory: " + parent.getAbsolutePath());
+        }
+        try (InputStream input = context.getAssets().open(assetPath);
+             FileOutputStream output = new FileOutputStream(target, false)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                output.write(buffer, 0, read);
+            }
+            output.flush();
+        }
+    }
+
+    private String normalizeModelUrl(String requestedModelUrl) {
+        String url = requestedModelUrl == null ? "" : requestedModelUrl.trim();
+        return url.isEmpty() ? MODEL_URL : url;
+    }
+
+    private String normalizeModelName(String requestedModelName, String modelUrl) {
+        String name = requestedModelName == null ? "" : requestedModelName.trim();
+        if (name.isEmpty() && modelUrl != null) {
+            int slash = modelUrl.lastIndexOf('/');
+            if (slash >= 0 && slash + 1 < modelUrl.length()) {
+                name = modelUrl.substring(slash + 1);
+            }
+        }
+        if (name.isEmpty()) {
+            name = MODEL_NAME;
+        }
+        int queryIdx = name.indexOf('?');
+        if (queryIdx >= 0) name = name.substring(0, queryIdx);
+        name = name.replace("\\", "/");
+        int sep = name.lastIndexOf('/');
+        if (sep >= 0) name = name.substring(sep + 1);
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("Modell-Dateiname darf nicht leer sein.");
+        }
+        if (!name.toLowerCase().endsWith(".gguf")) {
+            throw new IllegalArgumentException("Nur .gguf Modelle werden unterstuetzt.");
+        }
+        if (name.contains("..")) {
+            throw new IllegalArgumentException("Ungueltiger Modell-Dateiname.");
+        }
+        return name;
+    }
+
+    private String normalizeModelSha256(String requestedSha, String modelName, String modelUrl) {
+        String sha = requestedSha == null ? "" : requestedSha.trim();
+        if (sha.isEmpty() && MODEL_NAME.equals(modelName) && MODEL_URL.equals(modelUrl)) {
+            return MODEL_SHA256;
+        }
+        return sha.isEmpty() ? null : sha;
+    }
+
+    private String readTextQuiet(File file) {
+        if (file == null || !file.isFile()) return "";
+        try (InputStream input = new FileInputStream(file)) {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] chunk = new byte[4096];
+            int read;
+            while ((read = input.read(chunk)) != -1) {
+                buffer.write(chunk, 0, read);
+            }
+            return new String(buffer.toByteArray(), StandardCharsets.UTF_8);
+        } catch (IOException ignored) {
+            return "";
+        }
     }
 
     private File prootRuntimeDir() {

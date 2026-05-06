@@ -57,6 +57,10 @@ Docker-Variante (Android-SDK/Emulator im Container-Image vorinstalliert, Source 
 ANANTA_ANDROID_AVD_NAME=ananta-api35 npm run test:e2e:android:terminal:bootstrap:docker
 ```
 
+GitHub Actions:
+- Workflow `Android Delivery APK` baut bei Push/PR (aenderungen unter `frontend-angular/**`) automatisch die Delivery-APK via `scripts/build-android-delivery-apk.sh`.
+- Artifact-Name: `ananta-delivery-proot-voxtral-debug-apk` (enthaelt APK + `.sha256`).
+
 Wichtige Variablen dafuer:
 - `ANANTA_ANDROID_AVD_NAME` (Default: `ananta-api35`)
 - `ANANTA_ANDROID_EMULATOR_SERIAL` (Default: `emulator-5554`)
@@ -112,9 +116,20 @@ cd android
 APK-Pfad:
 `frontend-angular/android/app/build/outputs/apk/debug/app-debug.apk`
 
+### Persistente App-Daten bei Deploys (Modelle nicht neu laden)
+
+Damit lokale Modelle/Runner nach `adb install -r` erhalten bleiben, muss die APK bei Folgebuilds mit demselben Signatur-Key gebaut werden.
+
+- Build nutzt bevorzugt einen stabilen Debug-Keystore:
+  1. `-PanantaDebugKeystorePath=/pfad/zur/debug.keystore`
+  2. `ANANTA_DEBUG_KEYSTORE_PATH=/pfad/zur/debug.keystore`
+  3. Fallbacks: `/mnt/c/Users/pst/.android/debug.keystore`, dann `~/.android/debug.keystore`
+- Deploy immer als Update: `adb install -r ...`
+- Nur bei `INSTALL_FAILED_UPDATE_INCOMPATIBLE` ist ein einmaliges Uninstall noetig; dabei gehen App-Daten (inkl. heruntergeladener Modelle) verloren.
+
 ### Reproduzierbare Auslieferungs-APK mit Proot/Voxtral-Defaults
 
-Die Auslieferungs-APK wird mit den gebuendelten Proot/Ubuntu- und Workspace-Seeds sowie dem passenden Voxtral-Realtime-Runner gebaut. LLM/Voxtral-Modelle werden dabei **nicht** eingebettet; das Standardmodell `Voxtral Mini 4B Realtime Q2_K` wird im UI als Download angeboten.
+Die Auslieferungs-APK wird mit den gebuendelten Proot/Ubuntu- und Workspace-Seeds sowie dem passenden Voxtral-Realtime-Runner gebaut. Der LLM-Server (`llama.cpp` `b8994`) ist ebenfalls in der APK enthalten und wird in der LLM-Runtime ohne externen Server-Download installiert. LLM/Voxtral-Modelle werden dabei **nicht** eingebettet; das Standardmodell `Voxtral Mini 4B Realtime Q2_K` wird im UI als Download angeboten.
 
 ```bash
 cd frontend-angular
@@ -191,6 +206,16 @@ Die App enthaelt eine Python-Runtime (Chaquopy) fuer lokalen Hub/Worker-Betrieb:
 - Android Plugin: `PythonRuntime` (Start/Stop/Status/Health)
 - Python Entry-Points: `android/app/src/main/python/ananta_runtime.py`
 - UI-Seite: Route `/python-runtime`
+- Delivery-APK kann Ubuntu + Ananta-Workspace inkl. Worker-Abhaengigkeiten (python3/pip/libgomp/ananta-worker) als Seed-Assets mitliefern.
+- `opencode` wird bewusst **nicht** im Seed ausgeliefert und bleibt ein On-Demand-Download (`installOpencode`).
+
+## LLM Runtime in der App
+
+Route `/llama-runtime` bietet:
+- Vorinstallierten llama.cpp-Server aus der APK (kein initialer Server-Netzwerkdownload notwendig).
+- Modell-Presets fuer Android-taugliche Groessen (bis ca. 2 GB).
+- Frei konfigurierbare Modell-Installation aus beliebigen `.gguf`-Quellen (URL + Dateiname, optional SHA256).
+- Auswahl und Wechsel des aktiven lokal installierten Modells.
 
 Standardmaessig ist die Python-Runtime fuer Android-Builds aktiviert.
 
