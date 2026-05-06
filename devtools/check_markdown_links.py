@@ -13,7 +13,13 @@ TARGET_READMES = [
     "frontend-angular/README.md",
     "docs/taiga/README.md",
 ]
-IGNORED_PREFIXES = ("test-results/", "dist/", "build/")
+IGNORED_PREFIXES = (
+    "test-results/",
+    "dist/",
+    "build/",
+    "android/app/build/",
+    "frontend-angular/android/app/build/",
+)
 
 MD_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 CODE_PATH_RE = re.compile(r"`([^`\n]+)`")
@@ -51,6 +57,9 @@ def _resolve(base_file: Path, ref: str, from_code: bool) -> Path | None:
     if path_part.startswith("/"):
         return ROOT / path_part.lstrip("/")
     if from_code and not path_part.startswith(("./", "../")):
+        relative_candidate = (base_file.parent / path_part).resolve()
+        if relative_candidate.exists():
+            return relative_candidate
         return ROOT / path_part
     return (base_file.parent / path_part).resolve()
 
