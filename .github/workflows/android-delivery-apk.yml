@@ -37,6 +37,8 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: gradle
+      - name: Install frontend dependencies
+        run: npm ci
       - name: Build delivery APK
         run: bash scripts/build-android-delivery-apk.sh
       - name: Generate APK checksum
