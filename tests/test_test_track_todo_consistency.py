@@ -7,11 +7,21 @@ from pathlib import Path
 from scripts.validate_todo_consistency import validate_todo_payload
 
 ROOT = Path(__file__).resolve().parents[1]
-TODO_PATH = ROOT / "todo.json"
+TODO_PATH_CANDIDATES = (
+    ROOT / "todo.json",
+    ROOT / "todo_last.json",
+)
+
+
+def _resolve_todo_path() -> Path:
+    for path in TODO_PATH_CANDIDATES:
+        if path.exists():
+            return path
+    raise FileNotFoundError("No todo source file found (expected todo.json or todo_last.json)")
 
 
 def _load_payload() -> dict:
-    return json.loads(TODO_PATH.read_text(encoding="utf-8"))
+    return json.loads(_resolve_todo_path().read_text(encoding="utf-8"))
 
 
 def test_current_todo_summary_is_consistent() -> None:
