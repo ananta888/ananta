@@ -39,6 +39,26 @@ jobs:
           cache: gradle
       - name: Install frontend dependencies
         run: npm ci
+      - name: Prepare CI seed assets
+        run: |
+          set -euo pipefail
+          seed_dir="android/app/src/main/assets/proot-seed"
+          mkdir -p "$seed_dir"
+          if [ ! -s "$seed_dir/ubuntu-rootfs.tar.xz" ]; then
+            tmp_rootfs="$(mktemp -d)"
+            mkdir -p "$tmp_rootfs/ubuntu-questing-aarch64"
+            printf 'ci-placeholder-rootfs\n' > "$tmp_rootfs/ubuntu-questing-aarch64/.ci-placeholder"
+            tar -C "$tmp_rootfs" -cJf "$seed_dir/ubuntu-rootfs.tar.xz" ubuntu-questing-aarch64
+            rm -rf "$tmp_rootfs"
+          fi
+          if [ ! -s "$seed_dir/ananta-workspace.tar.xz" ]; then
+            tmp_ws="$(mktemp -d)"
+            printf 'ci-placeholder-workspace\n' > "$tmp_ws/README.txt"
+            tar -C "$tmp_ws" -cJf "$seed_dir/ananta-workspace.tar.xz" README.txt
+            rm -rf "$tmp_ws"
+          fi
+          [ -s "$seed_dir/ubuntu-rootfs.version" ] || printf 'ci-placeholder-rootfs\n' > "$seed_dir/ubuntu-rootfs.version"
+          [ -s "$seed_dir/ananta-workspace.version" ] || printf 'ci-placeholder-workspace\n' > "$seed_dir/ananta-workspace.version"
       - name: Build delivery APK
         run: bash scripts/build-android-delivery-apk.sh
       - name: Generate APK checksum
