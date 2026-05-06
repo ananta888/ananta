@@ -59,4 +59,5 @@ def test_completed_documentation_track_is_archived_not_active() -> None:
     assert "| `todo.doc.json` |" not in active_section
     assert "| `todo.doc.json` | Completed and removed |" in completed_section
     assert not (ROOT / "todo.doc.json").exists()
-    assert "| `todo.json` | `core_boundary_plugin_architecture` |" in active_section
+    assert "| `todo.eclipse.json` | `eclipse_plugin_real_productization` |" in active_section
+    assert "| `todo.wiki-rag2.json` | `wiki_rag2_productionization` |" in active_section

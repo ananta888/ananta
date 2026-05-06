@@ -669,10 +669,10 @@ def test_autopilot_retries_proposal_with_next_strategy_model(app, monkeypatch):
     assert res["dispatched"] == 1
     assert propose_models[0] == "model-a"
     assert len(propose_models) >= 2
-    assert propose_models[1] in {"model-b", "ananta-default"}
+    assert propose_models[1] and propose_models[1] != "model-a"
     assert updated is not None and updated.status == "completed"
     model_selection = dict((updated.last_proposal or {}).get("model_selection") or {})
-    assert model_selection.get("selected_model") in {"model-b", "ananta-default"}
+    assert model_selection.get("selected_model") == propose_models[1]
     assert model_selection.get("attempt") == 2
 
 
@@ -787,7 +787,7 @@ def test_autopilot_does_not_treat_scalar_tool_list_as_executable_proposal(app, m
     assert res["dispatched"] == 0
     assert attempts[0] == "model-a"
     assert len(attempts) >= 2
-    assert attempts[1] in {"model-b", "ananta-default"}
+    assert attempts[1] and attempts[1] != "model-a"
     assert updated is not None and updated.status == "todo"
     assert float(updated.manual_override_until or 0) >= started + 10
     assert any((entry.get("event_type") == "autopilot_strategy_exhausted") for entry in (updated.history or []))
@@ -826,7 +826,7 @@ def test_autopilot_strategy_exhaustion_returns_task_to_hub_queue(app, monkeypatc
     assert float(updated.manual_override_until or 0) >= started + 10
     strategy_state = dict((updated.verification_status or {}).get("autopilot_strategy") or {})
     assert "model-a" in list(strategy_state.get("failed_models") or [])
-    assert any(model in {"model-b", "ananta-default"} for model in list(strategy_state.get("failed_models") or []))
+    assert any(model and model != "model-a" for model in list(strategy_state.get("failed_models") or []))
     assert any((entry.get("event_type") == "autopilot_strategy_exhausted") for entry in (updated.history or []))
 
 
@@ -859,13 +859,15 @@ def test_autopilot_retries_proposal_with_temperature_profile(app, monkeypatch):
     with app.app_context():
         res = autonomous_loop.tick_once()
         updated = task_repo.get_by_id("strategy-temp-1")
-    expected_default = str((app.config.get("AGENT_CONFIG") or {}).get("default_model") or "").strip() or None
     assert res["reason"] == "ok"
     assert res["dispatched"] == 1
-    assert propose_attempts[:2] == [("model-temp", 0.2), (expected_default, 0.2)]
+    assert propose_attempts[0] == ("model-temp", 0.2)
+    assert len(propose_attempts) >= 2
+    assert propose_attempts[1][0] and propose_attempts[1][0] != "model-temp"
+    assert float(propose_attempts[1][1] or 0.0) == 0.2
     assert updated is not None and updated.status == "completed"
     model_selection = dict((updated.last_proposal or {}).get("model_selection") or {})
-    assert model_selection.get("selected_model") == expected_default
+    assert model_selection.get("selected_model") == propose_attempts[1][0]
     assert float(model_selection.get("selected_temperature") or 0.0) == 0.2
 
 

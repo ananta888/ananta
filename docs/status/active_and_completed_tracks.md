@@ -6,11 +6,8 @@ This document is a compact inventory to avoid duplicate track creation. Detailed
 
 | File | Track | Scope role |
 | --- | --- | --- |
-| `todo.json` | `core_boundary_plugin_architecture` | Core-boundary/provider-plugin architecture and integration hygiene |
-| `todo.blender.json` | `blender_control_surface_and_runtime` | Blender integration backlog |
-| `todo.freecad.json` | `freecad_integration` | FreeCAD integration backlog |
-| `todo.kicad.json` | `kicad_integration` | KiCad integration backlog |
-| `todo.n8n-integration.json` | `workflow_automation_adapter_layer` | Workflow automation integration backlog |
+| `todo.eclipse.json` | `eclipse_plugin_real_productization` | Eclipse runtime/productization backlog |
+| `todo.wiki-rag2.json` | `wiki_rag2_productionization` | Wiki ingestion/retrieval productionization backlog |
 
 ## Deferred KRITIS / Enterprise-related scope
 
