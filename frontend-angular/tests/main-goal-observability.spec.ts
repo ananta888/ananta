@@ -262,7 +262,7 @@ test.describe('Main Goal Observability Journey', () => {
 
     try {
       await page.goto('/artifacts', { waitUntil: 'domcontentloaded' });
-      await expect(page.getByRole('heading', { name: /Artifacts & Knowledge/i })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /Ergebnisse & Wissen/i })).toBeVisible();
       await expect(page.getByTestId('artifact-upload-btn')).toBeVisible();
 
       await page.getByTestId('artifact-collection-input').fill('e2e-collection');

@@ -242,6 +242,7 @@ export async function prepareLoginPage(page: Page) {
       { name: 'alpha', url: alphaUrl, token: alphaToken, role: 'worker' },
       { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' }
     ]));
+    localStorage.setItem('ananta.shell.mode', 'advanced');
   }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
   await page.reload({ waitUntil: 'domcontentloaded' });
 }
@@ -267,6 +268,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       ]));
       localStorage.setItem('ananta.user.token', token);
       if (refreshToken) localStorage.setItem('ananta.user.refresh_token', refreshToken);
+      localStorage.setItem('ananta.shell.mode', 'advanced');
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token: apiLogin.accessToken, refreshToken: apiLogin.refreshToken });
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(dashboard).toBeVisible({ timeout: 30000 });
@@ -281,6 +283,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
         { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' }
       ]));
       localStorage.setItem('ananta.user.token', hubToken);
+      localStorage.setItem('ananta.shell.mode', 'advanced');
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(dashboard).toBeVisible({ timeout: 30000 });
@@ -357,6 +360,7 @@ export async function loginFast(
         ])
       );
       localStorage.setItem('ananta.user.token', token);
+      localStorage.setItem('ananta.shell.mode', 'advanced');
       if (refreshToken) {
         localStorage.setItem('ananta.user.refresh_token', refreshToken);
       }

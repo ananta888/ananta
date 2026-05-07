@@ -55,7 +55,7 @@ test.describe('Team Types and Roles', () => {
     const teamsPromise = page.waitForResponse(res => res.url().includes('/teams/types') || res.url().includes('/teams/roles') || res.url().includes('/teams?'));
     await page.goto('/teams');
     await teamsPromise;
-    await expect(page.getByRole('heading', { name: /Teams/i })).toBeVisible();
+    await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
 
     const linkRoleApi = await page.request.post(`${HUB_URL}/teams/types/${typeId}/roles`, {
       headers: authHeaders,

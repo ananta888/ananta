@@ -8,6 +8,7 @@ import { UserAuthService } from '../services/user-auth.service';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 import { AdminFacade } from '../features/admin/admin.facade';
 import { recommendBlueprint } from '../shared/blueprint-recommendation';
+import { AppShellStateService } from '../services/app-shell-state.service';
 
 type BlueprintRoleForm = {
   id?: string;
@@ -663,6 +664,7 @@ export class TeamsComponent implements OnInit {
   private hubApi = inject(AdminFacade);
   private ns = inject(NotificationService);
   private userAuth = inject(UserAuthService);
+  private shellState = inject(AppShellStateService);
 
   currentTab: 'blueprints' | 'teams' | 'advanced' = 'blueprints';
   viewMode: 'standard' | 'admin' = 'standard';
@@ -719,6 +721,7 @@ export class TeamsComponent implements OnInit {
   ngOnInit() {
     this.userAuth.user$.subscribe(user => {
       this.isAdmin = user?.role === 'admin';
+      if (this.isAdmin && this.shellState.mode() === 'advanced') this.viewMode = 'admin';
       if (!this.isAdmin) this.viewMode = 'standard';
     });
     this.refresh();

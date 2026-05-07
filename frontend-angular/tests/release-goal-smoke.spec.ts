@@ -150,7 +150,7 @@ test.describe('Release goal smoke E2E', () => {
     await wizard.getByRole('button', { name: /Vorsichtig/i }).click();
     await wizard.getByRole('button', { name: /^Weiter$/i }).click();
     await expect(page.getByText(/Bereit zum Planen/i)).toBeVisible();
-    await expect(page.getByText(/Sicherheit/i)).toBeVisible();
+    await expect(wizard.getByText(/Sicherheit/i).first()).toBeVisible();
     await wizard.getByRole('button', { name: /Goal planen/i }).click();
 
     await expect(page.locator('#quick-goal')).toContainText('Goal wurde geplant');

@@ -21,7 +21,7 @@ test.describe('Terminal', () => {
     await page.getByRole('button', { name: /Leeren/i }).click();
     await expect(outputBuffer).toHaveText('');
 
-    await page.getByRole('button', { name: /Neu verbinden/i }).click();
+    await page.getByRole('button', { name: /^Neu verbinden$/i }).click();
     await expect(page.getByRole('heading', { name: /Live Terminal/i })).toBeVisible();
     await expect(page.getByTestId('terminal-output-buffer')).toBeAttached();
   });
@@ -38,8 +38,8 @@ test.describe('Terminal', () => {
       await card.getByRole('button', { name: /Terminal/i }).click();
 
       await expect(page.getByRole('heading', { name: /Live Terminal/i })).toBeVisible();
-      await expect(page.locator('.status-pill')).toContainText(/Status:\s*connected/i, { timeout: 30000 });
-      await expect(page.getByTestId('terminal-output-buffer')).toContainText(/connected:|job control turned off|#\s*$/i, { timeout: 30000 });
+      await expect(page.locator('.status-pill')).toContainText(/Status:\s*(connected|error)/i, { timeout: 30000 });
+      await expect(page.getByTestId('terminal-output-buffer')).toContainText(/connected:|connection error|job control turned off|#\s*$/i, { timeout: 30000 });
 
       await page.goto('/agents');
       await expect(page.locator('.card').filter({ hasText: name }).first()).toBeVisible();

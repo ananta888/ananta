@@ -16,7 +16,7 @@ test.describe('UI UX console and visibility', () => {
       { path: '/agents', heading: /^Agenten$/i },
       { path: '/board', heading: /^Board$/i },
       { path: '/templates', heading: /Templates \(Hub\)/i },
-      { path: '/teams', heading: /Teams/i },
+      { path: '/teams', heading: /Starte mit einem Blueprint/i },
       { path: '/settings', heading: /System-Einstellungen/i },
     ];
 
@@ -93,7 +93,7 @@ test.describe('UI UX console and visibility', () => {
     await expect(page.getByRole('button', { name: /Anlegen \/ Speichern/i })).toBeEnabled({ timeout: 30000 });
 
     await page.goto('/teams', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /Teams werden ueber Blueprints erstellt/i })).toBeVisible();
+    await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
     await expect(page.locator('.teams-editor-panel')).toBeVisible({ timeout: 30000 });
     await expect(page.locator('.teams-editor-panel').getByLabel('Name')).toBeVisible({ timeout: 30000 });
 
