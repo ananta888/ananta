@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { HUB_URL, assertNoUnhandledBrowserErrors, assertErrorOverlaysInViewport, createJourneyCleanupPolicy, loginFast } from './utils';
+import { HUB_URL, assertNoUnhandledBrowserErrors, assertErrorOverlaysInViewport, createJourneyCleanupPolicy, loginFast, openTeamsAdminStudio } from './utils';
 
 function unwrapList(body: any): any[] {
   if (Array.isArray(body)) return body;
@@ -16,8 +16,7 @@ async function assertCoreFormsFullyDisplayed(page: Page): Promise<void> {
   await expect(page.locator('textarea[placeholder*="Platzhalter"]')).toBeVisible();
   await expect(page.getByRole('button', { name: /Anlegen \/ Speichern/i })).toBeEnabled();
 
-  await page.goto('/teams');
-  await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
+  await openTeamsAdminStudio(page);
   const editor = page.locator('.teams-editor-panel');
   await expect(editor).toBeVisible();
   await expect(editor.getByLabel('Name')).toBeVisible();
@@ -120,8 +119,7 @@ test.describe('Main Goal UI Foundation', () => {
       expect(createdTemplateId).toBeTruthy();
       cleanup.trackTemplate(createdTemplateId);
 
-      await page.goto('/teams');
-      await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
+      await openTeamsAdminStudio(page);
       const editor = page.locator('.teams-editor-panel');
       await expect(editor).toBeVisible();
       await expect(editor.getByLabel('Basis-Team-Typ')).toBeVisible();

@@ -4,6 +4,7 @@ import {
   assertNoUnhandledBrowserErrors,
   clearBrowserErrorGuards,
   login,
+  openTeamsAdminStudio,
 } from './utils';
 
 test.describe('UI UX console and visibility', () => {
@@ -92,8 +93,7 @@ test.describe('UI UX console and visibility', () => {
     await expect(page.getByPlaceholder('Name')).toBeVisible({ timeout: 30000 });
     await expect(page.getByRole('button', { name: /Anlegen \/ Speichern/i })).toBeEnabled({ timeout: 30000 });
 
-    await page.goto('/teams', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
+    await openTeamsAdminStudio(page);
     await expect(page.locator('.teams-editor-panel')).toBeVisible({ timeout: 30000 });
     await expect(page.locator('.teams-editor-panel').getByLabel('Name')).toBeVisible({ timeout: 30000 });
 

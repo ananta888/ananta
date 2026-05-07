@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { HUB_URL, assertNoUnhandledBrowserErrors, createJourneyCleanupPolicy, loginFast } from './utils';
+import { HUB_URL, assertNoUnhandledBrowserErrors, createJourneyCleanupPolicy, loginFast, openTeamsAdminStudio } from './utils';
 
 async function getHubInfo(page: Page): Promise<{ hubUrl: string; token: string | null }> {
   return page.evaluate((defaultHubUrl: string) => {
@@ -180,8 +180,7 @@ test.describe('UI UX Workflows', () => {
       expect(createdTemplateId).toBeTruthy();
       cleanup.trackTemplate(createdTemplateId);
 
-      await page.goto('/teams');
-      await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
+      await openTeamsAdminStudio(page);
       await expect(page.getByRole('button', { name: /^Aktualisieren$/i })).toBeEnabled({ timeout: 20000 });
       const editor = page.locator('.teams-editor-panel');
       await expect(editor).toBeVisible({ timeout: 25000 });
@@ -254,8 +253,7 @@ test.describe('UI UX Workflows', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
     });
 
-    await page.goto('/teams');
-    await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
+    await openTeamsAdminStudio(page);
     await expect(page.getByRole('button', { name: /^Aktualisieren$/i })).toBeEnabled({ timeout: 25_000 });
     await expect(page.getByRole('heading', { name: /Blueprint bearbeiten|Neuen Blueprint anlegen/i })).toBeVisible({ timeout: 25_000 });
     await assertNoUnhandledBrowserErrors(page);

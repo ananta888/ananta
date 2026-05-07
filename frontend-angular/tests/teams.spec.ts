@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { HUB_URL, login } from './utils';
+import { HUB_URL, login, openTeamsAdminStudio } from './utils';
 
 test.describe('Teams CRUD', () => {
   async function getHubInfo(page: any) {
@@ -93,6 +93,7 @@ test.describe('Teams CRUD', () => {
     await page.getByLabel('Teamname').fill(`UI Blueprint Team ${Date.now()}`);
     await expect(page.getByText(/Mitglieder und Overrides/i)).toBeVisible();
 
+    await page.getByRole('button', { name: /Admin-\/Studio-Modus/i }).click();
     await page.getByRole('button', { name: /^Advanced$/i }).click();
     await expect(page.getByRole('heading', { name: /^Advanced-Modus$/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Team-Typen$/i })).toBeVisible();
@@ -110,8 +111,7 @@ test.describe('Teams CRUD', () => {
 
   test('blueprint editor shows validation errors and can instantiate a custom blueprint', async ({ page, request }) => {
     await login(page);
-    await page.goto('/teams');
-    await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
+    await openTeamsAdminStudio(page);
 
     const { hubUrl, token } = await getHubInfo(page);
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
