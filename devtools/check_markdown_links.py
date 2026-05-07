@@ -20,6 +20,10 @@ IGNORED_PREFIXES = (
     "android/app/build/",
     "frontend-angular/android/app/build/",
 )
+NON_PROJECT_PATH_PREFIXES = (
+    "~/",
+    "/mnt/",
+)
 
 MD_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 CODE_PATH_RE = re.compile(r"`([^`\n]+)`")
@@ -33,6 +37,10 @@ def _is_external(ref: str) -> bool:
 def _normalize_path_token(token: str) -> str | None:
     t = token.strip()
     if not t or " " in t:
+        return None
+    if t.startswith("-") or "=" in t:
+        return None
+    if t.startswith(NON_PROJECT_PATH_PREFIXES):
         return None
     if t.startswith("/") and "." not in t:
         return None
