@@ -20,10 +20,8 @@ test.describe('Permissions', () => {
     }
 
     await page.goto('/teams');
-    await page.getByRole('button', { name: /^Advanced$/i }).click();
-    await page.getByRole('button', { name: /^Team-Typen$/i }).click();
-    await expect(page.getByRole('button', { name: /Typ Erstellen/i })).toBeDisabled();
-    await page.getByRole('button', { name: /^Rollen$/i }).click();
-    await expect(page.getByRole('button', { name: /Rolle Erstellen/i })).toBeDisabled();
+    await expect(page.getByRole('button', { name: /Admin-\/Studio-Modus/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Advanced$/i })).toHaveCount(0);
+    await expect(page.locator('.teams-editor-panel')).toHaveCount(0);
   });
 });

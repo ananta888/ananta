@@ -17,7 +17,7 @@ async function assertCoreFormsFullyDisplayed(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: /Anlegen \/ Speichern/i })).toBeEnabled();
 
   await page.goto('/teams');
-  await expect(page.getByRole('heading', { name: /Teams werden ueber Blueprints erstellt/i })).toBeVisible();
+  await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
   const editor = page.locator('.teams-editor-panel');
   await expect(editor).toBeVisible();
   await expect(editor.getByLabel('Name')).toBeVisible();

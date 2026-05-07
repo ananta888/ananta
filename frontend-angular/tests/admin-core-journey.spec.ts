@@ -10,7 +10,7 @@ test.describe('Admin Core Journey', () => {
     await expect(page.getByText(/System Dashboard|Ananta starten/i)).toBeVisible();
 
     await page.goto('/teams', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /Teams werden ueber Blueprints erstellt/i })).toBeVisible();
+    await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
 
     await page.goto('/templates', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /Templates \(Hub\)/i })).toBeVisible();
