@@ -26,7 +26,7 @@ jobs:
           pip install -r requirements.lock
           pip install -r requirements-dev.lock
       - name: Run backend coverage
-        run: pytest tests --cov=agent --cov-report=term-missing --cov-report=xml
+        run: pytest tests --ignore-glob=tests/**/fixtures/** --cov=agent --cov-report=term-missing --cov-report=xml
       - name: Validate backend coverage thresholds
         run: python devtools/check_backend_coverage_thresholds.py --coverage-xml coverage.xml --thresholds devtools/coverage-thresholds.backend.json
       - name: Upload backend coverage artifact
