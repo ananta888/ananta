@@ -247,6 +247,15 @@ export async function prepareLoginPage(page: Page) {
   await page.reload({ waitUntil: 'domcontentloaded' });
 }
 
+export async function openTeamsAdminStudio(page: Page) {
+  await page.goto('/teams', { waitUntil: 'domcontentloaded' });
+  await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible({ timeout: 20_000 });
+  const adminModeButton = page.getByRole('button', { name: /Admin-\/Studio-Modus/i });
+  await expect(adminModeButton).toBeVisible({ timeout: 20_000 });
+  await adminModeButton.click();
+  await expect(page.locator('.teams-editor-panel')).toBeVisible({ timeout: 30_000 });
+}
+
 export async function login(page: Page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD) {
   attachBrowserErrorGuards(page);
   // Prevent cross-test bleed from IP-based login throttling.
