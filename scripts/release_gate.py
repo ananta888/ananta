@@ -68,6 +68,7 @@ PINNED_ACTIONS = {
     "actions/checkout": "34e114876b0b11c390a56381ad16ebd13914f8d5",
     "actions/setup-python": "a26af69be951a213d495a4c3e4e4022e16d87065",
     "actions/setup-node": "49933ea5288caeca8642d1e84afbd3f7d6820020",
+    "actions/setup-java": "c1e323688fd81a25caa38c78aa6df2d33d3e20d9",
     "actions/upload-artifact": "ea165f8d65b6e75b540449e92b4886f43607fa02",
     "docker/setup-buildx-action": "8d2750c68a42422c14e847fe6c8ac0403b4cbd6f",
     "docker/build-push-action": "10e90e3645eae34f1e60eeb005ba3a3d33f178e8",
