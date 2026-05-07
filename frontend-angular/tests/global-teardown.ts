@@ -43,6 +43,10 @@ async function removeDirWithRetries(dirPath: string, attempts = 8, waitMs = 300)
   }
 }
 
+function shouldRetainEvidenceArtifacts(): boolean {
+  return process.env.E2E_RETAIN_EVIDENCE_ARTIFACTS === '1';
+}
+
 export default async function globalTeardown() {
   const pidFile = path.join(__dirname, '.pids.json');
   let startedLocalServices = false;
@@ -66,8 +70,8 @@ export default async function globalTeardown() {
   const dataRoot = path.join(root, 'data_test_e2e');
   const artifactsRoot = path.join(root, 'frontend-angular', 'test-results');
 
-  // Always cleanup test artifacts and ephemeral state; tests should be hermetic run-to-run.
-  if (fs.existsSync(artifactsRoot)) {
+  // Keep screenshots, videos, and traces for evidence workflows that upload them after teardown.
+  if (!shouldRetainEvidenceArtifacts() && fs.existsSync(artifactsRoot)) {
     for (const name of fs.readdirSync(artifactsRoot)) {
       if (name.startsWith('.playwright-artifacts-') || name.includes('chromium') || name.includes('retry')) {
         try {

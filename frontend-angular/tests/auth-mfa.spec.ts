@@ -1,6 +1,40 @@
 import { test, expect } from '@playwright/test';
 import { loginFast, resetAdminMfaState, resetUserAuthStateViaApi, ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL } from './utils';
-import { generate } from 'otplib';
+import { createHmac } from 'node:crypto';
+
+function decodeBase32Secret(secret: string): Buffer {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  for (const char of secret.toUpperCase().replace(/=+$/g, '')) {
+    const value = alphabet.indexOf(char);
+    if (value < 0) {
+      throw new Error(`Invalid Base32 secret character: ${char}`);
+    }
+    bits += value.toString(2).padStart(5, '0');
+  }
+
+  const bytes: number[] = [];
+  for (let index = 0; index + 8 <= bits.length; index += 8) {
+    bytes.push(parseInt(bits.slice(index, index + 8), 2));
+  }
+  return Buffer.from(bytes);
+}
+
+function generateTotp(secret: string, timestampMs = Date.now()): string {
+  const counter = Math.floor(timestampMs / 30_000);
+  const counterBuffer = Buffer.alloc(8);
+  counterBuffer.writeUInt32BE(Math.floor(counter / 0x100000000), 0);
+  counterBuffer.writeUInt32BE(counter >>> 0, 4);
+
+  const digest = createHmac('sha1', decodeBase32Secret(secret)).update(counterBuffer).digest();
+  const offset = digest[digest.length - 1] & 0x0f;
+  const code =
+    ((digest[offset] & 0x7f) << 24) |
+    ((digest[offset + 1] & 0xff) << 16) |
+    ((digest[offset + 2] & 0xff) << 8) |
+    (digest[offset + 3] & 0xff);
+  return String(code % 1_000_000).padStart(6, '0');
+}
 
 test.describe('MFA Flow', () => {
   test('should enable and disable MFA', async ({ page, request }) => {
@@ -29,7 +63,7 @@ test.describe('MFA Flow', () => {
       const secret = String(setupData?.secret || '').trim();
       expect(secret.length).toBeGreaterThan(10);
 
-      const token = String(await generate({ secret }));
+      const token = generateTotp(secret);
       const verifyRes = await request.post(`${HUB_URL}/mfa/verify`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         data: { token }
