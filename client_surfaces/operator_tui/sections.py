@@ -4,15 +4,15 @@ from client_surfaces.operator_tui.models import Section
 
 
 SECTIONS: tuple[Section, ...] = (
-    Section("dashboard", "Dashboard", True, ("health", "capabilities", "task_summary"), "degraded_panel"),
-    Section("goals", "Goals", True, ("goals", "goal_modes"), "empty_or_degraded_panel"),
-    Section("tasks", "Tasks", True, ("tasks", "timeline", "orchestration"), "empty_or_degraded_panel"),
-    Section("artifacts", "Artifacts", True, ("artifacts",), "browser_for_binary"),
-    Section("knowledge", "Knowledge", True, ("collections", "index_profiles"), "empty_or_degraded_panel"),
-    Section("config", "Config", True, ("config", "providers"), "redacted_panel"),
-    Section("system", "System", True, ("basic_health", "contracts", "agents"), "degraded_panel"),
-    Section("audit", "Audit", True, ("audit_logs",), "policy_degraded_panel"),
-    Section("help", "Help", True, ("keymap", "commands"), "local_only"),
+    Section("dashboard", "Dashboard", True, ("health", "capabilities", "task_summary"), "degraded_panel", 2.0, 10.0),
+    Section("goals", "Goals", True, ("goals", "goal_modes"), "empty_or_degraded_panel", 2.0, 15.0),
+    Section("tasks", "Tasks", True, ("tasks", "timeline", "orchestration"), "empty_or_degraded_panel", 2.0, 8.0),
+    Section("artifacts", "Artifacts", True, ("artifacts",), "browser_for_binary", 2.0, 20.0),
+    Section("knowledge", "Knowledge", True, ("collections", "index_profiles"), "empty_or_degraded_panel", 2.5, 30.0),
+    Section("config", "Config", True, ("config", "providers"), "redacted_panel", 2.0, 30.0),
+    Section("system", "System", True, ("basic_health", "contracts", "agents"), "degraded_panel", 1.0, 5.0),
+    Section("audit", "Audit", True, ("audit_logs",), "policy_degraded_panel", 2.0, 20.0),
+    Section("help", "Help", True, ("keymap", "commands"), "local_only", 0.2, 60.0),
 )
 
 

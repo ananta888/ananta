@@ -53,7 +53,7 @@
         "TUI-T12",
         "TUI-T13"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "TUI-M3",
@@ -66,7 +66,7 @@
         "TUI-T18",
         "TUI-T19"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TUI-M4",
@@ -79,7 +79,7 @@
         "TUI-T24",
         "TUI-T25"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "TUI-M5",
@@ -255,7 +255,7 @@
     {
       "id": "TUI-T13",
       "title": "Theme and density baseline define",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "acceptance_criteria": [
@@ -267,7 +267,7 @@
     {
       "id": "TUI-T14",
       "title": "Section-local data adapter abstraction implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -279,7 +279,7 @@
     {
       "id": "TUI-T15",
       "title": "Incremental rendering and partial state model implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -291,7 +291,7 @@
     {
       "id": "TUI-T16",
       "title": "Per-section timeout and retry policy add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -303,7 +303,7 @@
     {
       "id": "TUI-T17",
       "title": "Background refresh scheduler add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -315,7 +315,7 @@
     {
       "id": "TUI-T18",
       "title": "Degraded-state presentation model harden",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -327,7 +327,7 @@
     {
       "id": "TUI-T19",
       "title": "Authenticated profile bootstrap harden",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -339,7 +339,7 @@
     {
       "id": "TUI-T20",
       "title": "Markdown document renderer implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -351,7 +351,7 @@
     {
       "id": "TUI-T21",
       "title": "Artifact markdown view integrate",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -363,7 +363,7 @@
     {
       "id": "TUI-T22",
       "title": "Mermaid source detection and preview pipeline add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -375,7 +375,7 @@
     {
       "id": "TUI-T23",
       "title": "PlantUML source detection and preview pipeline add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -387,7 +387,7 @@
     {
       "id": "TUI-T24",
       "title": "ASCII or Unicode diagram fallback renderer implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -566,12 +566,12 @@
   "tasks_status_summary": {
     "total": 36,
     "by_status": {
-      "todo": 24,
+      "todo": 12,
       "in_progress": 0,
       "blocked": 0,
-      "done": 12
+      "done": 24
     },
-    "progress_percent_done": 33.33,
+    "progress_percent_done": 66.67,
     "by_priority": {
       "P0": 11,
       "P1": 18,
@@ -586,15 +586,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 4,
-      "remaining": 11
+      "done": 9,
+      "remaining": 6
     },
     "milestones": {
       "total": 6,
-      "todo": 4,
+      "todo": 2,
       "in_progress": 1,
       "blocked": 0,
-      "done": 1
+      "done": 3
     }
   }
 }

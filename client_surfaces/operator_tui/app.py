@@ -4,6 +4,7 @@ import argparse
 import os
 from collections.abc import Sequence
 
+from client_surfaces.operator_tui.adapters import SectionAdapterRegistry, merge_panel_state, merge_section_result
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.renderer import render_operator_shell
@@ -18,6 +19,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--focus", choices=[pane.value for pane in FocusPane], default=FocusPane.NAVIGATION.value)
     parser.add_argument("--command", action="append", default=[])
     parser.add_argument("--show-help", action="store_true")
+    parser.add_argument("--markdown-source", default="")
     parser.add_argument("--width", type=int, default=120)
     parser.add_argument("--height", type=int, default=32)
     return parser.parse_args(argv)
@@ -34,14 +36,26 @@ def build_initial_state(args: argparse.Namespace) -> OperatorState:
         focus=FocusPane(args.focus),
         section_id=normalize_section_id(args.section),
         show_help=bool(args.show_help),
+        markdown_source=args.markdown_source,
+    )
+
+
+def load_active_section(state: OperatorState, registry: SectionAdapterRegistry | None = None) -> OperatorState:
+    adapters = registry or SectionAdapterRegistry()
+    result = adapters.load(state.section_id)
+    return state.with_updates(
+        panel_states=merge_panel_state(state.panel_states, result),
+        section_payloads=merge_section_result(state.section_payloads, result),
+        status_message=result.message or state.status_message,
     )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
-    state = build_initial_state(args)
+    registry = SectionAdapterRegistry()
+    state = load_active_section(build_initial_state(args), registry)
     for command in args.command:
         result = execute_command(command, state)
-        state = result.state.with_updates(status_message=result.message)
+        state = load_active_section(result.state.with_updates(status_message=result.message), registry)
     print(render_operator_shell(state, width=args.width, height=args.height))
     return 0

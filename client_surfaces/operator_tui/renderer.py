@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from textwrap import shorten
 
+from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
 from client_surfaces.operator_tui.keymap import bindings_for_mode
-from client_surfaces.operator_tui.models import FocusPane, OperatorState
+from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
+from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
+from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_label, state_prefix
 
 
 def render_operator_shell(state: OperatorState, *, width: int = 120, height: int = 32) -> str:
@@ -47,15 +50,21 @@ def render_operator_shell(state: OperatorState, *, width: int = 120, height: int
 def _navigation_lines(state: OperatorState) -> list[str]:
     lines = [_pane_title("NAV", state.focus == FocusPane.NAVIGATION)]
     for section in SECTIONS:
-        marker = ">" if section.id == state.section_id else " "
-        lines.append(f"{marker} {section.title}")
+        selected = DEFAULT_THEME.selected_prefix if section.id == state.section_id else DEFAULT_THEME.idle_prefix
+        panel_state = (state.panel_states or {}).get(section.id)
+        lines.append(f"{selected}{state_prefix(panel_state)} {section.title}")
     return lines
 
 
 def _content_lines(state: OperatorState, width: int) -> list[str]:
     section = get_section(state.section_id)
+    panel_state = (state.panel_states or {}).get(section.id, PanelState.LOADING)
+    payload = (state.section_payloads or {}).get(section.id, {})
     lines = [_pane_title(section.title.upper(), state.focus == FocusPane.CONTENT)]
+    lines.append(f"state={state_label(panel_state)}")
     lines.append(f"first_class={str(section.first_class).lower()}")
+    lines.append(f"timeout_seconds={section.timeout_seconds:g}")
+    lines.append(f"refresh_interval_seconds={section.refresh_interval_seconds:g}")
     lines.append("dependencies:")
     for dependency in section.primary_dependencies:
         lines.append(f"- {dependency}")
@@ -63,6 +72,15 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
     lines.append("loading_policy=section_local")
     lines.append("render_policy=partial_first_paint")
     lines.append("mutation_policy=hub_dispatch_only")
+    if payload:
+        lines.append("")
+        lines.append("payload:")
+        for key in sorted(payload.keys()):
+            value = payload[key]
+            if isinstance(value, list):
+                lines.append(f"- {key}=list[{len(value)}]")
+            else:
+                lines.append(f"- {key}={value}")
     if section.id == "dashboard":
         lines.append("")
         lines.append("summary:")
@@ -72,13 +90,22 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
     elif section.id == "help":
         lines.append("")
         lines.extend(binding_line for binding_line in _binding_lines(state, width))
+    if state.markdown_source and section.id in {"artifacts", "help"}:
+        lines.append("")
+        for block in detect_diagram_blocks(state.markdown_source):
+            lines.extend(render_diagram_fallback(block, width=width))
+            lines.append("")
+        lines.append("markdown:")
+        lines.extend(render_markdown_lines(state.markdown_source, width=width, max_lines=8))
     return lines
 
 
 def _detail_lines(state: OperatorState, width: int) -> list[str]:
     section = get_section(state.section_id)
+    panel_state = (state.panel_states or {}).get(section.id, PanelState.LOADING)
     lines = [_pane_title("DETAIL", state.focus == FocusPane.DETAIL)]
     lines.append(f"section={section.id}")
+    lines.append(f"panel_state={state_label(panel_state)}")
     lines.append(f"fallback={section.fallback}")
     lines.append(f"selected_index={state.selected_index}")
     lines.append(f"refresh_count={state.refresh_count}")
@@ -106,7 +133,9 @@ def _binding_lines(state: OperatorState, width: int) -> list[str]:
 
 
 def _pane_title(title: str, focused: bool) -> str:
-    return f"[{title}]" if focused else f" {title} "
+    if focused:
+        return f"{DEFAULT_THEME.focused_open}{title}{DEFAULT_THEME.focused_close}"
+    return f" {title} "
 
 
 def _cell(lines: list[str], index: int, width: int) -> str:
