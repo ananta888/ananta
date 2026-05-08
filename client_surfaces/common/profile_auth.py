@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
+import os
 import re
+import urllib.error
+import urllib.request
 from typing import Any
 
 from client_surfaces.common.types import ClientProfile
@@ -56,3 +60,37 @@ def redact_sensitive_text(value: Any) -> str:
 def contains_secret_key(name: str) -> bool:
     key = str(name or "").strip().lower()
     return any(part in key for part in _SECRET_KEY_PARTS)
+
+
+def resolve_session_auth_token(base_url: str, *, auth_mode: str, auth_token: str | None, timeout_seconds: float) -> str | None:
+    if auth_token:
+        return _clean_text(auth_token, max_chars=400) or None
+    mode = _clean_text(auth_mode or "session_token", max_chars=40).lower()
+    if mode != "session_token":
+        return None
+
+    env_token = _clean_text(os.environ.get("ANANTA_AUTH_TOKEN"), max_chars=400)
+    if env_token:
+        return env_token
+
+    username = _clean_text(os.environ.get("ANANTA_USER", "admin"), max_chars=120)
+    password = str(os.environ.get("ANANTA_PASSWORD", "admin"))
+    request = urllib.request.Request(
+        f"{_normalize_base_url(base_url)}/login",
+        data=json.dumps({"username": username, "password": password}).encode("utf-8"),
+        method="POST",
+        headers={"Accept": "application/json", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=max(1.0, min(float(timeout_seconds), 60.0))) as response:
+            payload = json.loads(response.read().decode("utf-8", "replace") or "{}")
+    except urllib.error.HTTPError as exc:
+        raise PermissionError(f"login_failed:{int(exc.code)}") from exc
+    except urllib.error.URLError as exc:
+        raise ConnectionError(str(exc)) from exc
+
+    data = payload.get("data") if isinstance(payload, dict) else {}
+    token = _clean_text((data or {}).get("access_token"), max_chars=400)
+    if not token:
+        raise PermissionError("login_failed:missing_access_token")
+    return token
