@@ -18,6 +18,7 @@ from client_surfaces.operator_tui.renderer import render_operator_shell
 from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id
 from client_surfaces.operator_tui.smoke import run_fixture_smoke
+from agent.cli.main import _run_tui
 
 
 def test_operator_tui_renders_first_paint_shell() -> None:
@@ -199,6 +200,14 @@ def test_operator_tui_rollout_controls_are_explicit() -> None:
     assert operator_tui_enabled({"ANANTA_OPERATOR_TUI_ENABLED": "0"}) is False
     assert rollout_stage({"ANANTA_OPERATOR_TUI_STAGE": "advanced_opt_in"}) == "advanced_opt_in"
     assert "legacy" in rollback_hint()
+
+
+def test_ananta_tui_default_uses_operator_render_once(capsys) -> None:
+    exit_code = _run_tui(["--render-once", "--section", "tasks", "--width", "90", "--height", "20"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Ananta Operator TUI" in captured.out
 
 
 def test_operator_tui_inspect_and_browser_commands_render_context() -> None:

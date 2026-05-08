@@ -25,6 +25,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--markdown-source", default="")
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--measure-first-paint", action="store_true")
+    parser.add_argument("--render-once", action="store_true")
     parser.add_argument("--width", type=int, default=120)
     parser.add_argument("--height", type=int, default=32)
     return parser.parse_args(argv)
@@ -87,5 +88,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"ok={str(measurement.ok).lower()}"
             )
         )
+    if not args.render_once and not args.command and not args.measure_first_paint and os.isatty(0):
+        from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
+
+        return InteractiveOperatorTui(state, registry).run()
     print(render_operator_shell(state, width=args.width, height=args.height))
     return 0
