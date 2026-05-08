@@ -4,13 +4,20 @@ from argparse import Namespace
 
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import build_initial_state, load_active_section
+from client_surfaces.operator_tui.actions import dispatch_action, parse_action
+from client_surfaces.operator_tui.browser import browser_fallback_url
+from client_surfaces.operator_tui.capabilities import graphics_decision
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState, SectionLoadResult
+from client_surfaces.operator_tui.performance import measure
+from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
 from client_surfaces.operator_tui.refresh import refresh_policy_for, should_refresh
 from client_surfaces.operator_tui.renderer import render_operator_shell
+from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id
+from client_surfaces.operator_tui.smoke import run_fixture_smoke
 
 
 def test_operator_tui_renders_first_paint_shell() -> None:
@@ -119,3 +126,86 @@ def test_operator_tui_initial_state_carries_markdown_source() -> None:
 
     assert "markdown:" in output
     assert "mermaid diagram preview" in output
+
+
+def test_operator_tui_detects_terminal_graphics_capabilities() -> None:
+    decision = graphics_decision({"KITTY_WINDOW_ID": "1"})
+
+    assert decision["supported"] is True
+    assert "kitty" in decision["protocols"]
+
+
+def test_operator_tui_read_only_goal_and_task_rows() -> None:
+    goals = build_goal_rows({"items": [{"id": "G-1", "status": "todo", "title": "Goal"}]})
+    tasks = build_task_rows({"items": [{"id": "T-1", "status": "todo", "agent": "alpha", "title": "Task"}]})
+
+    assert "G-1 [todo] Goal" in goals
+    assert "T-1 [todo] agent=alpha Task" in tasks
+
+
+def test_operator_tui_action_dispatch_requires_confirmation_for_risky_actions() -> None:
+    action = parse_action("task_execute", risk="high")
+
+    result = dispatch_action(action)
+    confirmed = dispatch_action(action, confirmed=True)
+
+    assert result.pending_action == action
+    assert "confirmation required" in result.message
+    assert confirmed.accepted is True
+    assert confirmed.audit_context["intent"] == "mutation_request"
+
+
+def test_operator_tui_commands_manage_pending_action_and_cancel() -> None:
+    state = OperatorState(endpoint="http://localhost:5000")
+
+    pending = execute_command(":action task_execute high", state)
+    confirmed = execute_command(":confirm", pending.state)
+    cancelled = execute_command(":cancel", pending.state)
+
+    assert pending.state.pending_action is not None
+    assert confirmed.state.pending_action is None
+    assert cancelled.state.pending_action is None
+    assert cancelled.state.mode is OperatorMode.NORMAL
+
+
+def test_operator_tui_browser_fallback_url_is_section_aware() -> None:
+    assert browser_fallback_url("http://localhost:5000", "tasks", "T-1") == "http://localhost:5000/tasks?target=T-1"
+
+
+def test_operator_tui_fixture_smoke_detects_first_paint() -> None:
+    args = Namespace(
+        base_url="http://localhost:5000",
+        section="dashboard",
+        mode="normal",
+        focus="navigation",
+        show_help=False,
+        markdown_source="",
+    )
+
+    result = run_fixture_smoke(args)
+
+    assert result.ok is True
+    assert "first_paint" in result.checks
+
+
+def test_operator_tui_performance_measurement_reports_budget() -> None:
+    result = measure("noop", 100.0, lambda: "ok")
+
+    assert result.name == "noop"
+    assert result.ok is True
+
+
+def test_operator_tui_rollout_controls_are_explicit() -> None:
+    assert operator_tui_enabled({"ANANTA_OPERATOR_TUI_ENABLED": "0"}) is False
+    assert rollout_stage({"ANANTA_OPERATOR_TUI_STAGE": "advanced_opt_in"}) == "advanced_opt_in"
+    assert "legacy" in rollback_hint()
+
+
+def test_operator_tui_inspect_and_browser_commands_render_context() -> None:
+    state = load_active_section(OperatorState(endpoint="http://localhost:5000", section_id="tasks"))
+    state = execute_command(":inspect", state).state
+    state = execute_command(":browser TUI-T26", state).state
+    output = render_operator_shell(state, width=110, height=48)
+
+    assert "inspect:" in output
+    assert "browser=http://localhost:5000/t" in output

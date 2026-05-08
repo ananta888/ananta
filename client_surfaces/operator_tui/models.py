@@ -26,6 +26,13 @@ class PanelState(str, Enum):
     UNAUTHORIZED = "unauthorized"
 
 
+class ActionRisk(str, Enum):
+    READ_ONLY = "read_only"
+    LOW = "low"
+    HIGH = "high"
+    DESTRUCTIVE = "destructive"
+
+
 @dataclass(frozen=True)
 class Section:
     id: str
@@ -60,6 +67,10 @@ class OperatorState:
     panel_states: dict[str, PanelState] | None = None
     section_payloads: dict[str, dict[str, Any]] | None = None
     markdown_source: str = ""
+    pending_action: dict[str, Any] | None = None
+    audit_context: dict[str, Any] | None = None
+    browser_fallback_url: str = ""
+    terminal_graphics: dict[str, Any] | None = None
 
     def with_updates(self, **updates: object) -> "OperatorState":
         return replace(self, **updates)
@@ -97,3 +108,20 @@ class Theme:
     focused_close: str
     muted_prefix: str
     warning_prefix: str
+
+
+@dataclass(frozen=True)
+class OperatorAction:
+    name: str
+    target: str
+    risk: ActionRisk
+    payload: dict[str, Any]
+    requires_confirmation: bool = False
+
+
+@dataclass(frozen=True)
+class ActionDispatchResult:
+    accepted: bool
+    message: str
+    audit_context: dict[str, Any]
+    pending_action: OperatorAction | None = None
