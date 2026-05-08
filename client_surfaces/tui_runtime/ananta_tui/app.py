@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections import Counter
 from copy import deepcopy
@@ -10,7 +11,7 @@ from time import sleep
 from typing import Any, Sequence
 
 from client_surfaces.common.client_api import AnantaApiClient
-from client_surfaces.common.profile_auth import build_client_profile, contains_secret_key
+from client_surfaces.common.profile_auth import build_client_profile, contains_secret_key, resolve_session_auth_token
 from client_surfaces.common.types import ClientResponse
 from client_surfaces.tui_runtime.ananta_tui.browser_fallback import build_browser_fallback_snapshot
 from client_surfaces.tui_runtime.ananta_tui.fixture_transport import build_fixture_transport
@@ -910,7 +911,7 @@ class TuiRuntimeApp:
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Ananta TUI runtime parity shell.")
-    parser.add_argument("--base-url", default="http://localhost:8080")
+    parser.add_argument("--base-url", default=os.environ.get("ANANTA_BASE_URL", "http://localhost:8080"))
     parser.add_argument("--profile-id", default="default")
     parser.add_argument("--auth-mode", default="session_token")
     parser.add_argument("--auth-token", default="")
@@ -1008,17 +1009,23 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     try:
+        auth_token = resolve_session_auth_token(
+            args.base_url,
+            auth_mode=args.auth_mode,
+            auth_token=args.auth_token,
+            timeout_seconds=args.timeout_seconds,
+        )
         profile = build_client_profile(
             {
                 "profile_id": args.profile_id,
                 "base_url": args.base_url,
                 "auth_mode": args.auth_mode,
-                "auth_token": args.auth_token,
+                "auth_token": auth_token,
                 "environment": args.environment,
                 "timeout_seconds": args.timeout_seconds,
             }
         )
-    except ValueError as exc:
+    except (ValueError, ConnectionError, PermissionError) as exc:
         print(f"[TUI-ERROR] invalid_profile: {exc}")
         return 2
 

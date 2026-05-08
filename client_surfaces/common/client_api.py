@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import socket
 import urllib.error
 import urllib.request
 from typing import Any, Callable
@@ -40,6 +41,8 @@ class AnantaApiClient:
             raw = exc.read().decode("utf-8", "replace")
             return int(exc.code), raw
         except urllib.error.URLError as exc:
+            raise ConnectionError(str(exc)) from exc
+        except (TimeoutError, socket.timeout) as exc:
             raise ConnectionError(str(exc)) from exc
 
     def _headers(self) -> dict[str, str]:
@@ -82,7 +85,7 @@ class AnantaApiClient:
         )
 
     def get_health(self) -> ClientResponse:
-        return self._request_json("GET", "/health")
+        return self._request_json("GET", "/health?basic=1")
 
     def get_capabilities(self) -> ClientResponse:
         return self._request_json("GET", "/capabilities")
