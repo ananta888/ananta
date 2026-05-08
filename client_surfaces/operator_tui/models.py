@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
+from typing import Any
 
 
 class OperatorMode(str, Enum):
@@ -17,6 +18,14 @@ class FocusPane(str, Enum):
     DETAIL = "detail"
 
 
+class PanelState(str, Enum):
+    LOADING = "loading"
+    HEALTHY = "healthy"
+    EMPTY = "empty"
+    DEGRADED = "degraded"
+    UNAUTHORIZED = "unauthorized"
+
+
 @dataclass(frozen=True)
 class Section:
     id: str
@@ -24,6 +33,8 @@ class Section:
     first_class: bool
     primary_dependencies: tuple[str, ...]
     fallback: str
+    timeout_seconds: float = 2.0
+    refresh_interval_seconds: float = 15.0
 
 
 @dataclass(frozen=True)
@@ -46,6 +57,9 @@ class OperatorState:
     status_message: str = "ready"
     command_line: str = ""
     show_help: bool = False
+    panel_states: dict[str, PanelState] | None = None
+    section_payloads: dict[str, dict[str, Any]] | None = None
+    markdown_source: str = ""
 
     def with_updates(self, **updates: object) -> "OperatorState":
         return replace(self, **updates)
@@ -56,3 +70,30 @@ class CommandResult:
     state: OperatorState
     message: str
     handled: bool = True
+
+
+@dataclass(frozen=True)
+class SectionLoadResult:
+    section_id: str
+    state: PanelState
+    payload: dict[str, Any]
+    message: str = ""
+
+
+@dataclass(frozen=True)
+class RefreshPolicy:
+    section_id: str
+    timeout_seconds: float
+    refresh_interval_seconds: float
+    retry_attempts: int = 1
+
+
+@dataclass(frozen=True)
+class Theme:
+    name: str
+    selected_prefix: str
+    idle_prefix: str
+    focused_open: str
+    focused_close: str
+    muted_prefix: str
+    warning_prefix: str
