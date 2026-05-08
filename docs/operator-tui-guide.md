@@ -1,17 +1,23 @@
 # Ananta Operator TUI Guide
 
-The operator TUI is the new terminal-native client surface for hub operators. It is additive and does not replace the legacy report shell yet.
+The operator TUI is the default terminal-native client surface for hub operators.
 
 Start it with:
 
 ```bash
-ananta tui --operator
+ananta tui
 ```
 
-The legacy shell remains:
+The legacy report shell remains available for compatibility:
 
 ```bash
-ananta tui
+ananta tui --legacy
+```
+
+For scripts, tests, and non-interactive captures, render a single frame:
+
+```bash
+ananta tui --render-once
 ```
 
 ## Authentication

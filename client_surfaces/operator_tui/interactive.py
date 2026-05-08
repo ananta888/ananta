@@ -1,0 +1,178 @@
+from __future__ import annotations
+
+import shutil
+
+from prompt_toolkit.application import Application
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.layout import Layout
+from prompt_toolkit.widgets import TextArea
+
+from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
+from client_surfaces.operator_tui.app import load_active_section
+from client_surfaces.operator_tui.commands import execute_command
+from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
+from client_surfaces.operator_tui.renderer import render_operator_shell
+
+
+class InteractiveOperatorTui:
+    def __init__(self, state: OperatorState, registry: SectionAdapterRegistry | None = None) -> None:
+        self._registry = registry or SectionAdapterRegistry()
+        self.state = load_active_section(state, self._registry)
+        self._command_buffer = ""
+        self._output = TextArea(
+            text=self._render(),
+            read_only=True,
+            scrollbar=True,
+            focusable=True,
+            wrap_lines=False,
+        )
+        self._app = Application(
+            layout=Layout(self._output),
+            key_bindings=self._build_keybindings(),
+            full_screen=True,
+            mouse_support=False,
+        )
+
+    def run(self) -> int:
+        self._app.run()
+        return 0
+
+    def _build_keybindings(self) -> KeyBindings:
+        bindings = KeyBindings()
+
+        @bindings.add("q")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command("q")
+                return
+            event.app.exit()
+
+        @bindings.add(":")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command(":")
+                return
+            self._command_buffer = ""
+            self._set_state(self.state.with_updates(mode=OperatorMode.COMMAND, command_line=""))
+
+        @bindings.add("enter")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._run_command(self._command_buffer)
+                return
+            self._run_command(":inspect")
+
+        @bindings.add("escape")
+        def _(event) -> None:
+            self._command_buffer = ""
+            self._run_command(":cancel")
+
+        @bindings.add("backspace")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._command_buffer = self._command_buffer[:-1]
+                self._set_state(self.state.with_updates(command_line=self._command_buffer))
+
+        @bindings.add("j")
+        def _(event) -> None:
+            self._normal_or_text("j", lambda: self._set_state(self.state.with_updates(selected_index=self.state.selected_index + 1)))
+
+        @bindings.add("k")
+        def _(event) -> None:
+            self._normal_or_text("k", lambda: self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1))))
+
+        @bindings.add("h")
+        def _(event) -> None:
+            self._normal_or_text("h", lambda: self._move_focus(-1))
+
+        @bindings.add("l")
+        def _(event) -> None:
+            self._normal_or_text("l", lambda: self._move_focus(1))
+
+        @bindings.add("r")
+        def _(event) -> None:
+            self._normal_or_text("r", lambda: self._run_command(":refresh"))
+
+        @bindings.add("?")
+        def _(event) -> None:
+            self._normal_or_text("?", lambda: self._run_command(":help"))
+
+        @bindings.add("tab")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command(" ")
+                return
+            self._move_focus(1)
+
+        @bindings.add("left")
+        def _(event) -> None:
+            self._move_focus(-1)
+
+        @bindings.add("right")
+        def _(event) -> None:
+            self._move_focus(1)
+
+        @bindings.add("up")
+        def _(event) -> None:
+            self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
+
+        @bindings.add("down")
+        def _(event) -> None:
+            self._set_state(self.state.with_updates(selected_index=self.state.selected_index + 1))
+
+        @bindings.add("n")
+        def _(event) -> None:
+            self._normal_or_text("n", lambda: self._run_command(":next"))
+
+        @bindings.add("p")
+        def _(event) -> None:
+            self._normal_or_text("p", lambda: self._run_command(":prev"))
+
+        @bindings.add("g")
+        def _(event) -> None:
+            self._normal_or_text("g", lambda: self._set_state(self.state.with_updates(selected_index=0)))
+
+        @bindings.add("G")
+        def _(event) -> None:
+            self._normal_or_text("G", lambda: self._set_state(self.state.with_updates(selected_index=999999)))
+
+        @bindings.add("<any>")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                data = event.key_sequence[0].data
+                if data and data.isprintable():
+                    self._append_command(data)
+
+        return bindings
+
+    def _normal_or_text(self, text: str, normal_action) -> None:
+        if self.state.mode is OperatorMode.COMMAND:
+            self._append_command(text)
+            return
+        normal_action()
+
+    def _append_command(self, text: str) -> None:
+        self._command_buffer += text
+        self._set_state(self.state.with_updates(command_line=self._command_buffer))
+
+    def _run_command(self, command: str) -> None:
+        result = execute_command(command, self.state)
+        state = result.state.with_updates(status_message=result.message)
+        if state.section_id != self.state.section_id or command.strip().lower() in {":refresh", "refresh", "r", ":next", ":prev"}:
+            state = load_active_section(state, self._registry)
+        self._command_buffer = ""
+        self._set_state(state.with_updates(command_line=""))
+
+    def _move_focus(self, delta: int) -> None:
+        panes = (FocusPane.NAVIGATION, FocusPane.CONTENT, FocusPane.DETAIL)
+        index = panes.index(self.state.focus)
+        self._set_state(self.state.with_updates(focus=panes[(index + delta) % len(panes)]))
+
+    def _set_state(self, state: OperatorState) -> None:
+        self.state = state
+        self._output.text = self._render()
+        self._app.invalidate()
+
+    def _render(self) -> str:
+        size = shutil.get_terminal_size((120, 32))
+        return render_operator_shell(self.state, width=size.columns, height=max(18, size.lines - 1))

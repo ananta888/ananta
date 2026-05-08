@@ -81,10 +81,10 @@ def _run_update(argv: Sequence[str]) -> int:
 def _run_tui(argv: Sequence[str]) -> int:
     if any(arg in {"-h", "--help"} for arg in argv):
         print("Usage: ananta tui [tui options]")
-        print("Launches the existing runtime TUI surface entrypoint.")
-        print("Use `ananta tui --operator` for the new operator TUI shell.")
+        print("Launches the operator TUI by default.")
+        print("Use `ananta tui --legacy` for the previous report-style shell.")
         return 0
-    if "--operator" in argv:
+    if "--legacy" not in argv:
         rest = [arg for arg in argv if arg != "--operator"]
         try:
             from client_surfaces.operator_tui.app import main as operator_tui_main
@@ -93,6 +93,7 @@ def _run_tui(argv: Sequence[str]) -> int:
             print("Run `ananta doctor` and verify TUI packaging.")
             return 2
         return _invoke(operator_tui_main, rest)
+    argv = [arg for arg in argv if arg != "--legacy"]
     try:
         from client_surfaces.tui_runtime.ananta_tui.app import main as tui_main
     except ModuleNotFoundError as exc:
