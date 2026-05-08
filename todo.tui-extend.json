@@ -79,7 +79,7 @@
         "TUI-T24",
         "TUI-T25"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "TUI-M5",
@@ -92,7 +92,7 @@
         "TUI-T30",
         "TUI-T31"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "TUI-M6",
@@ -104,7 +104,7 @@
         "TUI-T35",
         "TUI-T36"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -399,7 +399,7 @@
     {
       "id": "TUI-T25",
       "title": "Inline terminal graphics capability detection add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "acceptance_criteria": [
@@ -411,7 +411,7 @@
     {
       "id": "TUI-T26",
       "title": "Read-only operator flows for goals and tasks implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -423,7 +423,7 @@
     {
       "id": "TUI-T27",
       "title": "Explicit action dispatch layer implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -435,7 +435,7 @@
     {
       "id": "TUI-T28",
       "title": "Approval and confirmation UX for risky actions add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "acceptance_criteria": [
@@ -447,7 +447,7 @@
     {
       "id": "TUI-T29",
       "title": "Audit correlation from operator actions add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -459,7 +459,7 @@
     {
       "id": "TUI-T30",
       "title": "Browser fallback bridge for unsupported deep flows add",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "acceptance_criteria": [
@@ -471,7 +471,7 @@
     {
       "id": "TUI-T31",
       "title": "Session-safe cancellation and escape behavior implement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -483,7 +483,7 @@
     {
       "id": "TUI-T32",
       "title": "Unit tests for adapters renderers and auth bootstrap add",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "acceptance_criteria": [
@@ -495,7 +495,7 @@
     {
       "id": "TUI-T33",
       "title": "Interactive TUI smoke tests add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "acceptance_criteria": [
@@ -507,7 +507,7 @@
     {
       "id": "TUI-T34",
       "title": "Performance budget and first-paint measurements add",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -519,7 +519,7 @@
     {
       "id": "TUI-T35",
       "title": "Operator documentation and setup guide write",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "acceptance_criteria": [
@@ -531,7 +531,7 @@
     {
       "id": "TUI-T36",
       "title": "Feature flag and rollout plan define",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "acceptance_criteria": [
@@ -566,12 +566,12 @@
   "tasks_status_summary": {
     "total": 36,
     "by_status": {
-      "todo": 12,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 24
+      "done": 36
     },
-    "progress_percent_done": 66.67,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 11,
       "P1": 18,
@@ -586,15 +586,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 9,
-      "remaining": 6
+      "done": 15,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 2,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 3
+      "done": 6
     }
   }
 }

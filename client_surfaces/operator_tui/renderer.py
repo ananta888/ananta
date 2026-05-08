@@ -6,6 +6,7 @@ from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_
 from client_surfaces.operator_tui.keymap import bindings_for_mode
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
+from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
 from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_label, state_prefix
 
@@ -90,6 +91,14 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
     elif section.id == "help":
         lines.append("")
         lines.extend(binding_line for binding_line in _binding_lines(state, width))
+    elif section.id == "goals":
+        lines.append("")
+        lines.append("goals:")
+        lines.extend(build_goal_rows(payload))
+    elif section.id == "tasks":
+        lines.append("")
+        lines.append("tasks:")
+        lines.extend(build_task_rows(payload))
     if state.markdown_source and section.id in {"artifacts", "help"}:
         lines.append("")
         for block in detect_diagram_blocks(state.markdown_source):
@@ -109,6 +118,28 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
     lines.append(f"fallback={section.fallback}")
     lines.append(f"selected_index={state.selected_index}")
     lines.append(f"refresh_count={state.refresh_count}")
+    if state.pending_action:
+        lines.append("")
+        lines.append("pending_action:")
+        lines.append(f"name={state.pending_action.get('name')}")
+        lines.append(f"risk={state.pending_action.get('risk')}")
+        lines.append("confirm_with=:confirm")
+    if state.audit_context:
+        lines.append("")
+        lines.append("audit:")
+        lines.append(f"intent={state.audit_context.get('intent')}")
+        lines.append(f"action={state.audit_context.get('action')}")
+    if state.browser_fallback_url:
+        lines.append("")
+        lines.append(f"browser={state.browser_fallback_url}")
+    if state.terminal_graphics:
+        lines.append("")
+        lines.append(f"graphics_supported={str(state.terminal_graphics.get('supported')).lower()}")
+        lines.append(f"graphics_fallback={state.terminal_graphics.get('fallback')}")
+    if state.mode.value == "inspect":
+        lines.append("")
+        lines.append("inspect:")
+        lines.extend(build_inspection_detail(section.id, (state.section_payloads or {}).get(section.id, {}), state.selected_index))
     lines.append("")
     lines.append("commands:")
     lines.append(":section <id>")
@@ -116,7 +147,7 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
     lines.append(":focus <pane>")
     lines.append(":help")
     lines.append(":sections")
-    return [shorten(line, width=width, placeholder="...") for line in lines]
+    return [_clip(line, width) for line in lines]
 
 
 def _help_overlay(state: OperatorState, width: int) -> list[str]:

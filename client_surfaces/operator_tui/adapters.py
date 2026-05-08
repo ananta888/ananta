@@ -34,7 +34,22 @@ class SectionAdapterRegistry:
             "render_policy": "partial_first_paint",
             "mutation_policy": "hub_dispatch_only",
         }
-        if section.id in {"goals", "tasks", "artifacts", "knowledge", "audit"}:
+        if section.id == "goals":
+            payload["items"] = [
+                {"id": "G-1", "status": "in_progress", "title": "Operator TUI rollout"},
+                {"id": "G-2", "status": "todo", "title": "Diagram rendering hardening"},
+            ]
+            return SectionLoadResult(section.id, PanelState.HEALTHY, payload, "loaded")
+        if section.id == "tasks":
+            payload["items"] = [
+                {"id": "TUI-T26", "status": "done", "agent": "hub", "title": "Read-only operator flows"},
+                {"id": "TUI-T27", "status": "done", "agent": "hub", "title": "Explicit action dispatch"},
+            ]
+            payload["timeline"] = [
+                {"id": "TL-1", "status": "loaded", "summary": "fixture timeline available"},
+            ]
+            return SectionLoadResult(section.id, PanelState.HEALTHY, payload, "loaded")
+        if section.id in {"artifacts", "knowledge", "audit"}:
             payload["items"] = []
             return SectionLoadResult(section.id, PanelState.EMPTY, payload, "empty")
         return SectionLoadResult(section.id, PanelState.HEALTHY, payload, "loaded")

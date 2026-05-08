@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from client_surfaces.operator_tui.actions import dispatch_action, parse_action
+from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id, section_ids
 
@@ -65,6 +67,54 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         return CommandResult(state.with_updates(mode=mode, status_message=f"mode {mode.value}"), f"mode {mode.value}")
     if command in {"help", "?"}:
         return CommandResult(state.with_updates(show_help=not state.show_help, status_message="help toggled"), "help toggled")
+    if command == "inspect":
+        return CommandResult(state.with_updates(mode=OperatorMode.INSPECT, status_message="inspect current selection"), "inspect current selection")
+    if command == "browser":
+        target = args[0] if args else ""
+        url = browser_fallback_url(state.endpoint, state.section_id, target)
+        return CommandResult(state.with_updates(browser_fallback_url=url, status_message=f"browser fallback {url}"), f"browser fallback {url}")
+    if command == "action":
+        if not args:
+            return CommandResult(state, "action command requires an action name", handled=False)
+        risk = args[1] if len(args) > 1 else "read_only"
+        action = parse_action(args[0], risk=risk)
+        result = dispatch_action(action)
+        pending = (
+            {
+                "name": result.pending_action.name,
+                "target": result.pending_action.target,
+                "risk": result.pending_action.risk.value,
+                "payload": dict(result.pending_action.payload),
+                "requires_confirmation": result.pending_action.requires_confirmation,
+            }
+            if result.pending_action
+            else None
+        )
+        return CommandResult(
+            state.with_updates(
+                pending_action=pending,
+                audit_context=result.audit_context,
+                status_message=result.message,
+            ),
+            result.message,
+            handled=result.accepted or result.pending_action is not None,
+        )
+    if command == "confirm":
+        pending = state.pending_action or {}
+        if not pending:
+            return CommandResult(state, "no pending action to confirm", handled=False)
+        action = parse_action(str(pending.get("name") or ""), str(pending.get("target") or ""), str(pending.get("risk") or "high"))
+        result = dispatch_action(action, confirmed=True)
+        return CommandResult(
+            state.with_updates(pending_action=None, audit_context=result.audit_context, status_message=result.message),
+            result.message,
+            handled=result.accepted,
+        )
+    if command in {"cancel", "esc"}:
+        return CommandResult(
+            state.with_updates(mode=OperatorMode.NORMAL, pending_action=None, command_line="", status_message="cancelled"),
+            "cancelled",
+        )
     if command == "sections":
         return CommandResult(state.with_updates(status_message="sections: " + ",".join(section_ids())), "sections listed")
 
