@@ -81,6 +81,7 @@ packages = [
     "agent.shell",
     "client_surfaces",
     "client_surfaces.common",
+    "client_surfaces.operator_tui",
     "client_surfaces.tui_runtime",
     "client_surfaces.tui_runtime.ananta_tui",
     "hub",
