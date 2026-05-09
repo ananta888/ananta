@@ -1008,6 +1008,9 @@ def execute_autopilot_tick(
         }
 
     dispatched = 0
+    completed = 0
+    failed = 0
+    dispatched_task_ids: list[str] = []
     policy = loop._security_policy()
     fallback_policy = _fallback_policy(loop)
     runtime_caps = _runtime_model_capabilities(loop)
@@ -1030,8 +1033,8 @@ def execute_autopilot_tick(
             continue
         task_assignments.append((task, target_worker, was_assigned))
 
-    # thr-011 note: propose_timeout is not yet in policy; use 120s as interim default.
-    per_task_hard_timeout = int(policy.get("execute_timeout", 60)) + 120  # thr-007
+    # thr-011: propose_timeout + execute_timeout + 30s buffer = hard deadline per task thread.
+    per_task_hard_timeout = int(policy.get("propose_timeout", 120)) + int(policy.get("execute_timeout", 60)) + 30
     app = loop._app
 
     # thr-006: parallel dispatch via ThreadPoolExecutor.
@@ -1089,17 +1092,21 @@ def execute_autopilot_tick(
                         task_id=tid, failed=True, failure_type="dispatch_timeout"
                     ))
 
-    # Aggregate results into loop counters (thr-002: via protected _increment_*).
+    # thr-012: Aggregate results into local counters + loop counters (thr-002: via _increment_*).
     for r in task_results:
         if r.dispatched:
             loop._increment_dispatched()
             dispatched += 1
+            dispatched_task_ids.append(r.task_id)
             if r.completed:
                 loop._increment_completed()
+                completed += 1
             else:
                 loop._increment_failed()
+                failed += 1
         elif r.failed:
             loop._increment_failed()
+            failed += 1
 
     loop.last_tick_at = time.time()
     loop._set_last_error(None)
@@ -1113,6 +1120,9 @@ def execute_autopilot_tick(
             pass
     return {
         "dispatched": dispatched,
+        "completed": completed,
+        "failed": failed,
+        "task_ids": dispatched_task_ids,
         "reason": "ok",
         "debug": build_tick_debug_payload(
             team_id_scope=loop.team_id or None,

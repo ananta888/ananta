@@ -1,34 +1,33 @@
 # Threading Audit – Autopilot Tick Engine
 
 Bezug: `todo.threading.json`, Tasks thr-001 bis thr-016  
-Stand: thr-001 abgeschlossen (thr-002/003/004/005 in Arbeit)
+Stand: **alle 16 Tasks abgeschlossen**
 
 ---
 
 ## Scope
 
-Die Funktion `execute_autopilot_tick()` in `autopilot_tick_engine.py` verarbeitet derzeit Tasks
-sequenziell in einer `for`-Schleife. Ziel ist parallele Ausführung per `ThreadPoolExecutor`.
-Dieses Dokument kartiert alle Shared-State-Zugriffe, die bei paralleler Ausführung zu
-Race Conditions führen würden.
+Die Funktion `execute_autopilot_tick()` in `autopilot_tick_engine.py` verarbeitet Tasks
+parallel via `ThreadPoolExecutor`. Dieses Dokument dokumentiert alle abgesicherten
+Shared-State-Zugriffe, das finale Lock-Schema und die Thread-Safety-Garantien.
 
 ---
 
-## Gemeinsam genutzter Zustand (AutonomousLoopManager-Felder)
+## Finales Lock-Schema
 
-| Feld | Typ | Wo geschrieben | Thread-safe? | Absicherung (Ziel) |
-|------|-----|----------------|--------------|---------------------|
-| `loop.dispatched_count` | `int` | tick_engine.py:909 | **NEIN** – `+=` nicht atomar | `_counters_lock` (thr-002) |
-| `loop.completed_count` | `int` | tick_engine.py:912 | **NEIN** | `_counters_lock` (thr-002) |
-| `loop.failed_count` | `int` | tick_engine.py:518,738,762,787,830,867,925 | **NEIN** | `_counters_lock` (thr-002) |
-| `loop.last_error` | `str\|None` | tick_engine.py:377,450,928 | **NEIN** – Last-Write-Wins ohne Lock | `_counters_lock` (thr-002) |
-| `loop.last_tick_at` | `float\|None` | tick_engine.py:422,451,927 | Nur am Tick-Ende, kein Race | Kein Lock nötig (nach Threads fertig) |
-| `loop.tick_count` | `int` | tick_engine.py:423,452,929 | Nur am Tick-Ende, kein Race | Kein Lock nötig |
-| `loop._worker_cursor` | `int` | tick_engine.py:478 (via resolve_target_worker_for_task) | **NEIN** – Lesen+Schreiben nicht atomar | `_routing_lock` (thr-003) |
-| `loop._worker_circuit_open_until` | `dict[str,float]` | autopilot.py:295 (_record_worker_failure) | **NEIN** | `_routing_lock` (thr-003) |
-| `loop._worker_failure_streak` | `dict[str,int]` | autopilot.py:291,292 | **NEIN** | `_routing_lock` (thr-003) |
-| `loop.running` | `bool` | autopilot.py:178,191 | Nur in start()/stop() unter `_lock` | Bestehender `_lock` reicht |
-| `loop._persist_state()` | Methode | tick_engine.py:424,453,930 | Intern unter `_lock` | Nur am Tick-Ende aufrufen (nach Threads) |
+| Lock | Feld | Typ | Schreibzugriffe | Thread-safe? |
+|------|------|-----|-----------------|--------------|
+| `_counters_lock` | `loop.dispatched_count` | `int` | `_increment_dispatched()` | **JA** – unter Lock |
+| `_counters_lock` | `loop.completed_count` | `int` | `_increment_completed()` | **JA** – unter Lock |
+| `_counters_lock` | `loop.failed_count` | `int` | `_increment_failed()` | **JA** – unter Lock |
+| `_counters_lock` | `loop.last_error` | `str\|None` | `_set_last_error()` | **JA** – unter Lock |
+| `_routing_lock` | `loop._worker_cursor` | `int` | `_assign_worker()` | **JA** – atomar lesen+schreiben |
+| `_routing_lock` | `loop._worker_circuit_open_until` | `dict` | `_record_worker_failure/success()` | **JA** – unter Lock |
+| `_routing_lock` | `loop._worker_failure_streak` | `dict` | `_record_worker_failure/success()` | **JA** – unter Lock |
+| `_lock` (bestehend) | `loop.running` | `bool` | `start()`, `stop()` | **JA** – unter `_lock` |
+| `_tick_lock` (bestehend) | Tick-Serialisierung | — | `tick_once()` | **JA** – kein concurrent Tick |
+| *(kein Lock)* | `loop.last_tick_at` | `float` | nur am Tick-Ende (nach Threads fertig) | **JA** – kein Race |
+| *(kein Lock)* | `loop.tick_count` | `int` | nur am Tick-Ende | **JA** – kein Race |
 
 ---
 
@@ -49,6 +48,9 @@ VERBOTEN:
           ...
 ```
 
+`_record_worker_failure()` setzt `last_error` (unter `_counters_lock`) erst NACH
+Freigabe von `_routing_lock` — diese Reihenfolge wird im Code explizit eingehalten.
+
 Die bestehenden Locks (`_lock` für start/stop, `_tick_lock` für Tick-Serialisierung)
 sind davon getrennt und werden nicht für Counter/Routing verwendet.
 
@@ -64,87 +66,154 @@ with Session(engine) as session:
     ...
 ```
 Jeder Aufruf von `update_local_task_status()` und `append_trace_event()` öffnet eine
-**eigene Session** und schließt sie am Ende. Der `engine` (SQLAlchemy Connection Pool)
-ist selbst thread-safe (PostgreSQL: `NullPool`/`QueuePool`, beide designed für
-Multi-Threading).
+**eigene Session** und schließt sie am Ende. Der `engine` (SQLAlchemy QueuePool) ist
+selbst thread-safe.
 
-Einziges Race-Condition-Risiko: Read-Modify-Write auf denselben Task von zwei Threads.
 Da Tasks im Batch unterschiedliche IDs haben (jeder Task geht an höchstens einen Thread),
-tritt dieser Fall nicht auf. Für `append_trace_event` liest Thread A `task.history`,
-Thread B modifiziert `task.status` → verschiedene Felder, kein Lost-Update bei PostgreSQL
-(row-level locking).
-
-**Kommentar wird in `update_local_task_status()` ergänzt (thr-004).**
+gibt es kein concurrent Read-Modify-Write auf dieselbe Task-ID.
 
 ---
 
-## append_trace_event – Thread-Safety
+## Flask App-Context pro Thread (thr-008)
 
-`_append_trace_event()` → `autopilot_support_service.append_trace_event()`:
-- Öffnet eigene DB-Session
-- Liest Task, hängt an `task.history` an, schreibt zurück
-- Bei gleichem Task-ID aus zwei Threads: letzter Write gewinnt (history-Eintrag verloren)
-
-**Mitigierung**: Im Batch bekommt jeder Task genau einen Thread. Kein konkurrierender
-Zugriff auf dieselbe Task-ID. Akzeptiert als safe for current use case.
-
----
-
-## resolve_target_worker_for_task – kritischer Race-Condition-Kandidat
+`_dispatch_one_task()` öffnet beim Einstieg einen eigenen App-Context:
 
 ```python
-# autopilot_tick_engine.py:478 – NICHT thread-safe:
-target_worker, loop._worker_cursor, was_assigned = resolve_target_worker_for_task(
-    task=task,
-    workers=workers,
-    worker_cursor=loop._worker_cursor,  # lesen
-)
-# loop._worker_cursor = neuer Wert          # schreiben
+_ctx = app.app_context() if app is not None else contextlib.nullcontext()
+with _ctx:
+    return _dispatch_one_task_inner(...)
 ```
 
-Wenn zwei Threads gleichzeitig ausgeführt werden, lesen beide denselben `_worker_cursor`
-und bekommen denselben Worker zugeteilt.
-
-**Fix (thr-003)**: Worker-Zuteilung für alle Tasks im Batch passiert sequenziell VOR dem
-ThreadPoolExecutor unter `_routing_lock`. Jeder Task bekommt seinen `target_worker` als
-Parameter (thr-010 formalisiert das).
+`app` wird als Parameter übergeben, nicht aus `loop._app` gelesen, um
+Thread-Safety zu gewährleisten. Im Test-Modus läuft die Funktion ohne App-Context durch.
 
 ---
 
-## Parallelitäts-Sequenzdiagramm (Zielzustand nach thr-006)
+## Worker Pre-Assignment (thr-010)
+
+Worker-Zuteilung für alle Tasks im Batch passiert **sequenziell vor dem ThreadPoolExecutor**
+unter `_routing_lock`:
+
+```python
+task_assignments: list[tuple[task, target_worker, was_assigned]] = []
+for task in candidates[:effective_concurrency]:
+    target_worker, was_assigned = loop._assign_worker(task, workers)
+    ...
+    task_assignments.append((task, target_worker, was_assigned))
+
+with ThreadPoolExecutor(max_workers=effective_concurrency) as executor:
+    futures = {executor.submit(_dispatch_one_task, task=task, target_worker=target_worker, ...): task.id
+               for task, target_worker, was_assigned in task_assignments}
+```
+
+→ Kein Thread bekommt denselben Worker-Slot, Round-Robin ist korrekt.
+
+---
+
+## propose_timeout + per_task_hard_timeout (thr-011)
+
+```python
+per_task_hard_timeout = (
+    int(policy.get("propose_timeout", 120))   # LLM-Call-Budget
+    + int(policy.get("execute_timeout", 60))  # Shell-Execute-Budget
+    + 30                                       # Puffer
+)
+```
+
+Standard-Werte aus `resolve_security_policy()`:
+
+| Level | propose_timeout | execute_timeout | Hard-Timeout |
+|-------|----------------|----------------|--------------|
+| safe | 120s | 45s | 195s |
+| balanced | 120s | 60s | 210s |
+| aggressive | 180s | 120s | 330s |
+
+Beide Werte sind über `autopilot_security_policies.<level>.propose_timeout` /
+`execute_timeout` in `agent_config` konfigurierbar.
+
+---
+
+## Tick-Result-Aggregation (thr-012)
+
+`execute_autopilot_tick()` gibt zurück:
+
+```python
+{
+    "dispatched": int,       # Anzahl erfolgreich dispatchter Tasks
+    "completed": int,        # Davon mit completed=True
+    "failed": int,           # Fehlgeschlagene (dispatched-failed + pre-dispatch-failed)
+    "task_ids": list[str],   # IDs der dispatchten Tasks
+    "reason": "ok",
+    "debug": {...},
+}
+```
+
+`_run_loop` wertet `dispatched > 0` aus um den Inter-Tick-Sleep zu überspringen.
+
+---
+
+## effective_max_concurrency im Status (thr-013)
+
+`GET /tasks/autopilot/status` enthält:
+
+```json
+{
+  "max_concurrency": 4,
+  "effective_max_concurrency": 2,   // nach Security-Policy-Cap (balanced → cap=2)
+  "effective_security_policy": { ... }
+}
+```
+
+`max_concurrency` kann während des Betriebs per `POST /tasks/autopilot/start` mit
+`{"max_concurrency": N}` geändert werden. Der laufende Tick wird nicht unterbrochen;
+der neue Wert gilt ab dem nächsten Tick.
+
+---
+
+## Parallelitäts-Sequenzdiagramm (Finalzustand)
 
 ```
 execute_autopilot_tick()
 │
 ├── [sequenziell] Ollama-Probe (gecacht 30s)
+├── [sequenziell] Stale-proposing-Reset (>90s ohne Output → force todo)
 ├── [sequenziell] Worker-Zuteilung für alle Tasks unter _routing_lock
 │     task_A → worker_alpha
 │     task_B → worker_beta
 │
-├── ThreadPoolExecutor(max_workers=2)
+├── ThreadPoolExecutor(max_workers=effective_concurrency)
 │     ├── Thread A: _dispatch_one_task(task_A, worker_alpha)
+│     │     ├── with app.app_context()          [thr-008]
+│     │     ├── log = _task_log(task_A.id)      [thr-009]
 │     │     ├── propose → HTTP → worker_alpha → Ollama  [GPU]
 │     │     └── execute → HTTP → worker_alpha → Shell
+│     │     └── return TaskDispatchResult(dispatched=True, completed=True)
 │     │
 │     └── Thread B: _dispatch_one_task(task_B, worker_beta)   [parallel!]
+│           ├── with app.app_context()
+│           ├── log = _task_log(task_B.id)
 │           ├── propose → HTTP → worker_beta → Ollama  [GPU]
 │           └── execute → HTTP → worker_beta → Shell
+│           └── return TaskDispatchResult(dispatched=True, completed=True)
 │
-├── [sequenziell] Ergebnisse aggregieren (under _counters_lock)
-│     dispatched_count += 2
-│     completed_count += n
-│     failed_count += m
+├── as_completed(timeout=per_task_hard_timeout)
+│     Bei TimeoutError: future.cancel(), task → failed  [thr-007]
+│
+├── [sequenziell] Aggregation (thr-012)
+│     dispatched=2, completed=2, failed=0
+│     loop._increment_dispatched() × 2     [_counters_lock, thr-002]
+│     loop._increment_completed() × 2      [_counters_lock]
 │
 └── [sequenziell] _persist_state(), last_tick_at, tick_count
+      loop.wake() → nächster Tick sofort   [kein Sleep bei dispatched>0]
 ```
 
 ---
 
-## Offene Risiken (nach thr-006, vor thr-010)
+## Bekannte Einschränkungen
 
-| Risiko | Schwere | Addressiert durch |
-|--------|---------|-------------------|
-| Worker-Cursor Race (beide Threads selber Worker) | Mittel | thr-010 |
-| Flask App-Context fehlt in neuem Thread | Hoch | thr-008 |
-| SQLAlchemy DetachedInstanceError wenn Task-Objekt thread-übergreifend genutzt | Mittel | thr-008 (App-Context pro Thread) |
-| Circuit-Breaker-Read ohne Lock im Thread | Niedrig | thr-003 (read unter _routing_lock) |
+| Einschränkung | Erläuterung |
+|---------------|-------------|
+| `append_trace_event` Lost-Update | Falls zwei Threads dieselbe Task-ID gleichzeitig schreiben, gewinnt der letzte Write (history-Entry verloren). Im aktuellen Design geht jeder Task an genau einen Thread → kein Problem. |
+| Circuit-Breaker-Read ohne Lock im Thread | `_dispatch_one_task_inner` liest `_is_worker_circuit_open` nach Worker-Pre-Assignment. Der Wert kann sich zwischen Pre-Assignment und Thread-Ausführung ändern. Risiko niedrig (Pre-Assignment ist kurz vorher). |
+| Graceful Stop wartet max. 2s | `stop()` joinet den Loop-Thread mit `timeout=2.0`. Laufende Task-Threads werden durch den `as_completed()` Timeout (bis ~330s) abgebrochen, nicht hart. |

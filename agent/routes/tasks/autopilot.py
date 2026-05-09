@@ -17,6 +17,7 @@ from agent.routes.tasks.autopilot_guardrails import (
     resolve_resilience_config,
     resolve_security_policy,
 )
+from agent.routes.tasks.autopilot_dispatch_policy import resolve_effective_concurrency
 from agent.routes.tasks.autopilot_tick_engine import execute_autopilot_tick
 from agent.routes.tasks.orchestration_policy import compute_retry_delay_seconds
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
@@ -230,10 +231,17 @@ class AutonomousLoopManager:
 
     def status(self) -> dict:
         with self._lock:
+            policy = self._security_policy()
+            effective_max_concurrency = resolve_effective_concurrency(
+                requested_max_concurrency=self.max_concurrency,
+                security_policy=policy,
+            )
             return {
                 "running": self.running,
                 "interval_seconds": self.interval_seconds,
                 "max_concurrency": self.max_concurrency,
+                # thr-013: effective value after security-policy cap is applied.
+                "effective_max_concurrency": effective_max_concurrency,
                 "last_tick_at": self.last_tick_at,
                 "last_error": self.last_error,
                 "tick_count": self.tick_count,
@@ -245,7 +253,7 @@ class AutonomousLoopManager:
                 "team_id": self.team_id,
                 "budget_label": self.budget_label,
                 "security_level": self.security_level,
-                "effective_security_policy": self._security_policy(),
+                "effective_security_policy": policy,
                 "circuit_breakers": self._circuit_status_unlocked(),
             }
 
