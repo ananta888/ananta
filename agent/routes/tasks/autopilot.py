@@ -59,8 +59,12 @@ def _task_dependencies(task: Any) -> list[str]:
 
 class AutonomousLoopManager:
     def __init__(self):
-        self._lock = threading.Lock()
-        self._tick_lock = threading.Lock()
+        self._lock = threading.Lock()          # start/stop/persist lifecycle
+        self._tick_lock = threading.Lock()     # prevents concurrent ticks
+        # thr-002: protects dispatched_count, completed_count, failed_count, last_error
+        self._counters_lock = threading.Lock()
+        # thr-003: protects _worker_cursor, _worker_circuit_open_until, _worker_failure_streak
+        self._routing_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._wake_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -276,24 +280,36 @@ class AutonomousLoopManager:
     def _resilience_config(self) -> dict:
         return resolve_resilience_config(agent_config=self._agent_config())
 
+    # thr-003: all three methods acquire _routing_lock to protect _worker_cursor,
+    # _worker_circuit_open_until and _worker_failure_streak against concurrent access.
+
     def _is_worker_circuit_open(self, worker_url: str) -> bool:
-        until = self._worker_circuit_open_until.get(worker_url, 0.0)
+        with self._routing_lock:
+            until = self._worker_circuit_open_until.get(worker_url, 0.0)
         return until > time.time()
 
     def _record_worker_success(self, worker_url: str) -> None:
-        self._worker_failure_streak[worker_url] = 0
-        self._worker_circuit_open_until.pop(worker_url, None)
+        with self._routing_lock:
+            self._worker_failure_streak[worker_url] = 0
+            self._worker_circuit_open_until.pop(worker_url, None)
 
     def _record_worker_failure(
         self, worker_url: str, reason: str, task_id: str | None = None, endpoint: str | None = None
     ) -> None:
         cfg = self._resilience_config()
-        streak = int(self._worker_failure_streak.get(worker_url, 0)) + 1
-        self._worker_failure_streak[worker_url] = streak
-        if streak >= cfg["circuit_breaker_threshold"]:
-            open_until = time.time() + cfg["circuit_breaker_open_seconds"]
-            self._worker_circuit_open_until[worker_url] = open_until
-            self.last_error = f"worker_circuit_open:{worker_url}:{reason}"
+        with self._routing_lock:
+            streak = int(self._worker_failure_streak.get(worker_url, 0)) + 1
+            self._worker_failure_streak[worker_url] = streak
+            if streak >= cfg["circuit_breaker_threshold"]:
+                open_until = time.time() + cfg["circuit_breaker_open_seconds"]
+                self._worker_circuit_open_until[worker_url] = open_until
+                error_msg = f"worker_circuit_open:{worker_url}:{reason}"
+            else:
+                open_until = None
+                error_msg = None
+        if error_msg:
+            with self._counters_lock:
+                self.last_error = error_msg
             details = {
                 "worker_url": worker_url,
                 "reason": reason,
@@ -303,6 +319,47 @@ class AutonomousLoopManager:
                 "task_id": task_id,
             }
             log_audit("autopilot_worker_circuit_open", details)
+
+    # thr-002: protected counter/error mutators used by _dispatch_one_task threads.
+
+    def _increment_dispatched(self) -> None:
+        with self._counters_lock:
+            self.dispatched_count += 1
+
+    def _increment_completed(self) -> None:
+        with self._counters_lock:
+            self.completed_count += 1
+
+    def _increment_failed(self) -> None:
+        with self._counters_lock:
+            self.failed_count += 1
+
+    def _set_last_error(self, error: str | None) -> None:
+        with self._counters_lock:
+            self.last_error = error
+
+    def _assign_worker(self, task: Any, workers: list) -> tuple:
+        """Atomically advance the worker cursor and return (target_worker, was_assigned).
+
+        thr-003: cursor read+write is protected by _routing_lock so two threads
+        cannot receive the same worker slot.
+        """
+        from agent.routes.tasks.autopilot_dispatch_policy import resolve_target_worker_for_task
+        with self._routing_lock:
+            target_worker, self._worker_cursor, was_assigned = resolve_target_worker_for_task(
+                task=task,
+                workers=workers,
+                worker_cursor=self._worker_cursor,
+            )
+        return target_worker, was_assigned
+
+    def _circuit_open_details(self, worker_url: str) -> tuple[float, int]:
+        """Return (open_until, failure_streak) for a worker under _routing_lock."""
+        with self._routing_lock:
+            return (
+                self._worker_circuit_open_until.get(worker_url, 0.0),
+                int(self._worker_failure_streak.get(worker_url, 0)),
+            )
 
     def _forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:
         cfg = self._resilience_config()
