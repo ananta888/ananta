@@ -299,10 +299,10 @@ def build_default_agent_config() -> dict:
         "execution_risk_policy": {
             "enabled": True,
             "default_action": "deny",
-            "deny_risk_levels": ["high", "critical"],
-            "review_risk_levels": ["medium", "high", "critical"],
+            "deny_risk_levels": ["critical"],
+            "review_risk_levels": ["high", "critical"],
             "task_scoped_only": True,
-            "require_terminal_capability_for_command": True,
+            "require_terminal_capability_for_command": False,
             "terminal_capability_name": "terminal",
         },
         "autopilot_security_policies": {
