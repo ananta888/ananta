@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import concurrent.futures
+import contextlib
 import logging
 import time
 from dataclasses import dataclass, field
@@ -371,9 +373,61 @@ def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict
     return candidates[:max_attempts]
 
 
+def _task_log(task_id: str) -> logging.LoggerAdapter:
+    """thr-009: Returns a LoggerAdapter that prefixes every log line with the task_id
+    so parallel thread output stays attributable in mixed logs."""
+    return logging.LoggerAdapter(logging.getLogger(__name__), {"task_id": task_id})
+
+
 def _dispatch_one_task(  # noqa: C901
     *,
     task: Any,
+    target_worker: Any,      # thr-010: pre-assigned by caller under _routing_lock
+    was_assigned: bool,      # thr-010: whether assignment status update is needed
+    loop: Any,
+    services: Any,
+    policy: dict,
+    fallback_policy: dict,
+    runtime_caps: dict,
+    queue_positions: dict,
+    local_worker_url: str,
+    app: Any,                # thr-008: Flask app for per-thread app_context
+    append_trace_event: Callable[..., None],
+    update_local_task_status: Callable[..., None],
+) -> TaskDispatchResult:
+    """Execute the full propose→execute cycle for a single task.
+
+    thr-005: Extracted from execute_autopilot_tick() for parallelisation.
+    thr-006: Called from ThreadPoolExecutor threads.
+    thr-007: Caller enforces a hard timeout via as_completed(); no internal timeout needed.
+    thr-008: Opens its own Flask app_context so DB access works in the new thread.
+    thr-009: All logging uses _task_log(task.id) so mixed output stays attributable.
+    thr-010: target_worker/was_assigned are pre-assigned by the caller (no cursor race).
+    """
+    # thr-008: each thread needs its own app context; parent's context is not inherited.
+    _ctx = app.app_context() if app is not None else contextlib.nullcontext()
+    with _ctx:
+        return _dispatch_one_task_inner(
+            task=task,
+            target_worker=target_worker,
+            was_assigned=was_assigned,
+            loop=loop,
+            services=services,
+            policy=policy,
+            fallback_policy=fallback_policy,
+            runtime_caps=runtime_caps,
+            queue_positions=queue_positions,
+            local_worker_url=local_worker_url,
+            append_trace_event=append_trace_event,
+            update_local_task_status=update_local_task_status,
+        )
+
+
+def _dispatch_one_task_inner(  # noqa: C901
+    *,
+    task: Any,
+    target_worker: Any,
+    was_assigned: bool,
     loop: Any,
     services: Any,
     policy: dict,
@@ -384,25 +438,8 @@ def _dispatch_one_task(  # noqa: C901
     append_trace_event: Callable[..., None],
     update_local_task_status: Callable[..., None],
 ) -> TaskDispatchResult:
-    """Execute the full propose→execute cycle for a single task.
-
-    Returns a TaskDispatchResult so execute_autopilot_tick() can aggregate
-    results without touching loop counters directly (thr-005).
-    Loop counter mutations (dispatched/failed/completed) are done by the
-    caller via loop._increment_*() under _counters_lock (thr-002).
-    Worker assignment (target_worker) is resolved by the caller under
-    _routing_lock (thr-003/thr-010) and passed in via loop._assign_worker().
-    """
+    log = _task_log(task.id)  # thr-009
     result = TaskDispatchResult(task_id=task.id)
-
-    # Worker assignment — uses loop._assign_worker() which holds _routing_lock
-    # for the cursor update (thr-003). thr-010 will move this to the caller so
-    # all tasks in a batch are pre-assigned before any thread starts.
-    target_worker, was_assigned = loop._assign_worker(task, _get_workers_snapshot(loop))
-    if target_worker is None:
-        result.failed = True
-        result.failure_type = "no_worker"
-        return result
 
     if was_assigned:
         update_local_task_status(
@@ -862,26 +899,9 @@ def _dispatch_one_task(  # noqa: C901
                     exit_code=exit_code,
                 )
         except Exception as e:
-            logging.debug(f"Followup analysis skipped for {task.id}: {e}")
+            log.debug("Followup analysis skipped: %s", e)  # thr-009
 
     return result
-
-
-def _get_workers_snapshot(loop: Any) -> list:
-    """Return currently available workers (used inside _dispatch_one_task).
-
-    thr-010 will remove this helper once worker pre-assignment moves to the
-    caller before ThreadPoolExecutor submission.
-    """
-    from agent.services.service_registry import get_core_services
-    services = get_core_services()
-    workers, _ = services.autopilot_support_service.available_workers(
-        team_id=loop.team_id or None,
-        is_worker_circuit_open=loop._is_worker_circuit_open,
-        app_config=loop._app_config(),
-        app=loop._app,
-    )
-    return workers
 
 
 def execute_autopilot_tick(
@@ -998,24 +1018,79 @@ def execute_autopilot_tick(
     local_worker_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
     queue_positions = dispatch_queue_positions(dispatch_queue)
 
-    # thr-005: dispatch loop delegates all per-task logic to _dispatch_one_task().
-    # Counter mutations use the protected _increment_*() methods (thr-002).
-    # thr-006 will replace this sequential loop with ThreadPoolExecutor.
-    task_results: list[TaskDispatchResult] = []
+    # thr-010: pre-assign workers sequentially under _routing_lock BEFORE spawning
+    # threads so two threads can never receive the same worker slot.
+    task_assignments: list[tuple[Any, Any, bool]] = []
     for task in candidates[:effective_concurrency]:
-        r = _dispatch_one_task(
-            task=task,
-            loop=loop,
-            services=services,
-            policy=policy,
-            fallback_policy=fallback_policy,
-            runtime_caps=runtime_caps,
-            queue_positions=queue_positions,
-            local_worker_url=local_worker_url,
-            append_trace_event=append_trace_event,
-            update_local_task_status=update_local_task_status,
-        )
-        task_results.append(r)
+        target_worker, was_assigned = loop._assign_worker(task, workers)
+        if target_worker is None:
+            loop._increment_failed()
+            append_trace_event(task.id, "autopilot_no_worker", reason="no_worker_available")
+            update_local_task_status(task.id, "failed", error="no_worker_available", force=True)
+            continue
+        task_assignments.append((task, target_worker, was_assigned))
+
+    # thr-011 note: propose_timeout is not yet in policy; use 120s as interim default.
+    per_task_hard_timeout = int(policy.get("execute_timeout", 60)) + 120  # thr-007
+    app = loop._app
+
+    # thr-006: parallel dispatch via ThreadPoolExecutor.
+    # thr-007: as_completed() enforces per_task_hard_timeout; timed-out tasks are
+    #          marked failed so they don't stay stuck in proposing/in_progress.
+    task_results: list[TaskDispatchResult] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, effective_concurrency)) as executor:
+        future_to_task_id: dict[concurrent.futures.Future, str] = {
+            executor.submit(
+                _dispatch_one_task,
+                task=task,
+                target_worker=target_worker,
+                was_assigned=was_assigned,
+                loop=loop,
+                services=services,
+                policy=policy,
+                fallback_policy=fallback_policy,
+                runtime_caps=runtime_caps,
+                queue_positions=queue_positions,
+                local_worker_url=local_worker_url,
+                app=app,
+                append_trace_event=append_trace_event,
+                update_local_task_status=update_local_task_status,
+            ): task.id
+            for task, target_worker, was_assigned in task_assignments
+        }
+        try:
+            for future in concurrent.futures.as_completed(
+                future_to_task_id, timeout=per_task_hard_timeout
+            ):
+                tid = future_to_task_id[future]
+                try:
+                    task_results.append(future.result())
+                except Exception as exc:
+                    logging.error("[tick][task_id=%s] _dispatch_one_task raised: %s", tid, exc)
+                    update_local_task_status(tid, "failed", error=str(exc), force=True)
+                    task_results.append(TaskDispatchResult(
+                        task_id=tid, failed=True, failure_type="thread_exception"
+                    ))
+        except concurrent.futures.TimeoutError:
+            # thr-007: hard timeout — cancel pending futures, mark tasks failed.
+            for future, tid in future_to_task_id.items():
+                if not future.done():
+                    future.cancel()
+                    logging.warning(
+                        "[tick][task_id=%s] dispatch timed out after %ss, marking failed",
+                        tid, per_task_hard_timeout,
+                    )
+                    update_local_task_status(tid, "failed", error="dispatch_timeout", force=True)
+                    append_trace_event(
+                        tid, "dispatch_timeout",
+                        reason=f"hard_timeout_{per_task_hard_timeout}s",
+                    )
+                    task_results.append(TaskDispatchResult(
+                        task_id=tid, failed=True, failure_type="dispatch_timeout"
+                    ))
+
+    # Aggregate results into loop counters (thr-002: via protected _increment_*).
+    for r in task_results:
         if r.dispatched:
             loop._increment_dispatched()
             dispatched += 1
