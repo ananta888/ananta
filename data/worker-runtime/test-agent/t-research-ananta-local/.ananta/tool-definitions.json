@@ -1,140 +1,38 @@
 [
   {
-    "name": "create_template",
-    "description": "Creates a new prompt template.",
+    "name": "activate_team",
+    "description": "Activates a team and deactivates all others.",
     "parameters": {
       "type": "object",
       "properties": {
-        "name": {
+        "team_id": {
           "type": "string",
-          "description": "Template name"
-        },
-        "description": {
-          "type": "string",
-          "description": "Optional description"
-        },
-        "prompt_template": {
-          "type": "string",
-          "description": "Prompt template text"
+          "description": "Team ID"
         }
       },
       "required": [
-        "name",
-        "prompt_template"
+        "team_id"
       ]
     }
   },
   {
-    "name": "update_template",
-    "description": "Updates an existing prompt template.",
+    "name": "analysis_tool",
+    "description": "Liest den Inhalt einer Datei.",
     "parameters": {
       "type": "object",
       "properties": {
-        "template_id": {
+        "path": {
           "type": "string",
-          "description": "Template ID"
+          "description": "Pfad zur Datei"
         },
-        "name": {
+        "encoding": {
           "type": "string",
-          "description": "Template name"
-        },
-        "description": {
-          "type": "string",
-          "description": "Optional description"
-        },
-        "prompt_template": {
-          "type": "string",
-          "description": "Prompt template text"
+          "description": "Encoding",
+          "default": "utf-8"
         }
       },
       "required": [
-        "template_id"
-      ]
-    }
-  },
-  {
-    "name": "delete_template",
-    "description": "Deletes a prompt template.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "template_id": {
-          "type": "string",
-          "description": "Template ID"
-        }
-      },
-      "required": [
-        "template_id"
-      ]
-    }
-  },
-  {
-    "name": "create_team",
-    "description": "Erstellt ein neues Team mit einem bestimmten Typ.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name des Teams"
-        },
-        "team_type": {
-          "type": "string",
-          "description": "Typ des Teams (z.B. Scrum, Kanban)"
-        },
-        "description": {
-          "type": "string",
-          "description": "Optionale Beschreibung"
-        }
-      },
-      "required": [
-        "name",
-        "team_type"
-      ]
-    }
-  },
-  {
-    "name": "ensure_team_templates",
-    "description": "Stellt sicher, dass Standard-Templates und Rollen fuer Team-Typen existieren.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "team_types": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Liste von Team-Typen (z.B. Scrum, Kanban)."
-        }
-      }
-    }
-  },
-  {
-    "name": "list_teams",
-    "description": "Listet alle existierenden Teams auf.",
-    "parameters": {
-      "type": "object",
-      "properties": {}
-    }
-  },
-  {
-    "name": "update_config",
-    "description": "Aktualisiert die globale Konfiguration.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "key": {
-          "type": "string",
-          "description": "Konfigurationsschlüssel"
-        },
-        "value": {
-          "type": "string",
-          "description": "Neuer Wert (als JSON-String oder einfacher Wert)"
-        }
-      },
-      "required": [
-        "key",
-        "value"
+        "path"
       ]
     }
   },
@@ -150,27 +48,6 @@
           "default": 20
         }
       }
-    }
-  },
-  {
-    "name": "read_agent_logs",
-    "description": "Liest die letzten Zeilen aus einer spezifischen Log-Datei.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "filename": {
-          "type": "string",
-          "description": "Name der Log-Datei (z.B. agent.log)"
-        },
-        "lines": {
-          "type": "integer",
-          "description": "Anzahl der Zeilen",
-          "default": 50
-        }
-      },
-      "required": [
-        "filename"
-      ]
     }
   },
   {
@@ -200,266 +77,23 @@
     }
   },
   {
-    "name": "list_roles",
-    "description": "Listet alle verfügbaren Rollen auf.",
-    "parameters": {
-      "type": "object",
-      "properties": {}
-    }
-  },
-  {
-    "name": "list_agents",
-    "description": "Listet alle registrierten Agenten auf.",
-    "parameters": {
-      "type": "object",
-      "properties": {}
-    }
-  },
-  {
-    "name": "list_templates",
-    "description": "Listet alle verfügbaren Prompt-Templates auf.",
-    "parameters": {
-      "type": "object",
-      "properties": {}
-    }
-  },
-  {
-    "name": "upsert_team_type",
-    "description": "Creates or updates a team type.",
+    "name": "bash",
+    "description": "Fuehrt ein Shell-Kommando aus (Hochrisiko, standardmaessig deaktiviert).",
     "parameters": {
       "type": "object",
       "properties": {
-        "type_id": {
+        "command": {
           "type": "string",
-          "description": "Optional team type ID for update"
+          "description": "Das auszufuehrende Kommando"
         },
-        "name": {
-          "type": "string",
-          "description": "Team type name"
-        },
-        "description": {
-          "type": "string",
-          "description": "Optional team type description"
+        "timeout": {
+          "type": "integer",
+          "description": "Timeout in Sekunden",
+          "default": 30
         }
       },
       "required": [
-        "name"
-      ]
-    }
-  },
-  {
-    "name": "delete_team_type",
-    "description": "Deletes a team type.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "type_id": {
-          "type": "string",
-          "description": "Team type ID"
-        }
-      },
-      "required": [
-        "type_id"
-      ]
-    }
-  },
-  {
-    "name": "upsert_role",
-    "description": "Creates or updates a role.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "role_id": {
-          "type": "string",
-          "description": "Optional role ID for update"
-        },
-        "name": {
-          "type": "string",
-          "description": "Role name"
-        },
-        "description": {
-          "type": "string",
-          "description": "Optional role description"
-        },
-        "default_template_id": {
-          "type": "string",
-          "description": "Optional default template ID"
-        }
-      },
-      "required": [
-        "name"
-      ]
-    }
-  },
-  {
-    "name": "delete_role",
-    "description": "Deletes a role.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "role_id": {
-          "type": "string",
-          "description": "Role ID"
-        }
-      },
-      "required": [
-        "role_id"
-      ]
-    }
-  },
-  {
-    "name": "link_role_to_team_type",
-    "description": "Links a role to a team type with an optional template mapping.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "type_id": {
-          "type": "string",
-          "description": "Team type ID"
-        },
-        "role_id": {
-          "type": "string",
-          "description": "Role ID"
-        },
-        "template_id": {
-          "type": "string",
-          "description": "Optional template ID"
-        }
-      },
-      "required": [
-        "type_id",
-        "role_id"
-      ]
-    }
-  },
-  {
-    "name": "unlink_role_from_team_type",
-    "description": "Unlinks a role from a team type.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "type_id": {
-          "type": "string",
-          "description": "Team type ID"
-        },
-        "role_id": {
-          "type": "string",
-          "description": "Role ID"
-        }
-      },
-      "required": [
-        "type_id",
-        "role_id"
-      ]
-    }
-  },
-  {
-    "name": "set_role_template_mapping",
-    "description": "Sets or clears template mapping for a team type role link.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "type_id": {
-          "type": "string",
-          "description": "Team type ID"
-        },
-        "role_id": {
-          "type": "string",
-          "description": "Role ID"
-        },
-        "template_id": {
-          "type": "string",
-          "description": "Template ID or null to clear"
-        }
-      },
-      "required": [
-        "type_id",
-        "role_id"
-      ]
-    }
-  },
-  {
-    "name": "upsert_team",
-    "description": "Creates or updates a team and optionally its members.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "team_id": {
-          "type": "string",
-          "description": "Optional team ID for update"
-        },
-        "name": {
-          "type": "string",
-          "description": "Team name"
-        },
-        "description": {
-          "type": "string",
-          "description": "Optional team description"
-        },
-        "team_type_id": {
-          "type": "string",
-          "description": "Optional team type ID"
-        },
-        "is_active": {
-          "type": "boolean",
-          "description": "Optional active flag"
-        },
-        "members": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "agent_url": {
-                "type": "string"
-              },
-              "role_id": {
-                "type": "string"
-              },
-              "custom_template_id": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "agent_url",
-              "role_id"
-            ]
-          }
-        }
-      },
-      "required": [
-        "name"
-      ]
-    }
-  },
-  {
-    "name": "delete_team",
-    "description": "Deletes a team.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "team_id": {
-          "type": "string",
-          "description": "Team ID"
-        }
-      },
-      "required": [
-        "team_id"
-      ]
-    }
-  },
-  {
-    "name": "activate_team",
-    "description": "Activates a team and deactivates all others.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "team_id": {
-          "type": "string",
-          "description": "Team ID"
-        }
-      },
-      "required": [
-        "team_id"
+        "command"
       ]
     }
   },
@@ -524,36 +158,364 @@
     }
   },
   {
-    "name": "set_autopilot_state",
-    "description": "Starts, stops or ticks autopilot.",
+    "name": "context_analysis_tool",
+    "description": "Liest den Inhalt einer Datei.",
     "parameters": {
       "type": "object",
       "properties": {
-        "action": {
+        "path": {
           "type": "string",
-          "description": "start|stop|tick"
+          "description": "Pfad zur Datei"
         },
-        "interval_seconds": {
-          "type": "integer"
-        },
-        "max_concurrency": {
-          "type": "integer"
-        },
-        "goal": {
-          "type": "string"
-        },
-        "team_id": {
-          "type": "string"
-        },
-        "budget_label": {
-          "type": "string"
-        },
-        "security_level": {
-          "type": "string"
+        "encoding": {
+          "type": "string",
+          "description": "Encoding",
+          "default": "utf-8"
         }
       },
       "required": [
-        "action"
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "context_reader",
+    "description": "Liest den Inhalt einer Datei.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Encoding",
+          "default": "utf-8"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "context_tool",
+    "description": "Liest den Inhalt einer Datei.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Encoding",
+          "default": "utf-8"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "create_file",
+    "description": "Schreibt Inhalt in eine Datei (ueberschreibt existierende).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "content": {
+          "type": "string",
+          "description": "Inhalt"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Encoding",
+          "default": "utf-8"
+        }
+      },
+      "required": [
+        "path",
+        "content"
+      ]
+    }
+  },
+  {
+    "name": "create_team",
+    "description": "Erstellt ein neues Team mit einem bestimmten Typ.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name des Teams"
+        },
+        "team_type": {
+          "type": "string",
+          "description": "Typ des Teams (z.B. Scrum, Kanban)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optionale Beschreibung"
+        }
+      },
+      "required": [
+        "name",
+        "team_type"
+      ]
+    }
+  },
+  {
+    "name": "create_template",
+    "description": "Creates a new prompt template.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Template name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description"
+        },
+        "prompt_template": {
+          "type": "string",
+          "description": "Prompt template text"
+        }
+      },
+      "required": [
+        "name",
+        "prompt_template"
+      ]
+    }
+  },
+  {
+    "name": "delete_role",
+    "description": "Deletes a role.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "role_id": {
+          "type": "string",
+          "description": "Role ID"
+        }
+      },
+      "required": [
+        "role_id"
+      ]
+    }
+  },
+  {
+    "name": "delete_team",
+    "description": "Deletes a team.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "team_id": {
+          "type": "string",
+          "description": "Team ID"
+        }
+      },
+      "required": [
+        "team_id"
+      ]
+    }
+  },
+  {
+    "name": "delete_team_type",
+    "description": "Deletes a team type.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "type_id": {
+          "type": "string",
+          "description": "Team type ID"
+        }
+      },
+      "required": [
+        "type_id"
+      ]
+    }
+  },
+  {
+    "name": "delete_template",
+    "description": "Deletes a prompt template.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "template_id": {
+          "type": "string",
+          "description": "Template ID"
+        }
+      },
+      "required": [
+        "template_id"
+      ]
+    }
+  },
+  {
+    "name": "doc_extract",
+    "description": "Extrahiert Text aus einem Dokument (PDF, DOCX, XLSX, PPTX).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zum Dokument"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "edit_file",
+    "description": "Wendet einen Patch auf eine Datei an (Search & Replace Modell).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "search": {
+          "type": "string",
+          "description": "Zu suchender Text"
+        },
+        "replace": {
+          "type": "string",
+          "description": "Ersatztext"
+        }
+      },
+      "required": [
+        "path",
+        "search",
+        "replace"
+      ]
+    }
+  },
+  {
+    "name": "ensure_team_templates",
+    "description": "Stellt sicher, dass Standard-Templates und Rollen fuer Team-Typen existieren.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "team_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Liste von Team-Typen (z.B. Scrum, Kanban)."
+        }
+      }
+    }
+  },
+  {
+    "name": "execute_command",
+    "description": "Fuehrt ein Shell-Kommando aus (Hochrisiko, standardmaessig deaktiviert).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "Das auszufuehrende Kommando"
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Timeout in Sekunden",
+          "default": 30
+        }
+      },
+      "required": [
+        "command"
+      ]
+    }
+  },
+  {
+    "name": "fetch_url",
+    "description": "Ruft den Textinhalt einer Webseite ab.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Die abzurufende URL"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  },
+  {
+    "name": "file_list",
+    "description": "Listet Dateien in einem Verzeichnis auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zum Verzeichnis",
+          "default": "."
+        },
+        "recursive": {
+          "type": "boolean",
+          "description": "Rekursiv auflisten",
+          "default": false
+        }
+      }
+    }
+  },
+  {
+    "name": "file_manager",
+    "description": "Listet Dateien in einem Verzeichnis auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zum Verzeichnis",
+          "default": "."
+        },
+        "recursive": {
+          "type": "boolean",
+          "description": "Rekursiv auflisten",
+          "default": false
+        }
+      }
+    }
+  },
+  {
+    "name": "file_patch",
+    "description": "Wendet einen Patch auf eine Datei an (Search & Replace Modell).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "search": {
+          "type": "string",
+          "description": "Zu suchender Text"
+        },
+        "replace": {
+          "type": "string",
+          "description": "Ersatztext"
+        }
+      },
+      "required": [
+        "path",
+        "search",
+        "replace"
       ]
     }
   },
@@ -605,27 +567,8 @@
     }
   },
   {
-    "name": "file_list",
-    "description": "Listet Dateien in einem Verzeichnis auf.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "path": {
-          "type": "string",
-          "description": "Pfad zum Verzeichnis",
-          "default": "."
-        },
-        "recursive": {
-          "type": "boolean",
-          "description": "Rekursiv auflisten",
-          "default": false
-        }
-      }
-    }
-  },
-  {
-    "name": "file_patch",
-    "description": "Wendet einen Patch auf eine Datei an (Search & Replace Modell).",
+    "name": "file_writer",
+    "description": "Schreibt Inhalt in eine Datei (ueberschreibt existierende).",
     "parameters": {
       "type": "object",
       "properties": {
@@ -633,28 +576,36 @@
           "type": "string",
           "description": "Pfad zur Datei"
         },
-        "search": {
+        "content": {
           "type": "string",
-          "description": "Zu suchender Text"
+          "description": "Inhalt"
         },
-        "replace": {
+        "encoding": {
           "type": "string",
-          "description": "Ersatztext"
+          "description": "Encoding",
+          "default": "utf-8"
         }
       },
       "required": [
         "path",
-        "search",
-        "replace"
+        "content"
       ]
     }
   },
   {
-    "name": "git_status",
-    "description": "Zeigt den aktuellen Git-Status.",
+    "name": "git_commit",
+    "description": "Erstellt einen Commit mit den aktuell gestageten Aenderungen.",
     "parameters": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "Commit-Nachricht"
+        }
+      },
+      "required": [
+        "message"
+      ]
     }
   },
   {
@@ -690,18 +641,327 @@
     }
   },
   {
-    "name": "git_commit",
-    "description": "Erstellt einen Commit mit den aktuell gestageten Aenderungen.",
+    "name": "git_status",
+    "description": "Zeigt den aktuellen Git-Status.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "info_tool",
+    "description": "Liest den Inhalt einer Datei.",
     "parameters": {
       "type": "object",
       "properties": {
-        "message": {
+        "path": {
           "type": "string",
-          "description": "Commit-Nachricht"
+          "description": "Pfad zur Datei"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Encoding",
+          "default": "utf-8"
         }
       },
       "required": [
-        "message"
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "link_role_to_team_type",
+    "description": "Links a role to a team type with an optional template mapping.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "type_id": {
+          "type": "string",
+          "description": "Team type ID"
+        },
+        "role_id": {
+          "type": "string",
+          "description": "Role ID"
+        },
+        "template_id": {
+          "type": "string",
+          "description": "Optional template ID"
+        }
+      },
+      "required": [
+        "type_id",
+        "role_id"
+      ]
+    }
+  },
+  {
+    "name": "list_agents",
+    "description": "Listet alle registrierten Agenten auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "list_files",
+    "description": "Listet Dateien in einem Verzeichnis auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zum Verzeichnis",
+          "default": "."
+        },
+        "recursive": {
+          "type": "boolean",
+          "description": "Rekursiv auflisten",
+          "default": false
+        }
+      }
+    }
+  },
+  {
+    "name": "list_roles",
+    "description": "Listet alle verfügbaren Rollen auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "list_teams",
+    "description": "Listet alle existierenden Teams auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "list_templates",
+    "description": "Listet alle verfügbaren Prompt-Templates auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "list_tool",
+    "description": "Listet Dateien in einem Verzeichnis auf.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zum Verzeichnis",
+          "default": "."
+        },
+        "recursive": {
+          "type": "boolean",
+          "description": "Rekursiv auflisten",
+          "default": false
+        }
+      }
+    }
+  },
+  {
+    "name": "patch_file",
+    "description": "Wendet einen Patch auf eine Datei an (Search & Replace Modell).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "search": {
+          "type": "string",
+          "description": "Zu suchender Text"
+        },
+        "replace": {
+          "type": "string",
+          "description": "Ersatztext"
+        }
+      },
+      "required": [
+        "path",
+        "search",
+        "replace"
+      ]
+    }
+  },
+  {
+    "name": "read_agent_logs",
+    "description": "Liest die letzten Zeilen aus einer spezifischen Log-Datei.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "Name der Log-Datei (z.B. agent.log)"
+        },
+        "lines": {
+          "type": "integer",
+          "description": "Anzahl der Zeilen",
+          "default": 50
+        }
+      },
+      "required": [
+        "filename"
+      ]
+    }
+  },
+  {
+    "name": "read_file",
+    "description": "Liest den Inhalt einer Datei.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Encoding",
+          "default": "utf-8"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "read_tool",
+    "description": "Liest den Inhalt einer Datei.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Encoding",
+          "default": "utf-8"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "run_command",
+    "description": "Fuehrt ein Shell-Kommando aus (Hochrisiko, standardmaessig deaktiviert).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "Das auszufuehrende Kommando"
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Timeout in Sekunden",
+          "default": 30
+        }
+      },
+      "required": [
+        "command"
+      ]
+    }
+  },
+  {
+    "name": "search_tool",
+    "description": "Sucht im Web nach Informationen (simuliert/mock).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Suchbegriff"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    }
+  },
+  {
+    "name": "search_web",
+    "description": "Sucht im Web nach Informationen (simuliert/mock).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Suchbegriff"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    }
+  },
+  {
+    "name": "set_autopilot_state",
+    "description": "Starts, stops or ticks autopilot.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "description": "start|stop|tick"
+        },
+        "interval_seconds": {
+          "type": "integer"
+        },
+        "max_concurrency": {
+          "type": "integer"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "team_id": {
+          "type": "string"
+        },
+        "budget_label": {
+          "type": "string"
+        },
+        "security_level": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ]
+    }
+  },
+  {
+    "name": "set_role_template_mapping",
+    "description": "Sets or clears template mapping for a team type role link.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "type_id": {
+          "type": "string",
+          "description": "Team type ID"
+        },
+        "role_id": {
+          "type": "string",
+          "description": "Role ID"
+        },
+        "template_id": {
+          "type": "string",
+          "description": "Template ID or null to clear"
+        }
+      },
+      "required": [
+        "type_id",
+        "role_id"
       ]
     }
   },
@@ -723,6 +983,202 @@
       },
       "required": [
         "command"
+      ]
+    }
+  },
+  {
+    "name": "text_analysis_tool",
+    "description": "Liest den Inhalt einer Datei.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Encoding",
+          "default": "utf-8"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "unlink_role_from_team_type",
+    "description": "Unlinks a role from a team type.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "type_id": {
+          "type": "string",
+          "description": "Team type ID"
+        },
+        "role_id": {
+          "type": "string",
+          "description": "Role ID"
+        }
+      },
+      "required": [
+        "type_id",
+        "role_id"
+      ]
+    }
+  },
+  {
+    "name": "update_config",
+    "description": "Aktualisiert die globale Konfiguration.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Konfigurationsschlüssel"
+        },
+        "value": {
+          "type": "string",
+          "description": "Neuer Wert (als JSON-String oder einfacher Wert)"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ]
+    }
+  },
+  {
+    "name": "update_template",
+    "description": "Updates an existing prompt template.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "template_id": {
+          "type": "string",
+          "description": "Template ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Template name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description"
+        },
+        "prompt_template": {
+          "type": "string",
+          "description": "Prompt template text"
+        }
+      },
+      "required": [
+        "template_id"
+      ]
+    }
+  },
+  {
+    "name": "upsert_role",
+    "description": "Creates or updates a role.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "role_id": {
+          "type": "string",
+          "description": "Optional role ID for update"
+        },
+        "name": {
+          "type": "string",
+          "description": "Role name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional role description"
+        },
+        "default_template_id": {
+          "type": "string",
+          "description": "Optional default template ID"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  {
+    "name": "upsert_team",
+    "description": "Creates or updates a team and optionally its members.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "team_id": {
+          "type": "string",
+          "description": "Optional team ID for update"
+        },
+        "name": {
+          "type": "string",
+          "description": "Team name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional team description"
+        },
+        "team_type_id": {
+          "type": "string",
+          "description": "Optional team type ID"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "Optional active flag"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "agent_url": {
+                "type": "string"
+              },
+              "role_id": {
+                "type": "string"
+              },
+              "custom_template_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "agent_url",
+              "role_id"
+            ]
+          }
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  {
+    "name": "upsert_team_type",
+    "description": "Creates or updates a team type.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "type_id": {
+          "type": "string",
+          "description": "Optional team type ID for update"
+        },
+        "name": {
+          "type": "string",
+          "description": "Team type name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional team type description"
+        }
+      },
+      "required": [
+        "name"
       ]
     }
   },
@@ -759,18 +1215,49 @@
     }
   },
   {
-    "name": "doc_extract",
-    "description": "Extrahiert Text aus einem Dokument (PDF, DOCX, XLSX, PPTX).",
+    "name": "workspace_reader",
+    "description": "Liest den Inhalt einer Datei.",
     "parameters": {
       "type": "object",
       "properties": {
         "path": {
           "type": "string",
-          "description": "Pfad zum Dokument"
+          "description": "Pfad zur Datei"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Encoding",
+          "default": "utf-8"
         }
       },
       "required": [
         "path"
+      ]
+    }
+  },
+  {
+    "name": "write_file",
+    "description": "Schreibt Inhalt in eine Datei (ueberschreibt existierende).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Pfad zur Datei"
+        },
+        "content": {
+          "type": "string",
+          "description": "Inhalt"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Encoding",
+          "default": "utf-8"
+        }
+      },
+      "required": [
+        "path",
+        "content"
       ]
     }
   }
