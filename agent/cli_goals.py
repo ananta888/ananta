@@ -161,6 +161,7 @@ def repair_script_cmd(
     script_out: str | None = None,
     exec_flag: bool = False,
     timeout: int = 300,
+    planning_mode: str | None = None,
 ) -> None:
     prefix = _REPAIR_SCRIPT_CFG["prefix"]
     goal_text = f"{prefix} {text.strip()}"
@@ -176,6 +177,9 @@ def repair_script_cmd(
     }
     if team_id:
         payload["team_id"] = team_id
+    use_template = _planning_mode_to_use_template(planning_mode)
+    if use_template is not None:
+        payload["use_template"] = use_template
 
     response = _request("POST", "/goals", body=payload, timeout=60)
     if response.status_code != 201:
@@ -365,6 +369,18 @@ def show_first_run():
     print("   - governance/policy block: narrow the goal or inspect the governance mode")
 
 
+def _planning_mode_to_use_template(planning_mode: str | None) -> bool | None:
+    """Map --planning-mode flag to use_template API field."""
+    if not planning_mode:
+        return None
+    m = planning_mode.strip().lower()
+    if m == "llm":
+        return False
+    if m in {"template", "auto"}:
+        return True
+    return None
+
+
 def submit_goal(
     goal: str,
     context: str | None = None,
@@ -373,6 +389,7 @@ def submit_goal(
     mode: str | None = None,
     mode_data: dict | None = None,
     output_dir: str | None = None,
+    planning_mode: str | None = None,
 ):
     payload = {"goal": goal, "create_tasks": create_tasks}
     if context:
@@ -385,6 +402,9 @@ def submit_goal(
         payload["mode_data"] = mode_data
     if output_dir:
         payload.setdefault("execution_preferences", {})["output_dir"] = output_dir
+    use_template = _planning_mode_to_use_template(planning_mode)
+    if use_template is not None:
+        payload["use_template"] = use_template
 
     response = _request("POST", "/goals", body=payload, timeout=60)
     if response.status_code == 201:
@@ -412,7 +432,7 @@ def submit_goal(
     return []
 
 
-def submit_shortcut(kind: str, text: str, *, team_id: str | None = None, create_tasks: bool = True, output_dir: str | None = None):
+def submit_shortcut(kind: str, text: str, *, team_id: str | None = None, create_tasks: bool = True, output_dir: str | None = None, planning_mode: str | None = None):
     shortcut = SHORTCUT_GOALS.get(kind)
     if not shortcut:
         _print_terminal("Error: Unknown shortcut '{}'. Available: {}", kind, ", ".join(sorted(SHORTCUT_GOALS)))
@@ -426,6 +446,7 @@ def submit_shortcut(kind: str, text: str, *, team_id: str | None = None, create_
         mode=shortcut.get("mode"),
         mode_data=_shortcut_mode_data(kind, shortcut_text),
         output_dir=output_dir,
+        planning_mode=planning_mode,
     )
 
 
@@ -636,6 +657,12 @@ Examples:
     ananta repair-script "Nginx crashes" --exec
     ananta repair-script "Nginx crashes" --wait-timeout 120
 
+  Planning strategy (default: llm — KI-gestützt):
+    ananta ask "What next?" --planning-mode llm      # KI-Planung (Standard)
+    ananta ask "What next?" --planning-mode template  # Template-Planung
+    ananta repair-script "Nginx" --planning-mode llm
+    ananta goal --goal "..." --planning-mode llm
+
   Profile/Governance (GOV-051/PRF-080):
     ananta goal --config-show
     ananta goal --set-runtime-profile demo --set-governance-mode safe
@@ -693,6 +720,13 @@ Examples:
     parser.add_argument("--config-show", action="store_true", help="Show effective runtime_profile + governance_mode")
     parser.add_argument("--set-runtime-profile", default="", help="Update runtime_profile via POST /config")
     parser.add_argument("--set-governance-mode", default="", help="Update governance_mode via POST /config")
+    parser.add_argument(
+        "--planning-mode",
+        choices=["llm", "template", "auto"],
+        default=None,
+        metavar="MODE",
+        help="Planning strategy: llm (default), template, auto. Overrides server-side default.",
+    )
 
     args = parser.parse_args(argv)
 
@@ -747,6 +781,7 @@ Examples:
             script_out=args.script_out,
             exec_flag=args.exec_script,
             timeout=args.wait_timeout,
+            planning_mode=args.planning_mode,
         )
     elif args.goal in SHORTCUT_GOALS:
         shortcut_text = " ".join(args.extra).strip()
@@ -754,7 +789,7 @@ Examples:
             print(f"Error: '{args.goal}' needs a short description")
             sys.exit(2)
         output_dir = args.output_dir.strip() if args.output_dir else None
-        submit_shortcut(args.goal, shortcut_text, team_id=args.team, create_tasks=not args.no_create, output_dir=output_dir)
+        submit_shortcut(args.goal, shortcut_text, team_id=args.team, create_tasks=not args.no_create, output_dir=output_dir, planning_mode=args.planning_mode)
     elif args.goal or args.goal_flag:
         goal_text = args.goal or args.goal_flag
         if args.extra:
@@ -769,6 +804,7 @@ Examples:
             mode=args.mode,
             mode_data=_parse_mode_data(args.mode_data),
             output_dir=output_dir,
+            planning_mode=args.planning_mode,
         )
     else:
         parser.print_help()
