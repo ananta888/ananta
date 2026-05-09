@@ -82,7 +82,10 @@ _REPAIR_SCRIPT_CFG = {
         "Jeden Befehl einzeln, Kommentare mit #, dry-run-first, minimale Nebenwirkungen. "
         "Kein Prosatext ausserhalb von Bash-Code-Bloecken. "
         "WICHTIG: Kein 'sudo', kein 'su', keine Privilege-Escalation — "
-        "Ausfuehrung erfolgt als normaler Nutzer in einem Docker-Container ohne Root-Rechte."
+        "Ausfuehrung erfolgt als normaler Nutzer in einem Docker-Container ohne Root-Rechte. "
+        "PLANUNG: Alle Teilaufgaben sind unabhaengig — setze 'depends_on': [] bei ALLEN Tasks. "
+        "Jede Teilaufgabe schreibt ihr Ergebnis als Datei in das Workspace-Verzeichnis (tool_call write_file), "
+        "anstatt Systembefehle direkt auszufuehren die moeglicherweise nicht im Container verfuegbar sind."
     ),
 }
 
@@ -477,6 +480,7 @@ def _shortcut_mode_data(kind: str, text: str) -> dict:
         data["platform_target"] = "auto"
         data["execution_scope"] = "bounded_repair"
         data["dry_run"] = True
+        data["no_task_dependencies"] = True
     return data
 
 

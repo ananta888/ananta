@@ -289,6 +289,21 @@ class NativeWorkerRuntimeService:
                 error=str(exc),
                 policy_classification_summary=policy_summary,
             )
+        except FileNotFoundError as exc:
+            # Command binary not found in container — treat as exit_code=127 (command_not_found),
+            # not as a degraded/fatal failure. Allows quality gate to handle it gracefully.
+            cmd_str = str(exc).replace("[Errno 2] No such file or directory: ", "").strip("'")
+            test_result = {
+                "schema": "test_result_artifact.v1",
+                "task_id": str(tid).strip(),
+                "command": cmd_str,
+                "exit_code": 127,
+                "status": "failed",
+                "stdout_ref": "",
+                "stderr_ref": f"command not found: {cmd_str}",
+                "output_summary": f"command_not_found: {cmd_str}",
+                "failure_hints": ["command_not_found_in_container"],
+            }
         except Exception as exc:  # pragma: no cover - defensive branch for subprocess/environment issues
             degraded = build_degraded_state(
                 state="unavailable_external_tool",
