@@ -144,7 +144,15 @@ def _fetch_goal_outputs(goal_id: str) -> list[tuple[str, str]]:
         return []
     data = _api_data(res)
     results = []
-    for artifact in (data.get("artifacts") or []):
+    # "artifacts" in detail is the build_artifact_summary() dict; the actual list is nested.
+    artifact_summary = data.get("artifacts") or {}
+    if isinstance(artifact_summary, dict):
+        artifact_list = artifact_summary.get("artifacts") or []
+    else:
+        artifact_list = artifact_summary  # fallback if API changes
+    for artifact in artifact_list:
+        if not isinstance(artifact, dict):
+            continue
         task_id = artifact.get("task_id")
         if task_id:
             output = _fetch_task_full_output(task_id)

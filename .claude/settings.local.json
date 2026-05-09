@@ -67,7 +67,10 @@
       "Read(//home/krusty/**)",
       "Bash(docker restart ananta-ai-agent-hub-1 *)",
       "Bash(ananta repair-script *)",
-      "Bash(pip3 show *)"
+      "Bash(pip3 show *)",
+      "Bash(ananta --goal-detail 5bede66f-9022-4fb0-b43d-8b91595b7729)",
+      "Bash(python -m json.tool)",
+      "Bash(PGPASSWORD='replace_this_with_a_secure_password_123!' psql *)"
     ]
   }
 }

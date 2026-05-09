@@ -299,7 +299,7 @@ class NativeWorkerRuntimeService:
                 "command": cmd_str,
                 "exit_code": 127,
                 "status": "failed",
-                "stdout_ref": "",
+                "stdout_ref": f"command_not_found:{cmd_str}",
                 "stderr_ref": f"command not found: {cmd_str}",
                 "output_summary": f"command_not_found: {cmd_str}",
                 "failure_hints": ["command_not_found_in_container"],
