@@ -65,7 +65,8 @@
       "Bash(python -m agent.cli_goals --planning-mode llm --help)",
       "Read(//home/krusty/.config/ananta/**)",
       "Read(//home/krusty/**)",
-      "Bash(docker restart ananta-ai-agent-hub-1 *)"
+      "Bash(docker restart ananta-ai-agent-hub-1 *)",
+      "Bash(ananta repair-script *)"
     ]
   }
 }

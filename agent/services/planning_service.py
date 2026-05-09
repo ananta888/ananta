@@ -283,7 +283,8 @@ class PlanningService:
             "observed_plan_depth": observed_depth,
         }
         if node_count > limits["max_plan_nodes"]:
-            return bounded, limits, "max_plan_nodes"
+            bounded = bounded[: limits["max_plan_nodes"]]
+            limits = {**limits, "observed_plan_nodes": len(bounded), "truncated": True}
         if observed_depth > limits["max_plan_depth"]:
             return bounded, limits, "max_plan_depth"
         return bounded, limits, None
