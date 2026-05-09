@@ -4,15 +4,15 @@
       "provider": "opencode",
       "model": "ananta-default",
       "overall": {
-        "total": 32,
-        "success": 9,
+        "total": 33,
+        "success": 10,
         "failed": 23,
-        "quality_pass": 9,
+        "quality_pass": 10,
         "quality_fail": 23,
         "latency_ms_total": 282631,
-        "tokens_total": 579616,
+        "tokens_total": 579704,
         "cost_units_total": 0.0,
-        "last_seen": 1778325862,
+        "last_seen": 1778326198,
         "samples": [
           {
             "ts": 1775422809,
@@ -365,20 +365,31 @@
             "context": {
               "task_kind": "doc"
             }
+          },
+          {
+            "ts": 1778326198,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 0,
+            "tokens_total": 88,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
           }
         ]
       },
       "task_kinds": {
         "analysis": {
-          "total": 20,
-          "success": 4,
+          "total": 21,
+          "success": 5,
           "failed": 16,
-          "quality_pass": 4,
+          "quality_pass": 5,
           "quality_fail": 16,
           "latency_ms_total": 14396,
-          "tokens_total": 577100,
+          "tokens_total": 577188,
           "cost_units_total": 0.0,
-          "last_seen": 1778325745,
+          "last_seen": 1778326198,
           "samples": [
             {
               "ts": 1775422809,
@@ -595,6 +606,17 @@
               "quality_passed": false,
               "latency_ms": 1,
               "tokens_total": 127,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1778326198,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 0,
+              "tokens_total": 88,
               "cost_units": 0.0,
               "context": {
                 "task_kind": "analysis"
@@ -1212,5 +1234,5 @@
       }
     }
   },
-  "updated_at": 1778325862
+  "updated_at": 1778326198
 }
