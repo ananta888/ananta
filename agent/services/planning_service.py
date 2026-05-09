@@ -262,8 +262,12 @@ class PlanningService:
         bounded = [dict(subtask or {}) for subtask in (subtasks or [])]
         node_count = len(bounded)
         for subtask in bounded:
+            raw_deps = list(subtask.get("depends_on") or [])
+            if "__parallel__" in raw_deps:
+                subtask["depends_on"] = ["__parallel__"]
+                continue
             depends_on = []
-            for dep in list(subtask.get("depends_on") or []):
+            for dep in raw_deps:
                 dep_text = str(dep).strip()
                 if not dep_text:
                     continue
@@ -601,13 +605,15 @@ class PlanningService:
 
         subtasks = resolved["subtasks"]
         planning_policy = self._resolve_planning_policy()
-        subtasks, limits, limit_exceeded = self._apply_plan_generation_limits(subtasks)
         if bool((mode_data or {}).get("no_task_dependencies")):
-            # Apply sentinel AFTER limits so _apply_plan_generation_limits doesn't strip it.
-            # __parallel__ is not a valid node_key so _build_nodes skips sequential fallback,
-            # and _prepare_materialization checks rationale["parallel"] to skip its fallback.
+            # Sentinel must be applied before _apply_plan_generation_limits so the depth probe
+            # sees parallel nodes (depth=1) and doesn't reject the plan.
+            # _apply_plan_generation_limits preserves __parallel__ unchanged.
+            # _build_nodes and _prepare_materialization both check rationale["parallel"] to skip
+            # the auto-sequential fallback.
             for subtask in subtasks:
                 subtask["depends_on"] = ["__parallel__"]
+        subtasks, limits, limit_exceeded = self._apply_plan_generation_limits(subtasks)
         raw_response = resolved["raw_response"]
         planning_mode = resolved["planning_mode"]
         context = resolved["context"]
