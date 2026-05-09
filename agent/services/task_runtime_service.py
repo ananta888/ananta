@@ -13,6 +13,30 @@ from agent.services.task_state_machine_service import can_transition_to
 from agent.services.task_status_service import normalize_task_status
 from agent.utils import _http_post
 
+_TERMINAL_TASK_STATUSES = {"completed", "failed", "cancelled", "skipped"}
+
+
+def _maybe_finalize_goal(goal_id: str) -> None:
+    try:
+        from agent.repository import goal_repo
+
+        goal_tasks = task_repo.get_by_goal_id(goal_id)
+        if not goal_tasks:
+            return
+        statuses = {normalize_task_status(getattr(t, "status", None), default="todo") for t in goal_tasks}
+        if not statuses.issubset(_TERMINAL_TASK_STATUSES):
+            return
+        goal = goal_repo.get_by_id(goal_id)
+        if not goal or goal.status not in {"planned", "in_progress", "running"}:
+            return
+        new_status = "failed" if "failed" in statuses else "completed"
+        goal.status = new_status
+        goal.updated_at = time.time()
+        goal_repo.save(goal)
+        logging.info("Goal %s finalized as %s (all %d tasks terminal)", goal_id, new_status, len(goal_tasks))
+    except Exception as exc:
+        logging.warning("_maybe_finalize_goal(%s) error: %s", goal_id, exc)
+
 _task_subscribers = []
 _subscribers_lock = threading.Lock()
 
@@ -100,6 +124,9 @@ def update_local_task_status(
 
     task_repo.save(task)
     notify_task_update(tid)
+
+    if normalized_status in _TERMINAL_TASK_STATUSES and task.goal_id:
+        _maybe_finalize_goal(task.goal_id)
 
     if task.callback_url:
 

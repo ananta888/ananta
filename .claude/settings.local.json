@@ -62,7 +62,10 @@
       "Bash(ananta goal *)",
       "Bash(pip install *)",
       "Bash(python -m pytest tests/test_operator_tui_shell.py -x -q)",
-      "Bash(python -m agent.cli_goals --planning-mode llm --help)"
+      "Bash(python -m agent.cli_goals --planning-mode llm --help)",
+      "Read(//home/krusty/.config/ananta/**)",
+      "Read(//home/krusty/**)",
+      "Bash(docker restart ananta-ai-agent-hub-1 *)"
     ]
   }
 }

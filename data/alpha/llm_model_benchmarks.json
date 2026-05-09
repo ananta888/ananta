@@ -1364,7 +1364,61 @@
           ]
         }
       }
+    },
+    "ananta-worker:ananta-default": {
+      "provider": "ananta-worker",
+      "model": "ananta-default",
+      "overall": {
+        "total": 1,
+        "success": 0,
+        "failed": 1,
+        "quality_pass": 0,
+        "quality_fail": 1,
+        "latency_ms_total": 0,
+        "tokens_total": 159,
+        "cost_units_total": 0.0,
+        "last_seen": 1778336125,
+        "samples": [
+          {
+            "ts": 1778336125,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 0,
+            "tokens_total": 159,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          }
+        ]
+      },
+      "task_kinds": {
+        "analysis": {
+          "total": 1,
+          "success": 0,
+          "failed": 1,
+          "quality_pass": 0,
+          "quality_fail": 1,
+          "latency_ms_total": 0,
+          "tokens_total": 159,
+          "cost_units_total": 0.0,
+          "last_seen": 1778336125,
+          "samples": [
+            {
+              "ts": 1778336125,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 0,
+              "tokens_total": 159,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            }
+          ]
+        }
+      }
     }
   },
-  "updated_at": 1778333051
+  "updated_at": 1778336125
 }
