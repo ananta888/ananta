@@ -310,7 +310,9 @@ def build_planning_prompt(goal: str, context: Optional[str] = None, max_tasks: i
         f"1. Erstelle {max_tasks} oder weniger Teilaufgaben\n"
         "2. Jede Teilaufgabe soll konkret und ausfuehrbar sein\n"
         "3. Priorisiere nach Abhaengigkeiten (was muss zuerst erledigt werden)\n"
-        "4. Verwende diese Prioritaeten: High, Medium, Low\n\n"
+        "4. Verwende diese Prioritaeten: High, Medium, Low\n"
+        "5. Befehle duerfen KEIN 'sudo', 'su' oder Privilege-Escalation verwenden — "
+        "Ausfuehrung erfolgt als normaler Nutzer in einem Docker-Container ohne Root-Rechte\n\n"
         "AUSGABEFORMAT (nur JSON, keine Erklaerung):\n"
         "[\n"
         '  {"title": "Kurzer Titel", "description": "Detaillierte Beschreibung der Aufgabe", '

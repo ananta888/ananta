@@ -122,7 +122,9 @@ class AutonomousLoopManager:
         data = _services().autopilot_support_service.load_state(key=AUTOPILOT_STATE_KEY, app=self._app)
         if data is None:
             return
-        self.interval_seconds = int(data.get("interval_seconds") or self.interval_seconds)
+        # Cap restored interval at the class default (5s) — prevents old persisted values from inflating latency.
+        restored = int(data.get("interval_seconds") or self.interval_seconds)
+        self.interval_seconds = min(restored, 5)
         self.max_concurrency = int(data.get("max_concurrency") or self.max_concurrency)
         self.last_tick_at = data.get("last_tick_at")
         self.last_error = data.get("last_error")
