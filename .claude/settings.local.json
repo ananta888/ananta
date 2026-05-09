@@ -66,7 +66,8 @@
       "Read(//home/krusty/.config/ananta/**)",
       "Read(//home/krusty/**)",
       "Bash(docker restart ananta-ai-agent-hub-1 *)",
-      "Bash(ananta repair-script *)"
+      "Bash(ananta repair-script *)",
+      "Bash(pip3 show *)"
     ]
   }
 }

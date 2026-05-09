@@ -165,23 +165,26 @@ def _extract_script_blocks(text: str) -> str:
     return "\n".join(lines)
 
 
-def repair_script_cmd(
+def _submit_repair_goal(
     text: str,
     *,
+    extra_context: str = "",
     team_id: str | None = None,
-    script_out: str | None = None,
-    exec_flag: bool = False,
     timeout: int = 300,
     planning_mode: str | None = None,
-) -> None:
+    allow_partial: bool = False,
+) -> list[tuple[str, str]] | None:
+    """Submit a repair goal and return (task_title, output) pairs, or None on hard failure."""
     prefix = _REPAIR_SCRIPT_CFG["prefix"]
     goal_text = f"{prefix} {text.strip()}"
     mode_data = _shortcut_mode_data("repair-admin", text.strip())
 
-    print("Submitting repair-script goal...", file=sys.stderr)
+    base_context = _REPAIR_SCRIPT_CFG["context"]
+    context = f"{base_context}\n\n{extra_context}".strip() if extra_context else base_context
+
     payload: dict = {
         "goal": goal_text,
-        "context": _REPAIR_SCRIPT_CFG["context"],
+        "context": context,
         "create_tasks": True,
         "mode": _REPAIR_SCRIPT_CFG["mode"],
         "mode_data": mode_data,
@@ -195,14 +198,14 @@ def repair_script_cmd(
     response = _request("POST", "/goals", body=payload, timeout=60)
     if response.status_code != 201:
         _print_error(response)
-        sys.exit(1)
+        return None
 
     rdata = _api_data(response)
     goal_id = (rdata.get("goal") or {}).get("id")
     task_ids = rdata.get("created_task_ids") or []
     if not goal_id:
         print("Error: No goal ID returned.", file=sys.stderr)
-        sys.exit(1)
+        return None
 
     print(f"Goal ID: {goal_id}  Tasks: {len(task_ids)}", file=sys.stderr)
     print(f"Waiting (max {timeout}s)...", file=sys.stderr)
@@ -210,15 +213,91 @@ def repair_script_cmd(
     final_status = _poll_goal_status(goal_id, timeout=timeout)
     print(f"Final status: {final_status}", file=sys.stderr)
 
-    if final_status in {"failed", "cancelled", "aborted", "timeout"}:
-        print(f"Goal did not complete (status={final_status}). Use 'ananta goal --goal-detail {goal_id}' for details.", file=sys.stderr)
-        sys.exit(1)
-    if final_status == "partially_failed":
+    terminal_fail = final_status in {"failed", "cancelled", "aborted", "timeout"}
+    if terminal_fail and not allow_partial:
+        print(
+            f"Goal did not complete (status={final_status}). "
+            f"Use 'ananta goal --goal-detail {goal_id}' for details.",
+            file=sys.stderr,
+        )
+        return None
+    if final_status == "partially_failed" or (terminal_fail and allow_partial):
         print("Warning: some tasks failed — extracting output from completed tasks.", file=sys.stderr)
 
     outputs = _fetch_goal_outputs(goal_id)
     if not outputs:
         print("No output found.", file=sys.stderr)
+        return None
+    return outputs
+
+
+def repair_script_cmd(
+    text: str,
+    *,
+    team_id: str | None = None,
+    script_out: str | None = None,
+    exec_flag: bool = False,
+    tui_flag: bool = False,
+    loop_flag: bool = False,
+    max_iterations: int = 3,
+    timeout: int = 300,
+    planning_mode: str | None = None,
+) -> None:
+    # ── TUI loop mode ────────────────────────────────────────────────
+    if tui_flag or loop_flag:
+        from agent.repair_tui import RepairTuiResult, build_retry_context, run_repair_tui
+
+        iterations = max_iterations if loop_flag else 1
+        history: list[RepairTuiResult] = []
+
+        for i in range(1, iterations + 1):
+            print(
+                f"\n{'─' * 40}\nRepair TUI  Versuch {i}/{iterations}\n{'─' * 40}",
+                file=sys.stderr,
+            )
+            extra_ctx = build_retry_context(history)
+            outputs = _submit_repair_goal(
+                text,
+                extra_context=extra_ctx,
+                team_id=team_id,
+                timeout=timeout,
+                planning_mode=planning_mode,
+                allow_partial=True,
+            )
+            if outputs is None:
+                print("Kein Output — Schleife abgebrochen.", file=sys.stderr)
+                sys.exit(1)
+
+            result = run_repair_tui(
+                outputs,
+                goal_title=text.strip()[:60],
+                iteration=i,
+                max_iterations=iterations,
+            )
+
+            if result.verdict == "fixed":
+                print("\nProblem behoben.", file=sys.stderr)
+                sys.exit(0)
+            if result.verdict == "abort":
+                print("\nAbgebrochen.", file=sys.stderr)
+                sys.exit(0)
+
+            # verdict == "retry"
+            history.append(result)
+            if i == iterations:
+                print(f"\nMaximale Iterationen ({iterations}) erreicht.", file=sys.stderr)
+
+        sys.exit(0)
+
+    # ── Non-TUI mode (pipe-friendly) ─────────────────────────────────
+    outputs = _submit_repair_goal(
+        text,
+        team_id=team_id,
+        timeout=timeout,
+        planning_mode=planning_mode,
+        allow_partial=False,
+    )
+    if outputs is None:
         sys.exit(1)
 
     combined = "\n\n".join(txt for _, txt in outputs)
@@ -667,6 +746,9 @@ Examples:
     ananta repair-script "Nginx crashes" | bash
     ananta repair-script "Nginx crashes" --script-out fix.sh
     ananta repair-script "Nginx crashes" --exec
+    ananta repair-script "Nginx crashes" --tui          # interactive TUI: approve/run on host
+    ananta repair-script "Nginx crashes" --loop         # TUI + automatische Retry-Schleife
+    ananta repair-script "Nginx crashes" --loop --max-iterations 5
     ananta repair-script "Nginx crashes" --wait-timeout 120
 
   Planning strategy (default: llm — KI-gestützt):
@@ -716,6 +798,9 @@ Examples:
     parser.add_argument("--output-dir", "-o", help="Directory where generated files are written (default: isolated workspace)")
     parser.add_argument("--script-out", "-S", metavar="FILE", help="Save the extracted repair script to this file (repair-script only)")
     parser.add_argument("--exec", dest="exec_script", action="store_true", help="Review then optionally execute the generated script (repair-script only)")
+    parser.add_argument("--tui", dest="tui_flag", action="store_true", help="Interactive TUI: review and approve commands for controlled host execution (repair-script only)")
+    parser.add_argument("--loop", dest="loop_flag", action="store_true", help="TUI loop: plan → approve → execute → test → retry until fixed (repair-script only)")
+    parser.add_argument("--max-iterations", type=int, default=3, metavar="N", help="Maximum loop iterations for --loop (default 3)")
     parser.add_argument("--wait-timeout", type=int, default=300, metavar="SECONDS", help="Max seconds to wait for goal completion, default 300 (repair-script only)")
     parser.add_argument("--no-create", action="store_true", help="Don't create tasks, just analyze")
     parser.add_argument("--status", "-s", action="store_true", help="Show Goal readiness + Auto-Planner status")
@@ -792,6 +877,9 @@ Examples:
             team_id=args.team,
             script_out=args.script_out,
             exec_flag=args.exec_script,
+            tui_flag=args.tui_flag,
+            loop_flag=args.loop_flag,
+            max_iterations=args.max_iterations,
             timeout=args.wait_timeout,
             planning_mode=args.planning_mode,
         )
