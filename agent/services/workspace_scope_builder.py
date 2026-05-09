@@ -59,8 +59,9 @@ def build_worker_workspace(
     subtask_id: str,
     worker_job_id: str,
     agent_url: str | None,
+    output_dir: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    result: dict[str, Any] = {
         "mode": "task_scoped_workspace",
         "scope_mode": scope["mode"],
         "task_id": subtask_id,
@@ -72,3 +73,6 @@ def build_worker_workspace(
         "session_scope_kind": scope["session_scope_kind"],
         "session_scope_key": scope["session_scope_key"],
     }
+    if output_dir:
+        result["output_dir"] = output_dir
+    return result

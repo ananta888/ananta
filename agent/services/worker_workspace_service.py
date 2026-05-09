@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from flask import current_app
+from flask import current_app, g as flask_g, has_request_context
 
 from agent.config import settings
 from agent.services.ingestion_service import get_ingestion_service
@@ -149,12 +149,19 @@ class WorkerWorkspaceService:
         )
         scope_key = _safe_segment(workspace_cfg.get("scope_key"), fallback=f"{task_id}-{worker_job_id}")
 
-        workspace_dir = Path(workspace_root) / agent_name / scope_key
+        output_dir = str(workspace_cfg.get("output_dir") or "").strip()
+        if output_dir:
+            workspace_dir = Path(output_dir)
+        else:
+            workspace_dir = Path(workspace_root) / agent_name / scope_key
         artifacts_dir = workspace_dir / "artifacts"
         rag_helper_dir = workspace_dir / "rag_helper"
         workspace_dir.mkdir(parents=True, exist_ok=True)
         artifacts_dir.mkdir(parents=True, exist_ok=True)
         rag_helper_dir.mkdir(parents=True, exist_ok=True)
+
+        if has_request_context():
+            flask_g.workspace_dir = str(workspace_dir.resolve())
 
         artifact_sync = {
             "enabled": bool(artifact_sync_cfg.get("enabled", True)),

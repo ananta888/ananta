@@ -226,12 +226,14 @@ class WorkerExecutionContextFactory:
             worker_job_id=worker_job.id,
             agent_url=plan.agent_url,
         )
+        output_dir = self._resolve_output_dir(parent_task)
         worker_workspace = build_worker_workspace(
             scope=workspace_scope,
             parent_task_id=task_id,
             subtask_id=subtask_id,
             worker_job_id=worker_job.id,
             agent_url=plan.agent_url,
+            output_dir=output_dir,
         )
         artifact_sync = {
             "enabled": True,
@@ -288,6 +290,19 @@ class WorkerExecutionContextFactory:
             worker_execution_context=worker_execution_context,
             delegation_payload=delegation_payload,
         )
+
+    def _resolve_output_dir(self, parent_task: dict[str, Any]) -> str:
+        goal_id = str(parent_task.get("goal_id") or "").strip()
+        if not goal_id:
+            return ""
+        try:
+            repos = self.dependencies.repository_registry()
+            goal = repos.goal_repo.get_by_id(goal_id)
+            if goal:
+                return str((goal.execution_preferences or {}).get("output_dir") or "").strip()
+        except Exception:
+            pass
+        return ""
 
     @staticmethod
     def _resolve_execution_profile(*, parent_task: dict[str, Any], request_data: Any) -> tuple[str, str]:

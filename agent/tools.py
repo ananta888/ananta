@@ -875,12 +875,20 @@ def _check_file_access(path: str, operation: str = "read") -> tuple[bool, str]:
     if not gov.evaluate_action_pack_access("file", cfg):
         return False, "Action Pack 'file' ist deaktiviert."
 
-    # Einfacher Check gegen Path Traversal
     import os
     abs_path = os.path.abspath(path)
     cwd = os.path.abspath(".")
-    if not abs_path.startswith(cwd) and not abs_path.startswith(os.path.abspath("/tmp")):
-        # Wir erlauben nur Zugriffe innerhalb des CWD oder /tmp
+    allowed = abs_path.startswith(cwd) or abs_path.startswith(os.path.abspath("/tmp"))
+    if not allowed:
+        try:
+            from flask import g, has_request_context
+            if has_request_context():
+                workspace_dir = g.get("workspace_dir", "")
+                if workspace_dir and abs_path.startswith(str(workspace_dir)):
+                    allowed = True
+        except Exception:
+            pass
+    if not allowed:
         return False, f"Zugriff auf Pfad '{path}' verweigert (außerhalb des Workspaces)."
 
     return True, ""

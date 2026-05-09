@@ -202,6 +202,7 @@ def submit_goal(
     create_tasks: bool = True,
     mode: str | None = None,
     mode_data: dict | None = None,
+    output_dir: str | None = None,
 ):
     payload = {"goal": goal, "create_tasks": create_tasks}
     if context:
@@ -212,6 +213,8 @@ def submit_goal(
         payload["mode"] = mode
     if mode_data:
         payload["mode_data"] = mode_data
+    if output_dir:
+        payload.setdefault("execution_preferences", {})["output_dir"] = output_dir
 
     response = _request("POST", "/goals", body=payload, timeout=60)
     if response.status_code == 201:
@@ -239,7 +242,7 @@ def submit_goal(
     return []
 
 
-def submit_shortcut(kind: str, text: str, *, team_id: str | None = None, create_tasks: bool = True):
+def submit_shortcut(kind: str, text: str, *, team_id: str | None = None, create_tasks: bool = True, output_dir: str | None = None):
     shortcut = SHORTCUT_GOALS.get(kind)
     if not shortcut:
         _print_terminal("Error: Unknown shortcut '{}'. Available: {}", kind, ", ".join(sorted(SHORTCUT_GOALS)))
@@ -252,6 +255,7 @@ def submit_shortcut(kind: str, text: str, *, team_id: str | None = None, create_
         create_tasks=create_tasks,
         mode=shortcut.get("mode"),
         mode_data=_shortcut_mode_data(kind, shortcut_text),
+        output_dir=output_dir,
     )
 
 
@@ -448,6 +452,12 @@ Examples:
     ananta evolve-project "Add a guided project-start mode to the dashboard"
     ananta repair-admin "Service restart loop after update"
 
+  Write output to a specific folder:
+    ananta new-project --output-dir myproject "Build a small tool"
+    ananta evolve-project --output-dir /app/myproject "Add auth module"
+    ananta ask --output-dir ./out "Generate a README for this repo"
+    (Docker: use paths relative to project root, e.g. myproject -> /app/myproject in container)
+
   Profile/Governance (GOV-051/PRF-080):
     ananta goal --config-show
     ananta goal --set-runtime-profile demo --set-governance-mode safe
@@ -486,6 +496,7 @@ Examples:
     parser.add_argument("--team", "-t", help="Team ID to assign tasks to")
     parser.add_argument("--mode", help="Guided goal mode ID (e.g. code_fix, docker_compose_repair)")
     parser.add_argument("--mode-data", help='JSON object for mode fields, e.g. \'{"service":"hub"}\'')
+    parser.add_argument("--output-dir", "-o", help="Directory where generated files are written (default: isolated workspace)")
     parser.add_argument("--no-create", action="store_true", help="Don't create tasks, just analyze")
     parser.add_argument("--status", "-s", action="store_true", help="Show Goal readiness + Auto-Planner status")
     parser.add_argument("--first-run", action="store_true", help="Show the official first CLI path, success signals and failure help")
@@ -549,12 +560,14 @@ Examples:
         if not shortcut_text:
             print(f"Error: '{args.goal}' needs a short description")
             sys.exit(2)
-        submit_shortcut(args.goal, shortcut_text, team_id=args.team, create_tasks=not args.no_create)
+        output_dir = args.output_dir.strip() if args.output_dir else None
+        submit_shortcut(args.goal, shortcut_text, team_id=args.team, create_tasks=not args.no_create, output_dir=output_dir)
     elif args.goal or args.goal_flag:
         goal_text = args.goal or args.goal_flag
         if args.extra:
             goal_text = " ".join([goal_text, *args.extra])
         create_tasks = not args.no_create
+        output_dir = args.output_dir.strip() if args.output_dir else None
         submit_goal(
             goal=goal_text,
             context=args.context,
@@ -562,6 +575,7 @@ Examples:
             create_tasks=create_tasks,
             mode=args.mode,
             mode_data=_parse_mode_data(args.mode_data),
+            output_dir=output_dir,
         )
     else:
         parser.print_help()
