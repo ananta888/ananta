@@ -29,10 +29,10 @@ def _policy(agent_cfg: dict | None) -> dict[str, Any]:
     return {
         "enabled": bool(cfg.get("enabled", True)),
         "default_action": str(cfg.get("default_action") or "deny").strip().lower(),
-        "deny_risk_levels": [normalize_risk_level(item, "high") for item in (cfg.get("deny_risk_levels") or ["high", "critical"])],
-        "review_risk_levels": [normalize_risk_level(item, "medium") for item in (cfg.get("review_risk_levels") or ["medium", "high", "critical"])],
+        "deny_risk_levels": [normalize_risk_level(item, "high") for item in (cfg.get("deny_risk_levels") or ["critical"])],
+        "review_risk_levels": [normalize_risk_level(item, "medium") for item in (cfg.get("review_risk_levels") or ["high", "critical"])],
         "task_scoped_only": bool(cfg.get("task_scoped_only", True)),
-        "require_terminal_capability_for_command": bool(cfg.get("require_terminal_capability_for_command", True)),
+        "require_terminal_capability_for_command": bool(cfg.get("require_terminal_capability_for_command", False)),
         "terminal_capability_name": str(cfg.get("terminal_capability_name") or "terminal").strip().lower(),
         "deny_tool_call_risk": bool(cfg.get("deny_tool_call_risk", False)),
     }

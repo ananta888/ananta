@@ -312,7 +312,12 @@ def build_planning_prompt(goal: str, context: Optional[str] = None, max_tasks: i
         "3. Priorisiere nach Abhaengigkeiten (was muss zuerst erledigt werden)\n"
         "4. Verwende diese Prioritaeten: High, Medium, Low\n"
         "5. Befehle duerfen KEIN 'sudo', 'su' oder Privilege-Escalation verwenden — "
-        "Ausfuehrung erfolgt als normaler Nutzer in einem Docker-Container ohne Root-Rechte\n\n"
+        "Ausfuehrung erfolgt als normaler Nutzer in einem Docker-Container ohne Root-Rechte\n"
+        "6. Befehle duerfen KEIN 'systemctl', 'service' oder 'ss' verwenden — "
+        "kein systemd/init.d in Docker, 'ss' nicht installiert. "
+        "Alternativen: 'pgrep -x <name>' fuer Prozessstatus, 'netstat -tlnp' fuer Ports\n"
+        "7. Setze 'depends_on' nur wenn eine echte Reihenfolge-Abhaengigkeit besteht. "
+        "Diagnose-Aufgaben die unabhaengig voneinander sind sollen 'depends_on': [] haben\n\n"
         "AUSGABEFORMAT (nur JSON, keine Erklaerung):\n"
         "[\n"
         '  {"title": "Kurzer Titel", "description": "Detaillierte Beschreibung der Aufgabe", '
