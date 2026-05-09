@@ -60,7 +60,8 @@
       "Bash(python3 -m json.tool /home/krusty/ananta/data/beta/worker-runtime/beta/goal-2bd13fc8-local/.ananta/tool-definitions.json)",
       "Bash(python3 *)",
       "Bash(ananta goal *)",
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "Bash(python -m pytest tests/test_operator_tui_shell.py -x -q)"
     ]
   }
 }
