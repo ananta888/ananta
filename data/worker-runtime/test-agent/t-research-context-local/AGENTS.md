@@ -9,6 +9,18 @@ This is a scoped OpenCode workspace for the Ananta project.
 - Preserve container boundaries and avoid implicit shared state.
 - Prefer additive, backward-compatible changes over breaking redesigns.
 
+## Execution environment constraints
+- Do NOT use `sudo` — the execution environment is a Docker container without root privileges.
+- Do NOT use `su`, `sudo -i`, or any privilege escalation command.
+- Do NOT use `systemctl` — there is no systemd in this Docker container.
+- Do NOT use `service` — init.d service management is unavailable in this container.
+- Do NOT use `ss` — not installed. Use `netstat -tlnp` or `cat /proc/net/tcp` for port info.
+- To check if a process is running use `pgrep -x <name>` or `ps aux`.
+- To check open ports use `netstat -tlnp` or `cat /proc/net/tcp`.
+- If a task requires systemd/root/service management, describe the required manual step in a comment instead of running it.
+- Shell commands must work as a non-root user inside a container.
+- If the target software (nginx, apache, mysql, etc.) is not installed in this container: do NOT run the command directly. Instead use a `write_file` tool_call to write the commands as a shell script file in the artifacts directory.
+
 ## Engineering rules
 - Keep changes small, testable, and SOLID.
 - Reuse existing abstractions before adding new ones.

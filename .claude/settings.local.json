@@ -73,7 +73,14 @@
       "Bash(PGPASSWORD='replace_this_with_a_secure_password_123!' psql *)",
       "Bash(python -m agent.cli_goals repair-script --help)",
       "Bash(python -m pytest tests/ -x -q --timeout=30)",
-      "Bash(.venv/bin/pytest tests/ -x -q --timeout=30)"
+      "Bash(.venv/bin/pytest tests/ -x -q --timeout=30)",
+      "Bash(gh run *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(python -m pytest tests/test_tasks_autopilot.py tests/test_autopilot_model_selection.py tests/test_worker_execution_provider_dispatch.py -x --tb=short -q)",
+      "Bash(python -m pytest tests -x --tb=short -q -m \"not live_compose\" --ignore=tests/test_autonomous_flow_e2e.py --ignore=tests/test_autonomous_scrum_e2e.py --ignore=tests/test_autopilot_integration.py --ignore=tests/test_deerflow_integration.py --ignore=tests/test_e2e_auth.py --ignore=tests/test_evolver_live_compose.py --ignore=tests/test_hybrid_orchestrator_load.py --ignore=tests/test_tasks_opencode_e2e.py --ignore=tests/test_triggers_e2e.py --ignore-glob=tests/**/fixtures/**)",
+      "Bash(python -m pytest --co -q tests/test_worker_client_adapter.py)",
+      "Bash(python *)"
     ]
   }
 }
