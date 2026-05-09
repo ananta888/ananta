@@ -1,0 +1,366 @@
+{
+  "project": "ananta",
+  "version": "0.1",
+  "goal": "Parallele Task-Verarbeitung im Autopilot-Tick-Engine",
+  "context": {
+    "problem": "execute_autopilot_tick() verarbeitet Tasks sequentiell in einer for-Schleife. Bei max_concurrency=2 und 8 Tasks in einer Dependency-Chain entstehen 4 sequentielle Ticks à (LLM-propose + execute) × 2, getrennt durch vormals 5s Pause. Das LLM (Ollama) liegt dabei die meiste Zeit brach.",
+    "current_flow": [
+      "Tick startet",
+      "Ollama-Probe HTTP (jetzt gecacht 30s)",
+      "Task A: propose (sync HTTP → Worker → Ollama, ~15s GPU)",
+      "Task A: execute (sync HTTP → Worker → Shell, ~2s)",
+      "Task B: propose (sync HTTP → Worker → Ollama, ~15s GPU)",
+      "Task B: execute (sync HTTP → Worker → Shell, ~2s)",
+      "sleep(5s) – jetzt übersprungen bei dispatched>0",
+      "Nächster Tick..."
+    ],
+    "target_flow": [
+      "Tick startet",
+      "Für jeden Task im Batch: ThreadPoolExecutor startet _dispatch_task_thread(task)",
+      "Thread A: propose + execute (parallel zu Thread B)",
+      "Thread B: propose + execute (parallel zu Thread A)",
+      "Alle Threads fertig: Ergebnisse aggregieren",
+      "Tick gibt dispatched-Count zurück, kein unnötiger Sleep"
+    ],
+    "affected_files": [
+      "agent/routes/tasks/autopilot_tick_engine.py",
+      "agent/routes/tasks/autopilot.py",
+      "agent/routes/tasks/autopilot_dispatch_policy.py"
+    ],
+    "shared_mutable_state_to_protect": [
+      "loop.dispatched_count",
+      "loop.failed_count",
+      "loop.completed_count",
+      "loop.last_error",
+      "loop._worker_cursor",
+      "loop._worker_circuit_open_until",
+      "loop._worker_failure_streak",
+      "loop._tick_lock"
+    ]
+  },
+  "principles": [
+    "Kein Race Condition: alle Schreibzugriffe auf loop.*-Felder müssen über threading.Lock laufen",
+    "Kein Deadlock: Lock-Hierarchie muss dokumentiert und eingehalten werden",
+    "Graceful Shutdown: laufende Task-Threads müssen bei Stop-Event sauber beendet werden",
+    "Backward Compatibility: max_concurrency=1 muss identisches Verhalten wie heute liefern",
+    "Observability: pro Thread separate trace_events, kein Logs-Durcheinander",
+    "Kein globaler Zustand außerhalb des AutonomousLoopManager"
+  ],
+  "tasks": [
+    {
+      "id": "thr-001",
+      "title": "Analyse: alle unsicheren Shared-State-Zugriffe in execute_autopilot_tick() kartieren",
+      "type": "analysis",
+      "priority": "high",
+      "description": "Jeden Zugriff auf loop.*-Felder innerhalb des Task-Dispatch-Loops (Zeilen 466-930) annotieren: lesen vs. schreiben, ob thread-safe oder nicht. Ergebnis als Kommentarblock in einer separaten Datei docs/threading-audit.md festhalten.",
+      "files": [
+        "agent/routes/tasks/autopilot_tick_engine.py (Zeilen 466-930)",
+        "agent/routes/tasks/autopilot.py (AutonomousLoopManager-Felder)"
+      ],
+      "acceptance_criteria": [
+        "Jeder loop.*-Schreibzugriff ist in docs/threading-audit.md gelistet",
+        "Für jeden Zugriff ist dokumentiert: 'thread-safe nein/ja, warum'",
+        "resolve_target_worker_for_task() und loop._worker_cursor sind als kritischer Race-Condition-Kandidat markiert",
+        "append_trace_event() und update_local_task_status() sind auf Thread-Safety geprüft (DB-Session-Isolation pro Thread?)",
+        "Die Datei enthält eine priorisierte Liste: welche Locks zuerst gebraucht werden"
+      ]
+    },
+    {
+      "id": "thr-002",
+      "title": "threading.Lock für alle AutonomousLoopManager-Zähler hinzufügen",
+      "type": "implementation",
+      "priority": "high",
+      "depends_on": ["thr-001"],
+      "description": "In AutonomousLoopManager einen dedizierten _counters_lock (threading.Lock) einführen. Alle Inkremente auf dispatched_count, failed_count, completed_count und Schreibzugriffe auf last_error werden damit geschützt. Der bestehende _lock ist für start/stop/persist – den nicht vermischen.",
+      "files": [
+        "agent/routes/tasks/autopilot.py"
+      ],
+      "acceptance_criteria": [
+        "Neues Attribut _counters_lock = threading.Lock() im __init__",
+        "Alle += Operationen auf dispatched_count, failed_count, completed_count innerhalb 'with self._counters_lock'",
+        "last_error-Writes ebenfalls unter _counters_lock",
+        "Kein bestehender Test bricht (alle mock-basierten Tests laufen durch)",
+        "Der alte _lock wird nicht für Counter-Zugriffe verwendet (Kommentar erklärt Separation)"
+      ]
+    },
+    {
+      "id": "thr-003",
+      "title": "threading.Lock für _worker_cursor und Circuit-Breaker-State",
+      "type": "implementation",
+      "priority": "high",
+      "depends_on": ["thr-001"],
+      "description": "In AutonomousLoopManager einen _routing_lock (threading.Lock) einführen, der _worker_cursor, _worker_circuit_open_until und _worker_failure_streak schützt. resolve_target_worker_for_task() muss unter diesem Lock aufgerufen werden, damit kein Cursor-Race entsteht wenn zwei Threads gleichzeitig Worker auswählen.",
+      "files": [
+        "agent/routes/tasks/autopilot.py",
+        "agent/routes/tasks/autopilot_tick_engine.py"
+      ],
+      "acceptance_criteria": [
+        "Neues Attribut _routing_lock = threading.Lock() im __init__",
+        "_record_worker_success() und _record_worker_failure() laufen unter _routing_lock",
+        "_is_worker_circuit_open() liest atomar unter _routing_lock",
+        "resolve_target_worker_for_task()-Aufruf inklusive _worker_cursor-Update unter _routing_lock",
+        "Wenn max_concurrency=1: Verhalten identisch zu vorher (kein Deadlock, kein Fehler)",
+        "Wenn max_concurrency=2 und 2 Threads gleichzeitig Worker wählen: kein Thread bekommt denselben Worker wenn ein anderer verfügbar ist (Round-Robin korrekt)"
+      ]
+    },
+    {
+      "id": "thr-004",
+      "title": "Thread-Safety von append_trace_event() und update_local_task_status() prüfen und absichern",
+      "type": "implementation",
+      "priority": "high",
+      "depends_on": ["thr-001"],
+      "description": "Prüfen ob SQLAlchemy-Sessions in den beiden Funktionen thread-lokal sind (scoped_session) oder geteilt. Falls geteilt: sicherstellen dass jeder Thread eine eigene Session bekommt. Falls bereits thread-sicher: Kommentar im Code ergänzen.",
+      "files": [
+        "agent/services/task_runtime_service.py",
+        "agent/repository/__init__.py oder db-Session-Setup"
+      ],
+      "acceptance_criteria": [
+        "Wenn zwei Threads gleichzeitig update_local_task_status() für verschiedene Task-IDs aufrufen: keine DB-Exception, kein Lost-Update",
+        "SQLAlchemy scoped_session oder Session-per-thread ist explizit dokumentiert",
+        "append_trace_event() produziert keine doppelten oder verlorenen Events wenn parallel aufgerufen",
+        "Falls ein neuer Lock nötig ist: er ist in docs/threading-audit.md ergänzt"
+      ]
+    },
+    {
+      "id": "thr-005",
+      "title": "_dispatch_one_task() extrahieren: die gesamte propose+execute-Logik für einen Task in eine eigene Funktion auslagern",
+      "type": "refactoring",
+      "priority": "high",
+      "depends_on": ["thr-002", "thr-003", "thr-004"],
+      "description": "Den inneren Body der for-Schleife in execute_autopilot_tick() (ca. Zeilen 466-927) in eine neue Funktion _dispatch_one_task(task, loop, services, ...) auslagern. Die Funktion ist eigenständig aufrufbar, hat keinen impliziten Zugriff auf Loop-Variablen und gibt ein TaskDispatchResult-Dataclass zurück (status, dispatched, failed, trace_events).",
+      "files": [
+        "agent/routes/tasks/autopilot_tick_engine.py"
+      ],
+      "acceptance_criteria": [
+        "Neue Funktion _dispatch_one_task(*, task, loop, services, policy, fallback_policy, runtime_caps, queue_positions, append_trace_event, update_local_task_status) -> TaskDispatchResult",
+        "TaskDispatchResult ist ein dataclass mit: dispatched: bool, failed: bool, completed: bool, task_id: str, failure_type: str | None",
+        "Die for-Schleife in execute_autopilot_tick() ruft nur noch _dispatch_one_task() auf und aggregiert TaskDispatchResult-Objekte",
+        "Kein impliziter Zugriff auf lokale Variablen der äußeren Funktion (keine Closures)",
+        "Alle bestehenden Trace-Events werden weiterhin korrekt emittiert",
+        "Wenn max_concurrency=1: Ergebnis identisch zu altem Code (Task-Status, Output, loop.*-Zähler)"
+      ]
+    },
+    {
+      "id": "thr-006",
+      "title": "ThreadPoolExecutor in execute_autopilot_tick() einführen",
+      "type": "implementation",
+      "priority": "high",
+      "depends_on": ["thr-005"],
+      "description": "Die for-Schleife in execute_autopilot_tick() durch einen concurrent.futures.ThreadPoolExecutor ersetzen. max_workers=effective_concurrency. Für jeden Task wird _dispatch_one_task() als Future submitted. Alle Futures werden mit as_completed() gesammelt. Ergebnisse werden nach Thread-Completion in loop.*-Zähler aggregiert.",
+      "files": [
+        "agent/routes/tasks/autopilot_tick_engine.py"
+      ],
+      "acceptance_criteria": [
+        "import concurrent.futures am Dateianfang",
+        "ThreadPoolExecutor(max_workers=effective_concurrency) als Context-Manager",
+        "futures = [executor.submit(_dispatch_one_task, ...) for task in candidates[:effective_concurrency]]",
+        "for future in concurrent.futures.as_completed(futures, timeout=task_timeout+30): result = future.result()",
+        "Loop-Zähler werden nur nach future.result() aggregiert (unter _counters_lock)",
+        "Wenn max_concurrency=1: effektiv sequentiell, kein Verhalten-Unterschied",
+        "Wenn max_concurrency=2 und Ollama antwortet in 15s: beide propose-Calls starten gleichzeitig, Gesamt-LLM-Zeit ≈ max(beide) statt sum(beide)",
+        "Kein Thread-Leak: Executor.shutdown(wait=True) wird auch bei Exceptions aufgerufen"
+      ]
+    },
+    {
+      "id": "thr-007",
+      "title": "Graceful Shutdown: Stop-Event in laufende Task-Threads propagieren",
+      "type": "implementation",
+      "priority": "high",
+      "depends_on": ["thr-006"],
+      "description": "Wenn loop._stop_event gesetzt wird (z.B. durch autonomous_loop.stop()), sollen laufende Task-Threads nicht einfach abgebrochen werden (das würde offene DB-Transactions hinterlassen), aber auch nicht unbegrenzt weiter laufen. Timeout für as_completed() auf max(execute_timeout + propose_timeout + 30s) setzen. Bei TimeoutError: Future canceln, Task-Status auf 'failed' setzen mit failure_type='shutdown_timeout'.",
+      "files": [
+        "agent/routes/tasks/autopilot_tick_engine.py",
+        "agent/routes/tasks/autopilot.py"
+      ],
+      "acceptance_criteria": [
+        "as_completed(futures, timeout=per_task_hard_timeout) – timeout ist konfigurierbar",
+        "Bei TimeoutError aus as_completed: future.cancel() für alle nicht-fertigen Futures",
+        "Für jeden gecancelten Task: update_local_task_status(id, 'failed', error='dispatch_timeout', force=True)",
+        "autonomous_loop.stop() wartet maximal 5s auf laufende Tick-Threads bevor es hart stoppt",
+        "Kein offenes DB-Connection-Leak nach erzwungenem Stop",
+        "Log-Message bei Timeout: 'Task {id} dispatch timed out after {n}s, marking failed'"
+      ]
+    },
+    {
+      "id": "thr-008",
+      "title": "Per-Thread Flask App-Context sicherstellen",
+      "type": "implementation",
+      "priority": "high",
+      "depends_on": ["thr-006"],
+      "description": "_dispatch_one_task() läuft in einem neuen Thread. Flask-Code (DB-Zugriff, current_app, g) braucht einen aktiven App-Context. Der Context muss pro Thread explizit via app.app_context() geöffnet werden, nicht vom Eltern-Thread geerbt werden.",
+      "files": [
+        "agent/routes/tasks/autopilot_tick_engine.py"
+      ],
+      "acceptance_criteria": [
+        "_dispatch_one_task() öffnet bei Aufruf einen eigenen with app.app_context(): Block",
+        "app-Referenz wird als Parameter übergeben (nicht aus loop._app gelesen, um Thread-Safety zu gewährleisten)",
+        "SQLAlchemy Session wird innerhalb des App-Contexts korrekt aufgeräumt (kein 'DetachedInstanceError')",
+        "Wenn kein App-Context verfügbar (Test-Modus): Funktion läuft auch ohne App-Context durch (Fallback wie heute)"
+      ]
+    },
+    {
+      "id": "thr-009",
+      "title": "Logging thread-sicher machen: Task-ID als Kontext in jedem Log-Eintrag",
+      "type": "implementation",
+      "priority": "medium",
+      "depends_on": ["thr-006"],
+      "description": "Bei paralleler Ausführung mischen sich Log-Zeilen von Thread A und Thread B. Jede Log-Zeile in _dispatch_one_task() muss die task_id als Prefix enthalten. Dafür logging.LoggerAdapter oder extra={'task_id': ...} verwenden.",
+      "files": [
+        "agent/routes/tasks/autopilot_tick_engine.py"
+      ],
+      "acceptance_criteria": [
+        "Jedes logging.*-Call in _dispatch_one_task() enthält task_id im Message-Prefix oder als extra-Dict",
+        "Format: '[tick][task_id=goal-xxxx] ...'",
+        "Log-Zeilen von parallelen Tasks sind in der Log-Datei eindeutig einem Task zuordenbar",
+        "Kein gemeinsamer Logger-Zustand zwischen Threads (kein ThreadLocal-Bug)"
+      ]
+    },
+    {
+      "id": "thr-010",
+      "title": "Worker-Cursor-Fairness bei paralleler Zuteilung sicherstellen",
+      "type": "implementation",
+      "priority": "medium",
+      "depends_on": ["thr-003", "thr-006"],
+      "description": "Bei sequentieller Verarbeitung rotiert der _worker_cursor sauber Round-Robin. Bei paralleler Vorab-Zuteilung (alle Tasks vor Thread-Start) müssen Worker-Slots einmalig reserviert werden, nicht race-conditioned. Lösung: Worker-Zuteilung für alle Tasks im Batch findet unter _routing_lock vor dem ThreadPoolExecutor statt.",
+      "files": [
+        "agent/routes/tasks/autopilot_tick_engine.py",
+        "agent/routes/tasks/autopilot_dispatch_policy.py"
+      ],
+      "acceptance_criteria": [
+        "Worker-Auswahl für alle Tasks im Batch passiert sequentiell vor dem Executor-Submit",
+        "Jeder Task im Batch bekommt seinen Target-Worker als Parameter übergeben (kein nachträgliches Auflösen im Thread)",
+        "Bei 2 verfügbaren Workern (alpha, beta) und 2 Tasks: Task A → alpha, Task B → beta (nicht beide → alpha)",
+        "Wenn nur 1 Worker verfügbar: beide Tasks gehen an denselben Worker (wie heute)",
+        "Circuit-Breaker-Check passiert ebenfalls vor dem Submit, nicht im Thread"
+      ]
+    },
+    {
+      "id": "thr-011",
+      "title": "propose_timeout und execute_timeout aus Config lesen statt hardcoden",
+      "type": "refactoring",
+      "priority": "medium",
+      "depends_on": ["thr-005"],
+      "description": "Der Hard-Timeout für as_completed() in thr-007 braucht propose_timeout + execute_timeout. Diese Werte kommen heute aus loop._security_policy()['execute_timeout'] und einem undefinierten propose-Timeout. Beide müssen explizit konfigurierbar sein und aus agent_config gelesen werden.",
+      "files": [
+        "agent/routes/tasks/autopilot_tick_engine.py",
+        "agent/routes/tasks/autopilot_guardrails.py"
+      ],
+      "acceptance_criteria": [
+        "propose_timeout ist in der Security-Policy als Feld vorhanden (Default: 120s)",
+        "execute_timeout ist bereits vorhanden – bleibt erhalten",
+        "per_task_hard_timeout = propose_timeout + execute_timeout + 30 (Puffer)",
+        "Beide Werte sind in config.json unter execution_policy konfigurierbar",
+        "Dokumentation in config.json.example aktualisiert"
+      ]
+    },
+    {
+      "id": "thr-012",
+      "title": "Tick-Result-Aggregation: dispatched/failed/completed aus TaskDispatchResult sammeln",
+      "type": "implementation",
+      "priority": "medium",
+      "depends_on": ["thr-006"],
+      "description": "Der Rückgabe-Dict von execute_autopilot_tick() wird vom _run_loop ausgewertet (dispatched > 0 → kein Sleep). Bei parallelem Dispatch müssen alle TaskDispatchResult-Objekte aggregiert werden bevor der Return-Wert gebaut wird.",
+      "files": [
+        "agent/routes/tasks/autopilot_tick_engine.py"
+      ],
+      "acceptance_criteria": [
+        "Nach as_completed(): results = [f.result() for f in futures]",
+        "dispatched = sum(1 for r in results if r.dispatched)",
+        "failed = sum(1 for r in results if r.failed)",
+        "completed = sum(1 for r in results if r.completed)",
+        "Return-Dict enthält: {'dispatched': dispatched, 'failed': failed, 'completed': completed, 'task_ids': [...]}",
+        "loop.dispatched_count += dispatched (unter _counters_lock, einmal am Ende, nicht per Thread)",
+        "_run_loop wertet dispatched korrekt aus: > 0 → kein Sleep (bestehende Logik aus heute)"
+      ]
+    },
+    {
+      "id": "thr-013",
+      "title": "Konfigurierbarkeit: max_concurrency per API änderbar machen und in Status exponieren",
+      "type": "implementation",
+      "priority": "low",
+      "depends_on": ["thr-006"],
+      "description": "max_concurrency ist bereits im Autopilot-Status sichtbar. Nach dem Threading-Umbau kann es sinnvoll sein, es zur Laufzeit anzupassen (z.B. bei hoher Ollama-Last auf 1 drosseln). Der bestehende POST /tasks/autopilot/start-Endpoint akzeptiert max_concurrency bereits – sicherstellen dass der neue ThreadPoolExecutor diesen Wert live beachtet.",
+      "files": [
+        "agent/routes/tasks/autopilot.py"
+      ],
+      "acceptance_criteria": [
+        "POST /tasks/autopilot/start mit max_concurrency=1 während laufendem Betrieb: nächster Tick nutzt max_workers=1",
+        "POST /tasks/autopilot/start mit max_concurrency=4: nächster Tick nutzt max_workers=4",
+        "GET /tasks/autopilot/status zeigt effective_max_concurrency (nach Security-Policy-Cap)",
+        "Kein laufender ThreadPoolExecutor wird hart abgebrochen wenn max_concurrency geändert wird – nur der nächste Tick verwendet den neuen Wert"
+      ]
+    },
+    {
+      "id": "thr-014",
+      "title": "Integrations-Test: 2 Tasks parallel gegen echte Worker (alpha + beta)",
+      "type": "testing",
+      "priority": "medium",
+      "depends_on": ["thr-006", "thr-007", "thr-008"],
+      "description": "Einen manuellen End-to-End-Test durchführen: Goal mit 2 voneinander unabhängigen Tasks erstellen, max_concurrency=2, beide Worker laufen. Verifizieren dass beide LLM-Calls gleichzeitig (überlappend) stattfinden.",
+      "acceptance_criteria": [
+        "GPU-Auslastungsmonitor (nvidia-smi dmon) zeigt während des Tests keine sequentielle Abwechslung sondern gleichzeitige hohe Auslastung",
+        "Beide Tasks erscheinen in den Logs mit überlappenden Timestamps für propose-Start",
+        "Beide Tasks werden korrekt als 'completed' oder 'failed' markiert (kein Status-Durcheinander)",
+        "loop.dispatched_count, loop.completed_count, loop.failed_count sind nach dem Test korrekt (nicht doppelt oder null)",
+        "Keine SQLAlchemy-Exceptions in Hub-Logs",
+        "Kein 'DetachedInstanceError' in Worker-Logs"
+      ]
+    },
+    {
+      "id": "thr-015",
+      "title": "Integrations-Test: Graceful Stop während paralleler Ausführung",
+      "type": "testing",
+      "priority": "medium",
+      "depends_on": ["thr-007"],
+      "description": "Autopilot während laufendem Tick per POST /tasks/autopilot/stop stoppen. Verifizieren dass kein Task in einem Zombie-Status hängen bleibt.",
+      "acceptance_criteria": [
+        "POST /tasks/autopilot/stop während 2 laufenden Task-Threads: Stop-Aufruf kehrt innerhalb 10s zurück",
+        "Alle Tasks die zum Stop-Zeitpunkt noch liefen: Status ist entweder 'completed', 'failed' oder 'todo' (zurückgesetzt) – niemals 'proposing' oder 'in_progress'",
+        "Nach stop() und erneutem start(): Autopilot läuft sauber weiter, keine Threads aus der vorherigen Runde laufen noch",
+        "Keine offenen DB-Connections nach Stop (pg_stat_activity zeigt keine idle-in-transaction Sessions von ananta)"
+      ]
+    },
+    {
+      "id": "thr-016",
+      "title": "Dokumentation: threading-audit.md mit finalem Lock-Schema abschließen",
+      "type": "docs",
+      "priority": "low",
+      "depends_on": ["thr-014", "thr-015"],
+      "description": "docs/threading-audit.md mit dem finalen Stand aktualisieren: welche Locks existieren, welche Invarianten sie schützen, welche Operationen thread-safe sind und warum.",
+      "files": [
+        "docs/threading-audit.md"
+      ],
+      "acceptance_criteria": [
+        "Lock-Hierarchie ist dokumentiert: _routing_lock darf nie unter _counters_lock gehalten werden (Deadlock-Vermeidung)",
+        "Jede Thread-sichere Operation hat einen Ein-Satz-Kommentar im Code",
+        "Bekannte Einschränkungen sind dokumentiert (z.B. 'append_trace_event ist thread-safe weil SQLAlchemy scoped_session verwendet')",
+        "Das Dokument enthält ein Sequenz-Diagramm (ASCII) des parallelen Tick-Flows"
+      ]
+    }
+  ],
+  "dependency_graph": {
+    "thr-001": [],
+    "thr-002": ["thr-001"],
+    "thr-003": ["thr-001"],
+    "thr-004": ["thr-001"],
+    "thr-005": ["thr-002", "thr-003", "thr-004"],
+    "thr-006": ["thr-005"],
+    "thr-007": ["thr-006"],
+    "thr-008": ["thr-006"],
+    "thr-009": ["thr-006"],
+    "thr-010": ["thr-003", "thr-006"],
+    "thr-011": ["thr-005"],
+    "thr-012": ["thr-006"],
+    "thr-013": ["thr-006"],
+    "thr-014": ["thr-006", "thr-007", "thr-008"],
+    "thr-015": ["thr-007"],
+    "thr-016": ["thr-014", "thr-015"]
+  },
+  "critical_path": ["thr-001", "thr-002", "thr-003", "thr-004", "thr-005", "thr-006", "thr-007", "thr-008", "thr-014"],
+  "estimated_risk": {
+    "SQLAlchemy Session Isolation": "hoch – muss vor thr-006 geklärt sein (thr-004)",
+    "Flask App-Context pro Thread": "hoch – häufige Fehlerquelle bei Threading in Flask",
+    "Worker Round-Robin Race": "mittel – thr-010 adressiert es, muss vor parallelem Test",
+    "Circuit-Breaker Korrektheit": "mittel – zwei Threads könnten denselben Worker gleichzeitig als 'offen' markieren"
+  }
+}

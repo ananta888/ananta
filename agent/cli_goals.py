@@ -123,9 +123,18 @@ def _poll_goal_status(goal_id: str, *, timeout: int = 300, interval: int = 5) ->
                     )
                     total = int(summary.get("task_count") or 0)
                     done = int(summary.get("completed_tasks") or 0) + int(summary.get("failed_tasks") or 0)
-                    if total > 0 and done >= total:
+                    # Tasks stuck in `proposing` with no LLM output (latency_ms=None) are
+                    # stalled (worker crash) — count them as failures to avoid blocking forever.
+                    cost_items = summary.get("cost_summary", {}).get("items") or []
+                    stalled = sum(
+                        1 for it in cost_items
+                        if isinstance(it, dict)
+                        and str(it.get("status") or "").lower() == "proposing"
+                        and it.get("latency_ms") is None
+                    )
+                    if total > 0 and (done + stalled) >= total:
                         print(file=sys.stderr)
-                        failed = int(summary.get("failed_tasks") or 0)
+                        failed = int(summary.get("failed_tasks") or 0) + stalled
                         return "completed" if failed == 0 else "partially_failed"
         time.sleep(interval)
     print(file=sys.stderr)

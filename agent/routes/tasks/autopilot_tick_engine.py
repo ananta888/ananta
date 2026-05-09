@@ -4,6 +4,10 @@ import logging
 import time
 from typing import Any, Callable
 
+_runtime_caps_cache: dict[str, Any] = {}
+_runtime_caps_ts: float = 0.0
+_RUNTIME_CAPS_TTL = 30.0
+
 from agent.config import settings
 from agent.llm_integration import probe_lmstudio_runtime, probe_ollama_runtime
 from agent.llm_benchmarks import recommend_model_for_context, recommend_models_for_context
@@ -135,6 +139,10 @@ def _safe_context_length(value: Any) -> int | None:
 
 
 def _runtime_model_capabilities(loop: Any) -> dict[str, Any]:
+    global _runtime_caps_cache, _runtime_caps_ts
+    if _runtime_caps_cache and (time.time() - _runtime_caps_ts) < _RUNTIME_CAPS_TTL:
+        return _runtime_caps_cache
+
     app = getattr(loop, "_app", None)
     app_cfg = (getattr(app, "config", {}) or {})
     provider_urls = dict(app_cfg.get("PROVIDER_URLS") or {})
@@ -188,7 +196,10 @@ def _runtime_model_capabilities(loop: Any) -> dict[str, Any]:
         except Exception:
             pass
 
-    return {"runtime": runtime, "models": capabilities}
+    result = {"runtime": runtime, "models": capabilities}
+    _runtime_caps_cache = result
+    _runtime_caps_ts = time.time()
+    return result
 
 
 def _select_model_for_task(*, loop: Any, task: Any, excluded_models: set[str] | None = None) -> tuple[str | None, dict[str, Any]]:
@@ -370,6 +381,28 @@ def execute_autopilot_tick(
     total_tasks_unfiltered = len(services.autopilot_support_service.scoped_tasks(team_id=None, app=loop._app))
     all_tasks = services.autopilot_support_service.scoped_tasks(team_id=loop.team_id or None, app=loop._app)
     scoped_tasks = len(all_tasks)
+
+    # Reset tasks stuck in `proposing` with no output for > 90 s back to `todo`
+    # so the autopilot can retry them (workers can crash mid-dispatch).
+    _PROPOSING_STALE_SECONDS = 90
+    now_ts = time.time()
+    for _t in all_tasks:
+        if str(getattr(_t, "status", "") or "").lower() != "proposing":
+            continue
+        _updated = float(getattr(_t, "updated_at", None) or 0)
+        if _updated and (now_ts - _updated) < _PROPOSING_STALE_SECONDS:
+            continue
+        if getattr(_t, "last_output", None):
+            continue
+        update_local_task_status(
+            _t.id,
+            "todo",
+            event_type="stale_proposing_reset",
+            event_actor="autopilot_tick",
+            force=True,
+        )
+        append_trace_event(_t.id, "stale_proposing_reset", reason="no_output_after_90s")
+
     transitions = services.task_queue_service.reconcile_dependencies(tasks=all_tasks, dependency_resolver=task_dependencies)
     for transition in transitions:
         task_id = str(transition.get("task_id") or "")

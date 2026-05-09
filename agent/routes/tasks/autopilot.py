@@ -364,13 +364,14 @@ class AutonomousLoopManager:
         app = self._app
         try:
             while not self._stop_event.is_set():
+                tick_result: dict = {}
                 try:
                     if app is not None:
                         with app.app_context():
-                            self.tick_once()
+                            tick_result = self.tick_once()
                     else:
                         # Fallback for tests/misconfiguration; request-driven tick still works.
-                        self.tick_once()
+                        tick_result = self.tick_once()
                 except Exception as e:
                     if self._stop_event.is_set():
                         break
@@ -385,6 +386,11 @@ class AutonomousLoopManager:
                     except Exception:
                         if not self._stop_event.is_set():
                             logging.exception("Autonomous loop state persistence failed after tick error.")
+                # Skip the inter-tick sleep when tasks were just dispatched so
+                # their newly-unblocked dependents are picked up immediately.
+                if int((tick_result or {}).get("dispatched") or 0) > 0:
+                    self._wake_event.clear()
+                    continue
                 self._wake_event.wait(self.interval_seconds)
                 self._wake_event.clear()
         finally:
