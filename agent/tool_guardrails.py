@@ -46,6 +46,17 @@ DEFAULT_TOOL_CLASSES = {
     "bash": "write",
     "search_web": "read",
     "fetch_url": "read",
+    # Gemma4/ananta-default hallucinated tool names (map to nearest read equivalent)
+    "context_analysis_tool": "read",
+    "text_analysis_tool": "read",
+    "analysis_tool": "read",
+    "search_tool": "read",
+    "list_tool": "read",
+    "read_tool": "read",
+    "file_manager": "read",
+    "workspace_reader": "read",
+    "context_tool": "read",
+    "info_tool": "read",
 }
 
 
