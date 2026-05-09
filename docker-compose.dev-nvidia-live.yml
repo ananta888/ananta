@@ -46,7 +46,7 @@ services:
 
   ai-agent-alpha:
     environment:
-      FLASK_DEBUG: 1
+      FLASK_DEBUG: 0
       OLLAMA_URL: http://ollama:11434/api/generate
     volumes:
       - ./:/app
@@ -54,7 +54,7 @@ services:
 
   ai-agent-beta:
     environment:
-      FLASK_DEBUG: 1
+      FLASK_DEBUG: 0
       OLLAMA_URL: http://ollama:11434/api/generate
     volumes:
       - ./:/app

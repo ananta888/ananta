@@ -295,7 +295,7 @@ class TaskExecutionService:
                 )
             raise ToolGuardrailError(
                 details={
-                    "blocked_tools": [str((item or {}).get("name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
+                    "blocked_tools": [str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
                     "blocked_reasons": [approval_payload.get("reason_code")],
                     "approval": approval_payload,
                 }
@@ -316,7 +316,7 @@ class TaskExecutionService:
                 )
             raise ToolGuardrailError(
                 details={
-                    "blocked_tools": [str((item or {}).get("name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
+                    "blocked_tools": [str((item or {}).get("name") or (item or {}).get("tool_name") or "").strip() for item in list(tool_calls or []) if isinstance(item, dict)],
                     "blocked_reasons": [approval_payload.get("reason_code")],
                     "approval": approval_payload,
                 }
@@ -429,8 +429,9 @@ class TaskExecutionService:
                     }
                 )
             for tool_call in tool_calls:
-                name = tool_call.get("name")
-                args = tool_call.get("args", {})
+                raw_name = str(tool_call.get("name") or tool_call.get("tool_name") or "").strip()
+                name = raw_name.rsplit(".", 1)[-1] if "." in raw_name else raw_name
+                args = tool_call.get("args") or tool_call.get("tool_input") or tool_call.get("parameters") or {}
                 current_app.logger.info("Task %s führt Tool aus: %s mit %s", tid or "<direct>", name, args)
                 tool_result = tool_registry.execute(name, args)
                 if pipeline is not None:
