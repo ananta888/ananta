@@ -509,7 +509,9 @@ def run_sgpt_command(
         provider_urls = _get_runtime_provider_urls()
 
         base_url = None
-        if runtime_provider == "lmstudio":
+        if runtime_provider == "ollama":
+            base_url = _normalize_ollama_openai_base_url(provider_urls.get("ollama") or settings.ollama_url)
+        elif runtime_provider == "lmstudio":
             base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
         elif runtime_provider == "openai":
             base_url = _normalize_openai_base_url(provider_urls.get("openai") or settings.openai_url)
