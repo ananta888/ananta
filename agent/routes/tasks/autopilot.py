@@ -62,9 +62,10 @@ class AutonomousLoopManager:
         self._lock = threading.Lock()
         self._tick_lock = threading.Lock()
         self._stop_event = threading.Event()
+        self._wake_event = threading.Event()
         self._thread: threading.Thread | None = None
         self.running = False
-        self.interval_seconds = 20
+        self.interval_seconds = 5
         self.max_concurrency = 2
         self.last_tick_at: float | None = None
         self.last_error: str | None = None
@@ -175,6 +176,7 @@ class AutonomousLoopManager:
             self.running = True
             self.started_at = time.time()
             self._stop_event.clear()
+            self._wake_event.clear()
             if background:
                 self._thread = threading.Thread(target=self._run_loop, daemon=True, name="autonomous-scrum-loop")
                 self._thread.start()
@@ -186,6 +188,7 @@ class AutonomousLoopManager:
         with self._lock:
             self.running = False
             self._stop_event.set()
+            self._wake_event.set()  # unblock any sleep so the thread exits promptly
             thread_to_join = self._thread
             if persist:
                 self._persist_state(enabled=False)
@@ -194,6 +197,10 @@ class AutonomousLoopManager:
         with self._lock:
             if self._thread is thread_to_join:
                 self._thread = None
+
+    def wake(self) -> None:
+        """Interrupt the inter-tick sleep so the next tick fires immediately."""
+        self._wake_event.set()
 
     def _circuit_status_unlocked(self) -> dict:
         now = time.time()
@@ -376,7 +383,8 @@ class AutonomousLoopManager:
                     except Exception:
                         if not self._stop_event.is_set():
                             logging.exception("Autonomous loop state persistence failed after tick error.")
-                self._stop_event.wait(self.interval_seconds)
+                self._wake_event.wait(self.interval_seconds)
+                self._wake_event.clear()
         finally:
             with self._lock:
                 if self._thread is threading.current_thread():

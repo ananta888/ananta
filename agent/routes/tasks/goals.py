@@ -386,6 +386,13 @@ def create_goal():
         readiness=readiness,
     )
 
+    if result.get("created_task_ids"):
+        try:
+            from agent.routes.tasks.autopilot import autonomous_loop
+            autonomous_loop.wake()
+        except Exception:
+            pass
+
     log_audit(
         "goal_created",
         {

@@ -895,6 +895,12 @@ def execute_autopilot_tick(
     loop.last_error = None
     loop.tick_count += 1
     loop._persist_state(enabled=loop.running)
+    # Wake the loop immediately if there may be more tasks ready (sequential chains).
+    if dispatched > 0:
+        try:
+            loop.wake()
+        except Exception:
+            pass
     return {
         "dispatched": dispatched,
         "reason": "ok",

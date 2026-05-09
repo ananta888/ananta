@@ -329,6 +329,11 @@ class TriggerEngine:
 
         if self.auto_start_planner and created_ids:
             self._ensure_autopilot_running()
+            try:
+                from agent.routes.tasks.autopilot import autonomous_loop
+                autonomous_loop.wake()
+            except Exception:
+                pass
 
         return {
             "status": "processed",
@@ -512,7 +517,7 @@ Subject: {subject}
                 
                 active_team = next((t for t in _repos().team_repo.get_all() if t.is_active), None)
                 autonomous_loop.start(
-                    interval_seconds=20,
+                    interval_seconds=5,
                     max_concurrency=2,
                     team_id=active_team.id if active_team else None,
                     security_level="balanced",
