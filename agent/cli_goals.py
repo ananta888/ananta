@@ -80,7 +80,9 @@ _REPAIR_SCRIPT_CFG = {
         "Kurzkommando: Repair Script. "
         "Ausgabe: nur Shell-Befehle als ausfuehrbares Bash-Script. "
         "Jeden Befehl einzeln, Kommentare mit #, dry-run-first, minimale Nebenwirkungen. "
-        "Kein Prosatext ausserhalb von Bash-Code-Bloecken."
+        "Kein Prosatext ausserhalb von Bash-Code-Bloecken. "
+        "WICHTIG: Kein 'sudo', kein 'su', keine Privilege-Escalation — "
+        "Ausfuehrung erfolgt als normaler Nutzer in einem Docker-Container ohne Root-Rechte."
     ),
 }
 
@@ -108,7 +110,13 @@ def _poll_goal_status(goal_id: str, *, timeout: int = 300, interval: int = 5) ->
             if detail_tick % 4 == 0:
                 detail_res = _request("GET", f"/goals/{goal_id}/detail", timeout=15)
                 if detail_res.status_code == 200:
-                    summary = (_api_data(detail_res).get("result_summary") or {})
+                    detail_data = _api_data(detail_res)
+                    # result_summary lives under data.artifacts.result_summary
+                    summary = (
+                        (detail_data.get("artifacts") or {}).get("result_summary")
+                        or detail_data.get("result_summary")
+                        or {}
+                    )
                     total = int(summary.get("task_count") or 0)
                     done = int(summary.get("completed_tasks") or 0) + int(summary.get("failed_tasks") or 0)
                     if total > 0 and done >= total:
