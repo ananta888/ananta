@@ -905,19 +905,22 @@ def _check_file_access(path: str, operation: str = "read") -> tuple[bool, str]:
         "required": ["path"],
     },
 )
-def file_read_tool(path: str, encoding: str = "utf-8"):
-    ok, err = _check_file_access(path, "read")
+def file_read_tool(path: str = "", encoding: str = "utf-8", file_path: str = "", filename: str = ""):
+    resolved = path or file_path or filename
+    if not resolved:
+        return {"error": "Parameter 'path' fehlt."}
+    ok, err = _check_file_access(resolved, "read")
     if not ok: return {"error": err}
 
     import os
-    if not os.path.exists(path):
-        return {"error": f"Datei '{path}' nicht gefunden."}
+    if not os.path.exists(resolved):
+        return {"error": f"Datei '{resolved}' nicht gefunden."}
     try:
-        with open(path, "r", encoding=encoding) as f:
+        with open(resolved, "r", encoding=encoding) as f:
             content = f.read()
             from agent.common.audit import log_audit
-            log_audit("file_read", {"path": path, "size": len(content)})
-            return {"content": content, "path": path}
+            log_audit("file_read", {"path": resolved, "size": len(content)})
+            return {"content": content, "path": resolved}
     except Exception as e:
         return {"error": f"Fehler beim Lesen der Datei: {e}"}
 
@@ -934,18 +937,21 @@ def file_read_tool(path: str, encoding: str = "utf-8"):
         "required": ["path", "content"],
     },
 )
-def file_write_tool(path: str, content: str, encoding: str = "utf-8"):
-    ok, err = _check_file_access(path, "write")
+def file_write_tool(path: str = "", content: str = "", encoding: str = "utf-8", file_path: str = "", filename: str = ""):
+    resolved = path or file_path or filename
+    if not resolved:
+        return {"error": "Parameter 'path' fehlt."}
+    ok, err = _check_file_access(resolved, "write")
     if not ok: return {"error": err}
 
     import os
     try:
-        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-        with open(path, "w", encoding=encoding) as f:
+        os.makedirs(os.path.dirname(os.path.abspath(resolved)), exist_ok=True)
+        with open(resolved, "w", encoding=encoding) as f:
             f.write(content)
             from agent.common.audit import log_audit
-            log_audit("file_write", {"path": path, "size": len(content)})
-            return {"status": "success", "path": path, "size": len(content)}
+            log_audit("file_write", {"path": resolved, "size": len(content)})
+            return {"status": "success", "path": resolved, "size": len(content)}
     except Exception as e:
         return {"error": f"Fehler beim Schreiben der Datei: {e}"}
 
@@ -993,16 +999,19 @@ def file_list_tool(path: str = ".", recursive: bool = False):
         "required": ["path", "search", "replace"],
     },
 )
-def file_patch_tool(path: str, search: str, replace: str):
-    ok, err = _check_file_access(path, "write")
+def file_patch_tool(path: str = "", search: str = "", replace: str = "", file_path: str = "", filename: str = ""):
+    resolved = path or file_path or filename
+    if not resolved:
+        return {"error": "Parameter 'path' fehlt."}
+    ok, err = _check_file_access(resolved, "write")
     if not ok: return {"error": err}
 
     import os
-    if not os.path.exists(path):
-        return {"error": f"Datei '{path}' nicht gefunden."}
+    if not os.path.exists(resolved):
+        return {"error": f"Datei '{resolved}' nicht gefunden."}
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(resolved, "r", encoding="utf-8") as f:
             content = f.read()
 
         if search not in content:
@@ -1010,12 +1019,12 @@ def file_patch_tool(path: str, search: str, replace: str):
 
         new_content = content.replace(search, replace)
 
-        with open(path, "w", encoding="utf-8") as f:
+        with open(resolved, "w", encoding="utf-8") as f:
             f.write(new_content)
 
         from agent.common.audit import log_audit
-        log_audit("file_patch", {"path": path, "search_len": len(search), "replace_len": len(replace)})
-        return {"status": "success", "path": path}
+        log_audit("file_patch", {"path": resolved, "search_len": len(search), "replace_len": len(replace)})
+        return {"status": "success", "path": resolved}
     except Exception as e:
         return {"error": f"Fehler beim Patchen der Datei: {e}"}
 

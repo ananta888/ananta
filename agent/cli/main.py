@@ -156,7 +156,7 @@ def main(argv: list[str] | None = None) -> int:
         return run_cli_goals(["--first-run", *rest])
     if command == "update":
         return _run_update(rest)
-    if command in GOAL_ALIAS_COMMANDS:
+    if command in GOAL_ALIAS_COMMANDS or command == "repair-script":
         return run_goal_alias(command, rest)
     if command == "doctor":
         return _run_doctor(rest)
