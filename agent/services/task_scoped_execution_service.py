@@ -2950,6 +2950,8 @@ class TaskScopedExecutionService:
         )
         effective_system_prompt = str(instruction_stack.get("rendered_system_prompt") or "").strip() or None
         stack_diagnostics = dict(instruction_stack.get("diagnostics") or {})
+        shell_command_mode = str(execution_context.get("shell_command_mode") or "").strip().lower()
+        allow_complex_shell = shell_command_mode == "pipeline"
         opencode_context_files = get_worker_workspace_service().prepare_opencode_context_files(
             task=task,
             workspace_context=workspace_context,
@@ -2960,6 +2962,7 @@ class TaskScopedExecutionService:
             tool_definitions=tool_definitions,
             research_context=research_context,
             include_response_contract=not interactive_terminal,
+            allow_complex_shell=allow_complex_shell,
             task_brief_char_limit=task_brief_char_limit,
             context_text_char_limit=hub_context_char_limit,
             research_prompt_char_limit=research_prompt_char_limit,
@@ -3040,11 +3043,18 @@ class TaskScopedExecutionService:
                 f"{str(opencode_context_files.get('response_contract_path') or '.ananta/response-contract.md')} "
                 "und setze mindestens eines von 'command' oder 'tool_calls'."
             )
-            prompt_sections.append(
-                "Priorisiere `tool_calls` fuer Datei-/Verzeichnis- und Code-Aenderungen. "
-                "Falls ein Shell-Befehl erforderlich ist, liefere genau einen einzelnen `command` "
-                "ohne `&&`, `||`, `;`, `>`, `<` oder `|`."
-            )
+            if allow_complex_shell:
+                prompt_sections.append(
+                    "Priorisiere `tool_calls` fuer Datei-/Verzeichnis- und Code-Aenderungen. "
+                    "Falls ein Shell-Befehl erforderlich ist, liefere einen `command` — "
+                    "Pipes (`|`), Redirects (`>`, `<`, `2>&1`) und Chaining (`&&`, `||`, `;`) sind erlaubt."
+                )
+            else:
+                prompt_sections.append(
+                    "Priorisiere `tool_calls` fuer Datei-/Verzeichnis- und Code-Aenderungen. "
+                    "Falls ein Shell-Befehl erforderlich ist, liefere genau einen einzelnen `command` "
+                    "ohne `&&`, `||`, `;`, `>`, `<` oder `|`."
+                )
         return "\n\n".join(section for section in prompt_sections if section), {
             "context_bundle_id": execution_context.get("context_bundle_id") or task.get("context_bundle_id"),
             "allowed_tools": allowed_tools,
