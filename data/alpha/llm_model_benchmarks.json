@@ -4,15 +4,15 @@
       "provider": "opencode",
       "model": "ananta-default",
       "overall": {
-        "total": 38,
+        "total": 39,
         "success": 12,
-        "failed": 26,
+        "failed": 27,
         "quality_pass": 12,
-        "quality_fail": 26,
-        "latency_ms_total": 283632,
-        "tokens_total": 581239,
+        "quality_fail": 27,
+        "latency_ms_total": 283634,
+        "tokens_total": 581345,
         "cost_units_total": 0.0,
-        "last_seen": 1778332480,
+        "last_seen": 1778333051,
         "samples": [
           {
             "ts": 1775422809,
@@ -431,20 +431,31 @@
             "context": {
               "task_kind": "analysis"
             }
+          },
+          {
+            "ts": 1778333051,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 2,
+            "tokens_total": 106,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
           }
         ]
       },
       "task_kinds": {
         "analysis": {
-          "total": 25,
+          "total": 26,
           "success": 7,
-          "failed": 18,
+          "failed": 19,
           "quality_pass": 7,
-          "quality_fail": 18,
-          "latency_ms_total": 15397,
-          "tokens_total": 578105,
+          "quality_fail": 19,
+          "latency_ms_total": 15399,
+          "tokens_total": 578211,
           "cost_units_total": 0.0,
-          "last_seen": 1778332480,
+          "last_seen": 1778333051,
           "samples": [
             {
               "ts": 1775422809,
@@ -716,6 +727,17 @@
               "quality_passed": false,
               "latency_ms": 1001,
               "tokens_total": 44,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1778333051,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 2,
+              "tokens_total": 106,
               "cost_units": 0.0,
               "context": {
                 "task_kind": "analysis"
@@ -1344,5 +1366,5 @@
       }
     }
   },
-  "updated_at": 1778332480
+  "updated_at": 1778333051
 }
