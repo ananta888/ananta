@@ -19,6 +19,18 @@ KEYBINDINGS: tuple[KeyBinding, ...] = (
     KeyBinding("q", "quit", "Quit operator TUI", (OperatorMode.NORMAL,)),
 )
 
+_NORMAL_HINTS = "[Tab/←→] Focus  [j/k/↑↓] Move  [r] Refresh  [n/p] Section  [Enter] Inspect  [:] Command  [?] Help  [q] Quit"
+_COMMAND_HINTS = "[Enter] Execute  [Esc] Cancel  — commands: :section <id>  :refresh  :focus <pane>  :help  :action <name> <risk>"
+_INSPECT_HINTS = "[j/k/↑↓] Move  [Esc] Normal  [?] Help  [q] Quit  — confirm actions with :confirm"
+
 
 def bindings_for_mode(mode: OperatorMode) -> tuple[KeyBinding, ...]:
     return tuple(binding for binding in KEYBINDINGS if mode in binding.modes)
+
+
+def hints_for_mode(mode: OperatorMode) -> str:
+    if mode is OperatorMode.COMMAND:
+        return _COMMAND_HINTS
+    if mode is OperatorMode.INSPECT:
+        return _INSPECT_HINTS
+    return _NORMAL_HINTS

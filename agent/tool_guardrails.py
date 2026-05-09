@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 DEFAULT_TOOL_CLASSES = {
+    # hub/orchestration tools
     "list_teams": "read",
     "list_roles": "read",
     "list_agents": "read",
@@ -18,6 +19,33 @@ DEFAULT_TOOL_CLASSES = {
     "update_template": "write",
     "delete_template": "write",
     "update_config": "admin",
+    # worker file/shell tools (canonical names)
+    "file_read": "read",
+    "file_list": "read",
+    "file_write": "write",
+    "file_patch": "write",
+    "shell_execute": "write",
+    "git_status": "read",
+    "git_diff": "read",
+    "git_log": "read",
+    "git_commit": "write",
+    "web_fetch": "read",
+    "web_search": "read",
+    "doc_extract": "read",
+    # common model-generated aliases (Gemma4/OpenAI naming conventions)
+    "read_file": "read",
+    "write_file": "write",
+    "file_writer": "write",
+    "list_files": "read",
+    "context_reader": "read",
+    "create_file": "write",
+    "edit_file": "write",
+    "patch_file": "write",
+    "run_command": "write",
+    "execute_command": "write",
+    "bash": "write",
+    "search_web": "read",
+    "fetch_url": "read",
 }
 
 
@@ -76,7 +104,7 @@ def _check_token_limits(
     )
 
     if estimated_total > max_tokens:
-        blocked = [str(tc.get("name") or "<missing>") for tc in calls]
+        blocked = [str(tc.get("name") or tc.get("tool_name") or "<missing>") for tc in calls]
         return blocked, ["guardrail_max_estimated_tokens_exceeded"]
     return [], []
 
@@ -119,7 +147,8 @@ def evaluate_tool_call_guardrails(
         reasons.append("guardrail_max_tool_calls_exceeded")
 
     for tc in calls:
-        name = str(tc.get("name") or "<missing>")
+        raw = str(tc.get("name") or tc.get("tool_name") or "<missing>")
+        name = raw.rsplit(".", 1)[-1] if "." in raw else raw
         klass = str(config.tool_classes.get(name, "unknown"))
         counts_by_class[klass] = counts_by_class.get(klass, 0) + 1
 
@@ -137,11 +166,11 @@ def evaluate_tool_call_guardrails(
 
     if config.max_external > 0 and external_calls > config.max_external:
         reasons.append("guardrail_max_external_calls_exceeded")
-        blocked.extend([str(tc.get("name") or "<missing>") for tc in calls])
+        blocked.extend([str(tc.get("name") or tc.get("tool_name") or "<missing>") for tc in calls])
 
     if config.max_cost_units > 0 and estimated_cost > config.max_cost_units:
         reasons.append("guardrail_max_estimated_cost_exceeded")
-        blocked.extend([str(tc.get("name") or "<missing>") for tc in calls])
+        blocked.extend([str(tc.get("name") or tc.get("tool_name") or "<missing>") for tc in calls])
 
     token_blocked, token_reasons = _check_token_limits(token_usage, calls, config.chars_per_token, config.max_tokens)
     blocked.extend(token_blocked)

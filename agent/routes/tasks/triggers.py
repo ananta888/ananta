@@ -515,7 +515,7 @@ Subject: {subject}
                     interval_seconds=20,
                     max_concurrency=2,
                     team_id=active_team.id if active_team else None,
-                    security_level="safe",
+                    security_level="balanced",
                     persist=True,
                     background=not _background_threads_disabled(),
                 )

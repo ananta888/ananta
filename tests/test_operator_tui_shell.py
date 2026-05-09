@@ -29,8 +29,8 @@ def test_operator_tui_renders_first_paint_shell() -> None:
     assert "Ananta Operator TUI" in output
     assert "Dashboard" in output
     assert "endpoint=http://localhost:5000" in output
-    assert "mutation_policy=hub_dispatch_only" in output
-    assert "state=ok" in output
+    assert "Commands:" in output
+    assert ":refresh" in output
 
 
 def test_operator_tui_section_commands_update_state() -> None:
