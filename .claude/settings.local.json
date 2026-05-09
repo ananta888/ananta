@@ -71,7 +71,9 @@
       "Bash(ananta --goal-detail 5bede66f-9022-4fb0-b43d-8b91595b7729)",
       "Bash(python -m json.tool)",
       "Bash(PGPASSWORD='replace_this_with_a_secure_password_123!' psql *)",
-      "Bash(python -m agent.cli_goals repair-script --help)"
+      "Bash(python -m agent.cli_goals repair-script --help)",
+      "Bash(python -m pytest tests/ -x -q --timeout=30)",
+      "Bash(.venv/bin/pytest tests/ -x -q --timeout=30)"
     ]
   }
 }
