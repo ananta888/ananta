@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 
@@ -173,6 +174,132 @@ def _extract_script_blocks(text: str) -> str:
     return "\n".join(lines)
 
 
+# ── Host-Diagnose (läuft lokal, vor LLM-Submission) ─────────────────────────
+
+_SCAN_CMD_TIMEOUT = 5  # Sekunden pro Befehl
+
+_SCAN_BASE: list[tuple[str, str]] = [
+    ("Uptime / Load",          "uptime"),
+    ("Disk",                   "df -h"),
+    ("Memory",                 "free -h"),
+    ("Failed systemd units",   "systemctl --failed --no-pager 2>/dev/null"),
+    ("Open TCP listeners",     "ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null"),
+    ("Recent kernel/svc errors","journalctl -p err -n 20 --no-pager 2>/dev/null"),
+]
+
+_SCAN_SERVICE_MAP: list[tuple[str, list[tuple[str, str]]]] = [
+    (r"\bnginx\b", [
+        ("nginx: status",      "systemctl status nginx --no-pager -l 2>/dev/null"),
+        ("nginx: config test", "nginx -t 2>&1"),
+        ("nginx: config",      "cat /etc/nginx/nginx.conf 2>/dev/null"),
+        ("nginx: sites",       "ls -la /etc/nginx/sites-enabled/ 2>/dev/null || ls -la /etc/nginx/conf.d/ 2>/dev/null"),
+        ("nginx: error log",   "journalctl -u nginx -n 40 --no-pager 2>/dev/null"),
+    ]),
+    (r"\bapache2?\b|\bhttpd\b", [
+        ("apache: status",     "systemctl status apache2 --no-pager -l 2>/dev/null || systemctl status httpd --no-pager -l 2>/dev/null"),
+        ("apache: configtest", "apache2ctl configtest 2>&1 || apachectl configtest 2>&1"),
+        ("apache: error log",  "journalctl -u apache2 -n 40 --no-pager 2>/dev/null"),
+    ]),
+    (r"\bdocker\b", [
+        ("docker: containers", "docker ps -a 2>/dev/null"),
+        ("docker: compose",    "docker compose ps 2>/dev/null || docker-compose ps 2>/dev/null"),
+        ("docker: recent logs","docker compose logs --tail=25 2>/dev/null | head -60"),
+    ]),
+    (r"\bpostgres(?:ql)?\b", [
+        ("postgres: status",   "systemctl status postgresql --no-pager 2>/dev/null"),
+        ("postgres: ready",    "pg_isready 2>/dev/null"),
+        ("postgres: log",      "journalctl -u postgresql -n 40 --no-pager 2>/dev/null"),
+    ]),
+    (r"\bmysql\b|\bmariadb\b", [
+        ("mysql: status",      "systemctl status mysql --no-pager 2>/dev/null || systemctl status mariadb --no-pager 2>/dev/null"),
+        ("mysql: log",         "journalctl -u mysql -n 40 --no-pager 2>/dev/null"),
+    ]),
+    (r"\bsshd?\b", [
+        ("ssh: status",        "systemctl status ssh --no-pager 2>/dev/null || systemctl status sshd --no-pager 2>/dev/null"),
+        ("ssh: config",        "grep -Ev '^(#|\\s*$)' /etc/ssh/sshd_config 2>/dev/null"),
+        ("ssh: log",           "journalctl -u ssh -n 20 --no-pager 2>/dev/null"),
+    ]),
+    (r"\bufw\b|\bfirewall\b|\biptables\b", [
+        ("firewall: ufw",      "ufw status verbose 2>/dev/null"),
+        ("firewall: iptables", "iptables -L -n 2>/dev/null | head -40"),
+    ]),
+    (r"\bsystemd?\b|\bservice\b|\bunit\b", [
+        ("systemd: failed",    "systemctl list-units --state=failed --no-pager 2>/dev/null"),
+        ("systemd: log",       "journalctl -n 40 --no-pager 2>/dev/null"),
+    ]),
+    (r"\bdns\b|\bresolvd?\b|\bnameserver\b", [
+        ("dns: resolv.conf",   "cat /etc/resolv.conf 2>/dev/null"),
+        ("dns: systemd-resolved","systemctl status systemd-resolved --no-pager 2>/dev/null"),
+    ]),
+    (r"\bcron\b|\bcrontab\b", [
+        ("cron: status",       "systemctl status cron --no-pager 2>/dev/null || systemctl status crond --no-pager 2>/dev/null"),
+        ("cron: log",          "journalctl -u cron -n 30 --no-pager 2>/dev/null"),
+    ]),
+]
+
+# Wörter, die NICHT als Service-Name erkannt werden sollen
+_SCAN_SKIP_WORDS = {
+    "der", "die", "das", "ein", "eine", "nicht", "startet", "geht", "kaputt", "funktioniert",
+    "error", "fehler", "problem", "issue", "help", "crash", "fail", "failed", "bitte",
+    "the", "is", "not", "does", "won", "can", "running", "service", "system", "server",
+    "nach", "beim", "seit", "immer", "wieder", "alle", "port", "ports", "log", "logs",
+}
+
+
+def _run_scan_cmd(cmd: str) -> str:
+    try:
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=_SCAN_CMD_TIMEOUT)
+        out = (r.stdout or "").strip()
+        err = (r.stderr or "").strip()
+        return (out + ("\n" + err if err and not out else "")).strip()
+    except Exception:
+        return ""
+
+
+def _host_scan(topic: str, *, max_chars: int = 6000) -> str:
+    """Führe read-only Diagnose-Befehle lokal auf dem Host aus.
+
+    Liefert einen formatierten String, der als LLM-Kontext verwendet wird.
+    """
+    topic_lc = topic.lower()
+    cmds: list[tuple[str, str]] = list(_SCAN_BASE)
+
+    # Bekannte Services aus dem Topic erkennen
+    matched = False
+    for pattern, service_cmds in _SCAN_SERVICE_MAP:
+        if re.search(pattern, topic_lc, re.IGNORECASE):
+            cmds.extend(service_cmds)
+            matched = True
+
+    # Fallback: Freie Service-Name-Erkennung für unbekannte Services
+    if not matched:
+        words = re.findall(r"\b[a-zA-Z][a-zA-Z0-9_-]{2,}\b", topic)
+        for word in words:
+            if word.lower() not in _SCAN_SKIP_WORDS:
+                cmds.append((f"{word}: status", f"systemctl status {word} --no-pager 2>/dev/null"))
+                cmds.append((f"{word}: log", f"journalctl -u {word} -n 30 --no-pager 2>/dev/null"))
+                break
+
+    sections: list[str] = ["=== HOST-DIAGNOSE (live, vor LLM-Analyse) ==="]
+    total = 0
+    for label, cmd in cmds:
+        if total >= max_chars:
+            sections.append(f"[... weitere Ausgaben abgeschnitten (Limit {max_chars} Zeichen)]")
+            break
+        out = _run_scan_cmd(cmd)
+        if not out:
+            continue
+        remaining = max_chars - total
+        if len(out) > remaining:
+            out = out[:remaining] + "\n[...abgeschnitten]"
+        sections.append(f"--- {label} ---\n{out}")
+        total += len(out)
+
+    if len(sections) == 1:
+        sections.append("(Keine Scan-Ergebnisse — Systembefehle nicht verfügbar)")
+    return "\n\n".join(sections)
+
+
 def _submit_repair_goal(
     text: str,
     *,
@@ -250,7 +377,15 @@ def repair_script_cmd(
     max_iterations: int = 3,
     timeout: int = 300,
     planning_mode: str | None = None,
+    scan: bool = False,
 ) -> None:
+    # ── Phase 0: Host-Diagnose (einmalig, vor dem ersten LLM-Aufruf) ─
+    scan_context = ""
+    if scan:
+        print("Sammle Systemdiagnose vom Host...", file=sys.stderr)
+        scan_context = _host_scan(text)
+        print(f"Diagnose abgeschlossen ({len(scan_context)} Zeichen).", file=sys.stderr)
+
     # ── TUI loop mode ────────────────────────────────────────────────
     if tui_flag or loop_flag:
         from agent.repair_tui import RepairTuiResult, build_retry_context, run_repair_tui
@@ -263,7 +398,8 @@ def repair_script_cmd(
                 f"\n{'─' * 40}\nRepair TUI  Versuch {i}/{iterations}\n{'─' * 40}",
                 file=sys.stderr,
             )
-            extra_ctx = build_retry_context(history)
+            retry_ctx = build_retry_context(history)
+            extra_ctx = "\n\n".join(filter(None, [scan_context, retry_ctx]))
             outputs = _submit_repair_goal(
                 text,
                 extra_context=extra_ctx,
@@ -300,6 +436,7 @@ def repair_script_cmd(
     # ── Non-TUI mode (pipe-friendly) ─────────────────────────────────
     outputs = _submit_repair_goal(
         text,
+        extra_context=scan_context,
         team_id=team_id,
         timeout=timeout,
         planning_mode=planning_mode,
@@ -809,6 +946,7 @@ Examples:
     parser.add_argument("--tui", dest="tui_flag", action="store_true", help="Interactive TUI: review and approve commands for controlled host execution (repair-script only)")
     parser.add_argument("--loop", dest="loop_flag", action="store_true", help="TUI loop: plan → approve → execute → test → retry until fixed (repair-script only)")
     parser.add_argument("--max-iterations", type=int, default=3, metavar="N", help="Maximum loop iterations for --loop (default 3)")
+    parser.add_argument("--scan", dest="scan_flag", action="store_true", help="Host-Diagnose vor LLM-Submission: sammelt Systemzustand lokal (repair-script only)")
     parser.add_argument("--wait-timeout", type=int, default=300, metavar="SECONDS", help="Max seconds to wait for goal completion, default 300 (repair-script only)")
     parser.add_argument("--no-create", action="store_true", help="Don't create tasks, just analyze")
     parser.add_argument("--status", "-s", action="store_true", help="Show Goal readiness + Auto-Planner status")
@@ -887,6 +1025,7 @@ Examples:
             exec_flag=args.exec_script,
             tui_flag=args.tui_flag,
             loop_flag=args.loop_flag,
+            scan=args.scan_flag,
             max_iterations=args.max_iterations,
             timeout=args.wait_timeout,
             planning_mode=args.planning_mode,
