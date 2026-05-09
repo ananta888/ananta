@@ -107,6 +107,12 @@ def classify_command(
     if hub_decision == "approval_required":
         classification = "approval_required"
         return CommandPolicyDecision(classification, "hub_requires_approval", True, _risk_for_classification(classification))
+
+    if hub_decision == "allow" and profile in {"balanced", "fast"}:
+        # Hub vetted the task and profile is autonomous — run commands not explicitly denied/approval-required.
+        classification = "safe"
+        return CommandPolicyDecision(classification, "hub_allow_profile_auto_allow", False, _risk_for_classification(classification))
+
     classification = "unknown"
     return CommandPolicyDecision(classification, "command_not_classified", True, _risk_for_classification(classification))
 
