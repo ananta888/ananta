@@ -51,6 +51,17 @@ _TOOL_ALIASES: Dict[str, str] = {
     "context_reader": "file_read",
     "search_web": "web_search",
     "fetch_url": "web_fetch",
+    # Gemma4/ananta-default hallucinated tool names
+    "context_analysis_tool": "file_read",
+    "text_analysis_tool": "file_read",
+    "analysis_tool": "file_read",
+    "search_tool": "web_search",
+    "list_tool": "file_list",
+    "read_tool": "file_read",
+    "file_manager": "file_list",
+    "workspace_reader": "file_read",
+    "context_tool": "file_read",
+    "info_tool": "file_read",
 }
 
 

@@ -79,7 +79,7 @@ class AutopilotDecisionService:
         dynamic_guard = dict((agent_cfg.get("llm_tool_guardrails", {}) or {}))
         tool_classes = dynamic_guard.get("tool_classes", {}) or {}
         allowed_classes = set(policy["allowed_tool_classes"])
-        all_classes = set(tool_classes.values()) | {"unknown"}
+        all_classes = set(tool_classes.values())
         dynamic_guard["blocked_classes"] = sorted([item for item in all_classes if item not in allowed_classes])
         token_usage = {
             "prompt_tokens": estimate_text_tokens(command or reason or getattr(task, "description", None)),

@@ -73,6 +73,17 @@ DEFAULT_TOOL_CAPABILITIES: dict[str, ToolCapability] = {
     "bash": ToolCapability("bash", "write", False, True, "Run a bash command."),
     "search_web": ToolCapability("search_web", "read", False, False, "Search the web."),
     "fetch_url": ToolCapability("fetch_url", "read", False, False, "Fetch a URL."),
+    # Gemma4/ananta-default hallucinated tool names (treated as read-only)
+    "context_analysis_tool": ToolCapability("context_analysis_tool", "read", False, False, "Read and analyse context."),
+    "text_analysis_tool": ToolCapability("text_analysis_tool", "read", False, False, "Analyse text content."),
+    "analysis_tool": ToolCapability("analysis_tool", "read", False, False, "Analyse content."),
+    "search_tool": ToolCapability("search_tool", "read", False, False, "Search for information."),
+    "list_tool": ToolCapability("list_tool", "read", False, False, "List items."),
+    "read_tool": ToolCapability("read_tool", "read", False, False, "Read content."),
+    "file_manager": ToolCapability("file_manager", "read", False, False, "Manage files."),
+    "workspace_reader": ToolCapability("workspace_reader", "read", False, False, "Read workspace files."),
+    "context_tool": ToolCapability("context_tool", "read", False, False, "Read context."),
+    "info_tool": ToolCapability("info_tool", "read", False, False, "Read information."),
 }
 
 
