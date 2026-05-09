@@ -202,7 +202,8 @@ def validate_task_scoped_tool_calls(
             reasons["<invalid>"] = "invalid_tool_call"
             continue
 
-        name = str(tc.get("name") or "").strip()
+        raw_name = str(tc.get("name") or tc.get("tool_name") or "").strip()
+        name = raw_name.rsplit(".", 1)[-1] if "." in raw_name else raw_name
         if not name:
             blocked.append("<missing>")
             reasons["<missing>"] = "missing_tool_name"

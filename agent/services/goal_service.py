@@ -67,7 +67,7 @@ class GoalService:
         }
         policy_defaults = {
             "mode": "hub_enforced",
-            "security_level": "safe_defaults",
+            "security_level": "balanced",
         }
         return {
             "planning": planning_defaults,

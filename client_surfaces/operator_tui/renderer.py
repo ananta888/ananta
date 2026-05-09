@@ -3,7 +3,7 @@ from __future__ import annotations
 from textwrap import shorten
 
 from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
-from client_surfaces.operator_tui.keymap import bindings_for_mode
+from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_inspection_detail, build_task_rows
@@ -26,7 +26,7 @@ def render_operator_shell(state: OperatorState, *, width: int = 120, height: int
     nav_lines = _navigation_lines(state)
     content_lines = _content_lines(state, middle_width)
     detail_lines = _detail_lines(state, detail_width)
-    body_height = height - 6
+    body_height = height - 7
     for index in range(body_height):
         lines.append(
             " ".join(
@@ -43,6 +43,7 @@ def render_operator_shell(state: OperatorState, *, width: int = 120, height: int
     lines.append(_rule(width))
     lines.append(_status_line(state, width))
     lines.append(_command_line(state, width))
+    lines.append(_hints_line(state, width))
     if state.show_help or section.id == "help":
         lines.extend(_help_overlay(state, width))
     return "\n".join(_clip(line, width) for line in lines)
@@ -62,43 +63,60 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
     panel_state = (state.panel_states or {}).get(section.id, PanelState.LOADING)
     payload = (state.section_payloads or {}).get(section.id, {})
     lines = [_pane_title(section.title.upper(), state.focus == FocusPane.CONTENT)]
-    lines.append(f"state={state_label(panel_state)}")
-    lines.append(f"first_class={str(section.first_class).lower()}")
-    lines.append(f"timeout_seconds={section.timeout_seconds:g}")
-    lines.append(f"refresh_interval_seconds={section.refresh_interval_seconds:g}")
-    lines.append("dependencies:")
-    for dependency in section.primary_dependencies:
-        lines.append(f"- {dependency}")
-    lines.append("")
-    lines.append("loading_policy=section_local")
-    lines.append("render_policy=partial_first_paint")
-    lines.append("mutation_policy=hub_dispatch_only")
-    if payload:
-        lines.append("")
-        lines.append("payload:")
-        for key in sorted(payload.keys()):
-            value = payload[key]
-            if isinstance(value, list):
-                lines.append(f"- {key}=list[{len(value)}]")
-            else:
-                lines.append(f"- {key}={value}")
+
+    if panel_state == PanelState.LOADING:
+        lines.append("  loading...")
+        return lines
+    if panel_state == PanelState.UNAUTHORIZED:
+        lines.append("  ! access denied")
+        lines.append("    export ANANTA_USER=admin")
+        lines.append("    export ANANTA_PASSWORD=...")
+        return lines
+    if panel_state == PanelState.DEGRADED:
+        lines.append(f"  ! degraded — {state.status_message or 'check system logs'}")
+        lines.append("    press r to retry")
+        return lines
+
     if section.id == "dashboard":
-        lines.append("")
-        lines.append("summary:")
-        lines.append("- hub health belongs to System")
-        lines.append("- task and goal reads stay hub-owned")
-        lines.append("- workers are never orchestrated here")
+        lines.extend(_dashboard_content_lines(payload))
+    elif section.id == "goals":
+        items = payload.get("items") or []
+        if not items:
+            lines.append('  no goals — try: ananta plan "..."')
+        else:
+            for i, item in enumerate(items):
+                marker = DEFAULT_THEME.selected_prefix if i == state.selected_index else " "
+                lines.append(f"{marker} {item.get('id','?')}  [{item.get('status','?')}]  {item.get('title','')}")
+    elif section.id == "tasks":
+        items = payload.get("items") or []
+        if not items:
+            lines.append("  no tasks yet")
+        else:
+            for i, item in enumerate(items):
+                marker = DEFAULT_THEME.selected_prefix if i == state.selected_index else " "
+                lines.append(f"{marker} {item.get('id','?')}  [{item.get('status','?')}]  agent={item.get('agent','?')}  {item.get('title','')}")
+        timeline = payload.get("timeline") or []
+        if timeline:
+            lines.append("")
+            lines.append("  Timeline:")
+            for entry in timeline[:3]:
+                lines.append(f"    {entry.get('id','?')}  {entry.get('summary','')}")
+    elif section.id == "system":
+        lines.extend(_system_content_lines(payload))
     elif section.id == "help":
         lines.append("")
-        lines.extend(binding_line for binding_line in _binding_lines(state, width))
-    elif section.id == "goals":
-        lines.append("")
-        lines.append("goals:")
-        lines.extend(build_goal_rows(payload))
-    elif section.id == "tasks":
-        lines.append("")
-        lines.append("tasks:")
-        lines.extend(build_task_rows(payload))
+        lines.extend(_binding_lines(state, width))
+    else:
+        items = payload.get("items") or []
+        if panel_state == PanelState.EMPTY or not items:
+            lines.append("  (empty)")
+            lines.append("  press r to refresh")
+        else:
+            for i, item in enumerate(items[:20]):
+                marker = DEFAULT_THEME.selected_prefix if i == state.selected_index else " "
+                label = item.get("title") or item.get("id") or str(item)
+                lines.append(f"{marker} {label}")
+
     if state.markdown_source and section.id in {"artifacts", "help"}:
         lines.append("")
         for block in detect_diagram_blocks(state.markdown_source):
@@ -106,47 +124,121 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
             lines.append("")
         lines.append("markdown:")
         lines.extend(render_markdown_lines(state.markdown_source, width=width, max_lines=8))
+
+    return lines
+
+
+def _dashboard_content_lines(payload: dict) -> list[str]:
+    lines = []
+    agents = payload.get("agents") or {}
+    llm = payload.get("llm_providers") or {}
+    queue = payload.get("queue") or {}
+    goal_summary = payload.get("goal_summary") or payload.get("goals") or {}
+    task_summary = payload.get("task_summary") or payload.get("tasks") or {}
+
+    lines.append("  System")
+    if agents:
+        online = agents.get("online", "?")
+        total = agents.get("total", "?")
+        lines.append(f"    Agents  {online}/{total} online")
+    if llm:
+        for provider, status in llm.items():
+            lines.append(f"    {provider:<10} {status}")
+    if queue:
+        depth = queue.get("depth", 0)
+        lines.append(f"    Queue   {depth} tasks pending")
+    if not agents and not llm and not queue:
+        lines.append("    go to System for health info")
+
+    if goal_summary or task_summary:
+        lines.append("")
+        lines.append("  Overview")
+        if goal_summary:
+            lines.append(f"    Goals:  {goal_summary}")
+        if task_summary:
+            lines.append(f"    Tasks:  {task_summary}")
+    else:
+        lines.append("")
+        lines.append("  go to Goals or Tasks for details")
+
+    return lines
+
+
+def _system_content_lines(payload: dict) -> list[str]:
+    lines = []
+    agents = payload.get("agents") or {}
+    llm = payload.get("llm_providers") or {}
+    queue = payload.get("queue") or {}
+    contracts = payload.get("contracts") or []
+
+    if agents:
+        online = agents.get("online", "?")
+        total = agents.get("total", "?")
+        lines.append(f"  Agents:    {online}/{total} online")
+    if llm:
+        for provider, status in llm.items():
+            lines.append(f"  {provider:<12} {status}")
+    if queue:
+        depth = queue.get("depth", 0)
+        counts = queue.get("counts") or {}
+        lines.append(f"  Queue:     {depth} pending")
+        if counts:
+            parts = [f"{k}={v}" for k, v in counts.items() if v]
+            if parts:
+                lines.append(f"             {' '.join(parts)}")
+    if contracts:
+        lines.append("")
+        lines.append("  Contracts:")
+        for c in contracts[:5]:
+            lines.append(f"    {c}")
+    if not lines:
+        lines.append("  press r to load system data")
+
     return lines
 
 
 def _detail_lines(state: OperatorState, width: int) -> list[str]:
     section = get_section(state.section_id)
-    panel_state = (state.panel_states or {}).get(section.id, PanelState.LOADING)
     lines = [_pane_title("DETAIL", state.focus == FocusPane.DETAIL)]
-    lines.append(f"section={section.id}")
-    lines.append(f"panel_state={state_label(panel_state)}")
-    lines.append(f"fallback={section.fallback}")
-    lines.append(f"selected_index={state.selected_index}")
-    lines.append(f"refresh_count={state.refresh_count}")
+
+    if state.mode.value == "inspect":
+        lines.append("")
+        lines.append("  Inspect:")
+        lines.extend(
+            f"    {l}"
+            for l in build_inspection_detail(
+                section.id, (state.section_payloads or {}).get(section.id, {}), state.selected_index
+            )
+        )
+
     if state.pending_action:
         lines.append("")
-        lines.append("pending_action:")
-        lines.append(f"name={state.pending_action.get('name')}")
-        lines.append(f"risk={state.pending_action.get('risk')}")
-        lines.append("confirm_with=:confirm")
+        lines.append("  ! Pending action:")
+        lines.append(f"    {state.pending_action.get('name')}")
+        lines.append(f"    risk={state.pending_action.get('risk')}")
+        lines.append("    :confirm  to execute")
+        lines.append("    :cancel   to abort")
+
     if state.audit_context:
         lines.append("")
-        lines.append("audit:")
-        lines.append(f"intent={state.audit_context.get('intent')}")
-        lines.append(f"action={state.audit_context.get('action')}")
+        lines.append("  Audit:")
+        lines.append(f"    intent={state.audit_context.get('intent')}")
+        lines.append(f"    action={state.audit_context.get('action')}")
+
     if state.browser_fallback_url:
         lines.append("")
         lines.append(f"browser={state.browser_fallback_url}")
-    if state.terminal_graphics:
-        lines.append("")
-        lines.append(f"graphics_supported={str(state.terminal_graphics.get('supported')).lower()}")
-        lines.append(f"graphics_fallback={state.terminal_graphics.get('fallback')}")
-    if state.mode.value == "inspect":
-        lines.append("")
-        lines.append("inspect:")
-        lines.extend(build_inspection_detail(section.id, (state.section_payloads or {}).get(section.id, {}), state.selected_index))
+
     lines.append("")
-    lines.append("commands:")
-    lines.append(":section <id>")
-    lines.append(":refresh")
-    lines.append(":focus <pane>")
-    lines.append(":help")
-    lines.append(":sections")
+    lines.append("  Commands:")
+    lines.append("    :section <id>   switch section")
+    lines.append("    :refresh        reload data")
+    lines.append("    :focus <pane>   nav/content/detail")
+    lines.append("    :help           keybindings")
+    if section.id in {"goals", "tasks"}:
+        lines.append("    :inspect        show selected")
+        lines.append("    :action <n> <r> dispatch action")
+
     return [_clip(line, width) for line in lines]
 
 
@@ -185,6 +277,10 @@ def _status_line(state: OperatorState, width: int) -> str:
 def _command_line(state: OperatorState, width: int) -> str:
     prefix = ":" if state.mode.value == "command" else " "
     return _clip(f"{prefix}{state.command_line}", width)
+
+
+def _hints_line(state: OperatorState, width: int) -> str:
+    return _clip(hints_for_mode(state.mode), width)
 
 
 def _rule(width: int) -> str:

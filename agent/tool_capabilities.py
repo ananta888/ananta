@@ -46,6 +46,33 @@ DEFAULT_TOOL_CAPABILITIES: dict[str, ToolCapability] = {
     "configure_triggers": ToolCapability("configure_triggers", "admin", True, True, "Configure triggers."),
     "set_autopilot_state": ToolCapability("set_autopilot_state", "admin", True, True, "Start/stop/tick autopilot."),
     "update_config": ToolCapability("update_config", "admin", True, True, "Update global configuration."),
+    # worker file/shell tools (canonical names)
+    "file_read": ToolCapability("file_read", "read", False, False, "Read a file."),
+    "file_list": ToolCapability("file_list", "read", False, False, "List directory contents."),
+    "file_write": ToolCapability("file_write", "write", False, True, "Write a file."),
+    "file_writer": ToolCapability("file_writer", "write", False, True, "Write a file."),
+    "file_patch": ToolCapability("file_patch", "write", False, True, "Patch a file."),
+    "shell_execute": ToolCapability("shell_execute", "write", False, True, "Execute a shell command."),
+    "git_status": ToolCapability("git_status", "read", False, False, "Show git status."),
+    "git_diff": ToolCapability("git_diff", "read", False, False, "Show git diff."),
+    "git_log": ToolCapability("git_log", "read", False, False, "Show git log."),
+    "git_commit": ToolCapability("git_commit", "write", False, True, "Create a git commit."),
+    "web_fetch": ToolCapability("web_fetch", "read", False, False, "Fetch a URL."),
+    "web_search": ToolCapability("web_search", "read", False, False, "Search the web."),
+    "doc_extract": ToolCapability("doc_extract", "read", False, False, "Extract documentation."),
+    # common model-generated aliases (Gemma4/OpenAI naming conventions)
+    "read_file": ToolCapability("read_file", "read", False, False, "Read a file."),
+    "write_file": ToolCapability("write_file", "write", False, True, "Write a file."),
+    "list_files": ToolCapability("list_files", "read", False, False, "List files."),
+    "context_reader": ToolCapability("context_reader", "read", False, False, "Read context files."),
+    "create_file": ToolCapability("create_file", "write", False, True, "Create a file."),
+    "edit_file": ToolCapability("edit_file", "write", False, True, "Edit a file."),
+    "patch_file": ToolCapability("patch_file", "write", False, True, "Patch a file."),
+    "run_command": ToolCapability("run_command", "write", False, True, "Run a shell command."),
+    "execute_command": ToolCapability("execute_command", "write", False, True, "Execute a shell command."),
+    "bash": ToolCapability("bash", "write", False, True, "Run a bash command."),
+    "search_web": ToolCapability("search_web", "read", False, False, "Search the web."),
+    "fetch_url": ToolCapability("fetch_url", "read", False, False, "Fetch a URL."),
 }
 
 
@@ -136,7 +163,8 @@ def validate_tool_calls_against_contract(
             blocked.append("<invalid>")
             reasons["<invalid>"] = "invalid_tool_call"
             continue
-        name = str(tc.get("name") or "").strip()
+        raw_name = str(tc.get("name") or tc.get("tool_name") or "").strip()
+        name = raw_name.rsplit(".", 1)[-1] if "." in raw_name else raw_name
         if not name:
             blocked.append("<missing>")
             reasons["<missing>"] = "missing_tool_name"

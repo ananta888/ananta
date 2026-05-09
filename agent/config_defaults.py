@@ -76,6 +76,7 @@ def build_default_agent_config() -> dict:
             "class_cost_units": {"read": 1, "write": 5, "admin": 8, "unknown": 3},
             "external_classes": ["write", "admin"],
             "tool_classes": {
+                # hub/orchestration tools
                 "list_teams": "read",
                 "list_roles": "read",
                 "list_agents": "read",
@@ -102,6 +103,19 @@ def build_default_agent_config() -> dict:
                 "configure_triggers": "admin",
                 "set_autopilot_state": "admin",
                 "update_config": "admin",
+                # worker file/shell tools
+                "file_read": "read",
+                "file_list": "read",
+                "file_write": "write",
+                "file_patch": "write",
+                "shell_execute": "write",
+                "git_status": "read",
+                "git_diff": "read",
+                "git_log": "read",
+                "git_commit": "write",
+                "web_fetch": "read",
+                "web_search": "read",
+                "doc_extract": "read",
             },
         },
         "autonomous_resilience": {
