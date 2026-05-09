@@ -97,6 +97,11 @@ def update_local_task_status(
     force: bool = False,
     **kwargs,
 ) -> None:
+    # thr-004: thread-safe — each call opens its own SQLAlchemy Session via
+    # `with Session(engine)` in the repository layer. The engine connection pool
+    # (PostgreSQL QueuePool) is designed for concurrent multi-threaded access.
+    # Concurrent calls for *different* task IDs are fully safe (row-level locking).
+    # Concurrent calls for the *same* task ID are serialized by PostgreSQL row locks.
     task = task_repo.get_by_id(tid)
     if not task:
         task = TaskDB(id=tid, created_at=time.time(), status="todo")
