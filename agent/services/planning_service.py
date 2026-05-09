@@ -464,6 +464,8 @@ class PlanningService:
             return plan, []
         return plan, repos.plan_node_repo.get_by_plan_id(plan.id)
 
+    _PIPELINE_SHELL_MODES = {"admin_repair", "runtime_repair", "docker_compose_repair"}
+
     def _materialize_plan(
         self,
         planner,
@@ -473,6 +475,7 @@ class PlanningService:
         parent_task_id: Optional[str],
         goal_id: Optional[str],
         goal_trace_id: Optional[str],
+        mode: str = "generic",
     ) -> tuple[list[str], str | None]:
         repos = get_repository_registry()
         staged = self._prepare_materialization(nodes=nodes)
@@ -483,6 +486,11 @@ class PlanningService:
                 plan.updated_at = time.time()
                 repos.plan_repo.save(plan)
             return [], "invalid_dependencies"
+
+        # Inject shell_command_mode into node rationale for repair/pipeline modes
+        if mode in self._PIPELINE_SHELL_MODES:
+            for node in nodes:
+                node.rationale = {**(node.rationale or {}), "shell_command_mode": "pipeline"}
 
         created_ids: list[str] = []
         try:
@@ -720,6 +728,7 @@ class PlanningService:
                 parent_task_id=parent_task_id,
                 goal_id=goal_id,
                 goal_trace_id=goal_trace_id,
+                mode=mode,
             )
             if materialization_error:
                 planner._stats["errors"] += 1

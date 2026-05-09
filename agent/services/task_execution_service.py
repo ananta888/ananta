@@ -462,11 +462,14 @@ class TaskExecutionService:
                 )
 
         if command:
+            _wec = effective_task.get("worker_execution_context") or {}
+            allow_complex_shell = str(_wec.get("shell_command_mode") or "").strip().lower() == "pipeline"
             command_output, command_exit_code, retries_used, failure_type, retry_history = self._execute_shell_command_with_policy(
                 tid=tid,
                 command=command,
                 execution_policy=execution_policy,
                 working_directory=working_directory,
+                allow_complex_shell=allow_complex_shell,
             )
             output_parts.append(command_output)
             if command_exit_code != 0:
@@ -992,16 +995,20 @@ class TaskExecutionService:
         command: str,
         execution_policy: TaskExecutionPolicyContract,
         working_directory: str | None = None,
+        allow_complex_shell: bool = False,
     ) -> tuple[str, int | None, int, str, list[dict]]:
         repaired_command = self._repair_command_transcription_noise(command)
         command_segments, unsupported_ops = self._split_and_chained_commands(repaired_command)
-        if unsupported_ops:
+        if unsupported_ops and not allow_complex_shell:
             message = (
                 "Error: Unsupported shell operators in command: "
                 + ", ".join(unsupported_ops)
                 + ". Request a single command without chaining/redirection."
             )
             return message, -1, 0, "command_runtime_error", []
+        if unsupported_ops and allow_complex_shell:
+            # Pipeline-mode: run the full command as-is via shell instead of splitting
+            command_segments = [repaired_command]
 
         aggregate_outputs: list[str] = []
         aggregate_retries = 0

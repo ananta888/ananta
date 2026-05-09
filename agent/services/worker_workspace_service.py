@@ -189,6 +189,7 @@ class WorkerWorkspaceService:
         tool_definitions: list[dict] | None,
         research_context: dict | None,
         include_response_contract: bool = True,
+        allow_complex_shell: bool = False,
         task_brief_char_limit: int | None = None,
         context_text_char_limit: int | None = None,
         research_prompt_char_limit: int | None = None,
@@ -289,6 +290,15 @@ class WorkerWorkspaceService:
 
         response_contract = bundle_dir / "response-contract.md"
         if include_response_contract:
+            if allow_complex_shell:
+                shell_rule = (
+                    "- `command` may use pipelines (`|`), redirects (`>`, `<`, `2>&1`), "
+                    "and chaining (`&&`, `||`, `;`) — full shell syntax is allowed."
+                )
+            else:
+                shell_rule = (
+                    "- `command` must not use shell chaining or redirection (`&&`, `||`, `;`, `>`, `<`, `|`)."
+                )
             response_lines = [
                 "# Response Contract",
                 "",
@@ -300,7 +310,7 @@ class WorkerWorkspaceService:
                 "- `reason` must stay short and technical.",
                 "- Prefer `tool_calls` for file, directory, and code-change operations.",
                 "- If `command` is used, it must be exactly one concrete shell command.",
-                "- `command` must not use shell chaining or redirection (`&&`, `||`, `;`, `>`, `<`, `|`).",
+                shell_rule,
                 "",
                 "Expected shape:",
                 "```json",

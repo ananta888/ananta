@@ -38,6 +38,7 @@ class TaskLifecycleService:
         blueprint_provenance = {
             key: value for key, value in blueprint_provenance.items() if value
         }
+        shell_command_mode = str(rationale.get("shell_command_mode") or "").strip() or None
         worker_execution_context = {
             "kind": "worker_execution_context",
             "version": "v1",
@@ -54,6 +55,7 @@ class TaskLifecycleService:
                 "required_context_scope": rationale.get("required_context_scope"),
                 "preferred_bundle_mode": rationale.get("preferred_bundle_mode"),
             },
+            **({"shell_command_mode": shell_command_mode} if shell_command_mode else {}),
         }
         get_task_queue_service().ingest_task(
             task_id=task_id,
