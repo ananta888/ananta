@@ -13,7 +13,9 @@ Usage:
 import argparse
 import json
 import os
+import re
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -69,6 +71,157 @@ SHORTCUT_GOALS = {
         "context": "Kurzkommando: Admin Repair. Fokus auf bounded evidence, dry-run-first, advisory Klassifikation und verifizierbare Repair-Schritte.",
     },
 }
+
+# repair-script: like repair-admin but synchronous + outputs clean script to stdout
+_REPAIR_SCRIPT_CFG = {
+    "mode": "admin_repair",
+    "prefix": "Analysiere das Problem und gib praezise Shell-Befehle als ausfuehrbares Bash-Script aus:",
+    "context": (
+        "Kurzkommando: Repair Script. "
+        "Ausgabe: nur Shell-Befehle als ausfuehrbares Bash-Script. "
+        "Jeden Befehl einzeln, Kommentare mit #, dry-run-first, minimale Nebenwirkungen. "
+        "Kein Prosatext ausserhalb von Bash-Code-Bloecken."
+    ),
+}
+
+_TERMINAL_GOAL_STATUSES = {"completed", "failed", "cancelled", "archived", "aborted"}
+
+
+def _poll_goal_status(goal_id: str, *, timeout: int = 300, interval: int = 5) -> str:
+    deadline = time.monotonic() + timeout
+    dots = 0
+    while time.monotonic() < deadline:
+        res = _request("GET", f"/goals/{goal_id}", timeout=10)
+        if res.status_code == 200:
+            data = _api_data(res)
+            status = str(data.get("status") or "").lower()
+            if status in _TERMINAL_GOAL_STATUSES:
+                print(file=sys.stderr)
+                return status
+            dots = (dots + 1) % 4
+            print(f"\r  [{status}]{'.' * dots}   ", end="", file=sys.stderr, flush=True)
+        time.sleep(interval)
+    print(file=sys.stderr)
+    return "timeout"
+
+
+def _fetch_task_full_output(task_id: str) -> str:
+    res = _request("GET", f"/tasks/{task_id}", timeout=15)
+    if res.status_code == 200:
+        return str(_api_data(res).get("last_output") or "").strip()
+    return ""
+
+
+def _fetch_goal_outputs(goal_id: str) -> list[tuple[str, str]]:
+    res = _request("GET", f"/goals/{goal_id}/detail", timeout=20)
+    if res.status_code != 200:
+        return []
+    data = _api_data(res)
+    results = []
+    for artifact in (data.get("artifacts") or []):
+        task_id = artifact.get("task_id")
+        if task_id:
+            output = _fetch_task_full_output(task_id)
+            if output:
+                results.append((str(artifact.get("title") or "task"), output))
+    return results
+
+
+def _extract_script_blocks(text: str) -> str:
+    blocks = re.findall(
+        r"```(?:bash|sh|shell|zsh|cmd|console|powershell)?\s*\n(.*?)```",
+        text,
+        re.DOTALL,
+    )
+    if blocks:
+        return "\n\n".join(b.strip() for b in blocks)
+    lines = [l for l in text.splitlines() if l.strip() and not l.strip().startswith("#!")]
+    return "\n".join(lines)
+
+
+def repair_script_cmd(
+    text: str,
+    *,
+    team_id: str | None = None,
+    script_out: str | None = None,
+    exec_flag: bool = False,
+    timeout: int = 300,
+) -> None:
+    prefix = _REPAIR_SCRIPT_CFG["prefix"]
+    goal_text = f"{prefix} {text.strip()}"
+    mode_data = _shortcut_mode_data("repair-admin", text.strip())
+
+    print("Submitting repair-script goal...", file=sys.stderr)
+    payload: dict = {
+        "goal": goal_text,
+        "context": _REPAIR_SCRIPT_CFG["context"],
+        "create_tasks": True,
+        "mode": _REPAIR_SCRIPT_CFG["mode"],
+        "mode_data": mode_data,
+    }
+    if team_id:
+        payload["team_id"] = team_id
+
+    response = _request("POST", "/goals", body=payload, timeout=60)
+    if response.status_code != 201:
+        _print_error(response)
+        sys.exit(1)
+
+    rdata = _api_data(response)
+    goal_id = (rdata.get("goal") or {}).get("id")
+    task_ids = rdata.get("created_task_ids") or []
+    if not goal_id:
+        print("Error: No goal ID returned.", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Goal ID: {goal_id}  Tasks: {len(task_ids)}", file=sys.stderr)
+    print(f"Waiting (max {timeout}s)...", file=sys.stderr)
+
+    final_status = _poll_goal_status(goal_id, timeout=timeout)
+    print(f"Final status: {final_status}", file=sys.stderr)
+
+    if final_status in {"failed", "cancelled", "aborted", "timeout"}:
+        print(f"Goal did not complete (status={final_status}). Use 'ananta goal --goal-detail {goal_id}' for details.", file=sys.stderr)
+        sys.exit(1)
+
+    outputs = _fetch_goal_outputs(goal_id)
+    if not outputs:
+        print("No output found.", file=sys.stderr)
+        sys.exit(1)
+
+    combined = "\n\n".join(txt for _, txt in outputs)
+    script_content = _extract_script_blocks(combined)
+
+    if script_out:
+        with open(script_out, "w", encoding="utf-8") as fh:
+            fh.write("#!/bin/bash\n")
+            fh.write(script_content)
+            if not script_content.endswith("\n"):
+                fh.write("\n")
+        print(f"Script saved: {script_out}", file=sys.stderr)
+        print(f"Review : cat {script_out}", file=sys.stderr)
+        print(f"Execute: bash {script_out}", file=sys.stderr)
+        return
+
+    if exec_flag:
+        print("\n--- Script ---", file=sys.stderr)
+        print(script_content, file=sys.stderr)
+        print("--- End ---", file=sys.stderr)
+        try:
+            answer = input("\nExecute this script? [y/N]: ").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            print("\nAborted.", file=sys.stderr)
+            sys.exit(0)
+        if answer in {"y", "yes"}:
+            import subprocess
+            result = subprocess.run(["bash", "-c", script_content])
+            sys.exit(result.returncode)
+        else:
+            print("Execution skipped.", file=sys.stderr)
+        return
+
+    # Default: clean stdout (pipe-friendly)
+    print(script_content)
 
 
 def get_base_url():
@@ -458,6 +611,14 @@ Examples:
     ananta ask --output-dir ./out "Generate a README for this repo"
     (Docker: use paths relative to project root, e.g. myproject -> /app/myproject in container)
 
+  Repair-script (synchronous, pipe-friendly):
+    ananta repair-script "Nginx crashes on startup"
+    ananta repair-script "Nginx crashes" > fix.sh && cat fix.sh
+    ananta repair-script "Nginx crashes" | bash
+    ananta repair-script "Nginx crashes" --script-out fix.sh
+    ananta repair-script "Nginx crashes" --exec
+    ananta repair-script "Nginx crashes" --wait-timeout 120
+
   Profile/Governance (GOV-051/PRF-080):
     ananta goal --config-show
     ananta goal --set-runtime-profile demo --set-governance-mode safe
@@ -488,7 +649,7 @@ Examples:
     parser.add_argument(
         "goal",
         nargs="?",
-        help="Goal description to submit, or shortcut: ask/plan/analyze/review/diagnose/patch/new-project/evolve-project/repair-admin",
+        help="Goal description to submit, or shortcut: ask/plan/analyze/review/diagnose/patch/new-project/evolve-project/repair-admin/repair-script",
     )
     parser.add_argument("extra", nargs="*", help="Additional words for shortcut goals")
     parser.add_argument("--goal", "-g", dest="goal_flag", help="Goal description (alternative)")
@@ -497,6 +658,9 @@ Examples:
     parser.add_argument("--mode", help="Guided goal mode ID (e.g. code_fix, docker_compose_repair)")
     parser.add_argument("--mode-data", help='JSON object for mode fields, e.g. \'{"service":"hub"}\'')
     parser.add_argument("--output-dir", "-o", help="Directory where generated files are written (default: isolated workspace)")
+    parser.add_argument("--script-out", "-S", metavar="FILE", help="Save the extracted repair script to this file (repair-script only)")
+    parser.add_argument("--exec", dest="exec_script", action="store_true", help="Review then optionally execute the generated script (repair-script only)")
+    parser.add_argument("--wait-timeout", type=int, default=300, metavar="SECONDS", help="Max seconds to wait for goal completion, default 300 (repair-script only)")
     parser.add_argument("--no-create", action="store_true", help="Don't create tasks, just analyze")
     parser.add_argument("--status", "-s", action="store_true", help="Show Goal readiness + Auto-Planner status")
     parser.add_argument("--first-run", action="store_true", help="Show the official first CLI path, success signals and failure help")
@@ -555,6 +719,18 @@ Examples:
         list_artifacts(limit=args.limit)
     elif args.analyze_task:
         analyze_task_followups(args.analyze_task, output=args.output)
+    elif args.goal == "repair-script":
+        shortcut_text = " ".join(args.extra).strip()
+        if not shortcut_text:
+            print("Error: 'repair-script' needs a short description", file=sys.stderr)
+            sys.exit(2)
+        repair_script_cmd(
+            shortcut_text,
+            team_id=args.team,
+            script_out=args.script_out,
+            exec_flag=args.exec_script,
+            timeout=args.wait_timeout,
+        )
     elif args.goal in SHORTCUT_GOALS:
         shortcut_text = " ".join(args.extra).strip()
         if not shortcut_text:
