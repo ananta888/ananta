@@ -1,4 +1,11 @@
-"""Interactive TUI for reviewing, executing, and iterating on repair commands on the host."""
+"""Interactive TUI for reviewing, executing, and auto-retrying repair commands on the host.
+
+Loop logic:
+  plan → TUI approve → execute on host → check exit codes (automatic)
+       → all OK: done
+       → any failed: feed failure context back into next plan iteration
+       → user can abort at any point with q
+"""
 from __future__ import annotations
 
 import re
@@ -10,7 +17,6 @@ from dataclasses import dataclass, field
 from typing import Literal, Optional
 
 from rich import box
-from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -29,15 +35,25 @@ class RepairCommand:
     stdout: str = ""
     stderr: str = ""
 
+    @property
+    def succeeded(self) -> bool:
+        return self.executed and self.exit_code == 0
 
+    @property
+    def failed(self) -> bool:
+        return self.executed and self.exit_code != 0
+
+
+# Verdict is now purely derived from execution results — user only controls abort.
 Verdict = Literal["fixed", "retry", "abort"]
 
 
 @dataclass
 class RepairTuiResult:
-    """Result of one TUI iteration."""
     executed: list[RepairCommand] = field(default_factory=list)
-    verdict: Verdict = "abort"   # what the user decided after execution
+    verdict: Verdict = "abort"
+    # Human-readable summary of what failed, fed into the next plan context.
+    failure_summary: str = ""
 
 
 # ── Command extraction ───────────────────────────────────────────────────────
@@ -50,21 +66,17 @@ _COMMAND_LINE_RE = re.compile(r"^command=(.+)$", re.MULTILINE)
 
 def _extract_commands(task_title: str, output: str) -> list[RepairCommand]:
     cmds: list[RepairCommand] = []
-
     for block in _SCRIPT_BLOCK_RE.findall(output):
         for line in block.splitlines():
             line = line.strip()
             if line and not line.startswith("#") and not line.startswith("!"):
                 cmds.append(RepairCommand(command=line, source_task=task_title))
-
     if cmds:
         return cmds
-
     for m in _COMMAND_LINE_RE.finditer(output):
         cmd = m.group(1).strip()
         if cmd:
             cmds.append(RepairCommand(command=cmd, source_task=task_title))
-
     return cmds
 
 
@@ -80,7 +92,7 @@ def extract_commands_from_outputs(outputs: list[tuple[str, str]]) -> list[Repair
 
 
 def build_retry_context(history: list[RepairTuiResult]) -> str:
-    """Build a context string for the next planning iteration from past results."""
+    """Build context for the next planning iteration from execution history."""
     if not history:
         return ""
     lines = ["VORHERIGE REPARATURVERSUCHE (bitte andere Ansaetze vorschlagen):"]
@@ -89,7 +101,10 @@ def build_retry_context(history: list[RepairTuiResult]) -> str:
         for cmd in r.executed:
             ec = cmd.exit_code if cmd.exit_code is not None else "?"
             out = (cmd.stdout or cmd.stderr or "")[:120].replace("\n", " ")
-            lines.append(f"  - {cmd.command}  →  exit={ec}  {out}")
+            status = "OK" if cmd.succeeded else f"FEHLER exit={ec}"
+            lines.append(f"  [{status}] {cmd.command}  {out}")
+        if r.failure_summary:
+            lines.append(f"  Zusammenfassung: {r.failure_summary}")
     return "\n".join(lines)
 
 
@@ -109,14 +124,33 @@ def _getch() -> str:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 
-# ── TUI rendering helpers ────────────────────────────────────────────────────
+def _getch_nonblock(timeout_s: float = 3.0) -> str | None:
+    """Read one keypress, return None if timeout_s passes with no input."""
+    import select
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        ready, _, _ = select.select([sys.stdin], [], [], timeout_s)
+        if not ready:
+            return None
+        ch = sys.stdin.read(1)
+        if ch == "\x1b":
+            rest = sys.stdin.read(2)
+            return ch + rest
+        return ch
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+# ── TUI rendering ────────────────────────────────────────────────────────────
 
 def _header(console: Console, title: str, iteration: int, max_iterations: int) -> None:
     iter_tag = f"[dim]Versuch {iteration}/{max_iterations}[/dim]  " if max_iterations > 1 else ""
     console.print(
         Panel(
             f"[bold]Repair TUI[/bold]  {iter_tag}[dim]{title}[/dim]\n"
-            "[dim]Commands werden direkt auf dem Host ausgeführt (außerhalb Docker)[/dim]",
+            "[dim]Befehle laufen direkt auf dem Host (außerhalb Docker)[/dim]",
             box=box.ROUNDED,
             padding=(0, 1),
         )
@@ -166,68 +200,136 @@ def _render_review(
     )
 
 
-def _render_execution_results(
+def _render_execution(
     console: Console,
-    executed: list[RepairCommand],
+    approved: list[RepairCommand],
+    goal_title: str,
     iteration: int,
     max_iterations: int,
-    goal_title: str,
 ) -> None:
+    """Execute all approved commands and fill in exit_code / stdout / stderr."""
     console.clear()
     _header(console, goal_title, iteration, max_iterations)
     console.print()
 
-    for i, cmd in enumerate(executed, 1):
-        ec = cmd.exit_code
-        ok = ec == 0
-        icon = "[green]✓[/green]" if ok else f"[red]✗ exit {ec}[/red]"
-        console.print(f"  {icon}  [cyan]{cmd.command}[/cyan]")
-        if cmd.stdout:
-            for line in cmd.stdout.splitlines()[:6]:
-                console.print(f"      [dim]{line}[/dim]")
-        if not ok and cmd.stderr:
-            console.print(f"      [red]{cmd.stderr[:150]}[/red]")
+    for i, cmd in enumerate(approved, 1):
+        console.print(f"  [dim][{i}/{len(approved)}][/dim] [cyan]{cmd.command}[/cyan]")
+        try:
+            proc = subprocess.run(
+                cmd.command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            cmd.exit_code = proc.returncode
+            cmd.stdout = proc.stdout.strip()
+            cmd.stderr = proc.stderr.strip()
+            cmd.executed = True
+
+            if cmd.stdout:
+                for line in cmd.stdout.splitlines()[:8]:
+                    console.print(f"      [dim]{line}[/dim]")
+            if cmd.succeeded:
+                console.print("      [green]✓[/green]")
+            else:
+                err = (cmd.stderr or "")[:200]
+                console.print(
+                    f"      [red]✗ exit {cmd.exit_code}[/red]"
+                    + (f" — {err}" if err else "")
+                )
+        except subprocess.TimeoutExpired:
+            cmd.exit_code = -1
+            cmd.stderr = "timeout after 60s"
+            cmd.executed = True
+            console.print("      [red]✗ timeout (60s)[/red]")
+        except Exception as exc:
+            cmd.exit_code = -1
+            cmd.stderr = str(exc)
+            cmd.executed = True
+            console.print(f"      [red]✗ {exc}[/red]")
 
     console.print()
 
 
-def _render_verification(
+def _render_result_screen(
     console: Console,
     executed: list[RepairCommand],
+    goal_title: str,
     iteration: int,
     max_iterations: int,
-    goal_title: str,
 ) -> Verdict:
-    _render_execution_results(console, executed, iteration, max_iterations, goal_title)
+    """Show execution summary. Verdict is auto-derived from exit codes.
 
-    all_ok = all(c.exit_code == 0 for c in executed if c.executed)
-    if all_ok:
-        console.print("  [green]Alle Befehle erfolgreich.[/green]\n")
-    else:
-        failed = sum(1 for c in executed if (c.exit_code or 0) != 0)
-        console.print(f"  [yellow]{failed} Befehl(e) fehlgeschlagen.[/yellow]\n")
+    - All succeeded → "fixed" (user presses Enter or any non-q key to confirm)
+    - Any failed + more iterations → "retry" (auto after 4s, q to abort)
+    - Any failed + last iteration → "abort" after user confirms
+    """
+    console.clear()
+    _header(console, goal_title, iteration, max_iterations)
+    console.print()
 
-    if iteration < max_iterations:
+    failed_cmds = [c for c in executed if c.failed]
+    ok_cmds = [c for c in executed if c.succeeded]
+
+    for cmd in executed:
+        icon = "[green]✓[/green]" if cmd.succeeded else f"[red]✗ exit {cmd.exit_code}[/red]"
+        console.print(f"  {icon}  [cyan]{cmd.command}[/cyan]")
+        if cmd.stdout:
+            for line in cmd.stdout.splitlines()[:4]:
+                console.print(f"      [dim]{line}[/dim]")
+        if cmd.failed and cmd.stderr:
+            console.print(f"      [red]{cmd.stderr[:150]}[/red]")
+
+    console.print()
+
+    if not failed_cmds:
+        # ── All succeeded ─────────────────────────────────────────────
+        console.print("  [bold green]✓ Alle Befehle erfolgreich — Problem behoben.[/bold green]\n")
+        console.print("  [dim]Beliebige Taste zum Beenden...[/dim]")
+        _getch()
+        return "fixed"
+
+    # ── Some failed ───────────────────────────────────────────────────
+    console.print(
+        f"  [bold red]✗ {len(failed_cmds)} Befehl(e) fehlgeschlagen[/bold red]  "
+        f"[dim]({len(ok_cmds)} erfolgreich)[/dim]\n"
+    )
+
+    if iteration >= max_iterations:
         console.print(
-            "  [bold]y[/bold]/[bold]Enter[/bold] Problem behoben (fertig)  "
-            "[bold]r[/bold] Nächster Versuch  "
-            "[bold]q[/bold] Abbrechen\n"
+            f"  [yellow]Letzter Versuch ({iteration}/{max_iterations}) abgeschlossen.[/yellow]\n"
         )
-    else:
-        console.print(
-            "  [bold]y[/bold]/[bold]Enter[/bold] Problem behoben (fertig)  "
-            "[bold]q[/bold] Abbrechen  "
-            f"[dim](letzter Versuch {iteration}/{max_iterations})[/dim]\n"
-        )
+        console.print("  [dim]Beliebige Taste zum Beenden...[/dim]")
+        _getch()
+        return "abort"
 
-    while True:
-        key = _getch()
-        if key in ("y", "Y", "\r", "\n"):
-            return "fixed"
-        if key in ("r", "R") and iteration < max_iterations:
-            return "retry"
-        if key in ("q", "Q", "\x03", "\x04"):
+    # Auto-retry mit Abbruch-Option
+    wait_s = 4
+    console.print(
+        f"  [yellow]Starte Versuch {iteration + 1}/{max_iterations} automatisch...[/yellow]  "
+        f"[dim][q] Abbrechen[/dim]\n"
+    )
+
+    for remaining in range(wait_s, 0, -1):
+        console.print(f"  [dim]{remaining}...[/dim]", end="\r")
+        key = _getch_nonblock(timeout_s=1.0)
+        if key is not None and key.lower() in ("q", "\x03", "\x04"):
+            console.print()
+            console.print("[yellow]Abgebrochen.[/yellow]")
             return "abort"
+
+    console.print()
+    return "retry"
+
+
+def _build_failure_summary(executed: list[RepairCommand]) -> str:
+    parts = []
+    for cmd in executed:
+        if cmd.failed:
+            err = (cmd.stderr or cmd.stdout or "")[:200].replace("\n", " ")
+            parts.append(f"{cmd.command} → exit={cmd.exit_code} {err}")
+    return "; ".join(parts)
 
 
 # ── Public API ───────────────────────────────────────────────────────────────
@@ -239,9 +341,12 @@ def run_repair_tui(
     iteration: int = 1,
     max_iterations: int = 1,
 ) -> RepairTuiResult:
-    """One iteration of the repair TUI: review → confirm → execute → verify.
+    """One TUI iteration: review → confirm → execute → auto-verdict from exit codes.
 
-    Returns a RepairTuiResult with the executed commands and the user's verdict.
+    Verdict:
+      "fixed"  — all approved commands exited 0
+      "retry"  — some failed, more iterations available
+      "abort"  — user pressed q, or last iteration exhausted
     """
     console = Console()
 
@@ -255,7 +360,14 @@ def run_repair_tui(
         console.clear()
         _header(console, goal_title, iteration, max_iterations)
         console.print("\n[yellow]Keine Shell-Befehle in den Task-Outputs gefunden.[/yellow]")
-        console.print("[dim]Beliebige Taste zum Beenden.[/dim]")
+        if iteration < max_iterations:
+            console.print(
+                f"  [dim]Starte Versuch {iteration + 1} automatisch... [q] Abbrechen[/dim]"
+            )
+            key = _getch_nonblock(3.0)
+            if key and key.lower() in ("q", "\x03", "\x04"):
+                return RepairTuiResult(verdict="abort")
+            return RepairTuiResult(verdict="retry")
         _getch()
         return RepairTuiResult(verdict="abort")
 
@@ -295,8 +407,15 @@ def run_repair_tui(
     _header(console, goal_title, iteration, max_iterations)
 
     if not approved:
-        console.print("\n[yellow]Keine Befehle freigegeben. Nichts auszuführen.[/yellow]")
-        console.print("[dim]Beliebige Taste zum Beenden.[/dim]")
+        console.print("\n[yellow]Keine Befehle freigegeben.[/yellow]")
+        if iteration < max_iterations:
+            console.print(
+                f"  [dim]Starte Versuch {iteration + 1} ohne Ausführung... [q] Abbrechen[/dim]"
+            )
+            key = _getch_nonblock(3.0)
+            if key and key.lower() in ("q", "\x03", "\x04"):
+                return RepairTuiResult(verdict="abort")
+            return RepairTuiResult(verdict="retry", executed=[])
         _getch()
         return RepairTuiResult(verdict="abort")
 
@@ -310,7 +429,7 @@ def run_repair_tui(
     console.print(table)
     console.print(
         f"\n[bold]{len(approved)}[/bold] Befehl(e) werden auf dem "
-        "[bold]Host-System[/bold] ausgeführt (nicht in Docker).\n"
+        "[bold]Host-System[/bold] ausgeführt.\n"
     )
     console.print("  [bold]Enter[/bold]/[bold]y[/bold] Ausführen   [bold]q[/bold] Abbrechen\n")
 
@@ -320,51 +439,11 @@ def run_repair_tui(
         return RepairTuiResult(verdict="abort")
 
     # ── Phase 3: Execute ─────────────────────────────────────────────
-    console.clear()
-    _header(console, goal_title, iteration, max_iterations)
-    console.print()
+    _render_execution(console, approved, goal_title, iteration, max_iterations)
 
-    for i, cmd in enumerate(approved, 1):
-        console.print(f"  [dim][{i}/{len(approved)}][/dim] [cyan]{cmd.command}[/cyan]")
-        try:
-            proc = subprocess.run(
-                cmd.command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-            cmd.exit_code = proc.returncode
-            cmd.stdout = proc.stdout.strip()
-            cmd.stderr = proc.stderr.strip()
-            cmd.executed = True
-
-            if cmd.stdout:
-                for line in cmd.stdout.splitlines()[:8]:
-                    console.print(f"      [dim]{line}[/dim]")
-            if proc.returncode == 0:
-                console.print("      [green]✓[/green]")
-            else:
-                err = cmd.stderr[:200] if cmd.stderr else ""
-                console.print(
-                    f"      [red]✗ exit {proc.returncode}[/red]"
-                    + (f" — {err}" if err else "")
-                )
-        except subprocess.TimeoutExpired:
-            cmd.exit_code = -1
-            console.print("      [red]✗ timeout (60s)[/red]")
-        except Exception as exc:
-            cmd.exit_code = -1
-            console.print(f"      [red]✗ {exc}[/red]")
-
-    console.print()
-
-    # ── Phase 4: Verify ──────────────────────────────────────────────
-    verdict = _render_verification(
-        console,
-        approved,
-        iteration=iteration,
-        max_iterations=max_iterations,
-        goal_title=goal_title,
+    # ── Phase 4: Auto-verdict from exit codes ─────────────────────────
+    verdict = _render_result_screen(
+        console, approved, goal_title, iteration, max_iterations
     )
-    return RepairTuiResult(executed=approved, verdict=verdict)
+    failure_summary = _build_failure_summary(approved) if verdict == "retry" else ""
+    return RepairTuiResult(executed=approved, verdict=verdict, failure_summary=failure_summary)
