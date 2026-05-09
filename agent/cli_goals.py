@@ -90,6 +90,7 @@ _TERMINAL_GOAL_STATUSES = {"completed", "failed", "cancelled", "archived", "abor
 def _poll_goal_status(goal_id: str, *, timeout: int = 300, interval: int = 5) -> str:
     deadline = time.monotonic() + timeout
     dots = 0
+    detail_tick = 0
     while time.monotonic() < deadline:
         res = _request("GET", f"/goals/{goal_id}", timeout=10)
         if res.status_code == 200:
@@ -100,6 +101,20 @@ def _poll_goal_status(goal_id: str, *, timeout: int = 300, interval: int = 5) ->
                 return status
             dots = (dots + 1) % 4
             print(f"\r  [{status}]{'.' * dots}   ", end="", file=sys.stderr, flush=True)
+
+            # Goal may stay "planned" even when all tasks are done (lifecycle bug workaround).
+            # Every 4 polls, check via detail if all tasks are in terminal states.
+            detail_tick += 1
+            if detail_tick % 4 == 0:
+                detail_res = _request("GET", f"/goals/{goal_id}/detail", timeout=15)
+                if detail_res.status_code == 200:
+                    summary = (_api_data(detail_res).get("result_summary") or {})
+                    total = int(summary.get("task_count") or 0)
+                    done = int(summary.get("completed_tasks") or 0) + int(summary.get("failed_tasks") or 0)
+                    if total > 0 and done >= total:
+                        print(file=sys.stderr)
+                        failed = int(summary.get("failed_tasks") or 0)
+                        return "completed" if failed == 0 else "partially_failed"
         time.sleep(interval)
     print(file=sys.stderr)
     return "timeout"
@@ -183,6 +198,8 @@ def repair_script_cmd(
     if final_status in {"failed", "cancelled", "aborted", "timeout"}:
         print(f"Goal did not complete (status={final_status}). Use 'ananta goal --goal-detail {goal_id}' for details.", file=sys.stderr)
         sys.exit(1)
+    if final_status == "partially_failed":
+        print("Warning: some tasks failed — extracting output from completed tasks.", file=sys.stderr)
 
     outputs = _fetch_goal_outputs(goal_id)
     if not outputs:
