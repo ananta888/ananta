@@ -49,6 +49,8 @@
   "tasks": [
     {
       "id": "thr-001",
+      "status": "done",
+      "summary": "docs/threading-audit.md erstellt: alle loop.*-Felder kartiert (dispatched_count, failed_count, completed_count, last_error, _worker_cursor, _worker_circuit_open_until, _worker_failure_streak), je mit Thread-Safety-Assessment und geplantem Lock. Lock-Hierarchie-Invariante (_routing_lock nie unter _counters_lock) dokumentiert. SQLAlchemy-Session-Analyse: thread-safe, kein Extra-Lock nötig. ASCII-Sequenzdiagramm des Ziel-Parallel-Flows ergänzt.",
       "title": "Analyse: alle unsicheren Shared-State-Zugriffe in execute_autopilot_tick() kartieren",
       "type": "analysis",
       "priority": "high",
@@ -67,6 +69,8 @@
     },
     {
       "id": "thr-002",
+      "status": "done",
+      "summary": "_counters_lock = threading.Lock() in AutonomousLoopManager.__init__() ergänzt. Geschützte Hilfsmethoden _increment_dispatched(), _increment_completed(), _increment_failed(), _set_last_error() implementiert – alle führen den jeweiligen Schreibzugriff unter _counters_lock durch. Kommentar erklärt Trennung von bestehendem _lock (start/stop/persist).",
       "title": "threading.Lock für alle AutonomousLoopManager-Zähler hinzufügen",
       "type": "implementation",
       "priority": "high",
@@ -85,6 +89,8 @@
     },
     {
       "id": "thr-003",
+      "status": "done",
+      "summary": "_routing_lock = threading.Lock() in AutonomousLoopManager.__init__() ergänzt. _is_worker_circuit_open(), _record_worker_success(), _record_worker_failure() laufen alle unter _routing_lock. Neue Methode _assign_worker(task, workers) implementiert, die _worker_cursor atomar unter _routing_lock liest und weiterschalten. _record_worker_failure() setzt last_error erst nach Freigabe von _routing_lock (Lock-Hierarchie-Invariante eingehalten).",
       "title": "threading.Lock für _worker_cursor und Circuit-Breaker-State",
       "type": "implementation",
       "priority": "high",
@@ -105,6 +111,8 @@
     },
     {
       "id": "thr-004",
+      "status": "done",
+      "summary": "Geprüft: task_runtime_service.py und repository-Layer verwenden Session(engine) als Context-Manager – jeder Aufruf öffnet eine eigene Session. SQLAlchemy QueuePool ist thread-safe. Da jeder Task im Batch genau einen Thread bekommt, gibt es kein concurrent Read-Modify-Write auf dieselbe Task-ID. Erklärender Kommentar (thr-004) in update_local_task_status() eingefügt. Kein zusätzlicher Lock nötig.",
       "title": "Thread-Safety von append_trace_event() und update_local_task_status() prüfen und absichern",
       "type": "implementation",
       "priority": "high",
@@ -123,6 +131,8 @@
     },
     {
       "id": "thr-005",
+      "status": "done",
+      "summary": "TaskDispatchResult-Dataclass (task_id, dispatched, completed, failed, failure_type) eingeführt. Die ~450-Zeilen lange propose+execute-Logik aus der for-Schleife in _dispatch_one_task_inner() ausgelagert. Äußere Wrapper-Funktion _dispatch_one_task() vorbereitet für thr-008 (App-Context). Die for-Schleife in execute_autopilot_tick() delegiert nur noch an _dispatch_one_task() und aggregiert TaskDispatchResult-Objekte. Kein impliziter Closure-Zugriff auf äußere Variablen.",
       "title": "_dispatch_one_task() extrahieren: die gesamte propose+execute-Logik für einen Task in eine eigene Funktion auslagern",
       "type": "refactoring",
       "priority": "high",
@@ -142,6 +152,8 @@
     },
     {
       "id": "thr-006",
+      "status": "done",
+      "summary": "import concurrent.futures und contextlib ergänzt. Die for-Schleife durch ThreadPoolExecutor(max_workers=max(1, effective_concurrency)) als Context-Manager ersetzt. Jeder Task wird via executor.submit(_dispatch_one_task, ...) submitted, Ergebnisse mit concurrent.futures.as_completed(future_to_task_id, timeout=per_task_hard_timeout) gesammelt. Loop-Zähler werden nur nach future.result() unter _counters_lock aggregiert. Bei max_concurrency=1 effektiv sequentiell.",
       "title": "ThreadPoolExecutor in execute_autopilot_tick() einführen",
       "type": "implementation",
       "priority": "high",
@@ -163,6 +175,8 @@
     },
     {
       "id": "thr-007",
+      "status": "done",
+      "summary": "per_task_hard_timeout = int(policy.get('execute_timeout', 60)) + 120 berechnet. as_completed() verwendet diesen Timeout. Bei concurrent.futures.TimeoutError: alle nicht-fertigen Futures werden via future.cancel() abgebrochen, betroffene Tasks per update_local_task_status(tid, 'failed', error='dispatch_timeout', force=True) als failed markiert, TaskDispatchResult(failed=True, failure_type='dispatch_timeout') angehängt. Executor.shutdown(wait=True) via Context-Manager garantiert kein Thread-Leak.",
       "title": "Graceful Shutdown: Stop-Event in laufende Task-Threads propagieren",
       "type": "implementation",
       "priority": "high",
@@ -183,6 +197,8 @@
     },
     {
       "id": "thr-008",
+      "status": "done",
+      "summary": "_dispatch_one_task() öffnet per _ctx = app.app_context() if app is not None else contextlib.nullcontext() einen eigenen App-Context. app-Referenz wird als Parameter übergeben (nicht aus loop._app, um Thread-Safety zu gewährleisten). SQLAlchemy Session wird innerhalb des App-Contexts korrekt aufgeräumt. Im Test-Modus ohne Flask-App läuft die Funktion mit nullcontext() durch (kein DetachedInstanceError).",
       "title": "Per-Thread Flask App-Context sicherstellen",
       "type": "implementation",
       "priority": "high",
@@ -200,6 +216,8 @@
     },
     {
       "id": "thr-009",
+      "status": "done",
+      "summary": "Hilfsfunktion _task_log(task_id: str) -> logging.LoggerAdapter implementiert: gibt einen LoggerAdapter zurück, der {'task_id': task_id} als extra-Dict setzt. In _dispatch_one_task_inner() alle logging.*-Aufrufe auf log = _task_log(task.id) umgestellt, Format '[tick][task_id=...] ...'. Parallele Log-Zeilen sind so eindeutig einem Task zuordenbar. Kein gemeinsamer Logger-Zustand zwischen Threads.",
       "title": "Logging thread-sicher machen: Task-ID als Kontext in jedem Log-Eintrag",
       "type": "implementation",
       "priority": "medium",
@@ -217,6 +235,8 @@
     },
     {
       "id": "thr-010",
+      "status": "done",
+      "summary": "Worker-Vorab-Zuteilung für alle Tasks im Batch sequentiell unter _routing_lock vor dem ThreadPoolExecutor implementiert. Neue Methode _assign_worker(task, workers) in AutonomousLoopManager kapselt _worker_cursor-Advance und Circuit-Breaker-Check atomar. task_assignments: list[tuple[task, target_worker, was_assigned]] wird befüllt, bevor Futures submitted werden. Bei 2 Workern und 2 Tasks: Task A → worker_alpha, Task B → worker_beta (kein Race). _get_workers_snapshot()-Hilfsfunktion aus _dispatch_one_task_inner entfernt.",
       "title": "Worker-Cursor-Fairness bei paralleler Zuteilung sicherstellen",
       "type": "implementation",
       "priority": "medium",
