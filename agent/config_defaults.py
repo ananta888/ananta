@@ -394,6 +394,12 @@ def build_default_agent_config() -> dict:
                 "fallback_backend": "sgpt",
             },
         },
+        "planning": {
+            # "llm"      → LLM (Ollama) always generates the task plan (default)
+            # "template" → fixed template/blueprint first, LLM fallback if no match
+            # "auto"     → template first, LLM fallback (same as "template")
+            "default_strategy": "llm",
+        },
         "planning_policy": {
             "delegated_planning_enabled": False,
             "allowed_planner_roles": ["planning-agent", "planner"],

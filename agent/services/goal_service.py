@@ -43,10 +43,13 @@ class GoalService:
     def default_workflow_config(self) -> dict[str, Any]:
         agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         plan_limits = get_plan_generation_limits()
+        planning_cfg = dict((agent_cfg.get("planning") or {}))
+        strategy = str(planning_cfg.get("default_strategy") or "llm").strip().lower()
+        use_template_default = strategy in {"template", "auto"}
         planning_defaults = {
             "engine": "auto_planner",
             "create_tasks": True,
-            "use_template": True,
+            "use_template": use_template_default,
             "use_repo_context": True,
             "max_subtasks_per_goal": 8,
             "max_plan_nodes": plan_limits["max_plan_nodes"],
@@ -123,7 +126,6 @@ class GoalService:
             return {
                 "planning": {
                     "create_tasks": True,
-                    "use_template": True,
                     "use_repo_context": False,
                     "blueprint_hint": integration_hints.get("blueprint_name"),
                 },
@@ -152,7 +154,6 @@ class GoalService:
             return {
                 "planning": {
                     "create_tasks": True,
-                    "use_template": True,
                     "use_repo_context": True,
                     "blueprint_hint": integration_hints.get("blueprint_name"),
                 },
@@ -182,7 +183,6 @@ class GoalService:
             return {
                 "planning": {
                     "create_tasks": True,
-                    "use_template": True,
                     "use_repo_context": False,
                 },
                 "verification": {
