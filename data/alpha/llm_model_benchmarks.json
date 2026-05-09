@@ -1261,15 +1261,15 @@
       "provider": "opencode",
       "model": "qwen2.5-coder:7b",
       "overall": {
-        "total": 1,
-        "success": 1,
+        "total": 2,
+        "success": 2,
         "failed": 0,
-        "quality_pass": 1,
+        "quality_pass": 2,
         "quality_fail": 0,
         "latency_ms_total": 1,
-        "tokens_total": 528,
+        "tokens_total": 670,
         "cost_units_total": 0.0,
-        "last_seen": 1778321355,
+        "last_seen": 1778350120,
         "samples": [
           {
             "ts": 1778321355,
@@ -1281,20 +1281,31 @@
             "context": {
               "task_kind": "analysis"
             }
+          },
+          {
+            "ts": 1778350120,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 0,
+            "tokens_total": 142,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
           }
         ]
       },
       "task_kinds": {
         "analysis": {
-          "total": 1,
-          "success": 1,
+          "total": 2,
+          "success": 2,
           "failed": 0,
-          "quality_pass": 1,
+          "quality_pass": 2,
           "quality_fail": 0,
           "latency_ms_total": 1,
-          "tokens_total": 528,
+          "tokens_total": 670,
           "cost_units_total": 0.0,
-          "last_seen": 1778321355,
+          "last_seen": 1778350120,
           "samples": [
             {
               "ts": 1778321355,
@@ -1302,6 +1313,17 @@
               "quality_passed": true,
               "latency_ms": 1,
               "tokens_total": 528,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1778350120,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 0,
+              "tokens_total": 142,
               "cost_units": 0.0,
               "context": {
                 "task_kind": "analysis"
@@ -1369,15 +1391,15 @@
       "provider": "ananta-worker",
       "model": "ananta-default",
       "overall": {
-        "total": 8,
-        "success": 2,
-        "failed": 6,
-        "quality_pass": 2,
-        "quality_fail": 6,
-        "latency_ms_total": 10,
-        "tokens_total": 1224,
+        "total": 12,
+        "success": 4,
+        "failed": 8,
+        "quality_pass": 4,
+        "quality_fail": 8,
+        "latency_ms_total": 38,
+        "tokens_total": 1816,
         "cost_units_total": 0.0,
-        "last_seen": 1778342611,
+        "last_seen": 1778351280,
         "samples": [
           {
             "ts": 1778336125,
@@ -1466,20 +1488,64 @@
             "context": {
               "task_kind": "analysis"
             }
+          },
+          {
+            "ts": 1778350159,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 5,
+            "tokens_total": 133,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1778351174,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 4,
+            "tokens_total": 104,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1778351213,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 2,
+            "tokens_total": 169,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1778351280,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 17,
+            "tokens_total": 186,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
           }
         ]
       },
       "task_kinds": {
         "analysis": {
-          "total": 8,
-          "success": 2,
-          "failed": 6,
-          "quality_pass": 2,
-          "quality_fail": 6,
-          "latency_ms_total": 10,
-          "tokens_total": 1224,
+          "total": 12,
+          "success": 4,
+          "failed": 8,
+          "quality_pass": 4,
+          "quality_fail": 8,
+          "latency_ms_total": 38,
+          "tokens_total": 1816,
           "cost_units_total": 0.0,
-          "last_seen": 1778342611,
+          "last_seen": 1778351280,
           "samples": [
             {
               "ts": 1778336125,
@@ -1568,11 +1634,55 @@
               "context": {
                 "task_kind": "analysis"
               }
+            },
+            {
+              "ts": 1778350159,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 5,
+              "tokens_total": 133,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1778351174,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 4,
+              "tokens_total": 104,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1778351213,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 2,
+              "tokens_total": 169,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1778351280,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 17,
+              "tokens_total": 186,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
             }
           ]
         }
       }
     }
   },
-  "updated_at": 1778342611
+  "updated_at": 1778351280
 }
