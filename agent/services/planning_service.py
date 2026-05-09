@@ -362,8 +362,9 @@ class PlanningService:
                 {"blueprint_role_defaults": role_defaults},
             )
             raw_depends_on = list(subtask.get("depends_on") or [])
+            is_parallel = "__parallel__" in raw_depends_on
             depends_on: list[str] = []
-            if raw_depends_on:
+            if raw_depends_on and not is_parallel:
                 for dep in raw_depends_on:
                     dep_text = str(dep).strip()
                     if dep_text in node_keys:
@@ -372,7 +373,7 @@ class PlanningService:
                         dep_index = int(dep_text) - 1
                         if 0 <= dep_index < len(node_keys):
                             depends_on.append(node_keys[dep_index])
-            elif index > 1:
+            elif not is_parallel and index > 1:
                 depends_on.append(node_keys[index - 2])
 
             nodes.append(
@@ -396,6 +397,7 @@ class PlanningService:
                         "risk_focus": subtask.get("risk_focus"),
                         "test_focus": subtask.get("test_focus"),
                         "review_focus": subtask.get("review_focus"),
+                        **({"parallel": True} if is_parallel else {}),
                         **blueprint_provenance,
                         **({"blueprint_role_defaults": role_defaults} if role_defaults else {}),
                     },
@@ -520,10 +522,11 @@ class PlanningService:
         for node in nodes:
             task_id = node_to_task_id[node.node_key]
             task_depends_on = []
+            is_parallel_node = bool((node.rationale or {}).get("parallel"))
             if node.depends_on:
                 mapped = [node_to_task_id.get(dep) for dep in node.depends_on]
                 task_depends_on = [dep for dep in mapped if dep]
-            elif created_order:
+            elif not is_parallel_node and created_order:
                 task_depends_on = created_order[-1:]
             task_depends_on = normalize_depends_on(task_depends_on, task_id)
             staged_graph[task_id] = task_depends_on
@@ -599,6 +602,12 @@ class PlanningService:
         subtasks = resolved["subtasks"]
         planning_policy = self._resolve_planning_policy()
         subtasks, limits, limit_exceeded = self._apply_plan_generation_limits(subtasks)
+        if bool((mode_data or {}).get("no_task_dependencies")):
+            # Apply sentinel AFTER limits so _apply_plan_generation_limits doesn't strip it.
+            # __parallel__ is not a valid node_key so _build_nodes skips sequential fallback,
+            # and _prepare_materialization checks rationale["parallel"] to skip its fallback.
+            for subtask in subtasks:
+                subtask["depends_on"] = ["__parallel__"]
         raw_response = resolved["raw_response"]
         planning_mode = resolved["planning_mode"]
         context = resolved["context"]
