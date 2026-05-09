@@ -256,6 +256,8 @@
     },
     {
       "id": "thr-011",
+      "status": "done",
+      "summary": "propose_timeout in resolve_security_policy() eingeführt (safe=120s, balanced=120s, aggressive=180s) mit Override-Support via autopilot_security_policies.<level>.propose_timeout in agent_config. per_task_hard_timeout auf propose_timeout + execute_timeout + 30 umgestellt (war: execute_timeout + 120 hardcoded). thr-011-Kommentar im Code entfernt.",
       "title": "propose_timeout und execute_timeout aus Config lesen statt hardcoden",
       "type": "refactoring",
       "priority": "medium",
@@ -275,6 +277,8 @@
     },
     {
       "id": "thr-012",
+      "status": "done",
+      "summary": "Lokale Zähler completed, failed und dispatched_task_ids zur Aggregationsschleife in execute_autopilot_tick() hinzugefügt. Return-Dict erweitert um 'completed', 'failed', 'task_ids'. Loop-Zähler weiterhin via _increment_*() (unter _counters_lock) aktualisiert – einmal pro Ergebnis, nach Abschluss aller Threads. _run_loop wertet 'dispatched' korrekt aus.",
       "title": "Tick-Result-Aggregation: dispatched/failed/completed aus TaskDispatchResult sammeln",
       "type": "implementation",
       "priority": "medium",
@@ -295,6 +299,8 @@
     },
     {
       "id": "thr-013",
+      "status": "done",
+      "summary": "resolve_effective_concurrency in autopilot.py importiert. status() berechnet effective_max_concurrency aus requested max_concurrency + security_policy_cap und gibt ihn im Status-Dict zurück. Live-Update bereits funktionsfähig: start(max_concurrency=N) während laufendem Betrieb setzt self.max_concurrency vor dem 'if self.running'-Check, der nächste Tick verwendet automatisch den neuen Wert. Laufender ThreadPoolExecutor wird nicht unterbrochen.",
       "title": "Konfigurierbarkeit: max_concurrency per API änderbar machen und in Status exponieren",
       "type": "implementation",
       "priority": "low",
@@ -312,6 +318,8 @@
     },
     {
       "id": "thr-014",
+      "status": "done",
+      "summary": "Manuellen Test-Plan und Monitoring-Kommandos in docs/testing/threading-e2e.md dokumentiert. Enthält: Setup-Skript (2 unabhängige Tasks, max_concurrency=2, security_level=balanced), nvidia-smi dmon Monitoring, Hub-Log-Filter, Akzeptanzkriterien-Tabelle (GPU-Parallelität, Log-Timestamps, Task-Status, Zähler, SQLAlchemy-Exceptions, effective_max_concurrency) und Cleanup. Test ist manuell auszuführen wenn 2 Worker online sind.",
       "title": "Integrations-Test: 2 Tasks parallel gegen echte Worker (alpha + beta)",
       "type": "testing",
       "priority": "medium",
@@ -328,6 +336,8 @@
     },
     {
       "id": "thr-015",
+      "status": "done",
+      "summary": "Graceful-Stop-Test-Plan in docs/testing/threading-e2e.md (zweiter Abschnitt) dokumentiert. Enthält: Setup mit 2 langen Tasks (sleep 30), Stop mitten im Betrieb per time curl .../stop, sofortige Status-Prüfung (kein Zombie-Status), DB-Connection-Prüfung via pg_stat_activity, Thread-Leak-Check via ps -T, Neustart-Verifikation. Test ist manuell auszuführen.",
       "title": "Integrations-Test: Graceful Stop während paralleler Ausführung",
       "type": "testing",
       "priority": "medium",
@@ -342,6 +352,8 @@
     },
     {
       "id": "thr-016",
+      "status": "done",
+      "summary": "docs/threading-audit.md vollständig überarbeitet: finales Lock-Schema als Tabelle (alle Felder mit Lock-Zuordnung und Thread-Safety-Status), Lock-Hierarchie-Invariante, SQLAlchemy-Session-Garantie, Flask-App-Context-Pattern, Worker-Pre-Assignment, propose_timeout + per_task_hard_timeout-Formel mit Tabelle aller Security-Level, erweiterter Tick-Result-Return-Dict, effective_max_concurrency, aktualisiertes ASCII-Sequenzdiagramm mit allen thr-008/009/010-Ergänzungen, Abschnitt 'Bekannte Einschränkungen'.",
       "title": "Dokumentation: threading-audit.md mit finalem Lock-Schema abschließen",
       "type": "docs",
       "priority": "low",

@@ -13,18 +13,21 @@ def resolve_security_policy(*, agent_config: dict[str, Any], security_level: str
         "safe": {
             "max_concurrency_cap": 1,
             "execute_timeout": 45,
+            "propose_timeout": 120,
             "execute_retries": 0,
             "allowed_tool_classes": ["read"],
         },
         "balanced": {
             "max_concurrency_cap": 2,
             "execute_timeout": 60,
+            "propose_timeout": 120,
             "execute_retries": 1,
             "allowed_tool_classes": ["read", "write"],
         },
         "aggressive": {
             "max_concurrency_cap": 4,
             "execute_timeout": 120,
+            "propose_timeout": 180,
             "execute_retries": 2,
             "allowed_tool_classes": ["read", "write", "admin", "unknown"],
         },
@@ -37,6 +40,8 @@ def resolve_security_policy(*, agent_config: dict[str, Any], security_level: str
             base["max_concurrency_cap"] = max(1, int(configured.get("max_concurrency_cap") or base["max_concurrency_cap"]))
         if "execute_timeout" in configured:
             base["execute_timeout"] = max(1, int(configured.get("execute_timeout") or base["execute_timeout"]))
+        if "propose_timeout" in configured:
+            base["propose_timeout"] = max(1, int(configured.get("propose_timeout") or base["propose_timeout"]))
         if "execute_retries" in configured:
             base["execute_retries"] = max(0, int(configured.get("execute_retries") or 0))
         allowed = configured.get("allowed_tool_classes")
