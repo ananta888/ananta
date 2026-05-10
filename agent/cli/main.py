@@ -84,7 +84,8 @@ def _run_tui(argv: Sequence[str]) -> int:
         print("Launches the operator TUI by default.")
         print("Use `ananta tui --legacy` for the previous report-style shell.")
         return 0
-    if "--legacy" not in argv:
+    use_legacy = "--legacy" in argv or "--fixture" in argv
+    if not use_legacy:
         rest = [arg for arg in argv if arg != "--operator"]
         try:
             from client_surfaces.operator_tui.app import main as operator_tui_main

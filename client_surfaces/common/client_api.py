@@ -85,7 +85,7 @@ class AnantaApiClient:
         )
 
     def get_health(self) -> ClientResponse:
-        return self._request_json("GET", "/health?basic=1")
+        return self._request_json("GET", "/health")
 
     def get_capabilities(self) -> ClientResponse:
         return self._request_json("GET", "/capabilities")

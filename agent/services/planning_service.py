@@ -280,15 +280,15 @@ class PlanningService:
             elif "depends_on" in subtask:
                 subtask.pop("depends_on", None)
 
-        observed_depth = self._compute_plan_depth(self._build_nodes("plan-limit-probe", bounded, "limit_probe"))
         limits = {
             **limits,
             "observed_plan_nodes": node_count,
-            "observed_plan_depth": observed_depth,
         }
         if node_count > limits["max_plan_nodes"]:
-            bounded = bounded[: limits["max_plan_nodes"]]
-            limits = {**limits, "observed_plan_nodes": len(bounded), "truncated": True}
+            return bounded[: limits["max_plan_nodes"]], {**limits, "truncated": True}, "max_plan_nodes"
+
+        observed_depth = self._compute_plan_depth(self._build_nodes("plan-limit-probe", bounded, "limit_probe"))
+        limits = {**limits, "observed_plan_depth": observed_depth}
         if observed_depth > limits["max_plan_depth"]:
             return bounded, limits, "max_plan_depth"
         return bounded, limits, None

@@ -203,7 +203,7 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
 
     if state.mode.value == "inspect":
         lines.append("")
-        lines.append("  Inspect:")
+        lines.append("  inspect:")
         lines.extend(
             f"    {l}"
             for l in build_inspection_detail(
