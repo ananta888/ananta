@@ -63,62 +63,126 @@
     "agent/services/bridge_adapter_registry.py",
     "agent/services/capability_registry.py"
   ],
-  "status_scale": ["todo", "in_progress", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "milestones": [
     {
       "id": "HERMES-M1",
       "title": "Architecture boundary and configuration",
-      "task_ids": ["HERMES-T001", "HERMES-T002", "HERMES-T003", "HERMES-T004"],
-      "status": "todo"
+      "task_ids": [
+        "HERMES-T001",
+        "HERMES-T002",
+        "HERMES-T003",
+        "HERMES-T004"
+      ],
+      "status": "done"
     },
     {
       "id": "HERMES-M2",
       "title": "Adapter contracts and registry integration",
-      "task_ids": ["HERMES-T005", "HERMES-T006", "HERMES-T007", "HERMES-T008", "HERMES-T009"],
-      "status": "todo"
+      "task_ids": [
+        "HERMES-T005",
+        "HERMES-T006",
+        "HERMES-T007",
+        "HERMES-T008",
+        "HERMES-T009"
+      ],
+      "status": "done"
     },
     {
       "id": "HERMES-M3",
       "title": "Hermes API client and health checks",
-      "task_ids": ["HERMES-T010", "HERMES-T011", "HERMES-T012", "HERMES-T013"],
-      "status": "todo"
+      "task_ids": [
+        "HERMES-T010",
+        "HERMES-T011",
+        "HERMES-T012",
+        "HERMES-T013"
+      ],
+      "status": "in_progress"
     },
     {
       "id": "HERMES-M4",
       "title": "Prompt, context and output parsing",
-      "task_ids": ["HERMES-T014", "HERMES-T015", "HERMES-T016", "HERMES-T017", "HERMES-T018"],
+      "task_ids": [
+        "HERMES-T014",
+        "HERMES-T015",
+        "HERMES-T016",
+        "HERMES-T017",
+        "HERMES-T018"
+      ],
       "status": "todo"
     },
     {
       "id": "HERMES-M5",
       "title": "Safe task modes",
-      "task_ids": ["HERMES-T019", "HERMES-T020", "HERMES-T021", "HERMES-T022", "HERMES-T023"],
+      "task_ids": [
+        "HERMES-T019",
+        "HERMES-T020",
+        "HERMES-T021",
+        "HERMES-T022",
+        "HERMES-T023"
+      ],
       "status": "todo"
     },
     {
       "id": "HERMES-M6",
       "title": "Artifacts, trace and audit",
-      "task_ids": ["HERMES-T024", "HERMES-T025", "HERMES-T026", "HERMES-T027"],
+      "task_ids": [
+        "HERMES-T024",
+        "HERMES-T025",
+        "HERMES-T026",
+        "HERMES-T027"
+      ],
       "status": "todo"
     },
     {
       "id": "HERMES-M7",
       "title": "Security, privacy and bypass resistance",
-      "task_ids": ["HERMES-T028", "HERMES-T029", "HERMES-T030", "HERMES-T031", "HERMES-T032"],
+      "task_ids": [
+        "HERMES-T028",
+        "HERMES-T029",
+        "HERMES-T030",
+        "HERMES-T031",
+        "HERMES-T032"
+      ],
       "status": "todo"
     },
     {
       "id": "HERMES-M8",
       "title": "Docker Compose and runtime setup",
-      "task_ids": ["HERMES-T033", "HERMES-T034", "HERMES-T035"],
+      "task_ids": [
+        "HERMES-T033",
+        "HERMES-T034",
+        "HERMES-T035"
+      ],
       "status": "todo"
     },
     {
       "id": "HERMES-M9",
       "title": "Tests, docs and rollout",
-      "task_ids": ["HERMES-T036", "HERMES-T037", "HERMES-T038", "HERMES-T039", "HERMES-T040"],
+      "task_ids": [
+        "HERMES-T036",
+        "HERMES-T037",
+        "HERMES-T038",
+        "HERMES-T039",
+        "HERMES-T040"
+      ],
       "status": "todo"
     }
   ],
@@ -126,7 +190,7 @@
     {
       "id": "HERMES-T001",
       "title": "Write ADR for Hermes as external governed worker",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Document that Hermes is an adapter-backed worker target, not an Ananta control plane.",
@@ -146,7 +210,9 @@
         "No runtime test required.",
         "Documentation path is referenced from README or developer docs."
       ],
-      "expected_artifacts": ["docs/architecture/hermes-worker-adapter.md"],
+      "expected_artifacts": [
+        "docs/architecture/hermes-worker-adapter.md"
+      ],
       "dependencies": [],
       "anti_patterns": [
         "Do not describe Hermes as a scheduler or planner owner.",
@@ -156,7 +222,7 @@
     {
       "id": "HERMES-T002",
       "title": "Define Hermes worker capability profile",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Create the default allowed and denied capability profile for Hermes.",
@@ -177,8 +243,12 @@
         "Unit test verifies denied capabilities.",
         "Unit test verifies unknown capability is denied."
       ],
-      "expected_artifacts": ["Hermes worker capability profile"],
-      "dependencies": ["HERMES-T001"],
+      "expected_artifacts": [
+        "Hermes worker capability profile"
+      ],
+      "dependencies": [
+        "HERMES-T001"
+      ],
       "anti_patterns": [
         "Do not use an allow-all list.",
         "Do not let Hermes inherit OpenCode or native worker capabilities automatically."
@@ -187,7 +257,7 @@
     {
       "id": "HERMES-T003",
       "title": "Add Hermes adapter configuration schema",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Add typed configuration for the Hermes endpoint and safe defaults.",
@@ -207,8 +277,12 @@
         "Unit tests for valid and invalid config.",
         "Snapshot or assertion proving API key value is not emitted by diagnostics."
       ],
-      "expected_artifacts": ["HermesAdapterConfig model"],
-      "dependencies": ["HERMES-T002"],
+      "expected_artifacts": [
+        "HermesAdapterConfig model"
+      ],
+      "dependencies": [
+        "HERMES-T002"
+      ],
       "anti_patterns": [
         "Do not hardcode a user's API key.",
         "Do not silently enable Hermes just because env vars are present."
@@ -217,7 +291,7 @@
     {
       "id": "HERMES-T004",
       "title": "Define Hermes integration phases",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Prevent big-bang implementation by defining safe rollout phases.",
@@ -235,14 +309,20 @@
         "No runtime test required.",
         "Config or docs expose phase 1 defaults."
       ],
-      "expected_artifacts": ["Hermes rollout phase section"],
-      "dependencies": ["HERMES-T001"],
-      "anti_patterns": ["Do not implement all Hermes features at once."]
+      "expected_artifacts": [
+        "Hermes rollout phase section"
+      ],
+      "dependencies": [
+        "HERMES-T001"
+      ],
+      "anti_patterns": [
+        "Do not implement all Hermes features at once."
+      ]
     },
     {
       "id": "HERMES-T005",
       "title": "Create HermesAdapter interface implementation skeleton",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Create a small, testable adapter class before adding complex behavior.",
@@ -262,8 +342,12 @@
         "Unit test calls health with disabled config.",
         "Unit test verifies direct mutation methods do not exist."
       ],
-      "expected_artifacts": ["HermesAdapter skeleton"],
-      "dependencies": ["HERMES-T003"],
+      "expected_artifacts": [
+        "HermesAdapter skeleton"
+      ],
+      "dependencies": [
+        "HERMES-T003"
+      ],
       "anti_patterns": [
         "Do not add Hermes logic inside TaskScopedExecutionService as a giant if block.",
         "Do not call requests/curl directly from many places."
@@ -272,7 +356,7 @@
     {
       "id": "HERMES-T006",
       "title": "Register Hermes in BridgeAdapterRegistry",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Make Hermes discoverable through the existing adapter registry, not hardcoded routing.",
@@ -292,14 +376,20 @@
         "Unit test verifies Hermes is absent or disabled when feature disabled.",
         "Unit test verifies denied capabilities are visible in metadata."
       ],
-      "expected_artifacts": ["BridgeAdapterRegistry Hermes entry"],
-      "dependencies": ["HERMES-T005"],
-      "anti_patterns": ["Do not bypass registry by manually instantiating HermesAdapter from route code."]
+      "expected_artifacts": [
+        "BridgeAdapterRegistry Hermes entry"
+      ],
+      "dependencies": [
+        "HERMES-T005"
+      ],
+      "anti_patterns": [
+        "Do not bypass registry by manually instantiating HermesAdapter from route code."
+      ]
     },
     {
       "id": "HERMES-T007",
       "title": "Register Hermes capabilities in CapabilityRegistry",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Ensure policy can reason about Hermes before routing tasks to it.",
@@ -318,14 +408,21 @@
         "Unit tests verify allowed/denied capability decisions.",
         "Negative test verifies unknown capability denied."
       ],
-      "expected_artifacts": ["CapabilityRegistry Hermes profile"],
-      "dependencies": ["HERMES-T002", "HERMES-T006"],
-      "anti_patterns": ["Do not let the adapter self-assert capabilities at runtime without registry policy."]
+      "expected_artifacts": [
+        "CapabilityRegistry Hermes profile"
+      ],
+      "dependencies": [
+        "HERMES-T002",
+        "HERMES-T006"
+      ],
+      "anti_patterns": [
+        "Do not let the adapter self-assert capabilities at runtime without registry policy."
+      ]
     },
     {
       "id": "HERMES-T008",
       "title": "Add ToolRouter support for Hermes candidate selection",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "objective": "Allow Hub routing to select Hermes for safe task kinds only.",
@@ -345,14 +442,21 @@
         "Routing unit tests for denied task kinds.",
         "Availability fallback test."
       ],
-      "expected_artifacts": ["ToolRouter Hermes selection"],
-      "dependencies": ["HERMES-T006", "HERMES-T007"],
-      "anti_patterns": ["Do not pick Hermes because it is configured if task kind is unsafe."]
+      "expected_artifacts": [
+        "ToolRouter Hermes selection"
+      ],
+      "dependencies": [
+        "HERMES-T006",
+        "HERMES-T007"
+      ],
+      "anti_patterns": [
+        "Do not pick Hermes because it is configured if task kind is unsafe."
+      ]
     },
     {
       "id": "HERMES-T009",
       "title": "Add feature flag for Hermes worker adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Allow safe rollout and quick rollback.",
@@ -365,15 +469,24 @@
         "Diagnostics show disabled_by_feature_flag where applicable.",
         "Tests verify no Hermes request occurs when flag disabled."
       ],
-      "test_requirements": ["Feature flag unit tests."],
-      "expected_artifacts": ["Hermes feature flag"],
-      "dependencies": ["HERMES-T003", "HERMES-T006"],
-      "anti_patterns": ["Do not rely only on missing API key to disable Hermes."]
+      "test_requirements": [
+        "Feature flag unit tests."
+      ],
+      "expected_artifacts": [
+        "Hermes feature flag"
+      ],
+      "dependencies": [
+        "HERMES-T003",
+        "HERMES-T006"
+      ],
+      "anti_patterns": [
+        "Do not rely only on missing API key to disable Hermes."
+      ]
     },
     {
       "id": "HERMES-T010",
       "title": "Implement Hermes HTTP client wrapper",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Create one safe HTTP client path for Hermes API calls.",
@@ -392,8 +505,12 @@
         "Mock HTTP tests for success, timeout, unauthorized, rate limit and server error.",
         "Redaction test for headers and API key."
       ],
-      "expected_artifacts": ["HermesApiClient"],
-      "dependencies": ["HERMES-T003"],
+      "expected_artifacts": [
+        "HermesApiClient"
+      ],
+      "dependencies": [
+        "HERMES-T003"
+      ],
       "anti_patterns": [
         "Do not scatter raw HTTP calls throughout adapter methods.",
         "Do not log raw request headers."
@@ -420,9 +537,15 @@
         "Mock health tests for disabled, ready, unauthorized and unavailable.",
         "Diagnostics redaction test."
       ],
-      "expected_artifacts": ["Hermes health check"],
-      "dependencies": ["HERMES-T010"],
-      "anti_patterns": ["Do not use a real expensive prompt as health check."]
+      "expected_artifacts": [
+        "Hermes health check"
+      ],
+      "dependencies": [
+        "HERMES-T010"
+      ],
+      "anti_patterns": [
+        "Do not use a real expensive prompt as health check."
+      ]
     },
     {
       "id": "HERMES-T012",
@@ -447,9 +570,16 @@
         "Unit test for blocked model.",
         "Unit test for default model fallback."
       ],
-      "expected_artifacts": ["Hermes model selection helper"],
-      "dependencies": ["HERMES-T003", "HERMES-T010"],
-      "anti_patterns": ["Do not parse model name from user prompt."]
+      "expected_artifacts": [
+        "Hermes model selection helper"
+      ],
+      "dependencies": [
+        "HERMES-T003",
+        "HERMES-T010"
+      ],
+      "anti_patterns": [
+        "Do not parse model name from user prompt."
+      ]
     },
     {
       "id": "HERMES-T013",
@@ -473,9 +603,15 @@
         "Mock tests for retry and no-retry cases.",
         "Test verifies total wait is bounded."
       ],
-      "expected_artifacts": ["Hermes retry policy"],
-      "dependencies": ["HERMES-T010"],
-      "anti_patterns": ["Do not implement unbounded retries."]
+      "expected_artifacts": [
+        "Hermes retry policy"
+      ],
+      "dependencies": [
+        "HERMES-T010"
+      ],
+      "anti_patterns": [
+        "Do not implement unbounded retries."
+      ]
     },
     {
       "id": "HERMES-T014",
@@ -499,8 +635,12 @@
         "Snapshot test for prompt with representative envelope.",
         "Test verifies denied operations appear in prompt."
       ],
-      "expected_artifacts": ["Hermes prompt builder"],
-      "dependencies": ["HERMES-T005"],
+      "expected_artifacts": [
+        "Hermes prompt builder"
+      ],
+      "dependencies": [
+        "HERMES-T005"
+      ],
       "anti_patterns": [
         "Do not rely on prompt as the only security control.",
         "Do not include raw secrets in prompt."
@@ -530,8 +670,12 @@
         "Unit test for sensitive block exclusion.",
         "Unit test for missing required context."
       ],
-      "expected_artifacts": ["Hermes context converter"],
-      "dependencies": ["HERMES-T014"],
+      "expected_artifacts": [
+        "Hermes context converter"
+      ],
+      "dependencies": [
+        "HERMES-T014"
+      ],
       "anti_patterns": [
         "Do not send full repository dumps.",
         "Do not let Hermes request additional files directly."
@@ -559,9 +703,15 @@
         "Schema validation tests for valid outputs.",
         "Negative tests for free text, missing artifact_type and unsafe success claim."
       ],
-      "expected_artifacts": ["Hermes output schemas"],
-      "dependencies": ["HERMES-T014"],
-      "anti_patterns": ["Do not accept arbitrary Markdown as successful structured output."]
+      "expected_artifacts": [
+        "Hermes output schemas"
+      ],
+      "dependencies": [
+        "HERMES-T014"
+      ],
+      "anti_patterns": [
+        "Do not accept arbitrary Markdown as successful structured output."
+      ]
     },
     {
       "id": "HERMES-T017",
@@ -585,9 +735,15 @@
         "Parser unit tests for strict JSON, fenced JSON, free text, malformed JSON and unsafe side-effect claims.",
         "Test verifies raw snippet is bounded and redacted."
       ],
-      "expected_artifacts": ["HermesOutputParser"],
-      "dependencies": ["HERMES-T016"],
-      "anti_patterns": ["Do not silently treat unparsable output as success."]
+      "expected_artifacts": [
+        "HermesOutputParser"
+      ],
+      "dependencies": [
+        "HERMES-T016"
+      ],
+      "anti_patterns": [
+        "Do not silently treat unparsable output as success."
+      ]
     },
     {
       "id": "HERMES-T018",
@@ -612,9 +768,15 @@
         "Mock test where retry still fails and returns parse_error.",
         "Test verifies no second retry."
       ],
-      "expected_artifacts": ["small-model parse retry path"],
-      "dependencies": ["HERMES-T017"],
-      "anti_patterns": ["Do not keep retrying until model complies."]
+      "expected_artifacts": [
+        "small-model parse retry path"
+      ],
+      "dependencies": [
+        "HERMES-T017"
+      ],
+      "anti_patterns": [
+        "Do not keep retrying until model complies."
+      ]
     },
     {
       "id": "HERMES-T019",
@@ -637,9 +799,17 @@
         "End-to-end mock Hermes plan_only test.",
         "Negative test ensures no mutation capability is required."
       ],
-      "expected_artifacts": ["Hermes plan_only mode"],
-      "dependencies": ["HERMES-T010", "HERMES-T015", "HERMES-T017"],
-      "anti_patterns": ["Do not execute commands from the generated plan."]
+      "expected_artifacts": [
+        "Hermes plan_only mode"
+      ],
+      "dependencies": [
+        "HERMES-T010",
+        "HERMES-T015",
+        "HERMES-T017"
+      ],
+      "anti_patterns": [
+        "Do not execute commands from the generated plan."
+      ]
     },
     {
       "id": "HERMES-T020",
@@ -663,9 +833,15 @@
         "Test verifies patch_apply is not called.",
         "Test verifies incomplete context warning is preserved."
       ],
-      "expected_artifacts": ["Hermes review mode"],
-      "dependencies": ["HERMES-T019"],
-      "anti_patterns": ["Do not turn review suggestions into applied changes automatically."]
+      "expected_artifacts": [
+        "Hermes review mode"
+      ],
+      "dependencies": [
+        "HERMES-T019"
+      ],
+      "anti_patterns": [
+        "Do not turn review suggestions into applied changes automatically."
+      ]
     },
     {
       "id": "HERMES-T021",
@@ -688,9 +864,15 @@
         "Mock summarize test.",
         "Sensitive-content redaction test."
       ],
-      "expected_artifacts": ["Hermes summarize mode"],
-      "dependencies": ["HERMES-T019"],
-      "anti_patterns": ["Do not discard source references after summary generation."]
+      "expected_artifacts": [
+        "Hermes summarize mode"
+      ],
+      "dependencies": [
+        "HERMES-T019"
+      ],
+      "anti_patterns": [
+        "Do not discard source references after summary generation."
+      ]
     },
     {
       "id": "HERMES-T022",
@@ -715,9 +897,15 @@
         "Negative test rejects output claiming patch already applied.",
         "Negative test verifies no workspace file changed."
       ],
-      "expected_artifacts": ["Hermes patch_propose mode"],
-      "dependencies": ["HERMES-T020"],
-      "anti_patterns": ["Do not run git apply from Hermes adapter."]
+      "expected_artifacts": [
+        "Hermes patch_propose mode"
+      ],
+      "dependencies": [
+        "HERMES-T020"
+      ],
+      "anti_patterns": [
+        "Do not run git apply from Hermes adapter."
+      ]
     },
     {
       "id": "HERMES-T023",
@@ -742,9 +930,15 @@
         "Test verifies unrestricted network request is denied.",
         "Mock success test using pre-collected research context."
       ],
-      "expected_artifacts": ["Hermes research_limited mode"],
-      "dependencies": ["HERMES-T021"],
-      "anti_patterns": ["Do not let Hermes browse internal or arbitrary URLs by default."]
+      "expected_artifacts": [
+        "Hermes research_limited mode"
+      ],
+      "dependencies": [
+        "HERMES-T021"
+      ],
+      "anti_patterns": [
+        "Do not let Hermes browse internal or arbitrary URLs by default."
+      ]
     },
     {
       "id": "HERMES-T024",
@@ -769,9 +963,18 @@
         "Unit tests for each artifact mapping.",
         "Negative test for artifact storage failure."
       ],
-      "expected_artifacts": ["Hermes artifact mapper"],
-      "dependencies": ["HERMES-T019", "HERMES-T020", "HERMES-T021", "HERMES-T022"],
-      "anti_patterns": ["Do not store only raw Hermes response text as final output."]
+      "expected_artifacts": [
+        "Hermes artifact mapper"
+      ],
+      "dependencies": [
+        "HERMES-T019",
+        "HERMES-T020",
+        "HERMES-T021",
+        "HERMES-T022"
+      ],
+      "anti_patterns": [
+        "Do not store only raw Hermes response text as final output."
+      ]
     },
     {
       "id": "HERMES-T025",
@@ -794,9 +997,15 @@
         "Trace snapshot tests for success and failure.",
         "Redaction tests."
       ],
-      "expected_artifacts": ["Hermes TraceBundle extension"],
-      "dependencies": ["HERMES-T024"],
-      "anti_patterns": ["Do not log full prompts by default."]
+      "expected_artifacts": [
+        "Hermes TraceBundle extension"
+      ],
+      "dependencies": [
+        "HERMES-T024"
+      ],
+      "anti_patterns": [
+        "Do not log full prompts by default."
+      ]
     },
     {
       "id": "HERMES-T026",
@@ -819,9 +1028,16 @@
         "WorkerResult tests for all major status values.",
         "Integration mock test through adapter method."
       ],
-      "expected_artifacts": ["Hermes WorkerResult mapper"],
-      "dependencies": ["HERMES-T024", "HERMES-T025"],
-      "anti_patterns": ["Do not return raw Hermes HTTP response directly to task endpoints."]
+      "expected_artifacts": [
+        "Hermes WorkerResult mapper"
+      ],
+      "dependencies": [
+        "HERMES-T024",
+        "HERMES-T025"
+      ],
+      "anti_patterns": [
+        "Do not return raw Hermes HTTP response directly to task endpoints."
+      ]
     },
     {
       "id": "HERMES-T027",
@@ -843,9 +1059,15 @@
       "test_requirements": [
         "Audit event unit/integration test for success and denial."
       ],
-      "expected_artifacts": ["Hermes audit events"],
-      "dependencies": ["HERMES-T026"],
-      "anti_patterns": ["Do not make remote LLM calls invisible to audit."]
+      "expected_artifacts": [
+        "Hermes audit events"
+      ],
+      "dependencies": [
+        "HERMES-T026"
+      ],
+      "anti_patterns": [
+        "Do not make remote LLM calls invisible to audit."
+      ]
     },
     {
       "id": "HERMES-T028",
@@ -864,10 +1086,19 @@
         "Redaction preserves enough structure for debugging.",
         "Tests cover at least API key, Bearer token, private key header, DB URL password and .env assignment."
       ],
-      "test_requirements": ["Secret redaction regression tests."],
-      "expected_artifacts": ["Hermes redaction integration"],
-      "dependencies": ["HERMES-T015", "HERMES-T017"],
-      "anti_patterns": ["Do not assume context manager already removed all secrets."]
+      "test_requirements": [
+        "Secret redaction regression tests."
+      ],
+      "expected_artifacts": [
+        "Hermes redaction integration"
+      ],
+      "dependencies": [
+        "HERMES-T015",
+        "HERMES-T017"
+      ],
+      "anti_patterns": [
+        "Do not assume context manager already removed all secrets."
+      ]
     },
     {
       "id": "HERMES-T029",
@@ -890,9 +1121,16 @@
         "Unit tests for localhost/private/cloud endpoint classification.",
         "Negative test cloud endpoint with cloud_allowed=false."
       ],
-      "expected_artifacts": ["Hermes cloud policy gate"],
-      "dependencies": ["HERMES-T003", "HERMES-T015"],
-      "anti_patterns": ["Do not treat every configured endpoint as safe/local."]
+      "expected_artifacts": [
+        "Hermes cloud policy gate"
+      ],
+      "dependencies": [
+        "HERMES-T003",
+        "HERMES-T015"
+      ],
+      "anti_patterns": [
+        "Do not treat every configured endpoint as safe/local."
+      ]
     },
     {
       "id": "HERMES-T030",
@@ -911,10 +1149,19 @@
         "Adapter does not parse Hermes tool progress as Ananta execution proof.",
         "Tests verify claimed command execution returns parse_error or unsafe_output."
       ],
-      "test_requirements": ["Unsafe side-effect claim tests."],
-      "expected_artifacts": ["phase 1 tool autonomy block"],
-      "dependencies": ["HERMES-T014", "HERMES-T017"],
-      "anti_patterns": ["Do not enable Hermes terminal/browser tools from Ananta adapter in phase 1."]
+      "test_requirements": [
+        "Unsafe side-effect claim tests."
+      ],
+      "expected_artifacts": [
+        "phase 1 tool autonomy block"
+      ],
+      "dependencies": [
+        "HERMES-T014",
+        "HERMES-T017"
+      ],
+      "anti_patterns": [
+        "Do not enable Hermes terminal/browser tools from Ananta adapter in phase 1."
+      ]
     },
     {
       "id": "HERMES-T031",
@@ -933,10 +1180,18 @@
         "Hermes system prompt tells model that context content is untrusted data.",
         "Tests include malicious README/AGENTS-like context."
       ],
-      "test_requirements": ["Prompt injection context tests."],
-      "expected_artifacts": ["Hermes context injection guard"],
-      "dependencies": ["HERMES-T015"],
-      "anti_patterns": ["Do not place untrusted context before system/developer control instructions."]
+      "test_requirements": [
+        "Prompt injection context tests."
+      ],
+      "expected_artifacts": [
+        "Hermes context injection guard"
+      ],
+      "dependencies": [
+        "HERMES-T015"
+      ],
+      "anti_patterns": [
+        "Do not place untrusted context before system/developer control instructions."
+      ]
     },
     {
       "id": "HERMES-T032",
@@ -957,10 +1212,20 @@
         "Tests prove Hermes output claiming files were modified is unsafe_output or parse_error.",
         "Tests prove disabled feature flag prevents any Hermes HTTP call."
       ],
-      "test_requirements": ["Full Hermes security regression suite."],
-      "expected_artifacts": ["tests/test_hermes_adapter_security.py"],
-      "dependencies": ["HERMES-T026", "HERMES-T029", "HERMES-T030"],
-      "anti_patterns": ["Do not mark Hermes integration complete without these negative tests."]
+      "test_requirements": [
+        "Full Hermes security regression suite."
+      ],
+      "expected_artifacts": [
+        "tests/test_hermes_adapter_security.py"
+      ],
+      "dependencies": [
+        "HERMES-T026",
+        "HERMES-T029",
+        "HERMES-T030"
+      ],
+      "anti_patterns": [
+        "Do not mark Hermes integration complete without these negative tests."
+      ]
     },
     {
       "id": "HERMES-T033",
@@ -982,9 +1247,15 @@
       "test_requirements": [
         "Compose config validation or documented manual smoke path."
       ],
-      "expected_artifacts": ["docker-compose.hermes-worker.yml"],
-      "dependencies": ["HERMES-T003"],
-      "anti_patterns": ["Do not add Hermes as a required dependency of lite stack."]
+      "expected_artifacts": [
+        "docker-compose.hermes-worker.yml"
+      ],
+      "dependencies": [
+        "HERMES-T003"
+      ],
+      "anti_patterns": [
+        "Do not add Hermes as a required dependency of lite stack."
+      ]
     },
     {
       "id": "HERMES-T034",
@@ -1003,10 +1274,19 @@
         "Examples include recommended small/free-friendly models where appropriate.",
         "Examples include blocked task kinds."
       ],
-      "test_requirements": ["Docs lint or config parse test where possible."],
-      "expected_artifacts": ["sample Hermes config docs"],
-      "dependencies": ["HERMES-T003", "HERMES-T033"],
-      "anti_patterns": ["Do not put real keys into examples."]
+      "test_requirements": [
+        "Docs lint or config parse test where possible."
+      ],
+      "expected_artifacts": [
+        "sample Hermes config docs"
+      ],
+      "dependencies": [
+        "HERMES-T003",
+        "HERMES-T033"
+      ],
+      "anti_patterns": [
+        "Do not put real keys into examples."
+      ]
     },
     {
       "id": "HERMES-T035",
@@ -1025,10 +1305,18 @@
         "Diagnostics can be consumed by dashboard/TUI later.",
         "Diagnostics distinguish disabled, misconfigured, unavailable, unauthorized and ready."
       ],
-      "test_requirements": ["Diagnostics redaction and state tests."],
-      "expected_artifacts": ["Hermes diagnostics payload"],
-      "dependencies": ["HERMES-T011"],
-      "anti_patterns": ["Do not hide why Hermes was not selected."]
+      "test_requirements": [
+        "Diagnostics redaction and state tests."
+      ],
+      "expected_artifacts": [
+        "Hermes diagnostics payload"
+      ],
+      "dependencies": [
+        "HERMES-T011"
+      ],
+      "anti_patterns": [
+        "Do not hide why Hermes was not selected."
+      ]
     },
     {
       "id": "HERMES-T036",
@@ -1046,10 +1334,18 @@
         "Tests are deterministic and fast.",
         "Each unsafe behavior has a negative test."
       ],
-      "test_requirements": ["pytest tests/test_hermes_adapter_*.py"],
-      "expected_artifacts": ["Hermes unit test suite"],
-      "dependencies": ["HERMES-T032"],
-      "anti_patterns": ["Do not rely only on live manual testing."]
+      "test_requirements": [
+        "pytest tests/test_hermes_adapter_*.py"
+      ],
+      "expected_artifacts": [
+        "Hermes unit test suite"
+      ],
+      "dependencies": [
+        "HERMES-T032"
+      ],
+      "anti_patterns": [
+        "Do not rely only on live manual testing."
+      ]
     },
     {
       "id": "HERMES-T037",
@@ -1069,10 +1365,19 @@
         "System stores/returns PlanArtifact and TraceBundle.",
         "No workspace file changes are observed."
       ],
-      "test_requirements": ["Mock E2E test."],
-      "expected_artifacts": ["tests/test_hermes_task_flow.py"],
-      "dependencies": ["HERMES-T019", "HERMES-T026"],
-      "anti_patterns": ["Do not test only the adapter class if routing is supposed to use registry."]
+      "test_requirements": [
+        "Mock E2E test."
+      ],
+      "expected_artifacts": [
+        "tests/test_hermes_task_flow.py"
+      ],
+      "dependencies": [
+        "HERMES-T019",
+        "HERMES-T026"
+      ],
+      "anti_patterns": [
+        "Do not test only the adapter class if routing is supposed to use registry."
+      ]
     },
     {
       "id": "HERMES-T038",
@@ -1091,10 +1396,19 @@
         "Live test fails clearly when endpoint/model/API key missing.",
         "Live test never sends repository secrets or full project context."
       ],
-      "test_requirements": ["Optional live smoke test."],
-      "expected_artifacts": ["tests/test_live_hermes_worker.py"],
-      "dependencies": ["HERMES-T011", "HERMES-T019"],
-      "anti_patterns": ["Do not require live Hermes for normal CI."]
+      "test_requirements": [
+        "Optional live smoke test."
+      ],
+      "expected_artifacts": [
+        "tests/test_live_hermes_worker.py"
+      ],
+      "dependencies": [
+        "HERMES-T011",
+        "HERMES-T019"
+      ],
+      "anti_patterns": [
+        "Do not require live Hermes for normal CI."
+      ]
     },
     {
       "id": "HERMES-T039",
@@ -1113,10 +1427,19 @@
         "Guide explains troubleshooting for disabled, unauthorized, unavailable, cloud_blocked, parse_error and policy_denied.",
         "Guide explains why patch_apply and command_execute stay native/approval-gated."
       ],
-      "test_requirements": ["Docs reviewed against implemented config names."],
-      "expected_artifacts": ["docs/setup/hermes-worker.md"],
-      "dependencies": ["HERMES-T034", "HERMES-T035"],
-      "anti_patterns": ["Do not document unsafe shortcuts as normal usage."]
+      "test_requirements": [
+        "Docs reviewed against implemented config names."
+      ],
+      "expected_artifacts": [
+        "docs/setup/hermes-worker.md"
+      ],
+      "dependencies": [
+        "HERMES-T034",
+        "HERMES-T035"
+      ],
+      "anti_patterns": [
+        "Do not document unsafe shortcuts as normal usage."
+      ]
     },
     {
       "id": "HERMES-T040",
@@ -1135,11 +1458,20 @@
         "Release note states Hermes is proposal/review worker only in first release.",
         "Release note states no direct shell/file mutation via Hermes."
       ],
-      "test_requirements": ["No runtime test required."],
-      "expected_artifacts": ["Hermes rollout checklist"],
-      "dependencies": ["HERMES-T036", "HERMES-T037", "HERMES-T039"],
-      "anti_patterns": ["Do not enable by default before negative tests pass."
-        ]
+      "test_requirements": [
+        "No runtime test required."
+      ],
+      "expected_artifacts": [
+        "Hermes rollout checklist"
+      ],
+      "dependencies": [
+        "HERMES-T036",
+        "HERMES-T037",
+        "HERMES-T039"
+      ],
+      "anti_patterns": [
+        "Do not enable by default before negative tests pass."
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -1194,12 +1526,12 @@
   "tasks_status_summary": {
     "total": 40,
     "by_status": {
-      "todo": 40,
+      "todo": 30,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 10
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 25.0,
     "by_priority": {
       "P0": 23,
       "P1": 10,
@@ -1213,15 +1545,15 @@
     },
     "critical_path": {
       "total": 25,
-      "done": 0,
-      "remaining": 25
+      "done": 7,
+      "remaining": 18
     },
     "milestones": {
       "total": 9,
-      "todo": 9,
-      "in_progress": 0,
+      "todo": 6,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 0
+      "done": 2
     }
   },
   "summary_notes": [

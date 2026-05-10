@@ -39,6 +39,7 @@ KNOWN_FLAGS: frozenset[str] = frozenset({
     "enable_scheduled_jobs",           # ScheduledJobContract processing active
     "enable_api_exposure",             # ApiExposurePolicy can be non-disabled
     "enable_trace_v2",                 # TraceBundleV2 emitted instead of legacy TraceBundle
+    "enable_hermes_worker_adapter",    # Hermes external worker adapter routing/registry
     # Migration flags
     "legacy_envelope_adapter_allowed", # allow LegacyEnvelopeAdapter fallback
     "strict_tool_policy",              # deny tools not in ToolPolicy.allowed_tool_ids
@@ -99,6 +100,9 @@ DEFAULT_FLAGS: list[FeatureFlag] = [
                 MigrationStage.governed),
     FeatureFlag("enable_trace_v2", True,
                 "Emit TraceBundleV2 instead of legacy TraceBundle",
+                MigrationStage.governed),
+    FeatureFlag("enable_hermes_worker_adapter", False,
+                "Enable Hermes external worker adapter visibility and routing (opt-in)",
                 MigrationStage.governed),
     FeatureFlag("legacy_envelope_adapter_allowed", True,
                 "Allow LegacyEnvelopeAdapter fallback during migration",

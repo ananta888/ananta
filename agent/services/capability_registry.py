@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
+from agent.services.hermes_worker_profile import get_default_hermes_profile
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -68,6 +69,20 @@ class CapabilityRegistry:
             grouped[str(capability.get("category") or "uncategorized")].append(capability)
         return dict(grouped)
 
+    def hermes_capability_decision(self, capability_id: str) -> dict[str, Any]:
+        profile = get_default_hermes_profile()
+        normalized = str(capability_id or "").strip().lower()
+        allowed = profile.supports_capability(normalized)
+        reason = "allow" if allowed else "default_deny"
+        return {
+            "adapter_id": "hermes",
+            "capability_id": normalized,
+            "allowed": allowed,
+            "reason": reason,
+            "risk_class": profile.risk_class,
+            "requires_structured_output": profile.requires_structured_output,
+        }
+
     def _resolve_ref(self, ref: str) -> Path:
         path = Path(ref)
         if path.is_absolute():
@@ -77,4 +92,3 @@ class CapabilityRegistry:
     @staticmethod
     def _load_json(path: Path) -> dict[str, Any]:
         return json.loads(path.read_text(encoding="utf-8"))
-

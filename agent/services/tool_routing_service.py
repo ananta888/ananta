@@ -14,6 +14,7 @@ _BACKEND_CAPABILITY_CLASSES: dict[str, list[str]] = {
     "mistral_code": ["patching", "review"],
     "deerflow": ["research", "planning"],
     "ananta_research": ["research", "planning"],
+    "hermes": ["planning", "review", "summarize", "patch_propose", "research_limited"],
 }
 
 _TOOL_CLASS_CAPABILITY_CLASSES: dict[str, list[str]] = {
@@ -29,6 +30,15 @@ _TASK_KIND_CAPABILITY_HINTS: dict[str, list[str]] = {
     "research": ["research"],
     "doc": ["planning"],
     "ops": ["shell_execution"],
+    "plan_only": ["planning"],
+    "review": ["review"],
+    "summarize": ["summarize"],
+    "patch_propose": ["patch_propose"],
+    "research_limited": ["research_limited"],
+    "patch_apply": ["patch_apply"],
+    "command_execute": ["shell_execution"],
+    "service_mutation": ["service_mutation"],
+    "config_mutation": ["config_mutation"],
 }
 
 _RISK_CLASS_RANK = {"low": 0, "medium": 1, "high": 2}
@@ -140,7 +150,8 @@ class ToolRoutingService:
         agent_cfg: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         catalog = self.build_capability_catalog(agent_cfg=agent_cfg)
-        normalized_kind = normalize_task_kind(task_kind, "")
+        raw_kind = str(task_kind or "").strip().lower()
+        normalized_kind = raw_kind if raw_kind in _TASK_KIND_CAPABILITY_HINTS else normalize_task_kind(task_kind, "")
         governance = str(governance_mode or "balanced").strip().lower()
         if governance not in {"safe", "balanced", "strict"}:
             governance = "balanced"
@@ -152,6 +163,10 @@ class ToolRoutingService:
         ]
 
         requested = str(requested_backend or "").strip().lower() or None
+        hermes_enabled = bool(((agent_cfg or {}).get("hermes_worker_adapter") or {}).get("enabled", False))
+        hermes_flag_enabled = bool(((agent_cfg or {}).get("feature_flags") or {}).get("enable_hermes_worker_adapter", False))
+        hermes_allowed_caps = {"planning", "review", "summarize", "patch_propose", "research_limited"}
+        hermes_denied_caps = {"patch_apply", "shell_execution", "service_mutation", "config_mutation"}
         alternatives: list[dict[str, Any]] = []
         candidate_rows: list[dict[str, Any]] = []
         for item in backend_items:
@@ -163,6 +178,17 @@ class ToolRoutingService:
             reason = "candidate_available"
             if not available:
                 reason = "backend_unavailable"
+            elif candidate_id == "hermes" and not hermes_flag_enabled:
+                reason = "disabled_by_feature_flag"
+            elif candidate_id == "hermes" and not hermes_enabled:
+                reason = "adapter_disabled"
+            elif candidate_id == "hermes" and any(cap in hermes_denied_caps for cap in required):
+                reason = "missing_capabilities:" + ",".join([cap for cap in required if cap in hermes_denied_caps])
+                missing = list(dict.fromkeys(missing + [cap for cap in required if cap in hermes_denied_caps]))
+            elif candidate_id == "hermes" and any(cap not in hermes_allowed_caps for cap in required):
+                denied_caps = [cap for cap in required if cap not in hermes_allowed_caps]
+                reason = "missing_capabilities:" + ",".join(denied_caps)
+                missing = list(dict.fromkeys(missing + denied_caps))
             elif governance_block:
                 reason = "governance_risk_blocked"
             elif missing:
@@ -170,7 +196,7 @@ class ToolRoutingService:
             candidate_rows.append(
                 {
                     "target": candidate_id,
-                    "eligible": available and not governance_block and not missing,
+                    "eligible": available and not governance_block and not missing and not (candidate_id == "hermes" and (not hermes_enabled or not hermes_flag_enabled)),
                     "reason": reason,
                     "missing_capabilities": missing,
                     "risk_class": item.get("risk_class"),
@@ -188,7 +214,7 @@ class ToolRoutingService:
             selected_row = sorted(eligible, key=lambda row: (-int(row.get("score") or 0), int(row.get("risk_rank") or 3), str(row.get("target") or "")))[0]
 
         selected_target = str(selected_row.get("target")) if selected_row else None
-        selected_reason = "no_eligible_backend"
+        selected_reason = "no_backend_available"
         if selected_target:
             selected_reason = "requested_backend_selected" if requested and requested == selected_target else "capability_match_selected"
         for row in candidate_rows:
