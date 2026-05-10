@@ -161,7 +161,7 @@
         "HERMES-T031",
         "HERMES-T032"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "HERMES-M8",
@@ -171,7 +171,7 @@
         "HERMES-T034",
         "HERMES-T035"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "HERMES-M9",
@@ -183,7 +183,7 @@
         "HERMES-T039",
         "HERMES-T040"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -1166,7 +1166,7 @@
     {
       "id": "HERMES-T031",
       "title": "Add prompt injection resistance for Hermes context",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "objective": "Prevent repository/context text from instructing Hermes to bypass Ananta rules.",
@@ -1196,7 +1196,7 @@
     {
       "id": "HERMES-T032",
       "title": "Add policy bypass regression tests for Hermes adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Lock down the main ways Hermes integration could become unsafe.",
@@ -1230,7 +1230,7 @@
     {
       "id": "HERMES-T033",
       "title": "Add optional Docker Compose service for Hermes worker",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "objective": "Make local testing easy without making Hermes mandatory.",
@@ -1260,7 +1260,7 @@
     {
       "id": "HERMES-T034",
       "title": "Add sample config for local and cloud Hermes endpoints",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "objective": "Help operators configure Hermes safely.",
@@ -1291,7 +1291,7 @@
     {
       "id": "HERMES-T035",
       "title": "Add Hermes runtime diagnostics endpoint/surface",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "objective": "Let operators see whether Hermes is available and why it is or is not selected.",
@@ -1321,7 +1321,7 @@
     {
       "id": "HERMES-T036",
       "title": "Add unit tests for Hermes adapter core",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Cover all small pieces so smaller models can change safely later.",
@@ -1350,7 +1350,7 @@
     {
       "id": "HERMES-T037",
       "title": "Add mocked end-to-end task flow test for Hermes plan_only",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Prove task routing to Hermes works without real network.",
@@ -1382,7 +1382,7 @@
     {
       "id": "HERMES-T038",
       "title": "Add optional live smoke test for Hermes endpoint",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "objective": "Allow manual/local verification against a real Hermes service without making CI depend on it.",
@@ -1413,7 +1413,7 @@
     {
       "id": "HERMES-T039",
       "title": "Write operator guide for Hermes worker setup",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Document safe usage for local developers and operators.",
@@ -1444,7 +1444,7 @@
     {
       "id": "HERMES-T040",
       "title": "Add rollout checklist and default-off release note",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Make release safe and reversible.",
@@ -1526,12 +1526,12 @@
   "tasks_status_summary": {
     "total": 40,
     "by_status": {
-      "todo": 10,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 30
+      "done": 40
     },
-    "progress_percent_done": 75.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 23,
       "P1": 10,
@@ -1545,15 +1545,15 @@
     },
     "critical_path": {
       "total": 25,
-      "done": 22,
-      "remaining": 3
+      "done": 25,
+      "remaining": 0
     },
     "milestones": {
       "total": 9,
-      "todo": 2,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 6
+      "done": 9
     }
   },
   "summary_notes": [

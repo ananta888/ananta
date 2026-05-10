@@ -43,8 +43,11 @@ class HermesAdapter:
             )
         )
         self.audit_emitter = audit_emitter
+        self._last_error_code: str = ""
 
     def health(self) -> dict[str, Any]:
+        if not self.config.feature_flag_enabled:
+            return self._health_payload("disabled", "disabled_by_feature_flag")
         if not self.config.enabled:
             return self._health_payload("disabled", "disabled_config")
         if not self.config.base_url or not self.config.default_model:
@@ -54,10 +57,14 @@ class HermesAdapter:
             self.client.health(api_key=api_key)
         except HermesClientError as exc:
             if exc.code == "hermes_unauthorized":
+                self._last_error_code = exc.code
                 return self._health_payload("unauthorized", exc.code)
             if exc.code in {"hermes_timeout", "hermes_connection_error", "hermes_not_found"}:
+                self._last_error_code = exc.code
                 return self._health_payload("unavailable", exc.code)
+            self._last_error_code = exc.code
             return self._health_payload("degraded", exc.code)
+        self._last_error_code = ""
         return self._health_payload("ready", "health_ok")
 
     def propose(self, envelope: ExecutionEnvelope, *, context_blocks: list[ContextBlock] | None = None) -> WorkerResult:
@@ -87,6 +94,8 @@ class HermesAdapter:
     def _execute_mode(self, mode: str, envelope: ExecutionEnvelope, context_blocks: list[ContextBlock]) -> WorkerResult:
         trace = make_trace(envelope)
         self._audit("routing_selected", envelope=envelope, mode=mode)
+        if not self.config.feature_flag_enabled:
+            return WorkerResult.denied(envelope.task_id, "disabled_by_feature_flag", trace)
         if not self.config.enabled:
             return self._degraded(envelope, trace, "disabled_config")
         if mode in self.config.blocked_task_kinds:
@@ -109,6 +118,8 @@ class HermesAdapter:
         trace.append("hermes_endpoint_classification", reason_code=None, endpoint_classification=endpoint_class)
         if endpoint_class == "cloud" and not envelope.model_policy.cloud_allowed:
             return WorkerResult.denied(envelope.task_id, "cloud_blocked", trace)
+        if endpoint_class == "cloud" and any(str(getattr(b, "sensitivity", "")).lower().endswith(("secret", "confidential")) for b in context_blocks):
+            return WorkerResult.denied(envelope.task_id, "sensitivity_blocked", trace)
 
         model_selection = self._select_model(envelope)
         if model_selection.get("blocked"):
@@ -122,6 +133,8 @@ class HermesAdapter:
         )
         if not converted.has_required_context:
             return self._degraded(envelope, trace, "context_missing_or_sensitive")
+        if converted.suspicious:
+            trace.append("hermes_suspicious_context", reason_code="suspicious_context_blocked", findings=list(converted.suspicious))
         context_hash = _hash_text(user_text := converted.prompt_text)
 
         schema = _schema_for_mode(mode)
@@ -184,6 +197,7 @@ class HermesAdapter:
                     user_prompt = _build_parse_retry_prompt(user_prompt, response, schema)
                     continue
                 trace.append("hermes_parse_error", reason_code=parse_result.reason_code, parse_retry_used=parse_retry_used)
+                self._last_error_code = parse_result.reason_code
                 self._audit("policy_denied", envelope=envelope, mode=mode, reason_code=parse_result.reason_code)
                 return self._failed(envelope, trace, parse_result.reason_code)
             except HermesClientError as exc:
@@ -192,6 +206,7 @@ class HermesAdapter:
                     continue
                 duration_ms = int((time.monotonic() - start) * 1000)
                 trace.append("hermes_remote_error", reason_code=exc.code, retry_count=attempt - 1, total_duration_ms=duration_ms)
+                self._last_error_code = exc.code
                 self._audit("provider_call", envelope=envelope, mode=mode, reason_code=exc.code, status="error")
                 return self._failed(envelope, trace, exc.code)
 
@@ -296,6 +311,22 @@ class HermesAdapter:
             "adapter_id": self.id,
             "base_url": self.config.base_url,
             "selected_model": self.config.default_model,
+            "api_key_value": "[REDACTED]",
+        }
+
+    def diagnostics(self) -> dict[str, Any]:
+        health = self.health()
+        return {
+            "enabled": self.config.enabled,
+            "feature_flag_enabled": self.config.feature_flag_enabled,
+            "health_state": health.get("status"),
+            "endpoint_classification": _classify_endpoint(self.config.base_url),
+            "selected_default_model": self.config.default_model,
+            "allowed_task_kinds": list(self.config.allowed_task_kinds),
+            "blocked_task_kinds": list(self.config.blocked_task_kinds),
+            "last_error_code": self._last_error_code or health.get("reason_code"),
+            "cloud_allowed": self.config.cloud_allowed,
+            "reason_code": health.get("reason_code"),
             "api_key_value": "[REDACTED]",
         }
 

@@ -1,0 +1,19 @@
+services:
+  hermes-worker:
+    image: hermes-worker:latest
+    container_name: hermes-worker
+    restart: unless-stopped
+    environment:
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
+      HERMES_MODEL: ${HERMES_MODEL:-qwen2.5-coder-7b}
+      HERMES_LOG_LEVEL: ${HERMES_LOG_LEVEL:-info}
+    ports:
+      - "8800:8800"
+    volumes:
+      - hermes_data:/var/lib/hermes
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  hermes_data:
