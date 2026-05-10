@@ -39,6 +39,15 @@ class TaskLifecycleService:
             key: value for key, value in blueprint_provenance.items() if value
         }
         shell_command_mode = str(rationale.get("shell_command_mode") or "").strip() or None
+        output_dir = ""
+        if goal_id:
+            try:
+                goal = goal_repo.get_by_id(str(goal_id))
+                if goal:
+                    output_dir = str((goal.execution_preferences or {}).get("output_dir") or "").strip()
+            except Exception:
+                output_dir = ""
+
         worker_execution_context = {
             "kind": "worker_execution_context",
             "version": "v1",
@@ -55,6 +64,7 @@ class TaskLifecycleService:
                 "required_context_scope": rationale.get("required_context_scope"),
                 "preferred_bundle_mode": rationale.get("preferred_bundle_mode"),
             },
+            **({"workspace": {"output_dir": output_dir}} if output_dir else {}),
             **({"shell_command_mode": shell_command_mode} if shell_command_mode else {}),
         }
         get_task_queue_service().ingest_task(
