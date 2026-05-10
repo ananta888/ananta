@@ -175,9 +175,10 @@ class FilePolicy:
             resolved.relative_to(scope_resolved)
             return True
         except (ValueError, OSError):
-            # Fall back to string prefix check for non-existent paths
-            norm_path = str(Path(path))
-            norm_scope = str(Path(scope))
+            import os
+            # Normalize (collapse ..) before prefix check to prevent traversal bypass
+            norm_path = os.path.normpath(path)
+            norm_scope = os.path.normpath(scope)
             if not norm_scope.endswith("/"):
                 norm_scope += "/"
             return norm_path.startswith(norm_scope) or norm_path == norm_scope.rstrip("/")

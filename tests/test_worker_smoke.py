@@ -8,10 +8,12 @@ import pytest
 
 from worker.core.execution_envelope import (
     ApprovalRef,
+    ArtifactRef,
     CapabilityGrant,
     ExecutionEnvelope,
     ModelPolicy,
     ToolPolicy,
+    TraceBundle,
     WorkerResult,
     WorkerResultStatus,
 )
@@ -85,11 +87,10 @@ class TestPlanOnlySmoke:
         )
 
         # 1. Preflight
-        pre = self.gate.check(
-            env, provider_id="local_mock", tool_id="read_file",
-            operation="planning", task_kind="task",
-        )
+        pre = self.gate.check(env)
         assert pre.allowed, f"Preflight denied: {pre.reason_code}"
+        pre = self.gate.check_provider(env, "local_mock")
+        assert pre.allowed, f"Provider check denied: {pre.reason_code}"
 
         # 2. Audit preflight
         self.audit.emit_preflight(
@@ -101,13 +102,15 @@ class TestPlanOnlySmoke:
         )
 
         # 3. Context scan (clean input)
-        scan = self.scanner.scan("task", env.task_id, "Fix the parse_config bug")
-        assert not scan.blocked
+        from worker.core.context_resolver import ContextBlock
+        block = ContextBlock("task", env.task_id, "hub", content="Fix the parse_config bug")
+        scan = self.scanner.scan(block)
+        assert scan.clean
 
         # 4. Mock provider call → sanitize response
         raw_response = MOCK_PLAN_RESPONSE
-        clean_response = self.sanitizer.sanitize(raw_response)
-        assert clean_response == raw_response  # no secrets in clean response
+        sanitized = self.sanitizer.sanitize(raw_response)
+        assert not sanitized.was_redacted  # no secrets in mock response
 
         # 5. Produce artifact
         artifact = {"kind": "plan_artifact", "artifact_id": "plan-mock-001"}
@@ -120,10 +123,20 @@ class TestPlanOnlySmoke:
         assert enforcement.compliant, enforcement.violations
 
         # 7. Build WorkerResult
+        trace = TraceBundle(
+            correlation_id=env.audit_correlation_id,
+            capability_snapshot_hash=env.capability_grant.snapshot_hash,
+        )
+        artifact_ref = ArtifactRef(
+            artifact_id="plan-mock-001", kind="plan_artifact",
+            provenance=f"{env.task_id}:planning",
+        )
         result = WorkerResult(
+            task_id=env.task_id,
             status=WorkerResultStatus.success,
             summary=self.enforcer.build_summary_with_refs("Fix plan created", [artifact]),
-            artifacts=[artifact],
+            artifacts=[artifact_ref],
+            trace_bundle=trace,
         )
         assert result.status == WorkerResultStatus.success
 
@@ -137,28 +150,19 @@ class TestPlanOnlySmoke:
             capability_grant=CapabilityGrant(capabilities=["planning"]),
             model_policy=ModelPolicy(cloud_allowed=False),
         )
-        pre = self.gate.check(
-            env, provider_id="openai", tool_id="read_file",
-            operation="planning", task_kind="task",
-        )
+        pre = self.gate.check_provider(env, "openai")
         assert not pre.allowed
 
     def test_plan_only_local_provider_allowed(self):
         env = _make_envelope()
-        pre = self.gate.check(
-            env, provider_id="local_mock", tool_id="read_file",
-            operation="planning", task_kind="task",
-        )
+        pre = self.gate.check_provider(env, "local_mock")
         assert pre.allowed
 
     def test_plan_only_missing_capability_blocked(self):
         env = _make_envelope(
             capability_grant=CapabilityGrant(capabilities=[]),
         )
-        pre = self.gate.check(
-            env, provider_id="local_mock", tool_id="read_file",
-            operation="planning", task_kind="task",
-        )
+        pre = self.gate.check(env)
         assert not pre.allowed
 
     def test_plan_only_free_text_result_rejected(self):
@@ -184,11 +188,8 @@ class TestPatchProposeSmoke:
             capability_grant=CapabilityGrant(capabilities=["patch_propose", "code_read"]),
         )
 
-        # 1. Preflight for code_read
-        pre = self.gate.check(
-            env, provider_id="local_mock", tool_id="read_file",
-            operation="code_read", task_kind="task",
-        )
+        # 1. Preflight
+        pre = self.gate.check(env)
         assert pre.allowed
 
         # 2. Mock provider returns diff → parse to artifact
@@ -221,10 +222,20 @@ class TestPatchProposeSmoke:
         assert enforcement.compliant, enforcement.violations
 
         # 5. WorkerResult with artifact ref
+        trace = TraceBundle(
+            correlation_id=env.audit_correlation_id,
+            capability_snapshot_hash=env.capability_grant.snapshot_hash,
+        )
+        artifact_ref = ArtifactRef(
+            artifact_id=artifact.artifact_id, kind="patch_artifact",
+            provenance=f"{env.task_id}:patch_propose",
+        )
         result = WorkerResult(
+            task_id=env.task_id,
             status=WorkerResultStatus.success,
             summary=f"Patch proposed: {artifact.artifact_id}",
-            artifacts=[artifact.as_dict()],
+            artifacts=[artifact_ref],
+            trace_bundle=trace,
         )
         assert result.status == WorkerResultStatus.success
 
@@ -234,10 +245,7 @@ class TestPatchProposeSmoke:
             capability_grant=CapabilityGrant(capabilities=["patch_apply"]),
             approval_refs=[],
         )
-        pre = self.gate.check(
-            env, provider_id="local_mock", tool_id="any",
-            operation="patch_apply", task_kind="task",
-        )
+        pre = self.gate.check(env)
         assert not pre.allowed
 
     def test_patch_propose_requires_no_approval(self):
@@ -246,10 +254,7 @@ class TestPatchProposeSmoke:
             capability_grant=CapabilityGrant(capabilities=["patch_propose"]),
             approval_refs=[],
         )
-        pre = self.gate.check(
-            env, provider_id="local_mock", tool_id="any",
-            operation="patch_propose", task_kind="task",
-        )
+        pre = self.gate.check(env)
         assert pre.allowed
 
 
@@ -260,7 +265,6 @@ class TestTraceBundleSmoke:
         env = _make_envelope()
         trace = TraceBundleV2.from_envelope(
             env,
-            goal_id="goal-001",
             model_id="local_mock/llama3",
         )
         trace.finish(ExecutionOutcome.success)
