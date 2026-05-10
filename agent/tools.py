@@ -896,14 +896,22 @@ def _check_file_access(path: str, operation: str = "read") -> tuple[bool, str]:
 
 def _workspace_file_hint() -> str:
     import os
-    cwd = os.path.abspath(".")
+    from flask import g, has_request_context
+    target = None
+    if has_request_context():
+        target = g.get("workspace_dir") or os.path.abspath(".")
+    else:
+        target = os.path.abspath(".")
     try:
-        files = os.listdir(cwd)
+        files = os.listdir(target)
     except Exception:
-        return " Verfuegbare Dateien im Workspace: (nicht lesbar)."
-    hint_files = [f for f in files if os.path.isfile(os.path.join(cwd, f))][:15]
-    hint_dirs = [f + "/" for f in files if os.path.isdir(os.path.join(cwd, f))][:10]
+        return " Verfuegbare Workspace-Eintraege: (nicht lesbar)."
+    hint_files = [f for f in files if os.path.isfile(os.path.join(target, f))][:15]
+    hint_dirs = [f + "/" for f in files if os.path.isdir(os.path.join(target, f))][:10]
     hint = hint_files + hint_dirs
+    has_ananta = os.path.isdir(os.path.join(target, ".ananta"))
+    if has_ananta:
+        hint.append(".ananta/ (Task-Kontext: task-brief.md, hub-context.md, ...)")
     if not hint:
         return ""
     return f" Verfuegbare Workspace-Eintraege: {', '.join(hint)}."
