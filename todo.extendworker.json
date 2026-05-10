@@ -222,7 +222,7 @@
     {
       "id": "EW-T001",
       "title": "Create ADR for Ananta Worker as governed agent executor",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Define the worker as a Hermes-like execution engine that remains subordinate to the Ananta Hub.",
@@ -249,7 +249,7 @@
     {
       "id": "EW-T002",
       "title": "Define worker responsibility matrix",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Document what the worker may decide locally and what must always come from Hub.",
@@ -276,7 +276,7 @@
     {
       "id": "EW-T003",
       "title": "Define canonical ExecutionEnvelope contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Create the single request object that every enhanced worker execution must receive.",
@@ -303,7 +303,7 @@
     {
       "id": "EW-T004",
       "title": "Define canonical WorkerResult contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Create the single result object returned by enhanced workers.",
@@ -330,7 +330,7 @@
     {
       "id": "EW-T005",
       "title": "Define capability vocabulary and risk classes",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Normalize capability classes used by Hub, ToolRouter, Worker and Approval.",
@@ -357,7 +357,7 @@
     {
       "id": "EW-T006",
       "title": "Define migration boundary for existing worker modes",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Map existing plan_only/patch_propose/patch_apply/command_plan/command_execute/test_run/verify modes onto the new envelope model.",
@@ -384,7 +384,7 @@
     {
       "id": "EW-T007",
       "title": "Implement ExecutionEnvelope Pydantic models",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Turn the envelope contract into typed runtime validation.",
@@ -412,7 +412,7 @@
     {
       "id": "EW-T008",
       "title": "Implement worker preflight gate",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Add a mandatory gate before every execution path.",
@@ -440,7 +440,7 @@
     {
       "id": "EW-T009",
       "title": "Add fail-closed default-deny behavior",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Ensure missing or ambiguous policy denies execution.",
@@ -469,7 +469,7 @@
     {
       "id": "EW-T010",
       "title": "Implement immutable capability snapshot per task",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Prevent mid-run capability escalation.",
