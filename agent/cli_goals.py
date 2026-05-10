@@ -309,6 +309,18 @@ def _host_scan(topic: str, *, max_chars: int = 6000) -> str:
     return "\n\n".join(sections)
 
 
+def _switch_autopilot_to_goal(goal_id: str) -> None:
+    """Point the running autopilot at this goal and force an immediate tick."""
+    try:
+        resp = _request("POST", "/tasks/autopilot/start", body={"goal": goal_id}, timeout=30)
+        if resp.status_code != 200:
+            print(f"Warning: autopilot start returned {resp.status_code}", file=sys.stderr)
+            return
+        _request("POST", "/tasks/autopilot/tick", body={}, timeout=30)
+    except SystemExit:
+        print("Warning: autopilot switch failed (hub unreachable?)", file=sys.stderr)
+
+
 def _submit_repair_goal(
     text: str,
     *,
@@ -352,6 +364,13 @@ def _submit_repair_goal(
         return None
 
     print(f"Goal ID: {goal_id}  Tasks: {len(task_ids)}", file=sys.stderr)
+
+    # Ensure the autopilot switches to this goal immediately.
+    # The server-side create_goal handler also calls _ensure_autopilot_running,
+    # but we do it here explicitly for robustness (in case auto_planner is
+    # disabled or the server-side path fails).
+    _switch_autopilot_to_goal(goal_id)
+
     print(f"Waiting (max {timeout}s)...", file=sys.stderr)
 
     final_status = _poll_goal_status(goal_id, timeout=timeout)

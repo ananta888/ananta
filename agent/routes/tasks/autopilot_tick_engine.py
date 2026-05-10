@@ -1048,11 +1048,11 @@ def execute_autopilot_tick(
     app = loop._app
 
     # thr-006: parallel dispatch via ThreadPoolExecutor.
-    # thr-015: executor.shutdown(wait=False) so _tick_lock is released immediately
-    #          when _stop_event is set. Running threads are NOT joined — they
+    # thr-015: executor.shutdown(wait=False) so the per-goal tick lock is
+    #          released immediately when _stop_event is set. Running threads
     #          continue in the background and update task status on completion.
-    #          This prevents goal-switch deadlocks where _tick_lock was held for
-    #          up to 180s waiting on stale HTTP POSTs.
+    # thr-016: per-goal tick tracking (autopilot.py) replaces _tick_lock. Different
+    #          goals can tick in parallel; the same goal is guarded by _active_goal_ticks.
     task_results: list[TaskDispatchResult] = []
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=max(1, effective_concurrency))
     try:
@@ -1135,7 +1135,7 @@ def execute_autopilot_tick(
 
     loop.last_tick_at = time.time()
     loop._set_last_error(None)
-    loop.tick_count += 1
+    loop._increment_tick_count()
     loop._persist_state(enabled=loop.running)
     # Wake the loop immediately if there may be more tasks ready (sequential chains).
     if dispatched > 0:

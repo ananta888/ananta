@@ -84,55 +84,70 @@ class AgentHealthMonitorService:
         if changed:
             write_json(agents_path, file_agents)
 
+    @staticmethod
+    def _health_check_url(url: str, token: str | None, timeout: float = 10.0) -> tuple[bool, dict | None]:
+        """Check agent liveness via /health?basic=1 (primary), /health (fallback).
+
+        Returns (is_online, resource_data_or_None).  The /health endpoint is
+        intentionally lightweight so it returns quickly even when the worker
+        is busy with an LLM call.
+        """
+        from agent.common.http import get_default_client
+
+        http = get_default_client()
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        base = url.rstrip("/")
+
+        # Primary: lightweight health check
+        for path, health_timeout in (("/health?basic=1", timeout), ("/health", timeout * 2)):
+            try:
+                resp = http.get(f"{base}{path}", headers=headers, timeout=health_timeout, return_response=True, silent=True)
+                if resp and resp.status_code < 500:
+                    return True, None
+            except Exception:
+                continue
+
+        return False, None
+
     def _check_name(self, *, info: dict, now: float) -> bool | None:
         url = info.get("url")
         token = info.get("token")
         if not url:
             return None
-        try:
-            stats_url = f"{url.rstrip('/')}/stats"
-            headers = {"Authorization": f"Bearer {token}"} if token else {}
-            from agent.common.http import get_default_client
-
-            http = get_default_client()
-            response = http.get(stats_url, headers=headers, timeout=5.0, return_response=True, silent=True)
-            if response and response.status_code == 200:
-                info["status"] = "online"
-                info["last_seen"] = now
-                return True
-            health_url = f"{url.rstrip('/')}/health"
-            response = http.get(health_url, timeout=5.0, return_response=True, silent=True)
-            info["status"] = "online" if response and response.status_code < 500 else "offline"
-            if info["status"] == "online":
-                info["last_seen"] = now
-            return info["status"] == "online"
-        except Exception:
-            info["status"] = "offline"
-            return False
+        is_online, _ = self._health_check_url(url, token, timeout=10.0)
+        info["status"] = "online" if is_online else "offline"
+        if is_online:
+            info["last_seen"] = now
+        return is_online
 
     def _check_agent(self, agent_obj):
         url = agent_obj.url
         token = agent_obj.token
         if not url:
             return agent_obj, None
+        is_online, _ = self._health_check_url(url, token, timeout=10.0)
+        if not is_online:
+            return agent_obj, ("offline", None)
+
+        resources = None
         try:
-            stats_url = f"{url.rstrip('/')}/stats"
             headers = {"Authorization": f"Bearer {token}"} if token else {}
             from agent.common.http import get_default_client
 
             http_client = get_default_client()
-            response = http_client.get(stats_url, headers=headers, timeout=5.0, return_response=True, silent=True)
-            if response and response.status_code == 200:
+            stats_resp = http_client.get(
+                f"{url.rstrip('/')}/stats", headers=headers,
+                timeout=5.0, return_response=True, silent=True,
+            )
+            if stats_resp and stats_resp.status_code == 200:
                 try:
-                    data = response.json()
-                    return agent_obj, ("online", data.get("resources"))
+                    resources = stats_resp.json().get("resources")
                 except Exception:
-                    return agent_obj, ("online", None)
-            check_url = f"{url.rstrip('/')}/health"
-            response = http_client.get(check_url, timeout=5.0, return_response=True, silent=True)
-            return agent_obj, ("online" if response and response.status_code < 500 else "offline", None)
+                    pass
         except Exception:
-            return agent_obj, ("offline", None)
+            pass
+
+        return agent_obj, ("online", resources)
 
 
 agent_health_monitor_service = AgentHealthMonitorService()
