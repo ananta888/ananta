@@ -19,7 +19,11 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 KNOWN_CAPABILITY_CLASSES: frozenset[str] = frozenset({
     "planning",
     "research",
+    "research_limited",
     "code_read",
+    "code_review",
+    "review",
+    "summarize",
     "patch_propose",
     "patch_apply",
     "shell_plan",
@@ -197,6 +201,7 @@ class ArtifactRef(BaseModel):
     kind: str
     provenance: str
     summary: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class TraceEvent(BaseModel):

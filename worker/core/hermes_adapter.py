@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import os
 import time
+import hashlib
 from typing import Any
 
 from agent.services.hermes_worker_profile import get_default_hermes_profile
 from worker.core.context_resolver import ContextBlock
+from worker.core.diagnostics import AuditEmitter
 from worker.core.execution_envelope import ArtifactRef, ExecutionEnvelope, WorkerResult, WorkerResultStatus, make_trace
 from worker.core.hermes_adapter_config import HermesAdapterConfig
 from worker.core.hermes_context_converter import convert_context_blocks_to_prompt
@@ -29,6 +31,7 @@ class HermesAdapter:
         *,
         config: HermesAdapterConfig | None = None,
         client: HermesHttpClient | None = None,
+        audit_emitter: AuditEmitter | None = None,
     ) -> None:
         self.config = config or HermesAdapterConfig()
         self.profile = get_default_hermes_profile()
@@ -39,6 +42,7 @@ class HermesAdapter:
                 default_model=self.config.default_model or "hermes-default",
             )
         )
+        self.audit_emitter = audit_emitter
 
     def health(self) -> dict[str, Any]:
         if not self.config.enabled:
@@ -74,19 +78,37 @@ class HermesAdapter:
     def patch_propose(self, envelope: ExecutionEnvelope, *, context_blocks: list[ContextBlock] | None = None) -> WorkerResult:
         return self._execute_mode("patch_propose", envelope, context_blocks or [])
 
+    def research_limited(self, envelope: ExecutionEnvelope, *, context_blocks: list[ContextBlock] | None = None) -> WorkerResult:
+        return self._execute_mode("research_limited", envelope, context_blocks or [])
+
     def plan_only(self, envelope: ExecutionEnvelope, *, context_blocks: list[ContextBlock] | None = None) -> WorkerResult:
         return self._execute_mode("plan_only", envelope, context_blocks or [])
 
     def _execute_mode(self, mode: str, envelope: ExecutionEnvelope, context_blocks: list[ContextBlock]) -> WorkerResult:
         trace = make_trace(envelope)
+        self._audit("routing_selected", envelope=envelope, mode=mode)
         if not self.config.enabled:
             return self._degraded(envelope, trace, "disabled_config")
         if mode in self.config.blocked_task_kinds:
             return WorkerResult.denied(envelope.task_id, "task_kind_blocked", trace)
         if mode == "patch_propose" and not envelope.has_capability("patch_propose"):
             return WorkerResult.denied(envelope.task_id, "missing_capability", trace)
+        if mode == "summarize" and not envelope.has_capability("summarize"):
+            return WorkerResult.denied(envelope.task_id, "missing_capability", trace)
+        if mode == "research_limited" and not envelope.has_capability("research_limited"):
+            return WorkerResult.denied(envelope.task_id, "missing_capability", trace)
         if mode in {"plan_only", "summarize"} and not envelope.has_capability("planning"):
             return WorkerResult.denied(envelope.task_id, "missing_capability", trace)
+        if mode == "research_limited":
+            if envelope.network_scope.allow_all:
+                return WorkerResult.denied(envelope.task_id, "network_unrestricted_denied", trace)
+            if not context_blocks:
+                return self._degraded(envelope, trace, "research_context_missing")
+
+        endpoint_class = _classify_endpoint(self.config.base_url)
+        trace.append("hermes_endpoint_classification", reason_code=None, endpoint_classification=endpoint_class)
+        if endpoint_class == "cloud" and not envelope.model_policy.cloud_allowed:
+            return WorkerResult.denied(envelope.task_id, "cloud_blocked", trace)
 
         model_selection = self._select_model(envelope)
         if model_selection.get("blocked"):
@@ -100,6 +122,7 @@ class HermesAdapter:
         )
         if not converted.has_required_context:
             return self._degraded(envelope, trace, "context_missing_or_sensitive")
+        context_hash = _hash_text(user_text := converted.prompt_text)
 
         schema = _schema_for_mode(mode)
         system_prompt = build_governed_system_prompt(
@@ -108,7 +131,8 @@ class HermesAdapter:
             denied_operations=list(envelope.denied_operations),
             output_schema=schema,
         )
-        user_prompt = converted.prompt_text
+        user_prompt = user_text
+        prompt_hash = _hash_text(system_prompt + "\n" + user_prompt)
         trace.append(
             "hermes_prompt_built",
             reason_code=None,
@@ -118,6 +142,8 @@ class HermesAdapter:
             context_truncated=len(converted.truncated),
             requested_model=model_selection["requested_model"],
             effective_model=model_selection["effective_model"],
+            context_hash=context_hash,
+            prompt_hash=prompt_hash,
         )
 
         start = time.monotonic()
@@ -126,6 +152,7 @@ class HermesAdapter:
         while True:
             attempt += 1
             try:
+                self._audit("provider_call", envelope=envelope, mode=mode, endpoint_classification=endpoint_class, model=model_selection["effective_model"])
                 response = self.client.chat_completions(
                     api_key=os.getenv(self.config.api_key_env or "", ""),
                     system_message=system_prompt,
@@ -148,6 +175,7 @@ class HermesAdapter:
                             parse_retry_used=parse_retry_used,
                             requested_model=model_selection["requested_model"],
                             effective_model=model_selection["effective_model"],
+                            response_hash=_hash_text(str(payload)),
                         )
                         return self._success_result(mode, envelope, trace, payload, converted)
 
@@ -156,6 +184,7 @@ class HermesAdapter:
                     user_prompt = _build_parse_retry_prompt(user_prompt, response, schema)
                     continue
                 trace.append("hermes_parse_error", reason_code=parse_result.reason_code, parse_retry_used=parse_retry_used)
+                self._audit("policy_denied", envelope=envelope, mode=mode, reason_code=parse_result.reason_code)
                 return self._failed(envelope, trace, parse_result.reason_code)
             except HermesClientError as exc:
                 transient = exc.code in self._TRANSIENT_ERRORS
@@ -163,6 +192,7 @@ class HermesAdapter:
                     continue
                 duration_ms = int((time.monotonic() - start) * 1000)
                 trace.append("hermes_remote_error", reason_code=exc.code, retry_count=attempt - 1, total_duration_ms=duration_ms)
+                self._audit("provider_call", envelope=envelope, mode=mode, reason_code=exc.code, status="error")
                 return self._failed(envelope, trace, exc.code)
 
     def _select_model(self, envelope: ExecutionEnvelope) -> dict[str, Any]:
@@ -194,7 +224,24 @@ class HermesAdapter:
             kind=kind,
             provenance=f"{envelope.task_id}:hermes:{mode}",
             summary=summary,
+            metadata={
+                "source": "hermes",
+                "adapter_version": "v1",
+                "model": envelope.model_policy.preferred_model or self.config.default_model,
+                "content_hash": _hash_text(str(payload)),
+                "context_hash": _hash_text(converted.prompt_text),
+                "requires_approval_for_apply": bool(payload.get("requires_approval_for_apply", mode == "patch_propose")),
+                "touched_files": list(payload.get("touched_files") or []),
+                "uncertainty": payload.get("uncertainty"),
+            },
         )
+        if mode == "patch_propose":
+            artifact.kind = "patch_artifact"  # type: ignore[misc]
+            artifact.metadata["requires_approval_for_apply"] = True
+        elif mode == "summarize":
+            artifact.kind = "summary_artifact"  # type: ignore[misc]
+        elif mode == "research_limited":
+            artifact.kind = "research_artifact"  # type: ignore[misc]
         return WorkerResult(
             task_id=envelope.task_id,
             status=WorkerResultStatus.success,
@@ -252,6 +299,19 @@ class HermesAdapter:
             "api_key_value": "[REDACTED]",
         }
 
+    def _audit(self, event_type: str, *, envelope: ExecutionEnvelope, mode: str, reason_code: str | None = None, **payload: Any) -> None:
+        if self.audit_emitter is None:
+            return
+        self.audit_emitter.emit(
+            event_type,
+            correlation_id=envelope.audit_correlation_id,
+            reason_code=reason_code,
+            task_id=envelope.task_id,
+            adapter_id=self.id,
+            mode=mode,
+            **payload,
+        )
+
 
 def _extract_text_content(payload: dict[str, Any]) -> str:
     choices = payload.get("choices")
@@ -291,4 +351,17 @@ def _schema_for_mode(mode: str) -> dict[str, Any]:
     }
     if mode == "patch_propose":
         base["required"] = list(base["required"]) + ["touched_files"]
+    if mode == "research_limited":
+        base["required"] = list(base["required"]) + ["claims"]
     return base
+
+
+def _hash_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _classify_endpoint(base_url: str) -> str:
+    u = str(base_url or "").strip().lower()
+    if "localhost" in u or "127.0.0.1" in u or u.startswith("http://10.") or u.startswith("http://192.168.") or u.startswith("http://172.16."):
+        return "local" if ("localhost" in u or "127.0.0.1" in u) else "private_network"
+    return "cloud"

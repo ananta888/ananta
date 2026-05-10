@@ -9,7 +9,7 @@ from worker.core.sanitizer import OutputSanitizer
 
 _SAN = OutputSanitizer()
 _SIDE_EFFECT_CLAIM_RE = re.compile(
-    r"\b(modified files?|executed commands?|approval granted|wrote file|applied patch)\b",
+    r"\b(modified files?|executed commands?|approval granted|wrote file|applied patch|ran tool|browser call|mcp call)\b",
     re.IGNORECASE,
 )
 
@@ -97,4 +97,3 @@ def validate_payload_for_mode(payload: dict[str, Any], *, mode: str) -> str | No
 def _bounded_redacted_snippet(text: str) -> str:
     clean = _SAN.sanitize(text).text
     return clean[:400]
-

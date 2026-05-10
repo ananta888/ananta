@@ -138,7 +138,7 @@
         "HERMES-T022",
         "HERMES-T023"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "HERMES-M6",
@@ -149,7 +149,7 @@
         "HERMES-T026",
         "HERMES-T027"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "HERMES-M7",
@@ -161,7 +161,7 @@
         "HERMES-T031",
         "HERMES-T032"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "HERMES-M8",
@@ -846,7 +846,7 @@
     {
       "id": "HERMES-T021",
       "title": "Implement summarize mode through Hermes",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "objective": "Use Hermes for bounded summarization of artifacts, traces or context.",
@@ -877,7 +877,7 @@
     {
       "id": "HERMES-T022",
       "title": "Implement patch_propose mode through Hermes",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "objective": "Allow Hermes to propose patches but never apply them.",
@@ -910,7 +910,7 @@
     {
       "id": "HERMES-T023",
       "title": "Implement research_limited mode through Hermes",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "objective": "Allow limited research only when network/context policy permits it.",
@@ -943,7 +943,7 @@
     {
       "id": "HERMES-T024",
       "title": "Map Hermes parsed output to Ananta artifacts",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Convert every successful Hermes output into first-class Ananta artifacts.",
@@ -979,7 +979,7 @@
     {
       "id": "HERMES-T025",
       "title": "Add Hermes TraceBundle fields",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "objective": "Make Hermes executions debuggable and auditable.",
@@ -1010,7 +1010,7 @@
     {
       "id": "HERMES-T026",
       "title": "Return WorkerResult for Hermes calls",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Normalize Hermes outcomes into existing Ananta worker response shape.",
@@ -1042,7 +1042,7 @@
     {
       "id": "HERMES-T027",
       "title": "Emit audit events for Hermes execution",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Make Hermes use visible in Ananta audit history.",
@@ -1072,7 +1072,7 @@
     {
       "id": "HERMES-T028",
       "title": "Add secret redaction for Hermes prompts and responses",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Prevent secrets from reaching Hermes or being persisted from Hermes output.",
@@ -1103,7 +1103,7 @@
     {
       "id": "HERMES-T029",
       "title": "Add cloud_allowed enforcement for Hermes",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Prevent accidental cloud leakage when Hermes endpoint is remote.",
@@ -1135,7 +1135,7 @@
     {
       "id": "HERMES-T030",
       "title": "Block Hermes-side tool autonomy in phase 1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Ensure Ananta does not depend on Hermes executing its own tools for phase 1 tasks.",
@@ -1526,12 +1526,12 @@
   "tasks_status_summary": {
     "total": 40,
     "by_status": {
-      "todo": 20,
+      "todo": 10,
       "in_progress": 0,
       "blocked": 0,
-      "done": 20
+      "done": 30
     },
-    "progress_percent_done": 50.0,
+    "progress_percent_done": 75.0,
     "by_priority": {
       "P0": 23,
       "P1": 10,
@@ -1545,15 +1545,15 @@
     },
     "critical_path": {
       "total": 25,
-      "done": 15,
-      "remaining": 10
+      "done": 22,
+      "remaining": 3
     },
     "milestones": {
       "total": 9,
-      "todo": 4,
+      "todo": 2,
       "in_progress": 1,
       "blocked": 0,
-      "done": 4
+      "done": 6
     }
   },
   "summary_notes": [
