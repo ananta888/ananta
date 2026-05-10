@@ -1,0 +1,2142 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "extend_worker_hermes_like_governed_executor",
+  "purpose": "Extend the Ananta worker into a Hermes-like, capable agent executor while preserving Ananta's hub-owned policy, approval, context, routing, audit, and artifact-first architecture.",
+  "goal": "Add skills, memory, provider flexibility, toolsets, context compression, subworkers, scheduled jobs, external-agent adapters, diagnostics, and OpenAI-compatible surfaces to the Ananta worker without allowing the worker to become the control plane or bypass Hub governance.",
+  "reference_intent": {
+    "hermes_like_capabilities_to_adapt": [
+      "broad tool registry and toolsets",
+      "multi-provider runtime including local and OpenAI-compatible endpoints",
+      "persistent memory and session search",
+      "skills and skill improvement loop",
+      "context compression",
+      "subagent delegation",
+      "scheduled jobs",
+      "OpenAI-compatible API facade",
+      "MCP integration",
+      "streaming/diagnostics surfaces"
+    ],
+    "ananta_specific_constraints": [
+      "Hub remains owner of Goal -> Plan -> Task -> Execution -> Verification -> Artifact.",
+      "Worker executes only delegated tasks within explicit ExecutionEnvelope constraints.",
+      "Worker cannot create new authority for itself, its tools, subworkers, models, memory, or adapters.",
+      "Every mutation-capable path remains policy-, approval-, context-, and audit-gated.",
+      "Every meaningful result must be represented as an artifact with provenance."
+    ]
+  },
+  "non_goals": [
+    "Do not turn the worker into an independent autonomous controller.",
+    "Do not implement worker-to-worker orchestration that bypasses the Hub.",
+    "Do not allow skills to auto-install or auto-patch themselves into active use without approval.",
+    "Do not let external agents such as Hermes, OpenCode, Aider, ShellGPT, or Copilot CLI own architecture decisions.",
+    "Do not add YOLO-style bypass modes for production or strict governance profiles.",
+    "Do not send full repository dumps, secrets, private context, or internal data to cloud providers by default.",
+    "Do not treat natural-language prompt instructions as security controls."
+  ],
+  "architecture_guardrails": [
+    "The Hub is the control plane; the worker is an execution plane.",
+    "Policy is evaluated before execution and defaults to deny when missing, malformed, stale, or ambiguous.",
+    "Capabilities are explicit, immutable per execution, and never inferred from user prompt text.",
+    "Context is explicit, bounded, provenance-aware, sensitivity-aware, and token-budgeted.",
+    "Tool calls, model calls, memory writes, scheduled jobs, adapter invocations, and subworker spawns require typed envelopes.",
+    "Every side effect is traceable through TraceBundle and artifacts.",
+    "Adapters are untrusted until their output is parsed, validated, sanitized, and converted to Ananta artifacts.",
+    "Cloud use is a policy decision, not a worker convenience fallback.",
+    "Dangerous or mutation-capable work must fail closed if approval or audit cannot be established."
+  ],
+  "cross_track_references": [
+    "README.md",
+    "todo.track.schema.json",
+    "docs/architecture/ananta_native_worker.md",
+    "docs/tool-router-target-architecture.md",
+    "docs/unified-approval-model.md",
+    "docs/context-manager-target-model.md",
+    "docs/worker-capability-profiles.md",
+    "docs/tool-contracts.md",
+    "docs/backend-provider-contracts.md",
+    "docs/third-party-integration-guidelines.md",
+    "agent/README.md",
+    "api-spec.md"
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "EW-M1",
+      "title": "Governed worker architecture foundation",
+      "task_ids": [
+        "EW-T001",
+        "EW-T002",
+        "EW-T003",
+        "EW-T004",
+        "EW-T005",
+        "EW-T006"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "EW-M2",
+      "title": "Capability enforcement and fail-closed policy",
+      "task_ids": [
+        "EW-T007",
+        "EW-T008",
+        "EW-T009",
+        "EW-T010",
+        "EW-T011",
+        "EW-T012"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "EW-M3",
+      "title": "Hermes-like tool runtime, Ananta-governed",
+      "task_ids": [
+        "EW-T013",
+        "EW-T014",
+        "EW-T015",
+        "EW-T016",
+        "EW-T017",
+        "EW-T018",
+        "EW-T019"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "EW-M4",
+      "title": "Provider runtime and local/cloud routing",
+      "task_ids": [
+        "EW-T020",
+        "EW-T021",
+        "EW-T022",
+        "EW-T023",
+        "EW-T024",
+        "EW-T025"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "EW-M5",
+      "title": "Context, compression, memory and recall",
+      "task_ids": [
+        "EW-T026",
+        "EW-T027",
+        "EW-T028",
+        "EW-T029",
+        "EW-T030",
+        "EW-T031"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "EW-M6",
+      "title": "Governed skill system and safe self-improvement",
+      "task_ids": [
+        "EW-T032",
+        "EW-T033",
+        "EW-T034",
+        "EW-T035",
+        "EW-T036",
+        "EW-T037"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "EW-M7",
+      "title": "Subworkers and controlled delegation",
+      "task_ids": [
+        "EW-T038",
+        "EW-T039",
+        "EW-T040",
+        "EW-T041",
+        "EW-T042"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "EW-M8",
+      "title": "APIs and external agent adapters",
+      "task_ids": [
+        "EW-T043",
+        "EW-T044",
+        "EW-T045",
+        "EW-T046",
+        "EW-T047",
+        "EW-T048"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "EW-M9",
+      "title": "Observability, artifacts, audit and diagnostics",
+      "task_ids": [
+        "EW-T049",
+        "EW-T050",
+        "EW-T051",
+        "EW-T052",
+        "EW-T053"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "EW-M10",
+      "title": "Scheduled worker jobs under Hub governance",
+      "task_ids": [
+        "EW-T054",
+        "EW-T055",
+        "EW-T056"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "EW-M11",
+      "title": "Tests, documentation, migration and rollout",
+      "task_ids": [
+        "EW-T057",
+        "EW-T058",
+        "EW-T059",
+        "EW-T060",
+        "EW-T061",
+        "EW-T062"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "EW-T001",
+      "title": "Create ADR for Ananta Worker as governed agent executor",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Define the worker as a Hermes-like execution engine that remains subordinate to the Ananta Hub.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "ADR states that Hub owns Goal -> Plan -> Task -> Execution -> Verification -> Artifact.",
+        "ADR explicitly rejects worker-owned routing, approval, policy, and unrestricted memory mutation.",
+        "ADR maps Hermes reference concepts to Ananta-owned equivalents: skills, memory, toolsets, provider routing, subagents, cron, context compression.",
+        "ADR defines stable terms: Hub, Worker, Capability, ContextEnvelope, TraceBundle, Artifact, ToolRouterDecision, ApprovalDecision."
+      ],
+      "test_requirements": [
+        "Schema validation test exists.",
+        "Negative test verifies fail-closed behavior where applicable."
+      ],
+      "expected_artifacts": [
+        "docs/architecture/worker-governed-executor-adr.md"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let worker infer missing policy from prompt text.",
+        "Do not encode capability checks only in natural-language system prompts."
+      ]
+    },
+    {
+      "id": "EW-T002",
+      "title": "Define worker responsibility matrix",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Document what the worker may decide locally and what must always come from Hub.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Matrix separates local execution decisions from hub-owned policy decisions.",
+        "Worker may choose local implementation mechanics only inside an already approved ExecutionEnvelope.",
+        "Worker must not expand allowed tools, context, model provider, filesystem scope, network scope, or cloud access.",
+        "Matrix is referenced by docs and tests to prevent architecture drift."
+      ],
+      "test_requirements": [
+        "Schema validation test exists.",
+        "Negative test verifies fail-closed behavior where applicable."
+      ],
+      "expected_artifacts": [
+        "updated worker architecture docs"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let worker infer missing policy from prompt text.",
+        "Do not encode capability checks only in natural-language system prompts."
+      ]
+    },
+    {
+      "id": "EW-T003",
+      "title": "Define canonical ExecutionEnvelope contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "objective": "Create the single request object that every enhanced worker execution must receive.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "ExecutionEnvelope includes task_id, goal_id, actor_ref, capability_grant, context_envelope_ref, allowed_operations, denied_operations, model_policy, tool_policy, approval_refs, audit_correlation_id, trace_parent_id.",
+        "Envelope is validated before any model call, tool call, shell call, patch apply, file write, network access, MCP access, memory write, or subworker spawn.",
+        "Missing capability_grant or context_envelope_ref fails closed.",
+        "Envelope schema has positive and negative examples."
+      ],
+      "test_requirements": [
+        "Schema validation test exists.",
+        "Negative test verifies fail-closed behavior where applicable."
+      ],
+      "expected_artifacts": [
+        "updated worker architecture docs"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let worker infer missing policy from prompt text.",
+        "Do not encode capability checks only in natural-language system prompts."
+      ]
+    },
+    {
+      "id": "EW-T004",
+      "title": "Define canonical WorkerResult contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Create the single result object returned by enhanced workers.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "WorkerResult includes status, summary, artifacts, trace_bundle, policy_observations, follow_up_tasks, warnings, degraded_state, and explicit no_side_effects_confirmed flag where applicable.",
+        "All side effects are represented as artifacts or trace entries.",
+        "WorkerResult distinguishes success, partial_success, denied, needs_approval, failed, degraded, and invalid_request.",
+        "Plain text-only responses are not accepted for task execution endpoints."
+      ],
+      "test_requirements": [
+        "Schema validation test exists.",
+        "Negative test verifies fail-closed behavior where applicable."
+      ],
+      "expected_artifacts": [
+        "updated worker architecture docs"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let worker infer missing policy from prompt text.",
+        "Do not encode capability checks only in natural-language system prompts."
+      ]
+    },
+    {
+      "id": "EW-T005",
+      "title": "Define capability vocabulary and risk classes",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Normalize capability classes used by Hub, ToolRouter, Worker and Approval.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Capability vocabulary covers planning, research, code_read, patch_propose, patch_apply, shell_plan, shell_execute, test_run, verify, memory_read, memory_write, mcp_call, provider_call, subworker_spawn, cron_schedule, artifact_publish.",
+        "Every capability has risk_class, approval_default, context_requirements, side_effect_type, and audit_requirements.",
+        "Vocabulary is consumable by Hub policy and Worker validation code.",
+        "Unknown capability class is rejected, not treated as low risk."
+      ],
+      "test_requirements": [
+        "Schema validation test exists.",
+        "Negative test verifies fail-closed behavior where applicable."
+      ],
+      "expected_artifacts": [
+        "updated worker architecture docs"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let worker infer missing policy from prompt text.",
+        "Do not encode capability checks only in natural-language system prompts."
+      ]
+    },
+    {
+      "id": "EW-T006",
+      "title": "Define migration boundary for existing worker modes",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Map existing plan_only/patch_propose/patch_apply/command_plan/command_execute/test_run/verify modes onto the new envelope model.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Each existing worker mode maps to one or more capability classes.",
+        "Legacy calls are wrapped into ExecutionEnvelope during migration instead of bypassing validation.",
+        "Backward compatibility plan names deprecation stages and logging warnings.",
+        "Existing tests continue to pass through compatibility adapter."
+      ],
+      "test_requirements": [
+        "Schema validation test exists.",
+        "Negative test verifies fail-closed behavior where applicable."
+      ],
+      "expected_artifacts": [
+        "updated worker architecture docs"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let worker infer missing policy from prompt text.",
+        "Do not encode capability checks only in natural-language system prompts."
+      ]
+    },
+    {
+      "id": "EW-T007",
+      "title": "Implement ExecutionEnvelope Pydantic models",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "objective": "Turn the envelope contract into typed runtime validation.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Typed models exist for ExecutionEnvelope, CapabilityGrant, ModelPolicy, ToolPolicy, FilesystemScope, NetworkScope, ApprovalRef, AuditRef.",
+        "Validation rejects empty task_id, missing capability_grant, unknown capability classes, and malformed scope rules.",
+        "Validation errors are structured and safe to return to Hub.",
+        "Model serialization is stable for audit logs and API use."
+      ],
+      "test_requirements": [
+        "pytest unit coverage for positive and negative path.",
+        "At least one integration-style test through worker route."
+      ],
+      "expected_artifacts": [
+        "typed models",
+        "policy gate tests"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not duplicate policy logic separately in each adapter.",
+        "Do not rely on prompt instructions as enforcement."
+      ]
+    },
+    {
+      "id": "EW-T008",
+      "title": "Implement worker preflight gate",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "objective": "Add a mandatory gate before every execution path.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "All public worker execution entrypoints call the same preflight gate.",
+        "Preflight verifies envelope validity, capability presence, context availability, model policy, tool policy, approval state, and degraded runtime state.",
+        "Preflight returns allow, confirm_required, blocked, or invalid_request with reason_code.",
+        "No model/tool/shell/file/network action occurs before preflight success."
+      ],
+      "test_requirements": [
+        "pytest unit coverage for positive and negative path.",
+        "At least one integration-style test through worker route."
+      ],
+      "expected_artifacts": [
+        "typed models",
+        "policy gate tests"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not duplicate policy logic separately in each adapter.",
+        "Do not rely on prompt instructions as enforcement."
+      ]
+    },
+    {
+      "id": "EW-T009",
+      "title": "Add fail-closed default-deny behavior",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "objective": "Ensure missing or ambiguous policy denies execution.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Unknown task_kind is denied or downgraded to plan_only without mutation.",
+        "Unknown tool id is denied.",
+        "Unknown provider id is denied.",
+        "Missing approval for approval-required operation returns needs_approval and does not execute.",
+        "Unit tests prove deny-by-default for missing policy, malformed policy, and stale approval ref."
+      ],
+      "test_requirements": [
+        "pytest unit coverage for positive and negative path.",
+        "At least one integration-style test through worker route."
+      ],
+      "expected_artifacts": [
+        "typed models",
+        "policy gate tests"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not duplicate policy logic separately in each adapter.",
+        "Do not rely on prompt instructions as enforcement."
+      ]
+    },
+    {
+      "id": "EW-T010",
+      "title": "Implement immutable capability snapshot per task",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Prevent mid-run capability escalation.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Worker stores a per-execution immutable capability snapshot from the envelope.",
+        "Runtime code reads capabilities only from the snapshot, not from mutable config or prompt output.",
+        "Substeps cannot add capabilities; they can only consume existing ones.",
+        "TraceBundle includes the capability snapshot hash."
+      ],
+      "test_requirements": [
+        "pytest unit coverage for positive and negative path.",
+        "At least one integration-style test through worker route."
+      ],
+      "expected_artifacts": [
+        "typed models",
+        "policy gate tests"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not duplicate policy logic separately in each adapter.",
+        "Do not rely on prompt instructions as enforcement."
+      ]
+    },
+    {
+      "id": "EW-T011",
+      "title": "Implement policy decision reason codes",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Make denial and approval outcomes machine-readable.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Reason codes include missing_capability, denied_operation, approval_required, approval_missing, scope_violation, provider_blocked, cloud_blocked, network_blocked, context_missing, tool_unavailable, degraded_runtime.",
+        "Reason codes appear in WorkerResult, TraceBundle, and logs.",
+        "Human-readable messages are generated from codes without hiding the code.",
+        "Tests assert stable reason codes."
+      ],
+      "test_requirements": [
+        "pytest unit coverage for positive and negative path.",
+        "At least one integration-style test through worker route."
+      ],
+      "expected_artifacts": [
+        "typed models",
+        "policy gate tests"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not duplicate policy logic separately in each adapter.",
+        "Do not rely on prompt instructions as enforcement."
+      ]
+    },
+    {
+      "id": "EW-T012",
+      "title": "Add policy bypass regression tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "objective": "Lock down known bypass routes.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Tests cover direct command_execute without envelope.",
+        "Tests cover prompt asking worker to ignore policy.",
+        "Tests cover tool adapter trying to call shell directly.",
+        "Tests cover patch_apply without approval.",
+        "Tests cover cloud provider selection when cloudAllowed=false.",
+        "Tests cover MCP tool access without mcp_call capability."
+      ],
+      "test_requirements": [
+        "pytest unit coverage for positive and negative path.",
+        "At least one integration-style test through worker route."
+      ],
+      "expected_artifacts": [
+        "typed models",
+        "policy gate tests"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not duplicate policy logic separately in each adapter.",
+        "Do not rely on prompt instructions as enforcement."
+      ]
+    },
+    {
+      "id": "EW-T013",
+      "title": "Create WorkerToolRegistry",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Introduce a controlled registry for all worker tools.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Registry entries declare id, kind, capability_classes, risk_class, input_schema, output_schema, side_effect_type, supports_stateful_session, requires_approval.",
+        "Tools cannot be invoked unless present in registry and allowed by ToolPolicy.",
+        "Registry can produce a normalized capability catalog for Hub ToolRouter.",
+        "Unknown tool ids fail with tool_unknown."
+      ],
+      "test_requirements": [
+        "Unit tests for registry/envelope behavior.",
+        "Security regression tests for denied side effects."
+      ],
+      "expected_artifacts": [
+        "WorkerToolRegistry",
+        "ToolInvocationEnvelope",
+        "tool adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose arbitrary Python functions as tools automatically.",
+        "Do not pass full tool stdout into LLM context without sanitizer and budget checks."
+      ]
+    },
+    {
+      "id": "EW-T014",
+      "title": "Create ToolInvocationEnvelope",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Wrap every tool call with policy and trace metadata.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "ToolInvocationEnvelope includes execution_id, tool_id, arguments, capability_ref, context_refs, approval_ref, timeout, resource_limits, audit_correlation_id.",
+        "Envelope validates argument schema before invocation.",
+        "Tool calls return ToolResult with stdout/stderr/files/patches/artifacts separated.",
+        "ToolResult never hides side effects in free text."
+      ],
+      "test_requirements": [
+        "Unit tests for registry/envelope behavior.",
+        "Security regression tests for denied side effects."
+      ],
+      "expected_artifacts": [
+        "WorkerToolRegistry",
+        "ToolInvocationEnvelope",
+        "tool adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose arbitrary Python functions as tools automatically.",
+        "Do not pass full tool stdout into LLM context without sanitizer and budget checks."
+      ]
+    },
+    {
+      "id": "EW-T015",
+      "title": "Harden shell command planning vs execution split",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "objective": "Keep shell planning safe and execution approval-gated.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "command_plan produces CommandPlanArtifact only.",
+        "command_execute requires shell_execute capability and approval when policy says confirm_required.",
+        "Command execution refuses commands outside workspace or environment constraints.",
+        "Commands are classified before execution and classification is included in trace."
+      ],
+      "test_requirements": [
+        "Unit tests for registry/envelope behavior.",
+        "Security regression tests for denied side effects."
+      ],
+      "expected_artifacts": [
+        "WorkerToolRegistry",
+        "ToolInvocationEnvelope",
+        "tool adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose arbitrary Python functions as tools automatically.",
+        "Do not pass full tool stdout into LLM context without sanitizer and budget checks."
+      ]
+    },
+    {
+      "id": "EW-T016",
+      "title": "Harden file read/write and patch paths",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "objective": "Prevent direct uncontrolled file mutation.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "read_file requires code_read or file_read capability and workspace scope match.",
+        "patch_propose produces PatchArtifact without modifying main tree.",
+        "patch_apply requires patch_apply capability and approval when required.",
+        "Direct write_file-like mutation outside patch_apply path is blocked unless explicit capability exists.",
+        "Path traversal and symlink escape tests are added."
+      ],
+      "test_requirements": [
+        "Unit tests for registry/envelope behavior.",
+        "Security regression tests for denied side effects."
+      ],
+      "expected_artifacts": [
+        "WorkerToolRegistry",
+        "ToolInvocationEnvelope",
+        "tool adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose arbitrary Python functions as tools automatically.",
+        "Do not pass full tool stdout into LLM context without sanitizer and budget checks."
+      ]
+    },
+    {
+      "id": "EW-T017",
+      "title": "Add tool output sanitizer and secret redaction",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Prevent leaking secrets from tool output into model context, logs, artifacts, or cloud calls.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Sanitizer masks API keys, tokens, Authorization headers, private keys, .env values, DB passwords, SSH material, and long opaque secrets.",
+        "Sanitizer runs before model-visible output, audit log output, UI output, and artifact publication.",
+        "Redaction preserves enough shape for debugging without exposing secret value.",
+        "Tests include representative secret formats and false-positive sanity cases."
+      ],
+      "test_requirements": [
+        "Unit tests for registry/envelope behavior.",
+        "Security regression tests for denied side effects."
+      ],
+      "expected_artifacts": [
+        "WorkerToolRegistry",
+        "ToolInvocationEnvelope",
+        "tool adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose arbitrary Python functions as tools automatically.",
+        "Do not pass full tool stdout into LLM context without sanitizer and budget checks."
+      ]
+    },
+    {
+      "id": "EW-T018",
+      "title": "Add resource limits per tool invocation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Bound CPU/time/output/size to keep workers stable.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "ToolInvocationEnvelope supports timeout_seconds, max_output_chars, max_artifact_bytes, max_files_touched, max_processes where applicable.",
+        "Timeouts return degraded or failed with partial output and reason_code.",
+        "Large output is summarized or stored as bounded artifact, not injected raw into model context.",
+        "Defaults are safe when no limit is specified by caller."
+      ],
+      "test_requirements": [
+        "Unit tests for registry/envelope behavior.",
+        "Security regression tests for denied side effects."
+      ],
+      "expected_artifacts": [
+        "WorkerToolRegistry",
+        "ToolInvocationEnvelope",
+        "tool adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose arbitrary Python functions as tools automatically.",
+        "Do not pass full tool stdout into LLM context without sanitizer and budget checks."
+      ]
+    },
+    {
+      "id": "EW-T019",
+      "title": "Implement tool adapter trust boundary",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "objective": "Treat external CLIs as untrusted adapters.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Aider/OpenCode/ShellGPT/Copilot/Hermes adapter output is parsed into Ananta artifacts before use.",
+        "Adapter cannot directly report success without structured artifact validation.",
+        "Adapter cannot bypass policy by doing its own file writes unless the wrapper uses an approved apply path.",
+        "Adapter failure states are explicit: parse_error, denied, degraded, tool_unavailable, unsafe_output."
+      ],
+      "test_requirements": [
+        "Unit tests for registry/envelope behavior.",
+        "Security regression tests for denied side effects."
+      ],
+      "expected_artifacts": [
+        "WorkerToolRegistry",
+        "ToolInvocationEnvelope",
+        "tool adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose arbitrary Python functions as tools automatically.",
+        "Do not pass full tool stdout into LLM context without sanitizer and budget checks."
+      ]
+    },
+    {
+      "id": "EW-T020",
+      "title": "Create WorkerProviderRegistry",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Add Hermes-like provider flexibility behind Ananta policy.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Registry supports ollama, lmstudio, openai_compatible, openai, openrouter, anthropic, local_mock, and custom endpoints as entries.",
+        "Each provider entry declares local_or_cloud, credential_source, supports_tools, supports_streaming, context_limit, cost_class, risk_class.",
+        "Provider list can be returned to Hub without exposing secrets.",
+        "Unknown providers are denied."
+      ],
+      "test_requirements": [
+        "Provider registry unit tests.",
+        "Mock endpoint tests for credential scoping and cloud blocking."
+      ],
+      "expected_artifacts": [
+        "WorkerProviderRegistry",
+        "provider diagnostics"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let environment variables silently override saved policy.",
+        "Do not implement fallback by trying every configured cloud key."
+      ]
+    },
+    {
+      "id": "EW-T021",
+      "title": "Implement provider selection as Hub decision input",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Prevent worker-owned provider escalation.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Worker accepts selected provider/model only through ExecutionEnvelope or ToolRouterDecision.",
+        "Worker may report provider availability but does not select cloud provider on its own.",
+        "Fallback providers are allowed only if envelope permits fallback and target is policy-compatible.",
+        "Cloud provider use is blocked when model_policy.cloud_allowed=false."
+      ],
+      "test_requirements": [
+        "Provider registry unit tests.",
+        "Mock endpoint tests for credential scoping and cloud blocking."
+      ],
+      "expected_artifacts": [
+        "WorkerProviderRegistry",
+        "provider diagnostics"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let environment variables silently override saved policy.",
+        "Do not implement fallback by trying every configured cloud key."
+      ]
+    },
+    {
+      "id": "EW-T022",
+      "title": "Add local-first model routing support",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Make local Ollama/LM Studio practical for worker tasks.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Local provider adapters support health check, model list where available, generate/chat call, timeout, and clear error mapping.",
+        "Adapters do not require API keys for local endpoints unless configured.",
+        "Connection failure returns provider_unavailable not generic crash.",
+        "Smoke test works against mock OpenAI-compatible local server."
+      ],
+      "test_requirements": [
+        "Provider registry unit tests.",
+        "Mock endpoint tests for credential scoping and cloud blocking."
+      ],
+      "expected_artifacts": [
+        "WorkerProviderRegistry",
+        "provider diagnostics"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let environment variables silently override saved policy.",
+        "Do not implement fallback by trying every configured cloud key."
+      ]
+    },
+    {
+      "id": "EW-T023",
+      "title": "Add provider credential isolation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "objective": "Ensure provider secrets do not leak to tools or wrong endpoints.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Provider API keys are scoped to provider id and base_url.",
+        "OpenAI key is not sent to OpenRouter, LM Studio, Ollama, or arbitrary custom endpoint unless explicitly configured.",
+        "Worker tool subprocesses do not inherit provider secrets by default.",
+        "Trace logs contain credential_source but never key material."
+      ],
+      "test_requirements": [
+        "Provider registry unit tests.",
+        "Mock endpoint tests for credential scoping and cloud blocking."
+      ],
+      "expected_artifacts": [
+        "WorkerProviderRegistry",
+        "provider diagnostics"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let environment variables silently override saved policy.",
+        "Do not implement fallback by trying every configured cloud key."
+      ]
+    },
+    {
+      "id": "EW-T024",
+      "title": "Implement auxiliary model policy",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Allow optional helper model calls without bypassing policy.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Auxiliary tasks are classified: compression, summarization, validation, search_summary, skill_review.",
+        "Each auxiliary call uses a model allowed by model_policy.auxiliary_allowed_providers.",
+        "If auxiliary call would send sensitive context to cloud while cloud disallowed, it is blocked or forced local.",
+        "Auxiliary model output is marked untrusted until validated."
+      ],
+      "test_requirements": [
+        "Provider registry unit tests.",
+        "Mock endpoint tests for credential scoping and cloud blocking."
+      ],
+      "expected_artifacts": [
+        "WorkerProviderRegistry",
+        "provider diagnostics"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let environment variables silently override saved policy.",
+        "Do not implement fallback by trying every configured cloud key."
+      ]
+    },
+    {
+      "id": "EW-T025",
+      "title": "Add provider runtime diagnostics endpoint",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "objective": "Expose safe provider readiness for operators.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Endpoint returns provider id, availability, model count or status, local/cloud classification, and error_code.",
+        "Endpoint never returns secrets, raw headers, full env vars, or private tokens.",
+        "Diagnostics distinguish unavailable, unauthorized, misconfigured, timeout, and blocked_by_policy.",
+        "Dashboard/TUI can consume the structure."
+      ],
+      "test_requirements": [
+        "Provider registry unit tests.",
+        "Mock endpoint tests for credential scoping and cloud blocking."
+      ],
+      "expected_artifacts": [
+        "WorkerProviderRegistry",
+        "provider diagnostics"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let environment variables silently override saved policy.",
+        "Do not implement fallback by trying every configured cloud key."
+      ]
+    },
+    {
+      "id": "EW-T026",
+      "title": "Implement ContextEnvelope resolver in worker",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Make context explicit, bounded, and provenance-aware.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Worker receives context references from Hub and resolves only allowed references.",
+        "Context blocks include source_type, origin_id, provenance, sensitivity, token_estimate, hash.",
+        "Worker refuses unbounded repo dump or raw all-files context.",
+        "Final context bundle records included, compacted, and dropped blocks with reason codes."
+      ],
+      "test_requirements": [
+        "Context budget tests.",
+        "Cross-scope denial tests.",
+        "Injection scanner regression tests where applicable."
+      ],
+      "expected_artifacts": [
+        "ContextEnvelope resolver",
+        "memory store schemas",
+        "search index"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not inject entire repository into prompt.",
+        "Do not let the LLM decide which sensitive files are safe."
+      ]
+    },
+    {
+      "id": "EW-T027",
+      "title": "Implement token budget enforcement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Avoid uncontrolled context growth.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Budget is enforced globally and per source class.",
+        "P0 control signals are never silently dropped.",
+        "Low-priority overflow is compacted first and truncated last.",
+        "WorkerResult includes context budget requested/used and compaction actions."
+      ],
+      "test_requirements": [
+        "Context budget tests.",
+        "Cross-scope denial tests.",
+        "Injection scanner regression tests where applicable."
+      ],
+      "expected_artifacts": [
+        "ContextEnvelope resolver",
+        "memory store schemas",
+        "search index"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not inject entire repository into prompt.",
+        "Do not let the LLM decide which sensitive files are safe."
+      ]
+    },
+    {
+      "id": "EW-T028",
+      "title": "Implement context compression service",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Add Hermes-like compression but with provenance and policy.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Compression preserves task objective, acceptance criteria, policy constraints, latest failure reasons, and artifact refs.",
+        "Compressed blocks include source hashes and do not pretend to be raw source.",
+        "Cloud compression is blocked unless cloud_allowed and sensitivity allow it.",
+        "Compression output has validation tests for preserving control state."
+      ],
+      "test_requirements": [
+        "Context budget tests.",
+        "Cross-scope denial tests.",
+        "Injection scanner regression tests where applicable."
+      ],
+      "expected_artifacts": [
+        "ContextEnvelope resolver",
+        "memory store schemas",
+        "search index"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not inject entire repository into prompt.",
+        "Do not let the LLM decide which sensitive files are safe."
+      ]
+    },
+    {
+      "id": "EW-T029",
+      "title": "Create worker memory stores",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "objective": "Add bounded memory without letting worker mutate global truth.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Separate stores exist for worker_session_memory, project_execution_memory, and proposed_long_term_memory.",
+        "Worker can write session/project memory only when memory_write capability allows it.",
+        "Long-term memory updates are proposals unless Hub approval enables direct write.",
+        "Memory entries include provenance, source task, sensitivity, created_at, and confidence."
+      ],
+      "test_requirements": [
+        "Context budget tests.",
+        "Cross-scope denial tests.",
+        "Injection scanner regression tests where applicable."
+      ],
+      "expected_artifacts": [
+        "ContextEnvelope resolver",
+        "memory store schemas",
+        "search index"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not inject entire repository into prompt.",
+        "Do not let the LLM decide which sensitive files are safe."
+      ]
+    },
+    {
+      "id": "EW-T030",
+      "title": "Add session search over worker traces and artifacts",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Allow recall of previous executions without prompt dumping.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Search can find prior tasks, failures, patch artifacts, verification artifacts, and decisions.",
+        "Search result snippets are bounded and cite artifact/trace ids.",
+        "Search respects project/tenant/scope filters.",
+        "Search cannot return data from unrelated project scope."
+      ],
+      "test_requirements": [
+        "Context budget tests.",
+        "Cross-scope denial tests.",
+        "Injection scanner regression tests where applicable."
+      ],
+      "expected_artifacts": [
+        "ContextEnvelope resolver",
+        "memory store schemas",
+        "search index"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not inject entire repository into prompt.",
+        "Do not let the LLM decide which sensitive files are safe."
+      ]
+    },
+    {
+      "id": "EW-T031",
+      "title": "Add prompt injection scanning for context blocks",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Protect model calls from malicious repo/docs content.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Context blocks are scanned for prompt injection, secret exfiltration instructions, hidden unicode, suspicious HTML comments, and tool override attempts.",
+        "Blocked blocks are replaced by safe warning stubs with provenance.",
+        "Findings appear in TraceBundle and WorkerResult warnings.",
+        "Policy can choose block, warn, or require approval depending on source and governance mode."
+      ],
+      "test_requirements": [
+        "Context budget tests.",
+        "Cross-scope denial tests.",
+        "Injection scanner regression tests where applicable."
+      ],
+      "expected_artifacts": [
+        "ContextEnvelope resolver",
+        "memory store schemas",
+        "search index"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not inject entire repository into prompt.",
+        "Do not let the LLM decide which sensitive files are safe."
+      ]
+    },
+    {
+      "id": "EW-T032",
+      "title": "Define Ananta SkillManifest schema",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Introduce Hermes-like skills as governed, versioned worker modules.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "SkillManifest includes id, name, version, description, capability_requirements, allowed_tools, denied_tools, context_requirements, inputs_schema, outputs_schema, risk_class, required_approvals, test_fixtures.",
+        "Skill cannot declare capabilities not granted by Hub at runtime.",
+        "Skill manifests are machine-validated before load.",
+        "Invalid skills fail closed with reason_code skill_invalid."
+      ],
+      "test_requirements": [
+        "Skill schema validation tests.",
+        "SkillRunner policy bypass tests.",
+        "Fixture tests for baseline skills where applicable."
+      ],
+      "expected_artifacts": [
+        "SkillManifest schema",
+        "SkillRegistry",
+        "SkillRunner",
+        "SkillProposalArtifact"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not allow autonomous skill auto-install by default.",
+        "Do not store skill instructions only as prompt snippets without manifest metadata."
+      ]
+    },
+    {
+      "id": "EW-T033",
+      "title": "Implement SkillRegistry with signed or hashed skills",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Make skill loading deterministic and auditable.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Registry records skill id, version, source path/package, content_hash, enabled state, compatibility range.",
+        "Skill updates change content_hash and require reload.",
+        "TraceBundle records skill ids and hashes used in execution.",
+        "Optional signature field is supported or explicitly deferred with documented hash baseline."
+      ],
+      "test_requirements": [
+        "Skill schema validation tests.",
+        "SkillRunner policy bypass tests.",
+        "Fixture tests for baseline skills where applicable."
+      ],
+      "expected_artifacts": [
+        "SkillManifest schema",
+        "SkillRegistry",
+        "SkillRunner",
+        "SkillProposalArtifact"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not allow autonomous skill auto-install by default.",
+        "Do not store skill instructions only as prompt snippets without manifest metadata."
+      ]
+    },
+    {
+      "id": "EW-T034",
+      "title": "Implement SkillRunner",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Execute skills through the same policy/tool/context gates.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "SkillRunner receives ExecutionEnvelope and never creates its own authority.",
+        "Skill tool calls go through WorkerToolRegistry and ToolInvocationEnvelope.",
+        "Skill output is converted into WorkerResult artifacts.",
+        "Skill cannot mutate memory, files, tools, or provider settings unless the envelope grants it."
+      ],
+      "test_requirements": [
+        "Skill schema validation tests.",
+        "SkillRunner policy bypass tests.",
+        "Fixture tests for baseline skills where applicable."
+      ],
+      "expected_artifacts": [
+        "SkillManifest schema",
+        "SkillRegistry",
+        "SkillRunner",
+        "SkillProposalArtifact"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not allow autonomous skill auto-install by default.",
+        "Do not store skill instructions only as prompt snippets without manifest metadata."
+      ]
+    },
+    {
+      "id": "EW-T035",
+      "title": "Add skill proposal workflow",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "objective": "Allow self-improvement only as reviewable proposals.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "After complex tasks, worker may produce SkillProposalArtifact if skill_propose capability is granted.",
+        "Skill proposals include rationale, trigger examples, manifest, implementation sketch, tests, risk analysis, and required capabilities.",
+        "Skill proposals are not auto-enabled.",
+        "Hub or operator approval is required before skill install/enable."
+      ],
+      "test_requirements": [
+        "Skill schema validation tests.",
+        "SkillRunner policy bypass tests.",
+        "Fixture tests for baseline skills where applicable."
+      ],
+      "expected_artifacts": [
+        "SkillManifest schema",
+        "SkillRegistry",
+        "SkillRunner",
+        "SkillProposalArtifact"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not allow autonomous skill auto-install by default.",
+        "Do not store skill instructions only as prompt snippets without manifest metadata."
+      ]
+    },
+    {
+      "id": "EW-T036",
+      "title": "Add skill self-review and stale-skill detection",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "objective": "Let worker critique skills without silently patching them.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Worker can produce SkillReviewArtifact with outdated, overlapping, unsafe, or failing-skill findings.",
+        "Skill patch suggestions are PatchArtifact or SkillProposalArtifact, not direct writes.",
+        "Pinned/core skills cannot be modified by worker without explicit admin approval.",
+        "Reviews cite executions or tests that justify the recommendation."
+      ],
+      "test_requirements": [
+        "Skill schema validation tests.",
+        "SkillRunner policy bypass tests.",
+        "Fixture tests for baseline skills where applicable."
+      ],
+      "expected_artifacts": [
+        "SkillManifest schema",
+        "SkillRegistry",
+        "SkillRunner",
+        "SkillProposalArtifact"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not allow autonomous skill auto-install by default.",
+        "Do not store skill instructions only as prompt snippets without manifest metadata."
+      ]
+    },
+    {
+      "id": "EW-T037",
+      "title": "Add baseline coding/review/diagnose skills",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "objective": "Seed useful worker skills matching Ananta use cases.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Baseline skills cover repository_understand, bugfix_plan, patch_propose, change_review, compose_diagnose, test_failure_triage, release_check.",
+        "Each baseline skill has fixtures and expected artifacts.",
+        "Each skill declares minimal capabilities.",
+        "No baseline skill requires unrestricted shell or network access."
+      ],
+      "test_requirements": [
+        "Skill schema validation tests.",
+        "SkillRunner policy bypass tests.",
+        "Fixture tests for baseline skills where applicable."
+      ],
+      "expected_artifacts": [
+        "SkillManifest schema",
+        "SkillRegistry",
+        "SkillRunner",
+        "SkillProposalArtifact"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not allow autonomous skill auto-install by default.",
+        "Do not store skill instructions only as prompt snippets without manifest metadata."
+      ]
+    },
+    {
+      "id": "EW-T038",
+      "title": "Define SubworkerEnvelope contract",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "objective": "Allow Hermes-like delegation without worker-to-worker power escalation.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "SubworkerEnvelope includes parent_execution_id, delegated_task, reduced_capability_grant, context_subset, timeout, max_depth, audit_correlation_id.",
+        "Subworker capability set must be subset of parent capabilities.",
+        "Subworker context set must be subset or policy-approved derivative of parent context.",
+        "Depth limit and concurrency limit are enforced."
+      ],
+      "test_requirements": [
+        "Subworker subset capability tests.",
+        "Concurrency and timeout tests."
+      ],
+      "expected_artifacts": [
+        "SubworkerEnvelope",
+        "DelegationArtifact",
+        "execution tree trace"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let subworkers call Hub as independent actors unless explicitly registered.",
+        "Do not delegate mutation tasks concurrently by default."
+      ]
+    },
+    {
+      "id": "EW-T039",
+      "title": "Implement subworker spawn gate",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "objective": "Route all child work through Hub-compatible policy checks.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Subworker spawn requires subworker_spawn capability.",
+        "Spawn gate rejects missing reduced capability grant.",
+        "Spawn gate blocks cycles, unbounded fan-out, and recursive self-delegation beyond limit.",
+        "Spawn result is represented as artifacts and trace children."
+      ],
+      "test_requirements": [
+        "Subworker subset capability tests.",
+        "Concurrency and timeout tests."
+      ],
+      "expected_artifacts": [
+        "SubworkerEnvelope",
+        "DelegationArtifact",
+        "execution tree trace"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let subworkers call Hub as independent actors unless explicitly registered.",
+        "Do not delegate mutation tasks concurrently by default."
+      ]
+    },
+    {
+      "id": "EW-T040",
+      "title": "Implement parallel safe execution coordinator",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "objective": "Support limited parallelism without nondeterministic side effects.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Parallel tasks are allowed only for read-only, independent, or explicitly isolated operations.",
+        "Patch/apply/write/shell mutation tasks are serialized unless policy marks them independent.",
+        "Coordinator preserves deterministic result ordering.",
+        "Failures in one child do not hide failures or side effects in others."
+      ],
+      "test_requirements": [
+        "Subworker subset capability tests.",
+        "Concurrency and timeout tests."
+      ],
+      "expected_artifacts": [
+        "SubworkerEnvelope",
+        "DelegationArtifact",
+        "execution tree trace"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let subworkers call Hub as independent actors unless explicitly registered.",
+        "Do not delegate mutation tasks concurrently by default."
+      ]
+    },
+    {
+      "id": "EW-T041",
+      "title": "Add delegation artifact model",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "objective": "Make delegated work reviewable.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "DelegationArtifact records child task objective, capabilities, context refs, result status, artifacts, and trace ids.",
+        "Parent WorkerResult summarizes child outcomes without flattening away details.",
+        "Audit can reconstruct delegation tree.",
+        "UI/TUI can display delegation tree from artifact data."
+      ],
+      "test_requirements": [
+        "Subworker subset capability tests.",
+        "Concurrency and timeout tests."
+      ],
+      "expected_artifacts": [
+        "SubworkerEnvelope",
+        "DelegationArtifact",
+        "execution tree trace"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let subworkers call Hub as independent actors unless explicitly registered.",
+        "Do not delegate mutation tasks concurrently by default."
+      ]
+    },
+    {
+      "id": "EW-T042",
+      "title": "Add cancellation and timeout propagation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Make long-running worker/subworker runs controllable.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Cancellation request stops future tool calls and attempts safe interrupt for current process.",
+        "Timeout propagates to children.",
+        "WorkerResult marks cancellation vs timeout vs failure distinctly.",
+        "TraceBundle records cancellation source and completed side effects before stop."
+      ],
+      "test_requirements": [
+        "Subworker subset capability tests.",
+        "Concurrency and timeout tests."
+      ],
+      "expected_artifacts": [
+        "SubworkerEnvelope",
+        "DelegationArtifact",
+        "execution tree trace"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let subworkers call Hub as independent actors unless explicitly registered.",
+        "Do not delegate mutation tasks concurrently by default."
+      ]
+    },
+    {
+      "id": "EW-T043",
+      "title": "Add OpenAI-compatible worker facade",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Expose worker capabilities to compatible clients without bypassing Ananta controls.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Facade supports /v1/chat/completions for allowed interactive worker use cases.",
+        "Facade requires an Ananta capability token or Hub-issued session context.",
+        "Facade maps chat requests to ExecutionEnvelope or rejects them.",
+        "Facade exposes clear unsupported errors for unrestricted tool calls."
+      ],
+      "test_requirements": [
+        "API contract tests.",
+        "Adapter parsing tests.",
+        "Policy bypass tests for external adapters."
+      ],
+      "expected_artifacts": [
+        "OpenAI-compatible facade",
+        "worker RPC",
+        "external adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose raw worker tool API publicly.",
+        "Do not translate arbitrary chat prompt into unrestricted shell permissions."
+      ]
+    },
+    {
+      "id": "EW-T044",
+      "title": "Add Ananta-native worker RPC endpoint",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Provide first-class structured execution API.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Endpoint accepts ExecutionEnvelope and returns WorkerResult.",
+        "Endpoint validates schema before execution.",
+        "Endpoint supports sync and async/job mode if existing architecture supports it.",
+        "Endpoint returns stable error bodies for invalid_request, denied, needs_approval, failed, degraded."
+      ],
+      "test_requirements": [
+        "API contract tests.",
+        "Adapter parsing tests.",
+        "Policy bypass tests for external adapters."
+      ],
+      "expected_artifacts": [
+        "OpenAI-compatible facade",
+        "worker RPC",
+        "external adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose raw worker tool API publicly.",
+        "Do not translate arbitrary chat prompt into unrestricted shell permissions."
+      ]
+    },
+    {
+      "id": "EW-T045",
+      "title": "Build Hermes adapter as external worker target",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "objective": "Allow Hermes to be plugged in as a worker/backend without becoming owner.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Adapter sends bounded task/context to Hermes only when policy allows.",
+        "Adapter strips or redacts context according to ContextEnvelope sensitivity.",
+        "Adapter parses Hermes response into Ananta artifacts and trace.",
+        "Adapter blocks Hermes tool autonomy unless sandboxed and explicitly allowed by capability."
+      ],
+      "test_requirements": [
+        "API contract tests.",
+        "Adapter parsing tests.",
+        "Policy bypass tests for external adapters."
+      ],
+      "expected_artifacts": [
+        "OpenAI-compatible facade",
+        "worker RPC",
+        "external adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose raw worker tool API publicly.",
+        "Do not translate arbitrary chat prompt into unrestricted shell permissions."
+      ]
+    },
+    {
+      "id": "EW-T046",
+      "title": "Build OpenCode adapter boundary hardening",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "objective": "Treat OpenCode as an execution adapter, not controller.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "OpenCode invocation receives only allowed files/context.",
+        "OpenCode patch output is parsed as PatchArtifact.",
+        "OpenCode cannot directly write into main tree unless patch_apply path is approved.",
+        "Adapter records command line, version, cwd, input hash, and output hash."
+      ],
+      "test_requirements": [
+        "API contract tests.",
+        "Adapter parsing tests.",
+        "Policy bypass tests for external adapters."
+      ],
+      "expected_artifacts": [
+        "OpenAI-compatible facade",
+        "worker RPC",
+        "external adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose raw worker tool API publicly.",
+        "Do not translate arbitrary chat prompt into unrestricted shell permissions."
+      ]
+    },
+    {
+      "id": "EW-T047",
+      "title": "Add MCP adapter with capability filtering",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "objective": "Allow MCP tools only through Ananta policy.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "MCP server/tool list is filtered by ToolPolicy.",
+        "MCP environment variables are explicit allowlist only.",
+        "MCP tool results are sanitized before model-visible use.",
+        "Private/internal URL and credential-bearing MCP calls require explicit capability."
+      ],
+      "test_requirements": [
+        "API contract tests.",
+        "Adapter parsing tests.",
+        "Policy bypass tests for external adapters."
+      ],
+      "expected_artifacts": [
+        "OpenAI-compatible facade",
+        "worker RPC",
+        "external adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose raw worker tool API publicly.",
+        "Do not translate arbitrary chat prompt into unrestricted shell permissions."
+      ]
+    },
+    {
+      "id": "EW-T048",
+      "title": "Add API exposure policy and self-loop guard",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Prevent Ananta worker API from recursive unsafe calls.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "API exposure is disabled or minimal by default unless config enables it.",
+        "Requests include X-Ananta-Instance-ID and hop count or equivalent internal loop guard.",
+        "Self-calls beyond configured hop limit are blocked.",
+        "Exposure policy appears in diagnostics and config read-model."
+      ],
+      "test_requirements": [
+        "API contract tests.",
+        "Adapter parsing tests.",
+        "Policy bypass tests for external adapters."
+      ],
+      "expected_artifacts": [
+        "OpenAI-compatible facade",
+        "worker RPC",
+        "external adapter contracts"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not expose raw worker tool API publicly.",
+        "Do not translate arbitrary chat prompt into unrestricted shell permissions."
+      ]
+    },
+    {
+      "id": "EW-T049",
+      "title": "Implement TraceBundle v2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Make all worker actions reconstructable.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "TraceBundle includes execution_id, task_id, goal_id, actor_ref, capability_hash, context_hash, model_calls, tool_calls, approvals, artifacts, timings, warnings, degraded states.",
+        "TraceBundle is produced for success, denial, failure, timeout, and cancellation.",
+        "TraceBundle avoids secret values and raw sensitive payloads.",
+        "TraceBundle can be correlated with Hub audit records."
+      ],
+      "test_requirements": [
+        "Trace snapshot tests.",
+        "Audit event tests.",
+        "Redaction tests."
+      ],
+      "expected_artifacts": [
+        "TraceBundle v2",
+        "artifact schemas",
+        "diagnostics endpoint"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not log secrets for observability.",
+        "Do not make audit optional for mutation paths."
+      ]
+    },
+    {
+      "id": "EW-T050",
+      "title": "Add model call trace with privacy controls",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Record enough model metadata for debugging without leaking prompts.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Trace records provider_id, model, local_or_cloud, token estimates, latency, retry count, fallback use, and context hashes.",
+        "Raw prompt/response logging is disabled by default.",
+        "Optional debug logging is scope-limited and redacted.",
+        "Cloud calls record sensitivity classification and policy reason."
+      ],
+      "test_requirements": [
+        "Trace snapshot tests.",
+        "Audit event tests.",
+        "Redaction tests."
+      ],
+      "expected_artifacts": [
+        "TraceBundle v2",
+        "artifact schemas",
+        "diagnostics endpoint"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not log secrets for observability.",
+        "Do not make audit optional for mutation paths."
+      ]
+    },
+    {
+      "id": "EW-T051",
+      "title": "Add artifact-first execution enforcement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Ensure all meaningful output is an artifact.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Plans are PlanArtifact, patches are PatchArtifact, commands are CommandPlanArtifact/CommandResultArtifact, tests are TestResultArtifact, reviews are VerificationArtifact/ReviewArtifact.",
+        "WorkerResult free-text summary references artifact ids.",
+        "Execution path fails tests if it returns only free text for non-trivial tasks.",
+        "Artifacts include provenance and content hash."
+      ],
+      "test_requirements": [
+        "Trace snapshot tests.",
+        "Audit event tests.",
+        "Redaction tests."
+      ],
+      "expected_artifacts": [
+        "TraceBundle v2",
+        "artifact schemas",
+        "diagnostics endpoint"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not log secrets for observability.",
+        "Do not make audit optional for mutation paths."
+      ]
+    },
+    {
+      "id": "EW-T052",
+      "title": "Add operator diagnostics for worker state",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "objective": "Expose health, capabilities, and degradation safely.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Diagnostics include worker_id, version, runtime mode, registered tools, registered providers, enabled skill count, queue state if applicable, and last health errors.",
+        "Diagnostics include policy summary but not secrets.",
+        "Diagnostics include degraded subsystems with reason codes.",
+        "Output is consumable by dashboard/TUI."
+      ],
+      "test_requirements": [
+        "Trace snapshot tests.",
+        "Audit event tests.",
+        "Redaction tests."
+      ],
+      "expected_artifacts": [
+        "TraceBundle v2",
+        "artifact schemas",
+        "diagnostics endpoint"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not log secrets for observability.",
+        "Do not make audit optional for mutation paths."
+      ]
+    },
+    {
+      "id": "EW-T053",
+      "title": "Add audit event emission for every sensitive step",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "objective": "Keep security-relevant actions visible.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Audit events emitted for preflight decision, approval_required, approval_consumed, policy_denied, shell_execute, patch_apply, file_write, provider_cloud_call, memory_write, mcp_call, subworker_spawn.",
+        "Audit events include correlation id and reason code.",
+        "Audit event emission failure fails closed for mutation-heavy operations or records degraded_state according to policy.",
+        "Tests verify events for allowed and denied paths."
+      ],
+      "test_requirements": [
+        "Trace snapshot tests.",
+        "Audit event tests.",
+        "Redaction tests."
+      ],
+      "expected_artifacts": [
+        "TraceBundle v2",
+        "artifact schemas",
+        "diagnostics endpoint"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not log secrets for observability.",
+        "Do not make audit optional for mutation paths."
+      ]
+    },
+    {
+      "id": "EW-T054",
+      "title": "Define scheduled worker job contract",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "objective": "Add Hermes-like cron safely under Hub control.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Scheduled jobs are owned by Hub, not worker local memory.",
+        "Job contract includes schedule, capability_grant, context policy, max_runtime, approval mode, delivery target, and audit correlation.",
+        "Worker cannot create persistent scheduled jobs unless schedule_create capability is granted.",
+        "Jobs are visible and revocable from Hub/operator surface."
+      ],
+      "test_requirements": [
+        "Scheduled job contract tests.",
+        "Headless approval denial tests."
+      ],
+      "expected_artifacts": [
+        "ScheduledJobContract",
+        "JobRunArtifact"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let worker create hidden cron files.",
+        "Do not run dangerous commands unattended because user is absent."
+      ]
+    },
+    {
+      "id": "EW-T055",
+      "title": "Implement headless approval behavior",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "objective": "Prevent unattended dangerous execution.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Headless jobs cannot execute confirm_required actions without pre-approved approval_ref.",
+        "Blocked actions remain blocked in headless mode.",
+        "Approval expiry is enforced.",
+        "WorkerResult marks skipped steps due to missing approval instead of pretending success."
+      ],
+      "test_requirements": [
+        "Scheduled job contract tests.",
+        "Headless approval denial tests."
+      ],
+      "expected_artifacts": [
+        "ScheduledJobContract",
+        "JobRunArtifact"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let worker create hidden cron files.",
+        "Do not run dangerous commands unattended because user is absent."
+      ]
+    },
+    {
+      "id": "EW-T056",
+      "title": "Add scheduled job result artifacts",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "objective": "Make recurring work reviewable.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Each run produces JobRunArtifact with status, started_at, ended_at, artifacts, trace_bundle_ref, warnings, and next_run if known.",
+        "Failed jobs include reason_code and retry recommendation.",
+        "Output delivery never becomes the only storage of results.",
+        "Job history is queryable by job_id and task/goal context."
+      ],
+      "test_requirements": [
+        "Scheduled job contract tests.",
+        "Headless approval denial tests."
+      ],
+      "expected_artifacts": [
+        "ScheduledJobContract",
+        "JobRunArtifact"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not let worker create hidden cron files.",
+        "Do not run dangerous commands unattended because user is absent."
+      ]
+    },
+    {
+      "id": "EW-T057",
+      "title": "Create worker security regression suite",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "objective": "Collect all bypass tests into a maintained suite.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Suite covers policy bypass, context bypass, cloud bypass, tool bypass, shell bypass, patch bypass, memory bypass, adapter bypass, MCP bypass, and subworker escalation.",
+        "Suite runs in CI standard check or named security job.",
+        "Each test has a short comment naming the threat it prevents.",
+        "New worker capabilities require adding at least one positive and one negative test."
+      ],
+      "test_requirements": [
+        "CI or smoke test listed in guide.",
+        "Docs reviewed against actual commands."
+      ],
+      "expected_artifacts": [
+        "security regression suite",
+        "implementation guide",
+        "rollout flags"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not mark feature complete without negative tests.",
+        "Do not hide breaking changes behind silent compatibility behavior."
+      ]
+    },
+    {
+      "id": "EW-T058",
+      "title": "Create live local worker smoke test",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Prove local-first path works end-to-end.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Smoke starts Hub and Worker or uses existing local-dev mode.",
+        "Smoke submits plan_only and patch_propose tasks using local/mock provider.",
+        "Smoke verifies WorkerResult, artifacts, TraceBundle, and no unauthorized side effects.",
+        "Smoke can run without paid cloud APIs."
+      ],
+      "test_requirements": [
+        "CI or smoke test listed in guide.",
+        "Docs reviewed against actual commands."
+      ],
+      "expected_artifacts": [
+        "security regression suite",
+        "implementation guide",
+        "rollout flags"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not mark feature complete without negative tests.",
+        "Do not hide breaking changes behind silent compatibility behavior."
+      ]
+    },
+    {
+      "id": "EW-T059",
+      "title": "Create adapter conformance test harness",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "objective": "Ensure external adapters behave like Ananta workers.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Harness feeds sample tasks to native, OpenCode, Hermes, ShellGPT adapters when available.",
+        "Harness verifies output artifacts, denied states, redaction, and no direct mutation.",
+        "Unavailable adapters are skipped with explicit reason, not failed obscurely.",
+        "Conformance checklist is documented for future adapters."
+      ],
+      "test_requirements": [
+        "CI or smoke test listed in guide.",
+        "Docs reviewed against actual commands."
+      ],
+      "expected_artifacts": [
+        "security regression suite",
+        "implementation guide",
+        "rollout flags"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not mark feature complete without negative tests.",
+        "Do not hide breaking changes behind silent compatibility behavior."
+      ]
+    },
+    {
+      "id": "EW-T060",
+      "title": "Write worker extension implementation guide",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "objective": "Give weaker implementers exact steps and boundaries.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Guide explains architecture, file locations, contracts, allowed responsibilities, forbidden shortcuts, and test commands.",
+        "Guide includes minimal skeleton code examples for envelope validation, tool invocation, provider adapter, skill runner, and artifact creation.",
+        "Guide includes a 'wrong implementation examples' section.",
+        "Guide links this todo file and current architecture docs."
+      ],
+      "test_requirements": [
+        "CI or smoke test listed in guide.",
+        "Docs reviewed against actual commands."
+      ],
+      "expected_artifacts": [
+        "security regression suite",
+        "implementation guide",
+        "rollout flags"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not mark feature complete without negative tests.",
+        "Do not hide breaking changes behind silent compatibility behavior."
+      ]
+    },
+    {
+      "id": "EW-T061",
+      "title": "Update README and operator docs",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "objective": "Expose the new worker model to users/operators.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "README mentions enhanced worker as governed executor, not autonomous owner.",
+        "Docs show how to enable local provider, inspect capabilities, and read artifacts/traces.",
+        "Docs state cloud/context safety defaults clearly.",
+        "Docs include troubleshooting for denied/degraded worker states."
+      ],
+      "test_requirements": [
+        "CI or smoke test listed in guide.",
+        "Docs reviewed against actual commands."
+      ],
+      "expected_artifacts": [
+        "security regression suite",
+        "implementation guide",
+        "rollout flags"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not mark feature complete without negative tests.",
+        "Do not hide breaking changes behind silent compatibility behavior."
+      ]
+    },
+    {
+      "id": "EW-T062",
+      "title": "Add rollout feature flags and migration plan",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "objective": "Introduce changes without breaking current users.",
+      "implementation_notes": [],
+      "acceptance_criteria": [
+        "Feature flags allow enabling envelope_v2, skill_registry, provider_registry, subworkers, cron, and external adapters separately.",
+        "Default mode preserves existing safe behavior.",
+        "Migration logs warn on legacy calls.",
+        "Rollback instructions exist for each major subsystem."
+      ],
+      "test_requirements": [
+        "CI or smoke test listed in guide.",
+        "Docs reviewed against actual commands."
+      ],
+      "expected_artifacts": [
+        "security regression suite",
+        "implementation guide",
+        "rollout flags"
+      ],
+      "dependencies": [],
+      "anti_patterns": [
+        "Do not mark feature complete without negative tests.",
+        "Do not hide breaking changes behind silent compatibility behavior."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "EW-T001",
+    "EW-T002",
+    "EW-T003",
+    "EW-T004",
+    "EW-T005",
+    "EW-T007",
+    "EW-T008",
+    "EW-T009",
+    "EW-T010",
+    "EW-T012",
+    "EW-T013",
+    "EW-T014",
+    "EW-T015",
+    "EW-T016",
+    "EW-T017",
+    "EW-T019",
+    "EW-T020",
+    "EW-T021",
+    "EW-T023",
+    "EW-T026",
+    "EW-T027",
+    "EW-T029",
+    "EW-T031",
+    "EW-T032",
+    "EW-T034",
+    "EW-T035",
+    "EW-T038",
+    "EW-T039",
+    "EW-T044",
+    "EW-T046",
+    "EW-T047",
+    "EW-T048",
+    "EW-T049",
+    "EW-T051",
+    "EW-T053"
+  ],
+  "implementation_order": [
+    "EW-M1",
+    "EW-M2",
+    "EW-M3",
+    "EW-M4",
+    "EW-M5",
+    "EW-M6",
+    "EW-M9",
+    "EW-M8",
+    "EW-M7",
+    "EW-M10",
+    "EW-M11"
+  ],
+  "minimum_viable_slice": [
+    "EW-T003",
+    "EW-T004",
+    "EW-T007",
+    "EW-T008",
+    "EW-T009",
+    "EW-T013",
+    "EW-T014",
+    "EW-T020",
+    "EW-T021",
+    "EW-T026",
+    "EW-T049",
+    "EW-T051",
+    "EW-T057",
+    "EW-T060"
+  ],
+  "definition_of_done_global": [
+    "All new worker entrypoints require ExecutionEnvelope or an approved compatibility wrapper.",
+    "All mutation-capable paths have positive and negative tests.",
+    "All model calls record provider/model/local-or-cloud metadata and obey model_policy.",
+    "All tool calls go through WorkerToolRegistry and ToolInvocationEnvelope.",
+    "All external adapter results are parsed into Ananta artifacts before being trusted.",
+    "All context bundles include provenance, budget accounting, and sensitivity handling.",
+    "All denial states are explicit and machine-readable.",
+    "CI contains a security regression suite for known bypass classes.",
+    "Operator documentation explains how to use, diagnose, and safely extend the worker."
+  ],
+  "tasks_status_summary": {
+    "total": 62,
+    "by_status": {
+      "todo": 62,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 30,
+      "P1": 22,
+      "P2": 10
+    },
+    "by_risk": {
+      "high": 29,
+      "critical": 9,
+      "medium": 22,
+      "low": 2
+    },
+    "critical_path": {
+      "total": 35,
+      "done": 0,
+      "remaining": 35
+    },
+    "milestones": {
+      "total": 11,
+      "todo": 11,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "summary_notes": [
+    "This track intentionally borrows Hermes-like productivity concepts but keeps the Ananta worker subordinate to Hub policy and artifacts.",
+    "A weaker implementation should start with ExecutionEnvelope, WorkerResult, preflight gate, fail-closed policy, ToolRegistry, ProviderRegistry, ContextEnvelope, TraceBundle, and regression tests before adding skills or subworkers.",
+    "The worker may become smarter and more capable, but never more authoritative than the Hub-issued capability grant."
+  ]
+}
