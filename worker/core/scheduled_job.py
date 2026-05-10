@@ -181,9 +181,11 @@ class JobRunArtifact:
     artifacts: list[dict[str, Any]] = field(default_factory=list)
     trace_bundle_ref: str = ""
     warnings: list[str] = field(default_factory=list)
+    reason_code: str = ""
     error_detail: str = ""
     retry_recommended: bool = False
     retry_count: int = 0
+    next_run: float | None = None
 
     @property
     def duration_seconds(self) -> float:
@@ -205,9 +207,11 @@ class JobRunArtifact:
             ],
             "trace_bundle_ref": self.trace_bundle_ref,
             "warnings": self.warnings,
+            "reason_code": self.reason_code,
             "error_detail": self.error_detail,
             "retry_recommended": self.retry_recommended,
             "retry_count": self.retry_count,
+            "next_run": self.next_run,
         }
 
 
@@ -223,7 +227,9 @@ class JobRunArtifactBuilder:
         self._warnings: list[str] = []
         self._trace_ref = ""
         self._error = ""
+        self._reason_code = ""
         self._retry_count = 0
+        self._next_run: float | None = None
 
     def add_artifact(self, artifact: dict[str, Any]) -> "JobRunArtifactBuilder":
         self._artifacts.append(artifact)
@@ -241,8 +247,16 @@ class JobRunArtifactBuilder:
         self._error = detail
         return self
 
+    def set_reason_code(self, reason_code: str) -> "JobRunArtifactBuilder":
+        self._reason_code = str(reason_code).strip()
+        return self
+
     def set_retry_count(self, count: int) -> "JobRunArtifactBuilder":
         self._retry_count = count
+        return self
+
+    def set_next_run(self, next_run: float | None) -> "JobRunArtifactBuilder":
+        self._next_run = next_run
         return self
 
     def finish(
@@ -267,7 +281,27 @@ class JobRunArtifactBuilder:
             artifacts=list(self._artifacts),
             trace_bundle_ref=self._trace_ref,
             warnings=list(self._warnings),
+            reason_code=self._reason_code,
             error_detail=self._error,
             retry_recommended=retry_recommended,
             retry_count=self._retry_count,
+            next_run=self._next_run,
         )
+
+
+class JobRunHistory:
+    """In-memory history index keyed by job_id and task_id for operator surfaces."""
+
+    def __init__(self) -> None:
+        self._runs_by_job: dict[str, list[JobRunArtifact]] = {}
+        self._runs_by_task: dict[str, list[JobRunArtifact]] = {}
+
+    def add(self, run: JobRunArtifact) -> None:
+        self._runs_by_job.setdefault(run.job_id, []).append(run)
+        self._runs_by_task.setdefault(run.task_id, []).append(run)
+
+    def by_job_id(self, job_id: str) -> list[JobRunArtifact]:
+        return list(self._runs_by_job.get(job_id, []))
+
+    def by_task_id(self, task_id: str) -> list[JobRunArtifact]:
+        return list(self._runs_by_task.get(task_id, []))

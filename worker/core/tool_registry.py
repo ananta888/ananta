@@ -160,6 +160,7 @@ class WorkerToolEntry:
     output_schema: dict[str, Any] = field(default_factory=dict)
     side_effects: tuple[str, ...] = ()         # e.g. ("filesystem_write",)
     description: str = ""
+    resource_limits: ResourceLimits = field(default_factory=ResourceLimits)
 
     def as_catalog_entry(self) -> dict[str, Any]:
         """Safe representation for Hub ToolRouter — no secrets, no internals."""

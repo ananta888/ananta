@@ -23,6 +23,9 @@ class WorkerDiagnostics:
     enabled_skills: list[str] = field(default_factory=list)
     active_capabilities: list[str] = field(default_factory=list)
     policy_summary: dict[str, Any] = field(default_factory=dict)
+    queue_state: dict[str, Any] = field(default_factory=dict)
+    last_health_errors: list[dict[str, Any]] = field(default_factory=list)
+    degraded_subsystems: list[dict[str, Any]] = field(default_factory=list)
     generated_at: float = field(default_factory=time.time)
 
     def as_dict(self) -> dict[str, Any]:
@@ -36,6 +39,9 @@ class WorkerDiagnostics:
             "enabled_skills": sorted(self.enabled_skills),
             "active_capabilities": sorted(self.active_capabilities),
             "policy_summary": self.policy_summary,
+            "queue_state": self.queue_state,
+            "last_health_errors": self.last_health_errors,
+            "degraded_subsystems": self.degraded_subsystems,
             "generated_at": self.generated_at,
         }
 
@@ -53,6 +59,9 @@ class WorkerDiagnosticsBuilder:
         provider_registry: Any = None,
         skill_registry: Any = None,
         envelope: Any = None,
+        queue_state: dict[str, Any] | None = None,
+        last_health_errors: list[dict[str, Any]] | None = None,
+        degraded_subsystems: list[dict[str, Any]] | None = None,
     ) -> WorkerDiagnostics:
         tools = []
         if tool_registry:
@@ -98,6 +107,9 @@ class WorkerDiagnosticsBuilder:
             enabled_skills=skills,
             active_capabilities=active_caps,
             policy_summary=policy_summary,
+            queue_state=dict(queue_state or {}),
+            last_health_errors=list(last_health_errors or []),
+            degraded_subsystems=list(degraded_subsystems or []),
         )
 
 
@@ -111,11 +123,13 @@ AUDITABLE_EVENTS = frozenset({
     "policy_denied",
     "shell_execute",
     "patch_apply",
+    "file_write",
     "memory_write",
     "subworker_spawn",
     "cron_schedule",
     "artifact_publish",
     "provider_call",
+    "provider_cloud_call",
     "mcp_call",
     "context_blocked",
     "injection_blocked",
