@@ -4,6 +4,9 @@ import json
 from typing import Any
 
 from worker.core.execution_envelope import ExecutionEnvelope
+from worker.core.sanitizer import OutputSanitizer
+
+_SAN = OutputSanitizer()
 
 
 def build_governed_system_prompt(
@@ -23,9 +26,9 @@ def build_governed_system_prompt(
             "Output must be strict JSON matching the provided schema.",
             "Do not execute shell commands or claim execution.",
             "Do not write files, apply patches, mutate memory, create cron jobs or mutate tasks directly.",
+            "Do not use shell/file/browser/MCP/tool autonomy in phase1.",
             "If information is missing, return uncertainty and bounded assumptions.",
         ],
         "schema": output_schema or {},
     }
-    return json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
-
+    return _SAN.sanitize(json.dumps(payload, ensure_ascii=True, separators=(",", ":"))).text

@@ -4,9 +4,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from worker.core.context_resolver import ContextBlock, ContextSensitivity
+from worker.core.sanitizer import OutputSanitizer
 
 
 _SENSITIVE_BLOCKS = frozenset({ContextSensitivity.secret, ContextSensitivity.confidential})
+_SAN = OutputSanitizer()
 
 
 @dataclass
@@ -40,7 +42,7 @@ def convert_context_blocks_to_prompt(
             skipped.append({"origin_id": block.origin_id, "reason_code": "empty_context_block"})
             continue
 
-        entry = f"[source={block.source_type}:{block.origin_id}] {content}"
+        entry = f"[source={block.source_type}:{block.origin_id}] {_SAN.sanitize(content).text}"
         if total + len(entry) > max_context_chars:
             remaining = max_context_chars - total
             if remaining <= 0:
@@ -62,4 +64,3 @@ def convert_context_blocks_to_prompt(
         total_chars=total,
         has_required_context=bool(included),
     )
-
