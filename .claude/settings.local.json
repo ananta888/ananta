@@ -81,7 +81,8 @@
       "Bash(python -m pytest tests -x --tb=short -q -m \"not live_compose\" --ignore=tests/test_autonomous_flow_e2e.py --ignore=tests/test_autonomous_scrum_e2e.py --ignore=tests/test_autopilot_integration.py --ignore=tests/test_deerflow_integration.py --ignore=tests/test_e2e_auth.py --ignore=tests/test_evolver_live_compose.py --ignore=tests/test_hybrid_orchestrator_load.py --ignore=tests/test_tasks_opencode_e2e.py --ignore=tests/test_triggers_e2e.py --ignore-glob=tests/**/fixtures/**)",
       "Bash(python -m pytest --co -q tests/test_worker_client_adapter.py)",
       "Bash(python *)",
-      "Bash(wait)"
+      "Bash(wait)",
+      "Bash(kill 46813 54463 62078)"
     ]
   }
 }
