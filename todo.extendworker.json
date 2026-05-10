@@ -89,7 +89,7 @@
         "EW-T005",
         "EW-T006"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "EW-M2",
@@ -102,7 +102,7 @@
         "EW-T011",
         "EW-T012"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "EW-M3",
@@ -116,7 +116,7 @@
         "EW-T018",
         "EW-T019"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "EW-M4",
@@ -129,7 +129,7 @@
         "EW-T024",
         "EW-T025"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "EW-M5",
@@ -142,7 +142,7 @@
         "EW-T030",
         "EW-T031"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "EW-M6",
@@ -155,7 +155,7 @@
         "EW-T036",
         "EW-T037"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "EW-M7",
@@ -167,7 +167,7 @@
         "EW-T041",
         "EW-T042"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "EW-M8",
@@ -180,7 +180,7 @@
         "EW-T047",
         "EW-T048"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "EW-M9",
@@ -192,7 +192,7 @@
         "EW-T052",
         "EW-T053"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "EW-M10",
@@ -202,7 +202,7 @@
         "EW-T055",
         "EW-T056"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "EW-M11",
@@ -215,7 +215,7 @@
         "EW-T061",
         "EW-T062"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -1678,7 +1678,7 @@
     {
       "id": "EW-T051",
       "title": "Add artifact-first execution enforcement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Ensure all meaningful output is an artifact.",
@@ -1708,7 +1708,7 @@
     {
       "id": "EW-T052",
       "title": "Add operator diagnostics for worker state",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "objective": "Expose health, capabilities, and degradation safely.",
@@ -1738,7 +1738,7 @@
     {
       "id": "EW-T053",
       "title": "Add audit event emission for every sensitive step",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Keep security-relevant actions visible.",
@@ -1768,7 +1768,7 @@
     {
       "id": "EW-T054",
       "title": "Define scheduled worker job contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "objective": "Add Hermes-like cron safely under Hub control.",
@@ -1796,7 +1796,7 @@
     {
       "id": "EW-T055",
       "title": "Implement headless approval behavior",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "objective": "Prevent unattended dangerous execution.",
@@ -1824,7 +1824,7 @@
     {
       "id": "EW-T056",
       "title": "Add scheduled job result artifacts",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "objective": "Make recurring work reviewable.",
@@ -1852,7 +1852,7 @@
     {
       "id": "EW-T057",
       "title": "Create worker security regression suite",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Collect all bypass tests into a maintained suite.",
@@ -1881,7 +1881,7 @@
     {
       "id": "EW-T058",
       "title": "Create live local worker smoke test",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Prove local-first path works end-to-end.",
@@ -1910,7 +1910,7 @@
     {
       "id": "EW-T059",
       "title": "Create adapter conformance test harness",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "objective": "Ensure external adapters behave like Ananta workers.",
@@ -1939,7 +1939,7 @@
     {
       "id": "EW-T060",
       "title": "Write worker extension implementation guide",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "objective": "Give weaker implementers exact steps and boundaries.",
@@ -1968,7 +1968,7 @@
     {
       "id": "EW-T061",
       "title": "Update README and operator docs",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "objective": "Expose the new worker model to users/operators.",
@@ -1997,7 +1997,7 @@
     {
       "id": "EW-T062",
       "title": "Add rollout feature flags and migration plan",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Introduce changes without breaking current users.",

@@ -136,6 +136,7 @@ class TraceBundleV2:
     finished_at: float | None = None
     cancelled: bool = False
     timed_out: bool = False
+    reason_code: str | None = None
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -155,10 +156,11 @@ class TraceBundleV2:
     def record_model_call(self, call: ModelCallTrace) -> None:
         self.model_calls.append(call)
 
-    def finish(self, outcome: ExecutionOutcome) -> None:
+    def finish(self, outcome: ExecutionOutcome, *, reason_code: str | None = None) -> None:
         self.outcome = outcome
+        self.reason_code = reason_code
         self.finished_at = time.time()
-        self.append(f"execution_{outcome.value}", reason_code=None)
+        self.append(f"execution_{outcome.value}", reason_code=reason_code)
 
     def cancel(self, reason: str = "cancelled") -> None:
         self.cancelled = True
@@ -187,6 +189,7 @@ class TraceBundleV2:
             "finished_at": self.finished_at,
             "cancelled": self.cancelled,
             "timed_out": self.timed_out,
+            "reason_code": self.reason_code,
             "event_count": len(self.events),
             "skill_ids_used": self.skill_ids_used,
             "subworker_ids": self.subworker_ids,
@@ -203,6 +206,7 @@ class TraceBundleV2:
         cls,
         envelope: "ExecutionEnvelope",  # type: ignore[name-defined]
         *,
+        goal_id: str | None = None,
         model_id: str = "",
         context_hash: str = "",
     ) -> "TraceBundleV2":
@@ -210,7 +214,7 @@ class TraceBundleV2:
         return cls(
             execution_id=envelope.audit_correlation_id,
             task_id=envelope.task_id,
-            goal_id=envelope.goal_id,
+            goal_id=goal_id if goal_id is not None else envelope.goal_id,
             actor_ref=envelope.actor_ref,
             capability_hash=envelope.capability_grant.snapshot_hash,
             context_hash=context_hash,
