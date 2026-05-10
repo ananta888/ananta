@@ -165,6 +165,36 @@ def test_autopilot_guardrail_stops_on_dispatched_limit(app, monkeypatch):
     assert autonomous_loop.running is False
 
 
+def test_autopilot_start_resets_counters_after_guardrail_stop(client, app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_TOKEN"] = "secret-token"
+    headers = _auth_headers(app)
+
+    autonomous_loop.stop(persist=False)
+    autonomous_loop.tick_count = 5000
+    autonomous_loop.dispatched_count = 111
+    autonomous_loop.completed_count = 22
+    autonomous_loop.failed_count = 7
+    autonomous_loop.last_error = "guardrail_max_ticks_total_exceeded"
+
+    try:
+        start_res = client.post(
+            "/tasks/autopilot/start",
+            json={"interval_seconds": 5, "max_concurrency": 2},
+            headers=headers,
+        )
+        assert start_res.status_code == 200
+        data = start_res.json["data"]
+        assert data["running"] is True
+        assert data["tick_count"] == 0
+        assert data["dispatched_count"] == 0
+        assert data["completed_count"] == 0
+        assert data["failed_count"] == 0
+        assert data["last_error"] is None
+    finally:
+        autonomous_loop.stop(persist=False)
+
+
 def test_autopilot_retries_transient_worker_failure(app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     app.config["AGENT_CONFIG"] = {
