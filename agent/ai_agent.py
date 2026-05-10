@@ -100,4 +100,4 @@ if __name__ == "__main__":
         sys.exit(0)
 
     app = create_app()
-    app.run(host="0.0.0.0", port=settings.port)
+    app.run(host="0.0.0.0", port=settings.port, threaded=True)
