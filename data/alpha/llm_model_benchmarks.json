@@ -1501,15 +1501,15 @@
       "provider": "ananta-worker",
       "model": "ananta-default",
       "overall": {
-        "total": 44,
-        "success": 23,
-        "failed": 21,
-        "quality_pass": 23,
-        "quality_fail": 21,
-        "latency_ms_total": 239,
-        "tokens_total": 8851,
+        "total": 48,
+        "success": 25,
+        "failed": 23,
+        "quality_pass": 25,
+        "quality_fail": 23,
+        "latency_ms_total": 280,
+        "tokens_total": 9772,
         "cost_units_total": 0.0,
-        "last_seen": 1778442220,
+        "last_seen": 1778443161,
         "samples": [
           {
             "ts": 1778336125,
@@ -1994,20 +1994,64 @@
             "context": {
               "task_kind": "analysis"
             }
+          },
+          {
+            "ts": 1778442444,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 12,
+            "tokens_total": 316,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1778442614,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 3,
+            "tokens_total": 108,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1778443073,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 4,
+            "tokens_total": 180,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1778443161,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 22,
+            "tokens_total": 317,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
           }
         ]
       },
       "task_kinds": {
         "analysis": {
-          "total": 43,
-          "success": 23,
-          "failed": 20,
-          "quality_pass": 23,
-          "quality_fail": 20,
-          "latency_ms_total": 238,
-          "tokens_total": 8682,
+          "total": 47,
+          "success": 25,
+          "failed": 22,
+          "quality_pass": 25,
+          "quality_fail": 22,
+          "latency_ms_total": 279,
+          "tokens_total": 9603,
           "cost_units_total": 0.0,
-          "last_seen": 1778442220,
+          "last_seen": 1778443161,
           "samples": [
             {
               "ts": 1778336125,
@@ -2481,6 +2525,50 @@
               "context": {
                 "task_kind": "analysis"
               }
+            },
+            {
+              "ts": 1778442444,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 12,
+              "tokens_total": 316,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1778442614,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 3,
+              "tokens_total": 108,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1778443073,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 4,
+              "tokens_total": 180,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1778443161,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 22,
+              "tokens_total": 317,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
             }
           ]
         },
@@ -2565,5 +2653,5 @@
       }
     }
   },
-  "updated_at": 1778442220
+  "updated_at": 1778443161
 }
