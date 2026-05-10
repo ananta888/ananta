@@ -515,6 +515,35 @@ def get_base_url():
     return f"http://localhost:{settings.port}"
 
 
+_CONTAINER_WORKSPACE_ROOT = "/project-workspaces"
+_HOST_WORKSPACE_ROOT = "./project-workspaces"
+
+
+def _resolve_output_dir(output_dir: str) -> tuple[str, str | None]:
+    """Translate a user-supplied output_dir to (container_path, host_display_path).
+
+    Rules:
+    - Bare name or relative path  → /project-workspaces/<name>
+    - Absolute /project-workspaces/…  → kept as-is
+    - Other absolute path  → kept as-is, host_display_path is None
+    """
+    raw = output_dir.strip()
+    if not raw:
+        return raw, None
+    if raw.startswith(_CONTAINER_WORKSPACE_ROOT + "/") or raw == _CONTAINER_WORKSPACE_ROOT:
+        rel = raw[len(_CONTAINER_WORKSPACE_ROOT):].lstrip("/")
+        host = f"{_HOST_WORKSPACE_ROOT}/{rel}" if rel else _HOST_WORKSPACE_ROOT
+        return raw, host
+    if not os.path.isabs(raw):
+        # Relative or bare name: strip leading ./
+        name = raw.lstrip("./").replace("\\", "/").strip("/") or raw
+        container = f"{_CONTAINER_WORKSPACE_ROOT}/{name}"
+        host = f"{_HOST_WORKSPACE_ROOT}/{name}"
+        return container, host
+    # Arbitrary absolute path the caller has presumably mounted themselves
+    return raw, None
+
+
 def get_auth_token(base_url: str) -> str:
     username = os.environ.get("ANANTA_USER", "admin")
     password = os.environ.get("ANANTA_PASSWORD", "admin")
@@ -664,7 +693,11 @@ def submit_goal(
     if mode_data:
         payload["mode_data"] = mode_data
     if output_dir:
-        payload.setdefault("execution_preferences", {})["output_dir"] = output_dir
+        container_path, host_path = _resolve_output_dir(output_dir)
+        payload.setdefault("execution_preferences", {})["output_dir"] = container_path
+        if host_path:
+            _print_terminal("Output directory (host): {}", host_path)
+        output_dir = container_path
     use_template = _planning_mode_to_use_template(planning_mode)
     if use_template is not None:
         payload["use_template"] = use_template
@@ -918,11 +951,11 @@ Examples:
     ananta evolve-project "Add a guided project-start mode to the dashboard"
     ananta repair-admin "Service restart loop after update"
 
-  Write output to a specific folder:
+  Write output to a specific folder (files appear under ./project-workspaces/ on the host):
     ananta new-project --output-dir myproject "Build a small tool"
-    ananta evolve-project --output-dir /app/myproject "Add auth module"
+    ananta ask --output-dir fibonacci "Write a fibonacci.py"
     ananta ask --output-dir ./out "Generate a README for this repo"
-    (Docker: use paths relative to project root, e.g. myproject -> /app/myproject in container)
+    (Relative names are mapped to /project-workspaces/<name> inside the worker container.)
 
   Repair-script (synchronous, pipe-friendly):
     ananta repair-script "Nginx crashes on startup"
@@ -979,7 +1012,7 @@ Examples:
     parser.add_argument("--team", "-t", help="Team ID to assign tasks to")
     parser.add_argument("--mode", help="Guided goal mode ID (e.g. code_fix, docker_compose_repair)")
     parser.add_argument("--mode-data", help='JSON object for mode fields, e.g. \'{"service":"hub"}\'')
-    parser.add_argument("--output-dir", "-o", help="Directory where generated files are written (default: isolated workspace)")
+    parser.add_argument("--output-dir", "-o", help="Directory where generated files are written. Relative names (e.g. 'fibonacci') map to /project-workspaces/<name> in the container and ./project-workspaces/<name> on the host.")
     parser.add_argument("--script-out", "-S", metavar="FILE", help="Save the extracted repair script to this file (repair-script only)")
     parser.add_argument("--exec", dest="exec_script", action="store_true", help="Review then optionally execute the generated script (repair-script only)")
     parser.add_argument("--tui", dest="tui_flag", action="store_true", help="Interactive TUI: review and approve commands for controlled host execution (repair-script only)")
