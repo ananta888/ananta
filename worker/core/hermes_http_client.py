@@ -59,6 +59,16 @@ class HermesHttpClient:
             timeout_seconds=self.config.timeout_seconds,
         )
 
+    def health(self, *, api_key: str = "") -> dict[str, Any]:
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        return self._get_json(
+            f"{self.config.base_url}/health",
+            headers=headers,
+            timeout_seconds=self.config.timeout_seconds,
+        )
+
     def _post_json(
         self,
         url: str,
@@ -69,6 +79,29 @@ class HermesHttpClient:
     ) -> dict[str, Any]:
         body = json.dumps(payload).encode("utf-8")
         req = request.Request(url=url, data=body, headers=headers, method="POST")
+        try:
+            with request.urlopen(req, timeout=timeout_seconds) as resp:
+                raw = resp.read().decode("utf-8")
+                return json.loads(raw) if raw else {}
+        except error.HTTPError as exc:
+            raise HermesClientError(
+                code=self._map_http_status(exc.code),
+                detail="Hermes HTTP request failed",
+                status_code=exc.code,
+            ) from exc
+        except (TimeoutError, socket.timeout) as exc:
+            raise HermesClientError(code="hermes_timeout", detail="Hermes request timed out") from exc
+        except error.URLError as exc:
+            raise HermesClientError(code="hermes_connection_error", detail="Hermes connection failed") from exc
+
+    def _get_json(
+        self,
+        url: str,
+        *,
+        headers: dict[str, str],
+        timeout_seconds: float,
+    ) -> dict[str, Any]:
+        req = request.Request(url=url, headers=headers, method="GET")
         try:
             with request.urlopen(req, timeout=timeout_seconds) as resp:
                 raw = resp.read().decode("utf-8")

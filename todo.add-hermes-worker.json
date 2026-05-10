@@ -114,7 +114,7 @@
         "HERMES-T012",
         "HERMES-T013"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "HERMES-M4",
@@ -126,7 +126,7 @@
         "HERMES-T017",
         "HERMES-T018"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "HERMES-M5",
@@ -138,7 +138,7 @@
         "HERMES-T022",
         "HERMES-T023"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "HERMES-M6",
@@ -519,7 +519,7 @@
     {
       "id": "HERMES-T011",
       "title": "Implement Hermes health check",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "objective": "Detect configured/available/degraded states before routing.",
@@ -550,7 +550,7 @@
     {
       "id": "HERMES-T012",
       "title": "Add Hermes model selection rules",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "objective": "Choose model only from Hub/config policy, not from Hermes or prompt text.",
@@ -584,7 +584,7 @@
     {
       "id": "HERMES-T013",
       "title": "Add Hermes call timeout and retry policy",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "objective": "Make Hermes calls bounded and predictable.",
@@ -616,7 +616,7 @@
     {
       "id": "HERMES-T014",
       "title": "Build Hermes system prompt template for governed worker mode",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Give Hermes clear task instructions while enforcement remains in code.",
@@ -649,7 +649,7 @@
     {
       "id": "HERMES-T015",
       "title": "Build bounded ContextEnvelope to Hermes prompt conversion",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Send only allowed, bounded, sanitized context to Hermes.",
@@ -684,7 +684,7 @@
     {
       "id": "HERMES-T016",
       "title": "Define Hermes structured output schemas",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Make Hermes output machine-parseable and safe to validate.",
@@ -716,7 +716,7 @@
     {
       "id": "HERMES-T017",
       "title": "Implement Hermes output parser",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Parse and validate Hermes response before converting to artifacts.",
@@ -748,7 +748,7 @@
     {
       "id": "HERMES-T018",
       "title": "Add small-model fallback prompt for parse errors",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "objective": "Improve reliability with weaker models without weakening safety.",
@@ -781,7 +781,7 @@
     {
       "id": "HERMES-T019",
       "title": "Implement plan_only mode through Hermes",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "objective": "First safe end-to-end Hermes mode: generate a plan artifact only.",
@@ -814,7 +814,7 @@
     {
       "id": "HERMES-T020",
       "title": "Implement review mode through Hermes",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Use Hermes for code/change review without mutation.",
@@ -1526,12 +1526,12 @@
   "tasks_status_summary": {
     "total": 40,
     "by_status": {
-      "todo": 30,
+      "todo": 20,
       "in_progress": 0,
       "blocked": 0,
-      "done": 10
+      "done": 20
     },
-    "progress_percent_done": 25.0,
+    "progress_percent_done": 50.0,
     "by_priority": {
       "P0": 23,
       "P1": 10,
@@ -1545,15 +1545,15 @@
     },
     "critical_path": {
       "total": 25,
-      "done": 7,
-      "remaining": 18
+      "done": 15,
+      "remaining": 10
     },
     "milestones": {
       "total": 9,
-      "todo": 6,
+      "todo": 4,
       "in_progress": 1,
       "blocked": 0,
-      "done": 2
+      "done": 4
     }
   },
   "summary_notes": [

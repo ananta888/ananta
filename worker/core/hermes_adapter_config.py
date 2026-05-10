@@ -16,6 +16,8 @@ class HermesAdapterConfig(BaseModel):
     max_context_chars: int = 12000
     strict_json_required: bool = True
     rollout_phase: str = "phase1"
+    blocked_models: list[str] = Field(default_factory=list)
+    parse_retry_enabled: bool = True
 
     @field_validator("timeout_seconds")
     @classmethod
@@ -65,4 +67,6 @@ class HermesAdapterConfig(BaseModel):
             "max_context_chars": self.max_context_chars,
             "strict_json_required": self.strict_json_required,
             "rollout_phase": self.rollout_phase,
+            "blocked_models": list(self.blocked_models),
+            "parse_retry_enabled": self.parse_retry_enabled,
         }
