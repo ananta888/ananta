@@ -2104,12 +2104,12 @@
   "tasks_status_summary": {
     "total": 62,
     "by_status": {
-      "todo": 62,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 62
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 30,
       "P1": 22,
@@ -2123,15 +2123,15 @@
     },
     "critical_path": {
       "total": 35,
-      "done": 0,
-      "remaining": 35
+      "done": 35,
+      "remaining": 0
     },
     "milestones": {
       "total": 11,
-      "todo": 11,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 11
     }
   },
   "summary_notes": [
