@@ -16,6 +16,7 @@ from agent.services.retrieval_service import get_retrieval_service
 from agent.services.retrieval_source_contract import source_scopes_for_types
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
+from agent.services.wiki_import_job_service import get_wiki_import_job_service
 
 knowledge_bp = Blueprint("knowledge", __name__)
 
@@ -348,10 +349,41 @@ def get_knowledge_index_job(job_id: str):
 @knowledge_bp.route("/knowledge/wiki/import-jobs/<job_id>", methods=["GET"])
 @check_auth
 def get_wiki_import_job(job_id: str):
-    job = get_knowledge_index_job_service().get_job(job_id)
+    job = get_wiki_import_job_service().get_job(job_id)
+    if job is None:
+        job = get_knowledge_index_job_service().get_job(job_id)
     if job is None:
         raise NotFoundError("wiki_import_job_not_found")
-    if str(job.get("job_type") or "") != "source_records" or str(job.get("source_scope") or "").strip().lower() != "wiki":
+    job_type = str(job.get("job_type") or "").strip().lower()
+    scope = str(job.get("source_scope") or "").strip().lower()
+    if not (job_type == "wiki_import" or (job_type == "source_records" and scope == "wiki")):
+        raise NotFoundError("wiki_import_job_not_found")
+    return api_response(data={"job": job})
+
+
+@knowledge_bp.route("/knowledge/wiki/import-jobs/<job_id>/pause", methods=["POST"])
+@check_auth
+def pause_wiki_import_job(job_id: str):
+    job = get_wiki_import_job_service().pause_job(job_id)
+    if job is None:
+        raise NotFoundError("wiki_import_job_not_found")
+    return api_response(data={"job": job})
+
+
+@knowledge_bp.route("/knowledge/wiki/import-jobs/<job_id>/resume", methods=["POST"])
+@check_auth
+def resume_wiki_import_job(job_id: str):
+    job = get_wiki_import_job_service().resume_job(job_id)
+    if job is None:
+        raise NotFoundError("wiki_import_job_not_found")
+    return api_response(data={"job": job})
+
+
+@knowledge_bp.route("/knowledge/wiki/import-jobs/<job_id>/cancel", methods=["POST"])
+@check_auth
+def cancel_wiki_import_job(job_id: str):
+    job = get_wiki_import_job_service().cancel_job(job_id)
+    if job is None:
         raise NotFoundError("wiki_import_job_not_found")
     return api_response(data={"job": job})
 

@@ -5,7 +5,7 @@
   "purpose": "Umfangreicher Umsetzungsplan, um die aktuelle echte Wikimedia-Dump-Integration von einem funktionalen Prototypen zu einer robusten, lokal-first, Android-tauglichen und CodeCompass-inspirierten Wikipedia-RAG-Pipeline auszubauen.",
   "goal": "Deutsche Wikipedia-Dumps sollen als lokale RAG-Quelle sauber heruntergeladen, fortgesetzt, normalisiert, indexiert, gesucht und in der APK bedienbar sein, ohne die Hub-Worker-Architektur zu brechen. CodeCompass-Prerendering soll sinnvoll genutzt werden, aber fuer grosse Wikipedia-Dumps streaming- und batchfaehig statt temp-file-lastig werden.",
   "created": "2026-05-03",
-  "updated": "2026-05-03",
+  "updated": "2026-05-10",
   "status_scale": [
     "todo",
     "in_progress",
@@ -161,7 +161,7 @@
         "WR2-T20",
         "WR2-T21"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "WR2-M4",
@@ -173,7 +173,7 @@
         "WR2-T25",
         "WR2-T26"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "WR2-M5",
@@ -196,7 +196,7 @@
         "WR2-T34",
         "WR2-T35"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "WR2-M7",
@@ -208,7 +208,7 @@
         "WR2-T39",
         "WR2-T40"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -561,7 +561,7 @@
     {
       "id": "WR2-T18",
       "title": "Temp-Markdown-Materialisierung durch Streaming-CodeCompass-Bridge ersetzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "codecompass_bridge",
@@ -583,7 +583,7 @@
     {
       "id": "WR2-T19",
       "title": "Wiki-Relationen in CodeCompass Graph Outputs schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "graph",
@@ -605,7 +605,7 @@
     {
       "id": "WR2-T20",
       "title": "Wiki-spezifische Profile fuer rag-helper einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "profiles",
@@ -627,7 +627,7 @@
     {
       "id": "WR2-T21",
       "title": "CodeCompass-Prerender als optionalen Job-Schritt modellieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "job_pipeline",
@@ -649,7 +649,7 @@
     {
       "id": "WR2-T22",
       "title": "Wiki KnowledgeIndex Retrieval fuer grosse Outputs optimieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "retrieval",
@@ -669,7 +669,7 @@
     {
       "id": "WR2-T23",
       "title": "Persistenten FTS Store fuer Wiki-Records einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "retrieval_store",
@@ -690,7 +690,7 @@
     {
       "id": "WR2-T24",
       "title": "Optionalen Vektorindex fuer Wiki-Chunks anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "vector_retrieval",
@@ -711,7 +711,7 @@
     {
       "id": "WR2-T25",
       "title": "Hybrid Merge fuer Wiki FTS, Vector und Graph Signale umsetzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "retrieval_ranking",
@@ -755,7 +755,7 @@
     {
       "id": "WR2-T27",
       "title": "Dedizierten WikiImportJobService implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "job_system",
@@ -842,7 +842,7 @@
     {
       "id": "WR2-T31",
       "title": "Pause, Resume und Cancel fuer Wiki Jobs entwerfen und implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "job_control",
@@ -887,7 +887,7 @@
     {
       "id": "WR2-T33",
       "title": "ZIM Parser-Optionen evaluieren und Entscheidung dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "research_decision",
@@ -903,7 +903,7 @@
     {
       "id": "WR2-T34",
       "title": "ZIM Import weiterhin fail-closed absichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "safety",
@@ -941,7 +941,7 @@
     {
       "id": "WR2-T36",
       "title": "Kleine echte Wikimedia-Fixture E2E bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "testing",
@@ -963,7 +963,7 @@
     {
       "id": "WR2-T37",
       "title": "Benchmark fuer mittelgrossen Dump-Ausschnitt einrichten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "benchmark",
@@ -984,7 +984,7 @@
     {
       "id": "WR2-T38",
       "title": "Retrieval-Qualitaets-Smoketests fuer Wiki-Fragen hinzufuegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "retrieval_quality",
@@ -1004,7 +1004,7 @@
     {
       "id": "WR2-T39",
       "title": "Runbook fuer Wiki-RAG Betrieb schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "documentation",
@@ -1068,12 +1068,12 @@
   "tasks_status_summary": {
     "total": 40,
     "by_status": {
-      "todo": 19,
+      "todo": 3,
       "in_progress": 0,
       "blocked": 1,
-      "done": 20
+      "done": 36
     },
-    "progress_percent_done": 50,
+    "progress_percent_done": 90,
     "by_priority": {
       "P0": 22,
       "P1": 15,
