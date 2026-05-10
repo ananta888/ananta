@@ -95,3 +95,38 @@ def test_materialize_from_plan_node_remains_backward_compatible_without_blueprin
     provenance = extra_fields["worker_execution_context"]["planning_provenance"]
     assert provenance["plan_node_id"] == "node-2"
     assert "blueprint_id" not in provenance
+
+
+def test_materialize_from_plan_node_propagates_goal_output_dir_to_workspace_context(monkeypatch) -> None:
+    queue = _QueueStub()
+    monkeypatch.setattr(lifecycle_service, "get_task_queue_service", lambda: queue)
+    monkeypatch.setattr(
+        lifecycle_service,
+        "goal_repo",
+        SimpleNamespace(get_by_id=lambda _goal_id: SimpleNamespace(execution_preferences={"output_dir": "/tmp/project-out"})),
+    )
+
+    node = SimpleNamespace(
+        id="node-3",
+        title="Write files",
+        description="Materialize with explicit output dir",
+        priority="Medium",
+        rationale={"task_kind": "coding"},
+        verification_spec={},
+    )
+
+    lifecycle_service.TaskLifecycleService().materialize_from_plan_node(
+        task_id="task-3",
+        node=node,
+        team_id=None,
+        goal_id="goal-3",
+        goal_trace_id=None,
+        plan_id="plan-3",
+        parent_task_id=None,
+        derivation_reason="goal_planning",
+        derivation_depth=0,
+        depends_on=None,
+    )
+
+    workspace = queue.calls[0]["extra_fields"]["worker_execution_context"]["workspace"]
+    assert workspace["output_dir"] == "/tmp/project-out"
