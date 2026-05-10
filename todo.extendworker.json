@@ -1077,7 +1077,7 @@
     {
       "id": "EW-T031",
       "title": "Add prompt injection scanning for context blocks",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Protect model calls from malicious repo/docs content.",
@@ -1107,7 +1107,7 @@
     {
       "id": "EW-T032",
       "title": "Define Ananta SkillManifest schema",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Introduce Hermes-like skills as governed, versioned worker modules.",
@@ -1138,7 +1138,7 @@
     {
       "id": "EW-T033",
       "title": "Implement SkillRegistry with signed or hashed skills",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Make skill loading deterministic and auditable.",
@@ -1169,7 +1169,7 @@
     {
       "id": "EW-T034",
       "title": "Implement SkillRunner",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Execute skills through the same policy/tool/context gates.",
@@ -1200,7 +1200,7 @@
     {
       "id": "EW-T035",
       "title": "Add skill proposal workflow",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "objective": "Allow self-improvement only as reviewable proposals.",
@@ -1231,7 +1231,7 @@
     {
       "id": "EW-T036",
       "title": "Add skill self-review and stale-skill detection",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "objective": "Let worker critique skills without silently patching them.",
@@ -1262,7 +1262,7 @@
     {
       "id": "EW-T037",
       "title": "Add baseline coding/review/diagnose skills",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "objective": "Seed useful worker skills matching Ananta use cases.",
@@ -1293,7 +1293,7 @@
     {
       "id": "EW-T038",
       "title": "Define SubworkerEnvelope contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "objective": "Allow Hermes-like delegation without worker-to-worker power escalation.",
@@ -1322,7 +1322,7 @@
     {
       "id": "EW-T039",
       "title": "Implement subworker spawn gate",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "objective": "Route all child work through Hub-compatible policy checks.",
@@ -1351,7 +1351,7 @@
     {
       "id": "EW-T040",
       "title": "Implement parallel safe execution coordinator",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "objective": "Support limited parallelism without nondeterministic side effects.",
@@ -1380,7 +1380,7 @@
     {
       "id": "EW-T041",
       "title": "Add delegation artifact model",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "objective": "Make delegated work reviewable.",
@@ -1409,7 +1409,7 @@
     {
       "id": "EW-T042",
       "title": "Add cancellation and timeout propagation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Make long-running worker/subworker runs controllable.",
@@ -1438,7 +1438,7 @@
     {
       "id": "EW-T043",
       "title": "Add OpenAI-compatible worker facade",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Expose worker capabilities to compatible clients without bypassing Ananta controls.",
@@ -1468,7 +1468,7 @@
     {
       "id": "EW-T044",
       "title": "Add Ananta-native worker RPC endpoint",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Provide first-class structured execution API.",
@@ -1498,7 +1498,7 @@
     {
       "id": "EW-T045",
       "title": "Build Hermes adapter as external worker target",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "objective": "Allow Hermes to be plugged in as a worker/backend without becoming owner.",
@@ -1528,7 +1528,7 @@
     {
       "id": "EW-T046",
       "title": "Build OpenCode adapter boundary hardening",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "objective": "Treat OpenCode as an execution adapter, not controller.",
@@ -1558,7 +1558,7 @@
     {
       "id": "EW-T047",
       "title": "Add MCP adapter with capability filtering",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "objective": "Allow MCP tools only through Ananta policy.",
@@ -1588,7 +1588,7 @@
     {
       "id": "EW-T048",
       "title": "Add API exposure policy and self-loop guard",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Prevent Ananta worker API from recursive unsafe calls.",
@@ -1618,7 +1618,7 @@
     {
       "id": "EW-T049",
       "title": "Implement TraceBundle v2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Make all worker actions reconstructable.",
@@ -1648,7 +1648,7 @@
     {
       "id": "EW-T050",
       "title": "Add model call trace with privacy controls",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Record enough model metadata for debugging without leaking prompts.",

@@ -166,7 +166,11 @@ class FilePolicy:
 
     def _within(self, path: str, scope: str) -> bool:
         try:
-            resolved = Path(path).resolve()
+            p = Path(path)
+            # Relative paths (from unified diffs) are treated as relative to scope
+            if not p.is_absolute() and scope:
+                p = Path(scope) / p
+            resolved = p.resolve()
             scope_resolved = Path(scope).resolve()
             resolved.relative_to(scope_resolved)
             return True
