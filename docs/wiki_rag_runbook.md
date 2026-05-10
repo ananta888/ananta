@@ -28,3 +28,6 @@
 
 ## Release-Gate
 - Wiki-Smokes müssen dokumentieren, ob nur Fixture/Ausschnitt oder Voll-Dump geprüft wurde.
+- CI-Workflow: `.github/workflows/android-delivery-apk.yml`.
+- Der Workflow muss APK-Artefakt plus `wiki-release-verification-report.json` bereitstellen.
+- Aktueller Gate-Standard: `full_dewiki_validated=false` ist erlaubt, wenn Fixture-/Ausschnitt-Smokes erfolgreich und explizit dokumentiert sind.

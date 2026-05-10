@@ -90,3 +90,41 @@ def test_context_bundle_synthesizes_trace_when_retrieval_trace_missing():
     assert trace["final_chunk_count"] == 1
     assert trace["selected_chunk_counts_by_channel"] == {"repository_map": 1}
     assert bundle["selection_trace"]["context_hash"] == trace["context_hash"]
+
+
+def test_context_bundle_wiki_priority_depends_on_retrieval_intent():
+    service = ContextBundleService()
+    wiki_chunk = {
+        "engine": "knowledge_index",
+        "source": "wiki:ananta",
+        "score": 0.9,
+        "content": "W" * 6000,
+        "metadata": {"source_type": "wiki", "source_scope": "wiki", "record_kind": "wiki_section_chunk", "chunk_id": "wiki:c1"},
+    }
+    code_chunk = {
+        "engine": "repository_map",
+        "source": "src/service.py",
+        "score": 0.6,
+        "content": "C" * 6000,
+        "metadata": {"source_type": "repo", "source_scope": "repo", "record_kind": "code", "chunk_id": "repo:c1"},
+    }
+    coding_bundle = service.build_bundle(
+        query="fix timeout bug",
+        context_payload={"chunks": [wiki_chunk, code_chunk], "strategy": {"fusion": {"candidate_counts": {"all": 2, "final": 2}}}},
+        policy_mode="compact",
+        task_kind="bugfix",
+        retrieval_intent="localize_failure_and_fix",
+        total_budget_tokens=4096,
+        budget_tokens_by_mode={"compact": 4096, "standard": 4096, "full": 4096},
+    )
+    arch_bundle = service.build_bundle(
+        query="architecture overview",
+        context_payload={"chunks": [wiki_chunk, code_chunk], "strategy": {"fusion": {"candidate_counts": {"all": 2, "final": 2}}}},
+        policy_mode="compact",
+        task_kind="architecture",
+        retrieval_intent="architecture_and_decision_context",
+        total_budget_tokens=4096,
+        budget_tokens_by_mode={"compact": 4096, "standard": 4096, "full": 4096},
+    )
+    assert coding_bundle["chunks"][0]["metadata"]["source_type"] == "repo"
+    assert arch_bundle["chunks"][0]["metadata"]["source_type"] == "wiki"

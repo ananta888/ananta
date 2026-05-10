@@ -173,7 +173,7 @@
         "WR2-T25",
         "WR2-T26"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "WR2-M5",
@@ -186,7 +186,7 @@
         "WR2-T31",
         "WR2-T32"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "WR2-M6",
@@ -208,7 +208,7 @@
         "WR2-T39",
         "WR2-T40"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -734,7 +734,7 @@
     {
       "id": "WR2-T26",
       "title": "Context Bundle Policies fuer Wiki-Kontext erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "context_policy",
@@ -865,7 +865,7 @@
     {
       "id": "WR2-T32",
       "title": "Android-spezifische Netzwerk-, Akku- und Storage-Policy beruecksichtigen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "mobile_policy",
@@ -1024,7 +1024,7 @@
     {
       "id": "WR2-T40",
       "title": "Release-Gate fuer Wiki-RAG2 definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "release_gate",
@@ -1068,12 +1068,12 @@
   "tasks_status_summary": {
     "total": 40,
     "by_status": {
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 1,
-      "done": 36
+      "done": 39
     },
-    "progress_percent_done": 90,
+    "progress_percent_done": 98,
     "by_priority": {
       "P0": 22,
       "P1": 15,

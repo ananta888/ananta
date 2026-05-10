@@ -216,6 +216,9 @@ import { SummaryMetric, SummaryPanelComponent, TableShellComponent } from '../sh
         <div class="artifact-meta mt-sm">
           <span class="artifact-pill">{{ selectedWikiPreset()?.description || selectedWikiPreset()?.label }}</span>
           <span class="artifact-pill">{{ selectedWikiPreset()?.size_hint || 'Groesse unbekannt' }}</span>
+          <span class="artifact-pill">Netzwerk: {{ wikiNetworkPolicy }}</span>
+          <span class="artifact-pill">Akku: {{ wikiBatteryPolicy }}</span>
+          <span class="artifact-pill">Storage-Signal: {{ wikiStorageSignal }}</span>
           @if (selectedWikiPreset()?.index_url) {
             <span class="artifact-pill">Multistream-Index vorhanden</span>
           }
@@ -223,6 +226,9 @@ import { SummaryMetric, SummaryPanelComponent, TableShellComponent } from '../sh
             <span class="artifact-pill">Prototyp: Parser noch nicht aktiv</span>
           }
         </div>
+        @if (wikiImportSafetyHint()) {
+          <div class="muted font-sm mt-sm">{{ wikiImportSafetyHint() }}</div>
+        }
       }
 
       @if (wikiImportResult) {
@@ -746,6 +752,9 @@ export class ArtifactsComponent implements OnDestroy {
   wikiImportResult: any = null;
   wikiImportJobId = '';
   wikiImportJob: any = null;
+  wikiNetworkPolicy = 'unknown';
+  wikiBatteryPolicy = 'unknown';
+  wikiStorageSignal = 'unknown';
   private wikiImportPollTimer: ReturnType<typeof setTimeout> | null = null;
   artifactFlowReadModel: any = null;
   loadingArtifactFlow = false;
@@ -922,6 +931,28 @@ export class ArtifactsComponent implements OnDestroy {
     this.wikiSourceId = String(preset?.source_id || '').trim();
     this.wikiLanguage = String(preset?.language || 'en').trim() || 'en';
     this.wikiCodeCompassPrerender = Boolean(preset?.codecompass_prerender);
+  }
+
+  private parseWikiSizeHintBytes(value: string): number {
+    const text = String(value || '').toLowerCase();
+    const match = text.match(/([0-9]+(?:\.[0-9]+)?)\s*(gb|gib|mb|mib)/);
+    if (!match) return 0;
+    const size = Number(match[1] || 0);
+    const unit = String(match[2] || '');
+    if (!Number.isFinite(size) || size <= 0) return 0;
+    if (unit === 'gb' || unit === 'gib') return Math.round(size * 1024 * 1024 * 1024);
+    return Math.round(size * 1024 * 1024);
+  }
+
+  wikiImportSafetyHint(): string {
+    const preset = this.selectedWikiPreset();
+    const sizeHint = String(preset?.size_hint || '');
+    const approxBytes = this.parseWikiSizeHintBytes(sizeHint);
+    if (!sizeHint) return 'Mobile Signale (WLAN, Charging, verfuegbarer Speicher) sind aktuell unbekannt.';
+    if (approxBytes >= 7 * 1024 * 1024 * 1024) {
+      return 'Sehr grosser Dump: fuer Android nur mit stabilem WLAN, externer Stromversorgung und ausreichend freiem Speicher starten. Ohne Signale bleibt der Status unknown.';
+    }
+    return 'Import-Hinweis: Mobile Signale koennen unknown sein; bitte WLAN/Charging/Speicher vor Start manuell pruefen.';
   }
 
   canImportWiki(): boolean {
