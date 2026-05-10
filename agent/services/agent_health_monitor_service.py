@@ -85,7 +85,7 @@ class AgentHealthMonitorService:
             write_json(agents_path, file_agents)
 
     @staticmethod
-    def _health_check_url(url: str, token: str | None, timeout: float = 10.0) -> tuple[bool, dict | None]:
+    def _health_check_url(url: str, token: str | None, timeout: float = 30.0) -> tuple[bool, dict | None]:
         """Check agent liveness via /health?basic=1 (primary), /health (fallback).
 
         Returns (is_online, resource_data_or_None).  The /health endpoint is
@@ -114,7 +114,7 @@ class AgentHealthMonitorService:
         token = info.get("token")
         if not url:
             return None
-        is_online, _ = self._health_check_url(url, token, timeout=10.0)
+        is_online, _ = self._health_check_url(url, token, timeout=30.0)
         info["status"] = "online" if is_online else "offline"
         if is_online:
             info["last_seen"] = now
@@ -125,7 +125,7 @@ class AgentHealthMonitorService:
         token = agent_obj.token
         if not url:
             return agent_obj, None
-        is_online, _ = self._health_check_url(url, token, timeout=10.0)
+        is_online, _ = self._health_check_url(url, token, timeout=30.0)
         if not is_online:
             return agent_obj, ("offline", None)
 

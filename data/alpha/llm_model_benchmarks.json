@@ -1545,15 +1545,15 @@
       "provider": "ananta-worker",
       "model": "ananta-default",
       "overall": {
-        "total": 52,
-        "success": 29,
+        "total": 53,
+        "success": 30,
         "failed": 23,
-        "quality_pass": 29,
+        "quality_pass": 30,
         "quality_fail": 23,
-        "latency_ms_total": 391,
-        "tokens_total": 10621,
+        "latency_ms_total": 409,
+        "tokens_total": 10934,
         "cost_units_total": 0.0,
-        "last_seen": 1778446148,
+        "last_seen": 1778446927,
         "samples": [
           {
             "ts": 1778336125,
@@ -2126,20 +2126,31 @@
             "context": {
               "task_kind": "analysis"
             }
+          },
+          {
+            "ts": 1778446927,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 18,
+            "tokens_total": 313,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
           }
         ]
       },
       "task_kinds": {
         "analysis": {
-          "total": 51,
-          "success": 29,
+          "total": 52,
+          "success": 30,
           "failed": 22,
-          "quality_pass": 29,
+          "quality_pass": 30,
           "quality_fail": 22,
-          "latency_ms_total": 390,
-          "tokens_total": 10452,
+          "latency_ms_total": 408,
+          "tokens_total": 10765,
           "cost_units_total": 0.0,
-          "last_seen": 1778446148,
+          "last_seen": 1778446927,
           "samples": [
             {
               "ts": 1778336125,
@@ -2701,6 +2712,17 @@
               "context": {
                 "task_kind": "analysis"
               }
+            },
+            {
+              "ts": 1778446927,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 18,
+              "tokens_total": 313,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
             }
           ]
         },
@@ -2785,5 +2807,5 @@
       }
     }
   },
-  "updated_at": 1778446148
+  "updated_at": 1778446927
 }
