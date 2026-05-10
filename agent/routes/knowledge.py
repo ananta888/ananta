@@ -33,6 +33,7 @@ WIKI_IMPORT_PRESETS = [
         "recommended": True,
         "import_format": "mediawiki-multistream",
         "codecompass_prerender": True,
+        "mobile_policy": {"network": "unknown", "charging": "unknown", "storage": "unknown"},
     },
     {
         "id": "wikipedia-de-pages-latest",
@@ -45,6 +46,7 @@ WIKI_IMPORT_PRESETS = [
         "recommended": False,
         "import_format": "mediawiki-xml",
         "codecompass_prerender": True,
+        "mobile_policy": {"network": "unknown", "charging": "unknown", "storage": "unknown"},
     },
     {
         "id": "wikipedia-de-zim-mini-2026-04",
@@ -58,6 +60,7 @@ WIKI_IMPORT_PRESETS = [
         "import_format": "zim",
         "supported": False,
         "codecompass_prerender": False,
+        "mobile_policy": {"network": "unknown", "charging": "unknown", "storage": "unknown"},
     },
     {
         "id": "wikipedia-de-zim-nopic-2026-01",
@@ -71,6 +74,7 @@ WIKI_IMPORT_PRESETS = [
         "import_format": "zim",
         "supported": False,
         "codecompass_prerender": False,
+        "mobile_policy": {"network": "unknown", "charging": "unknown", "storage": "unknown"},
     },
 ]
 

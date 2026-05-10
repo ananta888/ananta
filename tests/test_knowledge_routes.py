@@ -159,9 +159,11 @@ def test_knowledge_wiki_presets_route_returns_multiple_download_sources(client, 
     de_multistream = next(item for item in items if item["id"] == "wikipedia-de-multistream-latest")
     assert de_multistream["corpus_url"].endswith("dewiki-latest-pages-articles-multistream.xml.bz2")
     assert de_multistream["index_url"].endswith("dewiki-latest-pages-articles-multistream-index.txt.bz2")
+    assert de_multistream["mobile_policy"]["network"] == "unknown"
     assert any(item["id"] == "wikipedia-de-pages-latest" for item in items)
     zim_mini = next(item for item in items if item["id"] == "wikipedia-de-zim-mini-2026-04")
     assert zim_mini["supported"] is False
+    assert zim_mini["mobile_policy"]["storage"] == "unknown"
 
 
 def test_knowledge_collection_index_route_supports_async_jobs(client, admin_auth_header, monkeypatch):

@@ -224,20 +224,49 @@ class ContextBundleService:
             return {"critical": 0.28, "high": 0.28, "medium": 0.28, "low": 0.16}
         return {"critical": 0.33, "high": 0.30, "medium": 0.22, "low": 0.15}
 
-    def _chunk_priority(self, chunk: dict[str, object], *, task_kind: str | None) -> str:
+    def _wiki_priority_for_intent(
+        self,
+        *,
+        task_kind: str | None,
+        retrieval_intent: str | None,
+        source_scope: str | None,
+    ) -> str | None:
+        if str(source_scope or "").strip().lower() != "wiki":
+            return None
+        normalized_task = str(task_kind or "").strip().lower()
+        normalized_intent = str(retrieval_intent or "").strip().lower()
+        if any(marker in normalized_intent for marker in ("architecture", "decision", "overview", "research", "doc")):
+            return "high"
+        if normalized_task in {"architecture", "analysis", "doc", "research"}:
+            return "high"
+        if normalized_task in {"bugfix", "testing", "test", "refactor", "coding", "implement"}:
+            return "low"
+        return "medium"
+
+    def _chunk_priority(self, chunk: dict[str, object], *, task_kind: str | None, retrieval_intent: str | None) -> str:
         metadata = dict(chunk.get("metadata") or {})
         record_kind = str(metadata.get("record_kind") or "").strip().lower()
         source_type = str(metadata.get("source_type") or "").strip().lower()
+        source_scope = str(metadata.get("source_scope") or source_type).strip().lower()
         relation = str(metadata.get("task_relation") or "").strip().lower()
         if record_kind in {"policy", "constraint", "security_note", "approval", "contract"}:
             return "critical"
         if relation in {"same_task", "direct_parent", "direct_child"}:
             return "high"
+        wiki_priority = self._wiki_priority_for_intent(
+            task_kind=task_kind,
+            retrieval_intent=retrieval_intent,
+            source_scope=source_scope,
+        )
+        if wiki_priority:
+            return wiki_priority
         if source_type in {"task_memory", "artifact"}:
+            return "high"
+        normalized_task = str(task_kind or "").strip().lower()
+        if source_type == "repo" and normalized_task in {"bugfix", "testing", "test", "refactor", "coding", "implement"}:
             return "high"
         if source_type in {"goal_memory", "result_memory", "wiki", "kb"}:
             return "medium"
-        normalized_task = str(task_kind or "").strip().lower()
         if normalized_task in {"bugfix", "testing", "test"} and source_type in {"logs", "telemetry", "trace"}:
             return "high"
         return "low"
@@ -266,6 +295,7 @@ class ContextBundleService:
         *,
         chunks: list[dict[str, object]],
         task_kind: str | None,
+        retrieval_intent: str | None,
         retrieval_budget_tokens: int,
         priority_tokens_by_level: dict[str, int],
     ) -> tuple[list[dict[str, object]], dict[str, object]]:
@@ -274,7 +304,7 @@ class ContextBundleService:
         for index, chunk in enumerate(chunks):
             if not isinstance(chunk, dict):
                 continue
-            priority = self._chunk_priority(chunk, task_kind=task_kind)
+            priority = self._chunk_priority(chunk, task_kind=task_kind, retrieval_intent=retrieval_intent)
             indexed.append((index, chunk, priority, self._estimate_chunk_tokens(chunk)))
         ordered = sorted(
             indexed,
@@ -339,7 +369,6 @@ class ContextBundleService:
                     )
                     dropped_by_priority[item[2]] = max(0, int(dropped_by_priority.get(item[2]) or 0) - 1)
 
-        selected_entries = sorted(selected_entries, key=lambda item: int(item[0]))
         selected = [item[1] for item in selected_entries]
         dropped_chunks = [
             self._compact_chunk_entry(chunk, reason=reason, priority=priority, tokens=tokens)
@@ -716,6 +745,7 @@ class ContextBundleService:
         selected_chunks, compaction = self._enforce_budget_with_compaction(
             chunks=list(payload.get("chunks") or []),
             task_kind=task_kind,
+            retrieval_intent=retrieval_intent,
             retrieval_budget_tokens=max(1, int((budget_model.get("sections") or {}).get("retrieval_context") or 1)),
             priority_tokens_by_level=dict(
                 ((budget_model.get("priority_reservations") or {}).get("tokens_by_priority") or {})

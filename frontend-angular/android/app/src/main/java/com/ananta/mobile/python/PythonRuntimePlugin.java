@@ -90,6 +90,25 @@ public class PythonRuntimePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getMobilePolicySignals(PluginCall call) {
+        JSObject result = new JSObject();
+        try {
+            File dataDir = getContext().getFilesDir();
+            long freeBytes = dataDir != null ? dataDir.getUsableSpace() : -1L;
+            long totalBytes = dataDir != null ? dataDir.getTotalSpace() : -1L;
+            result.put("wifi", "unknown");
+            result.put("charging", "unknown");
+            result.put("storage", "unknown");
+            result.put("storageFreeBytes", freeBytes);
+            result.put("storageTotalBytes", totalBytes);
+            result.put("note", "Signals are explicit unknown unless runtime bridge provides device telemetry.");
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("Mobile policy signal check failed: " + error.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void startHub(PluginCall call) {
         worker.execute(() -> {
             try {

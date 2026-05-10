@@ -39,6 +39,12 @@ jobs:
           cache: gradle
       - name: Install frontend dependencies
         run: npm ci
+      - name: Run wiki backend smoke tests
+        working-directory: .
+        run: |
+          python -m pip install -r requirements.txt
+          pytest -q tests/test_knowledge_routes.py -k "wiki"
+          pytest -q tests/e2e/test_wiki_rag_fixture_flow.py tests/test_wiki_retrieval_quality.py
       - name: Prepare CI seed assets
         run: |
           set -euo pipefail
@@ -63,6 +69,19 @@ jobs:
         run: bash scripts/build-android-delivery-apk.sh
       - name: Generate APK checksum
         run: sha256sum android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk > android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk.sha256
+      - name: Generate wiki release verification report
+        run: |
+          cat > android/app/build/outputs/apk/debug/wiki-release-verification-report.json <<'JSON'
+          {
+            "schema": "wiki_rag2_release_verification.v1",
+            "android_apk_built": true,
+            "wiki_backend_smoke_tests_required": true,
+            "wiki_fixture_smoke_tests_required": true,
+            "full_dewiki_validated": false,
+            "verification_scope": "fixture_and_medium_slice",
+            "note": "Release gate verifies fixture/slice coverage. Full dewiki validation remains an explicit separate evidence item."
+          }
+          JSON
       - name: Upload delivery APK artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -70,4 +89,5 @@ jobs:
           path: |
             frontend-angular/android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk
             frontend-angular/android/app/build/outputs/apk/debug/ananta-delivery-proot-voxtral-debug.apk.sha256
+            frontend-angular/android/app/build/outputs/apk/debug/wiki-release-verification-report.json
           retention-days: 14
