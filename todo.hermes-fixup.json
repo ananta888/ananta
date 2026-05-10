@@ -1,0 +1,1055 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "hermes_worker_fixup",
+  "purpose": "Fix and harden the existing Hermes worker adapter implementation after code review. This is not a new feature roadmap; it is a concrete correction and quality track for the current worker/core Hermes code.",
+  "review_basis": {
+    "reviewed_files": [
+      "worker/core/hermes_adapter.py",
+      "worker/core/hermes_adapter_config.py",
+      "worker/core/hermes_output_parser.py",
+      "worker/core/hermes_context_converter.py",
+      "worker/core/hermes_http_client.py",
+      "worker/core/execution_envelope.py",
+      "agent/services/tool_routing_service.py",
+      "agent/services/bridge_adapter_registry.py",
+      "agent/services/capability_registry.py",
+      "agent/services/hermes_worker_profile.py",
+      "tests/test_hermes_worker_adapter_track.py"
+    ],
+    "summary": "The Hermes adapter has a solid phase-1 foundation, but it needs semantic fixes, policy consistency, real task-flow integration, endpoint hardening, cleaner audit events, and stricter tests before production-style use."
+  },
+  "global_principles": [
+    "Hermes remains an external_agent_worker only, never the control plane.",
+    "Fix correctness before adding new capabilities.",
+    "Prefer explicit denial over permissive fallback.",
+    "All successful Hermes results must become Ananta artifacts.",
+    "All cloud/context/security decisions must be deterministic and traceable.",
+    "Tests must cover both positive and negative paths for every fix."
+  ],
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {
+      "id": "HF-M1",
+      "title": "Semantic correctness and capability consistency",
+      "task_ids": ["HF-T001", "HF-T002", "HF-T003", "HF-T004", "HF-T005"],
+      "status": "todo"
+    },
+    {
+      "id": "HF-M2",
+      "title": "Endpoint, cloud and context policy hardening",
+      "task_ids": ["HF-T006", "HF-T007", "HF-T008", "HF-T009", "HF-T010"],
+      "status": "todo"
+    },
+    {
+      "id": "HF-M3",
+      "title": "HTTP client and health check robustness",
+      "task_ids": ["HF-T011", "HF-T012", "HF-T013", "HF-T014"],
+      "status": "todo"
+    },
+    {
+      "id": "HF-M4",
+      "title": "Artifacts, trace and audit cleanup",
+      "task_ids": ["HF-T015", "HF-T016", "HF-T017", "HF-T018"],
+      "status": "todo"
+    },
+    {
+      "id": "HF-M5",
+      "title": "Real TaskScopedExecutionService integration",
+      "task_ids": ["HF-T019", "HF-T020", "HF-T021", "HF-T022", "HF-T023"],
+      "status": "todo"
+    },
+    {
+      "id": "HF-M6",
+      "title": "Security regression and test coverage",
+      "task_ids": ["HF-T024", "HF-T025", "HF-T026", "HF-T027", "HF-T028"],
+      "status": "todo"
+    },
+    {
+      "id": "HF-M7",
+      "title": "Docs, diagnostics and rollout safety",
+      "task_ids": ["HF-T029", "HF-T030", "HF-T031", "HF-T032"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "HF-T001",
+      "title": "Fix plan_only validation mode",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "problem": "HermesAdapter currently validates plan_only as summarize. This works only accidentally because both use the common schema today. It is semantically wrong and will break when plan-specific validation is added.",
+      "target_files": ["worker/core/hermes_adapter.py", "worker/core/hermes_output_parser.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Remove the special-case mapping mode if mode != 'plan_only' else 'summarize'.",
+        "Teach validate_payload_for_mode to accept mode='plan_only' explicitly.",
+        "Add plan_only-specific schema/validation if useful, but do not make it stricter than current behavior unless tests prove compatibility."
+      ],
+      "acceptance_criteria": [
+        "HermesAdapter passes mode='plan_only' to validate_payload_for_mode for plan_only executions.",
+        "validate_payload_for_mode handles 'plan_only' explicitly and returns no error for valid common plan payloads.",
+        "A unit test fails before the fix and passes after: monkeypatch validate_payload_for_mode and assert it receives mode='plan_only'.",
+        "Existing plan_only success tests still pass.",
+        "No summarize behavior changes accidentally."
+      ],
+      "test_requirements": [
+        "Add or update parser validation test for plan_only.",
+        "Add adapter test asserting correct validation mode."
+      ],
+      "anti_patterns": [
+        "Do not keep hidden aliasing from plan_only to summarize.",
+        "Do not weaken common schema validation to hide the issue."
+      ]
+    },
+    {
+      "id": "HF-T002",
+      "title": "Unify review/code_review/verify capability naming",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Hermes profile allows code_review, ToolRouter uses review, and HermesAdapter accepts review/code_review/verify. This creates inconsistent policy behavior between CapabilityRegistry, ToolRouter and adapter runtime.",
+      "target_files": [
+        "agent/services/hermes_worker_profile.py",
+        "agent/services/tool_routing_service.py",
+        "agent/services/capability_registry.py",
+        "worker/core/hermes_adapter.py",
+        "worker/core/execution_envelope.py",
+        "tests/test_hermes_worker_adapter_track.py"
+      ],
+      "implementation_notes": [
+        "Pick one canonical public capability for review. Recommended: keep both review and code_review as aliases during migration, but normalize internally.",
+        "CapabilityRegistry.hermes_capability_decision should allow review and code_review if adapter accepts both.",
+        "ToolRouter should not claim Hermes supports capabilities that CapabilityRegistry denies."
+      ],
+      "acceptance_criteria": [
+        "HERMES_ALLOWED_CAPABILITIES includes both 'review' and 'code_review', or a documented normalization layer maps one to the other everywhere.",
+        "CapabilityRegistry.hermes_capability_decision('review') returns allowed=true.",
+        "CapabilityRegistry.hermes_capability_decision('code_review') returns allowed=true.",
+        "ToolRoutingService route requiring review can select Hermes when enabled and available.",
+        "HermesAdapter.review accepts an envelope with review capability and an envelope with code_review capability.",
+        "verify is either explicitly documented as an accepted review alias or removed from HermesAdapter.review acceptance."
+      ],
+      "test_requirements": [
+        "Add tests for review, code_review, and verify behavior.",
+        "Add one test comparing ToolRouter and CapabilityRegistry decisions for review capability."
+      ],
+      "anti_patterns": [
+        "Do not let router say Hermes can do review while CapabilityRegistry denies review.",
+        "Do not add new aliases without tests."
+      ]
+    },
+    {
+      "id": "HF-T003",
+      "title": "Normalize capability vocabulary between shell_execute and shell_execution",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "ExecutionEnvelope uses shell_execute while ToolRoutingService uses shell_execution. Hermes denied capabilities include shell_execute, but ToolRouter checks shell_execution. Mixed vocabulary can cause missed denies or confusing routing.",
+      "target_files": [
+        "worker/core/execution_envelope.py",
+        "agent/services/tool_routing_service.py",
+        "agent/services/hermes_worker_profile.py",
+        "tests/test_hermes_worker_adapter_track.py"
+      ],
+      "implementation_notes": [
+        "Introduce a small capability normalization helper used by ToolRouter and Hermes capability checks.",
+        "Do not silently allow unknown capability names.",
+        "Prefer canonical execution vocabulary from ExecutionEnvelope, but support legacy aliases for routing input."
+      ],
+      "acceptance_criteria": [
+        "shell_execution and shell_execute normalize to one canonical denied capability for Hermes.",
+        "A request requiring shell_execution cannot route to Hermes.",
+        "A request requiring shell_execute cannot route to Hermes.",
+        "Denial reason includes the original requested name and canonical denied capability where practical.",
+        "Existing command_execute tests still pass."
+      ],
+      "test_requirements": [
+        "Add two ToolRouter tests: required_capabilities=['shell_execution'] and ['shell_execute'] both deny Hermes.",
+        "Add CapabilityRegistry test for alias handling or explicit denial."
+      ],
+      "anti_patterns": [
+        "Do not add both names to allowed sets just to make tests green.",
+        "Do not ignore unknown capabilities."
+      ]
+    },
+    {
+      "id": "HF-T004",
+      "title": "Enforce allowed_task_kinds in HermesAdapter runtime",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "problem": "HermesAdapter checks blocked_task_kinds but does not clearly enforce allowed_task_kinds. A mode not blocked may pass until later capability checks or unexpected behavior.",
+      "target_files": ["worker/core/hermes_adapter.py", "worker/core/hermes_adapter_config.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Check allowed_task_kinds before mode-specific capability checks.",
+        "If allowed_task_kinds is empty, decide explicitly whether that means no tasks or default list. Prefer no tasks for fail-closed behavior unless config model already fills defaults."
+      ],
+      "acceptance_criteria": [
+        "HermesAdapter denies any mode not in config.allowed_task_kinds with reason_code='task_kind_not_allowed'.",
+        "Blocked task kind still returns task_kind_blocked or stricter denial.",
+        "Custom config allowed_task_kinds=['plan_only'] causes review, summarize, patch_propose and research_limited to be denied.",
+        "Default config still allows phase-1 task kinds intended by profile.",
+        "Denial occurs before remote Hermes HTTP call."
+      ],
+      "test_requirements": [
+        "Add test with mocked client that would fail if called; verify disallowed mode does not call client.",
+        "Add test for custom allowed_task_kinds."
+      ],
+      "anti_patterns": [
+        "Do not rely only on blocked_task_kinds.",
+        "Do not let unknown modes reach prompt construction."
+      ]
+    },
+    {
+      "id": "HF-T005",
+      "title": "Separate task_kind from adapter mode explicitly",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "The adapter currently treats mode strings like plan_only/review/patch_propose as both execution mode and task kind. This is okay for phase 1 but can become confusing when routed from higher-level task kinds like analysis or coding.",
+      "target_files": ["worker/core/hermes_adapter.py", "agent/services/tool_routing_service.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Introduce explicit adapter_mode values if needed: plan_only, review, summarize, patch_propose, research_limited.",
+        "Keep task_kind in trace separately from adapter_mode."
+      ],
+      "acceptance_criteria": [
+        "Trace includes adapter_mode and task_kind/requested_task_kind separately when available.",
+        "ToolRouter can select Hermes for task_kind='analysis' while adapter runs mode='review'.",
+        "ToolRouter can select Hermes for task_kind='patch_propose' while adapter runs mode='patch_propose'.",
+        "No route maps coding directly to patch_propose unless explicitly requested by policy.",
+        "Docs or code comments explain the distinction."
+      ],
+      "test_requirements": [
+        "Add routing test for analysis -> Hermes review mode path if integration exists.",
+        "Add trace assertion for adapter_mode."
+      ],
+      "anti_patterns": [
+        "Do not use arbitrary user prompt text to choose adapter_mode.",
+        "Do not auto-upgrade coding to patch_propose without policy."
+      ]
+    },
+    {
+      "id": "HF-T006",
+      "title": "Replace endpoint classification with urllib.parse + ipaddress",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "_classify_endpoint uses simple string checks and misses IPv6 localhost, host.docker.internal, private HTTPS URLs, most 172.16/12 ranges, and hostname resolution edge cases.",
+      "target_files": ["worker/core/hermes_adapter.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Move endpoint classifier into a small helper module if it grows.",
+        "Use urllib.parse.urlparse to extract hostname.",
+        "Use ipaddress.ip_address for literal IPs.",
+        "Treat localhost, 127.0.0.0/8, ::1 as local.",
+        "Treat RFC1918 private IP ranges as private_network.",
+        "Treat host.docker.internal as private_network or local_bridge, not cloud.",
+        "Do not perform DNS resolution in the classifier unless explicitly designed with timeout and SSRF considerations."
+      ],
+      "acceptance_criteria": [
+        "http://localhost:8000 classifies as local.",
+        "http://127.0.0.1:8000 classifies as local.",
+        "http://[::1]:8000 classifies as local.",
+        "http://host.docker.internal:8000 classifies as private_network or local_bridge.",
+        "https://10.0.0.5:8000 classifies as private_network.",
+        "https://172.16.0.1 through https://172.31.255.255 classify as private_network.",
+        "https://192.168.1.20 classifies as private_network.",
+        "https://ollama.com or https://api.example.com classify as cloud.",
+        "Malformed/empty URLs classify as unknown or cloud-safe-deny, not local."
+      ],
+      "test_requirements": [
+        "Add endpoint classification parameterized tests for all listed cases.",
+        "Add test proving private https is not classified as cloud."
+      ],
+      "anti_patterns": [
+        "Do not use substring checks like 'localhost' in full URL only.",
+        "Do not classify unknown hostnames as local."
+      ]
+    },
+    {
+      "id": "HF-T007",
+      "title": "Compute effective_cloud_allowed once and use everywhere",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "cloud_allowed exists in both HermesAdapterConfig and ExecutionEnvelope.model_policy. The current logic is safe but split across several checks, making it easy to drift.",
+      "target_files": ["worker/core/hermes_adapter.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Add helper _effective_cloud_allowed(envelope) -> bool.",
+        "Use it for endpoint cloud blocking and context sensitive allowance.",
+        "Trace both config_cloud_allowed, envelope_cloud_allowed and effective_cloud_allowed."
+      ],
+      "acceptance_criteria": [
+        "effective_cloud_allowed is true only when config.cloud_allowed and envelope.model_policy.cloud_allowed are both true.",
+        "Cloud endpoint with either flag false is denied with cloud_blocked before prompt construction.",
+        "Sensitive context is allowed to reach cloud only when effective_cloud_allowed is true and sensitivity policy permits it.",
+        "Trace includes effective_cloud_allowed and endpoint_classification.",
+        "Existing cloud-block tests still pass."
+      ],
+      "test_requirements": [
+        "Parameterized tests for four combinations of config.cloud_allowed and envelope.model_policy.cloud_allowed.",
+        "Test trace fields for effective_cloud_allowed."
+      ],
+      "anti_patterns": [
+        "Do not use config.cloud_allowed alone.",
+        "Do not use envelope.model_policy.cloud_allowed alone."
+      ]
+    },
+    {
+      "id": "HF-T008",
+      "title": "Harden sensitive context checks beyond enum string suffix",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "HermesAdapter checks sensitive cloud context via str(getattr(...)).lower().endswith(('secret','confidential')). This is brittle and duplicates ContextConverter logic.",
+      "target_files": ["worker/core/hermes_adapter.py", "worker/core/hermes_context_converter.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Use ContextSensitivity enum directly where possible.",
+        "Centralize sensitivity decision in helper function.",
+        "Consider adding restricted/internal sensitivity handling if such enum values exist later."
+      ],
+      "acceptance_criteria": [
+        "Cloud endpoint denies blocks with ContextSensitivity.secret and ContextSensitivity.confidential before prompt construction unless explicit policy permits.",
+        "Decision does not rely on string suffix matching.",
+        "ContextConverter and HermesAdapter use the same sensitivity helper or equivalent shared logic.",
+        "Trace records which block origin_ids caused sensitivity_blocked without leaking content.",
+        "Tests cover enum values and string fallback values if backward compatibility is needed."
+      ],
+      "test_requirements": [
+        "Add tests for secret and confidential cloud block.",
+        "Add test ensuring public context can go to cloud only when cloud is otherwise allowed."
+      ],
+      "anti_patterns": [
+        "Do not inspect secret content to decide whether it is secret.",
+        "Do not leak sensitive block content in denial reason."
+      ]
+    },
+    {
+      "id": "HF-T009",
+      "title": "Improve context truncation accounting and provenance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "ContextConverter truncates entry strings directly. This can cut provenance labels, cut UTF-8 semantic text awkwardly, and does not include a visible truncation marker in prompt_text.",
+      "target_files": ["worker/core/hermes_context_converter.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Keep provenance prefix intact where possible.",
+        "Truncate content portion after source label.",
+        "Append explicit marker like [truncated_for_budget].",
+        "Record original length and included length in truncated metadata."
+      ],
+      "acceptance_criteria": [
+        "Truncated prompt still includes complete source provenance label.",
+        "Truncated prompt includes an explicit truncation marker.",
+        "ContextConversionResult.truncated includes origin_id, reason_code, original_chars and included_chars.",
+        "total_chars does not exceed max_context_chars.",
+        "No secret or suspicious skipped content appears in prompt_text."
+      ],
+      "test_requirements": [
+        "Add truncation test with very small max_context_chars.",
+        "Add assertion that source label survives truncation."
+      ],
+      "anti_patterns": [
+        "Do not silently cut context without marker.",
+        "Do not drop provenance to save chars unless impossible and recorded."
+      ]
+    },
+    {
+      "id": "HF-T010",
+      "title": "Expand prompt injection scanner patterns safely",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "ContextConverter has a useful but small prompt-injection pattern list. It should cover the same threat style documented for Hermes context files and Ananta policy: instruction override, hidden comments, credential exfiltration, .env access, tool override, invisible unicode, bidi controls.",
+      "target_files": ["worker/core/hermes_context_converter.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Add conservative regexes with clear reason codes.",
+        "Keep false positives manageable; blocked content should be traceable.",
+        "Do not implement complex ML-based detection here."
+      ],
+      "acceptance_criteria": [
+        "Scanner detects 'ignore previous instructions'.",
+        "Scanner detects hidden HTML comments with suspicious instruction text.",
+        "Scanner detects zero-width and bidi override characters.",
+        "Scanner detects attempts to cat .env or credentials.",
+        "Scanner detects exfiltration commands using curl/wget with token/API key variables.",
+        "Suspicious blocks are skipped or wrapped according to existing policy; default is skip for Hermes cloud/worker prompt."
+      ],
+      "test_requirements": [
+        "Parameterized tests for each new pattern.",
+        "False-positive sanity test for harmless command documentation if desired."
+      ],
+      "anti_patterns": [
+        "Do not let suspicious content pass because it is in repository docs.",
+        "Do not expose suspicious content raw in trace."
+      ]
+    },
+    {
+      "id": "HF-T011",
+      "title": "Add health fallback from /health to /v1/models",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "problem": "HermesHttpClient.health only calls {base_url}/health. OpenAI-compatible servers often expose /v1/models but not /health, so a working Hermes/OpenAI-compatible endpoint may be marked unavailable.",
+      "target_files": ["worker/core/hermes_http_client.py", "worker/core/hermes_adapter.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Try /health first for native Hermes if available.",
+        "If /health returns 404, try /v1/models.",
+        "Do not perform a model generation as default health check.",
+        "Return which probe succeeded in health payload."
+      ],
+      "acceptance_criteria": [
+        "If /health succeeds, health status is ready and probe='health'.",
+        "If /health returns 404 and /v1/models succeeds, health status is ready and probe='models'.",
+        "If both fail, status maps to unauthorized/unavailable/degraded according to error.",
+        "Health check remains cheap and bounded by timeout.",
+        "Tests do not require real network."
+      ],
+      "test_requirements": [
+        "Mock test for /health success.",
+        "Mock test for /health 404 then /v1/models success.",
+        "Mock test for both failing."
+      ],
+      "anti_patterns": [
+        "Do not send a chat completion as normal health check.",
+        "Do not mark 404 /health as unavailable before trying /v1/models."
+      ]
+    },
+    {
+      "id": "HF-T012",
+      "title": "Fix base_url path joining for /v1 endpoints",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "problem": "HermesHttpClient always calls f'{base_url}/v1/chat/completions'. If config base_url already includes /v1, the effective URL becomes /v1/v1/chat/completions.",
+      "target_files": ["worker/core/hermes_http_client.py", "worker/core/hermes_adapter_config.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Normalize base URL into API root and endpoint path helper.",
+        "Support both base_url='http://host:8000' and base_url='http://host:8000/v1'.",
+        "Same for /v1/models."
+      ],
+      "acceptance_criteria": [
+        "base_url='http://localhost:8000' produces chat URL http://localhost:8000/v1/chat/completions.",
+        "base_url='http://localhost:8000/v1' produces chat URL http://localhost:8000/v1/chat/completions, not /v1/v1.",
+        "base_url with trailing slash is normalized correctly.",
+        "Health fallback /v1/models uses same path helper.",
+        "Existing chat_success test is updated to include /v1 base_url variant."
+      ],
+      "test_requirements": [
+        "Add URL-building unit tests.",
+        "Add client chat test with base_url ending in /v1."
+      ],
+      "anti_patterns": [
+        "Do not require users to know whether to include /v1 without clear support.",
+        "Do not string-concatenate endpoints in multiple places."
+      ]
+    },
+    {
+      "id": "HF-T013",
+      "title": "Add JSON decode error mapping in HermesHttpClient",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "_post_json and _get_json call json.loads(raw) without mapping JSONDecodeError. A malformed upstream response can escape as generic exception instead of structured HermesClientError.",
+      "target_files": ["worker/core/hermes_http_client.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Catch json.JSONDecodeError around response parsing.",
+        "Return HermesClientError(code='hermes_invalid_json_response').",
+        "Do not include raw response body beyond a small sanitized snippet."
+      ],
+      "acceptance_criteria": [
+        "Malformed JSON response from POST maps to HermesClientError code hermes_invalid_json_response.",
+        "Malformed JSON response from GET maps to HermesClientError code hermes_invalid_json_response.",
+        "Adapter turns this into failed/degraded WorkerResult with reason code preserved.",
+        "No raw huge/malicious response is logged or exposed."
+      ],
+      "test_requirements": [
+        "Mock urlopen returning invalid JSON for POST and GET.",
+        "Adapter test for invalid_json_response path."
+      ],
+      "anti_patterns": ["Do not let upstream malformed JSON crash the worker route."]
+    },
+    {
+      "id": "HF-T014",
+      "title": "Add max_tokens and temperature policy passthrough",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "problem": "HermesHttpClient supports max_tokens and temperature, but HermesAdapter does not appear to pass model_policy.max_tokens or configured temperature. This can make calls less bounded.",
+      "target_files": ["worker/core/hermes_adapter.py", "worker/core/hermes_adapter_config.py", "worker/core/hermes_http_client.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Add optional config default_temperature and max_output_tokens if needed.",
+        "Use envelope.model_policy.max_tokens when set, bounded by config max if present.",
+        "Keep defaults conservative."
+      ],
+      "acceptance_criteria": [
+        "Adapter passes max_tokens to client when envelope.model_policy.max_tokens is set.",
+        "Configured maximum prevents excessive max_tokens if implemented.",
+        "Temperature is deterministic/low by default for structured JSON tasks, e.g. 0.0-0.3.",
+        "Trace records effective max_tokens and temperature without bloating logs.",
+        "Existing mocks are updated to accept these kwargs."
+      ],
+      "test_requirements": [
+        "Test that model_policy.max_tokens reaches client.",
+        "Test configured cap if added."
+      ],
+      "anti_patterns": ["Do not allow unbounded output for structured adapter calls."]
+    },
+    {
+      "id": "HF-T015",
+      "title": "Replace post-construction ArtifactRef.kind mutation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "problem": "HermesAdapter constructs ArtifactRef with a default kind and then mutates artifact.kind for patch/summarize/research. This is avoidable and weakens clarity/immutability assumptions.",
+      "target_files": ["worker/core/hermes_adapter.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Create _artifact_kind_for_mode(mode) helper.",
+        "Determine kind before ArtifactRef construction.",
+        "Remove type-ignore mutation comments."
+      ],
+      "acceptance_criteria": [
+        "Artifact kind is computed before ArtifactRef construction.",
+        "No assignment to artifact.kind after construction remains in HermesAdapter.",
+        "plan_only -> plan_artifact.",
+        "review -> review_artifact or verification_artifact by explicit rule.",
+        "summarize -> summary_artifact.",
+        "patch_propose -> patch_artifact.",
+        "research_limited -> research_artifact.",
+        "Existing artifact mapping tests pass."
+      ],
+      "test_requirements": ["Update artifact mapping test to check all modes."],
+      "anti_patterns": ["Do not mutate Pydantic models after creation unless intentional and documented."]
+    },
+    {
+      "id": "HF-T016",
+      "title": "Use accurate audit event types for parse and unsafe output",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "problem": "HermesAdapter emits policy_denied for parse errors. Parse errors and unsafe side-effect claims are output validation failures, not necessarily policy denials.",
+      "target_files": ["worker/core/hermes_adapter.py", "worker/core/diagnostics.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Introduce event types such as adapter_parse_error, adapter_unsafe_output, remote_output_invalid.",
+        "Keep policy_denied only for actual preflight/policy denial."
+      ],
+      "acceptance_criteria": [
+        "Malformed JSON emits adapter_parse_error or remote_output_invalid, not policy_denied.",
+        "Unsafe side-effect claim emits adapter_unsafe_output.",
+        "Actual cloud_blocked/task_kind_blocked/missing_capability still emit policy/preflight denial where appropriate.",
+        "Audit tests assert exact event types.",
+        "No secrets/raw full response appear in audit payload."
+      ],
+      "test_requirements": [
+        "Add audit tests for parse_error and unsafe_output.",
+        "Update existing audit success/denial tests."
+      ],
+      "anti_patterns": ["Do not use one generic event type for all failures."]
+    },
+    {
+      "id": "HF-T017",
+      "title": "Add degraded_state details to degraded WorkerResults",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "problem": "_degraded currently returns status degraded and warnings, but does not populate WorkerResult.degraded_state. This loses machine-readable degraded details.",
+      "target_files": ["worker/core/hermes_adapter.py", "worker/core/execution_envelope.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Use existing DegradedState model.",
+        "Include reason and capabilities_unavailable when applicable."
+      ],
+      "acceptance_criteria": [
+        "WorkerResult.degraded_state is set for disabled_config, context_missing_or_sensitive, research_context_missing and similar degraded cases.",
+        "degraded_state.reason equals the reason_code.",
+        "Warnings remain human-readable but machine-readable state is present.",
+        "Tests assert degraded_state for at least disabled_config and context_missing_or_sensitive."
+      ],
+      "test_requirements": ["Add degraded_state assertions."],
+      "anti_patterns": ["Do not encode all degraded detail only in summary string."]
+    },
+    {
+      "id": "HF-T018",
+      "title": "Add prompt/context/response hash consistency tests",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Trace and artifacts include hashes, but there should be tests proving they are stable and correspond to the same context/payload across artifact metadata and TraceBundle.",
+      "target_files": ["worker/core/hermes_adapter.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Use deterministic mock payload and context.",
+        "Avoid testing exact hash values if helper may change; test equality across fields where intended."
+      ],
+      "acceptance_criteria": [
+        "Artifact metadata context_hash equals hash of converted prompt_text for the same execution.",
+        "Trace event hermes_prompt_built context_hash equals artifact metadata context_hash or documented equivalent.",
+        "Trace event hermes_result_parsed response_hash is present for success.",
+        "Changing context changes context_hash.",
+        "Changing payload changes content_hash."
+      ],
+      "test_requirements": ["Add deterministic hash consistency tests."],
+      "anti_patterns": ["Do not log raw prompt to make debugging easier by default."]
+    },
+    {
+      "id": "HF-T019",
+      "title": "Add real TaskScopedExecutionService Hermes execution path",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "The adapter and router exist, but the real task execution service must clearly call HermesAdapter when ToolRouter selects Hermes. Otherwise Hermes remains a tested side path, not an integrated worker.",
+      "target_files": [
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/tool_routing_service.py",
+        "worker/core/hermes_adapter.py",
+        "tests/test_task_endpoints.py",
+        "tests/test_hermes_worker_adapter_track.py"
+      ],
+      "implementation_notes": [
+        "Find the propose path first; do not start with execute mutation path.",
+        "Add a small adapter invocation helper rather than cluttering TaskScopedExecutionService.",
+        "Support plan_only first, then review and patch_propose."
+      ],
+      "acceptance_criteria": [
+        "When ToolRouter selected_target='hermes' for a proposal-safe task, TaskScopedExecutionService invokes HermesAdapter, not SGPT/OpenCode/native fallback.",
+        "TaskScopedExecutionService builds or receives an ExecutionEnvelope for the Hermes call.",
+        "TaskScopedExecutionService resolves bounded context blocks through existing context manager/research bridge where practical.",
+        "Hermes WorkerResult artifacts are persisted or returned in the same structure expected by existing task proposal flow.",
+        "If Hermes returns denied/degraded/failed, TaskScopedExecutionService records that and either returns it or uses a policy-approved fallback with trace.",
+        "No patch_apply or command_execute path calls Hermes."
+      ],
+      "test_requirements": [
+        "Mocked integration test through propose endpoint selecting Hermes.",
+        "Test that command_execute/patch_apply never calls Hermes even if requested_backend='hermes'.",
+        "Test fallback behavior when Hermes unavailable."
+      ],
+      "anti_patterns": [
+        "Do not call Hermes directly from route functions.",
+        "Do not bypass ToolRouter/CapabilityRegistry for Hermes selection.",
+        "Do not call Hermes for execute_task_step mutation paths."
+      ]
+    },
+    {
+      "id": "HF-T020",
+      "title": "Map existing task/research context into ContextBlock list for Hermes",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "HermesAdapter expects ContextBlock list, but TaskScopedExecutionService currently has task dicts, request data, research_context_summary and worker context metadata. A deterministic mapping is needed.",
+      "target_files": [
+        "agent/services/task_scoped_execution_service.py",
+        "worker/core/context_resolver.py",
+        "worker/core/hermes_context_converter.py",
+        "tests/test_hermes_worker_adapter_track.py"
+      ],
+      "implementation_notes": [
+        "Build small function build_hermes_context_blocks(task, request_data, research_context_summary, worker_context_meta).",
+        "Classify sensitivity conservatively.",
+        "Include provenance for each block."
+      ],
+      "acceptance_criteria": [
+        "Task description/prompt becomes a public or internal ContextBlock with source_type='task'.",
+        "Research context prompt section becomes a ContextBlock with source_type='research_context' and proper origin_id.",
+        "Artifact refs and knowledge ids are included as metadata or bounded text, not blindly expanded.",
+        "Secrets or raw environment/config blocks are not included by default.",
+        "Mapping records skipped/omitted sources when they are too large or sensitive.",
+        "Hermes call fails degraded when required context cannot be built safely."
+      ],
+      "test_requirements": [
+        "Unit tests for context mapping with task only, research context, and sensitive data.",
+        "Integration test proving context blocks reach adapter."
+      ],
+      "anti_patterns": [
+        "Do not dump full task history into Hermes prompt.",
+        "Do not pass entire repository or raw artifacts by default."
+      ]
+    },
+    {
+      "id": "HF-T021",
+      "title": "Persist Hermes artifacts through existing artifact pipeline",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "HermesAdapter returns ArtifactRef objects, but task flow must persist or expose them through the same artifact mechanisms used by other worker paths, otherwise results are not durable/reviewable.",
+      "target_files": [
+        "agent/services/task_scoped_execution_service.py",
+        "worker/core/hermes_adapter.py",
+        "agent/services/worker_workspace_service.py",
+        "tests/test_task_endpoints.py"
+      ],
+      "implementation_notes": [
+        "Use existing artifact store/sync path if available.",
+        "Do not write into workspace source tree.",
+        "Keep PatchArtifact separate from apply operation."
+      ],
+      "acceptance_criteria": [
+        "PlanArtifact/ReviewArtifact/PatchArtifact returned by Hermes are visible in task response artifact_refs or equivalent existing field.",
+        "PatchArtifact content is stored as artifact data or structured payload, not applied to workspace.",
+        "Artifact metadata includes source='hermes', model, context_hash, content_hash and requires_approval_for_apply for patches.",
+        "Task history records Hermes artifact creation.",
+        "Artifact persistence failure results in failed/degraded task result, not silent success."
+      ],
+      "test_requirements": [
+        "Mocked task-flow test verifying artifact refs in response.",
+        "Test artifact persistence failure path."
+      ],
+      "anti_patterns": [
+        "Do not treat WorkerResult.artifacts only as in-memory temporary data.",
+        "Do not git apply Hermes patch output."
+      ]
+    },
+    {
+      "id": "HF-T022",
+      "title": "Add Hermes fallback policy in task flow",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "If Hermes is selected but unavailable/degraded, the system needs explicit fallback behavior. Silent fallback hides routing and security decisions.",
+      "target_files": ["agent/services/task_scoped_execution_service.py", "agent/services/tool_routing_service.py", "tests/test_task_endpoints.py"],
+      "implementation_notes": [
+        "Fallback should be allowed only if ToolRouter decision includes eligible alternatives or policy permits fallback.",
+        "Trace should record fallback_from_hermes."
+      ],
+      "acceptance_criteria": [
+        "If Hermes unavailable and an eligible alternative exists, fallback occurs only when policy allows it.",
+        "Fallback result includes trace/policy observation that Hermes failed/unavailable and which backend was used instead.",
+        "If no eligible fallback exists, task result is degraded/no_backend_available, not arbitrary SGPT/OpenCode fallback.",
+        "Fallback never increases capability risk beyond original grant.",
+        "Tests cover Hermes unavailable with fallback and without fallback."
+      ],
+      "test_requirements": ["Add fallback integration tests."],
+      "anti_patterns": [
+        "Do not silently fall back to a more powerful backend.",
+        "Do not hide Hermes failure from task response."
+      ]
+    },
+    {
+      "id": "HF-T023",
+      "title": "Ensure Hermes path cannot enter execute_task_step mutation branch",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Hermes must stay proposal/review-only in phase 1. The execute_task_step path includes command execution, patch/native runtime and workspace snapshot logic; Hermes must not be callable there for mutation modes.",
+      "target_files": ["agent/services/task_scoped_execution_service.py", "worker/core/hermes_adapter.py", "tests/test_task_endpoints.py"],
+      "implementation_notes": [
+        "Add explicit guard near execute_task_step routing/input handling.",
+        "If requested_backend='hermes' for execute mutation, return denied or route only to safe verification mode if explicitly supported."
+      ],
+      "acceptance_criteria": [
+        "execute_task_step with requested_backend='hermes' and command_execute-like request returns denied before any Hermes HTTP call.",
+        "execute_task_step with patch_apply-like request returns denied before any Hermes HTTP call.",
+        "No workspace snapshot/apply logic is reached through Hermes branch for mutation task kinds.",
+        "Audit/trace records reason hermes_phase1_no_execute_mutation.",
+        "Existing native/OpenCode execute behavior is not broken."
+      ],
+      "test_requirements": [
+        "Add endpoint/integration tests for execute_task_step blocked with Hermes.",
+        "Mock client assertion: Hermes client not called."
+      ],
+      "anti_patterns": ["Do not implement Hermes execute as a shortcut to get patch_apply working."]
+    },
+    {
+      "id": "HF-T024",
+      "title": "Split giant Hermes test file into focused test modules",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "problem": "tests/test_hermes_worker_adapter_track.py is broad and becoming too large. Smaller test files make it easier for small models and humans to maintain.",
+      "target_files": ["tests/test_hermes_worker_adapter_track.py", "tests/test_hermes_*.py"],
+      "implementation_notes": [
+        "Do this after key fixes if refactor noise would interfere.",
+        "Keep shared fixtures in tests helpers if needed."
+      ],
+      "acceptance_criteria": [
+        "Tests are split into focused files such as test_hermes_config.py, test_hermes_http_client.py, test_hermes_context.py, test_hermes_parser.py, test_hermes_adapter_modes.py, test_hermes_routing.py, test_hermes_task_flow.py.",
+        "No test coverage is removed.",
+        "Common fake clients/fixtures are reused without copy-paste explosion.",
+        "pytest still discovers all tests.",
+        "File names make failure source obvious."
+      ],
+      "test_requirements": ["Run full pytest subset for Hermes tests."],
+      "anti_patterns": ["Do not mix task-flow integration tests with parser unit tests in one giant file forever."]
+    },
+    {
+      "id": "HF-T025",
+      "title": "Add explicit no-network/no-file side effect regression tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Hermes phase 1 must not create file, shell, browser, MCP or direct network side effects except its configured API call. Tests should prove this at adapter boundary.",
+      "target_files": ["worker/core/hermes_adapter.py", "tests/test_hermes_adapter_security.py"],
+      "implementation_notes": [
+        "Use monkeypatch to fail if subprocess, open write, pathlib write_text, or unintended network helpers are called.",
+        "Allow only HermesHttpClient mock call."
+      ],
+      "acceptance_criteria": [
+        "plan_only does not call subprocess or write files.",
+        "review does not call subprocess or write files.",
+        "patch_propose does not call subprocess, write files, or apply patches.",
+        "research_limited does not perform arbitrary network calls; it only uses provided context plus Hermes API call.",
+        "Any Hermes output claiming side effects is rejected."
+      ],
+      "test_requirements": ["Add side-effect guard tests with monkeypatch."],
+      "anti_patterns": ["Do not assume no side effects just because code currently looks simple."]
+    },
+    {
+      "id": "HF-T026",
+      "title": "Add strict output schema tests per mode",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Parser has common schema and some mode checks, but mode-specific coverage should be stronger, especially for patch_propose and research_limited.",
+      "target_files": ["worker/core/hermes_output_parser.py", "tests/test_hermes_parser.py"],
+      "implementation_notes": [
+        "Keep schema simple but explicit.",
+        "Avoid overfitting to one sample JSON."
+      ],
+      "acceptance_criteria": [
+        "plan_only valid payload passes.",
+        "review with non-list findings fails.",
+        "patch_propose without patch_unified_diff and patch_description fails.",
+        "patch_propose without touched_files fails.",
+        "research_limited without claims fails.",
+        "no_side_effects_claimed=false fails for every mode.",
+        "artifact_type incompatible with mode either fails or is normalized by documented rule."
+      ],
+      "test_requirements": ["Add parser tests for every acceptance criterion."],
+      "anti_patterns": ["Do not accept mode-incompatible artifact_type silently unless documented."
+    ]
+    },
+    {
+      "id": "HF-T027",
+      "title": "Add cloud-sensitive context matrix tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Cloud blocking and sensitive context are central to Ananta's security model and need matrix coverage, not only one or two spot checks.",
+      "target_files": ["worker/core/hermes_adapter.py", "worker/core/hermes_context_converter.py", "tests/test_hermes_adapter_security.py"],
+      "implementation_notes": [
+        "Use parameterized tests over endpoint_classification, config.cloud_allowed, envelope.cloud_allowed, sensitivity."
+      ],
+      "acceptance_criteria": [
+        "Cloud endpoint + public context + both cloud flags true succeeds or reaches mocked client.",
+        "Cloud endpoint + either cloud flag false is denied before prompt construction.",
+        "Cloud endpoint + secret/confidential context is denied or excluded according to explicit policy; default must not leak.",
+        "Local/private endpoint + secret context is still filtered unless allow_sensitive policy says otherwise.",
+        "Trace records denial reason and endpoint classification."
+      ],
+      "test_requirements": ["Add parameterized matrix tests."],
+      "anti_patterns": ["Do not test only localhost and assume cloud path is safe."]
+    },
+    {
+      "id": "HF-T028",
+      "title": "Run and record Hermes pytest subset in track status",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "problem": "The fixup should not be considered done unless the Hermes-specific tests are runnable and documented.",
+      "target_files": ["todo.hermes-fixup.json", "docs/setup/hermes-worker.md", "tests/"],
+      "implementation_notes": [
+        "Add command examples to docs or comments.",
+        "Do not require live Hermes service for default test command."
+      ],
+      "acceptance_criteria": [
+        "Documented test command exists, e.g. pytest tests/test_hermes_*.py.",
+        "Default command does not need API keys or live Hermes endpoint.",
+        "Optional live test command is separate and gated by env var.",
+        "All fixup tests pass locally/CI before marking done.",
+        "Track summary can be updated with pass/fail state after execution."
+      ],
+      "test_requirements": ["Run Hermes unit + mocked integration tests."],
+      "anti_patterns": ["Do not make CI depend on Ollama Cloud/Hermes account."
+      ]
+    },
+    {
+      "id": "HF-T029",
+      "title": "Update Hermes worker docs with actual current behavior",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Docs/todos describe intended behavior, but the actual implementation now needs current operator/developer docs: supported modes, config, health, routing, limitations and known safety boundaries.",
+      "target_files": ["docs/setup/hermes-worker.md", "docs/architecture/hermes-worker-adapter.md", "README.md"],
+      "implementation_notes": [
+        "Do not overpromise production readiness.",
+        "Mention phase-1 limitations clearly."
+      ],
+      "acceptance_criteria": [
+        "Docs list actual supported modes: plan_only, review, summarize, patch_propose, research_limited if implemented.",
+        "Docs state Hermes cannot patch_apply or command_execute.",
+        "Docs explain config.cloud_allowed and envelope.model_policy.cloud_allowed interaction.",
+        "Docs show both base_url with and without /v1 if supported.",
+        "Docs explain health fallback /health -> /v1/models if implemented.",
+        "Docs include recommended safe first model and local/cloud warning."
+      ],
+      "test_requirements": ["Docs reviewed against code/config names."],
+      "anti_patterns": ["Do not document planned features as already working."]
+    },
+    {
+      "id": "HF-T030",
+      "title": "Improve diagnostics to include eligibility and routing reasons",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "problem": "Hermes diagnostics show health/config state, but operators also need to know why Hermes was or was not eligible for a task.",
+      "target_files": ["worker/core/hermes_adapter.py", "agent/services/tool_routing_service.py", "tests/test_hermes_worker_adapter_track.py"],
+      "implementation_notes": [
+        "Keep diagnostics secret-free.",
+        "Reuse ToolRouter alternatives when possible."
+      ],
+      "acceptance_criteria": [
+        "Diagnostics include allowed_task_kinds, blocked_task_kinds, allowed capabilities, denied capabilities, endpoint classification and health state.",
+        "Routing decision alternatives include disabled_by_feature_flag, adapter_disabled, missing_capabilities, governance_risk_blocked, backend_unavailable as applicable.",
+        "Diagnostics do not expose API key values or raw prompts.",
+        "Tests assert diagnostics redaction."
+      ],
+      "test_requirements": ["Diagnostics tests for ready, disabled, cloud_blocked and missing_capability cases."],
+      "anti_patterns": ["Do not make users guess why Hermes was not selected."]
+    },
+    {
+      "id": "HF-T031",
+      "title": "Add rollout gate before enabling Hermes by default",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "BridgeAdapterRegistry default feature flag is false, but HermesAdapterConfig feature_flag_enabled defaults true. Rollout behavior should be explicit and consistent to avoid accidental enablement.",
+      "target_files": [
+        "worker/core/hermes_adapter_config.py",
+        "agent/services/bridge_adapter_registry.py",
+        "agent/config.py",
+        "tests/test_hermes_worker_adapter_track.py"
+      ],
+      "implementation_notes": [
+        "Decide a single source of truth for feature flag. Prefer Hub/agent config controls registry and adapter construction.",
+        "If adapter config has a local feature flag, document how it combines with global flag."
+      ],
+      "acceptance_criteria": [
+        "Default application config does not route to Hermes unless explicitly enabled.",
+        "BridgeAdapterRegistry and HermesAdapter agree on disabled_by_feature_flag behavior.",
+        "If global flag disabled, HermesAdapter is not called or immediately denies without network call.",
+        "Tests cover global flag disabled, adapter enabled; and global flag enabled, adapter disabled.",
+        "Docs state exact flags required to enable Hermes."
+      ],
+      "test_requirements": ["Feature flag integration tests."],
+      "anti_patterns": ["Do not have two flags with contradictory defaults and no combination rule."]
+    },
+    {
+      "id": "HF-T032",
+      "title": "Update fixup track after implementation with done status and evidence",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "problem": "This file should become a useful implementation tracker, not just a static review artifact.",
+      "target_files": ["todo.hermes-fixup.json"],
+      "implementation_notes": [
+        "As tasks are completed, update status and optionally add evidence fields or commit refs.",
+        "Keep JSON valid."
+      ],
+      "acceptance_criteria": [
+        "Completed tasks are marked done with commit/evidence note if schema allows extension.",
+        "Blocked tasks include blocker reason.",
+        "Summary counts are updated after meaningful batches.",
+        "Critical path status reflects actual implementation state.",
+        "JSON remains parseable."
+      ],
+      "test_requirements": ["json.loads todo.hermes-fixup.json succeeds."],
+      "anti_patterns": ["Do not leave status summary stale after large fixup batch."]
+    }
+  ],
+  "critical_path_tasks": [
+    "HF-T001",
+    "HF-T002",
+    "HF-T003",
+    "HF-T004",
+    "HF-T006",
+    "HF-T007",
+    "HF-T008",
+    "HF-T011",
+    "HF-T012",
+    "HF-T016",
+    "HF-T019",
+    "HF-T020",
+    "HF-T021",
+    "HF-T023",
+    "HF-T025",
+    "HF-T027",
+    "HF-T031"
+  ],
+  "recommended_order": [
+    "HF-M1",
+    "HF-M2",
+    "HF-M3",
+    "HF-M4",
+    "HF-M5",
+    "HF-M6",
+    "HF-M7"
+  ],
+  "minimum_safe_fix_slice": [
+    "HF-T001",
+    "HF-T002",
+    "HF-T003",
+    "HF-T004",
+    "HF-T006",
+    "HF-T007",
+    "HF-T008",
+    "HF-T011",
+    "HF-T012",
+    "HF-T016",
+    "HF-T019",
+    "HF-T023",
+    "HF-T025",
+    "HF-T027",
+    "HF-T031"
+  ],
+  "definition_of_done_global": [
+    "plan_only is validated as plan_only, not summarize.",
+    "Capability vocabulary is consistent across Hermes profile, CapabilityRegistry, ToolRouter and HermesAdapter.",
+    "Endpoint classification is robust for localhost, IPv6 localhost, Docker host, RFC1918 private networks and cloud hosts.",
+    "Cloud/sensitive context policy uses a single effective_cloud_allowed decision and shared sensitivity logic.",
+    "Health works with /health and OpenAI-compatible /v1/models fallback.",
+    "base_url works with and without trailing /v1.",
+    "Parse errors and unsafe outputs use accurate audit event types.",
+    "Hermes is invoked through the real TaskScopedExecutionService path only for safe proposal/review modes.",
+    "Hermes is never invoked for patch_apply or command_execute in phase 1.",
+    "Hermes artifacts are persisted/exposed through the existing task artifact flow.",
+    "Security regression tests prove no direct file/shell/tool side effects and no cloud-sensitive leakage.",
+    "Docs accurately describe current implemented behavior and rollout flags."
+  ],
+  "tasks_status_summary": {
+    "total": 32,
+    "by_status": {
+      "todo": 32,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 17,
+      "P1": 11,
+      "P2": 4
+    },
+    "by_risk": {
+      "critical": 6,
+      "high": 10,
+      "medium": 12,
+      "low": 4
+    },
+    "critical_path": {
+      "total": 17,
+      "done": 0,
+      "remaining": 17
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "summary_notes": [
+    "This fixup track is based on real code review of the current Hermes adapter implementation.",
+    "The most urgent issues are capability naming consistency, plan_only validation, endpoint/cloud policy, health/base_url robustness, and real TaskScopedExecutionService integration.",
+    "Do not mark Hermes production-ready until the minimum_safe_fix_slice and security regression tests are complete."
+  ]
+}
