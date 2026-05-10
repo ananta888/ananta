@@ -89,6 +89,8 @@ services:
         limits:
           cpus: '1.0'
           memory: 1G
+    volumes:
+      - ./project-workspaces:/project-workspaces:rw
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,6 +103,8 @@ services:
         limits:
           cpus: '1.0'
           memory: 1G
+    volumes:
+      - ./project-workspaces:/project-workspaces:rw
     depends_on:
       postgres:
         condition: service_healthy

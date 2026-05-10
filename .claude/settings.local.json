@@ -82,7 +82,9 @@
       "Bash(python -m pytest --co -q tests/test_worker_client_adapter.py)",
       "Bash(python *)",
       "Bash(wait)",
-      "Bash(kill 46813 54463 62078)"
+      "Bash(kill 46813 54463 62078)",
+      "Bash(sqlite3 *)",
+      "Bash(sort -k6,7 -r)"
     ]
   }
 }
