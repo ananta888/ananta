@@ -15,6 +15,7 @@ from agent.config import settings
 from agent.db_models import KnowledgeIndexDB, KnowledgeIndexRunDB
 from agent.metrics import KNOWLEDGE_INDEX_DURATION_SECONDS, KNOWLEDGE_INDEX_RUNS_TOTAL
 from agent.repository import artifact_repo, artifact_version_repo, knowledge_index_repo, knowledge_index_run_repo
+from agent.services.wiki_codecompass_bridge import WikiCodeCompassBridge
 
 
 class RagHelperIndexService:
@@ -235,7 +236,9 @@ class RagHelperIndexService:
         helper_root = self._rag_helper_root()
         if not helper_root.exists():
             return []
-        return sorted(helper_root.glob("spring-large-project-profile*.json"))
+        spring_profiles = list(helper_root.glob("spring-large-project-profile*.json"))
+        wiki_profiles = list(helper_root.glob("wiki-rag-profile*.json"))
+        return sorted(spring_profiles + wiki_profiles)
 
     def _normalize_profile_config(self, raw: dict[str, Any]) -> dict[str, Any]:
         normalized: dict[str, Any] = {}
@@ -601,61 +604,16 @@ class RagHelperIndexService:
         output_dir: Path,
         profile: dict[str, Any],
     ) -> dict[str, Any]:
-        helper_modules = self._ensure_helper_imports()
-        runtime_extensions = {"md"}
-        if profile.get("extensions"):
-            runtime_extensions = {ext for ext in set(profile["extensions"] or []) if ext in {"md", "txt", "rst", "adoc"}}
-            if not runtime_extensions:
-                runtime_extensions = {"md"}
-
-        cache_file = self._resolve_runtime_path(
-            profile.get("paths", {}).get("cache_file"),
-            output_dir=output_dir,
-            fallback=output_dir / ".cache" / "code_to_rag_cache.json",
-        )
-        error_log_file = self._resolve_runtime_path(
-            profile.get("paths", {}).get("error_log_file"),
-            output_dir=output_dir,
-            fallback=output_dir / ".errors" / "errors.jsonl",
-        )
-        if cache_file is not None:
-            cache_file.parent.mkdir(parents=True, exist_ok=True)
-        if error_log_file is not None:
-            error_log_file.parent.mkdir(parents=True, exist_ok=True)
-
-        incremental = bool(profile.get("flags", {}).get("incremental", False))
-        resume = bool(profile.get("flags", {}).get("resume", False))
-        show_progress = bool(profile.get("flags", {}).get("progress", False))
-        rebuild = not incremental and not resume
-        limits = helper_modules["ProcessingLimits"](**profile["limits"])
-        with tempfile.TemporaryDirectory(prefix="ananta-wiki-rag-helper-") as staging_dir:
-            staging_root = Path(staging_dir)
-            include_globs = sorted(self._materialize_wiki_markdown_corpus(records, root=staging_root))
-            helper_modules["process_project"](
-                root=staging_root,
-                out_dir=output_dir,
-                extensions=runtime_extensions,
-                excludes=getattr(helper_modules["codecompass"], "DEFAULT_EXCLUDES", set()),
-                include_code_snippets=profile["options"]["include_code_snippets"],
-                exclude_trivial_methods=profile["options"]["exclude_trivial_methods"],
-                include_xml_node_details=profile["options"]["include_xml_node_details"],
-                include_globs=include_globs,
-                exclude_globs=list(profile.get("filters", {}).get("exclude_globs") or []),
-                limits=limits,
-                java_extractor_cls=helper_modules["codecompass"].JavaExtractor,
-                adoc_extractor_cls=helper_modules["codecompass"].AdocExtractor,
-                xml_extractor_cls=helper_modules["codecompass"].XmlExtractor,
-                xsd_extractor_cls=helper_modules["codecompass"].XsdExtractor,
-                text_extractor_cls=helper_modules["codecompass"].TextFileExtractor,
-                incremental=incremental,
-                rebuild=rebuild,
-                resume=resume,
-                cache_file=cache_file,
-                dry_run=False,
-                show_progress=show_progress,
-                error_log_file=error_log_file,
-            )
-        return self._load_manifest(output_dir / "manifest.json")
+        include_graph = str(profile.get("limits", {}).get("graph_export_mode") or "off").strip().lower() != "off"
+        bridge = WikiCodeCompassBridge()
+        manifest = bridge.build_outputs(records=records, output_dir=output_dir, include_graph=include_graph)
+        return {
+            **manifest,
+            "profile_name": profile.get("name"),
+            "generated_at": time.time(),
+            "deterministic_order": "json_sort_keys",
+            "error_count": 0,
+        }
 
     def _build_or_create_index(
         self,
@@ -1053,7 +1011,7 @@ class RagHelperIndexService:
                         "source_scope": normalized_scope,
                         "input_record_count": len(records),
                         "normalized_record_count": len(normalized_records),
-                        "strategy": "wiki_sentence_chunks+codecompass_prerender",
+                        "strategy": "wiki_sentence_chunks+wiki_streaming_codecompass_prerender",
                     },
                 }
             else:

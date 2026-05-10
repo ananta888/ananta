@@ -1,0 +1,18 @@
+{
+  "name": "wiki_small_android",
+  "description": "Wiki-Profil fuer mobile/Android mit begrenztem Umfang.",
+  "max_workers": 1,
+  "embedding_text_mode": "compact",
+  "retrieval_output_mode": "split",
+  "graph_export_mode": "off",
+  "benchmark_mode": "off",
+  "duplicate_detection_mode": "basic",
+  "specialized_chunker_mode": "basic",
+  "output_bundle_mode": "off",
+  "include_code_snippets": false,
+  "exclude_trivial_methods": true,
+  "include_xml_node_details": false,
+  "incremental": false,
+  "resume": true,
+  "progress": true
+}
