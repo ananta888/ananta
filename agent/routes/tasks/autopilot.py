@@ -59,7 +59,11 @@ def _task_dependencies(task: Any) -> list[str]:
 class AutonomousLoopManager:
     def __init__(self):
         self._lock = threading.Lock()          # start/stop/persist lifecycle
-        self._tick_lock = threading.Lock()     # prevents concurrent ticks
+        # thr-016: per-goal tick tracking replaces _tick_lock. Different goals
+        # can tick concurrently; same-goal concurrency is blocked. This prevents
+        # goal-switch deadlocks where _tick_lock was held for up to 180s.
+        self._active_goal_ticks: set[str] = set()
+        self._active_goal_ticks_lock = threading.Lock()
         # thr-002: protects dispatched_count, completed_count, failed_count, last_error
         self._counters_lock = threading.Lock()
         # thr-003: protects _worker_cursor, _worker_circuit_open_until, _worker_failure_streak
@@ -377,6 +381,10 @@ class AutonomousLoopManager:
         with self._counters_lock:
             self.failed_count += 1
 
+    def _increment_tick_count(self) -> None:
+        with self._counters_lock:
+            self.tick_count += 1
+
     def _set_last_error(self, error: str | None) -> None:
         with self._counters_lock:
             self.last_error = error
@@ -443,12 +451,15 @@ class AutonomousLoopManager:
                     time.sleep(delay)
         raise RuntimeError(f"worker_forward_failed:{worker_url}:{endpoint}:{last_exc}")
 
-    def tick_once(self) -> dict:  # noqa: C901
+    def tick_once(self) -> dict:
         if not has_app_context() and self._app is not None:
             with self._app.app_context():
                 return self.tick_once()
-        if not self._tick_lock.acquire(blocking=False):
-            return {"dispatched": 0, "reason": "tick_already_in_progress"}
+        goal_key = str(self.goal or "").strip() or "__none__"
+        with self._active_goal_ticks_lock:
+            if goal_key in self._active_goal_ticks:
+                return {"dispatched": 0, "reason": "tick_already_in_progress"}
+            self._active_goal_ticks.add(goal_key)
         try:
             return execute_autopilot_tick(
                 loop=self,
@@ -458,7 +469,8 @@ class AutonomousLoopManager:
                 update_local_task_status=_update_local_task_status,
             )
         finally:
-            self._tick_lock.release()
+            with self._active_goal_ticks_lock:
+                self._active_goal_ticks.discard(goal_key)
 
     def _run_loop(self):
         app = self._app

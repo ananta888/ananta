@@ -25,9 +25,9 @@ Shared-State-Zugriffe, das finale Lock-Schema und die Thread-Safety-Garantien.
 | `_routing_lock` | `loop._worker_circuit_open_until` | `dict` | `_record_worker_failure/success()` | **JA** – unter Lock |
 | `_routing_lock` | `loop._worker_failure_streak` | `dict` | `_record_worker_failure/success()` | **JA** – unter Lock |
 | `_lock` (bestehend) | `loop.running` | `bool` | `start()`, `stop()` | **JA** – unter `_lock` |
-| `_tick_lock` (bestehend) | Tick-Serialisierung | — | `tick_once()` | **JA** – kein concurrent Tick |
-| *(kein Lock)* | `loop.last_tick_at` | `float` | nur am Tick-Ende (nach Threads fertig) | **JA** – kein Race |
-| *(kein Lock)* | `loop.tick_count` | `int` | nur am Tick-Ende | **JA** – kein Race |
+| `_active_goal_ticks` (thr-016) | Per-Goal Tick-Serialisierung | `set[str]` | `tick_once()` | **JA** – selbes Goal kein concurrent Tick; verschiedene Goals parallel |
+| `_counters_lock` | `loop.tick_count` | `int` | `_increment_tick_count()` | **JA** – unter Lock (thr-016) |
+| *(kein Lock)* | `loop.last_tick_at` | `float` | nur am Tick-Ende | **JA** – kein Race |
 
 ---
 
@@ -51,8 +51,9 @@ VERBOTEN:
 `_record_worker_failure()` setzt `last_error` (unter `_counters_lock`) erst NACH
 Freigabe von `_routing_lock` — diese Reihenfolge wird im Code explizit eingehalten.
 
-Die bestehenden Locks (`_lock` für start/stop, `_tick_lock` für Tick-Serialisierung)
-sind davon getrennt und werden nicht für Counter/Routing verwendet.
+`_lock` (start/stop) ist davon getrennt und wird nicht für Counter/Routing verwendet.
+`_tick_lock` wurde durch `_active_goal_ticks` (thr-016) ersetzt — verschiedene
+Goals ticken parallel; selbes Goal blockiert sich selbst.
 
 ---
 
