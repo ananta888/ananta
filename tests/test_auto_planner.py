@@ -3,6 +3,8 @@ Tests for Auto-Planner and Trigger-System.
 """
 
 import json
+import sys
+import types
 from unittest.mock import MagicMock
 
 import pytest
@@ -143,6 +145,32 @@ class TestAutoPlannerPrompts:
 
 
 class TestAutoPlanner:
+    def test_ensure_autopilot_running_does_not_retarget_when_old_goal_has_actionable_tasks(self, app, monkeypatch):
+        planner = AutoPlanner()
+
+        fake_loop = types.SimpleNamespace(
+            running=True,
+            goal="old-goal",
+            restart_for_goal=MagicMock(),
+            start=MagicMock(),
+            wake=MagicMock(),
+        )
+        monkeypatch.setitem(sys.modules, "agent.routes.tasks.autopilot", types.SimpleNamespace(autonomous_loop=fake_loop))
+
+        class _Task:
+            status = "todo"
+
+        fake_repos = types.SimpleNamespace(
+            task_repo=types.SimpleNamespace(get_by_goal_id=lambda goal_id: [_Task()] if goal_id == "old-goal" else [])
+        )
+        monkeypatch.setattr("agent.routes.tasks.auto_planner._repos", lambda: fake_repos)
+
+        with app.app_context():
+            planner._ensure_autopilot_running(goal_id="new-goal", team_id=None)
+
+        fake_loop.restart_for_goal.assert_not_called()
+        fake_loop.wake.assert_called_once()
+
     def test_planning_service_build_nodes_infers_work_task_kind(self):
         planning_service = get_planning_service()
         nodes = planning_service._build_nodes(

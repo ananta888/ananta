@@ -36,6 +36,7 @@ from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.task_execution_policy_service import (
     classify_execution_failure,
     compute_execution_retry_delay,
+    normalize_tool_call_name,
     resolve_task_scope_allowed_tools,
     resolve_execution_policy,
     should_retry_execution,
@@ -430,7 +431,7 @@ class TaskExecutionService:
                 )
             for tool_call in tool_calls:
                 raw_name = str(tool_call.get("name") or tool_call.get("tool_name") or "").strip()
-                name = raw_name.rsplit(".", 1)[-1] if "." in raw_name else raw_name
+                name = normalize_tool_call_name(raw_name)
                 args = tool_call.get("args") or tool_call.get("tool_input") or tool_call.get("parameters") or {}
                 current_app.logger.info("Task %s führt Tool aus: %s mit %s", tid or "<direct>", name, args)
                 tool_result = tool_registry.execute(name, args)
