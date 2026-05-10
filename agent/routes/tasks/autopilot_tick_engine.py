@@ -1048,12 +1048,14 @@ def execute_autopilot_tick(
     app = loop._app
 
     # thr-006: parallel dispatch via ThreadPoolExecutor.
-    # thr-007: as_completed() enforces per_task_hard_timeout; timed-out tasks are
-    #          marked failed so they don't stay stuck in proposing/in_progress.
-    # thr-014: use wait() in a poll loop so stop_event aborts the tick within 1s
-    #          instead of blocking until per_task_hard_timeout expires.
+    # thr-015: executor.shutdown(wait=False) so _tick_lock is released immediately
+    #          when _stop_event is set. Running threads are NOT joined — they
+    #          continue in the background and update task status on completion.
+    #          This prevents goal-switch deadlocks where _tick_lock was held for
+    #          up to 180s waiting on stale HTTP POSTs.
     task_results: list[TaskDispatchResult] = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, effective_concurrency)) as executor:
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=max(1, effective_concurrency))
+    try:
         future_to_task_id: dict[concurrent.futures.Future, str] = {
             executor.submit(
                 _dispatch_one_task,
@@ -1112,6 +1114,8 @@ def execute_autopilot_tick(
             task_results.append(TaskDispatchResult(
                 task_id=tid, failed=True, failure_type="dispatch_aborted"
             ))
+    finally:
+        executor.shutdown(wait=False)
 
     # thr-012: Aggregate results into local counters + loop counters (thr-002: via _increment_*).
     for r in task_results:
