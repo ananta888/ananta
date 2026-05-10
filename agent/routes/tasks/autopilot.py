@@ -180,6 +180,14 @@ class AutonomousLoopManager:
                 if persist:
                     self._persist_state(enabled=True)
                 return
+            # New start => new autonomous session baseline.
+            # Without this reset, a previously tripped guardrail (for example
+            # tick_count >= max_ticks_total) keeps blocking all future starts.
+            self.tick_count = 0
+            self.dispatched_count = 0
+            self.completed_count = 0
+            self.failed_count = 0
+            self.last_error = None
             self.running = True
             self.started_at = time.time()
             self._stop_event.clear()
