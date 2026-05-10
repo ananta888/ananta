@@ -33,9 +33,7 @@ def _background_threads_disabled(app: Any | None = None) -> bool:
         return True
     if str(os.environ.get("ANANTA_DISABLE_BACKGROUND_THREADS") or "").strip().lower() in {"1", "true", "yes", "on"}:
         return True
-    if has_app_context() and bool(getattr(current_app, "testing", False)):
-        return True
-    return bool(getattr(app, "testing", False))
+    return False
 
 
 def _append_trace_event(task_id: str, event_type: str, **data: Any) -> None:

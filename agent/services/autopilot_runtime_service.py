@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from flask import current_app
-
 from agent.config import settings
 from agent.repository import team_repo
 
@@ -40,7 +38,7 @@ class AutopilotRuntimeService:
             budget_label=budget_label,
             security_level=security_level,
             persist=True,
-            background=not bool(current_app.testing),
+            background=True,
         )
         return self.status()
 

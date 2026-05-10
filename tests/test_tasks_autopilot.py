@@ -100,6 +100,37 @@ def test_autopilot_tick_without_workers_marks_reason(client, app, monkeypatch):
     assert res.json["data"]["dispatched"] == 0
 
 
+def test_autopilot_tick_respects_goal_scope(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    autonomous_loop.stop(persist=False)
+    autonomous_loop.goal = "goal-scope-a"
+    autonomous_loop.team_id = ""
+
+    task_repo.save(TaskDB(id="scope-a-1", title="Scoped A", status="todo", goal_id="goal-scope-a"))
+    task_repo.save(TaskDB(id="scope-b-1", title="Scoped B", status="todo", goal_id="goal-scope-b"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-scope:5001", name="worker-scope", role="worker", token="tok", status="online")
+    )
+
+    responses = [
+        {"status": "success", "data": {"reason": "run", "command": "echo ok"}},
+        {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "execution success ok"}},
+    ]
+
+    def _fake_forward(*_args, **_kwargs):
+        return responses.pop(0)
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+
+    a_task = task_repo.get_by_id("scope-a-1")
+    b_task = task_repo.get_by_id("scope-b-1")
+    assert res["dispatched"] == 1
+    assert a_task is not None and a_task.status == "completed"
+    assert b_task is not None and b_task.status == "todo"
+
+
 def test_quality_gate_fails_for_coding_task_without_markers():
     t = TaskDB(id="qg-1", title="Implement endpoint", description="Fix code path")
     ok, reason = evaluate_quality_gates(t, output="done", exit_code=0)

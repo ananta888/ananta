@@ -47,6 +47,8 @@ DEFAULT_QUALITY_GATES = {
         "import",
     ],
     "min_output_chars": 8,
+    # Keep non-coding analysis/ops tasks from failing solely due to terse output.
+    "enforce_min_output_for_non_coding": False,
 }
 
 
@@ -77,14 +79,19 @@ def evaluate_quality_gates(
         return False, "non_zero_exit_code"
 
     safe_out = (output or "").strip()
-    if len(safe_out) < int(cfg.get("min_output_chars", 8)):
-        return False, "insufficient_output_evidence"
-
     title = str(getattr(task, "title", "") or "")
     desc = str(getattr(task, "description", "") or "")
     text = f"{title} {desc}".lower()
     coding_keywords = [str(x).lower() for x in (cfg.get("coding_keywords") or [])]
     is_coding_like = any(k and k in text for k in coding_keywords)
+    min_output_chars = int(cfg.get("min_output_chars", 8))
+    enforce_min_output_for_non_coding = bool(cfg.get("enforce_min_output_for_non_coding", False))
+
+    if len(safe_out) < min_output_chars:
+        if is_coding_like or enforce_min_output_for_non_coding:
+            return False, "insufficient_output_evidence"
+        return True, "passed_generic"
+
     if not is_coding_like:
         return True, "passed_generic"
 
