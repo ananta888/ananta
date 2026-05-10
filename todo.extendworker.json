@@ -497,7 +497,7 @@
     {
       "id": "EW-T011",
       "title": "Implement policy decision reason codes",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Make denial and approval outcomes machine-readable.",
@@ -525,7 +525,7 @@
     {
       "id": "EW-T012",
       "title": "Add policy bypass regression tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Lock down known bypass routes.",
@@ -555,7 +555,7 @@
     {
       "id": "EW-T013",
       "title": "Create WorkerToolRegistry",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Introduce a controlled registry for all worker tools.",
@@ -584,7 +584,7 @@
     {
       "id": "EW-T014",
       "title": "Create ToolInvocationEnvelope",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Wrap every tool call with policy and trace metadata.",
@@ -613,7 +613,7 @@
     {
       "id": "EW-T015",
       "title": "Harden shell command planning vs execution split",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Keep shell planning safe and execution approval-gated.",
@@ -642,7 +642,7 @@
     {
       "id": "EW-T016",
       "title": "Harden file read/write and patch paths",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Prevent direct uncontrolled file mutation.",
@@ -672,7 +672,7 @@
     {
       "id": "EW-T017",
       "title": "Add tool output sanitizer and secret redaction",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Prevent leaking secrets from tool output into model context, logs, artifacts, or cloud calls.",
@@ -701,7 +701,7 @@
     {
       "id": "EW-T018",
       "title": "Add resource limits per tool invocation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Bound CPU/time/output/size to keep workers stable.",
@@ -730,7 +730,7 @@
     {
       "id": "EW-T019",
       "title": "Implement tool adapter trust boundary",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "objective": "Treat external CLIs as untrusted adapters.",
@@ -759,7 +759,7 @@
     {
       "id": "EW-T020",
       "title": "Create WorkerProviderRegistry",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Add Hermes-like provider flexibility behind Ananta policy.",
@@ -787,7 +787,7 @@
     {
       "id": "EW-T021",
       "title": "Implement provider selection as Hub decision input",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Prevent worker-owned provider escalation.",
@@ -815,7 +815,7 @@
     {
       "id": "EW-T022",
       "title": "Add local-first model routing support",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Make local Ollama/LM Studio practical for worker tasks.",
@@ -843,7 +843,7 @@
     {
       "id": "EW-T023",
       "title": "Add provider credential isolation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "objective": "Ensure provider secrets do not leak to tools or wrong endpoints.",
@@ -871,7 +871,7 @@
     {
       "id": "EW-T024",
       "title": "Implement auxiliary model policy",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Allow optional helper model calls without bypassing policy.",
@@ -899,7 +899,7 @@
     {
       "id": "EW-T025",
       "title": "Add provider runtime diagnostics endpoint",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "objective": "Expose safe provider readiness for operators.",
@@ -927,7 +927,7 @@
     {
       "id": "EW-T026",
       "title": "Implement ContextEnvelope resolver in worker",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Make context explicit, bounded, and provenance-aware.",
@@ -957,7 +957,7 @@
     {
       "id": "EW-T027",
       "title": "Implement token budget enforcement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "objective": "Avoid uncontrolled context growth.",
@@ -987,7 +987,7 @@
     {
       "id": "EW-T028",
       "title": "Implement context compression service",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Add Hermes-like compression but with provenance and policy.",
@@ -1017,7 +1017,7 @@
     {
       "id": "EW-T029",
       "title": "Create worker memory stores",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "objective": "Add bounded memory without letting worker mutate global truth.",
@@ -1047,7 +1047,7 @@
     {
       "id": "EW-T030",
       "title": "Add session search over worker traces and artifacts",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "objective": "Allow recall of previous executions without prompt dumping.",
