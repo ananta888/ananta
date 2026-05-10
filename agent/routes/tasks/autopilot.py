@@ -196,6 +196,35 @@ class AutonomousLoopManager:
             if persist:
                 self._persist_state(enabled=True)
 
+    def restart_for_goal(
+        self,
+        goal: str,
+        *,
+        team_id: str | None = None,
+        persist: bool = True,
+    ):
+        """Restart the autopilot loop with a different goal scope.
+
+        If the loop is running with a different goal, signal the current tick
+        to abort (via _stop_event) and start a fresh loop for the new goal.
+        """
+        with self._lock:
+            if not self.running:
+                return  # not running — start() will be called by the caller
+            if self.goal == str(goal or "").strip():
+                self._wake_event.set()
+                return  # same goal, just wake up
+            # Different goal — stop the current loop, let the caller start fresh.
+            old_thread = self._thread
+            self.running = False
+            self._stop_event.set()
+            self._wake_event.set()
+        if old_thread and old_thread.is_alive() and old_thread is not threading.current_thread():
+            old_thread.join(timeout=5.0)
+        with self._lock:
+            if self._thread is old_thread:
+                self._thread = None
+
     def stop(self, persist: bool = True):
         thread_to_join = None
         with self._lock:

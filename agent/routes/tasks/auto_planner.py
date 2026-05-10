@@ -444,7 +444,23 @@ class AutoPlanner:
                 )
                 _log().info("Auto-Planner started autopilot automatically")
             elif resolved_goal:
-                autonomous_loop.start(goal=resolved_goal, persist=True, background=not _background_threads_disabled())
+                old_goal = str(getattr(autonomous_loop, "goal", "") or "").strip()
+                if old_goal and old_goal != resolved_goal:
+                    _log().info("Goal changed %s -> %s, restarting autopilot", old_goal[:12], resolved_goal[:12])
+                    autonomous_loop.restart_for_goal(
+                        goal=resolved_goal,
+                        team_id=team_id,
+                        persist=True,
+                    )
+                autonomous_loop.start(
+                    goal=resolved_goal,
+                    team_id=team_id,
+                    security_level="balanced",
+                    interval_seconds=5,
+                    max_concurrency=2,
+                    persist=True,
+                    background=not _background_threads_disabled(),
+                )
                 autonomous_loop.wake()
         except Exception as e:
             _log().warning("Could not start autopilot: %s", e)
