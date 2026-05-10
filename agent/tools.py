@@ -893,6 +893,22 @@ def _check_file_access(path: str, operation: str = "read") -> tuple[bool, str]:
 
     return True, ""
 
+
+def _workspace_file_hint() -> str:
+    import os
+    cwd = os.path.abspath(".")
+    try:
+        files = os.listdir(cwd)
+    except Exception:
+        return " Verfuegbare Dateien im Workspace: (nicht lesbar)."
+    hint_files = [f for f in files if os.path.isfile(os.path.join(cwd, f))][:15]
+    hint_dirs = [f + "/" for f in files if os.path.isdir(os.path.join(cwd, f))][:10]
+    hint = hint_files + hint_dirs
+    if not hint:
+        return ""
+    return f" Verfuegbare Workspace-Eintraege: {', '.join(hint)}."
+
+
 @registry.register(
     name="file_read",
     description="Liest den Inhalt einer Datei.",
@@ -908,7 +924,8 @@ def _check_file_access(path: str, operation: str = "read") -> tuple[bool, str]:
 def file_read_tool(path: str = "", encoding: str = "utf-8", file_path: str = "", filename: str = ""):
     resolved = path or file_path or filename
     if not resolved:
-        return {"error": "Parameter 'path' fehlt."}
+        hint = _workspace_file_hint()
+        return {"error": f"Parameter 'path' fehlt.{hint}"}
     ok, err = _check_file_access(resolved, "read")
     if not ok: return {"error": err}
 
@@ -940,7 +957,8 @@ def file_read_tool(path: str = "", encoding: str = "utf-8", file_path: str = "",
 def file_write_tool(path: str = "", content: str = "", encoding: str = "utf-8", file_path: str = "", filename: str = ""):
     resolved = path or file_path or filename
     if not resolved:
-        return {"error": "Parameter 'path' fehlt."}
+        hint = _workspace_file_hint()
+        return {"error": f"Parameter 'path' fehlt.{hint}"}
     ok, err = _check_file_access(resolved, "write")
     if not ok: return {"error": err}
 
@@ -1002,7 +1020,8 @@ def file_list_tool(path: str = ".", recursive: bool = False):
 def file_patch_tool(path: str = "", search: str = "", replace: str = "", file_path: str = "", filename: str = ""):
     resolved = path or file_path or filename
     if not resolved:
-        return {"error": "Parameter 'path' fehlt."}
+        hint = _workspace_file_hint()
+        return {"error": f"Parameter 'path' fehlt.{hint}"}
     ok, err = _check_file_access(resolved, "write")
     if not ok: return {"error": err}
 
