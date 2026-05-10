@@ -125,6 +125,10 @@ services:
     restart: unless-stopped
     ports:
       - "11434:11434"
+    runtime: nvidia
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     volumes:
       - ./.ollama:/root/.ollama
       - /mnt/c/Users/Public/lm-models:/models:ro
