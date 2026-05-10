@@ -1,0 +1,1295 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "ananta_native_worker_hermes_like_fixup",
+  "purpose": "Fix, harden and complete the native Ananta worker evolution toward a Hermes-like but Hub-governed agent executor. This track is about the Ananta worker itself, not about integrating external Hermes Agent.",
+  "review_basis": {
+    "reviewed_files": [
+      "agent/services/native_worker_runtime_service.py",
+      "agent/services/worker_capability_service.py",
+      "agent/services/worker_job_service.py",
+      "agent/services/worker_contract_service.py",
+      "agent/services/result_memory_service.py",
+      "agent/services/context_bundle_service.py",
+      "agent/providers/worker_execution.py",
+      "agent/providers/registry.py",
+      "agent/backend_provider_contracts.py",
+      "agent/services/tool_routing_service.py",
+      "tests/test_worker_execution_provider_dispatch.py",
+      "tests/test_worker_capability_profiles.py",
+      "tests/test_worker_job_flow.py",
+      "tests/test_worker_rag_opencode_core_flow.py",
+      "tests/test_worker_real_rag_helper_opencode_core_flow.py"
+    ],
+    "summary": "The Ananta worker has moved toward a governed agent executor with native runtime, provider dispatch, worker contracts, context bundles, result memory and CodeCompass/RAG support. The main missing pieces are hard runtime enforcement, ToolInvocationEnvelope, provider-risk policy, SkillManifest/SkillRunner, memory policy, subworker delegation, and stronger end-to-end integration tests."
+  },
+  "global_principles": [
+    "Hub owns goals, tasks, policy, approval, context, routing, audit and durable state.",
+    "Native worker executes delegated work only and cannot mint authority for itself.",
+    "Every model call, tool call, command, memory write, provider dispatch and subworker spawn must be capability-gated.",
+    "Descriptor metadata is not enough; security-relevant rules must be enforced in runtime gates.",
+    "Every meaningful result must become a typed artifact with provenance and traceability.",
+    "If policy, approval, context or audit state is missing, fail closed or degrade safely.",
+    "Self-improvement is allowed only as proposals until reviewed and enabled by Hub/operator policy."
+  ],
+  "non_goals": [
+    "Do not replace Hub policy with worker-local decisions.",
+    "Do not let worker profiles remain only documentation while runtime bypasses them.",
+    "Do not add unrestricted agent autonomy to the native worker.",
+    "Do not make MemoryEntryDB a free-form unsanitized dump of worker output.",
+    "Do not let provider fallback escalate from local to cloud without policy.",
+    "Do not implement hidden cron/subworker behavior inside the worker.",
+    "Do not make skills auto-enable themselves after generation."
+  ],
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {
+      "id": "AWF-M1",
+      "title": "Hard capability and policy enforcement",
+      "task_ids": ["AWF-T001", "AWF-T002", "AWF-T003", "AWF-T004", "AWF-T005", "AWF-T006"],
+      "status": "todo"
+    },
+    {
+      "id": "AWF-M2",
+      "title": "ToolRegistry and ToolInvocationEnvelope",
+      "task_ids": ["AWF-T007", "AWF-T008", "AWF-T009", "AWF-T010", "AWF-T011"],
+      "status": "todo"
+    },
+    {
+      "id": "AWF-M3",
+      "title": "Provider registry, model routing and cloud boundaries",
+      "task_ids": ["AWF-T012", "AWF-T013", "AWF-T014", "AWF-T015", "AWF-T016"],
+      "status": "todo"
+    },
+    {
+      "id": "AWF-M4",
+      "title": "Context, CodeCompass and RAG hardening",
+      "task_ids": ["AWF-T017", "AWF-T018", "AWF-T019", "AWF-T020", "AWF-T021"],
+      "status": "todo"
+    },
+    {
+      "id": "AWF-M5",
+      "title": "Result memory and safe learning loop",
+      "task_ids": ["AWF-T022", "AWF-T023", "AWF-T024", "AWF-T025", "AWF-T026"],
+      "status": "todo"
+    },
+    {
+      "id": "AWF-M6",
+      "title": "Skill system and controlled self-improvement",
+      "task_ids": ["AWF-T027", "AWF-T028", "AWF-T029", "AWF-T030", "AWF-T031"],
+      "status": "todo"
+    },
+    {
+      "id": "AWF-M7",
+      "title": "Subworkers and delegation",
+      "task_ids": ["AWF-T032", "AWF-T033", "AWF-T034", "AWF-T035"],
+      "status": "todo"
+    },
+    {
+      "id": "AWF-M8",
+      "title": "Artifacts, trace, audit and diagnostics",
+      "task_ids": ["AWF-T036", "AWF-T037", "AWF-T038", "AWF-T039", "AWF-T040"],
+      "status": "todo"
+    },
+    {
+      "id": "AWF-M9",
+      "title": "Integration tests and rollout safety",
+      "task_ids": ["AWF-T041", "AWF-T042", "AWF-T043", "AWF-T044", "AWF-T045"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "AWF-T001",
+      "title": "Replace worker-local policy_decision_ref allow stubs with Hub-issued decisions",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "NativeWorkerRuntimeService builds several request/result payloads with policy_decision_ref decision='allow' and policy_version='native_worker_runtime_v1'. That is acceptable for prototypes but dangerous as architecture: the worker must not invent policy allowance.",
+      "target_files": ["agent/services/native_worker_runtime_service.py", "agent/services/task_execution_policy_service.py", "agent/services/task_scoped_execution_service.py", "tests/test_worker_job_flow.py", "tests/test_no_policy_bypass.py"],
+      "implementation_notes": [
+        "Thread a real Hub policy decision object into prepare_native_command_plan and execute_and_verify_command.",
+        "If no Hub decision is available, return degraded/blocked according to requested_state_on_policy_denied.",
+        "Keep a dev/test-only compatibility wrapper if needed, but make it explicit and tested."
+      ],
+      "acceptance_criteria": [
+        "NativeWorkerRuntimeService no longer creates synthetic allow policy decisions for command_plan or command_execute in normal runtime path.",
+        "prepare_native_command_plan requires policy_decision_ref or an explicit compatibility flag.",
+        "execute_and_verify_command requires policy_decision_ref or an explicit compatibility flag.",
+        "Missing policy decision returns blocked/degraded with reason_code='missing_policy_decision'.",
+        "Trace and artifacts include the Hub-issued policy decision id/version.",
+        "Tests prove command_execute cannot run when policy_decision_ref is missing."
+      ],
+      "test_requirements": [
+        "Add missing policy decision negative test.",
+        "Add allowed Hub decision positive test.",
+        "Update existing native worker tests to pass explicit policy decision."
+      ],
+      "anti_patterns": [
+        "Do not silently default to allow.",
+        "Do not hide policy decisions only in free-text output."
+      ]
+    },
+    {
+      "id": "AWF-T002",
+      "title": "Add WorkerPreflightGate before every native worker action",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Worker profiles and contracts exist, but there should be one mandatory preflight gate before command planning, command execution, provider dispatch, memory write, skill run and subworker delegation.",
+      "target_files": ["agent/services/native_worker_runtime_service.py", "agent/services/worker_execution_profile_service.py", "agent/services/worker_capability_service.py", "worker/core/execution_envelope.py", "tests/test_no_policy_bypass.py"],
+      "implementation_notes": [
+        "Create agent/services/worker_preflight_gate_service.py or worker/core/preflight_gate.py.",
+        "Gate input should include task_id, mode, capability_id, worker_profile, allowed_tools, policy_decision_ref, context_bundle_id, approval_ref and provider info when relevant.",
+        "Return allow, confirm_required, blocked or degraded with reason_code."
+      ],
+      "acceptance_criteria": [
+        "Every native worker entrypoint calls WorkerPreflightGate before side effects.",
+        "Gate validates worker_profile, capability_id, allowed_tools, policy_decision_ref, context presence and approval requirements.",
+        "Gate denies unknown capability ids by default.",
+        "Gate denies mutation-capable actions when approval is required but missing.",
+        "Gate returns machine-readable reason codes such as missing_policy_decision, missing_capability, approval_required, tool_not_allowed, context_missing.",
+        "No command execution, provider dispatch, memory write or artifact apply happens before preflight allow."
+      ],
+      "test_requirements": [
+        "Unit tests for allow/blocked/degraded outcomes.",
+        "Integration test proving command executor is not called when preflight denies."
+      ],
+      "anti_patterns": [
+        "Do not duplicate preflight logic in each service.",
+        "Do not enforce capability only through prompt text."
+      ]
+    },
+    {
+      "id": "AWF-T003",
+      "title": "Turn WorkerCapabilityProfiles from metadata into enforceable runtime rules",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "WorkerCapabilityService defines profiles such as planner/coder/reviewer/operator with scopes, tool classes and limits, but these profiles must be enforced by runtime gates.",
+      "target_files": ["agent/services/worker_capability_service.py", "agent/services/worker_preflight_gate_service.py", "tests/test_worker_capability_profiles.py", "tests/test_no_policy_bypass.py"],
+      "implementation_notes": [
+        "Add helper resolve_worker_profile(profile_id) and evaluate_worker_profile_action(...).",
+        "Normalize profile aliases consistently.",
+        "Explicitly map allowed_scopes/tool_classes/limits to runtime decisions."
+      ],
+      "acceptance_criteria": [
+        "planner/planning-agent cannot execute tools, persist plans, materialize tasks or route workers unless separately granted by Hub.",
+        "reviewer cannot mutate files or execute shell commands.",
+        "coder may propose changes but terminal/write actions remain policy/approval-gated.",
+        "operator admin-like actions require admin approval/audit.",
+        "Unknown profile downgrades to safest profile or denies, not coder/operator.",
+        "Profile decision appears in preflight trace."
+      ],
+      "test_requirements": [
+        "Profile matrix tests for planner, reviewer, coder, operator.",
+        "Unknown profile negative test."
+      ],
+      "anti_patterns": [
+        "Do not treat profile labels as documentation only.",
+        "Do not let requested worker_profile from task context escalate privileges without Hub policy."
+      ]
+    },
+    {
+      "id": "AWF-T004",
+      "title": "Normalize capability vocabulary across worker runtime, router and provider dispatch",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Capabilities are expressed in several vocabularies: worker.command.plan, worker.command.execute, patching, patch_propose, shell_execution, shell_execute, review, code_review. This creates policy gaps and confusing routing.",
+      "target_files": ["agent/services/tool_routing_service.py", "agent/services/worker_capability_service.py", "agent/providers/worker_execution.py", "worker/core/execution_envelope.py", "tests/test_tool_routing_service.py", "tests/test_policy_capability_helpers.py"],
+      "implementation_notes": [
+        "Create one normalization helper for capability aliases.",
+        "Keep raw requested capability for trace, but compare canonical capability internally.",
+        "Document canonical names."
+      ],
+      "acceptance_criteria": [
+        "shell_execute and shell_execution normalize to one canonical shell execution capability.",
+        "patching, patch_propose and patch_apply are distinct canonical capabilities with explicit risk levels.",
+        "review and code_review normalize or alias consistently.",
+        "worker.command.plan and worker.command.execute map to canonical planning/shell_execution classes for policy checks.",
+        "Unknown capability is denied or degraded, never implicitly treated as planning.",
+        "ToolRouter, WorkerPreflightGate and ProviderDispatch use the same normalization helper."
+      ],
+      "test_requirements": [
+        "Alias matrix tests.",
+        "Unknown capability denial test.",
+        "Regression test for command_execute not downgraded to harmless planning."
+      ],
+      "anti_patterns": [
+        "Do not add aliases in one service only.",
+        "Do not collapse patch_propose and patch_apply into the same permission."
+      ]
+    },
+    {
+      "id": "AWF-T005",
+      "title": "Add immutable CapabilitySnapshot per worker execution",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Worker executions should not read mutable config repeatedly and accidentally gain capability mid-run. Each execution needs an immutable snapshot derived from Hub policy and worker profile.",
+      "target_files": ["worker/core/execution_envelope.py", "agent/services/native_worker_runtime_service.py", "agent/services/worker_job_service.py", "tests/test_worker_job_flow.py"],
+      "implementation_notes": [
+        "Add CapabilitySnapshot model or dict schema.",
+        "Include capability ids, allowed_tools, denied_tools, policy_decision_ref, approval_refs, provider constraints and context scope.",
+        "Store snapshot hash in trace/artifacts."
+      ],
+      "acceptance_criteria": [
+        "Each worker job/execution stores a capability_snapshot or capability_snapshot_ref.",
+        "Runtime checks read from the snapshot rather than live mutable config after execution starts.",
+        "Snapshot hash is included in worker execution result metadata.",
+        "Attempted mid-run config change does not expand permissions of an active execution.",
+        "Tests prove snapshot is immutable for the execution."
+      ],
+      "test_requirements": [
+        "Unit test for snapshot construction and hash stability.",
+        "Integration test for config change after job creation not expanding active permissions."
+      ],
+      "anti_patterns": [
+        "Do not re-read broad global config before each tool call without snapshot boundary.",
+        "Do not let worker modify its own snapshot."
+      ]
+    },
+    {
+      "id": "AWF-T006",
+      "title": "Add fail-closed behavior for missing audit pipeline on mutation actions",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "problem": "Mutation-capable worker actions need audit. If audit append/persist is unavailable, executing anyway makes the system hard to trust.",
+      "target_files": ["agent/services/native_worker_runtime_service.py", "agent/common/audit.py", "agent/services/task_scoped_execution_service.py", "tests/test_audit_append_minimum.py", "tests/test_no_policy_bypass.py"],
+      "implementation_notes": [
+        "Define which actions are audit-critical: command_execute, patch_apply/write, provider_cloud_call, memory_write, subworker_spawn, skill_enable.",
+        "Fail closed for high-risk actions; allow degraded for read-only planning if policy allows."
+      ],
+      "acceptance_criteria": [
+        "Audit-critical actions check audit availability or append result before proceeding according to policy.",
+        "If audit append fails for command_execute, action is blocked/degraded before command runs.",
+        "Read-only plan/review may proceed with degraded warning only if policy allows.",
+        "Audit failure reason is machine-readable.",
+        "Tests simulate audit append failure for command_execute and plan_only."
+      ],
+      "test_requirements": [
+        "Audit failure negative test for command_execute.",
+        "Audit degraded read-only test."
+      ],
+      "anti_patterns": ["Do not make audit best-effort for high-risk mutations."]
+    },
+    {
+      "id": "AWF-T007",
+      "title": "Create WorkerToolRegistry with explicit tool metadata",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "allowed_tools currently appears as lists in worker contracts/jobs. A hard tool registry is needed so each tool has declared capabilities, risk, side effects, schemas and approval requirements.",
+      "target_files": ["agent/services/worker_tool_registry_service.py", "agent/tool_contracts.py", "agent/tool_capabilities.py", "tests/test_tool_capabilities_contract.py", "tests/test_tool_guardrails.py"],
+      "implementation_notes": [
+        "Registry entries should be data-first and inspectable.",
+        "Start with native command plan/execute, file read, patch propose, patch apply, test run, verification, provider call, memory write."
+      ],
+      "acceptance_criteria": [
+        "WorkerToolRegistry exists and can list registered tools.",
+        "Each tool declares tool_id, capability_classes, risk_class, side_effect_type, input_schema, output_schema, requires_approval, audit_required and enabled state.",
+        "Unknown tool id is denied by default.",
+        "Registry metadata is available to WorkerPreflightGate and diagnostics.",
+        "Tests verify registry entries for native command plan/execute and memory write."
+      ],
+      "test_requirements": [
+        "Registry unit tests.",
+        "Unknown tool denial test."
+      ],
+      "anti_patterns": [
+        "Do not infer tool risk only from tool name at call time.",
+        "Do not expose arbitrary Python callables as tools automatically."
+      ]
+    },
+    {
+      "id": "AWF-T008",
+      "title": "Create ToolInvocationEnvelope for every worker tool call",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Tool calls need a typed envelope that carries capability snapshot, context, approval, resource limits and audit correlation. Without it, tool execution remains scattered and hard to enforce.",
+      "target_files": ["worker/core/tool_invocation_envelope.py", "agent/services/native_worker_runtime_service.py", "agent/services/worker_tool_registry_service.py", "tests/test_tool_guardrails.py"],
+      "implementation_notes": [
+        "Use Pydantic or dataclass plus validation consistent with project style.",
+        "ToolInvocationEnvelope should be constructed after WorkerPreflightGate allow."
+      ],
+      "acceptance_criteria": [
+        "ToolInvocationEnvelope includes execution_id, tool_id, task_id, capability_snapshot_ref/hash, context_refs, approval_ref, arguments, timeout_seconds, max_output_chars, audit_correlation_id and resource_limits.",
+        "Envelope validates argument shape before tool execution.",
+        "Envelope rejects unknown tool id.",
+        "Every native command execution path receives a ToolInvocationEnvelope or documented compatible wrapper.",
+        "ToolInvocationEnvelope hash appears in trace for command_execute."
+      ],
+      "test_requirements": [
+        "Envelope schema validation tests.",
+        "Command execution integration test with envelope."
+      ],
+      "anti_patterns": [
+        "Do not pass raw command strings directly into executor without invocation envelope.",
+        "Do not hide approval refs only in metadata."
+      ]
+    },
+    {
+      "id": "AWF-T009",
+      "title": "Gate command planning and execution through WorkerToolRegistry",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Native command planning/execution currently has command classification and shell policy, but it must also be a registered tool invocation with explicit capability and approval checks.",
+      "target_files": ["agent/services/native_worker_runtime_service.py", "worker/shell/command_executor.py", "worker/shell/command_policy.py", "tests/test_shell_security.py", "tests/test_no_policy_bypass.py"],
+      "implementation_notes": [
+        "command_plan is lower risk and returns artifact only.",
+        "command_execute is high-risk and requires shell_execute capability plus approval where policy says so."
+      ],
+      "acceptance_criteria": [
+        "command_plan uses tool_id='native.command.plan' or equivalent registered id.",
+        "command_execute uses tool_id='native.command.execute' or equivalent registered id.",
+        "command_execute denies when tool is disabled or missing from allowed_tools/capability snapshot.",
+        "approval_required commands are blocked without valid approval_ref.",
+        "Shell policy classification is recorded but cannot override Hub denial.",
+        "Tests prove denied command does not call subprocess."
+      ],
+      "test_requirements": [
+        "Subprocess-not-called test on denial.",
+        "Approval-required command test.",
+        "Allowed safe command test."
+      ],
+      "anti_patterns": [
+        "Do not let local shell allowlist override Hub policy denial.",
+        "Do not allow command_execute from planner/reviewer profile."
+      ]
+    },
+    {
+      "id": "AWF-T010",
+      "title": "Add ToolResult contract with separated stdout/stderr/artifacts/side effects",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Native runtime returns dicts with output and artifact_refs. A common ToolResult contract would make tool outputs safer and easier to audit.",
+      "target_files": ["worker/core/tool_result.py", "agent/services/native_worker_runtime_service.py", "tests/test_tool_guardrails.py"],
+      "implementation_notes": [
+        "ToolResult should avoid one giant free-text blob.",
+        "Keep compatibility mapping to current output fields."
+      ],
+      "acceptance_criteria": [
+        "ToolResult includes status, exit_code, stdout_ref, stderr_ref, artifacts, warnings, side_effects, resource_usage, reason_code and sanitized_summary.",
+        "Command executor output maps into ToolResult before WorkerResult/native_runtime output.",
+        "Large stdout/stderr are bounded or artifact-referenced.",
+        "Side effects are explicit and empty for plan-only actions.",
+        "Tests verify large output truncation and side_effects list."
+      ],
+      "test_requirements": ["ToolResult mapping tests."],
+      "anti_patterns": ["Do not put all tool data into output string only."]
+    },
+    {
+      "id": "AWF-T011",
+      "title": "Add resource limits per tool call",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Timeout exists for command execution, but tool calls should also have max output, file-touch, process and artifact limits.",
+      "target_files": ["worker/core/tool_invocation_envelope.py", "worker/shell/command_executor.py", "agent/services/native_worker_runtime_service.py", "tests/test_performance_budgets.py"],
+      "implementation_notes": [
+        "Start with timeout_seconds and max_output_chars.",
+        "Add file/process limits as metadata if enforcement is not yet practical."
+      ],
+      "acceptance_criteria": [
+        "ToolInvocationEnvelope supports timeout_seconds, max_output_chars, max_artifact_bytes and max_files_touched fields.",
+        "Command execution enforces timeout_seconds and max_output_chars.",
+        "Exceeded output is truncated with explicit marker and original length metadata.",
+        "Resource limit breach returns degraded/failed with reason_code='resource_limit_exceeded'.",
+        "Tests cover timeout and max_output_chars."
+      ],
+      "test_requirements": ["Resource limit tests."],
+      "anti_patterns": ["Do not inject unlimited command output into model or memory context."]
+    },
+    {
+      "id": "AWF-T012",
+      "title": "Extend provider registry for LLM/model providers, not only worker execution providers",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "GenericProviderRegistry and WorkerExecutorDispatchBridge are good for execution providers, but Hermes-like worker behavior also needs local/cloud LLM provider routing with risk, cost, credentials and health.",
+      "target_files": ["agent/providers/registry.py", "agent/backend_provider_contracts.py", "agent/services/config_read_model_service.py", "tests/test_provider_registry.py", "tests/test_provider_interfaces.py"],
+      "implementation_notes": [
+        "Reuse GenericProviderRegistry where possible.",
+        "Add provider_family='llm_inference' descriptors for ollama, lmstudio, hosted_openai, openrouter/custom OpenAI-compatible if desired."
+      ],
+      "acceptance_criteria": [
+        "Provider registry can list llm_inference descriptors separately from worker_execution descriptors.",
+        "Each LLM provider declares provider_id, location, local_or_cloud, credential_source, supports_tools, supports_streaming, context_limit, cost_class, risk_class and health probe.",
+        "Provider resolution never exposes API key values.",
+        "Unknown or disabled provider resolves degraded/disabled, not available.",
+        "Tests cover ollama/lmstudio local descriptors and hosted provider descriptor."
+      ],
+      "test_requirements": ["Provider registry tests for llm_inference family."],
+      "anti_patterns": [
+        "Do not overload worker_execution provider family for model calls.",
+        "Do not store raw credentials in descriptors."
+      ]
+    },
+    {
+      "id": "AWF-T013",
+      "title": "Add model/provider selection policy for native worker calls",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Hermes-like native worker will need helper model calls for planning, summarization, validation, compression and skill review. Provider selection must be Hub policy driven, not worker convenience driven.",
+      "target_files": ["agent/services/model_selection_service.py", "agent/model_selection.py", "agent/services/native_worker_runtime_service.py", "worker/core/execution_envelope.py", "tests/test_autopilot_model_selection.py"],
+      "implementation_notes": [
+        "Use model_policy from ExecutionEnvelope/CapabilitySnapshot.",
+        "Worker may report provider availability but Hub/policy should decide allowed provider set."
+      ],
+      "acceptance_criteria": [
+        "Native worker model call helper accepts allowed_providers, denied_providers, cloud_allowed, max_tokens and sensitivity constraints.",
+        "Cloud provider is denied when cloud_allowed=false.",
+        "Fallback provider is allowed only if within same or lower risk/cost class and policy permits fallback.",
+        "Provider selection result records selected provider, alternatives and rejection reasons.",
+        "Tests cover local-first selection, cloud-blocked selection and fallback denial."
+      ],
+      "test_requirements": ["Provider/model selection policy tests."],
+      "anti_patterns": [
+        "Do not try every configured provider until one works.",
+        "Do not fall back from local to cloud silently."
+      ]
+    },
+    {
+      "id": "AWF-T014",
+      "title": "Isolate provider credentials from tool subprocesses and memory",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "As provider support grows, credentials must not leak into command subprocess env, logs, artifacts or result memory.",
+      "target_files": ["agent/common/vault_source.py", "agent/common/redaction.py", "agent/providers/registry.py", "worker/shell/command_executor.py", "tests/test_provider_redaction.py", "tests/test_audit_sanitization.py"],
+      "implementation_notes": [
+        "Use credential_source references, not raw values, in descriptors and traces.",
+        "Subprocess env should be minimal/allowlisted."
+      ],
+      "acceptance_criteria": [
+        "Provider API keys are never serialized in provider descriptors, traces, artifacts or memory entries.",
+        "Command subprocesses do not inherit provider API keys by default.",
+        "Redaction catches Authorization headers, API key env vars and common provider token names.",
+        "Provider credential_source appears in diagnostics without secret value.",
+        "Tests prove fake API key is not present in command env/log/memory."
+      ],
+      "test_requirements": ["Credential isolation and redaction tests."],
+      "anti_patterns": ["Do not place provider secrets in generic agent_cfg passed to workers/tools."]
+    },
+    {
+      "id": "AWF-T015",
+      "title": "Add provider health and degraded-state integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Provider registry resolution handles disabled/missing factory, but native worker diagnostics should expose health/degraded state consistently for execution and inference providers.",
+      "target_files": ["agent/providers/registry.py", "agent/services/system_health_service.py", "agent/services/config_read_model_service.py", "tests/test_system_health_standard.py", "tests/test_provider_registry.py"],
+      "implementation_notes": [
+        "Health probes must be cheap and no-secret.",
+        "Do not call expensive model generation as default health."
+      ],
+      "acceptance_criteria": [
+        "Diagnostics list execution providers and LLM providers separately.",
+        "Each provider reports ready, disabled, degraded, unauthorized, unavailable or misconfigured.",
+        "Health payload includes provider_id, family, location, risk_class and reason_code.",
+        "Health payload never exposes credentials.",
+        "Unavailable optional provider does not fail whole system health unless required by active profile."
+      ],
+      "test_requirements": ["Provider health diagnostic tests."],
+      "anti_patterns": ["Do not hide missing optional providers as generic startup failure."]
+    },
+    {
+      "id": "AWF-T016",
+      "title": "Add provider provenance to all model-generated worker artifacts",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Artifacts generated using model/provider calls must record which provider/model/policy generated them for reproducibility and audit.",
+      "target_files": ["agent/services/artifact_store.py", "agent/services/native_worker_runtime_service.py", "agent/services/result_memory_service.py", "tests/test_provider_provenance.py", "tests/test_artifact_provenance_hashes.py"],
+      "implementation_notes": [
+        "Provider provenance should include provider_id/model/local_or_cloud and prompt/template hashes, not raw prompt by default."
+      ],
+      "acceptance_criteria": [
+        "Every model-generated worker artifact includes provider_id, model_id, local_or_cloud, policy_decision_ref, prompt_hash, context_hash and generated_at.",
+        "Artifacts produced without model call explicitly mark provider='native_runtime' or equivalent.",
+        "Result memory preserves provider provenance refs, not raw secrets/prompts.",
+        "Tests verify provider provenance on plan/review/summary/patch proposal artifacts."
+      ],
+      "test_requirements": ["Provider provenance artifact tests."],
+      "anti_patterns": ["Do not store raw full prompts just to preserve provenance by default."]
+    },
+    {
+      "id": "AWF-T017",
+      "title": "Make CodeCompass/RAG context mandatory for code-aware worker modes",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "The project has strong CodeCompass/RAG tests and ContextBundleService, but code-aware worker modes must fail/degrade if they cannot get grounded project context instead of guessing.",
+      "target_files": ["agent/services/worker_job_service.py", "agent/services/context_bundle_service.py", "agent/services/codecompass_output_reader.py", "agent/services/rag_helper_index_service.py", "tests/test_worker_context_bundle_codecompass.py", "tests/test_context_bundle_codecompass_provenance.py"],
+      "implementation_notes": [
+        "Apply to task kinds coding, refactor, bugfix, review, architecture/code-analysis unless explicitly plan-only/no-context is requested.",
+        "Use required_context_scope and retrieval_intent."
+      ],
+      "acceptance_criteria": [
+        "Code-aware worker job creation requests CodeCompass/RAG context bundle by default.",
+        "If retrieval is unavailable and task requires grounded context, job becomes degraded/context_unavailable unless policy permits weak mode.",
+        "Context bundle metadata records CodeCompass channels used: fts/vector/graph/hybrid where applicable.",
+        "Worker prompt/context includes provenance and why_this_context metadata.",
+        "Tests prove coding task does not proceed with empty ungrounded context in strict mode."
+      ],
+      "test_requirements": ["CodeCompass context mandatory tests."],
+      "anti_patterns": [
+        "Do not let worker answer code questions from memory only when current code context is required.",
+        "Do not silently downgrade to generic LLM mode in strict governance."
+      ]
+    },
+    {
+      "id": "AWF-T018",
+      "title": "Add ContextEnvelope compatibility layer around ContextBundleDB",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "ContextBundleDB carries useful fields, but worker-runtime enforcement should use a typed ContextEnvelope with source refs, sensitivity, token budget, provenance and context hash.",
+      "target_files": ["worker/core/context_envelope.py", "agent/services/context_bundle_service.py", "agent/services/worker_contract_service.py", "tests/test_context_schema_registry.py", "tests/test_context_bundle_policy_filter.py"],
+      "implementation_notes": [
+        "Do not replace existing DB model immediately; wrap it.",
+        "Build ContextEnvelope from ContextBundleDB and context_policy."
+      ],
+      "acceptance_criteria": [
+        "ContextEnvelope model includes context_bundle_id, context_hash, blocks, total_tokens, sensitivity_summary, provenance, policy_version and retrieval_trace_ref.",
+        "ContextBundleDB can be converted to ContextEnvelope deterministically.",
+        "Each context block includes source_type, origin_id, sensitivity, estimated_tokens, content_ref/content_excerpt and provenance metadata.",
+        "ContextEnvelope validation rejects missing context_hash or unbounded raw all-files context.",
+        "Worker contracts can reference ContextEnvelope instead of loose context dict where practical."
+      ],
+      "test_requirements": ["ContextEnvelope conversion and validation tests."],
+      "anti_patterns": ["Do not pass giant context_text without block-level provenance into worker runtime."]
+    },
+    {
+      "id": "AWF-T019",
+      "title": "Enforce context budget and output reserve before model/provider calls",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "ContextBundleService has budget logic, but every worker model/provider call must explicitly enforce input budget and output reserve before sending context.",
+      "target_files": ["agent/services/context_bundle_service.py", "worker/core/context_envelope.py", "agent/services/model_selection_service.py", "tests/test_codecompass_worker_budgeting.py", "tests/test_performance_budgets.py"],
+      "implementation_notes": [
+        "Use budget sections from ContextBundleService.",
+        "Fail or compact before provider call, not after provider rejects context."
+      ],
+      "acceptance_criteria": [
+        "Worker model-call builder receives total context limit and output reserve.",
+        "Input context is compacted/truncated before provider call if over budget.",
+        "Critical policy/approval/control instructions are never silently dropped.",
+        "Budget accounting appears in trace: requested_tokens, selected_tokens, dropped_tokens, output_reserve.",
+        "Tests cover compact, standard and full modes."
+      ],
+      "test_requirements": ["Worker context budget tests."],
+      "anti_patterns": ["Do not rely on provider context-window errors as normal budget control."]
+    },
+    {
+      "id": "AWF-T020",
+      "title": "Strengthen context policy filtering for local vs cloud workers",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Context policy must prevent sensitive/project-private data from being sent to cloud providers or external workers unless explicitly allowed.",
+      "target_files": ["agent/services/rag_policy_service.py", "agent/services/context_bundle_service.py", "worker/core/context_envelope.py", "tests/test_context_bundle_policy_filter.py", "tests/test_redaction_levels.py"],
+      "implementation_notes": [
+        "Use llm_scope/local/cloud/external_worker classifications.",
+        "Apply filtering before provider call and before memory persist where needed."
+      ],
+      "acceptance_criteria": [
+        "Context blocks have normalized sensitivity and allowed_llm_scope fields.",
+        "Cloud/external worker context builder excludes blocks not allowed for that scope.",
+        "Excluded blocks are recorded with reason code, not silently hidden.",
+        "Strict governance defaults to local-only for sensitive code/project context.",
+        "Tests prove secret/confidential/internal blocks are excluded from cloud context."
+      ],
+      "test_requirements": ["Local/cloud context filter matrix tests."],
+      "anti_patterns": ["Do not let worker or LLM decide whether a sensitive block is okay for cloud."]
+    },
+    {
+      "id": "AWF-T021",
+      "title": "Add grounded prompt assembly contract for native worker",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "CodeCompass grounded prompt assembly exists in tests, but native worker should have a stable contract for how task, policy, context, artifacts and output schema are assembled.",
+      "target_files": ["agent/services/worker_contract_service.py", "agent/services/context_bundle_service.py", "tests/test_codecompass_grounded_prompt_assembly.py", "tests/test_task_prompt_templates.py"],
+      "implementation_notes": [
+        "Separate control instructions from untrusted context.",
+        "Mark context as data, not instructions."
+      ],
+      "acceptance_criteria": [
+        "Prompt assembly output has sections: control, task, policy constraints, allowed tools, context, expected artifacts, output schema.",
+        "Untrusted retrieved context is clearly delimited and cannot override control instructions.",
+        "Prompt assembly includes context_hash and retrieval_trace_ref.",
+        "Prompt assembly excludes secrets according to context policy.",
+        "Tests snapshot a representative grounded prompt without secrets."
+      ],
+      "test_requirements": ["Grounded prompt assembly snapshot tests."],
+      "anti_patterns": ["Do not put untrusted context before control/policy instructions."]
+    },
+    {
+      "id": "AWF-T022",
+      "title": "Add MemoryPolicy before ResultMemoryService persists worker output",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "ResultMemoryService persistently stores compacted worker output. It needs explicit policy for what can be remembered, with redaction and sensitivity handling.",
+      "target_files": ["agent/services/result_memory_service.py", "agent/repositories/memory.py", "agent/common/redaction.py", "tests/test_result_memory_service.py", "tests/test_memory_repository_resilience.py"],
+      "implementation_notes": [
+        "Create normalize_memory_policy with allow_raw_history, max_chars, sensitivity, ttl, allowed_scopes, redact_before_persist.",
+        "Default should be safe: redacted compact memory, no raw history."
+      ],
+      "acceptance_criteria": [
+        "ResultMemoryService evaluates MemoryPolicy before saving any MemoryEntryDB.",
+        "Secrets are redacted before content, summary, metadata and raw_history persist.",
+        "Raw output archive remains disabled by default.",
+        "Policy can disable memory write entirely for sensitive tasks.",
+        "Memory entry metadata records policy_version and redaction_applied."
+      ],
+      "test_requirements": [
+        "Secret redaction before memory save test.",
+        "Memory disabled policy test.",
+        "Raw history default-off test."
+      ],
+      "anti_patterns": ["Do not save full raw worker output into memory by default."]
+    },
+    {
+      "id": "AWF-T023",
+      "title": "Separate session memory, project memory and proposed long-term memory",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "problem": "Hermes-like memory should not mean one global memory bucket. Worker results need scoped memory types with different trust and approval rules.",
+      "target_files": ["agent/services/result_memory_service.py", "agent/db_models.py", "agent/repositories/memory.py", "tests/test_result_memory_and_federation.py"],
+      "implementation_notes": [
+        "Add entry_scope or memory_scope if schema supports it; otherwise store in metadata as migration step.",
+        "Long-term/project-wide memory should be proposal-first for high-risk content."
+      ],
+      "acceptance_criteria": [
+        "Memory entries distinguish session, task, project and proposed_long_term scopes.",
+        "Default worker result memory is task/project scoped only according to policy.",
+        "Long-term memory writes require explicit capability or are stored as MemoryProposalArtifact.",
+        "Retrieval can filter by memory scope.",
+        "Tests verify cross-project memory is not returned unintentionally."
+      ],
+      "test_requirements": ["Memory scope tests and retrieval filter tests."],
+      "anti_patterns": ["Do not let every successful worker output become global long-term memory."]
+    },
+    {
+      "id": "AWF-T024",
+      "title": "Add MemoryProposalArtifact for self-improvement and durable lessons",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Native worker should be able to suggest reusable lessons/skills/memory, but not directly promote them into durable truth.",
+      "target_files": ["agent/services/result_memory_service.py", "agent/services/artifact_type_registry.py", "tests/test_artifact_type_registry.py", "tests/test_result_memory_service.py"],
+      "implementation_notes": [
+        "Use for lessons learned, recurring failure patterns, useful project facts and possible skill proposals."
+      ],
+      "acceptance_criteria": [
+        "MemoryProposalArtifact schema/type exists with title, rationale, evidence_refs, proposed_scope, sensitivity, confidence and approval_required.",
+        "Worker can emit memory proposals without writing long-term memory directly.",
+        "Approval/promotion path is separate and Hub-owned.",
+        "Rejected proposals do not appear in normal retrieval as trusted memory.",
+        "Tests cover proposal creation and non-promotion by default."
+      ],
+      "test_requirements": ["MemoryProposalArtifact tests."],
+      "anti_patterns": ["Do not let worker self-promote memories into trusted global state."]
+    },
+    {
+      "id": "AWF-T025",
+      "title": "Add memory retrieval provenance and trust scoring",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "problem": "Result memory can be useful but must be treated as evidence with provenance and trust, not guaranteed truth.",
+      "target_files": ["agent/services/result_memory_service.py", "agent/services/retrieval_service.py", "agent/services/context_bundle_service.py", "tests/test_result_memory_service.py"],
+      "implementation_notes": [
+        "Start simple: trust_source, status, artifact refs, generated_by, approved flag."
+      ],
+      "acceptance_criteria": [
+        "Memory retrieval chunks include memory_scope, generated_by, artifact_refs, confidence/trust metadata and approved flag where available.",
+        "Unapproved proposed memory is marked untrusted or excluded depending on policy.",
+        "Context bundle explainability exposes memory provenance.",
+        "Tests verify unapproved memory cannot silently override current code context."
+      ],
+      "test_requirements": ["Memory provenance retrieval tests."],
+      "anti_patterns": ["Do not mix generated summaries with source code facts without provenance."
+      ]
+    },
+    {
+      "id": "AWF-T026",
+      "title": "Add memory cleanup/TTL policy",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "problem": "Worker memory will grow and may retain sensitive or stale details. It needs cleanup and TTL policy.",
+      "target_files": ["agent/services/result_memory_service.py", "agent/repositories/memory.py", "agent/services/scheduler_runtime_service.py", "tests/test_memory_repository_resilience.py"],
+      "implementation_notes": [
+        "Start with metadata fields even if cleanup job is later."
+      ],
+      "acceptance_criteria": [
+        "Memory entries can store ttl_seconds/expires_at or retention_class.",
+        "Default retention can differ for session/task/project memory.",
+        "Cleanup service can mark or remove expired entries safely.",
+        "Expired memory is excluded from retrieval unless admin/debug mode explicitly includes it.",
+        "Tests cover expired memory exclusion."
+      ],
+      "test_requirements": ["Memory TTL tests."],
+      "anti_patterns": ["Do not keep all worker output forever by default."
+      ]
+    },
+    {
+      "id": "AWF-T027",
+      "title": "Create SkillManifest schema for native Ananta worker",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Hermes-like behavior requires reusable skills, but Ananta skills must be versioned, capability-bound and approval-aware. No clear SkillManifest/SkillRegistry implementation is visible yet.",
+      "target_files": ["worker/skills/skill_manifest.py", "schemas/worker/skill_manifest.v1.json", "tests/test_worker_skills.py"],
+      "implementation_notes": [
+        "Keep first schema simple and strict.",
+        "Skills should be instructions/workflows plus allowed tool references, not arbitrary executable code by default."
+      ],
+      "acceptance_criteria": [
+        "SkillManifest includes id, version, name, description, input_schema, output_schema, required_capabilities, allowed_tools, denied_tools, context_requirements, risk_class, approval_requirements, tests and owner/source.",
+        "Invalid manifest is rejected with reason_code='skill_manifest_invalid'.",
+        "Unknown required capability denies skill load/enable.",
+        "Skill risk class cannot be lower than risk implied by required tools/capabilities.",
+        "Schema has positive and negative fixtures."
+      ],
+      "test_requirements": ["SkillManifest schema tests."],
+      "anti_patterns": ["Do not store skills only as free-form prompt snippets without metadata."
+      ]
+    },
+    {
+      "id": "AWF-T028",
+      "title": "Create SkillRegistry with disabled-by-default loading",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Skills need a registry with hash/version state and explicit enablement. Auto-loaded skills are a security risk.",
+      "target_files": ["worker/skills/skill_registry.py", "agent/services/config_read_model_service.py", "tests/test_worker_skills.py"],
+      "implementation_notes": [
+        "Registry can load manifests from configured directory but should not enable unsafe skills automatically.",
+        "Record content_hash for each skill."
+      ],
+      "acceptance_criteria": [
+        "SkillRegistry lists available skills with id, version, enabled, risk_class, required_capabilities and content_hash.",
+        "Skills are disabled by default unless config/policy enables them.",
+        "Changing skill file changes content_hash.",
+        "Duplicate skill id/version is rejected or degraded with clear reason.",
+        "Diagnostics can list skills without exposing secrets or long prompts."
+      ],
+      "test_requirements": ["SkillRegistry load/enable/hash tests."],
+      "anti_patterns": ["Do not auto-enable newly generated skills."
+      ]
+    },
+    {
+      "id": "AWF-T029",
+      "title": "Create SkillRunner through WorkerPreflightGate and ToolInvocationEnvelope",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Executing a skill must not bypass policy, allowed tools, context scope, provider policy or artifact enforcement.",
+      "target_files": ["worker/skills/skill_runner.py", "agent/services/worker_preflight_gate_service.py", "worker/core/tool_invocation_envelope.py", "tests/test_worker_skills.py", "tests/test_no_policy_bypass.py"],
+      "implementation_notes": [
+        "SkillRunner should receive ExecutionEnvelope/CapabilitySnapshot.",
+        "Skill steps call tools only through WorkerToolRegistry."
+      ],
+      "acceptance_criteria": [
+        "SkillRunner refuses to run disabled or invalid skills.",
+        "SkillRunner checks required capabilities against CapabilitySnapshot before execution.",
+        "Skill tool calls go through ToolInvocationEnvelope and WorkerToolRegistry.",
+        "Skill output is converted into typed artifact(s).",
+        "Skill cannot perform memory_write, file_write, shell_execute or provider_cloud_call unless explicitly granted.",
+        "Tests prove malicious skill manifest cannot escape denied tools."
+      ],
+      "test_requirements": ["SkillRunner security and success tests."],
+      "anti_patterns": ["Do not execute skill-defined Python code directly without sandbox/policy."
+      ]
+    },
+    {
+      "id": "AWF-T030",
+      "title": "Add SkillProposalArtifact instead of direct self-modifying skills",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "problem": "Hermes-like self-improvement should not mean the worker writes and enables its own skills. It should propose skills for review.",
+      "target_files": ["worker/skills/skill_proposal.py", "agent/services/artifact_type_registry.py", "tests/test_worker_skills.py"],
+      "implementation_notes": [
+        "Skill proposals can be generated from repeated task patterns or failures.",
+        "Install/enable is separate Hub/operator workflow."
+      ],
+      "acceptance_criteria": [
+        "SkillProposalArtifact includes proposed SkillManifest, rationale, evidence_refs, expected_tests, risk_analysis and required_capabilities.",
+        "Worker can emit SkillProposalArtifact only with skill_propose capability.",
+        "Proposal does not enable or write active skill by default.",
+        "Approval workflow is referenced but can be deferred if not implemented.",
+        "Tests prove proposal creation does not mutate active registry."
+      ],
+      "test_requirements": ["Skill proposal tests."],
+      "anti_patterns": ["Do not let worker auto-install generated skill code."
+      ]
+    },
+    {
+      "id": "AWF-T031",
+      "title": "Seed minimal safe native skills",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "problem": "Once SkillRunner exists, useful baseline skills should be provided without dangerous powers.",
+      "target_files": ["worker/skills/builtin/", "tests/test_worker_skills.py"],
+      "implementation_notes": [
+        "Start read-only and proposal-only.",
+        "No baseline skill should require unrestricted shell or cloud."
+      ],
+      "acceptance_criteria": [
+        "Baseline skills include repo_context_review, test_failure_triage, patch_plan, security_review and result_summary.",
+        "Each baseline skill has manifest, fixture input and expected artifact output.",
+        "Baseline skills declare minimal required capabilities.",
+        "No baseline skill can execute shell or apply patches by default.",
+        "Skill tests pass without cloud provider/API key."
+      ],
+      "test_requirements": ["Baseline skill fixture tests."],
+      "anti_patterns": ["Do not seed powerful mutation skills before SkillRunner gates are complete."]
+    },
+    {
+      "id": "AWF-T032",
+      "title": "Create SubworkerEnvelope with capability subset enforcement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "problem": "WorkerJobService supports delegated worker jobs, but Hermes-like subworkers need an explicit envelope proving child authority is a subset of parent authority.",
+      "target_files": ["worker/core/subworker_envelope.py", "agent/services/worker_job_service.py", "agent/services/task_delegation_services.py", "tests/test_task_delegation_policy.py"],
+      "implementation_notes": [
+        "SubworkerEnvelope should be Hub-created or Hub-approved.",
+        "Parent worker should not spawn arbitrary child workers locally."
+      ],
+      "acceptance_criteria": [
+        "SubworkerEnvelope includes parent_execution_id, child_task_id, delegated_objective, reduced_capability_snapshot, context_subset_ref, timeout, max_depth, audit_correlation_id and expected_artifacts.",
+        "Child capability set must be subset of parent capability set unless Hub explicitly grants a new decision.",
+        "Child context scope must be subset or approved derived context.",
+        "Invalid subset returns denied/subworker_capability_escalation.",
+        "Tests cover subset allow and escalation deny."
+      ],
+      "test_requirements": ["Subworker envelope subset tests."],
+      "anti_patterns": ["Do not let parent worker grant capabilities it does not have."
+      ]
+    },
+    {
+      "id": "AWF-T033",
+      "title": "Add DelegationArtifact and execution tree trace",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Delegated work should be reconstructable as a tree of tasks/results/artifacts.",
+      "target_files": ["agent/services/worker_job_service.py", "agent/services/artifact_type_registry.py", "tests/test_task_delegation_services_unit.py", "tests/test_transition_trace_consistency.py"],
+      "implementation_notes": [
+        "A parent WorkerResult should reference child WorkerResults via DelegationArtifact."
+      ],
+      "acceptance_criteria": [
+        "DelegationArtifact includes parent_execution_id, child_execution_ids, child_task_ids, delegated_capabilities, context_refs, statuses, artifact_refs and trace_refs.",
+        "WorkerJobService records delegation relationships.",
+        "Trace can reconstruct parent-child execution tree.",
+        "Failed child result does not disappear from parent summary.",
+        "Tests verify delegation artifact creation and trace tree."
+      ],
+      "test_requirements": ["Delegation artifact tests."],
+      "anti_patterns": ["Do not flatten child results into one summary without trace refs."]
+    },
+    {
+      "id": "AWF-T034",
+      "title": "Limit subworker recursion, fan-out and mutation concurrency",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "problem": "Subworkers can create loops, runaway cost or conflicting mutations unless depth/fan-out/concurrency are enforced.",
+      "target_files": ["agent/services/worker_job_service.py", "agent/services/task_delegation_services.py", "worker/core/subworker_envelope.py", "tests/test_hybrid_orchestrator_load.py"],
+      "implementation_notes": [
+        "Start with static limits: max_depth, max_children, max_parallel_mutations=0/1."
+      ],
+      "acceptance_criteria": [
+        "SubworkerEnvelope enforces max_depth.",
+        "WorkerJobService enforces max_children per parent execution.",
+        "Parallel read-only delegation may be allowed, but mutation-capable delegation is serialized or blocked by default.",
+        "Cycle/self-delegation beyond limit returns denied/delegation_cycle_or_depth_limit.",
+        "Tests cover depth, fan-out and mutation concurrency limits."
+      ],
+      "test_requirements": ["Subworker limit tests."],
+      "anti_patterns": ["Do not allow recursive autonomous worker spawning without Hub control."
+      ]
+    },
+    {
+      "id": "AWF-T035",
+      "title": "Add cancellation and timeout propagation across worker/subworker jobs",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Long-running worker/subworker executions need cancellation and timeout propagation to remain controllable.",
+      "target_files": ["agent/services/worker_job_service.py", "agent/services/task_claim_service.py", "agent/services/task_runtime_service.py", "tests/test_background_lifecycle_shutdown.py", "tests/test_worker_job_flow.py"],
+      "implementation_notes": [
+        "Tie into existing task lifecycle/cancel mechanisms if present."
+      ],
+      "acceptance_criteria": [
+        "Cancelling parent worker job marks pending child jobs cancelled or cancel_requested.",
+        "Timeout on parent propagates to child jobs.",
+        "Running command/tool receives best-effort interrupt where supported.",
+        "Final result distinguishes cancelled, timeout and failed.",
+        "Trace records which side effects completed before cancellation."
+      ],
+      "test_requirements": ["Cancellation propagation tests."],
+      "anti_patterns": ["Do not leave orphan worker jobs after parent cancellation."
+      ]
+    },
+    {
+      "id": "AWF-T036",
+      "title": "Create unified WorkerResult v2 for native worker paths",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Different services return dicts, WorkerResultDB, WorkerExecutionProviderResult and native_runtime payloads. A unified WorkerResult v2 is needed for reliable artifact-first flow.",
+      "target_files": ["worker/core/execution_envelope.py", "agent/providers/worker_execution.py", "agent/services/native_worker_runtime_service.py", "agent/services/worker_job_service.py", "tests/test_worker_contract_service.py"],
+      "implementation_notes": [
+        "Do not break existing DB shape immediately; add mapper/compatibility layer.",
+        "Use statuses success/partial_success/denied/needs_approval/failed/degraded/cancelled/timeout."
+      ],
+      "acceptance_criteria": [
+        "WorkerResult v2 includes status, reason_code, summary, artifacts, trace_bundle_ref, warnings, degraded_state, policy_observations, no_side_effects_confirmed and follow_up_tasks.",
+        "Native command plan/execute/verify outputs can map to WorkerResult v2.",
+        "Provider dispatch results can map to WorkerResult v2.",
+        "WorkerResultDB stores enough metadata to reconstruct WorkerResult v2 or references it.",
+        "Tests cover mapping from native runtime and provider result."
+      ],
+      "test_requirements": ["WorkerResult v2 mapping tests."],
+      "anti_patterns": ["Do not return only free-text output for non-trivial worker actions."]
+    },
+    {
+      "id": "AWF-T037",
+      "title": "Add TraceBundle v2 for native worker execution",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Native worker execution has trace_id and context_hash, but Hermes-like governed executor needs structured trace bundles for model calls, tool calls, provider dispatch, memory writes, skills and subworkers.",
+      "target_files": ["worker/core/trace_bundle.py", "agent/services/native_worker_runtime_service.py", "agent/services/worker_job_service.py", "tests/test_transition_trace_consistency.py"],
+      "implementation_notes": [
+        "TraceBundle should be secret-free by default.",
+        "Use refs/hashes for prompts and artifacts."
+      ],
+      "acceptance_criteria": [
+        "TraceBundle v2 includes execution_id, task_id, goal_id, worker_profile, capability_snapshot_hash, context_hash, policy_decision_ref, approval_refs, provider_calls, tool_calls, memory_writes, artifacts, timings, warnings and degraded states.",
+        "TraceBundle exists for success, denial, failure, timeout and cancellation.",
+        "TraceBundle records no raw secrets or full unredacted prompts by default.",
+        "Native command execute produces TraceBundle v2 or compatible ref.",
+        "Tests verify trace consistency across command plan -> execute -> verify."
+      ],
+      "test_requirements": ["TraceBundle v2 tests."],
+      "anti_patterns": ["Do not scatter trace details only across logs and output strings."]
+    },
+    {
+      "id": "AWF-T038",
+      "title": "Require typed artifacts for plan, command, test, verification, memory and skill outputs",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Native runtime already creates command/test/verification artifacts, but this artifact-first rule should apply uniformly to all worker modes.",
+      "target_files": ["agent/services/artifact_type_registry.py", "agent/services/native_worker_runtime_service.py", "agent/services/result_memory_service.py", "worker/skills/skill_runner.py", "tests/test_artifact_type_registry.py"],
+      "implementation_notes": [
+        "Add artifact type registry entries as needed.",
+        "No successful non-trivial worker result without artifact refs."
+      ],
+      "acceptance_criteria": [
+        "command_plan outputs CommandPlanArtifact.",
+        "command_execute outputs TestResultArtifact or CommandResultArtifact plus VerificationArtifact.",
+        "memory proposal outputs MemoryProposalArtifact.",
+        "skill proposal outputs SkillProposalArtifact.",
+        "subworker delegation outputs DelegationArtifact.",
+        "WorkerResult success for non-trivial modes requires at least one typed artifact."
+      ],
+      "test_requirements": ["Artifact-first enforcement tests."],
+      "anti_patterns": ["Do not treat stdout as the only artifact."
+      ]
+    },
+    {
+      "id": "AWF-T039",
+      "title": "Add worker diagnostics read model",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Operators need one view of native worker readiness: profiles, tools, providers, skills, memory, context/RAG, degraded state and policy gates.",
+      "target_files": ["agent/services/config_read_model_service.py", "agent/services/system_health_service.py", "agent/services/worker_capability_service.py", "tests/test_status_doctor_commands.py", "tests/test_system_health_standard.py"],
+      "implementation_notes": [
+        "Make it safe for UI/TUI/dashboard.",
+        "No secrets, no raw prompts."
+      ],
+      "acceptance_criteria": [
+        "Diagnostics include native_worker_enabled, worker_profiles, tool_registry_summary, provider_summary, skill_registry_summary, memory_policy_summary, context_policy_summary and last_degraded_reasons.",
+        "Diagnostics include whether hard enforcement gates are active.",
+        "Diagnostics never expose provider keys or secret context.",
+        "Doctor/status command can display concise worker readiness.",
+        "Tests verify redaction and expected fields."
+      ],
+      "test_requirements": ["Worker diagnostics tests."],
+      "anti_patterns": ["Do not expose raw env/config secrets in diagnostics."]
+    },
+    {
+      "id": "AWF-T040",
+      "title": "Emit audit events for all sensitive worker transitions",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Audit must cover more than command execution: policy decision, provider call, memory write, skill run, skill proposal, subworker spawn and artifact persistence all matter.",
+      "target_files": ["agent/common/audit.py", "agent/services/native_worker_runtime_service.py", "agent/services/worker_job_service.py", "agent/services/result_memory_service.py", "tests/test_audit_domain_integrations.py"],
+      "implementation_notes": [
+        "Use stable event names and reason codes.",
+        "Mutation or external/cloud events should be audit-critical."
+      ],
+      "acceptance_criteria": [
+        "Audit events emitted for worker_preflight_decision, worker_tool_invocation, worker_provider_call, worker_memory_write, worker_skill_run, worker_skill_proposal, worker_subworker_spawn, worker_artifact_persisted and worker_result_recorded.",
+        "Events include task_id, goal_id, execution_id, policy_decision_ref, capability_snapshot_hash and reason_code where applicable.",
+        "Events exclude raw secrets and full prompts.",
+        "Audit failure behavior follows AWF-T006.",
+        "Tests verify audit events for success and denial."
+      ],
+      "test_requirements": ["Worker audit event tests."],
+      "anti_patterns": ["Do not log only success events. Denials are important audit data."
+      ]
+    },
+    {
+      "id": "AWF-T041",
+      "title": "Add end-to-end native worker safe plan/review flow test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Need a full flow test proving native worker can receive a task, get context, pass preflight, produce artifact, record trace and result memory without mutation.",
+      "target_files": ["tests/test_worker_job_flow.py", "tests/test_reference_java_worker_and_opencode_paths.py", "tests/test_worker_rag_opencode_core_flow.py"],
+      "implementation_notes": [
+        "No cloud/API key.",
+        "Use mock provider/model if needed."
+      ],
+      "acceptance_criteria": [
+        "Test creates or simulates code-aware task.",
+        "ContextBundle/ContextEnvelope is created with provenance.",
+        "WorkerPreflightGate allows read-only plan/review mode.",
+        "WorkerResult v2 contains typed PlanArtifact or ReviewArtifact.",
+        "TraceBundle v2 exists and includes context_hash/capability_snapshot_hash.",
+        "No workspace mutation occurs."
+      ],
+      "test_requirements": ["Mocked E2E safe worker test."],
+      "anti_patterns": ["Do not rely only on unit tests for worker architecture."
+      ]
+    },
+    {
+      "id": "AWF-T042",
+      "title": "Add end-to-end native command execute denial and approval tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Command execution is the highest-risk native worker path and must prove denial/approval behavior end-to-end.",
+      "target_files": ["tests/test_shell_security.py", "tests/test_no_policy_bypass.py", "tests/test_task_execution_policy_service.py"],
+      "implementation_notes": [
+        "Monkeypatch subprocess to detect accidental execution on denied path."
+      ],
+      "acceptance_criteria": [
+        "command_execute without policy decision is denied and subprocess is not called.",
+        "command_execute without required approval is denied/needs_approval and subprocess is not called.",
+        "dangerous command is denied even if prompt asks to proceed.",
+        "approved safe command runs only inside workspace scope.",
+        "Trace/audit exist for denied and allowed paths."
+      ],
+      "test_requirements": ["Command execute approval/denial E2E tests."],
+      "anti_patterns": ["Do not test only command classifier without runtime path."
+      ]
+    },
+    {
+      "id": "AWF-T043",
+      "title": "Add provider fallback and cloud-block integration tests",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Provider flexibility is Hermes-like but dangerous without tests proving cloud/local boundaries and fallback limits.",
+      "target_files": ["tests/test_provider_registry.py", "tests/test_provider_redaction.py", "tests/test_release_gate_provider_boundaries.py"],
+      "implementation_notes": [
+        "Use fake providers only."
+      ],
+      "acceptance_criteria": [
+        "Local provider selected when local available and task/context sensitive.",
+        "Cloud provider denied when cloud_allowed=false.",
+        "Fallback from local to cloud denied unless explicit policy allows it.",
+        "Provider credentials do not appear in traces/artifacts/logs.",
+        "Unavailable provider returns degraded with reason_code, not crash."
+      ],
+      "test_requirements": ["Provider boundary integration tests."],
+      "anti_patterns": ["Do not require live OpenAI/Ollama Cloud for tests."
+      ]
+    },
+    {
+      "id": "AWF-T044",
+      "title": "Add worker security regression suite grouping",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Security tests exist across many files. A grouped worker security suite makes release gates and smaller models easier to use.",
+      "target_files": ["tests/test_worker_security_regression.py", "docs/development/worker-security-tests.md"],
+      "implementation_notes": [
+        "Can import/reuse helpers from existing tests.",
+        "No need to duplicate all tests; provide focused high-value regression paths."
+      ],
+      "acceptance_criteria": [
+        "Suite covers policy missing, approval missing, tool denied, provider cloud blocked, memory redaction, subworker escalation, skill unsafe manifest and context sensitivity.",
+        "Suite runs without external services/API keys.",
+        "Each test has a comment naming the bypass class it prevents.",
+        "Docs list command to run the worker security subset.",
+        "Release gate can reference this suite."
+      ],
+      "test_requirements": ["pytest tests/test_worker_security_regression.py"],
+      "anti_patterns": ["Do not hide security tests only inside broad slow E2E suite."
+      ]
+    },
+    {
+      "id": "AWF-T045",
+      "title": "Update native worker docs and this track after implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "The native worker architecture has evolved fast. Docs need to reflect real enforcement status, not planned behavior.",
+      "target_files": ["docs/architecture/ananta_native_worker.md", "docs/architecture/worker-governed-executor-adr.md", "docs/setup/native-worker.md", "todo.ananta-worker-fixup.json"],
+      "implementation_notes": [
+        "Document current state, not aspirational state.",
+        "Use explicit 'implemented', 'partial', 'planned' sections."
+      ],
+      "acceptance_criteria": [
+        "Docs explain native worker runtime pipeline and enforcement gates.",
+        "Docs list which Hermes-like capabilities are implemented: provider dispatch, context, memory, skills, subworkers, tool registry.",
+        "Docs list limitations and default-deny behavior.",
+        "Docs include operator/developer test commands.",
+        "This JSON track is updated with done/blocked status and evidence once fixes are implemented.",
+        "JSON remains valid after updates."
+      ],
+      "test_requirements": ["json.loads todo.ananta-worker-fixup.json succeeds; docs commands reviewed."],
+      "anti_patterns": ["Do not mark planned skill/subworker features as already active."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "AWF-T001",
+    "AWF-T002",
+    "AWF-T003",
+    "AWF-T004",
+    "AWF-T005",
+    "AWF-T007",
+    "AWF-T008",
+    "AWF-T009",
+    "AWF-T012",
+    "AWF-T013",
+    "AWF-T014",
+    "AWF-T017",
+    "AWF-T018",
+    "AWF-T020",
+    "AWF-T022",
+    "AWF-T027",
+    "AWF-T028",
+    "AWF-T029",
+    "AWF-T032",
+    "AWF-T036",
+    "AWF-T037",
+    "AWF-T038",
+    "AWF-T040",
+    "AWF-T041",
+    "AWF-T042",
+    "AWF-T043"
+  ],
+  "recommended_order": [
+    "AWF-M1",
+    "AWF-M2",
+    "AWF-M3",
+    "AWF-M4",
+    "AWF-M5",
+    "AWF-M8",
+    "AWF-M6",
+    "AWF-M7",
+    "AWF-M9"
+  ],
+  "minimum_safe_fix_slice": [
+    "AWF-T001",
+    "AWF-T002",
+    "AWF-T003",
+    "AWF-T004",
+    "AWF-T005",
+    "AWF-T007",
+    "AWF-T008",
+    "AWF-T009",
+    "AWF-T014",
+    "AWF-T017",
+    "AWF-T018",
+    "AWF-T020",
+    "AWF-T022",
+    "AWF-T036",
+    "AWF-T037",
+    "AWF-T038",
+    "AWF-T040",
+    "AWF-T041",
+    "AWF-T042",
+    "AWF-T043"
+  ],
+  "definition_of_done_global": [
+    "Native worker no longer invents allow policy decisions in normal runtime path.",
+    "WorkerPreflightGate protects every sensitive action.",
+    "WorkerCapabilityProfiles are enforced at runtime, not merely displayed.",
+    "WorkerToolRegistry and ToolInvocationEnvelope exist and protect command execution.",
+    "Provider registry supports execution and LLM/model provider families with local/cloud policy.",
+    "Provider credentials are isolated from subprocesses, traces, artifacts and memory.",
+    "Code-aware worker modes require grounded CodeCompass/RAG context or degrade safely.",
+    "ContextEnvelope wraps context bundles with provenance, sensitivity and budget accounting.",
+    "Result memory is policy-gated, redacted and scoped.",
+    "Skill system is manifest/registry/runner based and cannot self-enable.",
+    "Subworker delegation uses capability-subset envelopes and traceable artifacts.",
+    "WorkerResult v2 and TraceBundle v2 cover native worker outputs.",
+    "Security regression tests prove policy, tool, provider, memory, skill and subworker bypasses are blocked."
+  ],
+  "tasks_status_summary": {
+    "total": 45,
+    "by_status": {
+      "todo": 45,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 25,
+      "P1": 16,
+      "P2": 4
+    },
+    "by_risk": {
+      "critical": 11,
+      "high": 21,
+      "medium": 12,
+      "low": 1
+    },
+    "critical_path": {
+      "total": 26,
+      "done": 0,
+      "remaining": 26
+    },
+    "milestones": {
+      "total": 9,
+      "todo": 9,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "summary_notes": [
+    "This track is about making the native Ananta worker more Hermes-like while preserving Ananta's stronger security model.",
+    "The highest priority is not more autonomy; it is hard enforcement: policy gates, tool envelopes, provider boundaries, context envelopes and audited artifacts.",
+    "Skills, subworkers and self-improvement should be added only after the minimum safe fix slice is implemented."
+  ]
+}
