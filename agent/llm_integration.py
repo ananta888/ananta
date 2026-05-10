@@ -19,7 +19,8 @@ HTTP_TIMEOUT = getattr(settings, "http_timeout", 120)
 
 _LMSTUDIO_HISTORY_FILE = "llm_model_history.json"
 _LOCAL_RUNTIME_SELECTION_CACHE: dict[str, dict[str, Any]] = {}
-_LOCAL_RUNTIME_SELECTION_CACHE_TTL_SECONDS = 5
+_LOCAL_RUNTIME_SELECTION_CACHE_TTL_SECONDS = 30
+_LOCAL_RUNTIME_PROBE_TIMEOUT_SECONDS = 2
 
 
 def _model_identifier_tokens(value: str | None) -> set[str]:
@@ -884,7 +885,9 @@ def generate_text(
     provider_uses_runtime_url = not effective_base_url or _is_same_provider_url(p, effective_base_url, urls.get(p))
 
     if p in {"lmstudio", "ollama"} and provider_uses_runtime_url and (not provider_was_explicit or p == runtime_default_provider):
-        runtime_choice = resolve_preferred_local_runtime(p, urls, timeout=actual_timeout)
+        # Runtime probing must stay cheap; otherwise probe latency dominates local Ollama calls.
+        probe_timeout = max(1, min(int(actual_timeout), _LOCAL_RUNTIME_PROBE_TIMEOUT_SECONDS))
+        runtime_choice = resolve_preferred_local_runtime(p, urls, timeout=probe_timeout)
         selected_provider = str(runtime_choice.get("provider") or p).strip().lower() or p
         if selected_provider != p:
             p = selected_provider
