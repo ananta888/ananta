@@ -316,7 +316,7 @@ class AutoPlanner:
         created_ids = list(result.get("created_task_ids") or [])
 
         if self.auto_start_autopilot and created_ids:
-            self._ensure_autopilot_running(goal_id=goal_id)
+            self._ensure_autopilot_running(goal_id=goal_id, team_id=team_id)
 
         log_audit(
             "auto_planner_goal_processed",
@@ -406,7 +406,7 @@ class AutoPlanner:
 
         if created_followups:
             self._persist_state()
-            self._ensure_autopilot_running(goal_id=task_dict.get("goal_id"))
+            self._ensure_autopilot_running(goal_id=task_dict.get("goal_id"), team_id=task_dict.get("team_id"))
             try:
                 from agent.routes.tasks.autopilot import autonomous_loop
                 autonomous_loop.wake()
@@ -427,25 +427,23 @@ class AutoPlanner:
             "analysis": analysis,
         }
 
-    def _ensure_autopilot_running(self, goal_id: Optional[str] = None):
+    def _ensure_autopilot_running(self, goal_id: Optional[str] = None, team_id: Optional[str] = None):
         try:
             from agent.routes.tasks.autopilot import autonomous_loop
 
             resolved_goal = str(goal_id or "").strip() or None
             if not autonomous_loop.running:
-                active_team = next((t for t in _repos().team_repo.get_all() if t.is_active), None)
                 autonomous_loop.start(
                     interval_seconds=5,
                     max_concurrency=2,
                     goal=resolved_goal,
-                    team_id=active_team.id if active_team else None,
+                    team_id=team_id,
                     security_level="balanced",
                     persist=True,
                     background=not _background_threads_disabled(),
                 )
                 _log().info("Auto-Planner started autopilot automatically")
             elif resolved_goal:
-                # Keep an active loop focused on the latest planned goal.
                 autonomous_loop.start(goal=resolved_goal, persist=True, background=not _background_threads_disabled())
                 autonomous_loop.wake()
         except Exception as e:
