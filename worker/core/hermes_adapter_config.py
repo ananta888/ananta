@@ -18,6 +18,7 @@ class HermesAdapterConfig(BaseModel):
     rollout_phase: str = "phase1"
     blocked_models: list[str] = Field(default_factory=list)
     parse_retry_enabled: bool = True
+    feature_flag_enabled: bool = True
 
     @field_validator("timeout_seconds")
     @classmethod
@@ -69,4 +70,5 @@ class HermesAdapterConfig(BaseModel):
             "rollout_phase": self.rollout_phase,
             "blocked_models": list(self.blocked_models),
             "parse_retry_enabled": self.parse_retry_enabled,
+            "feature_flag_enabled": self.feature_flag_enabled,
         }
