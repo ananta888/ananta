@@ -9263,15 +9263,15 @@
       "provider": "opencode",
       "model": "ananta-default:latest",
       "overall": {
-        "total": 3,
-        "success": 3,
+        "total": 4,
+        "success": 4,
         "failed": 0,
-        "quality_pass": 3,
+        "quality_pass": 4,
         "quality_fail": 0,
-        "latency_ms_total": 111,
-        "tokens_total": 151,
+        "latency_ms_total": 112,
+        "tokens_total": 160,
         "cost_units_total": 0.0,
-        "last_seen": 1778411925,
+        "last_seen": 1778412818,
         "samples": [
           {
             "ts": 1778404304,
@@ -9305,20 +9305,31 @@
             "context": {
               "task_kind": "ops"
             }
+          },
+          {
+            "ts": 1778412818,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 1,
+            "tokens_total": 9,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "ops"
+            }
           }
         ]
       },
       "task_kinds": {
         "ops": {
-          "total": 3,
-          "success": 3,
+          "total": 4,
+          "success": 4,
           "failed": 0,
-          "quality_pass": 3,
+          "quality_pass": 4,
           "quality_fail": 0,
-          "latency_ms_total": 111,
-          "tokens_total": 151,
+          "latency_ms_total": 112,
+          "tokens_total": 160,
           "cost_units_total": 0.0,
-          "last_seen": 1778411925,
+          "last_seen": 1778412818,
           "samples": [
             {
               "ts": 1778404304,
@@ -9352,6 +9363,17 @@
               "context": {
                 "task_kind": "ops"
               }
+            },
+            {
+              "ts": 1778412818,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 1,
+              "tokens_total": 9,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "ops"
+              }
             }
           ]
         }
@@ -9361,15 +9383,15 @@
       "provider": "deerflow",
       "model": "ananta-default:latest",
       "overall": {
-        "total": 6,
-        "success": 6,
+        "total": 8,
+        "success": 8,
         "failed": 0,
-        "quality_pass": 6,
+        "quality_pass": 8,
         "quality_fail": 0,
         "latency_ms_total": 0,
-        "tokens_total": 36,
+        "tokens_total": 48,
         "cost_units_total": 0.0,
-        "last_seen": 1778410794,
+        "last_seen": 1778412606,
         "samples": [
           {
             "ts": 1778405125,
@@ -9436,20 +9458,42 @@
             "context": {
               "task_kind": "research"
             }
+          },
+          {
+            "ts": 1778412606,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 0,
+            "tokens_total": 6,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "research"
+            }
+          },
+          {
+            "ts": 1778412606,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 0,
+            "tokens_total": 6,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "research"
+            }
           }
         ]
       },
       "task_kinds": {
         "research": {
-          "total": 6,
-          "success": 6,
+          "total": 8,
+          "success": 8,
           "failed": 0,
-          "quality_pass": 6,
+          "quality_pass": 8,
           "quality_fail": 0,
           "latency_ms_total": 0,
-          "tokens_total": 36,
+          "tokens_total": 48,
           "cost_units_total": 0.0,
-          "last_seen": 1778410794,
+          "last_seen": 1778412606,
           "samples": [
             {
               "ts": 1778405125,
@@ -9516,11 +9560,33 @@
               "context": {
                 "task_kind": "research"
               }
+            },
+            {
+              "ts": 1778412606,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 0,
+              "tokens_total": 6,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "research"
+              }
+            },
+            {
+              "ts": 1778412606,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 0,
+              "tokens_total": 6,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "research"
+              }
             }
           ]
         }
       }
     }
   },
-  "updated_at": 1778411925
+  "updated_at": 1778412818
 }
