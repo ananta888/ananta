@@ -68,7 +68,7 @@ PROMPT_INJECTION_PATTERNS = [
     "you are now",
     "simulate",
     "jailbreak",
-    "DAN",
+    "DAN mode",
     "do anything now",
 ]
 

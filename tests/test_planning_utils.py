@@ -20,6 +20,12 @@ def test_validate_goal_rejects_empty_and_prompt_injection() -> None:
     assert validate_goal("Valid planning goal")[0] is True
 
 
+def test_sanitize_input_keeps_benign_words_with_dan_substring() -> None:
+    text = "Standardisierte Beschreibung fuer Fibonacci-Projekt"
+    cleaned = sanitize_input(text)
+    assert cleaned == text
+
+
 def test_extract_json_payload_handles_markdown_wrapper() -> None:
     payload = extract_json_payload("```json\n[{\"title\":\"A\"}]\n```")
     assert payload == '[{"title":"A"}]'

@@ -180,6 +180,21 @@ def normalize_allowed_tools(allowed_tools: list[str] | tuple[str, ...] | set[str
     return normalized
 
 
+def normalize_tool_call_name(raw_name: str | None) -> str:
+    name = str(raw_name or "").strip()
+    if not name:
+        return ""
+    short = name.rsplit(".", 1)[-1] if "." in name else name
+    aliases = {
+        "sh": "bash",
+        "shell": "bash",
+        "shell_execute": "bash",
+        "run_command": "bash",
+        "execute_command": "bash",
+    }
+    return aliases.get(short, short)
+
+
 def resolve_task_scope_allowed_tools(task: dict | None) -> list[str]:
     execution_context = dict((task or {}).get("worker_execution_context") or {})
     return normalize_allowed_tools(execution_context.get("allowed_tools"))
@@ -203,7 +218,7 @@ def validate_task_scoped_tool_calls(
             continue
 
         raw_name = str(tc.get("name") or tc.get("tool_name") or "").strip()
-        name = raw_name.rsplit(".", 1)[-1] if "." in raw_name else raw_name
+        name = normalize_tool_call_name(raw_name)
         if not name:
             blocked.append("<missing>")
             reasons["<missing>"] = "missing_tool_name"

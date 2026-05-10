@@ -184,3 +184,13 @@ def test_validate_task_scoped_tool_calls_keeps_existing_unscoped_flows_compatibl
     )
     assert blocked == []
     assert reasons == {}
+
+
+def test_validate_task_scoped_tool_calls_normalizes_shell_alias_to_bash():
+    blocked, reasons = validate_task_scoped_tool_calls(
+        [{"name": "sh", "args": {"command": "ls -F"}}],
+        allowed_tools=["bash"],
+        known_tools=["bash", "read_file"],
+    )
+    assert blocked == []
+    assert reasons == {}

@@ -25,6 +25,7 @@ from agent.models import AutoPlannerAnalyzeRequest, AutoPlannerConfigureRequest,
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.planning_service import get_planning_service as get_fallback_planning_service
+from agent.services.task_state_machine_service import can_autopilot_dispatch
 from agent.services.planning_utils import (
     build_planning_prompt,
     extract_json_payload,
@@ -444,23 +445,50 @@ class AutoPlanner:
                 )
                 _log().info("Auto-Planner started autopilot automatically")
             elif resolved_goal:
+                # Keep running loop stable. Frequent retargeting causes stop_event aborts
+                # and marks unrelated in-flight tasks as failed.
                 old_goal = str(getattr(autonomous_loop, "goal", "") or "").strip()
                 if old_goal and old_goal != resolved_goal:
-                    _log().info("Goal changed %s -> %s, restarting autopilot", old_goal[:12], resolved_goal[:12])
-                    autonomous_loop.restart_for_goal(
+                    old_goal_tasks = _repos().task_repo.get_by_goal_id(old_goal)
+                    has_actionable_old_goal_tasks = any(
+                        can_autopilot_dispatch(getattr(task, "status", None)) for task in old_goal_tasks
+                    )
+                    if has_actionable_old_goal_tasks:
+                        _log().info(
+                            "Autopilot already running for goal %s; ignoring retarget to %s to avoid dispatch thrash",
+                            old_goal[:12],
+                            resolved_goal[:12],
+                        )
+                    else:
+                        _log().info(
+                            "Autopilot retarget %s -> %s (no actionable tasks left in previous goal)",
+                            old_goal[:12],
+                            resolved_goal[:12],
+                        )
+                        autonomous_loop.restart_for_goal(
+                            goal=resolved_goal,
+                            team_id=team_id,
+                            persist=True,
+                        )
+                        autonomous_loop.start(
+                            goal=resolved_goal,
+                            team_id=team_id,
+                            security_level="balanced",
+                            interval_seconds=5,
+                            max_concurrency=2,
+                            persist=True,
+                            background=not _background_threads_disabled(),
+                        )
+                else:
+                    autonomous_loop.start(
                         goal=resolved_goal,
                         team_id=team_id,
+                        security_level="balanced",
+                        interval_seconds=5,
+                        max_concurrency=2,
                         persist=True,
+                        background=not _background_threads_disabled(),
                     )
-                autonomous_loop.start(
-                    goal=resolved_goal,
-                    team_id=team_id,
-                    security_level="balanced",
-                    interval_seconds=5,
-                    max_concurrency=2,
-                    persist=True,
-                    background=not _background_threads_disabled(),
-                )
                 autonomous_loop.wake()
         except Exception as e:
             _log().warning("Could not start autopilot: %s", e)
