@@ -2973,6 +2973,8 @@ class TaskScopedExecutionService:
             str(opencode_context_files.get("context_index_path") or "").strip(),
             str(opencode_context_files.get("task_brief_path") or "").strip(),
         ]
+        if context_text:
+            read_paths.append(str(opencode_context_files.get("hub_context_path") or ".ananta/hub-context.md"))
         if not interactive_terminal:
             read_paths.append(str(opencode_context_files.get("response_contract_path") or "").strip())
         read_paths = [item for item in read_paths if item]
@@ -2982,11 +2984,6 @@ class TaskScopedExecutionService:
                 "statt lange Inhalte zu wiederholen:\n" + "\n".join(f"- {item}" for item in read_paths)
             )
         if context_text:
-            prompt_sections.append(
-                "Selektierter Hub-Kontext ist ausgelagert in "
-                f"{str(opencode_context_files.get('hub_context_path') or '.ananta/hub-context.md')}. "
-                "Nutze diesen Kontext als verbindliche Grundlage."
-            )
             prompt_sections.append(
                 "Selektierter Research-Kontext ist im Hub-Kontext enthalten und wird aus derselben Datei geladen."
             )
