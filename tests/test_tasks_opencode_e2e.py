@@ -14,6 +14,11 @@ def test_task_e2e_solved_via_opencode_glm5_default(client, app, admin_auth_heade
             "default_backend": "opencode",
             "task_kind_backend": {"ops": "opencode"},
         }
+        # Clear env-specific model defaults so the test is environment-independent.
+        # The assertion verifies opencode is called without an explicit model override
+        # (letting opencode pick its own default), not which local model is configured.
+        cfg["default_model"] = None
+        cfg["model"] = None
         app.config["AGENT_CONFIG"] = cfg
         _update_local_task_status(tid, "assigned", description="Bitte Docker Service neu starten")
 
