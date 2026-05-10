@@ -676,22 +676,33 @@ def submit_goal(
     return []
 
 
-def submit_shortcut(kind: str, text: str, *, team_id: str | None = None, create_tasks: bool = True, output_dir: str | None = None, planning_mode: str | None = None):
+def submit_shortcut(
+    kind: str,
+    text: str,
+    *,
+    team_id: str | None = None,
+    create_tasks: bool = True,
+    output_dir: str | None = None,
+    planning_mode: str | None = None,
+):
     shortcut = SHORTCUT_GOALS.get(kind)
     if not shortcut:
         _print_terminal("Error: Unknown shortcut '{}'. Available: {}", kind, ", ".join(sorted(SHORTCUT_GOALS)))
         return []
     shortcut_text = text.strip()
-    return submit_goal(
-        goal=f"{shortcut['prefix']} {shortcut_text}",
-        context=shortcut["context"],
-        team_id=team_id,
-        create_tasks=create_tasks,
-        mode=shortcut.get("mode"),
-        mode_data=_shortcut_mode_data(kind, shortcut_text),
-        output_dir=output_dir,
-        planning_mode=planning_mode,
-    )
+    goal_kwargs = {
+        "goal": f"{shortcut['prefix']} {shortcut_text}",
+        "context": shortcut["context"],
+        "team_id": team_id,
+        "create_tasks": create_tasks,
+        "mode": shortcut.get("mode"),
+        "mode_data": _shortcut_mode_data(kind, shortcut_text),
+    }
+    if output_dir is not None:
+        goal_kwargs["output_dir"] = output_dir
+    if planning_mode is not None:
+        goal_kwargs["planning_mode"] = planning_mode
+    return submit_goal(**goal_kwargs)
 
 
 def _shortcut_mode_data(kind: str, text: str) -> dict:
@@ -1045,7 +1056,12 @@ Examples:
             print(f"Error: '{args.goal}' needs a short description")
             sys.exit(2)
         output_dir = args.output_dir.strip() if args.output_dir else None
-        submit_shortcut(args.goal, shortcut_text, team_id=args.team, create_tasks=not args.no_create, output_dir=output_dir, planning_mode=args.planning_mode)
+        shortcut_kwargs = {"team_id": args.team, "create_tasks": not args.no_create}
+        if output_dir is not None:
+            shortcut_kwargs["output_dir"] = output_dir
+        if args.planning_mode is not None:
+            shortcut_kwargs["planning_mode"] = args.planning_mode
+        submit_shortcut(args.goal, shortcut_text, **shortcut_kwargs)
     elif args.goal or args.goal_flag:
         goal_text = args.goal or args.goal_flag
         if args.extra:

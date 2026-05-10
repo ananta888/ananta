@@ -126,6 +126,7 @@ class GoalService:
             return {
                 "planning": {
                     "create_tasks": True,
+                    "use_template": True,
                     "use_repo_context": False,
                     "blueprint_hint": integration_hints.get("blueprint_name"),
                 },
@@ -154,6 +155,7 @@ class GoalService:
             return {
                 "planning": {
                     "create_tasks": True,
+                    "use_template": True,
                     "use_repo_context": True,
                     "blueprint_hint": integration_hints.get("blueprint_name"),
                 },
@@ -183,6 +185,7 @@ class GoalService:
             return {
                 "planning": {
                     "create_tasks": True,
+                    "use_template": True,
                     "use_repo_context": False,
                 },
                 "verification": {

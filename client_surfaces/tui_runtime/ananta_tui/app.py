@@ -1008,13 +1008,15 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
+    auth_token = args.auth_token or None
     try:
-        auth_token = resolve_session_auth_token(
-            args.base_url,
-            auth_mode=args.auth_mode,
-            auth_token=args.auth_token,
-            timeout_seconds=args.timeout_seconds,
-        )
+        if not args.fixture:
+            auth_token = resolve_session_auth_token(
+                args.base_url,
+                auth_mode=args.auth_mode,
+                auth_token=args.auth_token,
+                timeout_seconds=args.timeout_seconds,
+            )
         profile = build_client_profile(
             {
                 "profile_id": args.profile_id,
@@ -1025,7 +1027,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "timeout_seconds": args.timeout_seconds,
             }
         )
-    except (ValueError, ConnectionError, PermissionError) as exc:
+    except ConnectionError:
+        profile = build_client_profile(
+            {
+                "profile_id": args.profile_id,
+                "base_url": args.base_url,
+                "auth_mode": args.auth_mode,
+                "auth_token": auth_token,
+                "environment": args.environment,
+                "timeout_seconds": args.timeout_seconds,
+            }
+        )
+    except (ValueError, PermissionError) as exc:
         print(f"[TUI-ERROR] invalid_profile: {exc}")
         return 2
 

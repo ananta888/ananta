@@ -395,10 +395,10 @@ def build_default_agent_config() -> dict:
             },
         },
         "planning": {
-            # "llm"      → LLM (Ollama) always generates the task plan (default)
+            # "llm"      → LLM (Ollama) always generates the task plan
             # "template" → fixed template/blueprint first, LLM fallback if no match
-            # "auto"     → template first, LLM fallback (same as "template")
-            "default_strategy": "llm",
+            # "auto"     → template first, LLM fallback (default)
+            "default_strategy": "auto",
         },
         "planning_policy": {
             "delegated_planning_enabled": False,
