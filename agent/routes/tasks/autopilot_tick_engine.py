@@ -1050,6 +1050,8 @@ def execute_autopilot_tick(
     # thr-006: parallel dispatch via ThreadPoolExecutor.
     # thr-007: as_completed() enforces per_task_hard_timeout; timed-out tasks are
     #          marked failed so they don't stay stuck in proposing/in_progress.
+    # thr-014: use wait() in a poll loop so stop_event aborts the tick within 1s
+    #          instead of blocking until per_task_hard_timeout expires.
     task_results: list[TaskDispatchResult] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, effective_concurrency)) as executor:
         future_to_task_id: dict[concurrent.futures.Future, str] = {
@@ -1071,10 +1073,18 @@ def execute_autopilot_tick(
             ): task.id
             for task, target_worker, was_assigned in task_assignments
         }
-        try:
-            for future in concurrent.futures.as_completed(
-                future_to_task_id, timeout=per_task_hard_timeout
-            ):
+
+        _POLL = 1.0
+        pending = set(future_to_task_id.keys())
+        timeout_at = time.time() + per_task_hard_timeout
+        while pending and time.time() < timeout_at:
+            if loop._stop_event.is_set():
+                break
+            done, pending = concurrent.futures.wait(
+                pending, timeout=_POLL,
+                return_when=concurrent.futures.FIRST_COMPLETED,
+            )
+            for future in done:
                 tid = future_to_task_id[future]
                 try:
                     task_results.append(future.result())
@@ -1084,23 +1094,24 @@ def execute_autopilot_tick(
                     task_results.append(TaskDispatchResult(
                         task_id=tid, failed=True, failure_type="thread_exception"
                     ))
-        except concurrent.futures.TimeoutError:
-            # thr-007: hard timeout — cancel pending futures, mark tasks failed.
-            for future, tid in future_to_task_id.items():
-                if not future.done():
-                    future.cancel()
-                    logging.warning(
-                        "[tick][task_id=%s] dispatch timed out after %ss, marking failed",
-                        tid, per_task_hard_timeout,
-                    )
-                    update_local_task_status(tid, "failed", error="dispatch_timeout", force=True)
-                    append_trace_event(
-                        tid, "dispatch_timeout",
-                        reason=f"hard_timeout_{per_task_hard_timeout}s",
-                    )
-                    task_results.append(TaskDispatchResult(
-                        task_id=tid, failed=True, failure_type="dispatch_timeout"
-                    ))
+
+        # Cancel any remaining pending futures (timeout or stop_event).
+        for future in pending:
+            tid = future_to_task_id[future]
+            future.cancel()
+            reason = "stop_event" if loop._stop_event.is_set() else f"hard_timeout_{per_task_hard_timeout}s"
+            logging.warning(
+                "[tick][task_id=%s] dispatch aborted (%s), marking failed",
+                tid, reason,
+            )
+            update_local_task_status(tid, "failed", error=f"dispatch_{reason}", force=True)
+            append_trace_event(
+                tid, "dispatch_aborted",
+                reason=reason,
+            )
+            task_results.append(TaskDispatchResult(
+                task_id=tid, failed=True, failure_type="dispatch_aborted"
+            ))
 
     # thr-012: Aggregate results into local counters + loop counters (thr-002: via _increment_*).
     for r in task_results:
