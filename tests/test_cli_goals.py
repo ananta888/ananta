@@ -192,3 +192,27 @@ def test_shortcut_repair_admin_submits_goal_with_admin_repair_mode(monkeypatch):
     assert payload["mode_data"]["issue_symptom"] == "Service restart loop"
     assert payload["mode_data"]["execution_scope"] == "bounded_repair"
     assert payload["mode_data"]["dry_run"] is True
+
+
+def test_resolve_output_dir_bare_name():
+    container, host = cli_goals._resolve_output_dir("fibonacci")
+    assert container == "/project-workspaces/fibonacci"
+    assert host == "./project-workspaces/fibonacci"
+
+
+def test_resolve_output_dir_relative_dotslash():
+    container, host = cli_goals._resolve_output_dir("./myproject")
+    assert container == "/project-workspaces/myproject"
+    assert host == "./project-workspaces/myproject"
+
+
+def test_resolve_output_dir_already_absolute_container():
+    container, host = cli_goals._resolve_output_dir("/project-workspaces/fibonacci")
+    assert container == "/project-workspaces/fibonacci"
+    assert host == "./project-workspaces/fibonacci"
+
+
+def test_resolve_output_dir_arbitrary_absolute_passthrough():
+    container, host = cli_goals._resolve_output_dir("/some/other/path")
+    assert container == "/some/other/path"
+    assert host is None
