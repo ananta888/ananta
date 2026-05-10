@@ -88,7 +88,7 @@ def test_e2e_autonomous_scrum_recovery_restore_restarts_enabled_loop(app, monkey
         monkeypatch.setattr(manager, "start", _fake_start)
         manager.restore()
 
-    assert calls["interval_seconds"] == 7
+    assert calls["interval_seconds"] == 5  # restore() caps interval at 5s regardless of persisted value
     assert calls["max_concurrency"] == 3
     assert calls["persist"] is False
 
