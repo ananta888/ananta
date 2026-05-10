@@ -921,8 +921,12 @@ def execute_autopilot_tick(
             loop.stop(persist=True)
             return {"dispatched": 0, "reason": guardrail_reason}
 
+    goal_scope = str(getattr(loop, "goal", "") or "").strip() or None
+
     total_tasks_unfiltered = len(services.autopilot_support_service.scoped_tasks(team_id=None, app=loop._app))
     all_tasks = services.autopilot_support_service.scoped_tasks(team_id=loop.team_id or None, app=loop._app)
+    if goal_scope:
+        all_tasks = [task for task in all_tasks if str(getattr(task, "goal_id", "") or "").strip() == goal_scope]
     scoped_tasks = len(all_tasks)
 
     # Reset tasks stuck in `proposing` with no output for > 90 s back to `todo`
@@ -960,6 +964,12 @@ def execute_autopilot_tick(
         )
 
     dispatch_queue = services.task_queue_service.get_scoped_dispatch_queue(team_id=loop.team_id or None, now=time.time())
+    if goal_scope:
+        dispatch_queue = [
+            item
+            for item in dispatch_queue
+            if str(getattr(item.get("task"), "goal_id", "") or "").strip() == goal_scope
+        ]
     candidates = [item["task"] for item in dispatch_queue if item.get("task") is not None]
     if not candidates:
         loop.last_tick_at = time.time()
