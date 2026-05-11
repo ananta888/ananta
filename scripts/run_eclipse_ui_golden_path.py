@@ -62,6 +62,8 @@ def _docker_command(
         "docker",
         "run",
         "--rm",
+        "--user",
+        f"{os.getuid()}:{os.getgid()}",
         "-v",
         f"{ROOT}:/workspace",
         "-w",
