@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/artifacts/file_change_set.v1.json",
+  "title": "Ananta File Change Set v1",
+  "description": "Before/after snapshot diff of workspace files, produced by the Hub for workers that do not write artifact manifests yet.",
+  "type": "object",
+  "required": ["schema", "change_set_id", "task_id", "execution_id", "before_snapshot_id", "after_snapshot_id", "workspace_boundary_status"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "file_change_set.v1"
+    },
+    "change_set_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "before_snapshot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "after_snapshot_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workspace_boundary_status": {
+      "type": "string",
+      "enum": ["ok", "violation", "unknown"]
+    },
+    "created_files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/file_entry" },
+      "default": []
+    },
+    "modified_files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/file_entry" },
+      "default": []
+    },
+    "deleted_files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/file_entry" },
+      "default": []
+    },
+    "ignored_files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/file_entry" },
+      "default": []
+    },
+    "out_of_workspace_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["relative_path"],
+        "properties": {
+          "relative_path": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      },
+      "default": []
+    }
+  },
+  "$defs": {
+    "file_entry": {
+      "type": "object",
+      "required": ["relative_path"],
+      "properties": {
+        "relative_path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!\\.\\.)(?!/).*$"
+        },
+        "before_hash": {
+          "type": ["string", "null"]
+        },
+        "after_hash": {
+          "type": ["string", "null"]
+        },
+        "size_bytes": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "classification": {
+          "type": ["string", "null"],
+          "enum": ["public", "internal", "sensitive", "secret", null]
+        },
+        "safe_preview_ref": {
+          "type": ["string", "null"],
+          "description": "Hash reference to a safe content preview — never raw content."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

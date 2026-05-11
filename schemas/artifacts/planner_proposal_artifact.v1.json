@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/artifacts/planner_proposal_artifact.v1.json",
+  "title": "Ananta Planner Proposal Artifact v1",
+  "description": "Advisory-only artifact produced when an optional LLM planner generates output. Never authoritative for task graph mutation.",
+  "type": "object",
+  "required": ["schema", "proposal_id", "task_id", "goal_id", "source_model", "parse_status", "adoption_status", "raw_text_ref"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "planner_proposal_artifact.v1"
+    },
+    "proposal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_id": {
+      "type": "string"
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "source_model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "raw_text_ref": {
+      "type": "string",
+      "description": "Hash or reference to raw LLM output; never inline."
+    },
+    "parse_status": {
+      "type": "string",
+      "enum": ["parsed", "failed", "unparsed", "malformed_json", "markdown_fenced", "natural_language"]
+    },
+    "parse_error": {
+      "type": ["string", "null"]
+    },
+    "parsed_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "instructions"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string", "minLength": 1 },
+          "instructions": { "type": "string", "minLength": 1 },
+          "priority": { "type": "string" },
+          "risk": { "type": "string" },
+          "depends_on": { "type": "array", "items": { "type": "string" } },
+          "expected_artifacts": { "type": "array" },
+          "acceptance_criteria": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": true
+      },
+      "default": []
+    },
+    "adoption_status": {
+      "type": "string",
+      "enum": ["pending", "adopted", "rejected", "ignored"],
+      "description": "Whether deterministic validation adopted any parsed items."
+    },
+    "adoption_reason": {
+      "type": ["string", "null"]
+    },
+    "created_at": {
+      "type": "number"
+    }
+  },
+  "additionalProperties": false
+}

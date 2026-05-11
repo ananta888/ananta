@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/artifacts/artifact_completion_policy.v1.json",
+  "title": "Ananta Artifact Completion Policy v1",
+  "description": "Deterministic policy specifying when artifacts are sufficient to complete a task. Used by TaskCompletionPolicyService.",
+  "type": "object",
+  "required": ["schema", "policy_id", "task_id"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "artifact_completion_policy.v1"
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal_id": {
+      "type": ["string", "null"]
+    },
+    "required_artifact_kinds": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "All these artifact kinds must be present and verified.",
+      "default": []
+    },
+    "required_paths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Relative paths that must exist in the manifest.",
+      "default": []
+    },
+    "optional_paths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Paths whose presence increases confidence but is not mandatory.",
+      "default": []
+    },
+    "verification_required": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, all required artifacts must have verification_status=verified."
+    },
+    "completion_on_valid_manifest": {
+      "type": "boolean",
+      "default": true,
+      "description": "When true and manifest is valid with all required artifacts, task can be completed."
+    },
+    "allow_synthesized_manifest": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, a synthesized manifest from workspace diff can satisfy this policy."
+    },
+    "needs_review_conditions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Conditions that send task to needs_review instead of completed.",
+      "default": []
+    },
+    "retry_conditions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Conditions that make a task retryable (NOT parse failures).",
+      "default": []
+    },
+    "max_retries": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 3
+    }
+  },
+  "additionalProperties": false
+}

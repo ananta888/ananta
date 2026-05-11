@@ -58,6 +58,15 @@ class TraceBundleV2:
     finished_at: float | None = None
     final_status: str = "pending"
     worker_runtime_selection: dict[str, Any] = field(default_factory=dict)
+    # AFH-T019: Artifact-first handoff lifecycle fields
+    handoff_bundle_ref: str | None = None       # ref to worker_handoff_bundle.v1.json (never inline)
+    manifest_ref: str | None = None             # ref to artifact_manifest.v1.json
+    manifest_synthesized: bool | None = None    # True if manifest was Hub-synthesized from diff
+    file_change_set_ref: str | None = None      # ref to file_change_set
+    artifact_ids: list[str] = field(default_factory=list)  # from manifest, not raw content
+    verification_ref: str | None = None         # ref to VerificationResult artifact
+    completion_decision_ref: str | None = None  # ref to CompletionDecision record
+    advisory_json_parse_status: str | None = None  # recorded separately, never drives completion
 
     def finish(self, *, status: str) -> None:
         self.finished_at = time.time()
@@ -118,4 +127,12 @@ class TraceBundleV2:
             "duration_ms": self.duration_ms,
             "final_status": self.final_status,
             "worker_runtime_selection": dict(self.worker_runtime_selection),
+            "handoff_bundle_ref": self.handoff_bundle_ref,
+            "manifest_ref": self.manifest_ref,
+            "manifest_synthesized": self.manifest_synthesized,
+            "file_change_set_ref": self.file_change_set_ref,
+            "artifact_ids": list(self.artifact_ids),
+            "verification_ref": self.verification_ref,
+            "completion_decision_ref": self.completion_decision_ref,
+            "advisory_json_parse_status": self.advisory_json_parse_status,
         }

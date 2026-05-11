@@ -134,11 +134,26 @@
           "command_plan_artifact",
           "test_result_artifact",
           "verification_artifact",
-          "trace_metadata"
+          "trace_metadata",
+          "artifact_manifest"
         ]
       },
       "minItems": 1,
       "uniqueItems": true
+    },
+    "artifact_manifest_required": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, a valid artifact_manifest.v1.json must be produced. Final chat response cannot substitute."
+    },
+    "artifact_manifest_output_path": {
+      "type": ["string", "null"],
+      "description": "Relative path inside workspace where the worker must write artifact_manifest.v1.json.",
+      "pattern": "^(?!\\.\\.)(?!/).*$"
+    },
+    "handoff_bundle_ref": {
+      "type": ["string", "null"],
+      "description": "Relative path to the worker_handoff_bundle.v1.json written by the Hub."
     },
     "requested_state_on_policy_denied": {
       "type": "string",

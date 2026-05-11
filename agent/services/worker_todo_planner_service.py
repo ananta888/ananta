@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import time
+import uuid
 from typing import Any
 
 from flask import current_app, has_app_context
@@ -12,7 +15,7 @@ from worker.core.verification import validate_worker_schema_payload
 
 _DEFAULT_CONFIG = {
     "enabled": True,
-    "planner_llm_enabled": True,
+    "planner_llm_enabled": False,
     "planner_llm_timeout_seconds": 12,
     "planner_llm_retry_attempts": 1,
     "max_tasks": 6,
@@ -196,7 +199,7 @@ class WorkerTodoPlannerService:
             "planner_llm_enabled": bool(planner_cfg["planner_llm_enabled"]),
             "llm_attempted": False,
             "llm_applied": False,
-            "mode": "deterministic_only",
+            "mode": "artifact_first" if not planner_cfg["planner_llm_enabled"] else "deterministic_only",
             "errors": [],
         }
         try:
@@ -217,7 +220,7 @@ class WorkerTodoPlannerService:
             return {"contract": todo_contract, "generation": generation}
 
         generation["llm_attempted"] = True
-        llm_tasks, llm_error = self._refine_tasks_with_llm(
+        llm_tasks, llm_error, proposal_artifact = self._refine_tasks_with_llm(
             planner_cfg=planner_cfg,
             agent_cfg=agent_cfg,
             todo_contract=todo_contract,
@@ -226,28 +229,45 @@ class WorkerTodoPlannerService:
             max_tasks=int(planner_cfg["max_tasks"]),
             default_allowed_tools=list(allowed_tools or []),
             fallback_expected_artifacts=list(base_task["expected_artifacts"]),
+            subtask_id=str(subtask_id or ""),
+            parent_task=parent_task,
         )
         if llm_error:
             generation["errors"].append(llm_error)
             generation["mode"] = "deterministic_fallback"
-            return {"contract": todo_contract, "generation": generation}
+            result: dict[str, Any] = {"contract": todo_contract, "generation": generation}
+            if proposal_artifact:
+                result["planner_proposal"] = proposal_artifact
+            return result
         if not llm_tasks:
             generation["errors"].append("planner_llm_returned_no_tasks")
             generation["mode"] = "deterministic_fallback"
-            return {"contract": todo_contract, "generation": generation}
+            result = {"contract": todo_contract, "generation": generation}
+            if proposal_artifact:
+                result["planner_proposal"] = proposal_artifact
+            return result
 
-        todo_contract["todo"]["tasks"] = llm_tasks
+        # Proposal items are advisory only — never directly overwrite deterministic tasks.
+        # They are validated and stored in the proposal artifact; adoption requires explicit approval.
+        if proposal_artifact:
+            proposal_artifact["adoption_status"] = "pending"
         try:
             validate_worker_schema_payload(schema_name="worker_todo_contract.v1", payload=todo_contract)
         except ValueError as exc:
             generation["errors"].append(f"planner_llm_schema_invalid:{exc}")
             generation["mode"] = "deterministic_fallback"
-            todo_contract["todo"]["tasks"] = [base_task]
-            return {"contract": todo_contract, "generation": generation}
+            result = {"contract": todo_contract, "generation": generation}
+            if proposal_artifact:
+                proposal_artifact["adoption_status"] = "rejected"
+                proposal_artifact["adoption_reason"] = f"schema_invalid:{exc}"
+                result["planner_proposal"] = proposal_artifact
+            return result
 
-        generation["llm_applied"] = True
-        generation["mode"] = "deterministic_plus_llm"
-        return {"contract": todo_contract, "generation": generation}
+        generation["mode"] = "deterministic_plus_llm_advisory"
+        result = {"contract": todo_contract, "generation": generation}
+        if proposal_artifact:
+            result["planner_proposal"] = proposal_artifact
+        return result
 
     @staticmethod
     def _planner_llm_available(*, planner_cfg: dict[str, Any], agent_cfg: dict | None) -> bool:
@@ -283,6 +303,33 @@ class WorkerTodoPlannerService:
             "api_key": api_key,
         }
 
+    def _make_proposal_artifact(
+        self,
+        *,
+        raw_text: str,
+        task_id: str,
+        goal_id: str,
+        source_model: str,
+        parse_status: str,
+        parsed_items: list[dict[str, Any]] | None = None,
+        parse_error: str | None = None,
+    ) -> dict[str, Any]:
+        raw_ref = hashlib.sha256(raw_text.encode("utf-8", errors="replace")).hexdigest()[:16]
+        return {
+            "schema": "planner_proposal_artifact.v1",
+            "proposal_id": f"prop-{uuid.uuid4().hex[:12]}",
+            "task_id": task_id,
+            "goal_id": goal_id,
+            "source_model": source_model,
+            "raw_text_ref": raw_ref,
+            "parse_status": parse_status,
+            "parse_error": parse_error,
+            "parsed_items": list(parsed_items or []),
+            "adoption_status": "ignored",
+            "adoption_reason": None,
+            "created_at": time.time(),
+        }
+
     def _refine_tasks_with_llm(
         self,
         *,
@@ -294,10 +341,15 @@ class WorkerTodoPlannerService:
         max_tasks: int,
         default_allowed_tools: list[str],
         fallback_expected_artifacts: list[dict[str, Any]],
-    ) -> tuple[list[dict[str, Any]] | None, str | None]:
+        subtask_id: str = "",
+        parent_task: dict[str, Any] | None = None,
+    ) -> tuple[list[dict[str, Any]] | None, str | None, dict[str, Any] | None]:
         llm = self._resolve_llm_config(planner_cfg=planner_cfg, agent_cfg=agent_cfg)
+        task_id = str(subtask_id or todo_contract.get("task_id") or "")
+        goal_id = str((parent_task or {}).get("goal_id") or todo_contract.get("goal_id") or "")
+        source_model = f"{llm.get('provider','?')}/{llm.get('model','?')}"
         if not llm.get("provider") or not llm.get("model"):
-            return None, "planner_llm_not_configured"
+            return None, "planner_llm_not_configured", None
         prompt = self._build_planner_prompt(
             todo_contract=todo_contract,
             task_kind=task_kind,
@@ -307,6 +359,7 @@ class WorkerTodoPlannerService:
         retries = max(1, int(planner_cfg.get("planner_llm_retry_attempts") or 1))
         timeout = int(planner_cfg.get("planner_llm_timeout_seconds") or 12)
         last_error: str | None = None
+        last_raw: str = ""
         for _ in range(retries):
             try:
                 raw = generate_text(
@@ -317,11 +370,17 @@ class WorkerTodoPlannerService:
                     api_key=llm.get("api_key"),
                     timeout=timeout,
                 )
-                payload_text = extract_json_payload(str(raw or "")) or str(raw or "").strip()
+                last_raw = str(raw or "")
+                payload_text = extract_json_payload(last_raw) or last_raw.strip()
                 parsed = json.loads(payload_text)
                 raw_tasks = parsed if isinstance(parsed, list) else parsed.get("tasks")
                 if not isinstance(raw_tasks, list):
-                    return None, "planner_llm_invalid_shape"
+                    proposal = self._make_proposal_artifact(
+                        raw_text=last_raw, task_id=task_id, goal_id=goal_id,
+                        source_model=source_model, parse_status="malformed_json",
+                        parse_error="planner_llm_invalid_shape",
+                    )
+                    return None, "planner_llm_invalid_shape", proposal
                 normalized = self._normalize_llm_tasks(
                     items=raw_tasks,
                     max_tasks=max_tasks,
@@ -329,13 +388,30 @@ class WorkerTodoPlannerService:
                     fallback_expected_artifacts=fallback_expected_artifacts,
                 )
                 if not normalized:
-                    return None, "planner_llm_empty_after_normalization"
-                return normalized, None
+                    proposal = self._make_proposal_artifact(
+                        raw_text=last_raw, task_id=task_id, goal_id=goal_id,
+                        source_model=source_model, parse_status="parsed",
+                        parse_error="planner_llm_empty_after_normalization",
+                    )
+                    return None, "planner_llm_empty_after_normalization", proposal
+                proposal = self._make_proposal_artifact(
+                    raw_text=last_raw, task_id=task_id, goal_id=goal_id,
+                    source_model=source_model, parse_status="parsed",
+                    parsed_items=normalized,
+                )
+                return normalized, None, proposal
             except (TypeError, ValueError, json.JSONDecodeError) as exc:
                 last_error = f"planner_llm_parse_failed:{exc}"
-            except Exception as exc:  # noqa: BLE001 - planner path is best-effort with deterministic fallback.
+            except Exception as exc:  # noqa: BLE001
                 last_error = f"planner_llm_call_failed:{exc}"
-        return None, last_error or "planner_llm_failed"
+        # Parse failed — determine parse_status from error type
+        ps = "markdown_fenced" if last_raw.strip().startswith("```") else ("natural_language" if last_raw.strip() and not last_raw.strip().startswith("{") and not last_raw.strip().startswith("[") else "failed")
+        proposal = self._make_proposal_artifact(
+            raw_text=last_raw, task_id=task_id, goal_id=goal_id,
+            source_model=source_model, parse_status=ps,
+            parse_error=last_error,
+        )
+        return None, last_error or "planner_llm_failed", proposal
 
     @staticmethod
     def _build_planner_prompt(
