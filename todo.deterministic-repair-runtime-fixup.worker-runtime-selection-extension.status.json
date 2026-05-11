@@ -1,0 +1,224 @@
+{
+  "version": 1,
+  "status_for": "todo.deterministic-repair-runtime-fixup.worker-runtime-selection-extension.json",
+  "updated_after_commits": [
+    "bbe127ccab5216b6d223f5ce56a7751e4abc535d",
+    "d15322cacbae9935c759f73a678d5e94f3011ead",
+    "7ced3e6dae9c1a4ff15d881c4ed2f365677be1e7",
+    "acf4bfd79d8506d3172685ba8e3e343d8189c0cd",
+    "2d8ae1c87630d7a574efca6a197f7e14cd929ff3",
+    "512a24cde6c6d4a4c55858827451cd816ed2e0b4",
+    "41f6c8d22ea4dbe82aeaf72cc4c82cb509fd0892",
+    "c7adfee70ae42481254b965b5bb0abe8e14e1ef6",
+    "4844ef8be61670a664a8e857134576b415af823d",
+    "a03c89f741d796d7417df6536d7497774f0ac8a6"
+  ],
+  "summary": "The original extension todo file still contains the full detailed backlog. This status file records the current implementation state after the first backend implementation slice. The original file was not overwritten to avoid losing its detailed acceptance criteria.",
+  "overall_status": "partially_implemented",
+  "implemented_files": [
+    "worker/core/runtime_target.py",
+    "agent/services/worker_selection_policy_service.py",
+    "agent/services/worker_runtime_target_service.py",
+    "agent/services/worker_runtime_selection_service.py",
+    "schemas/worker/worker_selection_policy.v1.json",
+    "schemas/worker/worker_runtime_target.v1.json",
+    "tests/test_worker_selection_policy.py",
+    "tests/test_worker_runtime_target.py",
+    "tests/test_worker_runtime_selection_service.py"
+  ],
+  "tasks": [
+    {
+      "id": "DRR-T046",
+      "title": "Define WorkerSelectionPolicy schema for deterministic repair",
+      "status": "mostly_done",
+      "implemented": [
+        "WorkerSelectionPolicy added in worker/core/runtime_target.py",
+        "WorkerKind, WorkerSelectionMode and FallbackPolicy enums added",
+        "fixed, automatic and policy_ranked modes supported",
+        "fixed mode requires fixed_worker_id or fixed_worker_kind",
+        "automatic mode rejects fixed_worker_id",
+        "allowed/denied worker kinds validated",
+        "required/forbidden capabilities normalized and conflict-checked",
+        "legacy preferred_backend mapping added in agent/services/worker_selection_policy_service.py",
+        "JSON schema added at schemas/worker/worker_selection_policy.v1.json",
+        "tests added in tests/test_worker_selection_policy.py"
+      ],
+      "remaining": [
+        "Embed WorkerSelectionPolicy directly into RepairProcedureExecutionPlan and ExecutionEnvelope models",
+        "Run test suite in target environment",
+        "Potentially expand schema with stronger risk_profile enum if project wants strict validation"
+      ]
+    },
+    {
+      "id": "DRR-T047",
+      "title": "Define WorkerRuntimeTarget schema",
+      "status": "mostly_done",
+      "implemented": [
+        "WorkerRuntimeTarget added in worker/core/runtime_target.py",
+        "WorkerRuntimeKind, RuntimeDataBoundary, RuntimeHealthState and SecretAccessPolicy enums added",
+        "Runtime target fields include runtime_target_id, runtime_kind, location, endpoint_ref, workspace_scope, os_family, containerized, network_zone, allowed_capabilities, denied_capabilities, available_tools, max_parallel_tasks, resource_limits, data_boundary, secret_access_policy, health_state and validation_errors",
+        "mutation-capable runtime requires workspace_scope",
+        "secret-capable runtime requires explicit non-deny secret policy",
+        "local/cloud/external classification helpers added",
+        "WorkerRuntimeTargetService added with local_process_default and docker_default helpers",
+        "JSON schema added at schemas/worker/worker_runtime_target.v1.json",
+        "tests added in tests/test_worker_runtime_target.py"
+      ],
+      "remaining": [
+        "Reference runtime target from WorkerJobDB and repair execution records",
+        "Add persistent runtime target registry if desired",
+        "Run test suite in target environment"
+      ]
+    },
+    {
+      "id": "DRR-T048",
+      "title": "Implement WorkerRuntimeSelectionService",
+      "status": "partially_done",
+      "implemented": [
+        "WorkerCandidate, RejectedWorkerRuntimeCandidate and WorkerRuntimeSelectionDecision added",
+        "WorkerRuntimeSelectionService added in agent/services/worker_runtime_selection_service.py",
+        "Fixed selection fails closed when worker unavailable or invalid",
+        "Automatic/policy-ranked selection ranks deterministic candidates",
+        "Rejected candidates include reason codes and missing capabilities",
+        "Cloud runtime rejected when allow_cloud=false",
+        "External worker/runtime rejected when allow_external_workers=false",
+        "Hermes/ShellGPT rejected for mutation capabilities",
+        "OpenCode preferred for patch_propose capability",
+        "Native Ananta Worker preferred for repair.execute capabilities",
+        "Deterministic same-input selection covered by tests",
+        "tests added in tests/test_worker_runtime_selection_service.py"
+      ],
+      "remaining": [
+        "Integrate context boundary policy from todo.context-access-policy-backend.json",
+        "Integrate live agent/runtime registry instead of test/fake candidates only",
+        "Add stronger fallback_policy semantics beyond deny/fail-closed defaults",
+        "Run test suite in target environment"
+      ]
+    },
+    {
+      "id": "DRR-T049",
+      "title": "Persist selected worker and runtime target in repair plan/job/result",
+      "status": "started",
+      "implemented": [
+        "SelectedWorkerRuntimeRef added in worker/core/runtime_target.py",
+        "SelectedWorkerRuntimeRef.from_decision() converts selected decisions into persistable metadata"
+      ],
+      "remaining": [
+        "Add fields or metadata mapping to WorkerJobDB",
+        "Add selection metadata to RepairProcedureExecutionPlan",
+        "Add selection metadata to ExecutionEnvelope",
+        "Add actual worker/runtime metadata to RepairExecutionResult",
+        "Add RepairOutcomeDB/RepairExecutionRecordDB persistence roundtrip",
+        "Add tests/test_worker_runtime_selection_persistence.py"
+      ]
+    },
+    {
+      "id": "DRR-T050",
+      "title": "Add API for worker/runtime candidates and selection preview",
+      "status": "todo",
+      "implemented": [],
+      "remaining": [
+        "Add candidate list API",
+        "Add runtime target list API",
+        "Add selection preview API",
+        "Add API tests"
+      ]
+    },
+    {
+      "id": "DRR-T051",
+      "title": "Add Angular UI for fixed worker and runtime assignment",
+      "status": "todo",
+      "implemented": [],
+      "remaining": [
+        "Locate actual Angular frontend structure",
+        "Create reusable worker/runtime selection UI",
+        "Add tests"
+      ]
+    },
+    {
+      "id": "DRR-T052",
+      "title": "Add Angular UI for automatic worker/runtime policy configuration",
+      "status": "todo",
+      "implemented": [],
+      "remaining": [
+        "Create automatic selection policy editor",
+        "Add safe presets",
+        "Add preview rendering",
+        "Add tests"
+      ]
+    },
+    {
+      "id": "DRR-T053",
+      "title": "Bind worker/runtime selection into BlueprintRoleDB.config",
+      "status": "todo",
+      "implemented": [
+        "Legacy preferred_backend normalization exists in WorkerSelectionPolicyService"
+      ],
+      "remaining": [
+        "Wire service into team/blueprint routes and bundle import/export",
+        "Add role config validation",
+        "Add roundtrip tests"
+      ]
+    },
+    {
+      "id": "DRR-T054",
+      "title": "Bind worker/runtime selection into Agent registration and validation",
+      "status": "not_started_existing_model_partly_ready",
+      "implemented": [
+        "AgentInfoDB already has worker_roles, capabilities, execution_limits, registration_validated and validation_errors fields"
+      ],
+      "remaining": [
+        "Add runtime_targets to Agent registration model/API",
+        "Validate capabilities/roles/runtime targets",
+        "Expose in UI without dropping advanced fields",
+        "Add API/UI tests"
+      ]
+    },
+    {
+      "id": "DRR-T055",
+      "title": "Record worker/runtime selection in preview, trace, audit and operator view",
+      "status": "started_contract_only",
+      "implemented": [
+        "SelectedWorkerRuntimeRef contract exists",
+        "WorkerRuntimeSelectionDecision includes decision_hash, selected reason and rejected candidates"
+      ],
+      "remaining": [
+        "Add TraceBundle selection fields",
+        "Add audit events",
+        "Add repair preview/result integration",
+        "Add operator UI rendering",
+        "Add tests"
+      ]
+    },
+    {
+      "id": "DRR-T056",
+      "title": "Add E2E tests for fixed and automatic worker/runtime selection",
+      "status": "partial_unit_tests_only",
+      "implemented": [
+        "Unit tests cover fixed native worker selection",
+        "Unit tests cover fixed unavailable worker denial",
+        "Unit tests cover automatic native-vs-opencode-vs-hermes selection",
+        "Unit tests cover cloud/external rejection",
+        "Unit tests cover deterministic selection"
+      ],
+      "remaining": [
+        "Add full repair flow E2E tests",
+        "Add API preview tests",
+        "Add persistence outcome tests",
+        "Add no-network external/cloud tests"
+      ]
+    }
+  ],
+  "safe_next_steps": [
+    "Run pytest for the three new test files and fix any integration failures",
+    "Implement DRR-T049 persistence roundtrip without breaking existing DB migrations",
+    "Implement DRR-T050 read-only preview API using fake/in-memory candidates first",
+    "Then wire real AgentInfoDB candidates and runtime_targets into the API",
+    "Only after backend/API is stable, implement DRR-T051/DRR-T052 Angular UI"
+  ],
+  "known_caveats": [
+    "Tests were added but not executed in this chat environment.",
+    "The original detailed todo file still says todo for all tasks and should be merged/updated later when safe to rewrite the full JSON.",
+    "DB model migration/persistence is intentionally not fully implemented yet."
+  ]
+}
