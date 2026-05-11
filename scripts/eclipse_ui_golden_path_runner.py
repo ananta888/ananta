@@ -181,6 +181,8 @@ def _install_from_p2_site(*, eclipse_binary: Path, update_site: Path, timeout_se
     command = [
         str(eclipse_binary),
         "-nosplash",
+        "-configuration",
+        "/tmp/eclipse-p2-config",
         "-application",
         "org.eclipse.equinox.p2.director",
         "-repository",
@@ -193,6 +195,8 @@ def _install_from_p2_site(*, eclipse_binary: Path, update_site: Path, timeout_se
         profile,
         "-profileProperties",
         "org.eclipse.update.install.features=true",
+        "-vmargs",
+        "-Duser.home=/tmp/eclipse-home",
     ]
     result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=timeout_seconds)
     output = (result.stdout + "\n" + result.stderr).strip()
@@ -221,6 +225,8 @@ def _run_ui_availability_verifier(
         "-clean",
         "-consoleLog",
         "-nosplash",
+        "-configuration",
+        "/tmp/eclipse-verifier-config",
         "-data",
         str(workspace),
         "-application",
@@ -229,6 +235,7 @@ def _run_ui_availability_verifier(
         f"-Dananta.e2e.report={availability_report}",
         "-Doomph.setup.skip=true",
         "-Doomph.setup.sync.skip=true",
+        "-Duser.home=/tmp/eclipse-home",
         "-Xmx1g",
     ]
     timed_out = False
