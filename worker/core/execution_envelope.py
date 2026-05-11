@@ -37,9 +37,8 @@ KNOWN_CAPABILITY_CLASSES: frozenset[str] = frozenset({
     "subworker_spawn",
     "cron_schedule",
     "artifact_publish",
-    # AWF-T027–T030: skill capabilities
-    "skill_execute",
-    "skill_propose",
+    "admin_repair",
+    "deterministic_repair",
 })
 
 CONFIRM_REQUIRED_CAPABILITIES: frozenset[str] = frozenset({
@@ -53,6 +52,25 @@ CONFIRM_REQUIRED_CAPABILITIES: frozenset[str] = frozenset({
 
 
 # ── Sub-models ─────────────────────────────────────────────────────────────────
+
+class RepairStep(BaseModel):
+    step_id: str
+    title: str = ""
+    action_class: str = "inspect_state"
+    mutation_candidate: bool = False
+    rollback_supported: bool = True
+    verification_required: bool = True
+    expected_verification: str = ""
+    command_hint: str = ""
+    rollback_hint: str = "no_mutation"
+
+
+class RepairProcedure(BaseModel):
+    procedure_id: str
+    safety_class: str = "bounded"
+    steps: list[RepairStep] = Field(default_factory=list)
+    diagnosis: dict[str, Any] = Field(default_factory=dict)
+
 
 class ApprovalRef(BaseModel):
     ref_id: str
@@ -159,6 +177,7 @@ class ExecutionEnvelope(BaseModel):
     network_scope: NetworkScope = Field(default_factory=NetworkScope)
     audit_correlation_id: str
     trace_parent_id: str | None = None
+    repair_procedure: RepairProcedure | None = None
 
     @field_validator("task_id", "actor_ref", "context_envelope_ref", "audit_correlation_id")
     @classmethod

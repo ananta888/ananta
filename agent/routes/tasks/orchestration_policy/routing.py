@@ -16,6 +16,7 @@ ROLE_CAPABILITY_MAP = {
     "coder": {"coding", "implementation"},
     "reviewer": {"review", "analysis"},
     "tester": {"testing", "verification"},
+    "repairer": {"deterministic_repair", "admin_repair", "shell_execute", "verify"},
 }
 
 TASK_KIND_ROLE_PREFERENCES = {
@@ -25,6 +26,8 @@ TASK_KIND_ROLE_PREFERENCES = {
     "review": ["reviewer"],
     "testing": ["tester"],
     "verification": ["tester", "reviewer"],
+    "admin_repair": ["repairer"],
+    "deterministic_repair": ["repairer"],
 }
 
 SECURITY_LEVEL_RANK = {

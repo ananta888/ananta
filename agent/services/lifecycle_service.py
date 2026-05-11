@@ -77,6 +77,7 @@ class TaskLifecycleService:
         output_dir = ""
         goal_context_text = ""
         goal_rag_sources: dict = {}
+        goal_mode_data: dict = {}
         if goal_id:
             try:
                 goal = goal_repo.get_by_id(str(goal_id))
@@ -84,9 +85,16 @@ class TaskLifecycleService:
                     output_dir = str((goal.execution_preferences or {}).get("output_dir") or "").strip()
                     goal_context_text = str(goal.goal or "").strip()
                     goal_rag_sources = dict((goal.execution_preferences or {}).get("rag_sources") or {})
+                    goal_mode_data = dict(goal.mode_data or {})
             except Exception:
                 pass
         research_context_input = _merge_rag_sources(goal_rag_sources, task_kind)
+
+        deterministic_repair_foundation = goal_mode_data.get("deterministic_repair_foundation")
+        if isinstance(deterministic_repair_foundation, dict) and deterministic_repair_foundation.get("repair_procedure"):
+            extra_context = {"deterministic_repair_foundation": deterministic_repair_foundation}
+        else:
+            extra_context = {}
 
         worker_execution_context = {
             "kind": "worker_execution_context",
@@ -108,6 +116,7 @@ class TaskLifecycleService:
             **({"workspace": {"output_dir": output_dir}} if output_dir else {}),
             **({"shell_command_mode": shell_command_mode} if shell_command_mode else {}),
             **({"research_context_input": research_context_input} if research_context_input else {}),
+            **extra_context,
         }
         get_task_queue_service().ingest_task(
             task_id=task_id,

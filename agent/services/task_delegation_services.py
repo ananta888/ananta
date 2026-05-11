@@ -252,6 +252,10 @@ class WorkerExecutionContextFactory:
             expected_output_schema=expected_output_schema,
             routing_decision=routing_decision.as_dict(),
         )
+        parent_wec = dict(parent_task.get("worker_execution_context") or {})
+        parent_foundation = parent_wec.get("deterministic_repair_foundation")
+        if isinstance(parent_foundation, dict):
+            worker_execution_context["deterministic_repair_foundation"] = parent_foundation
         worker_todo_contract_bundle = self._build_worker_todo_contract(
             request=request,
             plan=plan,

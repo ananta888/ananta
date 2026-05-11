@@ -39,6 +39,8 @@ _TASK_KIND_CAPABILITY_HINTS: dict[str, list[str]] = {
     "command_execute": ["shell_execution"],
     "service_mutation": ["service_mutation"],
     "config_mutation": ["config_mutation"],
+    "admin_repair": ["deterministic_repair", "shell_execution"],
+    "deterministic_repair": ["deterministic_repair"],
 }
 
 _RISK_CLASS_RANK = {"low": 0, "medium": 1, "high": 2}

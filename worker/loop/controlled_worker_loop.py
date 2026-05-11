@@ -4,6 +4,7 @@ import time
 from typing import Any
 
 from worker.core.execution_profile import normalize_execution_profile
+from worker.core.execution_envelope import RepairProcedure
 from worker.core.plan_artifact import build_plan_artifact, update_plan_step_state
 from worker.loop.budgets import WorkerLoopBudgets, budgets_for_profile
 from worker.loop.progress_events import build_progress_event
@@ -22,7 +23,17 @@ def run_controlled_worker_loop(
     budgets: WorkerLoopBudgets | None = None,
     execution_profile: str | None = "balanced",
     checkpoint_store_path: str | None = None,
+    repair_procedure: RepairProcedure | None = None,
 ) -> dict[str, Any]:
+    if repair_procedure is not None:
+        return _run_deterministic_repair_loop(
+            task_id=task_id,
+            trace_id=trace_id,
+            context_hash=context_hash,
+            policy_decision=policy_decision,
+            approval_ref=approval_ref,
+            repair_procedure=repair_procedure,
+        )
     normalized_profile = normalize_execution_profile(execution_profile)
     bounded_budgets = budgets or budgets_for_profile(normalized_profile)
     bounded_budgets.validate()
@@ -268,4 +279,109 @@ def run_controlled_worker_loop(
                 detail="Loop stopped due to iteration/runtime budgets.",
             )
         )
+    return state
+
+
+def _run_deterministic_repair_loop(
+    *,
+    task_id: str,
+    trace_id: str,
+    context_hash: str,
+    policy_decision: str,
+    approval_ref: dict[str, Any] | None,
+    repair_procedure: RepairProcedure,
+) -> dict[str, Any]:
+    steps_data = [s.model_dump() for s in repair_procedure.steps]
+    plan_steps = [
+        {"step_id": s["step_id"], "title": s.get("title", ""), "state": "ready"}
+        for s in steps_data
+    ]
+    state = {
+        "schema": "worker_loop_state.v1",
+        "task_id": str(task_id).strip(),
+        "trace_id": str(trace_id).strip(),
+        "context_hash": str(context_hash).strip(),
+        "execution_profile": "deterministic_repair",
+        "policy_state": str(policy_decision).strip().lower() or "allow",
+        "phase": "deterministic_repair",
+        "iteration": 0,
+        "patch_attempts": 0,
+        "status": "running",
+        "stop_reason": "",
+        "artifacts": [],
+        "events": [],
+        "plan_artifact": build_plan_artifact(
+            task_id=task_id,
+            profile="deterministic_repair",
+            steps=plan_steps,
+        ),
+        "repair_procedure": {
+            "procedure_id": repair_procedure.procedure_id,
+            "safety_class": repair_procedure.safety_class,
+            "steps": steps_data,
+        },
+    }
+    state["events"].append(
+        build_progress_event(
+            task_id=task_id,
+            trace_id=trace_id,
+            phase="deterministic_repair",
+            iteration=0,
+            artifact_refs=[],
+            detail=f"Deterministic repair loop started: {repair_procedure.procedure_id} ({len(steps_data)} steps).",
+        )
+    )
+    for i, step in enumerate(steps_data):
+        step_id = step.get("step_id", f"step-{i}")
+        state["iteration"] = i + 1
+        state["plan_artifact"] = update_plan_step_state(
+            plan_artifact=state["plan_artifact"],
+            step_id=step_id,
+            state="executing",
+        )
+        state["events"].append(
+            build_progress_event(
+                task_id=task_id,
+                trace_id=trace_id,
+                phase="deterministic_repair",
+                iteration=i + 1,
+                artifact_refs=[],
+                detail=f"Executing step {step_id}: {step.get('title', '')}",
+            )
+        )
+        mutation = bool(step.get("mutation_candidate"))
+        if mutation and not approval_ref:
+            state["status"] = "needs_approval"
+            state["stop_reason"] = f"approval_required_for_step:{step_id}"
+            state["phase"] = "summarize"
+            state["events"].append(
+                build_progress_event(
+                    task_id=task_id,
+                    trace_id=trace_id,
+                    phase="summarize",
+                    iteration=i + 1,
+                    artifact_refs=[],
+                    detail=f"Approval required for mutation step {step_id}.",
+                )
+            )
+            return state
+        state["plan_artifact"] = update_plan_step_state(
+            plan_artifact=state["plan_artifact"],
+            step_id=step_id,
+            state="done",
+        )
+        state["artifacts"].append(f"repair-step:{step_id}")
+    state["status"] = "completed"
+    state["stop_reason"] = "deterministic_repair_completed"
+    state["phase"] = "summarize"
+    state["events"].append(
+        build_progress_event(
+            task_id=task_id,
+            trace_id=trace_id,
+            phase="summarize",
+            iteration=len(steps_data),
+            artifact_refs=list(state["artifacts"]),
+            detail="Deterministic repair loop completed.",
+        )
+    )
     return state

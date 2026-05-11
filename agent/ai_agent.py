@@ -19,6 +19,8 @@ from agent.metrics import APP_STARTUP_DURATION
 from agent.services.app_runtime_service import build_base_app_config, initialize_runtime_state
 from agent.services.repository_registry import initialize_repository_registry
 from agent.services.service_registry import initialize_core_services
+from agent.services.deterministic_repair_handler import DeterministicRepairHandler
+from agent.services.task_handler_registry import register_task_handler
 from agent.utils import read_json
 from agent.utils import register_with_hub as _register_with_hub
 
@@ -39,6 +41,26 @@ def _should_skip_threads_for_reloader() -> bool:
     from agent.lifecycle import BackgroundServiceManager
 
     return BackgroundServiceManager(object())._should_skip_for_reloader()
+
+
+def _register_deterministic_repair_handler(app: Flask) -> None:
+    handler = DeterministicRepairHandler()
+    register_task_handler(
+        "admin_repair",
+        handler,
+        app=app,
+        capabilities=["deterministic_repair", "shell_execute"],
+        safety_flags={"requires_review": True, "requires_approval": True},
+        verification_hooks=["step_verification", "final_verification"],
+    )
+    register_task_handler(
+        "deterministic_repair",
+        handler,
+        app=app,
+        capabilities=["deterministic_repair", "shell_execute"],
+        safety_flags={"requires_review": True},
+        verification_hooks=["step_verification"],
+    )
 
 
 def _check_token_rotation(app: Flask) -> None:
@@ -82,6 +104,7 @@ def create_app(agent: str = "default") -> Flask:
     run_startup_phase("repository_registry", initialize_repository_registry, app)
     run_startup_phase("core_services", initialize_core_services, app)
     run_startup_phase("background_services", start_background_services, app)
+    run_startup_phase("deterministic_repair_handler", _register_deterministic_repair_handler, app)
 
     elapsed = time.perf_counter() - _start_perf
     APP_STARTUP_DURATION.set(elapsed)

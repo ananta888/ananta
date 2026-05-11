@@ -650,3 +650,16 @@ class ActionPackDB(SQLModel, table=True):
     policy_config: dict = Field(default={}, sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
+
+
+class RepairOutcomeMemoryDB(SQLModel, table=True):
+    __tablename__ = "repair_outcome_memory"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    signature_id: str = Field(index=True)
+    problem_class: str = Field(index=True)
+    environment_facts: dict = Field(default={}, sa_column=Column(JSON))
+    procedure_id: str
+    execution_status: str
+    outcome_label: str
+    verification_evidence: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)

@@ -15,6 +15,7 @@ from typing import Any
 from worker.core.execution_envelope import (
     CONFIRM_REQUIRED_CAPABILITIES,
     ExecutionEnvelope,
+    RepairProcedure,
     TraceBundle,
     WorkerResult,
     WorkerResultStatus,
@@ -77,6 +78,7 @@ class PreflightGate:
             self._check_capability_grant,
             self._check_context_envelope_ref,
             self._check_confirm_required_capabilities,
+            self._check_repair_procedure,
             self._check_denied_operations,
         ]
         for check in checks:
@@ -189,6 +191,24 @@ class PreflightGate:
                         reason_code=REASON_APPROVAL_MISSING,
                         detail=cap,
                     )
+        return PreflightResult(decision=PreflightDecision.allow, reason_code="ok")
+
+    def _check_repair_procedure(self, envelope: ExecutionEnvelope) -> PreflightResult:
+        repair_caps = {"admin_repair", "deterministic_repair"}
+        has_repair_cap = repair_caps & set(envelope.capability_grant.capabilities)
+        if has_repair_cap:
+            if envelope.repair_procedure is None:
+                return PreflightResult(
+                    decision=PreflightDecision.blocked,
+                    reason_code=REASON_MISSING_CAPABILITY,
+                    detail="repair_procedure required when admin_repair/deterministic_repair capability granted",
+                )
+            if not envelope.repair_procedure.steps:
+                return PreflightResult(
+                    decision=PreflightDecision.blocked,
+                    reason_code=REASON_INVALID_REQUEST,
+                    detail="repair_procedure has no steps",
+                )
         return PreflightResult(decision=PreflightDecision.allow, reason_code="ok")
 
     def _check_denied_operations(self, envelope: ExecutionEnvelope) -> PreflightResult:
