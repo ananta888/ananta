@@ -49,7 +49,9 @@ RUN apt-get update \
     && jar cfm /opt/eclipse/plugins/javax.persistence_2.2.0.jar /tmp/javax-persistence-bundle/MANIFEST.MF -C /tmp/javax-persistence-bundle . \
     && rm -rf /var/lib/apt/lists/* /tmp/eclipse.tar.gz \
         /tmp/javax.persistence-api.jar /tmp/javax-persistence-bundle \
-    && mkdir -p /workspace /tmp/ananta-eclipse-workspace
+    && mkdir -p /workspace /tmp/ananta-eclipse-workspace \
+    && chmod -R a+w /opt/eclipse \
+    && chmod a+rwx /tmp/ananta-eclipse-workspace
 
 WORKDIR /workspace
 

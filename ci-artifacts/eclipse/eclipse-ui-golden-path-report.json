@@ -1,7 +1,7 @@
 {
   "schema": "eclipse_ui_golden_path_report_v1",
   "environment": "docker_xvfb_eclipse",
-  "ok": true,
+  "ok": false,
   "skipped": false,
   "skip_reason": "",
   "checks": [
@@ -31,57 +31,59 @@
     },
     {
       "check_id": "p2_install_from_update_site",
-      "ok": true,
+      "ok": false,
       "profile": "epp.package.jee",
       "update_site": "/workspace/ci-artifacts/eclipse/ananta-eclipse-update-site",
       "repositories": "file:///workspace/ci-artifacts/eclipse/ananta-eclipse-update-site,file:///opt/eclipse,https://download.eclipse.org/releases/2026-03",
-      "returncode": 0,
-      "output_tail": "che.hc.client5.http.impl.classic.InternalHttpClient -- ep-0000000032 releasing valid endpoint\n21:43:12.917 [Worker-0: File Transport Reader] DEBUG org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager -- ep-0000000032 releasing endpoint\n21:43:12.917 [Worker-0: File Transport Reader] DEBUG org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager -- ep-0000000032 releasing endpoint\n21:43:12.917 [Worker-0: File Transport Reader] DEBUG org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager -- ep-0000000032 connection http-outgoing-10 can be kept alive for 50 SECONDS\n21:43:12.917 [Worker-0: File Transport Reader] DEBUG org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager -- ep-0000000032 connection http-outgoing-10 can be kept alive for 50 SECONDS\n21:43:12.917 [Worker-0: File Transport Reader] DEBUG org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager -- ep-0000000032 connection released [route: {s}->[https://download.eclipse.org:443]][total available: 1; route allocated: 1 of 100; total allocated: 1 of 300]\n21:43:12.917 [Worker-0: File Transport Reader] DEBUG org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager -- ep-0000000032 connection released [route: {s}->[https://download.eclipse.org:443]][total available: 1; route allocated: 1 of 100; total allocated: 1 of 300]\nOperation completed in 24188 ms.\n21:43:14.749 [ForkJoinPool-1-worker-1] DEBUG org.eclipse.jgit.internal.util.ShutdownHook -- Cleanup org.eclipse.jgit.util.FS$FileStoreAttributes$$Lambda/0x00007b45ec226620@224cc6d8 during JVM shutdown\n21:43:14.749 [ForkJoinPool-1-worker-1] DEBUG org.eclipse.jgit.internal.util.ShutdownHook -- Cleanup org.eclipse.jgit.util.FS$FileStoreAttributes$$Lambda/0x00007b45ec226620@224cc6d8 during JVM shutdown\n21:43:14.768 [Framework stop - Equinox Container: 697ae9f4-1991-4532-aed2-5922ca5884c5] DEBUG org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager -- Shutdown connection pool GRACEFUL\n21:43:14.768 [Framework stop - Equinox Container: 697ae9f4-1991-4532-aed2-5922ca5884c5] DEBUG org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager -- Shutdown connection pool GRACEFUL\n21:43:14.768 [Framework stop - Equinox Container: 697ae9f4-1991-4532-aed2-5922ca5884c5] DEBUG org.apache.hc.client5.http.impl.io.DefaultManagedHttpClientConnection -- http-outgoing-10 set socket timeout to 1 SECONDS\n21:43:14.768 [Framework stop - Equinox Container: 697ae9f4-1991-4532-aed2-5922ca5884c5] DEBUG org.apache.hc.client5.http.impl.io.DefaultManagedHttpClientConnection -- http-outgoing-10 set socket timeout to 1 SECONDS\n21:43:14.768 [Framework stop - Equinox Container: 697ae9f4-1991-4532-aed2-5922ca5884c5] DEBUG org.apache.hc.client5.http.impl.io.DefaultManagedHttpClientConnection -- http-outgoing-10 close connection GRACEFUL\n21:43:14.768 [Framework stop - Equinox Container: 697ae9f4-1991-4532-aed2-5922ca5884c5] DEBUG org.apache.hc.client5.http.impl.io.DefaultManagedHttpClientConnection -- http-outgoing-10 close connection GRACEFUL\n21:43:14.768 [Framework stop - Equinox Container: 697ae9f4-1991-4532-aed2-5922ca5884c5] DEBUG org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager -- Connection pool shut down\n21:43:14.768 [Framework stop - Equinox Container: 697ae9f4-1991-4532-aed2-5922ca5884c5] DEBUG org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager -- Connection pool shut down\n\nMay 11, 2026 9:42:45 PM org.apache.aries.spifly.BaseActivator log\nINFO: Registered provider ch.qos.logback.classic.servlet.LogbackServletContainerInitializer of service jakarta.servlet.ServletContainerInitializer in bundle ch.qos.logback.classic\nMay 11, 2026 9:42:45 PM org.apache.aries.spifly.BaseActivator log\nINFO: Registered provider ch.qos.logback.classic.spi.LogbackServiceProvider of service org.slf4j.spi.SLF4JServiceProvider in bundle ch.qos.logback.classic\nThere were errors. See log file: /opt/eclipse/configuration/1778535763660.log"
+      "returncode": 15,
+      "output_tail": "Invalid Configuration Location:\nThe configuration area at '/.eclipse/org.eclipse.platform_4.39.0_1473617060_linux_gtk_x86_64/configuration' could not be created.  Please choose a writable location using the '-configuration' command line option.\n\nEclipse: Cannot open display:"
     },
     {
       "check_id": "ui_availability_verifier",
-      "ok": true,
-      "returncode": 0,
+      "ok": false,
+      "returncode": "timeout_after_verifier_report",
       "timed_out_after_report": false,
       "availability_report": "/workspace/ci-artifacts/eclipse/eclipse-ui-availability-report.json",
-      "verifier_report": {
-        "schema": "ananta_eclipse_ui_availability_report_v1",
-        "plugin_id": "io.ananta.eclipse.runtime",
-        "perspective_id": "io.ananta.eclipse.perspective",
-        "bundle_state": "active",
-        "registered_views": {
-          "io.ananta.eclipse.view.chat": true,
-          "io.ananta.eclipse.view.status": true,
-          "io.ananta.eclipse.view.goal": true,
-          "io.ananta.eclipse.view.task_list": true,
-          "io.ananta.eclipse.view.task_detail": true,
-          "io.ananta.eclipse.view.artifact": true,
-          "io.ananta.eclipse.view.approval_queue": true,
-          "io.ananta.eclipse.view.audit": true,
-          "io.ananta.eclipse.view.repair": true,
-          "io.ananta.eclipse.view.tui_status": true,
-          "io.ananta.eclipse.view.policy_fallback": true
-        },
-        "opened_views": {
-          "io.ananta.eclipse.view.chat": true,
-          "io.ananta.eclipse.view.status": true,
-          "io.ananta.eclipse.view.goal": true,
-          "io.ananta.eclipse.view.task_list": true,
-          "io.ananta.eclipse.view.task_detail": true,
-          "io.ananta.eclipse.view.artifact": true,
-          "io.ananta.eclipse.view.approval_queue": true,
-          "io.ananta.eclipse.view.audit": true,
-          "io.ananta.eclipse.view.repair": true,
-          "io.ananta.eclipse.view.tui_status": true,
-          "io.ananta.eclipse.view.policy_fallback": true
-        },
-        "open_errors": [],
-        "all_required_views_registered": true,
-        "all_required_views_opened": true,
-        "ok": true
-      },
-      "output_tail": "os.logback.classic 1 0 2026-05-11 21:43:20.783\n!MESSAGE Logback config file: /tmp/ananta-eclipse-workspace/.metadata/.plugins/org.eclipse.m2e.logback/logback.2.7.101.20251017-1242.xml\nANANTA_DIAG: window=org.eclipse.ui.internal.WorkbenchWindow@111ae918 page=org.eclipse.ui.internal.WorkbenchPage@14c06f50\n\n!ENTRY org.eclipse.ui.workbench 4 0 2026-05-11 21:43:23.981\n!MESSAGE An internal error has occurred.\n!STACK 0\njava.lang.NullPointerException: Cannot invoke \"org.eclipse.ui.services.IEvaluationService.addSourceProvider(org.eclipse.ui.ISourceProvider)\" because \"evaluationService\" is null\n\tat org.eclipse.tips.ide.internal.IDETipManager.open(IDETipManager.java:110)\n\tat org.eclipse.tips.ide.internal.TipsStartupService$3.runInUIThread(TipsStartupService.java:204)\n\tat org.eclipse.ui.progress.UIJob.lambda$0(UIJob.java:148)\n\tat org.eclipse.swt.widgets.RunnableLock.run(RunnableLock.java:40)\n\tat org.eclipse.swt.widgets.Synchronizer.runAsyncMessages(Synchronizer.java:132)\n\tat org.eclipse.swt.widgets.Display.runAsyncMessages(Display.java:5035)\n\tat org.eclipse.swt.widgets.Display.readAndDispatch(Display.java:4500)\n\tat org.eclipse.swt.widgets.Display.release(Display.java:4568)\n\tat org.eclipse.swt.graphics.Device.dispose(Device.java:297)\n\tat io.ananta.eclipse.runtime.e2e.EclipseUiAvailabilityVerifier.start(EclipseUiAvailabilityVerifier.java:43)\n\tat org.eclipse.equinox.internal.app.EclipseAppHandle.run(EclipseAppHandle.java:219)\n\tat org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.runApplication(EclipseAppLauncher.java:149)\n\tat org.eclipse.core.runtime.internal.adaptor.EclipseAppLauncher.start(EclipseAppLauncher.java:115)\n\tat org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:467)\n\tat org.eclipse.core.runtime.adaptor.EclipseStarter.run(EclipseStarter.java:298)\n\tat java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)\n\tat java.base/java.lang.reflect.Method.invoke(Method.java:580)\n\tat org.eclipse.equinox.launcher.Main.invokeFramework(Main.java:615)\n\tat org.eclipse.equinox.launcher.Main.basicRun(Main.java:563)\n\tat org.eclipse.equinox.launcher.Main.run(Main.java:1415)\n\tat org.eclipse.equinox.launcher.Main.main(Main.java:1387)\n\n!ENTRY org.eclipse.equinox.event 4 0 2026-05-11 21:43:23.985\n!MESSAGE Exception while dispatching event org.osgi.service.event.Event [topic=org/eclipse/e4/ui/LifeCycle/appStartupComplete] {org.eclipse.e4.data=org.eclipse.e4.legacy.ide.application=org.eclipse.e4.ui.model.application.impl.ApplicationImpl@7612116b (tags: [activeSchemeId:org.eclipse.ui.defaultAcceleratorConfiguration], contributorURI: platform:/plugin/org.eclipse.platform) (widget: null, toBeRendered: true, visible: true) (context: WorkbenchContext, variables: null)} to handler org.eclipse.e4.ui.internal.di.UIEventObjectSupplier$UIEventHandler@60b5266a\n!STACK 0\norg.eclipse.swt.SWTException: Device is disposed\n\tat org.eclipse.swt.SWT.error(SWT.java:4950)\n\tat org.eclipse.swt.SWT.error(SWT.java:4865)\n\tat org.eclipse.swt.SWT.error(SWT.java:4836)\n\tat org.eclipse.swt.widgets.Display.error(Display.java:1577)\n\tat org.eclipse.swt.widgets.Display.syncExec(Display.java:5938)\n\tat org.eclipse.e4.ui.workbench.swt.DisplayUISynchronize.syncExec(DisplayUISynchronize.java:34)\n\tat org.eclipse.e4.ui.internal.di.UIEventObjectSupplier$UIEventHandler.handleEvent(UIEventObjectSupplier.java:65)\n\tat org.eclipse.equinox.internal.event.EventHandlerWrapper.handleEvent(EventHandlerWrapper.java:206)\n\tat org.eclipse.equinox.internal.event.EventHandlerTracker.dispatchEvent(EventHandlerTracker.java:201)\n\tat org.eclipse.equinox.internal.event.EventHandlerTracker.dispatchEvent(EventHandlerTracker.java:1)\n\tat org.eclipse.osgi.framework.eventmgr.EventManager.dispatchEvent(EventManager.java:230)\n\tat org.eclipse.osgi.framework.eventmgr.EventManager$EventThread.run(EventManager.java:341)\n\n!ENTRY org.eclipse.core.resources 2 10035 2026-05-11 21:43:24.632\n!MESSAGE The workspace will exit with unsaved changes in this session."
+      "verifier_report": {},
+      "output_tail": ""
     }
   ],
-  "runtime_complete_claim_allowed": true
+  "runtime_complete_claim_allowed": false,
+  "host_checks": [
+    {
+      "check_id": "docker_available",
+      "ok": true
+    },
+    {
+      "check_id": "dockerfile_present",
+      "ok": true,
+      "dockerfile": "docker/eclipse-ui-e2e/Dockerfile"
+    },
+    {
+      "check_id": "plugin_jar_present",
+      "ok": true,
+      "plugin_jar": "client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build/libs/ananta-eclipse-plugin-runtime-0.1.0-bootstrap.jar"
+    },
+    {
+      "check_id": "p2_update_site_present",
+      "ok": true,
+      "update_site": "ci-artifacts/eclipse/ananta-eclipse-update-site"
+    },
+    {
+      "check_id": "p2_content.jar_present",
+      "ok": true,
+      "path": "ci-artifacts/eclipse/ananta-eclipse-update-site/content.jar"
+    },
+    {
+      "check_id": "p2_artifacts.jar_present",
+      "ok": true,
+      "path": "ci-artifacts/eclipse/ananta-eclipse-update-site/artifacts.jar"
+    },
+    {
+      "check_id": "docker_container_golden_path",
+      "ok": false,
+      "image": "ananta/eclipse-ui-e2e:local",
+      "output_tail": "{\n  \"schema\": \"eclipse_ui_golden_path_report_v1\",\n  \"environment\": \"docker_xvfb_eclipse\",\n  \"ok\": false,\n  \"skipped\": false,\n  \"skip_reason\": \"\",\n  \"checks\": [\n    {\n      \"check_id\": \"installed_eclipse_binary_present\",\n      \"ok\": true,\n      \"path\": \"/opt/eclipse/eclipse\"\n    },\n    {\n      \"check_id\": \"plugin_jar_contains_eclipse_metadata\",\n      \"ok\": true,\n      \"plugin_jar\": \"client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build/libs/ananta-eclipse-plugin-runtime-0.1.0-bootstrap.jar\"\n    },\n    {\n      \"check_id\": \"plugin_declares_golden_path_surfaces\",\n      \"ok\": true,\n      \"missing\": []\n    },\n    {\n      \"check_id\": \"eclipse_product_detected\",\n      \"ok\": true,\n      \"product\": {\n        \"name\": \"Eclipse Platform\",\n        \"id\": \"org.eclipse.platform\",\n        \"version\": \"4.39.0\"\n      }\n    },\n    {\n      \"check_id\": \"p2_install_from_update_site\",\n      \"ok\": false,\n      \"profile\": \"epp.package.jee\",\n      \"update_site\": \"/workspace/ci-artifacts/eclipse/ananta-eclipse-update-site\",\n      \"repositories\": \"file:///workspace/ci-artifacts/eclipse/ananta-eclipse-update-site,file:///opt/eclipse,https://download.eclipse.org/releases/2026-03\",\n      \"returncode\": 15,\n      \"output_tail\": \"Invalid Configuration Location:\\nThe configuration area at '/.eclipse/org.eclipse.platform_4.39.0_1473617060_linux_gtk_x86_64/configuration' could not be created.  Please choose a writable location using the '-configuration' command line option.\\n\\nEclipse: Cannot open display:\"\n    },\n    {\n      \"check_id\": \"ui_availability_verifier\",\n      \"ok\": false,\n      \"returncode\": \"timeout_after_verifier_report\",\n      \"timed_out_after_report\": false,\n      \"availability_report\": \"/workspace/ci-artifacts/eclipse/eclipse-ui-availability-report.json\",\n      \"verifier_report\": {},\n      \"output_tail\": \"\"\n    }\n  ],\n  \"runtime_complete_claim_allowed\": false\n}"
+    }
+  ]
 }
