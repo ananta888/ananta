@@ -41,12 +41,18 @@ class AgentRegistryService:
             "max_runtime_seconds": max(30, min(int(raw_limits.get("max_runtime_seconds") or 900), 86400)),
             "max_workspace_mb": max(64, min(int(raw_limits.get("max_workspace_mb") or 1024), 65536)),
         }
+        runtime_targets = list(data.get("runtime_targets") or [])
+        # Simple validation: must be list of dicts
+        if not isinstance(runtime_targets, list):
+             return None, "invalid_runtime_targets_format", 400
+
         normalized = {
             **data,
             "url": url,
             "role": role,
             "worker_roles": worker_roles,
             "capabilities": capabilities,
+            "runtime_targets": runtime_targets,
             "execution_limits": execution_limits,
         }
         return normalized, None, 200
@@ -71,6 +77,7 @@ class AgentRegistryService:
             token=data.get("token"),
             worker_roles=list(data.get("worker_roles") or []),
             capabilities=list(data.get("capabilities") or []),
+            runtime_targets=list(data.get("runtime_targets") or []),
             execution_limits=dict(data.get("execution_limits") or {}),
             registration_validated=True,
             validation_errors=[],
@@ -96,6 +103,7 @@ class AgentRegistryService:
             role=agent.role,
             worker_roles=list(agent.worker_roles or []),
             capabilities=list(agent.capabilities or []),
+            runtime_targets=list(agent.runtime_targets or []),
             execution_limits=WorkerExecutionLimitsContract(
                 max_parallel_tasks=max_parallel,
                 max_runtime_seconds=max(30, int(execution_limits.get("max_runtime_seconds") or 900)),

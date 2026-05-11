@@ -11,7 +11,7 @@ import time
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from .runtime_target import WorkerSelectionPolicy, SelectedWorkerRuntimeRef
 
 
 # ── Capability vocabulary ──────────────────────────────────────────────────────
@@ -121,6 +121,8 @@ class RepairProcedureExecutionPlan(BaseModel):
     created_by: str = "hub"
     policy_decision_ref: str = ""
     context_bundle_ref: str = ""
+    worker_selection_policy: WorkerSelectionPolicy | None = None
+    preselected_worker_runtime_decision_ref: str = ""
     steps: list[RepairStep] = Field(default_factory=list)
     verification_plan: dict[str, Any] = Field(default_factory=dict)
     rollback_hints: list[str] = Field(default_factory=list)
@@ -346,6 +348,8 @@ class ExecutionEnvelope(BaseModel):
     network_scope: NetworkScope = Field(default_factory=NetworkScope)
     audit_correlation_id: str
     trace_parent_id: str | None = None
+    worker_selection_policy: WorkerSelectionPolicy | None = None
+    selected_worker_runtime: SelectedWorkerRuntimeRef | None = None
     repair_procedure: RepairProcedure | None = None
 
     @field_validator("task_id", "actor_ref", "context_envelope_ref", "audit_correlation_id")

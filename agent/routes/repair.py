@@ -5,10 +5,19 @@ DRR-T038: Operator view for deterministic repair path.
 """
 from __future__ import annotations
 
-from flask import Blueprint, g, request
+from flask import Blueprint, g, request, current_app
 
 from agent.auth import admin_required, check_auth
 from agent.common.errors import api_response
+from agent.common.audit import log_audit
+from agent.repositories.core import agent_repo
+from agent.services.worker_runtime_selection_service import (
+    WorkerRuntimeSelectionRequest,
+    WorkerRuntimeSelectionService,
+)
+from agent.services.worker_selection_policy_service import WorkerSelectionPolicyService
+from agent.services.worker_runtime_target_service import WorkerRuntimeTargetService
+from worker.core.runtime_target import WorkerCandidate, WorkerKind
 
 repair_bp = Blueprint("repair", __name__, url_prefix="/repair")
 
@@ -18,7 +27,71 @@ def _check_auth_or_abort() -> bool:
     return bool(check_auth(token))
 
 
-# ── DRR-T035: Repair analysis endpoint ────────────────────────────────────────
+@repair_bp.route("/candidates", methods=["POST"])
+def list_worker_candidates():
+    """List available worker candidates for a given policy and requirements. DRR-T050."""
+    if not _check_auth_or_abort():
+        return api_response({"error": "unauthorized"}, 401)
+
+    body = request.get_json(silent=True) or {}
+    policy_data = body.get("worker_selection_policy") or body.get("policy")
+    required_capabilities = body.get("required_capabilities") or []
+    execution_mode = body.get("execution_mode") or "repair"
+
+    policy_service = WorkerSelectionPolicyService()
+    try:
+        policy = policy_service.from_config(policy_data)
+    except Exception as exc:
+        return api_response({"error": "invalid_policy", "detail": str(exc)}, 400)
+
+    # Gather candidates from registry
+    agents = agent_repo.get_all()
+    candidates = []
+    for a in agents:
+        if a.status != "online":
+            continue
+
+        # Map AgentInfoDB to WorkerCandidate
+        # This is a simplified mapping for the first slice
+        kind = WorkerKind.native_ananta_worker
+        if "opencode" in (a.name or "").lower():
+            kind = WorkerKind.opencode
+        elif "hermes" in (a.name or "").lower():
+            kind = WorkerKind.hermes
+
+        candidates.append(WorkerCandidate(
+            worker_id=a.url,
+            worker_kind=kind,
+            capabilities=list(a.capabilities or []),
+            worker_roles=list(a.worker_roles or []),
+            runtime_targets=[rt.get("runtime_target_id") for rt in (a.runtime_targets or []) if rt.get("runtime_target_id")],
+            priority=100, # Default priority
+        ))
+
+    return api_response({
+        "policy": policy.model_dump(mode="json"),
+        "candidates": [c.model_dump(mode="json") for c in candidates],
+        "candidate_count": len(candidates)
+    })
+
+
+@repair_bp.route("/runtime-targets", methods=["GET"])
+def list_runtime_targets():
+    """List available runtime targets. DRR-T050."""
+    if not _check_auth_or_abort():
+        return api_response({"error": "unauthorized"}, 401)
+
+    rt_service = WorkerRuntimeTargetService()
+    # For now, return default targets
+    targets = [
+        rt_service.local_process_default(),
+        rt_service.docker_default()
+    ]
+
+    return api_response({
+        "runtime_targets": [t.model_dump(mode="json") for t in targets],
+        "count": len(targets)
+    })
 
 @repair_bp.route("/analyze", methods=["POST"])
 def analyze_repair():
@@ -94,6 +167,7 @@ def preview_repair():
     environment_facts = body.get("environment_facts") or {}
     task_id = str(body.get("task_id") or "")
     goal_id = str(body.get("goal_id") or "")
+    policy_data = body.get("worker_selection_policy") or body.get("policy")
 
     if not matching_outcome:
         return api_response(
@@ -103,18 +177,80 @@ def preview_repair():
     try:
         from agent.services.repair_execution_plan_service import generate_repair_execution_plan
 
+        policy = None
+        if policy_data:
+            policy = WorkerSelectionPolicyService().from_config(policy_data)
+
         plan = generate_repair_execution_plan(
             matching_outcome=matching_outcome,
             environment_facts=environment_facts,
             task_id=task_id,
             goal_id=goal_id,
         )
+
+        if policy:
+            plan.worker_selection_policy = policy
+
+        # Perform preview selection
+        selection_service = WorkerRuntimeSelectionService()
+        rt_service = WorkerRuntimeTargetService()
+
+        # Build selection request
+        agents = agent_repo.get_all()
+        candidates = []
+        for a in agents:
+            if a.status != "online": continue
+            kind = WorkerKind.native_ananta_worker # Simplified
+            candidates.append(WorkerCandidate(
+                worker_id=a.url,
+                worker_kind=kind,
+                capabilities=list(a.capabilities or []),
+                worker_roles=list(a.worker_roles or []),
+                runtime_targets=[rt.get("runtime_target_id") for rt in (a.runtime_targets or []) if rt.get("runtime_target_id")],
+                priority=100
+            ))
+
+        runtime_targets = [rt_service.local_process_default(), rt_service.docker_default()]
+
+        all_required = []
+        for s in plan.steps:
+            all_required.extend(s.required_capabilities)
+
+        sel_request = WorkerRuntimeSelectionRequest(
+            policy=policy or WorkerSelectionPolicyService().from_config({}),
+            workers=candidates,
+            runtime_targets=runtime_targets,
+            required_capabilities=all_required,
+            execution_mode="repair_preview"
+        )
+        decision = selection_service.select(sel_request)
+
+        # Audit preview selection
+        try:
+            log_audit("worker_runtime_selected_preview", {
+                "plan_id": plan.plan_id,
+                "procedure_id": plan.procedure_id,
+                "policy_decision_ref": decision.policy_decision_ref,
+                "selected_worker_id": decision.selected_worker_id,
+                "selected_worker_kind": getattr(decision.selected_worker_kind, "value", str(decision.selected_worker_kind) if decision.selected_worker_kind else None),
+                "selected_runtime_target_id": decision.selected_runtime_target_id,
+                "selected_runtime_kind": getattr(decision.selected_runtime_kind, "value", str(decision.selected_runtime_kind) if decision.selected_runtime_kind else None),
+                "decision_status": getattr(decision.decision_status, "value", str(decision.decision_status)),
+                "selection_mode": getattr(decision.selection_mode, "value", str(decision.selection_mode)),
+            })
+        except Exception:
+            pass
+
         return api_response({
             "schema": "repair_preview_response_v1",
             "plan_id": plan.plan_id,
             "procedure_id": plan.procedure_id,
             "safety_class": plan.safety_class,
             "approval_requirement": plan.approval_requirement,
+            "worker_selection": {
+                "decision": decision.model_dump(mode="json"),
+                "policy": (policy or WorkerSelectionPolicyService().from_config({})).model_dump(mode="json")
+            },
             "step_count": len(plan.steps),
             "steps": [
                 {
@@ -124,6 +260,7 @@ def preview_repair():
                     "action_safety_class": s.action_safety_class,
                     "requires_approval": s.requires_approval,
                     "verification_after_step": s.verification_after_step,
+                    "required_capabilities": s.required_capabilities
                 }
                 for s in plan.steps
             ],

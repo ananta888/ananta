@@ -57,6 +57,7 @@ class TraceBundleV2:
     started_at: float = field(default_factory=time.time)
     finished_at: float | None = None
     final_status: str = "pending"
+    worker_runtime_selection: dict[str, Any] = field(default_factory=dict)
 
     def finish(self, *, status: str) -> None:
         self.finished_at = time.time()
@@ -116,4 +117,5 @@ class TraceBundleV2:
             "finished_at": self.finished_at,
             "duration_ms": self.duration_ms,
             "final_status": self.final_status,
+            "worker_runtime_selection": dict(self.worker_runtime_selection),
         }

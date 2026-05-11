@@ -424,6 +424,7 @@ class AgentRegisterRequest(SQLModel):
     token: Optional[str] = None
     worker_roles: List[str] = Field(default_factory=list)
     capabilities: List[str] = Field(default_factory=list)
+    runtime_targets: List[dict] = Field(default_factory=list)
     execution_limits: dict = Field(default_factory=dict)
     registration_token: Optional[str] = None
 
@@ -448,6 +449,7 @@ class AgentDirectoryEntryContract(SQLModel):
     role: str = "worker"
     worker_roles: List[str] = Field(default_factory=list)
     capabilities: List[str] = Field(default_factory=list)
+    runtime_targets: List[dict] = Field(default_factory=list)
     execution_limits: WorkerExecutionLimitsContract = Field(default_factory=WorkerExecutionLimitsContract)
     status: str = "online"
     registration_validated: bool = True

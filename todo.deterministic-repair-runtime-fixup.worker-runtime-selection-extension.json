@@ -37,7 +37,7 @@
     {
       "id": "DRR-T046",
       "title": "Define WorkerSelectionPolicy schema for deterministic repair",
-      "status": "todo",
+      "status": "mostly_done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Deterministic repair currently needs explicit control over whether the Hub uses native Ananta Worker, OpenCode, Hermes, ShellGPT, remote workers or another worker. This must be structured policy, not a UI text preference.",
@@ -49,9 +49,16 @@
         "tests/test_worker_selection_policy.py"
       ],
       "implementation_notes": [
-        "Keep worker selection separate from runtime target selection.",
-        "Selection mode should support fixed, automatic and policy_ranked.",
-        "The schema should be usable from BlueprintRoleDB.config, task request overrides and repair procedure plan metadata."
+        "WorkerSelectionPolicy added in worker/core/runtime_target.py",
+        "WorkerKind, WorkerSelectionMode and FallbackPolicy enums added",
+        "fixed, automatic and policy_ranked modes supported",
+        "fixed mode requires fixed_worker_id or fixed_worker_kind",
+        "automatic mode rejects fixed_worker_id",
+        "allowed/denied worker kinds validated",
+        "required/forbidden capabilities normalized and conflict-checked",
+        "legacy preferred_backend mapping added in agent/services/worker_selection_policy_service.py",
+        "JSON schema added at schemas/worker/worker_selection_policy.v1.json",
+        "tests added in tests/test_worker_selection_policy.py"
       ],
       "acceptance_criteria": [
         "WorkerSelectionPolicy includes mode, fixed_worker_id, allowed_worker_kinds, denied_worker_kinds, required_capabilities, forbidden_capabilities, prefer_local, allow_cloud, allow_external_workers, require_code_context, risk_profile, fallback_policy and selection_reason_required.",
@@ -75,7 +82,7 @@
     {
       "id": "DRR-T047",
       "title": "Define WorkerRuntimeTarget schema",
-      "status": "todo",
+      "status": "mostly_done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Choosing OpenCode or native worker is not enough. The system must know where the worker actually runs: local process, Docker container, WSL, remote URL, dedicated machine, CI sandbox or cloud runtime.",
@@ -87,8 +94,15 @@
         "tests/test_worker_runtime_target.py"
       ],
       "implementation_notes": [
-        "Runtime target must have capability and safety metadata.",
-        "Do not confuse agent registration URL with runtime execution target; one agent can expose multiple runtime targets later."
+        "WorkerRuntimeTarget added in worker/core/runtime_target.py",
+        "WorkerRuntimeKind, RuntimeDataBoundary, RuntimeHealthState and SecretAccessPolicy enums added",
+        "Runtime target fields include runtime_target_id, runtime_kind, location, endpoint_ref, workspace_scope, os_family, containerized, network_zone, allowed_capabilities, denied_capabilities, available_tools, max_parallel_tasks, resource_limits, data_boundary, secret_access_policy, health_state and validation_errors",
+        "mutation-capable runtime requires workspace_scope",
+        "secret-capable runtime requires explicit non-deny secret policy",
+        "local/cloud/external classification helpers added",
+        "WorkerRuntimeTargetService added with local_process_default and docker_default helpers",
+        "JSON schema added at schemas/worker/worker_runtime_target.v1.json",
+        "tests added in tests/test_worker_runtime_target.py"
       ],
       "acceptance_criteria": [
         "WorkerRuntimeTarget includes runtime_target_id, runtime_kind, location, endpoint_ref, workspace_scope, os_family, containerized, network_zone, allowed_capabilities, denied_capabilities, available_tools, max_parallel_tasks, resource_limits, data_boundary, secret_access_policy, health_state and validation_errors.",
@@ -111,7 +125,7 @@
     {
       "id": "DRR-T048",
       "title": "Implement WorkerRuntimeSelectionService",
-      "status": "todo",
+      "status": "partially_done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Hub needs deterministic selection logic that chooses a worker and runtime target from policy, capabilities, environment, safety class and current health.",
@@ -123,8 +137,18 @@
         "tests/test_worker_runtime_selection_service.py"
       ],
       "implementation_notes": [
-        "Inputs: WorkerSelectionPolicy, RuntimeTargetPolicy, RepairProcedureExecutionPlan, available agents/workers, runtime health, context policy.",
-        "Output: WorkerRuntimeSelectionDecision."
+        "WorkerCandidate, RejectedWorkerRuntimeCandidate and WorkerRuntimeSelectionDecision added",
+        "WorkerRuntimeSelectionService added in agent/services/worker_runtime_selection_service.py",
+        "Fixed selection fails closed when worker unavailable or invalid",
+        "Automatic/policy-ranked selection ranks deterministic candidates",
+        "Rejected candidates include reason codes and missing capabilities",
+        "Cloud runtime rejected when allow_cloud=false",
+        "External worker/runtime rejected when allow_external_workers=false",
+        "Hermes/ShellGPT rejected for mutation capabilities",
+        "OpenCode preferred for patch_propose capability",
+        "Native Ananta Worker preferred for repair.execute capabilities",
+        "Deterministic same-input selection covered by tests",
+        "tests added in tests/test_worker_runtime_selection_service.py"
       ],
       "acceptance_criteria": [
         "Service returns selected_worker_id, selected_worker_kind, selected_runtime_target_id, selected_runtime_kind, selection_mode, decision_status, selected_reason, rejected_candidates, required_capabilities, missing_capabilities, policy_decision_ref and context_boundary_decision.",
@@ -150,8 +174,8 @@
     },
     {
       "id": "DRR-T049",
-      "title": "Persist selected worker and runtime target in repair plan/job/result",
-      "status": "todo",
+      "title": "Persistenced selected worker and runtime target in repair plan/job/result",
+      "status": "partially_done",
       "priority": "P0",
       "risk": "high",
       "problem": "After execution it must be clear which worker and runtime actually ran the repair, not only which backend was preferred.",
@@ -164,8 +188,10 @@
         "tests/test_worker_runtime_selection_persistence.py"
       ],
       "implementation_notes": [
-        "Use refs/ids rather than duplicating all runtime details everywhere.",
-        "Persist both intended selection and actual effective selection."
+        "SelectedWorkerRuntimeRef added in worker/core/runtime_target.py",
+        "SelectedWorkerRuntimeRef.from_decision() converts selected decisions into persistable metadata",
+        "WorkerJobDB and WorkerResultDB fields added in agent/db_models.py",
+        "WorkerJobService.create_job and complete_job updated to persist selection data"
       ],
       "acceptance_criteria": [
         "RepairProcedureExecutionPlan includes worker_selection_policy and optional preselected_worker_runtime_decision_ref.",
@@ -187,7 +213,7 @@
     {
       "id": "DRR-T050",
       "title": "Add API for worker/runtime candidates and selection preview",
-      "status": "todo",
+      "status": "partially_done",
       "priority": "P0",
       "risk": "high",
       "problem": "UI needs an API to show available workers, runtime targets, automatic decision preview and rejected candidates before repair execution.",
@@ -200,7 +226,9 @@
       ],
       "implementation_notes": [
         "Endpoints should be read-only for preview unless explicit update/create action is called.",
-        "Expose enough details for UI, but no tokens/secrets."
+        "Expose enough details for UI, but no tokens/secrets.",
+        "Endpoints /repair/candidates and /repair/runtime-targets added to agent/routes/repair.py",
+        "Preview selection logic integrated into /repair/preview"
       ],
       "acceptance_criteria": [
         "API exposes list worker candidates with worker_id, kind, display_name, capabilities, roles, health_state, validation_errors, supported_execution_modes and risk flags.",
@@ -303,7 +331,7 @@
     {
       "id": "DRR-T053",
       "title": "Bind worker/runtime selection into BlueprintRoleDB.config",
-      "status": "todo",
+      "status": "mostly_done",
       "priority": "P0",
       "risk": "high",
       "problem": "BlueprintRoleDB.config already holds preferred_backend and execution_mode concepts, but it must support full worker/runtime policy so roles can deterministically choose execution backend and runtime environment.",
@@ -316,8 +344,11 @@
         "tests/test_blueprint_bundle_service.py"
       ],
       "implementation_notes": [
+        "Legacy preferred_backend normalization exists in WorkerSelectionPolicyService",
         "Keep backward compatibility with preferred_backend by mapping it into WorkerSelectionPolicy when possible.",
-        "Validate config on create/update/import."
+        "Validate config on create/update/import.",
+        "worker_selection validation added to blueprint role update in agent/routes/teams.py",
+        "Validation for worker_selection and runtime_target added to agent/services/blueprint_bundle_service.py"
       ],
       "acceptance_criteria": [
         "BlueprintRoleDB.config supports worker_selection and runtime_target_policy or equivalent nested fields.",
@@ -340,14 +371,14 @@
     {
       "id": "DRR-T054",
       "title": "Bind worker/runtime selection into Agent registration and validation",
-      "status": "todo",
+      "status": "mostly_done",
       "priority": "P0",
       "risk": "high",
       "problem": "Agent registration currently may expose only name/url/token/role in UI. The backend must model and validate capabilities, worker_roles, execution_limits, runtime_targets and registration validation state.",
       "target_files": [
         "agent/routes/agents.py",
         "agent/db_models.py",
-        "agent/services/agent_registration_service.py",
+        "agent/services/agent_registry_service.py",
         "agent/services/worker_runtime_target_service.py",
         "frontend*/src/app/**/agents-list*.component.ts",
         "frontend*/src/app/**/agent*.component.ts",
@@ -355,8 +386,12 @@
         "tests/test_agent_registration_validation.py"
       ],
       "implementation_notes": [
+        "AgentInfoDB already has worker_roles, capabilities, execution_limits, registration_validated and validation_errors fields",
         "Show validation_errors read-only in UI.",
-        "Capabilities and roles must be registry-validated, not arbitrary strings."
+        "Capabilities and roles must be registry-validated, not arbitrary strings.",
+        "runtime_targets field added to AgentInfoDB",
+        "AgentRegisterRequest and AgentDirectoryEntryContract updated with runtime_targets",
+        "AgentRegistryService.validate_registration_payload and build_registered_agent updated to handle runtime_targets"
       ],
       "acceptance_criteria": [
         "Agent registration model/API supports capabilities, worker_roles, execution_limits, runtime_targets, registration_validated and validation_errors.",
@@ -381,7 +416,7 @@
     {
       "id": "DRR-T055",
       "title": "Record worker/runtime selection in preview, trace, audit and operator view",
-      "status": "todo",
+      "status": "mostly_done",
       "priority": "P0",
       "risk": "high",
       "problem": "Operators must be able to see not only what repair will do, but which worker/runtime will do it and why.",
@@ -396,8 +431,12 @@
         "tests/test_audit_domain_integrations.py"
       ],
       "implementation_notes": [
+        "SelectedWorkerRuntimeRef contract exists",
+        "WorkerRuntimeSelectionDecision includes decision_hash, selected reason and rejected candidates",
         "Add selection info to preview before execution, and actual info after execution.",
-        "Rejected candidates should be summarized in UI; full list can be detail panel."
+        "Rejected candidates should be summarized in UI; full list can be detail panel.",
+        "Audit event 'worker_runtime_selected_preview' added to /repair/preview",
+        "TraceBundleV2 extended with worker_runtime_selection field"
       ],
       "acceptance_criteria": [
         "Repair preview shows selected worker/runtime or fixed assignment and rejected candidates with reason codes.",
@@ -420,7 +459,7 @@
     {
       "id": "DRR-T056",
       "title": "Add E2E tests for fixed and automatic worker/runtime selection",
-      "status": "todo",
+      "status": "partial_unit_tests_only",
       "priority": "P0",
       "risk": "critical",
       "problem": "The final proof must show that UI/API policy leads to the expected worker and runtime target during real deterministic repair flow.",
@@ -430,6 +469,11 @@
         "tests/test_repair_runtime_e2e.py"
       ],
       "implementation_notes": [
+        "Unit tests cover fixed native worker selection",
+        "Unit tests cover fixed unavailable worker denial",
+        "Unit tests cover automatic native-vs-opencode-vs-hermes selection",
+        "Unit tests cover cloud/external rejection",
+        "Unit tests cover deterministic selection",
         "Use fake registered workers/runtimes: native local Docker, OpenCode local, Hermes external analysis-only, cloud worker blocked.",
         "No real external workers or cloud calls."
       ],

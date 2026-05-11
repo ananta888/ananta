@@ -122,7 +122,9 @@ class WorkerJobService:
         allowed_tools: list[str] | None,
         expected_output_schema: dict | None,
         metadata: dict | None = None,
+        selection_decision: dict | None = None,
     ) -> WorkerJobDB:
+        decision = dict(selection_decision or {})
         return worker_job_repo.save(
             WorkerJobDB(
                 parent_task_id=parent_task_id,
@@ -136,6 +138,12 @@ class WorkerJobService:
                     **dict(metadata or {}),
                     "tooling_capabilities": self._worker_capability_service.build_tooling_capability_map(),
                 },
+                selected_worker_id=decision.get("selected_worker_id"),
+                selected_worker_kind=decision.get("selected_worker_kind"),
+                selected_runtime_target_id=decision.get("selected_runtime_target_id"),
+                selected_runtime_kind=decision.get("selected_runtime_kind"),
+                selection_mode=decision.get("selection_mode"),
+                selection_decision_ref=decision.get("policy_decision_ref"),
             )
         )
 
@@ -148,12 +156,15 @@ class WorkerJobService:
         status: str,
         output: str | None,
         metadata: dict | None = None,
+        effective_selection: dict | None = None,
     ) -> WorkerResultDB:
         job = worker_job_repo.get_by_id(worker_job_id)
         if job is not None:
             job.status = status
             job.updated_at = time.time()
             worker_job_repo.save(job)
+
+        eff = dict(effective_selection or {})
         return worker_result_repo.save(
             WorkerResultDB(
                 worker_job_id=worker_job_id,
@@ -162,6 +173,11 @@ class WorkerJobService:
                 status=status,
                 output=output,
                 result_metadata=dict(metadata or {}),
+                actual_worker_id=eff.get("actual_worker_id"),
+                actual_worker_kind=eff.get("actual_worker_kind"),
+                actual_runtime_target_id=eff.get("actual_runtime_target_id"),
+                actual_runtime_kind=eff.get("actual_runtime_kind"),
+                selection_reason=eff.get("selection_reason"),
             )
         )
 

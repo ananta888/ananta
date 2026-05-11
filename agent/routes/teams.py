@@ -1167,6 +1167,24 @@ def _validate_blueprint_roles(roles: list) -> tuple[bool, tuple | None]:
         risk_profile = role_config.get("risk_profile")
         verification_defaults = role_config.get("verification_defaults")
         execution_mode = role_config.get("execution_mode")
+        # DRR-T053: Validate worker_selection and runtime_target policy
+        worker_selection = role_config.get("worker_selection")
+        if worker_selection is not None:
+            from agent.services.worker_selection_policy_service import WorkerSelectionPolicyService
+            _, err = WorkerSelectionPolicyService().validate_or_error({"worker_selection": worker_selection})
+            if err:
+                return False, ("blueprint_role_worker_selection_invalid", 400, {"role_name": normalized_name, "detail": err})
+
+        runtime_target = role_config.get("runtime_target")
+        if runtime_target is not None:
+            if not isinstance(runtime_target, dict):
+                 return False, ("blueprint_role_runtime_target_invalid", 400, {"role_name": normalized_name, "detail": "must be a dictionary"})
+            from agent.services.worker_runtime_target_service import WorkerRuntimeTargetService
+            try:
+                WorkerRuntimeTargetService().from_config(runtime_target)
+            except Exception as exc:
+                return False, ("blueprint_role_runtime_target_invalid", 400, {"role_name": normalized_name, "detail": str(exc)})
+
         preferred_backend = role_config.get("preferred_backend")
         if capability_defaults is not None and not isinstance(capability_defaults, list):
             return False, ("blueprint_role_capability_defaults_invalid", 400, {"role_name": normalized_name})
