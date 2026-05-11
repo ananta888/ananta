@@ -840,7 +840,7 @@
     {
       "id": "AWF-T021",
       "title": "Add grounded prompt assembly contract for native worker",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "CodeCompass grounded prompt assembly exists in tests, but native worker should have a stable contract for how task, policy, context, artifacts and output schema are assembled.",
@@ -871,7 +871,7 @@
     {
       "id": "AWF-T022",
       "title": "Add MemoryPolicy before ResultMemoryService persists worker output",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "ResultMemoryService persistently stores compacted worker output. It needs explicit policy for what can be remembered, with redaction and sensitivity handling.",
@@ -905,7 +905,7 @@
     {
       "id": "AWF-T023",
       "title": "Separate session memory, project memory and proposed long-term memory",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "problem": "Hermes-like memory should not mean one global memory bucket. Worker results need scoped memory types with different trust and approval rules.",
@@ -936,7 +936,7 @@
     {
       "id": "AWF-T024",
       "title": "Add MemoryProposalArtifact for self-improvement and durable lessons",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Native worker should be able to suggest reusable lessons/skills/memory, but not directly promote them into durable truth.",
@@ -966,7 +966,7 @@
     {
       "id": "AWF-T025",
       "title": "Add memory retrieval provenance and trust scoring",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "problem": "Result memory can be useful but must be treated as evidence with provenance and trust, not guaranteed truth.",
@@ -995,7 +995,7 @@
     {
       "id": "AWF-T026",
       "title": "Add memory cleanup/TTL policy",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "problem": "Worker memory will grow and may retain sensitive or stale details. It needs cleanup and TTL policy.",
@@ -1025,7 +1025,7 @@
     {
       "id": "AWF-T027",
       "title": "Create SkillManifest schema for native Ananta worker",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Hermes-like behavior requires reusable skills, but Ananta skills must be versioned, capability-bound and approval-aware. No clear SkillManifest/SkillRegistry implementation is visible yet.",
@@ -1055,7 +1055,7 @@
     {
       "id": "AWF-T028",
       "title": "Create SkillRegistry with disabled-by-default loading",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Skills need a registry with hash/version state and explicit enablement. Auto-loaded skills are a security risk.",
@@ -1085,7 +1085,7 @@
     {
       "id": "AWF-T029",
       "title": "Create SkillRunner through WorkerPreflightGate and ToolInvocationEnvelope",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Executing a skill must not bypass policy, allowed tools, context scope, provider policy or artifact enforcement.",
@@ -1118,7 +1118,7 @@
     {
       "id": "AWF-T030",
       "title": "Add SkillProposalArtifact instead of direct self-modifying skills",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "problem": "Hermes-like self-improvement should not mean the worker writes and enables its own skills. It should propose skills for review.",
