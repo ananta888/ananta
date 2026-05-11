@@ -183,6 +183,64 @@ class VerificationService:
         )
         return saved
 
+    def verify_from_artifacts(
+        self,
+        *,
+        task_id: str,
+        artifacts: list[dict[str, Any]],
+        expected_artifacts: list[dict[str, Any]] | None = None,
+        verification_required: bool = False,
+    ) -> dict[str, Any]:
+        """Verify task completion from artifact manifest entries, not model text claims.
+
+        Returns verification result with artifact_ids, evidence_refs, status.
+        """
+        from pathlib import Path
+        results: list[dict[str, Any]] = []
+        passed_count = 0
+        failed_reasons: list[str] = []
+
+        expected_paths = {str(e.get("relative_path") or "") for e in (expected_artifacts or []) if e.get("relative_path")}
+        present_paths = {str(a.get("relative_path") or "") for a in artifacts if a.get("_exists")}
+        missing = expected_paths - present_paths
+
+        if missing:
+            failed_reasons.append(f"missing_expected_artifacts: {sorted(missing)}")
+
+        for artifact in artifacts:
+            rel_path = str(artifact.get("relative_path") or "")
+            verified = bool(artifact.get("_hash_verified") or artifact.get("verification_status") == "verified")
+            result = {
+                "artifact_id": str(artifact.get("artifact_id") or ""),
+                "relative_path": rel_path,
+                "kind": str(artifact.get("kind") or ""),
+                "exists": bool(artifact.get("_exists")),
+                "hash_verified": bool(artifact.get("_hash_verified")),
+                "status": "verified" if (verified and artifact.get("_exists")) else "failed",
+                "evidence_ref": str(artifact.get("content_hash") or "")[:16] or None,
+            }
+            results.append(result)
+            if result["status"] == "verified":
+                passed_count += 1
+            elif artifact.get("required"):
+                failed_reasons.append(f"required_artifact_unverified:{rel_path}")
+
+        overall_status = "passed" if (not failed_reasons and not missing) else "failed"
+        if verification_required and overall_status == "failed":
+            overall_status = "failed"
+
+        return {
+            "task_id": task_id,
+            "status": overall_status,
+            "passed_count": passed_count,
+            "total_count": len(artifacts),
+            "failed_reasons": failed_reasons,
+            "artifact_results": results,
+            "artifact_ids": [str(a.get("artifact_id") or "") for a in artifacts if a.get("artifact_id")],
+            "evidence_refs": [r["evidence_ref"] for r in results if r.get("evidence_ref")],
+            "advisory_only": False,
+        }
+
     def governance_summary(self, goal_id: str, *, include_sensitive: bool = False) -> dict[str, Any] | None:
         repos = get_repository_registry()
         goal = repos.goal_repo.get_by_id(goal_id)

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/artifacts/artifact_manifest.v1.json",
+  "title": "Ananta Artifact Manifest v1",
+  "description": "Worker-produced manifest of all files/artifacts generated during task execution. Primary source of truth for Hub completion decisions.",
+  "type": "object",
+  "required": ["schema", "manifest_id", "goal_id", "task_id", "execution_id", "trace_id", "workspace_root_ref", "produced_by_worker_id", "produced_at", "artifacts"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "artifact_manifest.v1"
+    },
+    "manifest_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workspace_root_ref": {
+      "type": "string",
+      "description": "Hash or identifier of workspace root — never an absolute path.",
+      "minLength": 1
+    },
+    "produced_by_worker_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "produced_at": {
+      "type": "number",
+      "description": "Unix timestamp."
+    },
+    "summary": {
+      "type": ["string", "null"],
+      "maxLength": 2000
+    },
+    "synthesized": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if manifest was synthesized by Hub from workspace diff, not written by worker."
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["artifact_id", "kind", "relative_path", "content_hash", "size_bytes"],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "generated_file",
+              "modified_file",
+              "patch_file",
+              "command_output",
+              "test_result",
+              "verification_result",
+              "planner_proposal",
+              "summary",
+              "other"
+            ]
+          },
+          "relative_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path relative to workspace root. Must not start with / or contain ..",
+            "pattern": "^(?!\\.\\.)(?!/).*$"
+          },
+          "content_hash": {
+            "type": "string",
+            "minLength": 8,
+            "description": "SHA-256 hex digest of file content."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "classification": {
+            "type": ["string", "null"],
+            "enum": ["public", "internal", "sensitive", "secret", null]
+          },
+          "operation": {
+            "type": ["string", "null"],
+            "enum": ["created", "modified", "deleted", "referenced", null]
+          },
+          "required": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether this artifact is required for task completion."
+          },
+          "verification_status": {
+            "type": ["string", "null"],
+            "enum": ["verified", "failed", "skipped", "pending", null]
+          },
+          "metadata": {
+            "type": ["object", "null"],
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 0
+    }
+  },
+  "additionalProperties": false
+}

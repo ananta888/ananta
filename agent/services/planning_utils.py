@@ -204,35 +204,48 @@ def parse_subtasks_from_llm_response(response: str, default_priority: str = "Med
 
 
 def parse_followup_analysis(raw_response: str, default_priority: str = "Medium") -> dict:
+    """Parse optional follow-up analysis from model response.
+
+    ADVISORY ONLY — callers must NOT drive task completed-state from task_complete alone.
+    Always check advisory=True and prefer artifact/verification evidence for completion decisions.
+    Reason code advisory_parse_failed_ignored should be logged when this returns parse_error=True
+    but artifact completion policy succeeds.
+    """
     json_payload = extract_json_payload(raw_response)
     if not json_payload:
         return {
-            "task_complete": True,
+            "task_complete": None,
             "needs_review": False,
             "followup_tasks": [],
             "suggestions": [],
             "parse_error": True,
             "error_classification": "missing_json",
+            "advisory": True,
+            "reason_code": "advisory_parse_failed_ignored",
         }
     try:
         parsed = json.loads(json_payload)
     except json.JSONDecodeError:
         return {
-            "task_complete": True,
+            "task_complete": None,
             "needs_review": False,
             "followup_tasks": [],
             "suggestions": [],
             "parse_error": True,
             "error_classification": "invalid_json",
+            "advisory": True,
+            "reason_code": "advisory_parse_failed_ignored",
         }
     if not isinstance(parsed, dict):
         return {
-            "task_complete": True,
+            "task_complete": None,
             "needs_review": False,
             "followup_tasks": [],
             "suggestions": [],
             "parse_error": True,
             "error_classification": "wrong_shape",
+            "advisory": True,
+            "reason_code": "advisory_parse_failed_ignored",
         }
     followups = parsed.get("followup_tasks")
     normalized_followups = []
@@ -246,12 +259,17 @@ def parse_followup_analysis(raw_response: str, default_priority: str = "Medium")
         ][:5]
     suggestions = parsed.get("suggestions") if isinstance(parsed.get("suggestions"), list) else []
     cleaned_suggestions = [str(item).strip()[:240] for item in suggestions if str(item).strip()][:10]
+    raw_complete = parsed.get("task_complete")
+    # task_complete from model is advisory — None means "not stated", True/False are suggestions only.
+    advisory_complete = bool(raw_complete) if raw_complete is not None else None
     return {
-        "task_complete": bool(parsed.get("task_complete", True)),
+        "task_complete": advisory_complete,
         "needs_review": bool(parsed.get("needs_review", False)),
         "followup_tasks": normalized_followups,
         "suggestions": cleaned_suggestions,
         "parse_error": False,
+        "advisory": True,
+        "reason_code": None,
     }
 
 

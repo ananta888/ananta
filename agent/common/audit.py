@@ -11,6 +11,15 @@ from agent.database import engine
 from agent.db_models import AuditLogDB
 from agent.services.hub_event_service import build_hub_event
 
+# AFH-T020: Artifact-first audit event constants
+AUDIT_WORKER_HANDOFF_CREATED = "worker_handoff_created"
+AUDIT_ARTIFACT_MANIFEST_COLLECTED = "artifact_manifest_collected"
+AUDIT_ARTIFACT_MANIFEST_SYNTHESIZED = "artifact_manifest_synthesized"
+AUDIT_ARTIFACT_COMPLETION_DECIDED = "artifact_completion_decided"
+AUDIT_TASK_FINALIZED_FROM_ARTIFACTS = "task_finalized_from_artifacts"
+AUDIT_ADVISORY_JSON_PARSE_FAILED_IGNORED = "advisory_json_parse_failed_ignored"
+AUDIT_ARTIFACT_RECONCILIATION_APPLIED = "artifact_reconciliation_applied"
+
 # Logger für Audit-Events
 audit_logger = logging.getLogger("audit")
 SENSITIVE_FIELDS = tuple(sorted({key for keys in DEFAULT_SENSITIVE_KEYS.values() for key in keys}))

@@ -211,3 +211,52 @@ def test_worker_artifact_schemas_validate_examples() -> None:
         schema = _load(schema_path)
         errors = list(Draft202012Validator(schema).iter_errors(payload))
         assert errors == []
+
+
+def test_worker_request_schema_accepts_artifact_manifest_output() -> None:
+    """AFH-T008: artifact_manifest must be a valid requested_output enum value."""
+    schema = _load(REQUEST_SCHEMA)
+    payload = {
+        "schema": "worker_execution_request.v1",
+        "task_id": "t1",
+        "goal_id": "g1",
+        "trace_id": "tr-1",
+        "capability_id": "worker.command.execute",
+        "mode": "command_execute",
+        "context_envelope_ref": {
+            "context_bundle_id": "ctx-1",
+            "context_hash": "h-1",
+            "retrieval_refs": [],
+        },
+        "policy_decision_ref": {"decision_id": "p1", "decision": "allow", "policy_version": "v1"},
+        "workspace_constraints_ref": {"constraint_id": "wc-1"},
+        "requested_outputs": ["artifact_manifest", "trace_metadata"],
+        "artifact_manifest_required": True,
+        "artifact_manifest_output_path": ".ananta/handoff/exec-1/artifact_manifest.v1.json",
+    }
+    errors = list(Draft202012Validator(schema).iter_errors(payload))
+    assert errors == [], f"artifact_manifest must be valid requested_output: {errors}"
+
+
+def test_worker_request_schema_rejects_unsafe_manifest_path() -> None:
+    """AFH-T008: artifact_manifest_output_path must reject paths with .. traversal."""
+    schema = _load(REQUEST_SCHEMA)
+    payload = {
+        "schema": "worker_execution_request.v1",
+        "task_id": "t1",
+        "goal_id": "g1",
+        "trace_id": "tr-1",
+        "capability_id": "worker.command.execute",
+        "mode": "command_execute",
+        "context_envelope_ref": {
+            "context_bundle_id": "ctx-1",
+            "context_hash": "h-1",
+            "retrieval_refs": [],
+        },
+        "policy_decision_ref": {"decision_id": "p1", "decision": "allow", "policy_version": "v1"},
+        "workspace_constraints_ref": {"constraint_id": "wc-1"},
+        "requested_outputs": ["artifact_manifest"],
+        "artifact_manifest_output_path": "../outside/manifest.json",
+    }
+    errors = list(Draft202012Validator(schema).iter_errors(payload))
+    assert errors, "Path with .. traversal must fail schema validation"

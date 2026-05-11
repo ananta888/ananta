@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/worker_handoff_bundle.v1.json",
+  "title": "Ananta Worker Handoff Bundle v1",
+  "description": "File-based handoff package written by the Hub before worker execution. Tells the worker what to produce and where to write the artifact manifest.",
+  "type": "object",
+  "required": ["schema", "task_id", "goal_id", "execution_id", "trace_id", "manifest_output_path", "instructions_ref"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "worker_handoff_bundle.v1"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "instructions_ref": {
+      "type": "string",
+      "description": "Relative path to instructions.md inside handoff directory.",
+      "minLength": 1
+    },
+    "context_envelope_ref": {
+      "type": ["string", "null"],
+      "description": "Relative path to context_envelope.json inside handoff directory."
+    },
+    "expected_artifacts": {
+      "type": "array",
+      "description": "List of files/artifacts the worker must produce.",
+      "items": {
+        "type": "object",
+        "required": ["kind", "relative_path"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["generated_file", "modified_file", "patch_file", "command_output", "test_result", "verification_result", "planner_proposal", "summary", "other"]
+          },
+          "relative_path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!\\.\\.)(?!/).*$"
+          },
+          "required": {
+            "type": "boolean",
+            "default": false
+          },
+          "description": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "workspace_constraints": {
+      "type": ["object", "null"],
+      "properties": {
+        "workspace_root": { "type": "string" },
+        "allowed_write_patterns": { "type": "array", "items": { "type": "string" } },
+        "denied_write_patterns": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "policy_decision_ref": {
+      "type": ["string", "null"],
+      "description": "Relative path to policy_decision.json inside handoff directory."
+    },
+    "manifest_output_path": {
+      "type": "string",
+      "description": "Relative path where the worker MUST write artifact_manifest.v1.json.",
+      "minLength": 1,
+      "pattern": "^(?!\\.\\.)(?!/).*$"
+    },
+    "completion_policy_ref": {
+      "type": ["string", "null"],
+      "description": "Relative path to completion_policy.json inside handoff directory."
+    },
+    "created_at": {
+      "type": "number"
+    }
+  },
+  "additionalProperties": false
+}

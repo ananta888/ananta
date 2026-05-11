@@ -32,18 +32,18 @@
     "Do not let the final assistant message mark a task completed."
   ],
   "milestones": [
-    {"id": "AFH-M1", "title": "Disable JSON-primary planner/completion paths", "task_ids": ["AFH-T001", "AFH-T002", "AFH-T003", "AFH-T004"], "status": "todo"},
-    {"id": "AFH-M2", "title": "Artifact/file handoff contracts", "task_ids": ["AFH-T005", "AFH-T006", "AFH-T007", "AFH-T008"], "status": "todo"},
-    {"id": "AFH-M3", "title": "Output collection and completion policy", "task_ids": ["AFH-T009", "AFH-T010", "AFH-T011", "AFH-T012", "AFH-T013"], "status": "todo"},
-    {"id": "AFH-M4", "title": "State machine and retry-loop hardening", "task_ids": ["AFH-T014", "AFH-T015", "AFH-T016", "AFH-T017"], "status": "todo"},
-    {"id": "AFH-M5", "title": "Verification, trace, audit and UI/API", "task_ids": ["AFH-T018", "AFH-T019", "AFH-T020", "AFH-T021", "AFH-T022"], "status": "todo"},
-    {"id": "AFH-M6", "title": "Regression tests and docs", "task_ids": ["AFH-T023", "AFH-T024", "AFH-T025", "AFH-T026"], "status": "todo"}
+    {"id": "AFH-M1", "title": "Disable JSON-primary planner/completion paths", "task_ids": ["AFH-T001", "AFH-T002", "AFH-T003", "AFH-T004"], "status": "done"},
+    {"id": "AFH-M2", "title": "Artifact/file handoff contracts", "task_ids": ["AFH-T005", "AFH-T006", "AFH-T007", "AFH-T008"], "status": "done"},
+    {"id": "AFH-M3", "title": "Output collection and completion policy", "task_ids": ["AFH-T009", "AFH-T010", "AFH-T011", "AFH-T012", "AFH-T013"], "status": "done"},
+    {"id": "AFH-M4", "title": "State machine and retry-loop hardening", "task_ids": ["AFH-T014", "AFH-T015", "AFH-T016", "AFH-T017"], "status": "done"},
+    {"id": "AFH-M5", "title": "Verification, trace, audit and UI/API", "task_ids": ["AFH-T018", "AFH-T019", "AFH-T020", "AFH-T021", "AFH-T022"], "status": "done"},
+    {"id": "AFH-M6", "title": "Regression tests and docs", "task_ids": ["AFH-T023", "AFH-T024", "AFH-T025", "AFH-T026"], "status": "done"}
   ],
   "tasks": [
     {
       "id": "AFH-T001",
       "title": "Inventory all authoritative JSON-from-LLM paths",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["agent/services/worker_todo_planner_service.py", "agent/services/planning_utils.py", "agent/services/planning_service.py", "agent/services/task_runtime_service.py", "agent/services/task_orchestration_service.py", "tests/test_artifact_first_json_dependency_inventory.py"],
@@ -60,7 +60,7 @@
     {
       "id": "AFH-T002",
       "title": "Default-disable planner LLM task refinement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["agent/services/worker_todo_planner_service.py", "agent/config.py", "tests/test_worker_todo_planner_service.py"],
@@ -78,7 +78,7 @@
     {
       "id": "AFH-T003",
       "title": "Convert planner LLM output into PlannerProposalArtifact",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": ["agent/services/worker_todo_planner_service.py", "agent/services/artifact_type_registry.py", "schemas/artifacts/planner_proposal_artifact.v1.json", "tests/test_worker_todo_planner_service.py"],
@@ -95,7 +95,7 @@
     {
       "id": "AFH-T004",
       "title": "Demote follow-up JSON parsing to advisory only",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["agent/services/planning_utils.py", "agent/services/task_runtime_service.py", "agent/services/task_completion_policy_service.py", "tests/test_artifact_first_completion_policy.py"],
@@ -112,7 +112,7 @@
     {
       "id": "AFH-T005",
       "title": "Define ArtifactManifest v1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["worker/core/artifact_manifest.py", "schemas/artifacts/artifact_manifest.v1.json", "agent/services/artifact_manifest_service.py", "tests/test_artifact_manifest_contract.py"],
@@ -130,7 +130,7 @@
     {
       "id": "AFH-T006",
       "title": "Define FileChangeSet v1 for workspace diff",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": ["worker/core/file_change_set.py", "schemas/artifacts/file_change_set.v1.json", "agent/services/workspace_diff_service.py", "tests/test_file_change_set_contract.py"],
@@ -147,7 +147,7 @@
     {
       "id": "AFH-T007",
       "title": "Define WorkerHandoffBundle v1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": ["worker/core/worker_handoff_bundle.py", "schemas/worker/worker_handoff_bundle.v1.json", "agent/services/worker_contract_service.py", "tests/test_worker_handoff_bundle_contract.py"],
@@ -164,7 +164,7 @@
     {
       "id": "AFH-T008",
       "title": "Extend worker execution request for manifest protocol",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": ["schemas/worker/worker_execution_request.v1.json", "worker/core/execution_envelope.py", "tests/worker/test_worker_contract_schemas.py"],
@@ -181,7 +181,7 @@
     {
       "id": "AFH-T009",
       "title": "Create ArtifactCompletionPolicy contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["worker/core/artifact_completion_policy.py", "schemas/artifacts/artifact_completion_policy.v1.json", "agent/services/task_completion_policy_service.py", "tests/test_artifact_first_completion_policy.py"],
@@ -198,7 +198,7 @@
     {
       "id": "AFH-T010",
       "title": "Materialize handoff files before worker execution",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": ["agent/services/worker_handoff_service.py", "agent/services/task_scoped_execution_service.py", "agent/services/native_worker_runtime_service.py", "tests/test_worker_handoff_service.py"],
@@ -215,7 +215,7 @@
     {
       "id": "AFH-T011",
       "title": "Collect artifact manifest after worker execution",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["agent/services/worker_output_collector_service.py", "agent/services/native_worker_runtime_service.py", "agent/services/task_scoped_execution_service.py", "tests/test_worker_output_collector_service.py"],
@@ -233,7 +233,7 @@
     {
       "id": "AFH-T012",
       "title": "Synthesize manifest from workspace diff as migration bridge",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": ["agent/services/workspace_diff_service.py", "agent/services/worker_output_collector_service.py", "tests/test_workspace_diff_service.py"],
@@ -251,7 +251,7 @@
     {
       "id": "AFH-T013",
       "title": "Persist artifacts and manifest through ArtifactStore/DB",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": ["agent/services/artifact_store.py", "agent/db_models.py", "agent/services/worker_output_collector_service.py", "tests/test_artifact_store.py"],
@@ -268,7 +268,7 @@
     {
       "id": "AFH-T014",
       "title": "Implement artifact-first TaskCompletionPolicyService",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["agent/services/task_completion_policy_service.py", "agent/services/task_runtime_service.py", "agent/services/task_orchestration_service.py", "tests/test_artifact_first_completion_policy.py"],
@@ -285,7 +285,7 @@
     {
       "id": "AFH-T015",
       "title": "Update state machine to prevent parse-error retry loops",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["agent/services/task_runtime_service.py", "agent/services/task_orchestration_service.py", "agent/services/task_claim_service.py", "tests/test_artifact_first_state_machine.py"],
@@ -303,7 +303,7 @@
     {
       "id": "AFH-T016",
       "title": "Add ArtifactRealityReconciliationService",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": ["agent/services/artifact_reconciliation_service.py", "agent/routes/tasks.py", "tests/test_artifact_reconciliation_service.py"],
@@ -321,7 +321,7 @@
     {
       "id": "AFH-T017",
       "title": "Add bounded RetryPolicyService classifications",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["agent/services/task_retry_policy_service.py", "agent/services/task_runtime_service.py", "tests/test_artifact_first_retry_policy.py"],
@@ -339,7 +339,7 @@
     {
       "id": "AFH-T018",
       "title": "Run verification from produced artifacts/files",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["agent/services/verification_service.py", "agent/services/native_worker_runtime_service.py", "worker/core/verification.py", "tests/test_artifact_first_verification.py"],
@@ -357,7 +357,7 @@
     {
       "id": "AFH-T019",
       "title": "Extend TraceBundle with artifact handoff lifecycle",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": ["worker/core/trace_bundle.py", "agent/services/worker_handoff_service.py", "agent/services/worker_output_collector_service.py", "tests/test_artifact_first_trace.py"],
@@ -374,7 +374,7 @@
     {
       "id": "AFH-T020",
       "title": "Audit artifact-first transitions",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": ["agent/common/audit.py", "agent/services/task_finalization_service.py", "agent/services/artifact_reconciliation_service.py", "tests/test_artifact_first_audit.py"],
@@ -391,7 +391,7 @@
     {
       "id": "AFH-T021",
       "title": "Expose artifact-first status in API/UI/CLI",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "target_files": ["agent/routes/tasks.py", "agent/models.py", "agent/cli.py", "frontend-angular/src/app/components/task-detail.component.ts", "tests/test_api_task_artifact_status.py"],
@@ -409,7 +409,7 @@
     {
       "id": "AFH-T022",
       "title": "Add artifact-first run preview",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "target_files": ["agent/routes/tasks.py", "agent/services/worker_handoff_service.py", "frontend-angular/src/app/components/task-detail.component.ts", "tests/test_api_artifact_first_preview.py"],
@@ -426,7 +426,7 @@
     {
       "id": "AFH-T023",
       "title": "E2E regression: Fibonacci files complete despite malformed final JSON",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["tests/e2e/test_artifact_first_fibonacci_flow.py", "tests/fixtures/fibonacci_project_expected/"],
@@ -445,7 +445,7 @@
     {
       "id": "AFH-T024",
       "title": "Regression tests for worker_todo_planner malformed LLM output",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": ["tests/test_worker_todo_planner_service.py", "agent/services/worker_todo_planner_service.py"],
@@ -463,7 +463,7 @@
     {
       "id": "AFH-T025",
       "title": "Security tests for artifact paths and manifest trust",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["tests/test_artifact_first_security.py", "agent/services/worker_output_collector_service.py", "agent/services/workspace_diff_service.py"],
@@ -482,7 +482,7 @@
     {
       "id": "AFH-T026",
       "title": "Write artifact-first architecture and migration docs",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "target_files": ["docs/architecture/artifact-first-worker-handoff.md", "docs/artifact-traceability-model.md", "docs/worker-extension-guide.md", "docs/worker/standalone_mode.md", "todo.artifact-first-worker-handoff-fixup.json"],
@@ -512,12 +512,12 @@
   ],
   "tasks_status_summary": {
     "total": 26,
-    "by_status": {"todo": 26, "in_progress": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
+    "by_status": {"todo": 0, "in_progress": 0, "blocked": 0, "done": 26},
+    "progress_percent_done": 100.0,
     "by_priority": {"P0": 17, "P1": 8, "P2": 1},
     "by_risk": {"critical": 10, "high": 11, "medium": 4, "low": 1},
-    "critical_path": {"total": 18, "done": 0, "remaining": 18},
-    "milestones": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
+    "critical_path": {"total": 18, "done": 18, "remaining": 0},
+    "milestones": {"total": 6, "todo": 0, "in_progress": 0, "blocked": 0, "done": 6}
   },
   "summary_notes": [
     "The target is not JSON-free. It is chat-JSON-free for authoritative control.",
