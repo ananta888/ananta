@@ -1,171 +1,159 @@
-"""WorkerSelectionPolicy schema and validation helpers.
+"""WorkerSelectionPolicy validation, presets and legacy normalization.
 
 DRR-T046: Structured worker selection policy for deterministic repair.
-Supports fixed, automatic and policy_ranked selection modes across
-native_ananta_worker, opencode, hermes, shellgpt, remote_worker, custom_worker.
+The authoritative contract lives in ``worker.core.runtime_target``. This service
+keeps convenient preset factories and legacy helpers used by Hub/API/UI code.
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import ValidationError
 
-# ── Vocabulary ─────────────────────────────────────────────────────────────────
+from worker.core.runtime_target import (
+    FallbackPolicy,
+    WorkerKind,
+    WorkerSelectionMode,
+    WorkerSelectionPolicy,
+)
 
-KNOWN_WORKER_KINDS: frozenset[str] = frozenset({
-    "native_ananta_worker",
-    "opencode",
-    "hermes",
-    "shellgpt",
-    "remote_worker",
-    "custom_worker",
-    "disabled_placeholder",
-})
+KNOWN_WORKER_KINDS: frozenset[str] = frozenset(kind.value for kind in WorkerKind)
+KNOWN_SELECTION_MODES: frozenset[str] = frozenset(mode.value for mode in WorkerSelectionMode)
+KNOWN_FALLBACK_POLICIES: frozenset[str] = frozenset(policy.value for policy in FallbackPolicy)
+KNOWN_RISK_PROFILES: frozenset[str] = frozenset({"low", "balanced", "high", "strict", "bounded"})
 
-KNOWN_SELECTION_MODES: frozenset[str] = frozenset({
-    "fixed",
-    "automatic",
-    "policy_ranked",
-})
-
-KNOWN_FALLBACK_POLICIES: frozenset[str] = frozenset({
-    "deny",
-    "warn",
-    "allow",
-})
-
-KNOWN_RISK_PROFILES: frozenset[str] = frozenset({
-    "low",
-    "balanced",
-    "high",
-    "strict",
-    "bounded",
-})
-
-# Worker kinds that may send context to external/cloud systems
 EXTERNAL_WORKER_KINDS: frozenset[str] = frozenset({
-    "hermes",
-    "remote_worker",
-    "custom_worker",
+    WorkerKind.hermes.value,
+    WorkerKind.remote_worker.value,
+    WorkerKind.custom_worker.value,
 })
+CLOUD_WORKER_KINDS: frozenset[str] = frozenset({WorkerKind.hermes.value})
+DETERMINISTIC_REPAIR_CAPABLE_KINDS: frozenset[str] = frozenset({WorkerKind.native_ananta_worker.value})
+ANALYSIS_ONLY_KINDS: frozenset[str] = frozenset({WorkerKind.hermes.value, WorkerKind.shellgpt.value})
 
-CLOUD_WORKER_KINDS: frozenset[str] = frozenset({
-    "hermes",
-})
+LEGACY_BACKEND_TO_WORKER_KIND: dict[str, WorkerKind] = {
+    "native": WorkerKind.native_ananta_worker,
+    "ananta": WorkerKind.native_ananta_worker,
+    "ananta_worker": WorkerKind.native_ananta_worker,
+    "native_ananta_worker": WorkerKind.native_ananta_worker,
+    "opencode": WorkerKind.opencode,
+    "open_code": WorkerKind.opencode,
+    "hermes": WorkerKind.hermes,
+    "hermes_agent": WorkerKind.hermes,
+    "shellgpt": WorkerKind.shellgpt,
+    "shell_gpt": WorkerKind.shellgpt,
+    "remote": WorkerKind.remote_worker,
+    "remote_worker": WorkerKind.remote_worker,
+    "custom": WorkerKind.custom_worker,
+}
 
-# Worker kinds appropriate for deterministic mutation repair
-DETERMINISTIC_REPAIR_CAPABLE_KINDS: frozenset[str] = frozenset({
-    "native_ananta_worker",
-})
 
-# Worker kinds that support analysis/proposal only (not mutation execution)
-ANALYSIS_ONLY_KINDS: frozenset[str] = frozenset({
-    "hermes",
-    "shellgpt",
-})
+class WorkerSelectionPolicyError(ValueError):
+    """Raised when policy input cannot be normalized or validated."""
 
 
-# ── Schema ─────────────────────────────────────────────────────────────────────
+class WorkerSelectionPolicyService:
+    """Build and validate ``WorkerSelectionPolicy`` instances.
 
-class WorkerSelectionPolicy(BaseModel):
-    """Structured policy for selecting a worker backend during repair execution."""
+    The service accepts the new nested ``worker_selection`` config as well as
+    legacy fields such as ``preferred_backend``. It always returns the strict
+    Pydantic contract from ``worker.core.runtime_target``.
+    """
 
-    mode: str = Field(default="automatic", description="Selection mode: fixed, automatic, policy_ranked")
-    fixed_worker_id: Optional[str] = Field(default=None)
-    fixed_worker_kind: Optional[str] = Field(default=None)
-    allowed_worker_kinds: list[str] = Field(default_factory=list)
-    denied_worker_kinds: list[str] = Field(default_factory=list)
-    required_capabilities: list[str] = Field(default_factory=list)
-    forbidden_capabilities: list[str] = Field(default_factory=list)
-    prefer_local: bool = Field(default=True)
-    allow_cloud: bool = Field(default=False)
-    allow_external_workers: bool = Field(default=False)
-    require_code_context: bool = Field(default=False)
-    risk_profile: str = Field(default="balanced")
-    fallback_policy: str = Field(default="deny")
-    selection_reason_required: bool = Field(default=True)
+    def from_config(self, config: dict[str, Any] | WorkerSelectionPolicy | None) -> WorkerSelectionPolicy:
+        if isinstance(config, WorkerSelectionPolicy):
+            return config
+        cfg = dict(config or {})
+        if "worker_selection" in cfg and isinstance(cfg["worker_selection"], dict):
+            cfg = dict(cfg["worker_selection"])
+        elif "preferred_backend" in cfg and "mode" not in cfg:
+            backend = str(cfg.get("preferred_backend") or "").strip().lower()
+            kind = LEGACY_BACKEND_TO_WORKER_KIND.get(backend)
+            if kind is None:
+                raise WorkerSelectionPolicyError(f"unknown preferred_backend: {backend!r}")
+            cfg = {
+                "mode": WorkerSelectionMode.fixed.value,
+                "fixed_worker_kind": kind.value,
+                "allowed_worker_kinds": [kind.value],
+                "fallback_policy": FallbackPolicy.deny.value,
+                "allow_cloud": bool(cfg.get("allow_cloud", False)),
+                "allow_external_workers": bool(cfg.get("allow_external_workers", False)),
+                "risk_profile": cfg.get("risk_profile", "strict"),
+            }
+        try:
+            return WorkerSelectionPolicy.model_validate(cfg)
+        except ValidationError as exc:
+            raise WorkerSelectionPolicyError(str(exc)) from exc
 
-    @model_validator(mode="after")
-    def _validate_policy(self) -> "WorkerSelectionPolicy":
-        if self.mode not in KNOWN_SELECTION_MODES:
-            raise ValueError(f"Unknown selection mode '{self.mode}'. Allowed: {sorted(KNOWN_SELECTION_MODES)}")
-        if self.mode == "fixed" and not self.fixed_worker_id and not self.fixed_worker_kind:
-            raise ValueError("mode='fixed' requires fixed_worker_id or fixed_worker_kind")
-        if self.fixed_worker_kind and self.fixed_worker_kind not in KNOWN_WORKER_KINDS:
-            raise ValueError(f"Unknown fixed_worker_kind '{self.fixed_worker_kind}'")
-        for kind in self.allowed_worker_kinds:
-            if kind not in KNOWN_WORKER_KINDS:
-                raise ValueError(f"Unknown worker kind '{kind}' in allowed_worker_kinds")
-        for kind in self.denied_worker_kinds:
-            if kind not in KNOWN_WORKER_KINDS:
-                raise ValueError(f"Unknown worker kind '{kind}' in denied_worker_kinds")
-        if self.risk_profile not in KNOWN_RISK_PROFILES:
-            raise ValueError(f"Unknown risk_profile '{self.risk_profile}'")
-        if self.fallback_policy not in KNOWN_FALLBACK_POLICIES:
-            raise ValueError(f"Unknown fallback_policy '{self.fallback_policy}'")
-        return self
+    def to_config(self, policy: WorkerSelectionPolicy) -> dict[str, Any]:
+        return {"worker_selection": policy.model_dump(mode="json", exclude_none=True)}
+
+    def validate_or_error(self, payload: dict[str, Any]) -> tuple[WorkerSelectionPolicy | None, str | None]:
+        try:
+            return self.from_config(payload), None
+        except WorkerSelectionPolicyError as exc:
+            return None, str(exc)
 
 
 # ── Preset factories ────────────────────────────────────────────────────────────
 
 def strict_local_policy() -> WorkerSelectionPolicy:
-    """Allow only native_ananta_worker on local runtimes. No cloud or external."""
+    """Allow only native_ananta_worker on local/private runtimes. No cloud/external."""
     return WorkerSelectionPolicy(
-        mode="automatic",
-        allowed_worker_kinds=["native_ananta_worker"],
+        mode=WorkerSelectionMode.automatic,
+        allowed_worker_kinds=[WorkerKind.native_ananta_worker],
         prefer_local=True,
         allow_cloud=False,
         allow_external_workers=False,
         risk_profile="strict",
-        fallback_policy="deny",
+        fallback_policy=FallbackPolicy.deny,
     )
 
 
 def local_first_policy() -> WorkerSelectionPolicy:
-    """Prefer local workers; allow remote only with explicit operator decision."""
+    """Prefer local workers and disallow cloud/external by default."""
     return WorkerSelectionPolicy(
-        mode="automatic",
-        allowed_worker_kinds=["native_ananta_worker", "opencode", "shellgpt"],
+        mode=WorkerSelectionMode.automatic,
+        allowed_worker_kinds=[WorkerKind.native_ananta_worker, WorkerKind.opencode, WorkerKind.shellgpt],
         prefer_local=True,
         allow_cloud=False,
         allow_external_workers=False,
         risk_profile="balanced",
-        fallback_policy="warn",
+        fallback_policy=FallbackPolicy.same_or_lower_risk,
     )
 
 
 def external_analysis_only_policy() -> WorkerSelectionPolicy:
-    """Allow Hermes/external for analysis/proposal; deny for mutation execution."""
+    """Allow Hermes/external for analysis/proposal; not mutation execution."""
     return WorkerSelectionPolicy(
-        mode="automatic",
-        allowed_worker_kinds=["native_ananta_worker", "opencode", "hermes"],
-        denied_worker_kinds=["custom_worker"],
+        mode=WorkerSelectionMode.automatic,
+        allowed_worker_kinds=[WorkerKind.native_ananta_worker, WorkerKind.opencode, WorkerKind.hermes],
+        denied_worker_kinds=[WorkerKind.custom_worker],
         prefer_local=True,
         allow_cloud=False,
         allow_external_workers=True,
         risk_profile="balanced",
-        fallback_policy="deny",
+        fallback_policy=FallbackPolicy.deny,
     )
 
 
 def cloud_allowed_with_approval_policy() -> WorkerSelectionPolicy:
-    """Allow cloud workers but require approval gating; operator must explicitly confirm."""
+    """Cloud-capable preset for explicit approval-gated scenarios."""
     return WorkerSelectionPolicy(
-        mode="policy_ranked",
-        allowed_worker_kinds=list(KNOWN_WORKER_KINDS - {"disabled_placeholder"}),
+        mode=WorkerSelectionMode.policy_ranked,
+        allowed_worker_kinds=[kind for kind in WorkerKind if kind != WorkerKind.disabled_placeholder],
         prefer_local=True,
         allow_cloud=True,
         allow_external_workers=True,
         risk_profile="high",
-        fallback_policy="warn",
+        fallback_policy=FallbackPolicy.same_or_lower_risk,
         selection_reason_required=True,
     )
 
 
-# ── Validation helpers ─────────────────────────────────────────────────────────
+# ── Compatibility helpers ──────────────────────────────────────────────────────
 
 def validate_worker_kind(kind: str) -> tuple[bool, str]:
-    """Return (valid, reason_code). reason_code empty if valid."""
     if not kind or not isinstance(kind, str):
         return False, "unknown_worker_kind"
     if kind.strip().lower() not in KNOWN_WORKER_KINDS:
@@ -174,34 +162,58 @@ def validate_worker_kind(kind: str) -> tuple[bool, str]:
 
 
 def normalize_worker_selection_policy(raw: Any) -> WorkerSelectionPolicy:
-    """Parse raw dict or existing policy into WorkerSelectionPolicy."""
-    if isinstance(raw, WorkerSelectionPolicy):
-        return raw
-    if isinstance(raw, dict):
-        return WorkerSelectionPolicy(**raw)
-    return WorkerSelectionPolicy()
+    return WorkerSelectionPolicyService().from_config(raw if isinstance(raw, dict) else None) if not isinstance(raw, WorkerSelectionPolicy) else raw
 
 
 def is_cloud_worker_kind(kind: str) -> bool:
-    return kind in CLOUD_WORKER_KINDS
+    return str(kind or "") in CLOUD_WORKER_KINDS
 
 
 def is_external_worker_kind(kind: str) -> bool:
-    return kind in EXTERNAL_WORKER_KINDS
+    return str(kind or "") in EXTERNAL_WORKER_KINDS
 
 
 def is_mutation_capable(kind: str) -> bool:
-    return kind in DETERMINISTIC_REPAIR_CAPABLE_KINDS
+    return str(kind or "") in DETERMINISTIC_REPAIR_CAPABLE_KINDS
 
 
 def policy_allows_kind(policy: WorkerSelectionPolicy, kind: str) -> tuple[bool, str]:
-    """Check if policy allows the given worker kind. Returns (allowed, reason_code)."""
-    if kind in policy.denied_worker_kinds:
+    try:
+        worker_kind = WorkerKind(str(kind or ""))
+    except ValueError:
+        return False, "unknown_worker_kind"
+    if worker_kind in policy.denied_worker_kinds:
         return False, "worker_kind_denied_by_policy"
-    if policy.allowed_worker_kinds and kind not in policy.allowed_worker_kinds:
+    if policy.allowed_worker_kinds and worker_kind not in policy.allowed_worker_kinds:
         return False, "worker_kind_not_in_allowlist"
-    if is_cloud_worker_kind(kind) and not policy.allow_cloud:
+    if is_cloud_worker_kind(worker_kind.value) and not policy.allow_cloud:
         return False, "cloud_worker_denied_allow_cloud_false"
-    if is_external_worker_kind(kind) and not policy.allow_external_workers:
+    if is_external_worker_kind(worker_kind.value) and not policy.allow_external_workers:
         return False, "external_worker_denied_allow_external_false"
     return True, ""
+
+
+__all__ = [
+    "ANALYSIS_ONLY_KINDS",
+    "CLOUD_WORKER_KINDS",
+    "DETERMINISTIC_REPAIR_CAPABLE_KINDS",
+    "EXTERNAL_WORKER_KINDS",
+    "KNOWN_FALLBACK_POLICIES",
+    "KNOWN_RISK_PROFILES",
+    "KNOWN_SELECTION_MODES",
+    "KNOWN_WORKER_KINDS",
+    "LEGACY_BACKEND_TO_WORKER_KIND",
+    "WorkerSelectionPolicy",
+    "WorkerSelectionPolicyError",
+    "WorkerSelectionPolicyService",
+    "cloud_allowed_with_approval_policy",
+    "external_analysis_only_policy",
+    "is_cloud_worker_kind",
+    "is_external_worker_kind",
+    "is_mutation_capable",
+    "local_first_policy",
+    "normalize_worker_selection_policy",
+    "policy_allows_kind",
+    "strict_local_policy",
+    "validate_worker_kind",
+]
