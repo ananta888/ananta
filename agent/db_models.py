@@ -698,3 +698,13 @@ class RepairExecutionRecordDB(SQLModel, table=True):
     trace_ref: str = ""
     regression_flag: bool = False
     extra_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    selected_worker_id: Optional[str] = Field(default=None, index=True)
+    selected_worker_kind: Optional[str] = Field(default=None, index=True)
+    selected_runtime_target_id: Optional[str] = Field(default=None, index=True)
+    selected_runtime_kind: Optional[str] = Field(default=None, index=True)
+    actual_worker_id: Optional[str] = Field(default=None, index=True)
+    actual_worker_kind: Optional[str] = Field(default=None, index=True)
+    actual_runtime_target_id: Optional[str] = Field(default=None, index=True)
+    actual_runtime_kind: Optional[str] = Field(default=None, index=True)
+    selection_reason: Optional[str] = Field(default=None)
+    selection_decision_ref: Optional[str] = Field(default=None, index=True)

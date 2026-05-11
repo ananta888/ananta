@@ -9,6 +9,7 @@ import { HubAutomationApiClient } from './hub-automation-api.client';
 import { HubArtifactsApiClient } from './hub-artifacts-api.client';
 import { HubKnowledgeApiClient } from './hub-knowledge-api.client';
 import { HubVoiceApiClient } from './hub-voice-api.client';
+import { HubRepairApiClient } from './hub-repair-api.client';
 
 @Injectable({ providedIn: 'root' })
 export class HubApiService {
@@ -21,6 +22,7 @@ export class HubApiService {
   private artifacts = inject(HubArtifactsApiClient);
   private knowledge = inject(HubKnowledgeApiClient);
   private voice = inject(HubVoiceApiClient);
+  private repair = inject(HubRepairApiClient);
 
   listTemplates(baseUrl: string, token?: string): Observable<any[]> { return this.templates.listTemplates(baseUrl, token); }
   createTemplate(baseUrl: string, tpl: any, token?: string): Observable<any> { return this.templates.createTemplate(baseUrl, tpl, token); }
@@ -240,4 +242,11 @@ export class HubApiService {
   ): Observable<any> {
     return this.voice.goal(baseUrl, body, token);
   }
+
+  listRepairCandidates(baseUrl: string, body: any, token?: string): Observable<any> { return this.repair.listCandidates(baseUrl, body, token); }
+  listRepairRuntimeTargets(baseUrl: string, token?: string): Observable<any> { return this.repair.listRuntimeTargets(baseUrl, token); }
+  analyzeRepair(baseUrl: string, body: any, token?: string): Observable<any> { return this.repair.analyze(baseUrl, body, token); }
+  previewRepair(baseUrl: string, body: any, token?: string): Observable<any> { return this.repair.preview(baseUrl, body, token); }
+  executeRepair(baseUrl: string, body: any, token?: string): Observable<any> { return this.repair.execute(baseUrl, body, token); }
+  getRepairOutcome(baseUrl: string, planId: string, token?: string): Observable<any> { return this.repair.getOutcome(baseUrl, planId, token); }
 }
