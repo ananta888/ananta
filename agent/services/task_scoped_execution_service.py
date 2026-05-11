@@ -70,6 +70,71 @@ from agent.utils import _extract_reason, _log_terminal_entry
 _INTERACTIVE_TERMINAL_FINALIZE_COMMAND = "__ANANTA_FINALIZE_INTERACTIVE_OPENCODE__"
 
 
+def build_hermes_context_blocks(
+    *,
+    task: dict,
+    request_data: object,
+    research_context: object,
+) -> list:
+    """Build ContextBlock list from task + research context for HermesAdapter. HF-T020."""
+    from worker.core.context_resolver import ContextBlock, ContextSensitivity
+
+    blocks: list[ContextBlock] = []
+
+    # Task description / prompt (P0 — never dropped)
+    task_description = str(
+        getattr(request_data, "prompt", None)
+        or (task or {}).get("description")
+        or ""
+    ).strip()
+    if task_description:
+        blocks.append(ContextBlock(
+            source_type="task_description",
+            origin_id=str((task or {}).get("id") or "task"),
+            provenance="task_scoped_execution_service:task_description",
+            sensitivity=ContextSensitivity.internal,
+            content=task_description,
+            priority=0,
+        ))
+
+    # Research context prompt section
+    rc = research_context if isinstance(research_context, dict) else {}
+    prompt_section = str(rc.get("prompt_section") or "").strip()
+    if prompt_section:
+        blocks.append(ContextBlock(
+            source_type="research_context",
+            origin_id="research_context:prompt_section",
+            provenance="task_scoped_execution_service:research_context",
+            sensitivity=ContextSensitivity.internal,
+            content=prompt_section,
+            priority=10,
+        ))
+
+    # Additional context from request_data.context_blocks if present
+    raw_blocks = getattr(request_data, "context_blocks", None) or []
+    for idx, raw in enumerate(raw_blocks if isinstance(raw_blocks, list) else []):
+        if not isinstance(raw, dict):
+            continue
+        content = str(raw.get("content") or "").strip()
+        if not content:
+            continue
+        sensitivity_raw = str(raw.get("sensitivity") or ContextSensitivity.internal.value)
+        try:
+            sensitivity = ContextSensitivity(sensitivity_raw)
+        except ValueError:
+            sensitivity = ContextSensitivity.internal
+        blocks.append(ContextBlock(
+            source_type=str(raw.get("source_type") or "external_context"),
+            origin_id=str(raw.get("origin_id") or f"context_block_{idx}"),
+            provenance="task_scoped_execution_service:request_context_blocks",
+            sensitivity=sensitivity,
+            content=content,
+            priority=int(raw.get("priority") or 50),
+        ))
+
+    return blocks
+
+
 @dataclass(frozen=True)
 class TaskScopedRouteResponse:
     data: dict
@@ -461,6 +526,18 @@ class TaskScopedExecutionService:
         if handler_response is not None:
             return handler_response
 
+        # HF-T019: check if ToolRouter selects Hermes for safe proposal modes
+        hermes_response = self._try_hermes_propose(
+            tid=tid,
+            task=task,
+            task_kind=task_kind,
+            request_data=request_data,
+            research_context=research_context_summary,
+            cfg=cfg,
+        )
+        if hermes_response is not None:
+            return hermes_response
+
         if request_data.providers:
             prompt, worker_context_meta = self._build_task_propose_prompt(
                 tid=tid,
@@ -537,6 +614,22 @@ class TaskScopedExecutionService:
         )
         if handler_response is not None:
             return handler_response
+
+        # HF-T023: Hermes is proposal/review-only in phase 1 — block mutation paths
+        requested_backend = str(getattr(request_data, "requested_backend", None) or "").strip().lower()
+        if requested_backend == "hermes":
+            return TaskScopedRouteResponse(
+                data={
+                    "status": "denied",
+                    "reason": "hermes_phase1_no_execute_mutation",
+                    "task_id": tid,
+                    "task_kind": task_kind,
+                    "backend": "hermes",
+                },
+                status="denied",
+                message="Hermes cannot execute mutation tasks in phase 1",
+                code=403,
+            )
 
         agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         execution_policy = get_core_services().task_execution_service.resolve_policy(
@@ -2074,6 +2167,146 @@ class TaskScopedExecutionService:
             last_exit_code=response.get("exit_code"),
             verification_status=verification_status,
         )
+
+    # ── HF-T019: Hermes propose path ─────────────────────────────────────────
+
+    def _try_hermes_propose(
+        self,
+        *,
+        tid: str,
+        task: dict,
+        task_kind: str,
+        request_data,
+        research_context: object,
+        cfg: dict,
+    ) -> TaskScopedRouteResponse | None:
+        """Invoke HermesAdapter when ToolRouter selects Hermes for safe proposal modes. HF-T019."""
+        hermes_cfg_raw = dict((cfg or {}).get("hermes_worker_adapter") or {})
+        if not bool(hermes_cfg_raw.get("enabled", False)):
+            return None
+        feature_flags = dict((cfg or {}).get("feature_flags") or {})
+        if not bool(feature_flags.get("enable_hermes_worker_adapter", False)):
+            return None
+
+        # Only safe proposal modes — never mutation
+        safe_modes = {"plan_only", "review", "summarize", "patch_propose", "research_limited"}
+        if task_kind not in safe_modes:
+            return None
+
+        try:
+            result = self._invoke_hermes_adapter(
+                tid=tid,
+                task=task,
+                task_kind=task_kind,
+                request_data=request_data,
+                research_context=research_context,
+                hermes_cfg_raw=hermes_cfg_raw,
+            )
+        except Exception as exc:
+            # HF-T022: Hermes unavailable → return degraded, not crash
+            return TaskScopedRouteResponse(
+                data={
+                    "status": "degraded",
+                    "reason": "hermes_unavailable",
+                    "fallback_from_hermes": True,
+                    "error": str(exc)[:200],
+                    "task_id": tid,
+                },
+                status="degraded",
+                message="Hermes unavailable; no policy-approved fallback",
+                code=503,
+            )
+
+        if result is None:
+            return None
+
+        status = str(result.get("status") or "").lower()
+        if status in {"denied", "degraded", "failed"}:
+            # HF-T022: record Hermes failure explicitly; don't hide it
+            return TaskScopedRouteResponse(
+                data={**result, "fallback_from_hermes": False, "task_id": tid},
+                status=status,
+                message=f"Hermes returned {status}",
+                code=400 if status == "denied" else 503,
+            )
+        return TaskScopedRouteResponse(data={**result, "backend": "hermes", "task_id": tid})
+
+    def _invoke_hermes_adapter(
+        self,
+        *,
+        tid: str,
+        task: dict,
+        task_kind: str,
+        request_data,
+        research_context: object,
+        hermes_cfg_raw: dict,
+    ) -> dict | None:
+        """Build envelope, context blocks, run HermesAdapter. HF-T019, T020, T021."""
+        from worker.core.hermes_adapter import HermesAdapter
+        from worker.core.hermes_adapter_config import HermesAdapterConfig
+        from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
+
+        try:
+            hermes_config = HermesAdapterConfig(**{
+                k: v for k, v in hermes_cfg_raw.items()
+                if k in HermesAdapterConfig.model_fields
+            })
+        except Exception:
+            hermes_config = HermesAdapterConfig()
+
+        adapter = HermesAdapter(config=hermes_config)
+
+        # Build minimal envelope for Hermes — planning cap covers review/plan_only
+        cap_map = {
+            "plan_only": ["planning"],
+            "review": ["planning", "review"],
+            "summarize": ["planning", "summarize"],
+            "patch_propose": ["planning", "patch_propose"],
+            "research_limited": ["planning", "research_limited"],
+        }
+        capabilities = cap_map.get(task_kind, ["planning"])
+        envelope = ExecutionEnvelope(
+            task_id=tid,
+            actor_ref="task_scoped_execution_service:hermes",
+            capability_grant=CapabilityGrant(capabilities=capabilities),
+            context_envelope_ref=f"task:{tid}",
+            audit_correlation_id=f"hermes:{tid}:{task_kind}",
+        )
+
+        # HF-T020: build context blocks from task/research context
+        context_blocks = build_hermes_context_blocks(
+            task=task,
+            request_data=request_data,
+            research_context=research_context,
+        )
+
+        # Run adapter for the requested mode
+        mode_method = getattr(adapter, task_kind, adapter.plan_only)
+        worker_result = mode_method(envelope, context_blocks=context_blocks)
+
+        # HF-T021: convert WorkerResult artifacts to task response format
+        artifacts = []
+        for art in (worker_result.artifacts or []):
+            artifacts.append({
+                "artifact_id": art.artifact_id,
+                "kind": art.kind,
+                "provenance": art.provenance,
+                "summary": art.summary,
+                "metadata": dict(art.metadata or {}),
+                "source": "hermes",
+            })
+
+        return {
+            "status": worker_result.status.value,
+            "summary": worker_result.summary,
+            "artifacts": artifacts,
+            "artifact_refs": [a["artifact_id"] for a in artifacts],
+            "policy_observations": list(worker_result.policy_observations or []),
+            "warnings": list(worker_result.warnings or []),
+            "no_side_effects_confirmed": worker_result.no_side_effects_confirmed,
+            "backend": "hermes",
+            "adapter_mode": task_kind,
+        }
 
     def _try_handler_propose(
         self,

@@ -8,13 +8,15 @@ HERMES_ALLOWED_CAPABILITIES: tuple[str, ...] = (
     "planning",
     "summarize",
     "research_limited",
-    "code_review",
+    "review",        # canonical public name (HF-T002)
+    "code_review",   # alias — kept for backwards compat (HF-T002)
     "patch_propose",
 )
 
 HERMES_DENIED_CAPABILITIES: tuple[str, ...] = (
     "patch_apply",
     "shell_execute",
+    "shell_execution",  # legacy alias — both forms denied (HF-T003)
     "file_write",
     "service_mutation",
     "config_mutation",
@@ -23,6 +25,18 @@ HERMES_DENIED_CAPABILITIES: tuple[str, ...] = (
     "unrestricted_network",
     "mcp_call",
 )
+
+# Canonical mapping: legacy/alias → canonical name (HF-T003)
+_CAPABILITY_ALIASES: dict[str, str] = {
+    "shell_execution": "shell_execute",
+    "code_review": "review",
+}
+
+
+def normalize_capability(capability: str) -> str:
+    """Map legacy/alias capability names to their canonical form."""
+    normalized = str(capability or "").strip().lower()
+    return _CAPABILITY_ALIASES.get(normalized, normalized)
 
 HERMES_ALLOWED_TASK_KINDS: tuple[str, ...] = (
     "plan_only",
@@ -53,12 +67,16 @@ class HermesWorkerCapabilityProfile:
     phase: str = "phase1"
 
     def supports_capability(self, capability: str) -> bool:
-        normalized = str(capability or "").strip().lower()
+        normalized = normalize_capability(capability)
         if not normalized:
             return False
         if normalized in self.denied_capabilities:
             return False
-        return normalized in self.allowed_capabilities
+        # Also check canonical form after alias resolution
+        canonical = normalize_capability(normalized)
+        if canonical in self.denied_capabilities:
+            return False
+        return normalized in self.allowed_capabilities or canonical in self.allowed_capabilities
 
     def is_task_kind_allowed(self, task_kind: str) -> bool:
         normalized = str(task_kind or "").strip().lower()

@@ -75,16 +75,20 @@ def validate_common_payload_schema(payload: dict[str, Any]) -> str | None:
 
 
 def validate_payload_for_mode(payload: dict[str, Any], *, mode: str) -> str | None:
+    """Validate mode-specific payload. HF-T001: plan_only handled directly, not aliased to summarize."""
     common_error = validate_common_payload_schema(payload)
     if common_error:
         return common_error
     mode_norm = str(mode).strip().lower()
+    # plan_only: same common-schema requirements, no extra fields required (HF-T001)
+    if mode_norm == "plan_only":
+        return None
     if mode_norm == "patch_propose":
         if not payload.get("patch_unified_diff") and not payload.get("patch_description"):
             return "parse_error_patch_payload_missing"
         if "touched_files" not in payload:
             return "parse_error_patch_payload_missing"
-    if mode_norm == "review":
+    if mode_norm in {"review", "code_review"}:
         findings = payload.get("findings")
         if not isinstance(findings, list):
             return "parse_error_review_findings_invalid"
