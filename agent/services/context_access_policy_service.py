@@ -3,6 +3,7 @@ import json
 import fnmatch
 import re
 from typing import List, Optional, Dict, Any
+from agent.services.source_classification_service import get_source_classification_service
 from worker.core.context_access_policy import (
     ContextAccessPolicy,
     ContextAccessRule,
@@ -20,12 +21,7 @@ from worker.core.context_access_policy import (
 class ContextAccessPolicyService:
     def __init__(self):
         self._policies: Dict[str, ContextAccessPolicy] = {}
-        # Simple secret patterns for T007
-        self._secret_patterns = [
-            re.compile(r"(?i)(?:api_key|password|bearer|secret|token|credential)\s*(?:[:=]|\bis\b)\s*['\"]?[\w\-]{5,}['\"]?"),
-            re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----"),
-            re.compile(r"(?i)\.env|secrets?\.json|credentials?\.xml")
-        ]
+        self._classification_service = get_source_classification_service()
 
     def validate_policy(self, policy: ContextAccessPolicy) -> List[str]:
         errors = []
@@ -67,39 +63,18 @@ class ContextAccessPolicyService:
             precedence=base.precedence
         )
 
-    def compute_decision_hash(self, policy_version: int, block_metadata: Dict[str, Any], destination: DestinationContext, operation: RequestedOperation) -> str:
-        data = {
-            "policy_version": policy_version,
-            "block_hash": block_metadata.get("content_hash"),
-            "destination": {
-                "worker_kind": destination.worker_kind,
-                "runtime_kind": destination.runtime_kind,
-                "model_scope": destination.model_scope,
-                "provider_id": destination.provider_id
-            },
-            "operation": operation
-        }
-        return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
+    def compute_decision_hash(self, policy: ContextAccessPolicy, block_metadata: Dict[str, Any], destination: DestinationContext) -> str:
+        evaluator = ContextAccessPolicyEvaluator(policy)
+        return evaluator.compute_decision_hash(block_metadata, destination)
 
     def detect_sensitivity(self, content: str, source_ref: str) -> Sensitivity:
-        # T007: Built-in detectors for secrets and credentials
-
-        # Check source_ref (file name) first
-        for pattern in self._secret_patterns[-1:]: # Only the last one which is filename based
-             if pattern.search(source_ref):
-                 return Sensitivity.secret
-
-        # Check content
-        for pattern in self._secret_patterns[:-1]:
-            if pattern.search(content):
-                return Sensitivity.secret
-
-        return Sensitivity.unknown
+        return self._classification_service.classify_source(source_ref, content=content)
 
     def redact_content(self, content: str, profile: str = "default") -> str:
         # T012: Context redaction
+        # Using classification service patterns
         redacted = content
-        for pattern in self._secret_patterns[:-1]: # Don't use the filename pattern here
+        for pattern in self._classification_service._secret_patterns:
             redacted = pattern.sub("[REDACTED]", redacted)
         return redacted
 
@@ -116,13 +91,47 @@ class ContextAccessPolicyService:
         # T011: can_send_context_block decision engine
         # T013: Write access decision engine
         evaluator = ContextAccessPolicyEvaluator(policy)
-        decision = evaluator.get_decision(block_metadata, destination)
+        return evaluator.get_decision(block_metadata, destination)
 
-        # T015: deterministic hash
-        decision.decision_hash = self.compute_decision_hash(policy.version, block_metadata, destination, destination.requested_operation)
-
-        return decision
-
+    def get_default_policy(self, scope: str = "system_default") -> ContextAccessPolicy:
+        # T029: Add default policy templates
+        rules = [
+            ContextAccessRule(
+                id="default-deny-secrets-cloud",
+                description="Secrets are never allowed for public cloud",
+                sensitivity=Sensitivity.secret,
+                cloud_allowed=False,
+                allowed_model_scopes=[ModelScope.local_model, ModelScope.private_remote]
+            ),
+            ContextAccessRule(
+                id="default-redact-sensitive-cloud",
+                description="Security sensitive data must be redacted for cloud",
+                sensitivity=Sensitivity.security_sensitive,
+                redaction_required=True,
+                cloud_allowed=True
+            ),
+            ContextAccessRule(
+                id="default-allow-public",
+                description="Public data is always allowed",
+                sensitivity=Sensitivity.public,
+                cloud_allowed=True,
+                send_allowed=True
+            ),
+            ContextAccessRule(
+                id="default-internal-redact",
+                description="Internal data requires redaction for cloud",
+                sensitivity=Sensitivity.project_internal,
+                redaction_required=True,
+                cloud_allowed=True
+            )
+        ]
+        return ContextAccessPolicy(
+            policy_id=f"default-{scope}",
+            version=1,
+            scope=scope,
+            rules=rules,
+            defaults={"send_allowed": False, "read_allowed": True, "write_allowed": False}
+        )
     def filter_blocks(self, policy: ContextAccessPolicy, blocks: List[Dict[str, Any]], destination: DestinationContext) -> List[Dict[str, Any]]:
         # T016: CodeCompass/RAG retrieval must filter before prompt assembly
         filtered = []
@@ -131,13 +140,14 @@ class ContextAccessPolicyService:
             if decision.decision != Decision.deny:
                 # Apply transformations
                 processed_block = block.copy()
+                processed_block["access_decision_hash"] = decision.decision_hash
                 processed_block["access_decision"] = decision
 
                 if decision.decision == Decision.allow_redacted:
                     processed_block["content"] = self.redact_content(block.get("content", ""))
                 elif decision.decision == Decision.allow_summary_only:
                     processed_block["content"] = self.summarize_content(block.get("content", ""))
-
+                
                 filtered.append(processed_block)
         return filtered
 

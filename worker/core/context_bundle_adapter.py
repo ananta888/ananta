@@ -28,6 +28,13 @@ class ContextEnvelopeRef:
     retrieval_refs: list[dict[str, Any]] = field(default_factory=list)
     context_byte_limit: int = 120_000
     context_chunk_limit: int = 32
+    access_policy_id: Optional[str] = None # T018
+    access_policy_version: Optional[int] = None # T018
+    destination_context_hash: Optional[str] = None # T018
+    denied_block_count: int = 0 # T018
+    redacted_block_count: int = 0 # T018
+    summarized_block_count: int = 0 # T018
+    context_access_summary: Optional[str] = None # T018
 
     @classmethod
     def from_raw(cls, raw: str | dict[str, Any]) -> "ContextEnvelopeRef":
@@ -41,6 +48,13 @@ class ContextEnvelopeRef:
             retrieval_refs=list(d.get("retrieval_refs") or []),
             context_byte_limit=int(d.get("context_byte_limit") or 120_000),
             context_chunk_limit=int(d.get("context_chunk_limit") or 32),
+            access_policy_id=d.get("access_policy_id"),
+            access_policy_version=d.get("access_policy_version"),
+            destination_context_hash=d.get("destination_context_hash"),
+            denied_block_count=int(d.get("denied_block_count") or 0),
+            redacted_block_count=int(d.get("redacted_block_count") or 0),
+            summarized_block_count=int(d.get("summarized_block_count") or 0),
+            context_access_summary=d.get("context_access_summary"),
         )
 
     def is_empty(self) -> bool:
@@ -53,6 +67,13 @@ class ContextEnvelopeRef:
             "retrieval_refs": self.retrieval_refs,
             "context_byte_limit": self.context_byte_limit,
             "context_chunk_limit": self.context_chunk_limit,
+            "access_policy_id": self.access_policy_id,
+            "access_policy_version": self.access_policy_version,
+            "destination_context_hash": self.destination_context_hash,
+            "denied_block_count": self.denied_block_count,
+            "redacted_block_count": self.redacted_block_count,
+            "summarized_block_count": self.summarized_block_count,
+            "context_access_summary": self.context_access_summary,
         }
 
 
@@ -102,7 +123,7 @@ class ContextEnvelopeAdapter:
             source_type="task_description",
             origin_id=ref.bundle_id,
             provenance=f"context_envelope:{ref.bundle_id}",
-            sensitivity=ContextSensitivity.internal,
+            sensitivity=ContextSensitivity.project_internal,
             token_estimate=0,
             content="",
             priority=10,
@@ -115,7 +136,7 @@ class ContextEnvelopeAdapter:
         *,
         content: str,
         source_type: str = "task_description",
-        sensitivity: ContextSensitivity = ContextSensitivity.internal,
+        sensitivity: ContextSensitivity = ContextSensitivity.project_internal,
         priority: int = 10,
     ) -> ContextBlock:
         """Build a single ContextBlock from a ContextBundleDB payload. AWF-T018."""

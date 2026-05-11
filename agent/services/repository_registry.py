@@ -15,6 +15,7 @@ from agent.repository import (
     blueprint_artifact_repo,
     blueprint_role_repo,
     config_repo,
+    context_access_policy_repo,
     context_bundle_repo,
     extracted_document_repo,
     evolution_proposal_repo,
@@ -64,6 +65,7 @@ class RepositoryRegistry:
     blueprint_artifact_repo: object
     blueprint_role_repo: object
     config_repo: object
+    context_access_policy_repo: object
     context_bundle_repo: object
     extracted_document_repo: object
     evolution_proposal_repo: object
@@ -112,6 +114,7 @@ def build_repository_registry() -> RepositoryRegistry:
         blueprint_artifact_repo=blueprint_artifact_repo,
         blueprint_role_repo=blueprint_role_repo,
         config_repo=config_repo,
+        context_access_policy_repo=context_access_policy_repo,
         context_bundle_repo=context_bundle_repo,
         extracted_document_repo=extracted_document_repo,
         evolution_proposal_repo=evolution_proposal_repo,

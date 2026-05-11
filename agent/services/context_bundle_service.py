@@ -7,7 +7,9 @@ import re
 from agent.common.redaction import redact
 from agent.config import settings
 from agent.metrics import RAG_BUNDLE_BUDGET_UTILIZATION, RAG_BUNDLE_DUPLICATE_RATE, RAG_BUNDLE_NOISE_RATE
+from agent.services.context_access_policy_service import get_source_classification_service, ContextAccessPolicyService
 from agent.services.rag_policy_service import is_chunk_allowed_for_scope, normalize_llm_scope, normalize_sensitivity
+from worker.core.context_access_policy import RequestedOperation, DestinationContext, ModelScope, Decision, ContextAccessPolicy
 
 CONTEXT_BUNDLE_POLICY_MODES = {"compact", "standard", "full"}
 CONTEXT_WINDOW_PROFILES = {"compact_12k", "standard_32k", "full_64k"}
@@ -110,8 +112,9 @@ def _compute_context_hash(*, query: str, chunks: list[dict], manifest_hash: str)
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
-class ContextBundleService:
-    """Builds worker-facing context bundles from retrieval output."""
+    def __init__(self):
+        self._policy_service = ContextAccessPolicyService()
+        self._classification_service = get_source_classification_service()
 
     def normalize_context_bundle_policy_config(self, value: dict | None) -> dict[str, object]:
         return normalize_context_bundle_policy_config(value)
@@ -676,27 +679,81 @@ class ContextBundleService:
         window_profile: str | None = None,
         provenance_visibility: str | None = None,
         llm_scope: str | None = None,
+        destination: Optional[DestinationContext] = None,
+        policy: Optional[ContextAccessPolicy] = None,
     ) -> dict[str, object]:
         payload = dict(context_payload or {})
         chunks = list(payload.get("chunks") or [])
-        effective_llm_scope = normalize_llm_scope(llm_scope if llm_scope is not None else "local_only")
+        
+        # Determine DestinationContext if not provided
+        if not destination:
+            effective_llm_scope = normalize_llm_scope(llm_scope if llm_scope is not None else "local_only")
+            # Map legacy llm_scope to ModelScope
+            model_scope_map = {
+                "local_only": ModelScope.local_model,
+                "trusted_private_cloud": ModelScope.private_remote,
+                "external_cloud_allowed": ModelScope.public_cloud,
+                "no_llm": ModelScope.none
+            }
+            destination = DestinationContext(
+                worker_id="unknown",
+                worker_kind="unknown",
+                runtime_target_id="unknown",
+                runtime_kind="unknown",
+                provider_id="unknown",
+                provider_location="unknown",
+                model_id="unknown",
+                model_scope=model_scope_map.get(effective_llm_scope, ModelScope.public_cloud),
+                cloud_effective=(effective_llm_scope in ["trusted_private_cloud", "external_cloud_allowed"]),
+                external_effective=(effective_llm_scope == "external_cloud_allowed"),
+                local_effective=(effective_llm_scope == "local_only"),
+                requested_operation=RequestedOperation.send_to_llm,
+                task_kind=task_kind
+            )
+        else:
+             effective_llm_scope = llm_scope or str(destination.model_scope.value)
+
         allowed_chunks: list[dict[str, object]] = []
         denied_chunks: list[dict[str, object]] = []
+        
+        # Use default policy if none provided
+        if not policy:
+             from worker.core.context_access_policy import ContextAccessPolicy
+             policy = ContextAccessPolicy(policy_id="default", version=1, scope="system_default")
+
         for chunk in chunks:
             if not isinstance(chunk, dict):
                 continue
-            allowed, reason = is_chunk_allowed_for_scope(chunk=chunk, llm_scope=effective_llm_scope)
-            if allowed:
-                metadata = dict(chunk.get("metadata") or {})
-                metadata["sensitivity"] = normalize_sensitivity(metadata.get("sensitivity"))
+            
+            # Ensure chunk has metadata for classification
+            metadata = dict(chunk.get("metadata") or {})
+            
+            # T008: Classify CodeCompass nodes if they are from CC
+            if chunk.get("engine") == "codecompass":
+                 self._classification_service.classify_codecompass_node(chunk)
+                 metadata.update(chunk.get("metadata", {})) # Update metadata with classification
+
+            # CAP-BE-T016: Use CAPS for filtering
+            decision = self._policy_service.get_decision(policy, metadata, destination)
+            
+            if decision.decision != Decision.deny:
+                metadata["sensitivity"] = decision.effective_sensitivity
+                metadata["access_decision_hash"] = decision.decision_hash
                 chunk = {**chunk, "metadata": metadata}
+                
+                # Apply transforms (T012)
+                if decision.decision == Decision.allow_redacted:
+                     chunk["content"] = self._policy_service.redact_content(chunk.get("content", ""))
+                elif decision.decision == Decision.allow_summary_only:
+                     chunk["content"] = self._policy_service.summarize_content(chunk.get("content", ""))
+                     
                 allowed_chunks.append(chunk)
             else:
                 denied_chunks.append(
                     {
                         "source": self._redact_debug_value(str(chunk.get("source") or "").strip() or None),
-                        "reason": reason,
-                        "sensitivity": normalize_sensitivity((chunk.get("metadata") or {}).get("sensitivity")),
+                        "reason": decision.reason_code.value if decision.reason_code else "denied",
+                        "sensitivity": decision.effective_sensitivity,
                     }
                 )
         chunks = allowed_chunks
@@ -864,7 +921,32 @@ class ContextBundleService:
         RAG_BUNDLE_NOISE_RATE.labels(metric_task_kind, metric_bundle_mode).observe(noise_rate)
         return payload
 
-    def build_grounded_prompt(self, *, prompt: str, context_text: str) -> str:
+    def build_grounded_prompt(
+        self,
+        *,
+        prompt: str,
+        context_text: str,
+        chunks: Optional[List[Dict[str, Any]]] = None,
+        destination: Optional[DestinationContext] = None,
+        policy: Optional[ContextAccessPolicy] = None
+    ) -> str:
+        """T019: Policy-aware prompt assembly guard."""
+        if chunks and destination and policy:
+            # Defense in depth: Verify each block again
+            evaluator = ContextAccessPolicyEvaluator(policy)
+            for chunk in chunks:
+                metadata = dict(chunk.get("metadata") or {})
+                decision = evaluator.get_decision(metadata, destination)
+                
+                # Check for allow decision
+                if decision.decision == Decision.deny:
+                     raise ValueError(f"Security Guard Violation: Block {chunk.get('source')} denied for current destination.")
+                
+                # Check for stale decisions (T019)
+                stored_hash = metadata.get("access_decision_hash")
+                if stored_hash and stored_hash != decision.decision_hash:
+                     raise ValueError(f"Security Guard Violation: Stale access decision for block {chunk.get('source')}.")
+
         return (
             "Nutze den folgenden selektiven Kontext und beantworte die Frage praezise.\n\n"
             f"Frage:\n{prompt}\n\n"
