@@ -6,6 +6,21 @@ import sqlalchemy as sa
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
+class ContextAccessPolicyDB(SQLModel, table=True):
+    __tablename__ = "context_access_policies"
+    policy_id: str = Field(primary_key=True)
+    version: int = Field(primary_key=True)
+    project_id: Optional[str] = Field(default=None, index=True)
+    scope: str = Field(default="project") # system_default, project, blueprint_role, task
+    enabled: bool = Field(default=True)
+    policy_json: dict = Field(default={}, sa_column=Column(JSON))
+    lint_status: Optional[str] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
 class UserDB(SQLModel, table=True):
     __tablename__ = "users"
     username: str = Field(primary_key=True)

@@ -197,6 +197,8 @@ class ContextManagerService:
         grounded_prompt = get_context_bundle_service().build_grounded_prompt(
             prompt=prompt,
             context_text=str(bundle.get("context_text") or ""),
+            chunks=list(bundle.get("chunks") or []),
+            # In CLI we don't have full destination context yet, but CAPS will use defaults
         )
         return bundle, grounded_prompt
 

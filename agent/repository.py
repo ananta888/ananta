@@ -19,6 +19,7 @@ from agent.repositories import (
     ExtractedDocumentRepository,
     EvolutionProposalRepository,
     EvolutionRunRepository,
+    ContextAccessPolicyRepository,
     GoalRepository,
     InstructionOverlayRepository,
     KnowledgeCollectionRepository,
@@ -68,6 +69,7 @@ user_instruction_profile_repo = UserInstructionProfileRepository()
 instruction_overlay_repo = InstructionOverlayRepository()
 retrieval_run_repo = RetrievalRunRepository()
 context_bundle_repo = ContextBundleRepository()
+context_access_policy_repo = ContextAccessPolicyRepository()
 worker_job_repo = WorkerJobRepository()
 worker_result_repo = WorkerResultRepository()
 evolution_run_repo = EvolutionRunRepository()
@@ -109,6 +111,7 @@ __all__ = [
     "BlueprintRoleRepository",
     "ConfigRepository",
     "ContextBundleRepository",
+    "ContextAccessPolicyRepository",
     "ExtractedDocumentRepository",
     "EvolutionProposalRepository",
     "EvolutionRunRepository",
@@ -153,6 +156,7 @@ __all__ = [
     "blueprint_role_repo",
     "config_repo",
     "context_bundle_repo",
+    "context_access_policy_repo",
     "extracted_document_repo",
     "evolution_proposal_repo",
     "evolution_run_repo",
