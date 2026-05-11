@@ -229,8 +229,7 @@ def _run_ui_availability_verifier(
         f"-Dananta.e2e.report={availability_report}",
         "-Doomph.setup.skip=true",
         "-Doomph.setup.sync.skip=true",
-        "-Dorg.eclipse.swt.browser.DefaultType=mozilla",
-        "-Xmx512m",
+        "-Xmx1g",
     ]
     timed_out = False
     try:

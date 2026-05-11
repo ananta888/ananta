@@ -91,7 +91,13 @@
       "Bash(grep -v \"^$\")",
       "Bash(git -C /home/krusty/ananta ls-files client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build/libs/)",
       "Bash(java -version)",
-      "Bash(docker build *)"
+      "Bash(docker build *)",
+      "Bash(docker run *)",
+      "Bash(git -C /home/krusty/ananta log --oneline --all -- \"ci-artifacts/eclipse/debug-ui-availability-report.json\" \"ci-artifacts/eclipse/dropins-fresh-report.json\")",
+      "Bash(git -C /home/krusty/ananta log --oneline --all -20 -- \"ci-artifacts/eclipse/\")",
+      "Bash(git -C /home/krusty/ananta show c51ba8f1 --stat)",
+      "Bash(git -C /home/krusty/ananta show 867a9c98 --stat)",
+      "Bash(git -C /home/krusty/ananta show c51ba8f1:client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF)"
     ]
   }
 }
