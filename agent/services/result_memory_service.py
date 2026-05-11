@@ -1,12 +1,36 @@
 from __future__ import annotations
 
 import re
+import time
+from dataclasses import dataclass, field
+from typing import Any
 
 from agent.db_models import MemoryEntryDB
 from agent.repository import memory_entry_repo
 
+_POLICY_VERSION = "memory_policy_v2"
+
+# ── MemoryProposalArtifact (AWF-T024) ─────────────────────────────────────────
+
+@dataclass
+class MemoryProposalArtifact:
+    """Proposed long-term memory entry awaiting Hub approval. AWF-T024.
+
+    Workers emit proposals; Hub decides whether to promote to trusted memory.
+    """
+    title: str
+    rationale: str
+    evidence_refs: list[str] = field(default_factory=list)
+    proposed_scope: str = "project"
+    sensitivity: str = "internal"
+    confidence: float = 0.5
+    approval_required: bool = True
+    proposed_by: str = ""
+    approved: bool = False
+
 
 def normalize_result_memory_policy(value: dict | None) -> dict[str, object]:
+    """T022: normalize memory policy with sensitivity, redaction, TTL, and scope controls."""
     payload = value if isinstance(value, dict) else {}
 
     def _positive_int(raw, default: int, *, minimum: int = 1, maximum: int = 100000) -> int:
@@ -16,6 +40,15 @@ def normalize_result_memory_policy(value: dict | None) -> dict[str, object]:
             parsed = default
         return max(minimum, min(maximum, parsed))
 
+    def _positive_float_or_none(raw) -> float | None:
+        if raw is None:
+            return None
+        try:
+            v = float(raw)
+            return v if v > 0 else None
+        except (TypeError, ValueError):
+            return None
+
     return {
         "enabled": bool(payload.get("enabled", True)),
         "create_followup_artifact": bool(payload.get("create_followup_artifact", True)),
@@ -23,6 +56,16 @@ def normalize_result_memory_policy(value: dict | None) -> dict[str, object]:
         "raw_history_max_chars": _positive_int(payload.get("raw_history_max_chars"), 12000, minimum=1000, maximum=100000),
         "archive_raw_output": bool(payload.get("archive_raw_output", False)),
         "neighbor_file_terms_enabled": bool(payload.get("neighbor_file_terms_enabled", True)),
+        # T022: sensitivity + redaction
+        "sensitivity": str(payload.get("sensitivity") or "internal").strip().lower(),
+        "redact_before_persist": bool(payload.get("redact_before_persist", True)),
+        "policy_version": _POLICY_VERSION,
+        # T023: memory scopes
+        "default_memory_scope": str(payload.get("default_memory_scope") or "task").strip().lower(),
+        "allowed_scopes": list(payload.get("allowed_scopes") or ["session", "task", "project"]),
+        # T026: TTL
+        "default_ttl_seconds": _positive_float_or_none(payload.get("default_ttl_seconds")),
+        "retention_class": str(payload.get("retention_class") or "standard").strip().lower(),
     }
 
 
@@ -154,13 +197,35 @@ class ResultMemoryService:
         retrieval_tags: list[str] | None = None,
         metadata: dict | None = None,
         policy: dict | None = None,
-    ) -> MemoryEntryDB:
+        # T023: memory scope
+        memory_scope: str | None = None,
+        # T025: provenance
+        generated_by: str | None = None,
+        confidence: float = 1.0,
+        approved: bool = False,
+    ) -> MemoryEntryDB | None:
+        """Persist worker result memory. Returns None if policy disables write. T022–T026."""
         memory_policy = normalize_result_memory_policy(policy)
+
+        # T022: honor enabled=False
+        if not bool(memory_policy["enabled"]):
+            return None
+
         raw_output = str(output or "")
-        compact = self._compact_output(raw_output)
-        summary = str(compact.get("summary") or "") or (raw_output[:280] if raw_output else None)
+
+        # T022: redact secrets before any persistence
+        redaction_applied = False
+        if bool(memory_policy["redact_before_persist"]):
+            from worker.core.redaction import redact_text
+            raw_output_for_storage = redact_text(raw_output)
+            redaction_applied = raw_output_for_storage != raw_output
+        else:
+            raw_output_for_storage = raw_output
+
+        compact = self._compact_output(raw_output_for_storage)
+        summary = str(compact.get("summary") or "") or (raw_output_for_storage[:280] if raw_output_for_storage else None)
         structured = self._structured_summary(
-            output=raw_output,
+            output=raw_output_for_storage,
             compacted_summary=str(compact.get("compacted_summary") or ""),
             bullets=list(compact.get("bullet_points") or []),
         )
@@ -170,6 +235,19 @@ class ResultMemoryService:
             structured=structured,
             max_chars=int(memory_policy["retrieval_document_max_chars"]),
         )
+
+        # T023: resolve scope
+        scope = str(memory_scope or memory_policy["default_memory_scope"]).strip().lower() or "task"
+        allowed_scopes = list(memory_policy["allowed_scopes"])
+        if scope not in allowed_scopes:
+            scope = str(memory_policy["default_memory_scope"])
+
+        # T026: TTL / expires_at
+        default_ttl = memory_policy["default_ttl_seconds"]
+        expires_at: float | None = None
+        if default_ttl:
+            expires_at = time.time() + float(default_ttl)
+
         base_metadata = dict(metadata or {})
         followup_artifact = {
             "kind": "task_result_summary",
@@ -180,6 +258,7 @@ class ResultMemoryService:
             "structured_summary": structured,
             "retrieval_tags": list(retrieval_tags or []),
         } if bool(memory_policy["create_followup_artifact"]) else None
+
         return memory_entry_repo.save(
             MemoryEntryDB(
                 task_id=task_id,
@@ -189,7 +268,7 @@ class ResultMemoryService:
                 entry_type="worker_result",
                 title=title,
                 summary=summary,
-                content=(retrieval_document or str(compact.get("compacted_summary") or "").strip() or raw_output or None),
+                content=(retrieval_document or str(compact.get("compacted_summary") or "").strip() or raw_output_for_storage or None),
                 artifact_refs=list(artifact_refs or []),
                 retrieval_tags=list(retrieval_tags or []),
                 memory_metadata={
@@ -201,10 +280,51 @@ class ResultMemoryService:
                     "retrieval_document": retrieval_document or None,
                     "memory_format": "worker_result_compact_v3",
                     "compaction_policy": memory_policy,
-                    "raw_history": raw_output[: int(memory_policy["raw_history_max_chars"])] if bool(memory_policy["archive_raw_output"]) else None,
+                    "raw_history": raw_output_for_storage[: int(memory_policy["raw_history_max_chars"])] if bool(memory_policy["archive_raw_output"]) else None,
                     "original_output_chars": len(raw_output),
+                    # T022: policy tracking
+                    "policy_version": memory_policy["policy_version"],
+                    "redaction_applied": redaction_applied,
+                    "sensitivity": memory_policy["sensitivity"],
+                    # T023: scope
+                    "memory_scope": scope,
+                    # T025: provenance
+                    "generated_by": str(generated_by or task_id or ""),
+                    "approved": bool(approved),
+                    "confidence": float(confidence),
+                    "trust_source": "worker_result",
+                    # T026: TTL
+                    "expires_at": expires_at,
+                    "retention_class": memory_policy["retention_class"],
                 },
             )
+        )
+
+    def build_memory_proposal(
+        self,
+        *,
+        title: str,
+        rationale: str,
+        evidence_refs: list[str] | None = None,
+        proposed_scope: str = "project",
+        sensitivity: str = "internal",
+        confidence: float = 0.5,
+        proposed_by: str = "",
+    ) -> MemoryProposalArtifact:
+        """Build a MemoryProposalArtifact without writing to DB. AWF-T024.
+
+        Workers propose durable memory; Hub decides whether to promote.
+        """
+        return MemoryProposalArtifact(
+            title=str(title or "").strip(),
+            rationale=str(rationale or "").strip(),
+            evidence_refs=list(evidence_refs or []),
+            proposed_scope=str(proposed_scope or "project").strip().lower(),
+            sensitivity=str(sensitivity or "internal").strip().lower(),
+            confidence=float(confidence),
+            approval_required=True,
+            proposed_by=str(proposed_by or "").strip(),
+            approved=False,
         )
 
 

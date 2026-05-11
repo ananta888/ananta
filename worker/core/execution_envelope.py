@@ -37,6 +37,9 @@ KNOWN_CAPABILITY_CLASSES: frozenset[str] = frozenset({
     "subworker_spawn",
     "cron_schedule",
     "artifact_publish",
+    # AWF-T027–T030: skill capabilities
+    "skill_execute",
+    "skill_propose",
 })
 
 CONFIRM_REQUIRED_CAPABILITIES: frozenset[str] = frozenset({
