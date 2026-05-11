@@ -32,6 +32,12 @@ import { ContextAccessRule, Sensitivity } from '../../models/context-access-poli
               <span class="badge rounded-pill bg-light text-dark border small" *ngIf="rule.read_allowed">Read</span>
               <span class="badge rounded-pill bg-light text-dark border small" *ngIf="rule.write_allowed">Write</span>
               <span class="badge rounded-pill bg-light text-dark border small" *ngIf="rule.send_allowed">Send</span>
+              <span class="badge rounded-pill bg-info text-white small" *ngIf="rule.redaction_required" title="Schwärzung erforderlich">
+                <i class="bi bi-shield-lock me-1"></i>Redact
+              </span>
+              <span class="badge rounded-pill bg-info text-white small" *ngIf="rule.summarization_allowed" title="Zusammenfassung erlaubt">
+                <i class="bi bi-file-earmark-zip me-1"></i>Summary
+              </span>
             </div>
           </div>
 
