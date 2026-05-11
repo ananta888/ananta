@@ -130,7 +130,7 @@
         "AWF-T030",
         "AWF-T031"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "AWF-M7",
@@ -141,7 +141,7 @@
         "AWF-T034",
         "AWF-T035"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "AWF-M8",
@@ -153,7 +153,7 @@
         "AWF-T039",
         "AWF-T040"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "AWF-M9",
@@ -165,7 +165,7 @@
         "AWF-T044",
         "AWF-T045"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -1148,7 +1148,7 @@
     {
       "id": "AWF-T031",
       "title": "Seed minimal safe native skills",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "problem": "Once SkillRunner exists, useful baseline skills should be provided without dangerous powers.",
@@ -1177,7 +1177,7 @@
     {
       "id": "AWF-T032",
       "title": "Create SubworkerEnvelope with capability subset enforcement",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "problem": "WorkerJobService supports delegated worker jobs, but Hermes-like subworkers need an explicit envelope proving child authority is a subset of parent authority.",
@@ -1208,7 +1208,7 @@
     {
       "id": "AWF-T033",
       "title": "Add DelegationArtifact and execution tree trace",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Delegated work should be reconstructable as a tree of tasks/results/artifacts.",
@@ -1238,7 +1238,7 @@
     {
       "id": "AWF-T034",
       "title": "Limit subworker recursion, fan-out and mutation concurrency",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "problem": "Subworkers can create loops, runaway cost or conflicting mutations unless depth/fan-out/concurrency are enforced.",
@@ -1268,7 +1268,7 @@
     {
       "id": "AWF-T035",
       "title": "Add cancellation and timeout propagation across worker/subworker jobs",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Long-running worker/subworker executions need cancellation and timeout propagation to remain controllable.",
@@ -1299,7 +1299,7 @@
     {
       "id": "AWF-T036",
       "title": "Create unified WorkerResult v2 for native worker paths",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Different services return dicts, WorkerResultDB, WorkerExecutionProviderResult and native_runtime payloads. A unified WorkerResult v2 is needed for reliable artifact-first flow.",
@@ -1331,7 +1331,7 @@
     {
       "id": "AWF-T037",
       "title": "Add TraceBundle v2 for native worker execution",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Native worker execution has trace_id and context_hash, but Hermes-like governed executor needs structured trace bundles for model calls, tool calls, provider dispatch, memory writes, skills and subworkers.",
@@ -1362,7 +1362,7 @@
     {
       "id": "AWF-T038",
       "title": "Require typed artifacts for plan, command, test, verification, memory and skill outputs",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Native runtime already creates command/test/verification artifacts, but this artifact-first rule should apply uniformly to all worker modes.",
@@ -1395,7 +1395,7 @@
     {
       "id": "AWF-T039",
       "title": "Add worker diagnostics read model",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Operators need one view of native worker readiness: profiles, tools, providers, skills, memory, context/RAG, degraded state and policy gates.",
@@ -1427,7 +1427,7 @@
     {
       "id": "AWF-T040",
       "title": "Emit audit events for all sensitive worker transitions",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Audit must cover more than command execution: policy decision, provider call, memory write, skill run, skill proposal, subworker spawn and artifact persistence all matter.",
@@ -1459,7 +1459,7 @@
     {
       "id": "AWF-T041",
       "title": "Add end-to-end native worker safe plan/review flow test",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Need a full flow test proving native worker can receive a task, get context, pass preflight, produce artifact, record trace and result memory without mutation.",
@@ -1490,7 +1490,7 @@
     {
       "id": "AWF-T042",
       "title": "Add end-to-end native command execute denial and approval tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Command execution is the highest-risk native worker path and must prove denial/approval behavior end-to-end.",
@@ -1519,7 +1519,7 @@
     {
       "id": "AWF-T043",
       "title": "Add provider fallback and cloud-block integration tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Provider flexibility is Hermes-like but dangerous without tests proving cloud/local boundaries and fallback limits.",
@@ -1548,7 +1548,7 @@
     {
       "id": "AWF-T044",
       "title": "Add worker security regression suite grouping",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Security tests exist across many files. A grouped worker security suite makes release gates and smaller models easier to use.",
@@ -1577,7 +1577,7 @@
     {
       "id": "AWF-T045",
       "title": "Update native worker docs and this track after implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "The native worker architecture has evolved fast. Docs need to reflect real enforcement status, not planned behavior.",
