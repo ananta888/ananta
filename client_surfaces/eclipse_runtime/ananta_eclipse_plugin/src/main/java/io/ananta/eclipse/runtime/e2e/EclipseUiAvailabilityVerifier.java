@@ -22,14 +22,19 @@ public final class EclipseUiAvailabilityVerifier implements IApplication {
 
                 @Override
                 public void postStartup() {
-                    display.asyncExec(() -> {
+                    display.timerExec(500, () -> {
+                        if (!PlatformUI.isWorkbenchRunning()) {
+                            return;
+                        }
                         Map<String, Object> report = EclipseUiVerificationSupport.verifyViews();
                         try {
                             EclipseUiVerificationSupport.writeReport(reportPath, report);
                         } catch (Exception exception) {
                             exception.printStackTrace();
                         } finally {
-                            PlatformUI.getWorkbench().close();
+                            if (PlatformUI.isWorkbenchRunning()) {
+                                PlatformUI.getWorkbench().close();
+                            }
                         }
                     });
                 }

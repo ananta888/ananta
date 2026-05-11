@@ -97,7 +97,8 @@
       "Bash(git -C /home/krusty/ananta log --oneline --all -20 -- \"ci-artifacts/eclipse/\")",
       "Bash(git -C /home/krusty/ananta show c51ba8f1 --stat)",
       "Bash(git -C /home/krusty/ananta show 867a9c98 --stat)",
-      "Bash(git -C /home/krusty/ananta show c51ba8f1:client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF)"
+      "Bash(git -C /home/krusty/ananta show c51ba8f1:client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF)",
+      "Bash(xargs cat)"
     ]
   }
 }
