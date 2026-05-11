@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin>
    <extension
+         id="uiAvailabilityVerifier"
          point="org.eclipse.core.runtime.applications">
       <application
-            id="uiAvailabilityVerifier"
             thread="main"
             visible="false">
          <run
