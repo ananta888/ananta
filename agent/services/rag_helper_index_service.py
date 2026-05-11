@@ -22,7 +22,11 @@ class RagHelperIndexService:
     """Owns controlled rag-helper execution and persistence for artifact-backed indices."""
 
     DEFAULT_PROFILE_NAME = "default"
-    VALID_SOURCE_SCOPES = {"artifact", "wiki"}
+    VALID_SOURCE_SCOPES = {"artifact", "wiki", "repo_path"}
+    DEFAULT_REPO_PATH_EXTENSIONS: set[str] = {
+        "py", "js", "ts", "tsx", "jsx", "java", "go", "rs", "c", "cpp", "h", "hpp",
+        "cs", "rb", "php", "md", "rst", "txt", "yaml", "yml", "json", "toml",
+    }
     INTERNAL_PROFILE_CATALOG = {
         "default": {
             "label": "Default",
@@ -911,6 +915,138 @@ class RagHelperIndexService:
                 duration_ms / 1000.0
             )
             return knowledge_index, run
+
+    def index_repo_path(
+        self,
+        path: str,
+        *,
+        created_by: str | None = None,
+        profile_name: str | None = None,
+    ) -> tuple[KnowledgeIndexDB, KnowledgeIndexRunDB]:
+        """Index an arbitrary path within the repo root directly (no artifact required)."""
+        raw = Path(str(path or "").strip())
+        safe_path = raw.resolve() if raw.is_absolute() else (self._repo_root() / raw).resolve()
+        repo_root = self._repo_root().resolve()
+        if safe_path != repo_root and repo_root not in safe_path.parents:
+            raise ValueError("path_outside_repo")
+        if not safe_path.exists():
+            raise ValueError("path_not_found")
+        helper_modules = self._ensure_helper_imports()
+
+        scope_id = str(safe_path.relative_to(repo_root))
+        profile = self._resolve_profile(profile_name, None)
+        knowledge_index = self._build_or_create_index(
+            source_scope="repo_path",
+            scope_id=scope_id,
+            created_by=created_by,
+            collection_id=scope_id,
+        )
+        if knowledge_index.status == "completed":
+            dummy_run = knowledge_index_run_repo.save(
+                KnowledgeIndexRunDB(
+                    knowledge_index_id=knowledge_index.id,
+                    profile_name=profile["name"],
+                    status="skipped",
+                    source_path=str(safe_path),
+                    run_metadata={"reason": "already_completed"},
+                    started_at=time.time(),
+                    finished_at=time.time(),
+                )
+            )
+            return knowledge_index, dummy_run
+
+        run = knowledge_index_run_repo.save(
+            KnowledgeIndexRunDB(
+                knowledge_index_id=knowledge_index.id,
+                profile_name=profile["name"],
+                status="running",
+                source_path=str(safe_path),
+                run_metadata={"requested_by": created_by, "profile": profile, "repo_path": scope_id},
+                started_at=time.time(),
+            )
+        )
+        output_dir = self._knowledge_output_root(source_scope="repo_path") / knowledge_index.id / run.id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = output_dir / "manifest.json"
+
+        knowledge_index.status = "running"
+        knowledge_index.profile_name = profile["name"]
+        knowledge_index.latest_run_id = run.id
+        knowledge_index.output_dir = str(output_dir)
+        knowledge_index.updated_at = time.time()
+        knowledge_index.index_metadata = {
+            **(knowledge_index.index_metadata or {}),
+            "repo_path": scope_id,
+            "last_requested_by": created_by,
+            "profile": profile,
+        }
+        knowledge_index = knowledge_index_repo.save(knowledge_index)
+
+        started = time.perf_counter()
+        try:
+            limits = helper_modules["ProcessingLimits"](**profile["limits"])
+            helper_modules["process_project"](
+                root=safe_path,
+                out_dir=output_dir,
+                extensions=self.DEFAULT_REPO_PATH_EXTENSIONS,
+                excludes=getattr(helper_modules["codecompass"], "DEFAULT_EXCLUDES", set()),
+                include_code_snippets=profile["options"]["include_code_snippets"],
+                exclude_trivial_methods=profile["options"]["exclude_trivial_methods"],
+                include_xml_node_details=profile["options"]["include_xml_node_details"],
+                include_globs=[],
+                exclude_globs=list(profile.get("filters", {}).get("exclude_globs") or []),
+                limits=limits,
+                java_extractor_cls=helper_modules["codecompass"].JavaExtractor,
+                adoc_extractor_cls=helper_modules["codecompass"].AdocExtractor,
+                xml_extractor_cls=helper_modules["codecompass"].XmlExtractor,
+                xsd_extractor_cls=helper_modules["codecompass"].XsdExtractor,
+                text_extractor_cls=helper_modules["codecompass"].TextFileExtractor,
+                incremental=False,
+                rebuild=True,
+                resume=False,
+                cache_file=None,
+                dry_run=False,
+                show_progress=False,
+                error_log_file=None,
+            )
+            manifest = self._load_manifest(manifest_path)
+            duration_ms = round((time.perf_counter() - started) * 1000, 3)
+            run.status = "completed"
+            run.output_dir = str(output_dir)
+            run.manifest_path = str(manifest_path)
+            run.duration_ms = duration_ms
+            run.finished_at = time.time()
+            run.run_metadata = {**(run.run_metadata or {}), "manifest": manifest}
+            run = knowledge_index_run_repo.save(run)
+            knowledge_index.status = "completed"
+            knowledge_index.latest_run_id = run.id
+            knowledge_index.output_dir = str(output_dir)
+            knowledge_index.manifest_path = str(manifest_path)
+            knowledge_index.updated_at = time.time()
+            knowledge_index.index_metadata = {
+                **(knowledge_index.index_metadata or {}),
+                "manifest_summary": {
+                    "file_count": manifest.get("file_count", 0),
+                    "index_record_count": manifest.get("index_record_count", 0),
+                },
+            }
+            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope="repo_path", status="completed", profile=profile["name"]).inc()
+            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope="repo_path", profile=profile["name"]).observe(duration_ms / 1000.0)
+            return knowledge_index_repo.save(knowledge_index), run
+        except Exception as exc:
+            duration_ms = round((time.perf_counter() - started) * 1000, 3)
+            run.status = "failed"
+            run.error_message = str(exc)[:500]
+            run.duration_ms = duration_ms
+            run.finished_at = time.time()
+            knowledge_index_run_repo.save(run)
+            knowledge_index.status = "failed"
+            knowledge_index.updated_at = time.time()
+            knowledge_index.index_metadata = {**(knowledge_index.index_metadata or {}), "last_error": str(exc)[:500]}
+            knowledge_index_repo.save(knowledge_index)
+            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope="repo_path", status="failed", profile=profile["name"]).inc()
+            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope="repo_path", profile=profile["name"]).observe(duration_ms / 1000.0)
+            raise
 
     def index_source_records(
         self,
