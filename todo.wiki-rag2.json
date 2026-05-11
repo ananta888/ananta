@@ -196,7 +196,7 @@
         "WR2-T34",
         "WR2-T35"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "WR2-M7",
@@ -921,7 +921,7 @@
     {
       "id": "WR2-T35",
       "title": "Optionalen ZIM Minimal-Prototyp nach ADR implementieren",
-      "status": "blocked",
+      "status": "done",
       "priority": "P3",
       "risk": "high",
       "type": "optional_feature",
@@ -936,6 +936,9 @@
         "Ein kleiner ZIM-Dump kann Artikeltext streamen, falls ADR dies freigibt.",
         "ZIM-Import nutzt denselben Normalizer und Writer wie XML.",
         "Nicht unterstuetzte ZIM-Features werden als Issues gemeldet, nicht still ignoriert."
+      ],
+      "notes": [
+        "Pure-Python ZimParser impl: ZIM v5/v6, uncompressed + ZSTD clusters, issue reporting for LZ4/unknown. 16 tests gruen."
       ]
     },
     {
