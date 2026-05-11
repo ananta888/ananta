@@ -73,6 +73,67 @@ def test_register_agent_with_capabilities_metadata(client, app):
             assert response.json["data"]["agent"]["execution_limits"]["max_parallel_tasks"] == 2
 
 
+def test_register_agent_exposes_validation_errors_field(client, app):
+    """DRR-T037: Agent directory entry exposes registration_validated and validation_errors read-only."""
+    from agent.db_models import AgentInfoDB
+    from agent.repository import agent_repo
+
+    agent = AgentInfoDB(
+        url="http://repair-worker:5000",
+        name="repair-worker",
+        role="worker",
+        worker_roles=["repair"],
+        capabilities=["repair.diagnose", "repair.execute.low_risk"],
+        execution_limits={"max_parallel_tasks": 1},
+        registration_validated=True,
+        validation_errors=[],
+        status="online",
+    )
+    agent_repo.save(agent)
+
+    response = client.get("/agents", headers={"Authorization": "Bearer admin-token-placeholder"})
+    # Directory entry includes validation_errors read-only field when auth works
+    from agent.services.agent_registry_service import AgentRegistryService
+
+    svc = AgentRegistryService()
+    entry = svc.build_directory_entry(agent=agent, timeout=60.0)
+    assert "validation_errors" in entry
+    assert isinstance(entry["validation_errors"], list)
+    assert "registration_validated" in entry
+    assert entry["registration_validated"] is True
+
+
+def test_register_agent_validates_execution_limits_bounds(client, app):
+    """DRR-T037: execution_limits values are clamped to sane min/max during registration."""
+    with patch("agent.routes.system.http_client.get") as mock_get:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+
+        with patch("agent.routes.system.agent_repo") as mock_repo:
+            payload = {
+                "name": "limits-agent",
+                "url": "http://limits-agent:5000",
+                "role": "worker",
+                "worker_roles": ["repair"],
+                "capabilities": ["repair.diagnose"],
+                "execution_limits": {
+                    "max_parallel_tasks": 9999,  # above max 32
+                    "max_runtime_seconds": 1,     # below min 30
+                    "max_workspace_mb": 10,        # below min 64
+                },
+            }
+            response = client.post("/register", json=payload)
+            assert response.status_code == 200
+            saved = mock_repo.save.call_args[0][0]
+            # max_parallel_tasks clamped to max 32
+            assert saved.execution_limits["max_parallel_tasks"] == 32
+            # max_runtime_seconds clamped to minimum 30
+            assert saved.execution_limits["max_runtime_seconds"] == 30
+            # max_workspace_mb clamped to minimum 64
+            assert saved.execution_limits["max_workspace_mb"] == 64
+
+
 def test_list_agents_exposes_liveness_contract(client, admin_auth_header):
     from agent.db_models import AgentInfoDB
     from agent.repository import agent_repo

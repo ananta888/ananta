@@ -1,3 +1,4 @@
+import re
 import time
 import uuid
 from typing import Any
@@ -1165,12 +1166,18 @@ def _validate_blueprint_roles(roles: list) -> tuple[bool, tuple | None]:
         capability_defaults = role_config.get("capability_defaults")
         risk_profile = role_config.get("risk_profile")
         verification_defaults = role_config.get("verification_defaults")
+        execution_mode = role_config.get("execution_mode")
+        preferred_backend = role_config.get("preferred_backend")
         if capability_defaults is not None and not isinstance(capability_defaults, list):
             return False, ("blueprint_role_capability_defaults_invalid", 400, {"role_name": normalized_name})
         if risk_profile is not None and str(risk_profile).strip().lower() not in {"low", "balanced", "high", "strict"}:
             return False, ("blueprint_role_risk_profile_invalid", 400, {"role_name": normalized_name})
         if verification_defaults is not None and not isinstance(verification_defaults, dict):
             return False, ("blueprint_role_verification_defaults_invalid", 400, {"role_name": normalized_name})
+        if execution_mode is not None and not re.fullmatch(r"[a-z][a-z0-9_]*", str(execution_mode or "")):
+            return False, ("blueprint_role_execution_mode_invalid", 400, {"role_name": normalized_name})
+        if preferred_backend is not None and not re.fullmatch(r"[a-z][a-z0-9_]*", str(preferred_backend or "")):
+            return False, ("blueprint_role_preferred_backend_invalid", 400, {"role_name": normalized_name})
     return True, None
 
 

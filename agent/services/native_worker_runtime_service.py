@@ -550,3 +550,83 @@ native_worker_runtime_service = NativeWorkerRuntimeService()
 
 def get_native_worker_runtime_service() -> NativeWorkerRuntimeService:
     return native_worker_runtime_service
+
+
+def execute_repair_procedure_plan(
+    *,
+    task_id: str,
+    procedure_id: str,
+    repair_procedure_dict: dict[str, Any],
+    approval_ref: dict[str, Any] | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Route deterministic repair procedures to RepairProcedureRunner. DRR-T016.
+
+    Detects execution_mode='deterministic_repair_*' and delegates to runner.
+    Returns RepairExecutionResult as dict or degraded response.
+    """
+    try:
+        from worker.core.execution_envelope import (
+            ApprovalRef,
+            CapabilityGrant,
+            ExecutionEnvelope,
+            RepairProcedure,
+            RepairStep,
+        )
+        from worker.repair.repair_procedure_runner import RepairProcedureRunner
+
+        steps_raw = list(repair_procedure_dict.get("steps") or [])
+        if not steps_raw:
+            return {
+                "runtime_path": "repair_runner",
+                "status": "denied",
+                "reason_code": "repair_procedure_missing_steps",
+                "procedure_id": procedure_id,
+            }
+
+        steps = [RepairStep(**s) if isinstance(s, dict) else s for s in steps_raw]
+        procedure = RepairProcedure(
+            procedure_id=procedure_id,
+            safety_class=str(repair_procedure_dict.get("safety_class") or "bounded"),
+            steps=steps,
+            diagnosis=dict(repair_procedure_dict.get("diagnosis") or {}),
+        )
+        _approval: ApprovalRef | None = None
+        if approval_ref:
+            _approval = ApprovalRef(
+                ref_id=str(approval_ref.get("ref_id") or approval_ref.get("approval_id") or ""),
+                operation=str(approval_ref.get("operation") or "admin_repair"),
+                granted_at=float(approval_ref.get("granted_at") or 0.0),
+                granted_by=str(approval_ref.get("granted_by") or "hub"),
+            )
+        caps = ["admin_repair", "deterministic_repair"]
+        envelope = ExecutionEnvelope(
+            task_id=task_id,
+            actor_ref="hub",
+            capability_grant=CapabilityGrant(capabilities=caps),
+            context_envelope_ref=f"ctx:{task_id}",
+            audit_correlation_id=f"repair:{task_id}",
+            approval_refs=[_approval] if _approval else [],
+            repair_procedure=procedure,
+        )
+        runner = RepairProcedureRunner()
+        result = runner.run_plan(envelope, dry_run=dry_run)
+        return {
+            "runtime_path": "repair_runner",
+            "status": result.status.value,
+            "procedure_id": procedure_id,
+            "plan_id": result.plan_id,
+            "completed_steps": result.completed_steps,
+            "skipped_steps": result.skipped_steps,
+            "failed_step_id": result.failed_step_id,
+            "outcome_label": result.outcome_label,
+            "artifacts": result.artifacts,
+            "repair_execution_result": result.model_dump(),
+        }
+    except Exception as exc:
+        return {
+            "runtime_path": "repair_runner",
+            "status": "degraded",
+            "reason_code": f"repair_runner_error:{exc}",
+            "procedure_id": procedure_id,
+        }

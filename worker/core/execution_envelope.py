@@ -63,23 +63,127 @@ CONFIRM_REQUIRED_CAPABILITIES: frozenset[str] = frozenset({
 
 # ── Sub-models ─────────────────────────────────────────────────────────────────
 
+_REPAIR_STEP_TYPES: frozenset[str] = frozenset({
+    "inspect_state", "service_status", "log_read", "port_probe",
+    "path_probe", "package_check", "command_probe",
+    "service_restart", "package_install", "config_update", "file_permission",
+    "verify_health", "verify_service", "verify_command", "rollback",
+})
+
+_REPAIR_SAFETY_CLASSES: frozenset[str] = frozenset({
+    "inspect_only", "bounded_low_risk", "review_first", "confirm_required", "high_risk",
+})
+
+
 class RepairStep(BaseModel):
+    """Single executable repair step with full policy metadata. DRR-T001."""
     step_id: str
+    step_type: str = "inspect_state"
     title: str = ""
     action_class: str = "inspect_state"
+    preconditions: list[str] = Field(default_factory=list)
+    expected_inputs: list[str] = Field(default_factory=list)
+    expected_outputs: list[str] = Field(default_factory=list)
     mutation_candidate: bool = False
+    action_safety_class: str = "inspect_only"
+    requires_approval: bool = False
+    required_capabilities: list[str] = Field(default_factory=list)
+    allowed_tools: list[str] = Field(default_factory=list)
+    timeout_seconds: float = 30.0
+    verification_after_step: bool = False
     rollback_supported: bool = True
     verification_required: bool = True
     expected_verification: str = ""
     command_hint: str = ""
     rollback_hint: str = "no_mutation"
+    rollback_hint_refs: list[str] = Field(default_factory=list)
+
+    @field_validator("step_type")
+    @classmethod
+    def _validate_step_type(cls, v: str) -> str:
+        if v not in _REPAIR_STEP_TYPES:
+            raise ValueError(f"unknown step_type: {v!r}. Must be one of {sorted(_REPAIR_STEP_TYPES)}")
+        return v
+
+
+class RepairProcedureExecutionPlan(BaseModel):
+    """Full Hub-signed repair execution plan. DRR-T001."""
+    plan_id: str
+    goal_id: str = ""
+    task_id: str
+    procedure_id: str
+    problem_class: str
+    signature_id: str = ""
+    signature_confidence: float = 0.0
+    safety_class: str = "inspect_only"
+    approval_requirement: str = "none"
+    environment_facts_hash: str = ""
+    created_by: str = "hub"
+    policy_decision_ref: str = ""
+    context_bundle_ref: str = ""
+    steps: list[RepairStep] = Field(default_factory=list)
+    verification_plan: dict[str, Any] = Field(default_factory=dict)
+    rollback_hints: list[str] = Field(default_factory=list)
+    max_runtime_seconds: float = 300.0
+    version: str = "1"
+
+    @field_validator("created_by")
+    @classmethod
+    def _validate_created_by(cls, v: str) -> str:
+        if v != "hub":
+            raise ValueError("created_by must be 'hub' — plans must originate from Hub")
+        return v
+
+    @field_validator("safety_class")
+    @classmethod
+    def _validate_safety_class(cls, v: str) -> str:
+        allowed = {"inspect_only", "bounded_low_risk", "review_first", "confirm_required", "high_risk"}
+        if v not in allowed:
+            raise ValueError(f"safety_class must be one of {sorted(allowed)}")
+        return v
 
 
 class RepairProcedure(BaseModel):
+    """Compact repair procedure payload embedded in ExecutionEnvelope. DRR-T002."""
     procedure_id: str
     safety_class: str = "bounded"
     steps: list[RepairStep] = Field(default_factory=list)
     diagnosis: dict[str, Any] = Field(default_factory=dict)
+    # Extended fields for plan-based execution
+    plan_id: str = ""
+    problem_class: str = ""
+    signature_id: str = ""
+    environment_facts_hash: str = ""
+    max_runtime_seconds: float = 300.0
+
+
+class RepairStepExecutionEnvelope(BaseModel):
+    """Hub-issued envelope for single-step Hub-driven repair execution. DRR-T003."""
+    parent_plan_id: str
+    parent_plan_hash: str = ""
+    step_id: str
+    step: RepairStep
+    current_state: dict[str, Any] = Field(default_factory=dict)
+    approval_ref: ApprovalRef | None = None
+    context_refs: list[str] = Field(default_factory=list)
+    capability_snapshot_ref: str = ""
+    audit_correlation_id: str
+    expected_result_schema: dict[str, Any] = Field(default_factory=dict)
+    task_id: str = ""
+    procedure_id: str = ""
+
+    @field_validator("parent_plan_id", "step_id", "audit_correlation_id")
+    @classmethod
+    def _non_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("must be non-empty")
+        return v.strip()
+
+    @model_validator(mode="after")
+    def _validate_step_present_in_context(self) -> "RepairStepExecutionEnvelope":
+        if self.step.mutation_candidate and self.approval_ref is None:
+            raise ValueError("mutation step requires approval_ref")
+        return self
 
 
 # ── Repair result contracts (DRR-T004) ─────────────────────────────────────
@@ -270,6 +374,39 @@ class ExecutionEnvelope(BaseModel):
             return True
         return operation in self.allowed_operations
 
+    def repair_approval_for_procedure(
+        self, procedure_id: str, *, target_scope: str = ""
+    ) -> ApprovalRef | None:
+        """Return approval scoped to procedure_id and target_scope. DRR-T018."""
+        for ref in self.approval_refs:
+            if ref.operation == "deterministic_repair" and procedure_id in ref.ref_id:
+                if not target_scope or target_scope in ref.ref_id:
+                    return ref
+        # Fallback: any approval covering deterministic_repair
+        return self.approval_for("deterministic_repair") or self.approval_for("admin_repair")
+
+
+# ── ToolInvocationEnvelope (DRR-T013) ────────────────────────────────────────
+
+class ToolInvocationEnvelope(BaseModel):
+    """Per-step tool invocation envelope mapping a repair step to an executable call."""
+    tool_id: str
+    operation: str
+    args: dict[str, Any] = Field(default_factory=dict)
+    step_id: str = ""
+    plan_id: str = ""
+    audit_correlation_id: str = ""
+    requires_approval: bool = False
+    safety_class: str = "inspect_only"
+    timeout_seconds: float = 30.0
+
+    @field_validator("tool_id", "operation")
+    @classmethod
+    def _non_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("must be non-empty")
+        return v.strip()
+
 
 # ── WorkerResult ───────────────────────────────────────────────────────────────
 
@@ -298,16 +435,60 @@ class TraceEvent(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class RepairStepTrace(BaseModel):
+    """Per-step trace entry. DRR-T032."""
+    step_id: str
+    step_type: str = ""
+    tool_invocation_hash: str = ""
+    started_at: float | None = None
+    ended_at: float | None = None
+    status: str = ""
+    reason_code: str = ""
+
+
 class TraceBundle(BaseModel):
     correlation_id: str
     capability_snapshot_hash: str
     events: list[TraceEvent] = Field(default_factory=list)
+    # DRR-T032: repair-specific trace fields
+    repair_plan_id: str = ""
+    procedure_id: str = ""
+    signature_id: str = ""
+    signature_confidence: float = 0.0
+    safety_class: str = ""
+    approval_refs: list[str] = Field(default_factory=list)
+    step_trace: list[RepairStepTrace] = Field(default_factory=list)
+    verification_trace: dict[str, Any] = Field(default_factory=dict)
+    outcome_ref: str = ""
+    escalation_reason: str = ""
 
     def append(self, event_type: str, *, reason_code: str | None = None, **payload: Any) -> None:
         self.events.append(TraceEvent(
             event_type=event_type,
             reason_code=reason_code,
             payload=payload,
+        ))
+
+    def append_step_trace(
+        self,
+        step_id: str,
+        *,
+        step_type: str = "",
+        status: str = "",
+        reason_code: str = "",
+        started_at: float | None = None,
+        ended_at: float | None = None,
+    ) -> None:
+        import hashlib as _hl, json as _js
+        h = _hl.sha256(f"{step_id}:{status}:{reason_code}".encode()).hexdigest()[:12]
+        self.step_trace.append(RepairStepTrace(
+            step_id=step_id,
+            step_type=step_type,
+            tool_invocation_hash=h,
+            started_at=started_at,
+            ended_at=ended_at,
+            status=status,
+            reason_code=reason_code,
         ))
 
 

@@ -103,6 +103,7 @@ class AgentRegistryService:
             ),
             status=agent.status,
             registration_validated=bool(agent.registration_validated),
+            validation_errors=list(agent.validation_errors or []),
             current_load=current_load,
             available_for_routing=available_for_routing,
             routing_signals=dict(execution_limits.get("routing_signals") or {}),

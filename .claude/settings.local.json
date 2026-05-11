@@ -87,7 +87,8 @@
       "Bash(sort -k6,7 -r)",
       "Bash(sudo chown *)",
       "Bash(sed -n '140,170p' /home/krusty/ananta/agent/db_models.py)",
-      "Bash(sed -n '655,700p' /home/krusty/ananta/agent/db_models.py)"
+      "Bash(sed -n '655,700p' /home/krusty/ananta/agent/db_models.py)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

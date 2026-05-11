@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from agent.db_models import TeamBlueprintDB, TeamDB
@@ -436,6 +437,8 @@ def _validate_blueprint_bundle_definition(blueprint: BlueprintBundleDefinition) 
         capability_defaults = role_config.get("capability_defaults")
         risk_profile = role_config.get("risk_profile")
         verification_defaults = role_config.get("verification_defaults")
+        execution_mode = role_config.get("execution_mode")
+        preferred_backend = role_config.get("preferred_backend")
         if capability_defaults is not None and not isinstance(capability_defaults, list):
             errors.append(
                 {
@@ -457,6 +460,22 @@ def _validate_blueprint_bundle_definition(blueprint: BlueprintBundleDefinition) 
                 {
                     "type": "validation",
                     "message": "blueprint_role_verification_defaults_invalid",
+                    "details": {"role_name": normalized_name},
+                }
+            )
+        if execution_mode is not None and not re.fullmatch(r"[a-z][a-z0-9_]*", str(execution_mode or "")):
+            errors.append(
+                {
+                    "type": "validation",
+                    "message": "blueprint_role_execution_mode_invalid",
+                    "details": {"role_name": normalized_name},
+                }
+            )
+        if preferred_backend is not None and not re.fullmatch(r"[a-z][a-z0-9_]*", str(preferred_backend or "")):
+            errors.append(
+                {
+                    "type": "validation",
+                    "message": "blueprint_role_preferred_backend_invalid",
                     "details": {"role_name": normalized_name},
                 }
             )

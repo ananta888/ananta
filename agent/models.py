@@ -451,6 +451,7 @@ class AgentDirectoryEntryContract(SQLModel):
     execution_limits: WorkerExecutionLimitsContract = Field(default_factory=WorkerExecutionLimitsContract)
     status: str = "online"
     registration_validated: bool = True
+    validation_errors: List[str] = Field(default_factory=list)
     current_load: int = 0
     available_for_routing: bool = True
     routing_signals: dict = Field(default_factory=dict)
