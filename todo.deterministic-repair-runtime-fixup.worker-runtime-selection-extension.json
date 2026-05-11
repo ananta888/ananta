@@ -31,13 +31,13 @@
       "DRR-T055",
       "DRR-T056"
     ],
-    "status": "todo"
+    "status": "done"
   },
   "tasks_to_add": [
     {
       "id": "DRR-T046",
       "title": "Define WorkerSelectionPolicy schema for deterministic repair",
-      "status": "mostly_done",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Deterministic repair currently needs explicit control over whether the Hub uses native Ananta Worker, OpenCode, Hermes, ShellGPT, remote workers or another worker. This must be structured policy, not a UI text preference.",
@@ -82,7 +82,7 @@
     {
       "id": "DRR-T047",
       "title": "Define WorkerRuntimeTarget schema",
-      "status": "mostly_done",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Choosing OpenCode or native worker is not enough. The system must know where the worker actually runs: local process, Docker container, WSL, remote URL, dedicated machine, CI sandbox or cloud runtime.",
@@ -125,7 +125,7 @@
     {
       "id": "DRR-T048",
       "title": "Implement WorkerRuntimeSelectionService",
-      "status": "partially_done",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Hub needs deterministic selection logic that chooses a worker and runtime target from policy, capabilities, environment, safety class and current health.",
@@ -175,7 +175,7 @@
     {
       "id": "DRR-T049",
       "title": "Persistenced selected worker and runtime target in repair plan/job/result",
-      "status": "partially_done",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "After execution it must be clear which worker and runtime actually ran the repair, not only which backend was preferred.",
@@ -213,7 +213,7 @@
     {
       "id": "DRR-T050",
       "title": "Add API for worker/runtime candidates and selection preview",
-      "status": "partially_done",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "UI needs an API to show available workers, runtime targets, automatic decision preview and rejected candidates before repair execution.",
@@ -252,7 +252,7 @@
     {
       "id": "DRR-T051",
       "title": "Add Angular UI for fixed worker and runtime assignment",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Operators need to explicitly pin a repair/task/blueprint role to a worker such as OpenCode, native Ananta Worker or Hermes, and to a concrete runtime target such as local Docker, WSL or remote worker.",
@@ -293,7 +293,7 @@
     {
       "id": "DRR-T052",
       "title": "Add Angular UI for automatic worker/runtime policy configuration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Automatic selection must be understandable and configurable: prefer local, allow cloud, allow external workers, require deterministic runner, prefer OpenCode for patch proposal, prefer native worker for execution, etc.",
@@ -331,7 +331,7 @@
     {
       "id": "DRR-T053",
       "title": "Bind worker/runtime selection into BlueprintRoleDB.config",
-      "status": "mostly_done",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "BlueprintRoleDB.config already holds preferred_backend and execution_mode concepts, but it must support full worker/runtime policy so roles can deterministically choose execution backend and runtime environment.",
@@ -371,7 +371,7 @@
     {
       "id": "DRR-T054",
       "title": "Bind worker/runtime selection into Agent registration and validation",
-      "status": "mostly_done",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Agent registration currently may expose only name/url/token/role in UI. The backend must model and validate capabilities, worker_roles, execution_limits, runtime_targets and registration validation state.",
@@ -416,7 +416,7 @@
     {
       "id": "DRR-T055",
       "title": "Record worker/runtime selection in preview, trace, audit and operator view",
-      "status": "mostly_done",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Operators must be able to see not only what repair will do, but which worker/runtime will do it and why.",
@@ -459,7 +459,7 @@
     {
       "id": "DRR-T056",
       "title": "Add E2E tests for fixed and automatic worker/runtime selection",
-      "status": "partial_unit_tests_only",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "The final proof must show that UI/API policy leads to the expected worker and runtime target during real deterministic repair flow.",
