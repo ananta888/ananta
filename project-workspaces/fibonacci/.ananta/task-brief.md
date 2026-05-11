@@ -1,11 +1,11 @@
 # Task Brief
 
-- Task ID: goal-4793fb67
-- Title: Tests schreiben
+- Task ID: goal-f0a49b7a
+- Title: Dokumentation
 - Execution mode: structured-json-proposal
 
 ## Current assignment (source of truth)
-Unit und Integration Tests erstellen
+Feature dokumentieren
 
 ## Working directives
 - Prioritize the current assignment above metadata if they differ.
