@@ -62,6 +62,45 @@ def test_materialize_from_plan_node_carries_blueprint_provenance_to_task_metadat
     assert extra_fields["status_reason_details"]["planning_provenance"]["blueprint_id"] == "bp-1"
 
 
+def test_materialize_from_plan_node_propagates_goal_context_text(monkeypatch) -> None:
+    queue = _QueueStub()
+    monkeypatch.setattr(lifecycle_service, "get_task_queue_service", lambda: queue)
+    monkeypatch.setattr(
+        lifecycle_service,
+        "goal_repo",
+        SimpleNamespace(get_by_id=lambda _goal_id: SimpleNamespace(
+            execution_preferences={},
+            goal="Implement the Fibonacci sequence",
+        )),
+    )
+
+    node = SimpleNamespace(
+        id="node-ctx",
+        title="Feature implementieren",
+        description="",
+        priority="Medium",
+        rationale={"task_kind": "coding"},
+        verification_spec={},
+    )
+
+    lifecycle_service.TaskLifecycleService().materialize_from_plan_node(
+        task_id="task-ctx",
+        node=node,
+        team_id=None,
+        goal_id="goal-ctx",
+        goal_trace_id=None,
+        plan_id="plan-ctx",
+        parent_task_id=None,
+        derivation_reason="goal_planning",
+        derivation_depth=0,
+        depends_on=None,
+    )
+
+    wec = queue.calls[0]["extra_fields"]["worker_execution_context"]
+    assert wec["context"]["context_text"] == "Implement the Fibonacci sequence"
+    assert "workspace" not in wec
+
+
 def test_materialize_from_plan_node_remains_backward_compatible_without_blueprint_provenance(monkeypatch) -> None:
     queue = _QueueStub()
     monkeypatch.setattr(lifecycle_service, "get_task_queue_service", lambda: queue)
@@ -103,7 +142,10 @@ def test_materialize_from_plan_node_propagates_goal_output_dir_to_workspace_cont
     monkeypatch.setattr(
         lifecycle_service,
         "goal_repo",
-        SimpleNamespace(get_by_id=lambda _goal_id: SimpleNamespace(execution_preferences={"output_dir": "/tmp/project-out"})),
+        SimpleNamespace(get_by_id=lambda _goal_id: SimpleNamespace(
+            execution_preferences={"output_dir": "/tmp/project-out"},
+            goal="Write fibonacci.py",
+        )),
     )
 
     node = SimpleNamespace(
@@ -128,5 +170,6 @@ def test_materialize_from_plan_node_propagates_goal_output_dir_to_workspace_cont
         depends_on=None,
     )
 
-    workspace = queue.calls[0]["extra_fields"]["worker_execution_context"]["workspace"]
-    assert workspace["output_dir"] == "/tmp/project-out"
+    wec = queue.calls[0]["extra_fields"]["worker_execution_context"]
+    assert wec["workspace"]["output_dir"] == "/tmp/project-out"
+    assert wec["context"]["context_text"] == "Write fibonacci.py"
