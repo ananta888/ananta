@@ -70,13 +70,16 @@ class CapabilityRegistry:
         return dict(grouped)
 
     def hermes_capability_decision(self, capability_id: str) -> dict[str, Any]:
+        from agent.services.hermes_worker_profile import normalize_capability
         profile = get_default_hermes_profile()
-        normalized = str(capability_id or "").strip().lower()
+        raw = str(capability_id or "").strip().lower()
+        normalized = normalize_capability(raw)  # HF-T002/T003: resolve aliases before check
         allowed = profile.supports_capability(normalized)
         reason = "allow" if allowed else "default_deny"
         return {
             "adapter_id": "hermes",
             "capability_id": normalized,
+            "requested_capability_id": raw,
             "allowed": allowed,
             "reason": reason,
             "risk_class": profile.risk_class,

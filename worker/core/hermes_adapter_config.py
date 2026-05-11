@@ -10,7 +10,7 @@ class HermesAdapterConfig(BaseModel):
     default_model: str = ""
     timeout_seconds: float = 20.0
     max_retries: int = 1
-    allowed_task_kinds: list[str] = Field(default_factory=lambda: ["plan_only", "review", "summarize", "patch_propose"])
+    allowed_task_kinds: list[str] = Field(default_factory=lambda: ["plan_only", "review", "summarize", "patch_propose", "research_limited"])
     blocked_task_kinds: list[str] = Field(default_factory=lambda: ["patch_apply", "command_execute"])
     cloud_allowed: bool = False
     max_context_chars: int = 12000
@@ -18,7 +18,12 @@ class HermesAdapterConfig(BaseModel):
     rollout_phase: str = "phase1"
     blocked_models: list[str] = Field(default_factory=list)
     parse_retry_enabled: bool = True
-    feature_flag_enabled: bool = True
+    # HF-T031: default False — must be explicitly enabled; prevents accidental Hermes enablement
+    feature_flag_enabled: bool = False
+    # HF-T014: conservative temperature for structured JSON tasks; None means use model default
+    default_temperature: float | None = 0.1
+    # HF-T014: max output tokens cap; None means no explicit cap (use model default)
+    max_output_tokens: int | None = None
 
     @field_validator("timeout_seconds")
     @classmethod
@@ -71,4 +76,6 @@ class HermesAdapterConfig(BaseModel):
             "blocked_models": list(self.blocked_models),
             "parse_retry_enabled": self.parse_retry_enabled,
             "feature_flag_enabled": self.feature_flag_enabled,
+            "default_temperature": self.default_temperature,
+            "max_output_tokens": self.max_output_tokens,
         }

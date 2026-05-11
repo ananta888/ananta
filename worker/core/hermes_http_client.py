@@ -5,6 +5,7 @@ import socket
 from dataclasses import dataclass
 from typing import Any
 from urllib import error, request
+from urllib.parse import urlparse
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,14 @@ class HermesClientConfig:
     base_url: str
     timeout_seconds: float
     default_model: str
+
+
+def _api_root(base_url: str) -> str:
+    """Return base URL without trailing /v1 or trailing slash. HF-T012."""
+    url = str(base_url or "").rstrip("/")
+    if url.endswith("/v1"):
+        url = url[:-3]
+    return url
 
 
 class HermesHttpClient:
@@ -52,22 +61,37 @@ class HermesHttpClient:
         if temperature is not None:
             payload["temperature"] = float(temperature)
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        root = _api_root(self.config.base_url)
         return self._post_json(
-            f"{self.config.base_url}/v1/chat/completions",
+            f"{root}/v1/chat/completions",
             headers=headers,
             payload=payload,
             timeout_seconds=self.config.timeout_seconds,
         )
 
     def health(self, *, api_key: str = "") -> dict[str, Any]:
+        """Check health. Tries /health first; falls back to /v1/models on 404. HF-T011."""
         headers = {"Content-Type": "application/json"}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
-        return self._get_json(
-            f"{self.config.base_url}/health",
+        root = _api_root(self.config.base_url)
+        try:
+            result = self._get_json(
+                f"{root}/health",
+                headers=headers,
+                timeout_seconds=self.config.timeout_seconds,
+            )
+            return {**result, "probe": "health"}
+        except HermesClientError as exc:
+            if exc.code != "hermes_not_found":
+                raise
+        # /health returned 404 — try /v1/models (HF-T011)
+        result = self._get_json(
+            f"{root}/v1/models",
             headers=headers,
             timeout_seconds=self.config.timeout_seconds,
         )
+        return {**result, "probe": "models"}
 
     def _post_json(
         self,
@@ -82,7 +106,13 @@ class HermesHttpClient:
         try:
             with request.urlopen(req, timeout=timeout_seconds) as resp:
                 raw = resp.read().decode("utf-8")
-                return json.loads(raw) if raw else {}
+                try:
+                    return json.loads(raw) if raw else {}
+                except json.JSONDecodeError as exc:  # HF-T013
+                    raise HermesClientError(
+                        code="hermes_invalid_json_response",
+                        detail=f"malformed JSON from POST: {raw[:120]!r}",
+                    ) from exc
         except error.HTTPError as exc:
             raise HermesClientError(
                 code=self._map_http_status(exc.code),
@@ -105,7 +135,13 @@ class HermesHttpClient:
         try:
             with request.urlopen(req, timeout=timeout_seconds) as resp:
                 raw = resp.read().decode("utf-8")
-                return json.loads(raw) if raw else {}
+                try:
+                    return json.loads(raw) if raw else {}
+                except json.JSONDecodeError as exc:  # HF-T013
+                    raise HermesClientError(
+                        code="hermes_invalid_json_response",
+                        detail=f"malformed JSON from GET: {raw[:120]!r}",
+                    ) from exc
         except error.HTTPError as exc:
             raise HermesClientError(
                 code=self._map_http_status(exc.code),

@@ -165,8 +165,9 @@ class ToolRoutingService:
         requested = str(requested_backend or "").strip().lower() or None
         hermes_enabled = bool(((agent_cfg or {}).get("hermes_worker_adapter") or {}).get("enabled", False))
         hermes_flag_enabled = bool(((agent_cfg or {}).get("feature_flags") or {}).get("enable_hermes_worker_adapter", False))
-        hermes_allowed_caps = {"planning", "review", "summarize", "patch_propose", "research_limited"}
-        hermes_denied_caps = {"patch_apply", "shell_execution", "service_mutation", "config_mutation"}
+        # HF-T002: review is canonical; HF-T003: both shell vocab forms denied
+        hermes_allowed_caps = {"planning", "review", "code_review", "summarize", "patch_propose", "research_limited"}
+        hermes_denied_caps = {"patch_apply", "shell_execution", "shell_execute", "service_mutation", "config_mutation"}
         alternatives: list[dict[str, Any]] = []
         candidate_rows: list[dict[str, Any]] = []
         for item in backend_items:

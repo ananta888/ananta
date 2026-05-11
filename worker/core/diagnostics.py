@@ -134,6 +134,11 @@ AUDITABLE_EVENTS = frozenset({
     "context_blocked",
     "injection_blocked",
     "capability_snapshot_mismatch",
+    # HF-T016: Hermes-specific adapter event types
+    "adapter_parse_error",
+    "adapter_unsafe_output",
+    "remote_output_invalid",
+    "routing_selected",
 })
 
 
