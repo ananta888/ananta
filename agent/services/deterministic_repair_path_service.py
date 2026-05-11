@@ -2,8 +2,15 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
+import json
+import logging
 import re
 from typing import Any, Pattern
+
+from agent.db_models import RepairOutcomeMemoryDB
+from agent.repositories.repair_outcome import get_repair_outcome_memory_repo
+
+log = logging.getLogger(__name__)
 
 
 REPAIR_PATH_TARGET_MODEL: dict[str, Any] = {
@@ -569,23 +576,27 @@ class FailureSignature:
 
 
 def build_failure_signature(payload: dict[str, Any]) -> FailureSignature:
-    raw_patterns = payload.get("evidence_patterns") or []
-    patterns = tuple(str(item).strip() for item in raw_patterns if str(item).strip())
-    if not patterns:
-        raise ValueError("failure_signature_requires_patterns")
-    problem_class = str(payload.get("problem_class") or "").strip()
-    if problem_class not in REPAIR_PROBLEM_CLASS_INVENTORY:
-        raise ValueError("failure_signature_problem_class_unknown")
-    confidence_weight = float(payload.get("confidence_weight", 1.0))
-    confidence_weight = min(2.0, max(0.1, confidence_weight))
-    return FailureSignature(
-        id=str(payload.get("id") or "").strip() or "signature-unnamed",
-        problem_class=problem_class,
-        evidence_patterns=patterns,
-        structured_fields=tuple(str(item).strip() for item in payload.get("structured_fields", []) if str(item).strip()),
-        environment_constraints={str(k): str(v) for k, v in dict(payload.get("environment_constraints") or {}).items()},
-        confidence_weight=confidence_weight,
-    )
+    try:
+        raw_patterns = payload.get("evidence_patterns") or []
+        patterns = tuple(str(item).strip() for item in raw_patterns if str(item).strip())
+        if not patterns:
+            raise ValueError("failure_signature_requires_patterns")
+        problem_class = str(payload.get("problem_class") or "").strip()
+        if problem_class not in REPAIR_PROBLEM_CLASS_INVENTORY:
+            raise ValueError("failure_signature_problem_class_unknown")
+        confidence_weight = float(payload.get("confidence_weight", 1.0))
+        confidence_weight = min(2.0, max(0.1, confidence_weight))
+        return FailureSignature(
+            id=str(payload.get("id") or "").strip() or "signature-unnamed",
+            problem_class=problem_class,
+            evidence_patterns=patterns,
+            structured_fields=tuple(str(item).strip() for item in payload.get("structured_fields", []) if str(item).strip()),
+            environment_constraints={str(k): str(v) for k, v in dict(payload.get("environment_constraints") or {}).items()},
+            confidence_weight=confidence_weight,
+        )
+    except Exception as exc:
+        log.error("build_failure_signature failed: %s", exc)
+        raise
 
 
 def signature_to_dict(signature: FailureSignature) -> dict[str, Any]:
@@ -661,6 +672,31 @@ def _evaluate_structured_field_match(signature: FailureSignature, normalized_evi
 
 
 def match_failure_signatures(
+    *,
+    normalized_evidence: dict[str, Any],
+    environment_facts: dict[str, Any],
+    signature_catalog: tuple[FailureSignature, ...] | None = None,
+    top_k: int = 5,
+) -> dict[str, Any]:
+    try:
+        return _match_failure_signatures_impl(
+            normalized_evidence=normalized_evidence,
+            environment_facts=environment_facts,
+            signature_catalog=signature_catalog,
+            top_k=top_k,
+        )
+    except Exception as exc:
+        log.error("match_failure_signatures failed: %s", exc)
+        return {
+            "schema": "deterministic_signature_matching_v1",
+            "match_count": 0,
+            "matches": [],
+            "llm_used": False,
+            "error": str(exc),
+        }
+
+
+def _match_failure_signatures_impl(
     *,
     normalized_evidence: dict[str, Any],
     environment_facts: dict[str, Any],
@@ -1407,6 +1443,59 @@ def build_repair_outcome_memory_entry(
     }
 
 
+def persist_repair_outcome_memory(entry: dict[str, Any]) -> dict[str, Any]:
+    try:
+        db_entry = RepairOutcomeMemoryDB(
+            signature_id=str(entry.get("signature_id") or ""),
+            problem_class=str(entry.get("problem_class") or ""),
+            environment_facts=dict(entry.get("environment_facts") or {}),
+            procedure_id=str(entry.get("procedure_id") or ""),
+            execution_status=str(entry.get("execution_status") or ""),
+            outcome_label=str(entry.get("outcome_label") or ""),
+            verification_evidence=dict(entry.get("verification_evidence") or {}),
+        )
+        saved = get_repair_outcome_memory_repo().save(db_entry)
+        return {"persisted": True, "id": saved.id}
+    except Exception as exc:
+        log.error("Failed to persist repair outcome memory: %s", exc)
+        return {"persisted": False, "error": str(exc)}
+
+
+def load_repair_outcome_memory(
+    *,
+    problem_class: str | None = None,
+    platform_target: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    try:
+        if platform_target:
+            entries = get_repair_outcome_memory_repo().find(
+                problem_class=problem_class,
+                platform_target=platform_target,
+                limit=limit,
+            )
+        elif problem_class:
+            entries = get_repair_outcome_memory_repo().find(problem_class=problem_class, limit=limit)
+        else:
+            entries = get_repair_outcome_memory_repo().find_all(limit=limit)
+        return [
+            {
+                "signature_id": e.signature_id,
+                "problem_class": e.problem_class,
+                "environment_facts": dict(e.environment_facts or {}),
+                "procedure_id": e.procedure_id,
+                "execution_status": e.execution_status,
+                "outcome_label": e.outcome_label,
+                "verification_evidence": dict(e.verification_evidence or {}),
+                "created_at": e.created_at,
+            }
+            for e in entries
+        ]
+    except Exception as exc:
+        log.error("Failed to load repair outcome memory: %s", exc)
+        return []
+
+
 def track_repair_outcomes(memory_entries: list[dict[str, Any]]) -> dict[str, Any]:
     counts = {label: 0 for label in STANDARD_OUTCOME_LABELS}
     for entry in memory_entries:
@@ -1684,6 +1773,79 @@ def convert_llm_proposal_to_reviewed_procedure(
     *,
     llm_proposal: dict[str, Any],
     environment_facts: dict[str, Any],
+    llm_generate_text: Any = None,
+) -> dict[str, Any]:
+    try:
+        if llm_generate_text is not None:
+            prompt = (
+                "You are a deterministic repair procedure converter. "
+                "Convert the following unstructured repair proposal into a structured step-by-step repair procedure. "
+                "Each step must have: id, title (max 180 chars), mutation_candidate (bool), "
+                "requires_review (bool), requires_approval (bool), execution_allowed (bool). "
+                "Return valid JSON with a 'steps' array. Max 5 steps.\n\n"
+                f"Proposal: {json.dumps(llm_proposal)}\n"
+                f"Platform: {environment_facts.get('platform_target')}\n"
+            )
+            try:
+                llm_response = llm_generate_text(prompt=prompt)
+                if isinstance(llm_response, dict):
+                    llm_data = llm_response
+                elif isinstance(llm_response, str):
+                    llm_data = json.loads(llm_response)
+                else:
+                    llm_data = None
+                if isinstance(llm_data, dict) and isinstance(llm_data.get("steps"), list):
+                    return _structure_llm_proposal(llm_data, llm_proposal, environment_facts)
+            except Exception as exc:
+                log.warning("LLM proposal conversion failed, falling back to default: %s", exc)
+    except Exception as exc:
+        log.warning("convert_llm_proposal_to_reviewed_procedure setup failed: %s", exc)
+
+    return _default_llm_proposal_conversion(llm_proposal, environment_facts)
+
+
+def _structure_llm_proposal(
+    llm_data: dict[str, Any],
+    llm_proposal: dict[str, Any],
+    environment_facts: dict[str, Any],
+) -> dict[str, Any]:
+    proposal_steps = list(llm_data.get("steps") or [])
+    structured_steps: list[dict[str, Any]] = []
+    for index, step in enumerate(proposal_steps[:5], start=1):
+        if isinstance(step, dict):
+            step_id = str(step.get("id") or f"llm-proposal-step-{index:02d}")
+            title = str(step.get("title") or "")[:180]
+            mutation = bool(step.get("mutation_candidate", True))
+            review = bool(step.get("requires_review", True))
+            approval = bool(step.get("requires_approval", True))
+            allowed = bool(step.get("execution_allowed", False))
+        else:
+            step_id = f"llm-proposal-step-{index:02d}"
+            title = str(step).strip()[:180]
+            mutation = True
+            review = True
+            approval = True
+            allowed = False
+        if not title:
+            continue
+        structured_steps.append({
+            "id": step_id,
+            "title": title,
+            "mutation_candidate": mutation,
+            "requires_review": review,
+            "requires_approval": approval,
+            "execution_allowed": allowed,
+        })
+    return _build_llm_conversion_result(
+        structured_steps=structured_steps,
+        llm_proposal=llm_proposal,
+        environment_facts=environment_facts,
+    )
+
+
+def _default_llm_proposal_conversion(
+    llm_proposal: dict[str, Any],
+    environment_facts: dict[str, Any],
 ) -> dict[str, Any]:
     proposal_steps = list(llm_proposal.get("steps") or [])
     structured_steps: list[dict[str, Any]] = []
@@ -1691,34 +1853,41 @@ def convert_llm_proposal_to_reviewed_procedure(
         text = str(step).strip()
         if not text:
             continue
-        structured_steps.append(
-            {
-                "id": f"llm-proposal-step-{index:02d}",
-                "title": text[:180],
-                "mutation_candidate": True,
-                "requires_review": True,
-                "requires_approval": True,
-                "execution_allowed": False,
-            }
-        )
-    if not structured_steps:
-        structured_steps.append(
-            {
-                "id": "llm-proposal-step-01",
-                "title": "No concrete step supplied; requires operator curation.",
-                "mutation_candidate": False,
-                "requires_review": True,
-                "requires_approval": True,
-                "execution_allowed": False,
-            }
-        )
+        structured_steps.append({
+            "id": f"llm-proposal-step-{index:02d}",
+            "title": text[:180],
+            "mutation_candidate": True,
+            "requires_review": True,
+            "requires_approval": True,
+            "execution_allowed": False,
+        })
+    return _build_llm_conversion_result(
+        structured_steps=structured_steps or [{
+            "id": "llm-proposal-step-01",
+            "title": "No concrete step supplied; requires operator curation.",
+            "mutation_candidate": False,
+            "requires_review": True,
+            "requires_approval": True,
+            "execution_allowed": False,
+        }],
+        llm_proposal=llm_proposal,
+        environment_facts=environment_facts,
+    )
+
+
+def _build_llm_conversion_result(
+    *,
+    structured_steps: list[dict[str, Any]],
+    llm_proposal: dict[str, Any],
+    environment_facts: dict[str, Any],
+) -> dict[str, Any]:
     return {
         "schema": "deterministic_llm_proposal_conversion_v1",
         "proposal_id": str(llm_proposal.get("proposal_id") or "llm-proposal-unknown"),
         "platform_target": environment_facts.get("platform_target"),
-        "review_required": True,
-        "approval_required": True,
-        "execution_allowed_without_review": False,
+        "review_required": any(s.get("requires_review", True) for s in structured_steps),
+        "approval_required": any(s.get("requires_approval", True) for s in structured_steps),
+        "execution_allowed_without_review": all(s.get("execution_allowed", False) for s in structured_steps),
         "structured_candidate_procedure": {
             "id": f"reviewed-{str(llm_proposal.get('proposal_id') or 'candidate')}",
             "source": "llm_escalation",
@@ -2177,6 +2346,30 @@ def build_deterministic_repair_foundation_snapshot(
     issue_symptom: str,
     evidence_sources: list[str],
 ) -> dict[str, Any]:
+    try:
+        return _build_deterministic_repair_foundation_snapshot_impl(
+            mode_data=mode_data,
+            issue_symptom=issue_symptom,
+            evidence_sources=evidence_sources,
+        )
+    except Exception as exc:
+        log.error("Failed to build deterministic repair foundation snapshot: %s", exc)
+        return {
+            "error": "deterministic_repair_foundation_failed",
+            "detail": str(exc),
+            "repair_procedure": None,
+            "repair_preview": None,
+            "diagnosis_artifact": None,
+        }
+
+
+def _build_deterministic_repair_foundation_snapshot_impl(
+    *,
+    mode_data: dict[str, Any],
+    issue_symptom: str,
+    evidence_sources: list[str],
+) -> dict[str, Any]:
+    execution_scope = str(mode_data.get("execution_scope") or "diagnosis_only").strip().lower()
     environment_facts = collect_environment_facts(mode_data)
     synthetic_logs = ingest_structured_logs(
         [
@@ -2275,18 +2468,31 @@ def build_deterministic_repair_foundation_snapshot(
         session_id=execution_session_id,
         target_scope=execution_target_scope,
     )
-    repair_execution_apply = execute_repair_procedure(
-        selected_catalog_entry=selected_catalog_entry,
-        normalized_evidence=normalized_evidence,
-        environment_facts=environment_facts,
-        dry_run=False,
-        approval_policy={
-            "approved_mutations": True,
-            "approved_scopes": [approval_scope],
-        },
-        session_id=execution_session_id,
-        target_scope=execution_target_scope,
-    )
+    if execution_scope == "diagnosis_only":
+        repair_execution_apply = {
+            "schema": "deterministic_repair_execution_v1",
+            "procedure_id": str((selected_catalog_entry.get("procedure") or {}).get("id") or "unknown_procedure"),
+            "problem_class": selected_catalog_entry.get("problem_class"),
+            "status": "skipped_diagnosis_only",
+            "stop_reason": "execution_scope_diagnosis_only",
+            "steps": [],
+            "abort_conditions": [],
+            "contradictory_evidence_detected": False,
+            "worsening_signals_detected": False,
+        }
+    else:
+        repair_execution_apply = execute_repair_procedure(
+            selected_catalog_entry=selected_catalog_entry,
+            normalized_evidence=normalized_evidence,
+            environment_facts=environment_facts,
+            dry_run=False,
+            approval_policy={
+                "approved_mutations": True,
+                "approved_scopes": [approval_scope],
+            },
+            session_id=execution_session_id,
+            target_scope=execution_target_scope,
+        )
     final_verification = verify_final_repair_outcome(
         execution_result=repair_execution_apply,
         normalized_evidence=normalized_evidence,
@@ -2475,4 +2681,10 @@ def build_deterministic_repair_foundation_snapshot(
         "golden_path_examples": golden_path_examples,
         "rollout_plan_model": dict(ROLLOUT_PLAN_MODEL),
         "rollout_plan": rollout_plan,
+        "repair_procedure": dict(selected_catalog_entry.get("procedure") or {}),
+        "diagnosis_artifact": dict(mode_data.get("diagnosis_artifact") or {
+            "problem_class": selected_problem_class,
+            "confidence": matching_outcome.get("best_score", 0.0),
+            "likely_causes": [],
+        }),
     }
