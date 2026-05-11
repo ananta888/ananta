@@ -34,31 +34,31 @@
       "id": "CAP-FE-M1",
       "title": "Frontend data model and API client",
       "task_ids": ["CAP-FE-T001", "CAP-FE-T002", "CAP-FE-T003", "CAP-FE-T004"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "CAP-FE-M2",
       "title": "Policy overview and presets",
       "task_ids": ["CAP-FE-T005", "CAP-FE-T006", "CAP-FE-T007", "CAP-FE-T008"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "CAP-FE-M3",
       "title": "Rule editor and source matching UI",
       "task_ids": ["CAP-FE-T009", "CAP-FE-T010", "CAP-FE-T011", "CAP-FE-T012", "CAP-FE-T013"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "CAP-FE-M4",
       "title": "Destination matrix UI",
       "task_ids": ["CAP-FE-T014", "CAP-FE-T015", "CAP-FE-T016", "CAP-FE-T017"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "CAP-FE-M5",
       "title": "Preview, diagnostics and execution visibility",
       "task_ids": ["CAP-FE-T018", "CAP-FE-T019", "CAP-FE-T020", "CAP-FE-T021", "CAP-FE-T022"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "CAP-FE-M6",
@@ -77,7 +77,7 @@
     {
       "id": "CAP-FE-T001",
       "title": "Create TypeScript models for context access policy",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Frontend needs typed models matching backend ContextAccessPolicy, ContextBlockAccessDecision, DestinationContext and policy lint output.",
@@ -112,7 +112,7 @@
     {
       "id": "CAP-FE-T002",
       "title": "Create ContextAccessPolicyApiService",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Frontend needs a dedicated service for policy CRUD, lint, preview, templates and effective policy read model.",
@@ -144,7 +144,7 @@
     {
       "id": "CAP-FE-T003",
       "title": "Create WorkerRuntimeCandidateApiService for UI selection data",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "problem": "Policy editor needs current workers, runtimes, providers and model scopes to configure destination rules safely.",
@@ -175,7 +175,7 @@
     {
       "id": "CAP-FE-T004",
       "title": "Add frontend route/module for Context Access Policy",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Users need a discoverable place to manage context/data-boundary policies.",
@@ -207,7 +207,7 @@
     {
       "id": "CAP-FE-T005",
       "title": "Build ContextAccessPolicyOverviewComponent",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "problem": "Operators need a high-level overview of active policy, risk level, cloud/external exposure and validation status.",
@@ -240,7 +240,7 @@
     {
       "id": "CAP-FE-T006",
       "title": "Add safe policy preset selector",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Users should start from safe templates rather than writing complex rules from scratch.",
@@ -273,7 +273,7 @@
     {
       "id": "CAP-FE-T007",
       "title": "Add policy lint result panel",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Users need clear feedback when policy rules are invalid, unsafe or contradictory.",
@@ -339,7 +339,7 @@
     {
       "id": "CAP-FE-T009",
       "title": "Build source rule editor for paths and source types",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Users need to define which areas/sources a rule applies to: src/**, docs/public/**, .env, secrets/**, CodeCompass nodes, memory, artifacts, logs and external sources.",
@@ -372,7 +372,7 @@
     {
       "id": "CAP-FE-T010",
       "title": "Build sensitivity and classification editor",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Users need to classify matched sources as public, project_internal, secret, customer_confidential etc., and understand default behavior.",
@@ -405,7 +405,7 @@
     {
       "id": "CAP-FE-T011",
       "title": "Build read/write/send permission editor",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Users must configure read, send-to-model and write permissions separately. Local workers may read more, but writes still require approval/policy.",
@@ -504,7 +504,7 @@
     {
       "id": "CAP-FE-T014",
       "title": "Build destination matrix editor for workers/runtimes/models",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Users need to express which source rule can go to which worker/runtime/model scope: native local, OpenCode local, Hermes external/cloud, remote worker, local LLM, cloud LLM, tool-only.",
@@ -634,7 +634,7 @@
     {
       "id": "CAP-FE-T018",
       "title": "Build context decision preview UI",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Before activation/execution, user must see how a policy treats sample sources and destinations.",
@@ -701,7 +701,7 @@
     {
       "id": "CAP-FE-T020",
       "title": "Add post-execution context access summary UI",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "After execution, user/operator should see what context actually went to which worker/model, without leaking sensitive denied content.",
@@ -1136,12 +1136,12 @@
   "tasks_status_summary": {
     "total": 31,
     "by_status": {
-      "todo": 31,
+      "todo": 18,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 13
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 41.9,
     "by_priority": {
       "P0": 18,
       "P1": 12,
@@ -1155,15 +1155,15 @@
     },
     "critical_path": {
       "total": 21,
-      "done": 0,
-      "remaining": 21
+      "done": 11,
+      "remaining": 10
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 4,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "summary_notes": [

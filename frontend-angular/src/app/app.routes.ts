@@ -6,6 +6,7 @@ import { adminRoutes } from './features/admin/admin.routes';
 import { controlPlaneRoutes } from './features/control-plane/control-plane.routes';
 import { systemRoutes } from './features/system/system.routes';
 import { taskRoutes } from './features/tasks/task.routes';
+import { contextAccessPolicyRoutes } from './features/context-access-policy/context-access-policy.routes';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -20,6 +21,7 @@ export const routes: Routes = [
       ...adminRoutes,
       ...systemRoutes,
       ...taskRoutes,
+      ...contextAccessPolicyRoutes,
     ]
   },
   { path: '**', component: NotFoundComponent }
