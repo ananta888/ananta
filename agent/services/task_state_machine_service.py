@@ -36,7 +36,7 @@ _ACTION_TRANSITIONS = {
     "pause": {"from": ACTIVE_TASK_STATUSES - {TaskStatus.PAUSED.value}, "to": TaskStatus.PAUSED.value},
     "resume": {"from": {TaskStatus.PAUSED.value}, "to": TaskStatus.TODO.value},
     "cancel": {"from": ACTIVE_TASK_STATUSES, "to": TaskStatus.CANCELLED.value},
-    "unassign": {"from": {TaskStatus.ASSIGNED.value, TaskStatus.CREATED.value}, "to": TaskStatus.TODO.value},
+    "unassign": {"from": {TaskStatus.ASSIGNED.value, TaskStatus.CREATED.value, TaskStatus.PROPOSING.value}, "to": TaskStatus.TODO.value},
     "retry": {
         "from": {
             TaskStatus.FAILED.value,
