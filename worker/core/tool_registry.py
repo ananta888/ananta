@@ -56,6 +56,30 @@ class ToolResult(BaseModel):
             truncated=bool(partial_stdout),
         )
 
+    def to_test_result_artifact(self, *, task_id: str, command: str) -> dict[str, Any]:
+        """Convert to legacy test_result_artifact.v1 dict for consumers that predate ToolResult. T010."""
+        if self.success:
+            status = "passed"
+        elif self.reason_code == "tool_timeout":
+            status = "degraded"
+        else:
+            status = "failed"
+        duration_ms = int((self.duration_seconds or 0.0) * 1000)
+        return {
+            "schema": "test_result_artifact.v1",
+            "task_id": task_id,
+            "command": command,
+            "exit_code": self.exit_code if self.exit_code is not None else (0 if self.success else 1),
+            "status": status,
+            "stdout_ref": self.stdout or "<empty>",
+            "stderr_ref": self.stderr or "<empty>",
+            "output_summary": (
+                f"Execution status={status}, duration_ms={duration_ms}, "
+                f"tool_id={self.tool_id}, execution_id={self.execution_id}"
+            ),
+            "failure_hints": ([self.reason_code] if self.reason_code else []),
+        }
+
 
 # ── ResourceLimits (EW-T018) ──────────────────────────────────────────────────
 

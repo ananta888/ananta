@@ -100,7 +100,7 @@ class NativeWorkerRuntimeService:
             tid=tid,
             goal_id=str(task.get("goal_id") or "goal-unknown"),
             trace_id=str(trace_id or f"native-plan-{tid}"),
-            capability_id="worker.command.plan",
+            capability_id="shell_plan",  # T004: canonical capability ID
             mode="command_plan",
             context_bundle_id=bundle_id,
             context_hash=context_hash,
@@ -135,7 +135,7 @@ class NativeWorkerRuntimeService:
         )
         command_plan = build_command_plan_artifact(
             task_id=tid,
-            capability_id="worker.command.plan",
+            capability_id="shell_plan",  # T004: canonical capability ID
             command=normalized_command,
             explanation=str(reason or "Native worker command plan."),
             expected_effects=["Execute bounded command and produce verification artifact."],
@@ -209,7 +209,7 @@ class NativeWorkerRuntimeService:
         if not command_plan:
             command_plan = build_command_plan_artifact(
                 task_id=tid,
-                capability_id="worker.command.plan",
+                capability_id="shell_plan",  # T004: canonical capability ID
                 command=command,
                 explanation="Native worker execute fallback plan.",
                 expected_effects=["Execute bounded command and verify output."],
@@ -269,12 +269,13 @@ class NativeWorkerRuntimeService:
         )
         policy_summary = f"{decision.classification}:{decision.reason}"
 
+        _exec_command = str(command_plan.get("command") or command)
         try:
-            test_result = execute_command_plan(
+            tool_result = execute_command_plan(
                 repository_root=workspace_dir,
                 command_plan_artifact=command_plan,
                 task_id=tid,
-                capability_id="worker.command.execute",
+                capability_id="shell_execute",  # T004: canonical capability ID
                 context_hash=context_hash,
                 shell_policy=shell_policy,
                 hub_policy_decision="allow",
@@ -282,6 +283,8 @@ class NativeWorkerRuntimeService:
                 timeout_seconds=int(timeout_seconds),
                 execution_profile=normalized_profile,
             )
+            # T010: convert ToolResult to legacy test_result_artifact dict
+            test_result = tool_result.to_test_result_artifact(task_id=tid, command=_exec_command)
         except PermissionError as exc:
             return self._permission_denied_outcome(
                 tid=tid,

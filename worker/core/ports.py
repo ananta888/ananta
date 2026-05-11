@@ -4,7 +4,8 @@ from typing import Any, Protocol
 
 
 class PolicyPort(Protocol):
-    def classify_command(self, *, command: str, profile: str) -> dict[str, Any]: ...
+    # T001: hub_decision flows from Hub envelope, not a worker-local stub
+    def classify_command(self, *, command: str, profile: str, hub_decision: str = "allow") -> dict[str, Any]: ...
 
 
 class TracePort(Protocol):

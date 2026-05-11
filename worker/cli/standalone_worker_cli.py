@@ -9,9 +9,12 @@ from worker.runtime.standalone_runtime import StandaloneRuntime
 
 
 class _StaticPolicyPort:
-    def classify_command(self, *, command: str, profile: str) -> dict[str, Any]:
+    # T001: hub_decision flows in from the caller; local policy compounds it
+    def classify_command(self, *, command: str, profile: str, hub_decision: str = "allow") -> dict[str, Any]:
+        if str(hub_decision or "").strip().lower() == "deny":
+            return {"decision": "deny", "risk_classification": "critical", "required_approval": True}
         lowered = str(command or "").lower()
-        denied = "rm -rf" in lowered or "curl " in lowered and "| sh" in lowered
+        denied = "rm -rf" in lowered or ("curl " in lowered and "| sh" in lowered)
         return {
             "decision": "deny" if denied else "allow",
             "risk_classification": "critical" if denied else "low",

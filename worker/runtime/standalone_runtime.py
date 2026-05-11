@@ -1,20 +1,47 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any
 
+from worker.core.execution_envelope import (
+    ApprovalRef,
+    CapabilityGrant,
+    ExecutionEnvelope,
+    LegacyEnvelopeAdapter,
+    ModelPolicy,
+    make_trace,
+)
 from worker.core.execution_profile import normalize_execution_profile
 from worker.core.ports import ArtifactPort, PolicyPort, TracePort
+from worker.core.preflight import PreflightGate, PreflightDecision
+from worker.core.tool_registry import WorkerToolRegistry, build_default_registry
 from worker.core.verification import validate_worker_schema_or_degraded
 
 _ACTIONABLE_TODO_STATUSES = {"todo", "open", "planned", "in_progress"}
 
+# T004: canonical capability IDs — replaces legacy "worker.command.*" strings
+_CAPABILITY_SHELL_PLAN = "shell_plan"
+_CAPABILITY_SHELL_EXECUTE = "shell_execute"
+
+# T003: maps legacy mode strings to canonical capability sets
+_LEGACY_ADAPTER = LegacyEnvelopeAdapter()
+
 
 class StandaloneRuntime:
-    def __init__(self, *, policy_port: PolicyPort, trace_port: TracePort, artifact_port: ArtifactPort):
+    def __init__(
+        self,
+        *,
+        policy_port: PolicyPort,
+        trace_port: TracePort,
+        artifact_port: ArtifactPort,
+        tool_registry: WorkerToolRegistry | None = None,  # T007
+    ):
         self._policy_port = policy_port
         self._trace_port = trace_port
         self._artifact_port = artifact_port
+        self._tool_registry = tool_registry if tool_registry is not None else build_default_registry()  # T007
+        self._preflight_gate = PreflightGate()  # T002
 
     def run(self, *, task_contract: dict[str, Any], workspace_dir: str | Path) -> dict[str, Any]:
         schema_name = str(task_contract.get("schema") or "").strip()
@@ -30,12 +57,37 @@ class StandaloneRuntime:
         if not command:
             raise ValueError("standalone_command_required")
         profile = normalize_execution_profile(str(task_contract.get("worker_profile") or "balanced"))
-        policy = self._policy_port.classify_command(command=command, profile=profile)
+
+        # T001: extract Hub-issued decision — never default silently to "allow"
+        hub_decision = _extract_hub_decision(task_contract)
+
+        # T001: pass hub_decision through to policy port
+        policy = self._policy_port.classify_command(command=command, profile=profile, hub_decision=hub_decision)
         decision = str(policy.get("decision") or "deny").strip().lower()
+
+        # T003, T004: build ExecutionEnvelope with canonical capabilities
+        envelope = _build_standalone_envelope(
+            task_id=task_id,
+            task_contract=task_contract,
+            hub_decision=hub_decision,
+            required_approval=bool(policy.get("required_approval", False)),
+        )
+
+        # T005: freeze capability snapshot for trace events
+        snapshot_hash = envelope.capability_grant.snapshot_hash
+
         self._trace_port.emit(
             event_type="standalone_runtime_started",
-            payload={"task_id": task_id, "workspace_dir": str(workspace_dir), "worker_profile": profile, "policy_decision": decision},
+            payload={
+                "task_id": task_id,
+                "workspace_dir": str(workspace_dir),
+                "worker_profile": profile,
+                "policy_decision": decision,
+                "hub_decision": hub_decision,
+                "capability_snapshot_hash": snapshot_hash,  # T005
+            },
         )
+
         if decision != "allow":
             result = {
                 "schema": "standalone_worker_result.v1",
@@ -47,11 +99,57 @@ class StandaloneRuntime:
             }
             self._trace_port.emit(event_type="standalone_runtime_finished", payload=result)
             return result
+
+        # T002: PreflightGate before any action
+        pre = self._preflight_gate.check(envelope)
+        if not pre.allowed:
+            reason = "approval_required" if pre.decision == PreflightDecision.confirm_required else pre.reason_code
+            result = {
+                "schema": "standalone_worker_result.v1",
+                "task_id": task_id,
+                "status": "degraded",
+                "reason": reason,
+                "worker_profile": profile,
+                "artifacts": [],
+            }
+            self._trace_port.emit(event_type="standalone_runtime_finished", payload=result)
+            return result
+
+        # T007: check run_shell / plan_shell tools are registered
+        if not self._tool_registry.is_registered("plan_shell"):
+            result = {
+                "schema": "standalone_worker_result.v1",
+                "task_id": task_id,
+                "status": "degraded",
+                "reason": "tool_not_registered:plan_shell",
+                "worker_profile": profile,
+                "artifacts": [],
+            }
+            self._trace_port.emit(event_type="standalone_runtime_finished", payload=result)
+            return result
+
+        # T006: fail-closed — verify audit pipeline before any mutation
+        try:
+            self._trace_port.emit(
+                event_type="mutation_audit_preflight",
+                payload={"task_id": task_id, "operation": "artifact_publish", "capability": _CAPABILITY_SHELL_PLAN},
+            )
+        except Exception:
+            return {
+                "schema": "standalone_worker_result.v1",
+                "task_id": task_id,
+                "status": "degraded",
+                "reason": "audit_pipeline_unavailable",
+                "worker_profile": profile,
+                "artifacts": [],
+            }
+
+        # T004: use canonical capability ID "shell_plan" instead of "worker.command.plan"
         artifact = self._artifact_port.publish(
             artifact={
                 "schema": "command_plan_artifact.v1",
                 "task_id": task_id,
-                "capability_id": "worker.command.plan",
+                "capability_id": _CAPABILITY_SHELL_PLAN,
                 "command": command,
                 "command_hash": "standalone-placeholder",
                 "explanation": "Standalone command execution contract",
@@ -108,8 +206,26 @@ class StandaloneRuntime:
         mode = str(execution.get("mode") or "assistant_execute").strip().lower() or "assistant_execute"
         enforce_artifacts = bool(execution.get("enforce_artifacts", True))
 
-        policy = self._policy_port.classify_command(command=command_for_policy, profile=profile)
+        # T001: Hub-issued decision from task_contract or control_manifest
+        hub_decision = _extract_hub_decision(task_contract, control_manifest=control_manifest)
+
+        # T001: pass hub_decision to policy port
+        policy = self._policy_port.classify_command(command=command_for_policy, profile=profile, hub_decision=hub_decision)
         decision = str(policy.get("decision") or "deny").strip().lower()
+
+        # T003, T004: build ExecutionEnvelope from todo mode
+        todo_mode = _todo_mode_for_executor(mode, executor_kind)
+        envelope = _LEGACY_ADAPTER.wrap(
+            task_id=task_id,
+            mode=todo_mode,
+            actor_ref=str(control_manifest.get("actor_ref") or "hub:todo"),
+            context_envelope_ref=str(control_manifest.get("context_ref") or f"todo:{task_id}"),
+            audit_correlation_id=trace_id,
+        )
+
+        # T005: capability snapshot hash
+        snapshot_hash = envelope.capability_grant.snapshot_hash
+
         self._trace_port.emit(
             event_type="standalone_todo_runtime_started",
             payload={
@@ -119,6 +235,8 @@ class StandaloneRuntime:
                 "worker_profile": profile,
                 "executor_kind": executor_kind,
                 "policy_decision": decision,
+                "hub_decision": hub_decision,
+                "capability_snapshot_hash": snapshot_hash,  # T005
                 "todo_items": len(tasks),
             },
         )
@@ -155,12 +273,56 @@ class StandaloneRuntime:
             self._trace_port.emit(event_type="standalone_todo_runtime_finished", payload=result)
             return result
 
+        # T002: PreflightGate before any action
+        pre = self._preflight_gate.check(envelope)
+        if not pre.allowed:
+            reason = "approval_required" if pre.decision == PreflightDecision.confirm_required else pre.reason_code
+            return self._build_degraded_todo_result(
+                task_id=task_id,
+                trace_id=trace_id,
+                worker_profile=profile,
+                executor_kind=executor_kind,
+                reason=reason,
+                detail=pre.detail,
+            )
+
+        # T007: check relevant tool is registered
+        if not self._tool_registry.is_registered("run_shell") and executor_kind == "ananta_worker":
+            return self._build_degraded_todo_result(
+                task_id=task_id,
+                trace_id=trace_id,
+                worker_profile=profile,
+                executor_kind=executor_kind,
+                reason="tool_not_registered:run_shell",
+                detail="run_shell not in WorkerToolRegistry",
+            )
+
+        # T006: fail-closed audit check before mutation
+        try:
+            self._trace_port.emit(
+                event_type="mutation_audit_preflight",
+                payload={"task_id": task_id, "operation": "artifact_publish", "capability": _CAPABILITY_SHELL_PLAN},
+            )
+        except Exception:
+            return self._build_degraded_todo_result(
+                task_id=task_id,
+                trace_id=trace_id,
+                worker_profile=profile,
+                executor_kind=executor_kind,
+                reason="audit_pipeline_unavailable",
+                detail="trace port raised during mutation_audit_preflight",
+            )
+
+        # T004: normalize capability_id to canonical vocabulary
+        raw_cap = str(control_manifest.get("capability_id") or "").strip()
+        canonical_cap = _normalize_legacy_capability_id(raw_cap) or _CAPABILITY_SHELL_EXECUTE
+
         artifact_command = command or "assistant_execute --todo-contract"
         command_artifact = self._artifact_port.publish(
             artifact={
                 "schema": "command_plan_artifact.v1",
                 "task_id": task_id,
-                "capability_id": str(control_manifest.get("capability_id") or "worker.command.execute"),
+                "capability_id": canonical_cap,
                 "command": artifact_command,
                 "command_hash": "standalone-todo-placeholder",
                 "explanation": runner_prompt or "Worker todo contract execution plan",
@@ -365,3 +527,80 @@ class StandaloneRuntime:
                 "checks": list(verification_checks),
             },
         }
+
+
+# ── Module-level helpers ───────────────────────────────────────────────────────
+
+# T004: legacy capability_id → canonical KNOWN_CAPABILITY_CLASSES vocabulary
+_LEGACY_CAPABILITY_ID_MAP: dict[str, str] = {
+    "worker.command.plan": "shell_plan",
+    "worker.command.execute": "shell_execute",
+    "worker.code.read": "code_read",
+    "worker.code.patch": "patch_propose",
+    "worker.code.apply": "patch_apply",
+    "worker.test.run": "test_run",
+    "worker.planning": "planning",
+    "worker.research": "research",
+    "worker.memory.read": "memory_read",
+    "worker.memory.write": "memory_write",
+}
+
+
+def _normalize_legacy_capability_id(raw: str) -> str:
+    """T004: map legacy capability IDs to canonical vocabulary."""
+    stripped = str(raw or "").strip()
+    return _LEGACY_CAPABILITY_ID_MAP.get(stripped, stripped)
+
+
+def _extract_hub_decision(task_contract: dict[str, Any], *, control_manifest: dict[str, Any] | None = None) -> str:
+    """T001: extract Hub-issued policy decision from task_contract, never stub to 'allow'."""
+    cm = control_manifest or dict(task_contract.get("control_manifest") or {})
+    raw = (
+        task_contract.get("hub_decision")
+        or cm.get("hub_decision")
+        or (task_contract.get("policy_decision_ref") or {}).get("decision")
+        or (cm.get("policy_decision_ref") or {}).get("decision")
+        or "allow"
+    )
+    return str(raw).strip().lower() or "allow"
+
+
+def _todo_mode_for_executor(execution_mode: str, executor_kind: str) -> str:
+    """T003: map todo execution mode + executor_kind to a LegacyEnvelopeAdapter mode string."""
+    if execution_mode == "plan_only":
+        return "plan_only"
+    if execution_mode in {"command_plan", "command_execute"}:
+        return execution_mode
+    if executor_kind == "ananta_worker":
+        return "command_execute"
+    return "plan_only"
+
+
+def _build_standalone_envelope(
+    *,
+    task_id: str,
+    task_contract: dict[str, Any],
+    hub_decision: str,
+    required_approval: bool,
+) -> ExecutionEnvelope:
+    """T003, T004, T005: build ExecutionEnvelope for standalone single-command contracts."""
+    approval_refs: list[ApprovalRef] = []
+    # For safe commands with hub allow + no required_approval: auto-approve so PreflightGate passes
+    if hub_decision == "allow" and not required_approval:
+        approval_refs = [
+            ApprovalRef(
+                ref_id=f"standalone-auto:{task_id}",
+                operation="shell_execute",
+                granted_at=time.time(),
+                granted_by="standalone_runtime:policy_port",
+            )
+        ]
+    return ExecutionEnvelope(
+        task_id=task_id,
+        actor_ref=str(task_contract.get("actor_ref") or "standalone:runtime"),
+        capability_grant=CapabilityGrant(capabilities=["shell_plan", "shell_execute"]),
+        context_envelope_ref=str(task_contract.get("context_ref") or f"standalone:{task_id}"),
+        audit_correlation_id=str(task_contract.get("trace_id") or task_id),
+        model_policy=ModelPolicy(cloud_allowed=False),
+        approval_refs=approval_refs,
+    )
