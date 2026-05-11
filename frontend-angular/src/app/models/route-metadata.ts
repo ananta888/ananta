@@ -43,6 +43,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   panel: { label: 'Agent Panel', area: 'System' },
   task: { label: 'Task Details', area: 'Operate' },
   goal: { label: 'Goal Details', area: 'Operate' },
+  'context-access-policy': { label: 'Policy', area: 'Configure', navGroup: 'Konfiguration', navOrder: 36, adminOnly: true, expertOnly: true },
 };
 
 export function routeDataFor(path: keyof typeof APP_ROUTE_META): { breadcrumb: string; area: AppRouteArea } {
