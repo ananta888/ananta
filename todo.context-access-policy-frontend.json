@@ -1,0 +1,1174 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "context_access_policy_frontend",
+  "purpose": "Implement Angular UI/UX so users can configure which project areas, CodeCompass/RAG sources, local files, secrets, memories, artifacts and logs may be sent to which worker, runtime target, model provider, model scope and tool operation. This is the frontend half of data-boundary configuration; backend remains authoritative.",
+  "depends_on": [
+    "todo.context-access-policy-backend.json",
+    "todo.deterministic-repair-runtime-fixup.worker-runtime-selection-extension.json"
+  ],
+  "problem_statement": "Users need a safe UI to decide that local workers may read/change certain project areas, while cloud/external workers or cloud-backed agents may never receive secrets, customer data or internal code unless explicitly allowed. The UI must make these decisions visible, previewable and hard to misconfigure.",
+  "global_principles": [
+    "Frontend config helps users express policy; backend enforces policy.",
+    "Use safe presets and constrained editors before raw JSON.",
+    "Never silently drop advanced policy fields when saving forms.",
+    "Show what will be sent to which worker/model before execution.",
+    "Show denied/redacted/summarized context counts and reasons, not raw secrets.",
+    "Cloud/external destinations must be visibly marked and warned.",
+    "Local read permission and write permission must be configured separately.",
+    "Operators must see actual selected worker/runtime/model and context decision summary after execution."
+  ],
+  "non_goals": [
+    "Do not implement enforcement in frontend only.",
+    "Do not expose raw secrets in preview or diagnostics.",
+    "Do not use one huge free-form JSON editor as the only UI.",
+    "Do not hide cloud/external risk behind generic worker names.",
+    "Do not auto-enable cloud sharing presets.",
+    "Do not overwrite backend-only fields with null because UI does not understand them."
+  ],
+  "status_scale": ["todo", "in_progress", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {
+      "id": "CAP-FE-M1",
+      "title": "Frontend data model and API client",
+      "task_ids": ["CAP-FE-T001", "CAP-FE-T002", "CAP-FE-T003", "CAP-FE-T004"],
+      "status": "todo"
+    },
+    {
+      "id": "CAP-FE-M2",
+      "title": "Policy overview and presets",
+      "task_ids": ["CAP-FE-T005", "CAP-FE-T006", "CAP-FE-T007", "CAP-FE-T008"],
+      "status": "todo"
+    },
+    {
+      "id": "CAP-FE-M3",
+      "title": "Rule editor and source matching UI",
+      "task_ids": ["CAP-FE-T009", "CAP-FE-T010", "CAP-FE-T011", "CAP-FE-T012", "CAP-FE-T013"],
+      "status": "todo"
+    },
+    {
+      "id": "CAP-FE-M4",
+      "title": "Destination matrix UI",
+      "task_ids": ["CAP-FE-T014", "CAP-FE-T015", "CAP-FE-T016", "CAP-FE-T017"],
+      "status": "todo"
+    },
+    {
+      "id": "CAP-FE-M5",
+      "title": "Preview, diagnostics and execution visibility",
+      "task_ids": ["CAP-FE-T018", "CAP-FE-T019", "CAP-FE-T020", "CAP-FE-T021", "CAP-FE-T022"],
+      "status": "todo"
+    },
+    {
+      "id": "CAP-FE-M6",
+      "title": "Integration into worker, blueprint and repair screens",
+      "task_ids": ["CAP-FE-T023", "CAP-FE-T024", "CAP-FE-T025", "CAP-FE-T026"],
+      "status": "todo"
+    },
+    {
+      "id": "CAP-FE-M7",
+      "title": "Safety UX, validation and tests",
+      "task_ids": ["CAP-FE-T027", "CAP-FE-T028", "CAP-FE-T029", "CAP-FE-T030", "CAP-FE-T031"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CAP-FE-T001",
+      "title": "Create TypeScript models for context access policy",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Frontend needs typed models matching backend ContextAccessPolicy, ContextBlockAccessDecision, DestinationContext and policy lint output.",
+      "target_files": [
+        "frontend*/src/app/models/context-access-policy.model.ts",
+        "frontend*/src/app/models/worker-runtime-target.model.ts",
+        "frontend*/src/app/models/context-policy-diagnostics.model.ts",
+        "frontend*/src/app/models/api-error.model.ts"
+      ],
+      "implementation_notes": [
+        "Locate actual Angular frontend path before implementing.",
+        "Keep models close to backend JSON names to avoid lossy mapping.",
+        "Use enums or string union types for sensitivity, worker kind, runtime kind, model scope and decision."
+      ],
+      "acceptance_criteria": [
+        "TypeScript model includes ContextAccessPolicy, ContextAccessRule, SourceMatch, DestinationConstraint, ContextBlockAccessDecision, PolicyLintResult, PolicyTemplate, DestinationContextPreview and EffectivePolicyReadModel.",
+        "Model supports read_allowed, write_allowed, send_allowed, cloud_allowed, external_worker_allowed, redaction_required, summarization_allowed and approval_required fields.",
+        "Model supports sensitivity enum values public, project_internal, customer_confidential, security_sensitive, secret, credential, regulated_data, generated_summary and unknown.",
+        "Model supports worker kinds native_ananta_worker, opencode, hermes, shellgpt, remote_worker, custom_worker or backend-provided enum fallback.",
+        "Model supports runtime kinds local_process, docker_container, docker_compose_service, wsl, remote_http_worker, remote_ssh_worker, ci_sandbox, cloud_worker and custom.",
+        "No API response fields are dropped when roundtripping unknown/advanced properties; unknown fields are preserved in an extension map if needed."
+      ],
+      "test_requirements": [
+        "Type model compile test if frontend tests exist.",
+        "Roundtrip sample JSON fixture test."
+      ],
+      "anti_patterns": [
+        "Do not reduce policy to only cloud_allowed boolean.",
+        "Do not ignore backend fields that UI does not render yet."
+      ]
+    },
+    {
+      "id": "CAP-FE-T002",
+      "title": "Create ContextAccessPolicyApiService",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Frontend needs a dedicated service for policy CRUD, lint, preview, templates and effective policy read model.",
+      "target_files": [
+        "frontend*/src/app/services/context-access-policy-api.service.ts",
+        "frontend*/src/app/services/api-base.service.ts",
+        "frontend*/src/app/models/context-access-policy.model.ts",
+        "frontend*/src/app/services/context-access-policy-api.service.spec.ts"
+      ],
+      "implementation_notes": [
+        "Do not hardcode exact routes until backend route names are final; keep route constants in one place.",
+        "Service should preserve draft/active policy distinction."
+      ],
+      "acceptance_criteria": [
+        "Service methods include listPolicies(projectId), getPolicy(policyId), createDraft(projectId, policy), updateDraft(policyId, patch), lintPolicy(policy), activatePolicy(policyId), getEffectivePolicy(scope), listTemplates(), applyTemplate(templateId), previewDecision(request) and getDiagnostics(projectId).",
+        "Service handles structured validation errors from backend and exposes them to UI components.",
+        "Service never logs policy content that may contain sensitive path names unless debug logging is explicitly enabled and redacted.",
+        "Service supports dry-run/preview endpoints without executing tasks.",
+        "Unit tests mock success and validation error responses."
+      ],
+      "test_requirements": [
+        "Angular service tests for list/get/lint/preview/activate error handling."
+      ],
+      "anti_patterns": [
+        "Do not let components call HttpClient directly all over the app.",
+        "Do not activate policy without lint/validation surface."
+      ]
+    },
+    {
+      "id": "CAP-FE-T003",
+      "title": "Create WorkerRuntimeCandidateApiService for UI selection data",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "problem": "Policy editor needs current workers, runtimes, providers and model scopes to configure destination rules safely.",
+      "target_files": [
+        "frontend*/src/app/services/worker-runtime-candidate-api.service.ts",
+        "frontend*/src/app/models/worker-runtime-target.model.ts",
+        "frontend*/src/app/services/worker-runtime-candidate-api.service.spec.ts"
+      ],
+      "implementation_notes": [
+        "Can reuse service from worker selection UI if it exists.",
+        "Expose health and validation state."
+      ],
+      "acceptance_criteria": [
+        "Service fetches worker candidates with id, kind, display name, capabilities, roles, health, validation_errors and risk flags.",
+        "Service fetches runtime targets with id, kind, display name, data_boundary, allowed capabilities, denied capabilities, network zone and health.",
+        "Service fetches provider/model scopes or backend-provided destination enum options.",
+        "Service redacts tokens/URLs according to backend response and does not display secrets.",
+        "Unit tests cover healthy candidate, invalid candidate and cloud runtime candidate."
+      ],
+      "test_requirements": [
+        "Service unit tests for candidate parsing."
+      ],
+      "anti_patterns": [
+        "Do not infer workers/runtimes from arbitrary agent URL strings in components.",
+        "Do not display tokens."
+      ]
+    },
+    {
+      "id": "CAP-FE-T004",
+      "title": "Add frontend route/module for Context Access Policy",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Users need a discoverable place to manage context/data-boundary policies.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/context-access-policy.module.ts",
+        "frontend*/src/app/context-access-policy/context-access-policy-routing.module.ts",
+        "frontend*/src/app/app-routing.module.ts",
+        "frontend*/src/app/navigation*.component.*"
+      ],
+      "implementation_notes": [
+        "If app uses standalone Angular components, adapt accordingly.",
+        "Route should be permission-gated if RBAC exists."
+      ],
+      "acceptance_criteria": [
+        "A route exists for project context access policy management.",
+        "Navigation entry is visible only to users with appropriate permission or admin/operator role.",
+        "Route can load active policy and show loading/error/empty states.",
+        "Route does not expose policy edit UI to unauthorized users.",
+        "Basic smoke test or routing test exists if frontend tests are present."
+      ],
+      "test_requirements": [
+        "Routing/guard test if frontend test framework exists."
+      ],
+      "anti_patterns": [
+        "Do not hide policy only in raw config pages.",
+        "Do not expose edit route without authorization."
+      ]
+    },
+    {
+      "id": "CAP-FE-T005",
+      "title": "Build ContextAccessPolicyOverviewComponent",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "problem": "Operators need a high-level overview of active policy, risk level, cloud/external exposure and validation status.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/policy-overview.component.ts",
+        "frontend*/src/app/context-access-policy/policy-overview.component.html",
+        "frontend*/src/app/context-access-policy/policy-overview.component.scss",
+        "frontend*/src/app/context-access-policy/policy-overview.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Overview should not require understanding every rule.",
+        "Show active/draft status clearly."
+      ],
+      "acceptance_criteria": [
+        "Overview shows active policy id/version/scope/template source/lint status.",
+        "Overview shows summary cards: local-only sources, cloud-allowed sources, external-worker-allowed sources, secret/credential blocked, write-allowed areas and approval-required areas.",
+        "Overview shows warnings when no active project policy exists or default fallback policy is active.",
+        "Overview shows whether cloud providers/external workers are configured and how many rules allow them.",
+        "Overview includes actions: edit draft, duplicate policy, lint, preview, activate, export.",
+        "Tests verify warning when no active policy and when cloud-allowed rules exist."
+      ],
+      "test_requirements": [
+        "Component tests for overview states."
+      ],
+      "anti_patterns": [
+        "Do not show raw secret paths/content in overview.",
+        "Do not make active/draft state ambiguous."
+      ]
+    },
+    {
+      "id": "CAP-FE-T006",
+      "title": "Add safe policy preset selector",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Users should start from safe templates rather than writing complex rules from scratch.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/policy-preset-selector.component.ts",
+        "frontend*/src/app/context-access-policy/policy-preset-selector.component.html",
+        "frontend*/src/app/context-access-policy/policy-preset-selector.component.scss",
+        "frontend*/src/app/context-access-policy/policy-preset-selector.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use backend templates from CAP-BE-T029.",
+        "Default selected preset should be strict/local, not cloud."
+      ],
+      "acceptance_criteria": [
+        "Preset selector lists templates with name, description, risk level, cloud/external behavior and denied categories.",
+        "Default/recommended preset is strict local or enterprise strict no cloud.",
+        "Cloud-allowing presets display explicit warning and require confirmation/permission.",
+        "Applying preset creates draft policy, not immediately active policy unless backend explicitly allows safe activation.",
+        "Preset preview shows example decisions for source types: code, docs, .env, secret key, memory, artifact.",
+        "Tests verify cloud preset requires confirmation and strict preset denies cloud."
+      ],
+      "test_requirements": [
+        "Preset component tests."
+      ],
+      "anti_patterns": [
+        "Do not default to cloud-friendly policy.",
+        "Do not activate risky preset without lint/confirmation."
+      ]
+    },
+    {
+      "id": "CAP-FE-T007",
+      "title": "Add policy lint result panel",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Users need clear feedback when policy rules are invalid, unsafe or contradictory.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/policy-lint-panel.component.ts",
+        "frontend*/src/app/context-access-policy/policy-lint-panel.component.html",
+        "frontend*/src/app/context-access-policy/policy-lint-panel.component.scss",
+        "frontend*/src/app/context-access-policy/policy-lint-panel.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Group lint errors by severity and affected rule.",
+        "Offer jump-to-rule action."
+      ],
+      "acceptance_criteria": [
+        "Panel displays errors, warnings and infos from backend lint result.",
+        "Errors block activation button.",
+        "Warnings require explicit acknowledgement if activation is allowed.",
+        "Each lint item shows rule id/name, message, suggested fix and severity.",
+        "Clicking a lint item focuses or highlights the affected rule in editor.",
+        "Tests verify activation disabled on error and warning display."
+      ],
+      "test_requirements": [
+        "Lint panel component tests."
+      ],
+      "anti_patterns": [
+        "Do not hide lint errors in toast only.",
+        "Do not allow activation when backend says errors exist."
+      ]
+    },
+    {
+      "id": "CAP-FE-T008",
+      "title": "Add active/draft/version management UI",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Policy edits should be versioned and reviewable; users must understand what is active vs draft.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/policy-version-list.component.ts",
+        "frontend*/src/app/context-access-policy/policy-version-list.component.html",
+        "frontend*/src/app/context-access-policy/policy-version-list.component.scss",
+        "frontend*/src/app/context-access-policy/policy-version-list.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use backend list versions API.",
+        "Show who changed policy and when if available."
+      ],
+      "acceptance_criteria": [
+        "UI lists policy versions with active/draft/disabled status.",
+        "User can duplicate active policy into draft.",
+        "User can compare draft vs active at summary level.",
+        "User can activate only after successful lint/validation and permission check.",
+        "User can roll back to older version if backend supports it, or duplicate older version into new draft.",
+        "Tests verify active/draft labels and activation disabled when lint errors exist."
+      ],
+      "test_requirements": [
+        "Version management component tests."
+      ],
+      "anti_patterns": [
+        "Do not edit active policy in place without version/draft.",
+        "Do not make rollback unclear."
+      ]
+    },
+    {
+      "id": "CAP-FE-T009",
+      "title": "Build source rule editor for paths and source types",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Users need to define which areas/sources a rule applies to: src/**, docs/public/**, .env, secrets/**, CodeCompass nodes, memory, artifacts, logs and external sources.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/rule-editor/source-match-editor.component.ts",
+        "frontend*/src/app/context-access-policy/rule-editor/source-match-editor.component.html",
+        "frontend*/src/app/context-access-policy/rule-editor/source-match-editor.component.scss",
+        "frontend*/src/app/context-access-policy/rule-editor/source-match-editor.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use chips/rows for patterns rather than raw JSON only.",
+        "Include examples and validation."
+      ],
+      "acceptance_criteria": [
+        "Source editor supports path glob patterns, source type multi-select, metadata tags and optional project/repository scope.",
+        "Common source type options include local files, CodeCompass code, CodeCompass graph, RAG chunks, memory, artifacts, logs, config, docs, user prompt and external source.",
+        "UI provides quick-add patterns for .env, **/*.pem, **/secrets/**, docs/public/**, src/**, config/** and logs/**.",
+        "Invalid glob/pattern displays inline validation error before save.",
+        "Rule editor preview shows a safe summary of matched example sources if backend preview supports it.",
+        "Tests verify adding/removing patterns and invalid pattern display."
+      ],
+      "test_requirements": [
+        "Source match editor tests."
+      ],
+      "anti_patterns": [
+        "Do not force users to hand-write JSON for basic path rules.",
+        "Do not show raw secret file contents as match preview."
+      ]
+    },
+    {
+      "id": "CAP-FE-T010",
+      "title": "Build sensitivity and classification editor",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Users need to classify matched sources as public, project_internal, secret, customer_confidential etc., and understand default behavior.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/rule-editor/sensitivity-editor.component.ts",
+        "frontend*/src/app/context-access-policy/rule-editor/sensitivity-editor.component.html",
+        "frontend*/src/app/context-access-policy/rule-editor/sensitivity-editor.component.scss",
+        "frontend*/src/app/context-access-policy/rule-editor/sensitivity-editor.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Show descriptions and default consequences for each sensitivity.",
+        "Secret/credential should be visually distinct and strongly warned."
+      ],
+      "acceptance_criteria": [
+        "Sensitivity editor supports public, project_internal, customer_confidential, security_sensitive, secret, credential, regulated_data, generated_summary and unknown.",
+        "Selecting secret or credential automatically disables cloud/external and LLM send toggles unless advanced override flow is enabled and backend allows it.",
+        "Selecting public may allow cloud toggles but does not enable them automatically unless preset says so.",
+        "Editor displays default handling summary for selected sensitivity.",
+        "Unknown sensitivity shows warning and conservative default.",
+        "Tests verify secret selection disables unsafe toggles."
+      ],
+      "test_requirements": [
+        "Sensitivity editor tests."
+      ],
+      "anti_patterns": [
+        "Do not let secret be accidentally cloud_allowed through simple checkbox.",
+        "Do not hide effect of sensitivity from user."
+      ]
+    },
+    {
+      "id": "CAP-FE-T011",
+      "title": "Build read/write/send permission editor",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Users must configure read, send-to-model and write permissions separately. Local workers may read more, but writes still require approval/policy.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/rule-editor/access-permission-editor.component.ts",
+        "frontend*/src/app/context-access-policy/rule-editor/access-permission-editor.component.html",
+        "frontend*/src/app/context-access-policy/rule-editor/access-permission-editor.component.scss",
+        "frontend*/src/app/context-access-policy/rule-editor/access-permission-editor.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use separate controls for read_allowed, send_allowed and write_allowed.",
+        "Write should show approval requirement controls."
+      ],
+      "acceptance_criteria": [
+        "Permission editor has separate controls for read_allowed, send_allowed, write_allowed, memory_write_allowed if supported and artifact_store_allowed if supported.",
+        "write_allowed=true requires explicit tool/runtime constraints and approval setting before save.",
+        "send_allowed=true requires destination matrix configuration and cannot be enabled for secret/credential without backend-approved override.",
+        "read_allowed=true does not automatically enable send_allowed or write_allowed.",
+        "UI shows clear warning when write_allowed affects code/config paths.",
+        "Tests verify read-only rule does not set send/write flags."
+      ],
+      "test_requirements": [
+        "Permission editor tests."
+      ],
+      "anti_patterns": [
+        "Do not use one permission checkbox for read/send/write.",
+        "Do not auto-enable write when local worker is selected."
+      ]
+    },
+    {
+      "id": "CAP-FE-T012",
+      "title": "Add advanced JSON editor with schema validation and preserve unknown fields",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Advanced users need full JSON access, but it must be schema-validated and not become the only safe editor.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/advanced-policy-json-editor.component.ts",
+        "frontend*/src/app/context-access-policy/advanced-policy-json-editor.component.html",
+        "frontend*/src/app/context-access-policy/advanced-policy-json-editor.component.scss",
+        "frontend*/src/app/context-access-policy/advanced-policy-json-editor.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use backend lint/validate; local JSON parse is only first step.",
+        "Show diff from form-derived policy if possible."
+      ],
+      "acceptance_criteria": [
+        "Advanced editor can show and edit full policy JSON for authorized users.",
+        "Invalid JSON blocks lint/save and shows parse error location.",
+        "Backend schema/lint errors are displayed inline or in lint panel.",
+        "Switching between form and JSON view preserves unknown/advanced fields unless user explicitly removes them.",
+        "Editor warns that backend enforcement remains authoritative.",
+        "Tests verify invalid JSON and unknown field preservation."
+      ],
+      "test_requirements": [
+        "Advanced editor tests."
+      ],
+      "anti_patterns": [
+        "Do not make raw JSON the primary experience for normal users.",
+        "Do not save invalid JSON."
+      ]
+    },
+    {
+      "id": "CAP-FE-T013",
+      "title": "Add rule ordering and conflict visualization",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Policy precedence and conflicts can be hard to understand. Users need visual help for overlapping rules.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/rule-list.component.ts",
+        "frontend*/src/app/context-access-policy/rule-list.component.html",
+        "frontend*/src/app/context-access-policy/rule-list.component.scss",
+        "frontend*/src/app/context-access-policy/rule-list.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use backend lint results for unreachable/conflicting rules.",
+        "Allow drag/drop only if backend policy supports explicit order."
+      ],
+      "acceptance_criteria": [
+        "Rule list shows order/precedence, enabled state, source summary, sensitivity and destination summary.",
+        "Rules with lint conflicts are highlighted.",
+        "User can reorder rules only when policy precedence model allows it.",
+        "Rule list shows whether rule is allow, deny, redact, summary-only or approval-required focused.",
+        "User can disable a draft rule without deleting it.",
+        "Tests verify conflict highlighting from lint result."
+      ],
+      "test_requirements": [
+        "Rule list tests."
+      ],
+      "anti_patterns": [
+        "Do not hide rule conflicts until activation.",
+        "Do not imply order matters if backend uses specificity/deny precedence instead."
+      ]
+    },
+    {
+      "id": "CAP-FE-T014",
+      "title": "Build destination matrix editor for workers/runtimes/models",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Users need to express which source rule can go to which worker/runtime/model scope: native local, OpenCode local, Hermes external/cloud, remote worker, local LLM, cloud LLM, tool-only.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/destination-matrix-editor.component.ts",
+        "frontend*/src/app/context-access-policy/destination-matrix-editor.component.html",
+        "frontend*/src/app/context-access-policy/destination-matrix-editor.component.scss",
+        "frontend*/src/app/context-access-policy/destination-matrix-editor.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use rows as destination groups and columns as decision allow/deny/redact/summary/approval.",
+        "Offer simple mode and expert mode."
+      ],
+      "acceptance_criteria": [
+        "Matrix includes destination groups for local native worker, local OpenCode, local tool-only, local LLM, remote worker, external agent worker such as Hermes, private remote provider and public cloud provider.",
+        "Each destination group can be configured as allow, deny, redact, summary-only or approval-required where backend supports it.",
+        "Matrix can restrict by worker kind, runtime kind, provider location and model scope.",
+        "Cloud/external destination rows are visually marked with warning icon/badge.",
+        "Secret/credential sensitivity disables cloud/external allow controls unless approved override flow is active.",
+        "Tests verify cloud row warning and disabled controls for secret rule."
+      ],
+      "test_requirements": [
+        "Destination matrix component tests."
+      ],
+      "anti_patterns": [
+        "Do not hide model scope behind generic worker name.",
+        "Do not let selecting Hermes imply local/private automatically."
+      ]
+    },
+    {
+      "id": "CAP-FE-T015",
+      "title": "Add worker/runtime-specific destination constraints UI",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Some rules should apply to exact workers/runtimes, not only generic kinds. Example: allow local-opencode-01 but deny remote-opencode-cloud.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/destination-constraint-editor.component.ts",
+        "frontend*/src/app/context-access-policy/destination-constraint-editor.component.html",
+        "frontend*/src/app/context-access-policy/destination-constraint-editor.component.scss",
+        "frontend*/src/app/context-access-policy/destination-constraint-editor.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use WorkerRuntimeCandidateApiService.",
+        "Show health and validation status."
+      ],
+      "acceptance_criteria": [
+        "UI can select allowed_worker_ids and denied_worker_ids where backend supports them.",
+        "UI can select allowed_runtime_target_ids and denied_runtime_target_ids where backend supports them.",
+        "UI shows runtime kind, data boundary, health and validation errors for each candidate.",
+        "UI prevents selecting runtime target incompatible with the worker or shows backend lint error.",
+        "UI shows if selected worker uses cloud-backed model/provider behind the runtime.",
+        "Tests verify exact local worker allowed while remote worker denied."
+      ],
+      "test_requirements": [
+        "Destination constraint editor tests."
+      ],
+      "anti_patterns": [
+        "Do not assume all workers of same kind have same runtime safety.",
+        "Do not omit runtime target from rule configuration."
+      ]
+    },
+    {
+      "id": "CAP-FE-T016",
+      "title": "Add provider/model-scope destination UI",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Users need to decide whether content may go to local models, private remote models, approved cloud models or no LLM at all.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/model-scope-editor.component.ts",
+        "frontend*/src/app/context-access-policy/model-scope-editor.component.html",
+        "frontend*/src/app/context-access-policy/model-scope-editor.component.scss",
+        "frontend*/src/app/context-access-policy/model-scope-editor.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Show provider location and privacy implications.",
+        "Use backend enum/options for provider/model scopes."
+      ],
+      "acceptance_criteria": [
+        "UI supports allowed_model_scopes and denied_model_scopes multi-select.",
+        "UI shows options such as local_model, local_tool_only, private_remote, approved_cloud, public_cloud and none according to backend.",
+        "UI supports allowed_provider_locations and denied_provider_locations when backend exposes them.",
+        "Selecting none means content may not be sent to any LLM but may still be available for local tool-only operations if policy allows.",
+        "Selecting public_cloud requires warning/confirmation and backend permission.",
+        "Tests verify local_tool_only does not imply local_model."
+      ],
+      "test_requirements": [
+        "Model scope editor tests."
+      ],
+      "anti_patterns": [
+        "Do not treat local_tool_only as same as local LLM.",
+        "Do not treat approved_cloud and public_cloud as equivalent without display."
+      ]
+    },
+    {
+      "id": "CAP-FE-T017",
+      "title": "Add operation-specific destination UI",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "problem": "Rules need different behavior for send_to_llm, send_to_worker, tool_read, tool_write, memory_write and artifact_store.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/operation-policy-editor.component.ts",
+        "frontend*/src/app/context-access-policy/operation-policy-editor.component.html",
+        "frontend*/src/app/context-access-policy/operation-policy-editor.component.scss",
+        "frontend*/src/app/context-access-policy/operation-policy-editor.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use progressive disclosure; most users should not need every operation at first."
+      ],
+      "acceptance_criteria": [
+        "UI can configure decisions per operation: send_to_llm, send_to_worker, tool_read, tool_write, memory_write, artifact_store.",
+        "Default view shows read/send/write simplified, expert view shows all operations.",
+        "Operation-specific settings can deny LLM send while allowing local tool_read.",
+        "Operation-specific settings can allow artifact_store while denying memory_write.",
+        "Tests verify secret rule can allow local tool_read but deny send_to_llm."
+      ],
+      "test_requirements": [
+        "Operation policy editor tests."
+      ],
+      "anti_patterns": [
+        "Do not use one allow checkbox for every operation.",
+        "Do not make memory_write implicit when artifact_store is allowed."
+      ]
+    },
+    {
+      "id": "CAP-FE-T018",
+      "title": "Build context decision preview UI",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Before activation/execution, user must see how a policy treats sample sources and destinations.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/context-decision-preview.component.ts",
+        "frontend*/src/app/context-access-policy/context-decision-preview.component.html",
+        "frontend*/src/app/context-access-policy/context-decision-preview.component.scss",
+        "frontend*/src/app/context-access-policy/context-decision-preview.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use backend preview endpoint with source metadata and destination context.",
+        "Never display raw secret content."
+      ],
+      "acceptance_criteria": [
+        "Preview lets user choose sample source type/path/sensitivity and destination worker/runtime/model scope.",
+        "Preview displays decision allow/redact/summary-only/deny/approval-required with reason codes.",
+        "Preview displays matched rule ids and effective policy version.",
+        "Preview includes safe built-in examples: src file to local worker, .env to cloud model, docs/public to cloud, memory from secret source to Hermes.",
+        "Preview clearly shows cloud/external warnings.",
+        "Tests verify .env to cloud preview returns deny/secret_blocked or equivalent."
+      ],
+      "test_requirements": [
+        "Decision preview component tests."
+      ],
+      "anti_patterns": [
+        "Do not require real project secret content for preview.",
+        "Do not execute tasks from preview UI."
+      ]
+    },
+    {
+      "id": "CAP-FE-T019",
+      "title": "Build execution context preview for tasks/repair runs",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Before a worker runs, user should see selected worker/runtime/model and what context categories will be included, redacted, summarized or denied.",
+      "target_files": [
+        "frontend*/src/app/repair/execution-context-preview.component.ts",
+        "frontend*/src/app/repair/execution-context-preview.component.html",
+        "frontend*/src/app/tasks/execution-context-preview.component.ts",
+        "frontend*/src/app/context-access-policy/execution-context-preview.component.*",
+        "frontend*/src/app/services/context-access-policy-api.service.ts"
+      ],
+      "implementation_notes": [
+        "Can be reusable for repair, generic task execution and worker selection preview.",
+        "Show counts and categories, not raw sensitive content."
+      ],
+      "acceptance_criteria": [
+        "Preview shows selected or candidate worker, runtime target, provider/model scope and policy id/version.",
+        "Preview shows counts of included, denied, redacted and summarized blocks by source type and sensitivity.",
+        "Preview shows top denial reasons such as cloud_blocked, secret_blocked, worker_not_allowed.",
+        "Preview shows warning if required context is unavailable and execution would be degraded or blocked.",
+        "Preview provides link to edit relevant policy/rule if user has permission.",
+        "Tests verify cloud-blocked context warning and no raw secret display."
+      ],
+      "test_requirements": [
+        "Execution context preview component tests."
+      ],
+      "anti_patterns": [
+        "Do not show raw denied context in preview.",
+        "Do not let user click run when backend says required context unavailable, unless explicit approved degraded mode exists."
+      ]
+    },
+    {
+      "id": "CAP-FE-T020",
+      "title": "Add post-execution context access summary UI",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "After execution, user/operator should see what context actually went to which worker/model, without leaking sensitive denied content.",
+      "target_files": [
+        "frontend*/src/app/tasks/task-execution-detail.component.ts",
+        "frontend*/src/app/repair/repair-result-detail.component.ts",
+        "frontend*/src/app/context-access-policy/context-access-summary.component.ts",
+        "frontend*/src/app/context-access-policy/context-access-summary.component.html"
+      ],
+      "implementation_notes": [
+        "Use TraceBundle/context_access_summary from backend."
+      ],
+      "acceptance_criteria": [
+        "Execution detail shows actual worker/runtime/provider/model used.",
+        "Execution detail shows context access summary: included, redacted, summarized, denied counts and policy version.",
+        "Execution detail shows whether cloud/external context was sent and under which policy.",
+        "Execution detail can show matched rule ids/reason codes to authorized users.",
+        "Denied raw content is never displayed.",
+        "Tests verify summary rendering for local and cloud executions."
+      ],
+      "test_requirements": [
+        "Post-execution summary component tests."
+      ],
+      "anti_patterns": [
+        "Do not claim 'safe' without showing policy summary.",
+        "Do not hide actual cloud/external send after execution."
+      ]
+    },
+    {
+      "id": "CAP-FE-T021",
+      "title": "Add policy diagnostics page/panel",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Users need operational diagnostics: active policy, lint state, coverage, cloud warnings, bypass modes and recent denials.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/policy-diagnostics.component.ts",
+        "frontend*/src/app/context-access-policy/policy-diagnostics.component.html",
+        "frontend*/src/app/context-access-policy/policy-diagnostics.component.scss",
+        "frontend*/src/app/context-access-policy/policy-diagnostics.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Consume backend diagnostics from CAP-BE-T033."
+      ],
+      "acceptance_criteria": [
+        "Diagnostics panel shows active policy state, lint status, default policy warning, configured cloud/external workers, last decision error and bypass mode state.",
+        "Diagnostics panel shows recent denial reason counts if backend exposes them.",
+        "Diagnostics panel shows warning when cloud providers are configured but no explicit cloud rules exist.",
+        "Diagnostics panel shows no raw secret data.",
+        "Tests verify missing-policy warning and cloud-config warning."
+      ],
+      "test_requirements": [
+        "Diagnostics component tests."
+      ],
+      "anti_patterns": [
+        "Do not hide bypass/degraded mode.",
+        "Do not show secret paths/content to unauthorized users."
+      ]
+    },
+    {
+      "id": "CAP-FE-T022",
+      "title": "Add policy decision drill-down with safe details",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "problem": "Advanced operators need to inspect why a specific block was allowed/denied without seeing forbidden content.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/decision-drilldown.component.ts",
+        "frontend*/src/app/context-access-policy/decision-drilldown.component.html",
+        "frontend*/src/app/context-access-policy/decision-drilldown.component.scss",
+        "frontend*/src/app/context-access-policy/decision-drilldown.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use block ids/hashes and safe metadata only."
+      ],
+      "acceptance_criteria": [
+        "Drill-down shows block id/hash, source type, safe source label, sensitivity, destination summary, matched rules and decision reason.",
+        "Drill-down masks sensitive paths/content unless user permission and backend allow path disclosure.",
+        "Drill-down shows transformation type redacted/summary-only when applied.",
+        "Drill-down shows policy version and decision hash.",
+        "Tests verify secret path/content masking."
+      ],
+      "test_requirements": [
+        "Decision drill-down tests."
+      ],
+      "anti_patterns": [
+        "Do not leak the content that was denied.",
+        "Do not display full local file paths to unauthorized users if policy forbids it."
+      ]
+    },
+    {
+      "id": "CAP-FE-T023",
+      "title": "Integrate context policy into worker/runtime selection UI",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Worker/runtime selection UI must show whether selected workers can receive required context. Otherwise user may pick Hermes/cloud and accidentally expect private context to be used.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/execution-context-preview.component.*",
+        "frontend*/src/app/**/worker-selection*.component.ts",
+        "frontend*/src/app/**/worker-selection*.component.html",
+        "frontend*/src/app/services/worker-runtime-candidate-api.service.ts"
+      ],
+      "implementation_notes": [
+        "This connects to the worker runtime selection extension todo."
+      ],
+      "acceptance_criteria": [
+        "Worker selection screen shows context eligibility for each candidate: eligible, limited/redacted, denied or unknown.",
+        "Candidate rejection reasons include cloud_blocked, external_worker_blocked, model_scope_not_allowed and required_context_unavailable.",
+        "Selecting a cloud/external worker updates context preview before execution.",
+        "If selected worker cannot receive required context, Run/Execute button is disabled or requires explicit degraded-mode approval according to backend.",
+        "Tests verify Hermes/cloud candidate shows denied for project_internal_required context while native local candidate is eligible."
+      ],
+      "test_requirements": [
+        "Worker selection + context eligibility UI tests."
+      ],
+      "anti_patterns": [
+        "Do not let worker selection ignore context policy.",
+        "Do not show all workers as equally valid."
+      ]
+    },
+    {
+      "id": "CAP-FE-T024",
+      "title": "Integrate context policy into BlueprintRole editor",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Blueprint roles should define worker/backend/runtime preferences together with context access rules or policy references. UI must not drop BlueprintRoleDB.config.",
+      "target_files": [
+        "frontend*/src/app/**/blueprint-role-editor*.component.ts",
+        "frontend*/src/app/**/blueprint-role-editor*.component.html",
+        "frontend*/src/app/**/blueprint*.component.ts",
+        "frontend*/src/app/services/team-blueprint-api.service.ts",
+        "frontend*/src/app/context-access-policy/*.component.ts"
+      ],
+      "implementation_notes": [
+        "Use policy selector/reference first; advanced inline override later.",
+        "Preserve existing config fields preferred_backend, execution_mode, capability_defaults, risk_profile and verification_defaults."
+      ],
+      "acceptance_criteria": [
+        "Blueprint role editor can select context_access_policy_id or role-level override policy if backend supports it.",
+        "Blueprint role editor shows effective worker/runtime/context policy summary.",
+        "Saving a role preserves all existing config fields including worker selection, runtime target policy, capability_defaults, risk_profile and verification_defaults.",
+        "Editor warns when role selects cloud/external backend but context policy denies required project context.",
+        "Tests verify role save does not drop advanced config fields."
+      ],
+      "test_requirements": [
+        "Blueprint role editor config preservation tests."
+      ],
+      "anti_patterns": [
+        "Do not save only visible fields and wipe config JSON.",
+        "Do not hide context policy from role configuration."
+      ]
+    },
+    {
+      "id": "CAP-FE-T025",
+      "title": "Integrate context policy into Agent configuration UI",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Agent UI must allow capabilities, worker_roles, execution_limits and runtime targets to be configured/displayed, because policy decisions depend on them.",
+      "target_files": [
+        "frontend*/src/app/**/agents-list*.component.ts",
+        "frontend*/src/app/**/agent-editor*.component.ts",
+        "frontend*/src/app/**/agent-detail*.component.ts",
+        "frontend*/src/app/services/agents-api.service.ts",
+        "frontend*/src/app/models/agent.model.ts"
+      ],
+      "implementation_notes": [
+        "This closes the gap where only name/url/token/role are editable.",
+        "Validation errors should be read-only and visible."
+      ],
+      "acceptance_criteria": [
+        "Agent editor supports capabilities and worker_roles through validated controls or advanced editor.",
+        "Agent editor supports execution_limits such as max_parallel_tasks with numeric validation.",
+        "Agent detail/list shows registration_validated and validation_errors read-only.",
+        "Agent editor supports runtime targets or links to runtime target management.",
+        "Saving agent preserves capabilities, worker_roles, execution_limits, runtime_targets, registration_validated and validation_errors as appropriate.",
+        "Tests verify advanced fields are not dropped on edit/save."
+      ],
+      "test_requirements": [
+        "Agent editor/list tests."
+      ],
+      "anti_patterns": [
+        "Do not make validation_errors editable.",
+        "Do not omit capabilities/roles/limits from save payload."
+      ]
+    },
+    {
+      "id": "CAP-FE-T026",
+      "title": "Integrate context policy into deterministic repair UI",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Deterministic repair preview/execution must show context policy and worker/runtime/model eligibility before any repair runs.",
+      "target_files": [
+        "frontend*/src/app/repair/repair-preview*.component.ts",
+        "frontend*/src/app/repair/repair-preview*.component.html",
+        "frontend*/src/app/repair/repair-execution*.component.ts",
+        "frontend*/src/app/context-access-policy/execution-context-preview.component.*"
+      ],
+      "implementation_notes": [
+        "Use backend repair selection preview and context decision preview.",
+        "Repair mutation execution should be blocked if backend says context or worker is ineligible."
+      ],
+      "acceptance_criteria": [
+        "Repair preview shows selected worker/runtime/model and context access summary before execution.",
+        "Repair preview shows whether each procedure step needs context classified as public/project_internal/security_sensitive/secret.",
+        "Repair preview blocks execution when selected worker cannot receive required context unless backend offers approved degraded mode.",
+        "Repair result shows actual context access summary and selected worker/runtime after execution.",
+        "Tests verify repair preview blocks cloud worker when project_internal_required context is denied."
+      ],
+      "test_requirements": [
+        "Repair UI context policy tests."
+      ],
+      "anti_patterns": [
+        "Do not allow repair execution from UI while context eligibility is unknown.",
+        "Do not present cloud worker as safe for local secrets."
+      ]
+    },
+    {
+      "id": "CAP-FE-T027",
+      "title": "Add strong warnings and confirmation UX for risky changes",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "Users need friction when enabling cloud/external sharing, broad path patterns or write access.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/risky-policy-confirmation.component.ts",
+        "frontend*/src/app/context-access-policy/risky-policy-confirmation.component.html",
+        "frontend*/src/app/context-access-policy/risky-policy-confirmation.component.scss",
+        "frontend*/src/app/context-access-policy/risky-policy-confirmation.component.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use backend lint severity and frontend heuristics.",
+        "Confirmation should be specific, not generic are-you-sure."
+      ],
+      "acceptance_criteria": [
+        "Risk confirmation appears when enabling cloud/public_cloud for project_internal or stricter sensitivity.",
+        "Risk confirmation appears when using broad source pattern ** or root-level config patterns with send_allowed=true.",
+        "Risk confirmation appears when write_allowed=true for code/config paths.",
+        "Risk confirmation displays exactly what becomes allowed and for which destinations.",
+        "User must have permission and provide reason if backend requires approval/override.",
+        "Tests verify risky changes trigger confirmation and safe changes do not."
+      ],
+      "test_requirements": [
+        "Risk confirmation component tests."
+      ],
+      "anti_patterns": [
+        "Do not use vague generic warning only.",
+        "Do not allow accidental cloud enablement with one click."
+      ]
+    },
+    {
+      "id": "CAP-FE-T028",
+      "title": "Add permission/RBAC guards for policy editing and override flows",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Data-boundary policy changes are security-sensitive and should not be editable by every user.",
+      "target_files": [
+        "frontend*/src/app/guards/context-policy.guard.ts",
+        "frontend*/src/app/context-access-policy/*.component.ts",
+        "frontend*/src/app/services/auth*.service.ts",
+        "frontend*/src/app/models/permissions.model.ts"
+      ],
+      "implementation_notes": [
+        "Use existing auth/permission mechanism if present.",
+        "Frontend guard is UX; backend remains authoritative."
+      ],
+      "acceptance_criteria": [
+        "Only users with context_policy_view can view policy pages.",
+        "Only users with context_policy_edit can create/update draft policies.",
+        "Only users with context_policy_activate can activate policies.",
+        "Only users with context_policy_override can request/approve risky data-boundary overrides if feature exists.",
+        "Unauthorized users see read-only summary or access denied, not edit controls.",
+        "Tests verify guard/conditional controls for viewer vs editor vs admin."
+      ],
+      "test_requirements": [
+        "Guard/permission tests."
+      ],
+      "anti_patterns": [
+        "Do not rely only on hidden buttons for security.",
+        "Do not expose override controls to normal users."
+      ]
+    },
+    {
+      "id": "CAP-FE-T029",
+      "title": "Add unsaved-change protection and validation lifecycle",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Policy editing is complex; users must not lose changes or activate unvalidated drafts accidentally.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/policy-editor.component.ts",
+        "frontend*/src/app/context-access-policy/policy-editor.component.html",
+        "frontend*/src/app/guards/pending-changes.guard.ts"
+      ],
+      "implementation_notes": [
+        "Reuse existing pending changes guard if present."
+      ],
+      "acceptance_criteria": [
+        "Policy editor warns before navigating away with unsaved changes.",
+        "Policy editor distinguishes local dirty state, saved draft, linted draft and active policy.",
+        "Activation button is disabled until latest saved draft has passing backend validation/lint.",
+        "Validation errors remain visible after failed save/lint.",
+        "Tests verify unsaved changes guard and activation disabled before lint passes."
+      ],
+      "test_requirements": [
+        "Pending changes and validation lifecycle tests."
+      ],
+      "anti_patterns": [
+        "Do not auto-activate on save.",
+        "Do not let stale lint result approve a changed draft."
+      ]
+    },
+    {
+      "id": "CAP-FE-T030",
+      "title": "Add frontend E2E-style tests for core policy workflows",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "The UI must prove the main workflows work: choose preset, edit rule, preview decision, lint, save, activate, run preview.",
+      "target_files": [
+        "frontend*/src/app/context-access-policy/*.spec.ts",
+        "frontend*/e2e/context-access-policy.e2e-spec.ts",
+        "frontend*/cypress/e2e/context-access-policy.cy.ts",
+        "frontend*/playwright/context-access-policy.spec.ts"
+      ],
+      "implementation_notes": [
+        "Use whatever test framework the frontend already uses.",
+        "Mock backend APIs if full E2E is too heavy."
+      ],
+      "acceptance_criteria": [
+        "Test covers applying strict local preset and verifying cloud is denied in preview.",
+        "Test covers creating rule for docs/public/** allowed to cloud and .env denied to cloud.",
+        "Test covers lint error blocking activation.",
+        "Test covers worker selection preview showing native local eligible and Hermes/cloud denied for private context.",
+        "Test covers save does not drop unknown/advanced fields in policy JSON."
+      ],
+      "test_requirements": [
+        "Frontend E2E/component workflow tests."
+      ],
+      "anti_patterns": [
+        "Do not rely only on visual/manual testing.",
+        "Do not skip regression for advanced field preservation."
+      ]
+    },
+    {
+      "id": "CAP-FE-T031",
+      "title": "Write frontend UX documentation and operator guide",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "Users need to understand how to configure policies safely without reading backend internals.",
+      "target_files": [
+        "docs/operator/context-access-policy-ui.md",
+        "docs/screenshots/context-access-policy/README.md",
+        "todo.context-access-policy-frontend.json"
+      ],
+      "implementation_notes": [
+        "Write in practical workflows: keep code local, allow public docs to cloud, block secrets, fixed worker assignment, preview before run."
+      ],
+      "acceptance_criteria": [
+        "Guide explains core concepts: source, sensitivity, destination, worker, runtime, model scope, read/send/write operations.",
+        "Guide shows safe presets and when to use each.",
+        "Guide shows how to allow public docs to cloud while blocking project code/secrets.",
+        "Guide shows how to force local worker/local model for sensitive tasks.",
+        "Guide shows how to preview context before execution and interpret denied/redacted counts.",
+        "Guide warns that frontend config is validated/enforced by backend and risky changes require permissions."
+      ],
+      "test_requirements": [
+        "json.loads todo.context-access-policy-frontend.json succeeds.",
+        "Docs reviewed against implemented UI labels/routes."
+      ],
+      "anti_patterns": [
+        "Do not document unsafe shortcuts.",
+        "Do not imply frontend warnings replace backend enforcement."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "CAP-FE-T001",
+    "CAP-FE-T002",
+    "CAP-FE-T003",
+    "CAP-FE-T005",
+    "CAP-FE-T006",
+    "CAP-FE-T007",
+    "CAP-FE-T009",
+    "CAP-FE-T010",
+    "CAP-FE-T011",
+    "CAP-FE-T014",
+    "CAP-FE-T015",
+    "CAP-FE-T016",
+    "CAP-FE-T018",
+    "CAP-FE-T019",
+    "CAP-FE-T023",
+    "CAP-FE-T024",
+    "CAP-FE-T025",
+    "CAP-FE-T026",
+    "CAP-FE-T027",
+    "CAP-FE-T028",
+    "CAP-FE-T030"
+  ],
+  "minimum_usable_slice": [
+    "CAP-FE-T001",
+    "CAP-FE-T002",
+    "CAP-FE-T005",
+    "CAP-FE-T006",
+    "CAP-FE-T007",
+    "CAP-FE-T009",
+    "CAP-FE-T010",
+    "CAP-FE-T011",
+    "CAP-FE-T014",
+    "CAP-FE-T018",
+    "CAP-FE-T019",
+    "CAP-FE-T027",
+    "CAP-FE-T028"
+  ],
+  "definition_of_done_global": [
+    "Users can configure source/path/type rules without raw JSON only.",
+    "Users can classify sources by sensitivity and see security consequences.",
+    "Users can configure destination rules by worker kind, runtime kind, exact worker/runtime target, provider location and model scope.",
+    "Read, send-to-model and write permissions are separate in UI.",
+    "Users can preview decisions before activation and preview execution context before run.",
+    "Cloud/external worker/model use is visibly warned and not default-enabled.",
+    "Agent and BlueprintRole editors preserve advanced worker/context policy fields.",
+    "Repair/task execution screens show selected worker/runtime/model and included/denied/redacted/summarized context summary.",
+    "Frontend guards prevent unauthorized policy edit/activation/override UX.",
+    "Frontend tests cover presets, rule editing, preview, lint blocking, worker eligibility and field preservation."
+  ],
+  "tasks_status_summary": {
+    "total": 31,
+    "by_status": {
+      "todo": 31,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 18,
+      "P1": 12,
+      "P2": 1
+    },
+    "by_risk": {
+      "critical": 6,
+      "high": 15,
+      "medium": 10,
+      "low": 0
+    },
+    "critical_path": {
+      "total": 21,
+      "done": 0,
+      "remaining": 21
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "summary_notes": [
+    "The frontend must make data-boundary policy understandable and configurable, but backend enforcement remains authoritative.",
+    "The most important UX: users must see before execution which context goes to which worker/runtime/model and what is denied/redacted/summarized.",
+    "Never let the UI drop advanced agent, blueprint or policy fields just because they are not rendered in a simple form."
+  ]
+}
