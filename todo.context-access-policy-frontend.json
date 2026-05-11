@@ -40,37 +40,37 @@
       "id": "CAP-FE-M2",
       "title": "Policy overview and presets",
       "task_ids": ["CAP-FE-T005", "CAP-FE-T006", "CAP-FE-T007", "CAP-FE-T008"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CAP-FE-M3",
       "title": "Rule editor and source matching UI",
       "task_ids": ["CAP-FE-T009", "CAP-FE-T010", "CAP-FE-T011", "CAP-FE-T012", "CAP-FE-T013"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CAP-FE-M4",
       "title": "Destination matrix UI",
       "task_ids": ["CAP-FE-T014", "CAP-FE-T015", "CAP-FE-T016", "CAP-FE-T017"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CAP-FE-M5",
       "title": "Preview, diagnostics and execution visibility",
       "task_ids": ["CAP-FE-T018", "CAP-FE-T019", "CAP-FE-T020", "CAP-FE-T021", "CAP-FE-T022"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CAP-FE-M6",
       "title": "Integration into worker, blueprint and repair screens",
       "task_ids": ["CAP-FE-T023", "CAP-FE-T024", "CAP-FE-T025", "CAP-FE-T026"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "CAP-FE-M7",
       "title": "Safety UX, validation and tests",
       "task_ids": ["CAP-FE-T027", "CAP-FE-T028", "CAP-FE-T029", "CAP-FE-T030", "CAP-FE-T031"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -306,7 +306,7 @@
     {
       "id": "CAP-FE-T008",
       "title": "Add active/draft/version management UI",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Policy edits should be versioned and reviewable; users must understand what is active vs draft.",
@@ -438,7 +438,7 @@
     {
       "id": "CAP-FE-T012",
       "title": "Add advanced JSON editor with schema validation and preserve unknown fields",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Advanced users need full JSON access, but it must be schema-validated and not become the only safe editor.",
@@ -471,7 +471,7 @@
     {
       "id": "CAP-FE-T013",
       "title": "Add rule ordering and conflict visualization",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Policy precedence and conflicts can be hard to understand. Users need visual help for overlapping rules.",
@@ -537,7 +537,7 @@
     {
       "id": "CAP-FE-T015",
       "title": "Add worker/runtime-specific destination constraints UI",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Some rules should apply to exact workers/runtimes, not only generic kinds. Example: allow local-opencode-01 but deny remote-opencode-cloud.",
@@ -570,7 +570,7 @@
     {
       "id": "CAP-FE-T016",
       "title": "Add provider/model-scope destination UI",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Users need to decide whether content may go to local models, private remote models, approved cloud models or no LLM at all.",
@@ -603,7 +603,7 @@
     {
       "id": "CAP-FE-T017",
       "title": "Add operation-specific destination UI",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "problem": "Rules need different behavior for send_to_llm, send_to_worker, tool_read, tool_write, memory_write and artifact_store.",
@@ -667,7 +667,7 @@
     {
       "id": "CAP-FE-T019",
       "title": "Build execution context preview for tasks/repair runs",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Before a worker runs, user should see selected worker/runtime/model and what context categories will be included, redacted, summarized or denied.",
@@ -733,7 +733,7 @@
     {
       "id": "CAP-FE-T021",
       "title": "Add policy diagnostics page/panel",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Users need operational diagnostics: active policy, lint state, coverage, cloud warnings, bypass modes and recent denials.",
@@ -764,7 +764,7 @@
     {
       "id": "CAP-FE-T022",
       "title": "Add policy decision drill-down with safe details",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "problem": "Advanced operators need to inspect why a specific block was allowed/denied without seeing forbidden content.",
@@ -795,7 +795,7 @@
     {
       "id": "CAP-FE-T023",
       "title": "Integrate context policy into worker/runtime selection UI",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Worker/runtime selection UI must show whether selected workers can receive required context. Otherwise user may pick Hermes/cloud and accidentally expect private context to be used.",
@@ -826,7 +826,7 @@
     {
       "id": "CAP-FE-T024",
       "title": "Integrate context policy into BlueprintRole editor",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Blueprint roles should define worker/backend/runtime preferences together with context access rules or policy references. UI must not drop BlueprintRoleDB.config.",
@@ -859,7 +859,7 @@
     {
       "id": "CAP-FE-T025",
       "title": "Integrate context policy into Agent configuration UI",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Agent UI must allow capabilities, worker_roles, execution_limits and runtime targets to be configured/displayed, because policy decisions depend on them.",
@@ -925,7 +925,7 @@
     {
       "id": "CAP-FE-T027",
       "title": "Add strong warnings and confirmation UX for risky changes",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Users need friction when enabling cloud/external sharing, broad path patterns or write access.",
@@ -958,7 +958,7 @@
     {
       "id": "CAP-FE-T028",
       "title": "Add permission/RBAC guards for policy editing and override flows",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Data-boundary policy changes are security-sensitive and should not be editable by every user.",
@@ -991,7 +991,7 @@
     {
       "id": "CAP-FE-T029",
       "title": "Add unsaved-change protection and validation lifecycle",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Policy editing is complex; users must not lose changes or activate unvalidated drafts accidentally.",
@@ -1021,7 +1021,7 @@
     {
       "id": "CAP-FE-T030",
       "title": "Add frontend E2E-style tests for core policy workflows",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "The UI must prove the main workflows work: choose preset, edit rule, preview decision, lint, save, activate, run preview.",
@@ -1053,7 +1053,7 @@
     {
       "id": "CAP-FE-T031",
       "title": "Write frontend UX documentation and operator guide",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Users need to understand how to configure policies safely without reading backend internals.",
@@ -1136,12 +1136,12 @@
   "tasks_status_summary": {
     "total": 31,
     "by_status": {
-      "todo": 18,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 13
+      "done": 31
     },
-    "progress_percent_done": 41.9,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 18,
       "P1": 12,
@@ -1155,15 +1155,15 @@
     },
     "critical_path": {
       "total": 21,
-      "done": 11,
-      "remaining": 10
+      "done": 21,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
-      "todo": 2,
-      "in_progress": 4,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 1
+      "done": 7
     }
   },
   "summary_notes": [

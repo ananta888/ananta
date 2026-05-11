@@ -142,6 +142,12 @@ export interface ContextAccessRule {
   
   reason_tags?: string[];
   
+  // Destination capability constraints (T016)
+  destination_capabilities?: string[];
+  
+  // Tool-operation specific policy overrides (T017)
+  tool_overrides?: { [toolId: string]: any };
+  
   // Extension map to preserve unknown fields
   extensions?: { [key: string]: any };
 }

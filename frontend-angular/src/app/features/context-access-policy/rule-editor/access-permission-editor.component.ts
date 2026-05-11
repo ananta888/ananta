@@ -1,11 +1,12 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ToolOverrideEditorComponent } from './tool-override-editor.component';
 
 @Component({
   selector: 'app-access-permission-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ToolOverrideEditorComponent],
   template: `
     <div class="permission-editor card shadow-sm mb-3">
       <div class="card-header bg-light">
@@ -60,6 +61,12 @@ import { FormsModule } from '@angular/forms';
             </label>
           </div>
         </div>
+
+        <!-- T017: Tool Overrides -->
+        <app-tool-override-editor 
+          [overrides]="tool_overrides" 
+          (changed)="onToolOverridesChanged($event)">
+        </app-tool-override-editor>
       </div>
     </div>
   `,
@@ -74,8 +81,14 @@ export class AccessPermissionEditorComponent {
   @Input() cloud_allowed = false;
   @Input() external_worker_allowed = false;
   @Input() approval_required = true;
+  @Input() tool_overrides: { [toolId: string]: any } = {};
 
   @Output() changed = new EventEmitter<any>();
+
+  onToolOverridesChanged(overrides: any): void {
+    this.tool_overrides = overrides;
+    this.emit();
+  }
 
   emit(): void {
     this.changed.emit({
@@ -84,7 +97,8 @@ export class AccessPermissionEditorComponent {
       write_allowed: this.write_allowed,
       cloud_allowed: this.cloud_allowed,
       external_worker_allowed: this.external_worker_allowed,
-      approval_required: this.approval_required
+      approval_required: this.approval_required,
+      tool_overrides: this.tool_overrides
     });
   }
 }
