@@ -139,6 +139,17 @@ AUDITABLE_EVENTS = frozenset({
     "adapter_unsafe_output",
     "remote_output_invalid",
     "routing_selected",
+    # DRR-T033: Deterministic repair lifecycle events
+    "repair_signature_matched",
+    "repair_plan_generated",
+    "repair_approval_required",
+    "repair_step_started",
+    "repair_step_completed",
+    "repair_step_denied",
+    "repair_verification_completed",
+    "repair_outcome_persisted",
+    "repair_escalated",
+    "repair_rollback_proposed",
 })
 
 

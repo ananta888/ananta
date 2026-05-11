@@ -604,6 +604,128 @@ def test_blueprint_validation_rejects_missing_role_template_reference(client):
     assert response.json["message"] == "template_not_found"
 
 
+def test_blueprint_validation_rejects_invalid_execution_mode(client):
+    """DRR-T036: execution_mode with invalid format is rejected."""
+    admin_token = _login_admin(client)
+
+    response = client.post(
+        "/teams/blueprints",
+        json={
+            "name": "Bad Execution Mode Blueprint",
+            "roles": [
+                {
+                    "name": "Repair Lead",
+                    "sort_order": 10,
+                    "is_required": True,
+                    "config": {"execution_mode": "INVALID MODE!"},
+                }
+            ],
+            "artifacts": [],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json["message"] == "blueprint_role_execution_mode_invalid"
+
+
+def test_blueprint_validation_accepts_repair_execution_mode(client):
+    """DRR-T036: execution_mode='deterministic_repair' is a valid value."""
+    admin_token = _login_admin(client)
+
+    response = client.post(
+        "/teams/blueprints",
+        json={
+            "name": "Repair Blueprint DRR036",
+            "roles": [
+                {
+                    "name": "Repair Lead",
+                    "sort_order": 10,
+                    "is_required": True,
+                    "config": {
+                        "execution_mode": "deterministic_repair",
+                        "preferred_backend": "native_worker",
+                        "capability_defaults": ["repair.diagnose", "repair.execute.low_risk"],
+                        "risk_profile": "high",
+                        "verification_defaults": {"require_post_mutation": True},
+                    },
+                }
+            ],
+            "artifacts": [],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 201
+    blueprint = response.json["data"]
+    role = next(r for r in blueprint["roles"] if r["name"] == "Repair Lead")
+    assert role["config"]["execution_mode"] == "deterministic_repair"
+    assert role["config"]["preferred_backend"] == "native_worker"
+
+
+def test_blueprint_bundle_roundtrip_preserves_repair_role_config(client):
+    """DRR-T039: bundle export/import preserves repair role config including execution_mode."""
+    admin_token = _login_admin(client)
+    auth = {"Authorization": f"Bearer {admin_token}"}
+
+    # Create a blueprint with repair role config
+    create_resp = client.post(
+        "/teams/blueprints",
+        json={
+            "name": "Bundle Roundtrip Repair DRR039",
+            "roles": [
+                {
+                    "name": "Repair Agent",
+                    "sort_order": 10,
+                    "is_required": True,
+                    "config": {
+                        "execution_mode": "deterministic_repair",
+                        "preferred_backend": "native_worker",
+                        "capability_defaults": ["repair.diagnose"],
+                        "risk_profile": "high",
+                        "verification_defaults": {"required": True},
+                    },
+                }
+            ],
+            "artifacts": [],
+        },
+        headers=auth,
+    )
+    assert create_resp.status_code == 201
+    blueprint_id = create_resp.json["data"]["id"]
+
+    # Export
+    export_resp = client.get(f"/teams/blueprints/{blueprint_id}/bundle", headers=auth)
+    assert export_resp.status_code == 200
+    bundle = export_resp.json["data"]
+
+    # Bundle has blueprint.roles structure
+    blueprint_in_bundle = bundle["blueprint"]
+    assert blueprint_in_bundle is not None
+    role_in_bundle = next(r for r in blueprint_in_bundle["roles"] if r["name"] == "Repair Agent")
+    assert role_in_bundle["config"]["execution_mode"] == "deterministic_repair"
+    assert role_in_bundle["config"]["preferred_backend"] == "native_worker"
+
+    # Validate that the exported config passes bundle import validation
+    from agent.models import BlueprintBundleDefinition, BlueprintBundleRoleDefinition
+    from agent.services.blueprint_bundle_service import _validate_blueprint_bundle_definition
+
+    bundle_def = BlueprintBundleDefinition(
+        name="Reimported Bundle DRR039b",
+        roles=[
+            BlueprintBundleRoleDefinition(
+                name="Repair Agent",
+                sort_order=10,
+                is_required=True,
+                config=role_in_bundle["config"],
+            )
+        ],
+        artifacts=[],
+    )
+    errors = _validate_blueprint_bundle_definition(bundle_def)
+    assert errors == [], f"Unexpected validation errors on reimport: {errors}"
+
+
 def test_seed_research_blueprint_instantiation_materializes_tasks(client):
     admin_token = _login_admin(client)
     auth_header = {"Authorization": f"Bearer {admin_token}"}

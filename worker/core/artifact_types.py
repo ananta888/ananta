@@ -18,7 +18,37 @@ TYPED_ARTIFACT_KINDS = frozenset({
     "skill_proposal_artifact",
     "skill_result",
     "delegation_artifact",
+    # DRR-T031: Deterministic repair artifact kinds
+    "repair_plan_artifact",
+    "repair_preview_artifact",
+    "repair_step_result_artifact",
+    "repair_verification_artifact",
+    "repair_outcome_artifact",
+    "rollback_proposal_artifact",
+    "repair_execution_result",
 })
+
+# DRR-T031: Required metadata fields per repair artifact kind
+REPAIR_ARTIFACT_REQUIRED_FIELDS: dict[str, frozenset[str]] = {
+    "repair_plan_artifact": frozenset({"plan_id", "procedure_id", "safety_class"}),
+    "repair_preview_artifact": frozenset({"plan_id", "procedure_id", "safety_class"}),
+    "repair_step_result_artifact": frozenset({"step_id", "plan_id", "status"}),
+    "repair_verification_artifact": frozenset({"plan_id", "verification_status"}),
+    "repair_outcome_artifact": frozenset({"plan_id", "outcome_label", "procedure_id"}),
+    "rollback_proposal_artifact": frozenset({"plan_id", "rollback_recommended"}),
+    "repair_execution_result": frozenset({"plan_id", "procedure_id"}),
+}
+
+
+def validate_repair_artifact_metadata(artifact: dict) -> list[str]:
+    """Return validation errors for repair artifact metadata. DRR-T031."""
+    kind = str(artifact.get("kind") or "")
+    required = REPAIR_ARTIFACT_REQUIRED_FIELDS.get(kind)
+    if required is None:
+        return []
+    metadata = dict(artifact.get("metadata") or {})
+    missing = [f for f in required if f not in metadata]
+    return [f"repair_artifact_missing_field:{f}" for f in missing]
 
 # Modes that are "non-trivial" — success requires at least one typed artifact
 _MUTATION_OR_CODE_MODES = frozenset({
