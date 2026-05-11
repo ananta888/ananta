@@ -21,6 +21,16 @@ from worker.core.execution_envelope import (
     WorkerResultStatus,
     make_trace,
 )
+from worker.core.context_access_policy import (
+    ContextAccessPolicy,
+    ContextAccessRule,
+    ContextAccessPolicyEvaluator,
+    DestinationContext,
+    RequestedOperation,
+    Decision,
+    ModelScope,
+    ReasonCode as CAPReasonCode,
+)
 
 
 # ── Decision vocabulary ───────────────────────────────────────────────────────
@@ -97,7 +107,7 @@ class PreflightGate:
             )
         return PreflightResult(decision=PreflightDecision.allow, reason_code="provider_allow")
 
-    def check_tool(self, envelope: ExecutionEnvelope, tool_id: str) -> PreflightResult:
+    def check_tool(self, envelope: ExecutionEnvelope, tool_id: str, context_block: dict[str, Any] | None = None) -> PreflightResult:
         """Called before any tool call. Fail-closed: tool not in allowlist → blocked."""
         if not envelope.tool_policy.is_tool_allowed(tool_id):
             return PreflightResult(
@@ -105,6 +115,59 @@ class PreflightGate:
                 reason_code=REASON_TOOL_UNAVAILABLE,
                 detail=f"tool {tool_id!r} not in allowed_tool_ids",
             )
+
+        # CAP-BE-T024: Context Access Policy check for tools
+        if envelope.context_access_policy and context_block:
+             policy_data = envelope.context_access_policy
+             try:
+                 # Reconstruct policy object (could be cached if needed)
+                 rules = []
+                 for r in policy_data.get("rules", []):
+                      # Handle potential string-to-enum conversion if necessary,
+                      # but assume dict matches dataclass fields for now.
+                      rules.append(ContextAccessRule(**r))
+
+                 policy = ContextAccessPolicy(
+                     policy_id=policy_data["policy_id"],
+                     version=policy_data["version"],
+                     scope=policy_data["scope"],
+                     rules=rules
+                 )
+
+                 evaluator = ContextAccessPolicyEvaluator(policy)
+
+                 # Infer destination context from envelope and current execution
+                 # Note: In a real worker, some of these should come from the worker's own identity
+                 dest = DestinationContext(
+                     worker_id=envelope.actor_ref,
+                     worker_kind="native",
+                     runtime_target_id="current",
+                     runtime_kind="local",
+                     provider_id="local",
+                     provider_location="local",
+                     model_id="none",
+                     model_scope=ModelScope.local_tool_only,
+                     cloud_effective=False,
+                     external_effective=False,
+                     local_effective=True,
+                     requested_operation=RequestedOperation.tool_write if "write" in tool_id or "apply" in tool_id else RequestedOperation.tool_read,
+                     tool_id=tool_id
+                 )
+
+                 cap_decision = evaluator.get_decision(context_block, dest)
+                 if cap_decision.decision == Decision.deny:
+                     return PreflightResult(
+                         decision=PreflightDecision.blocked,
+                         reason_code=REASON_DENIED_OPERATION,
+                         detail=f"Tool {tool_id!r} access to context denied by CAP: {cap_decision.reason_detail}"
+                     )
+             except Exception as e:
+                 return PreflightResult(
+                     decision=PreflightDecision.invalid_request,
+                     reason_code=REASON_INVALID_REQUEST,
+                     detail=f"Error evaluating ContextAccessPolicy: {e}"
+                 )
+
         if envelope.tool_policy.requires_approval(tool_id):
             if not envelope.approval_for(tool_id):
                 return PreflightResult(

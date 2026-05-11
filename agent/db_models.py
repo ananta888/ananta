@@ -238,6 +238,22 @@ class ContextBundleDB(SQLModel, table=True):
     created_at: float = Field(default_factory=time.time)
 
 
+class ContextAccessPolicyDB(SQLModel, table=True):
+    __tablename__ = "context_access_policies"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    policy_id: str = Field(index=True)
+    version: int = Field(default=1)
+    project_id: Optional[str] = Field(default=None, index=True)
+    scope: str = "project"  # system_default, project, blueprint_role, task
+    enabled: bool = True
+    policy_json: dict = Field(default={}, sa_column=Column(JSON))
+    lint_status: str = "valid"
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
 class KnowledgeCollectionDB(SQLModel, table=True):
     __tablename__ = "knowledge_collections"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)

@@ -1,0 +1,178 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ContextAccessPolicy",
+  "description": "Defines which context sources can be sent to which destinations (workers, runtimes, models).",
+  "type": "object",
+  "required": [
+    "policy_id",
+    "version",
+    "scope",
+    "rules"
+  ],
+  "properties": {
+    "policy_id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer"
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "system_default",
+        "project",
+        "blueprint_role",
+        "task"
+      ]
+    },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "read_allowed": { "type": "boolean", "default": true },
+        "write_allowed": { "type": "boolean", "default": false },
+        "send_allowed": { "type": "boolean", "default": false },
+        "cloud_allowed": { "type": "boolean", "default": false },
+        "external_worker_allowed": { "type": "boolean", "default": false }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/rule"
+      }
+    },
+    "precedence": {
+      "type": "integer",
+      "description": "Higher number means higher precedence when merging."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "validation_state": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "valid",
+        "invalid",
+        "active"
+      ]
+    }
+  },
+  "definitions": {
+    "rule": {
+      "type": "object",
+      "required": [
+        "id",
+        "description"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "source_match": {
+          "type": "string",
+          "description": "Glob pattern or identifier for matching sources."
+        },
+        "source_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "codecompass_code",
+              "codecompass_graph",
+              "rag_chunk",
+              "local_file",
+              "secret_file",
+              "env_file",
+              "memory",
+              "artifact",
+              "log",
+              "config",
+              "docs",
+              "external_source",
+              "user_prompt"
+            ]
+          }
+        },
+        "sensitivity": {
+          "type": "string",
+          "enum": [
+            "public",
+            "project_internal",
+            "customer_confidential",
+            "security_sensitive",
+            "secret",
+            "credential",
+            "regulated_data",
+            "generated_summary",
+            "unknown"
+          ]
+        },
+        "allowed_worker_kinds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "denied_worker_kinds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "allowed_runtime_kinds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "denied_runtime_kinds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "allowed_model_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "local_model",
+              "local_tool_only",
+              "private_remote",
+              "approved_cloud",
+              "public_cloud",
+              "none"
+            ]
+          }
+        },
+        "denied_model_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_provider_locations": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "denied_provider_locations": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "read_allowed": { "type": "boolean" },
+        "write_allowed": { "type": "boolean" },
+        "send_allowed": { "type": "boolean" },
+        "cloud_allowed": { "type": "boolean" },
+        "external_worker_allowed": { "type": "boolean" },
+        "redaction_required": { "type": "boolean" },
+        "summarization_allowed": { "type": "boolean" },
+        "approval_required": { "type": "boolean" },
+        "reason_tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

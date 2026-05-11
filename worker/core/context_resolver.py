@@ -41,6 +41,7 @@ class ContextBlock:
     content: str = ""
     content_hash: str = ""
     priority: int = 50        # 0 = P0 (never dropped), 100 = lowest priority
+    access_decision: Optional[Any] = None # Added for CAP integration
 
     def __post_init__(self) -> None:
         if not self.content_hash and self.content:
