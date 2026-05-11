@@ -1,4 +1,6 @@
 from __future__ import annotations
+import hashlib
+import json
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional, Dict, Any
@@ -160,8 +162,24 @@ class ContextAccessPolicyEvaluator:
     def __init__(self, policy: ContextAccessPolicy):
         self.policy = policy
 
+    def compute_decision_hash(self, block_metadata: Dict[str, Any], destination: DestinationContext) -> str:
+        data = {
+            "policy_version": self.policy.version,
+            "block_hash": block_metadata.get("content_hash"),
+            "destination": {
+                "worker_kind": destination.worker_kind,
+                "runtime_kind": destination.runtime_kind,
+                "model_scope": destination.model_scope,
+                "provider_id": destination.provider_id
+            },
+            "operation": destination.requested_operation
+        }
+        return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
+
     def get_decision(self, block_metadata: Dict[str, Any], destination: DestinationContext) -> ContextBlockAccessDecision:
         matched_rules = [r for r in self.policy.rules if self._match_source(r, block_metadata)]
+        
+        decision_hash = self.compute_decision_hash(block_metadata, destination)
 
         decision = Decision.deny
         reason_code = ReasonCode.unmatched_source_denied
@@ -176,7 +194,8 @@ class ContextAccessPolicyEvaluator:
                 decision=Decision.allow,
                 reason_detail="Approval override active",
                 effective_sensitivity=effective_sensitivity,
-                policy_version=self.policy.version
+                policy_version=self.policy.version,
+                decision_hash=decision_hash
             )
 
         if self.policy.defaults:
@@ -185,6 +204,9 @@ class ContextAccessPolicyEvaluator:
                     decision = Decision.allow
             elif destination.requested_operation == RequestedOperation.tool_read:
                 if self.policy.defaults.get("read_allowed"):
+                    decision = Decision.allow
+            elif destination.requested_operation == RequestedOperation.tool_write:
+                if self.policy.defaults.get("write_allowed"):
                     decision = Decision.allow
 
         for rule in matched_rules:
@@ -216,7 +238,8 @@ class ContextAccessPolicyEvaluator:
             decision=decision,
             reason_code=reason_code,
             effective_sensitivity=effective_sensitivity,
-            policy_version=self.policy.version
+            policy_version=self.policy.version,
+            decision_hash=decision_hash
         )
 
     def _match_source(self, rule: ContextAccessRule, block_metadata: Dict[str, Any]) -> bool:

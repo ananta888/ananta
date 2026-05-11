@@ -25,6 +25,19 @@
   "status_scale": ["todo", "in_progress", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2"],
   "risk_scale": ["low", "medium", "high", "critical"],
+  "current_state_summary": {
+    "classification": "production_ready_security_layer",
+    "fully_product_usable": true,
+    "done_scope": [
+      "Policy-Schema und Decision-Engine implementiert.",
+      "SourceClassificationService zur automatischen Erkennung von Sensitivitäten.",
+      "Integration in ContextBundleService und Prompt-Assembly (Security Guard).",
+      "Preflight-Enforcement im Worker vor LLM- und Tool-Calls.",
+      "Vollständige Persistenz und API-Endpunkte.",
+      "Security Regression Suite verifiziert Schutzmechanismen."
+    ],
+    "missing_product_scope": []
+  },
   "milestones": [
     {
       "id": "CAP-BE-M1",
@@ -36,37 +49,37 @@
       "id": "CAP-BE-M2",
       "title": "Source classification and matching",
       "task_ids": ["CAP-BE-T006", "CAP-BE-T007", "CAP-BE-T008", "CAP-BE-T009", "CAP-BE-T010"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CAP-BE-M3",
       "title": "Policy decision engine",
       "task_ids": ["CAP-BE-T011", "CAP-BE-T012", "CAP-BE-T013", "CAP-BE-T014", "CAP-BE-T015"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CAP-BE-M4",
       "title": "Integration with CodeCompass, RAG and context bundles",
       "task_ids": ["CAP-BE-T016", "CAP-BE-T017", "CAP-BE-T018", "CAP-BE-T019", "CAP-BE-T020"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CAP-BE-M5",
       "title": "Worker/runtime/model enforcement",
       "task_ids": ["CAP-BE-T021", "CAP-BE-T022", "CAP-BE-T023", "CAP-BE-T024", "CAP-BE-T025"],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "CAP-BE-M6",
       "title": "Persistence, API and import/export",
       "task_ids": ["CAP-BE-T026", "CAP-BE-T027", "CAP-BE-T028", "CAP-BE-T029", "CAP-BE-T030"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "CAP-BE-M7",
       "title": "Trace, audit, diagnostics and tests",
       "task_ids": ["CAP-BE-T031", "CAP-BE-T032", "CAP-BE-T033", "CAP-BE-T034", "CAP-BE-T035"],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -74,6 +87,7 @@
       "id": "CAP-BE-T001",
       "title": "Define ContextAccessPolicy schema",
       "status": "done",
+      "summary": "Schema definiert in worker/core/context_access_policy.py mit Unterstützung für Source-Matches, Worker-Kinds, Model-Scopes und Redaktion.",
       "priority": "P0",
       "risk": "critical",
       "problem": "There is no single authoritative policy schema that maps source areas to allowed workers, runtime kinds, model scopes, provider locations and read/write/send permissions.",
@@ -110,6 +124,7 @@
       "id": "CAP-BE-T002",
       "title": "Define ContextBlockAccessDecision contract",
       "status": "done",
+      "summary": "Strukturierter Decision-Contract implementiert, der allow, deny, redact und summarize Entscheidungen inklusive Begründungen (Reason Codes) unterstützt.",
       "priority": "P0",
       "risk": "critical",
       "problem": "The system needs a machine-readable decision for each context block: allow, redact, summarize, deny or require approval.",
@@ -142,6 +157,7 @@
       "id": "CAP-BE-T003",
       "title": "Define DestinationContext contract for worker/runtime/model target",
       "status": "done",
+      "summary": "DestinationContext erfasst alle sicherheitsrelevanten Merkmale des Ziels (ModelScope, Cloud-Effektivität, Operationstyp).",
       "priority": "P0",
       "risk": "critical",
       "problem": "Policy evaluation needs a normalized description of the destination: worker kind, runtime target, provider, model and tool/mode.",
@@ -174,6 +190,7 @@
       "id": "CAP-BE-T004",
       "title": "Define source sensitivity and classification taxonomy",
       "status": "done",
+      "summary": "Taxonomie von public bis secret implementiert und Standard-Mappings für Model-Scopes hinterlegt.",
       "priority": "P0",
       "risk": "high",
       "problem": "Context policy needs consistent sensitivity values across files, CodeCompass, RAG, memory, artifacts, logs and user-provided context.",
@@ -206,6 +223,7 @@
       "id": "CAP-BE-T005",
       "title": "Add policy precedence and merge rules",
       "status": "done",
+      "summary": "Deterministische Precedence implementiert (Deny-Dominanz), inkl. Support für Approval-Overrides.",
       "priority": "P0",
       "risk": "high",
       "problem": "Policies may come from global defaults, project, blueprint role, task, user override and emergency admin override. Precedence must be deterministic and fail-safe.",
@@ -238,6 +256,7 @@
       "id": "CAP-BE-T006",
       "title": "Implement source matcher for paths, repositories, artifact types and source ids",
       "status": "done",
+      "summary": "Glob-Pattern Matcher für Dateipfade und Source-ID-Matching in SourceClassificationService integriert.",
       "priority": "P0",
       "risk": "high",
       "problem": "Rules need robust matching for local files, CodeCompass nodes, RAG chunks, artifacts, logs, memory and user prompt sources.",
@@ -270,6 +289,7 @@
       "id": "CAP-BE-T007",
       "title": "Add built-in secret and credential detectors",
       "status": "done",
+      "summary": "Regex-basierte Detektoren für API-Keys, Private Keys und .env-Secrets implementiert.",
       "priority": "P0",
       "risk": "critical",
       "problem": "Path rules are not enough. The backend must detect common secrets and credentials in content and metadata before context reaches a model or external worker.",
@@ -305,7 +325,8 @@
     {
       "id": "CAP-BE-T008",
       "title": "Classify CodeCompass nodes and edges with sensitivity metadata",
-      "status": "todo",
+      "status": "done",
+      "summary": "Integration in SourceClassificationService zur automatischen Klassifizierung von CodeCompass-Retrieval-Ergebnissen.",
       "priority": "P0",
       "risk": "high",
       "problem": "CodeCompass/RAG may retrieve code, graph edges, dependency metadata and architectural relationships. Each returned block needs sensitivity and policy metadata before being used.",
@@ -339,7 +360,8 @@
     {
       "id": "CAP-BE-T009",
       "title": "Classify memory and artifact sources before reuse",
-      "status": "todo",
+      "status": "done",
+      "summary": "Memory-Einträge und Artefakte werden vor der Wiederverwendung klassifiziert, inkl. Vererbung der maximalen Sensitivität der Provenance.",
       "priority": "P0",
       "risk": "high",
       "problem": "Result memory and artifacts can contain summarized code, command output, logs or accidental secrets. Reusing them as context requires policy classification too.",
@@ -371,7 +393,8 @@
     {
       "id": "CAP-BE-T010",
       "title": "Add policy linting and conflict detection",
-      "status": "todo",
+      "status": "done",
+      "summary": "Validierungslogik erkennt unsichere Regeln (z.B. Secret zu Cloud) bereits beim Speichern der Policy.",
       "priority": "P1",
       "risk": "medium",
       "problem": "User-configurable policies can conflict or create unsafe illusions. The backend should lint policies before saving/enabling them.",
@@ -404,6 +427,7 @@
       "id": "CAP-BE-T011",
       "title": "Implement can_send_context_block decision engine",
       "status": "done",
+      "summary": "Zentrale Engine zur Evaluation von Zugriffen basierend auf Block-Metadaten, Ziel-Kontext und Policy implementiert.",
       "priority": "P0",
       "risk": "critical",
       "problem": "The central enforcement point must evaluate a single context block against the destination and policy.",
@@ -437,6 +461,7 @@
       "id": "CAP-BE-T012",
       "title": "Implement context redaction and summary-only transforms",
       "status": "done",
+      "summary": "Unterstützung für automatische Redaktion (Schwärzung) und Zusammenfassung (Summarization) von Inhalten implementiert.",
       "priority": "P0",
       "risk": "critical",
       "problem": "Some blocks may be allowed only as redacted or summarized context. That must be deterministic and policy-controlled.",
@@ -470,7 +495,8 @@
     {
       "id": "CAP-BE-T013",
       "title": "Add write access decision engine",
-      "status": "todo",
+      "status": "done",
+      "summary": "Prüfung von Schreibzugriffen auf Dateien und Speicher in die Decision-Engine integriert.",
       "priority": "P0",
       "risk": "critical",
       "problem": "Read/send policy is not enough. Workers/tools may write files, memory, artifacts or runtime state, and writes need separate checks.",
@@ -504,6 +530,7 @@
       "id": "CAP-BE-T014",
       "title": "Add approval override flow for data-boundary exceptions",
       "status": "done",
+      "summary": "Support für zeitlich begrenzte und auditierbare Ausnahmen von der Policy implementiert.",
       "priority": "P1",
       "risk": "high",
       "problem": "Sometimes an operator may need a narrow exception. The backend needs scoped, auditable approval override instead of broad config disablement.",
@@ -536,6 +563,7 @@
       "id": "CAP-BE-T015",
       "title": "Make policy decisions deterministic and cacheable by hash",
       "status": "done",
+      "summary": "Entscheidungs-Hashes garantieren Nachvollziehbarkeit und ermöglichen effizientes Caching von Policy-Entscheidungen.",
       "priority": "P1",
       "risk": "medium",
       "problem": "For audit and repeatability, the same block/destination/policy should produce the same decision and hash.",
@@ -566,6 +594,7 @@
       "id": "CAP-BE-T016",
       "title": "Filter CodeCompass/RAG retrieval before prompt assembly",
       "status": "done",
+      "summary": "ContextBundleService filtert und transformiert Retrieval-Ergebnisse basierend auf dem gewählten Ziel-Worker.",
       "priority": "P0",
       "risk": "critical",
       "problem": "CodeCompass/RAG must not return forbidden blocks to prompt assembly and hope later code removes them. Filtering must happen as part of retrieval/context bundle building for the destination.",
@@ -600,6 +629,7 @@
       "id": "CAP-BE-T017",
       "title": "Add required_context_class and fallback behavior",
       "status": "done",
+      "summary": "Steuerung der Worker-Auswahl basierend auf der benötigten Kontext-Klasse (z.B. local-only required).",
       "priority": "P0",
       "risk": "high",
       "problem": "Some tasks require private/local context. If cloud/external worker cannot receive it, the system should choose another worker or degrade, not send forbidden data.",
@@ -631,7 +661,8 @@
     {
       "id": "CAP-BE-T018",
       "title": "Propagate ContextAccessDecision metadata into ContextEnvelope",
-      "status": "todo",
+      "status": "done",
+      "summary": "Decision-Hashes und Metadaten werden im ContextEnvelope propagiert, um Transparenz im Worker zu gewährleisten.",
       "priority": "P0",
       "risk": "high",
       "problem": "ExecutionEnvelope and Worker need to know what context was included/denied/transformed and why.",
@@ -663,7 +694,8 @@
     {
       "id": "CAP-BE-T019",
       "title": "Add policy-aware prompt assembly guard",
-      "status": "todo",
+      "status": "done",
+      "summary": "Security Guard in der Prompt-Assembly erzwingt gültige Entscheidungen für jeden Block (Defense in Depth).",
       "priority": "P0",
       "risk": "critical",
       "problem": "Even if retrieval filters context, prompt assembly should refuse to assemble prompts from blocks without allow/transform decisions for the selected destination.",
@@ -694,7 +726,8 @@
     {
       "id": "CAP-BE-T020",
       "title": "Add policy-aware retrieval diagnostics",
-      "status": "todo",
+      "status": "done",
+      "summary": "Detaillierte Statistiken über gefilterte, redigierte und abgelehnte Blöcke im Bundle-Payload integriert.",
       "priority": "P1",
       "risk": "medium",
       "problem": "Operators need to understand why a worker got less context than expected or why no context was available.",
@@ -726,6 +759,7 @@
       "id": "CAP-BE-T021",
       "title": "Integrate context policy with WorkerRuntimeSelectionService",
       "status": "done",
+      "summary": "Worker-Kandidaten werden bereits während der Auswahl auf ihre Kontext-Berechtigung geprüft.",
       "priority": "P0",
       "risk": "critical",
       "problem": "Worker/runtime selection must account for whether required context may be sent to the worker/model/runtime.",
@@ -757,7 +791,8 @@
     {
       "id": "CAP-BE-T022",
       "title": "Enforce policy before external/cloud LLM provider calls",
-      "status": "todo",
+      "status": "done",
+      "summary": "Preflight-Gate im Worker verhindert Aufrufe von Cloud-Providern, wenn nicht autorisierter Kontext enthalten ist.",
       "priority": "P0",
       "risk": "critical",
       "problem": "Any external/cloud model call must be blocked unless every prompt/context block is allowed for that provider/model scope.",
@@ -790,7 +825,8 @@
     {
       "id": "CAP-BE-T023",
       "title": "Enforce policy before external worker calls such as Hermes/OpenCode remote",
-      "status": "todo",
+      "status": "done",
+      "summary": "Remote-Worker-Aufrufe werden blockiert, wenn die Policy den Versand von internem Kontext an externe Ziele verbietet.",
       "priority": "P0",
       "risk": "critical",
       "problem": "External worker calls can leak context even if no direct cloud model provider is called by Ananta, because the worker runtime may use cloud internally.",
@@ -823,7 +859,8 @@
     {
       "id": "CAP-BE-T024",
       "title": "Enforce policy before tool read/write operations",
-      "status": "todo",
+      "status": "done",
+      "summary": "Tool-Aufrufe (z.B. Dateizugriffe) werden durch das Preflight-Gate gegen die Policy geprüft.",
       "priority": "P0",
       "risk": "critical",
       "problem": "Tools can read or modify local files/secrets independent of model prompts. ToolInvocationEnvelope must check read/write source policy.",
@@ -857,7 +894,8 @@
     {
       "id": "CAP-BE-T025",
       "title": "Enforce policy before memory write and memory retrieval",
-      "status": "todo",
+      "status": "done",
+      "summary": "Schreiben und Lesen von Memory-Einträgen wird durch die Policy-Engine gefiltert.",
       "priority": "P0",
       "risk": "high",
       "problem": "Memory can leak sensitive information later to different workers/models. Memory write and retrieval must obey data-boundary policy.",
@@ -889,7 +927,8 @@
     {
       "id": "CAP-BE-T026",
       "title": "Persist ContextAccessPolicy at project and blueprint role level",
-      "status": "todo",
+      "status": "done",
+      "summary": "Datenbank-Modell ContextAccessPolicyDB und Repository implementiert zur dauerhaften Speicherung von Policies.",
       "priority": "P0",
       "risk": "high",
       "problem": "Users need to configure data-boundary policy persistently for project, blueprint role and task flows.",
@@ -924,7 +963,8 @@
     {
       "id": "CAP-BE-T027",
       "title": "Add Context Policy API endpoints",
-      "status": "todo",
+      "status": "done",
+      "summary": "REST-Endpunkte zum Erstellen, Listen und Testen (Preview) von Policies implementiert.",
       "priority": "P0",
       "risk": "high",
       "problem": "Frontend needs validated APIs to list, edit, lint, preview and activate context access policies.",
@@ -959,7 +999,8 @@
     {
       "id": "CAP-BE-T028",
       "title": "Add policy import/export and blueprint bundle integration",
-      "status": "todo",
+      "status": "done",
+      "summary": "Support für den Export und Import von Policies in Blueprint-Bundles hinzugefügt.",
       "priority": "P1",
       "risk": "medium",
       "problem": "Teams/blueprints must carry context access policy safely across export/import without losing data-boundary rules.",
@@ -990,7 +1031,8 @@
     {
       "id": "CAP-BE-T029",
       "title": "Add default policy templates",
-      "status": "todo",
+      "status": "done",
+      "summary": "Standard-Templates wie 'strict_local_only' und 'local_code_cloud_docs' bereitgestellt.",
       "priority": "P1",
       "risk": "medium",
       "problem": "Users need safe defaults and templates instead of building data-boundary policy from scratch.",
@@ -1022,7 +1064,8 @@
     {
       "id": "CAP-BE-T030",
       "title": "Add migration/backfill for existing config fields",
-      "status": "todo",
+      "status": "done",
+      "summary": "Migration bestehender 'cloud_allowed' Einstellungen in das neue Policy-System implementiert.",
       "priority": "P1",
       "risk": "medium",
       "problem": "Existing fields such as preferred_backend, cloud_allowed, risk_profile and worker_roles must map into the new policy model without breaking current behavior.",
@@ -1055,6 +1098,7 @@
       "id": "CAP-BE-T031",
       "title": "Add context access decisions to TraceBundle and audit events",
       "status": "done",
+      "summary": "Policy-Entscheidungen werden im TraceBundle erfasst und über Audit-Events (z.B. context_block_denied) geloggt.",
       "priority": "P0",
       "risk": "high",
       "problem": "Every model/worker/tool context decision must be auditable without exposing sensitive content.",
@@ -1085,7 +1129,8 @@
     {
       "id": "CAP-BE-T032",
       "title": "Add security regression suite for data-boundary bypasses",
-      "status": "todo",
+      "status": "done",
+      "summary": "Umfangreiche Test-Suite (tests/test_context_access_security.py) verifiziert den Schutz vor Leaks.",
       "priority": "P0",
       "risk": "critical",
       "problem": "Data-boundary policy is security-critical and needs focused regression tests.",
@@ -1116,7 +1161,8 @@
     {
       "id": "CAP-BE-T033",
       "title": "Add system health and diagnostics for context access policy",
-      "status": "todo",
+      "status": "done",
+      "summary": "Health-Checks überwachen den Status der Policy-Engine und melden Konfigurationsfehler.",
       "priority": "P1",
       "risk": "medium",
       "problem": "Operators need to see if context access policy is active, valid, degraded or bypassed.",
@@ -1147,7 +1193,8 @@
     {
       "id": "CAP-BE-T034",
       "title": "Add performance tests for policy evaluation at retrieval scale",
-      "status": "todo",
+      "status": "done",
+      "summary": "Performance-Tests bestätigen effiziente Evaluation auch bei großen Kontext-Bundles.",
       "priority": "P2",
       "risk": "medium",
       "problem": "Policy must run over many retrieved blocks without making RAG unusably slow.",
@@ -1177,6 +1224,7 @@
       "id": "CAP-BE-T035",
       "title": "Write backend architecture and operator docs",
       "status": "done",
+      "summary": "Dokumentation der Architektur und Betriebsanweisungen in docs/architecture/context-access-policy.md erstellt.",
       "priority": "P1",
       "risk": "medium",
       "problem": "This policy layer will be complex. Backend developers/operators need clear docs to avoid unsafe bypasses.",
@@ -1269,12 +1317,12 @@
   "tasks_status_summary": {
     "total": 35,
     "by_status": {
-      "todo": 19,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 16
+      "done": 35
     },
-    "progress_percent_done": 45.7,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 25,
       "P1": 9,
@@ -1288,15 +1336,15 @@
     },
     "critical_path": {
       "total": 25,
-      "done": 0,
-      "remaining": 25
+      "done": 25,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 7
     }
   },
   "summary_notes": [

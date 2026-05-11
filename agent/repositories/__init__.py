@@ -21,6 +21,7 @@ from .artifacts import (
     KnowledgeLinkRepository,
 )
 from .context import ContextBundleRepository, RetrievalRunRepository, WorkerJobRepository, WorkerResultRepository
+from .context_access_policy_repo import ContextAccessPolicyRepository
 from .core import AgentRepository, ConfigRepository, PlaybookRepository, ScheduledTaskRepository, TeamRepository, TemplateRepository
 from .evolution import EvolutionProposalRepository, EvolutionRunRepository
 from .goals import GoalRepository, PlanNodeRepository, PlanRepository
@@ -51,6 +52,7 @@ __all__ = [
     "BlueprintRoleRepository",
     "ConfigRepository",
     "ContextBundleRepository",
+    "ContextAccessPolicyRepository",
     "GoalRepository",
     "ExtractedDocumentRepository",
     "EvolutionProposalRepository",
