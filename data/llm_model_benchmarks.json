@@ -9677,15 +9677,15 @@
       "provider": "opencode",
       "model": "ananta-default:latest",
       "overall": {
-        "total": 4,
-        "success": 4,
+        "total": 5,
+        "success": 5,
         "failed": 0,
-        "quality_pass": 4,
+        "quality_pass": 5,
         "quality_fail": 0,
-        "latency_ms_total": 112,
-        "tokens_total": 160,
+        "latency_ms_total": 167,
+        "tokens_total": 231,
         "cost_units_total": 0.0,
-        "last_seen": 1778412818,
+        "last_seen": 1778461747,
         "samples": [
           {
             "ts": 1778404304,
@@ -9730,20 +9730,31 @@
             "context": {
               "task_kind": "ops"
             }
+          },
+          {
+            "ts": 1778461747,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 55,
+            "tokens_total": 71,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "ops"
+            }
           }
         ]
       },
       "task_kinds": {
         "ops": {
-          "total": 4,
-          "success": 4,
+          "total": 5,
+          "success": 5,
           "failed": 0,
-          "quality_pass": 4,
+          "quality_pass": 5,
           "quality_fail": 0,
-          "latency_ms_total": 112,
-          "tokens_total": 160,
+          "latency_ms_total": 167,
+          "tokens_total": 231,
           "cost_units_total": 0.0,
-          "last_seen": 1778412818,
+          "last_seen": 1778461747,
           "samples": [
             {
               "ts": 1778404304,
@@ -9784,6 +9795,17 @@
               "quality_passed": true,
               "latency_ms": 1,
               "tokens_total": 9,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "ops"
+              }
+            },
+            {
+              "ts": 1778461747,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 55,
+              "tokens_total": 71,
               "cost_units": 0.0,
               "context": {
                 "task_kind": "ops"
@@ -10002,5 +10024,5 @@
       }
     }
   },
-  "updated_at": 1778461743
+  "updated_at": 1778461747
 }

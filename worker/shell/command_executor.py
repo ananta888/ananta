@@ -5,10 +5,12 @@ import os
 import shlex
 import subprocess
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
 from worker.core.redaction import sanitize_subprocess_environment
+from worker.core.tool_registry import ResourceLimits, ToolInvocationEnvelope, ToolResult, WorkerToolRegistry
 from worker.shell.command_policy import classify_command
 
 
@@ -110,10 +112,42 @@ def execute_command_plan(
     timeout_seconds: int = 120,
     environment: dict[str, str] | None = None,
     execution_profile: str | None = "balanced",
-) -> dict[str, Any]:
+    tool_registry: WorkerToolRegistry | None = None,  # T009
+    execution_id: str | None = None,                  # T008
+) -> ToolResult:  # T010: returns ToolResult instead of flat dict
     command = str(command_plan_artifact.get("command") or "").strip()
     if not command:
         raise ValueError("command_missing")
+
+    exec_id = str(execution_id or uuid.uuid4())
+
+    # T009: Gate through WorkerToolRegistry — run_shell must be registered
+    if tool_registry is not None and not tool_registry.is_registered("run_shell"):
+        return ToolResult.denied("run_shell", exec_id, "tool_not_registered")
+
+    # T008: Build ToolInvocationEnvelope to carry resource limits per call
+    registry_limits = (
+        tool_registry.get("run_shell").resource_limits
+        if tool_registry and tool_registry.get("run_shell")
+        else ResourceLimits()
+    )
+    effective_timeout = min(float(timeout_seconds), registry_limits.timeout_seconds)
+    invocation = ToolInvocationEnvelope(
+        execution_id=exec_id,
+        tool_id="run_shell",
+        arguments={
+            "command": command,
+            "cwd": str(command_plan_artifact.get("working_directory") or "."),
+        },
+        capability_ref=str(capability_id),
+        resource_limits=ResourceLimits(
+            timeout_seconds=effective_timeout,
+            max_output_chars=registry_limits.max_output_chars,
+            max_artifact_bytes=registry_limits.max_artifact_bytes,
+            max_files_touched=registry_limits.max_files_touched,
+        ),
+    )
+
     command_decision = classify_command(
         command=command,
         policy=shell_policy,
@@ -138,33 +172,27 @@ def execute_command_plan(
             cwd=str(cwd),
             text=True,
             capture_output=True,
-            timeout=int(timeout_seconds),
+            timeout=invocation.resource_limits.timeout_seconds,  # T008: from envelope
             check=False,
             env=_bounded_environment(environment),
         )
-        status = "passed" if completed.returncode == 0 else "failed"
+        raw_stdout = completed.stdout or ""
+        raw_stderr = completed.stderr or ""
         exit_code = int(completed.returncode)
-        stdout_value = completed.stdout or "<empty>"
-        stderr_value = completed.stderr or "<empty>"
+        # T008: apply output limit from ToolInvocationEnvelope
+        stdout_val, truncated = invocation.apply_output_limit(raw_stdout)
+        stderr_val, _ = invocation.apply_output_limit(raw_stderr)
     except subprocess.TimeoutExpired as exc:
-        status = "degraded"
-        exit_code = 124
-        stdout_value = str(exc.stdout or "")
-        stderr_value = (str(exc.stderr or "") + "\ncommand_timed_out").strip()
-    duration_ms = int((time.monotonic() - start) * 1000)
-    return {
-        "schema": "test_result_artifact.v1",
-        "task_id": str(task_id).strip(),
-        "command": command,
-        "exit_code": exit_code,
-        "status": status,
-        "stdout_ref": stdout_value,
-        "stderr_ref": stderr_value,
-        "output_summary": (
-            f"Execution status={status}, duration_ms={duration_ms}, "
-            f"working_directory={str(cwd.relative_to(repository_root.resolve()) or '.')}, "
-            f"environment_keys={','.join(sorted(_bounded_environment(environment).keys()))}, "
-            f"execution_profile={str(execution_profile or 'balanced').strip().lower() or 'balanced'}"
-        ),
-        "failure_hints": [],
-    }
+        return ToolResult.timeout("run_shell", exec_id, partial_stdout=str(exc.stdout or ""))
+    duration_s = time.monotonic() - start
+    # T010: return ToolResult (callers use .to_test_result_artifact() for legacy dict format)
+    return ToolResult(
+        tool_id="run_shell",
+        execution_id=exec_id,
+        success=exit_code == 0,
+        stdout=stdout_val or "<empty>",
+        stderr=stderr_val or "<empty>",
+        exit_code=exit_code,
+        truncated=truncated,
+        duration_seconds=round(duration_s, 3),
+    )

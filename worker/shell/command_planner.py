@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from worker.core.tool_registry import WorkerToolRegistry
 from worker.shell.command_policy import classify_command
 
 
@@ -17,10 +18,25 @@ def build_command_plan_artifact(
     policy: dict[str, Any],
     hub_policy_decision: str = "allow",
     execution_profile: str | None = "balanced",
+    tool_registry: WorkerToolRegistry | None = None,  # T009
 ) -> dict[str, Any]:
     normalized_command = str(command).strip()
     normalized_explanation = str(explanation).strip()
     command_hash = hashlib.sha256(normalized_command.encode("utf-8")).hexdigest() if normalized_command else ""
+    # T009: plan_shell tool must be registered before building a plan
+    if tool_registry is not None and not tool_registry.is_registered("plan_shell"):
+        return {
+            "schema": "command_plan_artifact.v1",
+            "task_id": str(task_id).strip(),
+            "capability_id": "shell_plan",
+            "command": normalized_command or "echo '<missing command>'",
+            "command_hash": command_hash or "tool-not-registered",
+            "explanation": "shell_plan tool not registered in WorkerToolRegistry.",
+            "risk_classification": "critical",
+            "required_approval": True,
+            "working_directory": str(working_directory).strip() or ".",
+            "expected_effects": ["No execution; plan_shell tool not registered."],
+        }
     if not normalized_command or not normalized_explanation:
         return {
             "schema": "command_plan_artifact.v1",
