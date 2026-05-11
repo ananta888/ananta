@@ -273,6 +273,19 @@ class StandaloneRuntime:
             self._trace_port.emit(event_type="standalone_todo_runtime_finished", payload=result)
             return result
 
+        # T017: code-aware capabilities require a real context ref (checked before PreflightGate
+        # so missing context is reported as a precondition error, not an auth error)
+        context_ref = str(control_manifest.get("context_ref") or control_manifest.get("context_hash") or "").strip()
+        if _is_code_aware_mode(envelope) and not context_ref:
+            return self._build_degraded_todo_result(
+                task_id=task_id,
+                trace_id=trace_id,
+                worker_profile=profile,
+                executor_kind=executor_kind,
+                reason="code_context_required",
+                detail="code-aware capabilities (patch_propose/patch_apply/code_read) require a context ref from Hub",
+            )
+
         # T002: PreflightGate before any action
         pre = self._preflight_gate.check(envelope)
         if not pre.allowed:
@@ -571,9 +584,18 @@ def _todo_mode_for_executor(execution_mode: str, executor_kind: str) -> str:
         return "plan_only"
     if execution_mode in {"command_plan", "command_execute"}:
         return execution_mode
+    # T017: pass code-aware modes through directly so _is_code_aware_mode can detect them
+    if execution_mode in {"patch_propose", "patch_apply", "code_read"}:
+        return execution_mode
     if executor_kind == "ananta_worker":
         return "command_execute"
     return "plan_only"
+
+
+def _is_code_aware_mode(envelope: ExecutionEnvelope) -> bool:
+    """T017: returns True if the envelope requires CodeCompass/RAG context."""
+    _CODE_AWARE = frozenset({"patch_propose", "patch_apply", "code_read"})
+    return bool(frozenset(envelope.capability_grant.capabilities) & _CODE_AWARE)
 
 
 def _build_standalone_envelope(

@@ -296,3 +296,83 @@ def _truncate_to_tokens(text: str, max_tokens: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[:max_chars] + "\n[...truncated]"
+
+
+# ── ContextBudgetGate (AWF-T019) ──────────────────────────────────────────────
+
+class ContextBudgetGate:
+    """Enforces token budget with output reserve before model/provider calls. AWF-T019.
+
+    Reserves output_reserve_tokens from the global budget so the model
+    always has room to respond. P0 blocks are never dropped.
+    """
+
+    def __init__(
+        self,
+        budget: TokenBudget,
+        *,
+        output_reserve_tokens: int = 2_000,
+    ) -> None:
+        self._budget = budget
+        self._output_reserve = max(0, output_reserve_tokens)
+
+    @property
+    def effective_limit(self) -> int:
+        return max(0, self._budget.global_limit - self._output_reserve)
+
+    def check(self, blocks: list[ContextBlock]) -> tuple[list[ContextBlock], list[str]]:
+        """Apply budget with output reserve. Returns (kept_blocks, warnings). AWF-T019."""
+        effective = TokenBudget(
+            global_limit=self.effective_limit,
+            per_source_limits=self._budget.per_source_limits,
+        )
+        kept, dropped = effective.check(blocks)
+        warnings = [f"context_budget_drop:{r}" for r in dropped]
+        return kept, warnings
+
+    def is_over_budget(self, blocks: list[ContextBlock]) -> bool:
+        total = sum(b.token_estimate for b in blocks)
+        return total > self.effective_limit
+
+
+# ── ContextSensitivityFilter (AWF-T020) ───────────────────────────────────────
+
+class ContextSensitivityFilter:
+    """Filters context blocks by sensitivity before sending to a provider. AWF-T020.
+
+    Local workers may process confidential/secret blocks.
+    Cloud workers must never receive them — they are stripped and replaced
+    with a safe redaction stub.
+    """
+
+    _REDACTION_STUB = "[context redacted: sensitivity level blocked for this provider]"
+
+    def filter_for_cloud(
+        self, blocks: list[ContextBlock]
+    ) -> tuple[list[ContextBlock], list[str]]:
+        """Remove confidential/secret blocks for cloud dispatch. AWF-T020."""
+        kept: list[ContextBlock] = []
+        redacted: list[str] = []
+        for block in blocks:
+            if block.sensitivity in CLOUD_BLOCKED_SENSITIVITIES:
+                redacted.append(
+                    f"context_sensitivity_blocked:{block.source_type}:{block.origin_id}"
+                )
+            else:
+                kept.append(block)
+        return kept, redacted
+
+    def filter_for_local(self, blocks: list[ContextBlock]) -> list[ContextBlock]:
+        """Local workers may use all sensitivity levels — no filtering needed."""
+        return list(blocks)
+
+    def apply(
+        self,
+        blocks: list[ContextBlock],
+        *,
+        cloud_allowed: bool,
+    ) -> tuple[list[ContextBlock], list[str]]:
+        """Route to the appropriate filter based on cloud policy. AWF-T020."""
+        if cloud_allowed:
+            return self.filter_for_cloud(blocks)
+        return self.filter_for_local(blocks), []

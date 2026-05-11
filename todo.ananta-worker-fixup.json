@@ -518,7 +518,7 @@
     {
       "id": "AWF-T011",
       "title": "Add resource limits per tool call",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Timeout exists for command execution, but tool calls should also have max output, file-touch, process and artifact limits.",
@@ -549,7 +549,7 @@
     {
       "id": "AWF-T012",
       "title": "Extend provider registry for LLM/model providers, not only worker execution providers",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "GenericProviderRegistry and WorkerExecutorDispatchBridge are good for execution providers, but Hermes-like worker behavior also needs local/cloud LLM provider routing with risk, cost, credentials and health.",
@@ -582,7 +582,7 @@
     {
       "id": "AWF-T013",
       "title": "Add model/provider selection policy for native worker calls",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Hermes-like native worker will need helper model calls for planning, summarization, validation, compression and skill review. Provider selection must be Hub policy driven, not worker convenience driven.",
@@ -615,7 +615,7 @@
     {
       "id": "AWF-T014",
       "title": "Isolate provider credentials from tool subprocesses and memory",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "As provider support grows, credentials must not leak into command subprocess env, logs, artifacts or result memory.",
@@ -648,7 +648,7 @@
     {
       "id": "AWF-T015",
       "title": "Add provider health and degraded-state integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Provider registry resolution handles disabled/missing factory, but native worker diagnostics should expose health/degraded state consistently for execution and inference providers.",
@@ -680,7 +680,7 @@
     {
       "id": "AWF-T016",
       "title": "Add provider provenance to all model-generated worker artifacts",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Artifacts generated using model/provider calls must record which provider/model/policy generated them for reproducibility and audit.",
@@ -710,7 +710,7 @@
     {
       "id": "AWF-T017",
       "title": "Make CodeCompass/RAG context mandatory for code-aware worker modes",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "The project has strong CodeCompass/RAG tests and ContextBundleService, but code-aware worker modes must fail/degrade if they cannot get grounded project context instead of guessing.",
@@ -744,7 +744,7 @@
     {
       "id": "AWF-T018",
       "title": "Add ContextEnvelope compatibility layer around ContextBundleDB",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "ContextBundleDB carries useful fields, but worker-runtime enforcement should use a typed ContextEnvelope with source refs, sensitivity, token budget, provenance and context hash.",
@@ -776,7 +776,7 @@
     {
       "id": "AWF-T019",
       "title": "Enforce context budget and output reserve before model/provider calls",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "ContextBundleService has budget logic, but every worker model/provider call must explicitly enforce input budget and output reserve before sending context.",
@@ -808,7 +808,7 @@
     {
       "id": "AWF-T020",
       "title": "Strengthen context policy filtering for local vs cloud workers",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Context policy must prevent sensitive/project-private data from being sent to cloud providers or external workers unless explicitly allowed.",
