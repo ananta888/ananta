@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/worker_runtime_target.v1.json",
+  "title": "WorkerRuntimeTarget",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["runtime_target_id", "runtime_kind"],
+  "properties": {
+    "runtime_target_id": {"type": "string", "minLength": 1},
+    "runtime_kind": {"type": "string", "enum": ["local_process", "docker_container", "docker_compose_service", "wsl", "remote_http_worker", "remote_ssh_worker", "ci_sandbox", "cloud_worker", "custom"]},
+    "location": {"type": "string"},
+    "endpoint_ref": {"type": "string"},
+    "workspace_scope": {"type": "string"},
+    "os_family": {"type": "string"},
+    "containerized": {"type": "boolean"},
+    "network_zone": {"type": "string"},
+    "allowed_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "denied_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "available_tools": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "max_parallel_tasks": {"type": "integer", "minimum": 1},
+    "resource_limits": {"type": "object"},
+    "data_boundary": {"type": "string", "enum": ["local_only", "project_private", "private_network", "external", "cloud", "unknown"]},
+    "secret_access_policy": {"type": "string", "enum": ["deny", "local_tool_only", "approved_only"]},
+    "health_state": {"type": "string", "enum": ["ready", "degraded", "disabled", "unavailable", "unauthorized", "misconfigured", "unknown"]},
+    "validation_errors": {"type": "array", "items": {"type": "string"}}
+  }
+}
