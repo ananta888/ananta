@@ -1,0 +1,527 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "artifact_first_worker_handoff_fixup",
+  "purpose": "Replace remaining strict chat-JSON LLM dependencies in Hub task planning/completion with artifact/file-manifest based worker handoff and completion.",
+  "problem_statement": "A real test showed generated files existed and were usable, but Hub bookkeeping stayed stuck because an LLM returned useful chat/Markdown instead of strict JSON. The Hub must treat files/artifacts/manifests/verification as the source of truth. JSON schemas remain valid for Hub-generated contracts and manifests, but model chat JSON must not be the primary control path.",
+  "review_basis": {
+    "observed_files": [
+      "agent/services/worker_todo_planner_service.py currently builds deterministic todo contracts but can optionally refine tasks through an LLM and json.loads() its output.",
+      "agent/services/planning_utils.py contains JSON extraction/parsing helpers for subtasks and follow-up analysis.",
+      "schemas/worker/worker_execution_request.v1.json already has requested_outputs but not a hard artifact_manifest output protocol.",
+      "docs/artifact-traceability-model.md already states artifacts are the primary user-facing output and should be traceable."
+    ],
+    "observed_failure_mode": [
+      "Worker/model generated expected files correctly.",
+      "Hub still waited/retried because model response was not strict JSON.",
+      "Manual task completion patch was needed although filesystem output was ready."
+    ]
+  },
+  "global_principles": [
+    "Hub state changes must be based on validated artifacts, file manifests, verification evidence and deterministic completion policy.",
+    "LLM chat output may be stored as summary or proposal, never as sole authority for completed state.",
+    "Workers should receive file-based handoff bundles and write files plus artifact_manifest.v1.json.",
+    "Malformed optional planner/follow-up JSON must never create an infinite retry loop when required artifacts are valid.",
+    "Task graph mutation from LLM output requires proposal artifact, deterministic validation and audit.",
+    "All produced files must stay inside workspace and be represented by artifact metadata and hashes."
+  ],
+  "non_goals": [
+    "Do not remove deterministic JSON schemas for Hub-built contracts.",
+    "Do not trust arbitrary generated files without manifest, workspace boundary and verification.",
+    "Do not keep strict chat-JSON as default planner/completion behavior.",
+    "Do not let the final assistant message mark a task completed."
+  ],
+  "milestones": [
+    {"id": "AFH-M1", "title": "Disable JSON-primary planner/completion paths", "task_ids": ["AFH-T001", "AFH-T002", "AFH-T003", "AFH-T004"], "status": "todo"},
+    {"id": "AFH-M2", "title": "Artifact/file handoff contracts", "task_ids": ["AFH-T005", "AFH-T006", "AFH-T007", "AFH-T008"], "status": "todo"},
+    {"id": "AFH-M3", "title": "Output collection and completion policy", "task_ids": ["AFH-T009", "AFH-T010", "AFH-T011", "AFH-T012", "AFH-T013"], "status": "todo"},
+    {"id": "AFH-M4", "title": "State machine and retry-loop hardening", "task_ids": ["AFH-T014", "AFH-T015", "AFH-T016", "AFH-T017"], "status": "todo"},
+    {"id": "AFH-M5", "title": "Verification, trace, audit and UI/API", "task_ids": ["AFH-T018", "AFH-T019", "AFH-T020", "AFH-T021", "AFH-T022"], "status": "todo"},
+    {"id": "AFH-M6", "title": "Regression tests and docs", "task_ids": ["AFH-T023", "AFH-T024", "AFH-T025", "AFH-T026"], "status": "todo"}
+  ],
+  "tasks": [
+    {
+      "id": "AFH-T001",
+      "title": "Inventory all authoritative JSON-from-LLM paths",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/worker_todo_planner_service.py", "agent/services/planning_utils.py", "agent/services/planning_service.py", "agent/services/task_runtime_service.py", "agent/services/task_orchestration_service.py", "tests/test_artifact_first_json_dependency_inventory.py"],
+      "problem": "Some Hub paths still parse model chat text as JSON for planning or follow-up decisions.",
+      "acceptance_criteria": [
+        "Every json.loads/extract_json_payload/parse_subtasks_from_llm_response/parse_followup_analysis use that can affect task graph or task state is listed and classified.",
+        "Safe deterministic schema validation is distinguished from unsafe model-chat JSON parsing.",
+        "Any unsafe path is mapped to a concrete task in this file.",
+        "A static regression test fails if a new authoritative 'Return JSON only' task-completion path is introduced."
+      ],
+      "test_requirements": ["Add static/inventory test for JSON-primary anti-patterns."],
+      "anti_patterns": ["Do not treat all JSON parsing as bad; Hub-generated contract JSON remains valid."]
+    },
+    {
+      "id": "AFH-T002",
+      "title": "Default-disable planner LLM task refinement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/worker_todo_planner_service.py", "agent/config.py", "tests/test_worker_todo_planner_service.py"],
+      "problem": "worker_todo_planner_service currently can call an LLM and parse returned task JSON even though a deterministic base contract already exists.",
+      "acceptance_criteria": [
+        "planner_llm_enabled defaults to false for authoritative worker todo generation.",
+        "Default build_delegation_todo_contract path never calls generate_text.",
+        "Deterministic base_task remains valid and includes expected_artifacts.",
+        "Malformed planner output cannot make todo_contract.todo.tasks empty.",
+        "Generation metadata reports artifact_first or deterministic_only by default."
+      ],
+      "test_requirements": ["Monkeypatch generate_text and prove it is not called by default."],
+      "anti_patterns": ["Do not keep LLM planner refinement as default authoritative task source."]
+    },
+    {
+      "id": "AFH-T003",
+      "title": "Convert planner LLM output into PlannerProposalArtifact",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/worker_todo_planner_service.py", "agent/services/artifact_type_registry.py", "schemas/artifacts/planner_proposal_artifact.v1.json", "tests/test_worker_todo_planner_service.py"],
+      "problem": "Optional LLM planning can still be useful, but it must not directly replace deterministic todo tasks.",
+      "acceptance_criteria": [
+        "PlannerProposalArtifact schema exists with raw_text_ref, parse_status, parsed_items, parse_error, source_model and adoption_status.",
+        "Markdown/natural-language/malformed JSON creates proposal artifact with parse_status failed or unparsed and deterministic contract continues.",
+        "Valid JSON becomes parsed proposal items only; it does not overwrite todo tasks directly.",
+        "Adopting proposal items requires deterministic validation and audit."
+      ],
+      "test_requirements": ["Tests for Markdown, malformed JSON and valid JSON proposal output."],
+      "anti_patterns": ["Do not mutate task graph directly from model output."]
+    },
+    {
+      "id": "AFH-T004",
+      "title": "Demote follow-up JSON parsing to advisory only",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/planning_utils.py", "agent/services/task_runtime_service.py", "agent/services/task_completion_policy_service.py", "tests/test_artifact_first_completion_policy.py"],
+      "problem": "parse_followup_analysis can return task_complete and followup_tasks from model JSON. That must not drive completed state.",
+      "acceptance_criteria": [
+        "No production completed-state transition depends solely on parse_followup_analysis.task_complete.",
+        "Follow-up parsing is marked advisory and stored as suggestion/proposal only.",
+        "Malformed follow-up JSON does not requeue a task when artifact completion policy succeeds.",
+        "Completion policy reason code can record advisory_parse_failed_ignored."
+      ],
+      "test_requirements": ["Regression test: valid artifacts plus malformed follow-up JSON still completes or needs_review without retry loop."],
+      "anti_patterns": ["Do not treat LLM 'task_complete=true' as authoritative."]
+    },
+    {
+      "id": "AFH-T005",
+      "title": "Define ArtifactManifest v1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["worker/core/artifact_manifest.py", "schemas/artifacts/artifact_manifest.v1.json", "agent/services/artifact_manifest_service.py", "tests/test_artifact_manifest_contract.py"],
+      "problem": "Generated files need a deterministic manifest so the Hub can validate outputs without chat JSON.",
+      "acceptance_criteria": [
+        "ArtifactManifest contains schema, manifest_id, goal_id, task_id, execution_id, trace_id, workspace_root_ref, produced_by_worker_id, produced_at, summary and artifacts.",
+        "Artifact entry contains artifact_id, kind, relative_path, content_hash, size_bytes, classification, operation, required, verification_status and metadata.",
+        "Absolute paths and path traversal are rejected.",
+        "Kinds include generated_file, modified_file, patch_file, command_output, test_result, verification_result, planner_proposal and summary.",
+        "Fixture for fibonacci_project with app.py, requirements.txt and README.md validates."
+      ],
+      "test_requirements": ["Schema tests for valid manifest, missing hash and path traversal."],
+      "anti_patterns": ["Do not infer artifact identity from assistant text."]
+    },
+    {
+      "id": "AFH-T006",
+      "title": "Define FileChangeSet v1 for workspace diff",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["worker/core/file_change_set.py", "schemas/artifacts/file_change_set.v1.json", "agent/services/workspace_diff_service.py", "tests/test_file_change_set_contract.py"],
+      "problem": "The Hub needs before/after file evidence for workers that modify files but do not write manifests yet.",
+      "acceptance_criteria": [
+        "FileChangeSet contains before_snapshot_id, after_snapshot_id, created_files, modified_files, deleted_files, ignored_files and workspace_boundary_status.",
+        "Each file entry contains relative_path, before_hash, after_hash, size_bytes, classification and safe_preview_ref.",
+        "Out-of-workspace changes are detected and marked violation.",
+        "Large files are referenced by hash/ref, not inlined."
+      ],
+      "test_requirements": ["Workspace diff tests for created, modified, deleted and out-of-workspace files."],
+      "anti_patterns": ["Do not trust worker-reported changed files without independent diff when possible."]
+    },
+    {
+      "id": "AFH-T007",
+      "title": "Define WorkerHandoffBundle v1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["worker/core/worker_handoff_bundle.py", "schemas/worker/worker_handoff_bundle.v1.json", "agent/services/worker_contract_service.py", "tests/test_worker_handoff_bundle_contract.py"],
+      "problem": "Workers should receive file-based handoff with instructions and expected artifacts, not a demand for final chat JSON.",
+      "acceptance_criteria": [
+        "WorkerHandoffBundle contains task_id, goal_id, execution_id, trace_id, instructions_ref, context_envelope_ref, expected_artifacts, workspace_constraints, policy_decision_ref, manifest_output_path and completion_policy_ref.",
+        "Bundle materializes as files such as .ananta/handoff/<execution_id>/worker_handoff.json and instructions.md.",
+        "Bundle explicitly instructs worker to write artifact_manifest.v1.json.",
+        "Manifest output path is validated inside workspace."
+      ],
+      "test_requirements": ["Handoff bundle schema and generation tests."],
+      "anti_patterns": ["Do not encode all control state only in natural-language prompt."]
+    },
+    {
+      "id": "AFH-T008",
+      "title": "Extend worker execution request for manifest protocol",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["schemas/worker/worker_execution_request.v1.json", "worker/core/execution_envelope.py", "tests/worker/test_worker_contract_schemas.py"],
+      "problem": "worker_execution_request.v1 has requested_outputs but lacks a required artifact manifest output path.",
+      "acceptance_criteria": [
+        "Request supports artifact_manifest_required and artifact_manifest_output_path or v2 equivalent.",
+        "requested_outputs supports artifact_manifest.",
+        "When artifact_manifest_required=true, final chat response cannot substitute for manifest.",
+        "Legacy request compatibility is preserved or v2 migration tests are added."
+      ],
+      "test_requirements": ["Schema tests for manifest-required and legacy request."],
+      "anti_patterns": ["Do not break existing clients without compatibility path."]
+    },
+    {
+      "id": "AFH-T009",
+      "title": "Create ArtifactCompletionPolicy contract",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["worker/core/artifact_completion_policy.py", "schemas/artifacts/artifact_completion_policy.v1.json", "agent/services/task_completion_policy_service.py", "tests/test_artifact_first_completion_policy.py"],
+      "problem": "The Hub needs a deterministic policy for when artifacts complete a task.",
+      "acceptance_criteria": [
+        "Policy contains required_artifact_kinds, required_paths, optional_paths, verification_required, completion_on_valid_manifest, needs_review_conditions and retry_conditions.",
+        "Decision statuses include completed, needs_review, retryable_failed, failed, denied and degraded.",
+        "Malformed advisory JSON is not a retry condition when artifacts and verification pass.",
+        "Fibonacci Flask task policy can require app.py, requirements.txt and README.md."
+      ],
+      "test_requirements": ["Completion policy tests for valid files, missing file, invalid manifest and failed verification."],
+      "anti_patterns": ["Do not mark completed from file existence alone without expected-artifact policy."]
+    },
+    {
+      "id": "AFH-T010",
+      "title": "Materialize handoff files before worker execution",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/worker_handoff_service.py", "agent/services/task_scoped_execution_service.py", "agent/services/native_worker_runtime_service.py", "tests/test_worker_handoff_service.py"],
+      "problem": "The worker must get concrete handoff files in workspace.",
+      "acceptance_criteria": [
+        "WorkerHandoffService creates .ananta/handoff/<execution_id>/ before execution.",
+        "It writes worker_handoff.json, instructions.md, expected_artifacts.json and completion_policy.json or refs.",
+        "NativeWorkerRuntimeService references the handoff bundle.",
+        "All handoff paths are workspace-bound."
+      ],
+      "test_requirements": ["Filesystem tests for generated handoff directory."],
+      "anti_patterns": ["Do not pass expected outputs only in prompt text."]
+    },
+    {
+      "id": "AFH-T011",
+      "title": "Collect artifact manifest after worker execution",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/worker_output_collector_service.py", "agent/services/native_worker_runtime_service.py", "agent/services/task_scoped_execution_service.py", "tests/test_worker_output_collector_service.py"],
+      "problem": "After execution, the Hub must read files/manifests and not depend on the final chat answer.",
+      "acceptance_criteria": [
+        "Collector reads artifact_manifest.v1.json from configured path.",
+        "Collector validates schema and hashes.",
+        "Collector verifies declared files exist and are inside workspace.",
+        "Collection result includes manifest_valid, artifacts, errors and warnings.",
+        "Missing manifest can fall back to synthesized manifest only if policy allows."
+      ],
+      "test_requirements": ["Valid manifest, missing manifest, invalid hash and path traversal tests."],
+      "anti_patterns": ["Do not mark task complete from final assistant text alone."]
+    },
+    {
+      "id": "AFH-T012",
+      "title": "Synthesize manifest from workspace diff as migration bridge",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": ["agent/services/workspace_diff_service.py", "agent/services/worker_output_collector_service.py", "tests/test_workspace_diff_service.py"],
+      "problem": "External workers may modify files but not write Ananta manifests yet.",
+      "acceptance_criteria": [
+        "WorkspaceDiffService snapshots before and after execution.",
+        "Synthesized manifest includes created/modified/deleted files with hashes.",
+        "Synthesized manifest is marked synthesized=true and lower trust.",
+        "Completion can use synthesized manifest only when policy permits it.",
+        "Fibonacci files without manifest can be completed through synthesized manifest if allowed."
+      ],
+      "test_requirements": ["Workspace diff and synthesized manifest tests."],
+      "anti_patterns": ["Do not synthesize from a broad scan without before snapshot."]
+    },
+    {
+      "id": "AFH-T013",
+      "title": "Persist artifacts and manifest through ArtifactStore/DB",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/artifact_store.py", "agent/db_models.py", "agent/services/worker_output_collector_service.py", "tests/test_artifact_store.py"],
+      "problem": "Produced files must become durable artifacts with metadata and hashes.",
+      "acceptance_criteria": [
+        "Each required artifact gets artifact_id and integrity_hash.",
+        "Metadata includes goal_id, task_id, execution_id, trace_id, producer_worker_id, kind, relative_path, classification and verification_status.",
+        "Artifact persistence failure prevents completed state.",
+        "Task detail API can retrieve artifact metadata."
+      ],
+      "test_requirements": ["Artifact persistence success/failure tests."],
+      "anti_patterns": ["Do not keep artifacts only as temporary workspace files."]
+    },
+    {
+      "id": "AFH-T014",
+      "title": "Implement artifact-first TaskCompletionPolicyService",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/task_completion_policy_service.py", "agent/services/task_runtime_service.py", "agent/services/task_orchestration_service.py", "tests/test_artifact_first_completion_policy.py"],
+      "problem": "Task completion must be centralized and based on artifacts/verification.",
+      "acceptance_criteria": [
+        "Service evaluates expected_artifacts, ArtifactManifest, FileChangeSet, VerificationResult and exit status.",
+        "It returns completed, needs_review, retryable_failed, failed, denied or degraded plus reason_codes.",
+        "Malformed model JSON is advisory only.",
+        "TaskRuntime/Orchestration uses this service for final state update."
+      ],
+      "test_requirements": ["Unit and integration tests for completion decisions."],
+      "anti_patterns": ["Do not implement completion logic separately in multiple services."]
+    },
+    {
+      "id": "AFH-T015",
+      "title": "Update state machine to prevent parse-error retry loops",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/task_runtime_service.py", "agent/services/task_orchestration_service.py", "agent/services/task_claim_service.py", "tests/test_artifact_first_state_machine.py"],
+      "problem": "Malformed optional JSON must not bounce tasks back into queue forever.",
+      "acceptance_criteria": [
+        "Parser failures from advisory paths do not set tasks back to queued when artifacts pass.",
+        "Retry counter increments only for retryable execution/artifact/verification failures.",
+        "Task reaches completed when artifacts and verification pass even if final response is Markdown.",
+        "Ambiguous partial artifacts reach needs_review or degraded, not infinite retry.",
+        "Max retry guard exists with terminal reason."
+      ],
+      "test_requirements": ["Regression test for files-exist-but-json-invalid scenario."],
+      "anti_patterns": ["Do not requeue on every parser exception."]
+    },
+    {
+      "id": "AFH-T016",
+      "title": "Add ArtifactRealityReconciliationService",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": ["agent/services/artifact_reconciliation_service.py", "agent/routes/tasks.py", "tests/test_artifact_reconciliation_service.py"],
+      "problem": "During migration, Hub state may disagree with filesystem/artifact reality.",
+      "acceptance_criteria": [
+        "Service can dry-run compare expected artifacts with workspace/artifact store.",
+        "Apply uses TaskCompletionPolicyService, not blind status patch.",
+        "State changes require permission and audit reason.",
+        "Invalid/out-of-workspace artifacts are refused.",
+        "Queued task with valid artifacts can be safely reconciled to completed."
+      ],
+      "test_requirements": ["Reconciliation dry-run and apply tests."],
+      "anti_patterns": ["Do not expose direct mark-completed as normal fix."]
+    },
+    {
+      "id": "AFH-T017",
+      "title": "Add bounded RetryPolicyService classifications",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/task_retry_policy_service.py", "agent/services/task_runtime_service.py", "tests/test_artifact_first_retry_policy.py"],
+      "problem": "Retry reasons must distinguish parser failure, missing artifact, failed verification and actual worker failure.",
+      "acceptance_criteria": [
+        "planner_llm_parse_failed is non-retryable when deterministic contract exists.",
+        "advisory_json_parse_failed is ignored when artifact completion succeeds.",
+        "missing_required_artifact is retryable only up to max retry limit.",
+        "verification_failed can become retryable, failed or needs_review based on policy.",
+        "Retry reason and count are persisted/visible."
+      ],
+      "test_requirements": ["Retry matrix tests."],
+      "anti_patterns": ["Do not treat parser error as equivalent to missing files."]
+    },
+    {
+      "id": "AFH-T018",
+      "title": "Run verification from produced artifacts/files",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/verification_service.py", "agent/services/native_worker_runtime_service.py", "worker/core/verification.py", "tests/test_artifact_first_verification.py"],
+      "problem": "Success must be verified from files/tests, not from model claims.",
+      "acceptance_criteria": [
+        "Verification receives ArtifactManifest/FileChangeSet and expected_artifacts.",
+        "It can check file existence, hash, content pattern and safe test command results.",
+        "VerificationResult references artifact_ids and evidence refs.",
+        "Task cannot complete when verification_required=true and verification fails/missing."
+      ],
+      "test_requirements": ["Fibonacci Flask project verification and failed verification tests."],
+      "anti_patterns": ["Do not accept 'I tested it' text as verification."
+      ]
+    },
+    {
+      "id": "AFH-T019",
+      "title": "Extend TraceBundle with artifact handoff lifecycle",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": ["worker/core/trace_bundle.py", "agent/services/worker_handoff_service.py", "agent/services/worker_output_collector_service.py", "tests/test_artifact_first_trace.py"],
+      "problem": "Operators need traceability from handoff to artifacts to completion decision.",
+      "acceptance_criteria": [
+        "Trace contains handoff_bundle_ref, manifest_ref, file_change_set_ref, artifact_ids, verification_ref and completion_decision_ref.",
+        "Trace records whether manifest was worker-authored or synthesized.",
+        "Trace records advisory_json_parse_status separately from completion decision.",
+        "Trace excludes raw file contents by default."
+      ],
+      "test_requirements": ["Trace tests for artifact-first flow."],
+      "anti_patterns": ["Do not put full generated files in trace metadata."]
+    },
+    {
+      "id": "AFH-T020",
+      "title": "Audit artifact-first transitions",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": ["agent/common/audit.py", "agent/services/task_finalization_service.py", "agent/services/artifact_reconciliation_service.py", "tests/test_artifact_first_audit.py"],
+      "problem": "Completing tasks from artifacts and reconciling state must be auditable.",
+      "acceptance_criteria": [
+        "Audit events include worker_handoff_created, artifact_manifest_collected, artifact_manifest_synthesized, artifact_completion_decided, task_finalized_from_artifacts and advisory_json_parse_failed_ignored.",
+        "Events include goal_id, task_id, execution_id, manifest_id, artifact_ids and decision reason_codes.",
+        "Manual reconciliation includes actor and reason.",
+        "Raw artifact contents are not audited by default."
+      ],
+      "test_requirements": ["Audit event tests."],
+      "anti_patterns": ["Do not silently repair Hub bookkeeping without audit."]
+    },
+    {
+      "id": "AFH-T021",
+      "title": "Expose artifact-first status in API/UI/CLI",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": ["agent/routes/tasks.py", "agent/models.py", "agent/cli.py", "frontend-angular/src/app/components/task-detail.component.ts", "tests/test_api_task_artifact_status.py"],
+      "problem": "Users should see produced files, manifest status and completion reason instead of only LLM text/state.",
+      "acceptance_criteria": [
+        "Task detail API includes artifact_summary, completion_decision, reason_codes, manifest_status, verification_status and advisory_parse_status.",
+        "UI shows produced artifacts/files with status badges.",
+        "CLI lists artifact kind, path, verification status and hash prefix.",
+        "Parser failure is displayed as warning when artifact completion succeeded."
+      ],
+      "test_requirements": ["API status tests and frontend/CLI tests where framework exists."],
+      "anti_patterns": ["Do not show raw LLM response as the only result."
+      ]
+    },
+    {
+      "id": "AFH-T022",
+      "title": "Add artifact-first run preview",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": ["agent/routes/tasks.py", "agent/services/worker_handoff_service.py", "frontend-angular/src/app/components/task-detail.component.ts", "tests/test_api_artifact_first_preview.py"],
+      "problem": "Before execution, operator should see expected artifacts and completion rules.",
+      "acceptance_criteria": [
+        "Preview API returns expected_artifacts, manifest_output_path, completion_policy_summary and verification_requirements.",
+        "Preview shows whether legacy JSON planner is disabled/advisory/enabled.",
+        "Preview shows workspace output boundary.",
+        "Preview endpoint does not execute worker."
+      ],
+      "test_requirements": ["Preview API tests for Flask/Fibonacci task."],
+      "anti_patterns": ["Do not hide completion criteria from operator."]
+    },
+    {
+      "id": "AFH-T023",
+      "title": "E2E regression: Fibonacci files complete despite malformed final JSON",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["tests/e2e/test_artifact_first_fibonacci_flow.py", "tests/fixtures/fibonacci_project_expected/"],
+      "problem": "The exact observed failure must become a regression test.",
+      "acceptance_criteria": [
+        "Test creates app.py, requirements.txt and README.md in fibonacci_project workspace.",
+        "Mock worker/model final response is Markdown or normal chat text, not valid JSON.",
+        "Hub collects artifacts and validates expected files.",
+        "Task does not retry because final response is non-JSON.",
+        "Task final state is completed or needs_review according to verification policy, with reason code showing parser failure ignored if artifacts passed."
+      ],
+      "test_requirements": ["pytest tests/e2e/test_artifact_first_fibonacci_flow.py"],
+      "anti_patterns": ["Do not use a test where worker returns perfect JSON."
+      ]
+    },
+    {
+      "id": "AFH-T024",
+      "title": "Regression tests for worker_todo_planner malformed LLM output",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["tests/test_worker_todo_planner_service.py", "agent/services/worker_todo_planner_service.py"],
+      "problem": "Planner LLM output can include Markdown/backticks/explanations. That must not break the Hub.",
+      "acceptance_criteria": [
+        "Malformed planner output returns deterministic contract and warning/proposal artifact.",
+        "Markdown fenced output does not crash.",
+        "Natural language output is stored as proposal/advisory, not task replacement.",
+        "No path requeues task solely because planner parse failed."
+      ],
+      "test_requirements": ["Monkeypatch generate_text with malformed, Markdown and natural-language outputs."],
+      "anti_patterns": ["Do not require real LM Studio or any live model in the test."
+      ]
+    },
+    {
+      "id": "AFH-T025",
+      "title": "Security tests for artifact paths and manifest trust",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["tests/test_artifact_first_security.py", "agent/services/worker_output_collector_service.py", "agent/services/workspace_diff_service.py"],
+      "problem": "Artifact-first file handling must not create path traversal or secret leakage risks.",
+      "acceptance_criteria": [
+        "Manifest entry with ../ path is rejected.",
+        "Absolute path outside workspace is rejected.",
+        "Symlink escaping workspace is rejected or flagged violation.",
+        "Large files are ref-handled without inlining into DB/logs.",
+        "Secret-looking files are classified and not automatically sent to memory/cloud."
+      ],
+      "test_requirements": ["Artifact path security tests."],
+      "anti_patterns": ["Do not trust manifest paths from worker blindly."
+      ]
+    },
+    {
+      "id": "AFH-T026",
+      "title": "Write artifact-first architecture and migration docs",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": ["docs/architecture/artifact-first-worker-handoff.md", "docs/artifact-traceability-model.md", "docs/worker-extension-guide.md", "docs/worker/standalone_mode.md", "todo.artifact-first-worker-handoff-fixup.json"],
+      "problem": "Docs must make clear that chat JSON is not the authoritative worker protocol.",
+      "acceptance_criteria": [
+        "Docs explain Hub -> handoff files -> worker -> artifact manifest -> collector -> verification -> completion policy.",
+        "Docs explain final chat response is summary/advisory only.",
+        "Docs include artifact_manifest.v1.json example for Fibonacci Flask project.",
+        "Docs explain legacy JSON planner mode and why it is off by default.",
+        "This todo JSON remains valid and is updated after implementation slices."
+      ],
+      "test_requirements": ["json.loads todo.artifact-first-worker-handoff-fixup.json succeeds."],
+      "anti_patterns": ["Do not document strict JSON final response as recommended worker protocol."]
+    }
+  ],
+  "critical_path_tasks": ["AFH-T001", "AFH-T002", "AFH-T003", "AFH-T004", "AFH-T005", "AFH-T007", "AFH-T008", "AFH-T009", "AFH-T010", "AFH-T011", "AFH-T013", "AFH-T014", "AFH-T015", "AFH-T017", "AFH-T018", "AFH-T023", "AFH-T024", "AFH-T025"],
+  "minimum_safe_slice": ["AFH-T001", "AFH-T002", "AFH-T004", "AFH-T005", "AFH-T007", "AFH-T009", "AFH-T010", "AFH-T011", "AFH-T012", "AFH-T014", "AFH-T015", "AFH-T017", "AFH-T023", "AFH-T024", "AFH-T025"],
+  "definition_of_done_global": [
+    "Worker/task planning no longer depends on strict JSON from model chat as primary success path.",
+    "Planner/follow-up LLM output is proposal/advisory only unless deterministically adopted.",
+    "Workers receive file handoff bundles and produce files plus artifact manifests or diff-derived manifests.",
+    "Hub completion uses artifacts, manifests, verification and completion policy.",
+    "Malformed Markdown/non-JSON model responses cannot create infinite retry loops when artifacts pass.",
+    "Fibonacci Flask project regression passes with non-JSON final response.",
+    "Artifact paths are workspace-bound and security-tested.",
+    "UI/API/CLI show artifact-first completion reasons and parser warnings separately."
+  ],
+  "tasks_status_summary": {
+    "total": 26,
+    "by_status": {"todo": 26, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 17, "P1": 8, "P2": 1},
+    "by_risk": {"critical": 10, "high": 11, "medium": 4, "low": 1},
+    "critical_path": {"total": 18, "done": 0, "remaining": 18},
+    "milestones": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "summary_notes": [
+    "The target is not JSON-free. It is chat-JSON-free for authoritative control.",
+    "Hub-generated JSON contracts and artifact manifests remain required and validated.",
+    "The fastest safe fix is default-disable planner LLM refinement, add artifact manifests/output collection, and make completion ignore advisory JSON parse failures when artifacts pass."
+  ]
+}
