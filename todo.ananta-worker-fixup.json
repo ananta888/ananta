@@ -70,7 +70,7 @@
         "AWF-T005",
         "AWF-T006"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "AWF-M2",
@@ -82,7 +82,7 @@
         "AWF-T010",
         "AWF-T011"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "AWF-M3",
@@ -94,7 +94,7 @@
         "AWF-T015",
         "AWF-T016"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "AWF-M4",
@@ -106,7 +106,7 @@
         "AWF-T020",
         "AWF-T021"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "AWF-M5",
@@ -118,7 +118,7 @@
         "AWF-T025",
         "AWF-T026"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "AWF-M6",
@@ -1686,34 +1686,33 @@
   "tasks_status_summary": {
     "total": 45,
     "by_status": {
-      "todo": 45,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 45
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 25,
-      "P1": 16,
-      "P2": 4
+      "P1": 17,
+      "P2": 3
     },
     "by_risk": {
       "critical": 11,
-      "high": 21,
-      "medium": 12,
-      "low": 1
+      "high": 19,
+      "medium": 15
     },
     "critical_path": {
       "total": 26,
-      "done": 0,
-      "remaining": 26
+      "done": 26,
+      "remaining": 0
     },
     "milestones": {
       "total": 9,
-      "todo": 9,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 9
     }
   },
   "summary_notes": [
