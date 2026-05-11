@@ -7,6 +7,12 @@ from typing import Any
 
 from worker.core.degraded import build_degraded_state
 from worker.core.execution_profile import normalize_execution_profile
+from worker.core.provider_registry import (
+    ProviderProvenanceRef,
+    ProviderSelectionGate,
+    build_default_provider_registry,
+)
+from worker.core.tool_registry import ResourceLimitEnforcer, build_default_registry
 from worker.core.verification import build_verification_artifact, validate_worker_schema_or_degraded
 from worker.shell.command_executor import execute_command_plan
 from worker.shell.command_planner import build_command_plan_artifact
@@ -23,6 +29,15 @@ def _bounded_text(value: str, *, max_chars: int = 2400) -> str:
     if len(text) <= max_chars:
         return text
     return text[: max(1, max_chars - 14)].rstrip() + "\n\n[truncated]"
+
+
+# T011: shared resource limit enforcer — reads limits from the tool registry
+_TOOL_REGISTRY = build_default_registry()
+_RESOURCE_ENFORCER = ResourceLimitEnforcer(_TOOL_REGISTRY)
+
+# T012/T013: shared provider registry + selection gate
+_PROVIDER_REGISTRY = build_default_provider_registry()
+_PROVIDER_GATE = ProviderSelectionGate(_PROVIDER_REGISTRY)
 
 
 class NativeWorkerRuntimeService:
@@ -270,6 +285,8 @@ class NativeWorkerRuntimeService:
         policy_summary = f"{decision.classification}:{decision.reason}"
 
         _exec_command = str(command_plan.get("command") or command)
+        # T011: use registry timeout limit (never exceed what the tool allows)
+        effective_timeout = _RESOURCE_ENFORCER.effective_timeout("run_shell", float(timeout_seconds))
         try:
             tool_result = execute_command_plan(
                 repository_root=workspace_dir,
@@ -280,8 +297,9 @@ class NativeWorkerRuntimeService:
                 shell_policy=shell_policy,
                 hub_policy_decision="allow",
                 approval=None,
-                timeout_seconds=int(timeout_seconds),
+                timeout_seconds=int(effective_timeout),
                 execution_profile=normalized_profile,
+                tool_registry=_TOOL_REGISTRY,  # T009: registry gate
             )
             # T010: convert ToolResult to legacy test_result_artifact dict
             test_result = tool_result.to_test_result_artifact(task_id=tid, command=_exec_command)
@@ -352,22 +370,27 @@ class NativeWorkerRuntimeService:
 
         status = "completed" if str(test_result.get("status") or "").strip().lower() == "passed" else "failed"
         failure_type = "success" if status == "completed" else "command_failure"
+        # T011: apply registry output limit to stdout/stderr
+        max_chars = _RESOURCE_ENFORCER.limits_for("run_shell").max_output_chars
+        # T016: native worker provenance ref
+        provenance = ProviderProvenanceRef.native_worker()
         execution_result = {
             "schema": "worker_execution_result.v1",
             "task_id": tid,
             "trace_id": trace_id,
-            "capability_id": "worker.command.execute",
+            "capability_id": "shell_execute",  # T004: canonical
             "context_hash": context_hash,
             "worker_profile": normalized_profile,
             "profile_source": normalized_profile_source,
             "policy_decision_ref": {"decision_id": f"native-exec-{tid}", "decision": "allow", "policy_version": "native_worker_runtime_v1"},
             "status": status,
             "exit_code": int(test_result.get("exit_code") or 0),
-            "stdout_ref": _bounded_text(str(test_result.get("stdout_ref") or "")),
-            "stderr_ref": _bounded_text(str(test_result.get("stderr_ref") or "")),
+            "stdout_ref": _bounded_text(str(test_result.get("stdout_ref") or ""), max_chars=max_chars),  # T011
+            "stderr_ref": _bounded_text(str(test_result.get("stderr_ref") or ""), max_chars=max_chars),  # T011
             "model_metadata": {
-                "provider": "native_worker",
-                "model": "native_command_runtime",
+                "provider": provenance.provider_id,           # T016
+                "model": provenance.model_id,                 # T016
+                "provider_hash": provenance.entry_hash,       # T016
                 "prompt_template_version": "native_worker_runtime_v1",
             },
             "artifacts": [

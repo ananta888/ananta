@@ -241,6 +241,34 @@ class WorkerToolRegistry:
 
 # ── Built-in tool registry ────────────────────────────────────────────────────
 
+# ── ResourceLimitEnforcer (T011) ─────────────────────────────────────────────
+
+class ResourceLimitEnforcer:
+    """Applies per-tool resource limits at service boundaries. AWF-T011.
+
+    Used by callers that do not go through ToolInvocationEnvelope directly
+    (e.g. NativeWorkerRuntimeService) to read limits from the registry.
+    """
+
+    def __init__(self, registry: WorkerToolRegistry) -> None:
+        self._registry = registry
+
+    def limits_for(self, tool_id: str) -> ResourceLimits:
+        entry = self._registry.get(tool_id)
+        return entry.resource_limits if entry is not None else ResourceLimits()
+
+    def bound_output(self, raw: str, tool_id: str) -> tuple[str, bool]:
+        """Truncate raw output to max_output_chars for this tool. Returns (output, truncated)."""
+        limits = self.limits_for(tool_id)
+        if len(raw) <= limits.max_output_chars:
+            return raw, False
+        return raw[: limits.max_output_chars], True
+
+    def effective_timeout(self, tool_id: str, requested_seconds: float) -> float:
+        """Return min(requested, registry_limit) so callers never exceed limits."""
+        return min(requested_seconds, self.limits_for(tool_id).timeout_seconds)
+
+
 def build_default_registry() -> WorkerToolRegistry:
     """Returns a registry pre-loaded with the standard Ananta tool set."""
     registry = WorkerToolRegistry()
