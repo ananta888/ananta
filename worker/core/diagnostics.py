@@ -244,6 +244,118 @@ class AuditEmitter:
         return list(self._events)
 
 
+# ── AWF-T039: WorkerDiagnosticsReadModel ─────────────────────────────────────
+
+_SENSITIVE_KEY_FRAGMENTS = frozenset({
+    "api_key", "secret", "password", "token", "credential", "private",
+})
+
+
+@dataclass
+class WorkerDiagnosticsReadModel:
+    """Operator-safe worker readiness snapshot for dashboard/UI/TUI. AWF-T039.
+
+    Never exposes provider keys, raw prompts, or sensitive context.
+    """
+    native_worker_enabled: bool
+    worker_profiles: list[str]
+    tool_registry_summary: dict[str, Any]
+    provider_summary: dict[str, Any]
+    skill_registry_summary: dict[str, Any]
+    memory_policy_summary: dict[str, Any]
+    context_policy_summary: dict[str, Any]
+    last_degraded_reasons: list[str]
+    enforcement_gates_active: dict[str, bool]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "native_worker_enabled": self.native_worker_enabled,
+            "worker_profiles": list(self.worker_profiles),
+            "tool_registry_summary": dict(self.tool_registry_summary),
+            "provider_summary": dict(self.provider_summary),
+            "skill_registry_summary": dict(self.skill_registry_summary),
+            "memory_policy_summary": dict(self.memory_policy_summary),
+            "context_policy_summary": dict(self.context_policy_summary),
+            "last_degraded_reasons": list(self.last_degraded_reasons),
+            "enforcement_gates_active": dict(self.enforcement_gates_active),
+        }
+
+    def has_secrets(self) -> bool:
+        def _scan(obj: Any) -> bool:
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    if any(s in str(k).lower() for s in _SENSITIVE_KEY_FRAGMENTS):
+                        return True
+                    if _scan(v):
+                        return True
+            elif isinstance(obj, (list, tuple)):
+                return any(_scan(item) for item in obj)
+            return False
+        return _scan(self.as_dict())
+
+
+def build_worker_diagnostics_read_model(
+    *,
+    native_worker_enabled: bool = True,
+    worker_profiles: list[str] | None = None,
+    tool_registry: Any = None,
+    provider_registry: Any = None,
+    skill_registry: Any = None,
+    memory_policy: dict[str, Any] | None = None,
+    context_policy: dict[str, Any] | None = None,
+    last_degraded_reasons: list[str] | None = None,
+) -> WorkerDiagnosticsReadModel:
+    """Build a read-model diagnostics snapshot without exposing secrets. AWF-T039."""
+    tool_names = list(getattr(tool_registry, "_tools", {}).keys()) if tool_registry else []
+    tool_summary: dict[str, Any] = {"registered_count": len(tool_names), "tool_ids": tool_names}
+
+    providers = list(getattr(provider_registry, "_providers", {}).keys()) if provider_registry else []
+    provider_summary: dict[str, Any] = {"provider_count": len(providers), "provider_ids": providers}
+
+    if skill_registry is not None and hasattr(skill_registry, "list_diagnostics"):
+        diag = skill_registry.list_diagnostics()
+        skill_summary: dict[str, Any] = {
+            "registered_count": len(diag),
+            "enabled_count": sum(1 for d in diag if d.get("enabled")),
+            "skill_ids": [d["id"] for d in diag],
+        }
+    else:
+        skill_summary = {"registered_count": 0, "enabled_count": 0, "skill_ids": []}
+
+    mem_summary: dict[str, Any] = {
+        k: v for k, v in (memory_policy or {}).items()
+        if k in {"enabled", "redact_before_persist", "default_memory_scope",
+                 "archive_raw_output", "policy_version", "default_ttl_seconds", "retention_class"}
+    }
+
+    ctx_summary: dict[str, Any] = {
+        k: v for k, v in (context_policy or {}).items()
+        if not any(s in str(k).lower() for s in _SENSITIVE_KEY_FRAGMENTS)
+    }
+
+    enforcement_gates: dict[str, bool] = {
+        "preflight_gate": True,
+        "tool_registry_check": True,
+        "resource_limit_enforcer": True,
+        "context_sensitivity_filter": True,
+        "memory_policy_gate": bool(memory_policy),
+        "provider_selection_gate": provider_registry is not None,
+        "skill_registry_gate": skill_registry is not None,
+    }
+
+    return WorkerDiagnosticsReadModel(
+        native_worker_enabled=native_worker_enabled,
+        worker_profiles=list(worker_profiles or ["fast", "balanced", "thorough"]),
+        tool_registry_summary=tool_summary,
+        provider_summary=provider_summary,
+        skill_registry_summary=skill_summary,
+        memory_policy_summary=mem_summary,
+        context_policy_summary=ctx_summary,
+        last_degraded_reasons=list(last_degraded_reasons or []),
+        enforcement_gates_active=enforcement_gates,
+    )
+
+
 def _redact_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Remove known-sensitive keys from audit event payload."""
     sensitive_keys = frozenset({
