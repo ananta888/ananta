@@ -39,6 +39,16 @@ KNOWN_CAPABILITY_CLASSES: frozenset[str] = frozenset({
     "artifact_publish",
     "admin_repair",
     "deterministic_repair",
+    "repair.detect",
+    "repair.diagnose",
+    "repair.plan",
+    "repair.execute.inspect",
+    "repair.execute.low_risk",
+    "repair.execute.approval_gated",
+    "repair.verify",
+    "repair.rollback",
+    "repair.outcome.persist",
+    "repair.llm_escalate",
 })
 
 CONFIRM_REQUIRED_CAPABILITIES: frozenset[str] = frozenset({
@@ -70,6 +80,61 @@ class RepairProcedure(BaseModel):
     safety_class: str = "bounded"
     steps: list[RepairStep] = Field(default_factory=list)
     diagnosis: dict[str, Any] = Field(default_factory=dict)
+
+
+# ── Repair result contracts (DRR-T004) ─────────────────────────────────────
+
+class RepairStepResultStatus(str, Enum):
+    success = "success"
+    skipped = "skipped"
+    denied = "denied"
+    approval_required = "approval_required"
+    failed = "failed"
+    escalated = "escalated"
+    verification_failed = "verification_failed"
+
+
+class RepairStepResult(BaseModel):
+    step_id: str
+    status: RepairStepResultStatus
+    reason_code: str = ""
+    started_at: float | None = None
+    ended_at: float | None = None
+    tool_result_refs: list[str] = Field(default_factory=list)
+    artifacts: list[dict[str, Any]] = Field(default_factory=list)
+    evidence: dict[str, Any] = Field(default_factory=dict)
+    verification_result: dict[str, Any] | None = None
+    side_effects: dict[str, Any] = Field(default_factory=dict)
+    rollback_hint_used: str = ""
+    warnings: list[str] = Field(default_factory=list)
+
+
+class RepairResultVerdict(str, Enum):
+    success = "success"
+    partial_success = "partial_success"
+    denied = "denied"
+    needs_approval = "needs_approval"
+    failed = "failed"
+    escalated = "escalated"
+    verification_failed = "verification_failed"
+    cancelled = "cancelled"
+    timeout = "timeout"
+
+
+class RepairExecutionResult(BaseModel):
+    plan_id: str
+    procedure_id: str
+    status: RepairResultVerdict
+    completed_steps: list[str] = Field(default_factory=list)
+    skipped_steps: list[str] = Field(default_factory=list)
+    failed_step_id: str | None = None
+    approval_required_step_id: str | None = None
+    final_verification: dict[str, Any] | None = None
+    outcome_label: str = ""
+    artifacts: list[dict[str, Any]] = Field(default_factory=list)
+    trace_bundle_ref: str = ""
+    persisted_outcome_ref: str = ""
+    step_results: list[RepairStepResult] = Field(default_factory=list)
 
 
 class ApprovalRef(BaseModel):

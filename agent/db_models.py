@@ -663,3 +663,26 @@ class RepairOutcomeMemoryDB(SQLModel, table=True):
     outcome_label: str
     verification_evidence: dict = Field(default={}, sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time)
+
+
+class RepairExecutionRecordDB(SQLModel, table=True):
+    __tablename__ = "repair_execution_records"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+    goal_id: str = ""
+    task_id: str = Field(index=True)
+    worker_job_id: str = ""
+    plan_id: str = Field(index=True)
+    procedure_id: str = Field(index=True)
+    signature_id: str = ""
+    problem_class: str = Field(index=True)
+    platform_target: str = ""
+    environment_facts_hash: str = ""
+    execution_status: str = Field(index=True)
+    outcome_label: str = ""
+    verification_evidence_refs: list = Field(default=[], sa_column=Column(JSON))
+    artifact_refs: list = Field(default=[], sa_column=Column(JSON))
+    trace_ref: str = ""
+    regression_flag: bool = False
+    extra_metadata: dict = Field(default={}, sa_column=Column(JSON))

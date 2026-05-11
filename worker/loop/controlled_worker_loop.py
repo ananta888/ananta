@@ -4,12 +4,19 @@ import time
 from typing import Any
 
 from worker.core.execution_profile import normalize_execution_profile
-from worker.core.execution_envelope import RepairProcedure
+from worker.core.execution_envelope import (
+    ApprovalRef,
+    CapabilityGrant,
+    ExecutionEnvelope,
+    RepairProcedure,
+    RepairResultVerdict,
+)
 from worker.core.plan_artifact import build_plan_artifact, update_plan_step_state
 from worker.loop.budgets import WorkerLoopBudgets, budgets_for_profile
 from worker.loop.progress_events import build_progress_event
 from worker.loop.stop_conditions import should_stop_loop
 from worker.planning.checkpoint_store import PlannerCheckpointStore
+from worker.repair.repair_procedure_runner import RepairProcedureRunner
 
 
 def run_controlled_worker_loop(
@@ -24,6 +31,10 @@ def run_controlled_worker_loop(
     execution_profile: str | None = "balanced",
     checkpoint_store_path: str | None = None,
     repair_procedure: RepairProcedure | None = None,
+    actor_ref: str = "repair_loop",
+    capability_grant: CapabilityGrant | None = None,
+    allowed_operations: list[str] | None = None,
+    denied_operations: list[str] | None = None,
 ) -> dict[str, Any]:
     if repair_procedure is not None:
         return _run_deterministic_repair_loop(
@@ -33,6 +44,10 @@ def run_controlled_worker_loop(
             policy_decision=policy_decision,
             approval_ref=approval_ref,
             repair_procedure=repair_procedure,
+            actor_ref=actor_ref,
+            capability_grant=capability_grant,
+            allowed_operations=allowed_operations,
+            denied_operations=denied_operations,
         )
     normalized_profile = normalize_execution_profile(execution_profile)
     bounded_budgets = budgets or budgets_for_profile(normalized_profile)
@@ -290,6 +305,10 @@ def _run_deterministic_repair_loop(
     policy_decision: str,
     approval_ref: dict[str, Any] | None,
     repair_procedure: RepairProcedure,
+    actor_ref: str = "repair_loop",
+    capability_grant: CapabilityGrant | None = None,
+    allowed_operations: list[str] | None = None,
+    denied_operations: list[str] | None = None,
 ) -> dict[str, Any]:
     steps_data = [s.model_dump() for s in repair_procedure.steps]
     plan_steps = [
@@ -321,6 +340,23 @@ def _run_deterministic_repair_loop(
             "steps": steps_data,
         },
     }
+    policy_state = str(policy_decision).strip().lower() or "allow"
+    if policy_state == "deny":
+        state["status"] = "stopped"
+        state["stop_reason"] = "policy_denied"
+        state["phase"] = "summarize"
+        state["events"].append(
+            build_progress_event(
+                task_id=task_id,
+                trace_id=trace_id,
+                phase="summarize",
+                iteration=0,
+                artifact_refs=[],
+                detail="Loop stopped due to policy deny.",
+            )
+        )
+        return state
+
     state["events"].append(
         build_progress_event(
             task_id=task_id,
@@ -331,57 +367,112 @@ def _run_deterministic_repair_loop(
             detail=f"Deterministic repair loop started: {repair_procedure.procedure_id} ({len(steps_data)} steps).",
         )
     )
+
+    _approval_refs: list[ApprovalRef] = []
+    if approval_ref:
+        ref_id = (
+            approval_ref.get("approval_id", "")
+            or approval_ref.get("ref_id", "")
+            or "approval-unknown"
+        )
+        operation = approval_ref.get("operation", "") or "deterministic_repair"
+        _approval_refs.append(
+            ApprovalRef(
+                ref_id=ref_id,
+                operation=operation,
+                granted_at=approval_ref.get("granted_at", 0.0),
+                granted_by=approval_ref.get("granted_by", "system"),
+            )
+        )
+
+    _cap_grant = capability_grant or CapabilityGrant(capabilities=["deterministic_repair"])
+
+    envelope = ExecutionEnvelope(
+        task_id=task_id,
+        actor_ref=actor_ref,
+        capability_grant=_cap_grant,
+        context_envelope_ref=context_hash,
+        audit_correlation_id=trace_id,
+        approval_refs=_approval_refs,
+        allowed_operations=allowed_operations or [],
+        denied_operations=denied_operations or [],
+        repair_procedure=repair_procedure,
+    )
+
+    runner = RepairProcedureRunner()
+    run_result = runner.run_plan(envelope)
+
     for i, step in enumerate(steps_data):
         step_id = step.get("step_id", f"step-{i}")
-        state["iteration"] = i + 1
         state["plan_artifact"] = update_plan_step_state(
             plan_artifact=state["plan_artifact"],
             step_id=step_id,
-            state="executing",
+            state="done" if step_id in run_result.completed_steps else "failed",
         )
+
+    if run_result.status == RepairResultVerdict.success:
+        state["status"] = "completed"
+        state["stop_reason"] = "deterministic_repair_completed"
+        state["phase"] = "summarize"
+        for sr in run_result.step_results:
+            state["artifacts"].append(f"repair-step:{sr.step_id}")
         state["events"].append(
             build_progress_event(
                 task_id=task_id,
                 trace_id=trace_id,
-                phase="deterministic_repair",
-                iteration=i + 1,
+                phase="summarize",
+                iteration=len(steps_data),
+                artifact_refs=list(state["artifacts"]),
+                detail="Deterministic repair loop completed.",
+            )
+        )
+    elif run_result.status == RepairResultVerdict.needs_approval:
+        state["status"] = "needs_approval"
+        step_id = run_result.approval_required_step_id or "unknown"
+        state["stop_reason"] = f"approval_required_for_step:{step_id}"
+        state["phase"] = "summarize"
+        for sr in run_result.step_results:
+            if sr.status.value == "approval_required":
+                break
+            state["artifacts"].append(f"repair-step:{sr.step_id}")
+        state["events"].append(
+            build_progress_event(
+                task_id=task_id,
+                trace_id=trace_id,
+                phase="summarize",
+                iteration=len(steps_data),
                 artifact_refs=[],
-                detail=f"Executing step {step_id}: {step.get('title', '')}",
+                detail=f"Approval required for mutation step {step_id}.",
             )
         )
-        mutation = bool(step.get("mutation_candidate"))
-        if mutation and not approval_ref:
-            state["status"] = "needs_approval"
-            state["stop_reason"] = f"approval_required_for_step:{step_id}"
-            state["phase"] = "summarize"
-            state["events"].append(
-                build_progress_event(
-                    task_id=task_id,
-                    trace_id=trace_id,
-                    phase="summarize",
-                    iteration=i + 1,
-                    artifact_refs=[],
-                    detail=f"Approval required for mutation step {step_id}.",
-                )
+    elif run_result.status == RepairResultVerdict.denied:
+        state["status"] = "denied"
+        state["stop_reason"] = "repair_denied"
+        state["phase"] = "summarize"
+        state["events"].append(
+            build_progress_event(
+                task_id=task_id,
+                trace_id=trace_id,
+                phase="summarize",
+                iteration=0,
+                artifact_refs=[],
+                detail="Repair execution denied.",
             )
-            return state
-        state["plan_artifact"] = update_plan_step_state(
-            plan_artifact=state["plan_artifact"],
-            step_id=step_id,
-            state="done",
         )
-        state["artifacts"].append(f"repair-step:{step_id}")
-    state["status"] = "completed"
-    state["stop_reason"] = "deterministic_repair_completed"
-    state["phase"] = "summarize"
-    state["events"].append(
-        build_progress_event(
-            task_id=task_id,
-            trace_id=trace_id,
-            phase="summarize",
-            iteration=len(steps_data),
-            artifact_refs=list(state["artifacts"]),
-            detail="Deterministic repair loop completed.",
+    else:
+        state["status"] = "failed"
+        state["stop_reason"] = f"repair_{run_result.status.value}"
+        state["phase"] = "summarize"
+        state["events"].append(
+            build_progress_event(
+                task_id=task_id,
+                trace_id=trace_id,
+                phase="summarize",
+                iteration=0,
+                artifact_refs=[],
+                detail=f"Repair execution {run_result.status.value}.",
+            )
         )
-    )
+
+    state["repair_execution_result"] = run_result.model_dump()
     return state
