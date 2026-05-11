@@ -1,6 +1,6 @@
 # Task Brief
 
-- Task ID: goal-e13f4040
+- Task ID: goal-4793fb67
 - Title: Tests schreiben
 - Execution mode: structured-json-proposal
 
