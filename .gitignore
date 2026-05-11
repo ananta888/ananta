@@ -138,3 +138,4 @@ __pycache__/
 /client_surfaces/eclipse_runtime/ananta_eclipse_plugin/.gradle/
 /frontend-angular/android/app/src/main/assets/llm-server/llama-b8994-bin-ubuntu-arm64.tar.gz
 /.idea/
+/fibonacci_project/
