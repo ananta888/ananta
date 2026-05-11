@@ -182,10 +182,6 @@ class WorkerSelectionPolicy(BaseModel):
         cap_overlap = set(self.required_capabilities).intersection(self.forbidden_capabilities)
         if cap_overlap:
             raise ValueError(f"capabilities cannot be both required and forbidden: {sorted(cap_overlap)}")
-        if not self.allow_cloud and WorkerKind.remote_worker in self.allowed_worker_kinds:
-            # Remote worker is not always cloud, but this warning-class issue is handled at
-            # runtime by the selection service because it needs runtime target metadata.
-            pass
         return self
 
     def allows_worker_kind(self, kind: WorkerKind) -> bool:
@@ -360,6 +356,34 @@ class WorkerRuntimeSelectionDecision(BaseModel):
         payload.pop("decision_hash", None)
         raw = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(raw.encode()).hexdigest()
+
+
+class SelectedWorkerRuntimeRef(BaseModel):
+    """Persistable effective worker/runtime selection metadata. DRR-T049/DRR-T055."""
+
+    selected_worker_id: str
+    selected_worker_kind: WorkerKind
+    selected_runtime_target_id: str
+    selected_runtime_kind: WorkerRuntimeKind
+    selection_mode: WorkerSelectionMode
+    selection_decision_ref: str = ""
+    selection_reason: str = ""
+    context_boundary_decision: str = "not_evaluated"
+
+    @classmethod
+    def from_decision(cls, decision: WorkerRuntimeSelectionDecision) -> "SelectedWorkerRuntimeRef":
+        if decision.decision_status != SelectionDecisionStatus.selected:
+            raise ValueError("cannot create SelectedWorkerRuntimeRef from non-selected decision")
+        return cls(
+            selected_worker_id=decision.selected_worker_id or "",
+            selected_worker_kind=decision.selected_worker_kind or WorkerKind.disabled_placeholder,
+            selected_runtime_target_id=decision.selected_runtime_target_id or "",
+            selected_runtime_kind=decision.selected_runtime_kind or WorkerRuntimeKind.custom,
+            selection_mode=decision.selection_mode,
+            selection_decision_ref=decision.decision_hash,
+            selection_reason=decision.selected_reason,
+            context_boundary_decision=decision.context_boundary_decision,
+        )
 
 
 def capability_set_hash(capabilities: list[str]) -> str:
