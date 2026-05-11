@@ -12688,7 +12688,61 @@
           ]
         }
       }
+    },
+    "ananta-worker:google/gemma-4-e4b": {
+      "provider": "ananta-worker",
+      "model": "google/gemma-4-e4b",
+      "overall": {
+        "total": 1,
+        "success": 0,
+        "failed": 1,
+        "quality_pass": 0,
+        "quality_fail": 1,
+        "latency_ms_total": 10,
+        "tokens_total": 145,
+        "cost_units_total": 0.0,
+        "last_seen": 1778536513,
+        "samples": [
+          {
+            "ts": 1778536513,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 10,
+            "tokens_total": 145,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          }
+        ]
+      },
+      "task_kinds": {
+        "analysis": {
+          "total": 1,
+          "success": 0,
+          "failed": 1,
+          "quality_pass": 0,
+          "quality_fail": 1,
+          "latency_ms_total": 10,
+          "tokens_total": 145,
+          "cost_units_total": 0.0,
+          "last_seen": 1778536513,
+          "samples": [
+            {
+              "ts": 1778536513,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 10,
+              "tokens_total": 145,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            }
+          ]
+        }
+      }
     }
   },
-  "updated_at": 1778530935
+  "updated_at": 1778536513
 }

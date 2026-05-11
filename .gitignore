@@ -139,3 +139,4 @@ __pycache__/
 /frontend-angular/android/app/src/main/assets/llm-server/llama-b8994-bin-ubuntu-arm64.tar.gz
 /.idea/
 /fibonacci_project/
+/fibonacci_test_v2/
