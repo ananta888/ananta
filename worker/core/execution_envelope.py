@@ -353,6 +353,7 @@ class ExecutionEnvelope(BaseModel):
     worker_selection_policy: WorkerSelectionPolicy | None = None
     selected_worker_runtime: SelectedWorkerRuntimeRef | None = None
     repair_procedure: RepairProcedure | None = None
+    context_access_policy: dict[str, Any] | None = None  # CAP-BE-T024
 
     @field_validator("task_id", "actor_ref", "context_envelope_ref", "audit_correlation_id")
     @classmethod

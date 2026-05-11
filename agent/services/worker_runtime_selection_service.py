@@ -45,6 +45,8 @@ class WorkerRuntimeSelectionRequest:
     execution_mode: str = ""
     policy_decision_ref: str = ""
     context_boundary_decision: str = "not_evaluated"
+    required_context_class: str = ""  # Added for CAP integration
+    context_access_policy: Optional[Any] = None # Added for CAP integration
 
 
 class WorkerRuntimeSelectionService:
@@ -85,6 +87,20 @@ class WorkerRuntimeSelectionService:
                 if not runtime_allowed:
                     rejected.append(runtime_rejection)
                     continue
+
+                # CAP-BE-T021: Integrate context policy
+                if request.context_access_policy and request.required_context_class:
+                     # Check if this worker/runtime is allowed to receive the required context class
+                     # This is a simplified check for now
+                     if not self._is_context_allowed(request.context_access_policy, worker, runtime, request.required_context_class):
+                         rejected.append(RejectedWorkerRuntimeCandidate(
+                             worker_id=worker.worker_id,
+                             worker_kind=worker.worker_kind,
+                             runtime_target_id=runtime.runtime_target_id,
+                             reason_code="context_class_not_allowed",
+                         ))
+                         continue
+
                 any_runtime_ok = True
                 score = self._score(policy, worker, runtime, required)
                 scored.append((score, worker, runtime))
@@ -127,6 +143,17 @@ class WorkerRuntimeSelectionService:
         if policy.fixed_worker_kind:
             return [w for w in workers if w.worker_kind == policy.fixed_worker_kind]
         return []
+
+    def _is_context_allowed(self, policy: Any, worker: WorkerCandidate, runtime: WorkerRuntimeTarget, context_class: str) -> bool:
+        # CAP-BE-T021: Simplified context allowance check
+        # In a real implementation, this would use ContextAccessPolicyService.get_decision
+        # for a representative block of the requested class.
+
+        # If it's a secret class, only allow local models and tools
+        if context_class in ["secret", "credential", "security_sensitive"]:
+            if runtime.runtime_kind == WorkerRuntimeKind.cloud:
+                return False
+        return True
 
     def _check_worker(
         self,

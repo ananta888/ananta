@@ -30,31 +30,31 @@
       "id": "CAP-BE-M1",
       "title": "Core schemas and policy model",
       "task_ids": ["CAP-BE-T001", "CAP-BE-T002", "CAP-BE-T003", "CAP-BE-T004", "CAP-BE-T005"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "CAP-BE-M2",
       "title": "Source classification and matching",
       "task_ids": ["CAP-BE-T006", "CAP-BE-T007", "CAP-BE-T008", "CAP-BE-T009", "CAP-BE-T010"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "CAP-BE-M3",
       "title": "Policy decision engine",
       "task_ids": ["CAP-BE-T011", "CAP-BE-T012", "CAP-BE-T013", "CAP-BE-T014", "CAP-BE-T015"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "CAP-BE-M4",
       "title": "Integration with CodeCompass, RAG and context bundles",
       "task_ids": ["CAP-BE-T016", "CAP-BE-T017", "CAP-BE-T018", "CAP-BE-T019", "CAP-BE-T020"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "CAP-BE-M5",
       "title": "Worker/runtime/model enforcement",
       "task_ids": ["CAP-BE-T021", "CAP-BE-T022", "CAP-BE-T023", "CAP-BE-T024", "CAP-BE-T025"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "CAP-BE-M6",
@@ -66,14 +66,14 @@
       "id": "CAP-BE-M7",
       "title": "Trace, audit, diagnostics and tests",
       "task_ids": ["CAP-BE-T031", "CAP-BE-T032", "CAP-BE-T033", "CAP-BE-T034", "CAP-BE-T035"],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
     {
       "id": "CAP-BE-T001",
       "title": "Define ContextAccessPolicy schema",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "There is no single authoritative policy schema that maps source areas to allowed workers, runtime kinds, model scopes, provider locations and read/write/send permissions.",
@@ -109,7 +109,7 @@
     {
       "id": "CAP-BE-T002",
       "title": "Define ContextBlockAccessDecision contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "The system needs a machine-readable decision for each context block: allow, redact, summarize, deny or require approval.",
@@ -141,7 +141,7 @@
     {
       "id": "CAP-BE-T003",
       "title": "Define DestinationContext contract for worker/runtime/model target",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Policy evaluation needs a normalized description of the destination: worker kind, runtime target, provider, model and tool/mode.",
@@ -173,7 +173,7 @@
     {
       "id": "CAP-BE-T004",
       "title": "Define source sensitivity and classification taxonomy",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Context policy needs consistent sensitivity values across files, CodeCompass, RAG, memory, artifacts, logs and user-provided context.",
@@ -205,7 +205,7 @@
     {
       "id": "CAP-BE-T005",
       "title": "Add policy precedence and merge rules",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Policies may come from global defaults, project, blueprint role, task, user override and emergency admin override. Precedence must be deterministic and fail-safe.",
@@ -237,7 +237,7 @@
     {
       "id": "CAP-BE-T006",
       "title": "Implement source matcher for paths, repositories, artifact types and source ids",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Rules need robust matching for local files, CodeCompass nodes, RAG chunks, artifacts, logs, memory and user prompt sources.",
@@ -269,7 +269,7 @@
     {
       "id": "CAP-BE-T007",
       "title": "Add built-in secret and credential detectors",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Path rules are not enough. The backend must detect common secrets and credentials in content and metadata before context reaches a model or external worker.",
@@ -403,7 +403,7 @@
     {
       "id": "CAP-BE-T011",
       "title": "Implement can_send_context_block decision engine",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "The central enforcement point must evaluate a single context block against the destination and policy.",
@@ -436,7 +436,7 @@
     {
       "id": "CAP-BE-T012",
       "title": "Implement context redaction and summary-only transforms",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Some blocks may be allowed only as redacted or summarized context. That must be deterministic and policy-controlled.",
@@ -460,8 +460,7 @@
       ],
       "test_requirements": [
         "Redaction transform tests.",
-        "Summary-only transform tests.
-"
+        "Summary-only transform tests."
       ],
       "anti_patterns": [
         "Do not send raw block to cloud summarizer to make it safe for cloud.",
@@ -504,7 +503,7 @@
     {
       "id": "CAP-BE-T014",
       "title": "Add approval override flow for data-boundary exceptions",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "problem": "Sometimes an operator may need a narrow exception. The backend needs scoped, auditable approval override instead of broad config disablement.",
@@ -536,7 +535,7 @@
     {
       "id": "CAP-BE-T015",
       "title": "Make policy decisions deterministic and cacheable by hash",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "For audit and repeatability, the same block/destination/policy should produce the same decision and hash.",
@@ -566,7 +565,7 @@
     {
       "id": "CAP-BE-T016",
       "title": "Filter CodeCompass/RAG retrieval before prompt assembly",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "CodeCompass/RAG must not return forbidden blocks to prompt assembly and hope later code removes them. Filtering must happen as part of retrieval/context bundle building for the destination.",
@@ -600,7 +599,7 @@
     {
       "id": "CAP-BE-T017",
       "title": "Add required_context_class and fallback behavior",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Some tasks require private/local context. If cloud/external worker cannot receive it, the system should choose another worker or degrade, not send forbidden data.",
@@ -726,7 +725,7 @@
     {
       "id": "CAP-BE-T021",
       "title": "Integrate context policy with WorkerRuntimeSelectionService",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Worker/runtime selection must account for whether required context may be sent to the worker/model/runtime.",
@@ -1055,7 +1054,7 @@
     {
       "id": "CAP-BE-T031",
       "title": "Add context access decisions to TraceBundle and audit events",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Every model/worker/tool context decision must be auditable without exposing sensitive content.",
@@ -1177,7 +1176,7 @@
     {
       "id": "CAP-BE-T035",
       "title": "Write backend architecture and operator docs",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "This policy layer will be complex. Backend developers/operators need clear docs to avoid unsafe bypasses.",
@@ -1270,12 +1269,12 @@
   "tasks_status_summary": {
     "total": 35,
     "by_status": {
-      "todo": 35,
+      "todo": 19,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 16
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 45.7,
     "by_priority": {
       "P0": 25,
       "P1": 9,

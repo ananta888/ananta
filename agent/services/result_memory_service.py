@@ -3,10 +3,20 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, List, Optional, Dict
 
 from agent.db_models import MemoryEntryDB
 from agent.repository import memory_entry_repo
+from worker.core.context_access_policy import (
+    ContextAccessPolicy,
+    ContextAccessPolicyEvaluator,
+    DestinationContext,
+    RequestedOperation,
+    Decision,
+    ModelScope,
+    Sensitivity,
+    SourceType
+)
 
 _POLICY_VERSION = "memory_policy_v2"
 
@@ -203,9 +213,37 @@ class ResultMemoryService:
         generated_by: str | None = None,
         confidence: float = 1.0,
         approved: bool = False,
+        context_access_policy: ContextAccessPolicy | None = None, # CAP-BE-T025
     ) -> MemoryEntryDB | None:
         """Persist worker result memory. Returns None if policy disables write. T022–T026."""
         memory_policy = normalize_result_memory_policy(policy)
+
+        # CAP-BE-T025: Memory-Policy-Enforcement
+        if context_access_policy:
+             evaluator = ContextAccessPolicyEvaluator(context_access_policy)
+             block_metadata = {
+                 "source_type": SourceType.memory,
+                 "source_ref": title or "unknown_memory",
+                 "sensitivity": Sensitivity(memory_policy.get("sensitivity", "unknown"))
+             }
+             dest = DestinationContext(
+                 worker_id=generated_by or "hub",
+                 worker_kind="native",
+                 runtime_target_id="hub",
+                 runtime_kind="local",
+                 provider_id="hub",
+                 provider_location="local",
+                 model_id="none",
+                 model_scope=ModelScope.none,
+                 cloud_effective=False,
+                 external_effective=False,
+                 local_effective=True,
+                 requested_operation=RequestedOperation.memory_write
+             )
+             decision = evaluator.get_decision(block_metadata, dest)
+             if decision.decision == Decision.deny:
+                 # Deny persistence if policy forbids memory write for this sensitivity/source
+                 return None
 
         # T022: honor enabled=False
         if not bool(memory_policy["enabled"]):
