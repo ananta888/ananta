@@ -1,0 +1,336 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "autopilot_template_propose_pipeline",
+  "purpose": "Bring the new-project Autopilot propose/execute pipeline into a working deterministic baseline by adding a TemplateProposeHandler for coding/new_software_project tasks. The handler must generate executable command/tool_calls without relying on sgpt/LM Studio structured tool output.",
+  "problem_statement": "The new-project Autopilot creates tasks, but the propose step fails with autopilot_no_executable_step. The current propose flow calls sgpt, which talks to LM Studio without a tools parameter. The model returns unstructured text. parse_structured_action_payload cannot parse command/tool_calls, so no executable step is produced.",
+  "current_status_notes": [
+    "Model routing was fixed so default model auto is tried before benchmark models.",
+    "/project-workspaces/ was created because the Docker bind mount was missing.",
+    "Hub was started with ROLE=hub instead of the previous default worker role.",
+    "Fibonacci API was manually created and tests pass 10/10.",
+    "Remaining target: make the Hub/Autopilot produce and execute steps automatically, not manually."
+  ],
+  "architecture_decision": "For the first working slice, implement deterministic handler-based propose for known task kinds. This is not the final artifact-first architecture, but it removes the fragile dependency on sgpt/LM Studio returning structured JSON/tool calls. Later artifact-first work can replace/extend this path.",
+  "global_principles": [
+    "Propose must return an executable command or tool_calls for supported task kinds.",
+    "Known template/new-project tasks should not require an LLM call to produce the first executable step.",
+    "Unsupported task kinds must return None and fall back cleanly to the existing propose flow.",
+    "Handler output must match TaskScopedRouteResponse expectations and must be usable by execute via last_proposal.",
+    "The handler must respect available tools/allowed_tools and not invent tools that are unavailable.",
+    "E2E success is measured by ananta new-project generating a real Fibonacci API workspace and tests passing."
+  ],
+  "non_goals": [
+    "Do not solve full artifact-first manifest completion in this todo.",
+    "Do not require LM Studio tool-calling support for this path.",
+    "Do not parse unstructured LLM text as the primary propose result.",
+    "Do not bypass existing task-scoped execution safety checks.",
+    "Do not make the handler catch all unknown task kinds. Unknown kinds must fall back."
+  ],
+  "milestones": [
+    {"id": "ATP-M1", "title": "Understand handler contracts and available tools", "task_ids": ["ATP-T001", "ATP-T002"], "status": "todo"},
+    {"id": "ATP-M2", "title": "Implement and register TemplateProposeHandler", "task_ids": ["ATP-T003", "ATP-T004"], "status": "todo"},
+    {"id": "ATP-M3", "title": "Validate propose and execute in Hub", "task_ids": ["ATP-T005", "ATP-T006"], "status": "todo"},
+    {"id": "ATP-M4", "title": "End-to-end new-project validation and fallback behavior", "task_ids": ["ATP-T007", "ATP-T008", "ATP-T009"], "status": "todo"}
+  ],
+  "tasks": [
+    {
+      "id": "ATP-T001",
+      "title": "Analyze TaskHandlerRegistry and handler protocol",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": [
+        "agent/services/task_handler_registry.py",
+        "agent/ai_agent.py",
+        "agent/services/task_scoped_execution_service.py"
+      ],
+      "goal": "Fully understand how handlers are registered and how _try_handler_propose dispatches propose calls.",
+      "acceptance_criteria": [
+        "agent/services/task_handler_registry.py is reviewed and the TaskHandler protocol/signature is documented in notes or test comments.",
+        "DeterministicRepairHandler in agent/ai_agent.py is identified as the registration reference.",
+        "The existing register_task_handler() call in ai_agent.py is located and understood.",
+        "_try_handler_propose() in task_scoped_execution_service.py is reviewed and expected handler return shapes are documented.",
+        "TaskScopedRouteResponse structure for handler responses is identified, including fields used by propose/execute."
+      ],
+      "implementation_notes": [
+        "Do this before coding to avoid returning a shape that propose accepts but execute ignores.",
+        "Record exact expected keys for command/tool_calls/reason/metadata if not already obvious."
+      ],
+      "test_requirements": [
+        "No mandatory code test, but later handler tests must prove compatibility with _try_handler_propose."
+      ]
+    },
+    {
+      "id": "ATP-T002",
+      "title": "Analyze SDK/Shell tool registry and allowed_tools handling",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": [
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/tool_registry*.py",
+        "agent/services/*tool*.py",
+        "worker/core/*tool*.py"
+      ],
+      "goal": "Understand which tool definitions are available to the handler and how allowed_tools constrains propose output.",
+      "acceptance_criteria": [
+        "tool_definitions_resolver path, likely tool_registry.get_tool_definitions, is identified and can be called from the handler or tests.",
+        "The structure of returned tool definitions is documented: tool name, parameters, required fields and execution mapping.",
+        "Availability of common tools such as write_file, read_file and bash/command is verified or their actual names are documented.",
+        "normalize_allowed_tools behavior is understood: how task context restricts tool usage and how unavailable tools should be handled.",
+        "Handler design includes a fallback if write_file is unavailable but bash is available."
+      ],
+      "implementation_notes": [
+        "Do not hardcode tool names without verifying actual registry names where possible.",
+        "The handler should prefer safer file-write tools over shell heredoc when available."
+      ],
+      "test_requirements": [
+        "Add unit fixture with fake tool_definitions_resolver exposing write_file and bash variants."
+      ]
+    },
+    {
+      "id": "ATP-T003",
+      "title": "Implement TemplateProposeHandler",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/handlers/template_propose_handler.py",
+        "tests/test_template_propose_handler.py"
+      ],
+      "goal": "Create a deterministic TaskHandler for task_kind coding and new_software_project that returns executable proposal steps without an LLM call.",
+      "acceptance_criteria": [
+        "agent/handlers/template_propose_handler.py exists.",
+        "TemplateProposeHandler implements the TaskHandler protocol with propose(self, **kwargs) and execute(self, **kwargs).",
+        "propose() returns TaskScopedRouteResponse(data={...}) or the exact accepted dict shape used by _try_handler_propose.",
+        "For supported task kinds, propose() returns either command as a non-empty string or tool_calls as a non-empty list of dicts.",
+        "For task_kind='new_software_project', propose() can produce deterministic file creation steps for a small Python/Flask Fibonacci API project when the task description indicates that goal.",
+        "For task_kind='coding', propose() produces a safe generic command/tool_calls proposal only when the task description is recognized enough to be deterministic.",
+        "Handler uses tool_definitions_resolver to inspect available tools and does not emit unavailable tools if avoidable.",
+        "Handler respects allowed_tools from kwargs/context. If write_file is not allowed but bash is allowed, it may emit a bash heredoc command. If neither is allowed, it returns None with a reason.",
+        "Handler sets reason, for example 'TemplateProposeHandler: write_file app.py requirements.txt README.md tests'.",
+        "execute() returns None so the existing execute pipeline uses last_proposal/default execution flow, unless the protocol requires another pass-through shape."
+      ],
+      "implementation_notes": [
+        "Keep the first template deliberately narrow: Python Flask Fibonacci API with app.py, requirements.txt and tests/README if requested.",
+        "Prefer multiple write_file tool_calls when the tool exists. If only shell is available, emit one deterministic shell command that creates files using cat > file <<'EOF'.",
+        "Do not call sgpt/generate_text/LM Studio inside this handler.",
+        "Do not mark execution completed inside propose. Propose only suggests executable step(s)."
+      ],
+      "test_requirements": [
+        "Unit test: new_software_project + write_file tools returns tool_calls.",
+        "Unit test: new_software_project + only bash allowed returns command.",
+        "Unit test: unknown task_kind returns None.",
+        "Unit test: unsupported/unsafe description returns None or safe fallback, not random shell."
+      ],
+      "anti_patterns": [
+        "Do not emit free-text proposal without command/tool_calls.",
+        "Do not call the LLM from the deterministic handler.",
+        "Do not ignore allowed_tools."
+      ]
+    },
+    {
+      "id": "ATP-T004",
+      "title": "Register TemplateProposeHandler in Hub app",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/ai_agent.py",
+        "tests/test_template_propose_handler_registration.py"
+      ],
+      "goal": "Register the handler for coding and new_software_project task kinds so _try_handler_propose uses it before falling back to sgpt/LLM propose.",
+      "acceptance_criteria": [
+        "TemplateProposeHandler is imported in agent/ai_agent.py or an appropriate handler registration module.",
+        "register_task_handler('coding', handler, app=app, ...) is called with correct capabilities/safety flags.",
+        "register_task_handler('new_software_project', handler, app=app, ...) is called with correct capabilities/safety flags.",
+        "Registration occurs during Hub startup when ROLE=hub, alongside or near DeterministicRepairHandler registration.",
+        "Existing DeterministicRepairHandler registration continues to work.",
+        "Safety flags include explicit values such as requires_review=false or the project-standard equivalent, and no unsafe broad permissions are introduced.",
+        "Tests verify registry contains handlers for coding and new_software_project after app setup."
+      ],
+      "implementation_notes": [
+        "Either rename _register_deterministic_repair_handler() to a broader _register_task_handlers() or add a second registration function. Prefer minimal low-risk change.",
+        "Do not register the handler multiple times if app factory is called repeatedly."
+      ],
+      "test_requirements": [
+        "Registration test using app factory or registry fixture."
+      ],
+      "anti_patterns": [
+        "Do not hide registration behind worker role only.",
+        "Do not remove deterministic repair handler."
+      ]
+    },
+    {
+      "id": "ATP-T005",
+      "title": "Validate handler propose path in running Hub",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/task_scoped_execution_service.py",
+        "tests/test_task_scoped_handler_propose.py"
+      ],
+      "goal": "Prove POST /tasks/<tid>/step/propose uses _try_handler_propose and returns an executable step.",
+      "acceptance_criteria": [
+        "Hub health-check shows role: hub in the test/manual run.",
+        "A coding or new_software_project task can be created manually or via goal submit.",
+        "POST /tasks/<tid>/step/propose returns HTTP success and includes command or tool_calls.",
+        "Response includes reason from TemplateProposeHandler.",
+        "Logs or response metadata show handler_contract/task_kind and handler selection.",
+        "_try_handler_propose returns the handler response and does not fall through to _propose_single_task_step for supported tasks.",
+        "No autopilot_no_executable_step occurs for the supported Fibonacci/new-project task."
+      ],
+      "implementation_notes": [
+        "If the API currently hides handler metadata, add safe debug metadata only when appropriate.",
+        "Prefer automated service-level test over manual-only verification."
+      ],
+      "test_requirements": [
+        "Service/API test for handler propose path."
+      ]
+    },
+    {
+      "id": "ATP-T006",
+      "title": "Validate execute pipeline consumes handler proposal",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": [
+        "agent/services/task_scoped_execution_service.py",
+        "tests/test_task_scoped_handler_execute.py",
+        "tests/test_worker_job_flow.py"
+      ],
+      "goal": "Ensure a proposed command/tool_calls from TemplateProposeHandler is actually executed via the existing execute path.",
+      "acceptance_criteria": [
+        "POST /tasks/<tid>/step/execute without explicit command uses last_proposal.command or last_proposal.tool_calls.",
+        "Execution creates expected files in the task workspace.",
+        "Exit code is 0 for the deterministic Fibonacci template proposal.",
+        "Task status transitions according to existing execute rules and does not fail with no executable step.",
+        "Workspace snapshot shows expected files such as app.py, requirements.txt and tests or README as defined by the handler.",
+        "If execution fails, error is a real command/tool error, not missing proposal structure."
+      ],
+      "implementation_notes": [
+        "This test may reveal whether execute currently supports tool_calls from last_proposal or only command. If tool_calls are not supported, either adapt handler to emit command first or add tool_calls execution support as a separate patch."
+      ],
+      "test_requirements": [
+        "Integration test: propose then execute using handler output."
+      ]
+    },
+    {
+      "id": "ATP-T007",
+      "title": "Run ananta new-project end-to-end for Fibonacci API",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": [
+        "tests/e2e/test_autopilot_new_project_fibonacci.py",
+        "agent/cli.py",
+        "agent/services/task_scoped_execution_service.py"
+      ],
+      "goal": "Validate the full Autopilot path creates a real Fibonacci API project through Hub orchestration, not manual file creation.",
+      "acceptance_criteria": [
+        "ananta new-project 'Python Fibonacci API mit REST-Endpunkt' or equivalent test entrypoint creates a Goal.",
+        "Autoplanner creates tasks for the project.",
+        "Task propose produces valid executable steps via TemplateProposeHandler for supported task kind(s).",
+        "Task execute runs the proposed steps.",
+        "Workspace under /project-workspaces/fibonacci or test workspace contains app.py, requirements.txt and tests/README as expected.",
+        "pytest or equivalent project test command passes.",
+        "No manual file creation or manual task status patch is required.",
+        "No autopilot_no_executable_step occurs in the E2E flow."
+      ],
+      "implementation_notes": [
+        "Use isolated temp workspace in automated tests if possible; keep /project-workspaces only for manual/docker validation.",
+        "This can be a smoke E2E first, then hardened later with artifact-first manifest checks."
+      ],
+      "test_requirements": [
+        "E2E or integration test for new-project Fibonacci flow."
+      ]
+    },
+    {
+      "id": "ATP-T008",
+      "title": "Ensure unsupported task kinds fall back safely",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": [
+        "agent/handlers/template_propose_handler.py",
+        "agent/services/task_scoped_execution_service.py",
+        "tests/test_template_propose_handler.py",
+        "tests/test_task_scoped_handler_propose.py"
+      ],
+      "goal": "Unknown or unsupported task kinds must not crash and must not block the legacy propose fallback.",
+      "acceptance_criteria": [
+        "TemplateProposeHandler.propose returns None for unsupported task_kind.",
+        "_try_handler_propose returns None when the handler declines.",
+        "The existing _propose_single_task_step fallback still runs after handler decline.",
+        "No exception/crash occurs for unknown task_kind.",
+        "Logs/metadata indicate handler_declined or unsupported_task_kind for diagnostics."
+      ],
+      "implementation_notes": [
+        "This keeps the deterministic handler narrow and safe."
+      ],
+      "test_requirements": [
+        "Unit/service test for unsupported task_kind fallback."
+      ]
+    },
+    {
+      "id": "ATP-T009",
+      "title": "Document current deterministic propose baseline and relation to artifact-first work",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "target_files": [
+        "docs/architecture/autopilot-template-propose-pipeline.md",
+        "todo.autopilot-template-propose-pipeline.json"
+      ],
+      "goal": "Make clear that TemplateProposeHandler is the immediate deterministic baseline, while artifact-first manifests remain the longer-term robust output/completion architecture.",
+      "acceptance_criteria": [
+        "Docs explain why sgpt/LM Studio unstructured output caused autopilot_no_executable_step.",
+        "Docs explain TemplateProposeHandler flow: task_kind -> handler -> command/tool_calls -> last_proposal -> execute.",
+        "Docs list supported task kinds and explicit unsupported fallback behavior.",
+        "Docs reference future artifact-first handoff/completion work without mixing both scopes.",
+        "This todo JSON is updated after implementation slices or a status companion file is created."
+      ],
+      "test_requirements": [
+        "json.loads todo.autopilot-template-propose-pipeline.json succeeds."
+      ]
+    }
+  ],
+  "priority_order": [
+    "ATP-T003",
+    "ATP-T004",
+    "ATP-T005",
+    "ATP-T006",
+    "ATP-T007",
+    "ATP-T001",
+    "ATP-T002",
+    "ATP-T008",
+    "ATP-T009"
+  ],
+  "critical_path_tasks": ["ATP-T003", "ATP-T004", "ATP-T005", "ATP-T006", "ATP-T007"],
+  "minimum_safe_slice": ["ATP-T003", "ATP-T004", "ATP-T005", "ATP-T006", "ATP-T008"],
+  "definition_of_done_global": [
+    "TemplateProposeHandler exists and is registered for coding and new_software_project.",
+    "Supported task kinds produce executable command or tool_calls without LLM call.",
+    "POST /tasks/<tid>/step/propose returns executable proposal and no longer fails with autopilot_no_executable_step for Fibonacci/new-project task.",
+    "POST /tasks/<tid>/step/execute consumes last_proposal and creates expected project files.",
+    "ananta new-project Fibonacci API works through Hub orchestration and tests pass.",
+    "Unsupported task kinds fall back cleanly to existing propose flow.",
+    "Tests cover handler propose, registration, execute consumption, E2E Fibonacci and fallback behavior."
+  ],
+  "tasks_status_summary": {
+    "total": 9,
+    "by_status": {"todo": 9, "in_progress": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "by_priority": {"P0": 5, "P1": 3, "P2": 1},
+    "by_risk": {"critical": 1, "high": 5, "medium": 2, "low": 1},
+    "critical_path": {"total": 5, "done": 0, "remaining": 5},
+    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "summary_notes": [
+    "This is the pragmatic immediate fix for autopilot_no_executable_step.",
+    "It intentionally avoids requiring LM Studio tool-calling or structured JSON output.",
+    "It should be implemented before the larger artifact-first handoff/completion track if the goal is to get new-project working quickly."
+  ]
+}
