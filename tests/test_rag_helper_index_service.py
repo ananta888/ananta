@@ -223,3 +223,57 @@ def test_rag_helper_index_service_wiki_chunk_ids_are_stable_across_rebuilds():
     second_lines = (Path(str(second_run.output_dir)) / "index.jsonl").read_text(encoding="utf-8").splitlines()
     assert first_index.id == second_index.id
     assert first_lines == second_lines
+
+
+def test_index_repo_path_indexes_a_directory(tmp_path):
+    src = tmp_path / "mylib"
+    src.mkdir()
+    (src / "calc.py").write_text(
+        "def add(a, b):\n    return a + b\n\ndef subtract(a, b):\n    return a - b\n",
+        encoding="utf-8",
+    )
+    rag_helper_root = Path(__file__).resolve().parents[1] / "rag-helper"
+
+    service = RagHelperIndexService()
+    service._repo_root = lambda: tmp_path
+    service._rag_helper_root = lambda: rag_helper_root
+
+    knowledge_index, run = service.index_repo_path("mylib", created_by="tester")
+
+    assert knowledge_index.status == "completed"
+    assert run.status == "completed"
+    assert knowledge_index.source_scope == "repo_path"
+    output_dir = Path(run.output_dir)
+    index_rows = [
+        json.loads(line)
+        for line in (output_dir / "index.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert any("add" in json.dumps(row).lower() for row in index_rows)
+
+
+def test_index_repo_path_skips_if_already_completed(tmp_path):
+    src = tmp_path / "skip_lib"
+    src.mkdir()
+    (src / "utils.py").write_text("def noop(): pass\n", encoding="utf-8")
+    rag_helper_root = Path(__file__).resolve().parents[1] / "rag-helper"
+
+    service = RagHelperIndexService()
+    service._repo_root = lambda: tmp_path
+    service._rag_helper_root = lambda: rag_helper_root
+
+    ki1, run1 = service.index_repo_path("skip_lib", created_by="tester")
+    assert ki1.status == "completed"
+
+    ki2, run2 = service.index_repo_path("skip_lib", created_by="tester")
+    assert run2.status == "skipped"
+    assert ki2.id == ki1.id
+
+
+def test_index_repo_path_rejects_outside_repo(tmp_path):
+    service = RagHelperIndexService()
+    service._repo_root = lambda: tmp_path
+
+    import pytest
+    with pytest.raises(ValueError, match="path_outside_repo"):
+        service.index_repo_path("/etc/passwd", created_by="tester")

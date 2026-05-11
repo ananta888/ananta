@@ -2588,6 +2588,41 @@ class TaskScopedExecutionService:
             )
             execution_context["worker_profile"] = profile
             execution_context["profile_source"] = profile_source
+            auto_bundle_cfg = dict(
+                (agent_cfg.get("worker_runtime") or {}).get("codecompass_auto_bundle") or {}
+            )
+            if auto_bundle_cfg.get("enabled") and not list(
+                (execution_context.get("context") or {}).get("chunks") or []
+            ):
+                kind_filter = [
+                    str(k).strip().lower()
+                    for k in list(auto_bundle_cfg.get("task_kinds") or [])
+                    if str(k).strip()
+                ]
+                routing_kind = str(
+                    (execution_context.get("routing_hints") or {}).get("task_kind") or ""
+                ).strip().lower()
+                if not kind_filter or not routing_kind or routing_kind in kind_filter:
+                    try:
+                        resolved = get_context_manager_service().ensure_task_context_bundle(
+                            task=dict(task or {}),
+                            task_id=tid,
+                            query=base_prompt,
+                        )
+                        bundle = resolved.get("context_bundle")
+                        if bundle:
+                            ctx = dict(execution_context.get("context") or {})
+                            ctx.setdefault("chunks", []).extend(list(bundle.chunks or []))
+                            ctx["token_estimate"] = (
+                                int(ctx.get("token_estimate") or 0)
+                                + int(bundle.token_estimate or 0)
+                            )
+                            if not ctx.get("context_text") and bundle.context_text:
+                                ctx["context_text"] = bundle.context_text
+                            execution_context["context"] = ctx
+                            execution_context.setdefault("context_bundle_id", bundle.id)
+                    except Exception:
+                        pass
             return execution_context
         bundle_id = str((task or {}).get("context_bundle_id") or "").strip()
         bundle = None

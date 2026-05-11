@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from agent.models import ResearchContextSummaryContract
@@ -100,7 +101,35 @@ class ResearchContextBridgeService:
             )
         return items
 
+    @staticmethod
+    def _auto_index_cfg() -> dict:
+        try:
+            from flask import current_app, has_app_context
+            if has_app_context():
+                return dict(
+                    (current_app.config.get("AGENT_CONFIG", {}) or {})
+                    .get("knowledge_context", {})
+                    .get("auto_index_paths") or {}
+                )
+        except Exception:
+            pass
+        return {}
+
+    def _trigger_path_indexing(self, scope_id: str, *, profile: str) -> None:
+        from agent.services.rag_helper_index_service import get_rag_helper_index_service
+        def _run():
+            try:
+                get_rag_helper_index_service().index_repo_path(
+                    scope_id, created_by="auto_index", profile_name=profile or None
+                )
+            except Exception:
+                pass
+        threading.Thread(target=_run, daemon=True).start()
+
     def _repo_scope_context(self, repo_scope_refs: list[dict], *, per_item_limit: int) -> list[dict]:
+        auto_cfg = self._auto_index_cfg()
+        auto_enabled = bool(auto_cfg.get("enabled"))
+        auto_profile = str(auto_cfg.get("profile") or "default")
         items: list[dict] = []
         for raw_ref in repo_scope_refs:
             ref = dict(raw_ref or {})
@@ -126,11 +155,64 @@ class ResearchContextBridgeService:
                     }
                 )
                 continue
+
+            scope_id = str(safe_path.relative_to(self._repo_root()))
+
+            # Check for an existing repo_path index
+            if auto_enabled or safe_path.is_dir():
+                repos = get_repository_registry()
+                existing_index = repos.knowledge_index_repo.get_by_scope(
+                    source_scope="repo_path", scope_id=scope_id
+                )
+                index_status = str(getattr(existing_index, "status", "") or "")
+
+                if index_status == "completed":
+                    # Use vector retrieval from the completed index
+                    retrieval = get_knowledge_index_retrieval_service()
+                    chunks = retrieval.search(
+                        ref.get("ref") or scope_id,
+                        top_k=5,
+                        source_scopes={"repo_path"},
+                    )
+                    items.append(
+                        {
+                            "path": scope_id,
+                            "ref": ref.get("ref"),
+                            "url": url,
+                            "status": "indexed",
+                            "chunks": [
+                                {
+                                    "source": c.source,
+                                    "content": self._clip_text(c.content, per_item_limit),
+                                    "score": round(float(c.score), 3),
+                                }
+                                for c in chunks
+                            ],
+                        }
+                    )
+                    continue
+
+                if auto_enabled and index_status not in ("running",):
+                    self._trigger_path_indexing(scope_id, profile=auto_profile)
+
+                if safe_path.is_dir():
+                    entries = sorted(str(p.relative_to(self._repo_root())) for p in safe_path.iterdir())[:12]
+                    items.append(
+                        {
+                            "path": scope_id,
+                            "ref": ref.get("ref"),
+                            "url": url,
+                            "status": "indexing" if index_status == "running" else "directory",
+                            "entries": entries,
+                        }
+                    )
+                    continue
+
             if safe_path.is_dir():
-                entries = sorted(str(path.relative_to(self._repo_root())) for path in safe_path.iterdir())[:12]
+                entries = sorted(str(p.relative_to(self._repo_root())) for p in safe_path.iterdir())[:12]
                 items.append(
                     {
-                        "path": str(safe_path.relative_to(self._repo_root())),
+                        "path": scope_id,
                         "ref": ref.get("ref"),
                         "url": url,
                         "status": "directory",
@@ -138,10 +220,11 @@ class ResearchContextBridgeService:
                     }
                 )
                 continue
+
             excerpt = self._clip_text(safe_path.read_text(encoding="utf-8", errors="ignore"), per_item_limit)
             items.append(
                 {
-                    "path": str(safe_path.relative_to(self._repo_root())),
+                    "path": scope_id,
                     "ref": ref.get("ref"),
                     "url": url,
                     "status": "file",

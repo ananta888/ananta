@@ -393,6 +393,10 @@ def build_default_agent_config() -> dict:
                 "enabled": True,
                 "fallback_backend": "sgpt",
             },
+            "codecompass_auto_bundle": {
+                "enabled": False,
+                "task_kinds": [],
+            },
         },
         "knowledge_context": {
             "auto_include": {
@@ -400,7 +404,12 @@ def build_default_agent_config() -> dict:
                 "knowledge_collection_ids": [],
                 "artifact_ids": [],
                 "repo_scope_refs": [],
-            }
+            },
+            "auto_index_paths": {
+                "enabled": False,
+                "profile": "default",
+                "task_kinds": ["coding", "bugfix", "refactor", "analysis"],
+            },
         },
         "planning": {
             # "llm"      → LLM (Ollama) always generates the task plan
