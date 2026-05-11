@@ -24,6 +24,10 @@ from agent.services.task_execution_policy_service import normalize_allowed_tools
 from agent.services.worker_todo_planner_service import get_worker_todo_planner_service
 from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 from agent.services.workspace_scope_builder import build_worker_workspace, derive_workspace_scope
+from agent.services.worker_runtime_selection_service import WorkerRuntimeSelectionService, WorkerRuntimeSelectionRequest
+from agent.services.worker_selection_policy_service import WorkerSelectionPolicyService
+from agent.services.worker_runtime_target_service import WorkerRuntimeTargetService
+from worker.core.runtime_target import WorkerCandidate, WorkerKind, SelectedWorkerRuntimeRef
 
 
 @dataclass(frozen=True)
@@ -51,6 +55,7 @@ class TaskDelegationPlan:
     effective_task_kind: str | None
     effective_required_capabilities: list[str]
     preferred_backend: str | None
+    worker_runtime_decision: Any = None
 
 
 @dataclass(frozen=True)
@@ -98,9 +103,45 @@ class TaskDelegationPlanner:
                 or derive_required_capabilities(parent_task, effective_task_kind)
             )
         preferred_backend = self._preferred_backend(effective_task_kind)
+        worker_runtime_decision = None
+
+        # DRR-T053/T048: Try new worker/runtime selection if policy exists
+        repos = self.dependencies.repository_registry()
+        policy_data = data.get("worker_selection_policy") or parent_task.get("worker_selection")
+        if policy_data:
+            policy = WorkerSelectionPolicyService().from_config(policy_data)
+            agents = repos.agent_repo.get_all()
+            candidates = []
+            for a in agents:
+                if a.status != "online": continue
+                # Simplified mapping, should be more robust in real impl
+                kind = WorkerKind.native_ananta_worker
+                if "opencode" in (a.name or "").lower(): kind = WorkerKind.opencode
+                elif "hermes" in (a.name or "").lower(): kind = WorkerKind.hermes
+
+                candidates.append(WorkerCandidate(
+                    worker_id=a.url, worker_kind=kind, capabilities=list(a.capabilities or []),
+                    worker_roles=list(a.worker_roles or []), priority=100
+                ))
+
+            rt_service = WorkerRuntimeTargetService()
+            runtime_targets = [rt_service.local_process_default(), rt_service.docker_default()]
+
+            sel_request = WorkerRuntimeSelectionRequest(
+                policy=policy,
+                workers=candidates,
+                runtime_targets=runtime_targets,
+                required_capabilities=effective_required_capabilities,
+                execution_mode="task_delegation"
+            )
+            worker_runtime_decision = WorkerRuntimeSelectionService().select(sel_request)
+
+            if worker_runtime_decision.selected_worker_id:
+                agent_url = worker_runtime_decision.selected_worker_id
+                selected_by_policy = True
+                selection = worker_runtime_decision # Mapping for compatibility
 
         if not agent_url:
-            repos = self.dependencies.repository_registry()
             available_workers = [
                 agent_registry_service.build_directory_entry(agent=worker, timeout=300)
                 for worker in repos.agent_repo.get_all()
@@ -138,6 +179,7 @@ class TaskDelegationPlanner:
             effective_task_kind=effective_task_kind,
             effective_required_capabilities=list(effective_required_capabilities or []),
             preferred_backend=preferred_backend,
+            worker_runtime_decision=worker_runtime_decision,
         )
 
     @staticmethod
@@ -219,6 +261,7 @@ class WorkerExecutionContextFactory:
                 context_policy=context_policy,
                 extra_metadata={"selected_by_policy": plan.selected_by_policy},
             ),
+            selection_decision=plan.worker_runtime_decision.model_dump(mode="json") if plan.worker_runtime_decision and hasattr(plan.worker_runtime_decision, "model_dump") else None,
         )
         workspace_scope = derive_workspace_scope(
             parent_task=parent_task,

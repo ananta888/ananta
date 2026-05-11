@@ -74,6 +74,7 @@ class AgentInfoDB(SQLModel, table=True):
     token: Optional[str] = None
     worker_roles: List[str] = Field(default=[], sa_column=Column(JSON))
     capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    runtime_targets: List[dict] = Field(default=[], sa_column=Column(JSON))
     execution_limits: dict = Field(default={}, sa_column=Column(JSON))
     registration_validated: bool = True
     validation_errors: List[str] = Field(default=[], sa_column=Column(JSON))
@@ -491,6 +492,12 @@ class WorkerJobDB(SQLModel, table=True):
     allowed_tools: List[str] = Field(default=[], sa_column=Column(JSON))
     expected_output_schema: dict = Field(default={}, sa_column=Column(JSON))
     job_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    selected_worker_id: Optional[str] = Field(default=None, index=True)
+    selected_worker_kind: Optional[str] = Field(default=None, index=True)
+    selected_runtime_target_id: Optional[str] = Field(default=None, index=True)
+    selected_runtime_kind: Optional[str] = Field(default=None, index=True)
+    selection_mode: Optional[str] = Field(default=None)
+    selection_decision_ref: Optional[str] = Field(default=None, index=True)
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
 
@@ -504,6 +511,11 @@ class WorkerResultDB(SQLModel, table=True):
     status: str = "received"
     output: Optional[str] = None
     result_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    actual_worker_id: Optional[str] = Field(default=None, index=True)
+    actual_worker_kind: Optional[str] = Field(default=None, index=True)
+    actual_runtime_target_id: Optional[str] = Field(default=None, index=True)
+    actual_runtime_kind: Optional[str] = Field(default=None, index=True)
+    selection_reason: Optional[str] = Field(default=None)
     created_at: float = Field(default_factory=time.time)
 
 

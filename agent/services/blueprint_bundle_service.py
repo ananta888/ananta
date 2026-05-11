@@ -439,6 +439,8 @@ def _validate_blueprint_bundle_definition(blueprint: BlueprintBundleDefinition) 
         verification_defaults = role_config.get("verification_defaults")
         execution_mode = role_config.get("execution_mode")
         preferred_backend = role_config.get("preferred_backend")
+        worker_selection = role_config.get("worker_selection")
+        runtime_target = role_config.get("runtime_target")
         if capability_defaults is not None and not isinstance(capability_defaults, list):
             errors.append(
                 {
@@ -479,6 +481,38 @@ def _validate_blueprint_bundle_definition(blueprint: BlueprintBundleDefinition) 
                     "details": {"role_name": normalized_name},
                 }
             )
+        if worker_selection is not None:
+            from agent.services.worker_selection_policy_service import WorkerSelectionPolicyService
+            _, err = WorkerSelectionPolicyService().validate_or_error({"worker_selection": worker_selection})
+            if err:
+                errors.append(
+                    {
+                        "type": "validation",
+                        "message": "blueprint_role_worker_selection_invalid",
+                        "details": {"role_name": normalized_name, "detail": err},
+                    }
+                )
+        if runtime_target is not None:
+            if not isinstance(runtime_target, dict):
+                 errors.append(
+                    {
+                        "type": "validation",
+                        "message": "blueprint_role_runtime_target_invalid",
+                        "details": {"role_name": normalized_name, "detail": "must be a dictionary"},
+                    }
+                )
+            else:
+                from agent.services.worker_runtime_target_service import WorkerRuntimeTargetService
+                try:
+                    WorkerRuntimeTargetService().from_config(runtime_target)
+                except Exception as exc:
+                    errors.append(
+                        {
+                            "type": "validation",
+                            "message": "blueprint_role_runtime_target_invalid",
+                            "details": {"role_name": normalized_name, "detail": str(exc)},
+                        }
+                    )
 
     seen_artifact_titles: set[str] = set()
     seen_artifact_orders: set[int] = set()

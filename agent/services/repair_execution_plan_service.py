@@ -15,6 +15,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from worker.core.execution_envelope import RepairStep, RepairProcedure
+from worker.core.runtime_target import WorkerSelectionPolicy
 
 
 # ── Typed plan models ─────────────────────────────────────────────────────────
@@ -84,6 +85,8 @@ class RepairProcedureExecutionPlan(BaseModel):
     created_by: str = "hub"
     policy_decision_ref: str = ""
     context_bundle_ref: str = ""
+    worker_selection_policy: WorkerSelectionPolicy | None = None
+    preselected_worker_runtime_decision_ref: str = ""
     steps: list[RepairStepExecutionPlan] = Field(default_factory=list)
     verification_plan: list[str] = Field(default_factory=list)
     rollback_hints: list[str] = Field(default_factory=list)
