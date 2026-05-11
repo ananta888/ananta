@@ -10,7 +10,6 @@ from flask import Blueprint, g, request, current_app
 from agent.auth import admin_required, check_auth
 from agent.common.errors import api_response
 from agent.common.audit import log_audit
-from agent.repositories.core import agent_repo
 from agent.services.worker_runtime_selection_service import (
     WorkerRuntimeSelectionRequest,
     WorkerRuntimeSelectionService,
@@ -48,12 +47,7 @@ def list_worker_candidates():
     from agent.services.agent_registry_service import get_agent_registry_service
     registry_service = get_agent_registry_service()
 
-    agents = agent_repo.get_all()
-    candidates = []
-    for a in agents:
-        if a.status != "online":
-            continue
-        candidates.append(registry_service.agent_to_candidate(a))
+    candidates = registry_service.get_online_candidates()
 
     return api_response({
         "policy": policy.model_dump(mode="json"),
@@ -73,10 +67,9 @@ def list_runtime_targets():
     targets = [rt_service.local_process_default(), rt_service.docker_default()]
 
     # Collect from registered agents
-    agents = agent_repo.get_all()
-    for a in agents:
-        if a.status != "online":
-            continue
+    from agent.services.agent_registry_service import get_agent_registry_service
+    online_agents = get_agent_registry_service().get_online_agents()
+    for a in online_agents:
         for rt_data in a.runtime_targets or []:
             try:
                 targets.append(rt_service.from_config(rt_data))
@@ -193,12 +186,7 @@ def preview_repair():
         from agent.services.agent_registry_service import get_agent_registry_service
         registry_service = get_agent_registry_service()
 
-        agents = agent_repo.get_all()
-        candidates = []
-        for a in agents:
-            if a.status != "online":
-                continue
-            candidates.append(registry_service.agent_to_candidate(a))
+        candidates = registry_service.get_online_candidates()
 
         runtime_targets = [rt_service.local_process_default(), rt_service.docker_default()]
 
@@ -307,36 +295,18 @@ def get_repair_outcomes():
     signature_id = request.args.get("signature_id") or ""
 
     try:
-        from agent.repositories.repair_execution_record import get_repair_execution_record_repo
+        from agent.services.repair_outcome_service import query_repair_outcomes
 
-        repo = get_repair_execution_record_repo()
-        records: list = []
-
-        if problem_class:
-            records = repo.query_by_problem_class(problem_class, limit=20)
-        elif procedure_id:
-            records = repo.query_by_procedure_id(procedure_id, limit=20)
-        elif signature_id:
-            records = repo.query_by_signature_id(signature_id, limit=20)
-        else:
-            records = repo.recent_by_environment({}, limit=10)
+        outcomes = query_repair_outcomes(
+            problem_class=problem_class,
+            procedure_id=procedure_id,
+            signature_id=signature_id,
+        )
 
         return api_response({
             "schema": "repair_outcomes_response_v1",
-            "count": len(records),
-            "outcomes": [
-                {
-                    "id": str(r.id or ""),
-                    "plan_id": r.plan_id,
-                    "procedure_id": r.procedure_id,
-                    "problem_class": r.problem_class,
-                    "execution_status": r.execution_status,
-                    "outcome_label": r.outcome_label,
-                    "regression_flag": r.regression_flag,
-                    "created_at": r.created_at,
-                }
-                for r in records
-            ],
+            "count": len(outcomes),
+            "outcomes": outcomes,
         })
     except Exception as exc:
         return api_response({"error": "query_failed", "detail": str(exc)}, 500)

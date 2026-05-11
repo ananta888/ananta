@@ -8,6 +8,7 @@ from flask import current_app
 
 from agent.db_models import AgentInfoDB
 from agent.models import AgentDirectoryEntryContract, AgentLivenessContract, WorkerExecutionLimitsContract
+from agent.repository import agent_repo
 from agent.routes.tasks.orchestration_policy import normalize_capabilities, normalize_worker_roles
 
 
@@ -169,6 +170,23 @@ class AgentRegistryService:
                 agent.status = "offline"
                 updated.append(agent)
         return updated
+
+    def get_online_agents(self) -> list:
+        """Fetch all online agents and return raw AgentInfoDB objects."""
+        agents = agent_repo.get_all()
+        return [a for a in agents if a.status == "online"]
+
+    def get_online_candidates(self) -> list:
+        """Fetch all online agents and return them as WorkerCandidate list."""
+        from worker.core.runtime_target import WorkerCandidate
+
+        agents = agent_repo.get_all()
+        candidates: list[WorkerCandidate] = []
+        for a in agents:
+            if a.status != "online":
+                continue
+            candidates.append(self.agent_to_candidate(a))
+        return candidates
 
     def build_contract_metadata(self) -> dict:
         return {
