@@ -40,13 +40,16 @@ class TaskLifecycleService:
         }
         shell_command_mode = str(rationale.get("shell_command_mode") or "").strip() or None
         output_dir = ""
+        goal_context_text = ""
         if goal_id:
             try:
                 goal = goal_repo.get_by_id(str(goal_id))
                 if goal:
                     output_dir = str((goal.execution_preferences or {}).get("output_dir") or "").strip()
+                    goal_context_text = str(goal.goal or "").strip()
             except Exception:
                 output_dir = ""
+                goal_context_text = ""
 
         worker_execution_context = {
             "kind": "worker_execution_context",
@@ -64,6 +67,7 @@ class TaskLifecycleService:
                 "required_context_scope": rationale.get("required_context_scope"),
                 "preferred_bundle_mode": rationale.get("preferred_bundle_mode"),
             },
+            **({"context": {"context_text": goal_context_text}} if goal_context_text else {}),
             **({"workspace": {"output_dir": output_dir}} if output_dir else {}),
             **({"shell_command_mode": shell_command_mode} if shell_command_mode else {}),
         }
