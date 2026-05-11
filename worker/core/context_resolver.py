@@ -10,21 +10,15 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
-
-
-# ── Context sensitivity ───────────────────────────────────────────────────────
-
-class ContextSensitivity(str, Enum):
-    public = "public"
-    internal = "internal"
-    confidential = "confidential"
-    secret = "secret"
+from typing import Any, Optional
+from .context_access_policy import Sensitivity as ContextSensitivity, Decision
 
 
 CLOUD_BLOCKED_SENSITIVITIES = frozenset({
-    ContextSensitivity.confidential,
+    ContextSensitivity.customer_confidential,
     ContextSensitivity.secret,
+    ContextSensitivity.credential,
+    ContextSensitivity.security_sensitive,
 })
 
 
@@ -36,12 +30,14 @@ class ContextBlock:
     source_type: str          # e.g. "task_description", "file_content", "memory", "artifact"
     origin_id: str            # task_id, file path, artifact_id, etc.
     provenance: str           # how this block was obtained
-    sensitivity: ContextSensitivity = ContextSensitivity.internal
+    sensitivity: ContextSensitivity = ContextSensitivity.project_internal
     token_estimate: int = 0
     content: str = ""
     content_hash: str = ""
     priority: int = 50        # 0 = P0 (never dropped), 100 = lowest priority
     access_decision: Optional[Any] = None # Added for CAP integration
+    access_decision_hash: Optional[str] = None # T018
+    policy_version: Optional[int] = None # T018
 
     def __post_init__(self) -> None:
         if not self.content_hash and self.content:
@@ -266,11 +262,11 @@ class ContextResolver:
                 )
                 continue
 
-            sensitivity_raw = ref.get("sensitivity", ContextSensitivity.internal.value)
+            sensitivity_raw = ref.get("sensitivity", ContextSensitivity.project_internal.value)
             try:
                 sensitivity = ContextSensitivity(sensitivity_raw)
             except ValueError:
-                sensitivity = ContextSensitivity.internal
+                sensitivity = ContextSensitivity.project_internal
 
             resolved.append(ContextBlock(
                 source_type=source_type,

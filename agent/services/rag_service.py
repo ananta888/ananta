@@ -76,6 +76,7 @@ class RagService:
         grounded_prompt = self._context_bundle_service.build_grounded_prompt(
             prompt=prompt,
             context_text=str(bundle.get("context_text") or ""),
+            chunks=list(bundle.get("chunks") or []),
         )
         return bundle, grounded_prompt
 
