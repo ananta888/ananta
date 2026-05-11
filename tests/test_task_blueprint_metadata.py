@@ -173,3 +173,78 @@ def test_materialize_from_plan_node_propagates_goal_output_dir_to_workspace_cont
     wec = queue.calls[0]["extra_fields"]["worker_execution_context"]
     assert wec["workspace"]["output_dir"] == "/tmp/project-out"
     assert wec["context"]["context_text"] == "Write fibonacci.py"
+
+
+def test_materialize_from_plan_node_propagates_rag_sources_to_research_context_input(monkeypatch) -> None:
+    queue = _QueueStub()
+    monkeypatch.setattr(lifecycle_service, "get_task_queue_service", lambda: queue)
+    monkeypatch.setattr(
+        lifecycle_service,
+        "goal_repo",
+        SimpleNamespace(get_by_id=lambda _goal_id: SimpleNamespace(
+            execution_preferences={
+                "rag_sources": {
+                    "knowledge_collection_ids": ["col-1", "col-2"],
+                    "artifact_ids": ["art-1"],
+                }
+            },
+            goal="Implement feature",
+        )),
+    )
+
+    node = SimpleNamespace(
+        id="node-rag",
+        title="RAG task",
+        description="Task with RAG sources",
+        priority="Medium",
+        rationale={"task_kind": "coding"},
+        verification_spec={},
+    )
+
+    lifecycle_service.TaskLifecycleService().materialize_from_plan_node(
+        task_id="task-rag",
+        node=node,
+        team_id=None,
+        goal_id="goal-rag",
+        goal_trace_id=None,
+        plan_id="plan-rag",
+        parent_task_id=None,
+        derivation_reason="goal_planning",
+        derivation_depth=0,
+        depends_on=None,
+    )
+
+    wec = queue.calls[0]["extra_fields"]["worker_execution_context"]
+    rc_input = wec["research_context_input"]
+    assert rc_input["knowledge_collection_ids"] == ["col-1", "col-2"]
+    assert rc_input["artifact_ids"] == ["art-1"]
+
+
+def test_materialize_from_plan_node_no_research_context_input_when_no_sources(monkeypatch) -> None:
+    queue = _QueueStub()
+    monkeypatch.setattr(lifecycle_service, "get_task_queue_service", lambda: queue)
+
+    node = SimpleNamespace(
+        id="node-norag",
+        title="No RAG",
+        description="No sources configured",
+        priority="Low",
+        rationale={"task_kind": "coding"},
+        verification_spec={},
+    )
+
+    lifecycle_service.TaskLifecycleService().materialize_from_plan_node(
+        task_id="task-norag",
+        node=node,
+        team_id=None,
+        goal_id=None,
+        goal_trace_id=None,
+        plan_id=None,
+        parent_task_id=None,
+        derivation_reason="goal_planning",
+        derivation_depth=0,
+        depends_on=None,
+    )
+
+    wec = queue.calls[0]["extra_fields"]["worker_execution_context"]
+    assert "research_context_input" not in wec

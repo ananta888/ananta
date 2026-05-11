@@ -9,6 +9,40 @@ from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import update_local_task_status
 
 
+def _merge_rag_sources(goal_sources: dict, task_kind: str) -> dict:
+    try:
+        from flask import current_app, has_app_context
+        agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
+    except Exception:
+        agent_cfg = {}
+    kc_cfg = dict((agent_cfg.get("knowledge_context") or {}).get("auto_include") or {})
+    auto_kinds = [str(k).strip().lower() for k in list(kc_cfg.get("task_kinds") or []) if k]
+    include_defaults = not auto_kinds or not task_kind or task_kind.lower() in auto_kinds
+
+    def _ids(src: dict, key: str) -> list[str]:
+        return [str(v).strip() for v in list(src.get(key) or []) if str(v).strip()]
+
+    collection_ids = list(dict.fromkeys(
+        _ids(goal_sources, "knowledge_collection_ids")
+        + (_ids(kc_cfg, "knowledge_collection_ids") if include_defaults else [])
+    ))
+    artifact_ids = list(dict.fromkeys(
+        _ids(goal_sources, "artifact_ids")
+        + (_ids(kc_cfg, "artifact_ids") if include_defaults else [])
+    ))
+    repo_scope_refs = (
+        list(goal_sources.get("repo_scope_refs") or [])
+        + (list(kc_cfg.get("repo_scope_refs") or []) if include_defaults else [])
+    )
+    if not collection_ids and not artifact_ids and not repo_scope_refs:
+        return {}
+    return {
+        "knowledge_collection_ids": collection_ids,
+        "artifact_ids": artifact_ids,
+        "repo_scope_refs": repo_scope_refs,
+    }
+
+
 class TaskLifecycleService:
     """Explicit task lifecycle use-cases to avoid scattered implicit status updates."""
 
@@ -39,17 +73,20 @@ class TaskLifecycleService:
             key: value for key, value in blueprint_provenance.items() if value
         }
         shell_command_mode = str(rationale.get("shell_command_mode") or "").strip() or None
+        task_kind = str(rationale.get("task_kind") or "").strip().lower()
         output_dir = ""
         goal_context_text = ""
+        goal_rag_sources: dict = {}
         if goal_id:
             try:
                 goal = goal_repo.get_by_id(str(goal_id))
                 if goal:
                     output_dir = str((goal.execution_preferences or {}).get("output_dir") or "").strip()
                     goal_context_text = str(goal.goal or "").strip()
+                    goal_rag_sources = dict((goal.execution_preferences or {}).get("rag_sources") or {})
             except Exception:
-                output_dir = ""
-                goal_context_text = ""
+                pass
+        research_context_input = _merge_rag_sources(goal_rag_sources, task_kind)
 
         worker_execution_context = {
             "kind": "worker_execution_context",
@@ -70,6 +107,7 @@ class TaskLifecycleService:
             **({"context": {"context_text": goal_context_text}} if goal_context_text else {}),
             **({"workspace": {"output_dir": output_dir}} if output_dir else {}),
             **({"shell_command_mode": shell_command_mode} if shell_command_mode else {}),
+            **({"research_context_input": research_context_input} if research_context_input else {}),
         }
         get_task_queue_service().ingest_task(
             task_id=task_id,

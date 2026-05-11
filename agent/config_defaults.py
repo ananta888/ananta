@@ -394,6 +394,14 @@ def build_default_agent_config() -> dict:
                 "fallback_backend": "sgpt",
             },
         },
+        "knowledge_context": {
+            "auto_include": {
+                "task_kinds": ["coding", "bugfix", "refactor", "analysis"],
+                "knowledge_collection_ids": [],
+                "artifact_ids": [],
+                "repo_scope_refs": [],
+            }
+        },
         "planning": {
             # "llm"      → LLM (Ollama) always generates the task plan
             # "template" → fixed template/blueprint first, LLM fallback if no match

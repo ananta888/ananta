@@ -438,9 +438,14 @@ class TaskScopedExecutionService:
         base_prompt = request_data.prompt or task.get("description") or task.get("prompt") or f"Bearbeite Task {tid}"
         explicit_task_kind = str(task.get("task_kind") or "").strip().lower()
         task_kind = explicit_task_kind or normalize_task_kind(None, base_prompt)
+        rc_input = getattr(request_data, "research_context", None)
+        if rc_input is None:
+            stored = dict((task or {}).get("worker_execution_context") or {}).get("research_context_input")
+            if stored:
+                rc_input = stored
         research_context_summary = get_research_context_bridge_service().build_context(
             task=task,
-            research_context=getattr(request_data, "research_context", None),
+            research_context=rc_input,
             query=base_prompt,
         )
         handler_response = self._try_handler_propose(
