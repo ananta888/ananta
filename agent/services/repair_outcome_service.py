@@ -100,3 +100,40 @@ def persist_repair_execution_result(
     except Exception as exc:
         log.error("Failed to persist repair execution result: %s", exc)
         return {"persisted": False, "error": str(exc)}
+
+
+def query_repair_outcomes(
+    *,
+    problem_class: str = "",
+    procedure_id: str = "",
+    signature_id: str = "",
+) -> list[dict[str, Any]]:
+    """Query repair outcome records by problem_class, procedure_id, or signature_id.
+
+    Returns list of serialised outcome dicts.  At most one filter is applied;
+    if none is given the 10 most recent records are returned.
+    """
+    repo = get_repair_execution_record_repo()
+
+    if problem_class:
+        records = repo.query_by_problem_class(problem_class, limit=20)
+    elif procedure_id:
+        records = repo.query_by_procedure_id(procedure_id, limit=20)
+    elif signature_id:
+        records = repo.query_by_signature_id(signature_id, limit=20)
+    else:
+        records = repo.recent_by_environment({}, limit=10)
+
+    return [
+        {
+            "id": str(r.id or ""),
+            "plan_id": r.plan_id,
+            "procedure_id": r.procedure_id,
+            "problem_class": r.problem_class,
+            "execution_status": r.execution_status,
+            "outcome_label": r.outcome_label,
+            "regression_flag": r.regression_flag,
+            "created_at": r.created_at,
+        }
+        for r in records
+    ]
