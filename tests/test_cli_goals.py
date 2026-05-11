@@ -216,3 +216,44 @@ def test_resolve_output_dir_arbitrary_absolute_passthrough():
     container, host = cli_goals._resolve_output_dir("/some/other/path")
     assert container == "/some/other/path"
     assert host is None
+
+
+def test_parse_rag_sources_bare_collection_ids():
+    result = cli_goals._parse_rag_sources("col-1,col-2")
+    assert result["knowledge_collection_ids"] == ["col-1", "col-2"]
+    assert "artifact_ids" not in result
+    assert "repo_scope_refs" not in result
+
+
+def test_parse_rag_sources_mixed_prefixes():
+    result = cli_goals._parse_rag_sources("col:coll-abc,art:artifact-xyz,path:agent/services")
+    assert result["knowledge_collection_ids"] == ["coll-abc"]
+    assert result["artifact_ids"] == ["artifact-xyz"]
+    assert result["repo_scope_refs"] == [{"path": "agent/services"}]
+
+
+def test_parse_rag_sources_empty_returns_empty():
+    assert cli_goals._parse_rag_sources("") == {}
+    assert cli_goals._parse_rag_sources("  ") == {}
+
+
+def test_submit_goal_passes_rag_sources_in_execution_preferences(monkeypatch):
+    calls: list[dict] = []
+
+    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
+    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
+
+    def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
+        calls.append({"method": method, "url": url, "json": json})
+        return _FakeResponse(
+            201,
+            {"data": {"goal": {"id": "goal-rag", "goal": json["goal"], "status": "planned"}, "created_task_ids": []}},
+        )
+
+    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
+    cli_goals.submit_goal(goal="add feature", rag_sources="col:my-collection,art:my-artifact")
+
+    payload = calls[0]["json"]
+    rag = payload["execution_preferences"]["rag_sources"]
+    assert rag["knowledge_collection_ids"] == ["my-collection"]
+    assert rag["artifact_ids"] == ["my-artifact"]

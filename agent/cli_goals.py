@@ -535,13 +535,45 @@ def _resolve_output_dir(output_dir: str) -> tuple[str, str | None]:
         host = f"{_HOST_WORKSPACE_ROOT}/{rel}" if rel else _HOST_WORKSPACE_ROOT
         return raw, host
     if not os.path.isabs(raw):
-        # Relative or bare name: strip leading ./
-        name = raw.lstrip("./").replace("\\", "/").strip("/") or raw
+        name = raw.removeprefix("./").replace("\\", "/").strip("/") or raw
         container = f"{_CONTAINER_WORKSPACE_ROOT}/{name}"
         host = f"{_HOST_WORKSPACE_ROOT}/{name}"
         return container, host
     # Arbitrary absolute path the caller has presumably mounted themselves
     return raw, None
+
+
+def _parse_rag_sources(raw: str) -> dict:
+    """Parse comma-separated RAG source tokens into a rag_sources dict.
+
+    Token formats:
+      col:<id>  or bare <id>  → knowledge_collection_ids
+      art:<id>                → artifact_ids
+      path:<rel-path>         → repo_scope_refs
+    """
+    if not raw:
+        return {}
+    collection_ids: list[str] = []
+    artifact_ids: list[str] = []
+    repo_scope_refs: list[dict] = []
+    for token in raw.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        if token.startswith("art:"):
+            artifact_ids.append(token[4:].strip())
+        elif token.startswith("path:"):
+            repo_scope_refs.append({"path": token[5:].strip()})
+        else:
+            collection_ids.append(token.removeprefix("col:").strip())
+    result: dict = {}
+    if collection_ids:
+        result["knowledge_collection_ids"] = collection_ids
+    if artifact_ids:
+        result["artifact_ids"] = artifact_ids
+    if repo_scope_refs:
+        result["repo_scope_refs"] = repo_scope_refs
+    return result
 
 
 def get_auth_token(base_url: str) -> str:
@@ -682,6 +714,7 @@ def submit_goal(
     mode_data: dict | None = None,
     output_dir: str | None = None,
     planning_mode: str | None = None,
+    rag_sources: str | None = None,
 ):
     payload = {"goal": goal, "create_tasks": create_tasks}
     if context:
@@ -698,6 +731,10 @@ def submit_goal(
         if host_path:
             _print_terminal("Output directory (host): {}", host_path)
         output_dir = container_path
+    if rag_sources:
+        parsed = _parse_rag_sources(rag_sources)
+        if parsed:
+            payload.setdefault("execution_preferences", {})["rag_sources"] = parsed
     use_template = _planning_mode_to_use_template(planning_mode)
     if use_template is not None:
         payload["use_template"] = use_template
@@ -736,6 +773,7 @@ def submit_shortcut(
     create_tasks: bool = True,
     output_dir: str | None = None,
     planning_mode: str | None = None,
+    rag_sources: str | None = None,
 ):
     shortcut = SHORTCUT_GOALS.get(kind)
     if not shortcut:
@@ -754,6 +792,8 @@ def submit_shortcut(
         goal_kwargs["output_dir"] = output_dir
     if planning_mode is not None:
         goal_kwargs["planning_mode"] = planning_mode
+    if rag_sources is not None:
+        goal_kwargs["rag_sources"] = rag_sources
     return submit_goal(**goal_kwargs)
 
 
@@ -1013,6 +1053,7 @@ Examples:
     parser.add_argument("--mode", help="Guided goal mode ID (e.g. code_fix, docker_compose_repair)")
     parser.add_argument("--mode-data", help='JSON object for mode fields, e.g. \'{"service":"hub"}\'')
     parser.add_argument("--output-dir", "-o", help="Directory where generated files are written. Relative names (e.g. 'fibonacci') map to /project-workspaces/<name> in the container and ./project-workspaces/<name> on the host.")
+    parser.add_argument("--rag-sources", "-R", help="Comma-separated knowledge sources to attach (col:<id>, art:<id>, path:<rel>). Included as research context for every task in the goal.")
     parser.add_argument("--script-out", "-S", metavar="FILE", help="Save the extracted repair script to this file (repair-script only)")
     parser.add_argument("--exec", dest="exec_script", action="store_true", help="Review then optionally execute the generated script (repair-script only)")
     parser.add_argument("--tui", dest="tui_flag", action="store_true", help="Interactive TUI: review and approve commands for controlled host execution (repair-script only)")
@@ -1108,11 +1149,14 @@ Examples:
             print(f"Error: '{args.goal}' needs a short description")
             sys.exit(2)
         output_dir = args.output_dir.strip() if args.output_dir else None
+        rag_sources = getattr(args, "rag_sources", None)
         shortcut_kwargs = {"team_id": args.team, "create_tasks": not args.no_create}
         if output_dir is not None:
             shortcut_kwargs["output_dir"] = output_dir
         if args.planning_mode is not None:
             shortcut_kwargs["planning_mode"] = args.planning_mode
+        if rag_sources is not None:
+            shortcut_kwargs["rag_sources"] = rag_sources
         submit_shortcut(args.goal, shortcut_text, **shortcut_kwargs)
     elif args.goal or args.goal_flag:
         goal_text = args.goal or args.goal_flag
@@ -1120,6 +1164,7 @@ Examples:
             goal_text = " ".join([goal_text, *args.extra])
         create_tasks = not args.no_create
         output_dir = args.output_dir.strip() if args.output_dir else None
+        rag_sources = getattr(args, "rag_sources", None)
         submit_goal(
             goal=goal_text,
             context=args.context,
@@ -1129,6 +1174,7 @@ Examples:
             mode_data=_parse_mode_data(args.mode_data),
             output_dir=output_dir,
             planning_mode=args.planning_mode,
+            rag_sources=rag_sources,
         )
     else:
         parser.print_help()
