@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/worker_selection_policy.v1.json",
+  "title": "WorkerSelectionPolicy",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "mode": {"type": "string", "enum": ["fixed", "automatic", "policy_ranked"], "default": "automatic"},
+    "fixed_worker_id": {"type": ["string", "null"]},
+    "fixed_worker_kind": {"type": ["string", "null"], "enum": ["native_ananta_worker", "opencode", "hermes", "shellgpt", "remote_worker", "custom_worker", "disabled_placeholder", null]},
+    "allowed_worker_kinds": {"type": "array", "items": {"type": "string", "enum": ["native_ananta_worker", "opencode", "hermes", "shellgpt", "remote_worker", "custom_worker", "disabled_placeholder"]}, "uniqueItems": true},
+    "denied_worker_kinds": {"type": "array", "items": {"type": "string", "enum": ["native_ananta_worker", "opencode", "hermes", "shellgpt", "remote_worker", "custom_worker", "disabled_placeholder"]}, "uniqueItems": true},
+    "required_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "forbidden_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "prefer_local": {"type": "boolean", "default": true},
+    "allow_cloud": {"type": "boolean", "default": false},
+    "allow_external_workers": {"type": "boolean", "default": false},
+    "require_code_context": {"type": "boolean", "default": false},
+    "risk_profile": {"type": "string", "default": "strict"},
+    "fallback_policy": {"type": "string", "enum": ["deny", "same_kind_only", "same_or_lower_risk", "any_allowed"], "default": "deny"},
+    "selection_reason_required": {"type": "boolean", "default": true}
+  }
+}
