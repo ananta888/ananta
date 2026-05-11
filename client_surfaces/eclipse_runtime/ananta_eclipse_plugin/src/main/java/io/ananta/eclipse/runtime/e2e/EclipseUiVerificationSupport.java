@@ -60,6 +60,10 @@ final class EclipseUiVerificationSupport {
         List<String> openErrors = new ArrayList<>();
         IWorkbench workbench = PlatformUI.getWorkbench();
         IWorkbenchWindow window = workbench.getActiveWorkbenchWindow();
+        if (window == null) {
+            IWorkbenchWindow[] windows = workbench.getWorkbenchWindows();
+            window = windows.length > 0 ? windows[0] : null;
+        }
         IWorkbenchPage page = window == null ? null : window.getActivePage();
         for (String viewId : REQUIRED_VIEW_IDS) {
             try {
