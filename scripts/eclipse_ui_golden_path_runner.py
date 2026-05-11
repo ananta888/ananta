@@ -224,11 +224,13 @@ def _run_ui_availability_verifier(
         "-data",
         str(workspace),
         "-application",
-        "org.eclipse.ui.ide.workbench",
+        "io.ananta.eclipse.runtime.uiAvailabilityVerifier",
         "-vmargs",
         f"-Dananta.e2e.report={availability_report}",
         "-Doomph.setup.skip=true",
         "-Doomph.setup.sync.skip=true",
+        "-Dorg.eclipse.swt.browser.DefaultType=mozilla",
+        "-Xmx512m",
     ]
     timed_out = False
     try:

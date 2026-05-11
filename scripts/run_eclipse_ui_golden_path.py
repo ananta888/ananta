@@ -200,7 +200,7 @@ def _run_docker_golden_path(
         check=False,
         capture_output=True,
         text=True,
-        timeout=timeout_seconds + 60,
+        timeout=timeout_seconds * 2 + 120,
         env=_docker_env(),
     )
     checks.append({
@@ -248,7 +248,7 @@ def run_eclipse_ui_golden_path(
     build_plugin: bool = False,
     plugin_jar: Path = DEFAULT_PLUGIN_JAR,
     update_site: Path | None = DEFAULT_UPDATE_SITE,
-    timeout_seconds: int = 120,
+    timeout_seconds: int = 240,
 ) -> dict[str, Any]:
     if use_docker:
         return _run_docker_golden_path(

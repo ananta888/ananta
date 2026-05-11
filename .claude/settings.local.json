@@ -88,7 +88,10 @@
       "Bash(sudo chown *)",
       "Bash(sed -n '140,170p' /home/krusty/ananta/agent/db_models.py)",
       "Bash(sed -n '655,700p' /home/krusty/ananta/agent/db_models.py)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(git -C /home/krusty/ananta ls-files client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build/libs/)",
+      "Bash(java -version)",
+      "Bash(docker build *)"
     ]
   }
 }

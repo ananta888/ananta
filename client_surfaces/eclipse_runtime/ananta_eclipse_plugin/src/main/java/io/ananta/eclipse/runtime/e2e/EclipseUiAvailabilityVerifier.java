@@ -14,20 +14,24 @@ public final class EclipseUiAvailabilityVerifier implements IApplication {
         Path reportPath = reportPath(applicationArgs(context));
         Display display = PlatformUI.createDisplay();
         try {
-            display.asyncExec(() -> {
-                Map<String, Object> report = EclipseUiVerificationSupport.verifyViews();
-                try {
-                    EclipseUiVerificationSupport.writeReport(reportPath, report);
-                } catch (Exception exception) {
-                    exception.printStackTrace();
-                } finally {
-                    PlatformUI.getWorkbench().close();
-                }
-            });
             PlatformUI.createAndRunWorkbench(display, new WorkbenchAdvisor() {
                 @Override
                 public String getInitialWindowPerspectiveId() {
                     return EclipseUiVerificationSupport.PERSPECTIVE_ID;
+                }
+
+                @Override
+                public void postStartup() {
+                    display.asyncExec(() -> {
+                        Map<String, Object> report = EclipseUiVerificationSupport.verifyViews();
+                        try {
+                            EclipseUiVerificationSupport.writeReport(reportPath, report);
+                        } catch (Exception exception) {
+                            exception.printStackTrace();
+                        } finally {
+                            PlatformUI.getWorkbench().close();
+                        }
+                    });
                 }
             });
         } finally {
@@ -53,6 +57,10 @@ public final class EclipseUiAvailabilityVerifier implements IApplication {
             if ("-anantaVerifierReport".equals(args[index])) {
                 return Path.of(args[index + 1]);
             }
+        }
+        String sysProp = System.getProperty("ananta.e2e.report");
+        if (sysProp != null && !sysProp.isBlank()) {
+            return Path.of(sysProp);
         }
         return Path.of("ananta-eclipse-ui-availability-report.json");
     }
