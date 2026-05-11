@@ -52,6 +52,36 @@ def persist_repair_execution_result(
             },
         )
 
+        if result.selected_worker_runtime:
+            db_entry.selected_worker_id = result.selected_worker_runtime.selected_worker_id
+            db_entry.selected_worker_kind = (
+                result.selected_worker_runtime.selected_worker_kind.value
+                if result.selected_worker_runtime.selected_worker_kind
+                else None
+            )
+            db_entry.selected_runtime_target_id = result.selected_worker_runtime.selected_runtime_target_id
+            db_entry.selected_runtime_kind = (
+                result.selected_worker_runtime.selected_runtime_kind.value
+                if result.selected_worker_runtime.selected_runtime_kind
+                else None
+            )
+            db_entry.selection_decision_ref = result.selected_worker_runtime.selection_decision_ref
+            db_entry.selection_reason = result.selected_worker_runtime.selection_reason
+
+        if result.actual_worker_runtime:
+            db_entry.actual_worker_id = result.actual_worker_runtime.selected_worker_id
+            db_entry.actual_worker_kind = (
+                result.actual_worker_runtime.selected_worker_kind.value
+                if result.actual_worker_runtime.selected_worker_kind
+                else None
+            )
+            db_entry.actual_runtime_target_id = result.actual_worker_runtime.selected_runtime_target_id
+            db_entry.actual_runtime_kind = (
+                result.actual_worker_runtime.selected_runtime_kind.value
+                if result.actual_worker_runtime.selected_runtime_kind
+                else None
+            )
+
         if result.final_verification:
             db_entry.verification_evidence_refs = list(
                 result.final_verification.get("evidence_refs") or []

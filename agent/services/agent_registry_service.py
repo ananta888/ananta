@@ -86,6 +86,42 @@ class AgentRegistryService:
             status="online",
         )
 
+    def agent_to_candidate(self, agent: AgentInfoDB) -> WorkerCandidate:
+        """Map AgentInfoDB to WorkerCandidate for selection logic. DRR-T050."""
+        from worker.core.runtime_target import RuntimeHealthState, WorkerCandidate, WorkerKind
+
+        # Determine worker kind based on name or metadata
+        kind = WorkerKind.native_ananta_worker
+        name_lower = (agent.name or "").lower()
+        if "opencode" in name_lower:
+            kind = WorkerKind.opencode
+        elif "hermes" in name_lower:
+            kind = WorkerKind.hermes
+        elif "shellgpt" in name_lower:
+            kind = WorkerKind.shellgpt
+
+        health = (
+            RuntimeHealthState.ready
+            if agent.status == "online"
+            else RuntimeHealthState.unavailable
+        )
+
+        return WorkerCandidate(
+            worker_id=agent.url,
+            worker_kind=kind,
+            display_name=agent.name,
+            capabilities=list(agent.capabilities or []),
+            roles=list(agent.worker_roles or []),
+            runtime_target_ids=[
+                rt.get("runtime_target_id")
+                for rt in (agent.runtime_targets or [])
+                if rt.get("runtime_target_id")
+            ],
+            health_state=health,
+            validation_errors=list(agent.validation_errors or []),
+            priority=100,
+        )
+
     def build_directory_entry(self, *, agent: AgentInfoDB, timeout: float, now: float | None = None) -> dict:
         current = float(now or time.time())
         execution_limits = dict(agent.execution_limits or {})

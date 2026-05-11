@@ -45,28 +45,15 @@ def list_worker_candidates():
         return api_response({"error": "invalid_policy", "detail": str(exc)}, 400)
 
     # Gather candidates from registry
+    from agent.services.agent_registry_service import get_agent_registry_service
+    registry_service = get_agent_registry_service()
+
     agents = agent_repo.get_all()
     candidates = []
     for a in agents:
         if a.status != "online":
             continue
-
-        # Map AgentInfoDB to WorkerCandidate
-        # This is a simplified mapping for the first slice
-        kind = WorkerKind.native_ananta_worker
-        if "opencode" in (a.name or "").lower():
-            kind = WorkerKind.opencode
-        elif "hermes" in (a.name or "").lower():
-            kind = WorkerKind.hermes
-
-        candidates.append(WorkerCandidate(
-            worker_id=a.url,
-            worker_kind=kind,
-            capabilities=list(a.capabilities or []),
-            worker_roles=list(a.worker_roles or []),
-            runtime_targets=[rt.get("runtime_target_id") for rt in (a.runtime_targets or []) if rt.get("runtime_target_id")],
-            priority=100, # Default priority
-        ))
+        candidates.append(registry_service.agent_to_candidate(a))
 
     return api_response({
         "policy": policy.model_dump(mode="json"),
@@ -83,15 +70,22 @@ def list_runtime_targets():
 
     rt_service = WorkerRuntimeTargetService()
     # For now, return default targets
-    targets = [
-        rt_service.local_process_default(),
-        rt_service.docker_default()
-    ]
+    targets = [rt_service.local_process_default(), rt_service.docker_default()]
 
-    return api_response({
-        "runtime_targets": [t.model_dump(mode="json") for t in targets],
-        "count": len(targets)
-    })
+    # Collect from registered agents
+    agents = agent_repo.get_all()
+    for a in agents:
+        if a.status != "online":
+            continue
+        for rt_data in a.runtime_targets or []:
+            try:
+                targets.append(rt_service.from_config(rt_data))
+            except Exception:
+                pass
+
+    return api_response(
+        {"runtime_targets": [t.model_dump(mode="json") for t in targets], "count": len(targets)}
+    )
 
 @repair_bp.route("/analyze", methods=["POST"])
 def analyze_repair():
@@ -196,19 +190,15 @@ def preview_repair():
         rt_service = WorkerRuntimeTargetService()
 
         # Build selection request
+        from agent.services.agent_registry_service import get_agent_registry_service
+        registry_service = get_agent_registry_service()
+
         agents = agent_repo.get_all()
         candidates = []
         for a in agents:
-            if a.status != "online": continue
-            kind = WorkerKind.native_ananta_worker # Simplified
-            candidates.append(WorkerCandidate(
-                worker_id=a.url,
-                worker_kind=kind,
-                capabilities=list(a.capabilities or []),
-                worker_roles=list(a.worker_roles or []),
-                runtime_targets=[rt.get("runtime_target_id") for rt in (a.runtime_targets or []) if rt.get("runtime_target_id")],
-                priority=100
-            ))
+            if a.status != "online":
+                continue
+            candidates.append(registry_service.agent_to_candidate(a))
 
         runtime_targets = [rt_service.local_process_default(), rt_service.docker_default()]
 

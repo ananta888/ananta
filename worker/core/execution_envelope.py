@@ -241,6 +241,8 @@ class RepairExecutionResult(BaseModel):
     trace_bundle_ref: str = ""
     persisted_outcome_ref: str = ""
     step_results: list[RepairStepResult] = Field(default_factory=list)
+    selected_worker_runtime: SelectedWorkerRuntimeRef | None = None
+    actual_worker_runtime: SelectedWorkerRuntimeRef | None = None
 
 
 class ApprovalRef(BaseModel):
