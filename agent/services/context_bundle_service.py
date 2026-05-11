@@ -112,6 +112,9 @@ def _compute_context_hash(*, query: str, chunks: list[dict], manifest_hash: str)
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+class ContextBundleService:
+    """Builds worker-facing context bundles from retrieval output."""
+
     def __init__(self):
         self._policy_service = ContextAccessPolicyService()
         self._classification_service = get_source_classification_service()

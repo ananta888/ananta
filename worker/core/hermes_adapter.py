@@ -35,7 +35,7 @@ _TASK_KIND_TO_ADAPTER_MODE: dict[str, str] = {
 # Sensitive context sensitivity values that block cloud dispatch (HF-T008)
 _CLOUD_BLOCKED_SENSITIVITIES = frozenset({
     ContextSensitivity.secret,
-    ContextSensitivity.confidential,
+    ContextSensitivity.customer_confidential,
 })
 
 

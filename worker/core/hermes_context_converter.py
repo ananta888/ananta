@@ -8,7 +8,7 @@ from worker.core.context_resolver import ContextBlock, ContextSensitivity
 from worker.core.sanitizer import OutputSanitizer
 
 
-_SENSITIVE_BLOCKS = frozenset({ContextSensitivity.secret, ContextSensitivity.confidential})
+_SENSITIVE_BLOCKS = frozenset({ContextSensitivity.secret, ContextSensitivity.customer_confidential})
 _SAN = OutputSanitizer()
 _SUSPICIOUS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # Instruction override (HF-T010)

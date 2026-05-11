@@ -17,7 +17,7 @@ from worker.core.sanitizer import OutputSanitizer
 _SANITIZER = OutputSanitizer()
 
 CLOUD_BLOCKED_SENSITIVITIES = frozenset({
-    ContextSensitivity.confidential,
+    ContextSensitivity.customer_confidential,
     ContextSensitivity.secret,
 })
 
