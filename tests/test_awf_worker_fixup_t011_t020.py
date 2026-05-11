@@ -562,7 +562,7 @@ class TestT020ContextSensitivity:
 
     def test_cloud_filter_removes_confidential(self):
         flt = ContextSensitivityFilter()
-        blocks = [self._block(ContextSensitivity.confidential)]
+        blocks = [self._block(ContextSensitivity.customer_confidential)]
         kept, redacted = flt.filter_for_cloud(blocks)
         assert len(kept) == 0
         assert len(redacted) == 1
@@ -590,7 +590,7 @@ class TestT020ContextSensitivity:
         flt = ContextSensitivityFilter()
         blocks = [
             self._block(ContextSensitivity.secret),
-            self._block(ContextSensitivity.confidential),
+            self._block(ContextSensitivity.customer_confidential),
             self._block(ContextSensitivity.internal),
         ]
         kept = flt.filter_for_local(blocks)
@@ -598,14 +598,14 @@ class TestT020ContextSensitivity:
 
     def test_apply_routes_to_cloud_filter(self):
         flt = ContextSensitivityFilter()
-        blocks = [self._block(ContextSensitivity.confidential), self._block(ContextSensitivity.public)]
+        blocks = [self._block(ContextSensitivity.customer_confidential), self._block(ContextSensitivity.public)]
         kept, redacted = flt.apply(blocks, cloud_allowed=True)
         assert len(kept) == 1  # only public
         assert len(redacted) == 1
 
     def test_apply_routes_to_local_filter(self):
         flt = ContextSensitivityFilter()
-        blocks = [self._block(ContextSensitivity.confidential), self._block(ContextSensitivity.public)]
+        blocks = [self._block(ContextSensitivity.customer_confidential), self._block(ContextSensitivity.public)]
         kept, redacted = flt.apply(blocks, cloud_allowed=False)
         assert len(kept) == 2  # local: all kept
         assert len(redacted) == 0
@@ -615,7 +615,7 @@ class TestT020ContextSensitivity:
         blocks = [
             self._block(ContextSensitivity.public),
             self._block(ContextSensitivity.internal),
-            self._block(ContextSensitivity.confidential),
+            self._block(ContextSensitivity.customer_confidential),
             self._block(ContextSensitivity.secret),
         ]
         kept, redacted = flt.filter_for_cloud(blocks)

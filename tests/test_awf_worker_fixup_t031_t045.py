@@ -766,7 +766,7 @@ class TestT043ProviderCloudBlock:
         from worker.core.context_resolver import ContextSensitivityFilter, ContextBlock, ContextSensitivity
         f = ContextSensitivityFilter()
         blocks = [
-            ContextBlock(source_type="task", origin_id="t1", provenance="p", sensitivity=ContextSensitivity.confidential, content="secret stuff"),
+            ContextBlock(source_type="task", origin_id="t1", provenance="p", sensitivity=ContextSensitivity.customer_confidential, content="secret stuff"),
             ContextBlock(source_type="task", origin_id="t2", provenance="p", sensitivity=ContextSensitivity.public, content="public stuff"),
         ]
         kept, redacted = f.filter_for_cloud(blocks)

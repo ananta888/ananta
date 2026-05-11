@@ -37,7 +37,7 @@ def _env(
 
 _SAFE_BLOCK = ContextBlock("task", "t", "hub", sensitivity=ContextSensitivity.public, content="analyze this")
 _SECRET_BLOCK = ContextBlock("task", "s", "hub", sensitivity=ContextSensitivity.secret, content="API_KEY=sk-proj-abc123")
-_CONFIDENTIAL_BLOCK = ContextBlock("task", "c", "hub", sensitivity=ContextSensitivity.confidential, content="confidential data")
+_CONFIDENTIAL_BLOCK = ContextBlock("task", "c", "hub", sensitivity=ContextSensitivity.customer_confidential, content="confidential data")
 
 
 class _CapturingClient:

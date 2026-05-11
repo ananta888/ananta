@@ -194,7 +194,7 @@ class TestHermesAdapter:
     def test_sensitive_context_blocked_when_cloud_false(self):
         blocks = [
             ContextBlock("task", "t1", "hub",
-                         sensitivity=ContextSensitivity.confidential, content="secret data"),
+                         sensitivity=ContextSensitivity.customer_confidential, content="secret data"),
             ContextBlock("task", "t2", "hub",
                          sensitivity=ContextSensitivity.public, content="public data"),
         ]
