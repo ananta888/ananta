@@ -62,11 +62,9 @@ final class EclipseUiVerificationSupport {
         IWorkbenchWindow window = workbench.getActiveWorkbenchWindow();
         if (window == null) {
             IWorkbenchWindow[] windows = workbench.getWorkbenchWindows();
-            System.err.println("ANANTA_DIAG: getActiveWorkbenchWindow()=null, windows.length=" + windows.length);
             window = windows.length > 0 ? windows[0] : null;
         }
         IWorkbenchPage page = window == null ? null : window.getActivePage();
-        System.err.println("ANANTA_DIAG: window=" + window + " page=" + page);
         for (String viewId : REQUIRED_VIEW_IDS) {
             try {
                 if (page == null) {

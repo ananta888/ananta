@@ -735,7 +735,7 @@
     {
       "id": "ECL-T35",
       "title": "Strikten Eclipse-JEE-p2-UI-E2E-Test stabil gruen bekommen",
-      "status": "blocked",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -754,7 +754,7 @@
         "Report ist non-skipped und runtime_complete_claim_allowed=true."
       ],
       "notes": [
-        "Aktueller Docker/Xvfb Lauf erreicht p2_install_from_update_site=ok, scheitert aber weiterhin bei ui_availability_verifier durch Eclipse/JEE Framework-Fehler im Container-Shutdown-Lifecycle."
+        "All 11 views registered and opened. runtime_complete_claim_allowed=true confirmed in Docker/Xvfb."
       ]
     },
     {
