@@ -251,7 +251,14 @@ def _select_model_for_task(*, loop: Any, task: Any, excluded_models: set[str] | 
         if candidate not in excluded:
             selected_model = candidate
         source = "task_kind_model_overrides"
-    elif bool(cfg.get("adaptive_model_routing_enabled", True)):
+
+    if selected_model is None:
+        default_model_candidate = _normalize_model_candidate(str(cfg.get("default_model") or cfg.get("model") or "").strip(), cfg=cfg)
+        if default_model_candidate and default_model_candidate not in excluded:
+            selected_model = default_model_candidate
+            source = "agent_default_model"
+
+    if selected_model is None and bool(cfg.get("adaptive_model_routing_enabled", True)):
         try:
             app = getattr(loop, "_app", None)
             data_dir = (getattr(app, "config", {}) or {}).get("DATA_DIR") or "data"
@@ -331,6 +338,10 @@ def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict
     if selected and selected not in failed_models:
         _queue_model(selected, str(base_model_meta.get("source") or "base_selection"))
 
+    default_model = _normalize_model_candidate(str(cfg.get("default_model") or cfg.get("model") or "").strip(), cfg=cfg)
+    if default_model and default_model not in failed_models and default_model != selected:
+        _queue_model(default_model, "agent_default_model")
+
     opencode_default_model = _normalize_model_candidate(str(cfg.get("opencode_default_model") or "").strip(), cfg=cfg)
     if opencode_default_model and opencode_default_model not in failed_models:
         _queue_model(opencode_default_model, "opencode_default_model")
@@ -360,10 +371,6 @@ def _proposal_strategy_candidates(*, loop: Any, task: Any, base_model_meta: dict
     for model in list(strategy_cfg["fallback_models"]):
         if model not in failed_models:
             _queue_model(model, "autopilot_strategy_fallback_models")
-
-    default_model = _normalize_model_candidate(str(cfg.get("default_model") or cfg.get("model") or "").strip(), cfg=cfg)
-    if default_model and default_model not in failed_models:
-        _queue_model(default_model, "agent_default_model")
 
     _queue_model(None, "worker_default_no_override")
     for temperature in effective_temperatures:
