@@ -1,75 +1,65 @@
 {
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
   "track": "fixup_autopilot_propose_execute_artifact_completion",
+  "last_reviewed": "2026-05-12",
   "replaces": [
     "todo.autopilot-template-propose-pipeline.json",
     "todo.autopilot-template-propose-pipeline.root-cause.json",
     "todo.autopilot-propose-llm-assisted-normalization-extension.json"
   ],
-  "purpose": "Single consolidated todo for fixing the Autopilot new-project/coding flow with a configurable ProposeStrategyOrchestrator, LLM-assisted flexible normalization, safe worker/runtime selection, execution from normalized proposals, and artifact-first completion.",
-  "problem_statement": "ananta new-project creates a goal and tasks, but the propose step can fail with autopilot_no_executable_step. The current fallback path calls sgpt/LM Studio without real API tool schemas, receives free text, fails to parse command/tool_calls, attempts repair with the same weak path, then returns llm_failed. The correct architecture is not 'never ask the LLM'. The correct architecture is: prepare LLMs well, accept multiple output formats, normalize/repair/classify safely, execute only normalized executable proposals, and complete tasks from real artifacts/verification.",
-  "original_failure_flow": [
-    "CLI: ananta new-project 'Fibonacci API'",
-    "submit_goal('new-project', 'Fibonacci API') -> POST /goals",
-    "PlannerAgent creates tasks",
-    "Autopilot calls POST /tasks/<tid>/step/propose for task_kind coding/new_software_project",
-    "_try_handler_propose returns None because no suitable handler is registered",
-    "_try_hermes_propose returns None when Hermes is disabled",
-    "_propose_single_task_step builds prompt and writes .ananta/tool-definitions.json as text",
-    "run_llm_cli_command -> run_sgpt_command -> sgpt subprocess",
-    "sgpt calls LM Studio /v1/chat/completions without tools parameter",
-    "model returns prose/Markdown instead of machine action",
-    "parse_structured_action_payload returns None",
-    "command=None and tool_calls=None",
-    "validation fails: missing_required_fields command_or_tool_calls",
-    "repair path repeats same class of problem",
-    "result: llm_failed / autopilot_no_executable_step"
-  ],
+  "purpose": "Single consolidated TODO for fixing the Autopilot new-project/coding flow with LLM-first project creation, policy-driven propose orchestration, robust normalization, safe execution boundaries and artifact-first completion.",
+  "current_state_summary": {
+    "overall": "Partially implemented, but not production-ready. The previous done-count was too optimistic.",
+    "implemented": [
+      "TaskScopedExecutionService.propose_task_step delegates to a ProposeStrategyOrchestrator.",
+      "Basic ProposePolicy and task-kind presets exist.",
+      "new_software_project policy is configured as LLM-first with llm_mode=primary_with_guardrails.",
+      "Basic proposal dataclasses exist.",
+      "Basic artifact manifest, worker output collector and task completion policy services exist."
+    ],
+    "critical_gaps": [
+      "ToolCallingLLMStrategy, JsonSchemaLLMStrategy, WorkerStrategy and flexible LLM strategy are currently wired as StubStrategy in propose_task_step.",
+      "Because the LLM strategies are stubs, ananta new-project does not actually call Ollama/LLM in the default implementation path yet.",
+      "Orchestrator stops after strategy_order[:max_strategy_attempts]; with safe default max_strategy_attempts=1 only the first strategy is tried.",
+      "ExecutableProposal is a dataclass, but execute_task_step calls ExecutableProposal.model_validate(...), which is a Pydantic API and will fail unless fixed.",
+      "Propose result is returned but must be verified to be persisted as task.last_proposal before execute.",
+      "LLMResponseNormalizer exists, but lacks policy checks, provider_response support, robust JSON/tool parsing and safe path handling.",
+      "The artifact-first completion components exist, but full E2E integration and tests are still missing."
+    ]
+  },
+  "answer_to_user_question": {
+    "question": "Ist berücksichtigt, dass bei new-project über ananta im Default-Weg das LLM, z. B. Ollama, immer gefragt werden muss?",
+    "short_answer": "Policy-seitig ja, technisch im echten Default-Flow noch nicht vollständig.",
+    "details": [
+      "In ProposePolicy ist new_software_project bereits LLM-first konfiguriert: tool_calling_llm -> json_schema_llm -> flexible_llm_normalization -> worker -> deterministic_handler.",
+      "llm_mode ist für new_software_project auf primary_with_guardrails gesetzt.",
+      "In TaskScopedExecutionService werden diese Strategien aber aktuell als StubStrategy registriert. Dadurch wird noch kein Ollama/OpenAI-kompatibler Provider real aufgerufen.",
+      "Soll-Zustand: new-project muss im Default eine echte ModelInvocation über lokal bevorzugten Provider, z. B. Ollama/OpenAI-compatible, versuchen. Deterministische Handler dürfen nur Guardrail/Fallback sein, nicht der Default-Ersatz für das LLM."
+    ],
+    "required_policy_change": "Make new_software_project LLM-required by default: if no LLM provider is configured or reachable, return needs_review/failed with reason llm_required_but_unavailable instead of silently falling back to deterministic-only generation.",
+    "required_implementation_change": "Replace StubStrategy('tool_calling_llm') and StubStrategy('json_schema_llm') with real strategies using ModelInvocationService/Ollama/OpenAI-compatible APIs and pass real tool schemas or JSON schema response_format where supported."
+  },
   "target_flow": [
+    "CLI/API: ananta new-project <goal>",
+    "Goal/task planner creates new_software_project/coding tasks",
     "POST /tasks/<tid>/step/propose",
     "TaskScopedExecutionService delegates to ProposeStrategyOrchestrator",
-    "Orchestrator loads effective ProposePolicy for system/project/blueprint/task_kind",
-    "Strategies run in configured order",
-    "LLM-capable strategies use real tools/schema where possible and LLMResponseNormalizer for flexible outputs",
-    "Only ExecutableProposal with command/tool_calls can be persisted as last_proposal",
-    "POST /tasks/<tid>/step/execute consumes only normalized ExecutableProposal",
-    "Execution creates or modifies workspace files",
-    "WorkerOutputCollector reads ArtifactManifest or synthesizes FileChangeSet",
-    "Verification runs against produced artifacts/files",
-    "ArtifactCompletionPolicy decides completed/needs_review/retryable_failed/failed"
+    "Orchestrator loads ProposePolicy; for new_software_project the default path requires an LLM attempt first",
+    "ToolCallingLLMStrategy calls Ollama/OpenAI-compatible/provider API with real tool schemas when supported",
+    "JsonSchemaLLMStrategy calls provider with strict JSON schema when tools are unsupported",
+    "LLMResponseNormalizer accepts valid alternative formats but never executes raw prose",
+    "Only normalized ExecutableProposal is persisted as last_proposal",
+    "POST /tasks/<tid>/step/execute consumes only last_proposal or explicit validated command/tool_calls",
+    "Execution produces workspace artifacts/files",
+    "WorkerOutputCollector reads/synthesizes ArtifactManifest/FileChangeSet",
+    "Verification runs against real files/tests",
+    "TaskCompletionPolicy decides completed/needs_review/retryable_failed/failed from artifacts and verification"
   ],
-  "global_principles": [
-    "LLM use is desired for project creation and project evolution, but raw LLM text is never executable control state.",
-    "Deterministic handlers are fast paths and guardrails, not a replacement for LLM reasoning.",
-    "Exactly one ProposeStrategyOrchestrator owns strategy order, fallback behavior and diagnostics.",
-    "Tool-calling LLM means real API tools parameter, not only text instructions or .ananta/tool-definitions.json.",
-    "LLM output may be tool_calls, strict JSON, fenced JSON, YAML-like text, file blocks, shell blocks, unified diff, Markdown plan or natural language.",
-    "Every LLM/worker output must normalize to ExecutableProposal, PatchProposalArtifact, FileProposalArtifact, PlannerProposalArtifact, AdvisoryProposalArtifact, NeedsReviewResult or FailedResult.",
-    "Only ExecutableProposal may be executed directly.",
-    "Patch/file proposals require validation and optional approval before apply.",
-    "Legacy sgpt is disabled by default and available only as explicit compatibility strategy.",
-    "Completion comes from artifacts, manifests, diffs and verification, not from final assistant text.",
-    "Malformed outputs move to repair, next strategy or needs_review; never infinite retry.",
-    "ContextAccessPolicy must be applied before sending project/code/secrets to local, remote or cloud models/workers."
-  ],
-  "safe_default_policy": {
-    "strategy_order": [
-      "deterministic_handler",
-      "worker_strategy",
-      "tool_calling_llm",
-      "json_schema_llm",
-      "flexible_llm_normalization",
-      "advisory_proposal",
-      "human_review"
-    ],
-    "allow_legacy_sgpt": false,
-    "allow_unstructured_text_as_execution": false,
-    "max_strategy_attempts": 1,
-    "max_repair_attempts": 1,
-    "on_parse_error": "next_strategy",
-    "on_all_strategies_declined": "needs_review",
-    "requires_executable_step_default": true
+  "status_model": {
+    "done": "Implemented and verified enough to rely on.",
+    "todo": "Missing, stubbed, unsafe, inconsistent or not sufficiently tested.",
+    "partial": "Code exists, but acceptance criteria are not fully met."
   },
   "milestones": [
     {
@@ -81,7 +71,7 @@
         "FA-T003",
         "FA-T004"
       ],
-      "status": "done"
+      "status": "partial"
     },
     {
       "id": "FA-M2",
@@ -91,9 +81,10 @@
         "FA-T006",
         "FA-T007",
         "FA-T008",
-        "FA-T009"
+        "FA-T009",
+        "FA-T021"
       ],
-      "status": "done"
+      "status": "todo"
     },
     {
       "id": "FA-M3",
@@ -103,7 +94,7 @@
         "FA-T011",
         "FA-T012"
       ],
-      "status": "done"
+      "status": "todo"
     },
     {
       "id": "FA-M4",
@@ -114,16 +105,17 @@
         "FA-T015",
         "FA-T016"
       ],
-      "status": "done"
+      "status": "partial"
     },
     {
       "id": "FA-M5",
-      "title": "Autopilot E2E, UI/API and cleanup",
+      "title": "Autopilot E2E, UI/API, docs and cleanup",
       "task_ids": [
         "FA-T017",
         "FA-T018",
         "FA-T019",
-        "FA-T020"
+        "FA-T020",
+        "FA-T022"
       ],
       "status": "todo"
     }
@@ -131,84 +123,91 @@
   "tasks": [
     {
       "id": "FA-T001",
-      "title": "Define ExecutableProposal and ProposeStrategyResult contracts",
-      "status": "done",
+      "title": "Fix proposal contracts: dataclass/Pydantic mismatch and schema validation",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
+      "ist_state": [
+        "worker/core/propose.py defines ExecutableProposal and ProposeStrategyResult as dataclasses.",
+        "agent/services/task_scoped_execution_service.py execute path calls ExecutableProposal.model_validate(...), which does not exist on a dataclass.",
+        "No reliable evidence found for schema files/tests claimed by the previous TODO."
+      ],
       "target_files": [
         "worker/core/propose.py",
+        "agent/services/task_scoped_execution_service.py",
         "schemas/worker/executable_proposal.v1.json",
         "schemas/worker/propose_strategy_result.v1.json",
         "tests/test_propose_contracts.py"
       ],
       "acceptance_criteria": [
-        "ExecutableProposal contains proposal_id, goal_id, task_id, strategy_id, command, tool_calls, required_tools, expected_artifacts, safety_flags, reason, created_at and metadata.",
+        "Choose one consistent contract style: Pydantic BaseModel or pure dataclass plus explicit validate_executable_proposal().",
+        "execute_task_step validates last_proposal without AttributeError.",
         "At least one of command or non-empty tool_calls is required.",
-        "ProposeStrategyResult supports executable, declined, advisory, needs_review, failed and policy_denied.",
-        "Only executable result may contain ExecutableProposal.",
         "Free text only is rejected as executable.",
-        "Tests cover valid command, valid tool_calls, advisory text, declined, invalid executable."
-      ],
-      "anti_patterns": [
-        "No strategy-specific response shapes",
-        "No natural language as executable"
+        "Tests cover valid command, valid tool_calls, advisory text, declined result and invalid executable payload."
       ]
     },
     {
       "id": "FA-T002",
-      "title": "Define ProposePolicy with configurable strategy chain",
-      "status": "done",
+      "title": "Finalize ProposePolicy defaults and new-project LLM-required behavior",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
+      "ist_state": [
+        "agent/services/propose_policy.py exists.",
+        "new_software_project is configured LLM-first and llm_mode=primary_with_guardrails.",
+        "Safe default max_strategy_attempts=1 is dangerous because only the first configured strategy is tried.",
+        "No explicit llm_required/default provider behavior is enforced yet."
+      ],
       "target_files": [
-        "worker/core/propose_policy.py",
-        "schemas/worker/propose_policy.v1.json",
+        "agent/services/propose_policy.py",
         "agent/services/propose_policy_service.py",
+        "schemas/worker/propose_policy.v1.json",
         "tests/test_propose_policy_service.py"
       ],
       "acceptance_criteria": [
-        "Policy supports strategy_order, llm_mode, accepted_output_formats, allow_legacy_sgpt, allow_unstructured_text_as_execution, max_strategy_attempts, max_repair_attempts, requires_executable_step, on_parse_error and on_all_strategies_declined.",
-        "llm_mode supports disabled, fallback, assisted and primary_with_guardrails.",
-        "Policy supports task_kind overrides for new_software_project, coding, repair, research and documentation.",
-        "Default allow_legacy_sgpt=false and allow_unstructured_text_as_execution=false.",
-        "Merge precedence: system default -> project -> blueprint role -> task override.",
-        "Unsafe configs are rejected unless explicit admin override exists.",
-        "Tests cover defaults, overrides, invalid strategy, unsafe config rejection."
-      ],
-      "anti_patterns": [
-        "No hardcoded-only strategy order",
-        "No sgpt enabled by default"
+        "new_software_project default policy requires a real LLM attempt before deterministic fallback.",
+        "If no LLM provider is configured/reachable, result is needs_review or failed with reason llm_required_but_unavailable.",
+        "Default local provider preference supports Ollama/OpenAI-compatible configuration.",
+        "max_strategy_attempts semantics are fixed: either attempt all configured strategies by default or rename to max_attempts_per_strategy.",
+        "Tests cover new_software_project LLM-first order, no-provider failure, provider fallback and unsafe legacy_sgpt rejection."
       ]
     },
     {
       "id": "FA-T003",
       "title": "Inventory and block ungoverned legacy propose paths",
-      "status": "done",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
+      "ist_state": [
+        "propose_task_step no longer directly executes the old sgpt propose body.",
+        "Legacy structured_action imports and older helper methods still exist in task_scoped_execution_service.py.",
+        "No static regression test evidence found."
+      ],
       "target_files": [
         "agent/services/task_scoped_execution_service.py",
-        "agent/services/planning_utils.py",
-        "agent/services/worker_todo_planner_service.py",
+        "agent/common/sgpt.py",
         "tests/test_propose_path_inventory.py"
       ],
       "acceptance_criteria": [
-        "_try_handler_propose, _try_hermes_propose, _propose_single_task_step, _repair_task_proposal and parse_structured_action_payload usages are mapped to strategies or marked advisory.",
-        "propose_task_step no longer directly calls sgpt/run_sgpt_command outside LegacySgptStrategy.",
-        "Static or service test fails if sgpt is called directly from propose_task_step.",
-        "JSON parsing from LLM text is classified as strategy normalization, not global control flow."
-      ],
-      "anti_patterns": [
-        "No hidden fallback path bypassing ProposePolicy"
+        "No direct sgpt/run_sgpt_command call can be reached from propose_task_step except explicit LegacySgptStrategy with admin override.",
+        "Regression test monkeypatches sgpt to raise and proves propose still follows orchestrator path.",
+        "Old repair/parse helpers are either removed, wrapped as strategies or clearly marked legacy."
       ]
     },
     {
       "id": "FA-T004",
-      "title": "Define proposal artifact types",
-      "status": "done",
+      "title": "Harden proposal artifact types",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
+      "ist_state": [
+        "Proposal artifact dataclasses exist inside worker/core/propose.py.",
+        "Path traversal and absolute path validation are not implemented for FileProposalArtifact/PatchProposalArtifact.",
+        "Schema files and tests are not verified."
+      ],
       "target_files": [
+        "worker/core/propose.py",
         "worker/core/proposal_artifacts.py",
         "schemas/artifacts/planner_proposal_artifact.v1.json",
         "schemas/artifacts/file_proposal_artifact.v1.json",
@@ -216,113 +215,118 @@
         "tests/test_proposal_artifacts.py"
       ],
       "acceptance_criteria": [
-        "PlannerProposalArtifact stores non-executable plans/advice.",
-        "FileProposalArtifact stores proposed file writes with safe relative paths and content refs/hashes.",
-        "PatchProposalArtifact stores unified diffs/patches with target paths and safety metadata.",
-        "Artifacts include source strategy/model, parse status, confidence, validation errors and adoption status.",
-        "Path traversal and absolute paths are rejected."
-      ],
-      "anti_patterns": [
-        "No direct execution of file blocks/diffs without validation"
+        "Move or clearly separate artifact classes from executable proposal contracts.",
+        "Reject absolute paths, path traversal and symlink escape.",
+        "Patch/file proposals are not executable until validated/applied by a controlled path.",
+        "Tests cover safe paths, unsafe paths, diff proposals and file proposals."
       ]
     },
     {
       "id": "FA-T005",
-      "title": "Implement ProposeStrategyOrchestrator",
-      "status": "done",
+      "title": "Complete ProposeStrategyOrchestrator behavior and diagnostics",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
+      "ist_state": [
+        "worker/core/propose_orchestrator.py exists.",
+        "Current loop slices strategy_order by max_strategy_attempts and may skip most fallback strategies.",
+        "No attempted_strategies/selected_strategy diagnostics are added.",
+        "No persistence of last_proposal is performed in the shown orchestrator code."
+      ],
       "target_files": [
-        "agent/services/propose_strategy_orchestrator.py",
+        "worker/core/propose_orchestrator.py",
         "agent/services/task_scoped_execution_service.py",
         "tests/test_propose_strategy_orchestrator.py"
       ],
       "acceptance_criteria": [
-        "propose_task_step delegates to ProposeStrategyOrchestrator.",
-        "Orchestrator loads effective ProposePolicy and iterates strategies in order.",
-        "First executable result stops the chain and persists last_proposal.",
-        "Declined result advances to next strategy.",
-        "Advisory result is stored and advances unless policy says needs_review.",
-        "Parse/normalization failure advances to next strategy when configured.",
-        "All strategies exhausted returns needs_review or failed, not retry loop.",
-        "Result contains attempted_strategies, selected_strategy, reasons and advisory refs.",
-        "Tests cover first success, fallback, parse error, all declined."
-      ],
-      "anti_patterns": [
-        "No command execution during propose"
+        "Orchestrator tries configured strategy chain according to fixed policy semantics.",
+        "First executable result stops the chain.",
+        "Declined/advisory/parse failures advance according to policy.",
+        "Result includes attempted_strategies, selected_strategy, reason_codes and policy snapshot.",
+        "ExecutableProposal is persisted as task.last_proposal before execute.",
+        "Tests cover first success, fallback, parse error, all declined and LLM-required unavailable."
       ]
     },
     {
       "id": "FA-T006",
-      "title": "Wrap TaskHandlerRegistry as DeterministicHandlerStrategy",
-      "status": "done",
+      "title": "Fix DeterministicHandlerStrategy wrapper",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
+      "ist_state": [
+        "worker/core/deterministic_handler_strategy.py exists.",
+        "It resolves task_kind from context.task.get('kind') instead of normalized task_kind.",
+        "request_data/service/forwarder are passed as stubs.",
+        "Invalid handler payload becomes advisory instead of a clear failed/declined result depending on policy."
+      ],
       "target_files": [
-        "agent/services/propose_strategies/deterministic_handler_strategy.py",
+        "worker/core/deterministic_handler_strategy.py",
         "agent/services/task_handler_registry.py",
         "tests/test_deterministic_handler_strategy.py"
       ],
       "acceptance_criteria": [
-        "Strategy looks up handler by task_kind.",
+        "Uses normalized task_kind from ProposeContext.",
         "No handler returns declined handler_not_found.",
-        "Handler returning None returns declined handler_declined.",
-        "Handler command/tool_calls are normalized into ExecutableProposal.",
-        "Invalid handler payload returns failed invalid_strategy_output.",
-        "Existing DeterministicRepairHandler remains compatible."
+        "Valid handler command/tool_calls normalize into ExecutableProposal.",
+        "Invalid handler payload returns failed invalid_strategy_output or declined per policy.",
+        "Tests cover no handler, valid tool_calls, valid command and invalid output."
       ]
     },
     {
       "id": "FA-T007",
-      "title": "Implement TemplateProposeHandler for immediate new-project/coding baseline",
-      "status": "done",
-      "priority": "P0",
-      "risk": "high",
+      "title": "Decide TemplateProposeHandler role after LLM-required new-project policy",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "ist_state": [
+        "No reliable code evidence found for a real TemplateProposeHandler.",
+        "Earlier TODO described deterministic Fibonacci generation, but current requirement says new-project should ask the LLM by default."
+      ],
       "target_files": [
         "agent/handlers/template_propose_handler.py",
         "agent/ai_agent.py",
-        "tests/test_template_propose_handler.py",
-        "tests/test_template_propose_handler_registration.py"
+        "tests/test_template_propose_handler.py"
       ],
       "acceptance_criteria": [
-        "Handler registered for coding and new_software_project on Hub startup.",
-        "Fibonacci/new-project task returns executable command or tool_calls without sgpt/LM Studio/generate_text.",
-        "Handler uses tool_definitions_resolver and allowed_tools.",
-        "Prefers write_file tool_calls when available; uses deterministic shell command only when shell is allowed and tool_calls execution is not reliable.",
-        "Unsupported or unsafe task returns None/declined.",
-        "Tests monkeypatch sgpt/generate_text to fail and prove handler still proposes."
-      ],
-      "anti_patterns": [
-        "No catch-all generation",
-        "No ignoring allowed_tools"
+        "Template handler is not the default replacement for LLM in new_software_project.",
+        "It may exist only as explicit fallback, demo mode or offline bootstrap mode.",
+        "When LLM is required and unavailable, do not silently generate a project deterministically.",
+        "Tests prove new-project default attempts LLM before template fallback."
       ]
     },
     {
       "id": "FA-T008",
-      "title": "Implement WorkerStrategy for OpenCode/Hermes/native workers",
-      "status": "done",
+      "title": "Implement real WorkerStrategy for OpenCode/Hermes/native workers",
+      "status": "todo",
       "priority": "P1",
       "risk": "high",
+      "ist_state": [
+        "propose_task_step currently registers worker_strategy as StubStrategy.",
+        "Worker/runtime selection services exist elsewhere but are not wired as a real propose strategy here."
+      ],
       "target_files": [
         "agent/services/propose_strategies/worker_strategy.py",
         "agent/services/worker_runtime_selection_service.py",
         "tests/test_worker_propose_strategy.py"
       ],
       "acceptance_criteria": [
-        "WorkerStrategy uses WorkerRuntimeSelectionService for proposal mode.",
-        "Worker/runtime/context policy is checked before sending context.",
+        "WorkerStrategy uses runtime selection for proposal mode.",
+        "ContextAccessPolicy is checked before sending context.",
         "Worker output is normalized through LLMResponseNormalizer or worker-specific adapter.",
         "Free text becomes advisory, not executable.",
-        "Disabled/unavailable workers return declined/failed cleanly.",
-        "Tests cover Hermes disabled, OpenCode patch proposal, native local worker, cloud blocked."
+        "Tests cover unavailable worker, local worker, cloud blocked and patch proposal."
       ]
     },
     {
       "id": "FA-T009",
-      "title": "Implement ToolCallingLLMStrategy and JsonSchemaLLMStrategy",
-      "status": "done",
+      "title": "Implement ToolCallingLLMStrategy and JsonSchemaLLMStrategy with Ollama/OpenAI-compatible calls",
+      "status": "todo",
       "priority": "P0",
-      "risk": "high",
+      "risk": "critical",
+      "ist_state": [
+        "propose_task_step registers tool_calling_llm and json_schema_llm as StubStrategy.",
+        "Therefore new_software_project policy is LLM-first only on paper, not in runtime behavior."
+      ],
       "target_files": [
         "agent/services/propose_strategies/tool_calling_llm_strategy.py",
         "agent/services/propose_strategies/json_schema_llm_strategy.py",
@@ -331,50 +335,53 @@
         "tests/test_json_schema_llm_strategy.py"
       ],
       "acceptance_criteria": [
-        "ToolCallingLLMStrategy calls first-class model API, not sgpt.",
-        "Tool schemas are passed as real API tools/function schemas where supported.",
-        "Provider without tools returns declined tools_not_supported.",
-        "JsonSchemaLLMStrategy uses provider response_format/json_schema where supported.",
-        "Invalid or text-only output is normalized/advisory/failed and does not become executable.",
-        "Tests mock valid tool_calls, tools unsupported, valid schema, invalid schema and prose."
-      ],
-      "anti_patterns": [
-        "No .ananta/tool-definitions.json as only tool mechanism"
+        "ToolCallingLLMStrategy calls a first-class model invocation service, not sgpt.",
+        "Ollama/OpenAI-compatible provider config can be selected as local default.",
+        "Real tool schemas are passed via API tools/function calling where supported.",
+        "JsonSchemaLLMStrategy uses response_format/json_schema or equivalent where supported.",
+        "Provider without tools falls back to JSON schema or flexible normalization according to policy.",
+        "No raw text output becomes executable without normalization and policy validation.",
+        "Tests mock Ollama/OpenAI-compatible success, provider unavailable, tools unsupported, valid schema and prose."
       ]
     },
     {
       "id": "FA-T010",
-      "title": "Implement LLMResponseNormalizer for flexible outputs",
-      "status": "done",
+      "title": "Harden LLMResponseNormalizer",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
+      "ist_state": [
+        "agent/services/llm_response_normalizer.py exists.",
+        "Current parser is regex-heavy and does not accept full provider_response/tool_calls directly.",
+        "Shell blocks become executable without visible command policy checks.",
+        "File/diff path safety is incomplete.",
+        "The tool_calls regex construction appears fragile."
+      ],
       "target_files": [
         "agent/services/llm_response_normalizer.py",
         "worker/core/propose.py",
         "tests/test_llm_response_normalizer.py"
       ],
       "acceptance_criteria": [
-        "Normalizer accepts raw_text, provider_response, tool_calls, task_context and expected_output_contract.",
-        "OpenAI-compatible tool_calls normalize to ExecutableProposal.tool_calls.",
-        "Strict JSON and fenced JSON can normalize to ExecutableProposal after schema validation.",
-        "Shell code block can normalize to command only when policy allows shell and command policy accepts it.",
-        "Unified diff normalizes to PatchProposalArtifact.",
-        "File blocks normalize to FileProposalArtifact or safe write_file tool_calls when allowed.",
-        "Plain natural language normalizes to AdvisoryProposalArtifact.",
-        "Every result has source_format, confidence, reason_codes and safety_warnings.",
-        "Tests cover tool_calls, strict JSON, fenced JSON, shell block, diff, file blocks, prose."
-      ],
-      "anti_patterns": [
-        "No raw Markdown execution",
-        "No prose as command"
+        "Normalizer accepts raw_text, provider_response, tool_calls, task_context, policy and expected_output_contract.",
+        "OpenAI-compatible tool_calls normalize directly without regex scraping.",
+        "Strict JSON and fenced JSON are schema-validated.",
+        "Shell block only becomes command when policy explicitly allows shell and command policy accepts it.",
+        "Unified diff becomes PatchProposalArtifact, not directly executable.",
+        "File blocks become FileProposalArtifact or safe write_file tool_calls only when allowed.",
+        "Natural language becomes AdvisoryProposalArtifact.",
+        "Tests cover all formats plus malformed JSON and unsafe paths."
       ]
     },
     {
       "id": "FA-T011",
       "title": "Implement bounded LLM repair/coercion",
-      "status": "done",
+      "status": "todo",
       "priority": "P1",
       "risk": "high",
+      "ist_state": [
+        "No reliable implementation evidence found."
+      ],
       "target_files": [
         "agent/services/propose_strategies/llm_repair_strategy.py",
         "agent/services/llm_response_normalizer.py",
@@ -382,109 +389,117 @@
       ],
       "acceptance_criteria": [
         "Repair runs at most once per strategy attempt by default.",
-        "Repair prompt includes original output, validation errors, target schema, allowed tools/formats and safety limits.",
-        "Repaired output must pass the same normalization/schema/security checks.",
-        "Failure becomes advisory/needs_review/next_strategy, not recursive retry.",
-        "Repair cannot broaden permissions or bypass allowed_tools/context policy.",
-        "Telemetry records repair_attempted, repair_success and reason_codes."
+        "Repair prompt includes validation errors, target schema, allowed tools and safety limits.",
+        "Repaired output passes the same schema/security checks.",
+        "Repair cannot broaden permissions or bypass context policy."
       ]
     },
     {
       "id": "FA-T012",
-      "title": "Prepare LLM calls with rich governed context",
-      "status": "done",
+      "title": "Prepare governed LLM context for propose",
+      "status": "todo",
       "priority": "P0",
       "risk": "high",
+      "ist_state": [
+        "research_context is built in propose_task_step.",
+        "No complete governed ContextBundle/ContextAccessPolicy path for local/remote/cloud LLM calls is verified."
+      ],
       "target_files": [
         "agent/services/context_bundle_service.py",
-        "agent/services/worker_contract_service.py",
+        "agent/services/context_access_policy_service.py",
         "agent/services/propose_strategies/tool_calling_llm_strategy.py",
         "tests/test_llm_propose_context_preparation.py"
       ],
       "acceptance_criteria": [
-        "LLM context includes goal, task title, task_kind, current workspace summary, relevant CodeCompass/RAG context, allowed tools, expected artifacts, constraints and examples.",
-        "ContextAccessPolicy filters context before local/remote/cloud model calls.",
-        "Expected artifacts and output contract are included.",
-        "Cloud/external destinations do not receive forbidden code/secrets.",
-        "Tests verify expected artifacts included and sensitive context excluded for cloud."
-      ],
-      "anti_patterns": [
-        "No vague prompt-only call",
-        "No full project/secrets to cloud by default"
+        "LLM context includes goal, task, task_kind, workspace summary, relevant RAG/CodeCompass context, allowed tools and expected artifacts.",
+        "ContextAccessPolicy filters context before model/worker calls.",
+        "Cloud/external providers do not receive forbidden code/secrets by default.",
+        "Tests verify expected context inclusion and sensitive context exclusion."
       ]
     },
     {
       "id": "FA-T013",
       "title": "Make execute consume only normalized ExecutableProposal",
-      "status": "done",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
+      "ist_state": [
+        "execute_task_step tries to consume last_proposal.",
+        "Validation currently calls ExecutableProposal.model_validate despite ExecutableProposal being a dataclass.",
+        "This must be fixed before relying on execute boundary."
+      ],
       "target_files": [
         "agent/services/task_scoped_execution_service.py",
         "agent/services/worker_job_service.py",
         "tests/test_execute_consumes_executable_proposal.py"
       ],
       "acceptance_criteria": [
-        "last_proposal persists normalized ExecutableProposal.",
-        "Execute without explicit command uses last_proposal only if executable.",
-        "Advisory, patch-only, file-proposal-only or needs_review result cannot be executed directly.",
-        "command and tool_calls execution paths are explicit.",
-        "Failure reasons distinguish no_executable_proposal, policy_denied and runtime/tool failure."
+        "Execute without explicit command uses last_proposal only if contract validation passes.",
+        "Advisory, patch-only, file-proposal-only or needs_review cannot be executed directly.",
+        "Failure reasons distinguish no_executable_proposal, invalid_executable_proposal_format, policy_denied and runtime failure.",
+        "Tests cover dataclass/Pydantic fixed validation path."
       ]
     },
     {
       "id": "FA-T014",
-      "title": "Collect ArtifactManifest and FileChangeSet after execution",
-      "status": "done",
+      "title": "Complete ArtifactManifest/FileChangeSet collection integration",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
+      "ist_state": [
+        "worker/core/artifact_manifest.py exists.",
+        "agent/services/worker_output_collector_service.py exists and can validate or synthesize from diff.",
+        "Need E2E proof that execute path always calls collector and stores result."
+      ],
       "target_files": [
         "worker/core/artifact_manifest.py",
         "worker/core/file_change_set.py",
         "agent/services/worker_output_collector_service.py",
         "agent/services/workspace_diff_service.py",
-        "schemas/artifacts/artifact_manifest.v1.json",
-        "schemas/artifacts/file_change_set.v1.json",
         "tests/test_worker_output_collector_service.py"
       ],
       "acceptance_criteria": [
-        "ArtifactManifest schema validates generated/modified/test artifacts with relative paths and hashes.",
-        "FileChangeSet captures created/modified/deleted files from before/after snapshots.",
-        "Collector reads worker-written manifest when present.",
-        "Collector can synthesize manifest from diff when policy allows.",
+        "Execute captures before/after snapshots for all relevant workspace execution modes.",
+        "Collector result is stored in task verification/completion metadata.",
         "Path traversal, absolute paths and symlink escape are rejected or flagged.",
-        "Fibonacci files app.py, requirements.txt, README.md/tests are represented as artifacts."
+        "Tests cover manifest present, manifest missing with synth fallback and unsafe paths."
       ]
     },
     {
       "id": "FA-T015",
-      "title": "Implement ArtifactCompletionPolicyService and verification bridge",
-      "status": "done",
+      "title": "Wire ArtifactCompletionPolicyService into task state transitions",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
+      "ist_state": [
+        "agent/services/task_completion_policy_service.py exists.",
+        "worker/core/artifact_completion_policy.py is referenced.",
+        "Need E2E proof that task status is decided from artifacts/verification for new-project."
+      ],
       "target_files": [
         "worker/core/artifact_completion_policy.py",
         "agent/services/task_completion_policy_service.py",
         "agent/services/verification_service.py",
-        "schemas/artifacts/artifact_completion_policy.v1.json",
         "tests/test_artifact_first_completion_policy.py",
         "tests/test_artifact_first_verification.py"
       ],
       "acceptance_criteria": [
-        "Policy supports required_artifacts, required_paths, optional_paths, verification_required, allowed_synthesized_manifest, retry_conditions and needs_review_conditions.",
-        "Decision statuses include completed, needs_review, retryable_failed, failed, denied and degraded.",
-        "Verification checks files/artifacts/tests, not model claims.",
         "Valid artifacts plus passed verification returns completed.",
         "Missing required artifact or failed verification returns retry/needs_review/failed according to policy.",
-        "Malformed final model text is ignored/advisory when artifacts pass."
+        "Malformed final model text is ignored/advisory when artifacts pass.",
+        "Task state transitions use completion decision consistently."
       ]
     },
     {
       "id": "FA-T016",
       "title": "Prevent retry loops and add needs_review terminal path",
-      "status": "done",
+      "status": "todo",
       "priority": "P0",
       "risk": "critical",
+      "ist_state": [
+        "Needs-review result exists in contracts.",
+        "No complete retry-loop regression evidence found."
+      ],
       "target_files": [
         "agent/services/task_retry_policy_service.py",
         "agent/services/task_runtime_service.py",
@@ -493,33 +508,35 @@
         "tests/test_artifact_first_retry_policy.py"
       ],
       "acceptance_criteria": [
-        "Parser/normalization failures from optional/advisory strategies do not requeue forever.",
+        "Parser/normalization failures do not requeue forever.",
         "No executable proposal after all strategies returns needs_review or configured failure.",
         "Retry counter increments only for retryable execution/artifact/verification failures.",
-        "Max retry guard is enforced.",
-        "State records reason codes: no_strategy_executable, advisory_parse_failed_ignored, missing_required_artifact, verification_failed.",
-        "Regression test reproduces original sgpt/prose failure and proves no infinite retry."
+        "Regression test reproduces original prose/parse failure and proves no infinite retry."
       ]
     },
     {
       "id": "FA-T017",
-      "title": "E2E new-project Fibonacci through orchestrator and artifact completion",
+      "title": "E2E new-project Fibonacci with real LLM-default propose",
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
+      "ist_state": [
+        "No E2E evidence found.",
+        "Current LLM strategies are stubs, so this cannot pass as intended yet."
+      ],
       "target_files": [
         "tests/e2e/test_autopilot_new_project_fibonacci.py",
         "tests/test_task_scoped_handler_propose.py"
       ],
       "acceptance_criteria": [
         "Test submits new-project Fibonacci API goal.",
-        "Autoplanner creates tasks.",
-        "First coding/new_software_project task is handled before legacy sgpt.",
-        "run_sgpt_command is monkeypatched to raise and flow still succeeds for supported task.",
-        "Propose returns command/tool_calls and no autopilot_no_executable_step.",
-        "Execute creates app.py, requirements.txt, README.md and tests as configured.",
-        "pytest or verification passes.",
-        "Task completes from artifacts/verification without manual file creation or status patch."
+        "Autoplanner creates new_software_project/coding task.",
+        "Default propose path attempts configured local LLM provider, e.g. Ollama/OpenAI-compatible mock.",
+        "run_sgpt_command is monkeypatched to raise and flow still succeeds.",
+        "Propose returns normalized ExecutableProposal with command/tool_calls.",
+        "Execute creates app.py, requirements.txt, README.md and tests.",
+        "Verification passes.",
+        "Task completes from artifacts/verification."
       ]
     },
     {
@@ -528,6 +545,9 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
+      "ist_state": [
+        "No E2E evidence found."
+      ],
       "target_files": [
         "tests/e2e/test_llm_assisted_project_creation.py",
         "tests/e2e/test_llm_assisted_project_evolution.py",
@@ -536,10 +556,10 @@
       "acceptance_criteria": [
         "Mocked LLM tool_calls are accepted and executed.",
         "Mocked fenced JSON normalizes and executes when valid.",
-        "Mocked file blocks become write_file tool_calls or FileProposalArtifact.",
-        "Mocked unified diff becomes PatchProposalArtifact and needs apply/approval path.",
-        "Plain natural language becomes AdvisoryProposalArtifact and does not execute.",
-        "All executable paths still require artifact collection and verification."
+        "Mocked file blocks become safe FileProposalArtifact or write_file tool_calls.",
+        "Mocked unified diff becomes PatchProposalArtifact and requires apply/approval path.",
+        "Plain natural language becomes advisory and does not execute.",
+        "All executable paths require artifact collection and verification."
       ]
     },
     {
@@ -548,6 +568,9 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
+      "ist_state": [
+        "No verified UI/API exposure found for the new diagnostic fields."
+      ],
       "target_files": [
         "agent/routes/tasks.py",
         "agent/cli.py",
@@ -555,11 +578,11 @@
         "tests/test_api_task_artifact_status.py"
       ],
       "acceptance_criteria": [
-        "Task detail API includes effective propose policy, attempted_strategies, selected_strategy, proposal_status, proposal_reason, normalization_format and advisory refs.",
-        "Task detail API includes artifact_summary, manifest_status, verification_status, completion_decision and reason_codes.",
-        "CLI shows selected strategy, LLM output format/normalization result and artifact list with hash prefixes.",
-        "UI shows strategy chain and artifact completion summary with warning badges for legacy sgpt/advisory parse failure.",
-        "Raw secrets/full artifact contents are not shown by default."
+        "Task detail API includes effective propose policy, attempted_strategies, selected_strategy and normalization result.",
+        "Task detail API includes artifact_summary, manifest_status, verification_status and completion_decision.",
+        "CLI shows selected strategy, LLM output format and artifact list.",
+        "UI shows strategy chain and artifact completion summary.",
+        "Secrets/full artifact contents are not shown by default."
       ]
     },
     {
@@ -568,6 +591,9 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
+      "ist_state": [
+        "This TODO is now the active consolidated file, but docs/config cleanup still needs verification."
+      ],
       "target_files": [
         "agent/db_models.py",
         "agent/routes/teams.py",
@@ -579,76 +605,145 @@
       "acceptance_criteria": [
         "Project/BlueprintRole config can store propose_policy without dropping advanced fields.",
         "Bundle import/export preserves propose_policy.",
-        "Docs explain original root cause, strategy chain, LLM-assisted normalization, execute boundary and artifact-first completion.",
-        "Docs include Mermaid diagram for Task -> Orchestrator -> ExecutableProposal -> Execute -> ArtifactManifest/FileChangeSet -> Verify -> Complete.",
-        "Old todo.autopilot-template-propose-pipeline*.json and todo.autopilot-propose-llm-assisted-normalization-extension.json are removed or replaced by this file.",
-        "This JSON remains valid and is updated after implementation slices."
+        "Docs explain root cause, LLM-required new-project behavior, strategy chain, execute boundary and artifact-first completion.",
+        "Docs include Mermaid flow diagram.",
+        "Old replaced TODO files are removed or clearly marked superseded."
+      ]
+    },
+    {
+      "id": "FA-T021",
+      "title": "Replace StubStrategy registrations with real strategy registry",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "ist_state": [
+        "TaskScopedExecutionService currently creates StubStrategy for worker_strategy, tool_calling_llm, json_schema_llm, flexible_llm_normalization, advisory_proposal and human_review.",
+        "This is the main blocker for real new-project LLM behavior."
+      ],
+      "target_files": [
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/propose_strategy_registry.py",
+        "agent/services/propose_strategies/__init__.py",
+        "tests/test_propose_strategy_registry.py"
+      ],
+      "acceptance_criteria": [
+        "Strategies are resolved by a real registry/factory.",
+        "tool_calling_llm and json_schema_llm are real implementations.",
+        "flexible_llm_normalization invokes LLMResponseNormalizer on actual model output.",
+        "Missing strategy is explicit configuration error or declined with diagnostics, not silent stub success.",
+        "Tests prove no StubStrategy is used in default new_software_project policy."
+      ]
+    },
+    {
+      "id": "FA-T022",
+      "title": "Add final review summaries after each implementation slice",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "ist_state": [
+        "Previous summary said done=16/todo=4, but review shows only partial foundational work."
+      ],
+      "target_files": [
+        "todo.fixup-autopilot.json",
+        "docs/architecture/propose-strategy-orchestrator.md"
+      ],
+      "acceptance_criteria": [
+        "After each slice, update current_state_summary.",
+        "Update by_status counts from actual task statuses.",
+        "Add reviewed evidence and known blockers.",
+        "Do not mark tasks done without tests or clear code evidence."
       ]
     }
   ],
   "priority_order": [
     "FA-T001",
     "FA-T002",
-    "FA-T005",
-    "FA-T006",
-    "FA-T007",
-    "FA-T013",
-    "FA-T017",
-    "FA-T010",
-    "FA-T012",
+    "FA-T021",
     "FA-T009",
+    "FA-T005",
+    "FA-T013",
+    "FA-T010",
+    "FA-T017",
+    "FA-T006",
+    "FA-T012",
     "FA-T014",
     "FA-T015",
     "FA-T016",
     "FA-T018",
+    "FA-T008",
+    "FA-T004",
+    "FA-T003",
     "FA-T019",
     "FA-T020",
-    "FA-T003",
-    "FA-T004",
-    "FA-T008",
-    "FA-T011"
+    "FA-T011",
+    "FA-T007",
+    "FA-T022"
   ],
   "critical_path_tasks": [
     "FA-T001",
     "FA-T002",
+    "FA-T021",
+    "FA-T009",
     "FA-T005",
-    "FA-T006",
-    "FA-T007",
-    "FA-T010",
     "FA-T013",
-    "FA-T014",
-    "FA-T015",
-    "FA-T016",
+    "FA-T010",
     "FA-T017"
   ],
   "minimum_safe_slice": [
     "FA-T001",
     "FA-T002",
+    "FA-T021",
+    "FA-T009",
     "FA-T005",
-    "FA-T006",
-    "FA-T007",
     "FA-T013",
-    "FA-T016",
     "FA-T017"
   ],
   "definition_of_done_global": [
-    "The three replaced autopilot todo files are no longer needed as active planning sources.",
-    "propose_task_step delegates to ProposeStrategyOrchestrator.",
+    "new-project default path attempts a real configured local/provider LLM, preferably Ollama/OpenAI-compatible for local-first use.",
+    "If LLM is required but unavailable, the system returns needs_review/failed with explicit reason instead of pretending deterministic generation succeeded.",
+    "propose_task_step delegates to ProposeStrategyOrchestrator and uses real strategies, not default stubs.",
     "ProposePolicy controls strategy order, LLM usage, accepted formats and fallback behavior.",
-    "TemplateProposeHandler fixes the immediate Fibonacci/new-project path without sgpt.",
-    "LLM-assisted project creation and evolution are supported through tool-calling, schema output and flexible normalization.",
     "Legacy sgpt is disabled by default and explicit compatibility only.",
     "Execute consumes only normalized ExecutableProposal.",
     "ArtifactManifest/FileChangeSet are collected after execution.",
     "ArtifactCompletionPolicy and verification decide task completion from real outputs.",
     "Malformed model prose/JSON cannot cause infinite retry loops.",
-    "E2E tests prove Fibonacci new-project succeeds without sgpt propose path and with artifact-based completion."
+    "E2E tests prove Fibonacci new-project succeeds via LLM-default propose path and artifact-based completion."
+  ],
+  "review_evidence": [
+    {
+      "file": "agent/services/task_scoped_execution_service.py",
+      "finding": "propose_task_step delegates to ProposeStrategyOrchestrator, but registers most strategies as StubStrategy; execute_task_step calls ExecutableProposal.model_validate."
+    },
+    {
+      "file": "worker/core/propose_orchestrator.py",
+      "finding": "Basic orchestrator exists, but diagnostics/persistence/full fallback semantics are incomplete."
+    },
+    {
+      "file": "agent/services/propose_policy.py",
+      "finding": "new_software_project preset is LLM-first and primary_with_guardrails, but policy alone does not call Ollama/LLM."
+    },
+    {
+      "file": "agent/services/llm_response_normalizer.py",
+      "finding": "Normalizer exists, but is too permissive/fragile and lacks policy-aware safety checks."
+    },
+    {
+      "file": "agent/services/worker_output_collector_service.py",
+      "finding": "Artifact collection service exists and supports manifest or synthesized diff."
+    },
+    {
+      "file": "agent/services/task_completion_policy_service.py",
+      "finding": "Artifact-first completion service exists, but E2E wiring still needs proof."
+    }
   ],
   "tasks_status_summary": {
     "by_status": {
-      "todo": 4,
-      "done": 16
+      "partial": 4,
+      "todo": 18
     },
-    "progress": 80.0
+    "total": 22,
+    "progress_done_percent": 0.0,
+    "progress_done_or_partial_percent": 18.2,
+    "summary": "No task is marked done after this review because the important runtime path still contains stubs or missing tests. Partial means real code exists but acceptance criteria are not met."
   }
 }
