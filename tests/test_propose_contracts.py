@@ -96,7 +96,7 @@ class TestProposeStrategyResult:
 
     def test_non_executable_must_not_carry_proposal(self):
         p = self._proposal()
-        with pytest.raises(ValueError, match="must_not_carry_proposal"):
+        with pytest.raises(ValueError, match="non_executable_result_must_not_carry_ExecutableProposal"):
             ProposeStrategyResult(status=STATUS_DECLINED, strategy_id="s1", proposal=p)
 
     def test_declined_result(self):

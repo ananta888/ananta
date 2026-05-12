@@ -73,7 +73,7 @@
   },
   "milestones": [
     {"id": "FA-M1", "title": "Contracts and policy", "task_ids": ["FA-T001", "FA-T002", "FA-T003", "FA-T004"], "status": "done"},
-    {"id": "FA-M2", "title": "Orchestrator and strategy adapters", "task_ids": ["FA-T005", "FA-T006", "FA-T007", "FA-T008", "FA-T009"], "status": "in_progress"},
+    {"id": "FA-M2", "title": "Orchestrator and strategy adapters", "task_ids": ["FA-T005", "FA-T006", "FA-T007", "FA-T008", "FA-T009"], "status": "done"},
     {"id": "FA-M3", "title": "LLM normalization and repair", "task_ids": ["FA-T010", "FA-T011", "FA-T012"], "status": "todo"},
     {"id": "FA-M4", "title": "Execute and artifact-first completion", "task_ids": ["FA-T013", "FA-T014", "FA-T015", "FA-T016"], "status": "todo"},
     {"id": "FA-M5", "title": "Autopilot E2E, UI/API and cleanup", "task_ids": ["FA-T017", "FA-T018", "FA-T019", "FA-T020"], "status": "todo"}
@@ -201,7 +201,7 @@
     {
       "id": "FA-T008",
       "title": "Implement WorkerStrategy for OpenCode/Hermes/native workers",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "target_files": ["agent/services/propose_strategies/worker_strategy.py", "agent/services/worker_runtime_selection_service.py", "tests/test_worker_propose_strategy.py"],
@@ -217,7 +217,7 @@
     {
       "id": "FA-T009",
       "title": "Implement ToolCallingLLMStrategy and JsonSchemaLLMStrategy",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": ["agent/services/propose_strategies/tool_calling_llm_strategy.py", "agent/services/propose_strategies/json_schema_llm_strategy.py", "agent/services/model_invocation_service.py", "tests/test_tool_calling_llm_strategy.py", "tests/test_json_schema_llm_strategy.py"],
