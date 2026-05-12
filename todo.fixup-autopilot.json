@@ -72,8 +72,8 @@
     "requires_executable_step_default": true
   },
   "milestones": [
-    {"id": "FA-M1", "title": "Contracts and policy", "task_ids": ["FA-T001", "FA-T002", "FA-T003", "FA-T004"], "status": "todo"},
-    {"id": "FA-M2", "title": "Orchestrator and strategy adapters", "task_ids": ["FA-T005", "FA-T006", "FA-T007", "FA-T008", "FA-T009"], "status": "todo"},
+    {"id": "FA-M1", "title": "Contracts and policy", "task_ids": ["FA-T001", "FA-T002", "FA-T003", "FA-T004"], "status": "done"},
+    {"id": "FA-M2", "title": "Orchestrator and strategy adapters", "task_ids": ["FA-T005", "FA-T006", "FA-T007", "FA-T008", "FA-T009"], "status": "in_progress"},
     {"id": "FA-M3", "title": "LLM normalization and repair", "task_ids": ["FA-T010", "FA-T011", "FA-T012"], "status": "todo"},
     {"id": "FA-M4", "title": "Execute and artifact-first completion", "task_ids": ["FA-T013", "FA-T014", "FA-T015", "FA-T016"], "status": "todo"},
     {"id": "FA-M5", "title": "Autopilot E2E, UI/API and cleanup", "task_ids": ["FA-T017", "FA-T018", "FA-T019", "FA-T020"], "status": "todo"}
@@ -82,7 +82,7 @@
     {
       "id": "FA-T001",
       "title": "Define ExecutableProposal and ProposeStrategyResult contracts",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["worker/core/propose.py", "schemas/worker/executable_proposal.v1.json", "schemas/worker/propose_strategy_result.v1.json", "tests/test_propose_contracts.py"],
@@ -99,7 +99,7 @@
     {
       "id": "FA-T002",
       "title": "Define ProposePolicy with configurable strategy chain",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["worker/core/propose_policy.py", "schemas/worker/propose_policy.v1.json", "agent/services/propose_policy_service.py", "tests/test_propose_policy_service.py"],
@@ -117,7 +117,7 @@
     {
       "id": "FA-T003",
       "title": "Inventory and block ungoverned legacy propose paths",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": ["agent/services/task_scoped_execution_service.py", "agent/services/planning_utils.py", "agent/services/worker_todo_planner_service.py", "tests/test_propose_path_inventory.py"],
@@ -132,7 +132,7 @@
     {
       "id": "FA-T004",
       "title": "Define proposal artifact types",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": ["worker/core/proposal_artifacts.py", "schemas/artifacts/planner_proposal_artifact.v1.json", "schemas/artifacts/file_proposal_artifact.v1.json", "schemas/artifacts/patch_proposal_artifact.v1.json", "tests/test_proposal_artifacts.py"],
@@ -148,7 +148,7 @@
     {
       "id": "FA-T005",
       "title": "Implement ProposeStrategyOrchestrator",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "target_files": ["agent/services/propose_strategy_orchestrator.py", "agent/services/task_scoped_execution_service.py", "tests/test_propose_strategy_orchestrator.py"],
@@ -168,7 +168,7 @@
     {
       "id": "FA-T006",
       "title": "Wrap TaskHandlerRegistry as DeterministicHandlerStrategy",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": ["agent/services/propose_strategies/deterministic_handler_strategy.py", "agent/services/task_handler_registry.py", "tests/test_deterministic_handler_strategy.py"],
@@ -184,7 +184,7 @@
     {
       "id": "FA-T007",
       "title": "Implement TemplateProposeHandler for immediate new-project/coding baseline",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "target_files": ["agent/handlers/template_propose_handler.py", "agent/ai_agent.py", "tests/test_template_propose_handler.py", "tests/test_template_propose_handler_registration.py"],
@@ -430,11 +430,11 @@
   ],
   "tasks_status_summary": {
     "total": 20,
-    "by_status": {"todo": 20, "in_progress": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
+    "by_status": {"todo": 13, "in_progress": 0, "blocked": 0, "done": 7},
+    "progress_percent_done": 35.0,
     "by_priority": {"P0": 15, "P1": 5, "P2": 0},
     "by_risk": {"critical": 9, "high": 9, "medium": 2, "low": 0},
-    "critical_path": {"total": 11, "done": 0, "remaining": 11},
-    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
+    "critical_path": {"total": 11, "done": 5, "remaining": 6},
+    "milestones": {"total": 5, "todo": 3, "in_progress": 1, "blocked": 0, "done": 1}
   }
 }
