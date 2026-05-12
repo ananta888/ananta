@@ -1,336 +1,481 @@
 {
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
-  "track": "autopilot_template_propose_pipeline",
-  "purpose": "Bring the new-project Autopilot propose/execute pipeline into a working deterministic baseline by adding a TemplateProposeHandler for coding/new_software_project tasks. The handler must generate executable command/tool_calls without relying on sgpt/LM Studio structured tool output.",
-  "problem_statement": "The new-project Autopilot creates tasks, but the propose step fails with autopilot_no_executable_step. The current propose flow calls sgpt, which talks to LM Studio without a tools parameter. The model returns unstructured text. parse_structured_action_payload cannot parse command/tool_calls, so no executable step is produced.",
-  "current_status_notes": [
-    "Model routing was fixed so default model auto is tried before benchmark models.",
-    "/project-workspaces/ was created because the Docker bind mount was missing.",
-    "Hub was started with ROLE=hub instead of the previous default worker role.",
-    "Fibonacci API was manually created and tests pass 10/10.",
-    "Remaining target: make the Hub/Autopilot produce and execute steps automatically, not manually."
+  "track": "autopilot_propose_strategy_orchestrator_artifact_first_completion",
+  "supersedes_track": "autopilot_template_propose_pipeline",
+  "purpose": "Build a configurable ProposeStrategyOrchestrator plus Artifact-First Completion pipeline. The immediate Fibonacci/new-project problem is fixed by a deterministic TemplateProposeHandler strategy, but the long-term architecture is a multi-stage propose strategy chain followed by artifact/manifest/verification based completion.",
+  "problem_statement": "The new-project Autopilot creates tasks, but propose fails with autopilot_no_executable_step because the generic fallback uses sgpt -> LM Studio without real tools parameter. The model returns unstructured text, parse_structured_action_payload cannot extract command/tool_calls, repair repeats the same problem, and no executable step exists. The system needs a configurable multi-stage propose pipeline that does not depend on strict chat JSON, and a completion pipeline that marks work done from artifacts, manifests and verification rather than model text.",
+  "root_cause_reference": "todo.autopilot-template-propose-pipeline.root-cause.json",
+  "related_tracks": [
+    "todo.artifact-first-worker-handoff-fixup.json",
+    "todo.autopilot-template-propose-pipeline.root-cause.json"
   ],
-  "architecture_decision": "For the first working slice, implement deterministic handler-based propose for known task kinds. This is not the final artifact-first architecture, but it removes the fragile dependency on sgpt/LM Studio returning structured JSON/tool calls. Later artifact-first work can replace/extend this path.",
+  "architecture_decision": "Introduce ProposeStrategyOrchestrator as the only entry point for propose_task_step strategy selection. Strategies run in configured order: deterministic handlers/templates first, then worker-backed strategies such as Hermes/OpenCode if enabled, then first-class tool-calling LLM, then JSON-schema LLM, then legacy sgpt only if explicitly enabled, then advisory proposal/human review. Execution consumes only ExecutableProposal objects. Completion is decided by ArtifactCompletionPolicy from produced artifacts/manifests/diffs/verification, not by final chat text.",
+  "target_flow": [
+    "POST /tasks/<tid>/step/propose",
+    "propose_task_step() calls ProposeStrategyOrchestrator.propose(task_context)",
+    "Orchestrator loads ProposePolicy for task_kind/blueprint role/project",
+    "Strategy 1: DeterministicHandlerStrategy, e.g. TemplateProposeHandler for new_software_project/coding",
+    "Strategy 2: WorkerStrategy, e.g. Hermes/OpenCode/native worker if enabled and eligible",
+    "Strategy 3: ToolCallingLLMStrategy through first-class API with tools parameter",
+    "Strategy 4: JsonSchemaLLMStrategy through response_format/json_schema if provider supports it",
+    "Strategy 5: LegacySgptStrategy only when explicitly allowed",
+    "Strategy 6: AdvisoryProposalStrategy stores text as proposal artifact, not executable",
+    "Strategy 7: HumanReviewStrategy returns needs_review instead of retry-loop",
+    "ExecutableProposal is persisted as last_proposal",
+    "POST /tasks/<tid>/step/execute consumes last_proposal.command/tool_calls",
+    "Worker/executor creates files/artifacts",
+    "Artifact collector reads ArtifactManifest or synthesizes FileChangeSet",
+    "Verification runs",
+    "ArtifactCompletionPolicy decides completed/needs_review/retryable_failed/failed"
+  ],
   "global_principles": [
-    "Propose must return an executable command or tool_calls for supported task kinds.",
-    "Known template/new-project tasks should not require an LLM call to produce the first executable step.",
-    "Unsupported task kinds must return None and fall back cleanly to the existing propose flow.",
-    "Handler output must match TaskScopedRouteResponse expectations and must be usable by execute via last_proposal.",
-    "The handler must respect available tools/allowed_tools and not invent tools that are unavailable.",
-    "E2E success is measured by ananta new-project generating a real Fibonacci API workspace and tests passing."
+    "Exactly one orchestrator owns propose strategy ordering and fallback behavior.",
+    "Supported deterministic tasks must not reach sgpt/legacy fallback.",
+    "LLM free text is never an ExecutableProposal.",
+    "A strategy may return executable, declined, advisory, needs_review or failed, but only executable can be executed.",
+    "Legacy sgpt is disabled by default and explicit per-policy opt-in only.",
+    "Tool-calling LLM means real API tools parameter, not only writing tool definitions into a text file.",
+    "JSON-schema LLM is fallback, not the primary control path.",
+    "Artifact-first completion is separate from propose: propose creates executable steps, completion validates real outputs.",
+    "Malformed model output must become advisory/needs_review/fallback, never infinite retry.",
+    "All behavior must be configurable per project, blueprint role and task_kind with safe defaults."
   ],
   "non_goals": [
-    "Do not solve full artifact-first manifest completion in this todo.",
-    "Do not require LM Studio tool-calling support for this path.",
-    "Do not parse unstructured LLM text as the primary propose result.",
-    "Do not bypass existing task-scoped execution safety checks.",
-    "Do not make the handler catch all unknown task kinds. Unknown kinds must fall back."
+    "Do not remove deterministic handlers; they become strategy implementations.",
+    "Do not execute natural language proposals.",
+    "Do not keep _propose_single_task_step as an ungoverned direct fallback.",
+    "Do not use final assistant text as completion evidence.",
+    "Do not force all providers to support tools; provide strategy fallback instead.",
+    "Do not allow cloud/external workers to bypass context access policy."
   ],
+  "propose_policy_example": {
+    "default": {
+      "strategy_order": ["deterministic_handler", "worker_strategy", "tool_calling_llm", "json_schema_llm", "advisory_proposal", "human_review"],
+      "allow_legacy_sgpt": false,
+      "allow_unstructured_text_as_execution": false,
+      "max_strategy_attempts": 1,
+      "max_repair_attempts": 1,
+      "requires_executable_step": true,
+      "on_parse_error": "next_strategy",
+      "on_all_strategies_declined": "needs_review"
+    },
+    "task_kind_policies": {
+      "new_software_project": {
+        "strategy_order": ["deterministic_handler", "tool_calling_llm", "json_schema_llm", "human_review"],
+        "allow_legacy_sgpt": false,
+        "requires_executable_step": true
+      },
+      "coding": {
+        "strategy_order": ["deterministic_handler", "worker_strategy", "tool_calling_llm", "json_schema_llm", "artifact_reconciliation", "human_review"],
+        "allow_legacy_sgpt": false,
+        "requires_executable_step": true
+      },
+      "research": {
+        "strategy_order": ["tool_calling_llm", "json_schema_llm", "advisory_proposal", "human_review"],
+        "requires_executable_step": false
+      },
+      "repair": {
+        "strategy_order": ["repair_procedure_runner", "deterministic_handler", "worker_strategy", "human_review"],
+        "requires_executable_step": true
+      }
+    }
+  },
   "milestones": [
-    {"id": "ATP-M1", "title": "Understand handler contracts and available tools", "task_ids": ["ATP-T001", "ATP-T002"], "status": "todo"},
-    {"id": "ATP-M2", "title": "Implement and register TemplateProposeHandler", "task_ids": ["ATP-T003", "ATP-T004"], "status": "todo"},
-    {"id": "ATP-M3", "title": "Validate propose and execute in Hub", "task_ids": ["ATP-T005", "ATP-T006"], "status": "todo"},
-    {"id": "ATP-M4", "title": "End-to-end new-project validation and fallback behavior", "task_ids": ["ATP-T007", "ATP-T008", "ATP-T009"], "status": "todo"}
+    {"id": "PSA-M1", "title": "Propose contracts and policy model", "task_ids": ["PSA-T001", "PSA-T002", "PSA-T003"], "status": "todo"},
+    {"id": "PSA-M2", "title": "Strategy orchestrator and deterministic handler strategy", "task_ids": ["PSA-T004", "PSA-T005", "PSA-T006"], "status": "todo"},
+    {"id": "PSA-M3", "title": "LLM, worker and legacy fallback strategies", "task_ids": ["PSA-T007", "PSA-T008", "PSA-T009", "PSA-T010"], "status": "todo"},
+    {"id": "PSA-M4", "title": "Execute bridge and artifact-first completion", "task_ids": ["PSA-T011", "PSA-T012", "PSA-T013", "PSA-T014"], "status": "todo"},
+    {"id": "PSA-M5", "title": "API/UI visibility, E2E and docs", "task_ids": ["PSA-T015", "PSA-T016", "PSA-T017", "PSA-T018"], "status": "todo"}
   ],
   "tasks": [
     {
-      "id": "ATP-T001",
-      "title": "Analyze TaskHandlerRegistry and handler protocol",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "target_files": [
-        "agent/services/task_handler_registry.py",
-        "agent/ai_agent.py",
-        "agent/services/task_scoped_execution_service.py"
-      ],
-      "goal": "Fully understand how handlers are registered and how _try_handler_propose dispatches propose calls.",
-      "acceptance_criteria": [
-        "agent/services/task_handler_registry.py is reviewed and the TaskHandler protocol/signature is documented in notes or test comments.",
-        "DeterministicRepairHandler in agent/ai_agent.py is identified as the registration reference.",
-        "The existing register_task_handler() call in ai_agent.py is located and understood.",
-        "_try_handler_propose() in task_scoped_execution_service.py is reviewed and expected handler return shapes are documented.",
-        "TaskScopedRouteResponse structure for handler responses is identified, including fields used by propose/execute."
-      ],
-      "implementation_notes": [
-        "Do this before coding to avoid returning a shape that propose accepts but execute ignores.",
-        "Record exact expected keys for command/tool_calls/reason/metadata if not already obvious."
-      ],
-      "test_requirements": [
-        "No mandatory code test, but later handler tests must prove compatibility with _try_handler_propose."
-      ]
-    },
-    {
-      "id": "ATP-T002",
-      "title": "Analyze SDK/Shell tool registry and allowed_tools handling",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "target_files": [
-        "agent/services/task_scoped_execution_service.py",
-        "agent/services/tool_registry*.py",
-        "agent/services/*tool*.py",
-        "worker/core/*tool*.py"
-      ],
-      "goal": "Understand which tool definitions are available to the handler and how allowed_tools constrains propose output.",
-      "acceptance_criteria": [
-        "tool_definitions_resolver path, likely tool_registry.get_tool_definitions, is identified and can be called from the handler or tests.",
-        "The structure of returned tool definitions is documented: tool name, parameters, required fields and execution mapping.",
-        "Availability of common tools such as write_file, read_file and bash/command is verified or their actual names are documented.",
-        "normalize_allowed_tools behavior is understood: how task context restricts tool usage and how unavailable tools should be handled.",
-        "Handler design includes a fallback if write_file is unavailable but bash is available."
-      ],
-      "implementation_notes": [
-        "Do not hardcode tool names without verifying actual registry names where possible.",
-        "The handler should prefer safer file-write tools over shell heredoc when available."
-      ],
-      "test_requirements": [
-        "Add unit fixture with fake tool_definitions_resolver exposing write_file and bash variants."
-      ]
-    },
-    {
-      "id": "ATP-T003",
-      "title": "Implement TemplateProposeHandler",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "target_files": [
-        "agent/handlers/template_propose_handler.py",
-        "tests/test_template_propose_handler.py"
-      ],
-      "goal": "Create a deterministic TaskHandler for task_kind coding and new_software_project that returns executable proposal steps without an LLM call.",
-      "acceptance_criteria": [
-        "agent/handlers/template_propose_handler.py exists.",
-        "TemplateProposeHandler implements the TaskHandler protocol with propose(self, **kwargs) and execute(self, **kwargs).",
-        "propose() returns TaskScopedRouteResponse(data={...}) or the exact accepted dict shape used by _try_handler_propose.",
-        "For supported task kinds, propose() returns either command as a non-empty string or tool_calls as a non-empty list of dicts.",
-        "For task_kind='new_software_project', propose() can produce deterministic file creation steps for a small Python/Flask Fibonacci API project when the task description indicates that goal.",
-        "For task_kind='coding', propose() produces a safe generic command/tool_calls proposal only when the task description is recognized enough to be deterministic.",
-        "Handler uses tool_definitions_resolver to inspect available tools and does not emit unavailable tools if avoidable.",
-        "Handler respects allowed_tools from kwargs/context. If write_file is not allowed but bash is allowed, it may emit a bash heredoc command. If neither is allowed, it returns None with a reason.",
-        "Handler sets reason, for example 'TemplateProposeHandler: write_file app.py requirements.txt README.md tests'.",
-        "execute() returns None so the existing execute pipeline uses last_proposal/default execution flow, unless the protocol requires another pass-through shape."
-      ],
-      "implementation_notes": [
-        "Keep the first template deliberately narrow: Python Flask Fibonacci API with app.py, requirements.txt and tests/README if requested.",
-        "Prefer multiple write_file tool_calls when the tool exists. If only shell is available, emit one deterministic shell command that creates files using cat > file <<'EOF'.",
-        "Do not call sgpt/generate_text/LM Studio inside this handler.",
-        "Do not mark execution completed inside propose. Propose only suggests executable step(s)."
-      ],
-      "test_requirements": [
-        "Unit test: new_software_project + write_file tools returns tool_calls.",
-        "Unit test: new_software_project + only bash allowed returns command.",
-        "Unit test: unknown task_kind returns None.",
-        "Unit test: unsupported/unsafe description returns None or safe fallback, not random shell."
-      ],
-      "anti_patterns": [
-        "Do not emit free-text proposal without command/tool_calls.",
-        "Do not call the LLM from the deterministic handler.",
-        "Do not ignore allowed_tools."
-      ]
-    },
-    {
-      "id": "ATP-T004",
-      "title": "Register TemplateProposeHandler in Hub app",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "target_files": [
-        "agent/ai_agent.py",
-        "tests/test_template_propose_handler_registration.py"
-      ],
-      "goal": "Register the handler for coding and new_software_project task kinds so _try_handler_propose uses it before falling back to sgpt/LLM propose.",
-      "acceptance_criteria": [
-        "TemplateProposeHandler is imported in agent/ai_agent.py or an appropriate handler registration module.",
-        "register_task_handler('coding', handler, app=app, ...) is called with correct capabilities/safety flags.",
-        "register_task_handler('new_software_project', handler, app=app, ...) is called with correct capabilities/safety flags.",
-        "Registration occurs during Hub startup when ROLE=hub, alongside or near DeterministicRepairHandler registration.",
-        "Existing DeterministicRepairHandler registration continues to work.",
-        "Safety flags include explicit values such as requires_review=false or the project-standard equivalent, and no unsafe broad permissions are introduced.",
-        "Tests verify registry contains handlers for coding and new_software_project after app setup."
-      ],
-      "implementation_notes": [
-        "Either rename _register_deterministic_repair_handler() to a broader _register_task_handlers() or add a second registration function. Prefer minimal low-risk change.",
-        "Do not register the handler multiple times if app factory is called repeatedly."
-      ],
-      "test_requirements": [
-        "Registration test using app factory or registry fixture."
-      ],
-      "anti_patterns": [
-        "Do not hide registration behind worker role only.",
-        "Do not remove deterministic repair handler."
-      ]
-    },
-    {
-      "id": "ATP-T005",
-      "title": "Validate handler propose path in running Hub",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "target_files": [
-        "agent/services/task_scoped_execution_service.py",
-        "tests/test_task_scoped_handler_propose.py"
-      ],
-      "goal": "Prove POST /tasks/<tid>/step/propose uses _try_handler_propose and returns an executable step.",
-      "acceptance_criteria": [
-        "Hub health-check shows role: hub in the test/manual run.",
-        "A coding or new_software_project task can be created manually or via goal submit.",
-        "POST /tasks/<tid>/step/propose returns HTTP success and includes command or tool_calls.",
-        "Response includes reason from TemplateProposeHandler.",
-        "Logs or response metadata show handler_contract/task_kind and handler selection.",
-        "_try_handler_propose returns the handler response and does not fall through to _propose_single_task_step for supported tasks.",
-        "No autopilot_no_executable_step occurs for the supported Fibonacci/new-project task."
-      ],
-      "implementation_notes": [
-        "If the API currently hides handler metadata, add safe debug metadata only when appropriate.",
-        "Prefer automated service-level test over manual-only verification."
-      ],
-      "test_requirements": [
-        "Service/API test for handler propose path."
-      ]
-    },
-    {
-      "id": "ATP-T006",
-      "title": "Validate execute pipeline consumes handler proposal",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "target_files": [
-        "agent/services/task_scoped_execution_service.py",
-        "tests/test_task_scoped_handler_execute.py",
-        "tests/test_worker_job_flow.py"
-      ],
-      "goal": "Ensure a proposed command/tool_calls from TemplateProposeHandler is actually executed via the existing execute path.",
-      "acceptance_criteria": [
-        "POST /tasks/<tid>/step/execute without explicit command uses last_proposal.command or last_proposal.tool_calls.",
-        "Execution creates expected files in the task workspace.",
-        "Exit code is 0 for the deterministic Fibonacci template proposal.",
-        "Task status transitions according to existing execute rules and does not fail with no executable step.",
-        "Workspace snapshot shows expected files such as app.py, requirements.txt and tests or README as defined by the handler.",
-        "If execution fails, error is a real command/tool error, not missing proposal structure."
-      ],
-      "implementation_notes": [
-        "This test may reveal whether execute currently supports tool_calls from last_proposal or only command. If tool_calls are not supported, either adapt handler to emit command first or add tool_calls execution support as a separate patch."
-      ],
-      "test_requirements": [
-        "Integration test: propose then execute using handler output."
-      ]
-    },
-    {
-      "id": "ATP-T007",
-      "title": "Run ananta new-project end-to-end for Fibonacci API",
+      "id": "PSA-T001",
+      "title": "Define ExecutableProposal and ProposeStrategyResult contracts",
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "target_files": [
-        "tests/e2e/test_autopilot_new_project_fibonacci.py",
-        "agent/cli.py",
-        "agent/services/task_scoped_execution_service.py"
-      ],
-      "goal": "Validate the full Autopilot path creates a real Fibonacci API project through Hub orchestration, not manual file creation.",
+      "target_files": ["worker/core/propose.py", "schemas/worker/executable_proposal.v1.json", "schemas/worker/propose_strategy_result.v1.json", "tests/test_propose_contracts.py"],
+      "goal": "Create one normalized result format for all propose strategies so execute never has to guess whether free text, JSON, command or tool_calls are valid.",
       "acceptance_criteria": [
-        "ananta new-project 'Python Fibonacci API mit REST-Endpunkt' or equivalent test entrypoint creates a Goal.",
-        "Autoplanner creates tasks for the project.",
-        "Task propose produces valid executable steps via TemplateProposeHandler for supported task kind(s).",
-        "Task execute runs the proposed steps.",
-        "Workspace under /project-workspaces/fibonacci or test workspace contains app.py, requirements.txt and tests/README as expected.",
-        "pytest or equivalent project test command passes.",
-        "No manual file creation or manual task status patch is required.",
-        "No autopilot_no_executable_step occurs in the E2E flow."
+        "ExecutableProposal contains proposal_id, task_id, strategy_id, command, tool_calls, required_tools, expected_artifacts, safety_flags, reason, created_at and metadata.",
+        "ExecutableProposal requires at least one of command or non-empty tool_calls.",
+        "ProposeStrategyResult status enum contains executable, declined, advisory, needs_review, failed and policy_denied.",
+        "Only status=executable may contain ExecutableProposal.",
+        "Advisory results may contain text/proposal_artifact_ref but cannot be executed.",
+        "Validation rejects result with status=executable but no command/tool_calls.",
+        "Validation rejects free-text-only payload as executable."
       ],
-      "implementation_notes": [
-        "Use isolated temp workspace in automated tests if possible; keep /project-workspaces only for manual/docker validation.",
-        "This can be a smoke E2E first, then hardened later with artifact-first manifest checks."
-      ],
-      "test_requirements": [
-        "E2E or integration test for new-project Fibonacci flow."
-      ]
+      "test_requirements": ["Contract validation tests for executable, declined, advisory and invalid executable result."],
+      "anti_patterns": ["Do not let every strategy invent its own response shape.", "Do not treat raw LLM text as executable."]
     },
     {
-      "id": "ATP-T008",
-      "title": "Ensure unsupported task kinds fall back safely",
+      "id": "PSA-T002",
+      "title": "Define ProposePolicy schema and merge precedence",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["worker/core/propose_policy.py", "schemas/worker/propose_policy.v1.json", "agent/services/propose_policy_service.py", "tests/test_propose_policy_service.py"],
+      "goal": "Make propose strategy order and fallback behavior configurable per system/project/blueprint role/task kind with safe defaults.",
+      "acceptance_criteria": [
+        "ProposePolicy supports strategy_order, allow_legacy_sgpt, allow_unstructured_text_as_execution, max_strategy_attempts, max_repair_attempts, requires_executable_step, on_parse_error and on_all_strategies_declined.",
+        "Policy supports task_kind_policies overriding defaults for new_software_project, coding, repair, research and documentation.",
+        "Default allow_legacy_sgpt=false.",
+        "Default allow_unstructured_text_as_execution=false.",
+        "Merge precedence is system default -> project -> blueprint role -> task override.",
+        "Widening to allow legacy sgpt requires explicit config and audit/diagnostic warning.",
+        "Invalid strategy names are rejected during validation."
+      ],
+      "test_requirements": ["Policy validation and merge tests."],
+      "anti_patterns": ["Do not hardcode fallback order only inside task_scoped_execution_service.", "Do not enable legacy sgpt by default."]
+    },
+    {
+      "id": "PSA-T003",
+      "title": "Inventory and isolate existing propose paths",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/task_scoped_execution_service.py", "agent/services/planning_utils.py", "agent/services/worker_todo_planner_service.py", "tests/test_propose_path_inventory.py"],
+      "goal": "Find every place that currently creates/parses propose results so the orchestrator becomes the single entry point.",
+      "acceptance_criteria": [
+        "Existing _try_handler_propose, _try_hermes_propose, _propose_single_task_step and _repair_task_proposal paths are documented and mapped to strategies.",
+        "Existing parse_structured_action_payload usage in propose flow is identified and wrapped behind strategy-specific parsing only.",
+        "Existing sgpt fallback is identified as LegacySgptStrategy only.",
+        "A regression/static test fails if propose_task_step directly calls run_sgpt_command without going through the orchestrator/strategy."
+      ],
+      "test_requirements": ["Static or service-level test proving propose_task_step delegates to orchestrator."],
+      "anti_patterns": ["Do not leave hidden side paths that bypass policy."]
+    },
+    {
+      "id": "PSA-T004",
+      "title": "Implement ProposeStrategyOrchestrator",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/propose_strategy_orchestrator.py", "agent/services/task_scoped_execution_service.py", "tests/test_propose_strategy_orchestrator.py"],
+      "goal": "Create the central multi-stage propose engine with ordered strategies, policy-controlled fallback and structured diagnostics.",
+      "acceptance_criteria": [
+        "ProposeStrategyOrchestrator.propose(context) loads effective ProposePolicy and iterates configured strategies in order.",
+        "First executable result stops the chain and returns ExecutableProposal.",
+        "Declined result advances to next strategy.",
+        "Advisory result is stored/collected and advances unless policy says needs_review.",
+        "Failed parse/format result advances to next strategy when on_parse_error=next_strategy.",
+        "All strategies exhausted returns needs_review or failed according to policy, not autopilot_no_executable_step retry-loop.",
+        "Result includes attempted_strategies, selected_strategy, rejected/declined reasons and advisory refs.",
+        "No strategy may execute commands during propose."
+      ],
+      "test_requirements": ["Tests for deterministic first success, fallback after decline, parse error to next strategy, all strategies exhausted to needs_review."],
+      "anti_patterns": ["Do not keep fallback behavior scattered across task_scoped_execution_service.", "Do not retry endlessly inside orchestrator."]
+    },
+    {
+      "id": "PSA-T005",
+      "title": "Refactor existing handler path into DeterministicHandlerStrategy",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/propose_strategies/deterministic_handler_strategy.py", "agent/services/task_handler_registry.py", "agent/services/task_scoped_execution_service.py", "tests/test_deterministic_handler_strategy.py"],
+      "goal": "Keep existing TaskHandlerRegistry but make it one strategy in the orchestrator instead of a special-case side path.",
+      "acceptance_criteria": [
+        "DeterministicHandlerStrategy queries TaskHandlerRegistry for task_kind.",
+        "If no handler exists, returns declined with reason handler_not_found.",
+        "If handler returns None, returns declined with reason handler_declined.",
+        "If handler returns command/tool_calls, normalizes it into ExecutableProposal.",
+        "Invalid handler output returns failed/invalid_strategy_output and does not fall through as executable.",
+        "Existing DeterministicRepairHandler remains supported."
+      ],
+      "test_requirements": ["Tests for no handler, handler declined, valid handler proposal and invalid handler proposal."],
+      "anti_patterns": ["Do not remove registry; wrap it.", "Do not trust handler output without normalization."]
+    },
+    {
+      "id": "PSA-T006",
+      "title": "Implement TemplateProposeHandler as first deterministic strategy user",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/handlers/template_propose_handler.py", "agent/ai_agent.py", "tests/test_template_propose_handler.py", "tests/test_template_propose_handler_registration.py"],
+      "goal": "Fix the immediate Fibonacci/new-project failure with a deterministic handler registered for coding and new_software_project.",
+      "acceptance_criteria": [
+        "TemplateProposeHandler exists and implements propose/execute protocol.",
+        "Handler is registered for task_kind coding and new_software_project during Hub startup.",
+        "For Fibonacci/new-project task it returns command or tool_calls without calling sgpt, LM Studio or generate_text.",
+        "Handler uses tool_definitions_resolver/allowed_tools and does not emit unavailable tools where avoidable.",
+        "If write_file tool is available, handler may return write_file tool_calls.",
+        "If tool_calls execution is not reliable yet but bash is available, handler may return one deterministic shell command creating app.py, requirements.txt, README.md/tests.",
+        "Unsupported task_kind or unrecognized unsafe description returns None/declined, enabling fallback."
+      ],
+      "test_requirements": ["Unit tests for write_file tools, bash fallback, unknown task_kind and no LLM call."],
+      "anti_patterns": ["Do not make TemplateProposeHandler a catch-all LLM replacement.", "Do not bypass safety/allowed_tools."]
+    },
+    {
+      "id": "PSA-T007",
+      "title": "Implement WorkerStrategy for Hermes/OpenCode/native worker proposal",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": ["agent/services/propose_strategies/worker_strategy.py", "agent/services/worker_runtime_selection_service.py", "worker/core/runtime_target.py", "tests/test_worker_propose_strategy.py"],
+      "goal": "Allow configured workers to propose executable steps through their adapters, governed by worker/runtime/context policy.",
+      "acceptance_criteria": [
+        "WorkerStrategy uses WorkerRuntimeSelectionService to choose eligible worker/runtime for proposal mode.",
+        "Hermes/OpenCode/native worker can be enabled/disabled by ProposePolicy and worker selection policy.",
+        "Worker output must normalize to ExecutableProposal or advisory/declined; free text is not executable.",
+        "External/cloud workers are blocked if context policy disallows them.",
+        "If worker unavailable or disabled, strategy returns declined/failed without crashing."
+      ],
+      "test_requirements": ["Tests for disabled Hermes decline, OpenCode proposal normalization, native worker selection, cloud blocked."],
+      "anti_patterns": ["Do not call external workers before context policy check.", "Do not treat worker summary text as command."]
+    },
+    {
+      "id": "PSA-T008",
+      "title": "Implement ToolCallingLLMStrategy with real tools parameter",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "target_files": ["agent/services/propose_strategies/tool_calling_llm_strategy.py", "agent/services/model_invocation_service.py", "agent/services/tool_registry*.py", "tests/test_tool_calling_llm_strategy.py"],
+      "goal": "Replace prompt-only tool descriptions with a first-class model API call that passes tool schemas when provider supports it.",
+      "acceptance_criteria": [
+        "Strategy calls first-class LLM invocation service, not sgpt subprocess.",
+        "Tool definitions are passed as API tools/function schemas where provider supports tools.",
+        "Model tool_calls are normalized into ExecutableProposal.tool_calls.",
+        "If provider/model does not support tools, strategy declines with reason tools_not_supported rather than falling back internally to text parsing.",
+        "Malformed or text-only model output returns failed/advisory and orchestrator moves to next strategy according to policy.",
+        "No command/tool_calls means no executable proposal."
+      ],
+      "test_requirements": ["Mock provider tests for valid tool_calls, tools_not_supported, text-only response and malformed response."],
+      "anti_patterns": ["Do not write tools only to .ananta/tool-definitions.json and hope model reads them.", "Do not call sgpt from this strategy."]
+    },
+    {
+      "id": "PSA-T009",
+      "title": "Implement JsonSchemaLLMStrategy as fallback",
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "target_files": [
-        "agent/handlers/template_propose_handler.py",
-        "agent/services/task_scoped_execution_service.py",
-        "tests/test_template_propose_handler.py",
-        "tests/test_task_scoped_handler_propose.py"
-      ],
-      "goal": "Unknown or unsupported task kinds must not crash and must not block the legacy propose fallback.",
+      "target_files": ["agent/services/propose_strategies/json_schema_llm_strategy.py", "schemas/worker/executable_proposal.v1.json", "tests/test_json_schema_llm_strategy.py"],
+      "goal": "Use provider-supported response_format/json_schema when tool calling is unavailable, but keep it as a fallback strategy only.",
       "acceptance_criteria": [
-        "TemplateProposeHandler.propose returns None for unsupported task_kind.",
-        "_try_handler_propose returns None when the handler declines.",
-        "The existing _propose_single_task_step fallback still runs after handler decline.",
-        "No exception/crash occurs for unknown task_kind.",
-        "Logs/metadata indicate handler_declined or unsupported_task_kind for diagnostics."
+        "Strategy uses provider structured-output/json-schema feature when supported.",
+        "Output is validated against ExecutableProposal schema.",
+        "Provider without structured output support returns declined tools_or_schema_not_supported.",
+        "Invalid JSON/schema output returns failed parse_or_schema_error and does not retry-loop.",
+        "Valid schema output returns executable only if command/tool_calls exists."
       ],
-      "implementation_notes": [
-        "This keeps the deterministic handler narrow and safe."
-      ],
-      "test_requirements": [
-        "Unit/service test for unsupported task_kind fallback."
-      ]
+      "test_requirements": ["Mock tests for valid schema, invalid schema, provider unsupported."],
+      "anti_patterns": ["Do not make JSON-schema LLM the only path.", "Do not parse random Markdown as schema output."]
     },
     {
-      "id": "ATP-T009",
-      "title": "Document current deterministic propose baseline and relation to artifact-first work",
+      "id": "PSA-T010",
+      "title": "Wrap sgpt fallback as disabled-by-default LegacySgptStrategy",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "target_files": ["agent/services/propose_strategies/legacy_sgpt_strategy.py", "agent/services/task_scoped_execution_service.py", "tests/test_legacy_sgpt_strategy.py"],
+      "goal": "Keep old sgpt behavior only as explicit compatibility mode, never as silent default for executable proposal generation.",
+      "acceptance_criteria": [
+        "LegacySgptStrategy is not in default strategy_order.",
+        "allow_legacy_sgpt=true is required before strategy can run.",
+        "Strategy records warning diagnostic legacy_sgpt_no_tools_schema.",
+        "If sgpt returns unstructured text, result is advisory/failed, not executable.",
+        "Existing _propose_single_task_step no longer calls sgpt directly outside strategy policy."
+      ],
+      "test_requirements": ["Tests prove sgpt is not called by default and is called only when explicitly enabled."],
+      "anti_patterns": ["Do not silently reintroduce sgpt fallback after orchestrator."]
+    },
+    {
+      "id": "PSA-T011",
+      "title": "Make execute consume only normalized ExecutableProposal",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/task_scoped_execution_service.py", "agent/services/worker_job_service.py", "tests/test_execute_consumes_executable_proposal.py"],
+      "goal": "Execution should be fed by normalized last_proposal.command/tool_calls, never raw strategy output or free text.",
+      "acceptance_criteria": [
+        "last_proposal persists ExecutableProposal or equivalent normalized payload.",
+        "POST /tasks/<tid>/step/execute without explicit command uses last_proposal only if it is executable.",
+        "Advisory/needs_review proposal cannot be executed.",
+        "command execution path and tool_calls execution path are both explicit; if tool_calls are not supported yet, proposal policy/handler must emit command until support exists.",
+        "Execution failure reason distinguishes no_executable_proposal from tool/runtime failure."
+      ],
+      "test_requirements": ["Tests for command proposal execution, tool_calls proposal handling/decline, advisory not executable."],
+      "anti_patterns": ["Do not pass raw LLM answer to execute."]
+    },
+    {
+      "id": "PSA-T012",
+      "title": "Define and collect ArtifactManifest/FileChangeSet after execution",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["worker/core/artifact_manifest.py", "worker/core/file_change_set.py", "agent/services/worker_output_collector_service.py", "agent/services/workspace_diff_service.py", "schemas/artifacts/artifact_manifest.v1.json", "schemas/artifacts/file_change_set.v1.json", "tests/test_worker_output_collector_service.py"],
+      "goal": "Make file/artifact reality visible after execution so completion can be based on outputs, not model text.",
+      "acceptance_criteria": [
+        "ArtifactManifest schema validates generated/modified/test artifacts with workspace-relative paths and hashes.",
+        "FileChangeSet captures created/modified/deleted files from before/after snapshot.",
+        "Collector reads worker-written manifest when present.",
+        "Collector can synthesize manifest from FileChangeSet when policy allows.",
+        "Path traversal, absolute paths and symlink escape are rejected or flagged violation.",
+        "Fibonacci project files app.py, requirements.txt, README.md/tests are represented as artifacts."
+      ],
+      "test_requirements": ["Manifest schema tests, workspace diff tests, path security tests, Fibonacci artifact collection test."],
+      "anti_patterns": ["Do not trust final chat text as evidence of generated files.", "Do not trust worker manifest paths blindly."]
+    },
+    {
+      "id": "PSA-T013",
+      "title": "Implement ArtifactCompletionPolicyService",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["worker/core/artifact_completion_policy.py", "agent/services/task_completion_policy_service.py", "schemas/artifacts/artifact_completion_policy.v1.json", "tests/test_artifact_first_completion_policy.py"],
+      "goal": "Centralize task finalization: completed/needs_review/retryable_failed/failed is decided from artifacts, manifest, diff, verification and expected outputs.",
+      "acceptance_criteria": [
+        "Policy supports required_artifacts, required_paths, optional_paths, verification_required, allowed_synthesized_manifest, needs_review_conditions and retry_conditions.",
+        "Decision includes status, reason_codes, missing_artifacts, verification_refs and artifact_refs.",
+        "Valid required artifacts plus passed verification returns completed.",
+        "Missing required artifacts returns retryable_failed up to retry policy or failed/needs_review according to policy.",
+        "Malformed final model JSON is ignored/advisory when artifacts pass.",
+        "Final assistant text cannot mark a task completed."
+      ],
+      "test_requirements": ["Tests for completed, missing artifact, invalid manifest, verification failed, malformed chat output ignored."],
+      "anti_patterns": ["Do not scatter completion logic across multiple services."]
+    },
+    {
+      "id": "PSA-T014",
+      "title": "Add retry-loop prevention and needs_review terminal path",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["agent/services/task_retry_policy_service.py", "agent/services/task_runtime_service.py", "agent/services/task_orchestration_service.py", "tests/test_artifact_first_state_machine.py", "tests/test_artifact_first_retry_policy.py"],
+      "goal": "Malformed parse output or exhausted propose strategies must stop safely instead of retry-looping.",
+      "acceptance_criteria": [
+        "Parser failures from optional/advisory strategies are not retryable when artifacts or deterministic fallback exist.",
+        "No executable proposal after all strategies returns needs_review or configured failure, not repeated autopilot_no_executable_step loop.",
+        "Retry counter increments only for retryable execution/artifact/verification failures.",
+        "Max retry guard is enforced.",
+        "State includes clear reason codes such as no_strategy_executable, advisory_parse_failed_ignored, missing_required_artifact, verification_failed."
+      ],
+      "test_requirements": ["Regression test reproducing original Fibonacci sgpt/free-text failure and proving no infinite retry."],
+      "anti_patterns": ["Do not requeue on every parser exception."]
+    },
+    {
+      "id": "PSA-T015",
+      "title": "Expose propose strategy chain and artifact completion in API/CLI/UI",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": ["agent/routes/tasks.py", "agent/cli.py", "frontend-angular/src/app/components/task-detail.component.ts", "tests/test_api_task_artifact_status.py"],
+      "goal": "Operators should see which strategy was tried/selected and why the task completed or needs review.",
+      "acceptance_criteria": [
+        "Task detail API includes attempted_strategies, selected_strategy, proposal_status, proposal_reason and advisory_refs.",
+        "Task detail API includes artifact_summary, manifest_status, verification_status, completion_decision and reason_codes.",
+        "CLI shows selected strategy and produced artifact list/hash prefixes.",
+        "UI shows strategy chain result and artifact completion summary with warnings for legacy sgpt/advisory parse failure.",
+        "Raw secrets/full artifact contents are not displayed by default."
+      ],
+      "test_requirements": ["API serialization tests and frontend/CLI tests where available."],
+      "anti_patterns": ["Do not hide why sgpt was or was not used."]
+    },
+    {
+      "id": "PSA-T016",
+      "title": "E2E: ananta new-project Fibonacci succeeds without sgpt propose path",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "target_files": ["tests/e2e/test_autopilot_new_project_fibonacci.py", "tests/test_task_scoped_handler_propose.py"],
+      "goal": "Prove the original problem is fixed: Fibonacci new-project generates executable proposal before sgpt and completes from artifacts/tests.",
+      "acceptance_criteria": [
+        "Test submits new-project Fibonacci API goal.",
+        "Autoplanner creates tasks.",
+        "First coding/new_software_project task is handled by deterministic_handler strategy or configured first executable strategy.",
+        "run_sgpt_command is monkeypatched to raise if called, and flow still succeeds for supported task.",
+        "Propose response contains command/tool_calls and no autopilot_no_executable_step.",
+        "Execute creates app.py, requirements.txt and README.md/tests in workspace.",
+        "Project tests pass or verification policy returns completed.",
+        "No manual file creation or manual task status patch is required."
+      ],
+      "test_requirements": ["E2E/integration test with sgpt disabled/poisoned."],
+      "anti_patterns": ["Do not write E2E that only proves manual project files exist."]
+    },
+    {
+      "id": "PSA-T017",
+      "title": "Make strategy configuration editable through project/blueprint config",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "target_files": ["agent/db_models.py", "agent/routes/teams.py", "agent/services/config_read_model_service.py", "frontend-angular/src/app/components/*blueprint*.ts", "tests/test_propose_policy_config_roundtrip.py"],
+      "goal": "Allow controlled configuration of strategy order and fallbacks per project/blueprint role without code edits.",
+      "acceptance_criteria": [
+        "BlueprintRoleDB.config or project config supports propose_policy reference/inline config.",
+        "Config roundtrip preserves strategy_order, allow_legacy_sgpt, requires_executable_step and task_kind_policies.",
+        "UI/API validation rejects unsafe configs such as allow_unstructured_text_as_execution=true unless explicit admin override exists.",
+        "Default policy is safe and works without UI configuration.",
+        "Bundle export/import preserves propose policy."
+      ],
+      "test_requirements": ["Config/API roundtrip tests and UI preservation tests where available."],
+      "anti_patterns": ["Do not make fallback behavior only hardcoded.", "Do not let UI wipe advanced config fields."]
+    },
+    {
+      "id": "PSA-T018",
+      "title": "Write architecture docs and update todo status",
       "status": "todo",
       "priority": "P2",
       "risk": "low",
-      "target_files": [
-        "docs/architecture/autopilot-template-propose-pipeline.md",
-        "todo.autopilot-template-propose-pipeline.json"
-      ],
-      "goal": "Make clear that TemplateProposeHandler is the immediate deterministic baseline, while artifact-first manifests remain the longer-term robust output/completion architecture.",
+      "target_files": ["docs/architecture/propose-strategy-orchestrator.md", "docs/architecture/artifact-first-worker-handoff.md", "todo.autopilot-template-propose-pipeline.json"],
+      "goal": "Document the intended architecture clearly so future fixes do not reintroduce chat-JSON or ungoverned sgpt fallback.",
       "acceptance_criteria": [
-        "Docs explain why sgpt/LM Studio unstructured output caused autopilot_no_executable_step.",
-        "Docs explain TemplateProposeHandler flow: task_kind -> handler -> command/tool_calls -> last_proposal -> execute.",
-        "Docs list supported task kinds and explicit unsupported fallback behavior.",
-        "Docs reference future artifact-first handoff/completion work without mixing both scopes.",
-        "This todo JSON is updated after implementation slices or a status companion file is created."
+        "Docs explain original failure flow and root cause layers architecture/sgpt/LM Studio.",
+        "Docs explain ProposeStrategyOrchestrator strategy order and safe defaults.",
+        "Docs explain distinction between propose, execute and artifact-first completion.",
+        "Docs include Mermaid diagram for Task -> Orchestrator -> ExecutableProposal -> Execute -> ArtifactManifest -> Verify -> Complete.",
+        "Docs state legacy sgpt is disabled by default and compatibility only.",
+        "This todo JSON or a status companion file is updated after implementation slices."
       ],
-      "test_requirements": [
-        "json.loads todo.autopilot-template-propose-pipeline.json succeeds."
-      ]
+      "test_requirements": ["json.loads todo.autopilot-template-propose-pipeline.json succeeds."],
+      "anti_patterns": ["Do not document sgpt prompt JSON as recommended primary path."]
     }
   ],
   "priority_order": [
-    "ATP-T003",
-    "ATP-T004",
-    "ATP-T005",
-    "ATP-T006",
-    "ATP-T007",
-    "ATP-T001",
-    "ATP-T002",
-    "ATP-T008",
-    "ATP-T009"
+    "PSA-T001",
+    "PSA-T002",
+    "PSA-T004",
+    "PSA-T005",
+    "PSA-T006",
+    "PSA-T011",
+    "PSA-T016",
+    "PSA-T012",
+    "PSA-T013",
+    "PSA-T014",
+    "PSA-T008",
+    "PSA-T009",
+    "PSA-T010",
+    "PSA-T015",
+    "PSA-T017",
+    "PSA-T018",
+    "PSA-T003",
+    "PSA-T007"
   ],
-  "critical_path_tasks": ["ATP-T003", "ATP-T004", "ATP-T005", "ATP-T006", "ATP-T007"],
-  "minimum_safe_slice": ["ATP-T003", "ATP-T004", "ATP-T005", "ATP-T006", "ATP-T008"],
+  "critical_path_tasks": ["PSA-T001", "PSA-T002", "PSA-T004", "PSA-T005", "PSA-T006", "PSA-T011", "PSA-T012", "PSA-T013", "PSA-T014", "PSA-T016"],
+  "minimum_safe_slice": ["PSA-T001", "PSA-T002", "PSA-T004", "PSA-T005", "PSA-T006", "PSA-T011", "PSA-T014", "PSA-T016"],
   "definition_of_done_global": [
-    "TemplateProposeHandler exists and is registered for coding and new_software_project.",
-    "Supported task kinds produce executable command or tool_calls without LLM call.",
-    "POST /tasks/<tid>/step/propose returns executable proposal and no longer fails with autopilot_no_executable_step for Fibonacci/new-project task.",
-    "POST /tasks/<tid>/step/execute consumes last_proposal and creates expected project files.",
-    "ananta new-project Fibonacci API works through Hub orchestration and tests pass.",
-    "Unsupported task kinds fall back cleanly to existing propose flow.",
-    "Tests cover handler propose, registration, execute consumption, E2E Fibonacci and fallback behavior."
+    "propose_task_step delegates to ProposeStrategyOrchestrator.",
+    "Strategy order and fallbacks are governed by ProposePolicy with legacy sgpt disabled by default.",
+    "TemplateProposeHandler fixes Fibonacci/new_project path without sgpt/LM Studio call.",
+    "ToolCallingLLMStrategy uses real tools parameter when available.",
+    "JsonSchemaLLMStrategy and LegacySgptStrategy are explicit fallback strategies, not hidden default behavior.",
+    "Execute consumes only normalized ExecutableProposal with command/tool_calls.",
+    "ArtifactManifest/FileChangeSet are collected after execution.",
+    "ArtifactCompletionPolicy decides completed/needs_review/retryable_failed/failed from artifacts and verification.",
+    "Malformed LLM text/JSON cannot create infinite retry loops.",
+    "ananta new-project Fibonacci succeeds through Hub orchestration with sgpt propose path disabled/poisoned in test."
   ],
   "tasks_status_summary": {
-    "total": 9,
-    "by_status": {"todo": 9, "in_progress": 0, "blocked": 0, "done": 0},
+    "total": 18,
+    "by_status": {"todo": 18, "in_progress": 0, "blocked": 0, "done": 0},
     "progress_percent_done": 0.0,
-    "by_priority": {"P0": 5, "P1": 3, "P2": 1},
-    "by_risk": {"critical": 1, "high": 5, "medium": 2, "low": 1},
-    "critical_path": {"total": 5, "done": 0, "remaining": 5},
-    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0}
+    "by_priority": {"P0": 11, "P1": 6, "P2": 1},
+    "by_risk": {"critical": 8, "high": 7, "medium": 2, "low": 1},
+    "critical_path": {"total": 10, "done": 0, "remaining": 10},
+    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "blocked": 0, "done": 0}
   },
   "summary_notes": [
-    "This is the pragmatic immediate fix for autopilot_no_executable_step.",
-    "It intentionally avoids requiring LM Studio tool-calling or structured JSON output.",
-    "It should be implemented before the larger artifact-first handoff/completion track if the goal is to get new-project working quickly."
+    "This v2 todo intentionally supersedes the narrow TemplateProposeHandler-only plan.",
+    "TemplateProposeHandler remains the fastest first implementation slice, but it is now framed as DeterministicHandlerStrategy inside the orchestrator.",
+    "The architecture has two halves: ProposeStrategyOrchestrator creates executable proposals; Artifact-First Completion proves whether execution really produced the expected result."
   ]
 }
