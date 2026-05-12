@@ -1,0 +1,474 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "fixup_autopilot_runtime_finalization",
+  "created_at": "2026-05-12",
+  "status": "todo",
+  "purpose": "Focused follow-up TODO after review of the current Autopilot implementation. This file covers the remaining runtime blockers after replacing propose stubs with real strategies: ExecutableProposal validation, strategy-chain fallback semantics, LLM-required new-project behavior, WorkerStrategy real delegation, and E2E/regression tests.",
+  "context": {
+    "source_review": "Manual code review of the current main branch after introduction of propose_strategy_registry, ToolCallingLLMStrategy, JsonSchemaLLMStrategy, FlexibleLLMNormalizationStrategy and ModelInvocationService.",
+    "high_level_result": "The architecture moved in the right direction. StubStrategy is no longer the default registration path, and LLM calls are now represented by real strategy classes. However, several runtime-critical defects remain and must be fixed before the new-project flow can be called correct or stable.",
+    "key_positive_findings": [
+      "TaskScopedExecutionService.propose_task_step now uses build_strategy_registry() instead of manually wiring StubStrategy for all non-deterministic strategies.",
+      "propose_strategy_registry.py registers real strategy classes for deterministic_handler, worker_strategy, tool_calling_llm, json_schema_llm, flexible_llm_normalization, advisory_proposal and human_review.",
+      "ToolCallingLLMStrategy calls ModelInvocationService.invoke_with_tools(...), not sgpt.",
+      "JsonSchemaLLMStrategy calls ModelInvocationService.invoke_with_json_schema(...), not sgpt.",
+      "ModelInvocationService supports OpenAI-compatible /v1/chat/completions and contains special handling for Ollama URLs.",
+      "new_software_project policy is LLM-first in strategy_order."
+    ],
+    "critical_negative_findings": [
+      "execute_task_step still calls ExecutableProposal.model_validate(proposal), but ExecutableProposal is currently a dataclass, not a Pydantic model. This is a runtime blocker.",
+      "ProposeStrategyOrchestrator still iterates over strategy_order[:max_strategy_attempts]. This cuts off the fallback chain and currently prevents flexible_llm_normalization, worker_strategy, deterministic_handler and human_review from being reached for new_software_project when max_strategy_attempts=2.",
+      "WorkerStrategy is still largely dummy logic: workers=[] and runtime_targets=[] are hardcoded, and real worker delegation is TODO.",
+      "LLM-required new-project behavior is not strict enough: provider failures currently return declined and may fall through depending on strategy slicing/chain behavior instead of producing an explicit llm_required_but_unavailable terminal outcome when policy requires an LLM.",
+      "Critical tests are still missing or not found: execute proposal validation, strategy registry, Orchestrator fallback semantics, LLM-required new-project and E2E Fibonacci project creation."
+    ]
+  },
+  "target_runtime_flow": [
+    "User calls ananta new-project <name>.",
+    "Planner creates at least one new_software_project/coding task.",
+    "TaskScopedExecutionService.propose_task_step resolves effective ProposePolicy.",
+    "For task_kind=new_software_project the default policy requires a real LLM attempt through local-first provider preference such as Ollama/OpenAI-compatible endpoint.",
+    "ProposeStrategyOrchestrator evaluates the complete configured strategy chain, not only the first N strategy ids.",
+    "ToolCallingLLMStrategy tries real tool calling when tools are available and provider supports it.",
+    "JsonSchemaLLMStrategy tries structured JSON when tool calling is unsupported or returns no executable tool calls.",
+    "FlexibleLLMNormalizationStrategy tries plain model output and normalizes fenced JSON, strict JSON, file blocks, shell blocks or diffs according to policy.",
+    "If policy marks LLM as required and all LLM strategies are unavailable, result becomes needs_review or failed with reason llm_required_but_unavailable. It must not silently produce a fake deterministic success.",
+    "Only a valid ExecutableProposal is persisted as last_proposal.",
+    "execute_task_step loads last_proposal using the same contract validation used by propose, without dataclass/Pydantic mismatch.",
+    "Execution writes real files or performs real tool calls.",
+    "Artifact collection and verification decide task completion, not final model prose."
+  ],
+  "global_acceptance_criteria": [
+    "No call to ExecutableProposal.model_validate remains unless ExecutableProposal is converted to a Pydantic BaseModel.",
+    "The orchestrator never truncates the strategy chain via strategy_order[:max_strategy_attempts].",
+    "new_software_project default path attempts a real configured LLM provider before any deterministic/template fallback.",
+    "If LLM is required but unavailable, the outcome is explicit and auditable: llm_required_but_unavailable.",
+    "Flexible normalization is reachable after tool-calling and JSON-schema strategies fail or decline.",
+    "WorkerStrategy either delegates to real workers or clearly returns declined without dummy generated output.",
+    "E2E test proves ananta new-project Fibonacci can go propose -> execute -> artifacts -> verification without sgpt.",
+    "Regression tests prove prose/invalid JSON cannot be executed and cannot cause infinite retry loops."
+  ],
+  "tasks": [
+    {
+      "id": "AFR-FINAL-T001",
+      "title": "Fix ExecutableProposal validation contract in execute_task_step",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "execute_task_step still calls ExecutableProposal.model_validate(proposal), but ExecutableProposal is a dataclass. This causes a runtime failure when executing from last_proposal.",
+      "target_files": [
+        "worker/core/propose.py",
+        "agent/services/task_scoped_execution_service.py",
+        "tests/test_execute_consumes_executable_proposal.py",
+        "tests/test_propose_contracts.py"
+      ],
+      "implementation_options": [
+        {
+          "option": "A",
+          "name": "Stay with dataclasses",
+          "steps": [
+            "Add ExecutableProposal.from_dict(raw: dict) -> ExecutableProposal.",
+            "Add validate_executable_proposal(raw: dict | ExecutableProposal) -> ExecutableProposal.",
+            "Replace ExecutableProposal.model_validate(proposal) with validate_executable_proposal(proposal).",
+            "Catch ValueError/TypeError instead of only pydantic.ValidationError."
+          ]
+        },
+        {
+          "option": "B",
+          "name": "Move to Pydantic",
+          "steps": [
+            "Convert ExecutableProposal and ProposeStrategyResult to Pydantic BaseModel.",
+            "Keep to_dict() compatibility or replace callers with model_dump().",
+            "Keep invariant: command or non-empty tool_calls required.",
+            "Then model_validate(...) is valid."
+          ]
+        }
+      ],
+      "recommended_option": "A for minimal invasive fix, B later if schema validation becomes more central.",
+      "acceptance_criteria": [
+        "execute_task_step can execute a persisted last_proposal dict without AttributeError.",
+        "Invalid proposal without command/tool_calls returns denied invalid_executable_proposal_format.",
+        "AdvisoryProposalArtifact, PatchProposalArtifact and FileProposalArtifact are rejected by execute unless explicitly converted/applied by controlled code.",
+        "Tests cover command proposal, tool_calls proposal, missing proposal, invalid proposal and advisory proposal."
+      ],
+      "done_definition": [
+        "No runtime path calls model_validate on a dataclass.",
+        "All proposal validation errors are mapped to deterministic API responses.",
+        "Regression test fails before fix and passes after fix."
+      ]
+    },
+    {
+      "id": "AFR-FINAL-T002",
+      "title": "Fix ProposeStrategyOrchestrator strategy-chain semantics",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "The orchestrator currently uses strategy_order[:max_strategy_attempts]. That treats max_strategy_attempts as a limit on number of strategy ids, not attempts. For new_software_project with max_strategy_attempts=2 only tool_calling_llm and json_schema_llm are tried; flexible_llm_normalization and human_review are skipped.",
+      "target_files": [
+        "worker/core/propose_orchestrator.py",
+        "agent/services/propose_policy.py",
+        "agent/services/propose_policy_service.py",
+        "tests/test_propose_strategy_orchestrator.py",
+        "tests/test_propose_policy_service.py"
+      ],
+      "implementation_steps": [
+        "Replace for strategy_id in strategy_order[:self.policy.max_strategy_attempts] with iteration over the full effective strategy_order.",
+        "Rename max_strategy_attempts to max_attempts_per_strategy or deprecate it clearly.",
+        "If retries per strategy are needed, nest a retry loop inside each strategy id, not around strategy ids.",
+        "Keep attempted_strategies metadata for every attempted strategy.",
+        "Record skipped strategies only when policy explicitly disables them, not because of a slicing bug.",
+        "Make terminal statuses explicit: executable stops, failed/policy_denied/needs_review stop, declined/advisory continue or stop based on policy."
+      ],
+      "acceptance_criteria": [
+        "A policy with seven strategies attempts all seven when each returns declined and on_all_strategies_declined=needs_review.",
+        "new_software_project reaches flexible_llm_normalization when tool_calling_llm and json_schema_llm decline.",
+        "attempted_strategies contains the complete actual chain with status and reason per strategy.",
+        "selected_strategy is set only for executable or terminal selected result.",
+        "max_attempts_per_strategy, if present, controls retry count per strategy, not chain length."
+      ],
+      "done_definition": [
+        "No strategy_order slicing remains in orchestrator.",
+        "Tests prove fallback chain is complete.",
+        "Policy naming no longer misleads future implementation."
+      ]
+    },
+    {
+      "id": "AFR-FINAL-T003",
+      "title": "Enforce LLM-required default for new_software_project",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "new_software_project is LLM-first, but provider-unavailable cases are currently modeled as declined inside each LLM strategy. The system needs explicit LLM-required behavior so project creation cannot silently bypass the required LLM path.",
+      "target_files": [
+        "agent/services/propose_policy.py",
+        "worker/core/propose_orchestrator.py",
+        "worker/core/tool_calling_llm_strategy.py",
+        "worker/core/json_schema_llm_strategy.py",
+        "agent/services/propose_strategies/flexible_llm_normalization_strategy.py",
+        "agent/services/model_invocation_service.py",
+        "tests/test_new_project_llm_required_policy.py"
+      ],
+      "implementation_steps": [
+        "Add policy field llm_required: bool or derive it from llm_mode=primary_with_guardrails for new_software_project.",
+        "Add strategy category metadata: llm_strategies=[tool_calling_llm,json_schema_llm,flexible_llm_normalization].",
+        "If all configured LLM strategies return llm_required_but_unavailable/provider_unavailable and llm_required=true, stop with needs_review or failed according to policy.",
+        "Do not fall back to deterministic_handler or template generation when the LLM was required but unavailable.",
+        "Allow explicit admin override for offline/demo mode if deterministic fallback is desired.",
+        "Make reason_codes machine-readable: llm_required, llm_provider_unavailable, no_llm_fallback_allowed."
+      ],
+      "acceptance_criteria": [
+        "new_software_project with configured Ollama reachable attempts Ollama/OpenAI-compatible endpoint.",
+        "new_software_project with no reachable LLM returns needs_review or failed with llm_required_but_unavailable.",
+        "new_software_project does not silently continue to deterministic_handler after all LLM strategies fail due to provider unavailability.",
+        "coding tasks may still use deterministic_handler first if policy says so, because coding is not necessarily identical to project bootstrap.",
+        "Tests cover reachable LLM, unavailable LLM, unsupported tools with JSON fallback, and explicit admin offline fallback."
+      ],
+      "done_definition": [
+        "Default new-project behavior really asks an LLM.",
+        "The failure mode is explicit and auditable.",
+        "No fake deterministic success hides a missing model provider."
+      ]
+    },
+    {
+      "id": "AFR-FINAL-T004",
+      "title": "Harden ToolCallingLLMStrategy and JsonSchemaLLMStrategy provider behavior",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "The real strategy classes exist, but they need stricter provider handling, better prompt/context preparation, and explicit fallback semantics for unsupported tool-calling or schema formats.",
+      "target_files": [
+        "worker/core/tool_calling_llm_strategy.py",
+        "worker/core/json_schema_llm_strategy.py",
+        "agent/services/model_invocation_service.py",
+        "agent/services/context_bundle_service.py",
+        "tests/test_tool_calling_llm_strategy.py",
+        "tests/test_json_schema_llm_strategy.py"
+      ],
+      "implementation_steps": [
+        "Pass task_kind, goal_id, task_id, expected artifacts, allowed tools and constraints into the LLM prompt/system prompt.",
+        "Normalize provider-specific tool call shapes before constructing ExecutableProposal.",
+        "Distinguish tools_not_supported from provider_unavailable and model_returned_no_tool_calls.",
+        "For Ollama, verify whether the selected local model supports tool calling; if not, decline with tools_not_supported so JsonSchemaLLMStrategy can run.",
+        "For JSON schema, use response_format/json_object as fallback but validate the returned JSON against local schema manually.",
+        "Never accept raw command/tool_calls without command/tool policy validation."
+      ],
+      "acceptance_criteria": [
+        "ToolCallingLLMStrategy returns executable only for validated tool_calls.",
+        "ToolCallingLLMStrategy returns declined tools_not_supported when provider/model cannot do tools but provider is otherwise reachable.",
+        "JsonSchemaLLMStrategy returns executable for valid command or tool_calls JSON.",
+        "JsonSchemaLLMStrategy returns advisory for parse failure, not executable.",
+        "Provider 4xx/5xx/timeout/connection errors become LLMUnavailableError-derived results with reason codes.",
+        "Tests use mocked HTTP responses and do not require a real Ollama server."
+      ],
+      "done_definition": [
+        "LLM strategy behavior is deterministic under mocked provider responses.",
+        "Fallback from tools to JSON schema is tested.",
+        "No unsafe raw model text becomes executable."
+      ]
+    },
+    {
+      "id": "AFR-FINAL-T005",
+      "title": "Make FlexibleLLMNormalizationStrategy policy-aware and reachable",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "FlexibleLLMNormalizationStrategy exists, but it only works if the orchestrator reaches it. The normalizer also needs policy-aware safety checks before shell/file/diff output can become executable or applicable.",
+      "target_files": [
+        "agent/services/propose_strategies/flexible_llm_normalization_strategy.py",
+        "agent/services/llm_response_normalizer.py",
+        "worker/core/propose_orchestrator.py",
+        "tests/test_llm_response_normalizer.py",
+        "tests/test_flexible_llm_normalization_strategy.py"
+      ],
+      "implementation_steps": [
+        "Ensure orchestrator can reach flexible_llm_normalization after tool_calling_llm/json_schema_llm decline.",
+        "Extend LLMResponseNormalizer.normalize(...) signature to accept policy, allowed_tools and command policy context.",
+        "Only convert shell blocks into command proposals when policy allows shell execution and command risk policy accepts it.",
+        "Convert unified diffs into PatchProposalArtifact, never direct executable command.",
+        "Convert file blocks into FileProposalArtifact or safe write_file tool_calls only when write_file is allowed.",
+        "Reject absolute paths, path traversal and unsafe file targets."
+      ],
+      "acceptance_criteria": [
+        "Fenced JSON with command/tool_calls normalizes to ExecutableProposal after validation.",
+        "Shell block becomes executable only with explicit allow_shell policy.",
+        "Unified diff becomes PatchProposalArtifact/advisory path, not direct execution.",
+        "Plain prose becomes advisory only.",
+        "Unsafe paths are rejected with reason code unsafe_path.",
+        "Tests cover JSON, shell, diff, file block, prose and malformed output."
+      ],
+      "done_definition": [
+        "Flexible normalization is usable as safe LLM fallback.",
+        "No raw markdown/prose path can bypass execution policy.",
+        "All major LLM response shapes are regression-tested."
+      ]
+    },
+    {
+      "id": "AFR-FINAL-T006",
+      "title": "Replace WorkerStrategy dummy implementation with real delegation or safe decline",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "problem": "WorkerStrategy currently hardcodes workers=[] and runtime_targets=[] and contains mock output logic. This must not be considered production behavior.",
+      "target_files": [
+        "worker/core/worker_strategy.py",
+        "agent/services/worker_runtime_selection_service.py",
+        "agent/services/worker_registry_service.py",
+        "agent/services/bridge_adapter_registry.py",
+        "tests/test_worker_propose_strategy.py"
+      ],
+      "implementation_steps": [
+        "Resolve real available workers from existing worker/agent registry instead of workers=[].",
+        "Resolve real runtime targets from runtime config instead of runtime_targets=[].",
+        "Delegate propose to selected worker adapter when selected.",
+        "Normalize worker output through LLMResponseNormalizer or worker-specific adapter.",
+        "Remove mock generated command/file output from production code.",
+        "If no worker is available, return declined no_worker_selected with reason_codes, not failed."
+      ],
+      "acceptance_criteria": [
+        "WorkerStrategy with no workers returns declined no_worker_selected.",
+        "WorkerStrategy with mocked OpenCode worker can return PatchProposalArtifact or ExecutableProposal according to adapter output.",
+        "WorkerStrategy with Hermes in phase-1 proposal mode returns advisory/proposal but not mutation execute.",
+        "WorkerStrategy does not produce fake command output when no real worker exists.",
+        "ContextAccessPolicy is checked before sending context to remote/cloud worker."
+      ],
+      "done_definition": [
+        "No TODO mock output remains in WorkerStrategy production path.",
+        "Worker fallback is real or safely declined.",
+        "Tests cover no worker, local worker, cloud-blocked worker and unsupported worker."
+      ]
+    },
+    {
+      "id": "AFR-FINAL-T007",
+      "title": "Persist and reload last_proposal consistently",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "problem": "propose_task_step now calls persist_task_proposal_result when result is executable, but execute_task_step expects a certain last_proposal shape. This must be verified and normalized so propose and execute use the same schema.",
+      "target_files": [
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/task_execution_service.py",
+        "worker/core/propose.py",
+        "tests/test_persisted_last_proposal_contract.py"
+      ],
+      "implementation_steps": [
+        "Inspect persist_task_proposal_result(...) output shape.",
+        "Ensure persisted last_proposal contains proposal_id, goal_id, task_id, strategy_id, command, tool_calls, required_tools, expected_artifacts, safety_flags, reason and metadata at the level expected by execute.",
+        "If existing persistence wraps fields under routing/worker_context/etc., add a canonical executable_proposal field or normalize during execute load.",
+        "Add schema version marker executable_proposal.v1."
+      ],
+      "acceptance_criteria": [
+        "A proposal returned by ToolCallingLLMStrategy can be persisted and later executed without manual transformation.",
+        "A proposal returned by JsonSchemaLLMStrategy can be persisted and later executed without manual transformation.",
+        "Non-executable results are not persisted as last_proposal for execute.",
+        "Tests cover persisted shape roundtrip."
+      ],
+      "done_definition": [
+        "Propose-to-execute contract is one stable shape.",
+        "No hidden shape mismatch between persistence service and execute path remains."
+      ]
+    },
+    {
+      "id": "AFR-FINAL-T008",
+      "title": "Add new-project E2E test with mocked Ollama/OpenAI-compatible provider",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "The system needs an end-to-end test proving that ananta new-project really uses the LLM-default path and completes from artifacts/verification.",
+      "target_files": [
+        "tests/e2e/test_autopilot_new_project_fibonacci.py",
+        "tests/fixtures/mock_openai_compatible_provider.py",
+        "tests/test_new_project_llm_required_policy.py"
+      ],
+      "implementation_steps": [
+        "Create mocked OpenAI-compatible /v1/chat/completions provider fixture.",
+        "Configure default_provider=ollama or generic openai-compatible local provider in test config.",
+        "Make mocked provider return valid tool_calls or JSON schema response for Fibonacci project files.",
+        "Run propose step and assert selected_strategy is tool_calling_llm or json_schema_llm.",
+        "Run execute step and assert files are created.",
+        "Run artifact collection and verification.",
+        "Assert task completes from artifacts/verification, not final prose."
+      ],
+      "acceptance_criteria": [
+        "Test fails if sgpt is called.",
+        "Test fails if deterministic_handler is selected before LLM for new_software_project.",
+        "Test fails if no ExecutableProposal is persisted.",
+        "Test fails if execute cannot reload last_proposal.",
+        "Test passes with mocked local LLM provider."
+      ],
+      "done_definition": [
+        "new-project LLM-default path is proven by E2E test.",
+        "The test is deterministic and does not require internet or real paid provider."
+      ]
+    },
+    {
+      "id": "AFR-FINAL-T009",
+      "title": "Add regression tests for no sgpt, no raw prose execution and no infinite retry",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "The original failure involved sgpt/free prose/parse failure/autopilot_no_executable_step. Regression tests must pin that down.",
+      "target_files": [
+        "tests/test_no_sgpt_in_propose_path.py",
+        "tests/test_raw_prose_not_executable.py",
+        "tests/test_no_infinite_retry_on_parse_failure.py",
+        "agent/services/task_scoped_execution_service.py",
+        "worker/core/propose_orchestrator.py"
+      ],
+      "implementation_steps": [
+        "Monkeypatch sgpt/run_sgpt_command to raise and prove propose path still works or fails explicitly without calling it.",
+        "Mock LLM returning plain natural language and assert result is advisory/needs_review, not executable.",
+        "Mock LLM returning malformed JSON and assert parse failure advances or terminates according to policy without infinite loop.",
+        "Assert retry counters are only used for retryable execution/artifact/verification failures, not endless parse repairs."
+      ],
+      "acceptance_criteria": [
+        "sgpt is not called during default propose path.",
+        "Plain prose cannot become command/tool_calls.",
+        "Malformed JSON cannot become executable.",
+        "No infinite retry loop occurs after parse failure.",
+        "Reason codes are visible in result metadata."
+      ],
+      "done_definition": [
+        "Original class of failure cannot silently reappear.",
+        "Tests document the intended safe failure modes."
+      ]
+    },
+    {
+      "id": "AFR-FINAL-T010",
+      "title": "Update todo.fixup-autopilot.json after finalization slice",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "The larger consolidated TODO must be kept in sync after the focused runtime-finalization tasks are implemented.",
+      "target_files": [
+        "todo.fixup-autopilot.json",
+        "todo.fixup-autopilot-runtime-finalization.json"
+      ],
+      "implementation_steps": [
+        "After implementing T001-T009, re-review actual code.",
+        "Update task statuses in todo.fixup-autopilot.json from todo/partial to done only where tests exist.",
+        "Reference this focused TODO as a follow-up slice or merge its final status into the main TODO.",
+        "Keep reviewed evidence and summary at the bottom of both files."
+      ],
+      "acceptance_criteria": [
+        "Status summary matches actual code and tests.",
+        "No task is marked done without implementation and test evidence.",
+        "The final summary clearly states whether new-project LLM default is production-ready."
+      ],
+      "done_definition": [
+        "TODO files are consistent and no longer overstate progress.",
+        "Final review summary is present."
+      ]
+    }
+  ],
+  "priority_order": [
+    "AFR-FINAL-T001",
+    "AFR-FINAL-T002",
+    "AFR-FINAL-T003",
+    "AFR-FINAL-T007",
+    "AFR-FINAL-T004",
+    "AFR-FINAL-T005",
+    "AFR-FINAL-T008",
+    "AFR-FINAL-T009",
+    "AFR-FINAL-T006",
+    "AFR-FINAL-T010"
+  ],
+  "minimum_safe_slice": [
+    "AFR-FINAL-T001",
+    "AFR-FINAL-T002",
+    "AFR-FINAL-T003",
+    "AFR-FINAL-T007",
+    "AFR-FINAL-T008",
+    "AFR-FINAL-T009"
+  ],
+  "critical_path": [
+    {
+      "step": 1,
+      "task": "AFR-FINAL-T001",
+      "why": "Execute currently has a likely runtime crash because of dataclass/Pydantic mismatch."
+    },
+    {
+      "step": 2,
+      "task": "AFR-FINAL-T002",
+      "why": "Fallback chain is currently truncated and flexible normalization/human review may not be reached."
+    },
+    {
+      "step": 3,
+      "task": "AFR-FINAL-T003",
+      "why": "new-project must actually require an LLM in the default path and fail explicitly if unavailable."
+    },
+    {
+      "step": 4,
+      "task": "AFR-FINAL-T007",
+      "why": "Propose and execute must share one stable persisted proposal shape."
+    },
+    {
+      "step": 5,
+      "task": "AFR-FINAL-T008",
+      "why": "Only E2E proves the intended new-project flow works."
+    },
+    {
+      "step": 6,
+      "task": "AFR-FINAL-T009",
+      "why": "Original failure class must be pinned by regression tests."
+    }
+  ],
+  "expected_final_state": {
+    "new_project_default": "LLM-required, local-first, Ollama/OpenAI-compatible capable, explicit failure if no LLM is available.",
+    "proposal_contract": "One validated ExecutableProposal contract from propose through persistence into execute.",
+    "strategy_chain": "Full configured chain is evaluated; max attempts do not truncate strategy ids.",
+    "worker_fallback": "Real worker delegation or safe declined result, no mock production output.",
+    "completion": "Artifact-first completion with tests and verification, not model prose.",
+    "safety": "No raw prose/Markdown execution, no sgpt default, no infinite parse retry."
+  },
+  "review_summary_bottom": {
+    "current_assessment": "Architecture is close but not done. Real LLM strategies now exist, but execute validation and orchestrator fallback semantics are still blocking correctness.",
+    "is_new_project_llm_default_correct_now": "Not fully. It is policy-configured and partially implemented, but strict LLM-required behavior and E2E proof are still missing.",
+    "most_important_next_fix": "Fix ExecutableProposal validation and remove strategy_order slicing from the orchestrator.",
+    "status_counts": {
+      "todo": 10,
+      "partial": 0,
+      "done": 0
+    }
+  }
+}
