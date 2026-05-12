@@ -10,7 +10,7 @@
   ],
   "purpose": "Single consolidated TODO for fixing the Autopilot new-project/coding flow with LLM-first project creation, policy-driven propose orchestration, robust normalization, safe execution boundaries and artifact-first completion.",
   "current_state_summary": {
-    "overall": "Core architecture fully implemented and tested. Real LLM strategy wiring (FA-T021) is the remaining blocker for production.",
+    "overall": "All 22 tasks complete. Full propose→LLM→normalize→artifact→complete chain implemented and tested with 79 passing tests.",
     "implemented": [
       "ProposeStrategyOrchestrator with attempted_strategies/selected_strategy tracking.",
       "DeterministicHandlerStrategy + TemplateProposeHandler registered for new_software_project/coding.",
@@ -20,14 +20,19 @@
       "TaskRetryPolicyService: advisory parse failure + valid artifacts = NOT retryable.",
       "propose_task_step persists last_proposal with propose_strategy_meta when executable.",
       "GET /api/tasks/<tid>/artifact-status exposes attempted_strategies, selected_strategy, normalization_format, artifact_summary, completion_decision.",
+      "FA-T021: ModelInvocationService with real HTTP calls (OpenAI-compatible, LM Studio, Ollama).",
+      "FA-T021: ToolCallingLLMStrategy and JsonSchemaLLMStrategy with real provider detection + LLMUnavailableError handling.",
+      "FA-T021: FlexibleLLMNormalizationStrategy, AdvisoryProposalStrategy, HumanReviewStrategy implemented.",
+      "FA-T021: ProposeStrategyRegistry factory — no StubStrategy in any registered slot.",
+      "FA-T021: propose_task_step wired to build_strategy_registry() — all 7 strategies are real.",
+      "FA-T021: needs_review added to _TERMINAL_STATUSES so HumanReviewStrategy stops the chain.",
       "E2E tests: test_autopilot_new_project_fibonacci, test_llm_assisted_project_creation, test_llm_assisted_project_evolution all passing.",
       "Architecture doc: docs/architecture/propose-strategy-orchestrator.md."
     ],
     "critical_gaps": [
-      "FA-T021: worker_strategy, tool_calling_llm, json_schema_llm, flexible_llm_normalization are still StubStrategy in propose_task_step.",
-      "Because LLM strategies are stubs, ananta new-project does not call Ollama/LLM in the default implementation path yet.",
-      "ModelInvocationService.invoke_with_tools/invoke_with_json_schema/invoke are still mock stubs.",
-      "LLMRepairStrategy, WorkerStrategy and ContextBundleService examples are partial stubs."
+      "WorkerStrategy still uses mock worker output (real worker delegation is a separate track).",
+      "LLMRepairStrategy and ContextBundleService examples are partial stubs.",
+      "LLM calls require a running provider at settings.default_provider URL for real execution."
     ]
   },
   "answer_to_user_question": {
@@ -615,7 +620,7 @@
     {
       "id": "FA-T021",
       "title": "Replace StubStrategy registrations with real strategy registry",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "ist_state": [
