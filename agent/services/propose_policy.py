@@ -111,11 +111,16 @@ class ProposePolicy:
 _TASK_KIND_PRESETS: dict[str, dict[str, Any]] = {
     "new_software_project": {
         "strategy_order": [
-            STRATEGY_DETERMINISTIC_HANDLER,
             STRATEGY_TOOL_CALLING_LLM,
             STRATEGY_JSON_SCHEMA_LLM,
-            STRATEGY_HUMAN_REVIEW,
+            STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
+            STRATEGY_WORKER,
+            STRATEGY_DETERMINISTIC_HANDLER,
+            STRATEGY_ADVISORY_PROPOSAL,
+            STRATEGY_HUMAN_REVIEW
         ],
+        "llm_mode": "primary_with_guardrails",
+        "max_strategy_attempts": 2,
         "allow_legacy_sgpt": False,
         "requires_executable_step": True,
     },

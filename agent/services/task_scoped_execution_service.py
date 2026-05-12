@@ -519,9 +519,15 @@ class TaskScopedExecutionService:
             StubStrategy,
             ProposeContext,
         )
+        from worker.core.propose import ExecutableProposal
+        from pydantic import ValidationError
         from worker.core.deterministic_handler_strategy import DeterministicHandlerStrategy
 
-        policy = get_propose_policy_service().get_effective_policy(task_kind=task_kind)
+        propose_policy_override = task.get("propose_policy_override", {}) 
+        policy = get_propose_policy_service().get_effective_policy(
+            task_kind=task_kind,
+            admin_overrides=propose_policy_override
+        )
 
         strategies = {
             "deterministic_handler": DeterministicHandlerStrategy(),
@@ -645,9 +651,24 @@ class TaskScopedExecutionService:
                     research_artifact=research_artifact,
                     execution_policy=execution_policy,
                 )
-            command = proposal.get("command")
-            tool_calls = proposal.get("tool_calls")
-            reason = proposal.get("reason", "Vorschlag ausgeführt")
+            try:
+                exec_proposal = ExecutableProposal.model_validate(proposal)
+                command = exec_proposal.command
+                tool_calls = exec_proposal.tool_calls
+                reason = exec_proposal.reason or proposal.get("reason", "Normalized ExecutableProposal executed")
+            except ValidationError as ve:
+                return TaskScopedRouteResponse(
+                    data={
+                        "status": "denied",
+                        "reason": "invalid_executable_proposal_format",
+                        "task_id": tid,
+                        "proposal_preview": str(proposal)[:200],
+                        "validation_errors": [e["msg"] for e in ve.errors()],
+                    },
+                    status="denied",
+                    message="ExecutableProposal validation failed",
+                    code=400,
+                )
             used_last_proposal = True
 
         if task_kind == "domain_action":
@@ -754,6 +775,21 @@ class TaskScopedExecutionService:
         after_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
         changed_files = get_worker_workspace_service().detect_changed_files(before_workspace_snapshot, after_workspace_snapshot)
         meaningful_changed_files = get_worker_workspace_service().filter_meaningful_changed_files(changed_files)
+        # FA-T014: Explicit FileChangeSet collection
+        from worker.core.file_change_set import diff_snapshots
+        from pathlib import Path
+        before_id = hashlib.sha256(str(sorted(before_workspace_snapshot.items())).encode()).hexdigest()[:16]
+        after_id = hashlib.sha256(str(sorted(after_workspace_snapshot.items())).encode()).hexdigest()[:16]
+        exec_id = f"exec-{tid}-{int(time.time()*1000)}"
+        fcs = diff_snapshots(
+            task_id=tid,
+            execution_id=exec_id,
+            workspace_root=Path(workspace_ctx.workspace_dir),
+            before_snapshot_id=before_id,
+            before_snapshot=before_workspace_snapshot,
+            after_snapshot_id=after_id,
+            after_snapshot=after_workspace_snapshot,
+        )
         workspace_artifact_refs = get_worker_workspace_service().sync_changed_files_to_artifacts(
             task_id=tid,
             task=task,
@@ -807,6 +843,7 @@ class TaskScopedExecutionService:
             extra_history={
                 "workspace_changed_files": changed_files,
                 "workspace_meaningful_changed_files": meaningful_changed_files,
+                "file_change_set": fcs.to_dict(),
                 "workspace_dir": str(workspace_ctx.workspace_dir),
                 "workspace_artifact_count": len(workspace_artifact_refs),
                 "native_artifact_count": len(native_artifact_refs),
