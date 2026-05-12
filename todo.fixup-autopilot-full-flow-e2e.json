@@ -1,0 +1,315 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "fixup_autopilot_full_flow_e2e",
+  "created_at": "2026-05-12",
+  "status": "todo",
+  "purpose": "Follow-up TODO after completing todo.fixup-autopilot-runtime-finalization.json. The previous slice fixed and tested the LLM-first proposal/runtime-finalization path, but the remaining gap is a true full-flow Autopilot E2E test and small hardening around execute -> artifacts -> verification -> completion.",
+  "relationship_to_previous_todo": {
+    "previous_file": "todo.fixup-autopilot-runtime-finalization.json",
+    "previous_status": "done according to current TODO and commit evidence",
+    "what_previous_slice_proves": [
+      "new_software_project policy is LLM-first",
+      "tool_calling_llm can be selected with a mocked provider",
+      "sgpt is blocked in the default propose path",
+      "ExecutableProposal validation is dataclass-safe",
+      "LLM-required failure path is explicit",
+      "raw prose and retry-loop regressions are covered at proposal/orchestrator level"
+    ],
+    "what_previous_slice_does_not_fully_prove": [
+      "A real task goes through propose_task_step and then execute_task_step end-to-end.",
+      "LLM-produced write_file tool_calls are actually applied to a workspace.",
+      "Expected files exist after execution in the resolved worker workspace.",
+      "WorkerOutputCollectorService collects a manifest or synthesizes one from workspace diff.",
+      "TaskCompletionPolicyService maps collected artifacts and verification into completed/needs_review/failed.",
+      "The task state in local task runtime is updated based on artifact-first completion, not merely proposal success."
+    ]
+  },
+  "current_findings": {
+    "positive": [
+      "tests/e2e/test_autopilot_new_project_llm_first.py exists and proves an Orchestrator-level LLM-first new-project proposal path with mocked OpenAI-compatible provider.",
+      "tests/test_no_sgpt_in_propose_path.py exists and blocks/default-tests sgpt usage in propose path.",
+      "WorkerOutputCollectorService exists and can validate a manifest or synthesize one from workspace diff when allow_synthesized_fallback=true.",
+      "TaskCompletionPolicyService exists and evaluates completion from collection_result, advisory_parse_result, exit_code, expected_paths and verification settings."
+    ],
+    "gaps": [
+      "The current E2E test appears to stop at ProposeStrategyOrchestrator/ExecutableProposal; it does not visibly call execute_task_step.",
+      "The current E2E test checks proposed tool_call paths like app.py and requirements.txt, but does not visibly assert that those files are actually written to disk by the execute layer.",
+      "No matching test was found for artifact collection after executing the new-project tool_calls.",
+      "No matching test was found for TaskCompletionPolicyService being used in the actual new-project execution flow.",
+      "No full-flow test was found that proves task status becomes completed from artifact evidence."
+    ],
+    "risk_assessment": "The proposal path is now strong. The remaining risk is integration drift between proposal, execution, artifact collection, verification and task state transition. A future change could keep the LLM-first proposal tests green while execute/artifact completion is broken."
+  },
+  "target_full_flow": [
+    "Set up isolated test workspace.",
+    "Create a realistic new_software_project task with goal_id/task_id and workspace context.",
+    "Mock local OpenAI-compatible provider, e.g. Ollama/LMStudio style, to return write_file tool_calls for app.py, requirements.txt, README.md and tests/test_app.py.",
+    "Call the same public/service path used by Autopilot: propose_task_step or the closest route-level function, not only ProposeStrategyOrchestrator directly.",
+    "Assert selected_strategy is tool_calling_llm or json_schema_llm and deterministic_handler was not selected first.",
+    "Persist last_proposal through the real persistence path.",
+    "Call execute_task_step without passing explicit command/tool_calls so it reloads last_proposal.",
+    "Execute applies write_file tool_calls or command in the resolved workspace.",
+    "Assert expected files exist with expected content.",
+    "Capture before/after workspace snapshots.",
+    "Run WorkerOutputCollectorService.collect with allow_synthesized_fallback=true when no worker manifest is written.",
+    "Assert artifacts include the expected generated files.",
+    "Run verification, e.g. pytest or configured VerificationService, against the generated project.",
+    "Run TaskCompletionPolicyService.evaluate with expected_paths and verification_required=true.",
+    "Assert completion decision is completed and mapped task status is completed.",
+    "Assert final status was reached from artifacts/verification, not from model prose."
+  ],
+  "tasks": [
+    {
+      "id": "AFF-E2E-T001",
+      "title": "Add true full-flow E2E for new-project Fibonacci",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "The current E2E test proves the LLM-first proposal path but not the full Autopilot lifecycle through execute, artifacts, verification and completion.",
+      "target_files": [
+        "tests/e2e/test_autopilot_new_project_fibonacci_full_flow.py",
+        "tests/fixtures/mock_openai_compatible_provider.py",
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/task_execution_service.py",
+        "agent/services/worker_workspace_service.py"
+      ],
+      "implementation_steps": [
+        "Create a full-flow test fixture with isolated tmp workspace and deterministic task/goal ids.",
+        "Mock ModelInvocationService.invoke_with_tools to return write_file tool_calls for app.py, requirements.txt, README.md and tests/test_app.py.",
+        "Patch sgpt/run_sgpt_command to raise, as in the existing proposal E2E.",
+        "Call TaskScopedExecutionService.propose_task_step or the route wrapper used by the real task API.",
+        "Assert result status executable and selected_strategy == tool_calling_llm.",
+        "Assert last_proposal was persisted through persist_task_proposal_result, not manually injected.",
+        "Call TaskScopedExecutionService.execute_task_step without explicit command/tool_calls so execute reloads last_proposal.",
+        "Assert the write_file tool_calls created the expected files in the workspace.",
+        "Assert execution response has successful/expected status and contains useful trace metadata."
+      ],
+      "acceptance_criteria": [
+        "Test fails if propose bypasses LLM and selects deterministic_handler first.",
+        "Test fails if sgpt is called.",
+        "Test fails if last_proposal is not persisted/reloadable.",
+        "Test fails if execute_task_step is not called.",
+        "Test fails if app.py, requirements.txt, README.md and tests/test_app.py are not physically created.",
+        "Test is deterministic and does not require a real network LLM."
+      ],
+      "done_definition": [
+        "A real service-level full-flow test exists and passes.",
+        "The test covers propose -> persist -> execute -> files on disk."
+      ]
+    },
+    {
+      "id": "AFF-E2E-T002",
+      "title": "Connect full-flow test to ArtifactManifest or synthesized workspace diff",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "Artifact-first completion can only be trusted if the E2E test proves generated files are collected as artifacts after execution.",
+      "target_files": [
+        "tests/e2e/test_autopilot_new_project_fibonacci_full_flow.py",
+        "agent/services/worker_output_collector_service.py",
+        "agent/services/workspace_diff_service.py",
+        "agent/services/artifact_manifest_service.py",
+        "worker/core/artifact_manifest.py"
+      ],
+      "implementation_steps": [
+        "Capture before_workspace_snapshot before execute and after_workspace_snapshot after execute.",
+        "If the execute path writes a real .ananta/handoff/.../artifact_manifest.v1.json, collect and validate it.",
+        "If no manifest is written by this local execution mode, call WorkerOutputCollectorService.collect with allow_synthesized_fallback=true and before/after snapshots.",
+        "Assert collection_result.collection_method is manifest or synthesized_from_diff.",
+        "Assert collection_result.manifest_valid is true or at least contains valid synthesized artifacts according to current policy.",
+        "Assert artifacts include app.py, requirements.txt, README.md and tests/test_app.py as generated/modified files.",
+        "Assert unsafe paths and outside-workspace files are not included."
+      ],
+      "acceptance_criteria": [
+        "The test proves artifact collection happens after execution.",
+        "The collector result is not empty.",
+        "Expected file artifacts are present and tied to the task/execution id.",
+        "The test fails if model prose claims success but no files/artifacts exist."
+      ],
+      "done_definition": [
+        "Artifact-first evidence exists in the new-project full-flow E2E.",
+        "The E2E is no longer only a proposal-level test."
+      ]
+    },
+    {
+      "id": "AFF-E2E-T003",
+      "title": "Run verification and TaskCompletionPolicyService in the full-flow E2E",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "problem": "The previous slice says artifact-first completion is the goal, but the visible E2E coverage does not prove verification and completion status from artifacts.",
+      "target_files": [
+        "tests/e2e/test_autopilot_new_project_fibonacci_full_flow.py",
+        "agent/services/verification_service.py",
+        "agent/services/task_completion_policy_service.py",
+        "worker/core/artifact_completion_policy.py",
+        "agent/services/task_runtime_service.py"
+      ],
+      "implementation_steps": [
+        "Generate a minimal testable Fibonacci project from the mocked provider: app.py with fibonacci function/API and tests/test_app.py.",
+        "Run the configured VerificationService or a deterministic local pytest command in the workspace.",
+        "Convert verification output into verification_status expected by existing completion policy if required.",
+        "Call TaskCompletionPolicyService.evaluate with expected_paths for app.py, requirements.txt, README.md and tests/test_app.py.",
+        "Set verification_required=true for the main happy-path test.",
+        "Assert CompletionDecision.decision == completed.",
+        "Assert TaskCompletionPolicyService.to_status(decision) == completed.",
+        "Optionally update local task status and assert final task status is completed."
+      ],
+      "acceptance_criteria": [
+        "Happy path fails if tests do not pass.",
+        "Happy path fails if expected files are missing.",
+        "Happy path fails if collection_result is empty or invalid.",
+        "Completion is based on artifacts + verification, not advisory_parse_result or LLM prose.",
+        "At least one negative test proves failed verification maps to needs_review/retryable_failed/failed according to policy."
+      ],
+      "done_definition": [
+        "Full-flow E2E proves completed status from artifact-first completion.",
+        "Negative verification behavior is covered."
+      ]
+    },
+    {
+      "id": "AFF-E2E-T004",
+      "title": "Add route/API-level smoke test for ananta new-project path",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "problem": "Service-level E2E is strong, but the CLI/API entry point can still drift. A thin smoke test should cover the public new-project path.",
+      "target_files": [
+        "tests/e2e/test_autopilot_new_project_api_smoke.py",
+        "agent/routes/tasks_autopilot.py",
+        "agent/routes/tasks.py",
+        "agent/cli.py"
+      ],
+      "implementation_steps": [
+        "Identify the real public entry point for ananta new-project: CLI command or API route.",
+        "Add a smoke test that uses the public entry point with mocked provider and isolated workspace.",
+        "Assert task/goal is created with task_kind=new_software_project or the expected task decomposition.",
+        "Assert the resulting task can be proposed/executed through the standard route/service path.",
+        "Keep this test lighter than the full-flow service E2E if runtime cost is high."
+      ],
+      "acceptance_criteria": [
+        "Public entry point creates the expected task/goal shape.",
+        "Route/CLI test does not bypass policy or proposal registry.",
+        "sgpt remains blocked.",
+        "Test documents the real command/API contract for future changes."
+      ],
+      "done_definition": [
+        "There is at least one route/API/CLI smoke test for new-project beyond direct service calls."
+      ]
+    },
+    {
+      "id": "AFF-E2E-T005",
+      "title": "Improve test evidence and TODO consistency",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "The previous TODO says all tasks are done, but still contains historical negative findings and an E2E claim that is broader than what the visible proposal-level test proves.",
+      "target_files": [
+        "todo.fixup-autopilot-runtime-finalization.json",
+        "todo.fixup-autopilot-full-flow-e2e.json",
+        "todo.fixup-autopilot.json",
+        "docs/architecture/propose-strategy-orchestrator.md",
+        "docs/architecture/artifact-first-worker-handoff.md"
+      ],
+      "implementation_steps": [
+        "After AFF-E2E-T001..T004 are implemented, update todo.fixup-autopilot-runtime-finalization.json to distinguish proposal-E2E from full-flow E2E.",
+        "Do not remove historical pre-completion context, but move it under a clearly named history section.",
+        "Add exact test file names and what each proves.",
+        "Update todo.fixup-autopilot.json to reference this full-flow E2E slice.",
+        "Add a short doc note explaining the difference between proposal-E2E and full Autopilot E2E."
+      ],
+      "acceptance_criteria": [
+        "TODO status no longer overclaims full-flow completion before the new full-flow tests exist.",
+        "Test evidence clearly states whether it proves proposal only, execute only, artifact collection, verification or full lifecycle.",
+        "Docs/TODOs are consistent with actual code."
+      ],
+      "done_definition": [
+        "TODO and docs match actual test coverage and do not rely only on commit-message claims."
+      ]
+    },
+    {
+      "id": "AFF-E2E-T006",
+      "title": "Add security and failure-mode cases for full-flow execution",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "problem": "The full-flow test should not only prove the happy path. It must also prove unsafe or failed execution does not get marked completed.",
+      "target_files": [
+        "tests/e2e/test_autopilot_new_project_fibonacci_full_flow.py",
+        "tests/test_autopilot_full_flow_failure_modes.py",
+        "agent/services/task_execution_policy_service.py",
+        "agent/services/worker_output_collector_service.py",
+        "agent/services/task_completion_policy_service.py"
+      ],
+      "implementation_steps": [
+        "Add negative case where mocked LLM proposes write_file with ../outside.py and assert execution/collection rejects it.",
+        "Add negative case where execution creates only README.md but not app.py/tests and assert completion is not completed.",
+        "Add negative case where generated tests fail and assert completion is not completed.",
+        "Add case where model returns final prose claiming success but no files exist and assert completion is failed/needs_review.",
+        "Add case where artifact manifest path escapes workspace and assert collector rejects it."
+      ],
+      "acceptance_criteria": [
+        "Unsafe paths cannot write or count as valid artifacts.",
+        "Missing required artifacts cannot complete the task.",
+        "Failed verification cannot complete the task.",
+        "Model prose cannot override artifact/verification failure.",
+        "Collector rejects manifest path escape."
+      ],
+      "done_definition": [
+        "Full-flow negative tests protect the artifact-first security model."
+      ]
+    }
+  ],
+  "priority_order": [
+    "AFF-E2E-T001",
+    "AFF-E2E-T002",
+    "AFF-E2E-T003",
+    "AFF-E2E-T006",
+    "AFF-E2E-T004",
+    "AFF-E2E-T005"
+  ],
+  "minimum_safe_slice": [
+    "AFF-E2E-T001",
+    "AFF-E2E-T002",
+    "AFF-E2E-T003"
+  ],
+  "global_done_definition": [
+    "A service-level full-flow E2E exists for new-project Fibonacci using mocked local OpenAI-compatible provider.",
+    "The test calls propose_task_step and execute_task_step or equivalent real service/route paths.",
+    "LLM-first selection is asserted and sgpt is blocked.",
+    "Generated files physically exist after execution.",
+    "WorkerOutputCollectorService collects artifacts from manifest or synthesized workspace diff.",
+    "Verification runs against generated project content.",
+    "TaskCompletionPolicyService returns completed only from artifact and verification evidence.",
+    "Negative cases prove missing files, failed verification, unsafe paths or prose-only output cannot complete the task.",
+    "TODO/docs are updated to distinguish proposal-E2E from full Autopilot E2E."
+  ],
+  "review_evidence": [
+    {
+      "file": "tests/e2e/test_autopilot_new_project_llm_first.py",
+      "finding": "Good proposal-level E2E: mocked provider, tool_calling_llm selected, sgpt blocked, proposal shape reloadable. It does not visibly execute tool_calls into files or run artifact/verification completion."
+    },
+    {
+      "file": "tests/test_no_sgpt_in_propose_path.py",
+      "finding": "Good regression coverage for sgpt not being used in default propose path."
+    },
+    {
+      "file": "agent/services/worker_output_collector_service.py",
+      "finding": "Collector supports manifest validation and synthesized diff fallback, suitable for full-flow test integration."
+    },
+    {
+      "file": "agent/services/task_completion_policy_service.py",
+      "finding": "Completion service is artifact-first and can map decisions to task status; needs full-flow E2E use."
+    }
+  ],
+  "summary_bottom": {
+    "assessment": "The runtime-finalization/proposal path is now well covered, but full Autopilot lifecycle coverage is still missing or not visible. The new TODO focuses only on the remaining integration gap and hardening around execute, artifacts, verification and completion.",
+    "status_counts": {
+      "todo": 6,
+      "partial": 0,
+      "done": 0
+    },
+    "most_important_next_step": "Implement AFF-E2E-T001..T003: full-flow service E2E that proves propose -> execute -> files -> artifact collection -> verification -> completed."
+  }
+}
