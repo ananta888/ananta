@@ -313,6 +313,7 @@ class ProposeStrategyResult:
         proposal: ExecutableProposal,
         reason: str | None = None,
         reason_codes: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ProposeStrategyResult":
         return cls(
             status=STATUS_EXECUTABLE,
@@ -320,6 +321,7 @@ class ProposeStrategyResult:
             proposal=proposal,
             reason=reason,
             reason_codes=list(reason_codes or []),
+            metadata=dict(metadata or {}),
         )
 
     @classmethod
@@ -328,12 +330,14 @@ class ProposeStrategyResult:
         strategy_id: str,
         reason: str | None = None,
         reason_codes: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ProposeStrategyResult":
         return cls(
             status=STATUS_DECLINED,
             strategy_id=strategy_id,
             reason=reason,
             reason_codes=list(reason_codes or []),
+            metadata=dict(metadata or {}),
         )
 
     @classmethod
@@ -344,6 +348,7 @@ class ProposeStrategyResult:
         advisory_artifact_ref: str | None = None,
         reason: str | None = None,
         reason_codes: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ProposeStrategyResult":
         return cls(
             status=STATUS_ADVISORY,
@@ -352,6 +357,7 @@ class ProposeStrategyResult:
             advisory_artifact_ref=advisory_artifact_ref,
             reason=reason,
             reason_codes=list(reason_codes or []),
+            metadata=dict(metadata or {}),
         )
 
     @classmethod
@@ -360,12 +366,14 @@ class ProposeStrategyResult:
         strategy_id: str,
         reason: str | None = None,
         reason_codes: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ProposeStrategyResult":
         return cls(
             status=STATUS_NEEDS_REVIEW,
             strategy_id=strategy_id,
             reason=reason,
             reason_codes=list(reason_codes or []),
+            metadata=dict(metadata or {}),
         )
 
     @classmethod
@@ -374,12 +382,14 @@ class ProposeStrategyResult:
         strategy_id: str,
         reason: str | None = None,
         reason_codes: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ProposeStrategyResult":
         return cls(
             status=STATUS_FAILED,
             strategy_id=strategy_id,
             reason=reason,
             reason_codes=list(reason_codes or []),
+            metadata=dict(metadata or {}),
         )
 
     @classmethod
@@ -388,12 +398,14 @@ class ProposeStrategyResult:
         strategy_id: str,
         reason: str | None = None,
         reason_codes: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ProposeStrategyResult":
         return cls(
             status=STATUS_POLICY_DENIED,
             strategy_id=strategy_id,
             reason=reason,
             reason_codes=list(reason_codes or []),
+            metadata=dict(metadata or {}),
         )
 
     def to_dict(self) -> dict[str, Any]:

@@ -40,19 +40,42 @@ def get_task_artifact_status(tid: str):
             artifact_completion = dict(evt.get("details") or {})
             break
 
+    # Extract propose strategy metadata from last_proposal or history
+    last_proposal = dict(task_dict.get("last_proposal") or {})
+    routing = dict(last_proposal.get("routing") or {})
+    propose_strategy_meta = dict(routing.get("propose_strategy_meta") or {})
+
+    # Also check most recent proposal_result history event for strategy meta
+    if not propose_strategy_meta:
+        for evt in reversed(list(task_dict.get("history") or [])):
+            if isinstance(evt, dict) and evt.get("event_type") == "proposal_result":
+                propose_strategy_meta = dict(evt.get("propose_strategy_meta") or {})
+                if propose_strategy_meta:
+                    break
+
     response = {
         "task_id": tid,
         "status": task_dict.get("status"),
+        # Propose strategy observability (FA-T019)
+        "attempted_strategies": propose_strategy_meta.get("attempted_strategies") or [],
+        "selected_strategy": propose_strategy_meta.get("selected_strategy"),
+        "proposal_status": propose_strategy_meta.get("proposal_status"),
+        "proposal_reason": propose_strategy_meta.get("proposal_reason") or last_proposal.get("reason"),
+        "normalization_format": propose_strategy_meta.get("normalization_format"),
+        "effective_propose_policy": routing.get("task_kind"),
+        # Artifact completion observability
         "artifact_summary": {
             "completion_decision": (artifact_completion or {}).get("completion_decision"),
             "reason_codes": (artifact_completion or {}).get("reason_codes") or [],
             "manifest_status": "valid" if (artifact_completion or {}).get("manifest_id") else "unknown",
             "artifact_ids": (artifact_completion or {}).get("artifact_ids") or [],
             "manifest_id": (artifact_completion or {}).get("manifest_id"),
+            "verification_status": verification_status.get("status"),
         },
         "verification_status": verification_status.get("status"),
         "advisory_parse_status": (artifact_completion or {}).get("advisory_parse_status"),
         "artifact_first_completion": artifact_completion,
+        "completion_decision": (artifact_completion or {}).get("completion_decision"),
     }
     return jsonify(response), 200
 

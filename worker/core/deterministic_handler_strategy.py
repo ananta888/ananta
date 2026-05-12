@@ -30,7 +30,7 @@ class DeterministicHandlerStrategy(ProposeStrategy):
 
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
         registry = get_task_handler_registry()
-        task_kind = context.task.get("kind") or "unknown"
+        task_kind = context.task.get("task_kind") or context.task.get("kind") or "unknown"
         handler = registry.resolve(task_kind)
         if handler is None or not hasattr(handler, "propose"):
             return ProposeStrategyResult.declined(
@@ -44,21 +44,29 @@ class DeterministicHandlerStrategy(ProposeStrategy):
             tid=context.task_id,
             task=context.task,
             task_kind=task_kind,
-            request_data={},  # Stub
+            request_data={},
             base_prompt=context.base_prompt,
-            service=None,  # Stub, adapt if needed
+            service=None,
             cli_runner=context.cli_runner,
-            forwarder=None,  # Stub
+            forwarder=None,
             tool_definitions_resolver=context.tool_definitions_resolver,
             handler_descriptor=descriptor,
         )
+        if response is None:
+            return ProposeStrategyResult.declined(
+                "deterministic_handler",
+                "handler_returned_none",
+            )
+        # Handler may return ExecutableProposal directly.
+        if isinstance(response, ExecutableProposal):
+            return ProposeStrategyResult.executable("deterministic_handler", response)
+        # Otherwise coerce dict / .data wrapper.
         payload = coerce_handler_response(response)
         if payload is None:
             return ProposeStrategyResult.declined(
                 "deterministic_handler",
                 "handler_returned_none",
             )
-        # Try to normalize to ExecutableProposal
         try:
             proposal = ExecutableProposal(
                 proposal_id=payload.get("proposal_id", f"prop-{id(payload)}"),
@@ -73,7 +81,6 @@ class DeterministicHandlerStrategy(ProposeStrategy):
             )
             return ProposeStrategyResult.executable("deterministic_handler", proposal)
         except ValueError:
-            # Invalid executable, treat as advisory
             return ProposeStrategyResult.advisory(
                 "deterministic_handler",
                 advisory_text=str(payload),
