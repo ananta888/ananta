@@ -67,8 +67,9 @@ class ProposeStrategyOrchestrator:
                 "reason": result.reason,
             })
             if result.is_executable or result.is_terminal:
-                result.metadata["attempted_strategies"] = attempted
-                result.metadata["selected_strategy"] = strategy_id
+                if isinstance(result.metadata, dict):
+                    result.metadata["attempted_strategies"] = attempted
+                    result.metadata["selected_strategy"] = strategy_id
                 return result
         # All declined
         fallback_meta = {"attempted_strategies": attempted, "selected_strategy": None}

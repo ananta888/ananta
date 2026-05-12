@@ -26,7 +26,7 @@ def get_task_artifact_status(tid: str):
     repos = get_repository_registry()
     task = repos.task_repo.get_by_id(tid)
     if not task:
-        return api_response({"error": "task_not_found"}, status=404)
+        return api_response({"error": "task_not_found"}, code=404)
 
     task_dict = task.model_dump()
     verification_status = dict(task_dict.get("verification_status") or {})
@@ -90,7 +90,7 @@ def get_task_artifact_preview(tid: str):
     repos = get_repository_registry()
     task = repos.task_repo.get_by_id(tid)
     if not task:
-        return api_response({"error": "task_not_found"}, status=404)
+        return api_response({"error": "task_not_found"}, code=404)
 
     task_dict = task.model_dump()
     workspace_dir = str(task_dict.get("workspace_dir") or "")
@@ -146,17 +146,17 @@ def reconcile_task_from_artifacts(tid: str):
     actor = str(body.get("actor") or "") or str((getattr(g, "user", {}) or {}).get("sub") or "unknown")
     reason = str(body.get("reason") or "").strip()
     if not reason:
-        return api_response({"error": "reason_required"}, status=400)
+        return api_response({"error": "reason_required"}, code=400)
 
     repos = get_repository_registry()
     task = repos.task_repo.get_by_id(tid)
     if not task:
-        return api_response({"error": "task_not_found"}, status=404)
+        return api_response({"error": "task_not_found"}, code=404)
 
     task_dict = task.model_dump()
     workspace_dir = str(task_dict.get("workspace_dir") or "").strip()
     if not workspace_dir:
-        return api_response({"error": "workspace_dir_not_set"}, status=400)
+        return api_response({"error": "workspace_dir_not_set"}, code=400)
 
     execution_id = str(body.get("execution_id") or task_dict.get("current_worker_job_id") or tid)
     manifest_path = str(body.get("manifest_relative_path") or f".ananta/handoff/{execution_id}/artifact_manifest.v1.json")
