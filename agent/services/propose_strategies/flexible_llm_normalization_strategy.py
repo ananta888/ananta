@@ -1,4 +1,4 @@
-"""FlexibleLLMNormalizationStrategy — FA-T021: any LLM output, all formats."""
+"""FlexibleLLMNormalizationStrategy — AFR-T005: policy-aware, all formats."""
 from __future__ import annotations
 
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
@@ -8,10 +8,10 @@ from agent.services.model_invocation_service import ModelInvocationService, LLMU
 
 
 class FlexibleLLMNormalizationStrategy(ProposeStrategy):
-    """Calls any LLM, accepts any output format, normalizes via LLMResponseNormalizer.
+    """Calls any LLM, passes raw output through LLMResponseNormalizer.
 
-    Last LLM-based attempt before advisory_proposal. Accepts prose, JSON, shell,
-    diffs, file blocks — whatever the model returns.
+    Respects policy.allow_shell_execution: shell blocks are only executable
+    when explicitly enabled in policy (default: False → advisory).
     """
 
     def __init__(self) -> None:
@@ -24,17 +24,21 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
             return ProposeStrategyResult.declined(
                 "flexible_llm_normalization",
                 reason=f"llm_required_but_unavailable: {exc}",
+                reason_codes=["llm_required", "llm_provider_unavailable"],
             )
         except Exception as exc:
             return ProposeStrategyResult.failed(
-                "flexible_llm_normalization",
-                f"llm_call_failed: {exc}",
+                "flexible_llm_normalization", f"llm_call_failed: {exc}",
             )
 
         if not raw or not raw.strip():
             return ProposeStrategyResult.declined(
-                "flexible_llm_normalization",
-                reason="llm_returned_empty_response",
+                "flexible_llm_normalization", reason="llm_returned_empty_response",
             )
 
-        return self._normalizer.normalize(raw, context)
+        # Determine shell execution policy from context
+        allow_shell = False
+        if context.policy is not None:
+            allow_shell = context.policy.allow_shell_execution
+
+        return self._normalizer.normalize(raw, context, allow_shell_execution=allow_shell)

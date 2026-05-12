@@ -515,8 +515,7 @@ class TaskScopedExecutionService:
         )
         from agent.services.propose_policy_service import get_propose_policy_service
         from worker.core.propose_orchestrator import ProposeStrategyOrchestrator, ProposeContext
-        from worker.core.propose import ExecutableProposal
-        from pydantic import ValidationError
+        from worker.core.propose import ExecutableProposal, validate_executable_proposal
         from agent.services.propose_strategy_registry import build_strategy_registry
 
         propose_policy_override = task.get("propose_policy_override", {})
@@ -536,6 +535,7 @@ class TaskScopedExecutionService:
             research_context=research_context_summary,
             cli_runner=cli_runner,
             tool_definitions_resolver=tool_definitions_resolver,
+            policy=policy,
         )
         result = orch.run(context)
         result_dict = result.to_dict()
@@ -677,18 +677,17 @@ class TaskScopedExecutionService:
                     execution_policy=execution_policy,
                 )
             try:
-                exec_proposal = ExecutableProposal.model_validate(proposal)
-                command = exec_proposal.command
-                tool_calls = exec_proposal.tool_calls
-                reason = exec_proposal.reason or proposal.get("reason", "Normalized ExecutableProposal executed")
-            except ValidationError as ve:
+                from worker.core.propose import validate_executable_proposal
+                command, tool_calls, _reason = validate_executable_proposal(proposal)
+                reason = _reason or proposal.get("reason", "ExecutableProposal executed")
+            except (ValueError, TypeError) as ve:
                 return TaskScopedRouteResponse(
                     data={
                         "status": "denied",
                         "reason": "invalid_executable_proposal_format",
                         "task_id": tid,
                         "proposal_preview": str(proposal)[:200],
-                        "validation_errors": [e["msg"] for e in ve.errors()],
+                        "validation_errors": [str(ve)],
                     },
                     status="denied",
                     message="ExecutableProposal validation failed",
