@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
   "track": "fixup_autopilot_runtime_finalization",
   "created_at": "2026-05-12",
@@ -483,5 +483,46 @@
       "T009": "tests/test_no_sgpt_in_propose_path.py + tests/test_raw_prose_not_executable.py + tests/test_no_infinite_retry_on_parse_failure.py — 36 tests total",
       "T010": "todo.fixup-autopilot-runtime-finalization.json updated, all statuses set to done"
     }
+  },
+  "last_reviewed_at": "2026-05-12",
+  "pre_completion_review_scope": {
+    "reviewed_commit": "ff126152ed35c9aa31a6ba8c26b045ae3fce172d",
+    "reviewed_files": [
+      "worker/core/propose.py",
+      "worker/core/propose_orchestrator.py",
+      "agent/services/propose_policy.py",
+      "agent/services/propose_policy_service.py",
+      "agent/services/task_scoped_execution_service.py",
+      "worker/core/tool_calling_llm_strategy.py",
+      "worker/core/json_schema_llm_strategy.py",
+      "agent/services/propose_strategies/flexible_llm_normalization_strategy.py",
+      "agent/services/llm_response_normalizer.py",
+      "worker/core/worker_strategy.py",
+      "todo.fixup-autopilot-runtime-finalization.json"
+    ],
+    "test_search_result": "Search did not find the expected dedicated test files for execute proposal validation, orchestrator fallback, new-project LLM-required behavior, no-sgpt regression or Fibonacci E2E. Existing/modified tests may exist under different names, but they were not visible through the repository search performed for this review."
+  },
+  "pre_completion_state_summary": {
+    "overall": "Substantially improved, but not finished. Runtime code fixes for the main blockers are partly implemented. The remaining risk is mostly missing tests/E2E proof, incomplete production worker delegation, and some contract hardening.",
+    "implemented_or_partially_implemented": [
+      "ExecutableProposal.model_validate(...) was replaced in execute_task_step by validate_executable_proposal(...).",
+      "worker/core/propose.py now has validate_executable_proposal(raw).",
+      "ProposeStrategyOrchestrator no longer slices strategy_order by max_strategy_attempts and iterates the full strategy chain.",
+      "ProposeContext now carries policy so strategies can read policy settings.",
+      "ProposePolicy now has LLM_STRATEGY_IDS, allow_shell_execution and an llm_required property derived from llm_mode=primary_with_guardrails.",
+      "new_software_project no longer sets max_strategy_attempts=2 and remains LLM-first.",
+      "Orchestrator enforces llm_required when all configured LLM strategies decline with llm_required_but_unavailable.",
+      "FlexibleLLMNormalizationStrategy passes allow_shell_execution into LLMResponseNormalizer.",
+      "LLMResponseNormalizer now blocks shell execution by default and rejects simple unsafe file paths for file blocks.",
+      "WorkerStrategy no longer generates mock output and safely declines when real worker delegation is not implemented."
+    ],
+    "remaining_blockers": [
+      "Dedicated tests/E2E are still not visible for most critical tasks, so done cannot be claimed safely.",
+      "validate_executable_proposal returns only command/tool_calls/reason, not a full ExecutableProposal; this is acceptable as a minimal fix but not the final strongest contract.",
+      "Persisted last_proposal roundtrip still needs explicit test evidence.",
+      "WorkerStrategy still has workers=[] and runtime_targets=[] and returns real_worker_delegation_not_implemented after selection; safe, but not production delegation.",
+      "LLM strategy hardening exists partially, but provider/model capability handling and command/tool policy validation still need tests and likely more code.",
+      "No visible Fibonacci new-project E2E proving propose -> execute -> artifacts -> verification."
+    ]
   }
 }
