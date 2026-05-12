@@ -51,11 +51,20 @@ class TestLLMResponseNormalizer:
         assert result.status == STATUS_EXECUTABLE
         assert result.proposal.command == "mkdir src"
 
-    def test_fenced_shell(self, normalizer, context):
+    def test_fenced_shell_advisory_by_default(self, normalizer, context):
         raw = """```bash
 pip install fastapi uvicorn
 ```"""
         result = normalizer.normalize(raw, context)
+        # shell blocks are advisory when allow_shell_execution=False (default)
+        assert result.status == STATUS_ADVISORY
+        assert result.proposal is None
+
+    def test_fenced_shell_executable_when_allowed(self, normalizer, context):
+        raw = """```bash
+pip install fastapi uvicorn
+```"""
+        result = normalizer.normalize(raw, context, allow_shell_execution=True)
         assert result.status == STATUS_EXECUTABLE
         assert "pip install fastapi uvicorn" in result.proposal.command
 

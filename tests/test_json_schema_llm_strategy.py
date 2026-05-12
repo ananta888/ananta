@@ -1,128 +1,109 @@
-"""Tests for JsonSchemaLLMStrategy — FA-T009."""
+"""Tests for JsonSchemaLLMStrategy — FA-T009/AFR-T004."""
 
+import json
 import pytest
 from unittest.mock import Mock
 
 from worker.core.propose_orchestrator import ProposeContext
 from worker.core.propose import (
-    ProposeStrategyResult,
     STATUS_DECLINED,
     STATUS_ADVISORY,
     STATUS_EXECUTABLE,
     STATUS_FAILED,
 )
 from worker.core.json_schema_llm_strategy import JsonSchemaLLMStrategy
+from agent.services.model_invocation_service import LLMUnavailableError
 
 
 class TestJsonSchemaLLMStrategy:
     @pytest.fixture
-    def context_no_tools(self):
+    def context(self):
         ctx = Mock(spec=ProposeContext)
-        ctx.tool_definitions_resolver.return_value = []
         ctx.goal_id = "g1"
         ctx.task_id = "t1"
         ctx.task = {}
-        ctx.base_prompt = "test"
+        ctx.base_prompt = "Create a Fibonacci API"
         return ctx
 
-    @pytest.fixture
-    def context_with_tools(self):
-        ctx = Mock(spec=ProposeContext)
-        ctx.tool_definitions_resolver.return_value = [{"name": "write_file"}]
-        ctx.goal_id = "g1"
-        ctx.task_id = "t1"
-        ctx.task = {}
-        ctx.base_prompt = "test"
-        return ctx
-
-    def test_declined_no_tools(self, context_no_tools):
+    def test_declined_mock_provider(self, context, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "mock")
         strategy = JsonSchemaLLMStrategy()
-        result = strategy.run(context_no_tools)
+        result = strategy.run(context)
         assert result.status == STATUS_DECLINED
-        assert "no_tools_defined" in result.reason
+        assert "provider_json_schema_not_supported_mock" in result.reason
 
-    def test_declined_provider_not_supported(self, context_with_tools, monkeypatch):
+    def test_declined_llm_unavailable(self, context, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        mock_svc = Mock(side_effect=LLMUnavailableError("timeout"))
         monkeypatch.setattr(
-            "worker.core.json_schema_llm_strategy.JsonSchemaLLMStrategy.SUPPORTED_PROVIDERS",
-            set(),
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
+            mock_svc,
         )
         strategy = JsonSchemaLLMStrategy()
-        result = strategy.run(context_with_tools)
+        result = strategy.run(context)
         assert result.status == STATUS_DECLINED
-        assert "provider_json_schema_not_supported" in result.reason
+        assert "llm_required_but_unavailable" in result.reason
+        assert "llm_provider_unavailable" in result.reason_codes
 
-    def test_executable_tool_calls(self, context_with_tools, monkeypatch):
-        import json
-        mock_response = json.dumps({
-            "tool_calls": [{"name": "write_file", "args": {"path": "schema.py"}}]
-        })
-        mock_service = Mock(return_value=mock_response)
+    def test_executable_tool_calls(self, context, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        mock_svc = Mock(return_value=json.dumps({
+            "tool_calls": [{"name": "write_file", "args": {"path": "schema.py"}}],
+        }))
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
-            mock_service,
+            mock_svc,
         )
-
         strategy = JsonSchemaLLMStrategy()
-        result = strategy.run(context_with_tools)
-
+        result = strategy.run(context)
         assert result.status == STATUS_EXECUTABLE
-        proposal = result.proposal
-        assert proposal.tool_calls[0]["name"] == "write_file"
+        assert result.proposal.tool_calls[0]["name"] == "write_file"
 
-    def test_executable_command(self, context_with_tools, monkeypatch):
-        import json
-        mock_response = json.dumps({"command": "pip install fastapi"})
-        mock_service = Mock(return_value=mock_response)
+    def test_executable_command(self, context, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        mock_svc = Mock(return_value=json.dumps({"command": "pip install fastapi"}))
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
-            mock_service,
+            mock_svc,
         )
-
         strategy = JsonSchemaLLMStrategy()
-        result = strategy.run(context_with_tools)
-
+        result = strategy.run(context)
         assert result.status == STATUS_EXECUTABLE
-        proposal = result.proposal
-        assert proposal.command == "pip install fastapi"
+        assert result.proposal.command == "pip install fastapi"
 
-    def test_advisory_empty_parsed(self, context_with_tools, monkeypatch):
-        import json
-        mock_response = json.dumps({})
-        mock_service = Mock(return_value=mock_response)
+    def test_declined_empty_json_no_output(self, context, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        mock_svc = Mock(return_value=json.dumps({}))
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
-            mock_service,
+            mock_svc,
         )
-
         strategy = JsonSchemaLLMStrategy()
-        result = strategy.run(context_with_tools)
+        result = strategy.run(context)
+        # empty JSON has no command or tool_calls → declined (not advisory)
+        assert result.status == STATUS_DECLINED
+        assert "llm_returned_no_executable_output" in result.reason
 
+    def test_advisory_invalid_json_parse_failure(self, context, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        mock_svc = Mock(return_value="invalid { json malformed")
+        monkeypatch.setattr(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
+            mock_svc,
+        )
+        strategy = JsonSchemaLLMStrategy()
+        result = strategy.run(context)
         assert result.status == STATUS_ADVISORY
-        assert "{}" in result.advisory_text
+        assert "json_parse_failed" in result.reason
 
-    def test_advisory_invalid_json(self, context_with_tools, monkeypatch):
-        mock_response = "invalid { json"
-        mock_service = Mock(return_value=mock_response)
+    def test_failed_unexpected_exception(self, context, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        mock_svc = Mock(side_effect=Exception("service down"))
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
-            mock_service,
+            mock_svc,
         )
-
         strategy = JsonSchemaLLMStrategy()
-        result = strategy.run(context_with_tools)
-
-        assert result.status == STATUS_ADVISORY
-        assert "invalid" in result.advisory_text
-
-    def test_failed_exception(self, context_with_tools, monkeypatch):
-        mock_service = Mock(side_effect=Exception("service down"))
-        monkeypatch.setattr(
-            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
-            mock_service,
-        )
-
-        strategy = JsonSchemaLLMStrategy()
-        result = strategy.run(context_with_tools)
-
+        result = strategy.run(context)
         assert result.status == STATUS_FAILED
         assert "llm_call_failed" in result.reason
