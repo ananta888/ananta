@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/advisory_proposal_artifact.v1.json",
+  "title": "Ananta AdvisoryProposalArtifact v1",
+  "description": "Non-executable advisory proposal with text and/or artifact reference. Normalized from LLM advisory outputs.",
+  "type": "object",
+  "required": ["schema", "proposal_id", "goal_id", "task_id", "strategy_id"],
+  "properties": {
+    "schema": { "type": "string", "const": "advisory_proposal_artifact.v1" },
+    "proposal_id": { "type": "string", "minLength": 1 },
+    "goal_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "strategy_id": { "type": "string", "minLength": 1 },
+    "advisory_text": { "type": ["string", "null"] },
+    "advisory_artifact_ref": { "type": ["string", "null"] },
+    "reason": { "type": ["string", "null"] },
+    "created_at": { "type": "number" },
+    "metadata": { "type": "object", "default": {} }
+  },
+  "additionalProperties": false
+}

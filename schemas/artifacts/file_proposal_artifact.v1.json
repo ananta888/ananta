@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/artifacts/file_proposal_artifact.v1.json",
+  "title": "Ananta FileProposalArtifact v1",
+  "description": "Proposed file write. Requires validation and optional approval before apply. Absolute paths and path traversal are rejected.",
+  "type": "object",
+  "required": ["schema", "artifact_id", "task_id", "goal_id", "source_strategy", "relative_path", "content_ref", "operation", "adoption_status"],
+  "properties": {
+    "schema": { "type": "string", "const": "file_proposal_artifact.v1" },
+    "artifact_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "goal_id": { "type": "string", "minLength": 1 },
+    "source_strategy": { "type": "string", "minLength": 1 },
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Must be relative, no .. or absolute path."
+    },
+    "content_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Hash or storage reference to file content."
+    },
+    "content_hash": { "type": ["string", "null"] },
+    "encoding": { "type": "string", "default": "utf-8" },
+    "operation": {
+      "type": "string",
+      "enum": ["create", "overwrite", "append", "delete"]
+    },
+    "source_model": { "type": ["string", "null"] },
+    "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "validation_errors": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "safety_warnings": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "adoption_status": {
+      "type": "string",
+      "enum": ["pending", "adopted", "rejected", "ignored"]
+    },
+    "created_at": { "type": "number" }
+  },
+  "additionalProperties": false
+}

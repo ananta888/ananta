@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/propose_strategy_result.v1.json",
+  "title": "Ananta ProposeStrategyResult v1",
+  "description": "Result of one strategy's attempt to produce a proposal. Only status=executable may carry a proposal object.",
+  "type": "object",
+  "required": ["schema", "status", "strategy_id"],
+  "properties": {
+    "schema": { "type": "string", "const": "propose_strategy_result.v1" },
+    "status": {
+      "type": "string",
+      "enum": ["executable", "declined", "advisory", "needs_review", "failed", "policy_denied"]
+    },
+    "strategy_id": { "type": "string", "minLength": 1 },
+    "proposal": {
+      "oneOf": [
+        { "$ref": "https://ananta.local/schemas/worker/executable_proposal.v1.json" },
+        { "$ref": "https://ananta.local/schemas/worker/patch_proposal_artifact.v1.json" },
+        { "$ref": "https://ananta.local/schemas/worker/file_proposal_artifact.v1.json" },
+        { "$ref": "https://ananta.local/schemas/worker/planner_proposal_artifact.v1.json" },
+        { "$ref": "https://ananta.local/schemas/worker/advisory_proposal_artifact.v1.json" },
+        { "type": "null" }
+      ]
+    },
+    "advisory_text": { "type": ["string", "null"] },
+    "advisory_artifact_ref": { "type": ["string", "null"] },
+    "reason": { "type": ["string", "null"] },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "metadata": { "type": "object", "default": {} }
+  },
+  "additionalProperties": false
+}
