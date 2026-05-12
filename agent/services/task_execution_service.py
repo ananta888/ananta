@@ -598,7 +598,7 @@ class TaskExecutionService:
 
         return TaskScopedStepProposeResponse(
             status="proposing",
-            reason=reason,
+            reason=reason or "",
             command=proposal.get("command"),
             tool_calls=proposal.get("tool_calls"),
             raw=raw,
