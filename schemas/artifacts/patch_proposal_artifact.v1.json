@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/artifacts/patch_proposal_artifact.v1.json",
+  "title": "Ananta PatchProposalArtifact v1",
+  "description": "Unified diff/patch proposal. Requires validation and optional approval before apply. Target paths must be safe relative paths.",
+  "type": "object",
+  "required": ["schema", "artifact_id", "task_id", "goal_id", "source_strategy", "target_paths", "patch_ref", "adoption_status"],
+  "properties": {
+    "schema": { "type": "string", "const": "patch_proposal_artifact.v1" },
+    "artifact_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "goal_id": { "type": "string", "minLength": 1 },
+    "source_strategy": { "type": "string", "minLength": 1 },
+    "target_paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Must be relative, no .. or absolute path."
+      },
+      "minItems": 1
+    },
+    "patch_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Hash or storage reference to unified diff content."
+    },
+    "patch_hash": { "type": ["string", "null"] },
+    "source_model": { "type": ["string", "null"] },
+    "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "validation_errors": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "safety_warnings": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "adoption_status": {
+      "type": "string",
+      "enum": ["pending", "adopted", "rejected", "ignored"]
+    },
+    "lines_added": { "type": ["integer", "null"] },
+    "lines_removed": { "type": ["integer", "null"] },
+    "created_at": { "type": "number" }
+  },
+  "additionalProperties": false
+}

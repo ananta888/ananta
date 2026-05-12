@@ -513,61 +513,38 @@ class TaskScopedExecutionService:
             research_context=rc_input,
             query=base_prompt,
         )
-        handler_response = self._try_handler_propose(
-            tid=tid,
-            task=task,
-            task_kind=task_kind,
-            request_data=request_data,
-            base_prompt=base_prompt,
-            cli_runner=cli_runner,
-            forwarder=forwarder,
-            tool_definitions_resolver=tool_definitions_resolver,
+        from agent.services.propose_policy_service import get_propose_policy_service
+        from worker.core.propose_orchestrator import (
+            ProposeStrategyOrchestrator,
+            StubStrategy,
+            ProposeContext,
         )
-        if handler_response is not None:
-            return handler_response
+        from worker.core.deterministic_handler_strategy import DeterministicHandlerStrategy
 
-        # HF-T019: check if ToolRouter selects Hermes for safe proposal modes
-        hermes_response = self._try_hermes_propose(
-            tid=tid,
+        policy = get_propose_policy_service().get_effective_policy(task_kind=task_kind)
+
+        strategies = {
+            "deterministic_handler": DeterministicHandlerStrategy(),
+            "worker_strategy": StubStrategy("worker_strategy"),
+            "tool_calling_llm": StubStrategy("tool_calling_llm"),
+            "json_schema_llm": StubStrategy("json_schema_llm"),
+            "flexible_llm_normalization": StubStrategy("flexible_llm_normalization"),
+            "advisory_proposal": StubStrategy("advisory_proposal"),
+            "human_review": StubStrategy("human_review"),
+        }
+
+        orch = ProposeStrategyOrchestrator(policy, strategies)
+        context = ProposeContext(
+            goal_id=task.get("goal_id", "unknown"),
+            task_id=tid,
             task=task,
-            task_kind=task_kind,
-            request_data=request_data,
-            research_context=research_context_summary,
-            cfg=cfg,
-        )
-        if hermes_response is not None:
-            return hermes_response
-
-        if request_data.providers:
-            prompt, worker_context_meta = self._build_task_propose_prompt(
-                tid=tid,
-                task=task,
-                base_prompt=base_prompt,
-                tool_definitions_resolver=tool_definitions_resolver,
-                research_context=research_context_summary,
-            )
-            return self._propose_task_with_comparisons(
-                tid=tid,
-                task=task,
-                request_data=request_data,
-                prompt=prompt,
-                base_prompt=base_prompt,
-                worker_context_meta=worker_context_meta,
-                research_context=research_context_summary,
-                cli_runner=cli_runner,
-                cfg=cfg,
-            )
-
-        return self._propose_single_task_step(
-            tid=tid,
-            task=task,
-            request_data=request_data,
             base_prompt=base_prompt,
             research_context=research_context_summary,
             cli_runner=cli_runner,
-            cfg=cfg,
             tool_definitions_resolver=tool_definitions_resolver,
         )
+        result = orch.run(context)
+        return TaskScopedRouteResponse(data=result.to_dict())
 
     def execute_task_step(
         self,
@@ -1222,14 +1199,11 @@ class TaskScopedExecutionService:
         cfg: dict,
         tool_definitions_resolver: Callable,
     ) -> TaskScopedRouteResponse:
-        task_kind = normalize_task_kind(None, base_prompt)
-        workspace_context = get_worker_workspace_service().resolve_workspace_context(task=task)
-        required_capabilities = derive_required_capabilities(task, task_kind)
-        research_specialization = derive_research_specialization(task, task_kind, required_capabilities)
-        effective_backend, routing_reason = self._resolve_cli_backend(
-            task_kind,
-            requested_backend="auto",
-            required_capabilities=required_capabilities,
+        # FA-T003: Inventory: This legacy path maps to "flexible_llm_normalization" strategy.
+        # Block until ProposeStrategyOrchestrator delegates.
+        raise NotImplementedError(
+            "FA-T003: Ungoverned legacy propose path blocked. "
+            "Delegate to ProposeStrategyOrchestrator(policy).run() with strategy_id='flexible_llm_normalization'."
         )
         timeout = self._resolve_task_propose_timeout(cfg, task_kind)
         proposal_model = self._resolve_requested_model(agent_cfg=cfg, requested_model=request_data.model)
@@ -2180,6 +2154,7 @@ class TaskScopedExecutionService:
         research_context: object,
         cfg: dict,
     ) -> TaskScopedRouteResponse | None:
+        # FA-T003: Maps to "worker_strategy" (Hermes/OpenCode/native).
         """Invoke HermesAdapter when ToolRouter selects Hermes for safe proposal modes. HF-T019."""
         hermes_cfg_raw = dict((cfg or {}).get("hermes_worker_adapter") or {})
         if not bool(hermes_cfg_raw.get("enabled", False)):
@@ -2320,6 +2295,7 @@ class TaskScopedExecutionService:
         forwarder: Callable,
         tool_definitions_resolver: Callable,
     ) -> TaskScopedRouteResponse | None:
+        # FA-T003: Maps to "deterministic_handler" strategy.
         registry = get_task_handler_registry()
         handler = registry.resolve(task_kind)
         if handler is None or not hasattr(handler, "propose"):

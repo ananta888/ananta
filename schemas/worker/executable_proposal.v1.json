@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/executable_proposal.v1.json",
+  "title": "Ananta ExecutableProposal v1",
+  "description": "Normalized, validated proposal that may be passed to the execute step. At least one of `command` or `tool_calls` must be present (code-validated invariant).",
+  "type": "object",
+  "required": ["schema", "proposal_id", "goal_id", "task_id", "strategy_id"],
+  "properties": {
+    "schema": { "type": "string", "const": "executable_proposal.v1" },
+    "proposal_id": { "type": "string", "minLength": 1 },
+    "goal_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "strategy_id": { "type": "string", "minLength": 1 },
+    "command": { "type": ["string", "null"] },
+    "tool_calls": {
+      "type": "array",
+      "items": { "type": "object" },
+      "default": []
+    },
+    "required_tools": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "expected_artifacts": {
+      "type": "array",
+      "items": { "type": "object" },
+      "default": []
+    },
+    "safety_flags": {
+      "type": "object",
+      "default": {}
+    },
+    "reason": { "type": ["string", "null"] },
+    "created_at": { "type": "number" },
+    "metadata": { "type": "object", "default": {} }
+  },
+  "additionalProperties": false
+}

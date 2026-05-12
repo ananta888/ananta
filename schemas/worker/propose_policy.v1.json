@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/propose_policy.v1.json",
+  "title": "Ananta ProposePolicy v1",
+  "description": "Configurable strategy chain policy for propose_task_step. Controls strategy order, LLM usage, accepted output formats and fallback behavior.",
+  "type": "object",
+  "properties": {
+    "schema": { "type": "string", "const": "propose_policy.v1" },
+    "strategy_order": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "deterministic_handler",
+          "worker_strategy",
+          "tool_calling_llm",
+          "json_schema_llm",
+          "flexible_llm_normalization",
+          "advisory_proposal",
+          "human_review",
+          "legacy_sgpt",
+          "repair_procedure_runner",
+          "artifact_reconciliation"
+        ]
+      },
+      "minItems": 1,
+      "default": ["deterministic_handler", "worker_strategy", "tool_calling_llm", "json_schema_llm", "flexible_llm_normalization", "advisory_proposal", "human_review"]
+    },
+    "llm_mode": {
+      "type": "string",
+      "enum": ["disabled", "fallback", "assisted", "primary_with_guardrails"],
+      "default": "assisted"
+    },
+    "accepted_output_formats": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["tool_calls", "strict_json", "fenced_json", "shell_block", "unified_diff", "file_blocks", "natural_language"]
+      },
+      "default": ["tool_calls", "strict_json", "fenced_json", "shell_block", "unified_diff", "file_blocks", "natural_language"]
+    },
+    "allow_legacy_sgpt": {
+      "type": "boolean",
+      "default": false,
+      "description": "Must be false by default. Explicit admin opt-in only."
+    },
+    "allow_unstructured_text_as_execution": {
+      "type": "boolean",
+      "default": false,
+      "description": "Free text as execution is never allowed without explicit admin override."
+    },
+    "max_strategy_attempts": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "max_repair_attempts": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 1
+    },
+    "requires_executable_step": {
+      "type": "boolean",
+      "default": true
+    },
+    "on_parse_error": {
+      "type": "string",
+      "enum": ["next_strategy", "needs_review", "failed"],
+      "default": "next_strategy"
+    },
+    "on_all_strategies_declined": {
+      "type": "string",
+      "enum": ["needs_review", "failed", "advisory"],
+      "default": "needs_review"
+    }
+  },
+  "additionalProperties": false
+}

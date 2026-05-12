@@ -1,0 +1,92 @@
+"""ProposePolicyService — loads and merges ProposePolicy for a given context.
+
+Merge precedence: system_default → project → blueprint_role → task_kind_override.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from agent.services.propose_policy import (
+    ProposePolicy,
+    SAFE_DEFAULT_STRATEGY_ORDER,
+    build_policy_from_dict,
+    get_task_kind_preset,
+)
+
+
+class ProposePolicyService:
+    """Loads effective ProposePolicy for a task context."""
+
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
+        self._config: dict[str, Any] = dict(config or {})
+
+    def get_effective_policy(
+        self,
+        *,
+        task_kind: str | None = None,
+        project_config: dict[str, Any] | None = None,
+        blueprint_role_config: dict[str, Any] | None = None,
+        admin_overrides: dict[str, Any] | None = None,
+    ) -> ProposePolicy:
+        """Return merged ProposePolicy for the given context.
+
+        Layers applied in order (later wins for scalar fields, list fields
+        are replaced — not merged):
+          1. system default
+          2. project propose_policy block
+          3. blueprint_role propose_policy block
+          4. task_kind preset
+        """
+        merged: dict[str, Any] = self._system_default()
+
+        project_policy = (project_config or {}).get("propose_policy") or {}
+        if project_policy:
+            merged = self._merge(merged, project_policy)
+
+        role_policy = (blueprint_role_config or {}).get("propose_policy") or {}
+        if role_policy:
+            merged = self._merge(merged, role_policy)
+
+        preset = get_task_kind_preset(task_kind)
+        if preset:
+            merged = self._merge(merged, preset)
+
+        return build_policy_from_dict(merged, admin_overrides=admin_overrides)
+
+    # ── helpers ────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _system_default() -> dict[str, Any]:
+        return {
+            "strategy_order": list(SAFE_DEFAULT_STRATEGY_ORDER),
+            "llm_mode": "assisted",
+            "accepted_output_formats": [
+                "tool_calls", "strict_json", "fenced_json",
+                "shell_block", "unified_diff", "file_blocks", "natural_language",
+            ],
+            "allow_legacy_sgpt": False,
+            "allow_unstructured_text_as_execution": False,
+            "max_strategy_attempts": 1,
+            "max_repair_attempts": 1,
+            "requires_executable_step": True,
+            "on_parse_error": "next_strategy",
+            "on_all_strategies_declined": "needs_review",
+        }
+
+    @staticmethod
+    def _merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+        result = dict(base)
+        for k, v in override.items():
+            if v is not None:
+                result[k] = v
+        return result
+
+
+_default_service: ProposePolicyService | None = None
+
+
+def get_propose_policy_service() -> ProposePolicyService:
+    global _default_service
+    if _default_service is None:
+        _default_service = ProposePolicyService()
+    return _default_service
