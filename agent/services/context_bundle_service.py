@@ -45,10 +45,12 @@ Output ONLY valid JSON matching schema."""
     def _get_examples(strategy_id: str) -> str:
         examples = {
             "tool_calling_llm": """
+tool_calling_llm examples:
 Example valid:
 {{"tool_calls": [{{"name": "write_file", "args": {{"path": "main.py", "content": "code"}}}]}}
 """,
             "json_schema_llm": """
+json_schema_llm examples:
 Example valid:
 {{"command": "mkdir src"}}
 """,
@@ -65,3 +67,9 @@ pip install fastapi
         }
         return examples.get(strategy_id, "No examples.")
 
+
+
+_context_bundle_service = ContextBundler()
+
+def get_context_bundle_service() -> ContextBundler:
+    return _context_bundle_service

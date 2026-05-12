@@ -72,11 +72,61 @@
     "requires_executable_step_default": true
   },
   "milestones": [
-    {"id": "FA-M1", "title": "Contracts and policy", "task_ids": ["FA-T001", "FA-T002", "FA-T003", "FA-T004"], "status": "done"},
-    {"id": "FA-M2", "title": "Orchestrator and strategy adapters", "task_ids": ["FA-T005", "FA-T006", "FA-T007", "FA-T008", "FA-T009"], "status": "done"},
-    {"id": "FA-M3", "title": "LLM normalization and repair", "task_ids": ["FA-T010", "FA-T011", "FA-T012"], "status": "done"},
-    {"id": "FA-M4", "title": "Execute and artifact-first completion", "task_ids": ["FA-T013", "FA-T014", "FA-T015", "FA-T016"], "status": "todo"},
-    {"id": "FA-M5", "title": "Autopilot E2E, UI/API and cleanup", "task_ids": ["FA-T017", "FA-T018", "FA-T019", "FA-T020"], "status": "todo"}
+    {
+      "id": "FA-M1",
+      "title": "Contracts and policy",
+      "task_ids": [
+        "FA-T001",
+        "FA-T002",
+        "FA-T003",
+        "FA-T004"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "FA-M2",
+      "title": "Orchestrator and strategy adapters",
+      "task_ids": [
+        "FA-T005",
+        "FA-T006",
+        "FA-T007",
+        "FA-T008",
+        "FA-T009"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "FA-M3",
+      "title": "LLM normalization and repair",
+      "task_ids": [
+        "FA-T010",
+        "FA-T011",
+        "FA-T012"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "FA-M4",
+      "title": "Execute and artifact-first completion",
+      "task_ids": [
+        "FA-T013",
+        "FA-T014",
+        "FA-T015",
+        "FA-T016"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "FA-M5",
+      "title": "Autopilot E2E, UI/API and cleanup",
+      "task_ids": [
+        "FA-T017",
+        "FA-T018",
+        "FA-T019",
+        "FA-T020"
+      ],
+      "status": "todo"
+    }
   ],
   "tasks": [
     {
@@ -85,7 +135,12 @@
       "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["worker/core/propose.py", "schemas/worker/executable_proposal.v1.json", "schemas/worker/propose_strategy_result.v1.json", "tests/test_propose_contracts.py"],
+      "target_files": [
+        "worker/core/propose.py",
+        "schemas/worker/executable_proposal.v1.json",
+        "schemas/worker/propose_strategy_result.v1.json",
+        "tests/test_propose_contracts.py"
+      ],
       "acceptance_criteria": [
         "ExecutableProposal contains proposal_id, goal_id, task_id, strategy_id, command, tool_calls, required_tools, expected_artifacts, safety_flags, reason, created_at and metadata.",
         "At least one of command or non-empty tool_calls is required.",
@@ -94,7 +149,10 @@
         "Free text only is rejected as executable.",
         "Tests cover valid command, valid tool_calls, advisory text, declined, invalid executable."
       ],
-      "anti_patterns": ["No strategy-specific response shapes", "No natural language as executable"]
+      "anti_patterns": [
+        "No strategy-specific response shapes",
+        "No natural language as executable"
+      ]
     },
     {
       "id": "FA-T002",
@@ -102,7 +160,12 @@
       "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["worker/core/propose_policy.py", "schemas/worker/propose_policy.v1.json", "agent/services/propose_policy_service.py", "tests/test_propose_policy_service.py"],
+      "target_files": [
+        "worker/core/propose_policy.py",
+        "schemas/worker/propose_policy.v1.json",
+        "agent/services/propose_policy_service.py",
+        "tests/test_propose_policy_service.py"
+      ],
       "acceptance_criteria": [
         "Policy supports strategy_order, llm_mode, accepted_output_formats, allow_legacy_sgpt, allow_unstructured_text_as_execution, max_strategy_attempts, max_repair_attempts, requires_executable_step, on_parse_error and on_all_strategies_declined.",
         "llm_mode supports disabled, fallback, assisted and primary_with_guardrails.",
@@ -112,7 +175,10 @@
         "Unsafe configs are rejected unless explicit admin override exists.",
         "Tests cover defaults, overrides, invalid strategy, unsafe config rejection."
       ],
-      "anti_patterns": ["No hardcoded-only strategy order", "No sgpt enabled by default"]
+      "anti_patterns": [
+        "No hardcoded-only strategy order",
+        "No sgpt enabled by default"
+      ]
     },
     {
       "id": "FA-T003",
@@ -120,14 +186,21 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/services/task_scoped_execution_service.py", "agent/services/planning_utils.py", "agent/services/worker_todo_planner_service.py", "tests/test_propose_path_inventory.py"],
+      "target_files": [
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/planning_utils.py",
+        "agent/services/worker_todo_planner_service.py",
+        "tests/test_propose_path_inventory.py"
+      ],
       "acceptance_criteria": [
         "_try_handler_propose, _try_hermes_propose, _propose_single_task_step, _repair_task_proposal and parse_structured_action_payload usages are mapped to strategies or marked advisory.",
         "propose_task_step no longer directly calls sgpt/run_sgpt_command outside LegacySgptStrategy.",
         "Static or service test fails if sgpt is called directly from propose_task_step.",
         "JSON parsing from LLM text is classified as strategy normalization, not global control flow."
       ],
-      "anti_patterns": ["No hidden fallback path bypassing ProposePolicy"]
+      "anti_patterns": [
+        "No hidden fallback path bypassing ProposePolicy"
+      ]
     },
     {
       "id": "FA-T004",
@@ -135,7 +208,13 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["worker/core/proposal_artifacts.py", "schemas/artifacts/planner_proposal_artifact.v1.json", "schemas/artifacts/file_proposal_artifact.v1.json", "schemas/artifacts/patch_proposal_artifact.v1.json", "tests/test_proposal_artifacts.py"],
+      "target_files": [
+        "worker/core/proposal_artifacts.py",
+        "schemas/artifacts/planner_proposal_artifact.v1.json",
+        "schemas/artifacts/file_proposal_artifact.v1.json",
+        "schemas/artifacts/patch_proposal_artifact.v1.json",
+        "tests/test_proposal_artifacts.py"
+      ],
       "acceptance_criteria": [
         "PlannerProposalArtifact stores non-executable plans/advice.",
         "FileProposalArtifact stores proposed file writes with safe relative paths and content refs/hashes.",
@@ -143,7 +222,9 @@
         "Artifacts include source strategy/model, parse status, confidence, validation errors and adoption status.",
         "Path traversal and absolute paths are rejected."
       ],
-      "anti_patterns": ["No direct execution of file blocks/diffs without validation"]
+      "anti_patterns": [
+        "No direct execution of file blocks/diffs without validation"
+      ]
     },
     {
       "id": "FA-T005",
@@ -151,7 +232,11 @@
       "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["agent/services/propose_strategy_orchestrator.py", "agent/services/task_scoped_execution_service.py", "tests/test_propose_strategy_orchestrator.py"],
+      "target_files": [
+        "agent/services/propose_strategy_orchestrator.py",
+        "agent/services/task_scoped_execution_service.py",
+        "tests/test_propose_strategy_orchestrator.py"
+      ],
       "acceptance_criteria": [
         "propose_task_step delegates to ProposeStrategyOrchestrator.",
         "Orchestrator loads effective ProposePolicy and iterates strategies in order.",
@@ -163,7 +248,9 @@
         "Result contains attempted_strategies, selected_strategy, reasons and advisory refs.",
         "Tests cover first success, fallback, parse error, all declined."
       ],
-      "anti_patterns": ["No command execution during propose"]
+      "anti_patterns": [
+        "No command execution during propose"
+      ]
     },
     {
       "id": "FA-T006",
@@ -171,7 +258,11 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/services/propose_strategies/deterministic_handler_strategy.py", "agent/services/task_handler_registry.py", "tests/test_deterministic_handler_strategy.py"],
+      "target_files": [
+        "agent/services/propose_strategies/deterministic_handler_strategy.py",
+        "agent/services/task_handler_registry.py",
+        "tests/test_deterministic_handler_strategy.py"
+      ],
       "acceptance_criteria": [
         "Strategy looks up handler by task_kind.",
         "No handler returns declined handler_not_found.",
@@ -187,7 +278,12 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/handlers/template_propose_handler.py", "agent/ai_agent.py", "tests/test_template_propose_handler.py", "tests/test_template_propose_handler_registration.py"],
+      "target_files": [
+        "agent/handlers/template_propose_handler.py",
+        "agent/ai_agent.py",
+        "tests/test_template_propose_handler.py",
+        "tests/test_template_propose_handler_registration.py"
+      ],
       "acceptance_criteria": [
         "Handler registered for coding and new_software_project on Hub startup.",
         "Fibonacci/new-project task returns executable command or tool_calls without sgpt/LM Studio/generate_text.",
@@ -196,7 +292,10 @@
         "Unsupported or unsafe task returns None/declined.",
         "Tests monkeypatch sgpt/generate_text to fail and prove handler still proposes."
       ],
-      "anti_patterns": ["No catch-all generation", "No ignoring allowed_tools"]
+      "anti_patterns": [
+        "No catch-all generation",
+        "No ignoring allowed_tools"
+      ]
     },
     {
       "id": "FA-T008",
@@ -204,7 +303,11 @@
       "status": "done",
       "priority": "P1",
       "risk": "high",
-      "target_files": ["agent/services/propose_strategies/worker_strategy.py", "agent/services/worker_runtime_selection_service.py", "tests/test_worker_propose_strategy.py"],
+      "target_files": [
+        "agent/services/propose_strategies/worker_strategy.py",
+        "agent/services/worker_runtime_selection_service.py",
+        "tests/test_worker_propose_strategy.py"
+      ],
       "acceptance_criteria": [
         "WorkerStrategy uses WorkerRuntimeSelectionService for proposal mode.",
         "Worker/runtime/context policy is checked before sending context.",
@@ -220,7 +323,13 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/services/propose_strategies/tool_calling_llm_strategy.py", "agent/services/propose_strategies/json_schema_llm_strategy.py", "agent/services/model_invocation_service.py", "tests/test_tool_calling_llm_strategy.py", "tests/test_json_schema_llm_strategy.py"],
+      "target_files": [
+        "agent/services/propose_strategies/tool_calling_llm_strategy.py",
+        "agent/services/propose_strategies/json_schema_llm_strategy.py",
+        "agent/services/model_invocation_service.py",
+        "tests/test_tool_calling_llm_strategy.py",
+        "tests/test_json_schema_llm_strategy.py"
+      ],
       "acceptance_criteria": [
         "ToolCallingLLMStrategy calls first-class model API, not sgpt.",
         "Tool schemas are passed as real API tools/function schemas where supported.",
@@ -229,7 +338,9 @@
         "Invalid or text-only output is normalized/advisory/failed and does not become executable.",
         "Tests mock valid tool_calls, tools unsupported, valid schema, invalid schema and prose."
       ],
-      "anti_patterns": ["No .ananta/tool-definitions.json as only tool mechanism"]
+      "anti_patterns": [
+        "No .ananta/tool-definitions.json as only tool mechanism"
+      ]
     },
     {
       "id": "FA-T010",
@@ -237,7 +348,11 @@
       "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["agent/services/llm_response_normalizer.py", "worker/core/propose.py", "tests/test_llm_response_normalizer.py"],
+      "target_files": [
+        "agent/services/llm_response_normalizer.py",
+        "worker/core/propose.py",
+        "tests/test_llm_response_normalizer.py"
+      ],
       "acceptance_criteria": [
         "Normalizer accepts raw_text, provider_response, tool_calls, task_context and expected_output_contract.",
         "OpenAI-compatible tool_calls normalize to ExecutableProposal.tool_calls.",
@@ -249,7 +364,10 @@
         "Every result has source_format, confidence, reason_codes and safety_warnings.",
         "Tests cover tool_calls, strict JSON, fenced JSON, shell block, diff, file blocks, prose."
       ],
-      "anti_patterns": ["No raw Markdown execution", "No prose as command"]
+      "anti_patterns": [
+        "No raw Markdown execution",
+        "No prose as command"
+      ]
     },
     {
       "id": "FA-T011",
@@ -257,7 +375,11 @@
       "status": "done",
       "priority": "P1",
       "risk": "high",
-      "target_files": ["agent/services/propose_strategies/llm_repair_strategy.py", "agent/services/llm_response_normalizer.py", "tests/test_llm_repair_strategy.py"],
+      "target_files": [
+        "agent/services/propose_strategies/llm_repair_strategy.py",
+        "agent/services/llm_response_normalizer.py",
+        "tests/test_llm_repair_strategy.py"
+      ],
       "acceptance_criteria": [
         "Repair runs at most once per strategy attempt by default.",
         "Repair prompt includes original output, validation errors, target schema, allowed tools/formats and safety limits.",
@@ -273,7 +395,12 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["agent/services/context_bundle_service.py", "agent/services/worker_contract_service.py", "agent/services/propose_strategies/tool_calling_llm_strategy.py", "tests/test_llm_propose_context_preparation.py"],
+      "target_files": [
+        "agent/services/context_bundle_service.py",
+        "agent/services/worker_contract_service.py",
+        "agent/services/propose_strategies/tool_calling_llm_strategy.py",
+        "tests/test_llm_propose_context_preparation.py"
+      ],
       "acceptance_criteria": [
         "LLM context includes goal, task title, task_kind, current workspace summary, relevant CodeCompass/RAG context, allowed tools, expected artifacts, constraints and examples.",
         "ContextAccessPolicy filters context before local/remote/cloud model calls.",
@@ -281,15 +408,22 @@
         "Cloud/external destinations do not receive forbidden code/secrets.",
         "Tests verify expected artifacts included and sensitive context excluded for cloud."
       ],
-      "anti_patterns": ["No vague prompt-only call", "No full project/secrets to cloud by default"]
+      "anti_patterns": [
+        "No vague prompt-only call",
+        "No full project/secrets to cloud by default"
+      ]
     },
     {
       "id": "FA-T013",
       "title": "Make execute consume only normalized ExecutableProposal",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["agent/services/task_scoped_execution_service.py", "agent/services/worker_job_service.py", "tests/test_execute_consumes_executable_proposal.py"],
+      "target_files": [
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/worker_job_service.py",
+        "tests/test_execute_consumes_executable_proposal.py"
+      ],
       "acceptance_criteria": [
         "last_proposal persists normalized ExecutableProposal.",
         "Execute without explicit command uses last_proposal only if executable.",
@@ -301,10 +435,18 @@
     {
       "id": "FA-T014",
       "title": "Collect ArtifactManifest and FileChangeSet after execution",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["worker/core/artifact_manifest.py", "worker/core/file_change_set.py", "agent/services/worker_output_collector_service.py", "agent/services/workspace_diff_service.py", "schemas/artifacts/artifact_manifest.v1.json", "schemas/artifacts/file_change_set.v1.json", "tests/test_worker_output_collector_service.py"],
+      "target_files": [
+        "worker/core/artifact_manifest.py",
+        "worker/core/file_change_set.py",
+        "agent/services/worker_output_collector_service.py",
+        "agent/services/workspace_diff_service.py",
+        "schemas/artifacts/artifact_manifest.v1.json",
+        "schemas/artifacts/file_change_set.v1.json",
+        "tests/test_worker_output_collector_service.py"
+      ],
       "acceptance_criteria": [
         "ArtifactManifest schema validates generated/modified/test artifacts with relative paths and hashes.",
         "FileChangeSet captures created/modified/deleted files from before/after snapshots.",
@@ -317,10 +459,17 @@
     {
       "id": "FA-T015",
       "title": "Implement ArtifactCompletionPolicyService and verification bridge",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["worker/core/artifact_completion_policy.py", "agent/services/task_completion_policy_service.py", "agent/services/verification_service.py", "schemas/artifacts/artifact_completion_policy.v1.json", "tests/test_artifact_first_completion_policy.py", "tests/test_artifact_first_verification.py"],
+      "target_files": [
+        "worker/core/artifact_completion_policy.py",
+        "agent/services/task_completion_policy_service.py",
+        "agent/services/verification_service.py",
+        "schemas/artifacts/artifact_completion_policy.v1.json",
+        "tests/test_artifact_first_completion_policy.py",
+        "tests/test_artifact_first_verification.py"
+      ],
       "acceptance_criteria": [
         "Policy supports required_artifacts, required_paths, optional_paths, verification_required, allowed_synthesized_manifest, retry_conditions and needs_review_conditions.",
         "Decision statuses include completed, needs_review, retryable_failed, failed, denied and degraded.",
@@ -333,10 +482,16 @@
     {
       "id": "FA-T016",
       "title": "Prevent retry loops and add needs_review terminal path",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["agent/services/task_retry_policy_service.py", "agent/services/task_runtime_service.py", "agent/services/task_orchestration_service.py", "tests/test_artifact_first_state_machine.py", "tests/test_artifact_first_retry_policy.py"],
+      "target_files": [
+        "agent/services/task_retry_policy_service.py",
+        "agent/services/task_runtime_service.py",
+        "agent/services/task_orchestration_service.py",
+        "tests/test_artifact_first_state_machine.py",
+        "tests/test_artifact_first_retry_policy.py"
+      ],
       "acceptance_criteria": [
         "Parser/normalization failures from optional/advisory strategies do not requeue forever.",
         "No executable proposal after all strategies returns needs_review or configured failure.",
@@ -352,7 +507,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["tests/e2e/test_autopilot_new_project_fibonacci.py", "tests/test_task_scoped_handler_propose.py"],
+      "target_files": [
+        "tests/e2e/test_autopilot_new_project_fibonacci.py",
+        "tests/test_task_scoped_handler_propose.py"
+      ],
       "acceptance_criteria": [
         "Test submits new-project Fibonacci API goal.",
         "Autoplanner creates tasks.",
@@ -370,7 +528,11 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "target_files": ["tests/e2e/test_llm_assisted_project_creation.py", "tests/e2e/test_llm_assisted_project_evolution.py", "tests/test_llm_response_normalizer.py"],
+      "target_files": [
+        "tests/e2e/test_llm_assisted_project_creation.py",
+        "tests/e2e/test_llm_assisted_project_evolution.py",
+        "tests/test_llm_response_normalizer.py"
+      ],
       "acceptance_criteria": [
         "Mocked LLM tool_calls are accepted and executed.",
         "Mocked fenced JSON normalizes and executes when valid.",
@@ -386,7 +548,12 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "target_files": ["agent/routes/tasks.py", "agent/cli.py", "frontend-angular/src/app/components/task-detail.component.ts", "tests/test_api_task_artifact_status.py"],
+      "target_files": [
+        "agent/routes/tasks.py",
+        "agent/cli.py",
+        "frontend-angular/src/app/components/task-detail.component.ts",
+        "tests/test_api_task_artifact_status.py"
+      ],
       "acceptance_criteria": [
         "Task detail API includes effective propose policy, attempted_strategies, selected_strategy, proposal_status, proposal_reason, normalization_format and advisory refs.",
         "Task detail API includes artifact_summary, manifest_status, verification_status, completion_decision and reason_codes.",
@@ -401,7 +568,14 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "target_files": ["agent/db_models.py", "agent/routes/teams.py", "agent/services/config_read_model_service.py", "docs/architecture/propose-strategy-orchestrator.md", "docs/architecture/artifact-first-worker-handoff.md", "todo.fixup-autopilot.json"],
+      "target_files": [
+        "agent/db_models.py",
+        "agent/routes/teams.py",
+        "agent/services/config_read_model_service.py",
+        "docs/architecture/propose-strategy-orchestrator.md",
+        "docs/architecture/artifact-first-worker-handoff.md",
+        "todo.fixup-autopilot.json"
+      ],
       "acceptance_criteria": [
         "Project/BlueprintRole config can store propose_policy without dropping advanced fields.",
         "Bundle import/export preserves propose_policy.",
@@ -412,9 +586,51 @@
       ]
     }
   ],
-  "priority_order": ["FA-T001", "FA-T002", "FA-T005", "FA-T006", "FA-T007", "FA-T013", "FA-T017", "FA-T010", "FA-T012", "FA-T009", "FA-T014", "FA-T015", "FA-T016", "FA-T018", "FA-T019", "FA-T020", "FA-T003", "FA-T004", "FA-T008", "FA-T011"],
-  "critical_path_tasks": ["FA-T001", "FA-T002", "FA-T005", "FA-T006", "FA-T007", "FA-T010", "FA-T013", "FA-T014", "FA-T015", "FA-T016", "FA-T017"],
-  "minimum_safe_slice": ["FA-T001", "FA-T002", "FA-T005", "FA-T006", "FA-T007", "FA-T013", "FA-T016", "FA-T017"],
+  "priority_order": [
+    "FA-T001",
+    "FA-T002",
+    "FA-T005",
+    "FA-T006",
+    "FA-T007",
+    "FA-T013",
+    "FA-T017",
+    "FA-T010",
+    "FA-T012",
+    "FA-T009",
+    "FA-T014",
+    "FA-T015",
+    "FA-T016",
+    "FA-T018",
+    "FA-T019",
+    "FA-T020",
+    "FA-T003",
+    "FA-T004",
+    "FA-T008",
+    "FA-T011"
+  ],
+  "critical_path_tasks": [
+    "FA-T001",
+    "FA-T002",
+    "FA-T005",
+    "FA-T006",
+    "FA-T007",
+    "FA-T010",
+    "FA-T013",
+    "FA-T014",
+    "FA-T015",
+    "FA-T016",
+    "FA-T017"
+  ],
+  "minimum_safe_slice": [
+    "FA-T001",
+    "FA-T002",
+    "FA-T005",
+    "FA-T006",
+    "FA-T007",
+    "FA-T013",
+    "FA-T016",
+    "FA-T017"
+  ],
   "definition_of_done_global": [
     "The three replaced autopilot todo files are no longer needed as active planning sources.",
     "propose_task_step delegates to ProposeStrategyOrchestrator.",
@@ -429,12 +645,10 @@
     "E2E tests prove Fibonacci new-project succeeds without sgpt propose path and with artifact-based completion."
   ],
   "tasks_status_summary": {
-    "total": 20,
-    "by_status": {"todo": 13, "in_progress": 0, "blocked": 0, "done": 7},
-    "progress_percent_done": 35.0,
-    "by_priority": {"P0": 15, "P1": 5, "P2": 0},
-    "by_risk": {"critical": 9, "high": 9, "medium": 2, "low": 0},
-    "critical_path": {"total": 11, "done": 5, "remaining": 6},
-    "milestones": {"total": 5, "todo": 3, "in_progress": 1, "blocked": 0, "done": 1}
+    "by_status": {
+      "todo": 4,
+      "done": 16
+    },
+    "progress": 80.0
   }
 }
