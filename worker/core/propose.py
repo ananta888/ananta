@@ -420,3 +420,29 @@ class ProposeStrategyResult:
             "reason_codes": list(self.reason_codes),
             "metadata": dict(self.metadata),
         }
+
+
+# ── ExecutableProposal validation helper (T001) ───────────────────────────────
+
+def validate_executable_proposal(
+    raw: "dict | ExecutableProposal",
+) -> "tuple[str | None, list, str | None]":
+    """Extract and validate command/tool_calls from a persisted proposal dict.
+
+    Returns (command, tool_calls, reason).
+    Raises ValueError when neither command nor tool_calls is present.
+    """
+    if isinstance(raw, ExecutableProposal):
+        return raw.command, list(raw.tool_calls), raw.reason
+    if not isinstance(raw, dict):
+        raise ValueError(f"invalid_proposal_type: expected dict, got {type(raw).__name__}")
+    command = (raw.get("command") or None)
+    if command is not None:
+        command = str(command).strip() or None
+    tool_calls = raw.get("tool_calls") or []
+    if not isinstance(tool_calls, list):
+        tool_calls = []
+    reason = raw.get("reason") or None
+    if not command and not tool_calls:
+        raise ValueError("executable_proposal_requires_command_or_tool_calls")
+    return command, list(tool_calls), reason

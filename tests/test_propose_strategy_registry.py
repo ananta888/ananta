@@ -156,17 +156,39 @@ class TestFlexibleLLMNormalizationStrategy:
         assert result.status == STATUS_DECLINED
         assert result.reason == "llm_returned_empty_response"
 
-    def test_executable_when_llm_returns_fenced_shell(self):
+    def test_advisory_when_llm_returns_fenced_shell_without_shell_policy(self):
+        """Shell blocks are advisory by default — policy.allow_shell_execution=False."""
         from agent.services.propose_strategies.flexible_llm_normalization_strategy import FlexibleLLMNormalizationStrategy
-        from worker.core.propose import STATUS_EXECUTABLE
+        from worker.core.propose import STATUS_ADVISORY
 
         raw = "Sure! Here is the command:\n```bash\nmkdir fibonacci-api && cd fibonacci-api\n```"
         with patch("agent.services.model_invocation_service.ModelInvocationService.invoke", return_value=raw):
             result = FlexibleLLMNormalizationStrategy().run(_make_context())
 
+        assert result.status == STATUS_ADVISORY
+        assert "shell_execution_not_allowed_by_policy" in result.reason
+
+    def test_executable_when_llm_returns_fenced_shell_with_shell_policy(self):
+        """Shell blocks become executable when policy.allow_shell_execution=True."""
+        from agent.services.propose_strategies.flexible_llm_normalization_strategy import FlexibleLLMNormalizationStrategy
+        from worker.core.propose_orchestrator import ProposeContext
+        from agent.services.propose_policy import ProposePolicy
+        from worker.core.propose import STATUS_EXECUTABLE
+
+        policy = ProposePolicy(allow_shell_execution=True)
+        ctx = ProposeContext(
+            goal_id="g", task_id="t",
+            task={"task_kind": "new_software_project"},
+            base_prompt="make fibonacci",
+            tool_definitions_resolver=lambda: [],
+            policy=policy,
+        )
+        raw = "```bash\nmkdir fibonacci-api && cd fibonacci-api\n```"
+        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke", return_value=raw):
+            result = FlexibleLLMNormalizationStrategy().run(ctx)
+
         assert result.status == STATUS_EXECUTABLE
         assert result.proposal.command is not None
-        assert "fibonacci" in result.proposal.command
 
     def test_advisory_when_llm_returns_prose(self):
         from agent.services.propose_strategies.flexible_llm_normalization_strategy import FlexibleLLMNormalizationStrategy

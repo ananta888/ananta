@@ -66,6 +66,7 @@ class ProposePolicyService:
             ],
             "allow_legacy_sgpt": False,
             "allow_unstructured_text_as_execution": False,
+            "allow_shell_execution": False,
             "max_strategy_attempts": 1,
             "max_repair_attempts": 1,
             "requires_executable_step": True,

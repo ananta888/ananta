@@ -118,9 +118,10 @@ class TestProposeStrategyResult:
         r = ProposeStrategyResult.policy_denied("s1")
         assert r.is_terminal
 
-    def test_needs_review_not_terminal(self):
+    def test_needs_review_is_terminal(self):
+        # needs_review is terminal: it stops the strategy chain (HumanReviewStrategy)
         r = ProposeStrategyResult.needs_review("s1")
-        assert not r.is_terminal
+        assert r.is_terminal
 
     def test_invalid_status_rejected(self):
         with pytest.raises(ValueError, match="invalid_propose_strategy_result_status"):

@@ -27,6 +27,13 @@ LLM_MODE_FALLBACK = "fallback"
 LLM_MODE_ASSISTED = "assisted"
 LLM_MODE_PRIMARY_WITH_GUARDRAILS = "primary_with_guardrails"
 
+# T003: strategies that call a real LLM provider
+LLM_STRATEGY_IDS = frozenset({
+    STRATEGY_TOOL_CALLING_LLM,
+    STRATEGY_JSON_SCHEMA_LLM,
+    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
+})
+
 _UNSAFE_STRATEGIES = {STRATEGY_LEGACY_SGPT}
 _ADMIN_OVERRIDE_KEY = "allow_unsafe_strategies"
 
@@ -53,6 +60,9 @@ class ProposePolicy:
     ])
     allow_legacy_sgpt: bool = False
     allow_unstructured_text_as_execution: bool = False
+    allow_shell_execution: bool = False  # T005: shell blocks only executable when True
+    # T002: max_strategy_attempts no longer truncates the chain.
+    # It documents the intended retry budget per strategy (future use). Default=1 = no retry.
     max_strategy_attempts: int = 1
     max_repair_attempts: int = 1
     requires_executable_step: bool = True
@@ -84,6 +94,11 @@ class ProposePolicy:
         if self.on_all_strategies_declined not in {"needs_review", "failed", "advisory"}:
             raise ValueError(f"invalid_on_all_strategies_declined: {self.on_all_strategies_declined!r}")
 
+    @property
+    def llm_required(self) -> bool:
+        """True when LLM is mandatory: unavailable LLM must not fall back to deterministic."""
+        return self.llm_mode == LLM_MODE_PRIMARY_WITH_GUARDRAILS
+
     def effective_strategy_order(self) -> list[str]:
         """Return strategy order with legacy_sgpt filtered unless explicitly allowed."""
         if self.allow_legacy_sgpt:
@@ -98,6 +113,7 @@ class ProposePolicy:
             "accepted_output_formats": list(self.accepted_output_formats),
             "allow_legacy_sgpt": self.allow_legacy_sgpt,
             "allow_unstructured_text_as_execution": self.allow_unstructured_text_as_execution,
+            "allow_shell_execution": self.allow_shell_execution,
             "max_strategy_attempts": self.max_strategy_attempts,
             "max_repair_attempts": self.max_repair_attempts,
             "requires_executable_step": self.requires_executable_step,
@@ -117,10 +133,9 @@ _TASK_KIND_PRESETS: dict[str, dict[str, Any]] = {
             STRATEGY_WORKER,
             STRATEGY_DETERMINISTIC_HANDLER,
             STRATEGY_ADVISORY_PROPOSAL,
-            STRATEGY_HUMAN_REVIEW
+            STRATEGY_HUMAN_REVIEW,
         ],
-        "llm_mode": "primary_with_guardrails",
-        "max_strategy_attempts": 2,
+        "llm_mode": LLM_MODE_PRIMARY_WITH_GUARDRAILS,  # llm_required=True
         "allow_legacy_sgpt": False,
         "requires_executable_step": True,
     },
@@ -177,7 +192,7 @@ def build_policy_from_dict(raw: dict[str, Any], *, admin_overrides: dict[str, An
     }
     for key in (
         "strategy_order", "llm_mode", "accepted_output_formats",
-        "allow_legacy_sgpt", "allow_unstructured_text_as_execution",
+        "allow_legacy_sgpt", "allow_unstructured_text_as_execution", "allow_shell_execution",
         "max_strategy_attempts", "max_repair_attempts",
         "requires_executable_step", "on_parse_error", "on_all_strategies_declined",
     ):

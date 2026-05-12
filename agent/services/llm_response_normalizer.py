@@ -1,5 +1,4 @@
-"""LLMResponseNormalizer — FA-T010 flexible LLM output normalization."""
-
+"""LLMResponseNormalizer — FA-T010 / AFR-T005: flexible LLM output normalization."""
 from __future__ import annotations
 
 import re
@@ -17,6 +16,14 @@ from worker.core.propose import (
     STATUS_EXECUTABLE,
 )
 
+# T005: reject absolute paths and traversal in LLM-proposed filenames
+_UNSAFE_PATH_RE = re.compile(r"(?:^|/)\.\./|^/|^[A-Za-z]:[/\\]")
+
+
+def _is_safe_path(path: str) -> bool:
+    return bool(path) and not _UNSAFE_PATH_RE.search(path)
+
+
 class LLMResponseNormalizer:
     MAX_TEXT_LENGTH = 5000
 
@@ -27,7 +34,13 @@ class LLMResponseNormalizer:
         self._diff_re = re.compile(r'^(?:---|\+\+ +|\@@)', re.MULTILINE)
         self._file_block_re = re.compile(r'```(\w+\.?\w*)\s*(.*?)\s*```', re.DOTALL | re.IGNORECASE)
 
-    def normalize(self, raw_text: str, context: ProposeContext) -> ProposeStrategyResult:
+    def normalize(
+        self,
+        raw_text: str,
+        context: ProposeContext,
+        *,
+        allow_shell_execution: bool = False,
+    ) -> ProposeStrategyResult:
         trimmed = raw_text.strip()[:self.MAX_TEXT_LENGTH]
 
         result = self._try_tool_calls(trimmed, context)
@@ -38,7 +51,7 @@ class LLMResponseNormalizer:
         if result:
             return result
 
-        result = self._try_fenced_shell(trimmed, context)
+        result = self._try_fenced_shell(trimmed, context, allow_shell_execution=allow_shell_execution)
         if result:
             return result
 
@@ -63,24 +76,25 @@ class LLMResponseNormalizer:
         )
 
     def _try_tool_calls(self, text: str, context: ProposeContext) -> Optional[ProposeStrategyResult]:
-        # First attempt: parse whole text as JSON and look for tool_calls key.
         try:
             parsed = json.loads(text)
             tool_calls = parsed.get("tool_calls", [])
             if tool_calls and isinstance(tool_calls, list):
-                proposal = ExecutableProposal(
-                    proposal_id=f"norm-tool-{context.task_id}",
-                    goal_id=context.goal_id,
-                    task_id=context.task_id,
-                    strategy_id="llm_response_normalizer",
-                    tool_calls=tool_calls,
-                )
-                return ProposeStrategyResult.executable(
-                    "llm_response_normalizer",
-                    proposal,
-                    reason_codes=["source_format:openai_tool_calls"],
-                    metadata={"confidence": 1.0, "source_format": "openai_tool_calls"},
-                )
+                valid_tcs = [tc for tc in tool_calls if isinstance(tc, dict) and tc.get("name")]
+                if valid_tcs:
+                    proposal = ExecutableProposal(
+                        proposal_id=f"norm-tool-{context.task_id}",
+                        goal_id=context.goal_id,
+                        task_id=context.task_id,
+                        strategy_id="llm_response_normalizer",
+                        tool_calls=valid_tcs,
+                    )
+                    return ProposeStrategyResult.executable(
+                        "llm_response_normalizer",
+                        proposal,
+                        reason_codes=["source_format:openai_tool_calls"],
+                        metadata={"confidence": 1.0, "source_format": "openai_tool_calls"},
+                    )
         except (json.JSONDecodeError, KeyError, ValueError):
             pass
         return None
@@ -92,14 +106,15 @@ class LLMResponseNormalizer:
                 parsed = json.loads(match.group(1))
                 command = parsed.get("command")
                 tool_calls = parsed.get("tool_calls", [])
-                if command or tool_calls:
+                valid_tcs = [tc for tc in tool_calls if isinstance(tc, dict) and tc.get("name")]
+                if command or valid_tcs:
                     proposal = ExecutableProposal(
                         proposal_id=f"norm-fjson-{context.task_id}",
                         goal_id=context.goal_id,
                         task_id=context.task_id,
                         strategy_id="llm_response_normalizer",
-                        command=command,
-                        tool_calls=tool_calls,
+                        command=command or None,
+                        tool_calls=valid_tcs,
                     )
                     return ProposeStrategyResult.executable(
                         "llm_response_normalizer",
@@ -110,11 +125,26 @@ class LLMResponseNormalizer:
                 pass
         return None
 
-    def _try_fenced_shell(self, text: str, context: ProposeContext) -> Optional[ProposeStrategyResult]:
+    def _try_fenced_shell(
+        self,
+        text: str,
+        context: ProposeContext,
+        *,
+        allow_shell_execution: bool = False,
+    ) -> Optional[ProposeStrategyResult]:
         match = self._fenced_shell_re.search(text)
         if match:
             command = match.group(1).strip()
             if command:
+                if not allow_shell_execution:
+                    # Shell execution not allowed by policy → advisory
+                    return ProposeStrategyResult.advisory(
+                        "llm_response_normalizer",
+                        advisory_text=command,
+                        reason="shell_execution_not_allowed_by_policy",
+                        reason_codes=["source_format:shell_block", "shell_execution_policy_denied"],
+                        metadata={"source_format": "shell_block", "confidence": 0.7},
+                    )
                 proposal = ExecutableProposal.from_command(
                     goal_id=context.goal_id,
                     task_id=context.task_id,
@@ -153,8 +183,9 @@ class LLMResponseNormalizer:
         for m in matches:
             filename = m.group(1)
             content = m.group(2).strip()
-            # Only treat as file block when the "name" looks like a filename (has extension).
-            if filename and "." in filename and content:
+            # Only treat as file block when it looks like a filename (has extension)
+            # and path is safe (no traversal/absolute)
+            if filename and "." in filename and content and _is_safe_path(filename):
                 files.append({"path": filename, "content": content})
         if files:
             proposal = FileProposalArtifact(

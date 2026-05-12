@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 from worker.core.propose import (
@@ -11,22 +11,23 @@ from worker.core.propose import (
     STATUS_ADVISORY,
     STATUS_FAILED,
     STATUS_NEEDS_REVIEW,
+    STATUS_DECLINED,
 )
 
-from agent.services.propose_policy import ProposePolicy
+from agent.services.propose_policy import ProposePolicy, LLM_STRATEGY_IDS
 
 
 @dataclass
 class ProposeContext:
-    """Context for propose strategies."""
+    """Context passed to every propose strategy."""
     goal_id: str
     task_id: str
     task: dict[str, Any]
     base_prompt: str
     research_context: dict[str, Any] | None = None
-    cli_runner: 'Callable' = None  # Forwarded
-    tool_definitions_resolver: 'Callable' = None  # Forwarded
-    # Add more as needed
+    cli_runner: 'Callable' = None
+    tool_definitions_resolver: 'Callable' = None
+    policy: ProposePolicy | None = None  # T003: strategies may read policy
 
 
 class ProposeStrategy(ABC):
@@ -39,21 +40,32 @@ class ProposeStrategy(ABC):
 
 
 class ProposeStrategyOrchestrator:
-    """Orchestrates strategies per policy."""
+    """Orchestrates strategies per policy.
 
-    def __init__(self, policy: ProposePolicy, strategies: Dict[str, ProposeStrategy]):
+    Iterates the full effective_strategy_order. Each strategy is tried once.
+    The first executable or terminal result stops the chain.
+
+    T002: max_strategy_attempts no longer truncates the strategy chain —
+    it remains in ProposePolicy for per-strategy retry control (future use).
+    T003: when llm_required=True and all LLM strategies returned
+    llm_required_but_unavailable, returns terminal needs_review before
+    falling through to deterministic/template strategies.
+    """
+
+    def __init__(self, policy: ProposePolicy, strategies: Dict[str, "ProposeStrategy"]):
         self.policy = policy
         self.strategies = strategies
 
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
-        """Run strategies in policy order until executable or terminal.
-
-        The returned result carries ``metadata["attempted_strategies"]`` and
-        ``metadata["selected_strategy"]`` for observability.
-        """
+        """Run full strategy chain. Returns first executable or terminal result."""
         strategy_order = self.policy.effective_strategy_order()
         attempted: List[Dict] = []
-        for strategy_id in strategy_order[:self.policy.max_strategy_attempts]:
+
+        llm_required = self.policy.llm_required
+        llm_unavailable_count = 0
+        llm_strategy_count = sum(1 for s in strategy_order if s in LLM_STRATEGY_IDS)
+
+        for strategy_id in strategy_order:
             strategy = self.strategies.get(strategy_id)
             if strategy is None:
                 result = ProposeStrategyResult.declined(
@@ -61,17 +73,44 @@ class ProposeStrategyOrchestrator:
                 )
             else:
                 result = strategy.run(context)
+
             attempted.append({
                 "strategy_id": strategy_id,
                 "status": result.status,
                 "reason": result.reason,
             })
+
+            # Track LLM unavailability for T003 enforcement
+            if strategy_id in LLM_STRATEGY_IDS and result.status == STATUS_DECLINED:
+                if result.reason and "llm_required_but_unavailable" in result.reason:
+                    llm_unavailable_count += 1
+
             if result.is_executable or result.is_terminal:
                 if isinstance(result.metadata, dict):
                     result.metadata["attempted_strategies"] = attempted
                     result.metadata["selected_strategy"] = strategy_id
                 return result
-        # All declined
+
+            # T003: after last LLM strategy, enforce llm_required
+            if (
+                llm_required
+                and llm_strategy_count > 0
+                and llm_unavailable_count == llm_strategy_count
+                and strategy_id == _last_llm_strategy(strategy_order)
+            ):
+                meta = {
+                    "attempted_strategies": attempted,
+                    "selected_strategy": None,
+                    "llm_required_enforced": True,
+                }
+                return ProposeStrategyResult.needs_review(
+                    "orchestrator",
+                    "llm_required_but_unavailable",
+                    reason_codes=["llm_required", "llm_provider_unavailable", "no_llm_fallback_allowed"],
+                    metadata=meta,
+                )
+
+        # All strategies declined
         fallback_meta = {"attempted_strategies": attempted, "selected_strategy": None}
         match self.policy.on_all_strategies_declined:
             case "needs_review":
@@ -91,10 +130,23 @@ class ProposeStrategyOrchestrator:
                     metadata=fallback_meta,
                 )
             case _:
-                raise ValueError(f"invalid_on_all_strategies_declined: {self.policy.on_all_strategies_declined}")
+                raise ValueError(
+                    f"invalid_on_all_strategies_declined: {self.policy.on_all_strategies_declined}"
+                )
         return r
 
+
+def _last_llm_strategy(strategy_order: list[str]) -> str | None:
+    """Return the last LLM strategy id in the order, or None."""
+    last = None
+    for s in strategy_order:
+        if s in LLM_STRATEGY_IDS:
+            last = s
+    return last
+
+
 class StubStrategy(ProposeStrategy):
+    """Placeholder for unimplemented strategies. Always declines with diagnostics."""
     def __init__(self, strategy_id: str):
         self.strategy_id = strategy_id
 

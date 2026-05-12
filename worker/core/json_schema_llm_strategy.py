@@ -1,4 +1,4 @@
-"""JsonSchemaLLMStrategy — FA-T009/T021: response_format=json_object, no sgpt."""
+"""JsonSchemaLLMStrategy — FA-T009/T021/AFR-T004: response_format=json_object."""
 from __future__ import annotations
 
 import json
@@ -9,9 +9,19 @@ from agent.services.model_invocation_service import ModelInvocationService, LLMU
 
 _MOCK_ONLY_PROVIDERS = {"mock"}
 
+_SCHEMA_PROMPT_SUFFIX = """
+Respond with valid JSON matching this schema:
+{
+  "command": "<shell command string, or null>",
+  "tool_calls": [{"name": "<tool_name>", "args": {<arguments>}}]
+}
+Only one of command or tool_calls should be non-empty.
+No prose, no markdown fences, only raw JSON.
+"""
+
 
 class JsonSchemaLLMStrategy(ProposeStrategy):
-    """Strategy using response_format=json_object on an OpenAI-compatible endpoint."""
+    """Calls LLM with response_format=json_object, parses command/tool_calls."""
 
     JSON_SCHEMA = {
         "type": "object",
@@ -28,13 +38,14 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
 
         if provider in _MOCK_ONLY_PROVIDERS:
             return ProposeStrategyResult.declined(
-                "json_schema_llm",
-                reason="provider_json_schema_not_supported_mock",
+                "json_schema_llm", reason="provider_json_schema_not_supported_mock",
             )
+
+        prompt = context.base_prompt + _SCHEMA_PROMPT_SUFFIX
 
         try:
             raw_response = ModelInvocationService.invoke_with_json_schema(
-                prompt=context.base_prompt,
+                prompt=prompt,
                 json_schema=self.JSON_SCHEMA,
                 model=None,
             )
@@ -42,17 +53,16 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
             return ProposeStrategyResult.declined(
                 "json_schema_llm",
                 reason=f"llm_required_but_unavailable: {exc}",
+                reason_codes=["llm_required", "llm_provider_unavailable"],
             )
         except Exception as exc:
             return ProposeStrategyResult.failed(
-                "json_schema_llm",
-                f"llm_call_failed: {exc}",
+                "json_schema_llm", f"llm_call_failed: {exc}",
             )
 
         if not raw_response or not raw_response.strip():
             return ProposeStrategyResult.declined(
-                "json_schema_llm",
-                reason="llm_returned_empty_response",
+                "json_schema_llm", reason="llm_returned_empty_response",
             )
 
         try:
@@ -60,21 +70,34 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
         except json.JSONDecodeError:
             return ProposeStrategyResult.advisory(
                 "json_schema_llm",
-                advisory_text=raw_response[:200],
+                advisory_text=raw_response[:300],
                 reason="json_parse_failed",
+                reason_codes=["json_parse_failed"],
+            )
+
+        if not isinstance(parsed, dict):
+            return ProposeStrategyResult.advisory(
+                "json_schema_llm",
+                advisory_text=str(parsed)[:300],
+                reason="json_not_object",
             )
 
         tool_calls = parsed.get("tool_calls") or []
         command = parsed.get("command") or None
+        if command:
+            command = str(command).strip() or None
 
-        if tool_calls:
+        # Validate tool calls
+        valid_tcs = [tc for tc in tool_calls if isinstance(tc, dict) and tc.get("name")]
+
+        if valid_tcs:
             proposal = ExecutableProposal(
                 proposal_id=f"jsllm-{context.task_id}",
                 goal_id=context.goal_id,
                 task_id=context.task_id,
                 strategy_id="json_schema_llm",
                 command=None,
-                tool_calls=tool_calls,
+                tool_calls=valid_tcs,
                 expected_artifacts=["workspace-changes"],
                 metadata={"provider": provider},
             )
@@ -94,6 +117,5 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
             return ProposeStrategyResult.executable("json_schema_llm", proposal)
 
         return ProposeStrategyResult.declined(
-            "json_schema_llm",
-            reason="llm_returned_no_executable_output",
+            "json_schema_llm", reason="llm_returned_no_executable_output",
         )
