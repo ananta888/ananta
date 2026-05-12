@@ -101,7 +101,8 @@
       "Bash(xargs cat)",
       "Bash(xargs -I{} sh -c 'echo \"=== {} ===\"; grep -E '\"'\"'\"status\"'\"'\" {})",
       "Bash(git show *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(xargs ls -la)"
     ]
   }
 }
