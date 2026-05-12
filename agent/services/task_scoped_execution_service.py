@@ -514,30 +514,18 @@ class TaskScopedExecutionService:
             query=base_prompt,
         )
         from agent.services.propose_policy_service import get_propose_policy_service
-        from worker.core.propose_orchestrator import (
-            ProposeStrategyOrchestrator,
-            StubStrategy,
-            ProposeContext,
-        )
+        from worker.core.propose_orchestrator import ProposeStrategyOrchestrator, ProposeContext
         from worker.core.propose import ExecutableProposal
         from pydantic import ValidationError
-        from worker.core.deterministic_handler_strategy import DeterministicHandlerStrategy
+        from agent.services.propose_strategy_registry import build_strategy_registry
 
-        propose_policy_override = task.get("propose_policy_override", {}) 
+        propose_policy_override = task.get("propose_policy_override", {})
         policy = get_propose_policy_service().get_effective_policy(
             task_kind=task_kind,
             admin_overrides=propose_policy_override
         )
 
-        strategies = {
-            "deterministic_handler": DeterministicHandlerStrategy(),
-            "worker_strategy": StubStrategy("worker_strategy"),
-            "tool_calling_llm": StubStrategy("tool_calling_llm"),
-            "json_schema_llm": StubStrategy("json_schema_llm"),
-            "flexible_llm_normalization": StubStrategy("flexible_llm_normalization"),
-            "advisory_proposal": StubStrategy("advisory_proposal"),
-            "human_review": StubStrategy("human_review"),
-        }
+        strategies = build_strategy_registry()
 
         orch = ProposeStrategyOrchestrator(policy, strategies)
         context = ProposeContext(
