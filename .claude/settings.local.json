@@ -99,7 +99,9 @@
       "Bash(git -C /home/krusty/ananta show 867a9c98 --stat)",
       "Bash(git -C /home/krusty/ananta show c51ba8f1:client_surfaces/eclipse_runtime/ananta_eclipse_plugin/META-INF/MANIFEST.MF)",
       "Bash(xargs cat)",
-      "Bash(xargs -I{} sh -c 'echo \"=== {} ===\"; grep -E '\"'\"'\"status\"'\"'\" {})"
+      "Bash(xargs -I{} sh -c 'echo \"=== {} ===\"; grep -E '\"'\"'\"status\"'\"'\" {})",
+      "Bash(git show *)",
+      "Bash(git push *)"
     ]
   }
 }
