@@ -29,3 +29,9 @@ class ModelInvocationService:
                 }
             ]
         })
+
+    @classmethod
+    def invoke(cls, prompt: str, model: str, **kwargs) -> str:
+        '''Plain LLM invoke, return content string.'''
+        # TODO: Real
+        return '{"tool_calls": [{"name": "write_file", "args": {"path": "main.py"}}]}'  # valid for repair stub
