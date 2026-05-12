@@ -21,6 +21,7 @@ from agent.services.repository_registry import initialize_repository_registry
 from agent.services.service_registry import initialize_core_services
 from agent.services.deterministic_repair_handler import DeterministicRepairHandler
 from agent.services.task_handler_registry import register_task_handler
+from worker.core.template_propose_handler import TemplateProposeHandler
 from agent.utils import read_json
 from agent.utils import register_with_hub as _register_with_hub
 
@@ -61,6 +62,18 @@ def _register_deterministic_repair_handler(app: Flask) -> None:
         safety_flags={"requires_review": True},
         verification_hooks=["step_verification"],
     )
+
+
+def _register_template_propose_handler(app: Flask) -> None:
+    handler = TemplateProposeHandler()
+    for kind in ("new_software_project", "coding"):
+        register_task_handler(
+            kind,
+            handler,
+            app=app,
+            capabilities=["template_propose", "shell_execute"],
+            safety_flags={"requires_review": False},
+        )
 
 
 def _check_token_rotation(app: Flask) -> None:
@@ -105,6 +118,7 @@ def create_app(agent: str = "default") -> Flask:
     run_startup_phase("core_services", initialize_core_services, app)
     run_startup_phase("background_services", start_background_services, app)
     run_startup_phase("deterministic_repair_handler", _register_deterministic_repair_handler, app)
+    run_startup_phase("template_propose_handler", _register_template_propose_handler, app)
 
     elapsed = time.perf_counter() - _start_perf
     APP_STARTUP_DURATION.set(elapsed)

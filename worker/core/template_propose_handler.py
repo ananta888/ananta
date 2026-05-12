@@ -1,6 +1,8 @@
 """TemplateProposeHandler — FA-T007 deterministic baseline for new_software_project."""
 from __future__ import annotations
 
+from typing import Any
+
 from worker.core.propose import ExecutableProposal
 
 

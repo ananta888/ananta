@@ -63,28 +63,26 @@ class LLMResponseNormalizer:
         )
 
     def _try_tool_calls(self, text: str, context: ProposeContext) -> Optional[ProposeStrategyResult]:
-        match = self._tool_calls_re.search(text)
-        if match:
-            try:
-                parsed_str = '{' + match.group(1) + '}]'
-                parsed = json.loads(parsed_str)
-                tool_calls = parsed.get('tool_calls', [])
-                if tool_calls:
-                    proposal = ExecutableProposal(
-                        proposal_id=f"norm-tool-{context.task_id}",
-                        goal_id=context.goal_id,
-                        task_id=context.task_id,
-                        strategy_id="llm_response_normalizer",
-                        tool_calls=tool_calls,
-                    )
-                    return ProposeStrategyResult.executable(
-                        "llm_response_normalizer",
-                        proposal,
-                        reason_codes=["source_format:openai_tool_calls"],
-                        metadata={"confidence": 1.0, "source_format": "openai_tool_calls"}
-                    )
-            except (json.JSONDecodeError, KeyError, ValueError):
-                pass
+        # First attempt: parse whole text as JSON and look for tool_calls key.
+        try:
+            parsed = json.loads(text)
+            tool_calls = parsed.get("tool_calls", [])
+            if tool_calls and isinstance(tool_calls, list):
+                proposal = ExecutableProposal(
+                    proposal_id=f"norm-tool-{context.task_id}",
+                    goal_id=context.goal_id,
+                    task_id=context.task_id,
+                    strategy_id="llm_response_normalizer",
+                    tool_calls=tool_calls,
+                )
+                return ProposeStrategyResult.executable(
+                    "llm_response_normalizer",
+                    proposal,
+                    reason_codes=["source_format:openai_tool_calls"],
+                    metadata={"confidence": 1.0, "source_format": "openai_tool_calls"},
+                )
+        except (json.JSONDecodeError, KeyError, ValueError):
+            pass
         return None
 
     def _try_fenced_json(self, text: str, context: ProposeContext) -> Optional[ProposeStrategyResult]:
@@ -155,7 +153,8 @@ class LLMResponseNormalizer:
         for m in matches:
             filename = m.group(1)
             content = m.group(2).strip()
-            if filename and content:
+            # Only treat as file block when the "name" looks like a filename (has extension).
+            if filename and "." in filename and content:
                 files.append({"path": filename, "content": content})
         if files:
             proposal = FileProposalArtifact(

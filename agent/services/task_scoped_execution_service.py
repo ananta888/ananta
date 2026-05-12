@@ -550,7 +550,44 @@ class TaskScopedExecutionService:
             tool_definitions_resolver=tool_definitions_resolver,
         )
         result = orch.run(context)
-        return TaskScopedRouteResponse(data=result.to_dict())
+        result_dict = result.to_dict()
+
+        # Persist to last_proposal so execute step and API can read it.
+        propose_strategy_meta = {
+            "attempted_strategies": result.metadata.get("attempted_strategies", []),
+            "selected_strategy": result.metadata.get("selected_strategy"),
+            "proposal_status": result.status,
+            "proposal_reason": result.reason,
+            "normalization_format": result.metadata.get("source_format"),
+        }
+        if result.is_executable and result.proposal is not None:
+            get_core_services().task_execution_service.persist_task_proposal_result(
+                tid=tid,
+                task=task,
+                reason=result.reason,
+                raw=None,
+                backend="orchestrator",
+                model=None,
+                routing={
+                    "task_kind": task_kind,
+                    "propose_strategy_meta": propose_strategy_meta,
+                },
+                cli_result=None,
+                worker_context={"strategy": result.metadata.get("selected_strategy")},
+                trace={"policy_version": "v1"},
+                review=None,
+                command=result.proposal.command,
+                tool_calls=result.proposal.tool_calls or [],
+                research_context=research_context_summary,
+                history_event={
+                    "event_type": "proposal_result",
+                    "reason": result.reason,
+                    "backend": "orchestrator",
+                    "propose_strategy_meta": propose_strategy_meta,
+                },
+            )
+
+        return TaskScopedRouteResponse(data={**result_dict, "propose_strategy_meta": propose_strategy_meta})
 
     def execute_task_step(
         self,
