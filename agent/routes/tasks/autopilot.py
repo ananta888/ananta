@@ -63,6 +63,7 @@ class AutonomousLoopManager:
         # can tick concurrently; same-goal concurrency is blocked. This prevents
         # goal-switch deadlocks where _tick_lock was held for up to 180s.
         self._active_goal_ticks: set[str] = set()
+        self._active_goal_tick_started: dict[str, float] = {}
         self._active_goal_ticks_lock = threading.Lock()
         # thr-002: protects dispatched_count, completed_count, failed_count, last_error
         self._counters_lock = threading.Lock()
@@ -456,10 +457,23 @@ class AutonomousLoopManager:
             with self._app.app_context():
                 return self.tick_once()
         goal_key = str(self.goal or "").strip() or "__none__"
+        stale_after = 300.0
+        now = time.time()
         with self._active_goal_ticks_lock:
             if goal_key in self._active_goal_ticks:
-                return {"dispatched": 0, "reason": "tick_already_in_progress"}
+                started = float(self._active_goal_tick_started.get(goal_key) or 0.0)
+                if started and (now - started) > stale_after:
+                    logging.warning(
+                        "Autopilot stale active tick recovered for goal %s (age=%.1fs)",
+                        goal_key,
+                        now - started,
+                    )
+                    self._active_goal_ticks.discard(goal_key)
+                    self._active_goal_tick_started.pop(goal_key, None)
+                else:
+                    return {"dispatched": 0, "reason": "tick_already_in_progress"}
             self._active_goal_ticks.add(goal_key)
+            self._active_goal_tick_started[goal_key] = now
         try:
             return execute_autopilot_tick(
                 loop=self,
@@ -471,6 +485,7 @@ class AutonomousLoopManager:
         finally:
             with self._active_goal_ticks_lock:
                 self._active_goal_ticks.discard(goal_key)
+                self._active_goal_tick_started.pop(goal_key, None)
 
     def _run_loop(self):
         app = self._app

@@ -108,8 +108,14 @@ class ToolIntentResolver:
                     )
                     continue
                 else:
-                    unresolved.append(ToolIntentUnresolved(original_tool=raw_name or canonical, reason_code="unknown_tool"))
-                    continue
+                    slug = re.sub(r"[^a-z0-9_\\-]+", "_", (raw_name or canonical).lower()).strip("_") or "tool_note"
+                    rendered = json.dumps(args or {}, ensure_ascii=False, indent=2)
+                    resolved_name = "file_write"
+                    resolved_args = {
+                        "path": f"{slug}.md",
+                        "content": f"# {slug}\n\n```json\n{rendered}\n```\n",
+                    }
+                    reason = "fallback_unknown_to_file_write"
 
             if "command" not in resolved_args and resolved_args.get("cmd"):
                 resolved_args["command"] = resolved_args.get("cmd")
@@ -139,7 +145,18 @@ class ToolIntentResolver:
         name = str(raw_name or "").strip().lower()
         topics = args.get("topics") if isinstance(args.get("topics"), list) else []
         scope_elements = args.get("scope_elements") if isinstance(args.get("scope_elements"), list) else []
-        text = str(args.get("input_text") or args.get("text") or args.get("query") or "").strip()
+        nested_args = args.get("args") if isinstance(args.get("args"), dict) else {}
+        text = str(
+            args.get("input_text")
+            or args.get("text")
+            or args.get("query")
+            or args.get("goal")
+            or nested_args.get("input_text")
+            or nested_args.get("text")
+            or nested_args.get("query")
+            or nested_args.get("goal")
+            or ""
+        ).strip()
 
         if "scope" in name or "summar" in name:
             lines = [str(item).strip() for item in list(scope_elements or topics) if str(item).strip()]
@@ -154,16 +171,40 @@ class ToolIntentResolver:
             query = text or "project scope definition"
             return "web_search", {"query": query}, "heuristic_search_to_web_search"
 
-        planning_tokens = ("generate", "create", "define", "plan", "draft", "outline", "blueprint", "scope", "backlog", "governance")
+        planning_tokens = (
+            "generate",
+            "create",
+            "define",
+            "declare",
+            "plan",
+            "draft",
+            "outline",
+            "blueprint",
+            "scope",
+            "backlog",
+            "governance",
+        )
         if any(token in name for token in planning_tokens):
             slug = re.sub(r"[^a-z0-9_\\-]+", "_", name).strip("_") or "plan_note"
-            rendered = json.dumps(args or {}, ensure_ascii=False, indent=2)
+            rendered = json.dumps(nested_args or args or {}, ensure_ascii=False, indent=2)
             content = f"# {slug}\n\n```json\n{rendered}\n```\n"
             return "file_write", {"path": f"{slug}.md", "content": content}, "heuristic_planning_to_file_write"
 
+        if "architect" in name or "design" in name:
+            slug = re.sub(r"[^a-z0-9_\\-]+", "_", name).strip("_") or "architecture_blueprint"
+            rendered = json.dumps(nested_args or args or {}, ensure_ascii=False, indent=2)
+            content = (
+                f"# {slug}\n\n"
+                "## Goal\n\n"
+                f"{text or 'Architecture blueprint artifact.'}\n\n"
+                "## Inputs\n\n"
+                f"```json\n{rendered}\n```\n"
+            )
+            return "file_write", {"path": f"{slug}.md", "content": content}, "heuristic_architecture_to_file_write"
+
         if name.startswith("tool_") or ":tool_" in name:
             slug = re.sub(r"[^a-z0-9_\\-]+", "_", name).strip("_") or "tool_note"
-            rendered = json.dumps(args or {}, ensure_ascii=False, indent=2)
+            rendered = json.dumps(nested_args or args or {}, ensure_ascii=False, indent=2)
             content = f"# {slug}\n\n```json\n{rendered}\n```\n"
             return "file_write", {"path": f"{slug}.md", "content": content}, "heuristic_generic_tool_to_file_write"
 

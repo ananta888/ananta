@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import concurrent.futures
 import json
+import logging
 import re
 import shlex
 import time
 from dataclasses import dataclass
 
-from flask import current_app
+from flask import current_app, has_app_context
 
 from agent.common.audit import log_audit
 from agent.common.errors import ToolGuardrailError
@@ -369,7 +370,8 @@ class TaskExecutionService:
             resolution = ToolIntentResolver().resolve(normalized_tool_calls, known_tools=known_tools)
             normalized_tool_calls = list(resolution.resolved_tool_calls)
             for event in resolution.remap_events:
-                current_app.logger.info(
+                logger = current_app.logger if has_app_context() else logging.getLogger(__name__)
+                logger.info(
                     "tool_intent_resolved %s",
                     json.dumps(
                         {
@@ -499,7 +501,8 @@ class TaskExecutionService:
             for tool_call in normalized_tool_calls:
                 name = str(tool_call.get("name") or tool_call.get("tool_name") or "").strip()
                 args = tool_call.get("args") or tool_call.get("tool_input") or tool_call.get("parameters") or {}
-                current_app.logger.info("Task %s führt Tool aus: %s mit %s", tid or "<direct>", name, args)
+                logger = current_app.logger if has_app_context() else logging.getLogger(__name__)
+                logger.info("Task %s führt Tool aus: %s mit %s", tid or "<direct>", name, args)
                 tool_result = tool_registry.execute(name, args)
                 if pipeline is not None:
                     append_stage(
@@ -594,6 +597,11 @@ class TaskExecutionService:
         final_output = "\n---\n".join(output_parts)
         final_exit_code = overall_exit_code
         effective_failure_type = failure_type if command else ("success" if final_exit_code == 0 else "tool_failure")
+        recoverable_shell_missing_binary = self._is_recoverable_missing_binary_failure(
+            command=command,
+            output=final_output,
+            exit_code=final_exit_code,
+        )
         loop_detection = self._evaluate_doom_loop(
             tid=tid,
             task=effective_task,
@@ -606,11 +614,21 @@ class TaskExecutionService:
             retries_used=retries_used if command else 0,
             failure_type=effective_failure_type,
             retry_history=retry_history if command else [],
-            status="completed" if final_exit_code == 0 else "failed",
+            status="completed" if final_exit_code == 0 else ("needs_review" if recoverable_shell_missing_binary else "failed"),
             loop_signals=loop_signals,
             loop_detection=loop_detection,
             approval_decision=approval_payload,
         )
+
+    @staticmethod
+    def _is_recoverable_missing_binary_failure(*, command: str | None, output: str | None, exit_code: int | None) -> bool:
+        if not command or int(exit_code or 0) == 0:
+            return False
+        text = str(output or "").lower()
+        if "command not found" not in text:
+            return False
+        # Missing optional CLIs should not hard-fail default execution paths.
+        return True
 
     def persist_task_proposal_result(
         self,
