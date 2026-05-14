@@ -145,5 +145,31 @@
     "Migrationen laufen portabel auf SQLite und Postgres; Downgrade-Verhalten ist klar und sicher.",
     "Strategy-Modes sind konfigurierbar, auditierbar und mit expliziter Fallback-Semantik implementiert.",
     "Native tool-calling bleibt bevorzugt; JSON-Schema ist fallback; flexible Normalisierung ist policy-gated."
+  ],
+  "summaries": {
+    "overall": "Konsolidierter Backlog mit Fokus auf Sicherheits-Hardening, Full-Flow E2E, Migrations-Portabilitaet und konfigurierbare Strategy-Modes.",
+    "status_counts": {
+      "todo": 20,
+      "partial": 3,
+      "done": 0,
+      "total": 23
+    },
+    "top_priorities": [
+      "APH-T001/APH-T002: Shell-Policy-Bypass im ToolCallingLLM content fallback schliessen und regressionsfest testen.",
+      "AFF-E2E-T001..T003: Echten End-to-End Nachweis von propose bis completion mit Artefakt- und Verifikationsbezug liefern.",
+      "WSM-T001/WSM-T005: Strategy-Modes und fallback-Steuerung explizit, konfigurierbar und auditierbar machen."
+    ],
+    "biggest_risks_if_not_done": [
+      "Unsichere Shell-Ausfuehrung aus Modelltext trotz Policy-Denial.",
+      "Gruene proposal-Tests trotz defekter execute/artifact/verification Integrationskette.",
+      "Migrationsprobleme zwischen SQLite (dev/test) und Postgres (prod)."
+    ],
+    "recommended_next_slice": [
+      "APH-T001",
+      "APH-T002",
+      "AFF-E2E-T001",
+      "AFF-E2E-T002",
+      "AFF-E2E-T003"
+    ]
   ]
 }
