@@ -1,0 +1,534 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": 1,
+  "owner": "ananta",
+  "track": "browser_use_worker_integration",
+  "purpose": "Integrate browser-use as a specialized research/web-automation worker path under hub control with strict policy, auditable execution, bounded recovery loops, and artifact-based verification.",
+  "goal": "Enable reliable browser automation for research and web tasks without breaking the hub-worker architecture, security controls, or deterministic fallback policy.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "program_success_criteria": [
+    "Hub remains the central owner of routing, policy decisions, and task orchestration.",
+    "Browser-use is introduced as a specialized worker/backend path, never as worker-to-worker orchestration.",
+    "Every browser task has explicit domain, action-budget, timeout, and download policy constraints.",
+    "Security violations are hard-blocked, while recoverable tool/schema issues are handled as recoverable states.",
+    "Research/browser outputs are stored as verifiable artifacts with provenance and evidence.",
+    "End-to-end tests prove browser task completion and policy enforcement.",
+    "Operational telemetry shows if browser path, LLM path, and fallback path were used."
+  ],
+  "milestones": [
+    {
+      "id": "BU-M1",
+      "title": "Contract And Routing",
+      "status": "todo",
+      "task_ids": [
+        "BU-T001",
+        "BU-T002",
+        "BU-T003",
+        "BU-T004"
+      ]
+    },
+    {
+      "id": "BU-M2",
+      "title": "Policy Guardrails",
+      "status": "todo",
+      "task_ids": [
+        "BU-T005",
+        "BU-T006",
+        "BU-T007",
+        "BU-T008"
+      ]
+    },
+    {
+      "id": "BU-M3",
+      "title": "Execution Adapter",
+      "status": "todo",
+      "task_ids": [
+        "BU-T009",
+        "BU-T010",
+        "BU-T011",
+        "BU-T012"
+      ]
+    },
+    {
+      "id": "BU-M4",
+      "title": "Artifacts And Verification",
+      "status": "todo",
+      "task_ids": [
+        "BU-T013",
+        "BU-T014",
+        "BU-T015",
+        "BU-T016"
+      ]
+    },
+    {
+      "id": "BU-M5",
+      "title": "Recovery And Fallback",
+      "status": "todo",
+      "task_ids": [
+        "BU-T017",
+        "BU-T018",
+        "BU-T019",
+        "BU-T020"
+      ]
+    },
+    {
+      "id": "BU-M6",
+      "title": "Ops And E2E",
+      "status": "todo",
+      "task_ids": [
+        "BU-T021",
+        "BU-T022",
+        "BU-T023",
+        "BU-T024"
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "BU-T001",
+    "BU-T002",
+    "BU-T005",
+    "BU-T009",
+    "BU-T013",
+    "BU-T017",
+    "BU-T021"
+  ],
+  "tasks": [
+    {
+      "id": "BU-T001",
+      "title": "Add browser task contract extension",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "BU-M1",
+      "acceptance_criteria": [
+        "Task/goal contract supports browser-specific fields: allowed_domains, max_actions, timeout_seconds, download_policy, auth_policy, screenshot_policy.",
+        "Contract is backward compatible for existing non-browser tasks.",
+        "Contract version and source are persisted in metadata.",
+        "Unit tests validate defaults and schema validation failures."
+      ]
+    },
+    {
+      "id": "BU-T002",
+      "title": "Add hub routing decision for browser path",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "BU-M1",
+      "acceptance_criteria": [
+        "Hub routing can choose browser backend for research/web_automation tasks.",
+        "Routing decision records reason and selected backend.",
+        "No worker initiates downstream orchestration on its own.",
+        "Tests cover route-to-browser and route-to-default decisions."
+      ]
+    },
+    {
+      "id": "BU-T003",
+      "title": "Define task kind and intent mapping",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "BU-M1",
+      "acceptance_criteria": [
+        "Canonical mapping exists from intents to browser actions (navigate, click, type, extract, screenshot).",
+        "Mapping does not override coding/file tool intents.",
+        "Ambiguous mappings produce recoverable needs_review status.",
+        "Mapping is documented in code and track docs."
+      ]
+    },
+    {
+      "id": "BU-T004",
+      "title": "Add config surface for browser backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "BU-M1",
+      "acceptance_criteria": [
+        "Config supports provider mode (oss/cloud), command/SDK settings, timeouts, and enable flags.",
+        "Config read model shows configured/enabled/preflight state.",
+        "Invalid configs are surfaced as explicit preflight errors.",
+        "Default config remains disabled-safe."
+      ]
+    },
+    {
+      "id": "BU-T005",
+      "title": "Implement domain allowlist enforcement",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "milestone": "BU-M2",
+      "acceptance_criteria": [
+        "Browser execution blocks navigation outside allowed_domains.",
+        "Wildcard/domain rules are normalized and validated.",
+        "Violations are hard-blocked with policy audit event.",
+        "Tests cover allow, deny, and malformed allowlist entries."
+      ]
+    },
+    {
+      "id": "BU-T006",
+      "title": "Implement action budget and timeout limits",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "BU-M2",
+      "acceptance_criteria": [
+        "Per-task max_actions and timeout are enforced by hub policy and execution layer.",
+        "Exceeded budgets stop execution deterministically.",
+        "Stop reason is persisted and visible in status/audit.",
+        "Tests cover budget exhaustion and timeout expiration."
+      ]
+    },
+    {
+      "id": "BU-T007",
+      "title": "Implement download and file-write policy",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "milestone": "BU-M2",
+      "acceptance_criteria": [
+        "Download policy supports deny, whitelist, and bounded output directory mode.",
+        "Downloaded files outside allowed scope are blocked.",
+        "All write events include provenance and policy decision in audit.",
+        "Tests cover denied and allowed download flows."
+      ]
+    },
+    {
+      "id": "BU-T008",
+      "title": "Implement credential and auth guardrails",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "milestone": "BU-M2",
+      "acceptance_criteria": [
+        "No plain secret injection into prompts or logs by default.",
+        "Auth usage requires explicit contract opt-in and masked audit metadata.",
+        "Sensitive fields are redacted in status and trace output.",
+        "Tests cover redaction and blocked unauthorized auth usage."
+      ]
+    },
+    {
+      "id": "BU-T009",
+      "title": "Implement browser-use execution adapter",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "BU-M3",
+      "acceptance_criteria": [
+        "Adapter supports session creation, action execution, and result collection.",
+        "Adapter can run in configured oss or cloud mode.",
+        "Adapter returns normalized execution result contract.",
+        "Failures are categorized as security, transient, or fatal."
+      ]
+    },
+    {
+      "id": "BU-T010",
+      "title": "Add adapter preflight and health checks",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "BU-M3",
+      "acceptance_criteria": [
+        "Preflight verifies binary/sdk availability and required env config.",
+        "Health endpoint/report exposes readiness state.",
+        "Unready backend cannot be selected silently.",
+        "Tests cover ready and unready conditions."
+      ]
+    },
+    {
+      "id": "BU-T011",
+      "title": "Normalize browser action traces",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "BU-M3",
+      "acceptance_criteria": [
+        "Each action records action_type, target, outcome, duration, and policy_decision_ref.",
+        "Trace is correlated with goal_id, task_id, and execution trace_id.",
+        "Trace format is stable for downstream verification.",
+        "Tests validate trace schema and correlation fields."
+      ]
+    },
+    {
+      "id": "BU-T012",
+      "title": "Integrate adapter into task scoped execution service",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "BU-M3",
+      "acceptance_criteria": [
+        "Research/web tasks can execute through browser adapter path.",
+        "Non-browser tasks keep existing execution behavior.",
+        "Backend_used and routing metadata are persisted.",
+        "Regression tests prove no break for existing research artifact flow."
+      ]
+    },
+    {
+      "id": "BU-T013",
+      "title": "Define browser artifact schema",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "BU-M4",
+      "acceptance_criteria": [
+        "Artifact schema supports extracted_data, page_evidence, screenshots, sources, and citations.",
+        "Schema includes provenance fields per source.",
+        "Schema is validated before persistence.",
+        "Tests cover valid and invalid artifact payloads."
+      ]
+    },
+    {
+      "id": "BU-T014",
+      "title": "Persist browser artifacts with provenance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "BU-M4",
+      "acceptance_criteria": [
+        "Artifacts are persisted via tracking service with stable references.",
+        "Artifact references are linked to task history and trace.",
+        "Storage policy is compatible with existing artifact persistence model.",
+        "Tests cover persistence and retrieval of browser artifacts."
+      ]
+    },
+    {
+      "id": "BU-T015",
+      "title": "Add browser artifact verification gates",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "BU-M4",
+      "acceptance_criteria": [
+        "Verification checks presence/quality of extracted output and source evidence.",
+        "Verification supports task-defined minimum source count or required evidence fields.",
+        "Failed verification blocks completion and emits actionable reason.",
+        "Tests cover pass and fail verification outcomes."
+      ]
+    },
+    {
+      "id": "BU-T016",
+      "title": "Add completion policy integration for browser tasks",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "BU-M4",
+      "acceptance_criteria": [
+        "Browser tasks complete only after verification gates pass.",
+        "No completion on empty markdown-only output if evidence is required.",
+        "Completion payload includes artifact refs and verification summary.",
+        "Regression tests cover completion decisions."
+      ]
+    },
+    {
+      "id": "BU-T017",
+      "title": "Add bounded repair loop for browser failures",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "BU-M5",
+      "acceptance_criteria": [
+        "Retry/repair loop is hub-controlled with max_repair_attempts.",
+        "Transient failures can be retried with adjusted non-security parameters.",
+        "Security denials do not auto-retry unless policy allows safe re-plan.",
+        "Tests cover successful repair and bounded terminal failure."
+      ]
+    },
+    {
+      "id": "BU-T018",
+      "title": "Classify browser failure taxonomy",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "BU-M5",
+      "acceptance_criteria": [
+        "Failure classes include security_denied, policy_denied, transient_navigation, element_not_found, timeout, backend_unavailable.",
+        "Each class maps to block, retry, needs_review, or fail policy.",
+        "Classification appears in status and audit.",
+        "Tests cover taxonomy mapping."
+      ]
+    },
+    {
+      "id": "BU-T019",
+      "title": "Add deterministic fallback policy for browser path",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "BU-M5",
+      "acceptance_criteria": [
+        "Fallback to non-browser deterministic flow is explicit and policy-driven.",
+        "Fallback usage is audited with reason and source policy version.",
+        "Fallback is disabled for tasks that strictly require browser evidence.",
+        "Tests cover fallback allowed and denied cases."
+      ]
+    },
+    {
+      "id": "BU-T020",
+      "title": "Add needs_review escalation contract",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "milestone": "BU-M5",
+      "acceptance_criteria": [
+        "Ambiguous or blocked browser outcomes can escalate with structured needs_review payload.",
+        "Payload includes policy reason, failure class, and evidence refs.",
+        "Escalation path avoids silent failed status for recoverable issues.",
+        "Tests cover escalation payload contract."
+      ]
+    },
+    {
+      "id": "BU-T021",
+      "title": "Add audit event family for browser execution",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "milestone": "BU-M6",
+      "acceptance_criteria": [
+        "Audit events cover route_selected, policy_checked, action_executed, policy_blocked, artifact_verified, fallback_used.",
+        "Events include original_intent, resolved_backend, and reason where relevant.",
+        "Event chain is reconstructable by trace_id.",
+        "Tests/smoke checks prove event coverage in one full run."
+      ]
+    },
+    {
+      "id": "BU-T022",
+      "title": "Add observability for browser backend usage",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "milestone": "BU-M6",
+      "acceptance_criteria": [
+        "Status/diagnostics show browser backend calls, action counts, last error class, and latency.",
+        "Output distinguishes browser path from default research path.",
+        "Metrics are safe and redacted.",
+        "Tests cover diagnostic payload format."
+      ]
+    },
+    {
+      "id": "BU-T023",
+      "title": "Add end-to-end tests for browser research tasks",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "milestone": "BU-M6",
+      "acceptance_criteria": [
+        "At least two E2E scenarios exist: allowed-domain extraction and blocked-domain attempt.",
+        "E2E validates artifact persistence and verification gates.",
+        "E2E validates policy hard-block behavior.",
+        "E2E is runnable in CI with deterministic fixtures or controlled mocks."
+      ]
+    },
+    {
+      "id": "BU-T024",
+      "title": "Document rollout, ops runbook, and migration steps",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "milestone": "BU-M6",
+      "acceptance_criteria": [
+        "Runbook documents enablement, required config, preflight troubleshooting, and policy tuning.",
+        "Migration notes explain backward compatibility and phased rollout.",
+        "Rollback procedure is documented and tested in dry run.",
+        "Docs link to architecture constraints from AGENTS.md."
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 24,
+    "by_status": {
+      "todo": 24,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 11,
+      "P1": 10,
+      "P2": 3,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 11,
+      "high": 10,
+      "critical": 2
+    },
+    "critical_path": {
+      "total": 7,
+      "done": 0,
+      "remaining": 7
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "execution_stage_summary": {
+    "stage_1": "Define contract and routing so browser path is explicit and hub-owned.",
+    "stage_2": "Enforce security guardrails before any browser action.",
+    "stage_3": "Integrate adapter with normalized traces and backend preflight.",
+    "stage_4": "Persist verifiable artifacts and enforce completion gates.",
+    "stage_5": "Add bounded recovery and explicit fallback semantics.",
+    "stage_6": "Prove behavior with auditability, telemetry, and E2E coverage."
+  },
+  "summary_notes": [
+    "This track introduces browser-use as a specialized backend path, not a replacement for existing coding/research execution.",
+    "The highest risk is policy bypass through browser automation; domain and download controls are therefore P0 and critical.",
+    "Completion must remain evidence-based to avoid false positives.",
+    "Fallback behavior must be explicit and auditable.",
+    "All changes preserve hub-owned orchestration and worker-only execution responsibilities."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "BU-END-01",
+      "title": "Architecture Summary",
+      "items": [
+        "Hub decides if browser path is selected based on task kind and policy.",
+        "Worker executes browser actions only within contract limits.",
+        "No worker-to-worker orchestration is introduced.",
+        "Artifacts and verification remain first-class completion controls."
+      ]
+    },
+    {
+      "summary_id": "BU-END-02",
+      "title": "Security Summary",
+      "items": [
+        "Allowed domains, action budgets, timeout limits, and download policy are mandatory guardrails.",
+        "Security violations are hard-blocked with auditable policy reasons.",
+        "Secrets and auth metadata are redacted by default."
+      ]
+    },
+    {
+      "summary_id": "BU-END-03",
+      "title": "Operations Summary",
+      "items": [
+        "Preflight and diagnostics show browser backend readiness and usage.",
+        "Audit trail reconstructs route, actions, policy checks, and fallback decisions.",
+        "E2E scenarios prove both success and blocked behavior."
+      ]
+    }
+  ],
+  "summaries": {
+    "quick_recommendation": "Start with BU-T001, BU-T002, BU-T005, BU-T009, BU-T013, BU-T021, BU-T023 in that order.",
+    "default_rollout_mode": "Feature-flagged rollout with browser backend disabled by default and enabled per environment after preflight pass.",
+    "definition_of_done": "Browser tasks run through hub policy, produce verified artifacts, and are fully auditable in E2E scenarios."
+  }
+}
