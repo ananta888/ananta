@@ -144,6 +144,7 @@ def build_plan_proposal(
         "goal_contract_requirements": {
             "requires_artifact_expectations": bool(is_software_project),
             "goal_type": "software_project" if is_software_project else "generic",
+            "software_project_blueprint": "new_software_project" if is_software_project else None,
         },
         "assumptions": [],
         "clarifying_questions": [],

@@ -411,25 +411,10 @@ class TaskExecutionService:
                 for item in list(worker_execution_contract.get("allowed_tool_classes") or [])
                 if str(item).strip()
             }
-            if allowed_tool_classes:
-                blocked_tools: list[str] = []
-                blocked_reasons: dict[str, str] = {}
-                taxonomy = get_tool_intent_taxonomy_service()
-                for tc in normalized_tool_calls:
-                    tool_name = str(tc.get("name") or tc.get("tool_name") or "").strip()
-                    tool_class = str(taxonomy.classify_tool(tool_name).get("tool_class") or "unknown").strip().lower()
-                    if tool_class not in allowed_tool_classes:
-                        blocked_tools.append(tool_name or "<missing>")
-                        blocked_reasons[tool_name or "<missing>"] = "tool_class_not_allowed_for_worker_execution_contract"
-                if blocked_tools:
-                    raise ToolGuardrailError(
-                        details={
-                            "blocked_tools": blocked_tools,
-                            "blocked_reasons": sorted(set(blocked_reasons.values())),
-                            "blocked_reasons_by_tool": blocked_reasons,
-                            "allowed_tool_classes": sorted(allowed_tool_classes),
-                        }
-                    )
+            self._enforce_worker_execution_contract_tool_classes(
+                normalized_tool_calls=normalized_tool_calls,
+                allowed_tool_classes=allowed_tool_classes,
+            )
             if resolution.unresolved:
                 reason_codes = sorted({item.reason_code for item in resolution.unresolved})
                 summary = ", ".join(f"{item.original_tool}:{item.reason_code}" for item in resolution.unresolved)
@@ -905,6 +890,33 @@ class TaskExecutionService:
         proposal_trace = (task.get("last_proposal") or {}).get("trace") if isinstance(task.get("last_proposal"), dict) else {}
         trace_id = str((proposal_trace or {}).get("trace_id") or "").strip()
         return trace_id or None
+
+    def _enforce_worker_execution_contract_tool_classes(
+        self,
+        *,
+        normalized_tool_calls: list[dict],
+        allowed_tool_classes: set[str],
+    ) -> None:
+        if not allowed_tool_classes:
+            return
+        blocked_tools: list[str] = []
+        blocked_reasons: dict[str, str] = {}
+        taxonomy = get_tool_intent_taxonomy_service()
+        for tc in normalized_tool_calls:
+            tool_name = str(tc.get("name") or tc.get("tool_name") or "").strip()
+            tool_class = str(taxonomy.classify_tool(tool_name).get("tool_class") or "unknown").strip().lower()
+            if tool_class not in allowed_tool_classes:
+                blocked_tools.append(tool_name or "<missing>")
+                blocked_reasons[tool_name or "<missing>"] = "tool_class_not_allowed_for_worker_execution_contract"
+        if blocked_tools:
+            raise ToolGuardrailError(
+                details={
+                    "blocked_tools": blocked_tools,
+                    "blocked_reasons": sorted(set(blocked_reasons.values())),
+                    "blocked_reasons_by_tool": blocked_reasons,
+                    "allowed_tool_classes": sorted(allowed_tool_classes),
+                }
+            )
 
     def _loop_signature(self, value: str | None) -> str | None:
         signature = str(value or "").strip()

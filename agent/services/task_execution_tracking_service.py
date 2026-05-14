@@ -807,6 +807,32 @@ class TaskExecutionTrackingService:
             merged_metrics.update(flow_metrics)
             merged_metrics["updated_at"] = time.time()
             verification_status["task_flow_metrics"] = merged_metrics
+        routing = dict(proposal.get("routing") or {})
+        verification_status["llm_diagnostics"] = {
+            "propose_backend": str(proposal.get("backend") or ""),
+            "propose_model": str(proposal.get("model") or ""),
+            "selected_strategy": str(((routing.get("propose_strategy_meta") or {}).get("selected_strategy") or "")),
+            "effective_strategy_mode": str(((routing.get("propose_strategy_meta") or {}).get("effective_strategy_mode") or "")),
+            "inference_provider": str(routing.get("inference_provider") or ""),
+            "inference_model": str(routing.get("inference_model") or ""),
+            "updated_at": time.time(),
+        }
+        selected_strategy = str(((proposal.get("routing") or {}).get("propose_strategy_meta") or {}).get("selected_strategy") or "").strip()
+        if selected_strategy:
+            get_execution_audit_service().emit(
+                operation_type="llm_strategy_selection",
+                outcome="selected",
+                trace_id=((proposal.get("trace") or {}).get("trace_id")),
+                goal_id=(task or {}).get("goal_id"),
+                task_id=tid,
+                actor_role="hub",
+                details={
+                    "selected_strategy": selected_strategy,
+                    "effective_strategy_mode": (((proposal.get("routing") or {}).get("propose_strategy_meta") or {}).get("effective_strategy_mode")),
+                    "selection_reason": "policy_orchestrator_selection",
+                },
+            )
+
         if history_event:
             event = dict(history_event)
             event.setdefault("timestamp", time.time())
@@ -1069,6 +1095,17 @@ class TaskExecutionTrackingService:
                 "execute_ok": flow_metrics.get("execute_ok"),
                 "artifact_created": flow_metrics.get("artifact_created"),
                 "run_id": flow_metrics.get("run_id"),
+                "updated_at": time.time(),
+            }
+        file_change_set = dict((extra_history or {}).get("file_change_set") or {})
+        if file_change_set:
+            verification_status["artifact_snapshot_diff"] = {
+                "execution_id": file_change_set.get("execution_id"),
+                "before_snapshot_id": file_change_set.get("before_snapshot_id"),
+                "after_snapshot_id": file_change_set.get("after_snapshot_id"),
+                "changed_count": len(list(file_change_set.get("changed_files") or [])),
+                "added_count": len(list(file_change_set.get("added_files") or [])),
+                "removed_count": len(list(file_change_set.get("removed_files") or [])),
                 "updated_at": time.time(),
             }
         verification_status["execution_routing"] = {
