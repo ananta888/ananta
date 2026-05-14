@@ -1,10 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
   "track": "fixup_autopilot_policy_and_migration_hardening",
   "created_at": "2026-05-14",
+  "updated_at": "2026-05-14",
   "status": "todo",
-  "purpose": "Small focused follow-up after the Autopilot full-flow E2E work. The core propose/execute/artifact/completion flow is now well covered, but two hardening findings remain: ToolCallingLLMStrategy content fallback must not bypass shell-execution policy, and the runtime-selection migration should be portable and reversible. Optional: add a real VerificationService/Pytest integration test beyond synthetic verified artifacts.",
+  "purpose": "Small focused follow-up after the Autopilot full-flow E2E work. The core propose/execute/artifact/completion flow is now well covered, but two hardening findings remain: ToolCallingLLMStrategy content fallback must not bypass shell-execution policy, and the runtime-selection migration should be portable and reversible. Optional: add a real VerificationService/Pytest integration test beyond synthetic verified artifacts. This version also explicitly documents strategy semantics: native tool-calling is preferred, JSON schema is a fallback, and flexible normalization is the last model-output recovery layer.",
   "context": {
     "reviewed_commits": [
       "1d9a32a7046ba79b914886115ce74c5167af663d",
@@ -23,8 +24,22 @@
     "remaining_findings": [
       "ToolCallingLLMStrategy content fallback currently calls LLMResponseNormalizer.normalize(..., allow_shell_execution=True). This can bypass ProposePolicy.allow_shell_execution and turn model text into executable shell commands even when policy should deny shell execution.",
       "Migration c6d7e8f9a0b1 uses PostgreSQL-specific server_default=sa.text('\''[]'\''::json') and downgrade() is pass. This can break SQLite/test environments and makes rollback unsafe.",
-      "Existing verification_required=True test uses synthetic artifact verification_status values. A real VerificationService/Pytest integration test would provide stronger evidence."
-    ]
+      "Existing verification_required=True test uses synthetic artifact verification_status values. A real VerificationService/Pytest integration test would provide stronger evidence.",
+      "Strategy semantics must be made explicit: json_schema_llm is a fallback path that requires JSON only inside that strategy, not a global requirement that every LLM response must always be JSON."
+    ],
+    "intended_strategy_semantics": {
+      "preferred_order": [
+        "tool_calling_llm",
+        "json_schema_llm",
+        "flexible_llm_normalization",
+        "worker_strategy",
+        "deterministic_handler_or_human_review"
+      ],
+      "tool_calling_llm": "Preferred path. Uses provider-native tool_calls when the model/API supports it. The LLM does not execute tools itself; it only returns structured tool_call proposals, which Ananta validates and executes.",
+      "json_schema_llm": "Fallback path for providers/models without reliable native tool-calling. This strategy requires the model output to be valid JSON for this strategy only. Malformed JSON becomes advisory/needs_review and must not execute.",
+      "flexible_llm_normalization": "Last recovery path for imperfect model output such as fenced JSON, inline JSON, markdown or prose. It is policy-gated and must not convert shell text into executable commands unless shell execution is explicitly allowed.",
+      "human_review": "Safe terminal fallback for untrusted, ambiguous or malformed model output."
+    }
   },
   "tasks": [
     {
@@ -194,12 +209,56 @@
         "Docs/TODOs do not overclaim real verification if APH-T005 remains optional/todo.",
         "Policy behavior is clear enough for future implementers."
       ]
+    },
+    {
+      "id": "APH-T007",
+      "title": "Document and test LLM strategy semantics: native tool_calls before JSON schema fallback",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "problem": "json_schema_llm must be understood as a fallback for providers/models without reliable native tool-calling, not as a global requirement that all LLMs always answer JSON.",
+      "target_files": [
+        "agent/services/propose_policy.py",
+        "worker/core/tool_calling_llm_strategy.py",
+        "worker/core/json_schema_llm_strategy.py",
+        "agent/services/propose_strategies/flexible_llm_normalization_strategy.py",
+        "tests/test_propose_policy_service.py",
+        "tests/test_propose_strategy_orchestrator.py",
+        "tests/test_tool_calling_llm_strategy.py",
+        "tests/test_json_schema_llm_strategy.py",
+        "docs/architecture/propose-strategy-orchestrator.md",
+        "docs/architecture/artifact-first-worker-handoff.md"
+      ],
+      "implementation_steps": [
+        "Document preferred strategy order: tool_calling_llm > json_schema_llm > flexible_llm_normalization > worker_strategy > human_review/deterministic fallback.",
+        "Document that tool_calling_llm is preferred whenever the provider/model supports native tool calls.",
+        "Document that json_schema_llm requires valid JSON only inside that strategy path and that malformed JSON is advisory/needs_review, not executable.",
+        "Document that flexible_llm_normalization exists to recover imperfect model output, but all executable recovery must be policy-gated.",
+        "Add/verify tests that new_software_project attempts tool_calling_llm before json_schema_llm.",
+        "Add/verify tests that json_schema_llm is used when native tool_calls are unavailable/empty and policy permits fallback.",
+        "Add/verify tests that malformed JSON from json_schema_llm does not execute and falls through or becomes needs_review according to policy.",
+        "Add/verify tests that flexible_llm_normalization is reached only after structured strategies fail/decline."
+      ],
+      "acceptance_criteria": [
+        "Docs state: native tool_calls are preferred over JSON schema output.",
+        "Docs state: json_schema_llm is a fallback, not a global LLM-output requirement.",
+        "Docs state: json_schema_llm output must be valid JSON for that strategy only.",
+        "Tests prove tool_calling_llm is attempted before json_schema_llm for new_software_project.",
+        "Tests prove json_schema_llm can recover when native tool calls are unavailable or empty.",
+        "Tests prove malformed JSON from json_schema_llm is not executable.",
+        "Tests prove flexible_llm_normalization remains policy-gated and later in the chain."
+      ],
+      "notes": [
+        "This task is about semantics and future maintainability. It prevents the mistaken design interpretation that Ananta requires every model to always produce JSON.",
+        "json_schema_llm is useful for models/providers without reliable tool-calling, but should not replace native tool-calling where available."
+      ]
     }
   ],
   "priority_order": [
     "APH-T001",
     "APH-T002",
     "APH-T003",
+    "APH-T007",
     "APH-T004",
     "APH-T005",
     "APH-T006"
@@ -207,7 +266,8 @@
   "minimum_safe_slice": [
     "APH-T001",
     "APH-T002",
-    "APH-T003"
+    "APH-T003",
+    "APH-T007"
   ],
   "global_done_definition": [
     "ToolCallingLLMStrategy content fallback never hardcodes shell execution permission.",
@@ -215,15 +275,16 @@
     "Safe JSON tool_calls fallback still works without enabling shell execution.",
     "Runtime-selection migration upgrades on SQLite/dev and Postgres/prod or clearly gates dialect differences.",
     "Migration downgrade is no longer silent pass unless explicitly irreversible with clear error.",
+    "Strategy semantics are documented and tested: native tool_calls are preferred, json_schema_llm is fallback, flexible_llm_normalization is policy-gated recovery.",
     "Optional: real VerificationService/Pytest E2E proves verification_required=true with generated project tests."
   ],
   "summary_bottom": {
-    "assessment": "The Autopilot flow is now broadly strong. This hardening TODO exists because one recent improvement introduced a shell policy bypass risk in ToolCallingLLMStrategy content fallback, and the runtime-target migration needs portability cleanup.",
+    "assessment": "The Autopilot flow is now broadly strong. This hardening TODO exists because one recent improvement introduced a shell policy bypass risk in ToolCallingLLMStrategy content fallback, the runtime-target migration needs portability cleanup, and the intended LLM strategy semantics should be explicit enough that json_schema_llm is not misread as a global JSON-only requirement.",
     "status_counts": {
-      "todo": 6,
+      "todo": 7,
       "partial": 0,
       "done": 0
     },
-    "most_important_next_step": "Fix APH-T001/APH-T002 first: derive allow_shell_execution from context.policy, never hardcode True."
+    "most_important_next_step": "Fix APH-T001/APH-T002 first: derive allow_shell_execution from context.policy, never hardcode True. Then implement APH-T007 so strategy semantics are documented and tested."
   }
 }
