@@ -14,6 +14,17 @@ class AutopilotDecisionService:
 
     def normalize_proposal_data(self, propose_data: dict | None) -> dict[str, Any]:
         normalized: dict[str, Any] = dict(propose_data or {})
+        # ProposeStrategyResult payloads may wrap executable fields inside
+        # `proposal` (schema: propose_strategy_result.v1). Lift those fields so
+        # autopilot can execute strategy outputs without relying on legacy shape.
+        wrapped = normalized.get("proposal")
+        if isinstance(wrapped, dict):
+            if not normalized.get("command"):
+                normalized["command"] = wrapped.get("command")
+            if not normalized.get("tool_calls"):
+                normalized["tool_calls"] = wrapped.get("tool_calls")
+            if not str(normalized.get("reason") or "").strip():
+                normalized["reason"] = wrapped.get("reason")
         if normalized.get("command") or normalized.get("tool_calls"):
             payload = normalize_structured_action_payload(
                 {
@@ -93,7 +104,7 @@ class AutopilotDecisionService:
         exit_code = execute_data.get("exit_code")
         output = execute_data.get("output")
         task_status = execute_data.get("status")
-        if task_status not in {"completed", "failed"}:
+        if task_status not in {"completed", "failed", "todo", "needs_review", "blocked"}:
             task_status = "completed" if (exit_code in (None, 0)) else "failed"
         return task_status, exit_code, output
 
