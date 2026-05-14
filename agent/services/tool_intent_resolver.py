@@ -63,8 +63,8 @@ class ToolIntentResolver:
                 continue
 
             tc = dict(item)
-            raw_name = str(tc.get("name") or tc.get("tool_name") or "").strip()
-            args = tc.get("args") or tc.get("tool_input") or tc.get("parameters") or {}
+            raw_name = str(tc.get("name") or tc.get("tool_name") or tc.get("function_name") or "").strip()
+            args = tc.get("args") or tc.get("tool_input") or tc.get("parameters") or tc.get("arguments") or {}
             if not isinstance(args, dict):
                 args = {}
 
@@ -129,4 +129,3 @@ class ToolIntentResolver:
             remap_events=events,
             unresolved=unresolved,
         )
-

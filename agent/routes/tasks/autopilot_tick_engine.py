@@ -939,6 +939,7 @@ def execute_autopilot_tick(
     # Reset tasks stuck in `proposing` with no output for > 90 s back to `todo`
     # so the autopilot can retry them (workers can crash mid-dispatch).
     _PROPOSING_STALE_SECONDS = 90
+    _RECOVER_WAITING_REVIEW_SECONDS = 30
     now_ts = time.time()
     for _t in all_tasks:
         if str(getattr(_t, "status", "") or "").lower() != "proposing":
@@ -956,6 +957,30 @@ def execute_autopilot_tick(
             force=True,
         )
         append_trace_event(_t.id, "stale_proposing_reset", reason="no_output_after_90s")
+
+    # Auto-recover waiting_for_review tasks caused by unresolved tool intent.
+    # These are recoverable model output artifacts and should not deadlock the chain.
+    for _t in all_tasks:
+        if str(getattr(_t, "status", "") or "").lower() != "waiting_for_review":
+            continue
+        _updated = float(getattr(_t, "updated_at", None) or 0)
+        if _updated and (now_ts - _updated) < _RECOVER_WAITING_REVIEW_SECONDS:
+            continue
+        last_output = str(getattr(_t, "last_output", None) or "")
+        if "[tool_intent] unresolved:" not in last_output:
+            continue
+        update_local_task_status(
+            _t.id,
+            "todo",
+            event_type="recover_waiting_review_unresolved_tool_intent",
+            event_actor="autopilot_tick",
+            force=True,
+        )
+        append_trace_event(
+            _t.id,
+            "recover_waiting_review_unresolved_tool_intent",
+            reason="auto_retry_recoverable_tool_intent",
+        )
 
     transitions = services.task_queue_service.reconcile_dependencies(tasks=all_tasks, dependency_resolver=task_dependencies)
     for transition in transitions:
