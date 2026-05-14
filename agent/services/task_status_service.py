@@ -11,6 +11,7 @@ _STATUS_ALIASES = {
     "complete": TaskStatus.COMPLETED.value,
     "canceled": TaskStatus.CANCELLED.value,
     "blocked": TaskStatus.BLOCKED_BY_DEPENDENCY.value,
+    "needs_review": TaskStatus.WAITING_FOR_REVIEW.value,
 }
 
 _CANONICAL_QUERY_VALUES = {
@@ -21,6 +22,7 @@ _CANONICAL_QUERY_VALUES = {
     TaskStatus.PAUSED.value: ["paused"],
     TaskStatus.BLOCKED_BY_DEPENDENCY.value: ["blocked_by_dependency", "blocked"],
     TaskStatus.WAITING_FOR_REVIEW.value: ["waiting_for_review"],
+    TaskStatus.WAITING_FOR_REVIEW.value: ["waiting_for_review", "needs_review"],
     TaskStatus.VERIFICATION_FAILED.value: ["verification_failed"],
 }
 
