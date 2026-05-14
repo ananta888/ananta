@@ -212,10 +212,13 @@ def test_resolve_output_dir_already_absolute_container():
     assert host == "./project-workspaces/fibonacci"
 
 
-def test_resolve_output_dir_arbitrary_absolute_passthrough():
-    container, host = cli_goals._resolve_output_dir("/some/other/path")
-    assert container == "/some/other/path"
-    assert host is None
+def test_resolve_output_dir_arbitrary_absolute_maps_to_external_workspace(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    requested = tmp_path / "out" / "fib"
+    container, host = cli_goals._resolve_output_dir(str(requested))
+    assert container.startswith("/project-workspaces/external/")
+    assert host == str(requested)
+    assert requested.is_symlink()
 
 
 def test_parse_rag_sources_bare_collection_ids():

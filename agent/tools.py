@@ -894,6 +894,22 @@ def _check_file_access(path: str, operation: str = "read") -> tuple[bool, str]:
     return True, ""
 
 
+def _resolve_workspace_path(path: str) -> str:
+    import os
+    from flask import g, has_request_context
+
+    raw = str(path or "").strip()
+    if not raw:
+        return raw
+    if os.path.isabs(raw):
+        return raw
+    if has_request_context():
+        workspace_dir = str(g.get("workspace_dir") or "").strip()
+        if workspace_dir:
+            return os.path.abspath(os.path.join(workspace_dir, raw))
+    return os.path.abspath(raw)
+
+
 def _workspace_file_hint() -> str:
     import os
     from flask import g, has_request_context
@@ -934,6 +950,7 @@ def file_read_tool(path: str = "", encoding: str = "utf-8", file_path: str = "",
     if not resolved:
         hint = _workspace_file_hint()
         return {"error": f"Parameter 'path' fehlt.{hint}"}
+    resolved = _resolve_workspace_path(resolved)
     ok, err = _check_file_access(resolved, "read")
     if not ok: return {"error": err}
 
@@ -967,6 +984,7 @@ def file_write_tool(path: str = "", content: str = "", encoding: str = "utf-8", 
     if not resolved:
         hint = _workspace_file_hint()
         return {"error": f"Parameter 'path' fehlt.{hint}"}
+    resolved = _resolve_workspace_path(resolved)
     ok, err = _check_file_access(resolved, "write")
     if not ok: return {"error": err}
 
@@ -993,22 +1011,23 @@ def file_write_tool(path: str = "", content: str = "", encoding: str = "utf-8", 
     },
 )
 def file_list_tool(path: str = ".", recursive: bool = False):
-    ok, err = _check_file_access(path, "read")
+    resolved = _resolve_workspace_path(path)
+    ok, err = _check_file_access(resolved, "read")
     if not ok: return {"error": err}
 
     import os
-    if not os.path.exists(path):
-        return {"error": f"Verzeichnis '{path}' nicht gefunden."}
+    if not os.path.exists(resolved):
+        return {"error": f"Verzeichnis '{resolved}' nicht gefunden."}
 
     try:
         files = []
         if recursive:
-            for root, dirs, filenames in os.walk(path):
+            for root, dirs, filenames in os.walk(resolved):
                 for f in filenames:
-                    files.append(os.path.relpath(os.path.join(root, f), path))
+                    files.append(os.path.relpath(os.path.join(root, f), resolved))
         else:
-            files = os.listdir(path)
-        return {"files": files, "path": path}
+            files = os.listdir(resolved)
+        return {"files": files, "path": resolved}
     except Exception as e:
         return {"error": f"Fehler beim Auflisten: {e}"}
 
@@ -1030,6 +1049,7 @@ def file_patch_tool(path: str = "", search: str = "", replace: str = "", file_pa
     if not resolved:
         hint = _workspace_file_hint()
         return {"error": f"Parameter 'path' fehlt.{hint}"}
+    resolved = _resolve_workspace_path(resolved)
     ok, err = _check_file_access(resolved, "write")
     if not ok: return {"error": err}
 

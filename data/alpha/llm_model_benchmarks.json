@@ -3537,15 +3537,15 @@
       "provider": "orchestrator",
       "model": "ananta-default:latest",
       "overall": {
-        "total": 25,
-        "success": 5,
+        "total": 28,
+        "success": 8,
         "failed": 20,
-        "quality_pass": 5,
+        "quality_pass": 8,
         "quality_fail": 20,
-        "latency_ms_total": 65,
-        "tokens_total": 2189,
+        "latency_ms_total": 123,
+        "tokens_total": 2513,
         "cost_units_total": 0.0,
-        "last_seen": 1778779869,
+        "last_seen": 1778780698,
         "samples": [
           {
             "ts": 1778772571,
@@ -3821,20 +3821,53 @@
             "context": {
               "task_kind": "analysis"
             }
+          },
+          {
+            "ts": 1778780508,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 12,
+            "tokens_total": 102,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "coding"
+            }
+          },
+          {
+            "ts": 1778780537,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 9,
+            "tokens_total": 108,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1778780698,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 37,
+            "tokens_total": 114,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "coding"
+            }
           }
         ]
       },
       "task_kinds": {
         "coding": {
-          "total": 24,
-          "success": 4,
+          "total": 26,
+          "success": 6,
           "failed": 20,
-          "quality_pass": 4,
+          "quality_pass": 6,
           "quality_fail": 20,
-          "latency_ms_total": 58,
-          "tokens_total": 2126,
+          "latency_ms_total": 107,
+          "tokens_total": 2342,
           "cost_units_total": 0.0,
-          "last_seen": 1778779841,
+          "last_seen": 1778780698,
           "samples": [
             {
               "ts": 1778772571,
@@ -4099,19 +4132,41 @@
               "context": {
                 "task_kind": "coding"
               }
+            },
+            {
+              "ts": 1778780508,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 12,
+              "tokens_total": 102,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "coding"
+              }
+            },
+            {
+              "ts": 1778780698,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 37,
+              "tokens_total": 114,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "coding"
+              }
             }
           ]
         },
         "analysis": {
-          "total": 1,
-          "success": 1,
+          "total": 2,
+          "success": 2,
           "failed": 0,
-          "quality_pass": 1,
+          "quality_pass": 2,
           "quality_fail": 0,
-          "latency_ms_total": 7,
-          "tokens_total": 63,
+          "latency_ms_total": 16,
+          "tokens_total": 171,
           "cost_units_total": 0.0,
-          "last_seen": 1778779869,
+          "last_seen": 1778780537,
           "samples": [
             {
               "ts": 1778779869,
@@ -4123,11 +4178,22 @@
               "context": {
                 "task_kind": "analysis"
               }
+            },
+            {
+              "ts": 1778780537,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 9,
+              "tokens_total": 108,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
             }
           ]
         }
       }
     }
   },
-  "updated_at": 1778779869
+  "updated_at": 1778780698
 }
