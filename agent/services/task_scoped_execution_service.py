@@ -63,7 +63,11 @@ from agent.services.worker_execution_profile_service import (
     normalize_worker_execution_profile,
     resolve_worker_execution_profile,
 )
-from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
+from agent.services.task_runtime_service import (
+    apply_artifact_first_completion,
+    get_local_task_status,
+    update_local_task_status,
+)
 from agent.services.task_template_resolution import resolve_task_role_template
 from agent.services.verification_service import get_verification_service
 from agent.services.worker_workspace_service import get_worker_workspace_service
@@ -894,6 +898,43 @@ class TaskScopedExecutionService:
                 ),
             },
         )
+        if execution_run.status == "completed":
+            worker_execution_contract = dict(task.get("worker_execution_contract") or {})
+            expected_paths = [
+                str(item.get("relative_path") or "").strip()
+                for item in list(worker_execution_contract.get("expected_artifacts") or [])
+                if isinstance(item, dict) and bool(item.get("required", True)) and str(item.get("relative_path") or "").strip()
+            ]
+            artifact_ids = [str(ref.get("artifact_id") or "").strip() for ref in list(combined_artifact_refs or []) if str(ref.get("artifact_id") or "").strip()]
+            produced_paths = {
+                str(ref.get("workspace_relative_path") or "").strip()
+                for ref in list(combined_artifact_refs or [])
+                if isinstance(ref, dict) and str(ref.get("workspace_relative_path") or "").strip()
+            }
+            missing = [path for path in expected_paths if path not in produced_paths]
+            collection_result = {
+                "manifest_valid": not missing,
+                "artifact_ids": artifact_ids,
+                "manifest_id": f"manifest-{tid}",
+                "missing_expected_paths": missing,
+            }
+            final_status = apply_artifact_first_completion(
+                tid,
+                collection_result=collection_result,
+                advisory_parse_result=None,
+                exit_code=execution_run.exit_code,
+                retry_count=int(execution_run.retries_used or 0),
+                expected_paths=expected_paths,
+                verification_required=bool(expected_paths),
+                allow_synthesized_manifest=False,
+            )
+            response_payload["status"] = final_status
+            response_payload["artifact_completion"] = {
+                "expected_paths": expected_paths,
+                "produced_paths": sorted(produced_paths),
+                "missing_expected_paths": missing,
+                "final_status": final_status,
+            }
 
         history_len = len(task.get("history", []) or [])
         _log_terminal_entry(current_app.config["AGENT_NAME"], history_len, "out", command=command, task_id=tid)

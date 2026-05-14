@@ -547,7 +547,7 @@
         {
             "id": "GEC-T020",
             "title": "Add loop telemetry and operator status",
-            "status": "todo",
+            "status": "done",
             "priority": "P2",
             "risk": "medium",
             "milestone": "GEC-M5",
@@ -566,7 +566,7 @@
         {
             "id": "GEC-T021",
             "title": "Define unified execution audit event schema",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "critical",
             "milestone": "GEC-M6",
@@ -587,7 +587,7 @@
         {
             "id": "GEC-T022",
             "title": "Emit audit events across default path",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "high",
             "milestone": "GEC-M6",
@@ -606,7 +606,7 @@
         {
             "id": "GEC-T023",
             "title": "Add hard security block semantics",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "high",
             "milestone": "GEC-M6",
@@ -627,7 +627,7 @@
         {
             "id": "GEC-T024",
             "title": "Add audit redaction and retention rules for prompts",
-            "status": "todo",
+            "status": "done",
             "priority": "P1",
             "risk": "medium",
             "milestone": "GEC-M6",
@@ -647,7 +647,7 @@
         {
             "id": "GEC-T025",
             "title": "Make artifact-first completion authoritative",
-            "status": "partial",
+            "status": "done",
             "priority": "P0",
             "risk": "high",
             "milestone": "GEC-M7",
@@ -706,7 +706,7 @@
         {
             "id": "GEC-T028",
             "title": "Add completion regression tests",
-            "status": "partial",
+            "status": "done",
             "priority": "P1",
             "risk": "medium",
             "milestone": "GEC-M7",
@@ -814,13 +814,13 @@
     "tasks_status_summary": {
         "total": 33,
         "by_status": {
-            "todo": 7,
+            "todo": 2,
             "in_progress": 0,
             "blocked": 0,
-            "partial": 11,
-            "done": 15
+            "partial": 9,
+            "done": 22
         },
-        "progress_percent_done": 45.45,
+        "progress_percent_done": 66.67,
         "by_priority": {
             "P0": 18,
             "P1": 12,
@@ -835,8 +835,8 @@
         },
         "critical_path": {
             "total": 13,
-            "done": 10,
-            "remaining": 3
+            "done": 12,
+            "remaining": 1
         },
         "milestones": {
             "total": 8,
