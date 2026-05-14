@@ -1134,18 +1134,28 @@ def execute_autopilot_tick(
             tid = future_to_task_id[future]
             future.cancel()
             reason = "stop_event" if loop._stop_event.is_set() else f"hard_timeout_{per_task_hard_timeout}s"
+            recoverable = reason == "stop_event"
             logging.warning(
-                "[tick][task_id=%s] dispatch aborted (%s), marking failed",
-                tid, reason,
+                "[tick][task_id=%s] dispatch aborted (%s), marking %s",
+                tid, reason, "todo" if recoverable else "failed",
             )
-            update_local_task_status(tid, "failed", error=f"dispatch_{reason}", force=True)
+            update_local_task_status(
+                tid,
+                "todo" if recoverable else "failed",
+                error=f"dispatch_{reason}",
+                force=True,
+            )
             append_trace_event(
                 tid, "dispatch_aborted",
                 reason=reason,
             )
-            task_results.append(TaskDispatchResult(
-                task_id=tid, failed=True, failure_type="dispatch_aborted"
-            ))
+            task_results.append(
+                TaskDispatchResult(
+                    task_id=tid,
+                    failed=not recoverable,
+                    failure_type=("dispatch_aborted" if not recoverable else "recoverable_dispatch_aborted"),
+                )
+            )
     finally:
         executor.shutdown(wait=False)
 

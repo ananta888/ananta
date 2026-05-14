@@ -37,3 +37,22 @@ def test_function_name_and_arguments_aliases_are_supported():
     assert len(result.resolved_tool_calls) == 1
     assert result.resolved_tool_calls[0]["name"] == "file_write"
     assert result.resolved_tool_calls[0]["args"]["path"] == "README.md"
+
+
+def test_heuristic_scope_tool_maps_to_file_write():
+    result = ToolIntentResolver().resolve(
+        [{"name": "process_project_scope", "args": {"scope_elements": ["Problem", "Zielgruppe"]}}],
+        known_tools=["file_read", "file_write", "web_search", "shell_execute"],
+    )
+    assert len(result.resolved_tool_calls) == 1
+    assert result.resolved_tool_calls[0]["name"] == "file_write"
+    assert result.resolved_tool_calls[0]["args"]["path"] == "PROJECT_SCOPE.md"
+
+
+def test_heuristic_google_tool_maps_to_web_search():
+    result = ToolIntentResolver().resolve(
+        [{"name": "google:tool_a", "args": {"query": "java angular fibonacci"}}],
+        known_tools=["file_read", "file_write", "web_search", "shell_execute"],
+    )
+    assert len(result.resolved_tool_calls) == 1
+    assert result.resolved_tool_calls[0]["name"] == "web_search"
