@@ -1,24 +1,28 @@
 from __future__ import annotations
 
-from agent.services.planning_service import PlanningService
+from agent.services.planning_proposal_service import validate_plan_proposal_payload
 
 
-def test_repair_invalid_plan_payload_adds_expected_artifacts() -> None:
+def test_missing_expected_artifacts_are_reported_for_repair() -> None:
     payload = {
+        "plan_proposal_contract_version": "v1",
+        "goal_id": "G2",
+        "trace_id": "T2",
+        "summary": "test",
+        "goal_contract_requirements": {"requires_artifact_expectations": True},
         "nodes": [
             {
                 "node_key": "N1",
+                "title": "Code",
+                "description": "code",
                 "task_kind": "coding",
+                "depends_on": [],
+                "required_capabilities": [],
+                "risk_level": "medium",
                 "expected_artifacts": [],
-                "verification_spec": {},
             }
-        ]
+        ],
     }
-    repaired = PlanningService._repair_invalid_plan_payload(
-        payload,
-        ["missing_expected_artifacts:N1"],
-    )
-    node = repaired["nodes"][0]
-    assert node["expected_artifacts"]
-    assert node["verification_spec"]["expected_artifacts"]
-
+    result = validate_plan_proposal_payload(payload, known_capabilities={"coding"})
+    assert result.ok is False
+    assert any(item.startswith("missing_expected_artifacts:") for item in result.errors)
