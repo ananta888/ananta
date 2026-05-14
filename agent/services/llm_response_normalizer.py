@@ -33,6 +33,12 @@ class LLMResponseNormalizer:
         self._fenced_shell_re = re.compile(r'```(?:bash|sh|shell)\s*(.*?)\s*```', re.DOTALL | re.IGNORECASE | re.MULTILINE)
         self._diff_re = re.compile(r'^(?:---|\+\+ +|\@@)', re.MULTILINE)
         self._file_block_re = re.compile(r'```(\w+\.?\w*)\s*(.*?)\s*```', re.DOTALL | re.IGNORECASE)
+        self._inline_bash_re = re.compile(r'(?:^|\n)\s*(?:>\s*)?((?:npm|pip|python|git|cd |ls |mkdir |touch |echo |cat |chmod |curl |wget |docker |make |mvn |gradle |java |node |npx |yarn |bun )\S.*?)(?=\n|$)', re.IGNORECASE)
+        self._german_suggest_re = re.compile(
+            r'(?:ich\s+(?:werde|kann|würde|würde\s+ich|schlage\s+vor|empfehle))\s*(?::|,)?\s*'
+            r'(.+?)(?:\n\n|\.\s*[A-Z]|$)', re.DOTALL | re.IGNORECASE
+        )
+        self._inline_json_re = re.compile(r'(\{(?:[^{}]|(?:\{[^{}]*\}))*\})', re.DOTALL)
 
     def normalize(
         self,
@@ -55,6 +61,14 @@ class LLMResponseNormalizer:
         if result:
             return result
 
+        result = self._try_inline_json(trimmed, context)
+        if result:
+            return result
+
+        result = self._try_inline_bash(trimmed, context, allow_shell_execution=allow_shell_execution)
+        if result:
+            return result
+
         result = self._try_diff(trimmed, context)
         if result:
             return result
@@ -64,6 +78,10 @@ class LLMResponseNormalizer:
             return result
 
         result = self._try_planner(trimmed, context)
+        if result:
+            return result
+
+        result = self._try_german_suggestion(trimmed, context)
         if result:
             return result
 
@@ -137,7 +155,6 @@ class LLMResponseNormalizer:
             command = match.group(1).strip()
             if command:
                 if not allow_shell_execution:
-                    # Shell execution not allowed by policy → advisory
                     return ProposeStrategyResult.advisory(
                         "llm_response_normalizer",
                         advisory_text=command,
@@ -155,6 +172,76 @@ class LLMResponseNormalizer:
                     "llm_response_normalizer",
                     proposal,
                     metadata={"confidence": 0.8, "source_format": "fenced_shell"}
+                )
+        return None
+
+    def _try_inline_json(self, text: str, context: ProposeContext) -> Optional[ProposeStrategyResult]:
+        for match in self._inline_json_re.finditer(text):
+            raw = match.group(1)
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(parsed, dict):
+                continue
+            command = parsed.get("command") or None
+            if command:
+                command = str(command).strip() or None
+            tool_calls = parsed.get("tool_calls") or []
+            valid_tcs = [tc for tc in tool_calls if isinstance(tc, dict) and tc.get("name")]
+            if command or valid_tcs:
+                proposal = ExecutableProposal(
+                    proposal_id=f"norm-inj-{context.task_id}",
+                    goal_id=context.goal_id,
+                    task_id=context.task_id,
+                    strategy_id="llm_response_normalizer",
+                    command=command or None,
+                    tool_calls=valid_tcs,
+                )
+                return ProposeStrategyResult.executable(
+                    "llm_response_normalizer",
+                    proposal,
+                    metadata={"confidence": 0.9, "source_format": "inline_json"},
+                )
+        return None
+
+    def _try_inline_bash(
+        self,
+        text: str,
+        context: ProposeContext,
+        *,
+        allow_shell_execution: bool = False,
+    ) -> Optional[ProposeStrategyResult]:
+        # Match common command-trigger lines in prose (German/English)
+        command_prefix_re = re.compile(
+            r'(?:^|\n)\s*(?:'
+            r'(?:führe|run|exec(?:ute)?|start)\s*(?:d(?:ie|en|as|iesen)|folgenden|folgende|folgendes|this|the|following)?\s*(?:befehl|command|script)?\s*(?::|,)?\s*`([^`]+)`'
+            r'|'
+            r'`([^`]+)`'
+            r')',
+            re.IGNORECASE | re.MULTILINE,
+        )
+        for match in command_prefix_re.finditer(text):
+            cmd = (match.group(1) or match.group(2) or "").strip()
+            if cmd:
+                if not allow_shell_execution:
+                    return ProposeStrategyResult.advisory(
+                        "llm_response_normalizer",
+                        advisory_text=cmd,
+                        reason="shell_execution_not_allowed_by_policy",
+                        reason_codes=["source_format:inline_bash", "shell_execution_policy_denied"],
+                        metadata={"source_format": "inline_bash", "confidence": 0.6},
+                    )
+                proposal = ExecutableProposal.from_command(
+                    goal_id=context.goal_id,
+                    task_id=context.task_id,
+                    strategy_id="llm_response_normalizer",
+                    command=cmd,
+                )
+                return ProposeStrategyResult.executable(
+                    "llm_response_normalizer",
+                    proposal,
+                    metadata={"confidence": 0.7, "source_format": "inline_bash"},
                 )
         return None
 
@@ -201,6 +288,19 @@ class LLMResponseNormalizer:
                 proposal=proposal,
                 reason="file_proposal_extracted",
                 metadata={"confidence": 0.9, "source_format": "file_blocks"}
+            )
+        return None
+
+    def _try_german_suggestion(self, text: str, context: ProposeContext) -> Optional[ProposeStrategyResult]:
+        match = self._german_suggest_re.search(text)
+        if match:
+            suggestion = match.group(1).strip()
+            return ProposeStrategyResult.advisory(
+                "llm_response_normalizer",
+                advisory_text=suggestion,
+                reason="german_suggestion_extracted",
+                reason_codes=["source_format:german_prose"],
+                metadata={"source_format": "german_prose", "confidence": 0.4},
             )
         return None
 
