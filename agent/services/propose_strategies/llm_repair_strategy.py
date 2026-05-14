@@ -19,9 +19,22 @@ class LLMRepairStrategy(ProposeStrategy):
         self.model_service = ModelInvocationService
 
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
-        # Stub previous failed output (in real: from context.previous_result.raw_output)
-        previous_raw = "```json\n{ 'tool_calls': [ { 'name': 'write_file' } ] \n```  # malformed"
-        validation_errors = "missing args in tool_call, invalid JSON"
+        # FA-T011: bounded single repair attempt per strategy invocation.
+        raw_max_repairs = getattr(getattr(context, "policy", None), "max_repair_attempts", 1)
+        max_repairs = int(1 if raw_max_repairs is None else raw_max_repairs)
+        if max_repairs <= 0:
+            return ProposeStrategyResult.declined(
+                "llm_repair_strategy",
+                reason="repair_disabled_by_policy",
+                reason_codes=["repair_disabled"],
+            )
+        previous_raw = ""
+        validation_errors = "invalid or non-executable output"
+        if isinstance(context.research_context, dict):
+            previous_raw = str(context.research_context.get("raw_output") or "")[:5000]
+            validation_errors = str(context.research_context.get("validation_errors") or validation_errors)
+        if not previous_raw:
+            previous_raw = "No raw output provided"
 
         # Schema stub (real: ExecutableProposal schema)
         schema_example = """
@@ -31,7 +44,8 @@ class LLMRepairStrategy(ProposeStrategy):
 }
 """
 
-        tools = context.tool_definitions_resolver() or []
+        resolver = context.tool_definitions_resolver
+        tools = resolver() if resolver is not None else []
 
         repair_prompt = f"""You are a repair agent. Fix this LLM output to a valid ExecutableProposal.
 
@@ -51,6 +65,7 @@ Rules:
 - Output ONLY valid JSON matching schema (command or tool_calls).
 - Do not invent new tools or commands.
 - Do not broaden permissions.
+- Respect shell policy: allow_shell_execution={getattr(getattr(context, "policy", None), "allow_shell_execution", False)}
 - No prose, no Markdown, no explanations.
 
 Respond with ONLY the fixed JSON."""
@@ -58,13 +73,20 @@ Respond with ONLY the fixed JSON."""
         try:
             repair_output = self.model_service.invoke(
                 prompt=repair_prompt,
-                model="gpt-4o-mini",
+                model=None,
             )
-            normalized = self.normalizer.normalize(repair_output, context)
+            normalized = self.normalizer.normalize(
+                repair_output,
+                context,
+                allow_shell_execution=bool(
+                    getattr(getattr(context, "policy", None), "allow_shell_execution", False)
+                ),
+            )
 
             if normalized.is_executable:
-                normalized.metadata["repair_attempted"] = True
-                normalized.metadata["repair_success"] = True
+                if isinstance(normalized.metadata, dict):
+                    normalized.metadata["repair_attempted"] = True
+                    normalized.metadata["repair_success"] = True
                 normalized.reason_codes.append("repair_success")
                 return normalized
             else:

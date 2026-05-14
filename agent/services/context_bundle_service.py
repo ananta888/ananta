@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from worker.core.propose_orchestrator import ProposeContext
-from agent.services.propose_policy_service import ProposePolicyService
 
 
 _CONTEXT_BUNDLE_DEFAULTS: dict = {
@@ -89,6 +88,49 @@ Propose for goal: {goal_prompt}
 Output ONLY valid JSON matching schema."""
 
         return prompt
+
+    @staticmethod
+    def build_bundle(
+        *,
+        query: str,
+        context_payload: dict,
+        policy_mode: str = "standard",
+        llm_scope: str = "local_only",
+    ) -> dict:
+        """FA-T012: Build a governed context bundle with scope-aware filtering."""
+        chunks = list((context_payload or {}).get("chunks") or [])
+        filtered = []
+        denied = 0
+        for chunk in chunks:
+            meta = dict(chunk.get("metadata") or {})
+            sensitivity = str(meta.get("sensitivity") or "public").lower()
+            # external cloud scope: deny internal_high/secret-like content by default
+            if llm_scope == "external_cloud_allowed" and sensitivity in {
+                "internal_high", "secret", "credential", "security_sensitive"
+            }:
+                denied += 1
+                continue
+            filtered.append(chunk)
+
+        return {
+            "schema": "worker_context_bundle.v1",
+            "query": query,
+            "policy_mode": policy_mode,
+            "llm_scope": llm_scope,
+            "chunk_count": len(filtered),
+            "chunks": filtered,
+            "context_text": (context_payload or {}).get("context_text"),
+            "token_estimate": int((context_payload or {}).get("token_estimate") or 0),
+            "context_policy": {
+                "default_deny": llm_scope == "external_cloud_allowed",
+                "llm_scope": llm_scope,
+            },
+            "policy_filter": {
+                "input_count": len(chunks),
+                "allowed_count": len(filtered),
+                "denied_count": denied,
+            },
+        }
 
     @staticmethod
     def _get_examples(strategy_id: str) -> str:

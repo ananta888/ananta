@@ -5,6 +5,7 @@ from typing import Any, List
 
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 from worker.core.propose import ProposeStrategyResult
+from agent.services.llm_response_normalizer import LLMResponseNormalizer
 
 from agent.services.worker_runtime_selection_service import (
     WorkerRuntimeSelectionService,
@@ -55,8 +56,29 @@ class WorkerStrategy(ProposeStrategy):
                     reason_codes=["no_worker_selected"] + list(getattr(decision, "reason_codes", [])),
                 )
 
-            # Worker selected: real delegation path (future implementation)
-            # For now, decline with explicit diagnostic instead of generating mock output
+            # If a worker adapter already produced structured proposal output, normalize it.
+            worker_output = None
+            for attr in ("proposal_output", "worker_output", "output"):
+                candidate = getattr(decision, attr, None)
+                if isinstance(candidate, str) and candidate.strip():
+                    worker_output = candidate
+                    break
+            if isinstance(worker_output, str) and worker_output.strip():
+                normalized = LLMResponseNormalizer().normalize(
+                    worker_output,
+                    context,
+                    allow_shell_execution=bool(
+                        getattr(getattr(context, "policy", None), "allow_shell_execution", False)
+                    ),
+                )
+                if isinstance(normalized.metadata, dict):
+                    normalized.metadata["selected_worker_id"] = getattr(
+                        getattr(decision, "selected_worker", None), "worker_id", None
+                    )
+                    normalized.metadata["source"] = "worker_strategy_output"
+                return normalized
+
+            # Worker selected but no usable output yet: explicit decline.
             return ProposeStrategyResult.declined(
                 "worker_strategy",
                 reason="real_worker_delegation_not_implemented",

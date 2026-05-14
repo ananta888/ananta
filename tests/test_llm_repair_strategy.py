@@ -21,6 +21,8 @@ class TestLLMRepairStrategy:
         ctx.goal_id = "g1"
         ctx.task_id = "t1"
         ctx.tool_definitions_resolver.return_value = [{"name": "write_file"}]
+        ctx.policy = Mock(max_repair_attempts=1, allow_shell_execution=False)
+        ctx.research_context = {"raw_output": "{bad", "validation_errors": "invalid json"}
         return ctx
 
     def test_repair_success_executable(self, context, monkeypatch):
@@ -101,3 +103,10 @@ class TestLLMRepairStrategy:
 
         assert "repair_output_preview" in result.metadata
         assert mock_repair_output[:200] in result.metadata["repair_output_preview"]
+
+    def test_repair_disabled_by_policy(self, context):
+        context.policy.max_repair_attempts = 0
+        strategy = LLMRepairStrategy()
+        result = strategy.run(context)
+        assert result.status == STATUS_DECLINED
+        assert "repair_disabled_by_policy" in result.reason

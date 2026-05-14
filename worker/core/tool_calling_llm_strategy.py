@@ -7,6 +7,7 @@ from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 from worker.core.propose import ProposeStrategyResult, ExecutableProposal
 from agent.services.model_invocation_service import ModelInvocationService, LLMUnavailableError
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
+from agent.services.context_bundle_service import ContextBundler
 
 _MOCK_ONLY_PROVIDERS = {"mock"}
 
@@ -24,6 +25,19 @@ def _build_system_prompt(context: ProposeContext) -> str:
         parts.append("")
         parts.append("Task description:")
         parts.append(task_desc)
+    rc = context.research_context if isinstance(context.research_context, dict) else {}
+    if rc:
+        bundle = ContextBundler.build_bundle(
+            query=task_desc or context.base_prompt,
+            context_payload=rc,
+            policy_mode="standard",
+            llm_scope="external_cloud_allowed",
+        )
+        parts.append("")
+        parts.append("Governed context summary:")
+        parts.append(
+            f"chunks={bundle.get('chunk_count', 0)} denied={((bundle.get('policy_filter') or {}).get('denied_count', 0))}"
+        )
     parts.append("")
     parts.append(
         "You MUST use one or more of the available tools to complete the task. "
