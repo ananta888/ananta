@@ -33,10 +33,10 @@ from agent.models import (
 from agent.pipeline_trace import append_stage
 from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.approval_policy_service import get_approval_policy_service
+from agent.services.tool_intent_resolver import ToolIntentResolver
 from agent.services.task_execution_policy_service import (
     classify_execution_failure,
     compute_execution_retry_delay,
-    normalize_tool_call_name,
     resolve_task_scope_allowed_tools,
     resolve_execution_policy,
     should_retry_execution,
@@ -363,15 +363,69 @@ class TaskExecutionService:
         if normalized_tool_calls:
             allowed_tools = resolve_task_scope_allowed_tools(effective_task)
             known_tools = [definition.get("name") for definition in tool_registry.get_tool_definitions()]
-            normalized_tool_calls, remap_events = self._resolve_tool_intents(
-                normalized_tool_calls,
-                known_tools=known_tools,
-            )
-            for event in remap_events:
+            resolution = ToolIntentResolver().resolve(normalized_tool_calls, known_tools=known_tools)
+            normalized_tool_calls = list(resolution.resolved_tool_calls)
+            for event in resolution.remap_events:
                 current_app.logger.info(
                     "tool_intent_resolved %s",
-                    json.dumps(event, ensure_ascii=True, sort_keys=True),
+                    json.dumps(
+                        {
+                            "original_tool": event.original_tool,
+                            "resolved_tool": event.resolved_tool,
+                            "reason": event.reason,
+                            "confidence": event.confidence,
+                        },
+                        ensure_ascii=True,
+                        sort_keys=True,
+                    ),
                 )
+            if resolution.unresolved:
+                reason_codes = sorted({item.reason_code for item in resolution.unresolved})
+                summary = ", ".join(f"{item.original_tool}:{item.reason_code}" for item in resolution.unresolved)
+                return LocalExecutionResult(
+                    output=f"[tool_intent] unresolved: {summary}",
+                    exit_code=1,
+                    retries_used=0,
+                    failure_type="tool_intent_unresolved_recoverable",
+                    retry_history=[],
+                    status="needs_review",
+                    loop_signals=[],
+                    loop_detection=None,
+                    approval_decision=approval_payload,
+                )
+
+            # Re-run policy checks against final normalized intents.
+            normalized_approval = get_approval_policy_service().evaluate(
+                command=command,
+                tool_calls=normalized_tool_calls,
+                task=effective_task,
+                agent_cfg=guard_cfg,
+            )
+            normalized_approval_payload = normalized_approval.as_dict()
+            if normalized_approval_payload.get("classification") == "blocked" and normalized_approval_payload.get("enforced"):
+                raise ToolGuardrailError(
+                    details={
+                        "blocked_tools": [str((item or {}).get("name") or "").strip() for item in normalized_tool_calls],
+                        "blocked_reasons": [normalized_approval_payload.get("reason_code")],
+                        "approval": normalized_approval_payload,
+                    }
+                )
+            normalized_risk = evaluate_execution_risk(
+                command=command,
+                tool_calls=normalized_tool_calls,
+                task=effective_task,
+                agent_cfg=guard_cfg,
+            )
+            if not normalized_risk.allowed:
+                raise ToolGuardrailError(
+                    details={
+                        "blocked_tools": normalized_risk.blocked_tools,
+                        "blocked_reasons": normalized_risk.reasons,
+                        "guardrails": normalized_risk.details,
+                        "risk_level": normalized_risk.risk_level,
+                    }
+                )
+
             blocked_tools, blocked_reasons_by_tool = validate_task_scoped_tool_calls(
                 normalized_tool_calls,
                 allowed_tools=allowed_tools,
@@ -389,35 +443,6 @@ class TaskExecutionService:
                     },
                 )
             if blocked_tools:
-                recoverable_reason_codes = {"unknown_tool", "missing_tool_name", "invalid_tool_call"}
-                reasons = set(blocked_reasons_by_tool.values())
-                if reasons and reasons.issubset(recoverable_reason_codes):
-                    msg = (
-                        "[tool_intent] unresolved but recoverable: "
-                        + ", ".join(sorted(f"{tool}:{blocked_reasons_by_tool.get(tool)}" for tool in blocked_tools))
-                    )
-                    if pipeline is not None:
-                        append_stage(
-                            pipeline,
-                            name="task_scope_validation",
-                            status="blocked",
-                            metadata={
-                                "recoverable": True,
-                                "blocked_tools": blocked_tools,
-                                "blocked_reasons_by_tool": blocked_reasons_by_tool,
-                            },
-                        )
-                    return LocalExecutionResult(
-                        output=msg,
-                        exit_code=0,
-                        retries_used=0,
-                        failure_type="tool_intent_unresolved_recoverable",
-                        retry_history=[],
-                        status="todo",
-                        loop_signals=[],
-                        loop_detection=None,
-                        approval_decision=approval_payload,
-                    )
                 scope_decision = ToolGuardrailDecision(
                     allowed=False,
                     blocked_tools=blocked_tools,
@@ -469,8 +494,7 @@ class TaskExecutionService:
                     }
                 )
             for tool_call in normalized_tool_calls:
-                raw_name = str(tool_call.get("name") or tool_call.get("tool_name") or "").strip()
-                name = normalize_tool_call_name(raw_name)
+                name = str(tool_call.get("name") or tool_call.get("tool_name") or "").strip()
                 args = tool_call.get("args") or tool_call.get("tool_input") or tool_call.get("parameters") or {}
                 current_app.logger.info("Task %s führt Tool aus: %s mit %s", tid or "<direct>", name, args)
                 tool_result = tool_registry.execute(name, args)
@@ -903,71 +927,6 @@ class TaskExecutionService:
             tc["args"] = args
             normalized.append(tc)
         return normalized
-
-    def _resolve_tool_intents(
-        self,
-        tool_calls: list[dict],
-        *,
-        known_tools: list[str] | tuple[str, ...] | set[str] | None,
-    ) -> tuple[list[dict], list[dict]]:
-        known = {str(item).strip() for item in (known_tools or []) if str(item).strip()}
-        remapped: list[dict] = []
-        events: list[dict] = []
-        for item in list(tool_calls or []):
-            if not isinstance(item, dict):
-                continue
-            tc = dict(item)
-            raw_name = str(tc.get("name") or tc.get("tool_name") or "").strip()
-            name = normalize_tool_call_name(raw_name)
-            args = tc.get("args") or tc.get("tool_input") or tc.get("parameters") or {}
-            if not isinstance(args, dict):
-                args = {}
-            command_payload = str(args.get("command") or args.get("cmd") or "").strip()
-            path_payload = str(args.get("path") or args.get("file_path") or args.get("filename") or "").strip()
-            content_payload = (
-                str(args.get("content") or "").strip()
-                or str(args.get("text") or "").strip()
-                or str(args.get("details") or "").strip()
-                or str(args.get("summary") or "").strip()
-            )
-
-            resolved_name = name
-            resolved_args = dict(args)
-            resolve_reason = "canonical"
-
-            if command_payload and name not in {"bash", "shell_execute", "run_command", "execute_command"}:
-                resolved_name = "bash"
-                resolved_args = {"command": command_payload}
-                resolve_reason = "command_payload_to_bash"
-            elif content_payload and path_payload and name not in {"file_write", "file_patch"}:
-                resolved_name = "file_write"
-                resolved_args = {"path": path_payload, "content": content_payload}
-                resolve_reason = "path_plus_content_to_file_write"
-            elif path_payload and not content_payload and name not in {"file_read", "file_list"}:
-                resolved_name = "file_read"
-                resolved_args = {"path": path_payload}
-                resolve_reason = "path_only_to_file_read"
-            elif (known and resolved_name not in known) and content_payload:
-                safe_slug = re.sub(r"[^a-z0-9_\\-]+", "_", str(name or "note")).strip("_") or "note"
-                escaped = content_payload.replace("'", "'\"'\"'")
-                resolved_name = "bash"
-                resolved_args = {"command": f"printf '%s\\n' '{escaped}' > {shlex.quote(safe_slug + '.md')}"}
-                resolve_reason = "unknown_tool_text_to_bash"
-
-            tc["name"] = resolved_name
-            tc["tool_name"] = resolved_name
-            tc["args"] = resolved_args
-
-            if raw_name != resolved_name or resolve_reason != "canonical":
-                events.append(
-                    {
-                        "original_tool": raw_name or "<missing>",
-                        "resolved_tool": resolved_name or "<missing>",
-                        "reason": resolve_reason,
-                    }
-                )
-            remapped.append(tc)
-        return remapped, events
 
     def _build_proposal_payload(self, raw_response: str) -> dict:
         reason = _extract_reason(raw_response)
