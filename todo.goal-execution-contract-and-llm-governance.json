@@ -914,6 +914,157 @@
             ]
         }
     ],
+    "execution_order_sprints": [
+        {
+            "sprint_id": "GEC-SPRINT-1",
+            "title": "Contract Core Closure",
+            "goal": "Close the architecture bottleneck around contract authority and unblock downstream tracks.",
+            "focus_task_ids": [
+                "GEC-T000",
+                "GEC-T001",
+                "GEC-T002",
+                "GEC-T003",
+                "GEC-T004"
+            ],
+            "exit_criteria": [
+                "GoalExecutionContract schema and defaults are stable and versioned.",
+                "New and legacy goals both receive valid contracts.",
+                "Task-scoped contract propagation is test-covered."
+            ]
+        },
+        {
+            "sprint_id": "GEC-SPRINT-2",
+            "title": "Loop And Audit Backbone",
+            "goal": "Make execution transitions and evidence chain explicit before deep verification work.",
+            "focus_task_ids": [
+                "GEC-T017",
+                "GEC-T020",
+                "GEC-T021",
+                "GEC-T022",
+                "GEC-T023"
+            ],
+            "exit_criteria": [
+                "Hub-controlled loop states are active and bounded.",
+                "Unified audit event schema is emitted across default path transitions.",
+                "Hard security blocks and recoverable errors are clearly separated in status and audit."
+            ]
+        },
+        {
+            "sprint_id": "GEC-SPRINT-3",
+            "title": "Artifact Completion Hardening",
+            "goal": "Turn partial completion and verification tasks into production-grade gates.",
+            "focus_task_ids": [
+                "GEC-T018",
+                "GEC-T025",
+                "GEC-T026",
+                "GEC-T027",
+                "GEC-T028"
+            ],
+            "exit_criteria": [
+                "Artifact-first completion is authoritative for artifact-producing goals.",
+                "Software verification gates for Java plus Angular outputs are active.",
+                "Critique payload and regression tests cover both pass and fail outcomes."
+            ]
+        },
+        {
+            "sprint_id": "GEC-SPRINT-4",
+            "title": "Golden Path Reliability",
+            "goal": "Prove real-world CLI behavior and close observability gaps for LLM usage.",
+            "focus_task_ids": [
+                "GEC-T029",
+                "GEC-T030",
+                "GEC-T031",
+                "GEC-T032"
+            ],
+            "exit_criteria": [
+                "Golden-path CLI e2e run produces expected Java and Angular artifacts.",
+                "LLM or Ollama usage diagnostics are visible and actionable.",
+                "Deterministic fallback usage is explicit and audited."
+            ]
+        }
+    ],
+    "partial_task_definition_of_done": [
+        {
+            "task_id": "GEC-T014",
+            "current_status": "partial",
+            "definition_of_done": [
+                "Resolver handles alias and argument-based remap paths for shell and file intents.",
+                "Ambiguous or invalid schema/name cases return recoverable outcomes instead of immediate hard fail.",
+                "Every remap emits structured fields original_tool, resolved_tool and reason.",
+                "Unit tests cover remap success, ambiguity and policy rejection boundaries."
+            ]
+        },
+        {
+            "task_id": "GEC-T018",
+            "current_status": "partial",
+            "definition_of_done": [
+                "Verification failures generate structured critique payloads with expectation mismatch evidence.",
+                "Critique payload is persisted and linked to task history and trace IDs.",
+                "Critique payload is consumable by repair strategy without leaking restricted context.",
+                "Tests cover missing artifacts and failed command verification cases."
+            ]
+        },
+        {
+            "task_id": "GEC-T025",
+            "current_status": "partial",
+            "definition_of_done": [
+                "Artifact-first completion is integrated into default completion authority.",
+                "Artifact-producing goals cannot complete on markdown-only output unless explicitly expected.",
+                "Completion response reports gate-level pass/fail outcomes.",
+                "Regression tests verify both successful and blocked completion decisions."
+            ]
+        },
+        {
+            "task_id": "GEC-T026",
+            "current_status": "partial",
+            "definition_of_done": [
+                "Java backend and Angular frontend verification gates are implemented and configurable.",
+                "Verification checks detect core Fibonacci functionality evidence.",
+                "Blocked command environments are reported as blocked or needs_review with explicit reason.",
+                "Verification outputs are structured for audit and repair consumption."
+            ]
+        },
+        {
+            "task_id": "GEC-T027",
+            "current_status": "partial",
+            "definition_of_done": [
+                "Pre/post execution artifact manifests are captured for artifact-producing tasks.",
+                "Manifest entries include path, type and stable integrity metadata.",
+                "Manifest evidence is linked to expected artifacts and verification outcomes.",
+                "Tests cover create, modify and no-change scenarios."
+            ]
+        },
+        {
+            "task_id": "GEC-T028",
+            "current_status": "partial",
+            "definition_of_done": [
+                "Completion regression suite fails for placeholder-only outputs.",
+                "Completion regression suite passes for valid Java and Angular artifact trees.",
+                "Suite covers repair or needs_review transitions after verification failure.",
+                "Suite runs locally without mandatory live Ollama dependency."
+            ]
+        },
+        {
+            "task_id": "GEC-T029",
+            "current_status": "partial",
+            "definition_of_done": [
+                "CLI e2e creates a temporary invocation directory and executes from within it.",
+                "Generated project contains expected Java backend and Angular frontend artifact sets.",
+                "Goal/task status transitions reach verified completion state.",
+                "E2E output includes evidence references suitable for audit review."
+            ]
+        },
+        {
+            "task_id": "GEC-T030",
+            "current_status": "partial",
+            "definition_of_done": [
+                "Diagnostics expose planner and worker LLM call attempts separately.",
+                "Provider, model, timestamp and failure category are visible in status or diagnostics.",
+                "Default reporting remains metadata-only without raw prompt content leakage.",
+                "Tests cover normal and LLM-unavailable diagnostic output."
+            ]
+        }
+    ],
     "summaries": {
         "why_this_track_exists": "Current code has planning strategies, LLM proposal strategies, RAG filtering, tool intent resolution and artifact completion pieces, but they are not bound by one explicit execution contract.",
         "first_implementation_slice": "Run GEC-T000, then implement GEC-T001/GEC-T004/GEC-T002/GEC-T003/GEC-T005, then GEC-T013..GEC-T015, then GEC-T025..GEC-T029.",
