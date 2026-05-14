@@ -72,3 +72,45 @@ def test_build_plan_proposal_and_validate_happy_path() -> None:
     assert result.ok is True
     assert result.errors == []
     assert len(result.normalized_payload["nodes"]) == 2
+
+
+def test_build_plan_proposal_adds_expected_artifacts_for_software_project() -> None:
+    payload = build_plan_proposal(
+        goal_id="G-soft",
+        trace_id="TR-soft",
+        summary="Create software project with Java backend and Angular frontend",
+        subtasks=[
+            {"title": "Create backend Java service", "description": "backend", "task_kind": "coding"},
+            {"title": "Create Angular frontend", "description": "frontend", "task_kind": "coding"},
+        ],
+    )
+    nodes = payload["nodes"]
+    assert nodes[0]["expected_artifacts"]
+    assert nodes[1]["expected_artifacts"]
+    assert payload["goal_contract_requirements"]["requires_artifact_expectations"] is True
+
+
+def test_validate_plan_proposal_payload_emits_repair_hints_when_missing_artifacts() -> None:
+    payload = {
+        "plan_proposal_contract_version": "v1",
+        "goal_id": "G2",
+        "trace_id": "T2",
+        "summary": "test",
+        "goal_contract_requirements": {"requires_artifact_expectations": True},
+        "nodes": [
+            {
+                "node_key": "N1",
+                "title": "Code",
+                "description": "code",
+                "task_kind": "coding",
+                "depends_on": [],
+                "required_capabilities": [],
+                "risk_level": "medium",
+                "expected_artifacts": [],
+            }
+        ],
+    }
+    result = validate_plan_proposal_payload(payload, known_capabilities={"coding"})
+    assert result.ok is False
+    assert any(item.startswith("missing_expected_artifacts:") for item in result.errors)
+    assert result.normalized_payload["repair_hints"]["reason"] == "missing_artifact_expectations"

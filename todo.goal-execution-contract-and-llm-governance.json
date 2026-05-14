@@ -157,7 +157,7 @@
         {
             "id": "GEC-T000",
             "title": "Classify existing implementation coverage",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "medium",
             "milestone": "GEC-M1",
@@ -174,7 +174,7 @@
         {
             "id": "GEC-T001",
             "title": "Define GoalExecutionContract schema",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "high",
             "milestone": "GEC-M1",
@@ -191,7 +191,7 @@
         {
             "id": "GEC-T002",
             "title": "Attach execution contract at goal creation",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "high",
             "milestone": "GEC-M1",
@@ -211,7 +211,7 @@
         {
             "id": "GEC-T003",
             "title": "Propagate contract into materialized tasks",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "high",
             "milestone": "GEC-M1",
@@ -231,7 +231,7 @@
         {
             "id": "GEC-T004",
             "title": "Add contract compatibility adapter",
-            "status": "todo",
+            "status": "done",
             "priority": "P1",
             "risk": "medium",
             "milestone": "GEC-M1",
@@ -250,7 +250,7 @@
         {
             "id": "GEC-T005",
             "title": "Extend plan proposal with artifact expectations",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "high",
             "milestone": "GEC-M2",
@@ -270,7 +270,7 @@
         {
             "id": "GEC-T006",
             "title": "Add software project plan blueprint",
-            "status": "todo",
+            "status": "partial",
             "priority": "P0",
             "risk": "medium",
             "milestone": "GEC-M2",
@@ -289,7 +289,7 @@
         {
             "id": "GEC-T007",
             "title": "Add plan repair for missing deliverables",
-            "status": "todo",
+            "status": "partial",
             "priority": "P1",
             "risk": "medium",
             "milestone": "GEC-M2",
@@ -309,7 +309,7 @@
         {
             "id": "GEC-T008",
             "title": "Persist plan-to-artifact traceability",
-            "status": "todo",
+            "status": "partial",
             "priority": "P1",
             "risk": "medium",
             "milestone": "GEC-M2",
@@ -329,7 +329,7 @@
         {
             "id": "GEC-T009",
             "title": "Create prompt context bundle model",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "high",
             "milestone": "GEC-M3",
@@ -814,29 +814,29 @@
     "tasks_status_summary": {
         "total": 33,
         "by_status": {
-            "todo": 25,
+            "todo": 15,
             "in_progress": 0,
             "blocked": 0,
-            "partial": 8,
-            "done": 0
+            "partial": 11,
+            "done": 7
         },
-        "progress_percent_done": 0,
+        "progress_percent_done": 21.21,
         "by_priority": {
             "P0": 18,
-            "P1": 11,
-            "P2": 4,
+            "P1": 12,
+            "P2": 3,
             "P3": 0
         },
         "by_risk": {
             "low": 0,
-            "medium": 16,
-            "high": 15,
+            "medium": 15,
+            "high": 16,
             "critical": 2
         },
         "critical_path": {
             "total": 13,
-            "done": 0,
-            "remaining": 13
+            "done": 6,
+            "remaining": 7
         },
         "milestones": {
             "total": 8,
