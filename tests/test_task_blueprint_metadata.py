@@ -53,12 +53,14 @@ def test_materialize_from_plan_node_carries_blueprint_provenance_to_task_metadat
 
     extra_fields = queue.calls[0]["extra_fields"]
     context = extra_fields["worker_execution_context"]
+    worker_contract = extra_fields["worker_execution_contract"]
     provenance = context["planning_provenance"]
     assert provenance["blueprint_id"] == "bp-1"
     assert provenance["blueprint_name"] == "TDD"
     assert provenance["blueprint_artifact_id"] == "artifact-1"
     assert provenance["blueprint_role_name"] == "Implementer"
     assert provenance["template_name"] == "TDD Implementer Template"
+    assert worker_contract["schema"] == "worker_execution_contract.v1"
     assert extra_fields["status_reason_details"]["planning_provenance"]["blueprint_id"] == "bp-1"
 
 

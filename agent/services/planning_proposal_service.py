@@ -7,6 +7,7 @@ from typing import Any
 
 _ALLOWED_TASK_KINDS = {"coding", "testing", "review", "research", "planning", "ops", "analysis", "doc"}
 _ALLOWED_RISK_LEVELS = {"low", "medium", "high", "critical"}
+_SOFTWARE_HINTS = ("software", "project", "java", "angular", "frontend", "backend", "fibonacci")
 
 
 def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
@@ -77,6 +78,21 @@ def build_plan_proposal(
     subtasks: list[dict[str, Any]],
     required_capabilities: list[str] | None = None,
 ) -> dict[str, Any]:
+    summary_text = str(summary or "").strip()
+    is_software_project = any(token in summary_text.lower() for token in _SOFTWARE_HINTS)
+
+    def _default_artifacts(*, index: int, task_kind: str, title: str) -> list[dict[str, Any]]:
+        title_lower = title.lower()
+        if is_software_project and task_kind == "coding":
+            if "backend" in title_lower or "java" in title_lower:
+                return [{"kind": "directory", "required": True, "relative_path": "backend", "description": "Java backend project"}]
+            if "frontend" in title_lower or "angular" in title_lower:
+                return [{"kind": "directory", "required": True, "relative_path": "frontend", "description": "Angular frontend project"}]
+            return [{"kind": "workspace_change", "required": True, "description": f"software-step-{index}"}]
+        if task_kind in {"coding", "testing", "ops"}:
+            return [{"kind": "workspace_change", "required": True, "description": f"task-{index}-output"}]
+        return []
+
     nodes: list[dict[str, Any]] = []
     node_keys: list[str] = []
     for index, subtask in enumerate(subtasks, start=1):
@@ -98,16 +114,25 @@ def build_plan_proposal(
                 dep_index = int(dep)
                 if dep_index >= 1:
                     mapped_depends_on.append(f"N{dep_index}")
+        title = str(subtask.get("title") or f"Step {index}")[:200]
+        expected_artifacts = [dict(item) for item in list(subtask.get("expected_artifacts") or []) if isinstance(item, dict)]
+        if not expected_artifacts:
+            expected_artifacts = _default_artifacts(index=index, task_kind=task_kind, title=title)
+        verification_spec = dict(subtask.get("verification_spec") or {})
+        if expected_artifacts and not verification_spec.get("expected_artifacts"):
+            verification_spec["expected_artifacts"] = expected_artifacts
         nodes.append(
             {
                 "node_key": node_key,
-                "title": str(subtask.get("title") or f"Step {index}")[:200],
+                "title": title,
                 "description": str(subtask.get("description") or subtask.get("title") or "")[:2000],
                 "task_kind": task_kind,
                 "depends_on": mapped_depends_on,
                 "required_capabilities": [str(item).strip().lower() for item in list(subtask.get("required_capabilities") or []) if str(item).strip()],
                 "risk_level": risk_level,
-                "verification_spec": dict(subtask.get("verification_spec") or {}),
+                "verification_spec": verification_spec,
+                "expected_artifacts": expected_artifacts,
+                "artifact_trace_id": f"A{index}",
                 "suggested_worker_profile": str(subtask.get("suggested_worker_profile") or "planner").strip().lower() or "planner",
             }
         )
@@ -116,6 +141,10 @@ def build_plan_proposal(
         "goal_id": str(goal_id or "").strip(),
         "trace_id": str(trace_id or "").strip(),
         "summary": str(summary or "").strip(),
+        "goal_contract_requirements": {
+            "requires_artifact_expectations": bool(is_software_project),
+            "goal_type": "software_project" if is_software_project else "generic",
+        },
         "assumptions": [],
         "clarifying_questions": [],
         "nodes": nodes,
@@ -156,6 +185,8 @@ def validate_plan_proposal_payload(payload: dict[str, Any], *, known_capabilitie
     seen: set[str] = set()
     dep_edges: list[tuple[str, str]] = []
     normalized_nodes: list[dict[str, Any]] = []
+    requires_artifact_expectations = bool(((normalized.get("goal_contract_requirements") or {}).get("requires_artifact_expectations")))
+    missing_artifact_nodes: list[str] = []
     for node in nodes:
         node_key = str((node or {}).get("node_key") or "").strip()
         if not node_key:
@@ -176,6 +207,13 @@ def validate_plan_proposal_payload(payload: dict[str, Any], *, known_capabilitie
         for dep in depends_on:
             dep_edges.append((dep, node_key))
         required = [str(cap).strip().lower() for cap in list((node or {}).get("required_capabilities") or []) if str(cap).strip()]
+        expected_artifacts = [dict(item) for item in list((node or {}).get("expected_artifacts") or []) if isinstance(item, dict)]
+        verification_spec = dict((node or {}).get("verification_spec") or {})
+        if expected_artifacts and not verification_spec.get("expected_artifacts"):
+            verification_spec["expected_artifacts"] = expected_artifacts
+        if requires_artifact_expectations and task_kind in {"coding", "testing", "ops"} and not expected_artifacts:
+            errors.append(f"missing_expected_artifacts:{node_key}")
+            missing_artifact_nodes.append(node_key)
         if known_caps:
             unknown = sorted({cap for cap in required if cap not in known_caps})
             for cap in unknown:
@@ -188,6 +226,8 @@ def validate_plan_proposal_payload(payload: dict[str, Any], *, known_capabilitie
                 "risk_level": risk_level,
                 "depends_on": depends_on,
                 "required_capabilities": required,
+                "expected_artifacts": expected_artifacts,
+                "verification_spec": verification_spec,
             }
         )
 
@@ -216,4 +256,10 @@ def validate_plan_proposal_payload(payload: dict[str, Any], *, known_capabilitie
 
     normalized["nodes"] = normalized_nodes
     normalized["dependencies"] = [{"from": dep, "to": target} for dep, target in dep_edges if dep in node_keys and target in node_keys]
+    if missing_artifact_nodes:
+        normalized["repair_hints"] = {
+            "reason": "missing_artifact_expectations",
+            "node_keys": missing_artifact_nodes,
+            "action": "add_expected_artifacts_and_verification_spec",
+        }
     return ProposalValidationResult(ok=not errors, errors=errors, normalized_payload=normalized)

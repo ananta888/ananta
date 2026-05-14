@@ -9,6 +9,7 @@ from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest, GoalPlanNodePatchRequest, GoalProvisionRequest
+from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
 from agent.services.product_event_service import record_product_event
 from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.repository_registry import get_repository_registry
@@ -269,6 +270,11 @@ def create_goal():
             )
 
     execution_preferences = dict(payload.execution_preferences or {})
+    execution_preferences = get_goal_execution_contract_service().attach_to_execution_preferences(
+        goal_text=goal_text,
+        execution_preferences=execution_preferences,
+        mode_data=mode_data,
+    )
     if profile_id or overlay_id:
         execution_preferences["instruction_context"] = {
             "owner_username": owner_username,

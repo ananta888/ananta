@@ -5,6 +5,7 @@ from typing import Any
 
 from agent.db_models import GoalDB
 from agent.repository import goal_repo
+from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import update_local_task_status
 
@@ -78,6 +79,7 @@ class TaskLifecycleService:
         goal_context_text = ""
         goal_rag_sources: dict = {}
         goal_mode_data: dict = {}
+        goal_execution_contract: dict = {}
         if goal_id:
             try:
                 goal = goal_repo.get_by_id(str(goal_id))
@@ -86,9 +88,11 @@ class TaskLifecycleService:
                     goal_context_text = str(goal.goal or "").strip()
                     goal_rag_sources = dict((goal.execution_preferences or {}).get("rag_sources") or {})
                     goal_mode_data = dict(goal.mode_data or {})
+                    goal_execution_contract = dict((goal.execution_preferences or {}).get("goal_execution_contract") or {})
             except Exception:
                 pass
         research_context_input = _merge_rag_sources(goal_rag_sources, task_kind)
+        verification_spec = dict(node.verification_spec or {})
 
         deterministic_repair_foundation = goal_mode_data.get("deterministic_repair_foundation")
         if isinstance(deterministic_repair_foundation, dict) and deterministic_repair_foundation.get("repair_procedure"):
@@ -118,6 +122,12 @@ class TaskLifecycleService:
             **({"research_context_input": research_context_input} if research_context_input else {}),
             **extra_context,
         }
+        worker_execution_contract = get_goal_execution_contract_service().task_scoped_contract(
+            goal_contract=goal_execution_contract,
+            plan_id=plan_id,
+            plan_node_id=node.id,
+            expected_artifacts=list(verification_spec.get("expected_artifacts") or []),
+        )
         get_task_queue_service().ingest_task(
             task_id=task_id,
             status="todo",
@@ -140,14 +150,19 @@ class TaskLifecycleService:
                 "required_context_scope": rationale.get("required_context_scope"),
                 "preferred_bundle_mode": rationale.get("preferred_bundle_mode"),
                 "required_capabilities": list(rationale.get("required_capabilities") or []),
-                "verification_spec": dict(node.verification_spec or {}),
+                "verification_spec": verification_spec,
                 "worker_execution_context": worker_execution_context,
+                "worker_execution_contract": worker_execution_contract,
                 "status_reason_details": {
                     "materialized_from_plan": True,
                     "planning_provenance": {
                         "plan_id": plan_id,
                         "plan_node_id": node.id,
                         **blueprint_provenance,
+                    },
+                    "artifact_traceability": {
+                        "plan_node_id": node.id,
+                        "expected_artifacts_count": len(list(verification_spec.get("expected_artifacts") or [])),
                     },
                 },
                 "parent_task_id": parent_task_id,

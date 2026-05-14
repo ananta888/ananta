@@ -102,6 +102,8 @@ class TestToolCallingLLMStrategy:
         result = strategy.run(context_with_tools)
         assert result.status == STATUS_EXECUTABLE
         assert result.proposal.tool_calls[0]["name"] == "write_file"
+        call_kwargs = mock_llm.call_args.kwargs
+        assert "Prompt context bundle:" in call_kwargs["system_prompt"]
 
     def test_failed_llm_call_exception(self, context_with_tools, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")

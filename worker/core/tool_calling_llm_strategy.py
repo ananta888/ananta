@@ -8,6 +8,7 @@ from worker.core.propose import ProposeStrategyResult, ExecutableProposal
 from agent.services.model_invocation_service import ModelInvocationService, LLMUnavailableError
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from agent.services.context_bundle_service import ContextBundler
+from agent.services.prompt_context_bundle_service import get_prompt_context_bundle_service
 
 _MOCK_ONLY_PROVIDERS = {"mock"}
 
@@ -38,6 +39,13 @@ def _build_system_prompt(context: ProposeContext) -> str:
         parts.append(
             f"chunks={bundle.get('chunk_count', 0)} denied={((bundle.get('policy_filter') or {}).get('denied_count', 0))}"
         )
+    pcb = get_prompt_context_bundle_service().build_for_propose_context(context).to_dict()
+    parts.append("")
+    parts.append("Prompt context bundle:")
+    parts.append(
+        f"schema={pcb.get('schema')} task_kind={pcb.get('task_kind')} "
+        f"expected_artifacts_count={((pcb.get('contract_summary') or {}).get('expected_artifacts_count', 0))}"
+    )
     parts.append("")
     parts.append(
         "You MUST use one or more of the available tools to complete the task. "
