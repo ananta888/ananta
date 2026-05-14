@@ -3537,15 +3537,15 @@
       "provider": "orchestrator",
       "model": "ananta-default:latest",
       "overall": {
-        "total": 17,
-        "success": 0,
+        "total": 18,
+        "success": 1,
         "failed": 17,
-        "quality_pass": 0,
+        "quality_pass": 1,
         "quality_fail": 17,
-        "latency_ms_total": 8,
-        "tokens_total": 1356,
+        "latency_ms_total": 20,
+        "tokens_total": 1474,
         "cost_units_total": 0.0,
-        "last_seen": 1778777206,
+        "last_seen": 1778778544,
         "samples": [
           {
             "ts": 1778772571,
@@ -3733,20 +3733,31 @@
             "context": {
               "task_kind": "coding"
             }
+          },
+          {
+            "ts": 1778778544,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 12,
+            "tokens_total": 118,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "coding"
+            }
           }
         ]
       },
       "task_kinds": {
         "coding": {
-          "total": 17,
-          "success": 0,
+          "total": 18,
+          "success": 1,
           "failed": 17,
-          "quality_pass": 0,
+          "quality_pass": 1,
           "quality_fail": 17,
-          "latency_ms_total": 8,
-          "tokens_total": 1356,
+          "latency_ms_total": 20,
+          "tokens_total": 1474,
           "cost_units_total": 0.0,
-          "last_seen": 1778777206,
+          "last_seen": 1778778544,
           "samples": [
             {
               "ts": 1778772571,
@@ -3934,11 +3945,22 @@
               "context": {
                 "task_kind": "coding"
               }
+            },
+            {
+              "ts": 1778778544,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 12,
+              "tokens_total": 118,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "coding"
+              }
             }
           ]
         }
       }
     }
   },
-  "updated_at": 1778777561
+  "updated_at": 1778778544
 }

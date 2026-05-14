@@ -56,3 +56,13 @@ def test_heuristic_google_tool_maps_to_web_search():
     )
     assert len(result.resolved_tool_calls) == 1
     assert result.resolved_tool_calls[0]["name"] == "web_search"
+
+
+def test_heuristic_generate_blueprint_maps_to_file_write():
+    result = ToolIntentResolver().resolve(
+        [{"name": "generate_blueprint", "args": {"language": "java", "frontend": "angular"}}],
+        known_tools=["file_read", "file_write", "web_search", "shell_execute"],
+    )
+    assert len(result.resolved_tool_calls) == 1
+    assert result.resolved_tool_calls[0]["name"] == "file_write"
+    assert result.resolved_tool_calls[0]["args"]["path"] == "generate_blueprint.md"
