@@ -76,13 +76,13 @@
     }
   ],
   "tasks": [
-    {"id":"APH-T001","title":"ToolCallingLLM fallback muss ProposePolicy.allow_shell_execution respektieren","status":"todo","priority":"P0","risk":"critical","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
-    {"id":"APH-T002","title":"Regressionstests fuer content-fallback policy behavior","status":"todo","priority":"P0","risk":"high","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
-    {"id":"APH-T003","title":"Runtime-selection Alembic-Migration SQLite/Postgres-portabel machen","status":"todo","priority":"P1","risk":"high","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
-    {"id":"APH-T004","title":"Downgrade implementieren oder explizit irreversibel markieren","status":"todo","priority":"P2","risk":"medium","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
+    {"id":"APH-T001","title":"ToolCallingLLM fallback muss ProposePolicy.allow_shell_execution respektieren","status":"done","priority":"P0","risk":"critical","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
+    {"id":"APH-T002","title":"Regressionstests fuer content-fallback policy behavior","status":"done","priority":"P0","risk":"high","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
+    {"id":"APH-T003","title":"Runtime-selection Alembic-Migration SQLite/Postgres-portabel machen","status":"done","priority":"P1","risk":"high","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
+    {"id":"APH-T004","title":"Downgrade implementieren oder explizit irreversibel markieren","status":"done","priority":"P2","risk":"medium","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
     {"id":"APH-T005","title":"Optionale echte VerificationService/Pytest Full-Flow E2E","status":"todo","priority":"P2","risk":"medium","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
     {"id":"APH-T006","title":"Docs/TODO-Status nach Hardening aktualisieren","status":"todo","priority":"P2","risk":"low","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
-    {"id":"APH-T007","title":"Strategie-Semantik dokumentieren und testen (native tools vor JSON fallback)","status":"todo","priority":"P1","risk":"medium","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
+    {"id":"APH-T007","title":"Strategie-Semantik dokumentieren und testen (native tools vor JSON fallback)","status":"partial","priority":"P1","risk":"medium","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
 
     {"id":"AFF-E2E-T001","title":"Echte service-level Full-Flow E2E fuer new-project Fibonacci","status":"todo","priority":"P0","risk":"critical","source":"todo.fixup-autopilot-full-flow-e2e.json"},
     {"id":"AFF-E2E-T002","title":"Full-Flow Test mit ArtifactManifest oder synthesized diff verbinden","status":"todo","priority":"P0","risk":"critical","source":"todo.fixup-autopilot-full-flow-e2e.json"},
@@ -149,14 +149,14 @@
   "summaries": {
     "overall": "Konsolidierter Backlog mit Fokus auf Sicherheits-Hardening, Full-Flow E2E, Migrations-Portabilitaet und konfigurierbare Strategy-Modes.",
     "status_counts": {
-      "todo": 20,
-      "partial": 3,
-      "done": 0,
+      "todo": 15,
+      "partial": 4,
+      "done": 4,
       "total": 23
     },
     "top_priorities": [
-      "APH-T001/APH-T002: Shell-Policy-Bypass im ToolCallingLLM content fallback schliessen und regressionsfest testen.",
       "AFF-E2E-T001..T003: Echten End-to-End Nachweis von propose bis completion mit Artefakt- und Verifikationsbezug liefern.",
+      "APH-T007: Restliche Semantik-Nachweise/Abdeckung fuer fallback-Interpretation vervollstaendigen.",
       "WSM-T001/WSM-T005: Strategy-Modes und fallback-Steuerung explizit, konfigurierbar und auditierbar machen."
     ],
     "biggest_risks_if_not_done": [
@@ -165,11 +165,10 @@
       "Migrationsprobleme zwischen SQLite (dev/test) und Postgres (prod)."
     ],
     "recommended_next_slice": [
-      "APH-T001",
-      "APH-T002",
       "AFF-E2E-T001",
       "AFF-E2E-T002",
-      "AFF-E2E-T003"
+      "AFF-E2E-T003",
+      "APH-T007"
     ]
-  ]
+  }
 }
