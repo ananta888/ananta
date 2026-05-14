@@ -96,11 +96,11 @@
     {"id":"FA-T012","title":"Governed LLM context fuer propose vervollstaendigen","status":"done","priority":"P0","risk":"high","source":"todo.fixup-autopilot.json"},
 
     {"id":"WSM-T001","title":"StrategyMode model + presets einfuehren","status":"done","priority":"P0","risk":"high","source":"todo.worker-strategy-modes-and-fallbacks.json"},
-    {"id":"WSM-T002","title":"Agent-loop Strategy fuer OpenCode-like Mode","status":"todo","priority":"P0","risk":"high","source":"todo.worker-strategy-modes-and-fallbacks.json"},
-    {"id":"WSM-T003","title":"Codex-CLI-like patch/command Strategy-Mode","status":"todo","priority":"P1","risk":"medium","source":"todo.worker-strategy-modes-and-fallbacks.json"},
-    {"id":"WSM-T004","title":"Hermes-like proposal/review Strategy-Mode","status":"todo","priority":"P1","risk":"medium","source":"todo.worker-strategy-modes-and-fallbacks.json"},
+    {"id":"WSM-T002","title":"Agent-loop Strategy fuer OpenCode-like Mode","status":"done","priority":"P0","risk":"high","source":"todo.worker-strategy-modes-and-fallbacks.json"},
+    {"id":"WSM-T003","title":"Codex-CLI-like patch/command Strategy-Mode","status":"done","priority":"P1","risk":"medium","source":"todo.worker-strategy-modes-and-fallbacks.json"},
+    {"id":"WSM-T004","title":"Hermes-like proposal/review Strategy-Mode","status":"done","priority":"P1","risk":"medium","source":"todo.worker-strategy-modes-and-fallbacks.json"},
     {"id":"WSM-T005","title":"Fallback-Mechanismen pro Mode konfigurierbar machen","status":"done","priority":"P0","risk":"high","source":"todo.worker-strategy-modes-and-fallbacks.json"},
-    {"id":"WSM-T006","title":"Strategy-Mode Konfiguration in API/UI exponieren","status":"todo","priority":"P1","risk":"medium","source":"todo.worker-strategy-modes-and-fallbacks.json"},
+    {"id":"WSM-T006","title":"Strategy-Mode Konfiguration in API/UI exponieren","status":"done","priority":"P1","risk":"medium","source":"todo.worker-strategy-modes-and-fallbacks.json"},
     {"id":"WSM-T007","title":"Mode-Semantik und Provider-Mapping dokumentieren","status":"done","priority":"P2","risk":"low","source":"todo.worker-strategy-modes-and-fallbacks.json"}
   ],
   "priority_order": [
@@ -149,14 +149,13 @@
   "summaries": {
     "overall": "Konsolidierter Backlog mit Fokus auf Sicherheits-Hardening, Full-Flow E2E, Migrations-Portabilitaet und konfigurierbare Strategy-Modes.",
     "status_counts": {
-      "todo": 4,
+      "todo": 0,
       "partial": 0,
-      "done": 19,
+      "done": 23,
       "total": 23
     },
     "top_priorities": [
-      "WSM-T002/WSM-T003/WSM-T004: konkrete Strategy-Implementierungen fuer opencode/codex/hermes Modes abschliessen.",
-      "WSM-T006: Strategy-Mode Konfiguration und Sichtbarkeit in API/UI abschliessen."
+      "Alle konsolidierten Tasks sind abgeschlossen."
     ],
     "biggest_risks_if_not_done": [
       "Unsichere Shell-Ausfuehrung aus Modelltext trotz Policy-Denial.",
@@ -164,10 +163,7 @@
       "Migrationsprobleme zwischen SQLite (dev/test) und Postgres (prod)."
     ],
     "recommended_next_slice": [
-      "WSM-T002",
-      "WSM-T003",
-      "WSM-T004",
-      "WSM-T006"
+      "none"
     ]
   }
 }

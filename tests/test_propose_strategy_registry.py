@@ -40,6 +40,7 @@ class TestProposeStrategyRegistry:
         from agent.services.propose_strategy_registry import build_strategy_registry
         reg = build_strategy_registry()
         expected = {
+            "agent_loop_tool_calling", "cli_agent_patch_strategy", "hermes_proposal_strategy",
             "deterministic_handler", "worker_strategy",
             "tool_calling_llm", "json_schema_llm",
             "flexible_llm_normalization", "advisory_proposal", "human_review",

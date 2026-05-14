@@ -128,6 +128,12 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent } from
           <strong>Beschreibung:</strong>
           <p>{{task?.description || 'Keine Beschreibung vorhanden.'}}</p>
         </div>
+        @if (task?.last_proposal?.routing?.propose_strategy_meta?.effective_strategy_mode) {
+          <div class="mt-10">
+            <strong>Strategy Mode:</strong>
+            <span class="badge ml-10">{{ task?.last_proposal?.routing?.propose_strategy_meta?.effective_strategy_mode }}</span>
+          </div>
+        }
         @if (latestExecutionCostSummary()) {
           <div class="card card-light mt-10">
             <h3 class="no-margin">Execution Cost Summary</h3>

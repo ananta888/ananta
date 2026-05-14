@@ -42,6 +42,9 @@ class AgentRegistryService:
             "max_runtime_seconds": max(30, min(int(raw_limits.get("max_runtime_seconds") or 900), 86400)),
             "max_workspace_mb": max(64, min(int(raw_limits.get("max_workspace_mb") or 1024), 65536)),
         }
+        strategy_mode = str(data.get("strategy_mode") or raw_limits.get("strategy_mode") or "").strip().lower() or None
+        if strategy_mode:
+            execution_limits["strategy_mode"] = strategy_mode
         runtime_targets = list(data.get("runtime_targets") or [])
         # Simple validation: must be list of dicts
         if not isinstance(runtime_targets, list):
@@ -55,6 +58,7 @@ class AgentRegistryService:
             "capabilities": capabilities,
             "runtime_targets": runtime_targets,
             "execution_limits": execution_limits,
+            "strategy_mode": strategy_mode,
         }
         return normalized, None, 200
 
@@ -126,6 +130,7 @@ class AgentRegistryService:
     def build_directory_entry(self, *, agent: AgentInfoDB, timeout: float, now: float | None = None) -> dict:
         current = float(now or time.time())
         execution_limits = dict(agent.execution_limits or {})
+        strategy_mode = str(execution_limits.get("strategy_mode") or "").strip().lower() or None
         current_load = max(0, int(execution_limits.get("current_load") or 0))
         max_parallel = max(1, int(execution_limits.get("max_parallel_tasks") or 1))
         stale_seconds = max(0, int(current - float(agent.last_seen or 0)))
@@ -153,6 +158,7 @@ class AgentRegistryService:
             available_for_routing=available_for_routing,
             routing_signals=dict(execution_limits.get("routing_signals") or {}),
             security_level=str(execution_limits.get("security_level") or "medium"),
+            strategy_mode=strategy_mode,
             liveness=AgentLivenessContract(
                 status=str(agent.status or "offline"),
                 last_seen=float(agent.last_seen or 0),

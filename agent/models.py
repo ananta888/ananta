@@ -13,6 +13,7 @@ class TaskStepProposeRequest(SQLModel):
     providers: Optional[List[str]] = None
     model: Optional[str] = None
     temperature: Optional[float] = None
+    strategy_mode: Optional[str] = None
     task_id: Optional[str] = None
     research_context: Optional["ResearchContextInputContract"] = None
 
@@ -426,6 +427,7 @@ class AgentRegisterRequest(SQLModel):
     capabilities: List[str] = Field(default_factory=list)
     runtime_targets: List[dict] = Field(default_factory=list)
     execution_limits: dict = Field(default_factory=dict)
+    strategy_mode: Optional[str] = None
     registration_token: Optional[str] = None
 
 
@@ -458,6 +460,7 @@ class AgentDirectoryEntryContract(SQLModel):
     available_for_routing: bool = True
     routing_signals: dict = Field(default_factory=dict)
     security_level: str = "medium"
+    strategy_mode: Optional[str] = None
     liveness: AgentLivenessContract = Field(default_factory=AgentLivenessContract)
 
 
