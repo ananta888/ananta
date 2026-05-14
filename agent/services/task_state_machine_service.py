@@ -113,6 +113,10 @@ def can_transition_to(current_status: str | None, next_status: str | None) -> tu
         if target == rule["to"] and current in rule["from"]:
             return True, ""
 
+    # Autopilot/execute can resolve propose stage directly to review-required.
+    if current == TaskStatus.PROPOSING.value and target == TaskStatus.WAITING_FOR_REVIEW.value:
+        return True, ""
+
     # Erlaubte Standard-Kette: todo -> created -> assigned -> proposing -> in_progress
     progression = [
         TaskStatus.TODO.value,
