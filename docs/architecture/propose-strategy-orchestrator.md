@@ -151,3 +151,20 @@ Bundle import/export (`/api/blueprints/<id>/bundle`) preserves the full `config`
 | `worker/core/artifact_completion_policy.py` | Decision: completed / needs_review / retryable_failed |
 | `agent/services/task_retry_policy_service.py` | Retry classification, advisory-parse-ignored rule |
 | `agent/routes/tasks/artifact_status.py` | GET `/api/tasks/<tid>/artifact-status` — all observability fields |
+
+---
+
+## Test Evidence Map
+
+- Proposal-only semantics:
+  - `tests/e2e/test_autopilot_new_project_llm_first.py`
+  - Proves LLM-first ordering and fallback behavior (`tool_calling_llm` before `json_schema_llm`).
+- Full flow (propose → execute → artifacts → completion):
+  - `tests/e2e/test_autopilot_new_project_fibonacci_full_flow.py`
+  - Proves artifact-first completion from real file outputs.
+- Public route/API smoke coverage:
+  - `tests/e2e/test_autopilot_new_project_api_smoke.py`
+  - Proves `/tasks/<tid>/step/propose` follows the same strategy pipeline.
+- Failure-mode hardening:
+  - `tests/e2e/test_autopilot_full_flow_failure_modes.py`
+  - Proves missing artifacts, unsafe/outside paths, failed verification and prose-only claims do not complete tasks.
