@@ -220,6 +220,33 @@ class TestNewSoftwareProjectChain:
         idx_det = order.index(STRATEGY_DETERMINISTIC_HANDLER)
         assert idx_det > idx_tc
 
+    def test_json_schema_runs_after_tool_calling_declines(self):
+        policy = ProposePolicy(
+            strategy_order=[
+                STRATEGY_TOOL_CALLING_LLM,
+                STRATEGY_JSON_SCHEMA_LLM,
+                STRATEGY_HUMAN_REVIEW,
+            ],
+            on_all_strategies_declined="needs_review",
+        )
+        tc = _declining_strategy(STRATEGY_TOOL_CALLING_LLM)
+        js = _declining_strategy(STRATEGY_JSON_SCHEMA_LLM)
+        hr = _declining_strategy(STRATEGY_HUMAN_REVIEW)
+        orch = ProposeStrategyOrchestrator(
+            policy,
+            {
+                STRATEGY_TOOL_CALLING_LLM: tc,
+                STRATEGY_JSON_SCHEMA_LLM: js,
+                STRATEGY_HUMAN_REVIEW: hr,
+            },
+        )
+
+        result = orch.run(_context())
+
+        assert result.status == STATUS_NEEDS_REVIEW
+        tc.run.assert_called_once()
+        js.run.assert_called_once()
+
 
 class TestOnAllStrategiesDeclined:
     """T002: on_all_strategies_declined controls the fallback result."""

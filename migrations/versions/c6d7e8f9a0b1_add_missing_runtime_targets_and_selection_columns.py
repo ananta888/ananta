@@ -37,10 +37,17 @@ def _add_column_if_missing(table_name: str, column: sa.Column) -> None:
         batch_op.add_column(column)
 
 
+def _drop_column_if_exists(table_name: str, column_name: str) -> None:
+    if column_name not in _existing_columns(table_name):
+        return
+    with op.batch_alter_table(table_name, schema=None) as batch_op:
+        batch_op.drop_column(column_name)
+
+
 def upgrade() -> None:
     _add_column_if_missing(
         "agents",
-        sa.Column("runtime_targets", sa.JSON(), nullable=False, server_default=sa.text("'[]'::json")),
+        sa.Column("runtime_targets", sa.JSON(), nullable=False, server_default=sa.text("'[]'")),
     )
 
     _add_column_if_missing(
@@ -91,4 +98,17 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    pass
+    _drop_column_if_exists("worker_results", "selection_reason")
+    _drop_column_if_exists("worker_results", "actual_runtime_kind")
+    _drop_column_if_exists("worker_results", "actual_runtime_target_id")
+    _drop_column_if_exists("worker_results", "actual_worker_kind")
+    _drop_column_if_exists("worker_results", "actual_worker_id")
+
+    _drop_column_if_exists("worker_jobs", "selection_decision_ref")
+    _drop_column_if_exists("worker_jobs", "selection_mode")
+    _drop_column_if_exists("worker_jobs", "selected_runtime_kind")
+    _drop_column_if_exists("worker_jobs", "selected_runtime_target_id")
+    _drop_column_if_exists("worker_jobs", "selected_worker_kind")
+    _drop_column_if_exists("worker_jobs", "selected_worker_id")
+
+    _drop_column_if_exists("agents", "runtime_targets")

@@ -62,11 +62,11 @@ Strategies run in `ProposePolicy.strategy_order`. The first `executable` result 
 
 | Strategy | When it runs | Output |
 |---|---|---|
-| `deterministic_handler` | Always first; fast path via `TaskHandlerRegistry` | `ExecutableProposal` (command or tool_calls) |
+| `deterministic_handler` | Policy-controlled deterministic fallback/fast path via `TaskHandlerRegistry` | `ExecutableProposal` (command or tool_calls) |
 | `worker_strategy` | When an OpenCode/Hermes/native worker is available | `ExecutableProposal` or `PatchProposalArtifact` |
-| `tool_calling_llm` | When provider supports real `tools` API parameter | `ExecutableProposal` (tool_calls) |
-| `json_schema_llm` | When provider supports `response_format.json_schema` | `ExecutableProposal` (command or tool_calls) |
-| `flexible_llm_normalization` | Any LLM output, all formats accepted | `ExecutableProposal` or advisory artifact |
+| `tool_calling_llm` | Preferred LLM path when provider supports real `tools` API parameter | `ExecutableProposal` (tool_calls) |
+| `json_schema_llm` | Fallback when native tool-calling is unavailable/unreliable | `ExecutableProposal` (command or tool_calls) |
+| `flexible_llm_normalization` | Last recovery layer for imperfect model output; policy-gated | `ExecutableProposal` or advisory artifact |
 | `advisory_proposal` | Stores rich advisory for human review | `AdvisoryProposalArtifact` |
 | `human_review` | Terminal: escalates to human | `needs_review` |
 
@@ -82,13 +82,13 @@ Declined result → next strategy. Advisory result → stored, advance. Failed/p
 |---|---|---|
 | OpenAI-compatible `tool_calls` JSON | `ExecutableProposal.tool_calls` | Yes |
 | Fenced JSON `{"command":...}` or `{"tool_calls":...}` | `ExecutableProposal` | Yes |
-| Fenced shell ` ```bash ... ``` ` | `ExecutableProposal.command` | Yes |
+| Fenced shell ` ```bash ... ``` ` | `ExecutableProposal.command` | Only when `allow_shell_execution=true` |
 | Unified diff | `PatchProposalArtifact` | No — needs apply/approval |
 | File blocks ` ```filename.py ... ``` ` | `FileProposalArtifact` | No — needs apply/approval |
 | Sub-task plan | `PlannerProposalArtifact` | No |
 | Plain prose | `AdvisoryProposalArtifact` | No |
 
-**Invariant:** Only `ExecutableProposal` (with `command` or `tool_calls`) may be passed to the execute step. Prose can never become runnable control state.
+**Invariant:** Only `ExecutableProposal` (with `command` or `tool_calls`) may be passed to the execute step. Prose can never become runnable control state. Shell from model text is denied by default unless policy explicitly allows it.
 
 ---
 

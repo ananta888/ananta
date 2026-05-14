@@ -9,6 +9,7 @@ from worker.core.propose import (
     STATUS_DECLINED,
     STATUS_EXECUTABLE,
     STATUS_FAILED,
+    STATUS_ADVISORY,
 )
 from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
 from agent.services.model_invocation_service import LLMUnavailableError
@@ -33,6 +34,7 @@ class TestToolCallingLLMStrategy:
         ctx.task_id = "t1"
         ctx.task = {}
         ctx.base_prompt = "test"
+        ctx.policy = Mock(allow_shell_execution=False)
         return ctx
 
     def test_declined_no_tools(self, context_no_tools, monkeypatch):
@@ -112,3 +114,68 @@ class TestToolCallingLLMStrategy:
         result = strategy.run(context_with_tools)
         assert result.status == STATUS_FAILED
         assert "llm_call_failed" in result.reason
+
+    def test_content_fallback_inline_shell_denied_by_policy(self, context_with_tools, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        context_with_tools.policy.allow_shell_execution = False
+        mock_llm = Mock(return_value={"tool_calls": [], "content": "`echo ok`", "finish_reason": "stop"})
+        monkeypatch.setattr(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
+            mock_llm,
+        )
+        strategy = ToolCallingLLMStrategy()
+        result = strategy.run(context_with_tools)
+        assert result.status == STATUS_ADVISORY
+        assert result.proposal is None
+        assert result.reason == "shell_execution_not_allowed_by_policy"
+        assert result.metadata["source"] == "tool_calling_llm_content_fallback"
+        assert result.metadata["allow_shell_execution"] is False
+
+    def test_content_fallback_inline_shell_allowed_by_policy(self, context_with_tools, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        context_with_tools.policy.allow_shell_execution = True
+        mock_llm = Mock(return_value={"tool_calls": [], "content": "`echo ok`", "finish_reason": "stop"})
+        monkeypatch.setattr(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
+            mock_llm,
+        )
+        strategy = ToolCallingLLMStrategy()
+        result = strategy.run(context_with_tools)
+        assert result.status == STATUS_EXECUTABLE
+        assert result.proposal.command == "echo ok"
+        assert result.metadata["source"] == "tool_calling_llm_content_fallback"
+        assert result.metadata["allow_shell_execution"] is True
+
+    def test_content_fallback_fenced_shell_denied_by_policy(self, context_with_tools, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        context_with_tools.policy.allow_shell_execution = False
+        mock_llm = Mock(return_value={"tool_calls": [], "content": "```bash\necho ok\n```", "finish_reason": "stop"})
+        monkeypatch.setattr(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
+            mock_llm,
+        )
+        strategy = ToolCallingLLMStrategy()
+        result = strategy.run(context_with_tools)
+        assert result.status == STATUS_ADVISORY
+        assert result.reason == "shell_execution_not_allowed_by_policy"
+
+    def test_content_fallback_inline_json_tool_calls_without_shell_permission(self, context_with_tools, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        context_with_tools.policy.allow_shell_execution = False
+        mock_llm = Mock(
+            return_value={
+                "tool_calls": [],
+                "content": '{"tool_calls":[{"name":"write_file","args":{"path":"main.py","content":"print(1)"}}]}',
+                "finish_reason": "stop",
+            }
+        )
+        monkeypatch.setattr(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
+            mock_llm,
+        )
+        strategy = ToolCallingLLMStrategy()
+        result = strategy.run(context_with_tools)
+        assert result.status == STATUS_EXECUTABLE
+        assert result.proposal.tool_calls[0]["name"] == "write_file"
+        assert result.metadata["source"] == "tool_calling_llm_content_fallback"
+        assert result.metadata["allow_shell_execution"] is False
