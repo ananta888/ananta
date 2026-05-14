@@ -75,7 +75,7 @@ def test_execute_shell_command_splits_and_chain_into_multiple_safe_steps() -> No
     assert shell.commands[0] == "cd /tmp/work\nmkdir -p app"
     assert shell.commands[1] == "cd /tmp/work\ntouch README.md"
     assert all("&&" not in command for command in shell.commands)
-    assert any(entry.get("normalization") == "split_and_chain_command" for entry in retry_history)
+    assert any(entry.get("normalization") == "command_chain_parsed" for entry in retry_history)
 
 
 def test_execute_shell_command_repairs_fragmented_prompt_artifacts() -> None:
@@ -99,7 +99,7 @@ def test_execute_shell_command_rejects_unsupported_or_chaining() -> None:
     with patch("agent.services.task_execution_service.get_shell", return_value=shell):
         output, exit_code, retries_used, failure_type, retry_history = service._execute_shell_command_with_policy(
             tid="T-5",
-            command="echo fail || echo fallback",
+            command="echo x > out.txt",
             execution_policy=_policy(),
             working_directory=None,
         )

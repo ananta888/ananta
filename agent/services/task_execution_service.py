@@ -33,10 +33,13 @@ from agent.models import (
 from agent.pipeline_trace import append_stage
 from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.approval_policy_service import get_approval_policy_service
+from agent.services.command_chain_parser import CommandChainParser
+from agent.services.command_to_tool_mapper import CommandToToolMapper
 from agent.services.tool_intent_resolver import ToolIntentResolver
 from agent.services.task_execution_policy_service import (
     classify_execution_failure,
     compute_execution_retry_delay,
+    normalize_tool_call_name,
     resolve_task_scope_allowed_tools,
     resolve_execution_policy,
     should_retry_execution,
@@ -387,7 +390,7 @@ class TaskExecutionService:
                     exit_code=1,
                     retries_used=0,
                     failure_type="tool_intent_unresolved_recoverable",
-                    retry_history=[],
+                    retry_history=[{"attempt": 0, "reason_codes": reason_codes}],
                     status="needs_review",
                     loop_signals=[],
                     loop_detection=None,
@@ -534,6 +537,8 @@ class TaskExecutionService:
                 execution_policy=execution_policy,
                 working_directory=working_directory,
                 allow_complex_shell=allow_complex_shell,
+                task=effective_task,
+                agent_cfg=guard_cfg,
             )
             output_parts.append(command_output)
             if command_exit_code != 0:
@@ -883,42 +888,7 @@ class TaskExecutionService:
             args = tc.get("args") or tc.get("tool_input") or tc.get("parameters") or {}
             if not isinstance(args, dict):
                 args = {}
-            # Default-path compatibility: if a model hallucinates a tool name but
-            # supplies an executable shell payload, route it to canonical shell tool.
-            has_shell_payload = bool(args.get("command") or args.get("cmd"))
             canonical = normalize_tool_call_name(raw_name)
-            if not canonical and has_shell_payload:
-                canonical = "bash"
-            if canonical not in {"bash", "shell_execute", "run_command", "execute_command"} and has_shell_payload:
-                canonical = "bash"
-            text_payload = (
-                str(args.get("details") or "").strip()
-                or str(args.get("summary") or "").strip()
-                or str(args.get("text") or "").strip()
-                or str(args.get("content") or "").strip()
-            )
-            semantic_unknown = bool(canonical) and canonical not in {
-                "bash",
-                "shell_execute",
-                "run_command",
-                "execute_command",
-                "file_write",
-                "file_read",
-                "file_list",
-                "file_patch",
-                "web_search",
-                "web_fetch",
-                "git_status",
-                "git_diff",
-                "git_log",
-                "git_commit",
-            }
-            if text_payload and (not canonical or semantic_unknown):
-                safe_slug = re.sub(r"[^a-z0-9_\\-]+", "_", str(raw_name or "note").strip().lower()).strip("_") or "note"
-                filename = f"{safe_slug}.md"
-                escaped = text_payload.replace("'", "'\"'\"'")
-                canonical = "bash"
-                args = {"command": f"printf '%s\\n' '{escaped}' > {shlex.quote(filename)}"}
             if canonical:
                 tc["name"] = canonical
                 tc["tool_name"] = canonical
@@ -980,73 +950,6 @@ class TaskExecutionService:
             if count <= 0:
                 break
         return repaired.strip()
-
-    @staticmethod
-    def _split_and_chained_commands(command: str) -> tuple[list[str], list[str]]:
-        text = str(command or "")
-        if not text.strip():
-            return [], []
-
-        buffer: list[str] = []
-        segments: list[str] = []
-        unsupported_ops: list[str] = []
-        seen_unsupported: set[str] = set()
-        in_single = False
-        in_double = False
-        escaped = False
-        saw_and_chain = False
-
-        index = 0
-        while index < len(text):
-            char = text[index]
-            if escaped:
-                buffer.append(char)
-                escaped = False
-                index += 1
-                continue
-            if char == "\\" and not in_single:
-                buffer.append(char)
-                escaped = True
-                index += 1
-                continue
-            if char == "'" and not in_double:
-                in_single = not in_single
-                buffer.append(char)
-                index += 1
-                continue
-            if char == '"' and not in_single:
-                in_double = not in_double
-                buffer.append(char)
-                index += 1
-                continue
-
-            if not in_single and not in_double:
-                if text.startswith("&&", index):
-                    segment = "".join(buffer).strip()
-                    if segment:
-                        segments.append(segment)
-                    buffer = []
-                    saw_and_chain = True
-                    index += 2
-                    continue
-                if text.startswith("||", index):
-                    if "||" not in seen_unsupported:
-                        unsupported_ops.append("||")
-                        seen_unsupported.add("||")
-                elif char == ";":
-                    if ";" not in seen_unsupported:
-                        unsupported_ops.append(";")
-                        seen_unsupported.add(";")
-            buffer.append(char)
-            index += 1
-
-        tail = "".join(buffer).strip()
-        if tail:
-            segments.append(tail)
-
-        if saw_and_chain and segments and not unsupported_ops:
-            return segments, []
-        return [text.strip()], unsupported_ops
 
     def _execute_single_shell_command_with_policy(
         self,
@@ -1115,19 +1018,85 @@ class TaskExecutionService:
         execution_policy: TaskExecutionPolicyContract,
         working_directory: str | None = None,
         allow_complex_shell: bool = False,
+        task: dict | None = None,
+        agent_cfg: dict | None = None,
     ) -> tuple[str, int | None, int, str, list[dict]]:
         repaired_command = self._repair_command_transcription_noise(command)
-        command_segments, unsupported_ops = self._split_and_chained_commands(repaired_command)
-        if unsupported_ops and not allow_complex_shell:
+        plan = CommandChainParser().parse(repaired_command)
+        if not plan.allowed and not allow_complex_shell:
             message = (
                 "Error: Unsupported shell operators in command: "
-                + ", ".join(unsupported_ops)
+                + ", ".join(plan.unsupported_operators or [str(plan.denied_reason or "invalid_command")])
                 + ". Request a single command without chaining/redirection."
             )
             return message, -1, 0, "command_runtime_error", []
-        if unsupported_ops and allow_complex_shell:
+        if not plan.allowed and allow_complex_shell:
             # Pipeline-mode: run the full command as-is via shell instead of splitting
             command_segments = [repaired_command]
+            chain_segments = []
+        else:
+            command_segments = [seg.raw for seg in plan.segments]
+            chain_segments = list(plan.segments)
+        if not command_segments:
+            return "", 0, 0, "success", []
+
+        # Upfront policy validation: every segment must be allowed before any execution.
+        effective_task = task or {}
+        cfg = dict(agent_cfg or {})
+        validation_meta: list[dict] = []
+        known_tools = [definition.get("name") for definition in tool_registry.get_tool_definitions()]
+        known_tool_set = set(known_tools)
+        for seg in chain_segments or []:
+            seg_cmd = seg.raw
+            mapped = CommandToToolMapper().map(seg_cmd)
+            mapped_is_known = bool(mapped.mapped_tool and mapped.mapped_tool in known_tool_set)
+            mapped_tool_calls = [{"name": mapped.mapped_tool, "args": mapped.args}] if mapped_is_known else None
+            seg_approval = get_approval_policy_service().evaluate(
+                command=None if mapped_is_known else seg_cmd,
+                tool_calls=mapped_tool_calls,
+                task=effective_task,
+                agent_cfg=cfg,
+            ).as_dict()
+            seg_risk = evaluate_execution_risk(
+                command=None if mapped_is_known else seg_cmd,
+                tool_calls=mapped_tool_calls,
+                task=effective_task,
+                agent_cfg=cfg,
+            )
+            allowed = True
+            reason_codes: list[str] = []
+            if seg_approval.get("classification") == "blocked" and seg_approval.get("enforced"):
+                allowed = False
+                reason_codes.append(str(seg_approval.get("reason_code") or "approval_blocked"))
+            if not seg_risk.allowed:
+                allowed = False
+                reason_codes.extend([str(item) for item in list(seg_risk.reasons or [])] or ["risk_policy_blocked"])
+            if mapped_is_known:
+                blocked, reasons = validate_task_scoped_tool_calls(
+                    mapped_tool_calls,
+                    allowed_tools=resolve_task_scope_allowed_tools(effective_task),
+                    known_tools=known_tools,
+                )
+                if blocked:
+                    allowed = False
+                    reason_codes.extend(list(reasons.values()))
+            row = {
+                "segment_index": seg.index,
+                "operator_before": seg.operator_before,
+                "command_preview": seg_cmd[:200],
+                "allowed": allowed,
+                "reason_codes": list(dict.fromkeys(reason_codes)),
+                "mapped_tool": mapped.mapped_tool if mapped_is_known else None,
+            }
+            validation_meta.append(row)
+            if not allowed:
+                return (
+                    f"Error: command chain segment denied at index {seg.index}: {', '.join(row['reason_codes'])}",
+                    -1,
+                    0,
+                    "command_runtime_error",
+                    [{"attempt": 0, "command_chain": {"segment_count": len(command_segments), "validations": validation_meta}}],
+                )
 
         aggregate_outputs: list[str] = []
         aggregate_retries = 0
@@ -1143,19 +1112,42 @@ class TaskExecutionService:
             aggregate_history.append(
                 {
                     "attempt": 0,
-                    "normalization": "split_and_chain_command",
+                    "normalization": "command_chain_parsed",
                     "segment_count": len(command_segments),
+                    "validations": validation_meta,
                 }
             )
 
+        last_exit_code = 0
+        last_failure_type = "success"
+        any_executed = False
         for index, segment in enumerate(command_segments):
-            output, exit_code, retries_used, failure_type, retry_history = self._execute_single_shell_command_with_policy(
-                tid=tid,
-                command=segment,
-                execution_policy=execution_policy,
-                working_directory=working_directory,
-            )
+            operator_before = None
+            if index < len(chain_segments):
+                operator_before = chain_segments[index].operator_before
+            if operator_before == "&&" and last_exit_code != 0:
+                aggregate_history.append({"attempt": 0, "segment_index": index + 1, "segment_command": segment, "skipped_by": "&&"})
+                continue
+            if operator_before == "||" and last_exit_code == 0:
+                aggregate_history.append({"attempt": 0, "segment_index": index + 1, "segment_command": segment, "skipped_by": "||"})
+                continue
+            mapped = CommandToToolMapper().map(segment)
+            if mapped.mapped_tool and mapped.mapped_tool in known_tool_set:
+                tool_result = tool_registry.execute(mapped.mapped_tool, mapped.args)
+                output = str(tool_result.output or "")
+                exit_code = 0 if tool_result.success else 1
+                retries_used = 0
+                failure_type = "success" if tool_result.success else "tool_failure"
+                retry_history = [{"attempt": 1, "mapped_tool": mapped.mapped_tool, "mapping_reason": mapped.reason}]
+            else:
+                output, exit_code, retries_used, failure_type, retry_history = self._execute_single_shell_command_with_policy(
+                    tid=tid,
+                    command=segment,
+                    execution_policy=execution_policy,
+                    working_directory=working_directory,
+                )
             aggregate_retries += retries_used
+            any_executed = True
             if output:
                 aggregate_outputs.append(output)
             for entry in list(retry_history or []):
@@ -1164,12 +1156,24 @@ class TaskExecutionService:
                         **entry,
                         "segment_index": index + 1,
                         "segment_command": segment,
+                        "operator_before": operator_before,
                     }
                 )
+            last_exit_code = int(exit_code or 0)
+            last_failure_type = failure_type
             if exit_code != 0:
+                next_operator = chain_segments[index].operator_after if index < len(chain_segments) else None
+                if next_operator == "||":
+                    continue
+                if next_operator == "&&":
+                    continue
                 return "\n---\n".join(aggregate_outputs), exit_code, aggregate_retries, failure_type, aggregate_history
 
-        return "\n---\n".join(aggregate_outputs), 0, aggregate_retries, "success", aggregate_history
+        if not any_executed:
+            return "\n---\n".join(aggregate_outputs), 0, aggregate_retries, "success", aggregate_history
+        if last_exit_code == 0:
+            return "\n---\n".join(aggregate_outputs), 0, aggregate_retries, "success", aggregate_history
+        return "\n---\n".join(aggregate_outputs), last_exit_code, aggregate_retries, last_failure_type, aggregate_history
 
 
 task_execution_service = TaskExecutionService()

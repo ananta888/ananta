@@ -62,7 +62,7 @@
     {
       "id": "CCS-T001",
       "title": "Implement safe shell command-chain parser and execution plan",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "`&&` is currently allowed too broadly. `&&`, `||` and `;` should be supported by parsing into atomic steps, not by treating the full chain as one allowed command.",
@@ -99,7 +99,7 @@
     {
       "id": "CCS-T002",
       "title": "Validate every command-chain segment independently before execution",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "A chain should be allowed only if every atomic segment is allowed individually. `&&`, `||` and `;` differ in execution semantics, but permission checking must validate all segments upfront.",
@@ -137,7 +137,7 @@
     {
       "id": "CCS-T003",
       "title": "Prefer conversion of known command-chain segments into explicit tool calls",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "problem": "Many safe shell segments are better represented as explicit tools. This keeps file and test access inside the central ToolExecution layer.",
@@ -170,7 +170,7 @@
     {
       "id": "CCS-T004",
       "title": "Remove unsafe unknown-tool-to-bash remapping",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "Current _normalize_runtime_tool_calls/_resolve_tool_intents can map unknown tools or text payloads to bash commands that write markdown files. Ambiguous model output must not become shell execution by default.",
@@ -204,7 +204,7 @@
     {
       "id": "CCS-T005",
       "title": "Change unresolved tool intent status from todo to needs_review or bounded retryable_failed",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "problem": "Current unresolved recoverable tool intents return LocalExecutionResult(status='todo', exit_code=0). That can make Autopilot think work should continue without a clear failure/review boundary, risking loops.",
@@ -236,7 +236,7 @@
     {
       "id": "CCS-T006",
       "title": "Re-run approval and risk checks after tool normalization/remapping",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "problem": "execute_local_step currently performs approval/risk checks before runtime tool normalization. If normalization changes intent, the final normalized form must be checked again before execution.",
@@ -267,7 +267,7 @@
     {
       "id": "CCS-T007",
       "title": "Make StrategyMode TODO statuses realistic again",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "problem": "Recent commits mark WSM-T002/T003/T004/T006 as done, but implementations are currently minimal skeletons/wrappers. This overstates the maturity of OpenCode-like, Codex-like and Hermes-like modes.",
@@ -296,7 +296,7 @@
     {
       "id": "CCS-T008",
       "title": "Add E2E tests for command-chain execution semantics",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "problem": "Unit tests are not enough. Command chains should be proven in execute_local_step or route-level execution, including success-gated and failure-gated behavior.",
@@ -353,10 +353,10 @@
   "summary_bottom": {
     "assessment": "The recent tool-calling work adds useful compatibility and StrategyMode foundations, but the current runtime tool normalization is too permissive and command chaining is not yet policy-preserving. The right fix is not to ban chains, but to parse them and validate every atomic command before executing anything.",
     "status_counts": {
-      "todo": 8,
-      "partial": 0,
-      "done": 0
+      "todo": 0,
+      "partial": 1,
+      "done": 7
     },
-    "most_important_next_step": "Fix CCS-T004 and CCS-T006 first to stop unsafe unknown-tool-to-bash behavior and ensure final normalized tool calls are policy-checked. Then implement CCS-T001/CCS-T002 for safe command-chain parsing and per-segment validation."
+    "most_important_next_step": "Finish CCS-T007 by syncing StrategyMode maturity markers in the currently missing/renamed backlog files and documenting evidence links after repository path confirmation."
   }
 }
