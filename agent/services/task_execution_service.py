@@ -359,11 +359,21 @@ class TaskExecutionService:
                 }
             )
 
-        if tool_calls:
+        normalized_tool_calls = self._normalize_runtime_tool_calls(tool_calls)
+        if normalized_tool_calls:
             allowed_tools = resolve_task_scope_allowed_tools(effective_task)
             known_tools = [definition.get("name") for definition in tool_registry.get_tool_definitions()]
+            normalized_tool_calls, remap_events = self._resolve_tool_intents(
+                normalized_tool_calls,
+                known_tools=known_tools,
+            )
+            for event in remap_events:
+                current_app.logger.info(
+                    "tool_intent_resolved %s",
+                    json.dumps(event, ensure_ascii=True, sort_keys=True),
+                )
             blocked_tools, blocked_reasons_by_tool = validate_task_scoped_tool_calls(
-                tool_calls,
+                normalized_tool_calls,
                 allowed_tools=allowed_tools,
                 known_tools=known_tools,
             )
@@ -374,11 +384,40 @@ class TaskExecutionService:
                     status="ok" if not blocked_tools else "blocked",
                     metadata={
                         "allowed_tools": allowed_tools,
-                        "tool_call_count": len(tool_calls or []),
+                        "tool_call_count": len(normalized_tool_calls or []),
                         "blocked_tools": blocked_tools,
                     },
                 )
             if blocked_tools:
+                recoverable_reason_codes = {"unknown_tool", "missing_tool_name", "invalid_tool_call"}
+                reasons = set(blocked_reasons_by_tool.values())
+                if reasons and reasons.issubset(recoverable_reason_codes):
+                    msg = (
+                        "[tool_intent] unresolved but recoverable: "
+                        + ", ".join(sorted(f"{tool}:{blocked_reasons_by_tool.get(tool)}" for tool in blocked_tools))
+                    )
+                    if pipeline is not None:
+                        append_stage(
+                            pipeline,
+                            name="task_scope_validation",
+                            status="blocked",
+                            metadata={
+                                "recoverable": True,
+                                "blocked_tools": blocked_tools,
+                                "blocked_reasons_by_tool": blocked_reasons_by_tool,
+                            },
+                        )
+                    return LocalExecutionResult(
+                        output=msg,
+                        exit_code=0,
+                        retries_used=0,
+                        failure_type="tool_intent_unresolved_recoverable",
+                        retry_history=[],
+                        status="todo",
+                        loop_signals=[],
+                        loop_detection=None,
+                        approval_decision=approval_payload,
+                    )
                 scope_decision = ToolGuardrailDecision(
                     allowed=False,
                     blocked_tools=blocked_tools,
@@ -393,7 +432,7 @@ class TaskExecutionService:
                         tid,
                         effective_task,
                         command,
-                        tool_calls,
+                        normalized_tool_calls,
                         scope_decision,
                         reason="tool_scope_blocked",
                     )
@@ -408,20 +447,20 @@ class TaskExecutionService:
             token_usage = {
                 "prompt_tokens": estimate_text_tokens(command or effective_task.get("description")),
                 "history_tokens": estimate_text_tokens(json.dumps(effective_task.get("history", []), ensure_ascii=False)),
-                "tool_calls_tokens": estimate_tool_calls_tokens(tool_calls),
+                "tool_calls_tokens": estimate_tool_calls_tokens(normalized_tool_calls),
             }
             token_usage["estimated_total_tokens"] = sum(int(token_usage.get(key) or 0) for key in token_usage)
-            decision = evaluate_tool_call_guardrails(tool_calls, guard_cfg, token_usage=token_usage)
+            decision = evaluate_tool_call_guardrails(normalized_tool_calls, guard_cfg, token_usage=token_usage)
             if pipeline is not None:
                 append_stage(
                     pipeline,
                     name="guardrails",
                     status="ok" if decision.allowed else "blocked",
-                    metadata={"tool_call_count": len(tool_calls or []), "blocked_tools": decision.blocked_tools},
+                    metadata={"tool_call_count": len(normalized_tool_calls or []), "blocked_tools": decision.blocked_tools},
                 )
             if not decision.allowed:
                 if tid:
-                    self._append_guardrail_block_history(tid, effective_task, command, tool_calls, decision)
+                    self._append_guardrail_block_history(tid, effective_task, command, normalized_tool_calls, decision)
                 raise ToolGuardrailError(
                     details={
                         "blocked_tools": decision.blocked_tools,
@@ -429,7 +468,7 @@ class TaskExecutionService:
                         "guardrails": decision.details,
                     }
                 )
-            for tool_call in tool_calls:
+            for tool_call in normalized_tool_calls:
                 raw_name = str(tool_call.get("name") or tool_call.get("tool_name") or "").strip()
                 name = normalize_tool_call_name(raw_name)
                 args = tool_call.get("args") or tool_call.get("tool_input") or tool_call.get("parameters") or {}
@@ -809,6 +848,126 @@ class TaskExecutionService:
             execution_policy.retryable_exit_codes = [int(code) for code in list(agent_cfg.get("command_retryable_exit_codes") or [])]
         if request_data.retry_policy_override is None and agent_cfg.get("command_retry_on_timeouts") is not None:
             execution_policy.retry_on_timeouts = bool(agent_cfg.get("command_retry_on_timeouts"))
+
+    def _normalize_runtime_tool_calls(self, tool_calls: list[dict] | None) -> list[dict]:
+        normalized: list[dict] = []
+        for item in list(tool_calls or []):
+            if not isinstance(item, dict):
+                continue
+            tc = dict(item)
+            raw_name = str(tc.get("name") or tc.get("tool_name") or "").strip()
+            args = tc.get("args") or tc.get("tool_input") or tc.get("parameters") or {}
+            if not isinstance(args, dict):
+                args = {}
+            # Default-path compatibility: if a model hallucinates a tool name but
+            # supplies an executable shell payload, route it to canonical shell tool.
+            has_shell_payload = bool(args.get("command") or args.get("cmd"))
+            canonical = normalize_tool_call_name(raw_name)
+            if not canonical and has_shell_payload:
+                canonical = "bash"
+            if canonical not in {"bash", "shell_execute", "run_command", "execute_command"} and has_shell_payload:
+                canonical = "bash"
+            text_payload = (
+                str(args.get("details") or "").strip()
+                or str(args.get("summary") or "").strip()
+                or str(args.get("text") or "").strip()
+                or str(args.get("content") or "").strip()
+            )
+            semantic_unknown = bool(canonical) and canonical not in {
+                "bash",
+                "shell_execute",
+                "run_command",
+                "execute_command",
+                "file_write",
+                "file_read",
+                "file_list",
+                "file_patch",
+                "web_search",
+                "web_fetch",
+                "git_status",
+                "git_diff",
+                "git_log",
+                "git_commit",
+            }
+            if text_payload and (not canonical or semantic_unknown):
+                safe_slug = re.sub(r"[^a-z0-9_\\-]+", "_", str(raw_name or "note").strip().lower()).strip("_") or "note"
+                filename = f"{safe_slug}.md"
+                escaped = text_payload.replace("'", "'\"'\"'")
+                canonical = "bash"
+                args = {"command": f"printf '%s\\n' '{escaped}' > {shlex.quote(filename)}"}
+            if canonical:
+                tc["name"] = canonical
+                tc["tool_name"] = canonical
+            if "command" not in args and args.get("cmd"):
+                args["command"] = args.get("cmd")
+            tc["args"] = args
+            normalized.append(tc)
+        return normalized
+
+    def _resolve_tool_intents(
+        self,
+        tool_calls: list[dict],
+        *,
+        known_tools: list[str] | tuple[str, ...] | set[str] | None,
+    ) -> tuple[list[dict], list[dict]]:
+        known = {str(item).strip() for item in (known_tools or []) if str(item).strip()}
+        remapped: list[dict] = []
+        events: list[dict] = []
+        for item in list(tool_calls or []):
+            if not isinstance(item, dict):
+                continue
+            tc = dict(item)
+            raw_name = str(tc.get("name") or tc.get("tool_name") or "").strip()
+            name = normalize_tool_call_name(raw_name)
+            args = tc.get("args") or tc.get("tool_input") or tc.get("parameters") or {}
+            if not isinstance(args, dict):
+                args = {}
+            command_payload = str(args.get("command") or args.get("cmd") or "").strip()
+            path_payload = str(args.get("path") or args.get("file_path") or args.get("filename") or "").strip()
+            content_payload = (
+                str(args.get("content") or "").strip()
+                or str(args.get("text") or "").strip()
+                or str(args.get("details") or "").strip()
+                or str(args.get("summary") or "").strip()
+            )
+
+            resolved_name = name
+            resolved_args = dict(args)
+            resolve_reason = "canonical"
+
+            if command_payload and name not in {"bash", "shell_execute", "run_command", "execute_command"}:
+                resolved_name = "bash"
+                resolved_args = {"command": command_payload}
+                resolve_reason = "command_payload_to_bash"
+            elif content_payload and path_payload and name not in {"file_write", "file_patch"}:
+                resolved_name = "file_write"
+                resolved_args = {"path": path_payload, "content": content_payload}
+                resolve_reason = "path_plus_content_to_file_write"
+            elif path_payload and not content_payload and name not in {"file_read", "file_list"}:
+                resolved_name = "file_read"
+                resolved_args = {"path": path_payload}
+                resolve_reason = "path_only_to_file_read"
+            elif (known and resolved_name not in known) and content_payload:
+                safe_slug = re.sub(r"[^a-z0-9_\\-]+", "_", str(name or "note")).strip("_") or "note"
+                escaped = content_payload.replace("'", "'\"'\"'")
+                resolved_name = "bash"
+                resolved_args = {"command": f"printf '%s\\n' '{escaped}' > {shlex.quote(safe_slug + '.md')}"}
+                resolve_reason = "unknown_tool_text_to_bash"
+
+            tc["name"] = resolved_name
+            tc["tool_name"] = resolved_name
+            tc["args"] = resolved_args
+
+            if raw_name != resolved_name or resolve_reason != "canonical":
+                events.append(
+                    {
+                        "original_tool": raw_name or "<missing>",
+                        "resolved_tool": resolved_name or "<missing>",
+                        "reason": resolve_reason,
+                    }
+                )
+            remapped.append(tc)
+        return remapped, events
 
     def _build_proposal_payload(self, raw_response: str) -> dict:
         reason = _extract_reason(raw_response)

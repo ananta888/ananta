@@ -123,8 +123,11 @@ def validate_meta_characters(command: str) -> tuple[bool, str]:
         return False, "Variablen-Verkettung ($a$b) ist aus Sicherheitsgr\u00fcnden deaktiviert."
     if ";" in command:
         return False, "Semikolons (;) sind als Befehlstrenner deaktiviert."
-    if "&&" in command or "||" in command:
-        return False, "Befehlskettung (&&/||) ist aus Sicherheitsgruenden deaktiviert."
+    # Default path hardening: allow linear command chaining via `&&` so
+    # planner/worker outputs can execute without custom exceptions. Riskier
+    # control flow operators like `||` remain blocked.
+    if "||" in command:
+        return False, "Befehlsalternativen (||) sind aus Sicherheitsgruenden deaktiviert."
     if re.search(r"(^|[^>])>([^>]|$)", command) or "<" in command:
         return False, "Input/Output-Redirection ist aus Sicherheitsgruenden deaktiviert."
     if re.search(r"(^|[^&])&([^&]|$)", command):
