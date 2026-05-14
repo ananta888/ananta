@@ -4,6 +4,11 @@
 
 The Hub must treat **files, artifact manifests, and verification evidence** as the primary source of truth for task completion. LLM chat output (including JSON in the final response) is **advisory only** and must never be the sole authority for marking a task completed or triggering a retry loop.
 
+LLM strategy semantics for `new_software_project` are:
+- `tool_calling_llm` preferred when provider-native tool calling is available
+- `json_schema_llm` as fallback for providers/models without reliable native tool calls
+- `flexible_llm_normalization` as last recovery layer, always policy-gated
+
 ## Problem Statement
 
 The observed failure mode: a worker generated the expected files correctly (Fibonacci Flask project: `app.py`, `requirements.txt`, `README.md`), but the model returned Markdown/natural language instead of strict JSON as its final response. The Hub remained stuck in a retry loop because it waited for valid JSON — even though the real work was done.

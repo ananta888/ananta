@@ -80,16 +80,16 @@
     {"id":"APH-T002","title":"Regressionstests fuer content-fallback policy behavior","status":"done","priority":"P0","risk":"high","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
     {"id":"APH-T003","title":"Runtime-selection Alembic-Migration SQLite/Postgres-portabel machen","status":"done","priority":"P1","risk":"high","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
     {"id":"APH-T004","title":"Downgrade implementieren oder explizit irreversibel markieren","status":"done","priority":"P2","risk":"medium","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
-    {"id":"APH-T005","title":"Optionale echte VerificationService/Pytest Full-Flow E2E","status":"todo","priority":"P2","risk":"medium","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
+    {"id":"APH-T005","title":"Optionale echte VerificationService/Pytest Full-Flow E2E","status":"done","priority":"P2","risk":"medium","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
     {"id":"APH-T006","title":"Docs/TODO-Status nach Hardening aktualisieren","status":"done","priority":"P2","risk":"low","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
-    {"id":"APH-T007","title":"Strategie-Semantik dokumentieren und testen (native tools vor JSON fallback)","status":"partial","priority":"P1","risk":"medium","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
+    {"id":"APH-T007","title":"Strategie-Semantik dokumentieren und testen (native tools vor JSON fallback)","status":"done","priority":"P1","risk":"medium","source":"todo.fixup-autopilot-policy-and-migration-hardening.json"},
 
     {"id":"AFF-E2E-T001","title":"Echte service-level Full-Flow E2E fuer new-project Fibonacci","status":"done","priority":"P0","risk":"critical","source":"todo.fixup-autopilot-full-flow-e2e.json"},
     {"id":"AFF-E2E-T002","title":"Full-Flow Test mit ArtifactManifest oder synthesized diff verbinden","status":"done","priority":"P0","risk":"critical","source":"todo.fixup-autopilot-full-flow-e2e.json"},
     {"id":"AFF-E2E-T003","title":"Verification + TaskCompletionPolicyService im Full-Flow E2E","status":"done","priority":"P0","risk":"critical","source":"todo.fixup-autopilot-full-flow-e2e.json"},
     {"id":"AFF-E2E-T004","title":"Route/API-level smoke test fuer ananta new-project","status":"done","priority":"P1","risk":"high","source":"todo.fixup-autopilot-full-flow-e2e.json"},
-    {"id":"AFF-E2E-T005","title":"Test-Evidenz und TODO-Konsistenz verbessern","status":"todo","priority":"P1","risk":"medium","source":"todo.fixup-autopilot-full-flow-e2e.json"},
-    {"id":"AFF-E2E-T006","title":"Sicherheits- und Failure-Mode Faelle fuer Full-Flow Execution","status":"todo","priority":"P1","risk":"high","source":"todo.fixup-autopilot-full-flow-e2e.json"},
+    {"id":"AFF-E2E-T005","title":"Test-Evidenz und TODO-Konsistenz verbessern","status":"done","priority":"P1","risk":"medium","source":"todo.fixup-autopilot-full-flow-e2e.json"},
+    {"id":"AFF-E2E-T006","title":"Sicherheits- und Failure-Mode Faelle fuer Full-Flow Execution","status":"done","priority":"P1","risk":"high","source":"todo.fixup-autopilot-full-flow-e2e.json"},
 
     {"id":"FA-T008","title":"Reale WorkerStrategy fuer OpenCode/Hermes/native Worker","status":"partial","priority":"P1","risk":"high","source":"todo.fixup-autopilot.json"},
     {"id":"FA-T011","title":"Bounded LLM repair/coercion implementieren","status":"partial","priority":"P1","risk":"high","source":"todo.fixup-autopilot.json"},
@@ -101,7 +101,7 @@
     {"id":"WSM-T004","title":"Hermes-like proposal/review Strategy-Mode","status":"todo","priority":"P1","risk":"medium","source":"todo.worker-strategy-modes-and-fallbacks.json"},
     {"id":"WSM-T005","title":"Fallback-Mechanismen pro Mode konfigurierbar machen","status":"todo","priority":"P0","risk":"high","source":"todo.worker-strategy-modes-and-fallbacks.json"},
     {"id":"WSM-T006","title":"Strategy-Mode Konfiguration in API/UI exponieren","status":"todo","priority":"P1","risk":"medium","source":"todo.worker-strategy-modes-and-fallbacks.json"},
-    {"id":"WSM-T007","title":"Mode-Semantik und Provider-Mapping dokumentieren","status":"todo","priority":"P2","risk":"low","source":"todo.worker-strategy-modes-and-fallbacks.json"}
+    {"id":"WSM-T007","title":"Mode-Semantik und Provider-Mapping dokumentieren","status":"done","priority":"P2","risk":"low","source":"todo.worker-strategy-modes-and-fallbacks.json"}
   ],
   "priority_order": [
     "APH-T001",
@@ -149,14 +149,12 @@
   "summaries": {
     "overall": "Konsolidierter Backlog mit Fokus auf Sicherheits-Hardening, Full-Flow E2E, Migrations-Portabilitaet und konfigurierbare Strategy-Modes.",
     "status_counts": {
-      "todo": 10,
-      "partial": 4,
-      "done": 9,
+      "todo": 6,
+      "partial": 3,
+      "done": 14,
       "total": 23
     },
     "top_priorities": [
-      "APH-T007: Restliche Semantik-Nachweise/Abdeckung fuer fallback-Interpretation vervollstaendigen.",
-      "AFF-E2E-T006/AFF-E2E-T005: Failure-Modes sowie Evidenz-/TODO-Konsistenz abschliessen.",
       "WSM-T001/WSM-T005: Strategy-Modes und fallback-Steuerung explizit, konfigurierbar und auditierbar machen."
     ],
     "biggest_risks_if_not_done": [
@@ -165,11 +163,11 @@
       "Migrationsprobleme zwischen SQLite (dev/test) und Postgres (prod)."
     ],
     "recommended_next_slice": [
-      "APH-T007",
-      "AFF-E2E-T006",
-      "AFF-E2E-T005",
       "WSM-T001",
-      "WSM-T005"
+      "WSM-T005",
+      "WSM-T002",
+      "WSM-T006",
+      "FA-T012"
     ]
   }
 }
