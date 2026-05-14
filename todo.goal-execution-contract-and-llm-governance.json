@@ -349,7 +349,7 @@
         {
             "id": "GEC-T010",
             "title": "Feed RAG and instruction layers into LLM strategies",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "high",
             "milestone": "GEC-M3",
@@ -368,7 +368,7 @@
         {
             "id": "GEC-T011",
             "title": "Add prompt budget and redaction policy checks",
-            "status": "todo",
+            "status": "done",
             "priority": "P1",
             "risk": "medium",
             "milestone": "GEC-M3",
@@ -388,7 +388,7 @@
         {
             "id": "GEC-T012",
             "title": "Add role and team template selection audit",
-            "status": "todo",
+            "status": "partial",
             "priority": "P2",
             "risk": "medium",
             "milestone": "GEC-M3",
@@ -408,7 +408,7 @@
         {
             "id": "GEC-T013",
             "title": "Define canonical tool intent taxonomy",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "high",
             "milestone": "GEC-M4",
@@ -427,7 +427,7 @@
         {
             "id": "GEC-T014",
             "title": "Harden ToolIntentResolver remapping",
-            "status": "partial",
+            "status": "done",
             "priority": "P0",
             "risk": "high",
             "milestone": "GEC-M4",
@@ -446,7 +446,7 @@
         {
             "id": "GEC-T015",
             "title": "Integrate resolver with execution policy",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "critical",
             "milestone": "GEC-M4",
@@ -466,7 +466,7 @@
         {
             "id": "GEC-T016",
             "title": "Add resolver regression tests",
-            "status": "todo",
+            "status": "done",
             "priority": "P1",
             "risk": "medium",
             "milestone": "GEC-M4",
@@ -486,7 +486,7 @@
         {
             "id": "GEC-T017",
             "title": "Define improvement loop state machine",
-            "status": "todo",
+            "status": "done",
             "priority": "P0",
             "risk": "high",
             "milestone": "GEC-M5",
@@ -526,7 +526,7 @@
         {
             "id": "GEC-T019",
             "title": "Add LLM repair proposal strategy",
-            "status": "todo",
+            "status": "done",
             "priority": "P1",
             "risk": "high",
             "milestone": "GEC-M5",
@@ -814,13 +814,13 @@
     "tasks_status_summary": {
         "total": 33,
         "by_status": {
-            "todo": 15,
+            "todo": 7,
             "in_progress": 0,
             "blocked": 0,
             "partial": 11,
-            "done": 7
+            "done": 15
         },
-        "progress_percent_done": 21.21,
+        "progress_percent_done": 45.45,
         "by_priority": {
             "P0": 18,
             "P1": 12,
@@ -835,8 +835,8 @@
         },
         "critical_path": {
             "total": 13,
-            "done": 6,
-            "remaining": 7
+            "done": 10,
+            "remaining": 3
         },
         "milestones": {
             "total": 8,

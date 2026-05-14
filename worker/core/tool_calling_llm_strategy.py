@@ -42,10 +42,7 @@ def _build_system_prompt(context: ProposeContext) -> str:
     pcb = get_prompt_context_bundle_service().build_for_propose_context(context).to_dict()
     parts.append("")
     parts.append("Prompt context bundle:")
-    parts.append(
-        f"schema={pcb.get('schema')} task_kind={pcb.get('task_kind')} "
-        f"expected_artifacts_count={((pcb.get('contract_summary') or {}).get('expected_artifacts_count', 0))}"
-    )
+    parts.append(json.dumps(pcb, ensure_ascii=True, sort_keys=True))
     parts.append("")
     parts.append(
         "You MUST use one or more of the available tools to complete the task. "
@@ -61,6 +58,7 @@ class ToolCallingLLMStrategy(ProposeStrategy):
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
         from agent.config import settings
         provider = (settings.default_provider or "lmstudio").strip().lower()
+        pcb = get_prompt_context_bundle_service().build_for_propose_context(context).to_dict()
 
         if provider in _MOCK_ONLY_PROVIDERS:
             return ProposeStrategyResult.declined(
@@ -142,6 +140,12 @@ class ToolCallingLLMStrategy(ProposeStrategy):
             metadata={
                 "provider": provider,
                 "tools_used": [tc.get("name") for tc in valid_tcs],
+                "prompt_context_bundle": {
+                    "schema": pcb.get("schema"),
+                    "task_kind": pcb.get("task_kind"),
+                    "selected_chunks": ((pcb.get("context_summary") or {}).get("budget") or {}).get("selected_count"),
+                    "instruction_layers_present": bool((pcb.get("context_summary") or {}).get("instruction_layers_present")),
+                },
             },
         )
         return ProposeStrategyResult.executable("tool_calling_llm", proposal)

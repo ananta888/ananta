@@ -58,6 +58,7 @@ from agent.services.service_registry import get_core_services
 from agent.services.task_execution_service import LocalExecutionResult
 from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
 from agent.services.task_handler_registry import get_task_handler_registry
+from agent.services.execution_improvement_loop_service import get_execution_improvement_loop_service
 from agent.services.worker_execution_profile_service import (
     normalize_worker_execution_profile,
     resolve_worker_execution_profile,
@@ -2006,9 +2007,15 @@ class TaskScopedExecutionService:
         verification = self._verify_research_artifact(research_artifact)
         research_artifact["verification"] = verification
         if not verification.get("passed"):
+            critique = get_execution_improvement_loop_service().build_verification_critique(
+                expected_artifacts=[],
+                verification=verification,
+                observed_artifacts=[],
+                logs=str(research_artifact.get("report_markdown") or ""),
+            )
             raise TaskConflictError(
                 "research_artifact_verification_failed",
-                details={"verification": verification, "task_id": tid},
+                details={"verification": verification, "task_id": tid, "verification_critique": critique},
             )
         output = str(research_artifact.get("report_markdown") or "")
         pipeline = new_pipeline_trace(

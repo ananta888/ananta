@@ -9,6 +9,9 @@ def test_unknown_text_payload_maps_to_file_write_fallback():
     assert len(result.resolved_tool_calls) == 1
     assert result.resolved_tool_calls[0]["name"] == "file_write"
     assert result.resolved_tool_calls[0]["args"]["path"] == "mystery_tool.md"
+    assert result.remap_events
+    assert result.remap_events[0].resolved_intent == "file_write"
+    assert result.remap_events[0].tool_class == "write"
 
 
 def test_path_content_maps_to_file_write():
