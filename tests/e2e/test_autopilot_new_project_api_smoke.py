@@ -92,11 +92,7 @@ class TestNewProjectApiSmoke:
         assert res.status_code == 200
         data = (res.json or {}).get("data") or {}
         # Route response includes strategy metadata
-        strategy = (
-            data.get("selected_strategy")
-            or data.get("routing", {}).get("selected_strategy")
-            or data.get("routing", {}).get("strategy")
-        )
+        strategy = self._selected_strategy(data)
         assert strategy == "tool_calling_llm", (
             f"Expected tool_calling_llm strategy, got {strategy!r}. "
             f"Response data: {data}"
@@ -117,7 +113,7 @@ class TestNewProjectApiSmoke:
 
         assert res.status_code == 200
         data = (res.json or {}).get("data") or {}
-        tool_calls = data.get("tool_calls") or []
+        tool_calls = self._tool_calls(data)
         assert tool_calls, (
             f"Expected tool_calls in propose response, got none. data={data}"
         )
@@ -178,11 +174,27 @@ class TestNewProjectApiSmoke:
 
         assert res.status_code == 200
         data = (res.json or {}).get("data") or {}
-        strategy = (
-            data.get("selected_strategy")
-            or data.get("routing", {}).get("selected_strategy")
-            or data.get("routing", {}).get("strategy")
-        )
+        strategy = self._selected_strategy(data)
         assert strategy != "deterministic_handler", (
             "deterministic_handler was selected before LLM strategies — LLM-first policy violated"
         )
+    @staticmethod
+    def _selected_strategy(data: dict) -> str | None:
+        meta = data.get("propose_strategy_meta") or {}
+        metadata = data.get("metadata") or {}
+        routing = data.get("routing") or {}
+        return (
+            data.get("selected_strategy")
+            or meta.get("selected_strategy")
+            or metadata.get("selected_strategy")
+            or routing.get("selected_strategy")
+            or routing.get("strategy")
+        )
+
+    @staticmethod
+    def _tool_calls(data: dict) -> list[dict]:
+        direct = data.get("tool_calls") or []
+        if direct:
+            return direct
+        proposal = data.get("proposal") or {}
+        return proposal.get("tool_calls") or []
