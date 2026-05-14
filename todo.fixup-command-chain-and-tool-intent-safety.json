@@ -267,7 +267,7 @@
     {
       "id": "CCS-T007",
       "title": "Make StrategyMode TODO statuses realistic again",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "problem": "Recent commits mark WSM-T002/T003/T004/T006 as done, but implementations are currently minimal skeletons/wrappers. This overstates the maturity of OpenCode-like, Codex-like and Hermes-like modes.",
@@ -354,9 +354,9 @@
     "assessment": "The recent tool-calling work adds useful compatibility and StrategyMode foundations, but the current runtime tool normalization is too permissive and command chaining is not yet policy-preserving. The right fix is not to ban chains, but to parse them and validate every atomic command before executing anything.",
     "status_counts": {
       "todo": 0,
-      "partial": 1,
-      "done": 7
+      "partial": 0,
+      "done": 8
     },
-    "most_important_next_step": "Finish CCS-T007 by syncing StrategyMode maturity markers in the currently missing/renamed backlog files and documenting evidence links after repository path confirmation."
+    "most_important_next_step": "Track the remaining WSM partial work (002/003/004/006) in todo.autopilot-consolidated-next.json and implement the missing loop/apply/adapter/scope coverage."
   }
 }
