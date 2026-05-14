@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+import json
 from typing import Any
 
 from agent.services.task_execution_policy_service import normalize_tool_call_name
@@ -152,5 +153,18 @@ class ToolIntentResolver:
         if "google" in name or "search" in name:
             query = text or "project scope definition"
             return "web_search", {"query": query}, "heuristic_search_to_web_search"
+
+        planning_tokens = ("generate", "create", "define", "plan", "draft", "outline", "blueprint", "scope", "backlog", "governance")
+        if any(token in name for token in planning_tokens):
+            slug = re.sub(r"[^a-z0-9_\\-]+", "_", name).strip("_") or "plan_note"
+            rendered = json.dumps(args or {}, ensure_ascii=False, indent=2)
+            content = f"# {slug}\n\n```json\n{rendered}\n```\n"
+            return "file_write", {"path": f"{slug}.md", "content": content}, "heuristic_planning_to_file_write"
+
+        if name.startswith("tool_") or ":tool_" in name:
+            slug = re.sub(r"[^a-z0-9_\\-]+", "_", name).strip("_") or "tool_note"
+            rendered = json.dumps(args or {}, ensure_ascii=False, indent=2)
+            content = f"# {slug}\n\n```json\n{rendered}\n```\n"
+            return "file_write", {"path": f"{slug}.md", "content": content}, "heuristic_generic_tool_to_file_write"
 
         return None
