@@ -3537,15 +3537,15 @@
       "provider": "orchestrator",
       "model": "ananta-default:latest",
       "overall": {
-        "total": 28,
-        "success": 8,
+        "total": 29,
+        "success": 9,
         "failed": 20,
-        "quality_pass": 8,
+        "quality_pass": 9,
         "quality_fail": 20,
-        "latency_ms_total": 123,
-        "tokens_total": 2513,
+        "latency_ms_total": 154,
+        "tokens_total": 2591,
         "cost_units_total": 0.0,
-        "last_seen": 1778780698,
+        "last_seen": 1778780725,
         "samples": [
           {
             "ts": 1778772571,
@@ -3854,6 +3854,17 @@
             "context": {
               "task_kind": "coding"
             }
+          },
+          {
+            "ts": 1778780725,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 31,
+            "tokens_total": 78,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
           }
         ]
       },
@@ -4158,15 +4169,15 @@
           ]
         },
         "analysis": {
-          "total": 2,
-          "success": 2,
+          "total": 3,
+          "success": 3,
           "failed": 0,
-          "quality_pass": 2,
+          "quality_pass": 3,
           "quality_fail": 0,
-          "latency_ms_total": 16,
-          "tokens_total": 171,
+          "latency_ms_total": 47,
+          "tokens_total": 249,
           "cost_units_total": 0.0,
-          "last_seen": 1778780537,
+          "last_seen": 1778780725,
           "samples": [
             {
               "ts": 1778779869,
@@ -4189,11 +4200,22 @@
               "context": {
                 "task_kind": "analysis"
               }
+            },
+            {
+              "ts": 1778780725,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 31,
+              "tokens_total": 78,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
             }
           ]
         }
       }
     }
   },
-  "updated_at": 1778780698
+  "updated_at": 1778780725
 }
