@@ -87,7 +87,10 @@ class ToolIntentResolver:
             reason = "canonical"
 
             if canonical not in self._KNOWN_DIRECT and known and canonical not in known:
-                if path_payload and content_payload:
+                heuristic = self._heuristic_unknown_tool_resolution(raw_name=raw_name or canonical, args=args)
+                if heuristic is not None:
+                    resolved_name, resolved_args, reason = heuristic
+                elif path_payload and content_payload:
                     resolved_name = "file_write"
                     resolved_args = {"path": path_payload, "content": content_payload}
                     reason = "path_plus_content_to_file_write"
@@ -129,3 +132,25 @@ class ToolIntentResolver:
             remap_events=events,
             unresolved=unresolved,
         )
+
+    @staticmethod
+    def _heuristic_unknown_tool_resolution(*, raw_name: str, args: dict[str, Any]) -> tuple[str, dict[str, Any], str] | None:
+        name = str(raw_name or "").strip().lower()
+        topics = args.get("topics") if isinstance(args.get("topics"), list) else []
+        scope_elements = args.get("scope_elements") if isinstance(args.get("scope_elements"), list) else []
+        text = str(args.get("input_text") or args.get("text") or args.get("query") or "").strip()
+
+        if "scope" in name or "summar" in name:
+            lines = [str(item).strip() for item in list(scope_elements or topics) if str(item).strip()]
+            body = "Project scope summary\n"
+            if lines:
+                body += "\n" + "\n".join(f"- {line}" for line in lines)
+            elif text:
+                body += f"\n\n{text}"
+            return "file_write", {"path": "PROJECT_SCOPE.md", "content": body}, "heuristic_scope_to_file_write"
+
+        if "google" in name or "search" in name:
+            query = text or "project scope definition"
+            return "web_search", {"query": query}, "heuristic_search_to_web_search"
+
+        return None
