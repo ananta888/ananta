@@ -43,7 +43,7 @@ class TestProposeStrategyRegistry:
             "agent_loop_tool_calling", "cli_agent_patch_strategy", "hermes_proposal_strategy",
             "deterministic_handler", "worker_strategy",
             "tool_calling_llm", "json_schema_llm",
-            "flexible_llm_normalization", "advisory_proposal", "human_review",
+            "flexible_llm_normalization", "repair_procedure_runner", "advisory_proposal", "human_review",
         }
         assert expected == set(reg.keys())
 

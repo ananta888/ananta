@@ -11,6 +11,7 @@ from worker.core.worker_strategy import WorkerStrategy
 from worker.core.agent_loop_tool_calling_strategy import AgentLoopToolCallingStrategy
 from worker.core.cli_agent_patch_strategy import CliAgentPatchStrategy
 from worker.core.hermes_proposal_strategy import HermesProposalStrategy
+from worker.core.repair_procedure_runner_strategy import RepairProcedureRunnerStrategy
 from agent.services.propose_strategies.flexible_llm_normalization_strategy import (
     FlexibleLLMNormalizationStrategy,
 )
@@ -34,6 +35,7 @@ def build_strategy_registry() -> Dict[str, ProposeStrategy]:
         "tool_calling_llm": ToolCallingLLMStrategy(),
         "json_schema_llm": JsonSchemaLLMStrategy(),
         "flexible_llm_normalization": FlexibleLLMNormalizationStrategy(),
+        "repair_procedure_runner": RepairProcedureRunnerStrategy(),
         "advisory_proposal": AdvisoryProposalStrategy(),
         "human_review": HumanReviewStrategy(),
     }

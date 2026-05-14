@@ -58,6 +58,9 @@ class TestJsonSchemaLLMStrategy:
         result = strategy.run(context)
         assert result.status == STATUS_EXECUTABLE
         assert result.proposal.tool_calls[0]["name"] == "write_file"
+        call_kwargs = mock_svc.call_args.kwargs
+        assert "Prompt context bundle (JSON):" in call_kwargs["prompt"]
+        assert result.proposal.metadata["prompt_context_bundle"]["schema"] == "prompt_context_bundle.v1"
 
     def test_executable_command(self, context, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")

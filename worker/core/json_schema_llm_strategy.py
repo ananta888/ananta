@@ -6,6 +6,7 @@ import json
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 from worker.core.propose import ProposeStrategyResult, ExecutableProposal
 from agent.services.model_invocation_service import ModelInvocationService, LLMUnavailableError
+from agent.services.prompt_context_bundle_service import get_prompt_context_bundle_service
 
 _MOCK_ONLY_PROVIDERS = {"mock"}
 
@@ -51,7 +52,13 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 "json_schema_llm", reason="provider_json_schema_not_supported_mock",
             )
 
-        prompt = context.base_prompt + _SCHEMA_PROMPT_SUFFIX
+        bundle = get_prompt_context_bundle_service().build_for_propose_context(context).to_dict()
+        prompt = (
+            context.base_prompt
+            + "\n\nPrompt context bundle (JSON):\n"
+            + json.dumps(bundle, ensure_ascii=True, sort_keys=True)
+            + _SCHEMA_PROMPT_SUFFIX
+        )
 
         try:
             raw_response = ModelInvocationService.invoke_with_json_schema(
@@ -110,7 +117,15 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 command=None,
                 tool_calls=valid_tcs,
                 expected_artifacts=["workspace-changes"],
-                metadata={"provider": provider},
+                metadata={
+                    "provider": provider,
+                    "prompt_context_bundle": {
+                        "schema": bundle.get("schema"),
+                        "task_kind": bundle.get("task_kind"),
+                        "selected_chunks": ((bundle.get("context_summary") or {}).get("budget") or {}).get("selected_count"),
+                        "instruction_layers_present": bool((bundle.get("context_summary") or {}).get("instruction_layers_present")),
+                    },
+                },
             )
             return ProposeStrategyResult.executable("json_schema_llm", proposal)
 
@@ -123,7 +138,15 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 command=command,
                 tool_calls=[],
                 expected_artifacts=["command_output"],
-                metadata={"provider": provider},
+                metadata={
+                    "provider": provider,
+                    "prompt_context_bundle": {
+                        "schema": bundle.get("schema"),
+                        "task_kind": bundle.get("task_kind"),
+                        "selected_chunks": ((bundle.get("context_summary") or {}).get("budget") or {}).get("selected_count"),
+                        "instruction_layers_present": bool((bundle.get("context_summary") or {}).get("instruction_layers_present")),
+                    },
+                },
             )
             return ProposeStrategyResult.executable("json_schema_llm", proposal)
 

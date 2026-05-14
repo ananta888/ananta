@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from agent.services.task_execution_policy_service import normalize_tool_call_name
+from agent.services.tool_intent_taxonomy_service import get_tool_intent_taxonomy_service
 
 
 @dataclass(frozen=True)
@@ -13,6 +14,9 @@ class ToolIntentRemapEvent:
     original_tool: str
     resolved_tool: str
     reason: str
+    resolved_intent: str = "unknown"
+    resolved_risk: str = "medium"
+    tool_class: str = "unknown"
     confidence: str = "explicit_rule"
 
 
@@ -131,6 +135,9 @@ class ToolIntentResolver:
                         original_tool=raw_name or "<missing>",
                         resolved_tool=resolved_name,
                         reason=reason,
+                        resolved_intent=get_tool_intent_taxonomy_service().classify_tool(resolved_name).get("intent", "unknown"),
+                        resolved_risk=get_tool_intent_taxonomy_service().classify_tool(resolved_name).get("risk_class", "medium"),
+                        tool_class=get_tool_intent_taxonomy_service().classify_tool(resolved_name).get("tool_class", "unknown"),
                     )
                 )
 

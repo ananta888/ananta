@@ -37,6 +37,7 @@ from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.command_chain_parser import CommandChainParser
 from agent.services.command_to_tool_mapper import CommandToToolMapper
 from agent.services.tool_intent_resolver import ToolIntentResolver
+from agent.services.tool_intent_taxonomy_service import get_tool_intent_taxonomy_service
 from agent.services.task_execution_policy_service import (
     classify_execution_failure,
     compute_execution_retry_delay,
@@ -378,12 +379,40 @@ class TaskExecutionService:
                             "original_tool": event.original_tool,
                             "resolved_tool": event.resolved_tool,
                             "reason": event.reason,
+                            "resolved_intent": event.resolved_intent,
+                            "resolved_risk": event.resolved_risk,
+                            "tool_class": event.tool_class,
                             "confidence": event.confidence,
                         },
                         ensure_ascii=True,
                         sort_keys=True,
                     ),
                 )
+            worker_execution_contract = dict((effective_task or {}).get("worker_execution_contract") or {})
+            allowed_tool_classes = {
+                str(item).strip().lower()
+                for item in list(worker_execution_contract.get("allowed_tool_classes") or [])
+                if str(item).strip()
+            }
+            if allowed_tool_classes:
+                blocked_tools: list[str] = []
+                blocked_reasons: dict[str, str] = {}
+                taxonomy = get_tool_intent_taxonomy_service()
+                for tc in normalized_tool_calls:
+                    tool_name = str(tc.get("name") or tc.get("tool_name") or "").strip()
+                    tool_class = str(taxonomy.classify_tool(tool_name).get("tool_class") or "unknown").strip().lower()
+                    if tool_class not in allowed_tool_classes:
+                        blocked_tools.append(tool_name or "<missing>")
+                        blocked_reasons[tool_name or "<missing>"] = "tool_class_not_allowed_for_worker_execution_contract"
+                if blocked_tools:
+                    raise ToolGuardrailError(
+                        details={
+                            "blocked_tools": blocked_tools,
+                            "blocked_reasons": sorted(set(blocked_reasons.values())),
+                            "blocked_reasons_by_tool": blocked_reasons,
+                            "allowed_tool_classes": sorted(allowed_tool_classes),
+                        }
+                    )
             if resolution.unresolved:
                 reason_codes = sorted({item.reason_code for item in resolution.unresolved})
                 summary = ", ".join(f"{item.original_tool}:{item.reason_code}" for item in resolution.unresolved)
