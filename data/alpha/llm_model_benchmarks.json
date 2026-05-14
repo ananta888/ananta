@@ -3537,15 +3537,15 @@
       "provider": "orchestrator",
       "model": "ananta-default:latest",
       "overall": {
-        "total": 18,
-        "success": 1,
-        "failed": 17,
-        "quality_pass": 1,
-        "quality_fail": 17,
-        "latency_ms_total": 20,
-        "tokens_total": 1474,
+        "total": 23,
+        "success": 3,
+        "failed": 20,
+        "quality_pass": 3,
+        "quality_fail": 20,
+        "latency_ms_total": 43,
+        "tokens_total": 2001,
         "cost_units_total": 0.0,
-        "last_seen": 1778778544,
+        "last_seen": 1778779478,
         "samples": [
           {
             "ts": 1778772571,
@@ -3744,20 +3744,75 @@
             "context": {
               "task_kind": "coding"
             }
+          },
+          {
+            "ts": 1778779270,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 11,
+            "tokens_total": 83,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "coding"
+            }
+          },
+          {
+            "ts": 1778779281,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 8,
+            "tokens_total": 154,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "coding"
+            }
+          },
+          {
+            "ts": 1778779308,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 0,
+            "tokens_total": 125,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "coding"
+            }
+          },
+          {
+            "ts": 1778779396,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 1,
+            "tokens_total": 127,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "coding"
+            }
+          },
+          {
+            "ts": 1778779478,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 3,
+            "tokens_total": 38,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "coding"
+            }
           }
         ]
       },
       "task_kinds": {
         "coding": {
-          "total": 18,
-          "success": 1,
-          "failed": 17,
-          "quality_pass": 1,
-          "quality_fail": 17,
-          "latency_ms_total": 20,
-          "tokens_total": 1474,
+          "total": 23,
+          "success": 3,
+          "failed": 20,
+          "quality_pass": 3,
+          "quality_fail": 20,
+          "latency_ms_total": 43,
+          "tokens_total": 2001,
           "cost_units_total": 0.0,
-          "last_seen": 1778778544,
+          "last_seen": 1778779478,
           "samples": [
             {
               "ts": 1778772571,
@@ -3956,11 +4011,66 @@
               "context": {
                 "task_kind": "coding"
               }
+            },
+            {
+              "ts": 1778779270,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 11,
+              "tokens_total": 83,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "coding"
+              }
+            },
+            {
+              "ts": 1778779281,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 8,
+              "tokens_total": 154,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "coding"
+              }
+            },
+            {
+              "ts": 1778779308,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 0,
+              "tokens_total": 125,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "coding"
+              }
+            },
+            {
+              "ts": 1778779396,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 1,
+              "tokens_total": 127,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "coding"
+              }
+            },
+            {
+              "ts": 1778779478,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 3,
+              "tokens_total": 38,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "coding"
+              }
             }
           ]
         }
       }
     }
   },
-  "updated_at": 1778778544
+  "updated_at": 1778779478
 }
