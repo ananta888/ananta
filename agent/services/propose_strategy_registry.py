@@ -8,6 +8,9 @@ from worker.core.deterministic_handler_strategy import DeterministicHandlerStrat
 from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
 from worker.core.json_schema_llm_strategy import JsonSchemaLLMStrategy
 from worker.core.worker_strategy import WorkerStrategy
+from worker.core.agent_loop_tool_calling_strategy import AgentLoopToolCallingStrategy
+from worker.core.cli_agent_patch_strategy import CliAgentPatchStrategy
+from worker.core.hermes_proposal_strategy import HermesProposalStrategy
 from agent.services.propose_strategies.flexible_llm_normalization_strategy import (
     FlexibleLLMNormalizationStrategy,
 )
@@ -23,6 +26,9 @@ def build_strategy_registry() -> Dict[str, ProposeStrategy]:
     No StubStrategy is used for any registered id.
     """
     return {
+        "agent_loop_tool_calling": AgentLoopToolCallingStrategy(),
+        "cli_agent_patch_strategy": CliAgentPatchStrategy(),
+        "hermes_proposal_strategy": HermesProposalStrategy(),
         "deterministic_handler": DeterministicHandlerStrategy(),
         "worker_strategy": WorkerStrategy(),
         "tool_calling_llm": ToolCallingLLMStrategy(),

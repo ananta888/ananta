@@ -41,6 +41,9 @@ import { SystemFacade } from '../features/system/system.facade';
               <strong>{{a.name}}</strong>
               <span class="muted">({{a.role || 'worker'}})</span>
               <span class="muted">{{ agentScopeLabel(a) }}</span>
+              @if ((a as any).strategy_mode) {
+                <span class="badge">{{ (a as any).strategy_mode }}</span>
+              }
             </div>
             <div>
               <a [href]="a.url + '/apidocs'" target="_blank" style="margin-right: 12px; font-size: 12px;">Swagger</a>

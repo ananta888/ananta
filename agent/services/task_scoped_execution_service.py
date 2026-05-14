@@ -520,8 +520,12 @@ class TaskScopedExecutionService:
         from agent.services.propose_strategy_registry import build_strategy_registry
 
         propose_policy_override = task.get("propose_policy_override", {})
+        task_override = {}
+        if getattr(request_data, "strategy_mode", None):
+            task_override["strategy_mode"] = str(getattr(request_data, "strategy_mode")).strip().lower()
         policy = get_propose_policy_service().get_effective_policy(
             task_kind=task_kind,
+            task_override=task_override or None,
             admin_overrides=propose_policy_override
         )
 
@@ -548,6 +552,7 @@ class TaskScopedExecutionService:
             "proposal_status": result.status,
             "proposal_reason": result.reason,
             "normalization_format": result.metadata.get("source_format"),
+            "effective_strategy_mode": task_override.get("strategy_mode"),
         }
         if result.is_executable and result.proposal is not None:
             get_core_services().task_execution_service.persist_task_proposal_result(
