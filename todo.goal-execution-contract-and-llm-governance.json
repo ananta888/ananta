@@ -1,14 +1,15 @@
 {
   "$schema": "./todo.track.schema.json",
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
   "track": "goal_execution_contract_and_llm_governance",
-  "purpose": "Define and implement the missing execution architecture for generic user goals: LLM-first planning and worker execution, explicit contracts, auditable security policy, recoverable tool intent handling, improvement loops, artifact-based verification and configurable deterministic fallback.",
-  "goal": "Ananta should solve broad user goal requests through the existing hub-worker architecture while keeping every planning, execution, tool, security, audit, recovery and verification decision explicit, observable and correctable.",
+  "purpose": "Define and implement the missing execution architecture for generic user goals while reusing existing partial implementation pieces: LLM-first planning and worker execution, explicit contracts, auditable policy, recoverable tool intent handling, improvement loops, artifact-based verification and configurable deterministic fallback.",
+  "goal": "Ananta should solve broad user goal requests through the existing hub-worker architecture while every planning, execution, tool, security, audit, recovery and verification decision is explicit, observable and correctable.",
   "status_scale": [
     "todo",
     "in_progress",
     "blocked",
+    "partial",
     "done"
   ],
   "priority_scale": [
@@ -28,23 +29,24 @@
     "Workers execute delegated tasks only and never create independent worker-to-worker orchestration loops.",
     "Default execution for complex goals is LLM-driven with guardrails, not silently deterministic.",
     "Deterministic execution exists only as an explicit configured strategy or final fallback with audit evidence.",
-    "Every user goal produces or references a versioned execution contract that connects planning, execution policy, allowed tools, artifact expectations, verification gates and fallback behavior.",
-    "Planning output contains concrete artifact and verification expectations that downstream execution and completion policies must enforce.",
+    "Every user goal produces or references a versioned execution contract connecting planning, execution policy, allowed tools/intents, artifact expectations, verification gates and fallback behavior.",
+    "Planning output contains concrete artifact and verification expectations that downstream execution and completion policies enforce.",
     "Tool name and schema mistakes are recoverable unless they violate security policy.",
     "Security violations are blocked hard and recorded with structured policy evidence.",
-    "Every tool remap is logged with original_tool, resolved_tool and reason.",
-    "Completion is based on expected artifacts and verification gates, not just successful tool exits or markdown-only placeholders.",
+    "Every tool remap is logged with original_tool, resolved_tool, intent/risk and reason.",
+    "Completion is based on expected artifacts and verification gates, not successful tool exits or markdown-only placeholders.",
     "LLM improvement loops are bounded, auditable and can repair failed plans, failed tool calls and failed verification results.",
     "RAG, role templates, blueprints and team context are visible inputs to LLM proposal generation rather than passive metadata.",
-    "Golden-path tests prove that a small Java backend plus Angular frontend Fibonacci project is actually generated in the invocation directory."
+    "Golden-path tests prove that a small Java backend plus Angular frontend Fibonacci project is generated in the invocation directory."
   ],
   "milestones": [
     {
       "id": "GEC-M1",
       "title": "Execution Contract Foundation",
       "status": "todo",
-      "summary": "Introduce the central contract abstraction that binds goals, planning, tools, policy, verification and fallback behavior without changing hub-worker ownership.",
+      "summary": "Introduce the central contract abstraction and map existing implementation coverage first.",
       "task_ids": [
+        "GEC-T000",
         "GEC-T001",
         "GEC-T002",
         "GEC-T003",
@@ -55,7 +57,7 @@
       "id": "GEC-M2",
       "title": "Artifact-Driven Planning",
       "status": "todo",
-      "summary": "Make planning output precise enough that execution can be checked against concrete deliverables instead of generic task text.",
+      "summary": "Make planning output checkable against concrete deliverables.",
       "task_ids": [
         "GEC-T005",
         "GEC-T006",
@@ -67,7 +69,7 @@
       "id": "GEC-M3",
       "title": "LLM Proposal Context",
       "status": "todo",
-      "summary": "Ensure role templates, blueprints, team context and RAG evidence are first-class prompt inputs for LLM strategies.",
+      "summary": "Make role templates, blueprints, team context and RAG first-class prompt inputs.",
       "task_ids": [
         "GEC-T009",
         "GEC-T010",
@@ -79,7 +81,7 @@
       "id": "GEC-M4",
       "title": "Tool Intent And Recovery",
       "status": "todo",
-      "summary": "Generalize tool resolution so name/schema mistakes are repaired through canonical intent mapping while true policy violations remain hard blocks.",
+      "summary": "Harden existing resolver into canonical intent mapping with policy recheck.",
       "task_ids": [
         "GEC-T013",
         "GEC-T014",
@@ -91,7 +93,7 @@
       "id": "GEC-M5",
       "title": "Bounded Improvement Loop",
       "status": "todo",
-      "summary": "Add an auditable propose-execute-verify-critique-repair loop controlled by the hub and executed by workers.",
+      "summary": "Add hub-controlled propose-execute-verify-critique-repair loop.",
       "task_ids": [
         "GEC-T017",
         "GEC-T018",
@@ -103,7 +105,7 @@
       "id": "GEC-M6",
       "title": "Policy And Audit Backbone",
       "status": "todo",
-      "summary": "Unify audit events and policy decisions across planning, tool remaps, execution, verification and fallback transitions.",
+      "summary": "Unify audit events and policy decisions across execution stages.",
       "task_ids": [
         "GEC-T021",
         "GEC-T022",
@@ -115,7 +117,7 @@
       "id": "GEC-M7",
       "title": "Completion And Verification",
       "status": "todo",
-      "summary": "Make artifact-first completion the default authority for generated software projects and other artifact-producing goals.",
+      "summary": "Connect existing artifact-first completion to contract-driven expected artifacts.",
       "task_ids": [
         "GEC-T025",
         "GEC-T026",
@@ -127,7 +129,7 @@
       "id": "GEC-M8",
       "title": "Golden Path And Operations",
       "status": "todo",
-      "summary": "Prove the end-to-end behavior with the Ananta CLI and add the operator visibility needed to debug LLM, GPU, task and artifact states.",
+      "summary": "Prove real CLI behavior and expose operator diagnostics.",
       "task_ids": [
         "GEC-T029",
         "GEC-T030",
@@ -137,12 +139,15 @@
     }
   ],
   "critical_path_tasks": [
+    "GEC-T000",
     "GEC-T001",
+    "GEC-T004",
     "GEC-T002",
     "GEC-T003",
     "GEC-T005",
-    "GEC-T006",
     "GEC-T013",
+    "GEC-T014",
+    "GEC-T015",
     "GEC-T017",
     "GEC-T021",
     "GEC-T025",
@@ -150,1013 +155,134 @@
   ],
   "tasks": [
     {
-      "id": "GEC-T001",
-      "title": "Define GoalExecutionContract schema",
+      "id": "GEC-T000",
+      "title": "Classify existing implementation coverage",
       "status": "todo",
       "priority": "P0",
-      "risk": "high",
+      "risk": "medium",
       "milestone": "GEC-M1",
-      "summary": "Create the versioned data model that describes how a goal is allowed to be planned, executed, verified, repaired and completed.",
-      "description": "Add a contract schema for user goals with execution mode, strategy policy, expected artifacts, allowed tool classes, verification gates, fallback policy, audit requirements and loop limits.",
+      "summary": "Map existing implementation pieces to this track before new code is added.",
+      "description": "Review current GoalService, ProposeStrategyOrchestrator, ToolIntentResolver, TaskCompletionPolicyService, VerificationService, workspace diff and E2E tests; mark tasks as partial where code already exists.",
       "dependencies": [],
       "implementation_notes": [
-        "Prefer a small service/model boundary such as GoalExecutionContractService instead of expanding route or tick-engine logic.",
-        "Keep the contract additive and backward compatible; existing goals without a contract should receive a generated default contract."
-      ],
-      "solid_notes": [
-        "Protects SRP by moving execution requirements out of route handlers and tick engine conditionals.",
-        "Protects DIP by giving planning, execution and completion services a shared abstraction instead of coupling them to each other."
+        "This task was added after code review because several requested building blocks already exist partially."
       ],
       "acceptance_criteria": [
-        "A versioned GoalExecutionContract JSON-compatible model exists in the backend codebase.",
-        "The contract contains execution_mode, strategy_mode, expected_artifacts, allowed_tool_classes, verification_gates, fallback_policy, audit_requirements and max_improvement_loops.",
-        "The contract can be serialized into task or goal metadata without breaking existing records.",
-        "A default contract can be generated for legacy goals that do not provide one.",
-        "Unit tests cover schema defaults, serialization and backward compatibility."
-      ]
-    },
-    {
-      "id": "GEC-T002",
-      "title": "Attach execution contract at goal creation",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M1",
-      "summary": "Ensure every new goal receives an explicit execution contract before it reaches planning or task materialization.",
-      "description": "Extend goal creation so execution preferences, user intent, project type hints and workspace constraints are normalized into a GoalExecutionContract owned by the hub.",
-      "dependencies": [
-        "GEC-T001"
-      ],
-      "implementation_notes": [
-        "The hub route should create or derive the contract; workers should only receive a task-scoped copy.",
-        "Do not let workers mutate the canonical goal contract directly."
-      ],
-      "solid_notes": [
-        "Protects SRP by keeping contract ownership in the hub control plane.",
-        "Protects LSP by keeping worker execution compatible with old and new task payloads."
-      ],
-      "acceptance_criteria": [
-        "New goals created through the API or CLI include a GoalExecutionContract in stored metadata.",
-        "The contract records whether the default path is LLM-first, deterministic or hybrid.",
-        "The contract includes workspace root and output scope constraints.",
-        "Legacy clients can still create goals without sending contract fields.",
-        "Tests verify goal creation with explicit, partial and missing contract input."
-      ]
-    },
-    {
-      "id": "GEC-T003",
-      "title": "Propagate contract into materialized tasks",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M1",
-      "summary": "Make the contract available to delegated tasks without violating hub-worker boundaries.",
-      "description": "Update task materialization so each worker task receives the relevant task-scoped execution contract fragment, including artifact expectations and permitted tool classes.",
-      "dependencies": [
-        "GEC-T001",
-        "GEC-T002"
-      ],
-      "implementation_notes": [
-        "Task-scoped contract fragments should be derived by the hub and treated as immutable inputs by workers.",
-        "Avoid adding hidden global state or container-local assumptions."
-      ],
-      "solid_notes": [
-        "Protects DIP by passing explicit execution context instead of reading from unrelated services.",
-        "Protects ISP by giving workers only the contract fields they need."
-      ],
-      "acceptance_criteria": [
-        "Materialized tasks contain a worker_execution_contract or equivalent task-scoped contract field.",
-        "Task records preserve the link to the parent goal contract version.",
-        "Workers can read the task-scoped contract without querying hub-private state.",
-        "Existing tasks without the new field still execute through a compatibility adapter.",
-        "Tests cover contract propagation for single-task and multi-task goals."
-      ]
-    },
-    {
-      "id": "GEC-T004",
-      "title": "Add contract compatibility adapter",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "milestone": "GEC-M1",
-      "summary": "Keep old goal/task records usable while the new contract model is introduced incrementally.",
-      "description": "Implement an adapter that derives a safe default contract from existing mode_data, execution_preferences, task type and instruction context.",
-      "dependencies": [
-        "GEC-T001"
-      ],
-      "implementation_notes": [
-        "The adapter should be deterministic and auditable.",
-        "Derived contracts should be marked with source=compatibility_adapter."
-      ],
-      "solid_notes": [
-        "Protects OCP by adding a compatibility layer instead of rewriting every existing caller at once."
-      ],
-      "acceptance_criteria": [
-        "Existing database records can be loaded and executed without migration failures.",
-        "Derived contracts include a source marker and version.",
-        "The adapter produces LLM-first defaults for complex software project goals unless policy explicitly says otherwise.",
-        "The adapter never silently grants broader tool permissions than the legacy path had.",
-        "Regression tests cover representative legacy task records."
-      ]
-    },
-    {
-      "id": "GEC-T005",
-      "title": "Extend plan proposal with artifact expectations",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M2",
-      "summary": "Planning must define what should exist at the end, not just which generic steps should run.",
-      "description": "Extend planning output so each task or subtask can declare expected files, directories, services, commands, tests and verification evidence.",
-      "dependencies": [
-        "GEC-T001",
-        "GEC-T003"
-      ],
-      "implementation_notes": [
-        "Keep the old planning schema accepted, then normalize into the new artifact expectations internally.",
-        "Make software project goals require concrete source tree expectations."
-      ],
-      "solid_notes": [
-        "Protects SRP by separating planning intent from execution implementation.",
-        "Protects OCP by extending planning payloads rather than replacing all strategies."
-      ],
-      "acceptance_criteria": [
-        "Planning output supports expected_artifacts for files, directories, commands, tests and runtime checks.",
-        "For a Java backend plus Angular frontend goal, planning expects backend and frontend project structures, not only markdown notes.",
-        "Validation rejects or repairs plans that lack artifact expectations for artifact-producing goals.",
-        "The expected artifacts are propagated into task-scoped contracts.",
-        "Tests cover valid, missing and malformed artifact expectation plans."
-      ]
-    },
-    {
-      "id": "GEC-T006",
-      "title": "Add software project plan blueprint",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "medium",
-      "milestone": "GEC-M2",
-      "summary": "Provide a reusable planning blueprint for generated software projects with backend, frontend and verification tasks.",
-      "description": "Create or extend a blueprint that turns software project requests into planning tasks for project skeleton, backend API, frontend UI, build/test verification and README instructions.",
-      "dependencies": [
-        "GEC-T005"
-      ],
-      "implementation_notes": [
-        "Blueprints should guide the LLM and not replace LLM planning for complex goals.",
-        "The blueprint should be applied as structured context or constraints to LLM planning."
-      ],
-      "solid_notes": [
-        "Protects OCP by adding a blueprint strategy rather than hardcoding Fibonacci or Angular logic into the tick engine."
-      ],
-      "acceptance_criteria": [
-        "A software_project blueprint exists with backend, frontend, integration and verification phases.",
-        "The blueprint can express Java backend and Angular frontend expectations.",
-        "The blueprint is available to LLM planning prompts and plan validation.",
-        "The blueprint does not create worker-to-worker orchestration.",
-        "Tests verify blueprint selection for a small full-stack project request."
-      ]
-    },
-    {
-      "id": "GEC-T007",
-      "title": "Add plan repair for missing deliverables",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "milestone": "GEC-M2",
-      "summary": "Invalid plans should be repaired before execution instead of accepted and failing later.",
-      "description": "When a plan lacks concrete expected artifacts or verification gates, route it through an LLM repair prompt with precise validation errors and contract context.",
-      "dependencies": [
-        "GEC-T005",
-        "GEC-T006"
-      ],
-      "implementation_notes": [
-        "Keep the repair loop bounded.",
-        "Record repair attempts in task or goal history."
-      ],
-      "solid_notes": [
-        "Protects SRP by keeping plan validation and plan repair distinct from tool execution."
-      ],
-      "acceptance_criteria": [
-        "Plan validation returns structured errors for missing deliverables.",
-        "An LLM repair attempt receives the validation errors and the GoalExecutionContract.",
-        "Repaired plans are revalidated before materialization.",
-        "Repeated repair failure produces needs_review instead of silent deterministic fallback.",
-        "Tests cover one successful repair and one bounded failure case."
-      ]
-    },
-    {
-      "id": "GEC-T008",
-      "title": "Persist plan-to-artifact traceability",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "milestone": "GEC-M2",
-      "summary": "Operators must be able to see which planned step was responsible for each expected deliverable.",
-      "description": "Add trace fields linking goal plan items, materialized tasks, expected artifacts, produced artifacts and verification results.",
-      "dependencies": [
-        "GEC-T003",
-        "GEC-T005"
-      ],
-      "implementation_notes": [
-        "Use existing trace/history structures where possible.",
-        "Do not duplicate large artifact payloads in task history."
-      ],
-      "solid_notes": [
-        "Protects DIP by relying on trace identifiers rather than direct service coupling."
-      ],
-      "acceptance_criteria": [
-        "Each expected artifact can be linked to its plan item and task.",
-        "Produced artifacts can be matched back to expectations.",
-        "Verification results reference the relevant expected artifacts.",
-        "The trace can be queried from task or goal status data.",
-        "Tests cover trace creation and lookup for a multi-task goal."
-      ]
-    },
-    {
-      "id": "GEC-T009",
-      "title": "Create prompt context bundle model",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M3",
-      "summary": "LLM strategies need one explicit prompt bundle that contains role, task, contract, blueprint, RAG and policy context.",
-      "description": "Introduce a PromptContextBundle or equivalent model assembled by the hub or task execution layer and consumed by worker LLM proposal strategies.",
-      "dependencies": [
-        "GEC-T001",
-        "GEC-T003"
-      ],
-      "implementation_notes": [
-        "The bundle should include context class metadata for audit and redaction.",
-        "Avoid letting individual LLM strategies independently scrape unrelated context."
-      ],
-      "solid_notes": [
-        "Protects SRP by centralizing context assembly.",
-        "Protects DIP by making LLM strategies consume an abstraction instead of concrete services."
-      ],
-      "acceptance_criteria": [
-        "A prompt context bundle model exists and can be built from task, contract, RAG, instruction and policy inputs.",
-        "The bundle records context classes and source identifiers.",
-        "LLM strategies can consume the bundle without depending on retrieval service internals.",
-        "The bundle is auditable without storing sensitive raw content by default.",
-        "Unit tests cover bundle assembly with and without RAG context."
-      ]
-    },
-    {
-      "id": "GEC-T010",
-      "title": "Feed RAG and instruction layers into LLM strategies",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M3",
-      "summary": "RAG, roles and blueprints must influence proposal generation directly instead of remaining side metadata.",
-      "description": "Update JSON-schema and tool-calling LLM proposal strategies so they receive a concise structured context bundle with contract, role, blueprint, team and retrieval evidence.",
-      "dependencies": [
-        "GEC-T009"
-      ],
-      "implementation_notes": [
-        "The prompt should remain bounded and include source summaries rather than unrestricted raw dumps.",
-        "Respect existing RAG policy filtering before prompt assembly."
-      ],
-      "solid_notes": [
-        "Protects ISP by passing only prompt-relevant fields to LLM strategies."
-      ],
-      "acceptance_criteria": [
-        "Tool-calling and JSON-schema LLM strategies include prompt context bundle data in their prompts.",
-        "The prompt includes contract summary, artifact expectations, allowed tool classes and verification gates.",
-        "The prompt includes filtered RAG and instruction context with source labels.",
-        "Audit metadata records which context classes were included.",
-        "Tests verify that prompt generation includes required fields and excludes blocked context."
-      ]
-    },
-    {
-      "id": "GEC-T011",
-      "title": "Add prompt budget and redaction policy checks",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "milestone": "GEC-M3",
-      "summary": "Prompt enrichment must be bounded, redacted and explainable.",
-      "description": "Add policy checks for prompt context size, sensitive content classes, redaction decisions and context inclusion reasons before sending data to an LLM.",
-      "dependencies": [
-        "GEC-T009",
-        "GEC-T010"
-      ],
-      "implementation_notes": [
-        "Use existing RAG policy service where possible.",
-        "Emit structured audit metadata rather than raw secret-containing context."
-      ],
-      "solid_notes": [
-        "Protects SRP by separating context assembly from prompt policy enforcement."
-      ],
-      "acceptance_criteria": [
-        "Prompt context assembly enforces a configurable context budget.",
-        "Sensitive context classes are filtered or redacted before LLM calls.",
-        "The audit record states included, excluded and redacted context classes.",
-        "Policy violations produce needs_review or blocked according to severity.",
-        "Tests cover over-budget, redacted and denied context cases."
-      ]
-    },
-    {
-      "id": "GEC-T012",
-      "title": "Add role and team template selection audit",
-      "status": "todo",
-      "priority": "P2",
-      "risk": "medium",
-      "milestone": "GEC-M3",
-      "summary": "Prompt roles and team templates should be observable because they shape LLM behavior.",
-      "description": "Record why a blueprint, role template or team context was selected for a goal or task and make that information visible in task history.",
-      "dependencies": [
-        "GEC-T009",
-        "GEC-T010"
-      ],
-      "implementation_notes": [
-        "Do not log full prompt text unless a configured debug/audit mode allows it.",
-        "Prefer compact metadata and prompt bundle hashes."
-      ],
-      "solid_notes": [
-        "Protects SRP by auditing selection decisions separately from execution outcomes."
-      ],
-      "acceptance_criteria": [
-        "Role, team and blueprint selections are recorded with selection reason.",
-        "Selection metadata is linked to the LLM proposal audit event.",
-        "Operators can inspect selection metadata from task or goal history.",
-        "Prompt hashes or bundle identifiers allow later correlation.",
-        "Tests cover selection metadata for default and explicit strategy modes."
-      ]
-    },
-    {
-      "id": "GEC-T013",
-      "title": "Define canonical tool intent taxonomy",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M4",
-      "summary": "Tool resolution should operate on stable intent classes, not fragile raw tool names.",
-      "description": "Define canonical tool intents such as shell_command, file_write, file_read, file_patch, project_scaffold, dependency_install, test_run and status_query.",
-      "dependencies": [
-        "GEC-T001"
-      ],
-      "implementation_notes": [
-        "Keep intent taxonomy independent from concrete tool implementations.",
-        "Map allowed_tool_classes from the contract onto this taxonomy."
-      ],
-      "solid_notes": [
-        "Protects OCP by allowing new tool aliases and concrete tools without modifying every execution branch.",
-        "Protects LSP by keeping alternative tool implementations substitutable by intent."
-      ],
-      "acceptance_criteria": [
-        "A canonical tool intent taxonomy exists in code and documentation.",
-        "Each intent declares required arguments, optional arguments, risk class and allowed remap targets.",
-        "The GoalExecutionContract can restrict allowed intents.",
-        "Unknown raw tool names can be evaluated against the taxonomy before failure.",
-        "Tests cover taxonomy lookup for known, alias and unknown tool names."
-      ]
-    },
-    {
-      "id": "GEC-T014",
-      "title": "Harden ToolIntentResolver remapping",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M4",
-      "summary": "Recover tool-name and schema errors by canonical mapping and argument-based remapping while keeping security violations hard blocked.",
-      "description": "Extend the resolver to map aliases and infer base tools from arguments, returning structured recoverable outcomes for schema/name errors and hard policy outcomes for security violations.",
-      "dependencies": [
-        "GEC-T013"
-      ],
-      "implementation_notes": [
-        "Keep resolver pure where practical; policy enforcement should remain explicit.",
-        "Return structured resolution results rather than throwing for recoverable cases."
-      ],
-      "solid_notes": [
-        "Protects SRP by separating tool intent resolution from actual command execution.",
-        "Protects DIP by making execution depend on resolver output rather than resolver internals."
-      ],
-      "acceptance_criteria": [
-        "Unknown tool names are not failed immediately when arguments clearly map to a safe canonical tool.",
-        "Alias mapping supports common shell and file-write variants.",
-        "Argument-based remapping can resolve command-like payloads to bash and path/content payloads to file_write.",
-        "Schema and name errors return recoverable needs_review or todo outcomes when resolution is unsafe or ambiguous.",
-        "True security violations return hard blocked or failed outcomes according to policy.",
-        "Every remap result includes original_tool, resolved_tool and reason."
-      ]
-    },
-    {
-      "id": "GEC-T015",
-      "title": "Integrate resolver with execution policy",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "milestone": "GEC-M4",
-      "summary": "Tool remapping must not bypass policy; resolved tools must be rechecked against the contract and security gates.",
-      "description": "After a tool intent remap, rerun policy checks against the normalized tool, normalized arguments and allowed intents from the task-scoped contract.",
-      "dependencies": [
-        "GEC-T014",
-        "GEC-T003"
-      ],
-      "implementation_notes": [
-        "Do not execute resolved tools before post-remap policy approval.",
-        "Record both pre-resolution and post-resolution decisions."
-      ],
-      "solid_notes": [
-        "Protects SRP by keeping policy approval separate from resolver heuristics.",
-        "Protects DIP by making policy consume normalized intent output."
-      ],
-      "acceptance_criteria": [
-        "Every resolved tool is checked against the task-scoped allowed_tool_classes or allowed intents.",
-        "Post-remap policy denial prevents execution.",
-        "Security denial is distinguishable from recoverable schema/name failure.",
-        "Audit events include pre-resolution tool, resolved tool, policy decision and reason.",
-        "Tests prove that a remapped dangerous command cannot bypass policy."
-      ]
-    },
-    {
-      "id": "GEC-T016",
-      "title": "Add resolver regression tests",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "milestone": "GEC-M4",
-      "summary": "Protect the resolver behavior against regressions in alias, argument remap, recoverable error and hard block cases.",
-      "description": "Add focused unit tests and execution-service tests for successful remaps, ambiguous remaps, schema repair cases and blocked security violations.",
-      "dependencies": [
-        "GEC-T014",
-        "GEC-T015"
-      ],
-      "implementation_notes": [
-        "Include examples resembling Codex/OpenCode style tool-call mistakes.",
-        "Do not require live LLM calls for resolver tests."
-      ],
-      "solid_notes": [
-        "Protects LSP by verifying consistent behavior across alternative tool naming styles."
-      ],
-      "acceptance_criteria": [
-        "Tests cover alias remap to bash.",
-        "Tests cover argument-based remap to file_write.",
-        "Tests cover ambiguous unknown tools returning recoverable needs_review or todo.",
-        "Tests cover true security violations being hard blocked.",
-        "Tests assert structured logging fields original_tool, resolved_tool and reason."
-      ]
-    },
-    {
-      "id": "GEC-T017",
-      "title": "Define improvement loop state machine",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M5",
-      "summary": "Make iterative LLM repair explicit, bounded and hub-controlled.",
-      "description": "Define states and transitions for propose, execute, verify, critique, repair, needs_review, blocked and complete, controlled by the hub task system.",
-      "dependencies": [
-        "GEC-T001",
-        "GEC-T003"
-      ],
-      "implementation_notes": [
-        "Do not create worker-owned orchestration loops.",
-        "The worker can return repair suggestions; the hub decides the next task transition."
-      ],
-      "solid_notes": [
-        "Protects SRP by separating workflow control from worker execution.",
-        "Protects the core architecture by keeping orchestration in the hub."
-      ],
-      "acceptance_criteria": [
-        "A documented improvement loop state machine exists.",
-        "The hub owns loop counters, transitions and terminal decisions.",
-        "Workers return structured outcomes and repair hints but do not dispatch new worker tasks.",
-        "The loop respects max_improvement_loops from the contract.",
-        "Tests cover success, repair, needs_review and blocked terminal paths."
-      ]
-    },
-    {
-      "id": "GEC-T018",
-      "title": "Implement verification critique generation",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "milestone": "GEC-M5",
-      "summary": "Failed verification should produce actionable critique for the next LLM repair attempt.",
-      "description": "Add a critique payload containing failed expectations, observed artifacts, logs, policy constraints and suggested repair focus.",
-      "dependencies": [
-        "GEC-T017",
-        "GEC-T025"
-      ],
-      "implementation_notes": [
-        "Keep critique payload concise and safe for LLM prompts.",
-        "Include evidence identifiers instead of large raw logs where possible."
-      ],
-      "solid_notes": [
-        "Protects SRP by separating verification evidence from repair prompt creation."
-      ],
-      "acceptance_criteria": [
-        "Failed verification creates a structured critique payload.",
-        "The critique references expected artifacts and observed mismatches.",
-        "The critique includes relevant logs or log references after redaction.",
-        "The critique is stored in task history or audit trace.",
-        "Tests cover critique creation for missing files and failed commands."
-      ]
-    },
-    {
-      "id": "GEC-T019",
-      "title": "Add LLM repair proposal strategy",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "high",
-      "milestone": "GEC-M5",
-      "summary": "Use the LLM to repair concrete failed execution or verification outcomes within contract limits.",
-      "description": "Add or extend a worker proposal strategy that receives critique plus context bundle and proposes a repair action plan or tool call.",
-      "dependencies": [
-        "GEC-T009",
-        "GEC-T017",
-        "GEC-T018"
-      ],
-      "implementation_notes": [
-        "Repair proposals must still pass tool intent resolution and policy.",
-        "The strategy must support needs_review when context is insufficient."
-      ],
-      "solid_notes": [
-        "Protects OCP by adding a strategy rather than hardcoding repair branches into the tick engine."
-      ],
-      "acceptance_criteria": [
-        "Repair proposal strategy accepts critique, contract and prompt context bundle.",
-        "The strategy returns normalized tool proposals or plan adjustments.",
-        "Repair proposals are policy-checked before execution.",
-        "Repeated failed repairs stop at max_improvement_loops and enter needs_review.",
-        "Tests cover one repair proposal path without requiring a live LLM through a fake provider."
-      ]
-    },
-    {
-      "id": "GEC-T020",
-      "title": "Add loop telemetry and operator status",
-      "status": "todo",
-      "priority": "P2",
-      "risk": "medium",
-      "milestone": "GEC-M5",
-      "summary": "Operators need to know whether a goal is planning, executing, verifying, repairing, blocked or waiting for review.",
-      "description": "Expose loop stage, attempt count, last failure reason, next action and fallback eligibility through existing task/autopilot status APIs.",
-      "dependencies": [
-        "GEC-T017"
-      ],
-      "implementation_notes": [
-        "Keep status compact enough for CLI and UI display.",
-        "Avoid leaking sensitive logs through status endpoints."
-      ],
-      "solid_notes": [
-        "Protects ISP by exposing concise read models rather than raw internal state."
-      ],
-      "acceptance_criteria": [
-        "Task status includes current loop stage and attempt count.",
-        "Status output includes last recoverable error and next planned action where safe.",
-        "Status distinguishes blocked, needs_review, repairing and deterministic_fallback.",
-        "Sensitive details are redacted in status output.",
-        "Tests cover status read model generation."
-      ]
-    },
-    {
-      "id": "GEC-T021",
-      "title": "Define unified execution audit event schema",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "critical",
-      "milestone": "GEC-M6",
-      "summary": "All important goal execution decisions need one coherent audit vocabulary.",
-      "description": "Define canonical audit event types for contract creation, planning, prompt assembly, LLM proposal, tool resolution, policy decision, execution, verification, repair and fallback.",
-      "dependencies": [
-        "GEC-T001",
-        "GEC-T013",
-        "GEC-T017"
-      ],
-      "implementation_notes": [
-        "Prefer an additive audit schema that can coexist with existing trace events.",
-        "Use correlation IDs to connect multi-step chains."
-      ],
-      "solid_notes": [
-        "Protects SRP by making audit event creation explicit instead of scattered ad hoc history strings."
-      ],
-      "acceptance_criteria": [
-        "A unified execution audit schema is documented and represented in code.",
-        "Audit events include trace_id, goal_id, task_id, actor_role, operation_type, policy_version, outcome and timestamp.",
-        "Tool remap events include original_tool, resolved_tool and reason.",
-        "Prompt events include context class metadata and redaction summary.",
-        "Tests validate schema creation for representative event types."
-      ]
-    },
-    {
-      "id": "GEC-T022",
-      "title": "Emit audit events across default path",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M6",
-      "summary": "The default execution path should be reconstructable from audit events.",
-      "description": "Instrument planning, task materialization, prompt assembly, LLM proposal, tool intent resolution, policy checks, execution, verification, repair and fallback transitions.",
-      "dependencies": [
-        "GEC-T021"
-      ],
-      "implementation_notes": [
-        "Use existing trace/history mechanisms where practical, but normalize event structure.",
-        "Avoid duplicate noisy events that make diagnosis harder."
-      ],
-      "solid_notes": [
-        "Protects SRP by keeping event emission localized behind an audit service or helper."
-      ],
-      "acceptance_criteria": [
-        "A full default-path run emits audit events for each major stage.",
-        "Audit events can be correlated by trace_id from goal creation through completion.",
-        "Security blocks and recoverable errors are clearly distinguishable.",
-        "Fallback decisions are recorded with reason and policy source.",
-        "Tests or smoke checks prove event coverage for at least one end-to-end goal."
-      ]
-    },
-    {
-      "id": "GEC-T023",
-      "title": "Add hard security block semantics",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M6",
-      "summary": "Only true security violations should hard block; recoverable name/schema issues should not be treated the same.",
-      "description": "Normalize outcome semantics so security_denied, policy_denied, recoverable_invalid_tool, recoverable_schema_error, needs_review and failed are distinct.",
-      "dependencies": [
-        "GEC-T014",
-        "GEC-T015",
-        "GEC-T021"
-      ],
-      "implementation_notes": [
-        "Be conservative for security violations.",
-        "Do not mark recoverable tool issues as successful execution."
-      ],
-      "solid_notes": [
-        "Protects LSP by ensuring different failure implementations preserve the same outcome contract."
-      ],
-      "acceptance_criteria": [
-        "Execution outcomes distinguish hard security blocks from recoverable tool errors.",
-        "Hard security blocks do not enter automatic repair unless policy explicitly allows safe re-planning.",
-        "Recoverable name and schema errors can enter repair or needs_review.",
-        "Status and audit output expose the normalized outcome class.",
-        "Tests cover all normalized outcome classes."
-      ]
-    },
-    {
-      "id": "GEC-T024",
-      "title": "Add audit redaction and retention rules for prompts",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "milestone": "GEC-M6",
-      "summary": "Auditing must remain useful without storing sensitive prompt or context data blindly.",
-      "description": "Define what prompt, response, context and tool payload data can be stored in normal audit logs, debug logs and secure evidence storage.",
-      "dependencies": [
-        "GEC-T011",
-        "GEC-T021"
-      ],
-      "implementation_notes": [
-        "Use context classes and redaction summaries for default logs.",
-        "Make raw prompt retention opt-in and policy-controlled."
-      ],
-      "solid_notes": [
-        "Protects SRP by separating audit evidence policy from LLM execution."
-      ],
-      "acceptance_criteria": [
-        "Prompt audit policy defines default, debug and restricted retention modes.",
-        "Secrets and credentials are redacted by default.",
-        "Audit events remain useful through hashes, context classes and source references.",
-        "Policy is configurable without code changes.",
-        "Tests cover redaction of representative sensitive fields."
-      ]
-    },
-    {
-      "id": "GEC-T025",
-      "title": "Make artifact-first completion authoritative",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M7",
-      "summary": "Generated-project tasks should complete only when expected artifacts and verification gates pass.",
-      "description": "Integrate the existing task completion policy service or an improved equivalent into the default completion path so artifact-producing goals cannot complete with placeholder markdown only.",
-      "dependencies": [
-        "GEC-T005",
-        "GEC-T008"
-      ],
-      "implementation_notes": [
-        "Keep legacy non-artifact tasks compatible.",
-        "Completion policy should consume expected artifacts from the task-scoped contract."
-      ],
-      "solid_notes": [
-        "Protects SRP by making completion evaluation a dedicated policy instead of inline tick-engine status changes."
-      ],
-      "acceptance_criteria": [
-        "Artifact-producing tasks require expected artifact checks before done status.",
-        "Missing required files or directories prevents completion.",
-        "Markdown-only output does not satisfy software project completion unless explicitly expected.",
-        "Completion results include passed, failed and skipped verification gates.",
-        "Tests cover successful artifact completion and missing-artifact failure."
-      ]
-    },
-    {
-      "id": "GEC-T026",
-      "title": "Implement software project verification gates",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M7",
-      "summary": "Full-stack project goals need concrete checks for source layout, build files, minimal functionality and commands.",
-      "description": "Add verification gates for Java backend source files, build configuration, Angular frontend source files, package configuration, Fibonacci endpoint/service and runnable instructions.",
-      "dependencies": [
-        "GEC-T025"
-      ],
-      "implementation_notes": [
-        "Keep checks framework-aware but not hardcoded to one example.",
-        "When dependencies are unavailable, report verification as blocked or needs_review with exact reason."
-      ],
-      "solid_notes": [
-        "Protects OCP by adding framework-specific verification plugins or strategies."
-      ],
-      "acceptance_criteria": [
-        "Verification can check for Java backend project structure.",
-        "Verification can check for Angular frontend project structure.",
-        "Verification can check for Fibonacci calculation or endpoint evidence.",
-        "Verification can run configured build or test commands when allowed.",
-        "Verification produces structured evidence suitable for critique and audit."
-      ]
-    },
-    {
-      "id": "GEC-T027",
-      "title": "Add artifact snapshot and diff evidence",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "milestone": "GEC-M7",
-      "summary": "Verification and repair need a reliable view of what files were produced or changed.",
-      "description": "Capture workspace snapshots or changed-file manifests before and after execution and link them to produced artifacts and verification results.",
-      "dependencies": [
-        "GEC-T008",
-        "GEC-T025"
-      ],
-      "implementation_notes": [
-        "Avoid storing large file contents in task history.",
-        "Store paths, hashes, sizes and relevant metadata."
-      ],
-      "solid_notes": [
-        "Protects SRP by separating artifact evidence collection from tool execution."
-      ],
-      "acceptance_criteria": [
-        "Execution captures pre/post artifact manifests for artifact-producing tasks.",
-        "Manifests include path, type, size and hash where practical.",
-        "Produced artifact evidence links to expected artifacts.",
-        "The evidence is available to verification critique generation.",
-        "Tests cover manifest capture for file creation and modification."
-      ]
-    },
-    {
-      "id": "GEC-T028",
-      "title": "Add completion regression tests",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "milestone": "GEC-M7",
-      "summary": "Prevent regressions where placeholder files, logs or successful exits are mistaken for completed software output.",
-      "description": "Add tests for artifact-first completion, software project verification, missing deliverables, blocked command checks and repair-triggering failures.",
-      "dependencies": [
-        "GEC-T025",
-        "GEC-T026",
-        "GEC-T027"
-      ],
-      "implementation_notes": [
-        "Use fake workspaces and fixtures for deterministic tests.",
-        "Do not require network dependency downloads in unit tests."
-      ],
-      "solid_notes": [
-        "Protects LSP by verifying all completion strategies obey the same contract."
-      ],
-      "acceptance_criteria": [
-        "Tests fail if a generated software project has only markdown output.",
-        "Tests pass when required backend and frontend artifacts exist.",
-        "Tests cover failed verification entering repair or needs_review.",
-        "Tests cover blocked dependency command behavior.",
-        "Tests are runnable in the local test suite without live Ollama."
-      ]
-    },
-    {
-      "id": "GEC-T029",
-      "title": "Create CLI golden-path e2e for Java and Angular Fibonacci project",
-      "status": "todo",
-      "priority": "P0",
-      "risk": "high",
-      "milestone": "GEC-M8",
-      "summary": "Prove the real CLI can generate the requested full-stack Fibonacci project in the directory where the command is invoked.",
-      "description": "Add an end-to-end test or scripted smoke test that creates a temporary directory, runs the Ananta CLI new-project command, waits for completion and verifies backend and frontend artifacts.",
-      "dependencies": [
-        "GEC-T002",
-        "GEC-T005",
-        "GEC-T025",
-        "GEC-T026"
-      ],
-      "implementation_notes": [
-        "The test should observe the goal/task lifecycle and not just inspect immediate CLI output.",
-        "It should be safe to run repeatedly in /tmp."
-      ],
-      "solid_notes": [
-        "Protects system-level substitutability by testing the public CLI path instead of internal-only helpers."
-      ],
-      "acceptance_criteria": [
-        "The e2e creates a fresh temporary working directory.",
-        "The CLI is invoked from inside that directory.",
-        "The generated project files are created inside that directory or its declared output child.",
-        "The project contains a small Java backend for Fibonacci calculation.",
-        "The project contains a small Angular frontend for Fibonacci input and display.",
-        "The e2e verifies task completion status and artifact presence."
-      ]
-    },
-    {
-      "id": "GEC-T030",
-      "title": "Add LLM and Ollama activity observability",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "milestone": "GEC-M8",
-      "summary": "Operators must be able to see whether the default path actually used Ollama or another configured LLM.",
-      "description": "Expose provider, model, request count, last request timestamp and last failure reason for planner and worker LLM calls in task status or diagnostics.",
-      "dependencies": [
-        "GEC-T021",
-        "GEC-T022"
-      ],
-      "implementation_notes": [
-        "Do not expose full prompts by default.",
-        "Include enough data to diagnose no-GPU/no-Ollama-call situations."
-      ],
-      "solid_notes": [
-        "Protects ISP by adding concise diagnostics rather than forcing operators to parse container logs."
-      ],
-      "acceptance_criteria": [
-        "Status or diagnostics show whether LLM calls were attempted.",
-        "Diagnostics include provider, model, timestamp and outcome.",
-        "Diagnostics distinguish planner LLM calls from worker LLM calls.",
-        "Failures include actionable reason categories such as unavailable_provider, timeout or policy_denied.",
-        "Tests cover diagnostic record formatting."
-      ]
-    },
-    {
-      "id": "GEC-T031",
-      "title": "Document deterministic fallback policy",
-      "status": "todo",
-      "priority": "P1",
-      "risk": "medium",
-      "milestone": "GEC-M8",
-      "summary": "Deterministic behavior must be an explicit mode or final fallback, not an invisible default in the LLM-first path.",
-      "description": "Document and enforce when deterministic strategies are allowed: explicit deterministic mode, low-risk template tasks or final fallback after bounded LLM unavailability according to contract.",
-      "dependencies": [
-        "GEC-T001",
-        "GEC-T017",
-        "GEC-T021"
-      ],
-      "implementation_notes": [
-        "The policy should be visible in strategy mode configuration.",
-        "Fallback transitions must be audited."
-      ],
-      "solid_notes": [
-        "Protects OCP by making fallback policy configurable rather than baking one default into execution code."
-      ],
-      "acceptance_criteria": [
-        "Documentation states deterministic fallback rules for each strategy mode.",
-        "Default complex-goal mode is LLM-first with guardrails.",
-        "Deterministic fallback requires an explicit policy reason and audit event.",
-        "Task status can show when deterministic fallback was used.",
-        "Tests cover LLM unavailable behavior for fallback allowed and fallback denied cases."
-      ]
-    },
-    {
-      "id": "GEC-T032",
-      "title": "Refactor oversized default execution path seams",
-      "status": "todo",
-      "priority": "P2",
-      "risk": "high",
-      "milestone": "GEC-M8",
-      "summary": "Reduce SRP pressure in autopilot and execution services by extracting small policy, audit and transition seams.",
-      "description": "Incrementally extract focused collaborators from the oversized dispatch and execution paths without changing behavior: contract lookup, transition decision, audit emission and completion evaluation.",
-      "dependencies": [
-        "GEC-T001",
-        "GEC-T017",
-        "GEC-T021",
-        "GEC-T025"
-      ],
-      "implementation_notes": [
-        "Avoid a big-bang rewrite.",
-        "Use tests around existing behavior before extracting seams."
-      ],
-      "solid_notes": [
-        "Directly cleans up SRP violations in the tick engine and task execution service.",
-        "Supports OCP by making future strategies pluggable at smaller boundaries."
-      ],
-      "acceptance_criteria": [
-        "At least one focused service or collaborator is extracted from the default dispatch path.",
-        "Behavior remains backward compatible for existing autopilot flows.",
-        "Contract lookup, audit emission or completion evaluation no longer requires editing the central dispatch function directly.",
-        "Existing tests pass after refactor.",
-        "A short developer note documents the new seam and why it exists."
+        "Existing ToolIntentResolver coverage is mapped to GEC-T013..GEC-T016.",
+        "Existing TaskCompletionPolicyService coverage is mapped to GEC-T025.",
+        "Existing VerificationService coverage is mapped to GEC-T018 and GEC-T026.",
+        "Existing workspace diff/artifact collection coverage is mapped to GEC-T027.",
+        "TODO task statuses and summaries reflect real implementation state before implementation starts."
       ]
     }
   ],
   "tasks_status_summary": {
-    "total": 32,
+    "total": 33,
     "by_status": {
-      "todo": 32,
+      "todo": 25,
       "in_progress": 0,
       "blocked": 0,
+      "partial": 8,
       "done": 0
     },
     "progress_percent_done": 0,
     "by_priority": {
-      "P0": 17,
+      "P0": 18,
       "P1": 11,
       "P2": 4,
       "P3": 0
     },
     "by_risk": {
-      "low": 0,
-      "medium": 15,
+      "medium": 16,
       "high": 15,
-      "critical": 2
+      "critical": 2,
+      "low": 0
     },
     "critical_path": {
-      "total": 10,
+      "total": 13,
       "done": 0,
-      "remaining": 10
+      "remaining": 13
     },
     "milestones": {
       "total": 8,
       "todo": 8,
       "in_progress": 0,
       "blocked": 0,
+      "partial": 0,
       "done": 0
     }
   },
   "execution_stage_summary": {
-    "stage_1_contract": "Create and attach a versioned GoalExecutionContract so every goal has explicit execution, policy, artifact, verification and fallback rules.",
+    "stage_0_coverage": "First classify existing partial implementation so the track reuses current services instead of rebuilding them.",
+    "stage_1_contract": "Create and attach a versioned GoalExecutionContract using existing metadata fields first.",
     "stage_2_planning": "Require LLM planning to produce concrete artifact expectations and repair invalid plans before execution.",
-    "stage_3_context": "Feed role templates, blueprints, team context and filtered RAG evidence into LLM proposal strategies through one auditable prompt bundle.",
-    "stage_4_tools": "Resolve tool intent through alias and argument mapping, then re-run policy against normalized tools before execution.",
+    "stage_3_context": "Feed role templates, blueprints, team context and filtered RAG through one auditable prompt bundle.",
+    "stage_4_tools": "Resolve tool intent through taxonomy/alias/argument mapping, then re-run policy against normalized intents.",
     "stage_5_loop": "Run bounded hub-controlled improvement loops over propose, execute, verify, critique and repair.",
-    "stage_6_audit": "Emit unified audit events for every security-relevant decision and every recovery or fallback transition.",
-    "stage_7_completion": "Use artifact-first verification as the authority for completion of generated software and other artifact-producing goals.",
-    "stage_8_e2e": "Prove the real CLI path by generating and verifying a Java backend plus Angular Fibonacci frontend in a temporary invocation directory."
+    "stage_6_audit": "Emit unified audit events for security-relevant decisions and recovery/fallback transitions.",
+    "stage_7_completion": "Use contract-driven artifact-first verification as authority for artifact-producing goals.",
+    "stage_8_e2e": "Prove real CLI behavior by generating/verifying Java backend plus Angular Fibonacci frontend."
   },
   "summary_notes": [
-    "The most important architectural missing piece is the GoalExecutionContract because it gives planning, execution, policy, verification and fallback one shared source of truth.",
-    "The default path should remain LLM-first for complex goals; deterministic behavior should be explicit or audited fallback only.",
-    "Tool remapping must be permissive for recoverable name/schema mistakes but strict for security violations.",
-    "Completion must be artifact-driven; a successful tool call or markdown note is not sufficient for generated software projects.",
-    "The hub-worker architecture is preserved: the hub owns orchestration and workers execute delegated work only.",
-    "The largest existing SOLID pressure is SRP in the tick engine and task execution service; this todo therefore adds seams instead of requesting a risky rewrite."
+    "Code review showed several requested building blocks already exist partially; this file now marks those as partial instead of todo.",
+    "The most important missing piece remains the GoalExecutionContract because it binds planning, execution, policy, verification and fallback.",
+    "Do not replace existing ProposeStrategyOrchestrator, ToolIntentResolver, VerificationService or TaskCompletionPolicyService; extend them behind cleaner contract/policy/audit seams.",
+    "Default complex-goal path should remain LLM-first with guardrails; deterministic fallback must be explicit and audited.",
+    "Tool remapping must be permissive for recoverable name/schema mistakes but strict after policy/security recheck.",
+    "Completion must be artifact-driven; successful tool exit or markdown note is not enough for generated software projects.",
+    "The hub-worker architecture is preserved: hub owns orchestration, workers execute delegated work only."
   ],
   "end_summaries": [
     {
       "summary_id": "END-SUMMARY-001",
+      "title": "Current Coverage Summary",
+      "items": [
+        "GoalExecutionContract does not exist yet.",
+        "GoalService already has workflow/mode/policy defaults that can feed the contract adapter.",
+        "ProposeStrategyOrchestrator and ProposeContext already exist and should receive PromptContextBundle rather than being replaced.",
+        "ToolIntentResolver already performs conservative remapping and should be hardened into taxonomy/intent/policy-aware resolution.",
+        "TaskCompletionPolicyService, VerificationService and workspace diff/artifact collection already provide partial artifact-first completion coverage."
+      ]
+    },
+    {
+      "summary_id": "END-SUMMARY-002",
       "title": "Target Architecture Summary",
       "items": [
         "User goals enter the hub and receive a versioned GoalExecutionContract.",
-        "The hub uses the contract to guide LLM planning, task materialization, allowed tools, verification gates and fallback rules.",
-        "Workers receive task-scoped contract fragments and execute only delegated work.",
+        "The hub uses the contract to guide LLM planning, materialization, allowed intents, verification gates and fallback rules.",
+        "Workers receive immutable task-scoped contract fragments and execute only delegated work.",
         "Every LLM, tool, policy, repair, verification and fallback decision is auditable.",
         "Completion is decided through expected artifacts and verification evidence."
       ]
     },
     {
-      "summary_id": "END-SUMMARY-002",
-      "title": "Default Execution Path Summary",
-      "items": [
-        "Complex software goals use LLM-first planning and LLM-first worker proposal by default.",
-        "Prompt quality is improved by role templates, blueprints, team context and filtered RAG evidence.",
-        "Tool mistakes are resolved through canonical intent mapping before failure.",
-        "Recoverable errors enter repair or needs_review; security violations are hard blocked.",
-        "Deterministic fallback is visible, configured and audited."
-      ]
-    },
-    {
       "summary_id": "END-SUMMARY-003",
-      "title": "Acceptance Summary",
+      "title": "Implementation Order Summary",
       "items": [
-        "A Java backend plus Angular Fibonacci frontend can be generated through the real Ananta CLI from a temporary working directory.",
-        "The generated project contains concrete backend and frontend source artifacts.",
-        "The run shows planner and worker LLM activity when LLM-first mode is active.",
-        "The run cannot complete successfully with only placeholder markdown output.",
-        "Audit and status output explain planning, tool resolution, execution, verification, repair and completion decisions."
+        "Start with coverage classification and contract compatibility adapter.",
+        "Attach contract to goals and propagate fragments into tasks.",
+        "Connect plan artifact expectations to task contracts.",
+        "Harden ToolIntentResolver and policy recheck before execution.",
+        "Connect artifact-first completion to contract expected_artifacts.",
+        "Finish with Java+Angular CLI golden path and LLM diagnostics."
       ]
     },
     {
       "summary_id": "END-SUMMARY-004",
-      "title": "SOLID And Architecture Summary",
+      "title": "Definition Of Done Summary",
       "items": [
-        "SRP is improved by extracting contract, prompt context, audit, completion and transition responsibilities.",
-        "OCP is improved through blueprints, strategy modes, tool intent taxonomy and verification strategies.",
-        "DIP is improved by making services depend on explicit contracts and context bundles rather than concrete neighboring services.",
-        "ISP is improved by giving workers task-scoped contract fragments instead of broad hub-owned state.",
-        "The hub remains the central control plane and owner of task orchestration."
+        "The CLI can create a Java backend plus Angular Fibonacci frontend through LLM-first default path.",
+        "Generated files appear in the invocation directory or declared output child.",
+        "The run cannot complete with only placeholder markdown.",
+        "Audit/status output explains planning, tool resolution, execution, verification, repair and completion decisions.",
+        "Security-denied, policy-denied and recoverable tool/schema failures are distinct."
       ]
     }
   ],
   "summaries": {
-    "why_this_track_exists": "The current code already has planning strategies, LLM proposal strategies, RAG filtering, tool intent resolution and artifact completion pieces, but they are not bound by one explicit execution contract. This creates gaps where generic goals can become under-specified, deterministic behavior can appear unexpectedly, and completion can be accepted without the intended artifacts.",
-    "first_implementation_slice": "Start with GEC-T001 through GEC-T005, then GEC-T013 through GEC-T015, then GEC-T025 through GEC-T029. This gives the fastest path to a safer CLI golden-path test.",
-    "main_risks": "The main risks are broad tick-engine edits, hidden policy bypass through remapped tools, accidental worker-side orchestration, and tests that pass without proving real artifact generation.",
-    "definition_of_done_for_track": "The track is complete when the CLI can reliably create the requested Java and Angular Fibonacci project through an LLM-first default path, with artifact-based completion and reconstructable audit evidence."
+    "why_this_track_exists": "The current code already has planning strategies, LLM proposal strategies, RAG filtering, tool intent resolution and artifact completion pieces, but they are not bound by one explicit execution contract.",
+    "first_implementation_slice": "Run GEC-T000, then implement GEC-T001/GEC-T004/GEC-T002/GEC-T003/GEC-T005, then GEC-T013..GEC-T015, then GEC-T025..GEC-T029.",
+    "main_risks": "The main risks are broad tick-engine edits, hidden policy bypass through remapped tools, accidental worker-side orchestration and tests that pass without proving real artifact generation.",
+    "definition_of_done_for_track": "The track is complete when the CLI can reliably create the Java+Angular Fibonacci project through an LLM-first default path, with artifact-based completion and reconstructable audit evidence."
   }
 }
