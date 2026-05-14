@@ -61,6 +61,12 @@ class ProposePolicy:
     allow_legacy_sgpt: bool = False
     allow_unstructured_text_as_execution: bool = False
     allow_shell_execution: bool = False  # T005: shell blocks only executable when True
+    # WSM-T005: fallback class toggles
+    allow_json_schema_fallback: bool = True
+    allow_flexible_normalization: bool = True
+    allow_worker_fallback: bool = True
+    allow_deterministic_fallback: bool = True
+    allow_human_review: bool = True
     # T002: max_strategy_attempts no longer truncates the chain.
     # It documents the intended retry budget per strategy (future use). Default=1 = no retry.
     max_strategy_attempts: int = 1
@@ -101,9 +107,24 @@ class ProposePolicy:
 
     def effective_strategy_order(self) -> list[str]:
         """Return strategy order with legacy_sgpt filtered unless explicitly allowed."""
-        if self.allow_legacy_sgpt:
-            return list(self.strategy_order)
-        return [s for s in self.strategy_order if s != STRATEGY_LEGACY_SGPT]
+        order = list(self.strategy_order)
+        if not self.allow_legacy_sgpt:
+            order = [s for s in order if s != STRATEGY_LEGACY_SGPT]
+        return order
+
+    def is_strategy_enabled(self, strategy_id: str) -> bool:
+        """WSM-T005: policy-based fallback gating per strategy class."""
+        if strategy_id == STRATEGY_JSON_SCHEMA_LLM:
+            return self.allow_json_schema_fallback
+        if strategy_id == STRATEGY_FLEXIBLE_LLM_NORMALIZATION:
+            return self.allow_flexible_normalization
+        if strategy_id == STRATEGY_WORKER:
+            return self.allow_worker_fallback
+        if strategy_id == STRATEGY_DETERMINISTIC_HANDLER:
+            return self.allow_deterministic_fallback
+        if strategy_id == STRATEGY_HUMAN_REVIEW:
+            return self.allow_human_review
+        return True
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -114,6 +135,11 @@ class ProposePolicy:
             "allow_legacy_sgpt": self.allow_legacy_sgpt,
             "allow_unstructured_text_as_execution": self.allow_unstructured_text_as_execution,
             "allow_shell_execution": self.allow_shell_execution,
+            "allow_json_schema_fallback": self.allow_json_schema_fallback,
+            "allow_flexible_normalization": self.allow_flexible_normalization,
+            "allow_worker_fallback": self.allow_worker_fallback,
+            "allow_deterministic_fallback": self.allow_deterministic_fallback,
+            "allow_human_review": self.allow_human_review,
             "max_strategy_attempts": self.max_strategy_attempts,
             "max_repair_attempts": self.max_repair_attempts,
             "requires_executable_step": self.requires_executable_step,
@@ -193,6 +219,8 @@ def build_policy_from_dict(raw: dict[str, Any], *, admin_overrides: dict[str, An
     for key in (
         "strategy_order", "llm_mode", "accepted_output_formats",
         "allow_legacy_sgpt", "allow_unstructured_text_as_execution", "allow_shell_execution",
+        "allow_json_schema_fallback", "allow_flexible_normalization",
+        "allow_worker_fallback", "allow_deterministic_fallback", "allow_human_review",
         "max_strategy_attempts", "max_repair_attempts",
         "requires_executable_step", "on_parse_error", "on_all_strategies_declined",
     ):

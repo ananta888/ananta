@@ -270,3 +270,28 @@ class TestOnAllStrategiesDeclined:
         orch = ProposeStrategyOrchestrator(policy, strategies)
         result = orch.run(_context())
         assert result.status == STATUS_FAILED
+
+    def test_disabled_by_strategy_mode_is_recorded(self):
+        policy = ProposePolicy(
+            strategy_order=[
+                STRATEGY_TOOL_CALLING_LLM,
+                STRATEGY_JSON_SCHEMA_LLM,
+                STRATEGY_HUMAN_REVIEW,
+            ],
+            allow_json_schema_fallback=False,
+            on_all_strategies_declined="needs_review",
+        )
+        tc = _declining_strategy(STRATEGY_TOOL_CALLING_LLM)
+        hr = _declining_strategy(STRATEGY_HUMAN_REVIEW)
+        orch = ProposeStrategyOrchestrator(
+            policy,
+            {
+                STRATEGY_TOOL_CALLING_LLM: tc,
+                STRATEGY_HUMAN_REVIEW: hr,
+            },
+        )
+        result = orch.run(_context())
+        attempted = result.metadata.get("attempted_strategies", [])
+        js = next((a for a in attempted if a["strategy_id"] == STRATEGY_JSON_SCHEMA_LLM), None)
+        assert js is not None
+        assert js["reason"] == "disabled_by_strategy_mode"

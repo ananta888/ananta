@@ -12,6 +12,7 @@ from agent.services.propose_policy import (
     build_policy_from_dict,
     get_task_kind_preset,
 )
+from agent.services.strategy_mode_service import StrategyModeService
 
 
 class ProposePolicyService:
@@ -19,11 +20,13 @@ class ProposePolicyService:
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         self._config: dict[str, Any] = dict(config or {})
+        self._strategy_mode_service = StrategyModeService()
 
     def get_effective_policy(
         self,
         *,
         task_kind: str | None = None,
+        task_override: dict[str, Any] | None = None,
         project_config: dict[str, Any] | None = None,
         blueprint_role_config: dict[str, Any] | None = None,
         admin_overrides: dict[str, Any] | None = None,
@@ -51,6 +54,18 @@ class ProposePolicyService:
         if preset:
             merged = self._merge(merged, preset)
 
+        # WSM-T001: optional named strategy mode overlay (highest precedence)
+        mode_id = (
+            (task_override or {}).get("strategy_mode")
+            or (blueprint_role_config or {}).get("strategy_mode")
+            or (project_config or {}).get("strategy_mode")
+            or self._config.get("strategy_mode")
+        )
+        mode_overrides = self._strategy_mode_service.resolve_policy_overrides(mode_id)
+        if mode_overrides:
+            merged = self._merge(merged, mode_overrides)
+            merged["effective_strategy_mode"] = str(mode_id)
+
         return build_policy_from_dict(merged, admin_overrides=admin_overrides)
 
     # ── helpers ────────────────────────────────────────────────────────────────
@@ -67,6 +82,11 @@ class ProposePolicyService:
             "allow_legacy_sgpt": False,
             "allow_unstructured_text_as_execution": False,
             "allow_shell_execution": False,
+            "allow_json_schema_fallback": True,
+            "allow_flexible_normalization": True,
+            "allow_worker_fallback": True,
+            "allow_deterministic_fallback": True,
+            "allow_human_review": True,
             "max_strategy_attempts": 1,
             "max_repair_attempts": 1,
             "requires_executable_step": True,

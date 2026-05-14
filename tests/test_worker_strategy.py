@@ -1,17 +1,10 @@
 """Tests for WorkerStrategy — FA-T008."""
 
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 from worker.core.propose_orchestrator import ProposeContext
-from worker.core.propose import (
-    ProposeStrategyResult,
-    ExecutableProposal,
-    STATUS_ADVISORY,
-    STATUS_EXECUTABLE,
-    STATUS_DECLINED,
-    STATUS_FAILED,
-)
+from worker.core.propose import STATUS_ADVISORY, STATUS_EXECUTABLE, STATUS_DECLINED
 from worker.core.runtime_target import SelectionDecisionStatus
 
 from worker.core.worker_strategy import WorkerStrategy
@@ -26,13 +19,6 @@ class TestWorkerStrategy:
             task={"kind": "coding/new_software_project"},
             base_prompt="Propose for Fibonacci API.",
         )
-
-    @pytest.fixture
-    def mock_propose_strategy_result(self):
-        result = Mock(spec=ProposeStrategyResult)
-        result.is_executable = False
-        result.is_terminal = False
-        return result
 
     def test_declined_no_selection(self, context, monkeypatch):
         mock_decision = Mock()
@@ -103,6 +89,44 @@ class TestWorkerStrategy:
 
         assert result.status == STATUS_DECLINED
         assert "real_worker_delegation_not_implemented" in result.reason
+
+    def test_selected_worker_with_structured_output_becomes_executable(self, context, monkeypatch):
+        mock_selected_worker = Mock()
+        mock_selected_worker.worker_id = "worker-1"
+        mock_decision = Mock()
+        mock_decision.status = SelectionDecisionStatus.selected
+        mock_decision.selected_worker = mock_selected_worker
+        mock_decision.proposal_output = '{"tool_calls":[{"name":"write_file","args":{"path":"main.py","content":"print(1)"}}]}'
+
+        mock_service_instance = Mock()
+        mock_service_instance.select.return_value = mock_decision
+        monkeypatch.setattr(
+            "worker.core.worker_strategy.WorkerRuntimeSelectionService",
+            Mock(return_value=mock_service_instance),
+        )
+
+        strategy = WorkerStrategy()
+        result = strategy.run(context)
+        assert result.status == STATUS_EXECUTABLE
+        assert result.proposal.tool_calls[0]["name"] == "write_file"
+        assert result.metadata["source"] == "worker_strategy_output"
+
+    def test_selected_worker_with_prose_output_stays_advisory(self, context, monkeypatch):
+        mock_decision = Mock()
+        mock_decision.status = SelectionDecisionStatus.selected
+        mock_decision.selected_worker = Mock(worker_id="worker-2")
+        mock_decision.output = "I suggest creating app.py and requirements.txt."
+
+        mock_service_instance = Mock()
+        mock_service_instance.select.return_value = mock_decision
+        monkeypatch.setattr(
+            "worker.core.worker_strategy.WorkerRuntimeSelectionService",
+            Mock(return_value=mock_service_instance),
+        )
+
+        strategy = WorkerStrategy()
+        result = strategy.run(context)
+        assert result.status == STATUS_ADVISORY
 
     def test_declined_selection_service_exception(self, context, monkeypatch):
         mock_service_instance = Mock()

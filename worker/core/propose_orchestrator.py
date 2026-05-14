@@ -63,9 +63,19 @@ class ProposeStrategyOrchestrator:
 
         llm_required = self.policy.llm_required
         llm_unavailable_count = 0
-        llm_strategy_count = sum(1 for s in strategy_order if s in LLM_STRATEGY_IDS)
+        llm_strategy_count = sum(
+            1 for s in strategy_order if s in LLM_STRATEGY_IDS and self.policy.is_strategy_enabled(s)
+        )
 
         for strategy_id in strategy_order:
+            if not self.policy.is_strategy_enabled(strategy_id):
+                attempted.append({
+                    "strategy_id": strategy_id,
+                    "status": STATUS_DECLINED,
+                    "reason": "disabled_by_strategy_mode",
+                })
+                continue
+
             strategy = self.strategies.get(strategy_id)
             if strategy is None:
                 result = ProposeStrategyResult.declined(
@@ -96,7 +106,9 @@ class ProposeStrategyOrchestrator:
                 llm_required
                 and llm_strategy_count > 0
                 and llm_unavailable_count == llm_strategy_count
-                and strategy_id == _last_llm_strategy(strategy_order)
+                and strategy_id == _last_llm_strategy(
+                    [s for s in strategy_order if self.policy.is_strategy_enabled(s)]
+                )
             ):
                 meta = {
                     "attempted_strategies": attempted,

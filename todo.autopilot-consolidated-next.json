@@ -91,15 +91,15 @@
     {"id":"AFF-E2E-T005","title":"Test-Evidenz und TODO-Konsistenz verbessern","status":"done","priority":"P1","risk":"medium","source":"todo.fixup-autopilot-full-flow-e2e.json"},
     {"id":"AFF-E2E-T006","title":"Sicherheits- und Failure-Mode Faelle fuer Full-Flow Execution","status":"done","priority":"P1","risk":"high","source":"todo.fixup-autopilot-full-flow-e2e.json"},
 
-    {"id":"FA-T008","title":"Reale WorkerStrategy fuer OpenCode/Hermes/native Worker","status":"partial","priority":"P1","risk":"high","source":"todo.fixup-autopilot.json"},
-    {"id":"FA-T011","title":"Bounded LLM repair/coercion implementieren","status":"partial","priority":"P1","risk":"high","source":"todo.fixup-autopilot.json"},
-    {"id":"FA-T012","title":"Governed LLM context fuer propose vervollstaendigen","status":"partial","priority":"P0","risk":"high","source":"todo.fixup-autopilot.json"},
+    {"id":"FA-T008","title":"Reale WorkerStrategy fuer OpenCode/Hermes/native Worker","status":"done","priority":"P1","risk":"high","source":"todo.fixup-autopilot.json"},
+    {"id":"FA-T011","title":"Bounded LLM repair/coercion implementieren","status":"done","priority":"P1","risk":"high","source":"todo.fixup-autopilot.json"},
+    {"id":"FA-T012","title":"Governed LLM context fuer propose vervollstaendigen","status":"done","priority":"P0","risk":"high","source":"todo.fixup-autopilot.json"},
 
-    {"id":"WSM-T001","title":"StrategyMode model + presets einfuehren","status":"todo","priority":"P0","risk":"high","source":"todo.worker-strategy-modes-and-fallbacks.json"},
+    {"id":"WSM-T001","title":"StrategyMode model + presets einfuehren","status":"done","priority":"P0","risk":"high","source":"todo.worker-strategy-modes-and-fallbacks.json"},
     {"id":"WSM-T002","title":"Agent-loop Strategy fuer OpenCode-like Mode","status":"todo","priority":"P0","risk":"high","source":"todo.worker-strategy-modes-and-fallbacks.json"},
     {"id":"WSM-T003","title":"Codex-CLI-like patch/command Strategy-Mode","status":"todo","priority":"P1","risk":"medium","source":"todo.worker-strategy-modes-and-fallbacks.json"},
     {"id":"WSM-T004","title":"Hermes-like proposal/review Strategy-Mode","status":"todo","priority":"P1","risk":"medium","source":"todo.worker-strategy-modes-and-fallbacks.json"},
-    {"id":"WSM-T005","title":"Fallback-Mechanismen pro Mode konfigurierbar machen","status":"todo","priority":"P0","risk":"high","source":"todo.worker-strategy-modes-and-fallbacks.json"},
+    {"id":"WSM-T005","title":"Fallback-Mechanismen pro Mode konfigurierbar machen","status":"done","priority":"P0","risk":"high","source":"todo.worker-strategy-modes-and-fallbacks.json"},
     {"id":"WSM-T006","title":"Strategy-Mode Konfiguration in API/UI exponieren","status":"todo","priority":"P1","risk":"medium","source":"todo.worker-strategy-modes-and-fallbacks.json"},
     {"id":"WSM-T007","title":"Mode-Semantik und Provider-Mapping dokumentieren","status":"done","priority":"P2","risk":"low","source":"todo.worker-strategy-modes-and-fallbacks.json"}
   ],
@@ -149,13 +149,14 @@
   "summaries": {
     "overall": "Konsolidierter Backlog mit Fokus auf Sicherheits-Hardening, Full-Flow E2E, Migrations-Portabilitaet und konfigurierbare Strategy-Modes.",
     "status_counts": {
-      "todo": 6,
-      "partial": 3,
-      "done": 14,
+      "todo": 4,
+      "partial": 0,
+      "done": 19,
       "total": 23
     },
     "top_priorities": [
-      "WSM-T001/WSM-T005: Strategy-Modes und fallback-Steuerung explizit, konfigurierbar und auditierbar machen."
+      "WSM-T002/WSM-T003/WSM-T004: konkrete Strategy-Implementierungen fuer opencode/codex/hermes Modes abschliessen.",
+      "WSM-T006: Strategy-Mode Konfiguration und Sichtbarkeit in API/UI abschliessen."
     ],
     "biggest_risks_if_not_done": [
       "Unsichere Shell-Ausfuehrung aus Modelltext trotz Policy-Denial.",
@@ -163,11 +164,10 @@
       "Migrationsprobleme zwischen SQLite (dev/test) und Postgres (prod)."
     ],
     "recommended_next_slice": [
-      "WSM-T001",
-      "WSM-T005",
       "WSM-T002",
-      "WSM-T006",
-      "FA-T012"
+      "WSM-T003",
+      "WSM-T004",
+      "WSM-T006"
     ]
   }
 }
