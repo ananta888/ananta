@@ -151,6 +151,7 @@ class TaskLifecycleService:
                 "preferred_bundle_mode": rationale.get("preferred_bundle_mode"),
                 "required_capabilities": list(rationale.get("required_capabilities") or []),
                 "verification_spec": verification_spec,
+                "expected_artifacts": list(verification_spec.get("expected_artifacts") or []),
                 "worker_execution_context": worker_execution_context,
                 "worker_execution_contract": worker_execution_contract,
                 "status_reason_details": {
@@ -162,6 +163,7 @@ class TaskLifecycleService:
                     },
                     "artifact_traceability": {
                         "plan_node_id": node.id,
+                        "artifact_trace_id": str((rationale or {}).get("artifact_trace_id") or ""),
                         "expected_artifacts_count": len(list(verification_spec.get("expected_artifacts") or [])),
                     },
                 },

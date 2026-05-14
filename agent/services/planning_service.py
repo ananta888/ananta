@@ -397,6 +397,8 @@ class PlanningService:
                         "preferred_bundle_mode": retrieval_hints["preferred_bundle_mode"],
                         "required_capabilities": required_capabilities,
                         "source_depends_on": raw_depends_on,
+                        "artifact_trace_id": str(subtask.get("artifact_trace_id") or f"A{index}"),
+                        "expected_artifacts": [dict(a) for a in list(subtask.get("expected_artifacts") or []) if isinstance(a, dict)],
                         "artifact": subtask.get("artifact"),
                         "risk_focus": subtask.get("risk_focus"),
                         "test_focus": subtask.get("test_focus"),
@@ -571,6 +573,25 @@ class PlanningService:
             plan.updated_at = time.time()
             repos.plan_repo.save(plan)
 
+    @staticmethod
+    def _repair_invalid_plan_payload(payload: dict[str, Any], validation_errors: list[str]) -> dict[str, Any]:
+        repaired = dict(payload or {})
+        nodes = [dict(item) for item in list(repaired.get("nodes") or []) if isinstance(item, dict)]
+        need_artifacts = any(str(err).startswith("missing_expected_artifacts:") for err in list(validation_errors or []))
+        if need_artifacts:
+            for node in nodes:
+                task_kind = str(node.get("task_kind") or "").strip().lower()
+                expected = [dict(a) for a in list(node.get("expected_artifacts") or []) if isinstance(a, dict)]
+                if task_kind in {"coding", "testing", "ops"} and not expected:
+                    expected = [{"kind": "workspace_change", "required": True, "description": f"{node.get('node_key')}-output"}]
+                    node["expected_artifacts"] = expected
+                verification_spec = dict(node.get("verification_spec") or {})
+                if expected and not verification_spec.get("expected_artifacts"):
+                    verification_spec["expected_artifacts"] = expected
+                node["verification_spec"] = verification_spec
+        repaired["nodes"] = nodes
+        return repaired
+
     def plan_goal(
         self,
         planner,
@@ -688,6 +709,12 @@ class PlanningService:
             "clarifying_questions.suggest",
         }
         proposal_validation = validate_plan_proposal_payload(proposal_payload, known_capabilities=known_capabilities)
+        if not proposal_validation.ok:
+            repaired_payload = self._repair_invalid_plan_payload(proposal_validation.normalized_payload, proposal_validation.errors)
+            repaired_validation = validate_plan_proposal_payload(repaired_payload, known_capabilities=known_capabilities)
+            if repaired_validation.ok:
+                proposal_payload = repaired_validation.normalized_payload
+                proposal_validation = repaired_validation
         if not proposal_validation.ok:
             planner._stats["errors"] += 1
             return {

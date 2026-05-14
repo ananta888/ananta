@@ -17,6 +17,7 @@ from agent.services.hub_event_service import (
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_runtime_service import notify_task_update
 from agent.services.verification_policy_service import default_verification_spec, evaluate_quality_gates
+from agent.services.execution_improvement_loop_service import get_execution_improvement_loop_service
 
 
 class VerificationService:
@@ -112,6 +113,14 @@ class VerificationService:
                 )
                 record.escalation_code = failure_classification
                 repair_workflow = self._build_repair_workflow(failure_classification, int(record.retry_count or 0) + 1)
+                verification_critique = get_execution_improvement_loop_service().build_verification_critique(
+                    expected_artifacts=list((spec or {}).get("expected_artifacts") or []),
+                    verification={"reason": reason_code, "failed_reasons": [failure_classification]},
+                    observed_artifacts=list((task.verification_status or {}).get("execution_artifacts") or []),
+                    logs=str(output or ""),
+                )
+            else:
+                verification_critique = None
             record.results = {
                 "quality_gates_passed": passed,
                 "quality_gates_reason": reason_code,
@@ -119,6 +128,7 @@ class VerificationService:
                 "final_passed": status == "passed",
                 "failure_classification": failure_classification,
                 "repair_workflow": repair_workflow,
+                "verification_critique": verification_critique,
             }
             record.results = get_cost_aggregation_service().attach_cost_to_verification_results(task=task, results=record.results)
             if status == "failed":
@@ -141,6 +151,7 @@ class VerificationService:
                 "escalation_reason": merged_record.escalation_reason,
                 "failure_classification": (merged_record.results or {}).get("failure_classification"),
                 "repair_workflow": (merged_record.results or {}).get("repair_workflow"),
+                "verification_critique": (merged_record.results or {}).get("verification_critique"),
                 "results": merged_record.results,
             }
             task.verification_spec = spec
@@ -229,6 +240,21 @@ class VerificationService:
         if verification_required and overall_status == "failed":
             overall_status = "failed"
 
+        # Software project verification gates: explicit backend/frontend structure and fibonacci signal.
+        gate_results: list[dict[str, Any]] = []
+        expects_backend = any(path == "backend" or path.startswith("backend/") for path in expected_paths)
+        expects_frontend = any(path == "frontend" or path.startswith("frontend/") for path in expected_paths)
+        if expects_backend or expects_frontend:
+            backend_ok = (not expects_backend) or any(path == "backend" or path.startswith("backend/") for path in present_paths)
+            frontend_ok = (not expects_frontend) or any(path == "frontend" or path.startswith("frontend/") for path in present_paths)
+            gate_results.append({"gate": "backend_structure", "passed": backend_ok, "required": expects_backend})
+            gate_results.append({"gate": "frontend_structure", "passed": frontend_ok, "required": expects_frontend})
+            if not backend_ok:
+                failed_reasons.append("software_gate_failed:backend_structure")
+            if not frontend_ok:
+                failed_reasons.append("software_gate_failed:frontend_structure")
+            overall_status = "passed" if not failed_reasons else "failed"
+
         return {
             "task_id": task_id,
             "status": overall_status,
@@ -238,6 +264,7 @@ class VerificationService:
             "artifact_results": results,
             "artifact_ids": [str(a.get("artifact_id") or "") for a in artifacts if a.get("artifact_id")],
             "evidence_refs": [r["evidence_ref"] for r in results if r.get("evidence_ref")],
+            "verification_gates": gate_results,
             "advisory_only": False,
         }
 
