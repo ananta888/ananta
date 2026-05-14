@@ -73,13 +73,22 @@ class ToolCallingLLMStrategy(ProposeStrategy):
         tool_calls = llm_response.get("tool_calls") or []
         content = llm_response.get("content") or ""
         finish_reason = llm_response.get("finish_reason") or ""
+        allow_shell_execution = bool(
+            getattr(getattr(context, "policy", None), "allow_shell_execution", False)
+        )
 
         # No native tool calls → try to extract from content via normalizer
         if not tool_calls and content.strip():
             normalizer = LLMResponseNormalizer()
-            fallback = normalizer.normalize(content, context, allow_shell_execution=True)
-            if fallback.is_executable:
+            fallback = normalizer.normalize(
+                content,
+                context,
+                allow_shell_execution=allow_shell_execution,
+            )
+            if isinstance(fallback.metadata, dict):
                 fallback.metadata["source"] = "tool_calling_llm_content_fallback"
+                fallback.metadata["allow_shell_execution"] = allow_shell_execution
+            if fallback.is_executable or fallback.status == "advisory":
                 return fallback
 
         if not tool_calls:

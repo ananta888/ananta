@@ -8,6 +8,8 @@ from agent.services.propose_policy import (
     STRATEGY_LEGACY_SGPT,
     STRATEGY_DETERMINISTIC_HANDLER,
     STRATEGY_TOOL_CALLING_LLM,
+    STRATEGY_JSON_SCHEMA_LLM,
+    STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
     STRATEGY_HUMAN_REVIEW,
     SAFE_DEFAULT_STRATEGY_ORDER,
     build_policy_from_dict,
@@ -111,6 +113,10 @@ class TestProposePolicyService:
         p = svc.get_effective_policy(task_kind="new_software_project")
         assert p.requires_executable_step is True
         assert STRATEGY_LEGACY_SGPT not in p.effective_strategy_order()
+        order = p.effective_strategy_order()
+        assert order.index(STRATEGY_TOOL_CALLING_LLM) < order.index(STRATEGY_JSON_SCHEMA_LLM)
+        assert order.index(STRATEGY_JSON_SCHEMA_LLM) < order.index(STRATEGY_FLEXIBLE_LLM_NORMALIZATION)
+        assert p.llm_required is True
 
     def test_task_kind_research_no_exec_required(self):
         svc = self._svc()
