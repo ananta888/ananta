@@ -24,3 +24,29 @@ def test_agent_loop_wraps_tool_calling(monkeypatch):
     result = AgentLoopToolCallingStrategy().run(ctx)
     assert result.status == STATUS_EXECUTABLE
     assert result.metadata["agent_loop"]["iteration"] == 1
+
+
+def test_agent_loop_iterates_until_executable(monkeypatch):
+    from worker.core.tool_calling_llm_strategy import ToolCallingLLMStrategy
+    from worker.core.propose import ProposeStrategyResult, ExecutableProposal
+
+    state = {"calls": 0}
+
+    def _run(_self, context):
+        state["calls"] += 1
+        if state["calls"] < 3:
+            return ProposeStrategyResult.declined("tool_calling_llm", reason="no_tool_calls")
+        p = ExecutableProposal.from_command(
+            goal_id=context.goal_id,
+            task_id=context.task_id,
+            strategy_id="tool_calling_llm",
+            command="echo ok",
+        )
+        return ProposeStrategyResult.executable("tool_calling_llm", p)
+
+    monkeypatch.setattr(ToolCallingLLMStrategy, "run", _run)
+    ctx = ProposeContext(goal_id="g", task_id="t", task={"max_agent_loop_iterations": 3}, base_prompt="x")
+    result = AgentLoopToolCallingStrategy().run(ctx)
+    assert result.status == STATUS_EXECUTABLE
+    assert state["calls"] == 3
+    assert result.metadata["agent_loop"]["iteration"] == 3

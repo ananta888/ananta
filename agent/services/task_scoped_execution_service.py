@@ -552,7 +552,7 @@ class TaskScopedExecutionService:
             "proposal_status": result.status,
             "proposal_reason": result.reason,
             "normalization_format": result.metadata.get("source_format"),
-            "effective_strategy_mode": task_override.get("strategy_mode"),
+            "effective_strategy_mode": getattr(policy, "effective_strategy_mode", None) or task_override.get("strategy_mode"),
         }
         if result.is_executable and result.proposal is not None:
             get_core_services().task_execution_service.persist_task_proposal_result(
