@@ -13,6 +13,7 @@ Usage:
 import argparse
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
@@ -539,8 +540,30 @@ def _resolve_output_dir(output_dir: str) -> tuple[str, str | None]:
         container = f"{_CONTAINER_WORKSPACE_ROOT}/{name}"
         host = f"{_HOST_WORKSPACE_ROOT}/{name}"
         return container, host
-    # Arbitrary absolute path the caller has presumably mounted themselves
-    return raw, None
+    # Arbitrary absolute host path: map to shared /project-workspaces and mirror via symlink.
+    host_requested = Path(raw)
+    host_ws_root = Path(_HOST_WORKSPACE_ROOT).resolve()
+    slug = re.sub(r"[^a-zA-Z0-9._-]+", "-", raw.strip("/")).strip("-.") or "workspace"
+    container = f"{_CONTAINER_WORKSPACE_ROOT}/external/{slug}"
+    host_backing = host_ws_root / "external" / slug
+    try:
+        host_backing.mkdir(parents=True, exist_ok=True)
+        host_requested.parent.mkdir(parents=True, exist_ok=True)
+        if host_requested.exists() or host_requested.is_symlink():
+            if host_requested.is_symlink():
+                current_target = host_requested.resolve(strict=False)
+                if current_target != host_backing.resolve():
+                    return container, str(host_backing)
+            elif host_requested.is_dir():
+                # Keep existing real directories untouched to avoid destructive behavior.
+                return container, str(host_requested)
+            else:
+                return container, str(host_backing)
+        else:
+            host_requested.symlink_to(host_backing, target_is_directory=True)
+    except Exception:
+        return container, str(host_backing)
+    return container, str(host_requested)
 
 
 def _parse_rag_sources(raw: str) -> dict:
