@@ -151,6 +151,8 @@ class ModelInvocationService:
     ) -> str:
         """Call LLM with response_format=json_object. Returns raw content string."""
         messages = [{"role": "user", "content": prompt}]
+        if kwargs.get("system_prompt"):
+            messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
         response = cls._make_chat_call(
             messages, response_format={"type": "json_object"}, model=model
         )

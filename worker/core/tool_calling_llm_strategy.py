@@ -1,23 +1,36 @@
 """ToolCallingLLMStrategy — FA-T009/T021/AFR-T004: real API tools= param."""
 from __future__ import annotations
 
+import json
+
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 from worker.core.propose import ProposeStrategyResult, ExecutableProposal
 from agent.services.model_invocation_service import ModelInvocationService, LLMUnavailableError
+from agent.services.llm_response_normalizer import LLMResponseNormalizer
 
 _MOCK_ONLY_PROVIDERS = {"mock"}
 
 
 def _build_system_prompt(context: ProposeContext) -> str:
     task = context.task or {}
-    return (
-        f"You are a software engineering agent.\n"
-        f"Task kind: {task.get('task_kind') or 'unknown'}\n"
-        f"Goal: {context.goal_id}\n"
-        f"Task: {context.task_id}\n"
-        f"Use the available tools to accomplish the task. "
-        f"Return tool_calls only — no prose, no explanations."
+    task_desc = (task.get("description") or task.get("prompt") or "").strip()
+    parts = [
+        "You are a software engineering agent executing a task.",
+        f"Goal: {context.goal_id}",
+        f"Task: {context.task_id}",
+        f"Task kind: {task.get('task_kind') or 'unknown'}",
+    ]
+    if task_desc and len(task_desc) > 20:
+        parts.append("")
+        parts.append("Task description:")
+        parts.append(task_desc)
+    parts.append("")
+    parts.append(
+        "You MUST use one or more of the available tools to complete the task. "
+        "Return ONLY tool_calls — no prose, no explanations, no markdown. "
+        "Each tool_call must specify the function name and its arguments."
     )
+    return "\n".join(parts)
 
 
 class ToolCallingLLMStrategy(ProposeStrategy):
@@ -58,9 +71,17 @@ class ToolCallingLLMStrategy(ProposeStrategy):
             )
 
         tool_calls = llm_response.get("tool_calls") or []
+        content = llm_response.get("content") or ""
         finish_reason = llm_response.get("finish_reason") or ""
 
-        # Provider reached but returned no tool calls → tools not supported by this model
+        # No native tool calls → try to extract from content via normalizer
+        if not tool_calls and content.strip():
+            normalizer = LLMResponseNormalizer()
+            fallback = normalizer.normalize(content, context, allow_shell_execution=True)
+            if fallback.is_executable:
+                fallback.metadata["source"] = "tool_calling_llm_content_fallback"
+                return fallback
+
         if not tool_calls:
             if finish_reason in ("stop", "length"):
                 return ProposeStrategyResult.declined(

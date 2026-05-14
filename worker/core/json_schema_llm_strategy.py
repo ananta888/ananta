@@ -9,15 +9,25 @@ from agent.services.model_invocation_service import ModelInvocationService, LLMU
 
 _MOCK_ONLY_PROVIDERS = {"mock"}
 
-_SCHEMA_PROMPT_SUFFIX = """
-Respond with valid JSON matching this schema:
+_SCHEMA_SYSTEM_PROMPT = """You are a structured output generator.
+You MUST respond with valid JSON only — no prose, no markdown, no explanations.
+
+The JSON must match this schema:
 {
   "command": "<shell command string, or null>",
   "tool_calls": [{"name": "<tool_name>", "args": {<arguments>}}]
 }
-Only one of command or tool_calls should be non-empty.
-No prose, no markdown fences, only raw JSON.
-"""
+
+Rules:
+- Include at least one of "command" or "tool_calls".
+- "reason" is optional but recommended.
+- Output ONLY the raw JSON object. No fences. No text before or after."""
+
+_SCHEMA_PROMPT_SUFFIX = """
+Respond with valid JSON:
+{"command": "...", "tool_calls": [], "reason": "..."}
+or {"command": null, "tool_calls": [{"name": "...", "args": {...}}], "reason": "..."}
+Only raw JSON. No prose. No markdown."""
 
 
 class JsonSchemaLLMStrategy(ProposeStrategy):
@@ -48,6 +58,7 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 prompt=prompt,
                 json_schema=self.JSON_SCHEMA,
                 model=None,
+                system_prompt=_SCHEMA_SYSTEM_PROMPT,
             )
         except LLMUnavailableError as exc:
             return ProposeStrategyResult.declined(
