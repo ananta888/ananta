@@ -12,6 +12,7 @@ from agent.runtime_policy import normalize_task_kind
 from agent.services.ingestion_service import get_ingestion_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.result_memory_service import get_result_memory_service
+from agent.services.execution_audit_service import get_execution_audit_service
 from agent.services.task_runtime_service import update_local_task_status
 from agent.services.worker_job_service import get_worker_job_service
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens
@@ -1062,6 +1063,14 @@ class TaskExecutionTrackingService:
             merged_metrics.update(flow_metrics)
             merged_metrics["updated_at"] = time.time()
             verification_status["task_flow_metrics"] = merged_metrics
+            verification_status["loop_telemetry"] = {
+                "phase": flow_metrics.get("phase"),
+                "propose_ok": flow_metrics.get("propose_ok"),
+                "execute_ok": flow_metrics.get("execute_ok"),
+                "artifact_created": flow_metrics.get("artifact_created"),
+                "run_id": flow_metrics.get("run_id"),
+                "updated_at": time.time(),
+            }
         verification_status["execution_routing"] = {
             "inference_provider": cost_summary.get("inference_provider"),
             "inference_model": cost_summary.get("inference_model"),
@@ -1076,6 +1085,22 @@ class TaskExecutionTrackingService:
             last_output=output,
             last_exit_code=exit_code,
             verification_status=verification_status,
+        )
+        get_execution_audit_service().emit(
+            operation_type="execution_result_finalize",
+            outcome="success" if status == "completed" else "non_success",
+            trace_id=trace.get("trace_id"),
+            goal_id=task.get("goal_id"),
+            task_id=tid,
+            actor_role="hub",
+            details={
+                "status": status,
+                "failure_type": failure_type,
+                "execution_backend": cost_summary.get("execution_backend"),
+                "inference_provider": cost_summary.get("inference_provider"),
+                "inference_model": cost_summary.get("inference_model"),
+                "pipeline": dict(pipeline or {}),
+            },
         )
         quality_passed = status == "completed" and "[quality_gate] failed:" not in (output or "")
         try:

@@ -38,6 +38,7 @@ from agent.services.command_chain_parser import CommandChainParser
 from agent.services.command_to_tool_mapper import CommandToToolMapper
 from agent.services.tool_intent_resolver import ToolIntentResolver
 from agent.services.tool_intent_taxonomy_service import get_tool_intent_taxonomy_service
+from agent.services.execution_audit_service import get_execution_audit_service
 from agent.services.task_execution_policy_service import (
     classify_execution_failure,
     compute_execution_retry_delay,
@@ -387,6 +388,22 @@ class TaskExecutionService:
                         ensure_ascii=True,
                         sort_keys=True,
                     ),
+                )
+                get_execution_audit_service().emit(
+                    operation_type="tool_intent_remap",
+                    outcome="remapped",
+                    trace_id=loop_trace_id,
+                    goal_id=effective_task.get("goal_id"),
+                    task_id=tid,
+                    actor_role="hub",
+                    details={
+                        "original_tool": event.original_tool,
+                        "resolved_tool": event.resolved_tool,
+                        "reason": event.reason,
+                        "resolved_intent": event.resolved_intent,
+                        "resolved_risk": event.resolved_risk,
+                        "tool_class": event.tool_class,
+                    },
                 )
             worker_execution_contract = dict((effective_task or {}).get("worker_execution_contract") or {})
             allowed_tool_classes = {
@@ -814,10 +831,29 @@ class TaskExecutionService:
         )
         get_task_runtime_service().update_local_task_status(
             tid,
-            "failed",
+            "blocked",
             history=history,
+            status_reason_code="security_or_policy_denied",
+            status_reason_details={
+                "blocked_tools": list(decision.blocked_tools or []),
+                "blocked_reasons": list(decision.reasons or []),
+                "guardrails": dict(decision.details or {}),
+            },
             last_output=f"[tool_guardrail] blocked: {', '.join(decision.reasons)}",
             last_exit_code=1,
+        )
+        get_execution_audit_service().emit(
+            operation_type="security_policy_block",
+            outcome="blocked",
+            trace_id=self._resolve_loop_trace_id(task or {}),
+            goal_id=(task or {}).get("goal_id"),
+            task_id=tid,
+            actor_role="hub",
+            details={
+                "reason": reason,
+                "blocked_tools": list(decision.blocked_tools or []),
+                "blocked_reasons": list(decision.reasons or []),
+            },
         )
 
     def _append_approval_block_history(
@@ -848,6 +884,18 @@ class TaskExecutionService:
             status_reason_code=str((approval_decision or {}).get("reason_code") or "approval_blocked"),
             last_output=f"[approval] blocked: {approval_decision.get('reason_code')}",
             last_exit_code=1,
+        )
+        get_execution_audit_service().emit(
+            operation_type="approval_block",
+            outcome="blocked",
+            trace_id=self._resolve_loop_trace_id(task or {}),
+            goal_id=(task or {}).get("goal_id"),
+            task_id=tid,
+            actor_role="hub",
+            details={
+                "reason": reason,
+                "approval_decision": dict(approval_decision or {}),
+            },
         )
 
     def _resolve_loop_trace_id(self, task: dict) -> str | None:
