@@ -66,7 +66,9 @@ class ProposePolicyService:
             merged = self._merge(merged, mode_overrides)
             merged["effective_strategy_mode"] = str(mode_id)
 
-        return build_policy_from_dict(merged, admin_overrides=admin_overrides)
+        policy = build_policy_from_dict(merged, admin_overrides=admin_overrides)
+        setattr(policy, "effective_strategy_mode", str(merged.get("effective_strategy_mode") or "").strip() or None)
+        return policy
 
     # ── helpers ────────────────────────────────────────────────────────────────
 

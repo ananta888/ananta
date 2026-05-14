@@ -47,9 +47,9 @@ JSON-only output is not a global requirement. It is required only when the selec
 - Shell execution from model text is denied by default unless policy explicitly enables it.
 - Artifact-first completion is authoritative; model prose is advisory.
 
-## Current Limitations (2026-05-14)
+## Current Behavior (2026-05-14)
 
-- `opencode_like` currently uses `AgentLoopToolCallingStrategy` as a bounded wrapper with one iteration by default, not a full internal observe-act tool loop.
-- `codex_cli_like` currently extracts advisory patch artifacts (`CliAgentPatchStrategy`) and does not yet provide a full apply/validate/verify execution path inside the strategy.
-- `hermes_like` currently provides proposal/review-first advisory output (`HermesProposalStrategy`) without a dedicated external Hermes adapter integration.
-- Strategy mode visibility/configuration exists, but cross-scope consistency (all intended API/UI/task-detail surfaces) is still considered partial.
+- `opencode_like` uses a bounded observe-act loop (`AgentLoopToolCallingStrategy`) with iterative retries up to `max_agent_loop_iterations`.
+- `codex_cli_like` can transform safe unified-diff replacements into executable `file_patch` tool calls; unsafe or ambiguous patches remain advisory artifacts.
+- `hermes_like` consumes Hermes adapter payloads when present and otherwise falls back to proposal/review-first advisory planning.
+- Effective strategy mode is exposed through policy resolution metadata and task propose response metadata (`effective_strategy_mode`).

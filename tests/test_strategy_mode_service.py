@@ -29,3 +29,12 @@ def test_strategy_mode_hermes_disables_mutating_fallbacks():
     assert policy.allow_deterministic_fallback is False
     assert policy.allow_worker_fallback is False
     assert policy.allow_human_review is True
+
+
+def test_effective_strategy_mode_is_exposed_on_policy():
+    psvc = ProposePolicyService()
+    policy = psvc.get_effective_policy(
+        task_kind="coding",
+        project_config={"strategy_mode": "codex_cli_like"},
+    )
+    assert getattr(policy, "effective_strategy_mode", None) == "codex_cli_like"
