@@ -1,0 +1,563 @@
+{
+  "id": "todo.embedded-tui-editor-tools",
+  "title": "Embedded TUI tools and default editor routing inside Ananta TUI",
+  "status": "draft",
+  "extends": [
+    "todos/todo.tmux-oidc-terminal-sessions.json"
+  ],
+  "summary": {
+    "short": "Allow Vim and other terminal-based tools to run as selectable embedded main-window tools inside the Ananta TUI, with configurable default editors per file type.",
+    "problem": "Ananta TUI should not only show terminal sessions as raw shells. Users need to open files directly inside the TUI using Vim by default, while still being able to choose other TUI tools such as nvim, nano, micro, helix, lazygit, mc, ranger or custom commands.",
+    "goal": "Introduce a deterministic TUI tool launcher and editor routing model. File open actions should resolve a configured editor by file type, project, user profile and policy. Vim should be the default fallback editor, but not hardcoded as the only option.",
+    "non_goal": "Do not execute arbitrary editor commands from untrusted model output without policy validation. Do not bypass terminal/session authorization. Do not assume that opening a file in an editor is read-only unless the launched tool is constrained accordingly."
+  },
+  "design_principles": [
+    "Vim is the default fallback editor, not the only supported editor.",
+    "Editor choice must be configurable per file type and scope.",
+    "The Ananta TUI should be able to use the editor/tool as its central main panel.",
+    "TUI tool execution must reuse TerminalSessionService and TerminalPolicyService from the terminal-session architecture.",
+    "Editor commands must be resolved deterministically from config, not hallucinated by an LLM.",
+    "Opening a file must validate workspace scope, file path and permission before starting the tool."
+  ],
+  "target_user_experience": {
+    "main_window_modes": [
+      {
+        "mode": "dashboard",
+        "summary": "Normal Ananta TUI overview with goals, tasks, workers and status."
+      },
+      {
+        "mode": "terminal_session",
+        "summary": "Raw or managed terminal session connected to Hub, Worker or Hub-as-Worker."
+      },
+      {
+        "mode": "embedded_editor",
+        "summary": "Main panel runs Vim or another configured editor for a selected file."
+      },
+      {
+        "mode": "embedded_tool",
+        "summary": "Main panel runs a configured TUI tool such as lazygit, ranger, mc, htop-like viewers or project-specific commands."
+      },
+      {
+        "mode": "split_view",
+        "summary": "Optional later mode where Ananta status/sidebar stays visible while editor/tool runs in the main pane."
+      }
+    ],
+    "example_flows": [
+      "User selects a file from artifacts, task output or workspace tree and presses Open.",
+      "Ananta resolves editor by file type, for example .py -> nvim, .md -> vim, .json -> vim -c 'set ft=json'.",
+      "TUI starts or reuses a controlled terminal session and launches the resolved editor command.",
+      "User can switch back from editor/tool to Ananta overview without losing session state.",
+      "User can override editor for this open action from a chooser if policy allows custom selection."
+    ]
+  },
+  "configuration_model": {
+    "default_editor": "vim",
+    "editor_resolution_order": [
+      "explicit_open_with_argument",
+      "project_config_filetype_rule",
+      "user_config_filetype_rule",
+      "global_filetype_rule",
+      "environment_EDITOR_or_VISUAL_if_allowed",
+      "global_default_editor",
+      "vim_fallback"
+    ],
+    "example_config": {
+      "tui_tools": {
+        "default_editor": "vim",
+        "allow_environment_editor": true,
+        "allowed_tools": [
+          "vim",
+          "nvim",
+          "nano",
+          "micro",
+          "helix",
+          "lazygit",
+          "mc",
+          "ranger"
+        ],
+        "filetype_editors": [
+          {
+            "match": "*.py",
+            "editor": "nvim",
+            "args": [
+              "{file}"
+            ]
+          },
+          {
+            "match": "*.ts",
+            "editor": "nvim",
+            "args": [
+              "{file}"
+            ]
+          },
+          {
+            "match": "*.java",
+            "editor": "vim",
+            "args": [
+              "{file}"
+            ]
+          },
+          {
+            "match": "*.md",
+            "editor": "vim",
+            "args": [
+              "-c",
+              "set ft=markdown",
+              "{file}"
+            ]
+          },
+          {
+            "match": "*.json",
+            "editor": "vim",
+            "args": [
+              "-c",
+              "set ft=json",
+              "{file}"
+            ]
+          },
+          {
+            "match": "Dockerfile*",
+            "editor": "vim",
+            "args": [
+              "-c",
+              "set ft=dockerfile",
+              "{file}"
+            ]
+          }
+        ],
+        "tool_profiles": [
+          {
+            "id": "git_ui",
+            "command": "lazygit",
+            "args": [],
+            "working_directory": "{workspace}"
+          },
+          {
+            "id": "file_manager",
+            "command": "ranger",
+            "args": [
+              "{workspace}"
+            ]
+          }
+        ]
+      }
+    },
+    "config_scopes": [
+      {
+        "scope": "global",
+        "summary": "System-wide defaults shipped by Ananta."
+      },
+      {
+        "scope": "user",
+        "summary": "User-level preference, for example Vim vs Neovim vs Micro."
+      },
+      {
+        "scope": "project",
+        "summary": "Repository/project-level editor mapping for specific file types."
+      },
+      {
+        "scope": "workspace/session",
+        "summary": "Temporary override for one terminal/editor session."
+      }
+    ]
+  },
+  "security_model": {
+    "permissions": [
+      {
+        "name": "tui.tool.list",
+        "summary": "List available embedded TUI tools."
+      },
+      {
+        "name": "tui.tool.launch",
+        "summary": "Launch an allowed embedded TUI tool."
+      },
+      {
+        "name": "tui.editor.open",
+        "summary": "Open a file in the resolved default editor."
+      },
+      {
+        "name": "tui.editor.write",
+        "summary": "Allow editor sessions that can write file changes."
+      },
+      {
+        "name": "tui.editor.readonly",
+        "summary": "Allow opening files in a read-only editor mode."
+      },
+      {
+        "name": "tui.editor.custom_command",
+        "summary": "Allow user-defined custom editor/tool command. Denied by default for remote sessions."
+      },
+      {
+        "name": "tui.tool.hub.launch",
+        "summary": "Launch embedded TUI tool against Hub target. High risk and denied by default."
+      },
+      {
+        "name": "tui.tool.worker.launch",
+        "summary": "Launch embedded TUI tool against Worker target."
+      },
+      {
+        "name": "tui.tool.hub_as_worker.launch",
+        "summary": "Launch embedded TUI tool against Hub-as-Worker target. Separate high-risk permission."
+      }
+    ],
+    "hard_denies": [
+      "editor_command_from_untrusted_llm_output",
+      "file_open_outside_authorized_workspace",
+      "custom_tool_command_without_explicit_permission",
+      "hub_embedded_tool_without_hub_tool_permission",
+      "write_capable_editor_when_only_readonly_permission_exists",
+      "path_traversal_in_file_argument",
+      "shell_expansion_in_file_argument"
+    ],
+    "command_safety_rules": [
+      "Editor/tool command must be selected from allowed tool registry unless custom command permission is explicitly granted.",
+      "Command execution must use argv arrays, not shell=True for untrusted file paths.",
+      "The {file} placeholder must resolve to a validated workspace-contained path.",
+      "The {workspace} placeholder must resolve to the authorized workspace root.",
+      "Hub target requires separate policy from Worker target.",
+      "Read-only open must pass editor-specific read-only flags where supported."
+    ]
+  },
+  "architecture": {
+    "components": [
+      {
+        "name": "TuiToolRegistry",
+        "summary": "Registry of allowed embedded TUI tools and editor profiles.",
+        "responsibilities": [
+          "Load global/user/project tool definitions",
+          "Validate command names against allowlist",
+          "Expose available tools to CLI/TUI/frontend",
+          "Reject unsafe or unknown tools by default"
+        ]
+      },
+      {
+        "name": "EditorResolver",
+        "summary": "Resolves default editor for a file path using deterministic rules.",
+        "responsibilities": [
+          "Match file type by extension, glob, filename and optional MIME type",
+          "Apply resolution order consistently",
+          "Return editor command profile with argv template",
+          "Fallback to vim when no rule matches"
+        ]
+      },
+      {
+        "name": "TuiMainPaneController",
+        "summary": "Controls whether Ananta TUI main pane shows dashboard, terminal, editor or embedded tool.",
+        "responsibilities": [
+          "Switch main pane mode",
+          "Preserve running tool session state",
+          "Return to Ananta overview without killing session unless requested",
+          "Show tool/editor status and target risk class"
+        ]
+      },
+      {
+        "name": "EmbeddedToolSessionService",
+        "summary": "Thin orchestration layer that launches editor/tool commands inside controlled terminal sessions.",
+        "responsibilities": [
+          "Validate target, workspace and tool policy",
+          "Request or reuse TerminalSessionService session",
+          "Launch resolved editor/tool command",
+          "Track session metadata as embedded_editor or embedded_tool"
+        ]
+      }
+    ],
+    "session_types": [
+      "terminal_shell",
+      "embedded_editor",
+      "embedded_tool"
+    ],
+    "api_extensions": {
+      "rest_endpoints": [
+        "GET /tui/tools",
+        "GET /tui/editors/resolve?path=<workspace-relative-path>",
+        "POST /tui/tools/launch",
+        "POST /tui/editors/open"
+      ],
+      "cli_commands": [
+        "ananta tui --open <file>",
+        "ananta tui --open <file> --with vim",
+        "ananta tui --open <file> --readonly",
+        "ananta tui --tool lazygit",
+        "ananta tmux edit <file>",
+        "ananta tmux edit <file> --with nvim",
+        "ananta tmux tool lazygit"
+      ]
+    }
+  },
+  "implementation_tasks": [
+    {
+      "id": "E001-tool-registry-config",
+      "title": "Add TUI tool registry and editor configuration model",
+      "summary": "Define configuration for default editor, filetype editor mappings and allowed TUI tools.",
+      "files": [
+        "agent/config.py",
+        "agent/services/tui_tool_registry.py",
+        "docs/configuration/tui-tools.md",
+        "tests/test_tui_tool_registry.py"
+      ],
+      "details": [
+        "Add default_editor with vim as fallback.",
+        "Add allowed_tools list.",
+        "Add filetype_editors mapping.",
+        "Add support for user/project/global config scopes.",
+        "Validate config at startup or first use."
+      ],
+      "acceptance_criteria": [
+        "If no editor config exists, Vim is selected as default editor.",
+        "Configured nvim/micro/helix/nano can replace Vim for selected file types.",
+        "Unknown tools are rejected by default.",
+        "Invalid config produces a clear validation error.",
+        "Tool registry tests cover global, user and project override order."
+      ]
+    },
+    {
+      "id": "E002-editor-resolver",
+      "title": "Implement deterministic editor resolver per file type",
+      "summary": "Resolve editor command profiles from file path and configuration without LLM inference.",
+      "files": [
+        "agent/services/editor_resolver.py",
+        "tests/test_editor_resolver.py"
+      ],
+      "details": [
+        "Support glob patterns such as *.py, *.ts and Dockerfile*.",
+        "Support explicit --with editor override when allowed.",
+        "Support fallback to EDITOR/VISUAL only when allow_environment_editor=true.",
+        "Support final Vim fallback.",
+        "Return structured result: editor_id, command, argv, readonly_supported, reason."
+      ],
+      "acceptance_criteria": [
+        "*.py can resolve to nvim when configured.",
+        "*.json resolves to configured json editor rule when present.",
+        "Unknown extension falls back to Vim.",
+        "Explicit --with nano works only if nano is in allowed_tools.",
+        "Environment EDITOR is ignored when allow_environment_editor=false.",
+        "Resolver returns stable reason codes for each selected rule."
+      ]
+    },
+    {
+      "id": "E003-workspace-file-validation",
+      "title": "Validate file paths before opening editor sessions",
+      "summary": "Ensure editor open actions cannot escape the authorized workspace or inject shell arguments.",
+      "files": [
+        "agent/services/workspace_path_validator.py",
+        "agent/services/embedded_tool_session_service.py",
+        "tests/test_workspace_file_validation.py"
+      ],
+      "details": [
+        "Normalize file paths.",
+        "Reject absolute paths outside workspace unless explicitly allowed by policy.",
+        "Reject ../ path traversal outside workspace.",
+        "Preserve spaces and special characters safely through argv arrays.",
+        "Check read/write permission before choosing normal or read-only editor mode."
+      ],
+      "acceptance_criteria": [
+        "Opening ../../etc/passwd is rejected.",
+        "Opening workspace file with spaces in the name works safely.",
+        "Opening symlink escaping the workspace is rejected unless explicit policy allows it.",
+        "Read-only permission launches editor in read-only mode where supported.",
+        "Write-capable editor launch is denied without tui.editor.write."
+      ]
+    },
+    {
+      "id": "E004-embedded-tool-session-service",
+      "title": "Launch editors and TUI tools inside controlled terminal sessions",
+      "summary": "Add a service that uses TerminalSessionService to launch selected editors/tools as first-class session types.",
+      "files": [
+        "agent/services/embedded_tool_session_service.py",
+        "agent/services/terminal_session_service.py",
+        "agent/services/tmux_backend.py",
+        "tests/test_embedded_tool_session_service.py"
+      ],
+      "details": [
+        "Add session_type embedded_editor and embedded_tool.",
+        "Create or reuse terminal session for editor/tool launch.",
+        "Store launched tool id and file path in session metadata.",
+        "Enforce target-specific policy before launch.",
+        "Support Hub, Worker and Hub-as-Worker target types with separate permissions."
+      ],
+      "acceptance_criteria": [
+        "Opening a file creates an embedded_editor session.",
+        "Launching lazygit creates an embedded_tool session.",
+        "Worker tool launch requires tui.tool.worker.launch.",
+        "Hub tool launch requires tui.tool.hub.launch and is denied by default.",
+        "Hub-as-Worker launch requires tui.tool.hub_as_worker.launch.",
+        "Session metadata records editor/tool id, target type, workspace and file path."
+      ]
+    },
+    {
+      "id": "E005-ananta-tui-main-pane-integration",
+      "title": "Use Vim/other TUI tools as selectable main window inside Ananta TUI",
+      "summary": "Allow the Ananta TUI main pane to switch into an embedded editor or embedded tool view.",
+      "files": [
+        "agent/repair_tui.py",
+        "agent/tui_contract.py",
+        "agent/cli_goals.py",
+        "tests/test_tui_main_pane_modes.py",
+        "docs/cli/commands.md"
+      ],
+      "details": [
+        "Add main pane modes dashboard, terminal_session, embedded_editor and embedded_tool.",
+        "Add file open action from workspace/artifact/task views.",
+        "Add tool launcher action for configured tools.",
+        "Show active editor/tool session state.",
+        "Allow returning to Ananta overview without destroying the session.",
+        "Allow explicit close/kill of the editor/tool session."
+      ],
+      "acceptance_criteria": [
+        "Ananta TUI can open a selected file in Vim by default.",
+        "Ananta TUI can open a selected file in configured editor for that file type.",
+        "Ananta TUI can launch another allowed TUI tool such as lazygit.",
+        "Main pane clearly shows whether it is dashboard, editor, tool or terminal mode.",
+        "User can return to dashboard from embedded editor/tool mode.",
+        "Killing the embedded session does not kill unrelated terminal sessions."
+      ]
+    },
+    {
+      "id": "E006-cli-open-and-tool-commands",
+      "title": "Add CLI commands for editor and embedded TUI tool launch",
+      "summary": "Expose editor/tool launch functionality through CLI shortcuts for direct workflows.",
+      "files": [
+        "agent/cli_goals.py",
+        "docs/cli/commands.md",
+        "tests/test_cli_tui_tool_commands.py"
+      ],
+      "details": [
+        "Add ananta tui --open <file>.",
+        "Add ananta tui --open <file> --with <editor>.",
+        "Add ananta tui --open <file> --readonly.",
+        "Add ananta tui --tool <tool-id>.",
+        "Add ananta tmux edit <file>.",
+        "Add ananta tmux tool <tool-id>."
+      ],
+      "acceptance_criteria": [
+        "ananta tui --open README.md resolves and launches default editor.",
+        "ananta tui --open app.py --with nvim works only if nvim is allowed.",
+        "ananta tui --open config.json --readonly launches read-only editor mode where supported.",
+        "ananta tui --tool lazygit launches configured lazygit profile.",
+        "CLI rejects unknown tool id with a clear error.",
+        "CLI documentation shows examples for Vim, Neovim and lazygit."
+      ]
+    },
+    {
+      "id": "E007-frontend-configuration-ui",
+      "title": "Add optional UI for editor/tool configuration",
+      "summary": "Expose default editor and filetype mappings in the Angular frontend where appropriate.",
+      "files": [
+        "frontend-angular/src/app/services/tui-tools.service.ts",
+        "frontend-angular/src/app/components/tui-tool-settings.component.ts",
+        "frontend-angular/src/app/components/terminal-session.component.ts",
+        "frontend-angular/src/app/app.routes.ts"
+      ],
+      "details": [
+        "Show default editor setting.",
+        "Show filetype editor mapping.",
+        "Show allowed TUI tools.",
+        "Allow user-level override if policy allows settings changes.",
+        "Do not allow arbitrary command injection from frontend fields."
+      ],
+      "acceptance_criteria": [
+        "Frontend can display current default editor.",
+        "Frontend can display filetype mappings.",
+        "Frontend refuses saving custom commands unless permission allows it.",
+        "Frontend validates editor id against allowed tool registry.",
+        "Policy-denied settings changes show clear error."
+      ]
+    },
+    {
+      "id": "E008-documentation",
+      "title": "Document embedded TUI tools and editor routing",
+      "summary": "Add documentation for default editor behavior, filetype mapping, safe custom tools and examples.",
+      "files": [
+        "docs/configuration/tui-tools.md",
+        "docs/cli/commands.md",
+        "docs/security/terminal-sessions.md",
+        "README.md"
+      ],
+      "details": [
+        "Document Vim default fallback.",
+        "Document Neovim, Nano, Micro, Helix examples.",
+        "Document lazygit/ranger/mc examples.",
+        "Document security model for custom commands.",
+        "Document Hub vs Worker target restrictions for embedded tools."
+      ],
+      "acceptance_criteria": [
+        "Docs explain editor resolution order.",
+        "Docs include example filetype mapping JSON.",
+        "Docs explain why custom commands are denied by default remotely.",
+        "Docs include CLI examples for opening files and launching tools.",
+        "Docs mention that Hub embedded tools are high-risk and denied by default."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Vim is used as default fallback editor when no more specific editor rule exists.",
+    "Users can configure other editors such as nvim, nano, micro or helix.",
+    "Editor resolution can vary by file type.",
+    "Ananta TUI can use the selected editor/tool as its central main window.",
+    "Embedded editor/tool sessions reuse the controlled terminal session architecture.",
+    "File paths are validated against authorized workspace scope before opening.",
+    "Editor/tool commands are selected from a registry unless custom command permission is explicitly granted.",
+    "Hub, Worker and Hub-as-Worker targets remain separate policy classes.",
+    "Read-only editor access is distinguishable from write-capable editor access.",
+    "All embedded editor/tool launches are auditable."
+  ],
+  "test_plan": {
+    "unit_tests": [
+      "TuiToolRegistry config loading and validation",
+      "EditorResolver filetype matching and fallback order",
+      "Workspace path validation",
+      "EmbeddedToolSessionService policy checks",
+      "Read-only vs write-capable editor mode"
+    ],
+    "integration_tests": [
+      "Open markdown file in default Vim editor",
+      "Open Python file in configured Neovim editor",
+      "Reject unknown editor override",
+      "Reject file outside workspace",
+      "Launch lazygit as embedded tool on Worker target",
+      "Reject Hub embedded tool launch without explicit Hub permission"
+    ],
+    "manual_smoke_tests": [
+      "ananta tui --open README.md",
+      "ananta tui --open app.py --with nvim",
+      "ananta tui --open config.json --readonly",
+      "ananta tui --tool lazygit",
+      "ananta tmux edit README.md",
+      "Switch from embedded editor back to Ananta dashboard"
+    ],
+    "security_tests": [
+      "Attempt editor command injection through filename",
+      "Attempt custom command launch without permission",
+      "Attempt path traversal outside workspace",
+      "Attempt Hub tool launch using Worker permission",
+      "Attempt write operation with read-only permission only"
+    ]
+  },
+  "recommended_defaults": {
+    "default_editor": "vim",
+    "allow_environment_editor": true,
+    "allow_custom_editor_command_remote": false,
+    "allow_custom_editor_command_local_dev": true,
+    "readonly_open_supported": true,
+    "hub_embedded_tools_enabled": false,
+    "worker_embedded_tools_enabled": true,
+    "hub_as_worker_embedded_tools_enabled": false,
+    "known_safe_tools": [
+      "vim",
+      "nvim",
+      "nano",
+      "micro",
+      "helix",
+      "lazygit",
+      "mc",
+      "ranger"
+    ]
+  },
+  "open_questions": [
+    "Should the default be classic Vim or Neovim when both are installed?",
+    "Should Ananta provide a built-in minimal editor fallback if Vim is missing?",
+    "Should filetype editor mappings be project-committed, user-local or both?",
+    "Should model/agent-generated file-open suggestions be allowed to trigger editor launch automatically, or always require user confirmation?",
+    "Should remote production sessions force read-only mode for some file classes such as secrets, env files and deployment configs?"
+  ]
+}
