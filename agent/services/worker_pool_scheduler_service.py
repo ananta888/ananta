@@ -216,6 +216,17 @@ class WorkerPoolSchedulerService:
         if lease.ollama_endpoint and lease.ollama_model and ollama_lease_id:
             self._ollama.release_slot(endpoint=lease.ollama_endpoint, model=lease.ollama_model, lease_id=str(ollama_lease_id))
         worker_slot_lease_repo.release(slot_lease_id)
+        try:
+            from agent.routes.tasks.autopilot import request_autopilot_wake
+
+            request_autopilot_wake(
+                "worker_capacity_released",
+                worker_url=str(lease.worker_id or ""),
+                runtime_target_id=str(lease.runtime_target_id or ""),
+                slot_lease_id=str(slot_lease_id),
+            )
+        except Exception:
+            pass
 
     def cleanup_stale_leases(self) -> int:
         stale = worker_slot_lease_repo.list_expired()

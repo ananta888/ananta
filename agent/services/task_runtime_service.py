@@ -129,6 +129,19 @@ def update_local_task_status(
 
     task_repo.save(task)
     notify_task_update(tid)
+    try:
+        from agent.routes.tasks.autopilot import request_autopilot_wake
+
+        wake_event = "task_updated"
+        if normalized_status == "todo" and old_status != "todo":
+            wake_event = "task_created"
+        elif normalized_status == "completed":
+            wake_event = "task_completed"
+        elif normalized_status == "failed":
+            wake_event = "task_failed"
+        request_autopilot_wake(wake_event, task_id=tid, status=normalized_status)
+    except Exception:
+        pass
 
     if normalized_status in _TERMINAL_TASK_STATUSES and task.goal_id:
         _maybe_finalize_goal(task.goal_id)

@@ -304,7 +304,7 @@
       "title": "Proposal budget per task",
       "type": "implementation",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "files": [
         "worker/core/propose_orchestrator.py",
         "agent/routes/tasks/utils.py",
@@ -329,7 +329,7 @@
       "title": "Event-aware autopilot wakeups",
       "type": "implementation",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "files": [
         "agent/routes/tasks/autopilot.py",
         "agent/routes/tasks/autopilot_tick_engine.py",
@@ -377,7 +377,7 @@
       "title": "Canonical path validation aligned with write-lock policy",
       "type": "implementation",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "files": [
         "agent/services/worker_workspace_service.py",
         "agent/tools.py"
@@ -393,7 +393,7 @@
       "title": "Shared output_dir conflict regression tests",
       "type": "test",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "files": [
         "tests/test_output_dir_parallel_write_policy.py"
       ]
@@ -403,7 +403,7 @@
       "title": "Controlled parallelism operator docs",
       "type": "documentation",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "files": [
         "BOTTLENECKS_ANALYSIS.md",
         "README.md",
@@ -510,21 +510,26 @@
     "BOT-P1-002": "Implemented worker state differentiation: health monitoring preserves busy/degraded states; registry marks busy when load reaches max_parallel; offline only on repeated hard failure/staleness.",
     "BOT-P1-003": "Serving mode documented: worker runs Flask threaded=True. Direct socket latency benchmark under synthetic long propose remains open due sandbox bind restrictions.",
     "BOT-QA-003": "Added regression tests for worker health under load semantics (busy state does not flap to offline; busy workers are not routable).",
-    "BOT-P1-006": "Implemented output-dir lock service with canonical path identity and stale lease recovery; integrated lock acquire/release in scoped task execution path with conflict reason_code output_dir_busy."
+    "BOT-P1-006": "Implemented output-dir lock service with canonical path identity and stale lease recovery; integrated lock acquire/release in scoped task execution path with conflict reason_code output_dir_busy.",
+    "BOT-P1-007": "Canonical path handling hardened: workspace output_dir resolution and tool file access now rely on realpath/commonpath semantics; traversal/symlink escape via prefix checks is prevented.",
+    "BOT-QA-004": "Added regression tests for shared output_dir locking conflicts, canonical identity, and workspace-root containment rejection.",
+    "BOT-P1-004": "Implemented proposal budget controls in autopilot strategy execution (`max_total_seconds`, `max_llm_calls`, `max_strategy_attempts`) with explicit `reason_code=proposal_budget_exhausted` on exhaustion.",
+    "BOT-P1-005": "Added event-aware autopilot wakeups for task lifecycle and worker lifecycle signals (`task_created/completed/failed`, `worker_registered`, `worker_status_changed`, `worker_capacity_released`).",
+    "BOT-DOC-001": "Updated operator docs: controlled parallelism knobs, worker liveness semantics, proposal budget behavior, and safe measurement guidance across BOTTLENECKS_ANALYSIS, README, and docs/performance.md."
   },
   "progress_summary": {
     "updated_at": "2026-05-15",
     "counts": {
-      "done": 3,
+      "done": 8,
       "partial": 2,
-      "todo": 15
+      "todo": 10
     },
     "latest_batch": [
-      "BOT-QA-002",
-      "BOT-P1-002",
-      "BOT-P1-003",
-      "BOT-QA-003",
-      "BOT-P1-006"
+      "BOT-P1-007",
+      "BOT-QA-004",
+      "BOT-P1-004",
+      "BOT-P1-005",
+      "BOT-DOC-001"
     ]
   }
 }

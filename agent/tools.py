@@ -876,16 +876,26 @@ def _check_file_access(path: str, operation: str = "read") -> tuple[bool, str]:
         return False, "Action Pack 'file' ist deaktiviert."
 
     import os
-    abs_path = os.path.abspath(path)
-    cwd = os.path.abspath(".")
-    allowed = abs_path.startswith(cwd) or abs_path.startswith(os.path.abspath("/tmp"))
+
+    def _within(child: str, parent: str) -> bool:
+        try:
+            return os.path.commonpath([child, parent]) == parent
+        except Exception:
+            return False
+
+    abs_path = os.path.realpath(os.path.abspath(path))
+    cwd = os.path.realpath(os.path.abspath("."))
+    tmp_root = os.path.realpath(os.path.abspath("/tmp"))
+    allowed = _within(abs_path, cwd) or _within(abs_path, tmp_root)
     if not allowed:
         try:
             from flask import g, has_request_context
             if has_request_context():
-                workspace_dir = g.get("workspace_dir", "")
-                if workspace_dir and abs_path.startswith(str(workspace_dir)):
-                    allowed = True
+                workspace_dir = str(g.get("workspace_dir", "")).strip()
+                if workspace_dir:
+                    workspace_real = os.path.realpath(os.path.abspath(workspace_dir))
+                    if _within(abs_path, workspace_real):
+                        allowed = True
         except Exception:
             pass
     if not allowed:
