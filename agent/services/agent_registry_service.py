@@ -147,8 +147,11 @@ class AgentRegistryService:
         current_load = max(reported_load, scheduler_load)
         max_parallel = max(1, int(execution_limits.get("max_parallel_tasks") or 1))
         stale_seconds = max(0, int(current - float(agent.last_seen or 0)))
+        status = str(agent.status or "").lower()
+        if status == "online" and current_load >= max_parallel:
+            status = "busy"
         available_for_routing = (
-            str(agent.status or "").lower() == "online"
+            status in {"online", "degraded"}
             and bool(agent.registration_validated)
             and current_load < max_parallel
         )
@@ -164,7 +167,7 @@ class AgentRegistryService:
                 max_runtime_seconds=max(30, int(execution_limits.get("max_runtime_seconds") or 900)),
                 max_workspace_mb=max(64, int(execution_limits.get("max_workspace_mb") or 1024)),
             ),
-            status=agent.status,
+            status=status,
             registration_validated=bool(agent.registration_validated),
             validation_errors=list(agent.validation_errors or []),
             current_load=current_load,
@@ -175,7 +178,7 @@ class AgentRegistryService:
             security_level=str(execution_limits.get("security_level") or "medium"),
             strategy_mode=strategy_mode,
             liveness=AgentLivenessContract(
-                status=str(agent.status or "offline"),
+                status=status or "offline",
                 last_seen=float(agent.last_seen or 0),
                 stale_seconds=stale_seconds,
                 offline_timeout_seconds=max(0, int(timeout or 0)),
@@ -187,7 +190,7 @@ class AgentRegistryService:
         current = float(now or time.time())
         updated = []
         for agent in agents:
-            if agent.status == "online" and (current - agent.last_seen > timeout):
+            if agent.status in {"online", "busy", "degraded"} and (current - agent.last_seen > timeout):
                 agent.status = "offline"
                 updated.append(agent)
         return updated

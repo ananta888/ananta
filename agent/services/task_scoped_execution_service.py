@@ -727,6 +727,14 @@ class TaskScopedExecutionService:
 
         exec_started_at = time.time()
         workspace_ctx = get_worker_workspace_service().resolve_workspace_context(task=task)
+        lock_ok, lock_reason = get_worker_workspace_service().acquire_output_dir_lock(task=task, workspace_dir=workspace_ctx.workspace_dir)
+        if not lock_ok:
+            return TaskScopedRouteResponse(
+                data={"status": "blocked", "reason_code": lock_reason or "workspace_write_conflict", "task_id": tid},
+                status="blocked",
+                message="Shared output directory is currently locked",
+                code=409,
+            )
         before_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
         pipeline = new_pipeline_trace(
             pipeline="task_execute",
@@ -946,6 +954,7 @@ class TaskScopedExecutionService:
             exit_code=execution_run.exit_code,
             task_id=tid,
         )
+        get_worker_workspace_service().release_output_dir_lock(task=task, workspace_dir=workspace_ctx.workspace_dir)
         return TaskScopedRouteResponse(data=response_payload)
 
     @staticmethod

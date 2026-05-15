@@ -204,6 +204,17 @@ Zu prüfen:
 - Kann `/health` während laufendem LLM-Call antworten?
 - Gibt es ein internes Worker-State-Modell: `online`, `busy`, `degraded`, `offline`?
 
+Aktueller Stand (Code-Check am 2026-05-15):
+
+- `agent/ai_agent.py` startet Flask mit `app.run(..., threaded=True)`.
+- `/health?basic=1` wird bereits bevorzugt als leichter Liveness-Check verwendet.
+- Das Worker-Statusmodell wurde auf `online|busy|degraded|offline` nachgeschärft.
+
+Messstatus `/health` unter künstlich langem Propose-Call:
+
+- Reale Socket-Latenzmessung im Sandbox-Lauf nicht möglich (`PermissionError` beim lokalen Bind auf Testport).
+- Daher als Follow-up weiter offen: Messung in Docker-Laufzeitumgebung mit echter Worker-Instanz und p50/p95-Latenz.
+
 Empfohlen:
 
 ```text
