@@ -1,7 +1,4 @@
-import hashlib
 import json
-import fnmatch
-import re
 from typing import List, Optional, Dict, Any
 from agent.services.source_classification_service import get_source_classification_service
 from worker.core.context_access_policy import (
@@ -41,14 +38,20 @@ class ContextAccessPolicyService:
         return errors
 
     def merge_policies(self, policies: List[ContextAccessPolicy]) -> ContextAccessPolicy:
-        # T005: Policy merge order: system_default -> project -> blueprint_role -> task
-        # Sorted by precedence (lower precedence first, so higher precedence overrides)
-        sorted_policies = sorted(policies, key=lambda p: p.precedence)
+        # Deterministic precedence: system_default < project < blueprint_role < task.
+        sorted_policies = sorted(
+            policies,
+            key=lambda p: (
+                self._SCOPE_PRECEDENCE.get(str(p.scope), 1000),
+                int(p.precedence),
+                str(p.policy_id),
+            ),
+        )
 
         if not sorted_policies:
             return None # Should have system defaults at least
 
-        merged_rules = []
+        merged_rules: List[ContextAccessRule] = []
         for p in sorted_policies:
             merged_rules.extend(p.rules)
 
@@ -86,7 +89,8 @@ class ContextAccessPolicyService:
     def get_decision(self, policy: ContextAccessPolicy, block_metadata: Dict[str, Any], destination: DestinationContext) -> ContextBlockAccessDecision:
         # T011: can_send_context_block decision engine
         # T013: Write access decision engine
-        evaluator = ContextAccessPolicyEvaluator(policy)
+        effective_policy = policy or self.get_default_policy()
+        evaluator = ContextAccessPolicyEvaluator(effective_policy)
         return evaluator.get_decision(block_metadata, destination)
 
     def get_default_policy(self, scope: str = "system_default") -> ContextAccessPolicy:
@@ -128,11 +132,12 @@ class ContextAccessPolicyService:
             rules=rules,
             defaults={"send_allowed": False, "read_allowed": True, "write_allowed": False}
         )
-    def filter_blocks(self, policy: ContextAccessPolicy, blocks: List[Dict[str, Any]], destination: DestinationContext) -> List[Dict[str, Any]]:
+    def filter_blocks(self, policy: ContextAccessPolicy | None, blocks: List[Dict[str, Any]], destination: DestinationContext) -> List[Dict[str, Any]]:
         # T016: CodeCompass/RAG retrieval must filter before prompt assembly
+        effective_policy = policy or self.get_default_policy()
         filtered = []
         for block in blocks:
-            decision = self.get_decision(policy, block, destination)
+            decision = self.get_decision(effective_policy, block, destination)
             if decision.decision != Decision.deny:
                 # Apply transformations
                 processed_block = block.copy()
@@ -158,11 +163,19 @@ class ContextAccessPolicyService:
                 "decision": decision.decision.value if hasattr(decision.decision, 'value') else decision.decision,
                 "reason_code": (decision.reason_code.value if hasattr(decision.reason_code, 'value') else decision.reason_code) if decision.reason_code else None,
                 "reason_detail": decision.reason_detail,
+                "source_ref": decision.source_ref,
+                "matched_rule_ids": decision.matched_rule_ids or [],
                 "effective_sensitivity": decision.effective_sensitivity.value if hasattr(decision.effective_sensitivity, 'value') else decision.effective_sensitivity,
                 "policy_version": decision.policy_version,
                 "decision_hash": decision.decision_hash
             }
         )
+
+    def match_source(self, rule: ContextAccessRule, block_metadata: Dict[str, Any]) -> bool:
+        evaluator = ContextAccessPolicyEvaluator(
+            ContextAccessPolicy(policy_id="tmp", version=1, scope="system_default", rules=[rule])
+        )
+        return evaluator._match_source(rule, block_metadata)
 
     def save_policy(self, policy: ContextAccessPolicy, path: str):
         # T026: Persist ContextAccessPolicy
@@ -198,3 +211,10 @@ class ContextAccessPolicyService:
             if block.get("context_class") == required_class:
                 return True
         return False
+    _SCOPE_PRECEDENCE: Dict[str, int] = {
+        "system_default": 0,
+        "project": 10,
+        "blueprint_role": 20,
+        "task": 30,
+        "merged": 40,
+    }

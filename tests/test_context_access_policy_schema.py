@@ -286,3 +286,49 @@ class TestContextAccessPolicy(unittest.TestCase):
             decision=Decision.deny, reason_code=ReasonCode.cloud_blocked
         )
         service.audit_decision(decision, "task-123")
+
+    def test_merge_policy_precedence_order(self):
+        service = ContextAccessPolicyService()
+        p_task = ContextAccessPolicy(
+            policy_id="task-pol",
+            version=1,
+            scope="task",
+            precedence=0,
+            rules=[ContextAccessRule(id="r-task", description="task")],
+        )
+        p_sys = ContextAccessPolicy(
+            policy_id="sys-pol",
+            version=1,
+            scope="system_default",
+            precedence=999,
+            rules=[ContextAccessRule(id="r-sys", description="sys")],
+        )
+        merged = service.merge_policies([p_task, p_sys])
+        self.assertEqual([r.id for r in merged.rules], ["r-sys", "r-task"])
+
+    def test_filter_blocks_uses_default_policy_when_missing(self):
+        service = ContextAccessPolicyService()
+        dest = DestinationContext(
+            worker_id="w1",
+            worker_kind="native",
+            runtime_target_id="rt1",
+            runtime_kind="local",
+            provider_id="openai",
+            provider_location="public_cloud",
+            model_id="gpt-4",
+            model_scope=ModelScope.public_cloud,
+            cloud_effective=True,
+            external_effective=True,
+            local_effective=False,
+            requested_operation=RequestedOperation.send_to_llm,
+        )
+        blocks = [{
+            "block_id": "b-secret",
+            "source_type": SourceType.secret_file.value,
+            "source_ref": ".env",
+            "sensitivity": Sensitivity.secret,
+            "content_hash": "h1",
+            "content": "api_key=secret",
+        }]
+        filtered = service.filter_blocks(None, blocks, dest)
+        self.assertEqual(filtered, [])

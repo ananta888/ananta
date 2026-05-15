@@ -328,7 +328,7 @@
       "id": "SEC-P0-003",
       "source": "fixup_planning",
       "title": "Approval Override scopen und auditieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high"
     },
@@ -384,7 +384,7 @@
       "id": "SEC-P1-002",
       "source": "fixup_planning",
       "title": "Policy Merge Semantik deterministisch machen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high"
     },
@@ -392,7 +392,7 @@
       "id": "SEC-P1-003",
       "source": "fixup_planning",
       "title": "Default Policy überall einheitlich verwenden",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium"
     },
@@ -400,7 +400,7 @@
       "id": "SEC-P1-004",
       "source": "fixup_planning",
       "title": "Audit Trail für Context Decisions erweitern",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium"
     },
@@ -440,13 +440,13 @@
     "task_counts": {
       "total": 46,
       "by_status": {
-        "todo": 5,
+        "todo": 1,
         "in_progress": 0,
         "blocked": 0,
-        "partial": 13,
-        "done": 28
+        "partial": 16,
+        "done": 29
       },
-      "progress_percent_done": 60.87
+      "progress_percent_done": 63.04
     },
     "by_priority": {
       "P0": 26,
@@ -471,9 +471,9 @@
       },
       "fixup_planning": {
         "total": 13,
-        "done": 3,
-        "partial": 5,
-        "todo": 5,
+        "done": 4,
+        "partial": 8,
+        "todo": 1,
         "in_progress": 0,
         "blocked": 0
       }
@@ -646,7 +646,7 @@
     {
       "rank": 8,
       "task_id": "SEC-P0-003",
-      "status": "todo",
+      "status": "partial",
       "why_now": "Approval darf kein genereller Bypass sein.",
       "scope": [
         "ApprovalScope einführen",
@@ -665,7 +665,7 @@
     {
       "rank": 9,
       "task_id": "SEC-P1-003",
-      "status": "todo",
+      "status": "done",
       "why_now": "Uneinheitliche Default-Policy führt zu nicht-deterministischem Verhalten.",
       "scope": [
         "fehlende policy => system_default",

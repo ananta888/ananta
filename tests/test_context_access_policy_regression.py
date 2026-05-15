@@ -7,7 +7,7 @@ import os
 sys.path.append(os.getcwd())
 
 from worker.core.context_access_policy import (
-    ContextAccessPolicy, ContextAccessRule, SourceType, Sensitivity, Decision, ModelScope
+    ContextAccessPolicy, ContextAccessRule, SourceType, Sensitivity, Decision, ModelScope, RequestedOperation
 )
 from worker.core.execution_envelope import ExecutionEnvelope, ModelPolicy, ToolPolicy
 from worker.core.preflight import PreflightGate, PreflightDecision
@@ -65,6 +65,8 @@ class TestContextAccessPolicyRegression(unittest.TestCase):
             task_id="task_1",
             actor_ref="actor_1",
             audit_correlation_id="audit_1",
+            capability_grant={"capabilities": ["planning"]},
+            context_envelope_ref="ctx:task_1",
             model_policy=ModelPolicy(),
             tool_policy=ToolPolicy(allowed_tool_ids=["read_file"]),
             context_access_policy=policy_dict
@@ -102,6 +104,22 @@ class TestContextAccessPolicyRegression(unittest.TestCase):
         # We need to mock more to get past the full record_worker_result_memory logic
         self.memory_repo_mock.create.return_value = MagicMock()
 
+        allow_internal_policy = ContextAccessPolicy(
+            policy_id="regression_test_allow_internal",
+            version=1,
+            scope="project",
+            rules=[
+                ContextAccessRule(
+                    id="rule_allow_internal_memory",
+                    description="Allow project_internal memory writes locally",
+                    sensitivity=Sensitivity.project_internal,
+                    write_allowed=True,
+                    allowed_model_scopes=[ModelScope.local_tool_only, ModelScope.local_model, ModelScope.none],
+                )
+            ],
+            defaults={"read_allowed": True, "write_allowed": False, "send_allowed": False},
+        )
+
         result = self.memory_service.record_worker_result_memory(
             task_id="t1",
             goal_id="g1",
@@ -109,8 +127,8 @@ class TestContextAccessPolicyRegression(unittest.TestCase):
             worker_job_id="w1",
             title="Safe Memory",
             output="some info",
-            policy={"sensitivity": "internal", "enabled": True},
-            context_access_policy=self.policy,
+            policy={"sensitivity": "project_internal", "enabled": True},
+            context_access_policy=allow_internal_policy,
             approved=True
         )
         # It should pass CAP and reach the mock
