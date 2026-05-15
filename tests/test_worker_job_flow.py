@@ -238,7 +238,7 @@ class TestWorkerJobFlow:
         assert bundle is not None
         assert bundle.bundle_type == "worker_execution_context"
         assert bundle.context_text is not None
-        assert bundle.bundle_metadata["context_policy"]["mode"] == "full"
+        assert bundle.bundle_metadata["context_policy"]["mode"] == "standard"
         assert bundle.bundle_metadata["context_policy"]["retrieval_intent"] == "execution_focused_context"
         assert bundle.bundle_metadata["context_policy"]["required_context_scope"] == "task_and_direct_neighbors"
         assert bundle.bundle_metadata["context_policy"]["preferred_bundle_mode"] == "standard"
@@ -254,7 +254,7 @@ class TestWorkerJobFlow:
         assert "sgpt" in job.job_metadata["tooling_capabilities"]
         assert job.job_metadata["routing_decision"]["selected_by_policy"] is True
         assert job.job_metadata["routing_decision"]["matched_capabilities"] == ["planning"]
-        assert job.job_metadata["context_policy"]["mode"] == "full"
+        assert job.job_metadata["context_policy"]["mode"] == "standard"
 
         assert task.context_bundle_id == bundle.id
         assert task.current_worker_job_id == job.id
@@ -264,7 +264,7 @@ class TestWorkerJobFlow:
         assert task.worker_execution_context["version"] == "v1"
         assert task.worker_execution_context["todo_contract"]["schema"] == "worker_todo_contract.v1"
         assert task.worker_execution_context["todo_contract_generation"]["enabled"] is True
-        assert task.worker_execution_context["context_policy"]["mode"] == "full"
+        assert task.worker_execution_context["context_policy"]["mode"] == "standard"
         assert task.worker_execution_context["routing"]["matched_roles"] == ["planner"]
         workspace_meta = task.worker_execution_context["workspace"]
         assert workspace_meta["scope_mode"] == "goal_worker"

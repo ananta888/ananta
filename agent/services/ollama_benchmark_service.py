@@ -18,6 +18,7 @@ from agent.ollama_benchmark import (
     update_ollama_benchmark_run_timestamp,
 )
 from agent.llm_integration import extract_llm_text_and_usage, generate_text as _generate_text
+from agent.services.ollama_parallel_runtime_service import get_ollama_parallel_runtime_service
 
 
 class OllamaBenchmarkService:
@@ -327,6 +328,9 @@ class OllamaBenchmarkService:
             "models_online": list(available_names),
             "rankings": rows,
         }
+
+    def get_parallel_runtime_status(self) -> dict[str, dict[str, int]]:
+        return get_ollama_parallel_runtime_service().get_status()
 
 
 ollama_benchmark_service = OllamaBenchmarkService()

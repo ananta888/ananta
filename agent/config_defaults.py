@@ -398,6 +398,81 @@ def build_default_agent_config() -> dict:
                 "task_kinds": [],
             },
         },
+        "worker_parallelism": {
+            "schema": "ananta_worker_parallelism_config_v1",
+            "enabled": True,
+            "resource_caps_are_authoritative": True,
+            "effective_concurrency_rule": "min(security_policy_cap, worker_capacity, runtime_capacity, ollama_model_capacity)",
+            "ollama": {
+                "enabled": True,
+                "default_endpoint": "http://ollama:11434",
+                "model_defaults": {
+                    "max_parallel_requests": 4,
+                    "queue_limit": 64,
+                    "request_timeout_seconds": 300,
+                    "slot_lease_seconds": 600,
+                    "backpressure": "queue_then_reject",
+                    "slot_strategy": "fifo_with_fairness",
+                },
+                "models": {
+                    "ananta-default:latest": {
+                        "max_parallel_requests": 4,
+                        "queue_limit": 64,
+                        "preferred_for": ["analysis", "planning", "repair.preview", "code_review"],
+                    }
+                },
+            },
+            "worker_pool": {
+                "enabled": True,
+                "minimum_local_worker_containers": 2,
+                "worker_defaults": {
+                    "max_parallel_tasks": 4,
+                    "queue_limit": 32,
+                    "heartbeat_timeout_seconds": 30,
+                    "slot_lease_seconds": 600,
+                },
+                "kinds": {
+                    "native_ananta_worker": {
+                        "enabled": True,
+                        "container_replicas": 2,
+                        "max_parallel_tasks_per_container": 4,
+                        "subworkers": {
+                            "enabled": True,
+                            "max_children_per_parent": 4,
+                            "max_depth": 2,
+                            "capability_subset_required": True,
+                            "context_subset_required": True,
+                        },
+                    },
+                    "opencode": {
+                        "enabled": True,
+                        "container_replicas": 2,
+                        "max_parallel_tasks_per_container": 2,
+                        "process_pool": {
+                            "enabled": True,
+                            "max_processes": 2,
+                        },
+                    },
+                    "hermes": {
+                        "enabled": True,
+                        "max_parallel_tasks_per_container": 2,
+                    },
+                },
+            },
+            "scheduling": {
+                "strategy": "policy_then_capacity_then_least_loaded",
+                "respect_context_policy": True,
+                "respect_runtime_policy": True,
+                "prefer_local": True,
+                "avoid_oversubscribing_ollama": True,
+                "queued_job_revalidation": True,
+                "fairness": {
+                    "enabled": True,
+                    "max_running_jobs_per_parent_task": 4,
+                    "max_queued_jobs_per_parent_task": 16,
+                },
+            },
+        },
         "knowledge_context": {
             "auto_include": {
                 "task_kinds": ["coding", "bugfix", "refactor", "analysis"],
@@ -487,6 +562,51 @@ def apply_env_config_overrides(cfg: dict) -> None:
         )
     if runtime_cfg:
         cfg["opencode_runtime"] = runtime_cfg
+
+    parallel_cfg = cfg.get("worker_parallelism") if isinstance(cfg.get("worker_parallelism"), dict) else {}
+    if parallel_cfg:
+        ollama_cfg = parallel_cfg.get("ollama") if isinstance(parallel_cfg.get("ollama"), dict) else {}
+        model_defaults = ollama_cfg.get("model_defaults") if isinstance(ollama_cfg.get("model_defaults"), dict) else {}
+        worker_pool = parallel_cfg.get("worker_pool") if isinstance(parallel_cfg.get("worker_pool"), dict) else {}
+        worker_defaults = worker_pool.get("worker_defaults") if isinstance(worker_pool.get("worker_defaults"), dict) else {}
+        kinds = worker_pool.get("kinds") if isinstance(worker_pool.get("kinds"), dict) else {}
+        native_kind = kinds.get("native_ananta_worker") if isinstance(kinds.get("native_ananta_worker"), dict) else {}
+        subworkers = native_kind.get("subworkers") if isinstance(native_kind.get("subworkers"), dict) else {}
+
+        if "ANANTA_WORKER_POOL_ENABLED" in os.environ:
+            parallel_cfg["enabled"] = str(os.environ.get("ANANTA_WORKER_POOL_ENABLED") or "").strip().lower() in {"1", "true", "yes", "on"}
+        if "ANANTA_OLLAMA_MAX_PARALLEL" in os.environ:
+            try:
+                model_defaults["max_parallel_requests"] = max(1, int(os.environ.get("ANANTA_OLLAMA_MAX_PARALLEL") or 4))
+            except Exception:
+                pass
+        if "ANANTA_WORKER_MAX_PARALLEL_TASKS" in os.environ:
+            try:
+                worker_defaults["max_parallel_tasks"] = max(1, int(os.environ.get("ANANTA_WORKER_MAX_PARALLEL_TASKS") or 4))
+                native_kind["max_parallel_tasks_per_container"] = worker_defaults["max_parallel_tasks"]
+            except Exception:
+                pass
+        if "ANANTA_SUBWORKER_MAX_CHILDREN" in os.environ:
+            try:
+                subworkers["max_children_per_parent"] = max(1, int(os.environ.get("ANANTA_SUBWORKER_MAX_CHILDREN") or 4))
+            except Exception:
+                pass
+
+        if model_defaults:
+            ollama_cfg["model_defaults"] = model_defaults
+        if subworkers:
+            native_kind["subworkers"] = subworkers
+        if native_kind:
+            kinds["native_ananta_worker"] = native_kind
+        if kinds:
+            worker_pool["kinds"] = kinds
+        if worker_defaults:
+            worker_pool["worker_defaults"] = worker_defaults
+        if worker_pool:
+            parallel_cfg["worker_pool"] = worker_pool
+        if ollama_cfg:
+            parallel_cfg["ollama"] = ollama_cfg
+        cfg["worker_parallelism"] = parallel_cfg
 
     evolution_cfg = cfg.get("evolution") if isinstance(cfg.get("evolution"), dict) else {}
     provider_overrides = evolution_cfg.get("provider_overrides")

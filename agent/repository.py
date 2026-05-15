@@ -50,6 +50,7 @@ from agent.repositories import (
     RetrievalRunRepository,
     WorkerJobRepository,
     WorkerResultRepository,
+    WorkerSlotLeaseRepository,
 )
 
 # Singletons für Repositories
@@ -72,6 +73,7 @@ context_bundle_repo = ContextBundleRepository()
 context_access_policy_repo = ContextAccessPolicyRepository()
 worker_job_repo = WorkerJobRepository()
 worker_result_repo = WorkerResultRepository()
+worker_slot_lease_repo = WorkerSlotLeaseRepository()
 evolution_run_repo = EvolutionRunRepository()
 evolution_proposal_repo = EvolutionProposalRepository()
 memory_entry_repo = MemoryEntryRepository()
@@ -145,6 +147,7 @@ __all__ = [
     "RetrievalRunRepository",
     "WorkerJobRepository",
     "WorkerResultRepository",
+    "WorkerSlotLeaseRepository",
     "action_pack_repo",
     "agent_repo",
     "artifact_repo",
@@ -190,4 +193,5 @@ __all__ = [
     "verification_record_repo",
     "worker_job_repo",
     "worker_result_repo",
+    "worker_slot_lease_repo",
 ]
