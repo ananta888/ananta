@@ -161,6 +161,11 @@ effective_concurrency =
     online_workers * max_dispatch_per_worker,
     ollama_num_parallel * model_capacity_factor
   )
+
+Fail-Closed Regel:
+
+- Fehlt ein notwendiger Kapazitätswert oder ist er ungültig, wird konservativ auf `1` zurückgefallen.
+- Der Security-Cap bleibt immer die harte Obergrenze.
 ```
 
 ---

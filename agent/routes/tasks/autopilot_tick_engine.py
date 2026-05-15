@@ -24,6 +24,16 @@ from agent.routes.tasks.autopilot_dispatch_policy import (
     resolve_effective_concurrency,
     resolve_target_worker_for_task,
 )
+from agent.metrics import (
+    DISPATCH_WAIT_SECONDS,
+    STRATEGY_ATTEMPT_COUNT,
+    TASK_FAILURE_REASON_COUNT,
+    TASK_QUEUE_WAIT_SECONDS,
+    TASK_SUCCESS_RATE,
+    WORKER_BUSY_SECONDS,
+    WORKER_PROPOSE_DURATION_SECONDS,
+    WORKSPACE_WRITE_CONFLICT_COUNT,
+)
 
 
 @dataclass
@@ -575,6 +585,7 @@ def _dispatch_one_task_inner(  # noqa: C901
         max_total_seconds = int(budget.get("max_total_seconds") or 90)
         max_llm_calls = int(budget.get("max_llm_calls") or 2)
         max_strategy_attempts = int(budget.get("max_strategy_attempts") or 2)
+        STRATEGY_ATTEMPT_COUNT.observe(float(len(strategy_candidates)))
         for attempt_index, candidate in enumerate(strategy_candidates, start=1):
             elapsed = time.time() - budget_started_at
             if elapsed > max_total_seconds:
@@ -650,12 +661,14 @@ def _dispatch_one_task_inner(  # noqa: C901
                 source=candidate_source,
             )
             try:
+                _propose_started = time.time()
                 candidate_data = loop._forward_with_retry(
                     target_worker.url,
                     f"/tasks/{task.id}/step/propose",
                     propose_payload,
                     token=target_worker.token,
                 )
+                WORKER_PROPOSE_DURATION_SECONDS.observe(max(0.0, time.time() - _propose_started))
                 candidate_data = services.autopilot_decision_service.normalize_proposal_data(candidate_data)
             except Exception as strategy_exc:
                 strategy_failures.append(
@@ -859,12 +872,14 @@ def _dispatch_one_task_inner(  # noqa: C901
         "retries": int(policy["execute_retries"]),
     }
     try:
+        _execute_started = time.time()
         execute_data = loop._forward_with_retry(
             target_worker.url,
             f"/tasks/{task.id}/step/execute",
             execute_payload,
             token=target_worker.token,
         )
+        WORKER_BUSY_SECONDS.observe(max(0.0, time.time() - _execute_started))
     except Exception as e:
         update_local_task_status(task.id, "failed", error=str(e))
         append_trace_event(task.id, "autopilot_worker_failed", delegated_to=target_worker.url, reason=str(e))
@@ -935,6 +950,12 @@ def _dispatch_one_task_inner(  # noqa: C901
     result.completed = task_status == "completed"
     result.failed = task_status != "completed"
     result.failure_type = None if task_status == "completed" else task_status
+    if result.completed:
+        TASK_SUCCESS_RATE.inc()
+    else:
+        TASK_FAILURE_REASON_COUNT.labels(reason=str(result.failure_type or "unknown")).inc()
+        if str(result.failure_type or "") in {"output_dir_busy", "workspace_write_conflict"}:
+            WORKSPACE_WRITE_CONFLICT_COUNT.inc()
 
     if result.completed:
         try:
@@ -1096,9 +1117,21 @@ def execute_autopilot_tick(
     policy = loop._security_policy()
     fallback_policy = _fallback_policy(loop)
     runtime_caps = _runtime_model_capabilities(loop)
+    online_worker_capacity = max(1, len(workers))
+    runtime_capacity = max(1, int((loop._agent_config() or {}).get("runtime_capacity_cap") or online_worker_capacity))
+    ollama_capacity = None
+    try:
+        ollama_rt = dict((runtime_caps.get("runtime") or {}).get("ollama") or {})
+        if ollama_rt.get("ok"):
+            ollama_capacity = max(1, int(ollama_rt.get("candidate_count") or 1))
+    except Exception:
+        ollama_capacity = None
     effective_concurrency = resolve_effective_concurrency(
         requested_max_concurrency=loop.max_concurrency,
         security_policy=policy,
+        online_worker_capacity=online_worker_capacity,
+        runtime_capacity=runtime_capacity,
+        ollama_capacity=ollama_capacity,
     )
     local_worker_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
     queue_positions = dispatch_queue_positions(dispatch_queue)
@@ -1126,8 +1159,17 @@ def execute_autopilot_tick(
     # thr-016: per-goal tick tracking (autopilot.py) replaces _tick_lock. Different
     #          goals can tick in parallel; the same goal is guarded by _active_goal_ticks.
     task_results: list[TaskDispatchResult] = []
+    dispatch_window_started = time.time()
+    async_dispatch_enabled = bool(((loop._agent_config() or {}).get("autopilot") or {}).get("async_dispatch_enabled", False))
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=max(1, effective_concurrency))
     try:
+        for task, _target_worker, _was_assigned in task_assignments:
+            try:
+                created_at = float(getattr(task, "created_at", 0) or 0)
+                if created_at > 0:
+                    TASK_QUEUE_WAIT_SECONDS.observe(max(0.0, time.time() - created_at))
+            except Exception:
+                pass
         future_to_task_id: dict[concurrent.futures.Future, str] = {
             executor.submit(
                 _dispatch_one_task,
@@ -1148,56 +1190,70 @@ def execute_autopilot_tick(
             for task, target_worker, was_assigned in task_assignments
         }
 
-        _POLL = 1.0
-        pending = set(future_to_task_id.keys())
-        timeout_at = time.time() + per_task_hard_timeout
-        while pending and time.time() < timeout_at:
-            if loop._stop_event.is_set():
-                break
-            done, pending = concurrent.futures.wait(
-                pending, timeout=_POLL,
-                return_when=concurrent.futures.FIRST_COMPLETED,
-            )
-            for future in done:
-                tid = future_to_task_id[future]
-                try:
-                    task_results.append(future.result())
-                except Exception as exc:
-                    logging.error("[tick][task_id=%s] _dispatch_one_task raised: %s", tid, exc)
-                    update_local_task_status(tid, "failed", error=str(exc), force=True)
-                    task_results.append(TaskDispatchResult(
-                        task_id=tid, failed=True, failure_type="thread_exception"
-                    ))
-
-        # Cancel any remaining pending futures (timeout or stop_event).
-        for future in pending:
-            tid = future_to_task_id[future]
-            future.cancel()
-            reason = "stop_event" if loop._stop_event.is_set() else f"hard_timeout_{per_task_hard_timeout}s"
-            recoverable = reason == "stop_event"
-            logging.warning(
-                "[tick][task_id=%s] dispatch aborted (%s), marking %s",
-                tid, reason, "todo" if recoverable else "failed",
-            )
-            update_local_task_status(
-                tid,
-                "todo" if recoverable else "failed",
-                error=f"dispatch_{reason}",
-                force=True,
-            )
-            append_trace_event(
-                tid, "dispatch_aborted",
-                reason=reason,
-            )
-            task_results.append(
-                TaskDispatchResult(
-                    task_id=tid,
-                    failed=not recoverable,
-                    failure_type=("dispatch_aborted" if not recoverable else "recoverable_dispatch_aborted"),
+        if async_dispatch_enabled:
+            for future, tid in future_to_task_id.items():
+                def _done_cb(done_future, task_id=tid):
+                    try:
+                        done_future.result()
+                    except Exception as exc:
+                        logging.error("[tick][task_id=%s][async] _dispatch_one_task raised: %s", task_id, exc)
+                        update_local_task_status(task_id, "failed", error=str(exc), force=True)
+                future.add_done_callback(_done_cb)
+            for task, _target_worker, _was_assigned in task_assignments:
+                task_results.append(TaskDispatchResult(task_id=task.id, dispatched=True, completed=False, failed=False))
+            pending = set()
+        else:
+            _POLL = 1.0
+            pending = set(future_to_task_id.keys())
+            timeout_at = time.time() + per_task_hard_timeout
+            while pending and time.time() < timeout_at:
+                if loop._stop_event.is_set():
+                    break
+                done, pending = concurrent.futures.wait(
+                    pending, timeout=_POLL,
+                    return_when=concurrent.futures.FIRST_COMPLETED,
                 )
-            )
+                for future in done:
+                    tid = future_to_task_id[future]
+                    try:
+                        task_results.append(future.result())
+                    except Exception as exc:
+                        logging.error("[tick][task_id=%s] _dispatch_one_task raised: %s", tid, exc)
+                        update_local_task_status(tid, "failed", error=str(exc), force=True)
+                        task_results.append(TaskDispatchResult(
+                            task_id=tid, failed=True, failure_type="thread_exception"
+                        ))
+
+            # Cancel any remaining pending futures (timeout or stop_event).
+            for future in pending:
+                tid = future_to_task_id[future]
+                future.cancel()
+                reason = "stop_event" if loop._stop_event.is_set() else f"hard_timeout_{per_task_hard_timeout}s"
+                recoverable = reason == "stop_event"
+                logging.warning(
+                    "[tick][task_id=%s] dispatch aborted (%s), marking %s",
+                    tid, reason, "todo" if recoverable else "failed",
+                )
+                update_local_task_status(
+                    tid,
+                    "todo" if recoverable else "failed",
+                    error=f"dispatch_{reason}",
+                    force=True,
+                )
+                append_trace_event(
+                    tid, "dispatch_aborted",
+                    reason=reason,
+                )
+                task_results.append(
+                    TaskDispatchResult(
+                        task_id=tid,
+                        failed=not recoverable,
+                        failure_type=("dispatch_aborted" if not recoverable else "recoverable_dispatch_aborted"),
+                    )
+                )
     finally:
         executor.shutdown(wait=False)
+        DISPATCH_WAIT_SECONDS.observe(max(0.0, time.time() - dispatch_window_started))
 
     # thr-012: Aggregate results into local counters + loop counters (thr-002: via _increment_*).
     for r in task_results:
@@ -1239,4 +1295,12 @@ def execute_autopilot_tick(
             workers_online_count=workers_online_count,
             workers_available_count=len(workers),
         ),
+        "effective_concurrency_factors": {
+            "requested": int(loop.max_concurrency),
+            "security_cap": int((policy or {}).get("max_concurrency_cap") or 1),
+            "online_worker_capacity": int(online_worker_capacity),
+            "runtime_capacity": int(runtime_capacity),
+            "ollama_capacity": int(ollama_capacity) if ollama_capacity is not None else None,
+            "effective_concurrency": int(effective_concurrency),
+        },
     }
