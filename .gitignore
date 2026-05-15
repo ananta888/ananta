@@ -140,3 +140,4 @@ __pycache__/
 /.idea/
 /fibonacci_project/
 /fibonacci_test_v2/
+scripts/dyndns.conf
