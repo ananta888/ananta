@@ -219,8 +219,13 @@ Aktueller Stand (Code-Check am 2026-05-15):
 
 Messstatus `/health` unter künstlich langem Propose-Call:
 
-- Reale Socket-Latenzmessung im Sandbox-Lauf nicht möglich (`PermissionError` beim lokalen Bind auf Testport).
-- Daher als Follow-up weiter offen: Messung in Docker-Laufzeitumgebung mit echter Worker-Instanz und p50/p95-Latenz.
+- Messung am 2026-05-15 auf laufendem Worker-Container (`ananta-ai-agent-alpha-1`) parallel zu einem langen `sgpt execute`-Call:
+  - `samples=20`
+  - `avg=1.93ms`
+  - `p50=1.81ms`
+  - `p95=2.50ms`
+  - `max=3.49ms`
+- Ergebnis: Kein Hinweis auf Single-Thread-Blocking für `/health?basic=1` im aktuellen `threaded=True` Profil.
 
 Empfohlen:
 
