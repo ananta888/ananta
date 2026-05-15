@@ -54,7 +54,7 @@ def build_default_agent_config() -> dict:
         "max_summary_length": 500,
         "quality_gates": {
             "enabled": True,
-            "autopilot_enforce": True,
+            "autopilot_enforce": False,
             "coding_keywords": ["code", "implement", "fix", "refactor", "bug", "test", "feature", "endpoint"],
             "required_output_markers_for_coding": ["test", "pytest", "passed", "success", "lint", "ok"],
             "min_output_chars": 8,
@@ -127,7 +127,7 @@ def build_default_agent_config() -> dict:
             "circuit_breaker_open_seconds": 30,
         },
         "autopilot": {
-            "async_dispatch_enabled": False,
+            "async_dispatch_enabled": True,
         },
         "autopilot_strategy_max_attempts": 3,
         "autopilot_strategy_retry_delay_seconds": 20,
@@ -322,7 +322,7 @@ def build_default_agent_config() -> dict:
                 "allowed_tool_classes": ["read"],
             },
             "balanced": {
-                "max_concurrency_cap": 2,
+                "max_concurrency_cap": 4,
                 "execute_timeout": 60,
                 "execute_retries": 1,
                 "allowed_tool_classes": ["read", "write"],
@@ -382,7 +382,7 @@ def build_default_agent_config() -> dict:
             ),
         },
         "worker_runtime": {
-            "workspace_root": None,
+            "workspace_root": os.environ.get("ANANTA_WORKSPACE_ROOT") or None,
             "workspace_reuse_mode": "goal_worker",
             "default_execution_profile": "balanced",
             "todo_contract": {
