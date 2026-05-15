@@ -3537,15 +3537,15 @@
       "provider": "orchestrator",
       "model": "ananta-default:latest",
       "overall": {
-        "total": 39,
-        "success": 19,
-        "failed": 20,
-        "quality_pass": 19,
-        "quality_fail": 20,
-        "latency_ms_total": 497,
-        "tokens_total": 7095,
+        "total": 43,
+        "success": 22,
+        "failed": 21,
+        "quality_pass": 22,
+        "quality_fail": 21,
+        "latency_ms_total": 700,
+        "tokens_total": 9499,
         "cost_units_total": 0.0,
-        "last_seen": 1778841776,
+        "last_seen": 1778872365,
         "samples": [
           {
             "ts": 1778772571,
@@ -3975,20 +3975,64 @@
             "context": {
               "task_kind": "coding"
             }
+          },
+          {
+            "ts": 1778871729,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 113,
+            "tokens_total": 162,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "coding"
+            }
+          },
+          {
+            "ts": 1778871798,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 39,
+            "tokens_total": 265,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "coding"
+            }
+          },
+          {
+            "ts": 1778871884,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 12,
+            "tokens_total": 1907,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "coding"
+            }
+          },
+          {
+            "ts": 1778872365,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 39,
+            "tokens_total": 70,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "coding"
+            }
           }
         ]
       },
       "task_kinds": {
         "coding": {
-          "total": 36,
-          "success": 16,
-          "failed": 20,
-          "quality_pass": 16,
-          "quality_fail": 20,
-          "latency_ms_total": 450,
-          "tokens_total": 6846,
+          "total": 40,
+          "success": 19,
+          "failed": 21,
+          "quality_pass": 19,
+          "quality_fail": 21,
+          "latency_ms_total": 653,
+          "tokens_total": 9250,
           "cost_units_total": 0.0,
-          "last_seen": 1778841776,
+          "last_seen": 1778872365,
           "samples": [
             {
               "ts": 1778772571,
@@ -4385,6 +4429,50 @@
               "context": {
                 "task_kind": "coding"
               }
+            },
+            {
+              "ts": 1778871729,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 113,
+              "tokens_total": 162,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "coding"
+              }
+            },
+            {
+              "ts": 1778871798,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 39,
+              "tokens_total": 265,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "coding"
+              }
+            },
+            {
+              "ts": 1778871884,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 12,
+              "tokens_total": 1907,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "coding"
+              }
+            },
+            {
+              "ts": 1778872365,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 39,
+              "tokens_total": 70,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "coding"
+              }
             }
           ]
         },
@@ -4437,5 +4525,5 @@
       }
     }
   },
-  "updated_at": 1778841776
+  "updated_at": 1778872365
 }
