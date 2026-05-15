@@ -54,6 +54,17 @@ class AgentHealthMonitorService:
                             logging.info(f"Agent {agent_obj.name} Statusaenderung: {agent_obj.status} -> {effective_status}")
                             agent_obj.status = effective_status
                             changed = True
+                            try:
+                                from agent.routes.tasks.autopilot import request_autopilot_wake
+
+                                request_autopilot_wake(
+                                    "worker_status_changed",
+                                    worker_url=str(agent_obj.url or ""),
+                                    worker_name=str(agent_obj.name or ""),
+                                    status=effective_status,
+                                )
+                            except Exception:
+                                pass
                         if effective_status == "online":
                             agent_obj.last_seen = now
                             changed = True

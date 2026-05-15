@@ -392,6 +392,12 @@ def register_agent():
 
     agent = _services().agent_registry_service.build_registered_agent(normalized)
     agent_repo.save(agent)
+    try:
+        from agent.routes.tasks.autopilot import request_autopilot_wake
+
+        request_autopilot_wake("worker_registered", worker_url=str(agent.url or ""), worker_name=str(agent.name or ""))
+    except Exception:
+        pass
     _log().info("Agent registriert: %s (%s)", agent.name, agent.url)
     return api_response(
         data={

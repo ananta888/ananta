@@ -67,6 +67,25 @@ class WorkerWorkspaceService:
     def _repo_root() -> Path:
         return Path(__file__).resolve().parents[2]
 
+    @staticmethod
+    def _is_within(child: Path, parent: Path) -> bool:
+        try:
+            return os.path.commonpath([str(child), str(parent)]) == str(parent)
+        except Exception:
+            return False
+
+    def _resolve_workspace_dir(self, *, output_dir: str | None, workspace_root: str, agent_name: str, scope_key: str) -> Path:
+        workspace_root_path = Path(workspace_root).resolve()
+        if output_dir:
+            requested = Path(str(output_dir)).expanduser().resolve()
+            cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+            policy = dict(cfg.get("output_dir_policy") or {})
+            unsafe_shared = bool(policy.get("unsafe_shared", False))
+            if not unsafe_shared and not self._is_within(requested, workspace_root_path):
+                raise ValueError("workspace_output_dir_outside_workspace_root")
+            return requested
+        return (workspace_root_path / agent_name / scope_key).resolve()
+
     @classmethod
     def _is_tracked_relative_path(cls, rel: str) -> bool:
         parts = [part for part in Path(str(rel or "")).parts if part]
@@ -151,10 +170,12 @@ class WorkerWorkspaceService:
         scope_key = _safe_segment(workspace_cfg.get("scope_key"), fallback=f"{task_id}-{worker_job_id}")
 
         output_dir = str(workspace_cfg.get("output_dir") or "").strip()
-        if output_dir:
-            workspace_dir = Path(output_dir)
-        else:
-            workspace_dir = Path(workspace_root) / agent_name / scope_key
+        workspace_dir = self._resolve_workspace_dir(
+            output_dir=output_dir,
+            workspace_root=workspace_root,
+            agent_name=agent_name,
+            scope_key=scope_key,
+        )
         artifacts_dir = workspace_dir / "artifacts"
         rag_helper_dir = workspace_dir / "rag_helper"
         workspace_dir.mkdir(parents=True, exist_ok=True)

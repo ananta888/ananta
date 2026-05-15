@@ -534,3 +534,29 @@ Linting:
 ## Optional Workflow Automation Adapters
 
 Workflow automation (n8n/generic webhook/mock) is optional and disabled by default. Hub policy/approval/audit remain authoritative.
+
+## Controlled Parallelism (Operator Kurzreferenz)
+
+Sichere Parallelitaet wird in Ananta immer begrenzt und policy-gesteuert berechnet.
+
+Wichtige Operator-Knobs:
+
+- `autopilot_security_policies.<level>.max_concurrency_cap`
+- `worker_parallelism.*` (Worker-/Runtime-Kapazitaet)
+- `proposal_budget.max_total_seconds`
+- `proposal_budget.max_llm_calls`
+- `proposal_budget.max_strategy_attempts`
+- `sgpt_routing.backend_parallel_limits.*`
+- `workspace.output_dir_locking_enabled`
+- `output_dir_policy.unsafe_shared` (Default: `false`)
+
+Liveness-Semantik:
+
+- `online`: erreichbar und routbar
+- `busy`: erreichbar, aber Lastlimit erreicht (nicht routbar)
+- `degraded`: erreichbar, temporare Probleme
+- `offline`: nicht erreichbar / wiederholte harte Fehler
+
+Grundregel:
+
+- Concurrency nie direkt "hochdrehen" ohne Messung von p50/p95, Queue-Zeit und Fehlerraten.

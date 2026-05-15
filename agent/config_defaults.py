@@ -130,6 +130,12 @@ def build_default_agent_config() -> dict:
         "autopilot_strategy_retry_delay_seconds": 20,
         "autopilot_strategy_fallback_models": [opencode_default_model] if opencode_default_model else [],
         "autopilot_strategy_temperature_profiles": [0.2, 0.5, 0.8],
+        "proposal_budget": {
+            "max_total_seconds": 90,
+            "max_llm_calls": 2,
+            "max_strategy_attempts": 2,
+            "allow_parallel_strategy_race": False,
+        },
         "adaptive_model_routing_enabled": True,
         "adaptive_model_routing_min_samples": 3,
         "adaptive_model_routing_top_k": 3,

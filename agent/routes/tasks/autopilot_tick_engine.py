@@ -113,6 +113,7 @@ def _normalize_model_candidate(model: str | None, *, cfg: dict[str, Any]) -> str
 
 def _strategy_cfg(loop: Any) -> dict[str, Any]:
     cfg = loop._agent_config() or {}
+    proposal_budget = dict(cfg.get("proposal_budget") or {})
     return {
         "max_attempts": max(1, min(int(cfg.get("autopilot_strategy_max_attempts") or 3), 8)),
         "cooldown_seconds": max(0, min(int(cfg.get("autopilot_strategy_retry_delay_seconds") or 20), 600)),
@@ -123,6 +124,12 @@ def _strategy_cfg(loop: Any) -> dict[str, Any]:
         ],
         "temperature_profiles": _normalize_temperature_list(cfg.get("autopilot_strategy_temperature_profiles")),
         "adaptive_top_k": max(1, min(int(cfg.get("adaptive_model_routing_top_k") or 3), 10)),
+        "proposal_budget": {
+            "max_total_seconds": max(10, min(int(proposal_budget.get("max_total_seconds") or 90), 1800)),
+            "max_llm_calls": max(1, min(int(proposal_budget.get("max_llm_calls") or 2), 12)),
+            "max_strategy_attempts": max(1, min(int(proposal_budget.get("max_strategy_attempts") or 2), 12)),
+            "allow_parallel_strategy_race": bool(proposal_budget.get("allow_parallel_strategy_race", False)),
+        },
     }
 
 
@@ -562,7 +569,36 @@ def _dispatch_one_task_inner(  # noqa: C901
             + estimate_text_tokens(getattr(task, "description", None))
             + 768,
         )
+        strategy_cfg = _strategy_cfg(loop)
+        budget = dict(strategy_cfg.get("proposal_budget") or {})
+        budget_started_at = time.time()
+        max_total_seconds = int(budget.get("max_total_seconds") or 90)
+        max_llm_calls = int(budget.get("max_llm_calls") or 2)
+        max_strategy_attempts = int(budget.get("max_strategy_attempts") or 2)
         for attempt_index, candidate in enumerate(strategy_candidates, start=1):
+            elapsed = time.time() - budget_started_at
+            if elapsed > max_total_seconds:
+                strategy_failures.append(
+                    {
+                        "attempt": attempt_index,
+                        "reason": "proposal_budget_exhausted_total_seconds",
+                        "elapsed_seconds": round(elapsed, 3),
+                        "max_total_seconds": max_total_seconds,
+                        "failure_type": "proposal_budget_exhausted",
+                    }
+                )
+                break
+            if (attempt_index - 1) >= max_llm_calls or (attempt_index - 1) >= max_strategy_attempts:
+                strategy_failures.append(
+                    {
+                        "attempt": attempt_index,
+                        "reason": "proposal_budget_exhausted_llm_calls",
+                        "max_llm_calls": max_llm_calls,
+                        "max_strategy_attempts": max_strategy_attempts,
+                        "failure_type": "proposal_budget_exhausted",
+                    }
+                )
+                break
             propose_payload: dict[str, Any] = {"task_id": task.id}
             candidate_model = candidate.get("model")
             candidate_source = str(candidate.get("source") or "strategy")
@@ -665,7 +701,6 @@ def _dispatch_one_task_inner(  # noqa: C901
             )
 
         if propose_data is None:
-            strategy_cfg = _strategy_cfg(loop)
             cooldown_seconds = int(strategy_cfg["cooldown_seconds"])
             now_ts = time.time()
             failed_models = list(strategy_state.get("failed_models") or [])
@@ -692,6 +727,11 @@ def _dispatch_one_task_inner(  # noqa: C901
                     "last_failures": strategy_failures[-5:],
                     "last_failed_at": now_ts,
                     "next_retry_after": (now_ts + cooldown_seconds) if cooldown_seconds > 0 else now_ts,
+                    "reason_code": (
+                        "proposal_budget_exhausted"
+                        if any(str(item.get("failure_type") or "") == "proposal_budget_exhausted" for item in strategy_failures)
+                        else "autopilot_strategy_exhausted"
+                    ),
                 },
             }
             update_local_task_status(

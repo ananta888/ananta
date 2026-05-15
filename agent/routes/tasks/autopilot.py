@@ -546,6 +546,16 @@ def init_autopilot(app=None):
         logging.warning(f"Autonomous loop restore failed: {e}")
 
 
+def request_autopilot_wake(event_type: str, **details: Any) -> None:
+    """Best-effort event wakeup for the hub autopilot loop."""
+    try:
+        autonomous_loop.wake()
+        if details.get("task_id"):
+            _append_trace_event(str(details.get("task_id")), f"autopilot_wake_{event_type}", **details)
+    except Exception:
+        pass
+
+
 @autopilot_bp.route("/tasks/autopilot/start", methods=["POST"])
 @check_auth
 @admin_required

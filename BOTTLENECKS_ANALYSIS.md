@@ -209,6 +209,8 @@ Aktueller Stand (Code-Check am 2026-05-15):
 - `agent/ai_agent.py` startet Flask mit `app.run(..., threaded=True)`.
 - `/health?basic=1` wird bereits bevorzugt als leichter Liveness-Check verwendet.
 - Das Worker-Statusmodell wurde auf `online|busy|degraded|offline` nachgeschärft.
+- Proposal-Strategiepfad nutzt jetzt ein explizites Budget (`max_total_seconds`, `max_llm_calls`, `max_strategy_attempts`) und setzt bei Erschöpfung `reason_code=proposal_budget_exhausted`.
+- Output-Dir-Locking nutzt kanonische Pfade (`realpath/commonpath`) und blockiert parallele Schreibzugriffe auf denselben Zielpfad.
 
 Messstatus `/health` unter künstlich langem Propose-Call:
 
