@@ -1,285 +1,264 @@
 {
   "id": "todo.fix-bottlenecks-controlled-parallelism",
   "title": "Fix bottlenecks with controlled parallelism, capacity policy and safe workspace concurrency",
-  "status": "proposed",
+  "status": "proposed_refined",
   "priority": "critical",
   "created_from": "BOTTLENECKS_ANALYSIS.md review 2026-05-15",
-  "core_principle": "Do not simply increase parallelism. Enforce bounded, measurable and policy-approved concurrency across Hub, Worker, Ollama and output workspaces.",
+  "core_principle": "Controlled parallelism only: bounded, measurable, policy-approved concurrency across Hub, Worker, Ollama and workspace writes.",
+  "architecture_guardrails": [
+    "Hub remains control plane for scheduling, policy and queue ownership.",
+    "Workers execute delegated work only; no worker-to-worker orchestration loops.",
+    "Security/default-deny remains upper bound for any throughput optimization.",
+    "All capacity decisions must be auditable with reason_code and decision refs."
+  ],
   "problem_summary": {
     "observed": [
-      "Ollama is not explicitly configured for parallel requests.",
-      "Global sgpt_lock serializes central SGPT subprocess calls.",
-      "Autopilot effective concurrency can default to 1 due to security_policy.max_concurrency_cap fallback.",
-      "Hub dispatch to Worker propose endpoint is synchronous and blocks during LLM calls.",
-      "Worker health may be confused with worker busy state.",
-      "Strategy chaining can trigger multiple sequential LLM calls per task.",
-      "Increasing parallelism interacts dangerously with shared output_dir writes."
+      "Ollama parallel runtime knobs are not consistently exposed/documented for all local profiles.",
+      "Autopilot effective concurrency can collapse to conservative caps without explicit operator visibility.",
+      "LLM bottlenecks are not uniformly observable across queue, dispatch, worker-propose and backend-call phases.",
+      "Worker busy/degraded/offline states can be conflated under long-running propose workloads.",
+      "Sequential strategy chaining can multiply total LLM latency per task.",
+      "Shared output_dir writes are a correctness risk under higher parallelism."
     ],
     "risk": [
-      "Naively setting max_concurrency=8 can overload VRAM, create failed LLM calls and introduce workspace race conditions.",
-      "Removing sgpt_lock without replacement can create CLI/cache/session side effects.",
-      "Shorter health intervals do not fix a single-threaded blocked worker.",
-      "Parallel writes to the same output_dir can corrupt generated artifacts."
+      "Blindly raising concurrency can overload VRAM and increase failure/retry storms.",
+      "Removing serialization without bounded replacement can introduce subprocess/session races.",
+      "Aggressive polling/health tuning does not fix single-thread or blocked request paths.",
+      "Uncoordinated workspace writes can corrupt generated artifacts."
     ]
   },
   "references": [
     {
       "path": "BOTTLENECKS_ANALYSIS.md",
-      "reason": "primary analysis document to update and keep aligned with implementation"
+      "reason": "Primary analysis document; must match real effective concurrency semantics."
     },
     {
       "path": "docker-compose.base.yml",
-      "reason": "Ollama service lacks explicit OLLAMA_NUM_PARALLEL"
-    },
-    {
-      "path": "agent/common/sgpt.py",
-      "reason": "global sgpt_lock currently serializes SGPT subprocess calls"
+      "reason": "Primary place for Ollama runtime env knobs in baseline stack."
     },
     {
       "path": "agent/routes/tasks/autopilot_dispatch_policy.py",
-      "reason": "effective concurrency is capped by security_policy.max_concurrency_cap"
+      "reason": "Effective concurrency derivation and policy cap handling."
     },
     {
       "path": "agent/routes/tasks/autopilot_tick_engine.py",
-      "reason": "synchronous Hub to Worker propose dispatch"
+      "reason": "Dispatch path and trace timing instrumentation."
+    },
+    {
+      "path": "agent/services/agent_registry_service.py",
+      "reason": "Worker liveness and effective load semantics."
     },
     {
       "path": "agent/services/worker_workspace_service.py",
-      "reason": "workspace/output_dir handling affected by parallel execution"
+      "reason": "Workspace/output_dir ownership and lock integration."
     },
     {
       "path": "agent/tools.py",
-      "reason": "file action pack path checks and workspace writes affected by parallel execution"
+      "reason": "File write paths and containment checks under concurrent execution."
     },
     {
       "path": "worker/core/propose_orchestrator.py",
-      "reason": "strategy chaining can multiply LLM calls"
+      "reason": "Proposal budget and strategy chaining constraints."
+    },
+    {
+      "path": "agent/routes/worker_pool.py",
+      "reason": "Existing diagnostics endpoints to extend and reuse."
+    },
+    {
+      "path": "agent/services/worker_pool_scheduler_service.py",
+      "reason": "Existing queue/revalidation/capacity logic to avoid duplicate implementations."
     }
   ],
   "milestones": [
     {
       "id": "M0",
-      "title": "Make current bottlenecks measurable",
+      "title": "Measure first",
       "priority": "P0",
-      "goal": "Before increasing concurrency, expose enough metrics to know where time is actually lost."
+      "goal": "Expose bottlenecks before tuning concurrency."
     },
     {
       "id": "M1",
-      "title": "Enable bounded Ollama and Autopilot concurrency",
+      "title": "Bounded capacity",
       "priority": "P0",
-      "goal": "Allow controlled parallelism without bypassing security policy or exceeding runtime capacity."
+      "goal": "Compute effective concurrency from policy + runtime limits, never from requested value alone."
     },
     {
       "id": "M2",
-      "title": "Replace global LLM locks with backend-specific semaphores",
+      "title": "Safe parallel execution",
       "priority": "P1",
-      "goal": "Remove unnecessary serialization while preserving deterministic resource control."
+      "goal": "Improve throughput while preserving deterministic safety and workspace integrity."
     },
     {
       "id": "M3",
-      "title": "Separate worker busy, degraded and offline states",
-      "priority": "P1",
-      "goal": "Prevent long LLM work from being misinterpreted as worker failure."
-    },
-    {
-      "id": "M4",
-      "title": "Protect shared output_dir from parallel write races",
-      "priority": "P1",
-      "goal": "Ensure higher concurrency does not corrupt project output."
-    },
-    {
-      "id": "M5",
-      "title": "Prepare async dispatch architecture",
+      "title": "Async readiness",
       "priority": "P2",
-      "goal": "Move toward ACK + callback dispatch only after bounded concurrency and metrics are stable."
+      "goal": "Design async dispatch behind flag only after M0-M2 are stable."
     }
   ],
   "tasks": [
     {
       "id": "BOT-P0-001",
-      "title": "Update BOTTLENECKS_ANALYSIS.md with corrected concurrency semantics",
+      "title": "Correct bottleneck documentation semantics",
       "type": "documentation",
       "priority": "P0",
+      "status": "todo",
       "files": [
         "BOTTLENECKS_ANALYSIS.md"
       ],
-      "description": "Correct the statement that max_concurrency simply defaults to 2. The current effective concurrency is bounded by security_policy.max_concurrency_cap and defaults to 1 when the cap is missing.",
+      "description": "Document that effective concurrency is policy- and capacity-bounded, and can fail closed to conservative values.",
       "acceptance_criteria": [
-        "Document explicitly states that max_concurrency_cap fallback can force effective concurrency to 1.",
-        "Document warns against blindly setting max_concurrency=8.",
-        "Document describes controlled parallelism using requested concurrency, policy cap, worker count and Ollama capacity.",
-        "Document includes a clear formula or pseudocode for effective concurrency."
+        "Explicit formula/pseudocode for effective concurrency is present.",
+        "Document warns against naive max_concurrency increases.",
+        "Security cap is explicitly documented as upper bound."
       ]
     },
     {
       "id": "BOT-P0-002",
-      "title": "Add Ollama parallelism environment configuration",
+      "title": "Standardize Ollama runtime knobs in baseline compose",
       "type": "config",
       "priority": "P0",
+      "status": "todo",
       "files": [
         "docker-compose.base.yml",
-        ".env.example"
+        ".env.example",
+        "README.md"
       ],
-      "description": "Add explicit Ollama runtime knobs with conservative defaults.",
       "required_changes": [
-        "Add OLLAMA_NUM_PARALLEL with default 2.",
-        "Add OLLAMA_MAX_LOADED_MODELS with default 1.",
-        "Add OLLAMA_KEEP_ALIVE with default 5m.",
-        "Optionally add OLLAMA_NUM_CTX via .env if not already consistently configured."
+        "Expose OLLAMA_NUM_PARALLEL with conservative default 2.",
+        "Expose OLLAMA_MAX_LOADED_MODELS with conservative default 1.",
+        "Expose OLLAMA_KEEP_ALIVE with default 5m.",
+        "Document VRAM class recommendations and rollback guidance."
       ],
-      "example": {
-        "OLLAMA_NUM_PARALLEL": "${OLLAMA_NUM_PARALLEL:-2}",
-        "OLLAMA_MAX_LOADED_MODELS": "${OLLAMA_MAX_LOADED_MODELS:-1}",
-        "OLLAMA_KEEP_ALIVE": "${OLLAMA_KEEP_ALIVE:-5m}"
-      },
       "acceptance_criteria": [
-        "docker-compose exposes OLLAMA_NUM_PARALLEL as configurable environment variable.",
-        "Default does not exceed 2 until measured.",
-        ".env.example documents recommended values for 8GB, 10GB, 16GB and 24GB VRAM classes if known.",
-        "Changing OLLAMA_NUM_PARALLEL does not require code changes.",
-        "Documentation warns that higher values increase VRAM and KV-cache usage."
+        "No code change required to tune Ollama parallelism.",
+        "Defaults remain conservative.",
+        "Docs include VRAM caution and tuning table."
       ]
     },
     {
       "id": "BOT-P0-003",
-      "title": "Introduce runtime capacity model",
+      "title": "Harden effective concurrency calculation",
       "type": "implementation",
       "priority": "P0",
+      "status": "todo",
       "files": [
-        "agent/config.py",
         "agent/routes/tasks/autopilot_dispatch_policy.py",
-        "README.md"
+        "agent/config_defaults.py",
+        "agent/config.py"
       ],
-      "description": "Create explicit runtime capacity settings used to calculate effective concurrency.",
-      "proposed_config": {
-        "runtime_capacity": {
-          "ollama_num_parallel": 2,
-          "max_dispatch_per_worker": 1,
-          "max_llm_calls_per_worker": 1,
-          "reserve_ollama_slots": 0,
-          "allow_capacity_autodetect": false
-        },
-        "security_policy": {
-          "max_concurrency_cap": 2
-        }
-      },
+      "description": "Refine/validate existing effective concurrency with strict fail-closed behavior and explicit status visibility.",
       "acceptance_criteria": [
-        "Effective concurrency is computed from requested concurrency, security cap, online workers and runtime capacity.",
-        "Missing config results in conservative concurrency, not implicit unlimited parallelism.",
-        "Computed effective concurrency is visible in debug/status output.",
-        "Unit tests cover missing cap, explicit cap, low worker count and low Ollama capacity.",
-        "Security policy remains the upper bound even if runtime capacity is higher."
+        "Effective concurrency = min(requested, security_cap, online_worker_capacity, runtime_capacity, ollama_capacity).",
+        "Invalid/missing values fail closed to conservative bounded values.",
+        "Computed value is exposed in status/debug output.",
+        "Security cap always remains the final upper bound."
+      ]
+    },
+    {
+      "id": "BOT-QA-001",
+      "title": "Regression tests for effective concurrency",
+      "type": "test",
+      "priority": "P0",
+      "status": "todo",
+      "files": [
+        "tests/test_autopilot_dispatch_policy.py",
+        "agent/routes/tasks/autopilot_dispatch_policy.py"
+      ],
+      "test_cases": [
+        "missing cap -> conservative fallback",
+        "requested above cap -> capped",
+        "worker count below cap -> worker limited",
+        "ollama capacity below requested -> ollama limited",
+        "invalid inputs -> fail closed"
       ]
     },
     {
       "id": "BOT-P0-004",
-      "title": "Add bottleneck metrics for queue, dispatch, worker and LLM phases",
+      "title": "Add end-to-end bottleneck timing metrics",
       "type": "implementation",
       "priority": "P0",
+      "status": "todo",
       "files": [
         "agent/routes/tasks/autopilot_tick_engine.py",
         "agent/routes/tasks/autopilot.py",
-        "agent/common/sgpt.py",
         "worker/core/propose_orchestrator.py",
         "agent/services/metrics_service.py"
       ],
-      "description": "Expose timing metrics before and after concurrency changes.",
       "required_metrics": [
-        "goal_planning_duration_seconds",
         "task_queue_wait_seconds",
         "dispatch_wait_seconds",
         "worker_propose_duration_seconds",
         "llm_call_duration_seconds",
-        "llm_subprocess_duration_seconds",
         "strategy_attempt_count",
         "worker_busy_seconds",
-        "worker_health_latency_seconds",
         "task_success_rate",
         "task_failure_reason_count",
         "workspace_write_conflict_count"
       ],
       "acceptance_criteria": [
-        "Each task trace includes queue wait, dispatch start, propose start/end and execute start/end timestamps.",
-        "LLM calls report duration and backend/provider.",
-        "Metrics can be shown in existing status/debug endpoint or a new endpoint.",
-        "Metrics collection does not change task behavior.",
-        "At least one integration test verifies metrics are populated for a simple task."
+        "Task trace includes queue, dispatch, propose, execute timestamps.",
+        "LLM timing includes backend/provider tags.",
+        "At least one integration test proves metrics population."
       ]
     },
     {
       "id": "BOT-P0-005",
-      "title": "Add controlled benchmark script for concurrency settings",
+      "title": "Controlled concurrency benchmark harness",
       "type": "test",
       "priority": "P0",
+      "status": "todo",
       "files": [
         "scripts/benchmark_concurrency.py",
         "docs/performance-benchmark.md"
       ],
-      "description": "Create repeatable benchmark for OLLAMA_NUM_PARALLEL and autopilot concurrency.",
-      "benchmark_matrix": [
-        {
-          "ollama_num_parallel": 1,
-          "max_concurrency_cap": 1
-        },
-        {
-          "ollama_num_parallel": 2,
-          "max_concurrency_cap": 2
-        },
-        {
-          "ollama_num_parallel": 4,
-          "max_concurrency_cap": 4
-        }
-      ],
       "acceptance_criteria": [
-        "Benchmark creates a fixed set of comparable tasks.",
-        "Benchmark records total runtime, success count, failure count and p50/p95 LLM duration.",
-        "Benchmark records GPU/VRAM snapshot if nvidia-smi is available.",
-        "Benchmark output is JSON and human-readable markdown summary.",
-        "Benchmark can run locally without external cloud APIs."
+        "Benchmark matrix includes 1/2/4 concurrency tiers.",
+        "JSON output + markdown summary with p50/p95 timings.",
+        "Optional VRAM snapshot if nvidia-smi exists.",
+        "Runs locally without cloud dependency."
       ]
     },
     {
       "id": "BOT-P1-001",
-      "title": "Replace global sgpt_lock with backend-specific semaphores",
+      "title": "Replace global SGPT serialization with bounded per-backend semaphores",
       "type": "implementation",
       "priority": "P1",
+      "status": "todo",
       "files": [
         "agent/common/sgpt.py",
-        "agent/config.py"
+        "agent/config.py",
+        "agent/config_defaults.py"
       ],
-      "description": "Replace the global threading.Lock with configurable semaphores per CLI/backend.",
-      "proposed_config": {
-        "llm_cli_parallelism": {
-          "sgpt": 2,
-          "ananta_worker": 2,
-          "opencode": 1,
-          "aider": 1,
-          "codex": 1,
-          "mistral_code": 1
-        }
-      },
       "acceptance_criteria": [
-        "SGPT calls no longer use a global exclusive Lock.",
-        "Parallelism is bounded by a Semaphore, not unlimited.",
-        "Default remains conservative.",
-        "Timeout behavior remains unchanged or improves.",
-        "Concurrent SGPT unit test proves two allowed calls can overlap when semaphore permits.",
-        "Semaphore exhaustion is observable via metric or debug log.",
-        "Errors fail closed and do not leak permits."
+        "No global exclusive lock for all SGPT calls.",
+        "Per-backend semaphore caps remain bounded and conservative by default.",
+        "Permit release is guaranteed on success/timeout/exception.",
+        "Exhaustion visibility via metric or debug log."
+      ]
+    },
+    {
+      "id": "BOT-QA-002",
+      "title": "Regression tests for SGPT semaphore release",
+      "type": "test",
+      "priority": "P1",
+      "status": "todo",
+      "files": [
+        "tests/test_sgpt_parallelism.py",
+        "agent/common/sgpt.py"
       ]
     },
     {
       "id": "BOT-P1-002",
-      "title": "Add worker busy/degraded/offline state distinction",
+      "title": "Separate worker busy, degraded and offline semantics",
       "type": "implementation",
       "priority": "P1",
+      "status": "todo",
       "files": [
         "agent/services/agent_health_monitor_service.py",
         "agent/services/background/monitoring.py",
-        "agent/routes/system.py",
-        "worker routes for /health if present"
+        "agent/services/agent_registry_service.py",
+        "agent/routes/system.py"
       ],
-      "description": "Do not treat long-running LLM work as offline if the worker is alive but busy.",
       "required_states": [
         "online",
         "busy",
@@ -287,42 +266,50 @@
         "offline"
       ],
       "acceptance_criteria": [
-        "Health endpoint can respond while a long LLM call is running, or worker state explicitly reports busy.",
-        "Dispatcher does not send unlimited new work to busy workers.",
-        "Offline state is reserved for unreachable workers or repeated hard failures.",
-        "Health timeout and interval are configurable.",
-        "Tests simulate long-running propose and verify worker is not incorrectly marked offline."
+        "Long-running propose does not incorrectly force offline.",
+        "Dispatcher throttles busy workers without marking offline.",
+        "Offline reserved for unreachable/repeated hard failure."
       ]
     },
     {
       "id": "BOT-P1-003",
-      "title": "Verify Worker HTTP server concurrency model",
+      "title": "Verify worker HTTP concurrency under load",
       "type": "investigation",
       "priority": "P1",
+      "status": "todo",
       "files": [
         "agent/ai_agent.py",
         "docker-compose.base.yml",
-        "worker startup scripts"
+        "worker startup scripts",
+        "BOTTLENECKS_ANALYSIS.md"
       ],
-      "description": "Determine whether Worker Flask server can handle /health while /step/propose is running.",
       "acceptance_criteria": [
-        "Document current server mode: Flask dev server, threaded, gunicorn, process count, thread count.",
-        "A test or script proves /health latency during an artificial long propose call.",
-        "If single-threaded, add explicit task to move to threaded/multi-worker serving.",
-        "Health behavior is documented in BOTTLENECKS_ANALYSIS.md."
+        "Current serving mode documented (thread/process model).",
+        "Measured /health latency during artificial long propose call.",
+        "If single-thread bottleneck confirmed, follow-up implementation task created with concrete server profile and DoD."
+      ]
+    },
+    {
+      "id": "BOT-QA-003",
+      "title": "Worker health under load regression test",
+      "type": "test",
+      "priority": "P1",
+      "status": "todo",
+      "files": [
+        "tests/test_worker_health_under_load.py"
       ]
     },
     {
       "id": "BOT-P1-004",
-      "title": "Introduce proposal budget per task",
+      "title": "Proposal budget per task",
       "type": "implementation",
       "priority": "P1",
+      "status": "todo",
       "files": [
         "worker/core/propose_orchestrator.py",
         "agent/routes/tasks/utils.py",
         "agent/config.py"
       ],
-      "description": "Prevent sequential strategy chaining from causing unbounded multi-call LLM latency.",
       "proposed_config": {
         "proposal_budget": {
           "max_total_seconds": 90,
@@ -332,25 +319,23 @@
         }
       },
       "acceptance_criteria": [
-        "A task has a total proposal timeout, not only per-strategy timeout.",
-        "Strategy attempts stop when max_llm_calls is reached.",
-        "Failure reason reports budget_exhausted when applicable.",
-        "Existing successful single-strategy proposals still work.",
-        "Tests cover max_total_seconds, max_llm_calls and max_strategy_attempts."
+        "Total proposal budget enforced in addition to per-call timeout.",
+        "Budget exhaustion produces explicit reason_code.",
+        "Successful single-strategy path remains unaffected."
       ]
     },
     {
       "id": "BOT-P1-005",
-      "title": "Make Autopilot wakeups event-aware before adding Redis",
+      "title": "Event-aware autopilot wakeups",
       "type": "implementation",
       "priority": "P1",
+      "status": "todo",
       "files": [
         "agent/routes/tasks/autopilot.py",
         "agent/routes/tasks/autopilot_tick_engine.py",
         "task creation routes",
         "worker registration routes"
       ],
-      "description": "Trigger wake() on relevant state changes to reduce polling delay without adding a full event bus yet.",
       "wake_events": [
         "task_created",
         "task_completed",
@@ -358,13 +343,6 @@
         "worker_registered",
         "worker_status_changed",
         "worker_capacity_released"
-      ],
-      "acceptance_criteria": [
-        "Autopilot wakes immediately after task creation.",
-        "Autopilot wakes after worker result completion.",
-        "Autopilot wakes after worker registration/status recovery.",
-        "Polling interval can stay conservative because wakeups handle fast path.",
-        "Tests verify wake() is called for at least task_created and task_completed."
       ]
     },
     {
@@ -372,208 +350,105 @@
       "title": "Protect shared output_dir from parallel write conflicts",
       "type": "implementation",
       "priority": "P1",
+      "status": "todo",
       "files": [
         "agent/services/worker_workspace_service.py",
         "agent/tools.py",
-        "agent/services/path_policy.py",
         "agent/services/output_dir_lock_service.py"
       ],
-      "description": "Define and enforce how multiple tasks may write to the same output_dir.",
+      "feature_flag": "workspace.output_dir_locking_enabled",
       "proposed_config": {
         "output_dir_policy": {
           "shared_output_dir_mode": "deny_parallel_writes",
           "per_task_subdirs": false,
           "file_write_locking": true,
-          "require_declared_artifacts": false
+          "unsafe_shared": false
         }
       },
-      "allowed_modes": [
-        "deny_parallel_writes",
-        "task_subdirs",
-        "file_locking",
-        "unsafe_shared"
-      ],
       "acceptance_criteria": [
-        "Default mode prevents two active tasks from writing to the same output_dir.",
-        "Lock is released on task completion, failure or timeout.",
-        "Stale locks are recoverable with explicit stale threshold.",
-        "Conflict produces clear error: output_dir_busy or workspace_write_conflict.",
-        "Tests cover same output_dir conflict, different output_dir success and stale lock recovery.",
-        "unsafe_shared is not default and requires explicit config."
+        "Default blocks concurrent writes to same canonical output_dir.",
+        "Lock release guaranteed on completion/failure/timeout.",
+        "Stale lock recovery with explicit threshold and audit trail.",
+        "Conflict reason_code: output_dir_busy or workspace_write_conflict."
       ]
     },
     {
       "id": "BOT-P1-007",
-      "title": "Align output_dir path policy with concurrency model",
+      "title": "Canonical path validation aligned with write-lock policy",
       "type": "implementation",
       "priority": "P1",
+      "status": "todo",
       "files": [
-        "agent/services/path_policy.py",
         "agent/services/worker_workspace_service.py",
         "agent/tools.py"
       ],
-      "description": "Integrate previously proposed deterministic output_dir validation with concurrency-safe write ownership.",
       "acceptance_criteria": [
-        "requested output_dir is validated before use.",
-        "Only approved resolved workspace dirs are lockable/writable.",
-        "Path traversal and symlink escape are rejected.",
-        "Shared output_dir locking uses the resolved canonical path.",
-        "File access checks use commonpath-style containment, not string startswith."
-      ]
-    },
-    {
-      "id": "BOT-P2-001",
-      "title": "Design async dispatch protocol",
-      "type": "architecture",
-      "priority": "P2",
-      "files": [
-        "docs/async-dispatch.md",
-        "agent/routes/tasks/autopilot_tick_engine.py",
-        "worker routes"
-      ],
-      "description": "Specify ACK + result callback protocol before implementation.",
-      "protocol_states": [
-        "todo",
-        "dispatching",
-        "proposing",
-        "proposal_ready",
-        "executing",
-        "completed",
-        "failed",
-        "stale"
-      ],
-      "acceptance_criteria": [
-        "Protocol defines request, ack, result and failure payloads.",
-        "Protocol defines idempotency keys.",
-        "Protocol defines retry and stale recovery.",
-        "Protocol defines how worker capacity is reserved and released.",
-        "Protocol defines security requirements for callback authentication."
-      ]
-    },
-    {
-      "id": "BOT-P2-002",
-      "title": "Implement async propose dispatch behind feature flag",
-      "type": "implementation",
-      "priority": "P2",
-      "files": [
-        "agent/routes/tasks/autopilot_tick_engine.py",
-        "worker propose routes",
-        "agent/config.py"
-      ],
-      "description": "Add asynchronous dispatch only after metrics and bounded concurrency are stable.",
-      "feature_flag": "autopilot.async_dispatch_enabled",
-      "acceptance_criteria": [
-        "Default remains existing sync dispatch until flag is enabled.",
-        "Worker immediately ACKs accepted propose work.",
-        "Worker later submits result to Hub or Hub polls result endpoint.",
-        "Hub recovers stale proposing tasks.",
-        "Feature can be rolled back without DB migration loss.",
-        "Integration test covers async success and async worker failure."
-      ]
-    },
-    {
-      "id": "BOT-P2-003",
-      "title": "Evaluate Redis/Event-Bus only after wake/callback baseline",
-      "type": "architecture",
-      "priority": "P2",
-      "files": [
-        "docs/event-bus-evaluation.md",
-        "docker-compose.base.yml"
-      ],
-      "description": "Avoid adding Redis as first response. Evaluate after simple wake and async callback are measured.",
-      "acceptance_criteria": [
-        "Document states which bottleneck Redis would solve.",
-        "Document states which bottlenecks Redis would not solve.",
-        "Redis is not required for P0/P1 performance fixes.",
-        "Decision includes operational cost, failure modes and local-first impact."
-      ]
-    },
-    {
-      "id": "BOT-QA-001",
-      "title": "Add regression tests for effective concurrency calculation",
-      "type": "test",
-      "priority": "P0",
-      "files": [
-        "tests/test_autopilot_dispatch_policy.py",
-        "agent/routes/tasks/autopilot_dispatch_policy.py"
-      ],
-      "test_cases": [
-        "missing max_concurrency_cap defaults to conservative value",
-        "requested concurrency above cap is capped",
-        "worker count below cap limits effective concurrency",
-        "ollama capacity below requested limits effective concurrency",
-        "security cap is always upper bound"
-      ],
-      "acceptance_criteria": [
-        "Tests fail if effective concurrency ignores security cap.",
-        "Tests cover explicit cap 1, 2, 4 and 8.",
-        "Tests cover zero/invalid values and fail closed."
-      ]
-    },
-    {
-      "id": "BOT-QA-002",
-      "title": "Add regression tests for SGPT semaphore release",
-      "type": "test",
-      "priority": "P1",
-      "files": [
-        "tests/test_sgpt_parallelism.py",
-        "agent/common/sgpt.py"
-      ],
-      "acceptance_criteria": [
-        "Semaphore permit is released after successful subprocess.",
-        "Semaphore permit is released after TimeoutExpired.",
-        "Semaphore permit is released after unexpected exception.",
-        "Configured parallelism of 1 preserves old serial behavior.",
-        "Configured parallelism of 2 allows two overlapping mocked calls."
-      ]
-    },
-    {
-      "id": "BOT-QA-003",
-      "title": "Add worker health under load test",
-      "type": "test",
-      "priority": "P1",
-      "files": [
-        "tests/test_worker_health_under_load.py"
-      ],
-      "acceptance_criteria": [
-        "Start or mock a long-running propose request.",
-        "Call /health while propose is running.",
-        "Assert /health returns within configured timeout or reports busy state.",
-        "Assert worker is not marked offline solely due to long propose."
+        "Resolved canonical paths used for lock identity.",
+        "Path traversal and symlink escapes rejected.",
+        "Containment checks use canonical/commonpath semantics, never prefix string checks."
       ]
     },
     {
       "id": "BOT-QA-004",
-      "title": "Add shared output_dir conflict tests",
+      "title": "Shared output_dir conflict regression tests",
       "type": "test",
       "priority": "P1",
+      "status": "todo",
       "files": [
         "tests/test_output_dir_parallel_write_policy.py"
-      ],
-      "acceptance_criteria": [
-        "Two tasks targeting same output_dir cannot write concurrently in default mode.",
-        "Two tasks targeting different output_dirs can proceed concurrently.",
-        "Stale output_dir lock can be recovered deterministically.",
-        "Resolved canonical path is used for lock identity.",
-        "Symlink-equivalent paths map to same canonical lock target."
       ]
     },
     {
       "id": "BOT-DOC-001",
-      "title": "Document controlled parallelism model",
+      "title": "Controlled parallelism operator docs",
       "type": "documentation",
       "priority": "P1",
+      "status": "todo",
       "files": [
         "BOTTLENECKS_ANALYSIS.md",
         "README.md",
         "docs/performance.md"
+      ]
+    },
+    {
+      "id": "BOT-P2-001",
+      "title": "Async dispatch protocol spec",
+      "type": "architecture",
+      "priority": "P2",
+      "status": "todo",
+      "files": [
+        "docs/async-dispatch.md",
+        "agent/routes/tasks/autopilot_tick_engine.py",
+        "worker routes"
+      ]
+    },
+    {
+      "id": "BOT-P2-002",
+      "title": "Async propose dispatch behind feature flag",
+      "type": "implementation",
+      "priority": "P2",
+      "status": "todo",
+      "feature_flag": "autopilot.async_dispatch_enabled",
+      "files": [
+        "agent/routes/tasks/autopilot_tick_engine.py",
+        "worker propose routes",
+        "agent/config.py"
+      ]
+    },
+    {
+      "id": "BOT-P2-003",
+      "title": "Event bus evaluation after baseline",
+      "type": "architecture",
+      "priority": "P2",
+      "status": "todo",
+      "files": [
+        "docs/event-bus-evaluation.md",
+        "docker-compose.base.yml"
       ],
       "acceptance_criteria": [
-        "Docs explain difference between requested concurrency, effective concurrency, worker capacity and Ollama capacity.",
-        "Docs warn against blindly setting max_concurrency=8.",
-        "Docs include recommended starting values.",
-        "Docs explain how to benchmark and roll back.",
-        "Docs mention shared output_dir write policy."
+        "Document what Redis/event bus solves and what it does not.",
+        "Document operational cost and failure modes.",
+        "State explicitly that P0/P1 fixes do not depend on Redis."
       ]
     }
   ],
@@ -584,10 +459,10 @@
     "BOT-QA-001",
     "BOT-P0-004",
     "BOT-P0-005",
-    "BOT-P1-003",
-    "BOT-P1-002",
     "BOT-P1-001",
     "BOT-QA-002",
+    "BOT-P1-002",
+    "BOT-P1-003",
     "BOT-QA-003",
     "BOT-P1-006",
     "BOT-P1-007",
@@ -600,23 +475,34 @@
     "BOT-P2-003"
   ],
   "definition_of_done": [
-    "Ollama parallelism is configurable and benchmarked.",
-    "Effective Autopilot concurrency is computed from policy and capacity, not guessed.",
-    "Global SGPT lock is replaced by safe bounded semaphores.",
-    "Worker health distinguishes busy from offline.",
-    "Task proposal has bounded strategy/LLM budget.",
-    "Output directories are protected against parallel write conflicts.",
-    "Metrics show where time is spent before and after changes.",
-    "Async dispatch is designed and feature-flagged, not forced prematurely.",
-    "Documentation reflects controlled parallelism and safety constraints."
+    "Ollama parallelism is configurable and benchmarked with conservative defaults.",
+    "Effective autopilot concurrency is policy- and capacity-derived, never guessed.",
+    "SGPT/backend concurrency is bounded by safe semaphores with leak-free permit handling.",
+    "Worker liveness differentiates busy/degraded/offline correctly under load.",
+    "Proposal execution uses explicit budget constraints with deterministic reason codes.",
+    "Shared output_dir writes are protected by canonical lock ownership.",
+    "Metrics show bottleneck movement before/after tuning.",
+    "Async dispatch is feature-flagged and introduced only after stable bounded baseline.",
+    "Docs reflect controlled parallelism, rollback steps and operator safety constraints."
   ],
+  "sprint_now": {
+    "name": "BOTTLENECKS-S1",
+    "objective": "Ship measurable and safe capacity baseline before deeper architecture changes.",
+    "task_ids": [
+      "BOT-P0-001",
+      "BOT-P0-002",
+      "BOT-P0-003",
+      "BOT-QA-001",
+      "BOT-P0-004",
+      "BOT-P0-005"
+    ]
+  },
   "suggested_commits": [
-    "docs: refine bottleneck analysis with controlled parallelism model",
-    "config: expose ollama parallelism and runtime capacity settings",
-    "fix: compute effective autopilot concurrency from policy and runtime capacity",
-    "perf: replace global sgpt lock with bounded backend semaphores",
-    "fix: distinguish worker busy state from offline health failures",
-    "fix: protect shared output dirs from parallel write conflicts",
-    "docs: add performance benchmark and rollback guidance"
+    "docs: refine bottleneck analysis with controlled parallelism semantics",
+    "config: expose ollama runtime knobs and capacity defaults",
+    "fix: harden effective autopilot concurrency calculation",
+    "test: add regression coverage for capacity and concurrency caps",
+    "telemetry: add queue/dispatch/propose/llm bottleneck metrics",
+    "perf: add controlled concurrency benchmark harness"
   ]
 }
