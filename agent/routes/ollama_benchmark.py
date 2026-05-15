@@ -78,6 +78,13 @@ def get_ollama_benchmark_results():
     )
 
 
+@ollama_benchmark_bp.route("/ollama/parallel/status", methods=["GET"])
+@check_auth
+def get_ollama_parallel_status():
+    service = get_ollama_benchmark_service()
+    return api_response(data={"items": service.get_parallel_runtime_status()})
+
+
 @ollama_benchmark_bp.route("/ollama/benchmark/comparison", methods=["GET"])
 @check_auth
 def get_model_comparison():

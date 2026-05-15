@@ -7,6 +7,7 @@ from agent.repository import context_bundle_repo, retrieval_run_repo, worker_job
 from agent.services.context_manager_service import get_context_manager_service
 from agent.services.rag_service import get_rag_service
 from agent.services.worker_capability_service import get_worker_capability_service
+from agent.services.worker_pool_scheduler_service import get_worker_pool_scheduler_service
 
 
 class WorkerJobService:
@@ -16,6 +17,7 @@ class WorkerJobService:
         self._rag_service = rag_service
         self._context_manager_service = context_manager_service or get_context_manager_service()
         self._worker_capability_service = get_worker_capability_service()
+        self._worker_pool_scheduler_service = get_worker_pool_scheduler_service()
 
     def create_context_bundle(
         self,
@@ -123,8 +125,11 @@ class WorkerJobService:
         expected_output_schema: dict | None,
         metadata: dict | None = None,
         selection_decision: dict | None = None,
+        scheduling_decision: dict | None = None,
     ) -> WorkerJobDB:
         decision = dict(selection_decision or {})
+        scheduling = dict(scheduling_decision or {})
+        now_ts = time.time()
         return worker_job_repo.save(
             WorkerJobDB(
                 parent_task_id=parent_task_id,
@@ -144,6 +149,14 @@ class WorkerJobService:
                 selected_runtime_kind=decision.get("selected_runtime_kind"),
                 selection_mode=decision.get("selection_mode"),
                 selection_decision_ref=decision.get("policy_decision_ref"),
+                slot_lease_id=scheduling.get("slot_lease_id"),
+                queue_position=scheduling.get("queue_position"),
+                scheduled_ollama_endpoint=scheduling.get("scheduled_ollama_endpoint"),
+                scheduled_ollama_model=scheduling.get("scheduled_ollama_model"),
+                parallel_group_id=scheduling.get("parallel_group_id"),
+                scheduling_reason_code=scheduling.get("reason_code"),
+                scheduled_at=now_ts if scheduling else None,
+                started_at=now_ts if str(scheduling.get("status") or "").strip().lower() == "active" else None,
             )
         )
 
@@ -162,7 +175,13 @@ class WorkerJobService:
         if job is not None:
             job.status = status
             job.updated_at = time.time()
+            if status in {"completed", "failed", "cancelled", "timeout", "rejected"}:
+                job.finished_at = time.time()
+            if status == "running" and job.started_at is None:
+                job.started_at = time.time()
             worker_job_repo.save(job)
+            if status in {"completed", "failed", "cancelled", "timeout", "rejected"}:
+                self._worker_pool_scheduler_service.release_for_job(job.slot_lease_id)
 
         eff = dict(effective_selection or {})
         return worker_result_repo.save(

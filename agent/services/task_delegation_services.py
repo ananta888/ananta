@@ -107,7 +107,11 @@ class TaskDelegationPlanner:
 
         # DRR-T053/T048: Try new worker/runtime selection if policy exists
         repos = self.dependencies.repository_registry()
-        policy_data = data.get("worker_selection_policy") or parent_task.get("worker_selection")
+        if isinstance(data, dict):
+            policy_data = data.get("worker_selection_policy")
+        else:
+            policy_data = getattr(data, "worker_selection_policy", None)
+        policy_data = policy_data or parent_task.get("worker_selection")
         if policy_data:
             policy = WorkerSelectionPolicyService().from_config(policy_data)
             agents = repos.agent_repo.get_all()

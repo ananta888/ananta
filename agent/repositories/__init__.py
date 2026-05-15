@@ -39,6 +39,7 @@ from .organization import (
     TeamTypeRoleLinkRepository,
 )
 from .tasks import ArchivedTaskRepository, TaskRepository
+from .worker_slot_lease import WorkerSlotLeaseRepository
 
 __all__ = [
     "ActionPackRepository",
@@ -86,4 +87,5 @@ __all__ = [
     "RetrievalRunRepository",
     "WorkerJobRepository",
     "WorkerResultRepository",
+    "WorkerSlotLeaseRepository",
 ]

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta_worker_parallelism_config_v1",
+  "title": "Ananta Worker Parallelism Config v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "enabled", "ollama", "worker_pool", "scheduling"],
+  "properties": {
+    "schema": { "const": "ananta_worker_parallelism_config_v1" },
+    "enabled": { "type": "boolean" },
+    "resource_caps_are_authoritative": { "type": "boolean", "default": true },
+    "effective_concurrency_rule": {
+      "type": "string",
+      "enum": ["min(security_policy_cap, worker_capacity, runtime_capacity, ollama_model_capacity)"]
+    },
+    "ollama": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "default_endpoint", "model_defaults", "models"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "default_endpoint": { "type": "string", "minLength": 1 },
+        "model_defaults": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_parallel_requests", "queue_limit", "request_timeout_seconds", "slot_lease_seconds", "backpressure", "slot_strategy"],
+          "properties": {
+            "max_parallel_requests": { "type": "integer", "minimum": 1 },
+            "queue_limit": { "type": "integer", "minimum": 1 },
+            "request_timeout_seconds": { "type": "integer", "minimum": 1 },
+            "slot_lease_seconds": { "type": "integer", "minimum": 1 },
+            "backpressure": { "type": "string", "enum": ["queue_then_reject", "reject_immediately", "wait_with_timeout"] },
+            "slot_strategy": { "type": "string", "enum": ["fifo_with_fairness", "least_loaded"] }
+          }
+        },
+        "models": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "max_parallel_requests": { "type": "integer", "minimum": 1 },
+              "queue_limit": { "type": "integer", "minimum": 1 },
+              "preferred_for": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 },
+                "uniqueItems": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "worker_pool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "minimum_local_worker_containers", "worker_defaults", "kinds"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minimum_local_worker_containers": { "type": "integer", "minimum": 1 },
+        "worker_defaults": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_parallel_tasks", "queue_limit", "heartbeat_timeout_seconds", "slot_lease_seconds"],
+          "properties": {
+            "max_parallel_tasks": { "type": "integer", "minimum": 1 },
+            "queue_limit": { "type": "integer", "minimum": 1 },
+            "heartbeat_timeout_seconds": { "type": "integer", "minimum": 1 },
+            "slot_lease_seconds": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "kinds": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "container_replicas": { "type": "integer", "minimum": 1 },
+              "max_parallel_tasks_per_container": { "type": "integer", "minimum": 1 },
+              "process_pool": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "enabled": { "type": "boolean" },
+                  "max_processes": { "type": "integer", "minimum": 1 }
+                }
+              },
+              "subworkers": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "enabled": { "type": "boolean" },
+                  "max_children_per_parent": { "type": "integer", "minimum": 1, "maximum": 64 },
+                  "max_depth": { "type": "integer", "minimum": 1, "maximum": 8 },
+                  "capability_subset_required": { "type": "boolean" },
+                  "context_subset_required": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "scheduling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "respect_context_policy", "respect_runtime_policy", "prefer_local", "avoid_oversubscribing_ollama", "queued_job_revalidation", "fairness"],
+      "properties": {
+        "strategy": { "type": "string", "enum": ["policy_then_capacity_then_least_loaded"] },
+        "respect_context_policy": { "type": "boolean" },
+        "respect_runtime_policy": { "type": "boolean" },
+        "prefer_local": { "type": "boolean" },
+        "avoid_oversubscribing_ollama": { "type": "boolean" },
+        "queued_job_revalidation": { "type": "boolean" },
+        "fairness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "max_running_jobs_per_parent_task", "max_queued_jobs_per_parent_task"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "max_running_jobs_per_parent_task": { "type": "integer", "minimum": 1 },
+            "max_queued_jobs_per_parent_task": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    }
+  }
+}

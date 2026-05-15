@@ -87,6 +87,7 @@ def _db_runtime() -> dict[str, Any]:
         VerificationRecordDB,
         WorkerJobDB,
         WorkerResultDB,
+        WorkerSlotLeaseDB,
     )
 
     return {
@@ -99,6 +100,7 @@ def _db_runtime() -> dict[str, Any]:
             ActionPackDB,
             WorkerResultDB,
             WorkerJobDB,
+            WorkerSlotLeaseDB,
             EvolutionProposalDB,
             EvolutionRunDB,
             ContextBundleDB,
