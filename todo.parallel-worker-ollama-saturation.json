@@ -748,5 +748,152 @@
     "ananta-worker kann Subtasks parallel über Subworker ausführen, aber nur mit Capability-Subset und Context-Subset.",
     "Scheduler Diagnostics zeigen live Worker-, Ollama-, Queue- und Stale-Lease-Zustand.",
     "Security Regression Tests beweisen: freie Kapazität überschreibt niemals Policy-Deny."
+  ],
+  "summaries": {
+    "task_counts": {
+      "total": 14,
+      "by_status": {
+        "todo": 14,
+        "in_progress": 0,
+        "blocked": 0,
+        "partial": 0,
+        "done": 0
+      },
+      "progress_percent_done": 0.0
+    },
+    "by_priority": {
+      "P0": 10,
+      "P1": 3,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 2,
+      "medium": 3,
+      "high": 4,
+      "critical": 5
+    },
+    "critical_path": [
+      "PAR-T001",
+      "PAR-T002",
+      "PAR-T003",
+      "PAR-T004",
+      "PAR-T005",
+      "PAR-T013"
+    ]
+  },
+  "corrections_and_extensions": [
+    {
+      "id": "EXT-001",
+      "title": "Security-First Gate explizit vor Scheduler-Aktivierung",
+      "reason": "Parallel-Scheduling darf erst live gehen, wenn Policy-Revalidation und Preflight-Fail-Closed aktiv sind.",
+      "enforcement": "Feature-Flag worker_parallelism.enabled nur mit queued_job_revalidation=true und policy_then_capacity_then_least_loaded."
+    },
+    {
+      "id": "EXT-002",
+      "title": "Migrations-/Rollout-Sicherheit",
+      "reason": "Neue Lease-Tabellen und Job-Felder brauchen additive Migration und Backward-Compatibility.",
+      "enforcement": "Keine Entfernung bestehender selected_* Felder; Scheduler kann pro Deployment stufenweise aktiviert werden."
+    },
+    {
+      "id": "EXT-003",
+      "title": "Authoritative Load-Quelle festziehen",
+      "reason": "reported_load und scheduler_load dürfen Routing nicht widersprüchlich machen.",
+      "enforcement": "Dispatch nutzt scheduler_load als authoritative; reported_load bleibt observability-only."
+    },
+    {
+      "id": "EXT-004",
+      "title": "Explizite Fairness- und Starvation-Grenzen",
+      "reason": "Parent-Tasks dürfen Queue nicht monopolieren.",
+      "enforcement": "max_running_jobs_per_parent_task und max_queued_jobs_per_parent_task müssen in Scheduler-Entscheidungen geprüft und mit reason_code auditiert werden."
+    }
+  ],
+  "active_top_10": [
+    {
+      "rank": 1,
+      "task_id": "PAR-T005",
+      "why_now": "Atomare Reservierung ist der zentrale Integritätsschutz gegen Doppelvergabe und Leaks."
+    },
+    {
+      "rank": 2,
+      "task_id": "PAR-T013",
+      "why_now": "Queue-Revalidation schließt den wichtigsten Policy-Bypass unter Last."
+    },
+    {
+      "rank": 3,
+      "task_id": "PAR-T002",
+      "why_now": "Ollama-Sättigung ist der primäre externe Bottleneck; ohne Modellslots keine sichere Parallelität."
+    },
+    {
+      "rank": 4,
+      "task_id": "PAR-T003",
+      "why_now": "Lease-Repository ist Voraussetzung für konsistente Kapazitätswahrheit im Hub."
+    },
+    {
+      "rank": 5,
+      "task_id": "PAR-T004",
+      "why_now": "WorkerJob-Lifecycle muss Scheduling-Zustände revisionssicher speichern."
+    },
+    {
+      "rank": 6,
+      "task_id": "PAR-T006",
+      "why_now": "Selection muss Kapazität live beachten, sonst bleibt Scheduler-Wirkung unvollständig."
+    },
+    {
+      "rank": 7,
+      "task_id": "PAR-T007",
+      "why_now": "Registry-Load-Kohärenz verhindert falsches available_for_routing."
+    },
+    {
+      "rank": 8,
+      "task_id": "PAR-T009",
+      "why_now": "Subworker-Parallelität bringt Durchsatz, aber nur mit Envelope-Enforcement."
+    },
+    {
+      "rank": 9,
+      "task_id": "PAR-T012",
+      "why_now": "Saturation-/Regressionstests müssen Risiken bei Queue, Timeout und Deny früh beweisen."
+    },
+    {
+      "rank": 10,
+      "task_id": "PAR-T011",
+      "why_now": "Operative Sichtbarkeit ist nötig, um echte Bottlenecks und Leaks zu erkennen."
+    }
+  ],
+  "sprint_now": {
+    "name": "PAR-FOUNDATION-S1",
+    "objective": "Sichere, atomare Slot-Orchestrierung im Hub mit Policy-Revalidation vor Queue-Start etablieren.",
+    "task_ids": [
+      "PAR-T001",
+      "PAR-T002",
+      "PAR-T003",
+      "PAR-T004",
+      "PAR-T005",
+      "PAR-T013"
+    ],
+    "definition_of_done": [
+      "Kein Slot-Leak bei Teilfehlern (Worker/Ollama).",
+      "Dispatch überschreitet nie max_parallel_tasks und nie max_parallel_requests pro endpoint+model.",
+      "Queued Jobs starten nur nach erfolgreicher Revalidation von Policy, Health und Kapazität."
+    ]
+  },
+  "solid_quality_gates": [
+    "SRP: Scheduler orchestriert Kapazität; Policy-Entscheidung bleibt in zentralen Policy-Services.",
+    "DIP: Scheduler hängt von Repository-/Service-Abstraktionen ab, nicht von konkreten DB-Implementierungen.",
+    "ISP: Diagnose-Endpoints read-only trennen von Admin-Cleanup-Operationen.",
+    "LSP: Worker-Kandidaten unterschiedlicher Kinds bleiben substituierbar unter identischem Capability-Contract.",
+    "OCP: Neue Worker-Kinds werden über Konfiguration/RuntimeTargets ergänzt statt bestehende Core-Logik zu verzweigen."
+  ],
+  "audit_minimum_fields": [
+    "reason_code",
+    "policy_decision_ref",
+    "slot_lease_id",
+    "selected_worker_id",
+    "selected_runtime_target_id",
+    "ollama_endpoint",
+    "ollama_model",
+    "queue_position",
+    "decision_hash",
+    "parent_task_id"
   ]
 }
