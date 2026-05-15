@@ -13,6 +13,7 @@ from flask import current_app, g as flask_g, has_request_context
 
 from agent.config import settings
 from agent.services.ingestion_service import get_ingestion_service
+from agent.services.output_dir_lock_service import get_output_dir_lock_service
 
 
 def _safe_segment(value: str | None, *, fallback: str) -> str:
@@ -176,6 +177,23 @@ class WorkerWorkspaceService:
             rag_helper_dir=rag_helper_dir,
             artifact_sync=artifact_sync,
         )
+
+    def acquire_output_dir_lock(self, *, task: dict, workspace_dir: Path) -> tuple[bool, str | None]:
+        cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        enabled = bool(((cfg.get("workspace") or {}).get("output_dir_locking_enabled", True)))
+        if not enabled:
+            return True, None
+        owner = str((task or {}).get("id") or "unknown-task").strip() or "unknown-task"
+        ok, _lease, reason = get_output_dir_lock_service().acquire(
+            output_dir=str(workspace_dir),
+            owner=owner,
+            ttl_seconds=int(((cfg.get("output_dir_policy") or {}).get("stale_lock_recovery_seconds") or 1800)),
+        )
+        return ok, reason
+
+    def release_output_dir_lock(self, *, task: dict, workspace_dir: Path) -> None:
+        owner = str((task or {}).get("id") or "unknown-task").strip() or None
+        get_output_dir_lock_service().release(output_dir=str(workspace_dir), owner=owner)
 
     def prepare_opencode_context_files(
         self,

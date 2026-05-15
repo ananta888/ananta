@@ -9,6 +9,7 @@ import sys
 import threading
 import tempfile
 import time
+from dataclasses import dataclass
 
 from flask import current_app, has_app_context
 
@@ -30,7 +31,61 @@ from agent.research_backend import (
     run_research_backend_command,
 )
 
-sgpt_lock = threading.Lock()
+_SEMAPHORE_LOCK = threading.Lock()
+_BACKEND_SEMAPHORES: dict[str, threading.BoundedSemaphore] = {}
+_DEFAULT_BACKEND_PARALLEL_LIMITS: dict[str, int] = {
+    "sgpt": 1,
+    "ananta-worker": 1,
+    "codex": 1,
+    "opencode": 1,
+    "aider": 1,
+    "mistral_code": 1,
+}
+
+
+@dataclass(frozen=True)
+class _SemaphoreTicket:
+    backend: str
+    acquired: bool
+    limit: int
+
+
+def _resolve_backend_parallel_limit(backend: str) -> int:
+    agent_cfg = _get_agent_config()
+    routing_cfg = dict(agent_cfg.get("sgpt_routing") or {})
+    backend_limits = dict(routing_cfg.get("backend_parallel_limits") or {})
+    configured = backend_limits.get(backend)
+    if configured is None:
+        configured = _DEFAULT_BACKEND_PARALLEL_LIMITS.get(backend, 1)
+    try:
+        return max(1, min(int(configured), 16))
+    except Exception:
+        return 1
+
+
+def _get_backend_semaphore(backend: str, limit: int) -> threading.BoundedSemaphore:
+    key = f"{backend}:{limit}"
+    with _SEMAPHORE_LOCK:
+        sem = _BACKEND_SEMAPHORES.get(key)
+        if sem is None:
+            sem = threading.BoundedSemaphore(limit)
+            _BACKEND_SEMAPHORES[key] = sem
+        return sem
+
+
+@contextlib.contextmanager
+def _acquire_backend_permit(backend: str, *, timeout: int):
+    limit = _resolve_backend_parallel_limit(backend)
+    sem = _get_backend_semaphore(backend, limit)
+    acquired = sem.acquire(timeout=max(1, int(timeout)))
+    if not acquired:
+        logging.warning("Backend semaphore exhausted backend=%s limit=%s timeout=%ss", backend, limit, timeout)
+        yield _SemaphoreTicket(backend=backend, acquired=False, limit=limit)
+        return
+    try:
+        yield _SemaphoreTicket(backend=backend, acquired=True, limit=limit)
+    finally:
+        sem.release()
 
 SUPPORTED_CLI_BACKENDS = {"sgpt", "ananta-worker", "codex", "opencode", "aider", "mistral_code", *RESEARCH_BACKEND_PROVIDERS}
 CLI_BACKEND_INSTALL_HINTS = {
@@ -502,7 +557,9 @@ def run_sgpt_command(
     )
     args = (["--model", selected_model] if selected_model else []) + options + [prompt]
 
-    with sgpt_lock:
+    with _acquire_backend_permit("sgpt", timeout=timeout) as ticket:
+        if not ticket.acquired:
+            return -1, "", "Backend 'sgpt' ist ausgelastet (semaphore_exhausted)"
         env = os.environ.copy()
 
         runtime_provider = _get_runtime_default_provider()
@@ -641,7 +698,9 @@ def _run_opencode_subprocess(
         hint = f"OpenCode binary '{opencode_bin}' not found. Install with: npm i -g opencode-ai"
         return -1, "", hint, opencode_bin
 
-    with sgpt_lock:
+    with _acquire_backend_permit("opencode", timeout=timeout) as ticket:
+        if not ticket.acquired:
+            return -1, "", "Backend 'opencode' ist ausgelastet (semaphore_exhausted)", opencode_bin
         env = os.environ.copy()
         runtime_cfg = resolve_opencode_runtime_config(model=model)
         args = [opencode_resolved, "run"]
@@ -1157,7 +1216,9 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
         args.extend(["--model", selected_model])
     args.append(prompt)
 
-    with sgpt_lock:
+    with _acquire_backend_permit("codex", timeout=timeout) as ticket:
+        if not ticket.acquired:
+            return -1, "", "Backend 'codex' ist ausgelastet (semaphore_exhausted)"
         env = os.environ.copy()
         runtime_cfg = resolve_codex_runtime_config()
         base_url = runtime_cfg["base_url"]
@@ -1210,7 +1271,9 @@ def run_aider_command(prompt: str, model: str | None = None, timeout: int = 60) 
     if selected_model:
         args.extend(["--model", selected_model])
 
-    with sgpt_lock:
+    with _acquire_backend_permit("aider", timeout=timeout) as ticket:
+        if not ticket.acquired:
+            return -1, "", "Backend 'aider' ist ausgelastet (semaphore_exhausted)"
         env = os.environ.copy()
         try:
             logging.info(f"Zentraler Aider-Aufruf: {args}")
@@ -1237,7 +1300,9 @@ def run_mistral_code_command(prompt: str, model: str | None = None, timeout: int
 
     args = [mistral_resolved]
 
-    with sgpt_lock:
+    with _acquire_backend_permit("mistral_code", timeout=timeout) as ticket:
+        if not ticket.acquired:
+            return -1, "", "Backend 'mistral_code' ist ausgelastet (semaphore_exhausted)"
         env = os.environ.copy()
         if not env.get("MISTRAL_API_KEY") and getattr(settings, "mistral_api_key", None):
             env["MISTRAL_API_KEY"] = settings.mistral_api_key

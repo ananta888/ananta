@@ -41,13 +41,13 @@ class AgentHealthMonitorService:
                         effective_status = new_status
 
                         with failure_lock:
-                            if new_status == "online":
+                            if new_status in {"online", "busy", "degraded"}:
                                 failure_state[agent_key] = 0
                             else:
                                 failures = int(failure_state.get(agent_key, 0)) + 1
                                 failure_state[agent_key] = failures
-                                if failures < offline_failure_threshold and agent_obj.status == "online":
-                                    effective_status = "online"
+                                if failures < offline_failure_threshold and agent_obj.status in {"online", "busy", "degraded"}:
+                                    effective_status = "degraded"
 
                         changed = False
                         if agent_obj.status != effective_status:
@@ -85,7 +85,7 @@ class AgentHealthMonitorService:
             write_json(agents_path, file_agents)
 
     @staticmethod
-    def _health_check_url(url: str, token: str | None, timeout: float = 30.0) -> tuple[bool, dict | None]:
+    def _health_check_url(url: str, token: str | None, timeout: float = 30.0) -> tuple[str, dict | None]:
         """Check agent liveness via /health?basic=1 (primary), /health (fallback).
 
         Returns (is_online, resource_data_or_None).  The /health endpoint is
@@ -103,30 +103,39 @@ class AgentHealthMonitorService:
             try:
                 resp = http.get(f"{base}{path}", headers=headers, timeout=health_timeout, return_response=True, silent=True)
                 if resp and resp.status_code < 500:
-                    return True, None
+                    status = "online"
+                    try:
+                        payload = resp.json() or {}
+                        data = payload.get("data") if isinstance(payload, dict) else {}
+                        status_candidate = str((data or {}).get("status") or "").strip().lower()
+                        if status_candidate in {"online", "busy", "degraded", "offline"}:
+                            status = status_candidate
+                    except Exception:
+                        pass
+                    return status, None
             except Exception:
                 continue
 
-        return False, None
+        return "offline", None
 
     def _check_name(self, *, info: dict, now: float) -> bool | None:
         url = info.get("url")
         token = info.get("token")
         if not url:
             return None
-        is_online, _ = self._health_check_url(url, token, timeout=30.0)
-        info["status"] = "online" if is_online else "offline"
-        if is_online:
+        status, _ = self._health_check_url(url, token, timeout=30.0)
+        info["status"] = status
+        if status in {"online", "busy", "degraded"}:
             info["last_seen"] = now
-        return is_online
+        return status in {"online", "busy", "degraded"}
 
     def _check_agent(self, agent_obj):
         url = agent_obj.url
         token = agent_obj.token
         if not url:
             return agent_obj, None
-        is_online, _ = self._health_check_url(url, token, timeout=30.0)
-        if not is_online:
+        status, _ = self._health_check_url(url, token, timeout=30.0)
+        if status == "offline":
             return agent_obj, ("offline", None)
 
         resources = None
@@ -147,7 +156,7 @@ class AgentHealthMonitorService:
         except Exception:
             pass
 
-        return agent_obj, ("online", resources)
+        return agent_obj, (status if status in {"online", "busy", "degraded"} else "online", resources)
 
 
 agent_health_monitor_service = AgentHealthMonitorService()

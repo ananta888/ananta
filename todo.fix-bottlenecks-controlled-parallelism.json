@@ -1,7 +1,7 @@
 {
   "id": "todo.fix-bottlenecks-controlled-parallelism",
   "title": "Fix bottlenecks with controlled parallelism, capacity policy and safe workspace concurrency",
-  "status": "proposed_refined",
+  "status": "in_progress",
   "priority": "critical",
   "created_from": "BOTTLENECKS_ANALYSIS.md review 2026-05-15",
   "core_principle": "Controlled parallelism only: bounded, measurable, policy-approved concurrency across Hub, Worker, Ollama and workspace writes.",
@@ -241,7 +241,7 @@
       "title": "Regression tests for SGPT semaphore release",
       "type": "test",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "files": [
         "tests/test_sgpt_parallelism.py",
         "agent/common/sgpt.py"
@@ -252,7 +252,7 @@
       "title": "Separate worker busy, degraded and offline semantics",
       "type": "implementation",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "files": [
         "agent/services/agent_health_monitor_service.py",
         "agent/services/background/monitoring.py",
@@ -276,7 +276,7 @@
       "title": "Verify worker HTTP concurrency under load",
       "type": "investigation",
       "priority": "P1",
-      "status": "todo",
+      "status": "partial",
       "files": [
         "agent/ai_agent.py",
         "docker-compose.base.yml",
@@ -294,7 +294,7 @@
       "title": "Worker health under load regression test",
       "type": "test",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "files": [
         "tests/test_worker_health_under_load.py"
       ]
@@ -350,7 +350,7 @@
       "title": "Protect shared output_dir from parallel write conflicts",
       "type": "implementation",
       "priority": "P1",
-      "status": "todo",
+      "status": "partial",
       "files": [
         "agent/services/worker_workspace_service.py",
         "agent/tools.py",
@@ -504,5 +504,27 @@
     "test: add regression coverage for capacity and concurrency caps",
     "telemetry: add queue/dispatch/propose/llm bottleneck metrics",
     "perf: add controlled concurrency benchmark harness"
-  ]
+  ],
+  "task_summaries": {
+    "BOT-QA-002": "Added tests for SGPT backend semaphore permit release on success, timeout, and exception (5/5 new tests green).",
+    "BOT-P1-002": "Implemented worker state differentiation: health monitoring preserves busy/degraded states; registry marks busy when load reaches max_parallel; offline only on repeated hard failure/staleness.",
+    "BOT-P1-003": "Serving mode documented: worker runs Flask threaded=True. Direct socket latency benchmark under synthetic long propose remains open due sandbox bind restrictions.",
+    "BOT-QA-003": "Added regression tests for worker health under load semantics (busy state does not flap to offline; busy workers are not routable).",
+    "BOT-P1-006": "Implemented output-dir lock service with canonical path identity and stale lease recovery; integrated lock acquire/release in scoped task execution path with conflict reason_code output_dir_busy."
+  },
+  "progress_summary": {
+    "updated_at": "2026-05-15",
+    "counts": {
+      "done": 3,
+      "partial": 2,
+      "todo": 15
+    },
+    "latest_batch": [
+      "BOT-QA-002",
+      "BOT-P1-002",
+      "BOT-P1-003",
+      "BOT-QA-003",
+      "BOT-P1-006"
+    ]
+  }
 }

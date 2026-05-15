@@ -328,6 +328,14 @@ def build_default_agent_config() -> dict:
         "sgpt_routing": {
             "policy_version": "v2",
             "default_backend": "ananta-worker",
+            "backend_parallel_limits": {
+                "sgpt": 1,
+                "ananta-worker": 1,
+                "codex": 1,
+                "opencode": 1,
+                "aider": 1,
+                "mistral_code": 1,
+            },
             "task_kind_backend": {
                 "coding": "ananta-worker",
                 "analysis": "ananta-worker",
