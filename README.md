@@ -560,3 +560,21 @@ Liveness-Semantik:
 Grundregel:
 
 - Concurrency nie direkt "hochdrehen" ohne Messung von p50/p95, Queue-Zeit und Fehlerraten.
+
+### Ollama Parallel Tuning (konservativ)
+
+Empfohlene Startwerte in Compose:
+
+- `OLLAMA_NUM_PARALLEL=2`
+- `OLLAMA_MAX_LOADED_MODELS=1`
+- `OLLAMA_KEEP_ALIVE=5m`
+
+VRAM-orientierte Richtwerte (Startpunkt, dann messen):
+
+| GPU VRAM | NUM_PARALLEL | MAX_LOADED_MODELS |
+| --- | --- | --- |
+| 8 GB | 1 | 1 |
+| 12-16 GB | 2 | 1 |
+| 24 GB+ | 2-4 | 1-2 |
+
+Rollback-Hinweis: Bei steigender p95-Latenz, OOM oder Retry-Stuerme zuerst `OLLAMA_NUM_PARALLEL` wieder reduzieren.

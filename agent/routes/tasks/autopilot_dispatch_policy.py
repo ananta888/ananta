@@ -3,8 +3,31 @@ from __future__ import annotations
 from typing import Any
 
 
-def resolve_effective_concurrency(*, requested_max_concurrency: int, security_policy: dict[str, Any]) -> int:
-    return max(1, min(int(requested_max_concurrency), int(security_policy.get("max_concurrency_cap") or 1)))
+def _safe_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return int(default)
+
+
+def resolve_effective_concurrency(
+    *,
+    requested_max_concurrency: int,
+    security_policy: dict[str, Any],
+    online_worker_capacity: int | None = None,
+    runtime_capacity: int | None = None,
+    ollama_capacity: int | None = None,
+) -> int:
+    requested = max(1, _safe_int(requested_max_concurrency, 1))
+    security_cap = max(1, _safe_int((security_policy or {}).get("max_concurrency_cap"), 1))
+    caps = [requested, security_cap]
+    if online_worker_capacity is not None:
+        caps.append(max(1, _safe_int(online_worker_capacity, 1)))
+    if runtime_capacity is not None:
+        caps.append(max(1, _safe_int(runtime_capacity, 1)))
+    if ollama_capacity is not None:
+        caps.append(max(1, _safe_int(ollama_capacity, 1)))
+    return max(1, min(caps))
 
 
 def dispatch_queue_positions(dispatch_queue: list[dict[str, Any]]) -> dict[str, Any]:

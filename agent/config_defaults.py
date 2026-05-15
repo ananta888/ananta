@@ -126,6 +126,9 @@ def build_default_agent_config() -> dict:
             "circuit_breaker_threshold": 3,
             "circuit_breaker_open_seconds": 30,
         },
+        "autopilot": {
+            "async_dispatch_enabled": False,
+        },
         "autopilot_strategy_max_attempts": 3,
         "autopilot_strategy_retry_delay_seconds": 20,
         "autopilot_strategy_fallback_models": [opencode_default_model] if opencode_default_model else [],
