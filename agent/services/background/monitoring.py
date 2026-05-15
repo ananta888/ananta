@@ -56,7 +56,7 @@ def start_monitoring_thread(app):
                 db_error_count = 0
             except Exception as e:
                 db_error_count = log_monitoring_error(e, db_error_count)
-            _sleep_with_shutdown(300)
+            _sleep_with_shutdown(30)
         logging.info("Monitoring-Task beendet.")
 
     t = threading.Thread(target=run_monitoring, daemon=True)

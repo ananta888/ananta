@@ -999,7 +999,7 @@ def execute_autopilot_tick(
 
     # Reset tasks stuck in `proposing` with no output for > 90 s back to `todo`
     # so the autopilot can retry them (workers can crash mid-dispatch).
-    _PROPOSING_STALE_SECONDS = 90
+    _PROPOSING_STALE_SECONDS = 30
     _RECOVER_WAITING_REVIEW_SECONDS = 30
     now_ts = time.time()
     for _t in all_tasks:
