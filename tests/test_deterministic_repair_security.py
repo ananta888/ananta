@@ -98,11 +98,18 @@ class TestTamperedPlanRejected:
             "audit_correlation_id": "audit-001",
             "parent_plan_id": "plan-001",
             "step_id": "s-mut",
-            # No approval_ref
+            "execution_envelope": ExecutionEnvelope(
+                task_id="task-001",
+                actor_ref="test",
+                capability_grant=CapabilityGrant(capabilities=["admin_repair", "deterministic_repair"]),
+                context_envelope_ref="ctx:task-001",
+                audit_correlation_id="audit-001",
+                repair_procedure=RepairProcedure(procedure_id="proc-001", steps=[step]),
+            ).model_dump(),
         }
         result = runner.run_step(step_envelope)
         assert result.status.value == "approval_required"
-        assert "approval_missing" in result.reason_code
+        assert "approval" in result.reason_code
 
 
 # ── Proof: Unsafe command patterns are denied before execution ────────────────

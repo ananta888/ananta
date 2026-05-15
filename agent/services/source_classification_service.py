@@ -64,6 +64,13 @@ class SourceClassificationService:
                 return Sensitivity.secret
         return Sensitivity.unknown
 
+    def redact_secrets(self, content: str) -> str:
+        """Redact known secret/token patterns from text."""
+        redacted = str(content or "")
+        for pattern in self._secret_patterns:
+            redacted = pattern.sub("[REDACTED]", redacted)
+        return redacted
+
     def classify_codecompass_node(self, node: Dict[str, Any]) -> Dict[str, Any]:
         """T008: Classify CodeCompass nodes with sensitivity metadata."""
         source_ref = node.get("path") or node.get("id") or ""

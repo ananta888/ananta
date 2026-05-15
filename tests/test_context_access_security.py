@@ -2,7 +2,7 @@ import pytest
 from worker.core.context_access_policy import (
     ContextAccessPolicy, ContextAccessRule, Sensitivity, 
     ModelScope, SourceType, DestinationContext, RequestedOperation,
-    Decision, ContextAccessPolicyEvaluator
+    Decision, ContextAccessPolicyEvaluator, ReasonCode
 )
 
 def test_security_policy_denies_secret_to_public_cloud():
@@ -14,7 +14,7 @@ def test_security_policy_denies_secret_to_public_cloud():
         allowed_model_scopes=[ModelScope.local_model, ModelScope.private_remote],
         cloud_allowed=False
     )
-    policy = ContextAccessPolicy(policy_id="P1", version=1, rules=[rule])
+    policy = ContextAccessPolicy(policy_id="P1", version=1, scope="test", rules=[rule])
     evaluator = ContextAccessPolicyEvaluator(policy)
     
     # Setup destination (Public Cloud)
@@ -36,7 +36,7 @@ def test_security_policy_denies_secret_to_public_cloud():
     
     decision = evaluator.get_decision(block, dest)
     assert decision.decision == Decision.deny
-    assert decision.reason_code == "model_scope_not_allowed" or "cloud_blocked"
+    assert decision.reason_code in {ReasonCode.model_scope_not_allowed, ReasonCode.cloud_blocked}
 
 def test_security_policy_allows_public_to_anywhere():
     rule = ContextAccessRule(
@@ -46,7 +46,7 @@ def test_security_policy_allows_public_to_anywhere():
         cloud_allowed=True,
         send_allowed=True
     )
-    policy = ContextAccessPolicy(policy_id="P1", version=1, rules=[rule])
+    policy = ContextAccessPolicy(policy_id="P1", version=1, scope="test", rules=[rule])
     evaluator = ContextAccessPolicyEvaluator(policy)
     
     dest = DestinationContext(
@@ -76,7 +76,7 @@ def test_security_policy_redaction():
         cloud_allowed=True,
         send_allowed=True
     )
-    policy = ContextAccessPolicy(policy_id="P1", version=1, rules=[rule])
+    policy = ContextAccessPolicy(policy_id="P1", version=1, scope="test", rules=[rule])
     evaluator = ContextAccessPolicyEvaluator(policy)
     
     dest = DestinationContext(

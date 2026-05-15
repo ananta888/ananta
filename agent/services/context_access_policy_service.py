@@ -72,11 +72,7 @@ class ContextAccessPolicyService:
 
     def redact_content(self, content: str, profile: str = "default") -> str:
         # T012: Context redaction
-        # Using classification service patterns
-        redacted = content
-        for pattern in self._classification_service._secret_patterns:
-            redacted = pattern.sub("[REDACTED]", redacted)
-        return redacted
+        return self._classification_service.redact_secrets(content)
 
     def summarize_content(self, content: str, profile: str = "default") -> str:
         # T012: Summary-only transformations

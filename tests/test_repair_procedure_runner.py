@@ -141,7 +141,8 @@ class TestRepairProcedureRunner:
                 "title": "Single step",
                 "action_class": "inspect_state",
                 "mutation_candidate": False,
-            }
+            },
+            "execution_envelope": _make_envelope(with_procedure=True, has_approval=True).model_dump(),
         })
         assert step_result.status == RepairStepResultStatus.success
         assert step_result.step_id == "single-step"

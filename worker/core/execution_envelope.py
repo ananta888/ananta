@@ -288,6 +288,7 @@ class ModelPolicy(BaseModel):
     allowed_providers: list[str] = Field(default_factory=list)
     preferred_model: str | None = None
     cloud_allowed: bool = False
+    legacy_default_allow: bool = False
     max_tokens: int | None = None
 
     _CLOUD_PROVIDERS: frozenset[str] = frozenset({
@@ -299,20 +300,21 @@ class ModelPolicy(BaseModel):
         if p in self._CLOUD_PROVIDERS and not self.cloud_allowed:
             return False
         if not self.allowed_providers:
-            return True
+            return bool(self.legacy_default_allow)
         return p in [x.lower() for x in self.allowed_providers]
 
 
 class ToolPolicy(BaseModel):
     allowed_tool_ids: list[str] = Field(default_factory=list)
     approval_overrides: dict[str, str] = Field(default_factory=dict)
+    legacy_default_allow: bool = False
 
     def is_tool_allowed(self, tool_id: str) -> bool:
         override = self.approval_overrides.get(tool_id, "").lower()
         if override == "deny":
             return False
         if not self.allowed_tool_ids:
-            return True
+            return bool(self.legacy_default_allow)
         return tool_id in self.allowed_tool_ids
 
     def requires_approval(self, tool_id: str) -> bool:
