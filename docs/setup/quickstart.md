@@ -171,6 +171,25 @@ DEFAULT_PROVIDER=lmstudio LMSTUDIO_URL=http://host.docker.internal:1234/v1 docke
 
 Hinweis: Im no-ollama Pfad bleibt Ollama deaktiviert. Bei `DEFAULT_PROVIDER=openai` muss `OPENAI_API_KEY` gesetzt sein.
 
+### Lokales Worker-Pool-Profil (2 Worker, konfigurierbare Parallelität)
+
+Das Quickstart-Compose startet standardmäßig zwei Worker (`ananta-worker-1`, `ananta-worker-2`).
+
+Beispiel mit Ollama und expliziter Worker-Parallelität:
+
+```bash
+DEFAULT_PROVIDER=ollama \
+OLLAMA_URL=http://ollama:11434/api/generate \
+ANANTA_WORKER_MAX_PARALLEL_TASKS=4 \
+docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml --profile ollama up -d --build
+```
+
+Optionale IDs überschreiben:
+
+```bash
+ANANTA_WORKER_ALPHA_ID=ananta-worker-1 ANANTA_WORKER_BETA_ID=ananta-worker-2 docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d
+```
+
 ## Optional: Voice Runtime Overlay (Hub + voice-runtime)
 
 Fuer Sprachpfade (Transcribe/Command/Goal) kann ein dedizierter Voice-Runtime-Service additiv gestartet werden:

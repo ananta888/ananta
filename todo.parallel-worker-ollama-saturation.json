@@ -380,7 +380,7 @@
     {
       "id": "PAR-T006",
       "title": "WorkerRuntimeSelectionService kapazitäts- und load-aware machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "summary": "WorkerRuntimeTarget.max_parallel_tasks existiert bereits, aber die Auswahl braucht Live-Load und Reject-Gründe.",
@@ -411,12 +411,14 @@
       "tests": [
         "tests/test_worker_runtime_selection_service.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented on 2026-05-15: WorkerRuntimeSelectionRequest um Load-Maps erweitert, Capacity-Deny-Gründe eingebaut, least-loaded Scoring ergänzt; Tests erweitert."
+      ]
     },
     {
       "id": "PAR-T007",
       "title": "AgentRegistryService current_load Quelle bereinigen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "summary": "AgentRegistryService nutzt execution_limits.current_load für available_for_routing. Der Scheduler muss definieren, ob diese Zahl vom Worker gemeldet oder aus Leases berechnet wird.",
@@ -446,12 +448,14 @@
       "tests": [
         "tests/test_agent_registration.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented on 2026-05-15: AgentRegistry nutzt effective load = max(reported_load, scheduler_load), exposes reported/scheduler load in directory contract."
+      ]
     },
     {
       "id": "PAR-T008",
       "title": "Lokales Compose-Profil für zwei Worker und Ollama Parallelität korrigieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "summary": "Die TODO muss Docker Compose realistisch machen: ohne Swarm besser explizite Services oder dokumentiertes --scale, eindeutige Worker IDs und gemeinsame Ollama URL.",
@@ -486,12 +490,14 @@
       "tests": [
         "tests/e2e/test_parallel_worker_ollama_saturation.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented on 2026-05-15: Quickstart Compose um explizite Worker-IDs, OLLAMA_URL und ANANTA_WORKER_MAX_PARALLEL_TASKS ergänzt; Quickstart-Doku erweitert."
+      ]
     },
     {
       "id": "PAR-T009",
       "title": "ananta-worker SubworkerPool auf bestehendem SubworkerEnvelope bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "summary": "SubworkerEnvelope existiert bereits. Jetzt braucht es die tatsächliche parallele Ausführung mit strikter Envelope-Validierung.",
@@ -528,12 +534,14 @@
         "tests/test_subworker_pool.py",
         "tests/test_worker_security_regression.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented on 2026-05-15: SubworkerPool als bounded parallel runner auf Basis SubworkerEnvelope implementiert; Validation- und Security-Tests ergänzt."
+      ]
     },
     {
       "id": "PAR-T010",
       "title": "Mehrere opencode Instanzen real registrier- und schedulbar machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "summary": "AgentRegistryService erkennt opencode aktuell über den Namen. Für mehrere Instanzen braucht es stabile IDs, RuntimeTargets und Load.",
@@ -568,7 +576,9 @@
         "tests/test_agent_registration.py",
         "tests/test_worker_runtime_selection_service.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented on 2026-05-15: Explizites worker_kind in Registrierung unterstützt (z.B. opencode), Candidate-Mapping bevorzugt expliziten Kind-Wert statt Name-Heuristik."
+      ]
     },
     {
       "id": "PAR-T011",
@@ -763,13 +773,13 @@
     "task_counts": {
       "total": 14,
       "by_status": {
-        "todo": 9,
+        "todo": 4,
         "in_progress": 0,
         "blocked": 0,
         "partial": 0,
-        "done": 5
+        "done": 10
       },
-      "progress_percent_done": 35.71
+      "progress_percent_done": 71.43
     },
     "by_priority": {
       "P0": 10,
