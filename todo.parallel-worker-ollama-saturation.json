@@ -1,0 +1,590 @@
+{
+  "schema": "ananta_todo_plan_v1",
+  "id": "todo.parallel-worker-ollama-saturation",
+  "title": "Parallel Worker and Ollama Model Saturation",
+  "status": "draft",
+  "priority": "P0",
+  "risk": "high",
+  "created_for": "ananta",
+  "language": "de",
+  "summary": {
+    "problem": "Ollama kann pro Modell mehrere Requests parallel verarbeiten, aktuell muss Ananta diese Kapazität aber explizit als begrenzte Ressource modellieren. Sonst werden Worker entweder unnötig seriell genutzt oder es werden zu viele Jobs gestartet, die dann ungeordnet auf Ollama, Worker-Prozesse oder Subworker blockieren.",
+    "goal": "Ananta soll lokale Ollama-Parallelität, mehrere Worker-Container, mehrere opencode/ananta-worker Instanzen und ananta-worker Subworker/Subagents konfigurierbar und sicher ausnutzen.",
+    "default_target": "Lokaler Default: mindestens zwei Worker-Container, pro ananta-worker bis zu vier parallele Tasks/Subworker, pro Ollama-Modell maximal vier parallele Requests.",
+    "core_design_rule": "Ein Job darf erst starten, wenn alle benötigten Slots reserviert sind: Worker/Runtime-Slot und, falls LLM-Nutzung erforderlich ist, zusätzlich Ollama-Modell-Slot.",
+    "security_rule": "Parallelisierung darf keine Policy-, Context-, Capability- oder Approval-Grenzen umgehen. Subworker erhalten immer nur reduzierte Capabilities und gefilterten Kontext.",
+    "expected_result": "Der Hub kann Last auf mehrere Worker und Subworker verteilen, Ollama pro Modell auslasten, aber nicht überbuchen, und alle Entscheidungen auditierbar machen."
+  },
+  "architecture_summary": {
+    "layers": [
+      {
+        "name": "Hub Scheduler",
+        "summary": "Zentrale Instanz, die Jobs nicht nur auswählt, sondern Slots reserviert, Queues verwaltet, Überlastung erkennt und Ressourcen wieder freigibt."
+      },
+      {
+        "name": "Worker Pool",
+        "summary": "Mehrere Worker-Container oder Worker-Instanzen, z. B. ananta-worker-1, ananta-worker-2, opencode-1, opencode-2. Jeder Worker hat eigene max_parallel_tasks."
+      },
+      {
+        "name": "Ollama Model Slot Pool",
+        "summary": "Globale Slot-Verwaltung pro endpoint+model. Beispiel: ananta-default:latest auf http://ollama:11434 erlaubt vier parallele Requests."
+      },
+      {
+        "name": "ananta-worker Subworker Pool",
+        "summary": "Ein ananta-worker kann intern mehrere Subtasks parallel bearbeiten. Jede Delegation läuft über SubworkerEnvelope mit Capability-Subset, Kontext-Subset, max_depth und max_children."
+      },
+      {
+        "name": "Policy Enforcement",
+        "summary": "Worker-Auswahl, Context Access Policy, Capability Grants, Approval Refs und Tool Policies müssen vor Slot-Vergabe und vor Ausführung greifen."
+      }
+    ],
+    "resource_model": {
+      "worker_slot": "Kapazität eines konkreten Worker-/Runtime-Ziels für eine laufende Aufgabe.",
+      "ollama_model_slot": "Kapazität eines konkreten Ollama endpoint+model für eine laufende LLM-Anfrage.",
+      "subworker_slot": "Interner Slot innerhalb eines ananta-workers für einen parallelisierten Subtask.",
+      "slot_lease": "Zeitlich begrenzte Reservierung einer Ressource. Muss bei Erfolg, Fehler, Timeout oder Abbruch freigegeben werden."
+    }
+  },
+  "default_configuration": {
+    "ollama_max_parallel_requests_per_model": 4,
+    "minimum_worker_containers": 2,
+    "default_worker_max_parallel_tasks": 4,
+    "default_ananta_worker_subworkers": 4,
+    "default_opencode_instances": 2,
+    "default_queue_limit_per_worker": 32,
+    "default_queue_limit_per_ollama_model": 64,
+    "default_slot_lease_seconds": 600,
+    "default_scheduling_strategy": "capability_then_least_loaded",
+    "default_backpressure_strategy": "queue_then_reject"
+  },
+  "proposed_config_file": {
+    "path": "config/worker_parallelism.default.json",
+    "summary": "Neue Default-Konfiguration für lokale Parallelität, Worker-Replikas, Ollama-Modellslots, Subworker und Backpressure.",
+    "example": {
+      "schema": "ananta_worker_parallelism_config_v1",
+      "enabled": true,
+      "ollama": {
+        "default_endpoint": "http://ollama:11434",
+        "model_defaults": {
+          "max_parallel_requests": 4,
+          "queue_limit": 64,
+          "request_timeout_seconds": 300,
+          "backpressure": "queue_then_reject",
+          "slot_strategy": "least_loaded"
+        },
+        "models": {
+          "ananta-default:latest": {
+            "max_parallel_requests": 4,
+            "preferred_for": [
+              "analysis",
+              "planning",
+              "repair.preview",
+              "code_review"
+            ]
+          }
+        }
+      },
+      "worker_pool": {
+        "default_worker_container_count": 2,
+        "minimum_worker_container_count": 2,
+        "max_worker_container_count": 4,
+        "worker_defaults": {
+          "max_parallel_tasks": 4,
+          "queue_limit": 32,
+          "heartbeat_timeout_seconds": 30,
+          "slot_lease_seconds": 600
+        },
+        "kinds": {
+          "ananta-worker": {
+            "enabled": true,
+            "container_replicas": 2,
+            "max_parallel_tasks_per_container": 4,
+            "subworkers": {
+              "enabled": true,
+              "max_children_per_parent": 4,
+              "max_depth": 2,
+              "capability_subset_required": true,
+              "context_subset_required": true
+            }
+          },
+          "opencode": {
+            "enabled": true,
+            "container_replicas": 2,
+            "max_parallel_tasks_per_container": 2,
+            "process_pool": {
+              "enabled": true,
+              "max_processes": 2
+            }
+          },
+          "hermes": {
+            "enabled": true,
+            "max_parallel_tasks_per_container": 2
+          }
+        }
+      },
+      "scheduling": {
+        "strategy": "capability_then_least_loaded",
+        "respect_context_policy": true,
+        "respect_runtime_policy": true,
+        "prefer_local": true,
+        "avoid_oversubscribing_ollama": true,
+        "fairness": {
+          "enabled": true,
+          "max_jobs_per_parent_task": 4
+        }
+      }
+    }
+  },
+  "tasks": [
+    {
+      "id": "PAR-T001",
+      "title": "Worker parallelism configuration schema hinzufügen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Es braucht eine zentrale, versionierte Konfiguration für Ollama-Modellparallelität, Worker-Container, Worker-Slots, opencode-Prozesspools und ananta-worker Subworker.",
+      "files": [
+        "schemas/runtime/worker_parallelism_config.v1.json",
+        "config/worker_parallelism.default.json",
+        "agent/config_defaults.py",
+        "agent/config.py"
+      ],
+      "implementation_notes": [
+        "Schema strikt validieren: keine negativen Werte, keine Null-Slots bei aktivierter Parallelität.",
+        "Default muss lokal sinnvoll sein: Ollama max_parallel_requests=4, mindestens zwei Worker-Container im Worker-Pool-Profil.",
+        "Konfiguration darf je Worker-Kind überschrieben werden: ananta-worker, opencode, hermes, custom_worker.",
+        "Config muss später über UI/API sichtbar und auditierbar sein."
+      ],
+      "acceptance_criteria": [
+        "Eine Datei schemas/runtime/worker_parallelism_config.v1.json existiert und validiert die komplette Parallelitätskonfiguration.",
+        "Eine Datei config/worker_parallelism.default.json existiert und setzt ollama.model_defaults.max_parallel_requests auf 4.",
+        "Die Default-Konfiguration definiert mindestens zwei ananta-worker Container oder ein äquivalentes skalierbares Worker-Pool-Profil.",
+        "ananta-worker hat per Default max_parallel_tasks_per_container=4 und subworkers.max_children_per_parent=4.",
+        "opencode unterstützt per Default mindestens zwei Instanzen oder zwei Prozesse, aber mit eigener konfigurierbarer Grenze.",
+        "Ungültige Werte wie -1, 0 bei aktivierter Ressource, max_children > system_limit oder unbekannte Backpressure-Strategien werden abgelehnt.",
+        "Tests decken valide Defaults, ungültige Werte und worker-kind-spezifische Overrides ab."
+      ],
+      "tests": [
+        "tests/test_worker_parallelism_config_schema.py"
+      ]
+    },
+    {
+      "id": "PAR-T002",
+      "title": "OllamaModelSlotPool implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Ollama-Kapazität muss global pro endpoint+model verwaltet werden. Mehrere Worker dürfen zusammen nicht mehr parallele Requests auf dasselbe Modell starten als konfiguriert.",
+      "files": [
+        "agent/services/ollama_parallel_runtime_service.py",
+        "agent/services/ollama_benchmark_service.py",
+        "agent/routes/ollama_benchmark.py",
+        "tests/test_ollama_parallel_runtime_service.py"
+      ],
+      "implementation_notes": [
+        "Schlüssel für Slots: endpoint + model.",
+        "Default: max_parallel_requests=4 pro Modell.",
+        "Slot-Leases müssen bei success, failed, cancelled und timeout freigegeben werden.",
+        "Backpressure-Modi: queue_then_reject, reject_immediately, wait_with_timeout.",
+        "Status API soll active, queued, rejected, completed und stale leases melden."
+      ],
+      "acceptance_criteria": [
+        "Bei max_parallel_requests=4 können exakt vier parallele Requests für dasselbe endpoint+model einen Slot erhalten.",
+        "Der fünfte Request wird je nach Backpressure-Konfiguration queued oder rejected.",
+        "Nach release_slot kann ein queued Request nachrücken.",
+        "Unterschiedliche Modelle haben unabhängige Slot-Zähler.",
+        "Unterschiedliche Ollama-Endpunkte haben unabhängige Slot-Zähler.",
+        "Timeout-Cleanup entfernt stale leases und gibt Slots frei.",
+        "Jede Slot-Entscheidung enthält reason_code und auditierbare Metadaten.",
+        "Stress-Test mit 8 simulierten Requests zeigt niemals mehr als 4 aktive Requests auf dasselbe Modell."
+      ],
+      "tests": [
+        "tests/test_ollama_parallel_runtime_service.py",
+        "tests/e2e/test_parallel_worker_ollama_saturation.py"
+      ]
+    },
+    {
+      "id": "PAR-T003",
+      "title": "WorkerRuntimeSelectionService live-load-aware machen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Die vorhandene Worker-Auswahl prüft Capabilities und Policies, aber sie muss zusätzlich aktuelle Auslastung und verfügbare Slots berücksichtigen.",
+      "files": [
+        "agent/services/worker_runtime_selection_service.py",
+        "worker/core/runtime_target.py",
+        "tests/test_worker_runtime_selection_service.py"
+      ],
+      "implementation_notes": [
+        "WorkerRuntimeSelectionRequest um current_load_by_worker_id, current_load_by_runtime_target_id und current_ollama_load_by_model erweitern.",
+        "WorkerRuntimeTarget.max_parallel_tasks aktiv für Reject/Scoring nutzen.",
+        "Least-loaded deterministisch in Scoring einbauen.",
+        "Bestehende Checks für capabilities, cloud, external, mutation und execution_mode bleiben vorrangig."
+      ],
+      "new_reason_codes": [
+        "worker_parallel_capacity_exhausted",
+        "runtime_parallel_capacity_exhausted",
+        "ollama_model_parallel_capacity_exhausted",
+        "worker_queue_full",
+        "ollama_queue_full"
+      ],
+      "acceptance_criteria": [
+        "Ein Worker mit active_jobs == max_parallel_tasks wird nicht ausgewählt.",
+        "Ein RuntimeTarget mit ausgeschöpfter Kapazität wird nicht ausgewählt.",
+        "Unter gleich geeigneten Kandidaten gewinnt der mit niedrigerer aktueller Last.",
+        "Tie-Breaking bleibt deterministisch: priority, worker_kind, worker_id, runtime_target_id.",
+        "Policy-Verstöße wie cloud_runtime_denied_allow_cloud_false überschreiben Last-Optimierung.",
+        "Wenn alle Kandidaten voll sind, wird no_eligible_worker oder queue_decision gemäß Scheduler-Policy zurückgegeben.",
+        "Tests prüfen fixed mode, automatic mode, policy_ranked mode und Kapazitätserschöpfung."
+      ],
+      "tests": [
+        "tests/test_worker_runtime_selection_service.py"
+      ]
+    },
+    {
+      "id": "PAR-T004",
+      "title": "WorkerPoolSchedulerService als zentrale Slot-Vergabe implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Der Hub braucht eine zentrale Stelle, die Worker-Slots und Ollama-Slots atomar reserviert. Worker-Auswahl ohne Reservierung reicht nicht, weil parallele Entscheidungen sonst dieselben Slots mehrfach vergeben können.",
+      "files": [
+        "agent/services/worker_pool_scheduler_service.py",
+        "agent/services/worker_job_service.py",
+        "agent/db_models.py",
+        "agent/repositories/worker_job.py",
+        "agent/repositories/worker_slot_lease.py",
+        "tests/test_worker_pool_scheduler_service.py"
+      ],
+      "implementation_notes": [
+        "Neues Konzept WorkerSlotLease einführen.",
+        "Slot-Lease enthält worker_id, worker_kind, runtime_target_id, runtime_kind, optional ollama_endpoint, ollama_model, lease_deadline_at und status.",
+        "Acquire muss entweder alle benötigten Slots bekommen oder keinen Slot behalten.",
+        "Release bei terminalem WorkerResult, Fehler, Abbruch und Timeout.",
+        "create_worker_job darf Job erst delegated/running setzen, wenn Slot-Lease existiert oder Queue-Entscheidung erzeugt wurde."
+      ],
+      "acceptance_criteria": [
+        "create_worker_job reserviert einen Worker-Slot oder erzeugt eine Queue-/Reject-Entscheidung.",
+        "Jobs mit LLM-Nutzung reservieren zusätzlich einen Ollama-Modellslot.",
+        "Wenn Ollama voll ist, darf der Worker-Slot nicht dauerhaft blockiert bleiben, außer die Queue-Policy reserviert bewusst beide Ressourcen.",
+        "record_worker_result gibt alle zugehörigen Slots frei.",
+        "Stale lease cleanup gibt abgelaufene Slots frei und schreibt Audit-Event.",
+        "Parallele Scheduler-Aufrufe können dieselbe Kapazität nicht doppelt vergeben.",
+        "Scheduler liefert Status: active_slots, queued_jobs, rejected_jobs, stale_leases, capacity_by_worker, capacity_by_model.",
+        "Tests simulieren Race-nahe Mehrfachvergabe und prüfen, dass max_parallel_tasks nicht überschritten wird."
+      ],
+      "tests": [
+        "tests/test_worker_pool_scheduler_service.py",
+        "tests/e2e/test_parallel_worker_ollama_saturation.py"
+      ]
+    },
+    {
+      "id": "PAR-T005",
+      "title": "WorkerJobDB um Scheduling- und Slot-Felder erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Worker-Jobs müssen nachvollziehbar speichern, welcher Worker, welche Runtime, welches Modell und welcher Slot tatsächlich verwendet wurde.",
+      "files": [
+        "agent/db_models.py",
+        "agent/repositories/worker_job.py",
+        "agent/services/worker_job_service.py",
+        "tests/test_worker_job_service.py"
+      ],
+      "new_fields": [
+        "slot_lease_id",
+        "queue_position",
+        "scheduled_worker_id",
+        "scheduled_worker_kind",
+        "scheduled_runtime_target_id",
+        "scheduled_runtime_kind",
+        "scheduled_ollama_endpoint",
+        "scheduled_ollama_model",
+        "parallel_group_id",
+        "scheduled_at",
+        "started_at",
+        "finished_at"
+      ],
+      "acceptance_criteria": [
+        "WorkerJobDB speichert slot_lease_id bei erfolgreich reserviertem Slot.",
+        "Queued Jobs speichern queue_position und reason_code.",
+        "WorkerResultDB kann actual_worker_id und actual_runtime_target_id gegen scheduled_* vergleichen.",
+        "Abweichungen zwischen scheduled und actual werden als Audit-Warnung gespeichert.",
+        "Bestehende WorkerJob-Erstellung bleibt rückwärtskompatibel, wenn Scheduler deaktiviert ist.",
+        "Tests prüfen delegated, queued, running, completed, failed und rejected Statusübergänge."
+      ],
+      "tests": [
+        "tests/test_worker_job_service.py"
+      ]
+    },
+    {
+      "id": "PAR-T006",
+      "title": "Lokales Docker/Compose-Profil mit mindestens zwei Worker-Containern bereitstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Die lokale Default-Umgebung soll die Parallelität praktisch ausnutzen: mindestens zwei Worker-Container, Ollama mit vier parallelen Modellrequests und optional mehrere opencode/ananta-worker Instanzen.",
+      "files": [
+        "docker-compose.yml",
+        "docker-compose.test.yml",
+        "docker-compose.quickstart-no-ollama.yml",
+        "docker-compose.ollama-wsl.yml",
+        "docs/setup/native-worker.md",
+        "docs/setup/quickstart.md"
+      ],
+      "implementation_notes": [
+        "Für normales Docker Compose ohne Swarm besser explizite Services ananta-worker-1 und ananta-worker-2 bereitstellen.",
+        "Für skalierbare Profile optional docker compose --scale dokumentieren.",
+        "Ollama-Parallelitätsvariable konfigurierbar machen und nicht tief im Code verstecken.",
+        "Worker müssen sich mit eindeutiger worker_id registrieren."
+      ],
+      "acceptance_criteria": [
+        "Lokales Worker-Pool-Profil startet mindestens zwei ananta-worker Container.",
+        "Beide Worker registrieren sich mit eindeutiger worker_id im Hub.",
+        "ANANTA_WORKER_MAX_PARALLEL_TASKS ist pro Container konfigurierbar und Default ist 4.",
+        "Ollama wird mit konfigurierbarer Parallelität gestartet; Default ist 4 parallele Requests pro Modell.",
+        "Optional können opencode-worker-1 und opencode-worker-2 aktiviert werden.",
+        "Dokumentation erklärt, wie Worker-Replikas erhöht oder reduziert werden.",
+        "E2E-Test zeigt, dass Jobs auf mindestens zwei Worker verteilt werden."
+      ],
+      "tests": [
+        "tests/e2e/test_parallel_worker_ollama_saturation.py"
+      ]
+    },
+    {
+      "id": "PAR-T007",
+      "title": "ananta-worker internen SubworkerPool aktivieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Der ananta-worker soll parallelisierte Teilaufgaben über Subworker/Subagents ausführen können. Vorhandene SubworkerEnvelope-Regeln müssen dabei strikt enforced werden.",
+      "files": [
+        "worker/core/subworker_pool.py",
+        "worker/core/subworker_envelope.py",
+        "worker/loop/controlled_worker_loop.py",
+        "worker/runtime/standalone_runtime.py",
+        "tests/test_subworker_pool.py",
+        "tests/test_worker_security_regression.py"
+      ],
+      "implementation_notes": [
+        "SubworkerPool mit Semaphore/Slot-Limit implementieren.",
+        "Jede Subworker-Ausführung benötigt SubworkerEnvelope.validate().",
+        "Capabilities müssen echte Teilmenge der Parent-Capabilities sein.",
+        "context_subset_ref ist Pflicht, damit Subworker nicht den kompletten Parent-Kontext bekommen.",
+        "Subworker dürfen max_depth und max_children nicht überschreiten.",
+        "Mutation-Capabilities in Subworkern nur erlauben, wenn Parent und Hub das explizit genehmigt haben."
+      ],
+      "acceptance_criteria": [
+        "ananta-worker kann bis zu max_children_per_parent Subworker parallel ausführen.",
+        "Ein Subworker mit zusätzlicher Capability gegenüber dem Parent wird denied.",
+        "Ein Subworker ohne context_subset_ref wird denied.",
+        "Ein Subworker über max_depth wird denied.",
+        "Ein Subworker über max_children wird queued oder denied gemäß Config.",
+        "Parent aggregiert Subworker-Ergebnisse deterministisch nach child_task_id oder definierter Reihenfolge.",
+        "Subworker-Fehler führen nicht zu unkontrolliertem Parent-Erfolg; Aggregationsstatus ist partial_success, failed oder degraded gemäß Policy.",
+        "Security-Regression-Test beweist, dass Subworker keine Capability- oder Context-Eskalation durchführen können."
+      ],
+      "tests": [
+        "tests/test_subworker_pool.py",
+        "tests/test_worker_security_regression.py"
+      ]
+    },
+    {
+      "id": "PAR-T008",
+      "title": "Mehrere opencode Instanzen und Prozesspools unterstützen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "opencode soll nicht als einzelner serieller Worker behandelt werden. Mehrere opencode Instanzen oder ein kontrollierter Prozesspool sollen parallel patch_propose/code_read Jobs bearbeiten können.",
+      "files": [
+        "agent/services/agent_registry_service.py",
+        "agent/services/worker_runtime_target_service.py",
+        "agent/services/native_worker_runtime_service.py",
+        "docs/setup/native-worker.md",
+        "tests/test_agent_registration.py",
+        "tests/test_worker_runtime_selection_service.py"
+      ],
+      "implementation_notes": [
+        "Mehrere opencode Worker müssen als getrennte WorkerCandidate Einträge registrierbar sein.",
+        "Jede Instanz braucht eigene worker_id, health_state, capabilities und max_parallel_tasks.",
+        "Optional process_pool innerhalb einer Instanz, aber mit klarer Slot-Grenze.",
+        "Policy fixed_worker_id muss weiterhin exakt eine Instanz erzwingen können."
+      ],
+      "acceptance_criteria": [
+        "Zwei opencode Worker können gleichzeitig registriert werden.",
+        "Hub sieht beide als separate WorkerCandidate Einträge.",
+        "Parallele patch_propose Jobs werden über beide Instanzen verteilt, wenn beide eligible sind.",
+        "Bei fixed_worker_id wird nur die festgelegte Instanz verwendet.",
+        "Wenn eine opencode Instanz degraded ist, wird bevorzugt eine ready Instanz gewählt.",
+        "Wenn alle opencode Instanzen voll sind, wird queued oder no_eligible_worker zurückgegeben."
+      ],
+      "tests": [
+        "tests/test_agent_registration.py",
+        "tests/test_worker_runtime_selection_service.py"
+      ]
+    },
+    {
+      "id": "PAR-T009",
+      "title": "Scheduler Diagnostics API und UI Hooks hinzufügen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "summary": "Operatoren müssen sehen können, ob Ollama, Worker oder Subworker der Flaschenhals sind. Ohne Diagnostik wirkt Parallelität zufällig oder kaputt.",
+      "files": [
+        "agent/routes/worker_pool.py",
+        "agent/bootstrap/routes.py",
+        "frontend-angular/src/app/services/worker-pool-api.service.ts",
+        "frontend-angular/src/app/features/worker-pool/worker-pool-dashboard.component.ts",
+        "frontend-angular/src/app/app.routes.ts"
+      ],
+      "api_endpoints": [
+        "GET /worker-pool/status",
+        "GET /worker-pool/leases",
+        "GET /worker-pool/queues",
+        "GET /worker-pool/ollama-models",
+        "POST /worker-pool/cleanup-stale-leases"
+      ],
+      "acceptance_criteria": [
+        "API zeigt aktive Worker-Slots pro worker_id.",
+        "API zeigt aktive Ollama-Modellslots pro endpoint+model.",
+        "API zeigt queued Jobs mit queue_position und reason_code.",
+        "API zeigt rejected Scheduling-Entscheidungen mit reason_code.",
+        "UI zeigt used/available Capacity pro Worker und pro Ollama-Modell.",
+        "UI zeigt stale leases und ermöglicht Cleanup über Admin-Aktion.",
+        "Alle Diagnosewerte sind read-only außer explizitem Cleanup-Endpunkt mit Admin/Auth-Schutz."
+      ],
+      "tests": [
+        "tests/test_worker_pool_routes.py"
+      ]
+    },
+    {
+      "id": "PAR-T010",
+      "title": "Parallel Saturation E2E Tests hinzufügen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Die gesamte Parallelitätslogik muss als E2E-Stresstest nachweisbar sein: mehrere Jobs, mehrere Worker, begrenzte Ollama Slots, Queueing und sauberes Release.",
+      "files": [
+        "tests/e2e/test_parallel_worker_ollama_saturation.py",
+        "tests/test_worker_pool_scheduler_service.py",
+        "tests/test_ollama_parallel_runtime_service.py"
+      ],
+      "test_scenarios": [
+        "8 Jobs gegen ein Ollama-Modell mit max_parallel_requests=4.",
+        "2 Worker-Container mit je 4 Worker-Slots.",
+        "Gemischte Jobs: einige brauchen Ollama, andere nur File/Tool/Analyse-Slots.",
+        "Subworker-Fanout innerhalb eines ananta-workers mit max_children=4.",
+        "Queue-Nachrücken nach Slot-Release.",
+        "Timeout/Stale-Lease Cleanup."
+      ],
+      "acceptance_criteria": [
+        "Nie mehr als 4 aktive Requests auf dasselbe Ollama endpoint+model.",
+        "Mindestens zwei Worker werden unter Last verwendet.",
+        "Worker-Slots werden nicht über max_parallel_tasks hinaus vergeben.",
+        "Subworker-Slots werden nicht über max_children hinaus vergeben.",
+        "Queued Jobs starten nach Slot-Freigabe automatisch oder deterministisch im nächsten Scheduler-Tick.",
+        "Alle Slots sind nach Testende freigegeben.",
+        "Audit/Diagnostics zeigen completed, queued und rejected Entscheidungen nachvollziehbar an."
+      ],
+      "tests": [
+        "tests/e2e/test_parallel_worker_ollama_saturation.py"
+      ]
+    },
+    {
+      "id": "PAR-T011",
+      "title": "Policy- und Security-Grenzen bei Parallelisierung absichern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Parallelisierung darf niemals dazu führen, dass ContextAccessPolicy, CapabilityGrant, ApprovalRef oder RuntimePolicy umgangen werden. Scheduler muss vor Slot-Vergabe und vor Ausführung prüfen.",
+      "files": [
+        "agent/services/worker_pool_scheduler_service.py",
+        "agent/services/worker_runtime_selection_service.py",
+        "worker/core/preflight.py",
+        "worker/core/subworker_envelope.py",
+        "tests/test_worker_security_regression.py",
+        "tests/test_context_access_security.py"
+      ],
+      "implementation_notes": [
+        "Scheduler darf nur Kandidaten verwenden, die WorkerRuntimeSelectionService inklusive ContextAccessPolicy freigibt.",
+        "Subworker dürfen keine neuen Capabilities erzeugen.",
+        "Queued Jobs müssen bei Start erneut gegen aktuelle Policy geprüft werden, weil Policies sich während Queue-Wartezeit geändert haben können.",
+        "Stale policy decisions müssen invalidiert werden."
+      ],
+      "acceptance_criteria": [
+        "Ein Job mit secret context wird nicht an public_cloud oder cloud_worker gescheduled, auch wenn dort freie Slots existieren.",
+        "Ein queued Job wird beim Start erneut gegen aktuelle Policy validiert.",
+        "Policy-Änderung während Queue-Wartezeit kann queued Job deny/requeue setzen.",
+        "Subworker mit eskalierter Capability wird denied, auch wenn freie Subworker-Slots existieren.",
+        "Worker mit freien Slots wird nicht gewählt, wenn Capability oder RuntimePolicy nicht passt.",
+        "Audit enthält policy_decision_ref, slot_lease_id und reason_code."
+      ],
+      "tests": [
+        "tests/test_worker_security_regression.py",
+        "tests/test_context_access_security.py"
+      ]
+    },
+    {
+      "id": "PAR-T012",
+      "title": "Dokumentation für lokale Parallelität und Tuning erstellen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "summary": "Die Parallelitätswerte müssen für lokale Maschinen, WSL2, GPU/CPU und kleine/große Modelle verständlich tunebar dokumentiert werden.",
+      "files": [
+        "docs/setup/parallel-worker-ollama-saturation.md",
+        "docs/setup/native-worker.md",
+        "docs/ollama-model-routing.md",
+        "README.md"
+      ],
+      "documentation_topics": [
+        "Warum Worker-Slots und Ollama-Modellslots getrennte Ressourcen sind.",
+        "Default lokal: zwei Worker-Container, vier Ollama-Modellrequests.",
+        "Wie man Worker-Replikas erhöht.",
+        "Wie man Ollama max_parallel_requests pro Modell reduziert, wenn VRAM knapp wird.",
+        "Wie ananta-worker Subworker/Subagents sicher begrenzt werden.",
+        "Wie opencode parallelisiert wird.",
+        "Wie Scheduler Diagnostics gelesen werden."
+      ],
+      "acceptance_criteria": [
+        "Dokumentation enthält ein lokales Default-Setup.",
+        "Dokumentation enthält ein Low-VRAM-Profil.",
+        "Dokumentation enthält ein High-Throughput-Profil.",
+        "Dokumentation erklärt typische Bottlenecks: Ollama voll, Worker voll, Subworker voll, Queue voll.",
+        "Dokumentation enthält konkrete docker compose Beispiele."
+      ],
+      "tests": []
+    }
+  ],
+  "cross_cutting_acceptance_criteria": [
+    "Die lokale Default-Konfiguration nutzt mindestens zwei Worker-Container oder ein dokumentiertes Compose-Scale-Profil.",
+    "Ollama wird pro Modell nicht über die konfigurierte Parallelität hinaus belastet; Default ist 4.",
+    "Worker-Slots und Ollama-Modellslots werden als getrennte Ressourcen modelliert und gemeinsam reserviert.",
+    "Subworker/Subagents im ananta-worker nutzen SubworkerEnvelope und können keine Rechte eskalieren.",
+    "opencode und ananta-worker können mehrfach parallel existieren und werden vom Hub als separate Kandidaten behandelt.",
+    "Der Scheduler ist deterministisch, policy-aware und auditierbar.",
+    "Queueing, Rejects, Stale-Lease-Cleanup und Slot-Release sind getestet.",
+    "Keine Parallelitätsoptimierung darf ContextAccessPolicy, ToolPolicy, ModelPolicy, CapabilityGrant oder ApprovalRef umgehen."
+  ],
+  "suggested_implementation_order": [
+    "PAR-T001",
+    "PAR-T002",
+    "PAR-T004",
+    "PAR-T005",
+    "PAR-T003",
+    "PAR-T006",
+    "PAR-T011",
+    "PAR-T010",
+    "PAR-T007",
+    "PAR-T009",
+    "PAR-T012"
+  ],
+  "definition_of_done": [
+    "Default lokal kann mindestens 8 Worker-Jobs parallel schedulen, sofern sie keine Ollama-Slots benötigen: 2 Worker × 4 Slots.",
+    "Default lokal kann maximal 4 gleichzeitige Requests auf dasselbe Ollama-Modell ausführen.",
+    "Gemischte Last nutzt freie Worker-Slots weiter, auch wenn Ollama-Modellslots voll sind, sofern Jobs kein LLM benötigen.",
+    "ananta-worker kann Subtasks parallel über Subworker ausführen, aber nur mit reduzierten Capabilities und Kontext-Subset.",
+    "Scheduler Diagnostics zeigen live, wo der Engpass liegt.",
+    "Alle sicherheitsrelevanten Entscheidungen sind mit reason_code und auditierbarer Referenz nachvollziehbar."
+  ]
+}
