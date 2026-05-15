@@ -49,3 +49,23 @@ def test_workspace_service_rejects_output_dir_outside_workspace_root(tmp_path):
     with app.app_context():
         with pytest.raises(ValueError, match="workspace_output_dir_outside_workspace_root"):
             svc.resolve_workspace_context(task=task)
+
+def test_stale_lock_recovery_records_audit_event():
+    svc = OutputDirLockService()
+    ok1, lease1, _ = svc.acquire(output_dir="/tmp/ananta-lock-stale", owner="task-a", ttl_seconds=1)
+    assert ok1 is True
+    assert lease1 is not None
+    # force stale by mutating the lease expiry
+    from agent.services.output_dir_lock_service import OutputDirLockLease
+    old = svc._leases[svc.canonical_output_dir('/tmp/ananta-lock-stale')]
+    svc._leases[svc.canonical_output_dir('/tmp/ananta-lock-stale')] = OutputDirLockLease(
+        lock_id=old.lock_id,
+        output_dir=old.output_dir,
+        owner=old.owner,
+        acquired_at=old.acquired_at,
+        expires_at=0.0,
+    )
+    ok2, _lease2, _reason2 = svc.acquire(output_dir="/tmp/ananta-lock-stale", owner="task-b", ttl_seconds=60)
+    assert ok2 is True
+    events = svc.recent_events()
+    assert any(e.get("event") == "stale_lock_recovered" for e in events)

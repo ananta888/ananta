@@ -735,227 +735,229 @@ class TaskScopedExecutionService:
                 message="Shared output directory is currently locked",
                 code=409,
             )
-        before_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
-        pipeline = new_pipeline_trace(
-            pipeline="task_execute",
-            task_kind=((task.get("last_proposal", {}) or {}).get("routing") or {}).get("task_kind"),
-            policy_version=((task.get("last_proposal", {}) or {}).get("trace") or {}).get("policy_version"),
-            metadata={"task_id": tid},
-        )
-        native_artifact_refs: list[dict] = []
-        execution_repair_meta: dict | None = None
-        if self._should_use_native_worker_runtime(proposal_meta=proposal_meta, agent_cfg=agent_cfg, command=command):
-            append_stage(
-                pipeline,
-                name="native_worker_execute",
-                status="ok",
-                metadata={"runtime_path": "native_worker_pipeline"},
+        try:
+            before_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
+            pipeline = new_pipeline_trace(
+                pipeline="task_execute",
+                task_kind=((task.get("last_proposal", {}) or {}).get("routing") or {}).get("task_kind"),
+                policy_version=((task.get("last_proposal", {}) or {}).get("trace") or {}).get("policy_version"),
+                metadata={"task_id": tid},
             )
-            native_execution = get_native_worker_runtime_service().execute_and_verify_command(
-                tid=tid,
-                task=task,
-                command=str(command or ""),
-                trace_id=str(((proposal_meta.get("trace") or {}).get("trace_id") or f"native-exec-{tid}")),
-                worker_profile=worker_profile,
-                profile_source=profile_source,
-                timeout_seconds=int(execution_policy.timeout_seconds),
-                workspace_dir=workspace_ctx.workspace_dir,
-                native_runtime_payload=(proposal_worker_context.get("native_runtime") if isinstance(proposal_worker_context.get("native_runtime"), dict) else {}),
-                agent_cfg=agent_cfg,
-            )
-            execution_run = LocalExecutionResult(
-                output=str(native_execution.get("output") or ""),
-                exit_code=int(native_execution.get("exit_code") or 1),
-                retries_used=0,
-                failure_type=str(native_execution.get("failure_type") or "native_worker_runtime"),
-                retry_history=[],
-                status=str(native_execution.get("status") or "failed"),
-                loop_signals=[],
-                loop_detection=None,
-                approval_decision=dict(native_execution.get("approval_decision") or {}),
-            )
-            native_artifact_refs = [ref for ref in list(native_execution.get("artifact_refs") or []) if isinstance(ref, dict)]
-            execution_repair_meta = {
-                "native_worker_runtime": dict(native_execution.get("native_runtime") or {}),
-                "runtime_path": "native_worker_pipeline",
-            }
-            native_policy_summary = str(native_execution.get("policy_classification_summary") or "").strip().lower() or None
-            if native_policy_summary:
-                policy_classification_summary = native_policy_summary
-        else:
-            execution_run = get_core_services().task_execution_service.execute_local_step(
-                tid=tid,
-                task=task,
-                command=command,
-                tool_calls=tool_calls,
-                execution_policy=execution_policy,
-                guard_cfg=agent_cfg,
-                pipeline=pipeline,
-                exec_started_at=exec_started_at,
-                working_directory=str(workspace_ctx.workspace_dir),
-            )
-            if used_last_proposal and cli_runner and self._is_shell_meta_blocked_failure(execution_run.output, execution_run.failure_type):
-                repaired_execution = self._attempt_repaired_execute_after_meta_block(
+            native_artifact_refs: list[dict] = []
+            execution_repair_meta: dict | None = None
+            if self._should_use_native_worker_runtime(proposal_meta=proposal_meta, agent_cfg=agent_cfg, command=command):
+                append_stage(
+                    pipeline,
+                    name="native_worker_execute",
+                    status="ok",
+                    metadata={"runtime_path": "native_worker_pipeline"},
+                )
+                native_execution = get_native_worker_runtime_service().execute_and_verify_command(
                     tid=tid,
                     task=task,
-                    task_kind=task_kind,
-                    command=command,
-                    execution_output=execution_run.output,
-                    execution_policy=execution_policy,
-                    agent_cfg=agent_cfg,
-                    cli_runner=cli_runner,
-                    tool_definitions_resolver=tool_definitions_resolver,
-                    pipeline=pipeline,
-                    workspace_dir=str(workspace_ctx.workspace_dir),
-                    exec_started_at=exec_started_at,
-                )
-                if repaired_execution:
-                    command = repaired_execution["command"]
-                    tool_calls = repaired_execution["tool_calls"]
-                    reason = repaired_execution["reason"]
-                    execution_run = repaired_execution["execution_run"]
-                    execution_repair_meta = repaired_execution["repair_meta"]
-        after_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
-        changed_files = get_worker_workspace_service().detect_changed_files(before_workspace_snapshot, after_workspace_snapshot)
-        meaningful_changed_files = get_worker_workspace_service().filter_meaningful_changed_files(changed_files)
-        # FA-T014: Explicit FileChangeSet collection
-        from worker.core.file_change_set import diff_snapshots
-        from pathlib import Path
-        before_id = hashlib.sha256(str(sorted(before_workspace_snapshot.items())).encode()).hexdigest()[:16]
-        after_id = hashlib.sha256(str(sorted(after_workspace_snapshot.items())).encode()).hexdigest()[:16]
-        exec_id = f"exec-{tid}-{int(time.time()*1000)}"
-        fcs = diff_snapshots(
-            task_id=tid,
-            execution_id=exec_id,
-            workspace_root=Path(workspace_ctx.workspace_dir),
-            before_snapshot_id=before_id,
-            before_snapshot=before_workspace_snapshot,
-            after_snapshot_id=after_id,
-            after_snapshot=after_workspace_snapshot,
-        )
-        workspace_artifact_refs = get_worker_workspace_service().sync_changed_files_to_artifacts(
-            task_id=tid,
-            task=task,
-            workspace_dir=workspace_ctx.workspace_dir,
-            changed_rel_paths=changed_files,
-            sync_cfg=workspace_ctx.artifact_sync,
-        )
-        combined_artifact_refs = [*list(workspace_artifact_refs or []), *list(native_artifact_refs or [])]
-        execution_duration_ms = int((time.time() - exec_started_at) * 1000)
-        proposal_meta = task.get("last_proposal", {}) or {}
-        trace = build_trace_record(
-            task_id=tid,
-            event_type="execution_result",
-            task_kind=((proposal_meta.get("routing") or {}).get("task_kind")),
-            backend=proposal_meta.get("backend"),
-            requested_backend=proposal_meta.get("backend"),
-            routing_reason=((proposal_meta.get("routing") or {}).get("reason")),
-            policy_version=((proposal_meta.get("trace") or {}).get("policy_version")),
-            metadata={
-                "retries_used": execution_run.retries_used,
-                "duration_ms": execution_duration_ms,
-                "failure_type": execution_run.failure_type,
-            },
-        )
-        if execution_run.status == "completed":
-            from agent.metrics import TASK_COMPLETED
-
-            TASK_COMPLETED.inc()
-        else:
-            from agent.metrics import TASK_FAILED
-
-            TASK_FAILED.inc()
-
-        response_payload = get_core_services().task_execution_service.finalize_task_execution_response(
-            tid=tid,
-            task=task,
-            status=execution_run.status,
-            reason=reason,
-            command=command,
-            tool_calls=tool_calls,
-            output=execution_run.output,
-            exit_code=execution_run.exit_code,
-            retries_used=execution_run.retries_used,
-            retry_history=execution_run.retry_history,
-            failure_type=execution_run.failure_type,
-            execution_duration_ms=execution_duration_ms,
-            trace=trace,
-            pipeline={**pipeline, "trace_id": trace["trace_id"]},
-            execution_policy=execution_policy,
-            artifact_refs=combined_artifact_refs or None,
-            extra_history={
-                "workspace_changed_files": changed_files,
-                "workspace_meaningful_changed_files": meaningful_changed_files,
-                "file_change_set": fcs.to_dict(),
-                "workspace_dir": str(workspace_ctx.workspace_dir),
-                "workspace_artifact_count": len(workspace_artifact_refs),
-                "native_artifact_count": len(native_artifact_refs),
-                "loop_signals": execution_run.loop_signals,
-                "loop_detection": execution_run.loop_detection,
-                "approval_decision": execution_run.approval_decision,
-                "execution_repair": execution_repair_meta,
-                "flow_metrics": self._build_flow_metrics_payload(
-                    run_id=str((((task.get("last_proposal") or {}).get("trace") or {}).get("trace_id") or "")),
-                    phase="execute",
-                    propose_ok=True,
-                    execute_ok=execution_run.status == "completed",
-                    artifact_created=bool(meaningful_changed_files),
+                    command=str(command or ""),
+                    trace_id=str(((proposal_meta.get("trace") or {}).get("trace_id") or f"native-exec-{tid}")),
                     worker_profile=worker_profile,
                     profile_source=profile_source,
-                    policy_classification=policy_classification_summary,
-                ),
-            },
-        )
-        if execution_run.status == "completed":
-            worker_execution_contract = dict(task.get("worker_execution_contract") or {})
-            expected_paths = [
-                str(item.get("relative_path") or "").strip()
-                for item in list(worker_execution_contract.get("expected_artifacts") or [])
-                if isinstance(item, dict) and bool(item.get("required", True)) and str(item.get("relative_path") or "").strip()
-            ]
-            artifact_ids = [str(ref.get("artifact_id") or "").strip() for ref in list(combined_artifact_refs or []) if str(ref.get("artifact_id") or "").strip()]
-            produced_paths = {
-                str(ref.get("workspace_relative_path") or "").strip()
-                for ref in list(combined_artifact_refs or [])
-                if isinstance(ref, dict) and str(ref.get("workspace_relative_path") or "").strip()
-            }
-            missing = [path for path in expected_paths if path not in produced_paths]
-            collection_result = {
-                "manifest_valid": not missing,
-                "artifact_ids": artifact_ids,
-                "manifest_id": f"manifest-{tid}",
-                "missing_expected_paths": missing,
-            }
-            final_status = apply_artifact_first_completion(
-                tid,
-                collection_result=collection_result,
-                advisory_parse_result=None,
-                exit_code=execution_run.exit_code,
-                retry_count=int(execution_run.retries_used or 0),
-                expected_paths=expected_paths,
-                verification_required=bool(expected_paths),
-                allow_synthesized_manifest=False,
+                    timeout_seconds=int(execution_policy.timeout_seconds),
+                    workspace_dir=workspace_ctx.workspace_dir,
+                    native_runtime_payload=(proposal_worker_context.get("native_runtime") if isinstance(proposal_worker_context.get("native_runtime"), dict) else {}),
+                    agent_cfg=agent_cfg,
+                )
+                execution_run = LocalExecutionResult(
+                    output=str(native_execution.get("output") or ""),
+                    exit_code=int(native_execution.get("exit_code") or 1),
+                    retries_used=0,
+                    failure_type=str(native_execution.get("failure_type") or "native_worker_runtime"),
+                    retry_history=[],
+                    status=str(native_execution.get("status") or "failed"),
+                    loop_signals=[],
+                    loop_detection=None,
+                    approval_decision=dict(native_execution.get("approval_decision") or {}),
+                )
+                native_artifact_refs = [ref for ref in list(native_execution.get("artifact_refs") or []) if isinstance(ref, dict)]
+                execution_repair_meta = {
+                    "native_worker_runtime": dict(native_execution.get("native_runtime") or {}),
+                    "runtime_path": "native_worker_pipeline",
+                }
+                native_policy_summary = str(native_execution.get("policy_classification_summary") or "").strip().lower() or None
+                if native_policy_summary:
+                    policy_classification_summary = native_policy_summary
+            else:
+                execution_run = get_core_services().task_execution_service.execute_local_step(
+                    tid=tid,
+                    task=task,
+                    command=command,
+                    tool_calls=tool_calls,
+                    execution_policy=execution_policy,
+                    guard_cfg=agent_cfg,
+                    pipeline=pipeline,
+                    exec_started_at=exec_started_at,
+                    working_directory=str(workspace_ctx.workspace_dir),
+                )
+                if used_last_proposal and cli_runner and self._is_shell_meta_blocked_failure(execution_run.output, execution_run.failure_type):
+                    repaired_execution = self._attempt_repaired_execute_after_meta_block(
+                        tid=tid,
+                        task=task,
+                        task_kind=task_kind,
+                        command=command,
+                        execution_output=execution_run.output,
+                        execution_policy=execution_policy,
+                        agent_cfg=agent_cfg,
+                        cli_runner=cli_runner,
+                        tool_definitions_resolver=tool_definitions_resolver,
+                        pipeline=pipeline,
+                        workspace_dir=str(workspace_ctx.workspace_dir),
+                        exec_started_at=exec_started_at,
+                    )
+                    if repaired_execution:
+                        command = repaired_execution["command"]
+                        tool_calls = repaired_execution["tool_calls"]
+                        reason = repaired_execution["reason"]
+                        execution_run = repaired_execution["execution_run"]
+                        execution_repair_meta = repaired_execution["repair_meta"]
+            after_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
+            changed_files = get_worker_workspace_service().detect_changed_files(before_workspace_snapshot, after_workspace_snapshot)
+            meaningful_changed_files = get_worker_workspace_service().filter_meaningful_changed_files(changed_files)
+            # FA-T014: Explicit FileChangeSet collection
+            from worker.core.file_change_set import diff_snapshots
+            from pathlib import Path
+            before_id = hashlib.sha256(str(sorted(before_workspace_snapshot.items())).encode()).hexdigest()[:16]
+            after_id = hashlib.sha256(str(sorted(after_workspace_snapshot.items())).encode()).hexdigest()[:16]
+            exec_id = f"exec-{tid}-{int(time.time()*1000)}"
+            fcs = diff_snapshots(
+                task_id=tid,
+                execution_id=exec_id,
+                workspace_root=Path(workspace_ctx.workspace_dir),
+                before_snapshot_id=before_id,
+                before_snapshot=before_workspace_snapshot,
+                after_snapshot_id=after_id,
+                after_snapshot=after_workspace_snapshot,
             )
-            response_payload["status"] = final_status
-            response_payload["artifact_completion"] = {
-                "expected_paths": expected_paths,
-                "produced_paths": sorted(produced_paths),
-                "missing_expected_paths": missing,
-                "final_status": final_status,
-            }
+            workspace_artifact_refs = get_worker_workspace_service().sync_changed_files_to_artifacts(
+                task_id=tid,
+                task=task,
+                workspace_dir=workspace_ctx.workspace_dir,
+                changed_rel_paths=changed_files,
+                sync_cfg=workspace_ctx.artifact_sync,
+            )
+            combined_artifact_refs = [*list(workspace_artifact_refs or []), *list(native_artifact_refs or [])]
+            execution_duration_ms = int((time.time() - exec_started_at) * 1000)
+            proposal_meta = task.get("last_proposal", {}) or {}
+            trace = build_trace_record(
+                task_id=tid,
+                event_type="execution_result",
+                task_kind=((proposal_meta.get("routing") or {}).get("task_kind")),
+                backend=proposal_meta.get("backend"),
+                requested_backend=proposal_meta.get("backend"),
+                routing_reason=((proposal_meta.get("routing") or {}).get("reason")),
+                policy_version=((proposal_meta.get("trace") or {}).get("policy_version")),
+                metadata={
+                    "retries_used": execution_run.retries_used,
+                    "duration_ms": execution_duration_ms,
+                    "failure_type": execution_run.failure_type,
+                },
+            )
+            if execution_run.status == "completed":
+                from agent.metrics import TASK_COMPLETED
 
-        history_len = len(task.get("history", []) or [])
-        _log_terminal_entry(current_app.config["AGENT_NAME"], history_len, "out", command=command, task_id=tid)
-        _log_terminal_entry(
-            current_app.config["AGENT_NAME"],
-            history_len,
-            "in",
-            output=execution_run.output,
-            exit_code=execution_run.exit_code,
-            task_id=tid,
-        )
-        get_worker_workspace_service().release_output_dir_lock(task=task, workspace_dir=workspace_ctx.workspace_dir)
-        return TaskScopedRouteResponse(data=response_payload)
+                TASK_COMPLETED.inc()
+            else:
+                from agent.metrics import TASK_FAILED
+
+                TASK_FAILED.inc()
+
+            response_payload = get_core_services().task_execution_service.finalize_task_execution_response(
+                tid=tid,
+                task=task,
+                status=execution_run.status,
+                reason=reason,
+                command=command,
+                tool_calls=tool_calls,
+                output=execution_run.output,
+                exit_code=execution_run.exit_code,
+                retries_used=execution_run.retries_used,
+                retry_history=execution_run.retry_history,
+                failure_type=execution_run.failure_type,
+                execution_duration_ms=execution_duration_ms,
+                trace=trace,
+                pipeline={**pipeline, "trace_id": trace["trace_id"]},
+                execution_policy=execution_policy,
+                artifact_refs=combined_artifact_refs or None,
+                extra_history={
+                    "workspace_changed_files": changed_files,
+                    "workspace_meaningful_changed_files": meaningful_changed_files,
+                    "file_change_set": fcs.to_dict(),
+                    "workspace_dir": str(workspace_ctx.workspace_dir),
+                    "workspace_artifact_count": len(workspace_artifact_refs),
+                    "native_artifact_count": len(native_artifact_refs),
+                    "loop_signals": execution_run.loop_signals,
+                    "loop_detection": execution_run.loop_detection,
+                    "approval_decision": execution_run.approval_decision,
+                    "execution_repair": execution_repair_meta,
+                    "flow_metrics": self._build_flow_metrics_payload(
+                        run_id=str((((task.get("last_proposal") or {}).get("trace") or {}).get("trace_id") or "")),
+                        phase="execute",
+                        propose_ok=True,
+                        execute_ok=execution_run.status == "completed",
+                        artifact_created=bool(meaningful_changed_files),
+                        worker_profile=worker_profile,
+                        profile_source=profile_source,
+                        policy_classification=policy_classification_summary,
+                    ),
+                },
+            )
+            if execution_run.status == "completed":
+                worker_execution_contract = dict(task.get("worker_execution_contract") or {})
+                expected_paths = [
+                    str(item.get("relative_path") or "").strip()
+                    for item in list(worker_execution_contract.get("expected_artifacts") or [])
+                    if isinstance(item, dict) and bool(item.get("required", True)) and str(item.get("relative_path") or "").strip()
+                ]
+                artifact_ids = [str(ref.get("artifact_id") or "").strip() for ref in list(combined_artifact_refs or []) if str(ref.get("artifact_id") or "").strip()]
+                produced_paths = {
+                    str(ref.get("workspace_relative_path") or "").strip()
+                    for ref in list(combined_artifact_refs or [])
+                    if isinstance(ref, dict) and str(ref.get("workspace_relative_path") or "").strip()
+                }
+                missing = [path for path in expected_paths if path not in produced_paths]
+                collection_result = {
+                    "manifest_valid": not missing,
+                    "artifact_ids": artifact_ids,
+                    "manifest_id": f"manifest-{tid}",
+                    "missing_expected_paths": missing,
+                }
+                final_status = apply_artifact_first_completion(
+                    tid,
+                    collection_result=collection_result,
+                    advisory_parse_result=None,
+                    exit_code=execution_run.exit_code,
+                    retry_count=int(execution_run.retries_used or 0),
+                    expected_paths=expected_paths,
+                    verification_required=bool(expected_paths),
+                    allow_synthesized_manifest=False,
+                )
+                response_payload["status"] = final_status
+                response_payload["artifact_completion"] = {
+                    "expected_paths": expected_paths,
+                    "produced_paths": sorted(produced_paths),
+                    "missing_expected_paths": missing,
+                    "final_status": final_status,
+                }
+
+            history_len = len(task.get("history", []) or [])
+            _log_terminal_entry(current_app.config["AGENT_NAME"], history_len, "out", command=command, task_id=tid)
+            _log_terminal_entry(
+                current_app.config["AGENT_NAME"],
+                history_len,
+                "in",
+                output=execution_run.output,
+                exit_code=execution_run.exit_code,
+                task_id=tid,
+            )
+            return TaskScopedRouteResponse(data=response_payload)
+        finally:
+            get_worker_workspace_service().release_output_dir_lock(task=task, workspace_dir=workspace_ctx.workspace_dir)
 
     @staticmethod
     def _build_domain_action_router() -> DomainActionRouter:
