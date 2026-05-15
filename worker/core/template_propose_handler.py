@@ -24,25 +24,18 @@ class TemplateProposeHandler:
         handler_descriptor: dict,
     ) -> ExecutableProposal:
         project_name = task["title"].strip().lower().replace(" ", "-").replace("'", "")
-        command = f"""bash -c '
-mkdir -p "{project_name}"
-cd "{project_name}"
-cat > README.md << EOF
-# {task["title"]}
-
-Initial template structure for new software project.
-EOF
-cat > main.py << EOF
-def main():
-    print("Hello from {task["title"]}!")
-
-if __name__ == "__main__":
-    main()
-EOF
-git init || true
-git add .
-git commit -m "feat: initial {project_name} template structure" || true
-'"""
+        escaped_title = task["title"].replace("'", "'\\''")
+        command = (
+            f"mkdir -p {project_name} && "
+            f"cd {project_name} && "
+            f"touch README.md && "
+            f"echo '# {escaped_title}' >> README.md && "
+            f"echo '' >> README.md && "
+            f"echo 'Initial template structure for new software project.' >> README.md && "
+            f"touch main.py && "
+            f"printf 'def main():\\n    print(\"Hello from %s!\")\\n\\nif __name__ == \"__main__\":\\n    main()\\n' '{escaped_title}' >> main.py && "
+            f"git init && git add . && git commit -m 'feat: initial {project_name} template structure'"
+        )
 
         return ExecutableProposal.from_command(
             goal_id=task.get("goal_id", "unknown"),
