@@ -50,3 +50,46 @@ def test_scheduler_respects_ollama_capacity_and_queues():
     queued = [d for d in decisions if d.status == "queued"]
     assert len(active) == 4
     assert len(queued) == 1
+
+
+def test_scheduler_revalidation_blocks_stale_policy_decision():
+    svc = WorkerPoolSchedulerService()
+    decision = svc.acquire_for_job(
+        request={
+            "selected_worker_id": "w-rev",
+            "selected_worker_kind": "native_ananta_worker",
+            "selected_runtime_target_id": "rt-rev",
+            "selected_runtime_kind": "docker_container",
+            "worker_capacity": 1,
+            "runtime_capacity": 1,
+            "worker_queue_limit": 8,
+            "slot_lease_seconds": 60,
+        }
+    )
+    # saturate so next lease is queued
+    queued = svc.acquire_for_job(
+        request={
+            "selected_worker_id": "w-rev",
+            "selected_worker_kind": "native_ananta_worker",
+            "selected_runtime_target_id": "rt-rev",
+            "selected_runtime_kind": "docker_container",
+            "worker_capacity": 1,
+            "runtime_capacity": 1,
+            "worker_queue_limit": 8,
+            "slot_lease_seconds": 60,
+            "policy_decision_ref": "p-old",
+            "policy_decision_hash": "h-old",
+        }
+    )
+    assert queued.status == "queued"
+    reval = svc.revalidate_queued_job(
+        slot_lease_id=str(queued.slot_lease_id),
+        policy_decision_ref="p-new",
+        policy_decision_hash="h-new",
+        worker_online=True,
+        policy_allowed=True,
+        capacity_available=True,
+    )
+    assert reval.status == "rejected"
+    assert reval.reason_code == "stale_policy_decision"
+    svc.release_for_job(decision.slot_lease_id)
