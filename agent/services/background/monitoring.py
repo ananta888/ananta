@@ -50,13 +50,13 @@ def start_monitoring_thread(app):
                     app=app,
                     failure_state=failure_state,
                     failure_lock=failure_lock,
-                    offline_failure_threshold=5,
+                    offline_failure_threshold=8,
                 )
                 get_system_stats_service().record_stats_snapshot(agent_name=app.config.get("AGENT_NAME"))
                 db_error_count = 0
             except Exception as e:
                 db_error_count = log_monitoring_error(e, db_error_count)
-            _sleep_with_shutdown(30)
+            _sleep_with_shutdown(45)
         logging.info("Monitoring-Task beendet.")
 
     t = threading.Thread(target=run_monitoring, daemon=True)

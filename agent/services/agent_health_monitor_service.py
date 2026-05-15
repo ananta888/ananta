@@ -96,7 +96,7 @@ class AgentHealthMonitorService:
             write_json(agents_path, file_agents)
 
     @staticmethod
-    def _health_check_url(url: str, token: str | None, timeout: float = 30.0) -> tuple[str, dict | None]:
+    def _health_check_url(url: str, token: str | None, timeout: float = 60.0) -> tuple[str, dict | None]:
         """Check agent liveness via /health?basic=1 (primary), /health (fallback).
 
         Returns (is_online, resource_data_or_None).  The /health endpoint is
