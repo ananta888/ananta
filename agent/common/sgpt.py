@@ -34,10 +34,10 @@ from agent.research_backend import (
 _SEMAPHORE_LOCK = threading.Lock()
 _BACKEND_SEMAPHORES: dict[str, threading.BoundedSemaphore] = {}
 _DEFAULT_BACKEND_PARALLEL_LIMITS: dict[str, int] = {
-    "sgpt": 1,
-    "ananta-worker": 1,
-    "codex": 1,
-    "opencode": 1,
+    "sgpt": 4,
+    "ananta-worker": 4,
+    "codex": 4,
+    "opencode": 4,
     "aider": 1,
     "mistral_code": 1,
 }

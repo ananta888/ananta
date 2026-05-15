@@ -84,6 +84,7 @@ services:
   ai-agent-alpha:
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
+      ANANTA_WORKSPACE_ROOT: /project-workspaces
     deploy:
       resources:
         limits:
@@ -98,6 +99,7 @@ services:
   ai-agent-beta:
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
+      ANANTA_WORKSPACE_ROOT: /project-workspaces
     deploy:
       resources:
         limits:

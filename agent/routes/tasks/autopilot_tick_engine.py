@@ -1117,13 +1117,20 @@ def execute_autopilot_tick(
     policy = loop._security_policy()
     fallback_policy = _fallback_policy(loop)
     runtime_caps = _runtime_model_capabilities(loop)
-    online_worker_capacity = max(1, len(workers))
+    worker_parallel_cfg = ((loop._agent_config() or {}).get("worker_parallelism") or {}).get("ollama") or {}
+    worker_parallelism = max(1, int((worker_parallel_cfg.get("model_defaults") or {}).get("max_parallel_requests") or 1))
+    online_worker_capacity = max(1, len(workers)) * worker_parallelism
     runtime_capacity = max(1, int((loop._agent_config() or {}).get("runtime_capacity_cap") or online_worker_capacity))
     ollama_capacity = None
     try:
-        ollama_rt = dict((runtime_caps.get("runtime") or {}).get("ollama") or {})
-        if ollama_rt.get("ok"):
-            ollama_capacity = max(1, int(ollama_rt.get("candidate_count") or 1))
+        parallel_cfg = ((loop._agent_config() or {}).get("worker_parallelism") or {}).get("ollama") or {}
+        max_parallel = int((parallel_cfg.get("model_defaults") or {}).get("max_parallel_requests") or 0)
+        if max_parallel > 0:
+            ollama_capacity = max_parallel
+        else:
+            ollama_rt = dict((runtime_caps.get("runtime") or {}).get("ollama") or {})
+            if ollama_rt.get("ok"):
+                ollama_capacity = max(1, int(ollama_rt.get("candidate_count") or 1))
     except Exception:
         ollama_capacity = None
     effective_concurrency = resolve_effective_concurrency(

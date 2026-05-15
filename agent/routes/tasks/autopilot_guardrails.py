@@ -18,7 +18,7 @@ def resolve_security_policy(*, agent_config: dict[str, Any], security_level: str
             "allowed_tool_classes": ["read"],
         },
         "balanced": {
-            "max_concurrency_cap": 2,
+            "max_concurrency_cap": 4,
             "execute_timeout": 60,
             "propose_timeout": 120,
             "execute_retries": 1,
