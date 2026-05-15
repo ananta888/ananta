@@ -272,7 +272,7 @@ class PreflightGate:
             scope=policy_data["scope"],
             rules=rules,
             defaults=policy_data.get("defaults", {}),
-            precedence=policy_data.get("precedence", [])
+            precedence=int(policy_data.get("precedence", 0) or 0),
         )
 
     def _check_task_id(self, envelope: ExecutionEnvelope) -> PreflightResult:
