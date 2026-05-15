@@ -181,7 +181,7 @@
     {
       "id": "PAR-T001",
       "title": "Config-Schema und Defaults an realen Config-Stack anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "summary": "Nicht nur eine JSON-Datei anlegen: Die Parallelitätsconfig muss über config_defaults.py, DB-Overrides und Env-Overrides wirksam werden.",
@@ -214,12 +214,14 @@
       "tests": [
         "tests/test_worker_parallelism_config_schema.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented in codebase on 2026-05-15 (config/schema, ollama slot pool, worker slot lease repo, worker job scheduling fields, scheduler service)."
+      ]
     },
     {
       "id": "PAR-T002",
       "title": "Ollama endpoint+model Slot Pool implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "summary": "Ollama-Kapazität muss global pro endpoint+model gezählt werden, nicht pro Worker. Sonst überbuchen mehrere Worker dasselbe Modell.",
@@ -251,12 +253,14 @@
       "tests": [
         "tests/test_ollama_parallel_runtime_service.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented in codebase on 2026-05-15 (config/schema, ollama slot pool, worker slot lease repo, worker job scheduling fields, scheduler service)."
+      ]
     },
     {
       "id": "PAR-T003",
       "title": "WorkerSlotLeaseDB und Repository real integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "summary": "Die bisherige TODO nannte ein Repository, aber real existieren WorkerJobDB/WorkerResultDB und die Repository-Fassade. Es braucht ein echtes Lease-Modell plus Registrierung.",
@@ -289,12 +293,14 @@
       "tests": [
         "tests/test_worker_slot_lease_repository.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented in codebase on 2026-05-15 (config/schema, ollama slot pool, worker slot lease repo, worker job scheduling fields, scheduler service)."
+      ]
     },
     {
       "id": "PAR-T004",
       "title": "WorkerJobDB additiv um Scheduling-Felder erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "summary": "WorkerJobDB hat bereits selected_* Felder. Neue Felder müssen additiv sein und diese nicht duplizieren oder brechen.",
@@ -324,12 +330,14 @@
       "tests": [
         "tests/test_worker_job_service.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented in codebase on 2026-05-15 (config/schema, ollama slot pool, worker slot lease repo, worker job scheduling fields, scheduler service)."
+      ]
     },
     {
       "id": "PAR-T005",
       "title": "WorkerPoolSchedulerService atomar aufbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "summary": "Worker-Auswahl ohne Reservierung ist nicht ausreichend. Die Reservierung muss atomar sein und darf bei Ollama-Überlast keine Worker-Slots leaken.",
@@ -365,7 +373,9 @@
       "tests": [
         "tests/test_worker_pool_scheduler_service.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented in codebase on 2026-05-15 (config/schema, ollama slot pool, worker slot lease repo, worker job scheduling fields, scheduler service)."
+      ]
     },
     {
       "id": "PAR-T006",
@@ -753,13 +763,13 @@
     "task_counts": {
       "total": 14,
       "by_status": {
-        "todo": 14,
+        "todo": 9,
         "in_progress": 0,
         "blocked": 0,
         "partial": 0,
-        "done": 0
+        "done": 5
       },
-      "progress_percent_done": 0.0
+      "progress_percent_done": 35.71
     },
     "by_priority": {
       "P0": 10,
