@@ -1,0 +1,217 @@
+{
+  "title": "Add generic CodeCompass graph visualization component with simple, 2D and 3D views",
+  "goal": "Create a reusable Angular graph viewer for CodeCompass-generated graphs. The viewer must support three UI/UX variants: simple textual/tree view, graphical 2D graph view, and graphical 3D graph view. The implementation must stay generic, renderer-independent and easily extensible.",
+  "principles": [
+    "Do not couple UI components directly to raw CodeCompass output.",
+    "Use a canonical GenericGraphModel as the only input format for renderers.",
+    "Each graph view variant must be replaceable without changing the parent component.",
+    "The first implementation may use mock data, but the adapter boundary must already exist.",
+    "All renderer components must emit the same selection/filter/navigation events."
+  ],
+  "tasks": [
+    {
+      "id": "graph-001",
+      "title": "Create generic graph model",
+      "type": "implementation",
+      "files": [
+        "src/app/features/codecompass-graph/models/graph.model.ts",
+        "src/app/features/codecompass-graph/models/graph-view-mode.ts",
+        "src/app/features/codecompass-graph/models/graph-filter.model.ts"
+      ],
+      "description": "Define generic node, edge, graph, filter and view-mode interfaces independent from any concrete rendering library.",
+      "acceptance_criteria": [
+        "Graph nodes have id, label, type, optional path, layer, group, weight and metadata.",
+        "Graph edges have id, source, target, type, optional label, weight, directed and metadata.",
+        "View modes are defined as 'simple', '2d' and '3d'.",
+        "No renderer-specific types are used in the generic graph model."
+      ]
+    },
+    {
+      "id": "graph-002",
+      "title": "Create GraphAdapterService",
+      "type": "implementation",
+      "files": [
+        "src/app/features/codecompass-graph/services/graph-adapter.service.ts"
+      ],
+      "description": "Create a single adapter service that translates raw CodeCompass output into the generic graph model.",
+      "acceptance_criteria": [
+        "Raw CodeCompass data is never consumed directly by renderer components.",
+        "The adapter returns a valid CodeCompassGraph object.",
+        "Unknown node and edge types are mapped to 'unknown'.",
+        "Invalid or incomplete input does not crash the UI.",
+        "Adapter contains unit tests for empty graph, malformed graph and valid graph input."
+      ]
+    },
+    {
+      "id": "graph-003",
+      "title": "Create GraphViewerComponent as main shell",
+      "type": "implementation",
+      "files": [
+        "src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.ts",
+        "src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.html",
+        "src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.scss"
+      ],
+      "description": "Create the parent component that owns graph mode switching, selected node/edge state and passes the graph to the active renderer.",
+      "acceptance_criteria": [
+        "Component accepts a CodeCompassGraph as input.",
+        "Component supports switching between simple, 2d and 3d mode.",
+        "Component keeps selected node and selected edge state.",
+        "Renderer components are selected via a clean mode switch.",
+        "Adding a fourth renderer later does not require changing the graph model."
+      ]
+    },
+    {
+      "id": "graph-004",
+      "title": "Create simple graph view",
+      "type": "implementation",
+      "files": [
+        "src/app/features/codecompass-graph/components/simple-graph-view/simple-graph-view.component.ts",
+        "src/app/features/codecompass-graph/components/simple-graph-view/simple-graph-view.component.html",
+        "src/app/features/codecompass-graph/components/simple-graph-view/simple-graph-view.component.scss"
+      ],
+      "description": "Create a simple non-graphical view that lists nodes and edges in a debug-friendly way.",
+      "acceptance_criteria": [
+        "Nodes can be listed by type, label and path.",
+        "Edges can be listed by source, target and type.",
+        "Clicking a node emits nodeSelected.",
+        "Clicking an edge emits edgeSelected.",
+        "The component works without external graph libraries."
+      ]
+    },
+    {
+      "id": "graph-005",
+      "title": "Create 2D graph renderer",
+      "type": "implementation",
+      "files": [
+        "src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.ts",
+        "src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.html",
+        "src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.scss"
+      ],
+      "description": "Create the first graphical 2D graph visualization using a replaceable rendering adapter. Prefer cytoscape.js or keep the renderer wrapper isolated.",
+      "acceptance_criteria": [
+        "2D view renders all nodes and edges from CodeCompassGraph.",
+        "Node click emits nodeSelected.",
+        "Edge click emits edgeSelected.",
+        "Renderer-specific conversion is private to the 2D component or a dedicated renderer adapter.",
+        "Large graphs can be limited or filtered before rendering.",
+        "The component has a loading/empty/error state."
+      ]
+    },
+    {
+      "id": "graph-006",
+      "title": "Create 3D graph renderer",
+      "type": "implementation",
+      "files": [
+        "src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.ts",
+        "src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.html",
+        "src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.scss"
+      ],
+      "description": "Create the 3D graph visualization as optional advanced renderer, preferably isolated behind a lazy-loaded module or dynamic import.",
+      "acceptance_criteria": [
+        "3D view renders nodes and edges from the generic graph model.",
+        "3D-specific dependency is not required by simple view.",
+        "The renderer can be disabled or hidden if WebGL is unavailable.",
+        "Node selection works.",
+        "The component does not mutate the original graph input."
+      ]
+    },
+    {
+      "id": "graph-007",
+      "title": "Create graph toolbar",
+      "type": "implementation",
+      "files": [
+        "src/app/features/codecompass-graph/components/graph-toolbar/graph-toolbar.component.ts",
+        "src/app/features/codecompass-graph/components/graph-toolbar/graph-toolbar.component.html",
+        "src/app/features/codecompass-graph/components/graph-toolbar/graph-toolbar.component.scss"
+      ],
+      "description": "Create reusable toolbar for mode switching, filtering, search and layout controls.",
+      "acceptance_criteria": [
+        "Toolbar exposes mode selection: simple, 2d, 3d.",
+        "Toolbar has search input for node label/path.",
+        "Toolbar allows filtering by node type and edge type.",
+        "Toolbar emits typed events and contains no graph rendering logic."
+      ]
+    },
+    {
+      "id": "graph-008",
+      "title": "Create graph detail panel",
+      "type": "implementation",
+      "files": [
+        "src/app/features/codecompass-graph/components/graph-detail-panel/graph-detail-panel.component.ts",
+        "src/app/features/codecompass-graph/components/graph-detail-panel/graph-detail-panel.component.html",
+        "src/app/features/codecompass-graph/components/graph-detail-panel/graph-detail-panel.component.scss"
+      ],
+      "description": "Create a detail panel for selected nodes and edges.",
+      "acceptance_criteria": [
+        "Selected node details are displayed.",
+        "Selected edge details are displayed.",
+        "Metadata is displayed generically as key/value list.",
+        "Paths are shown as clickable/copyable values where useful.",
+        "Panel handles empty selection cleanly."
+      ]
+    },
+    {
+      "id": "graph-009",
+      "title": "Add graph state service",
+      "type": "implementation",
+      "files": [
+        "src/app/features/codecompass-graph/services/graph-state.service.ts"
+      ],
+      "description": "Centralize selected node, selected edge, active filters and active view mode.",
+      "acceptance_criteria": [
+        "GraphViewerComponent can delegate state handling to GraphStateService.",
+        "State is strongly typed.",
+        "State can later be connected to URL params or persisted UI settings.",
+        "No renderer component owns global graph state."
+      ]
+    },
+    {
+      "id": "graph-010",
+      "title": "Add mock graph data for development",
+      "type": "test-fixture",
+      "files": [
+        "src/app/features/codecompass-graph/testing/mock-codecompass-graph.ts"
+      ],
+      "description": "Add sample graph data representing files, classes, methods, imports, calls and semantic relations.",
+      "acceptance_criteria": [
+        "Mock graph contains at least 20 nodes.",
+        "Mock graph contains at least 30 edges.",
+        "Mock graph includes at least five node types.",
+        "Mock graph includes at least five edge types.",
+        "All three view modes can render the mock graph."
+      ]
+    },
+    {
+      "id": "graph-011",
+      "title": "Add tests",
+      "type": "testing",
+      "files": [
+        "src/app/features/codecompass-graph/**/*.spec.ts"
+      ],
+      "description": "Add unit tests for adapter, state service and component interaction.",
+      "acceptance_criteria": [
+        "Adapter tests cover valid, empty and malformed raw input.",
+        "GraphViewerComponent test verifies mode switching.",
+        "SimpleGraphView test verifies node and edge selection events.",
+        "Toolbar test verifies mode change event.",
+        "Tests do not depend on WebGL."
+      ]
+    },
+    {
+      "id": "graph-012",
+      "title": "Document extension points",
+      "type": "documentation",
+      "files": [
+        "docs/codecompass-graph-viewer.md"
+      ],
+      "description": "Document how new graph node types, edge types and renderers can be added.",
+      "acceptance_criteria": [
+        "Documentation explains the generic graph model.",
+        "Documentation explains the adapter boundary.",
+        "Documentation explains how to add a new renderer.",
+        "Documentation explains how CodeCompass raw output should be mapped.",
+        "Documentation states that renderers must not invent missing semantic relations."
+      ]
+    }
+  ]
+}
