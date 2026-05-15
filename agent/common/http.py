@@ -116,10 +116,11 @@ class HttpClient:
             if idempotency_key:
                 headers["Idempotency-Key"] = idempotency_key
 
+            effective_timeout = timeout if timeout is not None and timeout > 0 else self.timeout
             if form:
-                r = self.session.post(url, data=data or {}, headers=headers, timeout=timeout or self.timeout)
+                r = self.session.post(url, data=data or {}, headers=headers, timeout=effective_timeout)
             else:
-                r = self.session.post(url, json=data or {}, headers=headers, timeout=timeout or self.timeout)
+                r = self.session.post(url, json=data or {}, headers=headers, timeout=effective_timeout)
             if return_response:
                 return r
             r.raise_for_status()
@@ -129,7 +130,7 @@ class HttpClient:
                 return r.text
         except requests.exceptions.Timeout:
             if not silent:
-                logging.warning(f"HTTP POST Timeout ({timeout or self.timeout}s): {url}")
+                logging.warning(f"HTTP POST Timeout ({effective_timeout}s): {url}")
             return None
         except requests.exceptions.ConnectionError as e:
             # Fallback für host.docker.internal
@@ -183,11 +184,6 @@ _default_client = None
 
 def get_default_client(timeout: int = 30, retries: int = 3):
     global _default_client
-    if _default_client is None:
+    if _default_client is None or _default_client.timeout != timeout:
         _default_client = HttpClient(timeout=timeout, retries=retries)
-    else:
-        # Falls sich Parameter ändern, könnten wir sie hier theoretisch aktualisieren,
-        # aber HttpClient.get/post erlauben ohnehin das Überschreiben des Timeouts.
-        # Wir dokumentieren hier nur, dass der Singleton existiert.
-        pass
     return _default_client
