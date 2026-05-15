@@ -30,9 +30,12 @@ services:
     environment:
       ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_ALPHA:-agent-only}
       ROLE: worker
+      AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
+      ANANTA_WORKER_MAX_PARALLEL_TASKS: ${ANANTA_WORKER_MAX_PARALLEL_TASKS:-4}
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
       LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434/api/generate}
       OPENAI_URL: ${OPENAI_URL:-https://api.openai.com/v1/chat/completions}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       REDIS_URL: ${REDIS_URL:-}
@@ -49,9 +52,12 @@ services:
     environment:
       ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_BETA:-agent-only}
       ROLE: worker
+      AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
+      ANANTA_WORKER_MAX_PARALLEL_TASKS: ${ANANTA_WORKER_MAX_PARALLEL_TASKS:-4}
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
       LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434/api/generate}
       OPENAI_URL: ${OPENAI_URL:-https://api.openai.com/v1/chat/completions}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       REDIS_URL: ${REDIS_URL:-}

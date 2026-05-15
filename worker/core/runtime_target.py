@@ -293,6 +293,7 @@ class WorkerCandidate(BaseModel):
     roles: list[str] = Field(default_factory=list)
     supported_execution_modes: list[str] = Field(default_factory=list)
     runtime_target_ids: list[str] = Field(default_factory=list)
+    max_parallel_tasks: int = 1
     health_state: RuntimeHealthState = RuntimeHealthState.unknown
     validation_errors: list[str] = Field(default_factory=list)
     risk_flags: list[str] = Field(default_factory=list)
@@ -304,6 +305,13 @@ class WorkerCandidate(BaseModel):
         v = str(v or "").strip()
         if not v:
             raise ValueError("worker_id must be non-empty")
+        return v
+
+    @field_validator("max_parallel_tasks")
+    @classmethod
+    def _worker_positive_parallelism(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("max_parallel_tasks must be >= 1")
         return v
 
     def supports_capabilities(self, capabilities: list[str]) -> tuple[bool, list[str]]:

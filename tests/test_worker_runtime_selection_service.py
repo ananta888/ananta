@@ -24,6 +24,7 @@ def _native_worker():
         runtime_target_ids=["docker-local"],
         health_state=RuntimeHealthState.ready,
         priority=10,
+        max_parallel_tasks=1,
     )
 
 
@@ -36,6 +37,7 @@ def _opencode_worker():
         runtime_target_ids=["docker-local"],
         health_state=RuntimeHealthState.ready,
         priority=20,
+        max_parallel_tasks=2,
     )
 
 
@@ -183,3 +185,22 @@ def test_selection_is_deterministic_for_same_inputs():
     second = WorkerRuntimeSelectionService().select(request)
     assert first.model_dump(mode="json") == second.model_dump(mode="json")
     assert first.decision_hash == second.decision_hash
+
+
+def test_capacity_exhaustion_rejects_full_worker_and_runtime():
+    decision = WorkerRuntimeSelectionService().select(WorkerRuntimeSelectionRequest(
+        policy=WorkerSelectionPolicy(
+            mode=WorkerSelectionMode.automatic,
+            allowed_worker_kinds=[WorkerKind.native_ananta_worker],
+            allow_cloud=False,
+            allow_external_workers=False,
+        ),
+        workers=[_native_worker()],
+        runtime_targets=[_docker_runtime()],
+        required_capabilities=["planning"],
+        current_load_by_worker_id={"native-01": 1},
+        current_load_by_runtime_target_id={"docker-local": 1},
+    ))
+    assert decision.decision_status == SelectionDecisionStatus.no_eligible_worker
+    reasons = {r.reason_code for r in decision.rejected_candidates}
+    assert "worker_parallel_capacity_exhausted" in reasons or "runtime_parallel_capacity_exhausted" in reasons

@@ -427,6 +427,7 @@ class AgentRegisterRequest(SQLModel):
     capabilities: List[str] = Field(default_factory=list)
     runtime_targets: List[dict] = Field(default_factory=list)
     execution_limits: dict = Field(default_factory=dict)
+    worker_kind: Optional[str] = None
     strategy_mode: Optional[str] = None
     registration_token: Optional[str] = None
 
@@ -457,6 +458,8 @@ class AgentDirectoryEntryContract(SQLModel):
     registration_validated: bool = True
     validation_errors: List[str] = Field(default_factory=list)
     current_load: int = 0
+    reported_load: int = 0
+    scheduler_load: int = 0
     available_for_routing: bool = True
     routing_signals: dict = Field(default_factory=dict)
     security_level: str = "medium"

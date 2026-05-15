@@ -55,6 +55,9 @@ class WorkerRuntimeSelectionRequest:
     required_context_class: str = ""  # Added for CAP integration
     context_blocks: list[dict[str, Any]] | None = None
     context_access_policy: Optional[Any] = None
+    current_load_by_worker_id: dict[str, int] | None = None
+    current_load_by_runtime_target_id: dict[str, int] | None = None
+    capacity_reservations: dict[str, int] | None = None
 
 
 class WorkerRuntimeSelectionService:
@@ -75,7 +78,13 @@ class WorkerRuntimeSelectionService:
 
         scored: list[tuple[int, WorkerCandidate, WorkerRuntimeTarget]] = []
         for worker in sorted(candidates, key=lambda w: (w.priority, w.worker_kind.value, w.worker_id)):
-            worker_allowed, worker_rejection = self._check_worker(policy, worker, required, request.execution_mode)
+            worker_allowed, worker_rejection = self._check_worker(
+                policy,
+                worker,
+                required,
+                request.execution_mode,
+                request.current_load_by_worker_id or {},
+            )
             if not worker_allowed:
                 rejected.append(worker_rejection)
                 continue
@@ -91,7 +100,13 @@ class WorkerRuntimeSelectionService:
 
             any_runtime_ok = False
             for runtime in sorted(runtimes, key=lambda r: (self._runtime_score(policy, r), r.runtime_target_id)):
-                runtime_allowed, runtime_rejection = self._check_runtime(policy, worker, runtime, required)
+                runtime_allowed, runtime_rejection = self._check_runtime(
+                    policy,
+                    worker,
+                    runtime,
+                    required,
+                    request.current_load_by_runtime_target_id or {},
+                )
                 if not runtime_allowed:
                     rejected.append(runtime_rejection)
                     continue
@@ -114,7 +129,14 @@ class WorkerRuntimeSelectionService:
                          continue
 
                 any_runtime_ok = True
-                score = self._score(policy, worker, runtime, required)
+                score = self._score(
+                    policy,
+                    worker,
+                    runtime,
+                    required,
+                    request.current_load_by_worker_id or {},
+                    request.current_load_by_runtime_target_id or {},
+                )
                 scored.append((score, worker, runtime))
             if not any_runtime_ok and policy.mode == WorkerSelectionMode.fixed:
                 # Fixed assignment must fail closed; keep all runtime rejections above.
@@ -219,6 +241,7 @@ class WorkerRuntimeSelectionService:
         worker: WorkerCandidate,
         required: list[str],
         execution_mode: str,
+        current_load_by_worker_id: dict[str, int],
     ) -> tuple[bool, RejectedWorkerRuntimeCandidate]:
         if worker.health_state not in {RuntimeHealthState.ready, RuntimeHealthState.degraded}:
             return False, self._reject_worker(worker, "worker_unavailable")
@@ -239,6 +262,14 @@ class WorkerRuntimeSelectionService:
             return False, self._reject_worker(worker, "analysis_only_worker_rejected_for_mutation")
         if execution_mode and worker.supported_execution_modes and execution_mode not in worker.supported_execution_modes:
             return False, self._reject_worker(worker, "execution_mode_not_supported")
+        current = max(0, int(current_load_by_worker_id.get(worker.worker_id, 0)))
+        max_parallel = max(1, int(getattr(worker, "max_parallel_tasks", 1) or 1))
+        if current >= max_parallel:
+            return False, self._reject_worker(
+                worker,
+                "worker_parallel_capacity_exhausted",
+                detail=f"active={current},max={max_parallel}",
+            )
         return True, self._reject_worker(worker, "")
 
     def _check_runtime(
@@ -247,6 +278,7 @@ class WorkerRuntimeSelectionService:
         worker: WorkerCandidate,
         runtime: WorkerRuntimeTarget,
         required: list[str],
+        current_load_by_runtime_target_id: dict[str, int],
     ) -> tuple[bool, RejectedWorkerRuntimeCandidate]:
         if runtime.health_state not in {RuntimeHealthState.ready, RuntimeHealthState.degraded}:
             return False, self._reject(worker, runtime, "runtime_unavailable")
@@ -259,6 +291,15 @@ class WorkerRuntimeSelectionService:
         ok, missing = runtime.supports_capabilities(required)
         if not ok:
             return False, self._reject(worker, runtime, "missing_runtime_capabilities", missing)
+        current = max(0, int(current_load_by_runtime_target_id.get(runtime.runtime_target_id, 0)))
+        max_parallel = max(1, int(runtime.max_parallel_tasks or 1))
+        if current >= max_parallel:
+            return False, self._reject(
+                worker,
+                runtime,
+                "runtime_parallel_capacity_exhausted",
+                detail=f"active={current},max={max_parallel}",
+            )
         return True, self._reject(worker, runtime, "")
 
     def _candidate_runtimes(
@@ -277,6 +318,8 @@ class WorkerRuntimeSelectionService:
         worker: WorkerCandidate,
         runtime: WorkerRuntimeTarget,
         required: list[str],
+        current_load_by_worker_id: dict[str, int],
+        current_load_by_runtime_target_id: dict[str, int],
     ) -> int:
         score = worker.priority
         score += self._runtime_score(policy, runtime)
@@ -290,6 +333,8 @@ class WorkerRuntimeSelectionService:
             score -= 25
         if runtime.health_state == RuntimeHealthState.degraded:
             score += 25
+        score += max(0, int(current_load_by_worker_id.get(worker.worker_id, 0))) * 5
+        score += max(0, int(current_load_by_runtime_target_id.get(runtime.runtime_target_id, 0))) * 3
         return score
 
     def _runtime_score(self, policy: WorkerSelectionPolicy, runtime: WorkerRuntimeTarget) -> int:
@@ -313,12 +358,14 @@ class WorkerRuntimeSelectionService:
         worker: WorkerCandidate,
         reason_code: str,
         missing: list[str] | None = None,
+        detail: str = "",
     ) -> RejectedWorkerRuntimeCandidate:
         return RejectedWorkerRuntimeCandidate(
             worker_id=worker.worker_id,
             worker_kind=worker.worker_kind,
             reason_code=reason_code,
             missing_capabilities=missing or [],
+            detail=detail,
         )
 
     def _reject(
@@ -327,6 +374,7 @@ class WorkerRuntimeSelectionService:
         runtime: WorkerRuntimeTarget,
         reason_code: str,
         missing: list[str] | None = None,
+        detail: str = "",
     ) -> RejectedWorkerRuntimeCandidate:
         return RejectedWorkerRuntimeCandidate(
             worker_id=worker.worker_id,
@@ -335,6 +383,7 @@ class WorkerRuntimeSelectionService:
             runtime_kind=runtime.runtime_kind,
             reason_code=reason_code,
             missing_capabilities=missing or [],
+            detail=detail,
         )
 
 

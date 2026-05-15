@@ -73,6 +73,27 @@ def test_register_agent_with_capabilities_metadata(client, app):
             assert response.json["data"]["agent"]["execution_limits"]["max_parallel_tasks"] == 2
 
 
+def test_register_agent_accepts_explicit_worker_kind(client, app):
+    with patch("agent.routes.system.http_client.get") as mock_get:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+
+        with patch("agent.routes.system.agent_repo") as mock_repo:
+            payload = {
+                "name": "worker-opencode-a",
+                "url": "http://worker-opencode-a:5000",
+                "role": "worker",
+                "worker_roles": ["coder"],
+                "capabilities": ["patch_propose", "code_read"],
+                "worker_kind": "opencode",
+            }
+            response = client.post("/register", json=payload)
+            assert response.status_code == 200
+            saved_agent = mock_repo.save.call_args[0][0]
+            assert saved_agent.execution_limits["worker_kind"] == "opencode"
+
+
 def test_register_agent_exposes_validation_errors_field(client, app):
     """DRR-T037: Agent directory entry exposes registration_validated and validation_errors read-only."""
     from agent.db_models import AgentInfoDB
@@ -157,7 +178,30 @@ def test_list_agents_exposes_liveness_contract(client, admin_auth_header):
     assert payload[0]["available_for_routing"] is True
     assert payload[0]["liveness"]["available_for_routing"] is True
     assert payload[0]["current_load"] == 1
+    assert payload[0]["reported_load"] == 1
+    assert payload[0]["scheduler_load"] == 0
     assert payload[0]["routing_signals"]["success_rate"] == 0.9
+
+
+def test_agent_directory_uses_effective_load_max_of_reported_and_scheduler():
+    from agent.db_models import AgentInfoDB
+    from agent.services.agent_registry_service import AgentRegistryService
+
+    agent = AgentInfoDB(
+        url="http://worker-two:5000",
+        name="worker-two",
+        role="worker",
+        worker_roles=["coder"],
+        capabilities=["coding"],
+        execution_limits={"max_parallel_tasks": 2, "current_load": 0, "scheduler_load": 2},
+        status="online",
+        registration_validated=True,
+    )
+    entry = AgentRegistryService().build_directory_entry(agent=agent, timeout=60.0)
+    assert entry["reported_load"] == 0
+    assert entry["scheduler_load"] == 2
+    assert entry["current_load"] == 2
+    assert entry["available_for_routing"] is False
 
 
 def test_register_agent_rejects_invalid_role(client, app):
