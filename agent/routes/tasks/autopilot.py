@@ -73,8 +73,8 @@ class AutonomousLoopManager:
         self._wake_event = threading.Event()
         self._thread: threading.Thread | None = None
         self.running = False
-        self.interval_seconds = 5
-        self.max_concurrency = 2
+        self.interval_seconds = 1
+        self.max_concurrency = 8
         self.last_tick_at: float | None = None
         self.last_error: str | None = None
         self.tick_count = 0
@@ -167,7 +167,7 @@ class AutonomousLoopManager:
         background = bool(background) and not _background_threads_disabled(self._app)
         with self._lock:
             if interval_seconds is not None:
-                self.interval_seconds = max(3, int(interval_seconds))
+                self.interval_seconds = max(1, int(interval_seconds))
             if max_concurrency is not None:
                 self.max_concurrency = max(1, int(max_concurrency))
             if goal is not None:
