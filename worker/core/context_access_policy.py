@@ -127,7 +127,7 @@ class ContextAccessRule:
     allowed_runtime_kinds: List[str] = field(default_factory=list)
     denied_runtime_kinds: List[str] = field(default_factory=list)
     allowed_model_scopes: List[ModelScope] = field(default_factory=list)
-    denied_model_scopes: List[str] = field(default_factory=list)
+    denied_model_scopes: List[ModelScope] = field(default_factory=list)
     allowed_provider_locations: List[str] = field(default_factory=list)
     denied_provider_locations: List[str] = field(default_factory=list)
     read_allowed: Optional[bool] = None
@@ -186,13 +186,25 @@ class ContextAccessPolicyEvaluator:
         matched_rule_ids = [r.id for r in matched_rules]
         effective_sensitivity = block_metadata.get("sensitivity", Sensitivity.unknown)
 
-        if block_metadata.get("approval_override_id"):
+        if self._is_approval_override_allowed(block_metadata, destination):
             return ContextBlockAccessDecision(
                 block_id=block_metadata.get("block_id", "unknown"),
                 source_ref=block_metadata.get("source_ref", "unknown"),
                 matched_rule_ids=matched_rule_ids,
                 decision=Decision.allow,
                 reason_detail="Approval override active",
+                effective_sensitivity=effective_sensitivity,
+                policy_version=self.policy.version,
+                decision_hash=decision_hash
+            )
+        if block_metadata.get("approval_override_id"):
+            return ContextBlockAccessDecision(
+                block_id=block_metadata.get("block_id", "unknown"),
+                source_ref=block_metadata.get("source_ref", "unknown"),
+                matched_rule_ids=matched_rule_ids,
+                decision=Decision.approval_required,
+                reason_code=ReasonCode.approval_required,
+                reason_detail="Approval override present but scope mismatch",
                 effective_sensitivity=effective_sensitivity,
                 policy_version=self.policy.version,
                 decision_hash=decision_hash
@@ -220,7 +232,8 @@ class ContextAccessPolicyEvaluator:
                     reason_code=rule_decision.get("reason_code"),
                     reason_detail=f"Denied by rule {rule.id}: {rule.description}",
                     effective_sensitivity=effective_sensitivity,
-                    policy_version=self.policy.version
+                    policy_version=self.policy.version,
+                    decision_hash=decision_hash,
                 )
             elif rule_decision.get("decision") == Decision.allow:
                 decision = Decision.allow
@@ -242,6 +255,38 @@ class ContextAccessPolicyEvaluator:
             decision_hash=decision_hash
         )
 
+    def _is_approval_override_allowed(self, block_metadata: Dict[str, Any], destination: DestinationContext) -> bool:
+        approval_id = block_metadata.get("approval_override_id")
+        if not approval_id:
+            return False
+        scope = block_metadata.get("approval_scope") or {}
+        if not isinstance(scope, dict):
+            return False
+        approved_block_hash = str(scope.get("block_hash") or "")
+        if approved_block_hash and approved_block_hash != str(block_metadata.get("content_hash") or ""):
+            return False
+        requested_op = str(scope.get("requested_operation") or "")
+        if requested_op and requested_op != destination.requested_operation.value:
+            return False
+        worker_kind = str(scope.get("worker_kind") or "")
+        if worker_kind and worker_kind != destination.worker_kind:
+            return False
+        runtime_kind = str(scope.get("runtime_kind") or "")
+        if runtime_kind and runtime_kind != destination.runtime_kind:
+            return False
+        provider_location = str(scope.get("provider_location") or "")
+        if provider_location and provider_location != destination.provider_location:
+            return False
+        valid_until = scope.get("valid_until")
+        if valid_until is not None:
+            try:
+                import time
+                if float(valid_until) < time.time():
+                    return False
+            except Exception:
+                return False
+        return True
+
     def _match_source(self, rule: ContextAccessRule, block_metadata: Dict[str, Any]) -> bool:
         if rule.source_types:
             if block_metadata.get("source_type") not in [t.value for t in rule.source_types]:
@@ -262,6 +307,21 @@ class ContextAccessPolicyEvaluator:
         return True
 
     def _evaluate_rule(self, rule: ContextAccessRule, destination: DestinationContext) -> Dict[str, Any]:
+        if destination.worker_kind in rule.denied_worker_kinds:
+            return {"decision": Decision.deny, "reason_code": ReasonCode.worker_not_allowed}
+        if rule.allowed_worker_kinds and destination.worker_kind not in rule.allowed_worker_kinds:
+            return {"decision": Decision.deny, "reason_code": ReasonCode.worker_not_allowed}
+
+        if destination.runtime_kind in rule.denied_runtime_kinds:
+            return {"decision": Decision.deny, "reason_code": ReasonCode.runtime_not_allowed}
+        if rule.allowed_runtime_kinds and destination.runtime_kind not in rule.allowed_runtime_kinds:
+            return {"decision": Decision.deny, "reason_code": ReasonCode.runtime_not_allowed}
+
+        if destination.provider_location in rule.denied_provider_locations:
+            return {"decision": Decision.deny, "reason_code": ReasonCode.provider_location_blocked}
+        if rule.allowed_provider_locations and destination.provider_location not in rule.allowed_provider_locations:
+            return {"decision": Decision.deny, "reason_code": ReasonCode.provider_location_blocked}
+
         if destination.model_scope in rule.denied_model_scopes:
             return {"decision": Decision.deny, "reason_code": ReasonCode.model_scope_not_allowed}
 
@@ -280,7 +340,56 @@ class ContextAccessPolicyEvaluator:
         if destination.requested_operation == RequestedOperation.tool_write and rule.write_allowed is False:
             return {"decision": Decision.deny, "reason_code": ReasonCode.write_not_allowed}
 
-        if rule.send_allowed or rule.read_allowed:
+        if destination.requested_operation == RequestedOperation.tool_read and rule.read_allowed is False:
+            return {"decision": Decision.deny, "reason_code": ReasonCode.unmatched_source_denied}
+
+        if rule.send_allowed or rule.read_allowed or rule.write_allowed:
             return {"decision": Decision.allow, "reason_code": None}
 
         return {"decision": Decision.deny, "reason_code": ReasonCode.unmatched_source_denied}
+
+
+def build_destination_context(
+    *,
+    worker_id: str,
+    worker_kind: str,
+    runtime_target_id: str,
+    runtime_kind: str,
+    provider_id: str,
+    provider_location: str,
+    model_id: str,
+    requested_operation: RequestedOperation,
+    tool_id: Optional[str] = None,
+    task_kind: Optional[str] = None,
+    execution_mode: Optional[str] = None,
+) -> DestinationContext:
+    rk = (runtime_kind or "").lower()
+    pk = (provider_location or "").lower()
+    cloud_effective = ("cloud" in rk) or ("remote" in rk) or pk in {"public", "external", "cloud", "public_cloud", "approved_cloud"}
+    external_effective = ("external" in rk) or ("remote" in rk) or pk in {"external", "public", "public_cloud", "approved_cloud"}
+    local_effective = not cloud_effective and not external_effective
+    if local_effective:
+        model_scope = ModelScope.local_model
+    elif pk in {"private", "private_remote"}:
+        model_scope = ModelScope.private_remote
+    elif pk in {"public", "cloud", "external"}:
+        model_scope = ModelScope.public_cloud
+    else:
+        model_scope = ModelScope.none
+    return DestinationContext(
+        worker_id=worker_id,
+        worker_kind=worker_kind,
+        runtime_target_id=runtime_target_id,
+        runtime_kind=runtime_kind,
+        provider_id=provider_id,
+        provider_location=provider_location,
+        model_id=model_id,
+        model_scope=model_scope,
+        cloud_effective=cloud_effective,
+        external_effective=external_effective,
+        local_effective=local_effective,
+        requested_operation=requested_operation,
+        tool_id=tool_id,
+        task_kind=task_kind,
+        execution_mode=execution_mode,
+    )

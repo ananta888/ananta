@@ -12,8 +12,11 @@ from typing import Any
 from worker.core.execution_envelope import (
     ApprovalRef,
     CapabilityGrant,
+    ExecutionEnvelope,
     RepairProcedure,
     RepairStep,
+    ToolPolicy,
+    ModelPolicy,
 )
 from worker.repair.repair_procedure_runner import RepairProcedureRunner
 
@@ -57,8 +60,24 @@ class RepairExecutionOrchestrator:
         step: RepairStep,
         *,
         approval_ref: dict[str, Any] | None = None,
+        capability_grant: CapabilityGrant | None = None,
     ) -> dict[str, Any]:
         """Build the dict expected by RepairProcedureRunner.run_step(). DRR-T014."""
+        cap_grant = capability_grant or CapabilityGrant(
+            capabilities=["admin_repair", "deterministic_repair"]
+        )
+        approvals = [approval_ref] if approval_ref else []
+        exec_env = ExecutionEnvelope(
+            task_id=self.task_id,
+            actor_ref=self.actor_ref,
+            capability_grant=cap_grant,
+            context_envelope_ref=f"ctx:{self.task_id}",
+            audit_correlation_id=self.correlation_id,
+            approval_refs=[ApprovalRef(**a) for a in approvals if isinstance(a, dict)],
+            repair_procedure=self.procedure,
+            tool_policy=ToolPolicy(allowed_tool_ids=["read_file"], legacy_default_allow=True),
+            model_policy=ModelPolicy(cloud_allowed=False, legacy_default_allow=True),
+        )
         envelope: dict[str, Any] = {
             "step": step.model_dump(),
             "task_id": self.task_id,
@@ -66,9 +85,8 @@ class RepairExecutionOrchestrator:
             "audit_correlation_id": self.correlation_id,
             "parent_plan_id": getattr(self.procedure, "plan_id", None) or self.task_id,
             "step_id": step.step_id,
+            "execution_envelope": exec_env.model_dump(),
         }
-        if approval_ref:
-            envelope["approval_ref"] = approval_ref
         return envelope
 
     def execute_step(
@@ -83,7 +101,11 @@ class RepairExecutionOrchestrator:
             return {"status": "terminal", "step_id": step.step_id, "reason": "orchestrator_already_finished"}
 
         runner = RepairProcedureRunner()
-        step_env_dict = self._build_step_envelope_dict(step, approval_ref=approval_ref)
+        step_env_dict = self._build_step_envelope_dict(
+            step,
+            approval_ref=approval_ref,
+            capability_grant=capability_grant,
+        )
         step_result = runner.run_step(step_env_dict)
 
         result_dict: dict[str, Any] = {

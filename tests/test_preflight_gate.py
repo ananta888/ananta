@@ -20,6 +20,7 @@ from worker.core.execution_envelope import (
     WorkerResultStatus,
     make_trace,
 )
+from worker.core.runtime_target import SelectedWorkerRuntimeRef, WorkerKind, WorkerRuntimeKind, WorkerSelectionMode
 from worker.core.preflight import (
     REASON_APPROVAL_MISSING,
     REASON_CONTEXT_MISSING,
@@ -45,6 +46,13 @@ def _env(**overrides) -> ExecutionEnvelope:
         capability_grant=CapabilityGrant(capabilities=["planning"]),
         context_envelope_ref="ctx:001",
         audit_correlation_id="audit:001",
+        selected_worker_runtime=SelectedWorkerRuntimeRef(
+            selected_worker_id="w-local-1",
+            selected_worker_kind=WorkerKind.native_ananta_worker,
+            selected_runtime_target_id="rt-local-1",
+            selected_runtime_kind=WorkerRuntimeKind.local_process,
+            selection_mode=WorkerSelectionMode.automatic,
+        ),
     )
     defaults.update(overrides)
     return ExecutionEnvelope(**defaults)
@@ -150,11 +158,10 @@ class TestFailClosed:
         assert result.decision == PreflightDecision.blocked
         assert result.reason_code == REASON_PROVIDER_BLOCKED
 
-    def test_empty_allowlist_allows_non_cloud_providers(self):
-        # Empty allowed_providers = "any non-cloud provider ok" per spec
+    def test_empty_allowlist_denies_provider_by_default(self):
         env = _env(model_policy=ModelPolicy(cloud_allowed=False))
         result = GATE.check_provider(env, "local_ollama_fork")
-        assert result.allowed
+        assert result.decision == PreflightDecision.blocked
 
     def test_cloud_provider_blocked_when_cloud_not_allowed(self):
         env = _env(model_policy=ModelPolicy(cloud_allowed=False))
@@ -178,8 +185,13 @@ class TestFailClosed:
         result = GATE.check_tool(env, "read_file")
         assert result.allowed
 
-    def test_empty_tool_allowlist_allows_all(self):
+    def test_empty_tool_allowlist_denies_by_default(self):
         env = _env(tool_policy=ToolPolicy())
+        result = GATE.check_tool(env, "any_tool")
+        assert result.decision == PreflightDecision.blocked
+
+    def test_legacy_tool_allowlist_override_allows(self):
+        env = _env(tool_policy=ToolPolicy(legacy_default_allow=True))
         result = GATE.check_tool(env, "any_tool")
         assert result.allowed
 

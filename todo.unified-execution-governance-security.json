@@ -312,7 +312,7 @@
       "id": "SEC-P0-001",
       "source": "fixup_planning",
       "title": "ContextAccessPolicyEvaluator zur einzigen Decision Engine machen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical"
     },
@@ -320,7 +320,7 @@
       "id": "SEC-P0-002",
       "source": "fixup_planning",
       "title": "ContextAccessRule vollständig auswerten",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high"
     },
@@ -344,7 +344,7 @@
       "id": "SEC-P0-005",
       "source": "fixup_planning",
       "title": "WorkerRuntimeSelectionService über echte Policy-Decisions absichern",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high"
     },
@@ -352,7 +352,7 @@
       "id": "SEC-P0-006",
       "source": "fixup_planning",
       "title": "PreflightGate mit realem DestinationContext verbinden",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical"
     },
@@ -360,7 +360,7 @@
       "id": "SEC-P0-007",
       "source": "fixup_planning",
       "title": "RepairProcedureRunner: run_step darf Preflight nicht umgehen",
-      "status": "in_progress",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical"
     },
@@ -368,7 +368,7 @@
       "id": "SEC-P0-008",
       "source": "fixup_planning",
       "title": "ToolPolicy und ModelPolicy auf Default-Deny umstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high"
     },
@@ -376,7 +376,7 @@
       "id": "SEC-P1-001",
       "source": "fixup_planning",
       "title": "SourceClassificationService sauber kapseln",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium"
     },
@@ -408,7 +408,7 @@
       "id": "SEC-P2-001",
       "source": "fixup_planning",
       "title": "Fehlerhafte Tests korrigieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low"
     }
@@ -440,13 +440,13 @@
     "task_counts": {
       "total": 46,
       "by_status": {
-        "todo": 12,
-        "in_progress": 1,
+        "todo": 5,
+        "in_progress": 0,
         "blocked": 0,
-        "partial": 8,
-        "done": 25
+        "partial": 13,
+        "done": 28
       },
-      "progress_percent_done": 54.35
+      "progress_percent_done": 60.87
     },
     "by_priority": {
       "P0": 26,
@@ -471,10 +471,10 @@
       },
       "fixup_planning": {
         "total": 13,
-        "done": 0,
-        "partial": 0,
-        "todo": 12,
-        "in_progress": 1,
+        "done": 3,
+        "partial": 5,
+        "todo": 5,
+        "in_progress": 0,
         "blocked": 0
       }
     }
@@ -513,7 +513,7 @@
     {
       "rank": 1,
       "task_id": "SEC-P0-007",
-      "status": "in_progress",
+      "status": "partial",
       "why_now": "Höchstes Bypass-Risiko: run_step kann Guardrails umgehen.",
       "scope": [
         "run_step auf denselben Preflight-/Guardrail-Pfad wie run_plan heben",
@@ -532,7 +532,7 @@
     {
       "rank": 2,
       "task_id": "SEC-P0-001",
-      "status": "todo",
+      "status": "partial",
       "why_now": "Verhindert divergende Security-Entscheidungen in mehreren Services.",
       "scope": [
         "ContextAccessPolicyEvaluator als einzige Entscheidungsinstanz",
@@ -554,7 +554,7 @@
     {
       "rank": 3,
       "task_id": "SEC-P0-002",
-      "status": "todo",
+      "status": "partial",
       "why_now": "Policy-Modell und Enforcement müssen deckungsgleich sein.",
       "scope": [
         "allowed/denied worker/runtime/provider vollständig prüfen",
@@ -590,7 +590,7 @@
     {
       "rank": 5,
       "task_id": "SEC-P0-005",
-      "status": "todo",
+      "status": "partial",
       "why_now": "Worker/Runtime-Auswahl muss block-genaue Policy nutzen.",
       "scope": [
         "context_blocks in Selection-Request",
@@ -609,7 +609,7 @@
     {
       "rank": 6,
       "task_id": "SEC-P0-006",
-      "status": "todo",
+      "status": "partial",
       "why_now": "Preflight muss reale Runtime/Provider-Destination erzwingen.",
       "scope": [
         "selected_worker_runtime verpflichtend",
@@ -628,7 +628,7 @@
     {
       "rank": 7,
       "task_id": "SEC-P0-008",
-      "status": "todo",
+      "status": "done",
       "why_now": "Least-Privilege erfordert Default-Deny für Tools/Provider.",
       "scope": [
         "empty allow-lists -> deny",
@@ -683,7 +683,7 @@
     {
       "rank": 10,
       "task_id": "SEC-P1-001",
-      "status": "todo",
+      "status": "done",
       "why_now": "SRP/DIP: Redaction darf nicht über private Pattern-Leaks gekoppelt sein.",
       "scope": [
         "public redact_secrets API",

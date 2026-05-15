@@ -353,20 +353,34 @@ class RepairProcedureRunner:
                 status=RepairStepResultStatus.failed,
                 reason_code=f"invalid_step_payload:{exc}",
             )
-        # DRR-T014: validate approval_ref for mutation steps
-        if step.mutation_candidate:
-            approval_ref = step_envelope.get("approval_ref")
-            if not approval_ref:
-                return RepairStepResult(
-                    step_id=step.step_id,
-                    status=RepairStepResultStatus.approval_required,
-                    reason_code="approval_missing_for_mutation_step",
-                )
-        return RepairStepResult(
-            step_id=step.step_id,
-            status=RepairStepResultStatus.success,
-            reason_code="executed",
-        )
+        envelope_data = step_envelope.get("execution_envelope")
+        if not isinstance(envelope_data, dict):
+            return RepairStepResult(
+                step_id=step.step_id,
+                status=RepairStepResultStatus.denied,
+                reason_code="missing_execution_envelope",
+            )
+        try:
+            envelope = ExecutionEnvelope(**envelope_data)
+        except Exception as exc:
+            return RepairStepResult(
+                step_id=step.step_id,
+                status=RepairStepResultStatus.failed,
+                reason_code=f"invalid_execution_envelope:{exc}",
+            )
+        preflight = self._gate.check(envelope)
+        if not preflight.allowed:
+            status = (
+                RepairStepResultStatus.approval_required
+                if preflight.decision.value == "confirm_required"
+                else RepairStepResultStatus.denied
+            )
+            return RepairStepResult(
+                step_id=step.step_id,
+                status=status,
+                reason_code=preflight.reason_code,
+            )
+        return self._execute_step(envelope, step)
 
     @staticmethod
     def _get_action_safety_class(step: RepairStep, procedure: RepairProcedure) -> str:

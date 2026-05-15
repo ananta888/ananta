@@ -26,6 +26,7 @@ from worker.core.context_access_policy import (
     ContextAccessRule,
     ContextAccessPolicyEvaluator,
     DestinationContext,
+    build_destination_context,
     RequestedOperation,
     Decision,
     ModelScope,
@@ -97,8 +98,14 @@ class PreflightGate:
                 return result
         return PreflightResult(decision=PreflightDecision.allow, reason_code="preflight_allow")
 
-    def check_provider(self, envelope: ExecutionEnvelope, provider: str, context_blocks: list[ContextBlock] | None = None) -> PreflightResult:
+    def check_provider(self, envelope: ExecutionEnvelope, provider: str, context_blocks: list[dict[str, Any]] | None = None) -> PreflightResult:
         """Called before any model call. Fail-closed: unknown provider → blocked."""
+        if envelope.selected_worker_runtime is None:
+            return PreflightResult(
+                decision=PreflightDecision.blocked,
+                reason_code=REASON_INVALID_REQUEST,
+                detail="selected_worker_runtime is required for provider calls",
+            )
         if not envelope.model_policy.is_provider_allowed(provider):
             return PreflightResult(
                 decision=PreflightDecision.blocked,
@@ -112,31 +119,27 @@ class PreflightGate:
                 policy = self._ensure_policy(envelope.context_access_policy)
                 evaluator = ContextAccessPolicyEvaluator(policy)
                 
-                # Reconstruct DestinationContext for this provider
-                # In a real worker, these details come from the runtime/model selection
-                dest = DestinationContext(
+                runtime = envelope.selected_worker_runtime
+                runtime_kind_val = runtime.selected_runtime_kind.value if runtime and runtime.selected_runtime_kind else ""
+                provider_location = "local" if "local" in runtime_kind_val else "external"
+                dest = build_destination_context(
                     worker_id=envelope.actor_ref,
-                    worker_kind="native",
-                    runtime_target_id="cloud",
-                    runtime_kind="remote",
+                    worker_kind=runtime.selected_worker_kind.value if runtime and runtime.selected_worker_kind else "native",
+                    runtime_target_id=runtime.selected_runtime_target_id if runtime else "",
+                    runtime_kind=runtime.selected_runtime_kind.value if runtime and runtime.selected_runtime_kind else "unknown",
                     provider_id=provider,
-                    provider_location="external",
+                    provider_location=provider_location,
                     model_id="unknown",
-                    model_scope=ModelScope.public_cloud if provider not in ["local", "ollama"] else ModelScope.local_model,
-                    cloud_effective=provider not in ["local", "ollama"],
-                    external_effective=provider not in ["local", "ollama", "private_endpoint"],
-                    local_effective=provider in ["local", "ollama"],
-                    requested_operation=RequestedOperation.send_to_llm
+                    requested_operation=RequestedOperation.send_to_llm,
                 )
 
                 for block in context_blocks:
-                    # Convert ContextBlock to dict for evaluator
                     block_metadata = {
-                        "source_type": block.source_type,
-                        "source_ref": block.origin_id,
-                        "origin_id": block.origin_id,
-                        "sensitivity": block.sensitivity,
-                        "content_hash": block.content_hash
+                        "source_type": block.get("source_type"),
+                        "source_ref": block.get("origin_id") or block.get("source_ref"),
+                        "origin_id": block.get("origin_id"),
+                        "sensitivity": block.get("sensitivity"),
+                        "content_hash": block.get("content_hash")
                     }
                     cap_decision = evaluator.get_decision(block_metadata, dest)
                     if cap_decision.decision == Decision.deny:
@@ -169,21 +172,17 @@ class PreflightGate:
                 policy = self._ensure_policy(envelope.context_access_policy)
                 evaluator = ContextAccessPolicyEvaluator(policy)
 
-                # Infer destination context from envelope and current execution
-                dest = DestinationContext(
+                runtime = envelope.selected_worker_runtime
+                dest = build_destination_context(
                     worker_id=envelope.actor_ref,
-                    worker_kind="native",
-                    runtime_target_id="current",
-                    runtime_kind="local",
+                    worker_kind=runtime.selected_worker_kind.value if runtime and runtime.selected_worker_kind else "native",
+                    runtime_target_id=runtime.selected_runtime_target_id if runtime else "current",
+                    runtime_kind=runtime.selected_runtime_kind.value if runtime and runtime.selected_runtime_kind else "local",
                     provider_id="local",
                     provider_location="local",
                     model_id="none",
-                    model_scope=ModelScope.local_tool_only,
-                    cloud_effective=False,
-                    external_effective=False,
-                    local_effective=True,
                     requested_operation=RequestedOperation.tool_write if "write" in tool_id or "apply" in tool_id else RequestedOperation.tool_read,
-                    tool_id=tool_id
+                    tool_id=tool_id,
                 )
 
                 cap_decision = evaluator.get_decision(context_block, dest)

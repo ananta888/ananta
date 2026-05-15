@@ -7,7 +7,7 @@ metadata. It is deterministic and records rejected candidates with reason codes.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Any, Iterable, Optional
 
 from worker.core.runtime_target import (
     RejectedWorkerRuntimeCandidate,
@@ -20,6 +20,13 @@ from worker.core.runtime_target import (
     WorkerRuntimeTarget,
     WorkerSelectionMode,
     WorkerSelectionPolicy,
+)
+from worker.core.context_access_policy import (
+    ContextAccessPolicy,
+    ContextAccessPolicyEvaluator,
+    Decision,
+    RequestedOperation,
+    build_destination_context,
 )
 
 
@@ -46,7 +53,8 @@ class WorkerRuntimeSelectionRequest:
     policy_decision_ref: str = ""
     context_boundary_decision: str = "not_evaluated"
     required_context_class: str = ""  # Added for CAP integration
-    context_access_policy: Optional[Any] = None # Added for CAP integration
+    context_blocks: list[dict[str, Any]] | None = None
+    context_access_policy: Optional[Any] = None
 
 
 class WorkerRuntimeSelectionService:
@@ -89,15 +97,19 @@ class WorkerRuntimeSelectionService:
                     continue
 
                 # CAP-BE-T021: Integrate context policy
-                if request.context_access_policy and request.required_context_class:
-                     # Check if this worker/runtime is allowed to receive the required context class
-                     # This is a simplified check for now
-                     if not self._is_context_allowed(request.context_access_policy, worker, runtime, request.required_context_class):
+                if request.context_access_policy and (request.context_blocks or request.required_context_class):
+                     if not self._is_context_allowed(
+                         request.context_access_policy,
+                         worker,
+                         runtime,
+                         request.required_context_class,
+                         request.context_blocks or [],
+                     ):
                          rejected.append(RejectedWorkerRuntimeCandidate(
                              worker_id=worker.worker_id,
                              worker_kind=worker.worker_kind,
                              runtime_target_id=runtime.runtime_target_id,
-                             reason_code="context_class_not_allowed",
+                             reason_code="context_block_denied_by_policy",
                          ))
                          continue
 
@@ -144,16 +156,62 @@ class WorkerRuntimeSelectionService:
             return [w for w in workers if w.worker_kind == policy.fixed_worker_kind]
         return []
 
-    def _is_context_allowed(self, policy: Any, worker: WorkerCandidate, runtime: WorkerRuntimeTarget, context_class: str) -> bool:
-        # CAP-BE-T021: Simplified context allowance check
-        # In a real implementation, this would use ContextAccessPolicyService.get_decision
-        # for a representative block of the requested class.
+    def _is_context_allowed(
+        self,
+        policy: Any,
+        worker: WorkerCandidate,
+        runtime: WorkerRuntimeTarget,
+        context_class: str,
+        context_blocks: list[dict[str, Any]],
+    ) -> bool:
+        # Fallback for callers that only provide class but no block metadata.
+        blocks = context_blocks
+        if not blocks and context_class:
+            blocks = [{
+                "source_type": "memory",
+                "source_ref": "required_context_class",
+                "sensitivity": context_class,
+            }]
+        if not blocks:
+            return True
 
-        # If it's a secret class, only allow local models and tools
-        if context_class in ["secret", "credential", "security_sensitive"]:
-            if runtime.runtime_kind == WorkerRuntimeKind.cloud:
+        policy_obj = self._coerce_policy(policy)
+        evaluator = ContextAccessPolicyEvaluator(policy_obj)
+        provider_location = "local" if runtime.runtime_kind == WorkerRuntimeKind.local else "external"
+        requested_op = RequestedOperation.send_to_worker
+        dest = build_destination_context(
+            worker_id=worker.worker_id,
+            worker_kind=worker.worker_kind.value,
+            runtime_target_id=runtime.runtime_target_id,
+            runtime_kind=runtime.runtime_kind.value,
+            provider_id="worker_runtime_selection",
+            provider_location=provider_location,
+            model_id="worker-selection",
+            requested_operation=requested_op,
+        )
+        for block in blocks:
+            decision = evaluator.get_decision(block, dest)
+            if decision.decision in {Decision.deny, Decision.approval_required}:
                 return False
         return True
+
+    def _coerce_policy(self, policy: Any) -> ContextAccessPolicy:
+        if isinstance(policy, ContextAccessPolicy):
+            return policy
+        rules = []
+        for raw in (policy or {}).get("rules", []):
+            rules.append(raw if hasattr(raw, "id") else dict(raw))
+        # Reuse pydantic-like constructor via dataclass kwargs from dict rules.
+        from worker.core.context_access_policy import ContextAccessRule
+        coerced_rules = [r if isinstance(r, ContextAccessRule) else ContextAccessRule(**r) for r in rules]
+        return ContextAccessPolicy(
+            policy_id=(policy or {}).get("policy_id", "selection-default"),
+            version=int((policy or {}).get("version", 1)),
+            scope=(policy or {}).get("scope", "task"),
+            rules=coerced_rules,
+            defaults=(policy or {}).get("defaults", {}),
+            precedence=int((policy or {}).get("precedence", 0)),
+        )
 
     def _check_worker(
         self,
