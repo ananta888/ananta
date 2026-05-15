@@ -133,3 +133,11 @@ Die vorhandenen Projekt-Benchmarkdateien zeigen aktuell nur fuer einen Teil der 
 - vorhandene Projekt-Historie
 
 Die Zuordnung sollte nach weiteren Live-Click- und Worker-Benchmarklaeufen weiter verfeinert werden.
+## Modellparallelität
+
+Ollama-Kapazität wird pro `endpoint+model` begrenzt (z. B. `max_parallel_requests=4`).
+Wenn die Modellkapazität voll ist, werden Jobs je nach Backpressure-Strategie gequeued oder rejected.
+
+Diagnose:
+- `GET /api/worker-pool/ollama-models`
+- `GET /api/worker-pool/status`

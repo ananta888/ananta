@@ -24,6 +24,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   dashboard: { label: 'Dashboard', area: 'Operate', navGroup: 'Betrieb', navOrder: 15, expertOnly: true },
   help: { label: 'Hilfe', area: 'General', navGroup: 'Arbeiten', navOrder: 50, simpleNav: true },
   agents: { label: 'Agenten', area: 'Operate', navGroup: 'Betrieb', navOrder: 20, expertOnly: true },
+  'worker-pool': { label: 'Worker Pool', area: 'Operate', navGroup: 'Betrieb', navOrder: 25, expertOnly: true },
   board: { label: 'Aufgaben', area: 'Operate', navGroup: 'Arbeiten', navOrder: 20, simpleNav: true },
   operations: { label: 'Operationen', area: 'Operate', navGroup: 'Betrieb', navOrder: 40, expertOnly: true },
   artifacts: { label: 'Ergebnisse', area: 'Operate', navGroup: 'Arbeiten', navOrder: 30, simpleNav: true },

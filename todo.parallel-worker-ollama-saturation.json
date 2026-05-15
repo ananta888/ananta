@@ -583,7 +583,7 @@
     {
       "id": "PAR-T011",
       "title": "Scheduler Diagnostics API und UI konkretisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "summary": "Operatoren müssen sehen, ob Worker, Ollama oder Subworker der Engpass sind.",
@@ -618,12 +618,15 @@
       "tests": [
         "tests/test_worker_pool_routes.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented on 2026-05-15: Diagnostics API implemented (/api/worker-pool/status|leases|queues|ollama-models + cleanup + queued revalidation endpoint), Angular API service and dashboard route added.",
+        "Implemented on 2026-05-15: Diagnostics API implemented (/api/worker-pool/status|leases|queues|ollama-models + cleanup + queued revalidation endpoint), Angular API service and dashboard route added."
+      ]
     },
     {
       "id": "PAR-T012",
       "title": "Parallel Saturation Tests mit echten Grenzfällen ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "summary": "Die Optimierung muss beweisen, dass sie nicht nur unter Normalfall funktioniert, sondern bei Sättigung, Queueing, Fehlern und Policy-Deny.",
@@ -660,12 +663,15 @@
         "tests/e2e/test_parallel_worker_ollama_saturation.py",
         "tests/test_worker_security_regression.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented on 2026-05-15: Saturation tests added including 8-job model cap and non-LLM parallel worker capacity scenarios.",
+        "Implemented on 2026-05-15: Saturation tests added including 8-job model cap and non-LLM parallel worker capacity scenarios."
+      ]
     },
     {
       "id": "PAR-T013",
       "title": "Security Revalidation für queued Jobs und Slot Start erzwingen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "summary": "Ein Job kann in der Queue liegen, während Policies, Capabilities oder Worker-Health sich ändern. Beim Start muss neu validiert werden.",
@@ -696,12 +702,15 @@
       "tests": [
         "tests/test_worker_security_regression.py"
       ],
-      "notes": []
+      "notes": [
+        "Implemented on 2026-05-15: Queued-job revalidation implemented with stale policy hash detection, policy deny handling, and requeue/start decisions.",
+        "Implemented on 2026-05-15: Queued-job revalidation implemented with stale policy hash detection, policy deny handling, and requeue/start decisions."
+      ]
     },
     {
       "id": "PAR-T014",
       "title": "Dokumentation und Betriebsprofile ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "summary": "Parallelität muss tunebar sein, sonst wird sie auf kleinen lokalen Maschinen sofort falsch eingestellt.",
@@ -729,7 +738,10 @@
         "Dokumentation enthält Troubleshooting für stuck leases und queues."
       ],
       "tests": [],
-      "notes": []
+      "notes": [
+        "Implemented on 2026-05-15: Operational documentation added: local default, low-VRAM, high-throughput profiles, bottleneck diagnosis, troubleshooting and compose examples.",
+        "Implemented on 2026-05-15: Operational documentation added: local default, low-VRAM, high-throughput profiles, bottleneck diagnosis, troubleshooting and compose examples."
+      ]
     }
   ],
   "cross_cutting_acceptance_criteria": [
@@ -773,13 +785,13 @@
     "task_counts": {
       "total": 14,
       "by_status": {
-        "todo": 4,
+        "todo": 0,
         "in_progress": 0,
         "blocked": 0,
         "partial": 0,
-        "done": 10
+        "done": 14
       },
-      "progress_percent_done": 71.43
+      "progress_percent_done": 100.0
     },
     "by_priority": {
       "P0": 10,

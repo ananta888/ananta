@@ -18,6 +18,7 @@ from agent.routes.knowledge import knowledge_bp
 from agent.routes.mcp import mcp_bp
 from agent.routes.ollama_benchmark import ollama_benchmark_bp
 from agent.routes.openai_compat import openai_compat_bp
+from agent.routes.worker_pool import worker_pool_bp
 from agent.routes.sgpt import sgpt_bp
 from agent.routes.system import system_bp
 from agent.routes.voice import voice_bp
@@ -33,6 +34,7 @@ def register_blueprints(app: Flask) -> None:
     register_config_blueprints(app)
     app.register_blueprint(hub_benchmark_bp, url_prefix="/api")
     app.register_blueprint(ollama_benchmark_bp, url_prefix="/api")
+    app.register_blueprint(worker_pool_bp, url_prefix="/api")
     app.register_blueprint(tasks_bp)
     register_tasks_blueprints(app)
     app.register_blueprint(artifacts_bp)

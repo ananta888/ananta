@@ -26,9 +26,19 @@ class WorkerSlotLeaseRepository:
             stmt = select(WorkerSlotLeaseDB).where(WorkerSlotLeaseDB.status == "active").order_by(WorkerSlotLeaseDB.acquired_at.asc())
             return session.exec(stmt).all()
 
+    def list_all(self) -> List[WorkerSlotLeaseDB]:
+        with Session(engine) as session:
+            stmt = select(WorkerSlotLeaseDB).order_by(WorkerSlotLeaseDB.acquired_at.asc())
+            return session.exec(stmt).all()
+
     def list_queued(self) -> List[WorkerSlotLeaseDB]:
         with Session(engine) as session:
             stmt = select(WorkerSlotLeaseDB).where(WorkerSlotLeaseDB.status == "queued").order_by(WorkerSlotLeaseDB.acquired_at.asc())
+            return session.exec(stmt).all()
+
+    def list_rejected(self) -> List[WorkerSlotLeaseDB]:
+        with Session(engine) as session:
+            stmt = select(WorkerSlotLeaseDB).where(WorkerSlotLeaseDB.status == "rejected").order_by(WorkerSlotLeaseDB.acquired_at.asc())
             return session.exec(stmt).all()
 
     def list_expired(self, now_ts: float | None = None) -> List[WorkerSlotLeaseDB]:

@@ -46,6 +46,14 @@ python -m pytest tests/ -k "worker" -q
 | MemoryPolicy | `agent/services/result_memory_service.py` | redact before persist |
 | SkillRegistry | `worker/skills/skill_registry.py` | disabled by default |
 | SubworkerEnvelope | `worker/core/subworker_envelope.py` | subset enforcement |
+
+## Parallelität und Saturation
+
+- Worker-Kapazität wird über `ANANTA_WORKER_MAX_PARALLEL_TASKS` gesteuert.
+- Subworker-Fanout wird über `max_children_per_parent` in `worker_parallelism` begrenzt.
+- Ollama-Slots werden getrennt pro `endpoint+model` verwaltet.
+
+Siehe auch: `docs/setup/parallel-worker-ollama-saturation.md`
 | AuditEvents | `worker/core/audit_events.py` | fail-closed on unknown event |
 
 ## Skills

@@ -51,6 +51,8 @@ class WorkerPoolSchedulerService:
             runtime_kind = str(request.get("selected_runtime_kind") or "").strip() or None
             parent_task_id = str(request.get("parent_task_id") or "").strip() or None
             worker_job_id = str(request.get("worker_job_id") or "").strip() or None
+            policy_decision_ref = str(request.get("policy_decision_ref") or "").strip() or None
+            policy_decision_hash = str(request.get("policy_decision_hash") or "").strip() or None
             worker_capacity = max(1, int(request.get("worker_capacity") or 1))
             runtime_capacity = max(1, int(request.get("runtime_capacity") or worker_capacity))
             security_cap = request.get("security_policy_cap")
@@ -81,6 +83,10 @@ class WorkerPoolSchedulerService:
                         worker_job_id=worker_job_id,
                         reason_code="worker_queue_full",
                         released_at=now,
+                        lease_metadata={
+                            "policy_decision_ref": policy_decision_ref,
+                            "policy_decision_hash": policy_decision_hash,
+                        },
                     ))
                     return WorkerSlotDecision(status="rejected", reason_code="worker_queue_full", slot_lease_id=lease.id)
 
@@ -97,6 +103,10 @@ class WorkerPoolSchedulerService:
                     queue_position=queue_position,
                     reason_code="worker_parallel_capacity_exhausted",
                     deadline_at=now + max(1, int(request.get("slot_lease_seconds") or 600)),
+                    lease_metadata={
+                        "policy_decision_ref": policy_decision_ref,
+                        "policy_decision_hash": policy_decision_hash,
+                    },
                 ))
                 return WorkerSlotDecision(
                     status="queued",
@@ -144,7 +154,11 @@ class WorkerPoolSchedulerService:
                         queue_position=queue_position,
                         reason_code=ollama_decision.reason_code,
                         deadline_at=now + max(1, int(request.get("slot_lease_seconds") or 600)),
-                        lease_metadata={"ollama_lease_id": ollama_decision.lease_id},
+                        lease_metadata={
+                            "ollama_lease_id": ollama_decision.lease_id,
+                            "policy_decision_ref": policy_decision_ref,
+                            "policy_decision_hash": policy_decision_hash,
+                        },
                     ))
                     return WorkerSlotDecision(
                         status="queued",
@@ -173,6 +187,14 @@ class WorkerPoolSchedulerService:
                 deadline_at=now + max(1, int(request.get("slot_lease_seconds") or 600)),
                 lease_metadata={"ollama_lease_id": ollama_lease_id} if ollama_lease_id else {},
             ))
+            md = dict(lease.lease_metadata or {})
+            if policy_decision_ref:
+                md["policy_decision_ref"] = policy_decision_ref
+            if policy_decision_hash:
+                md["policy_decision_hash"] = policy_decision_hash
+            if md:
+                lease.lease_metadata = md
+                lease = worker_slot_lease_repo.save(lease)
             return WorkerSlotDecision(
                 status="active",
                 reason_code="slot_acquired",
@@ -207,6 +229,85 @@ class WorkerPoolSchedulerService:
             worker_slot_lease_repo.release(lease.id, status="stale_released")
             cleaned += 1
         return cleaned
+
+    def revalidate_queued_job(
+        self,
+        *,
+        slot_lease_id: str,
+        policy_decision_ref: str | None,
+        policy_decision_hash: str | None,
+        worker_online: bool = True,
+        policy_allowed: bool = True,
+        capacity_available: bool = True,
+    ) -> WorkerSlotDecision:
+        lease = worker_slot_lease_repo.get_by_id(slot_lease_id)
+        if lease is None:
+            return WorkerSlotDecision(status="rejected", reason_code="unknown_slot_lease", slot_lease_id=slot_lease_id)
+        if lease.status != "queued":
+            return WorkerSlotDecision(status=lease.status, reason_code="lease_not_queued", slot_lease_id=slot_lease_id)
+
+        old_ref = None
+        old_hash = None
+        md = dict(lease.lease_metadata or {})
+        old_ref = md.get("policy_decision_ref")
+        old_hash = md.get("policy_decision_hash")
+        if old_hash and policy_decision_hash and str(old_hash) != str(policy_decision_hash):
+            lease.reason_code = "stale_policy_decision"
+            lease.status = "rejected"
+            lease.released_at = time.time()
+            lease.lease_metadata = {
+                **md,
+                "old_decision_ref": old_ref,
+                "new_decision_ref": policy_decision_ref,
+            }
+            worker_slot_lease_repo.save(lease)
+            return WorkerSlotDecision(status="rejected", reason_code="stale_policy_decision", slot_lease_id=slot_lease_id)
+        if not policy_allowed:
+            lease.status = "rejected"
+            lease.reason_code = "policy_denied_on_revalidation"
+            lease.released_at = time.time()
+            worker_slot_lease_repo.save(lease)
+            return WorkerSlotDecision(status="rejected", reason_code="policy_denied_on_revalidation", slot_lease_id=slot_lease_id)
+        if not worker_online:
+            return WorkerSlotDecision(status="queued", reason_code="worker_offline_requeue", slot_lease_id=slot_lease_id, queue_position=lease.queue_position)
+        if not capacity_available:
+            return WorkerSlotDecision(status="queued", reason_code="capacity_not_available_requeue", slot_lease_id=slot_lease_id, queue_position=lease.queue_position)
+
+        lease.status = "active"
+        lease.reason_code = "queued_revalidated_and_started"
+        lease.queue_position = None
+        lease.acquired_at = time.time()
+        worker_slot_lease_repo.save(lease)
+        return WorkerSlotDecision(
+            status="active",
+            reason_code="queued_revalidated_and_started",
+            slot_lease_id=slot_lease_id,
+            selected_worker_id=lease.worker_id,
+            selected_runtime_target_id=lease.runtime_target_id,
+            ollama_endpoint=lease.ollama_endpoint,
+            ollama_model=lease.ollama_model,
+        )
+
+    def get_scheduler_status(self) -> dict[str, Any]:
+        leases = worker_slot_lease_repo.list_all()
+        active = [x for x in leases if x.status == "active"]
+        queued = [x for x in leases if x.status == "queued"]
+        rejected = [x for x in leases if x.status == "rejected"]
+        stale = [x for x in leases if x.status == "stale_released"]
+
+        capacity_by_worker: dict[str, int] = {}
+        for lease in active:
+            if lease.worker_id:
+                capacity_by_worker[lease.worker_id] = capacity_by_worker.get(lease.worker_id, 0) + 1
+
+        return {
+            "active_slots": len(active),
+            "queued_jobs": len(queued),
+            "rejected_jobs": len(rejected),
+            "stale_leases": len(stale),
+            "capacity_by_worker": capacity_by_worker,
+            "capacity_by_model": self._ollama.get_status(),
+        }
 
 
 _worker_pool_scheduler_service = WorkerPoolSchedulerService()
