@@ -1,0 +1,175 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": 1,
+  "owner": "ananta",
+  "track": "unified_execution_governance_security",
+  "title": "Unified Execution Governance + Security Hardening",
+  "purpose": "Konsolidierter Track aus GoalExecutionContract/LLM-Governance und Security-Fixup. Statuskonflikte wurden bereinigt, Reihenfolge auf Security-First für Guardrails/POLICY-Bypass-Risiken ausgerichtet.",
+  "status_scale": ["todo", "in_progress", "blocked", "partial", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "architecture_guardrails": [
+    "Hub bleibt zentrale Control Plane für Planung, Queue, Routing, Policy und Orchestrierung.",
+    "Worker führen nur delegierte Aufgaben aus und orchestrieren keine anderen Worker.",
+    "Keine Worker-to-Worker Orchestrierung; alle Flows laufen über den Hub.",
+    "Security-Entscheidungen laufen zentral über ContextAccessPolicyEvaluator (Single Source of Truth)."
+  ],
+  "global_success_criteria": [
+    "Jedes Goal hat einen versionierten GoalExecutionContract oder einen kompatibel abgeleiteten Vertrag.",
+    "LLM-first bleibt Standardpfad für komplexe Ziele, deterministischer Fallback ist explizit und auditiert.",
+    "Tool-Intent-Recovery ist recoverable, aber niemals Policy-Bypass.",
+    "Completion ist artifact-first plus Verification-Gates, nicht markdown-only.",
+    "Default-Deny gilt konsistent für Kontext, Tools, Provider, Worker/Runtime-Ziele und Repair-Single-Step.",
+    "Alle Security- und Governance-Entscheidungen sind mit strukturierten Auditfeldern nachvollziehbar."
+  ],
+  "status_correction_notes": [
+    "Im ursprünglichen GEC-Track war tasks_status_summary=100% done, gleichzeitig waren mehrere Tasks als partial mit DoD offen markiert.",
+    "In dieser konsolidierten Datei sind diese Tasks auf partial korrigiert und in der Summary korrekt gezählt.",
+    "Der Security-Fixup-Track wurde als todo übernommen und vor verbleibende Partial-Arbeiten priorisiert."
+  ],
+  "tasks": [
+    {"id":"GEC-T000","source":"goal_execution_contract_and_llm_governance","title":"Classify existing implementation coverage","status":"done","priority":"P0","risk":"medium"},
+    {"id":"GEC-T001","source":"goal_execution_contract_and_llm_governance","title":"Define GoalExecutionContract schema","status":"done","priority":"P0","risk":"high"},
+    {"id":"GEC-T002","source":"goal_execution_contract_and_llm_governance","title":"Attach execution contract at goal creation","status":"done","priority":"P0","risk":"high"},
+    {"id":"GEC-T003","source":"goal_execution_contract_and_llm_governance","title":"Propagate contract into materialized tasks","status":"done","priority":"P0","risk":"high"},
+    {"id":"GEC-T004","source":"goal_execution_contract_and_llm_governance","title":"Add contract compatibility adapter","status":"done","priority":"P1","risk":"medium"},
+    {"id":"GEC-T005","source":"goal_execution_contract_and_llm_governance","title":"Extend plan proposal with artifact expectations","status":"done","priority":"P0","risk":"high"},
+    {"id":"GEC-T006","source":"goal_execution_contract_and_llm_governance","title":"Add software project plan blueprint","status":"done","priority":"P0","risk":"medium"},
+    {"id":"GEC-T007","source":"goal_execution_contract_and_llm_governance","title":"Add plan repair for missing deliverables","status":"done","priority":"P1","risk":"medium"},
+    {"id":"GEC-T008","source":"goal_execution_contract_and_llm_governance","title":"Persist plan-to-artifact traceability","status":"done","priority":"P1","risk":"medium"},
+    {"id":"GEC-T009","source":"goal_execution_contract_and_llm_governance","title":"Create prompt context bundle model","status":"done","priority":"P0","risk":"high"},
+    {"id":"GEC-T010","source":"goal_execution_contract_and_llm_governance","title":"Feed RAG and instruction layers into LLM strategies","status":"done","priority":"P0","risk":"high"},
+    {"id":"GEC-T011","source":"goal_execution_contract_and_llm_governance","title":"Add prompt budget and redaction policy checks","status":"done","priority":"P1","risk":"medium"},
+    {"id":"GEC-T012","source":"goal_execution_contract_and_llm_governance","title":"Add role and team template selection audit","status":"done","priority":"P2","risk":"medium"},
+    {"id":"GEC-T013","source":"goal_execution_contract_and_llm_governance","title":"Define canonical tool intent taxonomy","status":"done","priority":"P0","risk":"high"},
+    {"id":"GEC-T014","source":"goal_execution_contract_and_llm_governance","title":"Harden ToolIntentResolver remapping","status":"partial","priority":"P0","risk":"high"},
+    {"id":"GEC-T015","source":"goal_execution_contract_and_llm_governance","title":"Integrate resolver with execution policy","status":"done","priority":"P0","risk":"critical"},
+    {"id":"GEC-T016","source":"goal_execution_contract_and_llm_governance","title":"Add resolver regression tests","status":"done","priority":"P1","risk":"medium"},
+    {"id":"GEC-T017","source":"goal_execution_contract_and_llm_governance","title":"Define improvement loop state machine","status":"done","priority":"P0","risk":"high"},
+    {"id":"GEC-T018","source":"goal_execution_contract_and_llm_governance","title":"Implement verification critique generation","status":"partial","priority":"P1","risk":"medium"},
+    {"id":"GEC-T019","source":"goal_execution_contract_and_llm_governance","title":"Add LLM repair proposal strategy","status":"done","priority":"P1","risk":"high"},
+    {"id":"GEC-T020","source":"goal_execution_contract_and_llm_governance","title":"Add loop telemetry and operator status","status":"done","priority":"P2","risk":"medium"},
+    {"id":"GEC-T021","source":"goal_execution_contract_and_llm_governance","title":"Define unified execution audit event schema","status":"done","priority":"P0","risk":"critical"},
+    {"id":"GEC-T022","source":"goal_execution_contract_and_llm_governance","title":"Emit audit events across default path","status":"done","priority":"P0","risk":"high"},
+    {"id":"GEC-T023","source":"goal_execution_contract_and_llm_governance","title":"Add hard security block semantics","status":"done","priority":"P0","risk":"high"},
+    {"id":"GEC-T024","source":"goal_execution_contract_and_llm_governance","title":"Add audit redaction and retention rules for prompts","status":"done","priority":"P1","risk":"medium"},
+    {"id":"GEC-T025","source":"goal_execution_contract_and_llm_governance","title":"Make artifact-first completion authoritative","status":"partial","priority":"P0","risk":"high"},
+    {"id":"GEC-T026","source":"goal_execution_contract_and_llm_governance","title":"Implement software project verification gates","status":"partial","priority":"P0","risk":"high"},
+    {"id":"GEC-T027","source":"goal_execution_contract_and_llm_governance","title":"Add artifact snapshot and diff evidence","status":"partial","priority":"P1","risk":"medium"},
+    {"id":"GEC-T028","source":"goal_execution_contract_and_llm_governance","title":"Add completion regression tests","status":"partial","priority":"P1","risk":"medium"},
+    {"id":"GEC-T029","source":"goal_execution_contract_and_llm_governance","title":"Create CLI golden-path e2e for Java and Angular Fibonacci project","status":"partial","priority":"P0","risk":"high"},
+    {"id":"GEC-T030","source":"goal_execution_contract_and_llm_governance","title":"Add LLM and Ollama activity observability","status":"partial","priority":"P1","risk":"medium"},
+    {"id":"GEC-T031","source":"goal_execution_contract_and_llm_governance","title":"Document deterministic fallback policy","status":"done","priority":"P1","risk":"medium"},
+    {"id":"GEC-T032","source":"goal_execution_contract_and_llm_governance","title":"Refactor oversized default execution path seams","status":"done","priority":"P2","risk":"high"},
+
+    {"id":"SEC-P0-001","source":"fixup_planning","title":"ContextAccessPolicyEvaluator zur einzigen Decision Engine machen","status":"todo","priority":"P0","risk":"critical"},
+    {"id":"SEC-P0-002","source":"fixup_planning","title":"ContextAccessRule vollständig auswerten","status":"todo","priority":"P0","risk":"high"},
+    {"id":"SEC-P0-003","source":"fixup_planning","title":"Approval Override scopen und auditieren","status":"todo","priority":"P0","risk":"high"},
+    {"id":"SEC-P0-004","source":"fixup_planning","title":"ContextBundleService: geprüfte Chunks als einzige Quelle für context_text nutzen","status":"todo","priority":"P0","risk":"high"},
+    {"id":"SEC-P0-005","source":"fixup_planning","title":"WorkerRuntimeSelectionService über echte Policy-Decisions absichern","status":"todo","priority":"P0","risk":"high"},
+    {"id":"SEC-P0-006","source":"fixup_planning","title":"PreflightGate mit realem DestinationContext verbinden","status":"todo","priority":"P0","risk":"critical"},
+    {"id":"SEC-P0-007","source":"fixup_planning","title":"RepairProcedureRunner: run_step darf Preflight nicht umgehen","status":"todo","priority":"P0","risk":"critical"},
+    {"id":"SEC-P0-008","source":"fixup_planning","title":"ToolPolicy und ModelPolicy auf Default-Deny umstellen","status":"todo","priority":"P0","risk":"high"},
+    {"id":"SEC-P1-001","source":"fixup_planning","title":"SourceClassificationService sauber kapseln","status":"todo","priority":"P1","risk":"medium"},
+    {"id":"SEC-P1-002","source":"fixup_planning","title":"Policy Merge Semantik deterministisch machen","status":"todo","priority":"P1","risk":"high"},
+    {"id":"SEC-P1-003","source":"fixup_planning","title":"Default Policy überall einheitlich verwenden","status":"todo","priority":"P1","risk":"medium"},
+    {"id":"SEC-P1-004","source":"fixup_planning","title":"Audit Trail für Context Decisions erweitern","status":"todo","priority":"P1","risk":"medium"},
+    {"id":"SEC-P2-001","source":"fixup_planning","title":"Fehlerhafte Tests korrigieren","status":"todo","priority":"P2","risk":"low"}
+  ],
+  "recommended_execution_order": [
+    "SEC-P0-007",
+    "SEC-P0-001",
+    "SEC-P0-002",
+    "SEC-P0-004",
+    "SEC-P0-005",
+    "SEC-P0-006",
+    "SEC-P0-008",
+    "SEC-P0-003",
+    "SEC-P1-003",
+    "SEC-P1-001",
+    "SEC-P1-002",
+    "SEC-P1-004",
+    "SEC-P2-001",
+    "GEC-T014",
+    "GEC-T018",
+    "GEC-T025",
+    "GEC-T026",
+    "GEC-T027",
+    "GEC-T028",
+    "GEC-T029",
+    "GEC-T030"
+  ],
+  "summaries": {
+    "task_counts": {
+      "total": 46,
+      "by_status": {
+        "todo": 13,
+        "in_progress": 0,
+        "blocked": 0,
+        "partial": 8,
+        "done": 25
+      },
+      "progress_percent_done": 54.35
+    },
+    "by_priority": {
+      "P0": 26,
+      "P1": 17,
+      "P2": 3,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 15,
+      "high": 26,
+      "critical": 4
+    },
+    "by_source": {
+      "goal_execution_contract_and_llm_governance": {
+        "total": 33,
+        "done": 25,
+        "partial": 8,
+        "todo": 0,
+        "in_progress": 0,
+        "blocked": 0
+      },
+      "fixup_planning": {
+        "total": 13,
+        "done": 0,
+        "partial": 0,
+        "todo": 13,
+        "in_progress": 0,
+        "blocked": 0
+      }
+    }
+  },
+  "end_summaries": [
+    {
+      "summary_id": "UNIFIED-END-001",
+      "title": "Warum der Merge",
+      "items": [
+        "Governance- und Security-Arbeiten greifen in dieselben Pfade ein (Policy, Preflight, Repair, Completion).",
+        "Ein separater Fortschritt pro Datei führte zu Statusdrift und erschwerte Priorisierung.",
+        "Diese Datei bündelt Architektur-, Security- und Delivery-Status in einem Track."
+      ]
+    },
+    {
+      "summary_id": "UNIFIED-END-002",
+      "title": "Korrekturen gegenüber den Ursprungsdateien",
+      "items": [
+        "Statuskonflikt im GEC-Track bereinigt: offene DoD-Tasks sind als partial markiert.",
+        "Security-Fixup bleibt als todo sichtbar und wird vor verbleibenden partial-Arbeiten ausgeführt.",
+        "Summary-Zahlen sind aus den konkreten Task-Status in dieser Datei abgeleitet."
+      ]
+    },
+    {
+      "summary_id": "UNIFIED-END-003",
+      "title": "Definition of Done für den Gesamttrack",
+      "items": [
+        "Kein Policy-Bypass über run_step, context_text oder Tool-Remap.",
+        "Default-Deny und zentrale Decision Engine sind in allen Grenzstellen erzwungen.",
+        "Artifact-first Completion und Java+Angular Golden Path sind verlässlich und auditierbar.",
+        "Audit-Events und Diagnostik sind vollständig genug für Operator-Forensik ohne Secret-Leakage."
+      ]
+    }
+  ]
+}
