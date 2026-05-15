@@ -5,9 +5,25 @@
   "track": "unified_execution_governance_security",
   "title": "Unified Execution Governance + Security Hardening",
   "purpose": "Konsolidierter Track aus GoalExecutionContract/LLM-Governance und Security-Fixup. Statuskonflikte wurden bereinigt, Reihenfolge auf Security-First für Guardrails/POLICY-Bypass-Risiken ausgerichtet.",
-  "status_scale": ["todo", "in_progress", "blocked", "partial", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "blocked",
+    "partial",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "architecture_guardrails": [
     "Hub bleibt zentrale Control Plane für Planung, Queue, Routing, Policy und Orchestrierung.",
     "Worker führen nur delegierte Aufgaben aus und orchestrieren keine anderen Worker.",
@@ -28,53 +44,374 @@
     "Der Security-Fixup-Track wurde als todo übernommen und vor verbleibende Partial-Arbeiten priorisiert."
   ],
   "tasks": [
-    {"id":"GEC-T000","source":"goal_execution_contract_and_llm_governance","title":"Classify existing implementation coverage","status":"done","priority":"P0","risk":"medium"},
-    {"id":"GEC-T001","source":"goal_execution_contract_and_llm_governance","title":"Define GoalExecutionContract schema","status":"done","priority":"P0","risk":"high"},
-    {"id":"GEC-T002","source":"goal_execution_contract_and_llm_governance","title":"Attach execution contract at goal creation","status":"done","priority":"P0","risk":"high"},
-    {"id":"GEC-T003","source":"goal_execution_contract_and_llm_governance","title":"Propagate contract into materialized tasks","status":"done","priority":"P0","risk":"high"},
-    {"id":"GEC-T004","source":"goal_execution_contract_and_llm_governance","title":"Add contract compatibility adapter","status":"done","priority":"P1","risk":"medium"},
-    {"id":"GEC-T005","source":"goal_execution_contract_and_llm_governance","title":"Extend plan proposal with artifact expectations","status":"done","priority":"P0","risk":"high"},
-    {"id":"GEC-T006","source":"goal_execution_contract_and_llm_governance","title":"Add software project plan blueprint","status":"done","priority":"P0","risk":"medium"},
-    {"id":"GEC-T007","source":"goal_execution_contract_and_llm_governance","title":"Add plan repair for missing deliverables","status":"done","priority":"P1","risk":"medium"},
-    {"id":"GEC-T008","source":"goal_execution_contract_and_llm_governance","title":"Persist plan-to-artifact traceability","status":"done","priority":"P1","risk":"medium"},
-    {"id":"GEC-T009","source":"goal_execution_contract_and_llm_governance","title":"Create prompt context bundle model","status":"done","priority":"P0","risk":"high"},
-    {"id":"GEC-T010","source":"goal_execution_contract_and_llm_governance","title":"Feed RAG and instruction layers into LLM strategies","status":"done","priority":"P0","risk":"high"},
-    {"id":"GEC-T011","source":"goal_execution_contract_and_llm_governance","title":"Add prompt budget and redaction policy checks","status":"done","priority":"P1","risk":"medium"},
-    {"id":"GEC-T012","source":"goal_execution_contract_and_llm_governance","title":"Add role and team template selection audit","status":"done","priority":"P2","risk":"medium"},
-    {"id":"GEC-T013","source":"goal_execution_contract_and_llm_governance","title":"Define canonical tool intent taxonomy","status":"done","priority":"P0","risk":"high"},
-    {"id":"GEC-T014","source":"goal_execution_contract_and_llm_governance","title":"Harden ToolIntentResolver remapping","status":"partial","priority":"P0","risk":"high"},
-    {"id":"GEC-T015","source":"goal_execution_contract_and_llm_governance","title":"Integrate resolver with execution policy","status":"done","priority":"P0","risk":"critical"},
-    {"id":"GEC-T016","source":"goal_execution_contract_and_llm_governance","title":"Add resolver regression tests","status":"done","priority":"P1","risk":"medium"},
-    {"id":"GEC-T017","source":"goal_execution_contract_and_llm_governance","title":"Define improvement loop state machine","status":"done","priority":"P0","risk":"high"},
-    {"id":"GEC-T018","source":"goal_execution_contract_and_llm_governance","title":"Implement verification critique generation","status":"partial","priority":"P1","risk":"medium"},
-    {"id":"GEC-T019","source":"goal_execution_contract_and_llm_governance","title":"Add LLM repair proposal strategy","status":"done","priority":"P1","risk":"high"},
-    {"id":"GEC-T020","source":"goal_execution_contract_and_llm_governance","title":"Add loop telemetry and operator status","status":"done","priority":"P2","risk":"medium"},
-    {"id":"GEC-T021","source":"goal_execution_contract_and_llm_governance","title":"Define unified execution audit event schema","status":"done","priority":"P0","risk":"critical"},
-    {"id":"GEC-T022","source":"goal_execution_contract_and_llm_governance","title":"Emit audit events across default path","status":"done","priority":"P0","risk":"high"},
-    {"id":"GEC-T023","source":"goal_execution_contract_and_llm_governance","title":"Add hard security block semantics","status":"done","priority":"P0","risk":"high"},
-    {"id":"GEC-T024","source":"goal_execution_contract_and_llm_governance","title":"Add audit redaction and retention rules for prompts","status":"done","priority":"P1","risk":"medium"},
-    {"id":"GEC-T025","source":"goal_execution_contract_and_llm_governance","title":"Make artifact-first completion authoritative","status":"partial","priority":"P0","risk":"high"},
-    {"id":"GEC-T026","source":"goal_execution_contract_and_llm_governance","title":"Implement software project verification gates","status":"partial","priority":"P0","risk":"high"},
-    {"id":"GEC-T027","source":"goal_execution_contract_and_llm_governance","title":"Add artifact snapshot and diff evidence","status":"partial","priority":"P1","risk":"medium"},
-    {"id":"GEC-T028","source":"goal_execution_contract_and_llm_governance","title":"Add completion regression tests","status":"partial","priority":"P1","risk":"medium"},
-    {"id":"GEC-T029","source":"goal_execution_contract_and_llm_governance","title":"Create CLI golden-path e2e for Java and Angular Fibonacci project","status":"partial","priority":"P0","risk":"high"},
-    {"id":"GEC-T030","source":"goal_execution_contract_and_llm_governance","title":"Add LLM and Ollama activity observability","status":"partial","priority":"P1","risk":"medium"},
-    {"id":"GEC-T031","source":"goal_execution_contract_and_llm_governance","title":"Document deterministic fallback policy","status":"done","priority":"P1","risk":"medium"},
-    {"id":"GEC-T032","source":"goal_execution_contract_and_llm_governance","title":"Refactor oversized default execution path seams","status":"done","priority":"P2","risk":"high"},
-
-    {"id":"SEC-P0-001","source":"fixup_planning","title":"ContextAccessPolicyEvaluator zur einzigen Decision Engine machen","status":"todo","priority":"P0","risk":"critical"},
-    {"id":"SEC-P0-002","source":"fixup_planning","title":"ContextAccessRule vollständig auswerten","status":"todo","priority":"P0","risk":"high"},
-    {"id":"SEC-P0-003","source":"fixup_planning","title":"Approval Override scopen und auditieren","status":"todo","priority":"P0","risk":"high"},
-    {"id":"SEC-P0-004","source":"fixup_planning","title":"ContextBundleService: geprüfte Chunks als einzige Quelle für context_text nutzen","status":"todo","priority":"P0","risk":"high"},
-    {"id":"SEC-P0-005","source":"fixup_planning","title":"WorkerRuntimeSelectionService über echte Policy-Decisions absichern","status":"todo","priority":"P0","risk":"high"},
-    {"id":"SEC-P0-006","source":"fixup_planning","title":"PreflightGate mit realem DestinationContext verbinden","status":"todo","priority":"P0","risk":"critical"},
-    {"id":"SEC-P0-007","source":"fixup_planning","title":"RepairProcedureRunner: run_step darf Preflight nicht umgehen","status":"todo","priority":"P0","risk":"critical"},
-    {"id":"SEC-P0-008","source":"fixup_planning","title":"ToolPolicy und ModelPolicy auf Default-Deny umstellen","status":"todo","priority":"P0","risk":"high"},
-    {"id":"SEC-P1-001","source":"fixup_planning","title":"SourceClassificationService sauber kapseln","status":"todo","priority":"P1","risk":"medium"},
-    {"id":"SEC-P1-002","source":"fixup_planning","title":"Policy Merge Semantik deterministisch machen","status":"todo","priority":"P1","risk":"high"},
-    {"id":"SEC-P1-003","source":"fixup_planning","title":"Default Policy überall einheitlich verwenden","status":"todo","priority":"P1","risk":"medium"},
-    {"id":"SEC-P1-004","source":"fixup_planning","title":"Audit Trail für Context Decisions erweitern","status":"todo","priority":"P1","risk":"medium"},
-    {"id":"SEC-P2-001","source":"fixup_planning","title":"Fehlerhafte Tests korrigieren","status":"todo","priority":"P2","risk":"low"}
+    {
+      "id": "GEC-T000",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Classify existing implementation coverage",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T001",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Define GoalExecutionContract schema",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T002",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Attach execution contract at goal creation",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T003",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Propagate contract into materialized tasks",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T004",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add contract compatibility adapter",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T005",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Extend plan proposal with artifact expectations",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T006",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add software project plan blueprint",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T007",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add plan repair for missing deliverables",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T008",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Persist plan-to-artifact traceability",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T009",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Create prompt context bundle model",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T010",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Feed RAG and instruction layers into LLM strategies",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T011",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add prompt budget and redaction policy checks",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T012",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add role and team template selection audit",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T013",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Define canonical tool intent taxonomy",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T014",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Harden ToolIntentResolver remapping",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T015",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Integrate resolver with execution policy",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical"
+    },
+    {
+      "id": "GEC-T016",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add resolver regression tests",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T017",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Define improvement loop state machine",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T018",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Implement verification critique generation",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T019",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add LLM repair proposal strategy",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T020",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add loop telemetry and operator status",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T021",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Define unified execution audit event schema",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical"
+    },
+    {
+      "id": "GEC-T022",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Emit audit events across default path",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T023",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add hard security block semantics",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T024",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add audit redaction and retention rules for prompts",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T025",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Make artifact-first completion authoritative",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T026",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Implement software project verification gates",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T027",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add artifact snapshot and diff evidence",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T028",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add completion regression tests",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T029",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Create CLI golden-path e2e for Java and Angular Fibonacci project",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "GEC-T030",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Add LLM and Ollama activity observability",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T031",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Document deterministic fallback policy",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "GEC-T032",
+      "source": "goal_execution_contract_and_llm_governance",
+      "title": "Refactor oversized default execution path seams",
+      "status": "done",
+      "priority": "P2",
+      "risk": "high"
+    },
+    {
+      "id": "SEC-P0-001",
+      "source": "fixup_planning",
+      "title": "ContextAccessPolicyEvaluator zur einzigen Decision Engine machen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical"
+    },
+    {
+      "id": "SEC-P0-002",
+      "source": "fixup_planning",
+      "title": "ContextAccessRule vollständig auswerten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "SEC-P0-003",
+      "source": "fixup_planning",
+      "title": "Approval Override scopen und auditieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "SEC-P0-004",
+      "source": "fixup_planning",
+      "title": "ContextBundleService: geprüfte Chunks als einzige Quelle für context_text nutzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "SEC-P0-005",
+      "source": "fixup_planning",
+      "title": "WorkerRuntimeSelectionService über echte Policy-Decisions absichern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "SEC-P0-006",
+      "source": "fixup_planning",
+      "title": "PreflightGate mit realem DestinationContext verbinden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical"
+    },
+    {
+      "id": "SEC-P0-007",
+      "source": "fixup_planning",
+      "title": "RepairProcedureRunner: run_step darf Preflight nicht umgehen",
+      "status": "in_progress",
+      "priority": "P0",
+      "risk": "critical"
+    },
+    {
+      "id": "SEC-P0-008",
+      "source": "fixup_planning",
+      "title": "ToolPolicy und ModelPolicy auf Default-Deny umstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high"
+    },
+    {
+      "id": "SEC-P1-001",
+      "source": "fixup_planning",
+      "title": "SourceClassificationService sauber kapseln",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "SEC-P1-002",
+      "source": "fixup_planning",
+      "title": "Policy Merge Semantik deterministisch machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high"
+    },
+    {
+      "id": "SEC-P1-003",
+      "source": "fixup_planning",
+      "title": "Default Policy überall einheitlich verwenden",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "SEC-P1-004",
+      "source": "fixup_planning",
+      "title": "Audit Trail für Context Decisions erweitern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium"
+    },
+    {
+      "id": "SEC-P2-001",
+      "source": "fixup_planning",
+      "title": "Fehlerhafte Tests korrigieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low"
+    }
   ],
   "recommended_execution_order": [
     "SEC-P0-007",
@@ -103,8 +440,8 @@
     "task_counts": {
       "total": 46,
       "by_status": {
-        "todo": 13,
-        "in_progress": 0,
+        "todo": 12,
+        "in_progress": 1,
         "blocked": 0,
         "partial": 8,
         "done": 25
@@ -136,8 +473,8 @@
         "total": 13,
         "done": 0,
         "partial": 0,
-        "todo": 13,
-        "in_progress": 0,
+        "todo": 12,
+        "in_progress": 1,
         "blocked": 0
       }
     }
@@ -171,5 +508,217 @@
         "Audit-Events und Diagnostik sind vollständig genug für Operator-Forensik ohne Secret-Leakage."
       ]
     }
-  ]
+  ],
+  "active_top_10": [
+    {
+      "rank": 1,
+      "task_id": "SEC-P0-007",
+      "status": "in_progress",
+      "why_now": "Höchstes Bypass-Risiko: run_step kann Guardrails umgehen.",
+      "scope": [
+        "run_step auf denselben Preflight-/Guardrail-Pfad wie run_plan heben",
+        "ExecutionEnvelope verpflichtend",
+        "capability_grant/approval/model/tool checks erzwingen"
+      ],
+      "deliverables": [
+        "Gemeinsame _execute_step_with_preflight()-Seam",
+        "Negative-Path Tests für unsafe/unknown/missing-grant"
+      ],
+      "files": [
+        "worker/repair/repair_procedure_runner.py",
+        "agent/services/repair_execution_orchestrator_service.py"
+      ]
+    },
+    {
+      "rank": 2,
+      "task_id": "SEC-P0-001",
+      "status": "todo",
+      "why_now": "Verhindert divergende Security-Entscheidungen in mehreren Services.",
+      "scope": [
+        "ContextAccessPolicyEvaluator als einzige Entscheidungsinstanz",
+        "DestinationContext Builder einführen",
+        "Shortcut-Checks entfernen"
+      ],
+      "deliverables": [
+        "build_destination_context(...) Utility",
+        "Auditfelder policy_id/version/rule_ids/reason_code/hash"
+      ],
+      "files": [
+        "worker/core/context_access_policy.py",
+        "agent/services/context_access_policy_service.py",
+        "agent/services/context_bundle_service.py",
+        "agent/services/worker_runtime_selection_service.py",
+        "worker/core/preflight.py"
+      ]
+    },
+    {
+      "rank": 3,
+      "task_id": "SEC-P0-002",
+      "status": "todo",
+      "why_now": "Policy-Modell und Enforcement müssen deckungsgleich sein.",
+      "scope": [
+        "allowed/denied worker/runtime/provider vollständig prüfen",
+        "denied_model_scopes typisieren"
+      ],
+      "deliverables": [
+        "_evaluate_rule()-Erweiterung",
+        "ReasonCodes für worker/runtime/provider blocks"
+      ],
+      "files": [
+        "worker/core/context_access_policy.py"
+      ]
+    },
+    {
+      "rank": 4,
+      "task_id": "SEC-P0-004",
+      "status": "todo",
+      "why_now": "Prompt-Kontext darf keine ungeprüften Rohdaten enthalten.",
+      "scope": [
+        "context_text nur aus erlaubten/transformierten Chunks",
+        "metadata normalization + content_hash",
+        "external context_text nicht vertrauen"
+      ],
+      "deliverables": [
+        "Rebuild-Pipeline für context_text",
+        "Tests für denied/redacted/summary-only Verhalten"
+      ],
+      "files": [
+        "agent/services/context_bundle_service.py",
+        "agent/services/source_classification_service.py"
+      ]
+    },
+    {
+      "rank": 5,
+      "task_id": "SEC-P0-005",
+      "status": "todo",
+      "why_now": "Worker/Runtime-Auswahl muss block-genaue Policy nutzen.",
+      "scope": [
+        "context_blocks in Selection-Request",
+        "Decision pro Block pro Kandidat",
+        "rejected_reasons mit block_ref/reason_code"
+      ],
+      "deliverables": [
+        "Policy-aware Candidate Filtering",
+        "Auditierbare Rejection-Gründe"
+      ],
+      "files": [
+        "agent/services/worker_runtime_selection_service.py",
+        "worker/core/context_access_policy.py"
+      ]
+    },
+    {
+      "rank": 6,
+      "task_id": "SEC-P0-006",
+      "status": "todo",
+      "why_now": "Preflight muss reale Runtime/Provider-Destination erzwingen.",
+      "scope": [
+        "selected_worker_runtime verpflichtend",
+        "fail-closed bei fehlendem Ziel",
+        "kein hardcoded runtime context"
+      ],
+      "deliverables": [
+        "Envelope-to-DestinationContext Ableitung",
+        "Preflight Tests ohne/mit runtime"
+      ],
+      "files": [
+        "worker/core/preflight.py",
+        "worker/core/execution_envelope.py"
+      ]
+    },
+    {
+      "rank": 7,
+      "task_id": "SEC-P0-008",
+      "status": "todo",
+      "why_now": "Least-Privilege erfordert Default-Deny für Tools/Provider.",
+      "scope": [
+        "empty allow-lists -> deny",
+        "legacy compatibility nur per explizitem flag"
+      ],
+      "deliverables": [
+        "ToolPolicy/ModelPolicy Verhalten umgestellt",
+        "Legacy-Regression-Tests"
+      ],
+      "files": [
+        "worker/core/execution_envelope.py",
+        "worker/core/preflight.py"
+      ]
+    },
+    {
+      "rank": 8,
+      "task_id": "SEC-P0-003",
+      "status": "todo",
+      "why_now": "Approval darf kein genereller Bypass sein.",
+      "scope": [
+        "ApprovalScope einführen",
+        "runtime/operation/block scoping + expiry",
+        "exact match against destination"
+      ],
+      "deliverables": [
+        "Scoped approval validator",
+        "audit fields approval_id + decision_hash"
+      ],
+      "files": [
+        "worker/core/context_access_policy.py",
+        "agent/services/context_access_policy_service.py"
+      ]
+    },
+    {
+      "rank": 9,
+      "task_id": "SEC-P1-003",
+      "status": "todo",
+      "why_now": "Uneinheitliche Default-Policy führt zu nicht-deterministischem Verhalten.",
+      "scope": [
+        "fehlende policy => system_default",
+        "leere fallback-policy entfernen"
+      ],
+      "deliverables": [
+        "Einheitlicher Default-Policy-Pfad",
+        "Regressionstest missing policy"
+      ],
+      "files": [
+        "agent/services/context_access_policy_service.py",
+        "agent/services/context_bundle_service.py"
+      ]
+    },
+    {
+      "rank": 10,
+      "task_id": "SEC-P1-001",
+      "status": "todo",
+      "why_now": "SRP/DIP: Redaction darf nicht über private Pattern-Leaks gekoppelt sein.",
+      "scope": [
+        "public redact_secrets API",
+        "Policy-Service nur über öffentliche API"
+      ],
+      "deliverables": [
+        "testbare Secret-Redaction API",
+        "Entkopplung privater _secret_patterns Zugriffe"
+      ],
+      "files": [
+        "agent/services/source_classification_service.py",
+        "agent/services/context_access_policy_service.py"
+      ]
+    }
+  ],
+  "sprint_now": {
+    "name": "SECURITY-FOUNDATION-S1",
+    "objective": "Bypass schließen und zentrale Policy/Preflight-Durchsetzung als Grundlage für verbleibende Partial-GEC-Arbeiten etablieren.",
+    "task_ids": [
+      "SEC-P0-007",
+      "SEC-P0-001",
+      "SEC-P0-002",
+      "SEC-P0-004",
+      "SEC-P0-005",
+      "SEC-P0-006",
+      "SEC-P0-008",
+      "SEC-P0-003",
+      "SEC-P1-003",
+      "SEC-P1-001"
+    ],
+    "definition_of_done": [
+      "run_step kann Preflight/Guardrails nicht mehr umgehen",
+      "DestinationContext wird einheitlich aufgebaut und ausgewertet",
+      "Default-Deny ist für Tool/Provider enforced",
+      "context_text wird nur aus policy-geprüften Chunks erzeugt"
+    ]
+  }
 }
