@@ -1881,6 +1881,17 @@ class TaskScopedExecutionService:
                 "repair_attempted": bool(repair_meta["attempted"]),
                 "repair_backend": repair_meta["backend"],
                 "repair_model": repair_meta["model"],
+                "llm_call_profile": self._build_llm_call_profile_entries(
+                    backend_used=backend_used,
+                    model=proposal_model,
+                    prompt=prompt_for_cli,
+                    raw_output=raw_res,
+                    latency_ms=latency_ms,
+                    rc=rc,
+                    repair_attempted=bool(repair_meta["attempted"]),
+                    repair_backend=repair_meta["backend"],
+                    repair_model=repair_meta["model"],
+                ),
             },
             worker_context=worker_context_meta,
             trace=trace,
@@ -2694,6 +2705,51 @@ class TaskScopedExecutionService:
             if "command not found" in text or "not recognized as an internal or external command" in text:
                 return True
         return False
+
+    @staticmethod
+    def _estimate_tokens(value: str | None) -> int:
+        text = str(value or "")
+        if not text:
+            return 0
+        return max(1, int(len(text) / 4))
+
+    def _build_llm_call_profile_entries(
+        self,
+        *,
+        backend_used: str,
+        model: str | None,
+        prompt: str,
+        raw_output: str,
+        latency_ms: int,
+        rc: int,
+        repair_attempted: bool,
+        repair_backend: str | None,
+        repair_model: str | None,
+    ) -> list[dict]:
+        entries = [
+            {
+                "phase": "propose_primary",
+                "backend": str(backend_used or ""),
+                "model": str(model or ""),
+                "success": bool(rc == 0),
+                "latency_ms": int(latency_ms or 0),
+                "prompt_tokens": self._estimate_tokens(prompt),
+                "completion_tokens": self._estimate_tokens(raw_output),
+            }
+        ]
+        if repair_attempted:
+            entries.append(
+                {
+                    "phase": "propose_repair",
+                    "backend": str(repair_backend or ""),
+                    "model": str(repair_model or ""),
+                    "success": bool(rc == 0),
+                    "latency_ms": None,
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                }
+            )
+        return entries
 
     @staticmethod
     def _build_repair_prompt(*, prompt: str, bad_output: str, validation_error: str) -> str:
