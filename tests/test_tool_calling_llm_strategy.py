@@ -124,6 +124,25 @@ class TestToolCallingLLMStrategy:
         assert "llm_call_failed" in result.reason
         assert result.metadata["llm_call_profile"][0]["success"] is False
 
+    def test_declined_invalid_tool_call_name(self, context_with_tools, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        mock_llm = Mock(
+            return_value={
+                "tool_calls": [{"name": "some_placeholder_tool", "args": {"argument": None}}],
+                "finish_reason": "tool_calls",
+                "provider": "ollama",
+                "model": "qwen2.5",
+            }
+        )
+        monkeypatch.setattr(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
+            mock_llm,
+        )
+        strategy = ToolCallingLLMStrategy()
+        result = strategy.run(context_with_tools)
+        assert result.status == STATUS_DECLINED
+        assert result.reason == "tool_calls_invalid_or_missing_names"
+
     def test_content_fallback_inline_shell_denied_by_policy(self, context_with_tools, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
         context_with_tools.policy.allow_shell_execution = False
