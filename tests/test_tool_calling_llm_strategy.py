@@ -93,6 +93,9 @@ class TestToolCallingLLMStrategy:
         mock_llm = Mock(return_value={
             "tool_calls": [{"name": "write_file", "args": {"path": "main.py", "content": "def fib(): pass"}}],
             "finish_reason": "tool_calls",
+            "provider": "ollama",
+            "model": "qwen2.5",
+            "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
         })
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
@@ -102,6 +105,9 @@ class TestToolCallingLLMStrategy:
         result = strategy.run(context_with_tools)
         assert result.status == STATUS_EXECUTABLE
         assert result.proposal.tool_calls[0]["name"] == "write_file"
+        assert result.proposal.metadata["provider"] == "ollama"
+        assert result.proposal.metadata["model"] == "qwen2.5"
+        assert result.proposal.metadata["llm_call_profile"][0]["estimated"] is False
         call_kwargs = mock_llm.call_args.kwargs
         assert "Prompt context bundle:" in call_kwargs["system_prompt"]
 
@@ -116,6 +122,7 @@ class TestToolCallingLLMStrategy:
         result = strategy.run(context_with_tools)
         assert result.status == STATUS_FAILED
         assert "llm_call_failed" in result.reason
+        assert result.metadata["llm_call_profile"][0]["success"] is False
 
     def test_content_fallback_inline_shell_denied_by_policy(self, context_with_tools, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")

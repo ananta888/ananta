@@ -36,7 +36,7 @@ class TestJsonSchemaLLMStrategy:
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
         mock_svc = Mock(side_effect=LLMUnavailableError("timeout"))
         monkeypatch.setattr(
-            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             mock_svc,
         )
         strategy = JsonSchemaLLMStrategy()
@@ -47,11 +47,16 @@ class TestJsonSchemaLLMStrategy:
 
     def test_executable_tool_calls(self, context, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
-        mock_svc = Mock(return_value=json.dumps({
-            "tool_calls": [{"name": "write_file", "args": {"path": "schema.py"}}],
-        }))
+        mock_svc = Mock(return_value={
+            "content": json.dumps({
+                "tool_calls": [{"name": "write_file", "args": {"path": "schema.py"}}],
+            }),
+            "provider": "ollama",
+            "model": "qwen2.5",
+            "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
+        })
         monkeypatch.setattr(
-            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             mock_svc,
         )
         strategy = JsonSchemaLLMStrategy()
@@ -61,12 +66,15 @@ class TestJsonSchemaLLMStrategy:
         call_kwargs = mock_svc.call_args.kwargs
         assert "Prompt context bundle (JSON):" in call_kwargs["prompt"]
         assert result.proposal.metadata["prompt_context_bundle"]["schema"] == "prompt_context_bundle.v1"
+        assert result.proposal.metadata["provider"] == "ollama"
+        assert result.proposal.metadata["model"] == "qwen2.5"
+        assert result.proposal.metadata["llm_call_profile"][0]["estimated"] is False
 
     def test_executable_command(self, context, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
-        mock_svc = Mock(return_value=json.dumps({"command": "pip install fastapi"}))
+        mock_svc = Mock(return_value={"content": json.dumps({"command": "pip install fastapi"})})
         monkeypatch.setattr(
-            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             mock_svc,
         )
         strategy = JsonSchemaLLMStrategy()
@@ -76,9 +84,9 @@ class TestJsonSchemaLLMStrategy:
 
     def test_declined_empty_json_no_output(self, context, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
-        mock_svc = Mock(return_value=json.dumps({}))
+        mock_svc = Mock(return_value={"content": json.dumps({})})
         monkeypatch.setattr(
-            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             mock_svc,
         )
         strategy = JsonSchemaLLMStrategy()
@@ -89,9 +97,9 @@ class TestJsonSchemaLLMStrategy:
 
     def test_advisory_invalid_json_parse_failure(self, context, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
-        mock_svc = Mock(return_value="invalid { json malformed")
+        mock_svc = Mock(return_value={"content": "invalid { json malformed"})
         monkeypatch.setattr(
-            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             mock_svc,
         )
         strategy = JsonSchemaLLMStrategy()
@@ -103,10 +111,11 @@ class TestJsonSchemaLLMStrategy:
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
         mock_svc = Mock(side_effect=Exception("service down"))
         monkeypatch.setattr(
-            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             mock_svc,
         )
         strategy = JsonSchemaLLMStrategy()
         result = strategy.run(context)
         assert result.status == STATUS_FAILED
         assert "llm_call_failed" in result.reason
+        assert result.metadata["llm_call_profile"][0]["success"] is False

@@ -113,13 +113,13 @@ def make_mock_invoke_with_tools(
 
 
 def make_mock_invoke_with_json_schema(command: str | None = None) -> Mock:
-    """Return a mock for ModelInvocationService.invoke_with_json_schema."""
+    """Return a mock for ModelInvocationService.invoke_with_json_schema_result."""
     if command is None:
         command = "mkdir fibonacci-api"
-    mock = Mock(return_value=json.dumps({
+    mock = Mock(return_value={"content": json.dumps({
         "command": command,
         "tool_calls": [],
-    }))
+    })})
     return mock
 
 

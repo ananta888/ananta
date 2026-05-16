@@ -61,7 +61,7 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
         )
 
         try:
-            raw_response = ModelInvocationService.invoke_with_json_schema(
+            llm_result = ModelInvocationService.invoke_with_json_schema_result(
                 prompt=prompt,
                 json_schema=self.JSON_SCHEMA,
                 model=None,
@@ -72,11 +72,37 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 "json_schema_llm",
                 reason=f"llm_required_but_unavailable: {exc}",
                 reason_codes=["llm_required", "llm_provider_unavailable"],
+                metadata={"llm_call_profile": list(getattr(exc, "llm_call_profile", []) or [])},
             )
         except Exception as exc:
             return ProposeStrategyResult.failed(
                 "json_schema_llm", f"llm_call_failed: {exc}",
+                metadata={
+                    "llm_call_profile": [
+                        {
+                            "name": "propose_json_schema_llm",
+                            "backend": "json_schema_llm",
+                            "provider": provider,
+                            "model": None,
+                            "success": False,
+                            "latency_ms": None,
+                            "prompt_tokens": None,
+                            "completion_tokens": None,
+                            "total_tokens": None,
+                            "source": "json_schema_llm_strategy",
+                            "estimated": True,
+                            "error_type": type(exc).__name__,
+                            "error_message": str(exc),
+                            "started_at": None,
+                            "ended_at": None,
+                        }
+                    ]
+                },
             )
+        raw_response = str((llm_result or {}).get("content") or "")
+        llm_profile = list(((llm_result or {}).get("metadata") or {}).get("llm_call_profile") or [])
+        llm_model = str((llm_result or {}).get("model") or "").strip() or None
+        llm_provider = str((llm_result or {}).get("provider") or "").strip() or provider
 
         if not raw_response or not raw_response.strip():
             return ProposeStrategyResult.declined(
@@ -118,7 +144,9 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 tool_calls=valid_tcs,
                 expected_artifacts=["workspace-changes"],
                 metadata={
-                    "provider": provider,
+                    "provider": llm_provider,
+                    "model": llm_model,
+                    "llm_call_profile": llm_profile,
                     "prompt_context_bundle": {
                         "schema": bundle.get("schema"),
                         "task_kind": bundle.get("task_kind"),
@@ -139,7 +167,9 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 tool_calls=[],
                 expected_artifacts=["command_output"],
                 metadata={
-                    "provider": provider,
+                    "provider": llm_provider,
+                    "model": llm_model,
+                    "llm_call_profile": llm_profile,
                     "prompt_context_bundle": {
                         "schema": bundle.get("schema"),
                         "task_kind": bundle.get("task_kind"),

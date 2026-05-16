@@ -50,7 +50,7 @@ class TestParseFailureTerminates:
         with pytest.MonkeyPatch().context() as m:
             m.setattr("agent.config.settings.default_provider", "lmstudio")
             m.setattr(
-                "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
+                "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
                 Mock(return_value="{ invalid json"),
             )
             result = strategy.run(ctx)

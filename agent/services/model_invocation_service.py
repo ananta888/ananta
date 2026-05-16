@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any
 
 import requests
@@ -13,9 +14,83 @@ logger = logging.getLogger(__name__)
 class LLMUnavailableError(Exception):
     """LLM provider not reachable, timed out, or returned server error."""
 
+    def __init__(self, message: str, *, llm_call_profile: list[dict[str, Any]] | None = None):
+        super().__init__(message)
+        self.llm_call_profile = list(llm_call_profile or [])
+
 
 class ModelInvocationService:
     """LLM invocation via OpenAI-compatible chat/completions endpoint."""
+
+    @staticmethod
+    def _build_llm_call_profile_entry(
+        *,
+        name: str,
+        backend: str,
+        provider: str | None,
+        model: str | None,
+        success: bool,
+        started_at: float | None,
+        ended_at: float | None,
+        usage: dict[str, Any] | None = None,
+        source: str = "model_invocation_service",
+        estimated: bool = False,
+        error_type: str | None = None,
+        error_message: str | None = None,
+    ) -> dict[str, Any]:
+        usage = usage if isinstance(usage, dict) else {}
+        prompt_tokens = usage.get("prompt_tokens")
+        completion_tokens = usage.get("completion_tokens")
+        total_tokens = usage.get("total_tokens")
+        latency_ms = None
+        if started_at is not None and ended_at is not None:
+            latency_ms = max(0, int((ended_at - started_at) * 1000))
+        return {
+            "name": name,
+            "backend": backend,
+            "provider": str(provider or "").strip() or None,
+            "model": str(model or "").strip() or None,
+            "success": bool(success),
+            "latency_ms": latency_ms,
+            "prompt_tokens": int(prompt_tokens) if isinstance(prompt_tokens, int) else None,
+            "completion_tokens": int(completion_tokens) if isinstance(completion_tokens, int) else None,
+            "total_tokens": int(total_tokens) if isinstance(total_tokens, int) else None,
+            "source": source,
+            "estimated": bool(estimated),
+            "error_type": str(error_type or "").strip() or None,
+            "error_message": str(error_message or "").strip() or None,
+            "started_at": float(started_at) if started_at is not None else None,
+            "ended_at": float(ended_at) if ended_at is not None else None,
+        }
+
+    @classmethod
+    def _raise_llm_error(
+        cls,
+        *,
+        message: str,
+        name: str,
+        backend: str,
+        provider: str | None,
+        model: str | None,
+        started_at: float | None,
+        error_type: str,
+    ) -> None:
+        ended_at = time.time()
+        entry = cls._build_llm_call_profile_entry(
+            name=name,
+            backend=backend,
+            provider=provider,
+            model=model,
+            success=False,
+            started_at=started_at,
+            ended_at=ended_at,
+            usage=None,
+            source="model_invocation_service",
+            estimated=False,
+            error_type=error_type,
+            error_message=message,
+        )
+        raise LLMUnavailableError(message, llm_call_profile=[entry])
 
     @classmethod
     def _get_settings(cls):
@@ -93,24 +168,80 @@ class ModelInvocationService:
 
         logger.debug("LLM call provider=%s url=%s model=%s tools=%s", provider, url, effective_model, bool(tools))
 
+        started_at = time.time()
         try:
             resp = requests.post(url, json=body, headers=headers, timeout=timeout)
         except requests.exceptions.ConnectionError as exc:
-            raise LLMUnavailableError(f"llm_connection_failed: {exc}") from exc
+            cls._raise_llm_error(
+                message=f"llm_connection_failed: {exc}",
+                name="chat_completions",
+                backend="llm_api",
+                provider=provider,
+                model=effective_model,
+                started_at=started_at,
+                error_type="connection_error",
+            )
         except requests.exceptions.Timeout as exc:
-            raise LLMUnavailableError(f"llm_timeout: {exc}") from exc
+            cls._raise_llm_error(
+                message=f"llm_timeout: {exc}",
+                name="chat_completions",
+                backend="llm_api",
+                provider=provider,
+                model=effective_model,
+                started_at=started_at,
+                error_type="timeout",
+            )
 
         if resp.status_code >= 500:
-            raise LLMUnavailableError(f"llm_server_error: HTTP {resp.status_code}")
+            cls._raise_llm_error(
+                message=f"llm_server_error: HTTP {resp.status_code}",
+                name="chat_completions",
+                backend="llm_api",
+                provider=provider,
+                model=effective_model,
+                started_at=started_at,
+                error_type="server_error",
+            )
         if resp.status_code >= 400:
-            raise LLMUnavailableError(
-                f"llm_client_error: HTTP {resp.status_code} {resp.text[:200]}"
+            cls._raise_llm_error(
+                message=f"llm_client_error: HTTP {resp.status_code} {resp.text[:200]}",
+                name="chat_completions",
+                backend="llm_api",
+                provider=provider,
+                model=effective_model,
+                started_at=started_at,
+                error_type="client_error",
             )
 
         try:
-            return resp.json()
+            payload = resp.json()
+            ended_at = time.time()
+            usage = payload.get("usage") if isinstance(payload, dict) else {}
+            profile = cls._build_llm_call_profile_entry(
+                name="chat_completions",
+                backend="llm_api",
+                provider=provider,
+                model=effective_model,
+                success=True,
+                started_at=started_at,
+                ended_at=ended_at,
+                usage=usage if isinstance(usage, dict) else None,
+            )
+            if isinstance(payload, dict):
+                meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+                meta["llm_call_profile"] = list(meta.get("llm_call_profile") or []) + [profile]
+                payload["metadata"] = meta
+            return payload
         except Exception as exc:
-            raise LLMUnavailableError(f"llm_invalid_json_response: {exc}") from exc
+            cls._raise_llm_error(
+                message=f"llm_invalid_json_response: {exc}",
+                name="chat_completions",
+                backend="llm_api",
+                provider=provider,
+                model=effective_model,
+                started_at=started_at,
+                error_type="invalid_json_response",
+            )
 
     @classmethod
     def invoke_with_tools(
@@ -139,10 +270,15 @@ class ModelInvocationService:
                 "id": tc.get("id"),
             })
 
+        metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
         return {
             "tool_calls": tool_calls,
             "content": msg.get("content") or "",
             "finish_reason": choice.get("finish_reason"),
+            "usage": response.get("usage") if isinstance(response.get("usage"), dict) else {},
+            "metadata": metadata,
+            "provider": cls._provider_info()[0],
+            "model": response.get("model") or model,
         }
 
     @classmethod
@@ -158,6 +294,28 @@ class ModelInvocationService:
         )
         choice = (response.get("choices") or [{}])[0]
         return (choice.get("message") or {}).get("content") or ""
+
+    @classmethod
+    def invoke_with_json_schema_result(
+        cls, prompt: str, json_schema: dict, model: str | None = None, **kwargs
+    ) -> dict[str, Any]:
+        """Call LLM with response_format=json_object and keep metadata/usage."""
+        messages = [{"role": "user", "content": prompt}]
+        if kwargs.get("system_prompt"):
+            messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
+        response = cls._make_chat_call(messages, response_format={"type": "json_object"}, model=model)
+        choice = (response.get("choices") or [{}])[0]
+        msg = choice.get("message") if isinstance(choice, dict) else {}
+        metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
+        provider = cls._provider_info()[0]
+        return {
+            "content": (msg.get("content") or "") if isinstance(msg, dict) else "",
+            "finish_reason": choice.get("finish_reason") if isinstance(choice, dict) else None,
+            "usage": response.get("usage") if isinstance(response.get("usage"), dict) else {},
+            "metadata": metadata,
+            "provider": provider,
+            "model": response.get("model") or model,
+        }
 
     @classmethod
     def invoke(cls, prompt: str, model: str | None = None, **kwargs) -> str:

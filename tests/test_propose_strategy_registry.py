@@ -290,7 +290,7 @@ class TestJsonSchemaLLMStrategy:
         from agent.services.model_invocation_service import LLMUnavailableError
         from worker.core.propose import STATUS_DECLINED
 
-        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema") as m:
+        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result") as m:
             m.side_effect = LLMUnavailableError("timeout")
             with patch("agent.config.settings") as ms:
                 ms.default_provider = "lmstudio"
@@ -305,7 +305,7 @@ class TestJsonSchemaLLMStrategy:
         from worker.core.propose import STATUS_EXECUTABLE
 
         payload = _json.dumps({"command": "echo hello world", "tool_calls": []})
-        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema", return_value=payload):
+        with patch("agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result", return_value=payload):
             with patch("agent.config.settings") as ms:
                 ms.default_provider = "lmstudio"
                 result = JsonSchemaLLMStrategy().run(_make_context())

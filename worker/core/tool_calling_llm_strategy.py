@@ -84,10 +84,32 @@ class ToolCallingLLMStrategy(ProposeStrategy):
                 "tool_calling_llm",
                 reason=f"llm_required_but_unavailable: {exc}",
                 reason_codes=["llm_required", "llm_provider_unavailable"],
+                metadata={"llm_call_profile": list(getattr(exc, "llm_call_profile", []) or [])},
             )
         except Exception as exc:
             return ProposeStrategyResult.failed(
                 "tool_calling_llm", f"llm_call_failed: {exc}",
+                metadata={
+                    "llm_call_profile": [
+                        {
+                            "name": "propose_tool_calling_llm",
+                            "backend": "tool_calling_llm",
+                            "provider": provider,
+                            "model": None,
+                            "success": False,
+                            "latency_ms": None,
+                            "prompt_tokens": None,
+                            "completion_tokens": None,
+                            "total_tokens": None,
+                            "source": "tool_calling_llm_strategy",
+                            "estimated": True,
+                            "error_type": type(exc).__name__,
+                            "error_message": str(exc),
+                            "started_at": None,
+                            "ended_at": None,
+                        }
+                    ]
+                },
             )
 
         tool_calls = llm_response.get("tool_calls") or []
@@ -138,7 +160,9 @@ class ToolCallingLLMStrategy(ProposeStrategy):
             tool_calls=valid_tcs,
             expected_artifacts=["workspace-changes"],
             metadata={
-                "provider": provider,
+                "provider": str(llm_response.get("provider") or provider).strip().lower() or provider,
+                "model": str(llm_response.get("model") or "").strip() or None,
+                "llm_call_profile": list(((llm_response.get("metadata") or {}).get("llm_call_profile") or [])),
                 "tools_used": [tc.get("name") for tc in valid_tcs],
                 "prompt_context_bundle": {
                     "schema": pcb.get("schema"),

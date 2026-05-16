@@ -61,6 +61,65 @@ def _safe_delta(a: float | None, b: float | None) -> float | None:
     return d if d >= 0 else None
 
 
+def _summarize_llm_call_profile(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    llm_profile_entries: list[dict[str, Any]] = []
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        llm_calls_total += 1
+        model = str(entry.get("model") or "").strip() or "<unknown>"
+        llm_by_model[model] = int(llm_by_model.get(model) or 0) + 1
+        source = str(entry.get("source") or "").strip() or "unknown"
+        llm_by_source[source] = int(llm_by_source.get(source) or 0) + 1
+        estimated = bool(entry.get("estimated"))
+        if estimated:
+            llm_calls_estimated += 1
+        if source == "orchestrator_synthetic" or estimated:
+            llm_calls_synthetic += 1
+            llm_by_model_synthetic[model] = int(llm_by_model_synthetic.get(model) or 0) + 1
+        else:
+            llm_calls_real += 1
+            llm_by_model_real[model] = int(llm_by_model_real.get(model) or 0) + 1
+
+        if bool(entry.get("success")):
+            llm_success += 1
+            if not estimated:
+                llm_success_real += 1
+        else:
+            llm_fail += 1
+            if not estimated:
+                llm_fail_real += 1
+        ms = entry.get("latency_ms")
+        if not estimated and isinstance(ms, int):
+            llm_latency_ms_real.append(ms)
+        pt = entry.get("prompt_tokens")
+        ct = entry.get("completion_tokens")
+        if not estimated and isinstance(pt, int):
+            llm_prompt_tokens_real.append(pt)
+        if not estimated and isinstance(ct, int):
+            llm_completion_tokens_real.append(ct)
+
+    return {
+        "calls_seen_total": llm_calls_total,
+        "calls_seen_real": llm_calls_real,
+        "calls_seen_synthetic": llm_calls_synthetic,
+        "calls_seen_estimated": llm_calls_estimated,
+        "success_count": llm_success,
+        "fail_count": llm_fail,
+        "success_count_real": llm_success_real,
+        "fail_count_real": llm_fail_real,
+        "latency_ms_mean_real": _mean(llm_latency_ms_real) if llm_latency_ms_real else None,
+        "latency_ms_median_real": _median(llm_latency_ms_real) if llm_latency_ms_real else None,
+        "prompt_tokens_mean_real": _mean(llm_prompt_tokens_real) if llm_prompt_tokens_real else None,
+        "completion_tokens_mean_real": _mean(llm_completion_tokens_real) if llm_completion_tokens_real else None,
+        "by_model": llm_by_model,
+        "by_model_real": llm_by_model_real,
+        "by_model_synthetic": llm_by_model_synthetic,
+        "by_source": llm_by_source,
+    }
+
+
 def _fetch_json(session: requests.Session, url: str, headers: dict[str, str]) -> dict[str, Any]:
     last_exc: Exception | None = None
     for attempt in range(1, 4):
@@ -131,13 +190,21 @@ def main() -> int:
     assign_ts: list[float] = []
     propose_calls = 0
     no_candidates_ticks = 0
-    llm_calls = 0
-    llm_latency_ms: list[int] = []
-    llm_prompt_tokens: list[int] = []
-    llm_completion_tokens: list[int] = []
+    llm_calls_total = 0
+    llm_calls_real = 0
+    llm_calls_synthetic = 0
+    llm_calls_estimated = 0
+    llm_latency_ms_real: list[int] = []
+    llm_prompt_tokens_real: list[int] = []
+    llm_completion_tokens_real: list[int] = []
     llm_success = 0
     llm_fail = 0
+    llm_success_real = 0
+    llm_fail_real = 0
     llm_by_model: dict[str, int] = {}
+    llm_by_model_real: dict[str, int] = {}
+    llm_by_model_synthetic: dict[str, int] = {}
+    llm_by_source: dict[str, int] = {}
 
     for td in task_details:
         history = list(td.get("history") or [])
@@ -154,24 +221,8 @@ def main() -> int:
         cli_result = dict(proposal.get("cli_result") or {})
         prof_entries = list(cli_result.get("llm_call_profile") or [])
         for entry in prof_entries:
-            if not isinstance(entry, dict):
-                continue
-            llm_calls += 1
-            model = str(entry.get("model") or "").strip() or "<unknown>"
-            llm_by_model[model] = int(llm_by_model.get(model) or 0) + 1
-            if bool(entry.get("success")):
-                llm_success += 1
-            else:
-                llm_fail += 1
-            ms = entry.get("latency_ms")
-            if isinstance(ms, int):
-                llm_latency_ms.append(ms)
-            pt = entry.get("prompt_tokens")
-            ct = entry.get("completion_tokens")
-            if isinstance(pt, int):
-                llm_prompt_tokens.append(pt)
-            if isinstance(ct, int):
-                llm_completion_tokens.append(ct)
+            if isinstance(entry, dict):
+                llm_profile_entries.append(dict(entry))
 
         for e in history:
             et = str(e.get("event_type") or "")
@@ -206,6 +257,8 @@ def main() -> int:
         gaps = [assign_ts_sorted[i] - assign_ts_sorted[i - 1] for i in range(1, len(assign_ts_sorted))]
         idle_gap_seconds = _median(gaps) if gaps else None
 
+    llm_summary = _summarize_llm_call_profile(llm_profile_entries)
+
     out = {
         "goal_id": goal_id,
         "generated_at": time.time(),
@@ -218,16 +271,24 @@ def main() -> int:
             "total": {"mean": _mean(tot), "median": _median(tot), "n": len(tot)},
         },
         "llm_call_profile": {
-            "calls_seen": llm_calls,
+            "calls_seen_total": llm_summary["calls_seen_total"],
+            "calls_seen_real": llm_summary["calls_seen_real"],
+            "calls_seen_synthetic": llm_summary["calls_seen_synthetic"],
+            "calls_seen_estimated": llm_summary["calls_seen_estimated"],
             "propose_events_seen": propose_calls,
-            "success_count": llm_success,
-            "fail_count": llm_fail,
-            "latency_ms_mean": _mean(llm_latency_ms) if llm_latency_ms else None,
-            "latency_ms_median": _median(llm_latency_ms) if llm_latency_ms else None,
-            "prompt_tokens_mean": _mean(llm_prompt_tokens) if llm_prompt_tokens else None,
-            "completion_tokens_mean": _mean(llm_completion_tokens) if llm_completion_tokens else None,
-            "by_model": llm_by_model,
-            "note": "token counts are provider usage if available, otherwise lightweight estimates",
+            "success_count": llm_summary["success_count"],
+            "fail_count": llm_summary["fail_count"],
+            "success_count_real": llm_summary["success_count_real"],
+            "fail_count_real": llm_summary["fail_count_real"],
+            "latency_ms_mean_real": llm_summary["latency_ms_mean_real"],
+            "latency_ms_median_real": llm_summary["latency_ms_median_real"],
+            "prompt_tokens_mean_real": llm_summary["prompt_tokens_mean_real"],
+            "completion_tokens_mean_real": llm_summary["completion_tokens_mean_real"],
+            "by_model": llm_summary["by_model"],
+            "by_model_real": llm_summary["by_model_real"],
+            "by_model_synthetic": llm_summary["by_model_synthetic"],
+            "by_source": llm_summary["by_source"],
+            "note": "synthetic entries prove orchestration activity but are excluded from real latency/token statistics",
         },
         "autopilot_throughput_idle": {
             "tasks_assigned_count": len(assign_ts),
