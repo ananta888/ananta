@@ -559,9 +559,11 @@ def _dispatch_one_task_inner(  # noqa: C901
         lease_id=f"lease-{task.id}",
         cleanup_state="pending",
     )
+    current_status_for_scope = _current_task_status(task.id, app=app_ctx)
+    status_for_scope = current_status_for_scope or "assigned"
     update_local_task_status(
         task.id,
-        str(getattr(task, "status", None) or "assigned"),
+        status_for_scope,
         verification_status={
             **dict(getattr(task, "verification_status", None) or {}),
             "execution_scope": {
