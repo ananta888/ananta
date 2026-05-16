@@ -52,6 +52,23 @@ class AcceptanceRunner:
         self.token = self._login()
         self.headers = {"Authorization": f"Bearer {self.token}"}
 
+    def _get_json_with_retry(self, url: str, *, timeout: int = 20, retries: int = 3) -> dict[str, Any]:
+        last_exc: Exception | None = None
+        for attempt in range(1, retries + 1):
+            try:
+                resp = requests.get(url, headers=self.headers, timeout=timeout)
+                resp.raise_for_status()
+                return dict(resp.json() or {})
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+                if attempt < retries:
+                    time.sleep(min(2.0 * attempt, 5.0))
+                    continue
+                raise
+        if last_exc:
+            raise last_exc
+        return {}
+
     def _login(self) -> str:
         resp = requests.post(
             f"{self.base_url}/login",
@@ -66,20 +83,17 @@ class AcceptanceRunner:
         return token
 
     def _get_goals(self) -> list[dict[str, Any]]:
-        resp = requests.get(f"{self.base_url}/goals", headers=self.headers, timeout=20)
-        resp.raise_for_status()
-        data = resp.json().get("data")
+        payload = self._get_json_with_retry(f"{self.base_url}/goals", timeout=20, retries=3)
+        data = payload.get("data")
         return data if isinstance(data, list) else []
 
     def _get_goal_detail(self, goal_id: str) -> dict[str, Any]:
-        resp = requests.get(f"{self.base_url}/goals/{goal_id}/detail", headers=self.headers, timeout=20)
-        resp.raise_for_status()
-        return dict(resp.json().get("data") or {})
+        payload = self._get_json_with_retry(f"{self.base_url}/goals/{goal_id}/detail", timeout=20, retries=3)
+        return dict(payload.get("data") or {})
 
     def _get_task(self, task_id: str) -> dict[str, Any]:
-        resp = requests.get(f"{self.base_url}/tasks/{task_id}", headers=self.headers, timeout=20)
-        resp.raise_for_status()
-        return dict(resp.json().get("data") or {})
+        payload = self._get_json_with_retry(f"{self.base_url}/tasks/{task_id}", timeout=20, retries=3)
+        return dict(payload.get("data") or {})
 
     def _get_autopilot_status(self) -> dict[str, Any]:
         resp = requests.get(f"{self.base_url}/tasks/autopilot/status", headers=self.headers, timeout=20)
