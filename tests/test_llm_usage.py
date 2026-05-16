@@ -760,3 +760,23 @@ def test_lmstudio_strategy_matches_short_name_to_long_import_id(app):
 
     assert result == {"text": "ok", "usage": {}}
     assert mock_call.call_args.args[0] == candidates[0]["id"]
+
+
+def test_model_invocation_service_timeout_exposes_failed_llm_call_profile():
+    import requests
+
+    from agent.services.model_invocation_service import LLMUnavailableError, ModelInvocationService
+
+    with patch("agent.services.model_invocation_service.requests.post", side_effect=requests.exceptions.Timeout("boom")):
+        with patch("agent.services.model_invocation_service.ModelInvocationService._provider_info", return_value=("ollama", "http://localhost/v1/chat/completions", None)):
+            with patch("agent.services.model_invocation_service.ModelInvocationService._get_settings") as mock_settings:
+                mock_settings.return_value.default_model = "qwen"
+                try:
+                    ModelInvocationService._make_chat_call([{"role": "user", "content": "hi"}], model="qwen")
+                    assert False, "expected LLMUnavailableError"
+                except LLMUnavailableError as exc:
+                    prof = list(getattr(exc, "llm_call_profile", []) or [])
+                    assert prof
+                    assert prof[0]["success"] is False
+                    assert prof[0]["estimated"] is False
+                    assert prof[0]["error_type"] == "timeout"

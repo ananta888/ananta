@@ -562,23 +562,39 @@ class TaskScopedExecutionService:
         if result.is_executable and result.proposal is not None:
             proposal_meta = dict(getattr(result.proposal, "metadata", None) or {})
             proposal_provider = str(proposal_meta.get("provider") or "").strip() or None
+            proposal_model = str(proposal_meta.get("model") or "").strip() or None
             strategy_id = str(getattr(result, "strategy_id", "") or "").strip() or None
-            cli_result = {
-                "returncode": 0,
-                "latency_ms": 0,
-                "stderr_preview": None,
-                "output_source": "orchestrator",
-                "llm_call_profile": [
+            real_llm_call_profile = list((result.metadata or {}).get("llm_call_profile") or [])
+            if not real_llm_call_profile:
+                real_llm_call_profile = list(proposal_meta.get("llm_call_profile") or [])
+            llm_call_profile = [entry for entry in real_llm_call_profile if isinstance(entry, dict)]
+            if not llm_call_profile:
+                # Bridge fallback: preserves correlation for diagnostics when strategy does not expose real call metrics yet.
+                llm_call_profile = [
                     {
                         "name": f"propose_{strategy_id or 'orchestrator'}",
                         "backend": "orchestrator",
-                        "model": proposal_provider,
+                        "provider": proposal_provider,
+                        "model": proposal_model,
                         "success": True,
                         "latency_ms": None,
                         "prompt_tokens": None,
                         "completion_tokens": None,
+                        "total_tokens": None,
+                        "source": "orchestrator_synthetic",
+                        "estimated": True,
+                        "error_type": None,
+                        "error_message": None,
+                        "started_at": None,
+                        "ended_at": None,
                     }
-                ],
+                ]
+            cli_result = {
+                "returncode": 0,
+                "latency_ms": None,
+                "stderr_preview": None,
+                "output_source": "orchestrator",
+                "llm_call_profile": llm_call_profile,
             }
             get_core_services().task_execution_service.persist_task_proposal_result(
                 tid=tid,

@@ -60,6 +60,7 @@ class ProposeStrategyOrchestrator:
         """Run full strategy chain. Returns first executable or terminal result."""
         strategy_order = self.policy.effective_strategy_order()
         attempted: List[Dict] = []
+        collected_llm_profiles: List[Dict[str, Any]] = []
 
         llm_required = self.policy.llm_required
         llm_unavailable_count = 0
@@ -83,6 +84,11 @@ class ProposeStrategyOrchestrator:
                 )
             else:
                 result = strategy.run(context)
+            if isinstance(getattr(result, "metadata", None), dict):
+                entries = list((result.metadata or {}).get("llm_call_profile") or [])
+                for entry in entries:
+                    if isinstance(entry, dict):
+                        collected_llm_profiles.append(dict(entry))
 
             attempted.append({
                 "strategy_id": strategy_id,
@@ -99,6 +105,8 @@ class ProposeStrategyOrchestrator:
                 if isinstance(result.metadata, dict):
                     result.metadata["attempted_strategies"] = attempted
                     result.metadata["selected_strategy"] = strategy_id
+                    if collected_llm_profiles:
+                        result.metadata["llm_call_profile"] = list(collected_llm_profiles)
                 return result
 
             # T003: after last LLM strategy, enforce llm_required
@@ -115,6 +123,8 @@ class ProposeStrategyOrchestrator:
                     "selected_strategy": None,
                     "llm_required_enforced": True,
                 }
+                if collected_llm_profiles:
+                    meta["llm_call_profile"] = list(collected_llm_profiles)
                 return ProposeStrategyResult.needs_review(
                     "orchestrator",
                     "llm_required_but_unavailable",
@@ -124,6 +134,8 @@ class ProposeStrategyOrchestrator:
 
         # All strategies declined
         fallback_meta = {"attempted_strategies": attempted, "selected_strategy": None}
+        if collected_llm_profiles:
+            fallback_meta["llm_call_profile"] = list(collected_llm_profiles)
         match self.policy.on_all_strategies_declined:
             case "needs_review":
                 r = ProposeStrategyResult.needs_review(

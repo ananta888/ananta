@@ -182,7 +182,7 @@ class TestNewProjectFallsBackToJsonSchemaLLM:
         )
         # json_schema_llm: returns a command
         monkeypatch.setattr(
-            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             make_mock_invoke_with_json_schema("mkdir fibonacci-api"),
         )
 
@@ -208,7 +208,7 @@ class TestNewProjectLLMRequired:
             Mock(side_effect=LLMUnavailableError("connection refused")),
         )
         monkeypatch.setattr(
-            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             Mock(side_effect=LLMUnavailableError("connection refused")),
         )
         monkeypatch.setattr(

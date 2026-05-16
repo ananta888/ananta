@@ -94,7 +94,7 @@ class TestSgptBlockedDuringPropose:
             Mock(side_effect=LLMUnavailableError("no server")),
         )
         monkeypatch.setattr(
-            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema",
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             Mock(side_effect=LLMUnavailableError("no server")),
         )
         monkeypatch.setattr(
