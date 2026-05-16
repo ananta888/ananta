@@ -67,6 +67,7 @@ class TaskCliResultContract(SQLModel):
     repair_attempted: bool = False
     repair_backend: Optional[str] = None
     repair_model: Optional[str] = None
+    llm_call_profile: Optional[List[dict]] = None
 
 
 class TaskRoutingContract(SQLModel):

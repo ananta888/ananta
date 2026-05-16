@@ -55,6 +55,14 @@ def _is_terminal_status(status: str) -> bool:
     return status in {"completed", "failed", "cancelled"}
 
 
+def _merged_last_proposal_snapshot(*, task_id: str, snapshot: dict[str, Any], app: Any) -> dict[str, Any]:
+    repos = get_repository_registry(app)
+    current = repos.task_repo.get_by_id(task_id)
+    existing = dict(getattr(current, "last_proposal", None) or {})
+    merged = {**existing, **dict(snapshot or {})}
+    return merged
+
+
 def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, all_tasks: list[Any], goal_scope: str | None) -> bool:
     goal_id = str(goal_scope or "").strip()
     if not goal_id:
@@ -896,7 +904,11 @@ def _dispatch_one_task_inner(  # noqa: C901
                 error="autopilot_strategy_exhausted",
                 verification_status=verification_status,
                 manual_override_until=(now_ts + cooldown_seconds) if cooldown_seconds > 0 else None,
-                last_proposal={"strategy_failures": strategy_failures[-5:]},
+                last_proposal=_merged_last_proposal_snapshot(
+                    task_id=task.id,
+                    snapshot={"strategy_failures": strategy_failures[-5:]},
+                    app=app_ctx,
+                ),
                 event_type="autopilot_strategy_retry_scheduled",
                 event_actor="autopilot_tick",
                 event_details={"retry_status": retry_status, "cooldown_seconds": cooldown_seconds},
@@ -978,7 +990,7 @@ def _dispatch_one_task_inner(  # noqa: C901
             task.id,
             "failed",
             error="autopilot_no_executable_step",
-            last_proposal=proposal_snapshot,
+            last_proposal=_merged_last_proposal_snapshot(task_id=task.id, snapshot=proposal_snapshot, app=app_ctx),
         )
         append_trace_event(
             task.id,
@@ -1021,7 +1033,7 @@ def _dispatch_one_task_inner(  # noqa: C901
                 task.id,
                 "failed",
                 error=f"security_policy_tool_guardrail_blocked:{','.join(decision.reasons)}",
-                last_proposal=proposal_snapshot,
+                last_proposal=_merged_last_proposal_snapshot(task_id=task.id, snapshot=proposal_snapshot, app=app_ctx),
             )
             append_trace_event(
                 task.id,
@@ -1100,6 +1112,21 @@ def _dispatch_one_task_inner(  # noqa: C901
         exit_code=exit_code,
         agent_cfg=loop._agent_config(),
     )
+    latest_status = _current_task_status(task.id, app=app_ctx)
+    if _is_terminal_status(latest_status):
+        append_trace_event(
+            task.id,
+            "autopilot_result_skipped_terminal",
+            delegated_to=target_worker.url,
+            terminal_status=latest_status,
+            attempted_status=task_status,
+            exit_code=exit_code,
+        )
+        result.dispatched = True
+        result.completed = latest_status == "completed"
+        result.failed = latest_status != "completed"
+        result.failure_type = None if result.completed else latest_status
+        return result
     if quality_gate_reason:
         append_trace_event(
             task.id,
@@ -1112,7 +1139,7 @@ def _dispatch_one_task_inner(  # noqa: C901
         task_status,
         last_output=output,
         last_exit_code=exit_code,
-        last_proposal=proposal_snapshot,
+        last_proposal=_merged_last_proposal_snapshot(task_id=task.id, snapshot=proposal_snapshot, app=app_ctx),
     )
     append_trace_event(
         task.id,
