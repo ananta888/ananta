@@ -4,7 +4,15 @@ from dataclasses import dataclass
 from typing import Any
 
 
-_SOFTWARE_KEYWORDS = ("software", "project", "java", "angular", "frontend", "backend", "fibonacci")
+_SOFTWARE_KEYWORDS = ("software", "project", "app", "application", "prototype")
+_MULTI_FILE_KEYWORDS = (
+    "multiple files",
+    "multi-file",
+    "mehrere dateien",
+    "mehrdatei",
+    "project structure",
+    "projektstruktur",
+)
 
 
 @dataclass(frozen=True)
@@ -37,12 +45,32 @@ class GoalExecutionContract:
 
 
 class GoalExecutionContractService:
+    @staticmethod
+    def _requires_multiple_files(*, goal_text: str, mode_data: dict[str, Any]) -> bool:
+        normalized = f"{goal_text} {mode_data}".lower()
+        return any(token in normalized for token in _MULTI_FILE_KEYWORDS)
+
     def _default_expected_artifacts(self, *, goal_text: str, mode_data: dict[str, Any]) -> list[dict[str, Any]]:
         normalized = f"{goal_text} {mode_data}".lower()
         if any(token in normalized for token in _SOFTWARE_KEYWORDS):
+            min_files = 2 if self._requires_multiple_files(goal_text=goal_text, mode_data=mode_data) else 1
             return [
-                {"kind": "directory", "required": True, "relative_path": "backend", "description": "Backend project root"},
-                {"kind": "directory", "required": True, "relative_path": "frontend", "description": "Frontend project root"},
+                {
+                    "kind": "workspace_change_set",
+                    "required": True,
+                    "description": "At least one meaningful project artifact was created in workspace.",
+                    "min_file_count": min_files,
+                },
+                {
+                    "kind": "project_structure_manifest",
+                    "required": True,
+                    "description": "A reviewable project structure/tree is documented.",
+                },
+                {
+                    "kind": "execution_verification_evidence",
+                    "required": True,
+                    "description": "At least one executable verification/test/check run is documented (or explicit, justified non-runnable reason).",
+                },
             ]
         return []
 
@@ -155,4 +183,3 @@ goal_execution_contract_service = GoalExecutionContractService()
 
 def get_goal_execution_contract_service() -> GoalExecutionContractService:
     return goal_execution_contract_service
-
