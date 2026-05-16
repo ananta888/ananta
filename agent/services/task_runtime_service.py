@@ -112,10 +112,26 @@ def update_local_task_status(
     if not force and old_status:
         ok, reason = can_transition_to(old_status, normalized_status)
         if not ok:
+            allow_recovery_completion = (
+                old_status == "failed"
+                and normalized_status == "completed"
+                and (
+                    event_type == "artifact_first_completion"
+                    or "last_output" in kwargs
+                    or "verification_status" in kwargs
+                )
+            )
+            if allow_recovery_completion:
+                logging.warning(
+                    "Recovery-Transition fuer Task %s erzwungen: %s (artifact/execution completion)",
+                    tid,
+                    reason,
+                )
+                ok = True
             logging.warning("Blockierter Statuswechsel fuer Task %s: %s (force=False)", tid, reason)
             # Wir blockieren hier aktiv, wenn es kein force-Request ist
-            if old_status != normalized_status:
-                 return
+            if old_status != normalized_status and not ok:
+                return
 
     task.status = normalized_status
     task.updated_at = time.time()
