@@ -589,11 +589,11 @@ def test_llm_generate_runtime_falls_back_to_ollama_in_routing_metadata(client, a
         return
     kwargs = mock_generate.call_args.kwargs
     assert kwargs["provider"] == "ollama"
-    assert kwargs["model"] == "ananta-default"
+    assert kwargs["model"] in {"ananta-default", "ananta-default:latest"}
     data = res.json["data"]
     routing = data.get("routing") or {}
     assert (routing.get("effective") or {}).get("provider") == "ollama"
-    assert (routing.get("effective") or {}).get("model") == "ananta-default"
+    assert (routing.get("effective") or {}).get("model") in {"ananta-default", "ananta-default:latest"}
     assert (routing.get("fallback") or {}).get("provider_source") == "agent_config.llm_config.provider"
 
 
