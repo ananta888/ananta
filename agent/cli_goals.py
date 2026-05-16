@@ -883,8 +883,10 @@ def list_tasks(status: str = None, limit: int = 20):
 
         print(f"Tasks ({len(tasks)}):")
         for task in tasks[:limit]:
+            task = task if isinstance(task, dict) else {}
             task_id = task.get("id", "N/A")
-            title = task.get("title", "N/A")[:50]
+            raw_title = task.get("title")
+            title = str(raw_title)[:50] if raw_title is not None else "N/A"
             task_status = task.get("status", "N/A")
             _print_terminal("  [{:12}] {}: {}", task_status, task_id, title)
     else:
