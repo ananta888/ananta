@@ -2,6 +2,7 @@ import logging
 import os
 import threading
 import time
+import contextlib
 from typing import Any
 
 from flask import Blueprint, current_app, has_app_context, request
@@ -22,6 +23,7 @@ from agent.routes.tasks.autopilot_tick_engine import execute_autopilot_tick
 from agent.routes.tasks.orchestration_policy import compute_retry_delay_seconds
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.services.service_registry import get_core_services
+from agent.services.repository_registry import get_repository_registry
 
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
 
@@ -448,12 +450,54 @@ class AutonomousLoopManager:
     def _forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:
         cfg = self._resilience_config()
         last_exc: Exception | None = None
+        resolved_token = token
+        with contextlib.suppress(Exception):
+            agent = get_repository_registry(self._app).agent_repo.get_by_url(worker_url)
+            current_token = str(getattr(agent, "token", "") or "").strip()
+            if current_token:
+                resolved_token = current_token
         for attempt in range(1, cfg["retry_attempts"] + 1):
             try:
-                res = _forward_to_worker(worker_url, endpoint, payload, token=token)
+                res = _forward_to_worker(worker_url, endpoint, payload, token=resolved_token)
+                if res is None:
+                    raise RuntimeError(f"worker_empty_response:{worker_url}:{endpoint}")
                 self._record_worker_success(worker_url)
-                return unwrap_api_envelope(res)
+                normalized = unwrap_api_envelope(res)
+                if not isinstance(normalized, dict) or not normalized:
+                    raise RuntimeError(f"worker_empty_payload:{worker_url}:{endpoint}")
+                return normalized
             except Exception as e:
+                err_text = str(e or "")
+                err_lc = err_text.lower()
+                # Worker tokens can drift across container restarts; for internal
+                # hub->worker calls we degrade gracefully and retry once without
+                # bearer token on explicit auth failures.
+                if resolved_token and (
+                    "401" in err_lc
+                    or "unauthorized" in err_lc
+                    or "invalid or missing registration token" in err_lc
+                    or "worker_empty_response" in err_lc
+                    or "worker_empty_payload" in err_lc
+                ):
+                    try:
+                        res = _forward_to_worker(worker_url, endpoint, payload, token=None)
+                        if res is None:
+                            raise RuntimeError(f"worker_empty_response:{worker_url}:{endpoint}:tokenless")
+                        self._record_worker_success(worker_url)
+                        if payload.get("task_id"):
+                            _append_trace_event(
+                                payload["task_id"],
+                                "autopilot_forward_auth_fallback",
+                                worker_url=worker_url,
+                                endpoint=endpoint,
+                                reason="token_401_retry_without_token",
+                            )
+                        normalized = unwrap_api_envelope(res)
+                        if not isinstance(normalized, dict) or not normalized:
+                            raise RuntimeError(f"worker_empty_payload:{worker_url}:{endpoint}:tokenless")
+                        return normalized
+                    except Exception as auth_fallback_exc:
+                        e = auth_fallback_exc
                 last_exc = e
                 err_text = str(e or "")
                 err_lc = err_text.lower()

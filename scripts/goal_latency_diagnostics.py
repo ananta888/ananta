@@ -62,9 +62,21 @@ def _safe_delta(a: float | None, b: float | None) -> float | None:
 
 
 def _fetch_json(session: requests.Session, url: str, headers: dict[str, str]) -> dict[str, Any]:
-    r = session.get(url, headers=headers, timeout=20)
-    r.raise_for_status()
-    return dict(r.json() or {})
+    last_exc: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            r = session.get(url, headers=headers, timeout=20)
+            r.raise_for_status()
+            return dict(r.json() or {})
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if attempt < 3:
+                time.sleep(min(2 * attempt, 5))
+                continue
+            raise
+    if last_exc:
+        raise last_exc
+    return {}
 
 
 def main() -> int:
@@ -78,9 +90,23 @@ def main() -> int:
 
     base = args.base_url.rstrip("/")
     s = requests.Session()
-    login = s.post(f"{base}/login", json={"username": args.user, "password": args.password}, timeout=20)
-    login.raise_for_status()
-    token = str((login.json().get("data") or {}).get("access_token") or "")
+    login_payload: dict[str, Any] | None = None
+    last_exc: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            login = s.post(f"{base}/login", json={"username": args.user, "password": args.password}, timeout=20)
+            login.raise_for_status()
+            login_payload = dict(login.json() or {})
+            break
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if attempt < 3:
+                time.sleep(min(2 * attempt, 5))
+                continue
+            raise
+    if login_payload is None and last_exc:
+        raise last_exc
+    token = str(((login_payload or {}).get("data") or {}).get("access_token") or "")
     headers = {"Authorization": f"Bearer {token}"}
 
     goal_id = args.goal_id

@@ -1,0 +1,75 @@
+{
+  "summary": {
+    "schema": "first_goal_acceptance.v1",
+    "total_runs": 1,
+    "completed_runs": 0,
+    "write_phase_runs": 1,
+    "autopilot_progress_runs": 0,
+    "repeatability_pass": false
+  },
+  "runs": [
+    {
+      "run_index": 1,
+      "goal_id": "fc3dd67e-1a1e-4ea4-b547-a969d6c6f3b7",
+      "output_dir": "first-goal-run-1-43773a",
+      "final_goal_status": "planned",
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": true,
+          "details": "new_goal_ids=['fc3dd67e-1a1e-4ea4-b547-a969d6c6f3b7']; submit_error=HTTPConnectionPool(host='localhost', port=5000): Read timed out. (read timeout=12); first_planning_state_at=12.02s"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": true,
+          "details": "task_count_within_60s=6"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": false,
+          "details": "first_assigned_at=42.22016000747681; post_assigned_change=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": true,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-1-43773a; file_seen=True"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": true,
+          "details": "verification_seen=True"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": false,
+          "details": "final_status=planned; sla_s=180"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    }
+  ]
+}

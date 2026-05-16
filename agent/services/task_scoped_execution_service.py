@@ -560,6 +560,26 @@ class TaskScopedExecutionService:
             "effective_strategy_mode": getattr(policy, "effective_strategy_mode", None) or task_override.get("strategy_mode"),
         }
         if result.is_executable and result.proposal is not None:
+            proposal_meta = dict(getattr(result.proposal, "metadata", None) or {})
+            proposal_provider = str(proposal_meta.get("provider") or "").strip() or None
+            strategy_id = str(getattr(result, "strategy_id", "") or "").strip() or None
+            cli_result = {
+                "returncode": 0,
+                "latency_ms": 0,
+                "stderr_preview": None,
+                "output_source": "orchestrator",
+                "llm_call_profile": [
+                    {
+                        "name": f"propose_{strategy_id or 'orchestrator'}",
+                        "backend": "orchestrator",
+                        "model": proposal_provider,
+                        "success": True,
+                        "latency_ms": None,
+                        "prompt_tokens": None,
+                        "completion_tokens": None,
+                    }
+                ],
+            }
             get_core_services().task_execution_service.persist_task_proposal_result(
                 tid=tid,
                 task=task,
@@ -571,7 +591,7 @@ class TaskScopedExecutionService:
                     "task_kind": task_kind,
                     "propose_strategy_meta": propose_strategy_meta,
                 },
-                cli_result=None,
+                cli_result=cli_result,
                 worker_context={"strategy": result.metadata.get("selected_strategy")},
                 trace={"policy_version": "v1"},
                 review=None,
@@ -1192,6 +1212,17 @@ class TaskScopedExecutionService:
                 "latency_ms": latency_ms,
                 "stderr_preview": (cli_err or "")[:240],
                 "output_source": output_source,
+                "llm_call_profile": self._build_llm_call_profile_entries(
+                    backend_used=backend_used,
+                    model=selected_model,
+                    prompt=prompt_for_cli,
+                    raw_output=raw_res,
+                    latency_ms=latency_ms,
+                    rc=rc,
+                    repair_attempted=False,
+                    repair_backend=None,
+                    repair_model=None,
+                ),
             }
             if rc != 0 and not raw_res.strip():
                 return entry, {"error": cli_err or f"backend '{backend_used}' failed with exit code {rc}", "backend": backend_used, "routing": routing, "cli_result": cli_result}
@@ -2175,13 +2206,44 @@ class TaskScopedExecutionService:
         my_url = settings.agent_url or f"http://localhost:{settings.port}"
         if worker_url.rstrip("/") == my_url.rstrip("/"):
             return None
+        assigned_token = task.get("assigned_agent_token")
+        resolved_token = assigned_token
         try:
-            response = forwarder(worker_url, endpoint, payload, token=task.get("assigned_agent_token"))
+            agent = get_repository_registry().agent_repo.get_by_url(worker_url)
+            current_token = str(getattr(agent, "token", "") or "").strip()
+            if current_token:
+                resolved_token = current_token
+        except Exception:
+            pass
+        try:
+            response = forwarder(worker_url, endpoint, payload, token=resolved_token)
+            if response is None and resolved_token:
+                response = forwarder(worker_url, endpoint, payload, token=None)
+            if (
+                resolved_token
+                and isinstance(response, dict)
+                and str(response.get("status") or "").strip().lower() == "error"
+                and ("401" in str(response.get("message") or "").lower() or "unauthorized" in str(response.get("message") or "").lower())
+            ):
+                response = forwarder(worker_url, endpoint, payload, token=None)
             response = unwrap_api_envelope(response)
+            if not isinstance(response, dict) or not response:
+                raise RuntimeError(f"worker_empty_payload:{worker_url}:{endpoint}")
             if isinstance(response, dict):
                 on_success(response, task)
             return TaskScopedRouteResponse(data=response)
         except Exception as exc:
+            err_text = str(exc or "")
+            err_lc = err_text.lower()
+            if assigned_token and ("401" in err_lc or "unauthorized" in err_lc):
+                try:
+                    response = forwarder(worker_url, endpoint, payload, token=None)
+                    response = unwrap_api_envelope(response)
+                    if isinstance(response, dict):
+                        on_success(response, task)
+                    return TaskScopedRouteResponse(data=response)
+                except Exception:
+                    pass
             current_app.logger.error("Forwarding an %s fehlgeschlagen: %s", worker_url, exc)
             raise WorkerForwardingError(details={"details": str(exc), "worker_url": worker_url})
 
@@ -2913,6 +2975,17 @@ class TaskScopedExecutionService:
                 "latency_ms": latency_ms,
                 "stderr_preview": (cli_err or "")[:240],
                 "output_source": output_source,
+                "llm_call_profile": self._build_llm_call_profile_entries(
+                    backend_used=backend_used,
+                    model=artifact.get("model"),
+                    prompt=(research_context or {}).get("prompt_section"),
+                    raw_output=raw_res,
+                    latency_ms=latency_ms,
+                    rc=rc,
+                    repair_attempted=False,
+                    repair_backend=None,
+                    repair_model=None,
+                ),
             },
         }
 
