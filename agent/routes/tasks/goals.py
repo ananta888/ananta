@@ -48,6 +48,90 @@ def _can_access_goal(goal: GoalDB | None) -> bool:
     return _goal_service().can_access_goal(goal, getattr(g, "user", {}) or {}, _is_admin_request())
 
 
+def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
+    status = str(getattr(goal, "status", "") or "").strip().lower()
+    if status != "planning":
+        return goal
+    goal_id = str(getattr(goal, "id", "") or "").strip()
+    if not goal_id:
+        return goal
+    now_ts = time.time()
+    updated_at = float(getattr(goal, "updated_at", 0.0) or 0.0)
+    if updated_at and (now_ts - updated_at) < 30:
+        return goal
+
+    tasks = [t for t in _repos().task_repo.get_all() if str(getattr(t, "goal_id", "") or "").strip() == goal_id]
+    if tasks:
+        return goal
+
+    execution_preferences = dict(getattr(goal, "execution_preferences", None) or {})
+    recovery = dict(execution_preferences.get("planning_recovery") or {})
+    attempts = int(recovery.get("attempts") or 0)
+    last_attempt_at = float(recovery.get("last_attempt_at") or 0.0)
+    if attempts >= 2:
+        return goal
+    if last_attempt_at and (now_ts - last_attempt_at) < 60:
+        return goal
+
+    recovery.update({"attempts": attempts + 1, "last_attempt_at": now_ts, "last_reason": "stalled_planning_no_tasks"})
+    execution_preferences["planning_recovery"] = recovery
+    goal.execution_preferences = execution_preferences
+    goal = _repos().goal_repo.save(goal)
+
+    try:
+        effective = dict(getattr(goal, "workflow_effective", None) or {})
+        from agent.routes.tasks.auto_planner import auto_planner
+        result = _services().planning_service.plan_goal(
+            planner=auto_planner,
+            goal=str(getattr(goal, "goal", "") or ""),
+            context=str(getattr(goal, "context", "") or "") or None,
+            team_id=effective.get("routing", {}).get("team_id"),
+            parent_task_id=None,
+            create_tasks=bool(effective.get("planning", {}).get("create_tasks", True)),
+            use_template=bool(effective.get("planning", {}).get("use_template", True)),
+            use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
+            goal_id=goal.id,
+            goal_trace_id=str(getattr(goal, "trace_id", "") or ""),
+            mode=str(getattr(goal, "mode", "") or "generic"),
+            mode_data=dict(getattr(goal, "mode_data", None) or {}),
+        )
+        if result.get("error"):
+            recovery.update({"last_error": str(result.get("error"))[:240]})
+            execution_preferences["planning_recovery"] = recovery
+            goal.execution_preferences = execution_preferences
+            goal = _repos().goal_repo.save(goal)
+            return _services().goal_lifecycle_service.transition_goal(
+                goal,
+                target_status="failed",
+                reason=str(result.get("error") or "planning_failed"),
+                readiness=dict(getattr(goal, "readiness", None) or {}),
+            )
+        goal = _services().goal_lifecycle_service.transition_goal(
+            goal,
+            target_status="planned",
+            reason="planning_recovery_completed",
+            readiness=dict(getattr(goal, "readiness", None) or {}),
+        )
+        try:
+            _services().autopilot_runtime_service.start(
+                goal=goal.id,
+                team_id=effective.get("routing", {}).get("team_id"),
+                interval_seconds=1,
+                max_concurrency=1,
+                security_level="balanced",
+            )
+            from agent.routes.tasks.autopilot import autonomous_loop
+            autonomous_loop.wake()
+        except Exception:
+            pass
+        return goal
+    except Exception as exc:
+        recovery.update({"last_error": str(exc)[:240]})
+        execution_preferences["planning_recovery"] = recovery
+        goal.execution_preferences = execution_preferences
+        return _repos().goal_repo.save(goal)
+
+
 @goals_bp.route("/goals/readiness", methods=["GET"])
 @check_auth
 def goals_readiness():
@@ -81,6 +165,7 @@ def get_goal_detail(goal_id: str):
     goal = _repos().goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
+    goal = _maybe_recover_stalled_planning_goal(goal)
     return api_response(data=_goal_service().goal_detail(goal, is_admin=_is_admin_request()))
 
 

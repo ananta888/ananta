@@ -178,6 +178,7 @@ class TestGoalsAPI:
         assert workflow["planning"]["blueprint_hint"] == reference_plan["integration_hints"]["blueprint_name"]
         assert workflow["routing"]["work_profile"] == reference_plan["integration_hints"]["work_profile"]
         assert reference_plan["skeleton_guidance"]["guidance_lines"]
+
         assert goal_payload["reference_profile"]["profile_id"] == selected_profile["profile_id"]
         assert goal_payload["reference_profile"]["audit_marker"]["task_or_goal_id"] == goal_payload["id"]
         assert any(log.action == "reference_profile_used" for log in audit_repo.get_all(limit=40))
