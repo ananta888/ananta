@@ -161,6 +161,87 @@ class LLMPlanningStrategy:
             prompt = f"{prompt}\n\nKONTEXT:\n{context}"
         return prompt
 
+    @staticmethod
+    def _build_new_project_execution_repair_prompt(
+        *,
+        goal: str,
+        context: str | None,
+        max_subtasks: int,
+        previous_output: str,
+        mode_data: Optional[dict] = None,
+    ) -> str:
+        prompt = (
+            "Der vorherige Plan fuer new_software_project enthaelt keinen klaren Execution-Pfad.\n"
+            "Erzeuge jetzt einen reparierten Plan als strikt valides JSON.\n\n"
+            f"ZIEL:\n{goal}\n\n"
+        )
+        if mode_data:
+            prompt = f"{prompt}STEUERUNGSDATEN:\n{json.dumps(mode_data, indent=2)}\n\n"
+        prompt = (
+            f"{prompt}"
+            "MUSS-KRITERIEN:\n"
+            f"1. Liefere mindestens 3 und hoechstens {max_subtasks} Teilaufgaben\n"
+            "2. Enthalte mindestens eine konkrete Datei-/Projektstruktur-Aufgabe (Dateien oder Ordner anlegen/aktualisieren)\n"
+            "3. Enthalte mindestens eine konkrete Verifikations-Aufgabe (Test/Check/Run/Verify inkl. Ergebnisnachweis)\n"
+            "4. Jede Teilaufgabe muss title, description, priority enthalten\n"
+            "5. priority nur: High, Medium, Low\n"
+            "6. depends_on als Liste von Schrittnummern als Strings (z.B. [\"1\"])\n"
+            "7. Keine Erklaerungen, keine Markdown-Fences\n\n"
+            "AUSGABEFORMAT (nur JSON-Array):\n"
+            "[\n"
+            '  {"title":"...","description":"...","priority":"High|Medium|Low","depends_on":[]}\n'
+            "]\n\n"
+            "VORHERIGER OUTPUT:\n"
+            f"{(previous_output or '').strip()[:3000]}"
+        )
+        if context:
+            prompt = f"{prompt}\n\nKONTEXT:\n{context}"
+        return prompt
+
+    @staticmethod
+    def _has_new_project_execution_coverage(subtasks: list[dict[str, Any]]) -> bool:
+        file_tokens = {
+            "file",
+            "files",
+            "datei",
+            "dateien",
+            "readme",
+            "pyproject",
+            "src",
+            "tests",
+            "ordner",
+            "directory",
+            "repository",
+            "projektstruktur",
+            "create",
+            "write",
+            "anlegen",
+            "erstellen",
+        }
+        verify_tokens = {
+            "test",
+            "tests",
+            "pytest",
+            "verify",
+            "verification",
+            "check",
+            "smoke",
+            "run",
+            "ausfuehren",
+            "ausführen",
+        }
+        has_file_task = False
+        has_verify_task = False
+        for item in subtasks or []:
+            text = f"{item.get('title', '')} {item.get('description', '')}".lower()
+            if any(token in text for token in file_tokens):
+                has_file_task = True
+            if any(token in text for token in verify_tokens):
+                has_verify_task = True
+            if has_file_task and has_verify_task:
+                return True
+        return has_file_task and has_verify_task
+
     def execute(
         self,
         planner: PlannerLike,
@@ -194,6 +275,22 @@ class LLMPlanningStrategy:
                 max_subtasks=planner.max_subtasks_per_goal,
                 previous_output=raw_response,
                 mode=mode,
+                mode_data=mode_data,
+            )
+            repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config)
+            repaired_subtasks = parse_subtasks_from_llm_response(
+                repaired_response,
+                default_priority=planner.default_priority,
+            )
+            if repaired_subtasks:
+                raw_response = repaired_response
+                subtasks = repaired_subtasks
+        if mode == "new_software_project" and subtasks and not self._has_new_project_execution_coverage(subtasks):
+            repair_prompt = self._build_new_project_execution_repair_prompt(
+                goal=goal,
+                context=resolved_context,
+                max_subtasks=planner.max_subtasks_per_goal,
+                previous_output=raw_response,
                 mode_data=mode_data,
             )
             repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config)
