@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 from agent.common.gateways.worker_gateway import get_worker_gateway
@@ -14,6 +15,35 @@ from agent.services.task_status_service import normalize_task_status
 from agent.utils import _http_post
 
 _TERMINAL_TASK_STATUSES = {"completed", "failed", "cancelled", "skipped"}
+
+
+def _resolve_goal_output_dir(raw_output_dir: str) -> Path:
+    raw = str(raw_output_dir or "").strip()
+    if not raw:
+        return Path("")
+    candidate = Path(raw)
+    if candidate.is_absolute():
+        return candidate
+    cwd = Path.cwd()
+    direct = (cwd / candidate).resolve()
+    workspace_relative = (cwd / "project-workspaces" / candidate).resolve()
+    if direct.exists():
+        return direct
+    if workspace_relative.exists():
+        return workspace_relative
+    return workspace_relative
+
+
+def _workspace_file_count(path: Path) -> int:
+    if not str(path):
+        return 0
+    if not path.exists() or not path.is_dir():
+        return 0
+    count = 0
+    for item in path.rglob("*"):
+        if item.is_file():
+            count += 1
+    return count
 
 
 def _maybe_finalize_goal(goal_id: str) -> None:
@@ -30,6 +60,23 @@ def _maybe_finalize_goal(goal_id: str) -> None:
         if not goal or goal.status not in {"planned", "in_progress", "running"}:
             return
         new_status = "failed" if "failed" in statuses else "completed"
+        current_preferences = dict(goal.execution_preferences or {})
+        if new_status == "completed":
+            raw_output_dir = str(current_preferences.get("output_dir") or "").strip()
+            if raw_output_dir:
+                resolved_output_dir = _resolve_goal_output_dir(raw_output_dir)
+                file_count = _workspace_file_count(resolved_output_dir)
+                diagnostics = {
+                    "output_dir": raw_output_dir,
+                    "resolved_output_dir": str(resolved_output_dir),
+                    "workspace_file_count": file_count,
+                }
+                current_preferences["finalization_diagnostics"] = diagnostics
+                if file_count <= 0:
+                    new_status = "failed"
+                    current_preferences["last_status_reason"] = "no_workspace_artifact_created"
+                    current_preferences["failure_classification"] = "no_workspace_artifact_created"
+                goal.execution_preferences = current_preferences
         goal.status = new_status
         goal.updated_at = time.time()
         goal_repo.save(goal)
