@@ -26,12 +26,11 @@ def test_parse_keeps_quoted_chain_tokens_literal():
     assert [s.raw for s in plan.segments] == ['echo "a && b"', "pytest"]
 
 
-def test_parse_rejects_pipe_and_redirect():
+def test_parse_rejects_pipe_but_allows_redirect():
     pipe_plan = CommandChainParser().parse("cat a | grep x")
     assert pipe_plan.allowed is False
     assert "|" in pipe_plan.unsupported_operators
 
     redirect_plan = CommandChainParser().parse("echo x > file.txt")
-    assert redirect_plan.allowed is False
-    assert ">" in redirect_plan.unsupported_operators
-
+    assert redirect_plan.allowed is True
+    assert redirect_plan.unsupported_operators == []
