@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import logging
 import os
 import re
 import shutil
@@ -75,16 +76,68 @@ class WorkerWorkspaceService:
             return False
 
     def _resolve_workspace_dir(self, *, output_dir: str | None, workspace_root: str, agent_name: str, scope_key: str) -> Path:
-        workspace_root_path = Path(workspace_root).resolve()
+        workspace_root_path = Path(os.path.abspath(str(Path(workspace_root).expanduser())))
         if output_dir:
-            requested = Path(str(output_dir)).expanduser().resolve()
+            requested = self._normalize_requested_output_dir(
+                output_dir=str(output_dir),
+                workspace_root=workspace_root_path,
+            )
             cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
             policy = dict(cfg.get("output_dir_policy") or {})
             unsafe_shared = bool(policy.get("unsafe_shared", False))
             if not unsafe_shared and not self._is_within(requested, workspace_root_path):
-                raise ValueError("workspace_output_dir_outside_workspace_root")
+                remapped = self._try_remap_project_workspace_path(
+                    requested=requested,
+                    workspace_root=workspace_root_path,
+                )
+                if remapped is None:
+                    logging.warning(
+                        "Rejected workspace output_dir outside workspace_root",
+                        extra={
+                            "workspace_root": str(workspace_root_path),
+                            "output_dir_requested": str(requested),
+                        },
+                    )
+                    raise ValueError("workspace_output_dir_outside_workspace_root")
+                requested = remapped
             return requested
         return (workspace_root_path / agent_name / scope_key).resolve()
+
+    @staticmethod
+    def _normalize_requested_output_dir(*, output_dir: str, workspace_root: Path) -> Path:
+        raw = str(output_dir or "").strip()
+        candidate = Path(raw).expanduser()
+        if candidate.is_absolute():
+            return Path(os.path.abspath(str(candidate)))
+        rel_parts = list(candidate.parts)
+        if "project-workspaces" in rel_parts:
+            anchor_index = rel_parts.index("project-workspaces")
+            rel_parts = [segment for segment in rel_parts[anchor_index + 1 :] if segment]
+            if rel_parts:
+                candidate = Path(*rel_parts)
+            else:
+                candidate = Path(".")
+        return Path(os.path.abspath(str(workspace_root / candidate)))
+
+    @staticmethod
+    def _try_remap_project_workspace_path(*, requested: Path, workspace_root: Path) -> Path | None:
+        """Map host-mirrored project workspace paths into the container workspace root.
+
+        Example: /home/user/repo/project-workspaces/foo -> /project-workspaces/foo
+        """
+        parts = list(requested.parts)
+        try:
+            anchor_index = parts.index("project-workspaces")
+        except ValueError:
+            return None
+        rel_parts = [segment for segment in parts[anchor_index + 1 :] if segment]
+        remapped = (workspace_root / Path(*rel_parts)).resolve() if rel_parts else workspace_root
+        try:
+            if os.path.commonpath([str(remapped), str(workspace_root)]) != str(workspace_root):
+                return None
+        except Exception:
+            return None
+        return remapped
 
     @classmethod
     def _is_tracked_relative_path(cls, rel: str) -> bool:

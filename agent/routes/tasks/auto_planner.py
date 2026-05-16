@@ -436,7 +436,7 @@ class AutoPlanner:
             if not autonomous_loop.running:
                 autonomous_loop.start(
                     interval_seconds=5,
-                    max_concurrency=2,
+                    max_concurrency=1,
                     goal=resolved_goal,
                     team_id=team_id,
                     security_level="balanced",
@@ -475,7 +475,7 @@ class AutoPlanner:
                             team_id=team_id,
                             security_level="balanced",
                             interval_seconds=5,
-                            max_concurrency=2,
+                            max_concurrency=1,
                             persist=True,
                             background=not _background_threads_disabled(),
                         )
@@ -485,7 +485,7 @@ class AutoPlanner:
                         team_id=team_id,
                         security_level="balanced",
                         interval_seconds=5,
-                        max_concurrency=2,
+                        max_concurrency=1,
                         persist=True,
                         background=not _background_threads_disabled(),
                     )

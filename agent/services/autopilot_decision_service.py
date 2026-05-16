@@ -88,6 +88,11 @@ class AutopilotDecisionService:
         if not tool_calls:
             return None
         dynamic_guard = dict((agent_cfg.get("llm_tool_guardrails", {}) or {}))
+        # Local aggressive mode: do not block autopilot execution purely due to
+        # estimated token size of tool-call payloads. Other guardrails (class,
+        # external call count, cost) remain active.
+        if str(policy.get("level") or "").strip().lower() == "aggressive":
+            dynamic_guard["max_tokens_per_request"] = 0
         tool_classes = dynamic_guard.get("tool_classes", {}) or {}
         allowed_classes = set(policy["allowed_tool_classes"])
         all_classes = set(tool_classes.values())

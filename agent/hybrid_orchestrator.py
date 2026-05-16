@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
 import time
@@ -437,6 +438,10 @@ class SemanticSearchEngine:
         return manifest_needs_reingest(files=files, manifest_path=self._manifest_path)
 
     def _load_or_build_index(self, files: list[Path]) -> None:
+        if str(os.environ.get("ANANTA_ENABLE_LLAMAINDEX_EMBEDDINGS") or "").strip().lower() not in {"1", "true", "yes"}:
+            # Default to local/fallback retrieval unless embeddings are explicitly enabled.
+            self._index = None
+            return
         if (
             VectorStoreIndex is None
             or StorageContext is None
