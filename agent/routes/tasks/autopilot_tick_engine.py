@@ -1233,8 +1233,8 @@ def execute_autopilot_tick(
         )
         append_trace_event(_t.id, "stale_proposing_reset", reason="no_output_after_90s")
 
-    # Auto-recover waiting_for_review tasks caused by unresolved tool intent.
-    # These are recoverable model output artifacts and should not deadlock the chain.
+    # Auto-recover waiting_for_review tasks caused by recoverable runtime/tooling issues.
+    # These are machine-retryable artifacts and should not deadlock the chain.
     for _t in all_tasks:
         if str(getattr(_t, "status", "") or "").lower() != "waiting_for_review":
             continue
@@ -1242,19 +1242,26 @@ def execute_autopilot_tick(
         if _updated and (now_ts - _updated) < _RECOVER_WAITING_REVIEW_SECONDS:
             continue
         last_output = str(getattr(_t, "last_output", None) or "")
-        if "[tool_intent] unresolved:" not in last_output:
+        lowered = last_output.lower()
+        recoverable_waiting_review = (
+            "[tool_intent] unresolved:" in last_output
+            or "command not found" in lowered
+            or "not recognized as an internal or external command" in lowered
+            or "no such file or directory" in lowered
+        )
+        if not recoverable_waiting_review:
             continue
         update_local_task_status(
             _t.id,
             "todo",
-            event_type="recover_waiting_review_unresolved_tool_intent",
+            event_type="recover_waiting_review_retryable_failure",
             event_actor="autopilot_tick",
             force=True,
         )
         append_trace_event(
             _t.id,
-            "recover_waiting_review_unresolved_tool_intent",
-            reason="auto_retry_recoverable_tool_intent",
+            "recover_waiting_review_retryable_failure",
+            reason="auto_retry_recoverable_waiting_review_failure",
         )
 
     transitions = services.task_queue_service.reconcile_dependencies(tasks=all_tasks, dependency_resolver=task_dependencies)

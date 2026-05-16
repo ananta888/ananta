@@ -71,6 +71,17 @@ class ToolCallingLLMStrategy(ProposeStrategy):
             return ProposeStrategyResult.declined(
                 "tool_calling_llm", reason="no_tools_defined",
             )
+        allowed_tool_names: set[str] = set()
+        for tool in tools:
+            if not isinstance(tool, dict):
+                continue
+            direct_name = str(tool.get("name") or "").strip()
+            if direct_name:
+                allowed_tool_names.add(direct_name)
+            fn = tool.get("function") if isinstance(tool.get("function"), dict) else {}
+            fn_name = str(fn.get("name") or "").strip()
+            if fn_name:
+                allowed_tool_names.add(fn_name)
 
         try:
             llm_response = ModelInvocationService.invoke_with_tools(
@@ -145,10 +156,19 @@ class ToolCallingLLMStrategy(ProposeStrategy):
             )
 
         # Validate tool calls: each must have a name
-        valid_tcs = [tc for tc in tool_calls if tc.get("name")]
+        valid_tcs = []
+        for tc in tool_calls:
+            if not isinstance(tc, dict):
+                continue
+            tc_name = str(tc.get("name") or "").strip()
+            if not tc_name:
+                continue
+            if allowed_tool_names and tc_name not in allowed_tool_names:
+                continue
+            valid_tcs.append(tc)
         if not valid_tcs:
             return ProposeStrategyResult.declined(
-                "tool_calling_llm", reason="tool_calls_missing_names",
+                "tool_calling_llm", reason="tool_calls_invalid_or_missing_names",
             )
 
         proposal = ExecutableProposal(
