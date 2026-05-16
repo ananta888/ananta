@@ -1,0 +1,75 @@
+{
+  "summary": {
+    "schema": "first_goal_acceptance.v1",
+    "total_runs": 1,
+    "completed_runs": 0,
+    "write_phase_runs": 0,
+    "autopilot_progress_runs": 1,
+    "repeatability_pass": false
+  },
+  "runs": [
+    {
+      "run_index": 1,
+      "goal_id": "3d4da192-461a-4482-baa4-a5c8983277f1",
+      "output_dir": "first-goal-run-1-8cccfb",
+      "final_goal_status": "failed",
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": true,
+          "details": "new_goal_ids=['3d4da192-461a-4482-baa4-a5c8983277f1']; submit_error=None; first_planning_state_at=12.52s"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": true,
+          "details": "task_count_within_60s=7"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": true,
+          "details": "first_assigned_at=27.657279014587402; post_assigned_change=True"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": false,
+          "details": "deadlock_violation=True"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-1-8cccfb; file_seen=False"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": true,
+          "details": "verification_seen=True"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=300"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    }
+  ]
+}

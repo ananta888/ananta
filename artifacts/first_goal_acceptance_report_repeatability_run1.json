@@ -1,0 +1,75 @@
+{
+  "summary": {
+    "schema": "first_goal_acceptance.v1",
+    "total_runs": 1,
+    "completed_runs": 0,
+    "write_phase_runs": 0,
+    "autopilot_progress_runs": 0,
+    "repeatability_pass": false
+  },
+  "runs": [
+    {
+      "run_index": 1,
+      "goal_id": null,
+      "output_dir": "first-goal-run-1-82a4cc",
+      "final_goal_status": null,
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": false,
+          "details": "new_goal_ids=['620a9383-b9f3-4055-94f8-f164d40ea71e', 'dd4b1831-384d-455d-bca5-af06e42cc3f5']; submit_error=None"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": false,
+          "details": "goal not created"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": false,
+          "details": "goal not created"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": false,
+          "details": "goal not created"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": false,
+          "details": "goal not created"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "goal not created"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": false,
+          "details": "goal not created"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": false,
+          "details": "goal not created"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": false,
+          "details": "goal not created"
+        }
+      ]
+    }
+  ]
+}
