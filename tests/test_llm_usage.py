@@ -423,6 +423,60 @@ def test_generate_text_keeps_explicit_non_runtime_local_override(app):
     assert mock_call.call_args.args[3]["lmstudio"] == "http://custom-host:1234/v1"
 
 
+def test_call_llm_records_real_profile_on_success(app):
+    from agent.llm_integration import _call_llm
+
+    with app.test_request_context("/x"):
+        with patch("agent.llm_integration._check_circuit_breaker", return_value=True):
+            with patch("agent.llm_integration._execute_llm_call", return_value={"text": "ok", "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12}}):
+                out = _call_llm(
+                    provider="ollama",
+                    model="qwen2.5",
+                    prompt="hello",
+                    urls={"ollama": "http://localhost:11434/v1/chat/completions"},
+                    api_key=None,
+                    timeout=5,
+                    history=None,
+                )
+        prof = list(getattr(g, "llm_last_call_profile", []) or [])
+    assert out == "ok"
+    assert prof
+    assert prof[-1]["success"] is True
+    assert prof[-1]["estimated"] is False
+    assert prof[-1]["source"] == "llm_integration"
+    assert prof[-1]["latency_ms"] is not None
+    assert prof[-1]["prompt_tokens"] == 10
+    assert prof[-1]["completion_tokens"] == 2
+    assert prof[-1]["total_tokens"] == 12
+
+
+def test_call_llm_records_real_profile_on_error(app):
+    from agent.llm_integration import _call_llm
+
+    with app.test_request_context("/x"):
+        with patch("agent.llm_integration._check_circuit_breaker", return_value=True):
+            with patch("agent.llm_integration.settings") as mock_settings:
+                mock_settings.retry_count = 0
+                mock_settings.retry_backoff = 0
+                with patch("agent.llm_integration._execute_llm_call", side_effect=RuntimeError("boom")):
+                    out = _call_llm(
+                        provider="ollama",
+                        model="qwen2.5",
+                        prompt="hello",
+                        urls={"ollama": "http://localhost:11434/v1/chat/completions"},
+                        api_key=None,
+                        timeout=5,
+                        history=None,
+                    )
+        prof = list(getattr(g, "llm_last_call_profile", []) or [])
+    assert out == ""
+    assert prof
+    assert prof[-1]["success"] is False
+    assert prof[-1]["estimated"] is False
+    assert prof[-1]["source"] == "llm_integration"
+    assert prof[-1]["error_type"] == "RuntimeError"
+
+
 def test_probe_lmstudio_runtime_reports_models_url_and_candidates():
     from agent.llm_integration import probe_lmstudio_runtime
 

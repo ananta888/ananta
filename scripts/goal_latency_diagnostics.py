@@ -62,7 +62,21 @@ def _safe_delta(a: float | None, b: float | None) -> float | None:
 
 
 def _summarize_llm_call_profile(entries: list[dict[str, Any]]) -> dict[str, Any]:
-    llm_profile_entries: list[dict[str, Any]] = []
+    llm_calls_total = 0
+    llm_calls_real = 0
+    llm_calls_synthetic = 0
+    llm_calls_estimated = 0
+    llm_latency_ms_real: list[int] = []
+    llm_prompt_tokens_real: list[int] = []
+    llm_completion_tokens_real: list[int] = []
+    llm_success = 0
+    llm_fail = 0
+    llm_success_real = 0
+    llm_fail_real = 0
+    llm_by_model: dict[str, int] = {}
+    llm_by_model_real: dict[str, int] = {}
+    llm_by_model_synthetic: dict[str, int] = {}
+    llm_by_source: dict[str, int] = {}
 
     for entry in entries:
         if not isinstance(entry, dict):
@@ -205,6 +219,7 @@ def main() -> int:
     llm_by_model_real: dict[str, int] = {}
     llm_by_model_synthetic: dict[str, int] = {}
     llm_by_source: dict[str, int] = {}
+    llm_profile_entries: list[dict[str, Any]] = []
 
     for td in task_details:
         history = list(td.get("history") or [])

@@ -61,7 +61,7 @@ class CostSummaryContract(SQLModel):
 
 class TaskCliResultContract(SQLModel):
     returncode: int = 0
-    latency_ms: int = 0
+    latency_ms: Optional[int] = 0
     stderr_preview: Optional[str] = None
     output_source: Optional[str] = None
     repair_attempted: bool = False

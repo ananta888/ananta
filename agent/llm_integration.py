@@ -155,6 +155,58 @@ def _normalize_llm_usage(usage: Any) -> dict[str, int]:
         return {}
 
 
+def _build_llm_call_profile_entry(
+    *,
+    name: str,
+    backend: str,
+    provider: str | None,
+    model: str | None,
+    success: bool,
+    started_at: float | None,
+    ended_at: float | None,
+    usage: dict[str, Any] | None = None,
+    source: str = "llm_integration",
+    estimated: bool = False,
+    error_type: str | None = None,
+    error_message: str | None = None,
+) -> dict[str, Any]:
+    usage = usage if isinstance(usage, dict) else {}
+    prompt_tokens = usage.get("prompt_tokens")
+    completion_tokens = usage.get("completion_tokens")
+    total_tokens = usage.get("total_tokens")
+    latency_ms = None
+    if started_at is not None and ended_at is not None:
+        latency_ms = max(0, int((ended_at - started_at) * 1000))
+    return {
+        "name": str(name or "").strip() or "generate_text",
+        "backend": str(backend or "").strip() or "llm_integration",
+        "provider": str(provider or "").strip() or None,
+        "model": str(model or "").strip() or None,
+        "success": bool(success),
+        "latency_ms": latency_ms,
+        "prompt_tokens": int(prompt_tokens) if isinstance(prompt_tokens, int) else None,
+        "completion_tokens": int(completion_tokens) if isinstance(completion_tokens, int) else None,
+        "total_tokens": int(total_tokens) if isinstance(total_tokens, int) else None,
+        "source": str(source or "").strip() or "llm_integration",
+        "estimated": bool(estimated),
+        "error_type": str(error_type or "").strip() or None,
+        "error_message": str(error_message or "").strip() or None,
+        "started_at": float(started_at) if started_at is not None else None,
+        "ended_at": float(ended_at) if ended_at is not None else None,
+    }
+
+
+def _attach_llm_call_profile(result: Any, entry: dict[str, Any]) -> Any:
+    if not isinstance(entry, dict):
+        return result
+    if isinstance(result, dict):
+        meta = result.get("metadata") if isinstance(result.get("metadata"), dict) else {}
+        meta["llm_call_profile"] = list(meta.get("llm_call_profile") or []) + [entry]
+        result["metadata"] = meta
+        return result
+    return result
+
+
 def extract_llm_text_and_usage(result: Any) -> tuple[str, dict[str, int]]:
     if isinstance(result, str):
         return result, {}
@@ -977,6 +1029,7 @@ def _call_llm(
             time.sleep(backoff_factor**attempt)
 
         try:
+            started_at = time.time()
             res = _execute_llm_call(
                 provider=provider,
                 model=model,
@@ -992,8 +1045,25 @@ def _call_llm(
                 tool_choice=tool_choice,
                 idempotency_key=idempotency_key,
             )
+            ended_at = time.time()
 
             text_out, usage = extract_llm_text_and_usage(res)
+            normalized_usage = _normalize_llm_usage(usage)
+            success_entry = _build_llm_call_profile_entry(
+                name="generate_text",
+                backend="llm_integration",
+                provider=provider,
+                model=model,
+                success=bool(text_out and text_out.strip()),
+                started_at=started_at,
+                ended_at=ended_at,
+                usage=normalized_usage if normalized_usage else None,
+                source="llm_integration",
+                estimated=False,
+            )
+            if has_request_context():
+                g.llm_last_call_profile = list(getattr(g, "llm_last_call_profile", []) or []) + [success_entry]
+            res = _attach_llm_call_profile(res, success_entry)
             if text_out and text_out.strip():
                 _report_llm_success(provider)
                 if has_request_context():
@@ -1009,9 +1079,43 @@ def _call_llm(
                 )
                 return text_out
         except PermanentError as e:
+            ended_at = time.time()
+            error_entry = _build_llm_call_profile_entry(
+                name="generate_text",
+                backend="llm_integration",
+                provider=provider,
+                model=model,
+                success=False,
+                started_at=started_at if "started_at" in locals() else None,
+                ended_at=ended_at,
+                usage=None,
+                source="llm_integration",
+                estimated=False,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            if has_request_context():
+                g.llm_last_call_profile = list(getattr(g, "llm_last_call_profile", []) or []) + [error_entry]
             logging.error(f"Permanenter Fehler bei LLM-Aufruf (Versuch {attempt + 1}): {e}")
             break
         except Exception as e:
+            ended_at = time.time()
+            error_entry = _build_llm_call_profile_entry(
+                name="generate_text",
+                backend="llm_integration",
+                provider=provider,
+                model=model,
+                success=False,
+                started_at=started_at if "started_at" in locals() else None,
+                ended_at=ended_at,
+                usage=None,
+                source="llm_integration",
+                estimated=False,
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+            if has_request_context():
+                g.llm_last_call_profile = list(getattr(g, "llm_last_call_profile", []) or []) + [error_entry]
             logging.warning(f"Fehler bei LLM-Aufruf (Versuch {attempt + 1}): {e}")
 
         logging.warning(f"LLM Aufruf lieferte kein Ergebnis oder schlug fehl (Versuch {attempt + 1}/{max_retries + 1})")
