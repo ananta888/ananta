@@ -392,12 +392,18 @@ def create_goal():
         readiness=readiness,
     )
 
-    if result.get("created_task_ids"):
-        try:
-            from agent.routes.tasks.autopilot import autonomous_loop
-            autonomous_loop.wake()
-        except Exception:
-            pass
+    try:
+        _services().autopilot_runtime_service.start(
+            goal=goal_record.id,
+            team_id=effective.get("routing", {}).get("team_id"),
+            interval_seconds=5,
+            max_concurrency=1,
+            security_level="balanced",
+        )
+        from agent.routes.tasks.autopilot import autonomous_loop
+        autonomous_loop.wake()
+    except Exception:
+        pass
 
     log_audit(
         "goal_created",

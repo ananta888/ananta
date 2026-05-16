@@ -78,6 +78,7 @@ class TestGoalsAPI:
         workflow = payload["workflow"]["effective"]
         assert workflow["planning"]["use_repo_context"] is False
         assert workflow["verification"]["review_required"] is True
+
         assert workflow["policy"]["runtime_execution"] == "bounded_preview_only"
         persisted_goal = goal_repo.get_by_id(goal_payload["id"])
         assert persisted_goal is not None
@@ -116,6 +117,24 @@ class TestGoalsAPI:
         assert "expected_verification" in first_step
         tasks = task_repo.get_by_goal_id(goal_payload["id"])
         assert "Dry-run-first bounded repair plan erzeugen" in {task.title for task in tasks}
+
+    def test_create_goal_starts_autopilot_even_without_created_tasks(self, client, admin_auth_header, monkeypatch):
+        calls: list[dict] = []
+
+        def _fake_plan_goal(**_kwargs):
+            return {"subtasks": [], "created_task_ids": [], "plan_id": "plan-empty", "plan_node_ids": []}
+
+        def _fake_start(**kwargs):
+            calls.append(kwargs)
+            return {"running": True}
+
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.auto_planner.plan_goal", _fake_plan_goal)
+        monkeypatch.setattr("agent.services.autopilot_runtime_service.AutopilotRuntimeService.start", lambda self, **kwargs: _fake_start(**kwargs))
+
+        res = client.post("/goals", headers=admin_auth_header, json={"goal": "Small goal without immediate tasks"})
+        assert res.status_code == 201
+        assert len(calls) == 1
+        assert calls[0].get("goal")
 
     def test_create_goal_from_new_software_project_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
