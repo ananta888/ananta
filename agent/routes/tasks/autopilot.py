@@ -74,7 +74,8 @@ class AutonomousLoopManager:
         self._thread: threading.Thread | None = None
         self.running = False
         self.interval_seconds = 1
-        self.max_concurrency = 8
+        # Keep default conservative for local Ollama stability.
+        self.max_concurrency = 1
         self.last_tick_at: float | None = None
         self.last_error: str | None = None
         self.tick_count = 0
@@ -85,6 +86,8 @@ class AutonomousLoopManager:
         self.started_at: float | None = None
         self._worker_failure_streak: dict[str, int] = {}
         self._worker_circuit_open_until: dict[str, float] = {}
+        self._provider_backpressure_until: dict[str, float] = {}
+        self._provider_backpressure_reason: dict[str, str] = {}
         self.goal: str = ""
         self.team_id: str = ""
         self.budget_label: str = ""
@@ -413,6 +416,35 @@ class AutonomousLoopManager:
                 int(self._worker_failure_streak.get(worker_url, 0)),
             )
 
+    def _provider_backpressure_details(self, provider: str) -> tuple[float, str]:
+        provider_key = str(provider or "").strip().lower()
+        with self._routing_lock:
+            until = float(self._provider_backpressure_until.get(provider_key, 0.0))
+            reason = str(self._provider_backpressure_reason.get(provider_key, "") or "")
+        return until, reason
+
+    def _is_provider_backpressure_active(self, provider: str) -> bool:
+        provider_key = str(provider or "").strip().lower()
+        now = time.time()
+        with self._routing_lock:
+            until = float(self._provider_backpressure_until.get(provider_key, 0.0))
+            if until <= now:
+                self._provider_backpressure_until.pop(provider_key, None)
+                self._provider_backpressure_reason.pop(provider_key, None)
+                return False
+            return True
+
+    def _record_provider_backpressure(self, provider: str, reason: str) -> None:
+        provider_key = str(provider or "").strip().lower()
+        if not provider_key:
+            return
+        cfg = self._agent_config() or {}
+        hold_seconds = max(3, min(int(cfg.get("autopilot_provider_backpressure_seconds") or 20), 120))
+        until = time.time() + hold_seconds
+        with self._routing_lock:
+            self._provider_backpressure_until[provider_key] = until
+            self._provider_backpressure_reason[provider_key] = str(reason or "runtime_backpressure")
+
     def _forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:
         cfg = self._resilience_config()
         last_exc: Exception | None = None
@@ -423,6 +455,10 @@ class AutonomousLoopManager:
                 return unwrap_api_envelope(res)
             except Exception as e:
                 last_exc = e
+                err_text = str(e or "")
+                err_lc = err_text.lower()
+                if "ollama" in err_lc and "/api/generate" in err_lc and "timeout" in err_lc:
+                    self._record_provider_backpressure("ollama", "ollama_generate_timeout")
                 self._record_worker_failure(
                     worker_url,
                     f"forward_failed:{endpoint}",

@@ -50,6 +50,58 @@ def test_workspace_service_rejects_output_dir_outside_workspace_root(tmp_path):
         with pytest.raises(ValueError, match="workspace_output_dir_outside_workspace_root"):
             svc.resolve_workspace_context(task=task)
 
+
+def test_workspace_service_remaps_host_project_workspaces_path(tmp_path):
+    app = Flask(__name__)
+    app.config["AGENT_NAME"] = "worker"
+    app.config["AGENT_CONFIG"] = {
+        "worker_runtime": {"workspace_root": str(tmp_path / "container-root")},
+        "output_dir_policy": {"unsafe_shared": False},
+    }
+    svc = WorkerWorkspaceService()
+    host_style_output = tmp_path / "repo" / "project-workspaces" / "gpu-opt"
+    task = {
+        "id": "t2",
+        "worker_execution_context": {"workspace": {"output_dir": str(host_style_output)}},
+    }
+    with app.app_context():
+        ctx = svc.resolve_workspace_context(task=task)
+    assert str(ctx.workspace_dir).endswith("container-root/gpu-opt")
+
+
+def test_workspace_service_maps_relative_output_dir_into_workspace_root(tmp_path):
+    app = Flask(__name__)
+    app.config["AGENT_NAME"] = "worker"
+    app.config["AGENT_CONFIG"] = {
+        "worker_runtime": {"workspace_root": str(tmp_path / "container-root")},
+        "output_dir_policy": {"unsafe_shared": False},
+    }
+    svc = WorkerWorkspaceService()
+    task = {
+        "id": "t3",
+        "worker_execution_context": {"workspace": {"output_dir": "egpu-rtx3080-opt-2"}},
+    }
+    with app.app_context():
+        ctx = svc.resolve_workspace_context(task=task)
+    assert str(ctx.workspace_dir).endswith("container-root/egpu-rtx3080-opt-2")
+
+
+def test_workspace_service_maps_relative_project_workspaces_prefix(tmp_path):
+    app = Flask(__name__)
+    app.config["AGENT_NAME"] = "worker"
+    app.config["AGENT_CONFIG"] = {
+        "worker_runtime": {"workspace_root": str(tmp_path / "container-root")},
+        "output_dir_policy": {"unsafe_shared": False},
+    }
+    svc = WorkerWorkspaceService()
+    task = {
+        "id": "t4",
+        "worker_execution_context": {"workspace": {"output_dir": "./project-workspaces/egpu-rtx3080-opt-3"}},
+    }
+    with app.app_context():
+        ctx = svc.resolve_workspace_context(task=task)
+    assert str(ctx.workspace_dir).endswith("container-root/egpu-rtx3080-opt-3")
+
 def test_stale_lock_recovery_records_audit_event():
     svc = OutputDirLockService()
     ok1, lease1, _ = svc.acquire(output_dir="/tmp/ananta-lock-stale", owner="task-a", ttl_seconds=1)

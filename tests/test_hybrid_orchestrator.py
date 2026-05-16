@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from agent import hybrid_orchestrator
 from agent.hybrid_orchestrator import HybridOrchestrator, RepositoryMapEngine
 
 
@@ -63,3 +64,24 @@ def test_parser_resolution_falls_back_for_unsupported_extension(tmp_path: Path) 
     unsupported = tmp_path / "note.txt"
     unsupported.write_text("hello", encoding="utf-8")
     assert engine._parser_for_file(unsupported) is None
+
+
+def test_semantic_search_defaults_to_non_embedding_fallback(tmp_path: Path, monkeypatch) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "README.md").write_text("Local fallback retrieval content.", encoding="utf-8")
+
+    class _ShouldNotRun:
+        @staticmethod
+        def from_documents(*_args, **_kwargs):
+            raise AssertionError("VectorStoreIndex.from_documents should not run by default")
+
+    monkeypatch.delenv("ANANTA_ENABLE_LLAMAINDEX_EMBEDDINGS", raising=False)
+    monkeypatch.setattr(hybrid_orchestrator, "VectorStoreIndex", _ShouldNotRun)
+    monkeypatch.setattr(hybrid_orchestrator, "StorageContext", object())
+    monkeypatch.setattr(hybrid_orchestrator, "load_index_from_storage", object())
+    monkeypatch.setattr(hybrid_orchestrator, "SimpleDirectoryReader", object())
+
+    orchestrator = HybridOrchestrator(repo_root=tmp_path, data_roots=[docs], max_context_chars=1000)
+    result = orchestrator.get_relevant_context("fallback retrieval")
+    assert result["chunks"]

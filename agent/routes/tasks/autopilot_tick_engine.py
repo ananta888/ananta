@@ -45,6 +45,16 @@ class TaskDispatchResult:
     failure_type: str | None = None
 
 
+def _current_task_status(task_id: str, *, app: Any) -> str:
+    repos = get_repository_registry(app)
+    current = repos.task_repo.get_by_id(task_id)
+    return str(getattr(current, "status", "") or "").strip().lower()
+
+
+def _is_terminal_status(status: str) -> bool:
+    return status in {"completed", "failed", "cancelled"}
+
+
 def _fallback_policy(loop: Any) -> dict[str, Any]:
     cfg = (loop._agent_config() or {}).get("execution_fallback_policy", {}) or {}
     return {
@@ -580,6 +590,32 @@ def _dispatch_one_task_inner(  # noqa: C901
             + 768,
         )
         strategy_cfg = _strategy_cfg(loop)
+        if loop._is_provider_backpressure_active("ollama"):
+            hold_until, hold_reason = loop._provider_backpressure_details("ollama")
+            hold_for = max(1, int(hold_until - time.time()))
+            append_trace_event(
+                task.id,
+                "autopilot_provider_backpressure_deferred",
+                delegated_to=target_worker.url,
+                provider="ollama",
+                hold_seconds=hold_for,
+                reason=hold_reason or "ollama_generate_timeout",
+            )
+            update_local_task_status(
+                task.id,
+                str(getattr(task, "status", None) or "assigned"),
+                manual_override_until=hold_until if hold_until > 0 else None,
+                verification_status={
+                    **dict(getattr(task, "verification_status", None) or {}),
+                    "provider_backpressure": {
+                        "provider": "ollama",
+                        "reason": hold_reason or "ollama_generate_timeout",
+                        "deferred_until": hold_until,
+                        "deferred_at": time.time(),
+                    },
+                },
+            )
+            return result
         budget = dict(strategy_cfg.get("proposal_budget") or {})
         budget_started_at = time.time()
         max_total_seconds = int(budget.get("max_total_seconds") or 90)
@@ -714,6 +750,19 @@ def _dispatch_one_task_inner(  # noqa: C901
             )
 
         if propose_data is None:
+            latest_status = _current_task_status(task.id, app=app)
+            if _is_terminal_status(latest_status):
+                append_trace_event(
+                    task.id,
+                    "autopilot_strategy_exhausted_skipped_terminal",
+                    delegated_to=target_worker.url,
+                    terminal_status=latest_status,
+                )
+                result.dispatched = True
+                result.completed = latest_status == "completed"
+                result.failed = latest_status != "completed"
+                result.failure_type = None if result.completed else latest_status
+                return result
             cooldown_seconds = int(strategy_cfg["cooldown_seconds"])
             now_ts = time.time()
             failed_models = list(strategy_state.get("failed_models") or [])
@@ -768,6 +817,20 @@ def _dispatch_one_task_inner(  # noqa: C901
 
         model_meta.update(selected_attempt_meta)
     except Exception as e:
+        latest_status = _current_task_status(task.id, app=app)
+        if _is_terminal_status(latest_status):
+            append_trace_event(
+                task.id,
+                "autopilot_worker_failed_skipped_terminal",
+                delegated_to=target_worker.url,
+                terminal_status=latest_status,
+                reason=str(e),
+            )
+            result.dispatched = True
+            result.completed = latest_status == "completed"
+            result.failed = latest_status != "completed"
+            result.failure_type = None if result.completed else latest_status
+            return result
         update_local_task_status(task.id, "failed", error=str(e))
         append_trace_event(task.id, "autopilot_worker_failed", delegated_to=target_worker.url, reason=str(e))
         append_trace_event(
@@ -801,6 +864,19 @@ def _dispatch_one_task_inner(  # noqa: C901
     raw_preview = proposal_snapshot.get("raw_preview")
 
     if not command and not tool_calls:
+        latest_status = _current_task_status(task.id, app=app)
+        if _is_terminal_status(latest_status):
+            append_trace_event(
+                task.id,
+                "autopilot_no_executable_step_skipped_terminal",
+                delegated_to=target_worker.url,
+                terminal_status=latest_status,
+            )
+            result.dispatched = True
+            result.completed = latest_status == "completed"
+            result.failed = latest_status != "completed"
+            result.failure_type = None if result.completed else latest_status
+            return result
         update_local_task_status(
             task.id,
             "failed",
@@ -881,6 +957,20 @@ def _dispatch_one_task_inner(  # noqa: C901
         )
         WORKER_BUSY_SECONDS.observe(max(0.0, time.time() - _execute_started))
     except Exception as e:
+        latest_status = _current_task_status(task.id, app=app)
+        if _is_terminal_status(latest_status):
+            append_trace_event(
+                task.id,
+                "autopilot_execute_failed_skipped_terminal",
+                delegated_to=target_worker.url,
+                terminal_status=latest_status,
+                reason=str(e),
+            )
+            result.dispatched = True
+            result.completed = latest_status == "completed"
+            result.failed = latest_status != "completed"
+            result.failure_type = None if result.completed else latest_status
+            return result
         update_local_task_status(task.id, "failed", error=str(e))
         append_trace_event(task.id, "autopilot_worker_failed", delegated_to=target_worker.url, reason=str(e))
         append_trace_event(
