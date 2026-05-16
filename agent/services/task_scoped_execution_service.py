@@ -795,7 +795,10 @@ class TaskScopedExecutionService:
                     exec_started_at=exec_started_at,
                     working_directory=str(workspace_ctx.workspace_dir),
                 )
-                if used_last_proposal and cli_runner and self._is_shell_meta_blocked_failure(execution_run.output, execution_run.failure_type):
+                if used_last_proposal and cli_runner and (
+                    self._is_shell_meta_blocked_failure(execution_run.output, execution_run.failure_type)
+                    or self._is_command_not_found_failure(execution_run.output, execution_run.failure_type)
+                ):
                     repaired_execution = self._attempt_repaired_execute_after_meta_block(
                         tid=tid,
                         task=task,
@@ -2682,6 +2685,15 @@ class TaskScopedExecutionService:
             "Unsupported shell operators in command",
         )
         return any(marker in text for marker in markers)
+
+    @staticmethod
+    def _is_command_not_found_failure(output: str | None, failure_type: str | None) -> bool:
+        normalized = str(failure_type or "").strip().lower()
+        if normalized in {"command_not_found", "command_runtime_error"}:
+            text = str(output or "").lower()
+            if "command not found" in text or "not recognized as an internal or external command" in text:
+                return True
+        return False
 
     @staticmethod
     def _build_repair_prompt(*, prompt: str, bad_output: str, validation_error: str) -> str:

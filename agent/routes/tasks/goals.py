@@ -396,7 +396,7 @@ def create_goal():
         _services().autopilot_runtime_service.start(
             goal=goal_record.id,
             team_id=effective.get("routing", {}).get("team_id"),
-            interval_seconds=5,
+            interval_seconds=1,
             max_concurrency=1,
             security_level="balanced",
         )
