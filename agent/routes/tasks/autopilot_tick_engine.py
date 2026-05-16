@@ -814,13 +814,18 @@ def _dispatch_one_task_inner(  # noqa: C901
                     ),
                 },
             }
+            current_retry_status = _current_task_status(task.id, app=app_ctx)
+            retry_status = "assigned" if current_retry_status in {"assigned", "proposing", "in_progress"} else "todo"
             update_local_task_status(
                 task.id,
-                "todo",
+                retry_status,
                 error="autopilot_strategy_exhausted",
                 verification_status=verification_status,
                 manual_override_until=(now_ts + cooldown_seconds) if cooldown_seconds > 0 else None,
                 last_proposal={"strategy_failures": strategy_failures[-5:]},
+                event_type="autopilot_strategy_retry_scheduled",
+                event_actor="autopilot_tick",
+                event_details={"retry_status": retry_status, "cooldown_seconds": cooldown_seconds},
             )
             append_trace_event(
                 task.id,
