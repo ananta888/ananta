@@ -109,3 +109,14 @@ def test_execute_shell_command_allows_output_redirect() -> None:
     assert failure_type == "success"
     assert retry_history == []
     assert shell.commands == ["echo x > out.txt"]
+
+
+def test_non_fatal_tool_error_for_disabled_browser_web_search() -> None:
+    assert TaskExecutionService._is_non_fatal_tool_error(
+        tool_name="web_search",
+        error_text="Action Pack 'browser' ist deaktiviert.",
+    )
+    assert not TaskExecutionService._is_non_fatal_tool_error(
+        tool_name="write_file",
+        error_text="Action Pack 'browser' ist deaktiviert.",
+    )
