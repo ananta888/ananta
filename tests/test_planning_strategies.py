@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from agent.services.planning_strategies import TemplatePlanningStrategy
+from agent.services.planning_strategies import LLMPlanningStrategy, TemplatePlanningStrategy
 
 
 @dataclass
@@ -86,3 +86,49 @@ def test_template_planning_strategy_returns_none_when_disabled() -> None:
     result = strategy.execute(_PlannerStub(), goal="bug fix", context=None)
 
     assert result is None
+
+
+@dataclass
+class _LLMPlannerStub:
+    responses: list[str]
+    max_subtasks_per_goal: int = 10
+    default_priority: str = "Medium"
+
+    def __post_init__(self) -> None:
+        self.calls = 0
+
+    def _call_llm_with_retry(self, prompt: str, llm_config: dict) -> str:  # noqa: ARG002
+        idx = min(self.calls, len(self.responses) - 1)
+        self.calls += 1
+        return self.responses[idx]
+
+
+def test_llm_planning_strategy_repair_for_new_project_enforces_execution_coverage(app, monkeypatch) -> None:
+    strategy = LLMPlanningStrategy(use_repo_context=False)
+    planner = _LLMPlannerStub(responses=["first-response", "repair-response"])
+
+    def _parse(raw: str, default_priority: str = "Medium"):  # noqa: ARG001
+        if raw == "first-response":
+            return [
+                {"title": "Scope klären", "description": "Anforderungen sammeln", "priority": "High"},
+                {"title": "Blueprint", "description": "Architektur skizzieren", "priority": "High"},
+            ]
+        return [
+            {"title": "Projektdateien erstellen", "description": "README und src/tests anlegen", "priority": "High"},
+            {"title": "Tests ausführen", "description": "pytest run und Ergebnis dokumentieren", "priority": "High"},
+        ]
+
+    monkeypatch.setattr("agent.services.planning_strategies.parse_subtasks_from_llm_response", _parse)
+    with app.app_context():
+        result = strategy.execute(
+            planner,
+            goal="Build a new software project",
+            context=None,
+            mode="new_software_project",
+            mode_data={"project_idea": "demo"},
+        )
+    assert result is not None
+    assert planner.calls == 2
+    texts = [f"{s.get('title','')} {s.get('description','')}".lower() for s in result.subtasks]
+    assert any(("datei" in t) or ("readme" in t) or ("src" in t) for t in texts)
+    assert any(("test" in t) or ("pytest" in t) for t in texts)
