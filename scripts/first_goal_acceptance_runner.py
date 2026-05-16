@@ -87,7 +87,7 @@ class AcceptanceRunner:
             return {}
         return dict(resp.json().get("data") or {})
 
-    def submit_goal(self, *, goal_text: str, output_dir: str) -> tuple[str | None, list[str], Exception | None]:
+    def submit_goal(self, *, goal_text: str, output_dir: str, run_trace_id: str) -> tuple[str | None, list[str], Exception | None]:
         before = self._get_goals()
         before_ids = [str(g.get("id")) for g in before if g.get("id")]
         payload = {
@@ -95,18 +95,41 @@ class AcceptanceRunner:
             "mode": "new_software_project",
             "mode_data": {"project_idea": "RTX3080 eGPU utilization optimization python project"},
             "use_template": False,
+            "context": f"acceptance_runner_trace_id={run_trace_id}",
             "execution_preferences": {"output_dir": f"/project-workspaces/{output_dir}"},
         }
         submit_error = None
+        response_goal_id: str | None = None
         try:
-            requests.post(f"{self.base_url}/goals", headers=self.headers, json=payload, timeout=90)
+            resp = requests.post(f"{self.base_url}/goals", headers=self.headers, json=payload, timeout=90)
+            if resp.status_code < 400:
+                data = dict(resp.json().get("data") or {})
+                goal_obj = dict(data.get("goal") or {})
+                gid = str(goal_obj.get("id") or "").strip()
+                response_goal_id = gid or None
         except Exception as exc:  # noqa: BLE001
             submit_error = exc
 
-        # Resolve exactly one new goal id (eventual consistency window)
+        # Primary resolution: exact response id, then trace marker in context.
+        if response_goal_id:
+            return response_goal_id, [response_goal_id], submit_error
+
         deadline = time.time() + 30
         while time.time() < deadline:
             goals = self._get_goals()
+            trace_matches = []
+            for goal in goals:
+                gid = str(goal.get("id") or "").strip()
+                context = str(goal.get("context") or "")
+                if gid and f"acceptance_runner_trace_id={run_trace_id}" in context:
+                    trace_matches.append(gid)
+            trace_uniq = sorted(set(trace_matches))
+            if len(trace_uniq) == 1:
+                return trace_uniq[0], trace_uniq, submit_error
+            if len(trace_uniq) > 1:
+                return None, trace_uniq, submit_error
+
+            # Fallback: old behavior based on delta set.
             new_ids = [str(g.get("id")) for g in goals if g.get("id") and str(g.get("id")) not in before_ids]
             uniq = sorted(set(new_ids))
             if uniq:
@@ -159,13 +182,14 @@ commit;
 def run_once(runner: AcceptanceRunner, *, run_index: int, workspace_root: Path, goal_text: str) -> RunReport:
     report = RunReport(run_index=run_index)
     output_dir = f"first-goal-run-{run_index}-{uuid.uuid4().hex[:6]}"
+    run_trace_id = f"acc-{run_index}-{uuid.uuid4().hex[:10]}"
     report.output_dir = output_dir
     host_dir = workspace_root / output_dir
     if host_dir.exists():
         shutil.rmtree(host_dir, ignore_errors=True)
 
     started_at = time.time()
-    goal_id, new_ids, submit_error = runner.submit_goal(goal_text=goal_text, output_dir=output_dir)
+    goal_id, new_ids, submit_error = runner.submit_goal(goal_text=goal_text, output_dir=output_dir, run_trace_id=run_trace_id)
     report.goal_id = goal_id
 
     # 1 Goal ingestion
