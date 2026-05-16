@@ -25,16 +25,19 @@ class TemplateProposeHandler:
     ) -> ExecutableProposal:
         project_name = task["title"].strip().lower().replace(" ", "-").replace("'", "")
         escaped_title = task["title"].replace("'", "'\\''")
+        readme_content = f"# {task['title']}\n\nInitial template structure for new software project.\n"
+        main_py_content = (
+            "def main():\n"
+            f"    print(\"Hello from {task['title']}!\")\n\n"
+            "if __name__ == \"__main__\":\n"
+            "    main()\n"
+        )
         command = (
             f"mkdir -p {project_name} && "
-            f"cd {project_name} && "
-            f"touch README.md && "
-            f"echo '# {escaped_title}' >> README.md && "
-            f"echo '' >> README.md && "
-            f"echo 'Initial template structure for new software project.' >> README.md && "
-            f"touch main.py && "
-            f"printf 'def main():\\n    print(\"Hello from %s!\")\\n\\nif __name__ == \"__main__\":\\n    main()\\n' '{escaped_title}' >> main.py && "
-            f"git init && git add . && git commit -m 'feat: initial {project_name} template structure'"
+            "python3 -c "
+            f"\"from pathlib import Path; p=Path({project_name!r}); "
+            f"(p/'README.md').write_text({readme_content!r}, encoding='utf-8'); "
+            f"(p/'main.py').write_text({main_py_content!r}, encoding='utf-8')\""
         )
 
         return ExecutableProposal.from_command(

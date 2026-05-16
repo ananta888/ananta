@@ -170,3 +170,6 @@ class TestOrchestratorWithTemplateProposeHandler:
         assert len(result.proposal.expected_artifacts) >= 2
         kinds = {a["kind"] for a in result.proposal.expected_artifacts}
         assert "file" in kinds
+        cmd = str(result.proposal.command or "")
+        assert ">>" not in cmd
+        assert "git init" not in cmd

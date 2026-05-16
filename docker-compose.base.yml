@@ -13,6 +13,8 @@ x-agent-env: &agent-env
   DEFAULT_MODEL: ${DEFAULT_MODEL:-qwen2.5-coder:7b}
   SGPT_DEFAULT_MODEL: ${SGPT_DEFAULT_MODEL:-qwen2.5-coder:7b}
   OPENCODE_DEFAULT_MODEL: ${OPENCODE_DEFAULT_MODEL:-qwen2.5-coder:7b}
+  HTTP_TIMEOUT: ${HTTP_TIMEOUT:-180}
+  COMMAND_TIMEOUT: ${COMMAND_TIMEOUT:-180}
   ANANTA_RUNTIME_PROFILE: ${ANANTA_RUNTIME_PROFILE:-compose-safe}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
   # Keep JWT validation consistent across hub/workers in compose deployments.
