@@ -86,6 +86,8 @@ class WorkerWorkspaceService:
             policy = dict(cfg.get("output_dir_policy") or {})
             unsafe_shared = bool(policy.get("unsafe_shared", False))
             if not unsafe_shared and not self._is_within(requested, workspace_root_path):
+                if self._is_absolute_project_workspace_path(requested):
+                    return requested
                 remapped = self._try_remap_project_workspace_path(
                     requested=requested,
                     workspace_root=workspace_root_path,
@@ -138,6 +140,12 @@ class WorkerWorkspaceService:
         except Exception:
             return None
         return remapped
+
+    @staticmethod
+    def _is_absolute_project_workspace_path(path: Path) -> bool:
+        normalized = Path(os.path.abspath(str(path)))
+        parts = list(normalized.parts)
+        return len(parts) >= 2 and parts[1] == "project-workspaces"
 
     @classmethod
     def _is_tracked_relative_path(cls, rel: str) -> bool:

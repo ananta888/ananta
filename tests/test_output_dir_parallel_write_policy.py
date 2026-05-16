@@ -102,6 +102,25 @@ def test_workspace_service_maps_relative_project_workspaces_prefix(tmp_path):
         ctx = svc.resolve_workspace_context(task=task)
     assert str(ctx.workspace_dir).endswith("container-root/egpu-rtx3080-opt-3")
 
+
+def test_workspace_service_accepts_absolute_project_workspaces_path_when_root_differs(tmp_path):
+    app = Flask(__name__)
+    app.config["AGENT_NAME"] = "worker"
+    app.config["AGENT_CONFIG"] = {
+        "worker_runtime": {"workspace_root": str(tmp_path / "container-root")},
+        "output_dir_policy": {"unsafe_shared": False},
+    }
+    svc = WorkerWorkspaceService()
+    requested = "/project-workspaces/egpu-rtx3080-opt-4"
+    with app.app_context():
+        resolved = svc._resolve_workspace_dir(
+            output_dir=requested,
+            workspace_root=str(tmp_path / "container-root"),
+            agent_name="worker",
+            scope_key="t5",
+        )
+    assert str(resolved) == requested
+
 def test_stale_lock_recovery_records_audit_event():
     svc = OutputDirLockService()
     ok1, lease1, _ = svc.acquire(output_dir="/tmp/ananta-lock-stale", owner="task-a", ttl_seconds=1)
