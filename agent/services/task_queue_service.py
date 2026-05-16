@@ -134,32 +134,33 @@ class TaskQueueService:
         dependency_resolver: Callable[[Any], List[str]],
     ) -> List[Dict[str, Any]]:
         transitions: List[Dict[str, Any]] = []
-        by_id = {task.id: task for task in tasks}
+        snapshot_by_id = {task.id: task for task in tasks}
         for task in tasks:
-            deps = dependency_resolver(task)
+            live_task = task_repo.get_by_id(task.id) or snapshot_by_id.get(task.id)
+            deps = dependency_resolver(live_task)
             if not deps:
                 continue
             dep_statuses = []
             for dep_id in deps:
-                dep_task = by_id.get(dep_id)
+                dep_task = task_repo.get_by_id(dep_id) or snapshot_by_id.get(dep_id)
                 if dep_task is None:
                     dep_statuses.append(("missing", dep_id))
                 else:
                     dep_statuses.append((normalize_task_status(getattr(dep_task, "status", None), default=""), dep_id))
-            my_status = normalize_task_status(getattr(task, "status", None), default="todo")
+            my_status = normalize_task_status(getattr(live_task, "status", None), default="todo")
             has_failed = any(status == "failed" for status, _ in dep_statuses)
             all_done = bool(dep_statuses) and all(status == "completed" for status, _ in dep_statuses)
             if my_status in {"blocked", "blocked_by_dependency"} and all_done:
-                update_local_task_status(task.id, "todo")
+                update_local_task_status(live_task.id, "todo")
                 transitions.append(
-                    {"task_id": task.id, "event_type": "dependency_unblocked", "depends_on": deps, "reason": "all_dependencies_completed"}
+                    {"task_id": live_task.id, "event_type": "dependency_unblocked", "depends_on": deps, "reason": "all_dependencies_completed"}
                 )
             elif my_status in {"blocked", "blocked_by_dependency"} and has_failed:
                 failed_dependency_ids = [dep_id for status, dep_id in dep_statuses if status == "failed"]
-                update_local_task_status(task.id, "failed", error=f"dependency_failed:{','.join(failed_dependency_ids)}")
+                update_local_task_status(live_task.id, "failed", error=f"dependency_failed:{','.join(failed_dependency_ids)}")
                 transitions.append(
                     {
-                        "task_id": task.id,
+                        "task_id": live_task.id,
                         "event_type": "dependency_failed",
                         "depends_on": deps,
                         "reason": "dependency_failed",
@@ -167,9 +168,9 @@ class TaskQueueService:
                     }
                 )
             elif my_status in {"todo", "created", "assigned"} and not all_done:
-                update_local_task_status(task.id, "blocked_by_dependency")
+                update_local_task_status(live_task.id, "blocked_by_dependency")
                 transitions.append(
-                    {"task_id": task.id, "event_type": "dependency_blocked", "depends_on": deps, "reason": "waiting_for_dependencies"}
+                    {"task_id": live_task.id, "event_type": "dependency_blocked", "depends_on": deps, "reason": "waiting_for_dependencies"}
                 )
         return transitions
 

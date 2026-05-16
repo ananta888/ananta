@@ -474,6 +474,22 @@ def _dispatch_one_task_inner(  # noqa: C901
 ) -> TaskDispatchResult:
     log = _task_log(task.id)  # thr-009
     result = TaskDispatchResult(task_id=task.id)
+    # Skip stale dispatch candidates when a parallel thread already finalized
+    # this task in the database.
+    app_ctx = getattr(loop, "_app", None)
+    latest_status = _current_task_status(task.id, app=app_ctx)
+    if _is_terminal_status(latest_status):
+        append_trace_event(
+            task.id,
+            "autopilot_dispatch_skipped_terminal",
+            delegated_to=target_worker.url,
+            terminal_status=latest_status,
+        )
+        result.dispatched = True
+        result.completed = latest_status == "completed"
+        result.failed = latest_status != "completed"
+        result.failure_type = None if result.completed else latest_status
+        return result
 
     if was_assigned:
         update_local_task_status(
@@ -590,8 +606,10 @@ def _dispatch_one_task_inner(  # noqa: C901
             + 768,
         )
         strategy_cfg = _strategy_cfg(loop)
-        if loop._is_provider_backpressure_active("ollama"):
-            hold_until, hold_reason = loop._provider_backpressure_details("ollama")
+        is_backpressure_active = getattr(loop, "_is_provider_backpressure_active", None)
+        backpressure_details = getattr(loop, "_provider_backpressure_details", None)
+        if callable(is_backpressure_active) and is_backpressure_active("ollama"):
+            hold_until, hold_reason = (backpressure_details("ollama") if callable(backpressure_details) else (0.0, ""))
             hold_for = max(1, int(hold_until - time.time()))
             append_trace_event(
                 task.id,
@@ -750,7 +768,7 @@ def _dispatch_one_task_inner(  # noqa: C901
             )
 
         if propose_data is None:
-            latest_status = _current_task_status(task.id, app=app)
+            latest_status = _current_task_status(task.id, app=app_ctx)
             if _is_terminal_status(latest_status):
                 append_trace_event(
                     task.id,
@@ -817,7 +835,7 @@ def _dispatch_one_task_inner(  # noqa: C901
 
         model_meta.update(selected_attempt_meta)
     except Exception as e:
-        latest_status = _current_task_status(task.id, app=app)
+        latest_status = _current_task_status(task.id, app=app_ctx)
         if _is_terminal_status(latest_status):
             append_trace_event(
                 task.id,
@@ -864,7 +882,7 @@ def _dispatch_one_task_inner(  # noqa: C901
     raw_preview = proposal_snapshot.get("raw_preview")
 
     if not command and not tool_calls:
-        latest_status = _current_task_status(task.id, app=app)
+        latest_status = _current_task_status(task.id, app=app_ctx)
         if _is_terminal_status(latest_status):
             append_trace_event(
                 task.id,
@@ -957,7 +975,7 @@ def _dispatch_one_task_inner(  # noqa: C901
         )
         WORKER_BUSY_SECONDS.observe(max(0.0, time.time() - _execute_started))
     except Exception as e:
-        latest_status = _current_task_status(task.id, app=app)
+        latest_status = _current_task_status(task.id, app=app_ctx)
         if _is_terminal_status(latest_status):
             append_trace_event(
                 task.id,
