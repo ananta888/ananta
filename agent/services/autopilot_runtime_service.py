@@ -26,7 +26,9 @@ class AutopilotRuntimeService:
         security_level=None,
     ) -> dict:
         resolved_team_id = team_id
-        if not resolved_team_id:
+        # Keep goal-scoped starts unscoped by default when no explicit team_id is given.
+        # Otherwise, auto-filling an active team can hide goal tasks with team_id=None.
+        if not resolved_team_id and not str(goal or "").strip():
             active = next((t for t in team_repo.get_all() if bool(getattr(t, "is_active", False))), None)
             if active is not None:
                 resolved_team_id = active.id
@@ -50,7 +52,7 @@ class AutopilotRuntimeService:
         loop = self._loop()
         if requested_team_id:
             loop.team_id = requested_team_id
-        elif not loop.team_id:
+        elif not loop.team_id and not str(getattr(loop, "goal", "") or "").strip():
             active = next((t for t in team_repo.get_all() if bool(getattr(t, "is_active", False))), None)
             if active is not None:
                 loop.team_id = active.id

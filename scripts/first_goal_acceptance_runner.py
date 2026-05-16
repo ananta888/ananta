@@ -115,7 +115,9 @@ class AcceptanceRunner:
         submit_error = None
         response_goal_id: str | None = None
         try:
-            resp = requests.post(f"{self.base_url}/goals", headers=self.headers, json=payload, timeout=90)
+            # Keep submit timeout short so acceptance observation starts quickly even if
+            # goal planning request itself blocks server-side for longer.
+            resp = requests.post(f"{self.base_url}/goals", headers=self.headers, json=payload, timeout=12)
             if resp.status_code < 400:
                 data = dict(resp.json().get("data") or {})
                 goal_obj = dict(data.get("goal") or {})
