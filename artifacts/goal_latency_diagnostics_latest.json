@@ -1,0 +1,47 @@
+{
+  "goal_id": "0ab1b585-90e5-4100-9640-2d09cc826c9a",
+  "generated_at": 1778948385.832306,
+  "task_count": 8,
+  "phase_breakdown_seconds": {
+    "queued_to_assigned": {
+      "mean": 120.21962189674377,
+      "median": 120.21962189674377,
+      "n": 1
+    },
+    "assigned_to_propose_done": {
+      "mean": 259.8155279159546,
+      "median": 259.8155279159546,
+      "n": 1
+    },
+    "propose_to_execute_done": {
+      "mean": 0.11600422859191895,
+      "median": 0.11600422859191895,
+      "n": 1
+    },
+    "execute_to_terminal": {
+      "mean": 86.50515615940094,
+      "median": 86.50515615940094,
+      "n": 2
+    },
+    "total": {
+      "mean": 185.32241213321686,
+      "median": 135.4971479177475,
+      "n": 8
+    }
+  },
+  "llm_call_profile": {
+    "calls_seen": 0,
+    "propose_events_seen": 4,
+    "latency_ms_mean": null,
+    "latency_ms_median": null,
+    "prompt_tokens_mean": null,
+    "completion_tokens_mean": null,
+    "note": "per-call tokens/latency depend on provider payload availability in task proposal metadata"
+  },
+  "autopilot_throughput_idle": {
+    "tasks_assigned_count": 1,
+    "tasks_assigned_per_min": null,
+    "median_idle_gap_seconds": null,
+    "no_candidates_ticks_seen": 0
+  }
+}
