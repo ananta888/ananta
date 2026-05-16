@@ -71,15 +71,15 @@ class CommandChainParser:
                 continue
 
             # Unsupported constructs by default.
-            if text.startswith(">>", index) or text.startswith("<<", index):
-                token = ">>" if text.startswith(">>", index) else "<<"
+            if text.startswith("<<", index):
+                token = "<<"
                 if token not in unsupported_seen:
                     unsupported.append(token)
                     unsupported_seen.add(token)
                 buffer.append(char)
                 index += 1
                 continue
-            if char in {"|", ">", "<", "&", "`"}:
+            if char in {"|", "&", "`"}:
                 # Keep && and || as supported operators.
                 if char == "&" and text.startswith("&&", index):
                     pass
@@ -179,4 +179,3 @@ class CommandChainParser:
             return shlex.split(raw)
         except Exception:
             return [raw]
-

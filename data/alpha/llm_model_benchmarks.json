@@ -4,15 +4,15 @@
       "provider": "ollama",
       "model": "ananta-default:latest",
       "overall": {
-        "total": 17,
+        "total": 20,
         "success": 1,
-        "failed": 16,
+        "failed": 19,
         "quality_pass": 1,
-        "quality_fail": 16,
-        "latency_ms_total": 46472,
-        "tokens_total": 670,
+        "quality_fail": 19,
+        "latency_ms_total": 56465,
+        "tokens_total": 796,
         "cost_units_total": 0.0,
-        "last_seen": 1778927524,
+        "last_seen": 1778927583,
         "samples": [
           {
             "ts": 1778880627,
@@ -234,20 +234,59 @@
               "selected_temperature": "0.2",
               "task_kind": "analysis"
             }
+          },
+          {
+            "ts": 1778927569,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 1185,
+            "tokens_total": 42,
+            "cost_units": 0.0,
+            "context": {
+              "selection_source": "agent_default_model",
+              "selected_temperature": "0.2",
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1778927573,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 1823,
+            "tokens_total": 42,
+            "cost_units": 0.0,
+            "context": {
+              "selection_source": "agent_default_model",
+              "selected_temperature": "0.2",
+              "task_kind": "analysis"
+            }
+          },
+          {
+            "ts": 1778927583,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 6985,
+            "tokens_total": 42,
+            "cost_units": 0.0,
+            "context": {
+              "selection_source": "agent_default_model",
+              "selected_temperature": "0.2",
+              "task_kind": "analysis"
+            }
           }
         ]
       },
       "task_kinds": {
         "analysis": {
-          "total": 17,
+          "total": 20,
           "success": 1,
-          "failed": 16,
+          "failed": 19,
           "quality_pass": 1,
-          "quality_fail": 16,
-          "latency_ms_total": 46472,
-          "tokens_total": 670,
+          "quality_fail": 19,
+          "latency_ms_total": 56465,
+          "tokens_total": 796,
           "cost_units_total": 0.0,
-          "last_seen": 1778927524,
+          "last_seen": 1778927583,
           "samples": [
             {
               "ts": 1778880627,
@@ -469,6 +508,45 @@
                 "selected_temperature": "0.2",
                 "task_kind": "analysis"
               }
+            },
+            {
+              "ts": 1778927569,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 1185,
+              "tokens_total": 42,
+              "cost_units": 0.0,
+              "context": {
+                "selection_source": "agent_default_model",
+                "selected_temperature": "0.2",
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1778927573,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 1823,
+              "tokens_total": 42,
+              "cost_units": 0.0,
+              "context": {
+                "selection_source": "agent_default_model",
+                "selected_temperature": "0.2",
+                "task_kind": "analysis"
+              }
+            },
+            {
+              "ts": 1778927583,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 6985,
+              "tokens_total": 42,
+              "cost_units": 0.0,
+              "context": {
+                "selection_source": "agent_default_model",
+                "selected_temperature": "0.2",
+                "task_kind": "analysis"
+              }
             }
           ]
         }
@@ -551,5 +629,5 @@
       }
     }
   },
-  "updated_at": 1778927524
+  "updated_at": 1778927583
 }

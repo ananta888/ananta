@@ -93,7 +93,7 @@ def test_execute_shell_command_repairs_fragmented_prompt_artifacts() -> None:
     assert shell.commands[0] == "touch README.md"
 
 
-def test_execute_shell_command_rejects_unsupported_or_chaining() -> None:
+def test_execute_shell_command_allows_output_redirect() -> None:
     service = TaskExecutionService()
     shell = _StubShell()
     with patch("agent.services.task_execution_service.get_shell", return_value=shell):
@@ -104,9 +104,8 @@ def test_execute_shell_command_rejects_unsupported_or_chaining() -> None:
             working_directory=None,
         )
 
-    assert exit_code == -1
+    assert exit_code == 0
     assert retries_used == 0
-    assert failure_type == "command_runtime_error"
-    assert "Unsupported shell operators" in output
+    assert failure_type == "success"
     assert retry_history == []
-    assert shell.commands == []
+    assert shell.commands == ["echo x > out.txt"]
