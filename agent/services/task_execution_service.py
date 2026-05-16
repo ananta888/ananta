@@ -547,7 +547,8 @@ class TaskExecutionService:
                     result_text += f"\nOutput: {tool_result.output}"
                 if tool_result.error:
                     result_text += f"\nError: {tool_result.error}"
-                    overall_exit_code = 1
+                    if not self._is_non_fatal_tool_error(tool_name=name, error_text=tool_result.error):
+                        overall_exit_code = 1
                 output_parts.append(result_text)
                 loop_signals.append(
                     loop_service.build_signal(
@@ -660,6 +661,15 @@ class TaskExecutionService:
             return False
         # Missing optional CLIs should not hard-fail default execution paths.
         return True
+
+    @staticmethod
+    def _is_non_fatal_tool_error(*, tool_name: str | None, error_text: str | None) -> bool:
+        name = str(tool_name or "").strip().lower()
+        text = str(error_text or "").strip().lower()
+        # Keep local execution progressing when optional web search capability is disabled.
+        if name == "web_search" and "action pack 'browser'" in text and "deaktiviert" in text:
+            return True
+        return False
 
     def persist_task_proposal_result(
         self,
