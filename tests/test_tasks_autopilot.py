@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from agent.config import settings
-from agent.db_models import AgentInfoDB, TaskDB
-from agent.repository import agent_repo, task_repo
+from agent.db_models import AgentInfoDB, GoalDB, TaskDB
+from agent.repository import agent_repo, goal_repo, task_repo
 from agent.routes.tasks.auto_planner import auto_planner
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
@@ -696,6 +696,30 @@ def test_autopilot_respects_manual_override_window(app, monkeypatch):
         res = autonomous_loop.tick_once()
     assert res["dispatched"] == 0
     assert res["reason"] == "no_candidates"
+
+
+def test_autopilot_triggers_goal_recovery_when_planned_goal_has_no_candidates(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    goal_repo.save(GoalDB(id="goal-recover-1", goal="Create starter project", summary="g", status="planned"))
+    autonomous_loop.goal = "goal-recover-1"
+    autonomous_loop.team_id = ""
+
+    calls: list[dict] = []
+
+    def _fake_plan_goal(**kwargs):
+        calls.append(kwargs)
+        return {"subtasks": [], "created_task_ids": ["task-recover-1"], "plan_id": "plan-recover-1"}
+
+    monkeypatch.setattr(auto_planner, "plan_goal", _fake_plan_goal)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+        goal = goal_repo.get_by_id("goal-recover-1")
+    assert res["dispatched"] == 0
+    assert res["reason"] == "goal_recovery_triggered"
+    assert len(calls) == 1
+    assert goal is not None
+    recovery = dict((goal.execution_preferences or {}).get("autopilot_recovery") or {})
+    assert recovery.get("attempts") == 1
 
 
 def test_autopilot_retries_proposal_with_next_strategy_model(app, monkeypatch):

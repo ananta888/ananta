@@ -55,6 +55,78 @@ def _is_terminal_status(status: str) -> bool:
     return status in {"completed", "failed", "cancelled"}
 
 
+def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, all_tasks: list[Any], goal_scope: str | None) -> bool:
+    goal_id = str(goal_scope or "").strip()
+    if not goal_id:
+        return False
+    repos = get_repository_registry(loop._app)
+    goal = repos.goal_repo.get_by_id(goal_id)
+    if goal is None:
+        return False
+
+    goal_status = str(getattr(goal, "status", "") or "").strip().lower()
+    if goal_status not in {"planning", "planned"}:
+        return False
+
+    non_terminal = [task for task in all_tasks if not _is_terminal_status(str(getattr(task, "status", "") or "").strip().lower())]
+    active_statuses = {"assigned", "proposing", "in_progress", "waiting_for_review"}
+    has_active = any(str(getattr(task, "status", "") or "").strip().lower() in active_statuses for task in non_terminal)
+    if has_active:
+        return False
+
+    now_ts = time.time()
+    execution_preferences = dict(getattr(goal, "execution_preferences", None) or {})
+    recovery = dict(execution_preferences.get("autopilot_recovery") or {})
+    last_attempt_at = float(recovery.get("last_attempt_at") or 0.0)
+    attempts = int(recovery.get("attempts") or 0)
+    max_attempts = 2
+    cooldown_seconds = 45
+    if attempts >= max_attempts or (last_attempt_at and (now_ts - last_attempt_at) < cooldown_seconds):
+        return False
+
+    recovery_reason = "no_nonterminal_tasks" if not non_terminal else "no_dispatchable_candidates"
+    try:
+        from agent.routes.tasks.auto_planner import auto_planner
+
+        team_id = str(getattr(goal, "team_id", "") or "").strip() or None
+        context = getattr(goal, "context", None)
+        plan_result = auto_planner.plan_goal(
+            goal=str(getattr(goal, "goal", "") or ""),
+            context=context if isinstance(context, str) else None,
+            team_id=team_id,
+            create_tasks=True,
+            use_template=True,
+            use_repo_context=True,
+            goal_id=goal.id,
+            goal_trace_id=str(getattr(goal, "trace_id", "") or ""),
+            mode=str(getattr(goal, "mode", "") or "generic"),
+            mode_data=dict(getattr(goal, "mode_data", None) or {}),
+        )
+        created_ids = list((plan_result or {}).get("created_task_ids") or [])
+        recovery.update(
+            {
+                "attempts": attempts + 1,
+                "last_attempt_at": now_ts,
+                "last_reason": recovery_reason,
+                "last_created_task_count": len(created_ids),
+                "last_plan_id": (plan_result or {}).get("plan_id"),
+            }
+        )
+        execution_preferences["autopilot_recovery"] = recovery
+        goal.execution_preferences = execution_preferences
+        repos.goal_repo.save(goal)
+        if created_ids:
+            with contextlib.suppress(Exception):
+                loop.wake()
+            return True
+    except Exception as exc:
+        recovery.update({"attempts": attempts + 1, "last_attempt_at": now_ts, "last_reason": f"{recovery_reason}:error", "last_error": str(exc)[:240]})
+        execution_preferences["autopilot_recovery"] = recovery
+        goal.execution_preferences = execution_preferences
+        repos.goal_repo.save(goal)
+    return False
+
+
 def _fallback_policy(loop: Any) -> dict[str, Any]:
     cfg = (loop._agent_config() or {}).get("execution_fallback_policy", {}) or {}
     return {
@@ -1180,12 +1252,18 @@ def execute_autopilot_tick(
         ]
     candidates = [item["task"] for item in dispatch_queue if item.get("task") is not None]
     if not candidates:
+        recovered = _maybe_recover_planned_goal_without_candidates(
+            loop=loop,
+            services=services,
+            all_tasks=all_tasks,
+            goal_scope=goal_scope,
+        )
         loop.last_tick_at = time.time()
         loop.tick_count += 1
         loop._persist_state(enabled=loop.running)
         return {
             "dispatched": 0,
-            "reason": "no_candidates",
+            "reason": "goal_recovery_triggered" if recovered else "no_candidates",
             "debug": build_tick_debug_payload(
                 team_id_scope=loop.team_id or None,
                 total_tasks_unfiltered=total_tasks_unfiltered,
