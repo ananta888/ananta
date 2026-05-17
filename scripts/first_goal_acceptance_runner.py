@@ -32,6 +32,8 @@ class CriterionResult:
 @dataclass
 class RunReport:
     run_index: int
+    scenario_id: str | None = None
+    scenario_label: str | None = None
     goal_id: str | None = None
     output_dir: str | None = None
     final_goal_status: str | None = None
@@ -100,6 +102,139 @@ class AcceptanceRunner:
         if resp.status_code >= 400:
             return {}
         return dict(resp.json().get("data") or {})
+
+    def _post_json_with_retry(
+        self,
+        url: str,
+        *,
+        payload: dict[str, Any],
+        timeout: int = 20,
+        retries: int = 3,
+    ) -> dict[str, Any]:
+        last_exc: Exception | None = None
+        for attempt in range(1, retries + 1):
+            try:
+                resp = requests.post(url, headers=self.headers, json=payload, timeout=timeout)
+                resp.raise_for_status()
+                return dict(resp.json() or {})
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+                if attempt < retries:
+                    time.sleep(min(2.0 * attempt, 5.0))
+                    continue
+                raise
+        if last_exc:
+            raise last_exc
+        return {}
+
+    def get_config(self) -> dict[str, Any]:
+        payload = self._get_json_with_retry(f"{self.base_url}/config", timeout=20, retries=3)
+        return dict(payload.get("data") or {})
+
+    def set_config_patch(self, patch: dict[str, Any]) -> None:
+        self._post_json_with_retry(
+            f"{self.base_url}/config",
+            payload=patch,
+            timeout=30,
+            retries=3,
+        )
+
+    def restart_autopilot_unscoped(self) -> None:
+        # Clear potentially stale goal scoping before each scenario run.
+        with requests.Session() as session:
+            try:
+                session.post(f"{self.base_url}/tasks/autopilot/stop", headers=self.headers, timeout=15)
+            except Exception:
+                pass
+            session.post(
+                f"{self.base_url}/tasks/autopilot/start",
+                headers=self.headers,
+                json={"interval_seconds": 1, "max_concurrency": 1},
+                timeout=20,
+            )
+
+
+def _deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    out = dict(base or {})
+    for key, value in patch.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _deep_merge(dict(out.get(key) or {}), value)
+        else:
+            out[key] = value
+    return out
+
+
+def _scenario_definitions(config_snapshot: dict[str, Any]) -> list[dict[str, Any]]:
+    default_provider = str(config_snapshot.get("default_provider") or "ollama").strip().lower() or "ollama"
+    default_model = str(config_snapshot.get("default_model") or "").strip() or None
+    opencode_default_model = str(config_snapshot.get("opencode_default_model") or "").strip() or default_model
+    local_ollama_model = str(config_snapshot.get("default_model") or "ananta-default:latest").strip() or "ananta-default:latest"
+
+    # Route all work kinds through the chosen worker backend for deterministic scenario behavior.
+    def _backend_patch(backend: str) -> dict[str, Any]:
+        return {
+            "sgpt_routing": {
+                "task_kind_backend": {
+                    "coding": backend,
+                    "analysis": backend,
+                    "doc": backend,
+                    "ops": backend,
+                    "research": backend,
+                }
+            }
+        }
+
+    return [
+        {
+            "id": "ananta_ollama_local",
+            "label": "Ananta Worker + Local Ollama",
+            "config_patch": _deep_merge(
+                _backend_patch("ananta-worker"),
+                {
+                    "default_provider": "ollama",
+                    "default_model": local_ollama_model,
+                    "llm_config": {
+                        "provider": "ollama",
+                        "model": local_ollama_model,
+                        "base_url": "http://ollama:11434/api/generate",
+                    },
+                    "opencode_runtime": {"target_provider": "ollama"},
+                },
+            ),
+        },
+        {
+            "id": "opencode_preconfigured",
+            "label": "OpenCode Worker + Preconfigured Model",
+            "config_patch": _deep_merge(
+                _backend_patch("opencode"),
+                {
+                    "default_provider": default_provider,
+                    "default_model": opencode_default_model or default_model,
+                    "llm_config": {
+                        "provider": default_provider,
+                        "model": opencode_default_model or default_model,
+                    },
+                },
+            ),
+        },
+        {
+            "id": "opencode_ollama_local",
+            "label": "OpenCode Worker + Local Ollama",
+            "config_patch": _deep_merge(
+                _backend_patch("opencode"),
+                {
+                    "default_provider": "ollama",
+                    "default_model": local_ollama_model,
+                    "llm_config": {
+                        "provider": "ollama",
+                        "model": local_ollama_model,
+                        "base_url": "http://ollama:11434/api/generate",
+                    },
+                    "opencode_runtime": {"target_provider": "ollama"},
+                },
+            ),
+        },
+    ]
 
     def submit_goal(self, *, goal_text: str, output_dir: str, run_trace_id: str) -> tuple[str | None, list[str], Exception | None]:
         before = self._get_goals()
@@ -195,8 +330,16 @@ commit;
     )
 
 
-def run_once(runner: AcceptanceRunner, *, run_index: int, workspace_root: Path, goal_text: str) -> RunReport:
-    report = RunReport(run_index=run_index)
+def run_once(
+    runner: AcceptanceRunner,
+    *,
+    run_index: int,
+    workspace_root: Path,
+    goal_text: str,
+    scenario_id: str | None = None,
+    scenario_label: str | None = None,
+) -> RunReport:
+    report = RunReport(run_index=run_index, scenario_id=scenario_id, scenario_label=scenario_label)
     output_dir = f"first-goal-run-{run_index}-{uuid.uuid4().hex[:6]}"
     run_trace_id = f"acc-{run_index}-{uuid.uuid4().hex[:10]}"
     report.output_dir = output_dir
@@ -454,6 +597,7 @@ def main() -> int:
     p.add_argument("--user", default=os.getenv("ANANTA_USER", "admin"))
     p.add_argument("--password", default=os.getenv("ANANTA_PASSWORD", "AnantaLocalDevAdmin123!"))
     p.add_argument("--runs", type=int, default=3)
+    p.add_argument("--scenario-repeats", type=int, default=1, help="repeat the 3-scenario sequence N times")
     p.add_argument("--sla-seconds", type=int, default=900)
     p.add_argument("--poll-seconds", type=float, default=5.0)
     p.add_argument("--goal-text", default="Create a real multi-file Python project for RTX3080 eGPU utilization optimization; write README, src package, tests, run pytest, store report artifact")
@@ -465,24 +609,55 @@ def main() -> int:
     Path(args.workspace_root).mkdir(parents=True, exist_ok=True)
     all_reports: list[RunReport] = []
 
-    for i in range(1, max(1, int(args.runs)) + 1):
+    runner = AcceptanceRunner(
+        base_url=args.base_url,
+        username=args.user,
+        password=args.password,
+        timeout_s=int(args.sla_seconds),
+        poll_s=float(args.poll_seconds),
+    )
+    baseline_cfg = runner.get_config()
+    scenarios = _scenario_definitions(baseline_cfg)
+    scenario_repeats = max(1, int(args.scenario_repeats))
+
+    expanded_runs: list[dict[str, Any]] = []
+    if scenario_repeats <= 1:
+        for i in range(1, max(1, int(args.runs)) + 1):
+            expanded_runs.append({"run_index": i, "scenario": scenarios[0]})
+    else:
+        idx = 1
+        for _rep in range(scenario_repeats):
+            for scenario in scenarios:
+                expanded_runs.append({"run_index": idx, "scenario": scenario})
+                idx += 1
+
+    for item in expanded_runs:
+        i = int(item["run_index"])
+        scenario = dict(item["scenario"] or {})
         if args.reset_db:
             reset_runtime_data()
-        runner = AcceptanceRunner(
-            base_url=args.base_url,
-            username=args.user,
-            password=args.password,
-            timeout_s=int(args.sla_seconds),
-            poll_s=float(args.poll_seconds),
-        )
+        runner.set_config_patch(dict(scenario.get("config_patch") or {}))
+        runner.restart_autopilot_unscoped()
         report = run_once(
             runner,
             run_index=i,
             workspace_root=Path(args.workspace_root),
             goal_text=args.goal_text,
+            scenario_id=str(scenario.get("id") or ""),
+            scenario_label=str(scenario.get("label") or ""),
         )
         all_reports.append(report)
-        print(f"run {i}: goal={report.goal_id} final={report.final_goal_status} pass={report.passed}")
+        print(
+            f"run {i} [{report.scenario_id}]: "
+            f"goal={report.goal_id} final={report.final_goal_status} pass={report.passed}"
+        )
+
+    # Restore baseline config after test campaign.
+    try:
+        runner.set_config_patch(baseline_cfg)
+        runner.restart_autopilot_unscoped()
+    except Exception:
+        pass
 
     summary = aggregate(all_reports)
     payload = {
@@ -490,6 +665,8 @@ def main() -> int:
         "runs": [
             {
                 "run_index": r.run_index,
+                "scenario_id": r.scenario_id,
+                "scenario_label": r.scenario_label,
                 "goal_id": r.goal_id,
                 "output_dir": r.output_dir,
                 "final_goal_status": r.final_goal_status,
