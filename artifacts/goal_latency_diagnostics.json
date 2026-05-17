@@ -1,17 +1,17 @@
 {
-  "goal_id": "8874e137-87dc-4191-af9f-b8879a027c7a",
-  "generated_at": 1779017719.3531585,
-  "task_count": 30,
+  "goal_id": "294a9fa9-6ac2-427f-8375-8fcf27715429",
+  "generated_at": 1779025561.785862,
+  "task_count": 22,
   "phase_breakdown_seconds": {
     "queued_to_assigned": {
-      "mean": 54.840067863464355,
-      "median": 47.35351073741913,
-      "n": 4
+      "mean": 0.3429832458496094,
+      "median": 0.3429832458496094,
+      "n": 1
     },
     "assigned_to_propose_done": {
-      "mean": 149.4980302453041,
-      "median": 179.94404983520508,
-      "n": 4
+      "mean": 60.57574677467346,
+      "median": 60.57574677467346,
+      "n": 1
     },
     "propose_to_execute_done": {
       "mean": null,
@@ -19,24 +19,24 @@
       "n": 0
     },
     "execute_to_terminal": {
-      "mean": 79.08206311861674,
-      "median": 109.983882188797,
-      "n": 3
+      "mean": null,
+      "median": null,
+      "n": 0
     },
     "total": {
-      "mean": 242.9853793144226,
-      "median": 243.3525266647339,
-      "n": 30
+      "mean": 255.28803007169202,
+      "median": 268.32771039009094,
+      "n": 22
     }
   },
   "llm_call_profile": {
-    "calls_seen_total": 5,
+    "calls_seen_total": 6,
     "calls_seen_real": 0,
-    "calls_seen_synthetic": 5,
-    "calls_seen_estimated": 5,
-    "propose_events_seen": 6,
-    "success_count": 5,
-    "fail_count": 0,
+    "calls_seen_synthetic": 6,
+    "calls_seen_estimated": 6,
+    "propose_events_seen": 69,
+    "success_count": 0,
+    "fail_count": 6,
     "success_count_real": 0,
     "fail_count_real": 0,
     "latency_ms_mean_real": null,
@@ -44,23 +44,21 @@
     "prompt_tokens_mean_real": null,
     "completion_tokens_mean_real": null,
     "by_model": {
-      "ananta-default:latest": 4,
-      "<unknown>": 1
+      "<unknown>": 6
     },
     "by_model_real": {},
     "by_model_synthetic": {
-      "ananta-default:latest": 4,
-      "<unknown>": 1
+      "<unknown>": 6
     },
     "by_source": {
-      "orchestrator_synthetic": 5
+      "json_schema_llm_strategy": 6
     },
     "note": "synthetic entries prove orchestration activity but are excluded from real latency/token statistics"
   },
   "autopilot_throughput_idle": {
-    "tasks_assigned_count": 4,
-    "tasks_assigned_per_min": 0.9341347074392853,
-    "median_idle_gap_seconds": 123.96380877494812,
+    "tasks_assigned_count": 1,
+    "tasks_assigned_per_min": null,
+    "median_idle_gap_seconds": null,
     "no_candidates_ticks_seen": 0
   }
 }
