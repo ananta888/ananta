@@ -42,7 +42,6 @@ SAFE_DEFAULT_STRATEGY_ORDER = [
     STRATEGY_JSON_SCHEMA_LLM,
     STRATEGY_FLEXIBLE_LLM_NORMALIZATION,
     STRATEGY_WORKER,
-    STRATEGY_DETERMINISTIC_HANDLER,
     STRATEGY_ADVISORY_PROPOSAL,
     STRATEGY_HUMAN_REVIEW,
 ]
@@ -65,7 +64,7 @@ class ProposePolicy:
     allow_json_schema_fallback: bool = True
     allow_flexible_normalization: bool = True
     allow_worker_fallback: bool = True
-    allow_deterministic_fallback: bool = True
+    allow_deterministic_fallback: bool = False
     allow_human_review: bool = True
     # T002: max_strategy_attempts no longer truncates the chain.
     # It documents the intended retry budget per strategy (future use). Default=1 = no retry.
@@ -170,10 +169,11 @@ _TASK_KIND_PRESETS: dict[str, dict[str, Any]] = {
             STRATEGY_TOOL_CALLING_LLM,
             STRATEGY_JSON_SCHEMA_LLM,
             STRATEGY_WORKER,
-            STRATEGY_DETERMINISTIC_HANDLER,
             STRATEGY_ARTIFACT_RECONCILIATION,
             STRATEGY_HUMAN_REVIEW,
         ],
+        "llm_mode": LLM_MODE_PRIMARY_WITH_GUARDRAILS,
+        "allow_deterministic_fallback": False,
         "allow_legacy_sgpt": False,
         "requires_executable_step": True,
     },
