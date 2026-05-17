@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import ast
 from typing import Optional
 from warnings import warn
 
@@ -149,7 +150,7 @@ def extract_task_items_from_payload(payload: object) -> list[object]:
     if not isinstance(payload, dict):
         return []
 
-    for key in ("tasks", "subtasks", "items", "steps", "children"):
+    for key in ("tasks", "subtasks", "sub_tasks", "items", "steps", "children"):
         value = payload.get(key)
         if isinstance(value, list):
             return value
@@ -180,27 +181,36 @@ def extract_task_items_from_payload(payload: object) -> list[object]:
 
 def parse_subtasks_from_llm_response(response: str, default_priority: str = "Medium") -> list[dict]:
     cleaned = strip_markdown_fences(response)
+    json_payload = extract_json_payload(cleaned) or cleaned
+    parsed = None
     try:
-        json_payload = extract_json_payload(cleaned) or cleaned
         parsed = json.loads(json_payload)
+    except json.JSONDecodeError:
+        # Fallback for Python-literal style payloads (single quotes, True/False/None).
+        try:
+            parsed = ast.literal_eval(json_payload)
+        except Exception:
+            parsed = None
+
+    if parsed is not None:
         items = extract_task_items_from_payload(parsed)
         normalized = [normalize_subtask(item, default_priority=default_priority) for item in items]
         return [item for item in normalized if item]
-    except json.JSONDecodeError:
-        tasks = []
-        for line in cleaned.split("\n"):
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith(("-", "*", "1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.")):
-                desc = line.lstrip("-*1234567890. ").strip()
-                normalized = normalize_subtask(
-                    {"description": desc, "priority": default_priority},
-                    default_priority=default_priority,
-                )
-                if normalized:
-                    tasks.append(normalized)
-        return tasks
+
+    tasks = []
+    for line in cleaned.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith(("-", "*", "1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.")):
+            desc = line.lstrip("-*1234567890. ").strip()
+            normalized = normalize_subtask(
+                {"description": desc, "priority": default_priority},
+                default_priority=default_priority,
+            )
+            if normalized:
+                tasks.append(normalized)
+    return tasks
 
 
 def parse_followup_analysis(raw_response: str, default_priority: str = "Medium") -> dict:

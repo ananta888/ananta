@@ -159,6 +159,7 @@ class AcceptanceRunner:
             "goal": goal_text,
             "mode": "new_software_project",
             "mode_data": {"project_idea": "RTX3080 eGPU utilization optimization python project"},
+            # LLM-only planning path for acceptance diagnostics.
             "use_template": False,
             "context": f"acceptance_runner_trace_id={run_trace_id}",
             "execution_preferences": {

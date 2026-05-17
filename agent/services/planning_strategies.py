@@ -288,6 +288,23 @@ class LLMPlanningStrategy:
             if repaired_subtasks:
                 raw_response = repaired_response
                 subtasks = repaired_subtasks
+        if mode == "new_software_project" and not subtasks:
+            # Last LLM-only repair attempt with stricter execution-focused framing.
+            repair_prompt = self._build_new_project_execution_repair_prompt(
+                goal=goal,
+                context=resolved_context,
+                max_subtasks=planner.max_subtasks_per_goal,
+                previous_output=raw_response,
+                mode_data=mode_data,
+            )
+            repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config)
+            repaired_subtasks = parse_subtasks_from_llm_response(
+                repaired_response,
+                default_priority=planner.default_priority,
+            )
+            if repaired_subtasks:
+                raw_response = repaired_response
+                subtasks = repaired_subtasks
         if mode == "new_software_project" and subtasks and not self._has_new_project_execution_coverage(subtasks):
             repair_prompt = self._build_new_project_execution_repair_prompt(
                 goal=goal,

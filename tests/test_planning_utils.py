@@ -40,6 +40,15 @@ def test_parse_subtasks_from_llm_response_normalizes_priority_and_depends_on() -
     assert subtasks[0]["depends_on"] == ["1"]
 
 
+def test_parse_subtasks_from_llm_response_accepts_python_literal_payload() -> None:
+    subtasks = parse_subtasks_from_llm_response(
+        "[{'title':'Task 1','description':'Desc 1','priority':'high'}]"
+    )
+    assert len(subtasks) == 1
+    assert subtasks[0]["title"] == "Task 1"
+    assert subtasks[0]["priority"] == "High"
+
+
 def test_parse_followup_analysis_returns_parse_error_for_invalid_json() -> None:
     parsed = parse_followup_analysis("not-json")
     assert parsed["parse_error"] is True

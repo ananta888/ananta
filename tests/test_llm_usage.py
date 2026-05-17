@@ -423,6 +423,32 @@ def test_generate_text_keeps_explicit_non_runtime_local_override(app):
     assert mock_call.call_args.args[3]["lmstudio"] == "http://custom-host:1234/v1"
 
 
+def test_generate_text_resolves_ollama_model_before_call(app):
+    from agent.llm_integration import generate_text
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "ollama",
+            "default_model": "qwen2.5-coder:7b",
+        }
+        app.config["PROVIDER_URLS"] = {
+            "ollama": "http://ollama:11434/api/generate",
+            "lmstudio": "http://192.168.56.1:1234/v1",
+        }
+        with patch("agent.llm_integration.resolve_preferred_local_runtime", return_value={
+            "provider": "ollama",
+            "base_url": "http://ollama:11434/api/generate",
+            "selection_source": "runtime.ollama_available",
+        }):
+            with patch("agent.llm_integration.resolve_ollama_model", return_value="ananta-default:latest") as mock_resolve:
+                with patch("agent.llm_integration._call_llm", return_value="ok") as mock_call:
+                    out = generate_text("hello", provider="ollama")
+
+    assert out == "ok"
+    mock_resolve.assert_called_once()
+    assert mock_call.call_args.args[1] == "ananta-default:latest"
+
+
 def test_call_llm_records_real_profile_on_success(app):
     from agent.llm_integration import _call_llm
 
