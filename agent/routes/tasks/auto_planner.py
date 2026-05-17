@@ -19,6 +19,7 @@ from flask import Blueprint, current_app, request
 from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import PlanningError, api_response, with_error_context
+from agent.config import settings
 from agent.db_models import ConfigDB
 from agent.llm_integration import generate_text
 from agent.models import AutoPlannerAnalyzeRequest, AutoPlannerConfigureRequest, AutoPlannerPlanRequest
@@ -142,13 +143,14 @@ def _validate_goal(goal: str) -> tuple[bool, str]:
 
 class AutoPlanner:
     def __init__(self):
+        default_timeout = int(getattr(settings, "http_timeout", 60) or 60)
         self._lock = threading.RLock()
         self.enabled = False
         self.auto_followup_enabled = True
         self.max_subtasks_per_goal = 10
         self.default_priority = "Medium"
         self.auto_start_autopilot = True
-        self.llm_timeout = 30
+        self.llm_timeout = max(30, default_timeout)
         self.llm_retry_attempts = 2
         self.llm_retry_backoff = 1.0
         self._stats = {
@@ -228,7 +230,9 @@ class AutoPlanner:
             self.max_subtasks_per_goal = int(data.get("max_subtasks_per_goal", 10))
             self.default_priority = str(data.get("default_priority", "Medium"))
             self.auto_start_autopilot = bool(data.get("auto_start_autopilot", True))
-            self.llm_timeout = int(data.get("llm_timeout", 30))
+            default_timeout = int(getattr(settings, "http_timeout", 60) or 60)
+            restored_timeout = int(data.get("llm_timeout", default_timeout))
+            self.llm_timeout = max(restored_timeout, default_timeout)
             if isinstance(data.get("stats"), dict):
                 self._stats = data["stats"]
         except Exception as e:
