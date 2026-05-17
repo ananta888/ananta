@@ -29,6 +29,7 @@ from agent.services.reference_profile_service import get_reference_profile_servi
 from agent.services.service_registry import get_core_services
 from agent.services.system_contract_service import get_system_contract_service
 from agent.services.system_health_service import build_system_health_payload
+from agent.services.provider_observer_service import get_provider_observer_service
 from agent.utils import rate_limit, read_json, validate_request, write_json
 
 # Historie fÃ¼r Statistiken (wird jetzt in DB gespeichert)
@@ -215,6 +216,20 @@ def health():
     """
     basic_mode = request.args.get("basic", "").strip().lower() in {"1", "true", "yes"}
     return api_response(data=build_system_health_payload(current_app, basic_mode=basic_mode))
+
+
+@system_bp.route("/monitor/providers/live", methods=["GET"])
+@check_auth
+def monitor_providers_live():
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    urls = current_app.config.get("PROVIDER_URLS", {}) or {}
+    snapshot = get_provider_observer_service().snapshot(
+        agent_config=cfg,
+        provider_urls=urls,
+        force_refresh=True,
+    )
+    snapshot["mode"] = "live_force_refresh"
+    return api_response(data=snapshot)
 
 
 @system_bp.route("/contracts", methods=["GET"])
