@@ -48,7 +48,7 @@
       "id": "AC-04",
       "name": "Runtime uses goal snapshot",
       "check": "Planner, propose, execute und routing im Goal-Kontext nutzen die goal-scoped effective config.",
-      "pass_condition": "Telemetry/Trace zeigt goal_config_source=snapshot in relevanten Pfaden."
+      "pass_condition": "In Task-History/Telemetry erscheint goal_config_source=snapshot fuer planning/propose/execute/routing; bei fehlendem Snapshot explizit goal_config_source=global_fallback."
     },
     {
       "id": "AC-05",
@@ -66,7 +66,7 @@
       "id": "AC-07",
       "name": "Observability",
       "check": "Read-model/API zeigt effective config summary + provenance pro Goal.",
-      "pass_condition": "GET /goals/{id}/effective-config verfügbar und konsistent."
+      "pass_condition": "GET /goals/{id}/effective-config liefert 200 mit Feldern config_snapshot, provenance, config_checksum, redaction_summary."
     },
     {
       "id": "AC-08",
@@ -103,6 +103,18 @@
       "name": "Goal-scoped evidence in reports",
       "check": "Acceptance-Report enthält pro Run config_mode, config_profile, config_checksum, goal_config_source und optional effective_config_endpoint_result.",
       "pass_condition": "Report beweist, dass Runtime-Entscheidungen aus dem Goal-Snapshot kamen, nicht aus globaler /config."
+    },
+    {
+      "id": "AC-14",
+      "name": "Snapshot integrity",
+      "check": "Beim Goal-Create wird config_snapshot_hash persistiert und bleibt waehrend der Goal-Laufzeit unveraendert.",
+      "pass_condition": "Hash im Goal-Objekt und /effective-config stimmt ueberein; kein Hash-Drift zwischen planning und terminal."
+    },
+    {
+      "id": "AC-15",
+      "name": "Parallel safety guard",
+      "check": "Parallelmodus wird in legacy_global_config standardmaessig blockiert.",
+      "pass_condition": "Runner bricht mit klarer Fehlermeldung ab, ausser --allow-unsafe-global-parallel ist explizit gesetzt."
     }
   ],
   "profiles": [
@@ -173,7 +185,9 @@
       "title": "Config resolution domain model",
       "owner": "hub",
       "type": "implementation",
-      "files": ["agent/services/goal_config_resolver_service.py"],
+      "files": [
+        "agent/services/goal_config_resolver_service.py"
+      ],
       "steps": [
         "Define normalized schema for effective goal config.",
         "Implement deep merge with allowlist and conflict policy.",
@@ -187,245 +201,377 @@
       "title": "Goal payload extensions",
       "owner": "hub",
       "type": "implementation",
-      "files": ["agent/models.py", "agent/routes/tasks/goals.py"],
+      "files": [
+        "agent/models.py",
+        "agent/routes/tasks/goals.py"
+      ],
       "steps": [
         "Add optional execution_preferences.config_profile.",
         "Add optional execution_preferences.config_overrides.",
         "Validate schema and unknown keys handling.",
         "Keep old payloads fully valid."
       ],
-      "depends_on": ["T-001"]
+      "depends_on": [
+        "T-001"
+      ]
     },
     {
       "id": "T-003",
       "title": "Persist immutable goal snapshot",
       "owner": "hub",
       "type": "implementation",
-      "files": ["agent/routes/tasks/goals.py", "agent/services/goal_execution_contract_service.py"],
+      "files": [
+        "agent/routes/tasks/goals.py",
+        "agent/services/goal_execution_contract_service.py"
+      ],
       "steps": [
         "Resolve effective config at goal creation.",
         "Store in goal.execution_preferences.config_snapshot.",
         "Store config_profile/config_overrides provenance summary.",
         "Prevent mutation of snapshot during runtime."
       ],
-      "depends_on": ["T-002"]
+      "depends_on": [
+        "T-002"
+      ]
     },
     {
       "id": "T-004",
       "title": "Runtime accessor abstraction",
       "owner": "hub",
       "type": "implementation",
-      "files": ["agent/services/repository_registry.py", "agent/services/goal_config_runtime_service.py"],
+      "files": [
+        "agent/services/repository_registry.py",
+        "agent/services/goal_config_runtime_service.py"
+      ],
       "steps": [
         "Implement get_effective_config(goal_id, task_id=None).",
         "Fallback to global config when goal snapshot absent.",
         "Add helper for scoped reads in routes/services."
       ],
-      "depends_on": ["T-003"]
+      "depends_on": [
+        "T-003"
+      ]
     },
     {
       "id": "T-005",
       "title": "Planner path migration",
       "owner": "hub",
       "type": "implementation",
-      "files": ["agent/routes/tasks/auto_planner.py", "agent/services/planning_service.py"],
+      "files": [
+        "agent/routes/tasks/auto_planner.py",
+        "agent/services/planning_service.py"
+      ],
       "steps": [
         "Use goal-scoped effective config in planning provider/model decisions.",
         "Emit trace metadata goal_config_source=snapshot|global_fallback."
       ],
-      "depends_on": ["T-004"]
+      "depends_on": [
+        "T-004"
+      ]
     },
     {
       "id": "T-006",
       "title": "Autopilot propose/execute path migration",
       "owner": "hub",
       "type": "implementation",
-      "files": ["agent/routes/tasks/autopilot_tick_engine.py", "agent/services/task_scoped_execution_service.py", "agent/routes/tasks/autopilot.py"],
+      "files": [
+        "agent/routes/tasks/autopilot_tick_engine.py",
+        "agent/services/task_scoped_execution_service.py",
+        "agent/routes/tasks/autopilot.py"
+      ],
       "steps": [
         "Read provider/model/routing knobs from goal snapshot where available.",
         "Ensure hard-guard/backoff respect scoped config values.",
         "Keep behavior unchanged for non-goal/scoped-missing tasks."
       ],
-      "depends_on": ["T-004"]
+      "depends_on": [
+        "T-004"
+      ]
     },
     {
       "id": "T-007",
       "title": "Worker dispatch policy integration",
       "owner": "hub",
       "type": "implementation",
-      "files": ["agent/services/worker_selection_policy_service.py", "agent/services/task_delegation_services.py"],
+      "files": [
+        "agent/services/worker_selection_policy_service.py",
+        "agent/services/task_delegation_services.py"
+      ],
       "steps": [
         "Apply scoped task_kind_backend mapping from snapshot.",
         "Preserve capability safety checks.",
         "Record selected worker/backend with config provenance."
       ],
-      "depends_on": ["T-006"]
+      "depends_on": [
+        "T-006"
+      ]
     },
     {
       "id": "T-008",
       "title": "Config profile catalog",
       "owner": "hub",
       "type": "implementation",
-      "files": ["agent/services/config_profile_service.py", "agent/routes/config/read_models.py"],
+      "files": [
+        "agent/services/config_profile_service.py",
+        "agent/routes/config/read_models.py"
+      ],
       "steps": [
         "Add reusable named profiles (opencode_preconfigured, opencode_ollama_local, ananta_ollama_local).",
         "Expose profile list/read endpoints.",
         "Validate profile existence on goal submit."
       ],
-      "depends_on": ["T-001"]
+      "depends_on": [
+        "T-001"
+      ]
     },
     {
       "id": "T-009",
       "title": "Goal effective-config read API",
       "owner": "hub",
       "type": "implementation",
-      "files": ["agent/routes/tasks/goals.py"],
+      "files": [
+        "agent/routes/tasks/goals.py"
+      ],
       "steps": [
         "Add GET /goals/{id}/effective-config.",
         "Return snapshot + redacted fields + provenance map + checksum."
       ],
-      "depends_on": ["T-003", "T-008"]
+      "depends_on": [
+        "T-003",
+        "T-008"
+      ]
     },
     {
       "id": "T-010",
       "title": "Runner support for goal-scoped scenario config",
       "owner": "tooling",
       "type": "implementation",
-      "files": ["scripts/first_goal_acceptance_runner.py"],
+      "files": [
+        "scripts/first_goal_acceptance_runner.py"
+      ],
       "steps": [
-        "Add --config-mode legacy_global_config|goal_scoped with goal_scoped as target default once server support is present.",
+        "Add --config-mode legacy_global_config|goal_scoped with explicit default policy documentation.",
         "In goal_scoped mode, do not call POST /config per scenario.",
         "In goal_scoped mode, pass execution_preferences.config_profile and execution_preferences.config_overrides in POST /goals.",
         "Keep legacy_global_config mode for older deployments and regression comparison.",
         "Add report fields: config_mode, config_profile, config_checksum, goal_config_source, effective_config_endpoint_status."
       ],
-      "depends_on": ["T-002", "T-003", "T-008", "T-009"]
+      "depends_on": [
+        "T-002",
+        "T-003",
+        "T-008",
+        "T-009",
+        "T-007b"
+      ]
     },
     {
       "id": "T-011",
       "title": "Parallel scenario add-on test mode",
       "owner": "tooling",
       "type": "implementation",
-      "files": ["scripts/first_goal_acceptance_runner.py"],
+      "files": [
+        "scripts/first_goal_acceptance_runner.py"
+      ],
       "steps": [
         "Add --parallel-goals-per-scenario N for additive stress run.",
         "For each scenario, submit N goals concurrently with same profile.",
         "Collect isolation evidence per goal (provider/model/backend trace).",
         "Reject parallel mode when --config-mode legacy_global_config is active unless --allow-unsafe-global-parallel is explicitly passed."
       ],
-      "depends_on": ["T-010"]
+      "depends_on": [
+        "T-010"
+      ]
     },
     {
       "id": "T-012",
       "title": "Migration and compatibility",
       "owner": "hub",
       "type": "implementation",
-      "files": ["agent/services/goal_config_runtime_service.py", "agent/services/lifecycle_service.py"],
+      "files": [
+        "agent/services/goal_config_runtime_service.py",
+        "agent/services/lifecycle_service.py"
+      ],
       "steps": [
         "Lazy fallback for legacy goals without snapshot.",
         "Optional backfill job/script for historical goals.",
         "Guardrails for partial/invalid snapshot."
       ],
-      "depends_on": ["T-004"]
+      "depends_on": [
+        "T-004"
+      ]
     },
     {
       "id": "T-013",
       "title": "Unit tests: resolver and schema",
       "owner": "qa",
       "type": "test",
-      "files": ["tests/test_goal_config_resolver_service.py"],
+      "files": [
+        "tests/test_goal_config_resolver_service.py"
+      ],
       "steps": [
         "Test merge precedence and deterministic output.",
         "Test unknown keys and validation behavior.",
         "Test redaction of secret fields."
       ],
-      "depends_on": ["T-001"]
+      "depends_on": [
+        "T-001"
+      ]
     },
     {
       "id": "T-014",
       "title": "API tests: goal create + effective-config",
       "owner": "qa",
       "type": "test",
-      "files": ["tests/test_goal_scoped_config_api.py"],
+      "files": [
+        "tests/test_goal_scoped_config_api.py"
+      ],
       "steps": [
         "POST /goals with config_profile/config_overrides persists snapshot.",
         "GET /goals/{id}/effective-config returns redacted snapshot.",
         "Legacy payloads still pass."
       ],
-      "depends_on": ["T-002", "T-003", "T-009"]
+      "depends_on": [
+        "T-002",
+        "T-003",
+        "T-009"
+      ]
     },
     {
       "id": "T-015",
       "title": "Integration tests: runtime path consumption",
       "owner": "qa",
       "type": "test",
-      "files": ["tests/test_goal_scoped_config_runtime_integration.py"],
+      "files": [
+        "tests/test_goal_scoped_config_runtime_integration.py"
+      ],
       "steps": [
         "Planner/propose/execute use scoped provider/model.",
         "Global config mutation mid-run does not affect running goal.",
         "Trace fields prove snapshot source."
       ],
-      "depends_on": ["T-005", "T-006", "T-007"]
+      "depends_on": [
+        "T-005",
+        "T-006",
+        "T-007"
+      ]
     },
     {
       "id": "T-016",
       "title": "E2E tests: parallel scenario isolation",
       "owner": "qa",
       "type": "test",
-      "files": ["tests/e2e/test_parallel_scenario_goal_scoped_config.py"],
+      "files": [
+        "tests/e2e/test_parallel_scenario_goal_scoped_config.py"
+      ],
       "steps": [
         "Start 3 goals simultaneously with distinct profiles.",
         "Assert each goal keeps its own backend/provider/model.",
         "Assert no cross-goal config contamination."
       ],
-      "depends_on": ["T-010", "T-011", "T-015"]
+      "depends_on": [
+        "T-010",
+        "T-011",
+        "T-015"
+      ]
     },
     {
       "id": "T-017",
       "title": "Docs and operator playbook",
       "owner": "docs",
       "type": "documentation",
-      "files": ["docs/goal-scoped-config.md", "docs/acceptance/first-goal-scenarios.md"],
+      "files": [
+        "docs/goal-scoped-config.md",
+        "docs/acceptance/first-goal-scenarios.md"
+      ],
       "steps": [
         "Document config hierarchy and precedence.",
         "Document profile authoring and rollout.",
         "Document troubleshooting for isolation failures."
       ],
-      "depends_on": ["T-016"]
+      "depends_on": [
+        "T-016"
+      ]
     },
     {
       "id": "T-018",
       "title": "Runbook dual-mode documentation",
       "owner": "docs",
       "type": "documentation",
-      "files": ["PROMPT_ANANTA_3ER_LAUF_NEW_SOFTWARE_PROJECT_OLLAMA.md"],
+      "files": [
+        "PROMPT_ANANTA_3ER_LAUF_NEW_SOFTWARE_PROJECT_OLLAMA.md"
+      ],
       "steps": [
         "Add explicit Zielmodus goal_scoped section.",
         "Mark global /config scenario patching as legacy fallback.",
         "Document expected runner flags for both modes.",
         "Document required evidence fields in acceptance report."
       ],
-      "depends_on": ["T-010"]
+      "depends_on": [
+        "T-010"
+      ]
     },
     {
       "id": "T-019",
       "title": "Runner report validation for scoped config evidence",
       "owner": "qa",
       "type": "test",
-      "files": ["tests/test_first_goal_acceptance_runner_config_modes.py"],
+      "files": [
+        "tests/test_first_goal_acceptance_runner_config_modes.py"
+      ],
       "steps": [
         "Test that goal_scoped mode never calls set_config_patch for per-scenario config injection.",
         "Test that legacy_global_config mode keeps old behavior.",
         "Test report serialization includes config_mode/config_profile/config_checksum.",
         "Test parallel mode refuses legacy_global_config by default."
       ],
-      "depends_on": ["T-010", "T-011"]
+      "depends_on": [
+        "T-010",
+        "T-011"
+      ]
+    },
+    {
+      "id": "T-007b",
+      "title": "Snapshot checksum and integrity marker",
+      "owner": "hub",
+      "type": "implementation",
+      "files": [
+        "agent/services/goal_config_resolver_service.py",
+        "agent/routes/tasks/goals.py"
+      ],
+      "steps": [
+        "Compute deterministic config_snapshot_hash from normalized snapshot JSON.",
+        "Persist hash alongside snapshot in execution_preferences.",
+        "Expose hash in goal read model and /goals/{id}/effective-config."
+      ],
+      "depends_on": [
+        "T-003"
+      ]
+    },
+    {
+      "id": "T-012b",
+      "title": "Feature-flagged rollout strategy",
+      "owner": "hub",
+      "type": "implementation",
+      "files": [
+        "agent/config_defaults.py",
+        "agent/routes/config/settings.py",
+        "docs/goal-scoped-config.md"
+      ],
+      "steps": [
+        "Introduce feature flags goal_scoped_config_enabled and goal_scoped_config_enforce_snapshot.",
+        "Define staged rollout rules (observe -> opt-in -> default -> enforce).",
+        "Document rollback procedure to legacy_global_config."
+      ],
+      "depends_on": [
+        "T-003",
+        "T-012"
+      ]
     }
   ],
   "execution_plan": [
     "Phase 1: T-001..T-004 (foundation + snapshot persistence)",
     "Phase 2: T-005..T-009 (runtime adoption + APIs)",
-    "Phase 3: T-010..T-012 (runner + migration)",
+    "Phase 3: T-010..T-012 (+T-007b/T-012b) (runner + migration + integrity/flags)",
     "Phase 4: T-013..T-017 (tests + docs + e2e)",
     "Phase 5: T-018..T-019 (runbook dual-mode hardening + report evidence tests)"
   ],
@@ -462,12 +608,29 @@
     }
   ],
   "definition_of_done": [
-    "Alle AC-01..AC-13 erfüllt.",
+    "Alle AC-01..AC-15 erfüllt.",
     "Unit + Integration + E2E Tests grün.",
     "3x3 Szenario-Report enthält isolierte Provider/Model-Belege pro Goal.",
     "Goal-scoped Runner-Report beweist goal_config_source=snapshot pro Run.",
     "Legacy global /config-Modus ist dokumentiert, getestet und nicht Default für Zielabnahme.",
     "Keine Secrets in snapshot-read APIs/telemetry.",
     "Dokumentation für Betrieb und Debugging vorhanden."
-  ]
+  ],
+  "summaries": {
+    "executive": [
+      "Zielarchitektur ist goal-scoped config snapshots pro Goal; globale /config bleibt Legacy/Fallback.",
+      "Die kritischsten Risiken sind Runtime-Pfade mit globalem Read, fehlende Snapshot-Integritaet und fehlende Parallel-Guards.",
+      "Prioritaet 1 ist Resolver + Snapshot + Runtime-Consumption + Evidenzfelder; erst danach parallele Kampagnen."
+    ],
+    "implementation_focus": [
+      "Snapshot-Resolver und deterministische Hash-Bildung (T-001, T-003, T-007b).",
+      "Runtime-Umstellung auf Snapshot-Lesen in planning/propose/execute/routing (T-005..T-007).",
+      "Dual-Mode Runner mit harten Safety-Guards (T-010, T-011, T-019)."
+    ],
+    "verification_focus": [
+      "AC-04/AC-13/AC-14 pruefen echte Snapshot-Nutzung und Integritaet.",
+      "AC-15 prueft Parallel-Schutz in legacy_global_config.",
+      "E2E muss Cross-Contamination in parallelen Profil-Goals ausschliessen."
+    ]
+  }
 }
