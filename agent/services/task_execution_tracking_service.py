@@ -795,6 +795,37 @@ class TaskExecutionTrackingService:
         proposal: dict,
         history_event: dict | None = None,
     ) -> dict:
+        # Keep telemetry structurally present for downstream diagnostics even
+        # when worker/orchestrator did not return a cli_result payload.
+        cli_result = proposal.get("cli_result")
+        if not isinstance(cli_result, dict):
+            backend = str(proposal.get("backend") or "orchestrator").strip() or "orchestrator"
+            model = str(proposal.get("model") or "").strip() or None
+            cli_result = {
+                "returncode": 0,
+                "latency_ms": None,
+                "output_source": backend,
+                "llm_call_profile": [
+                    {
+                        "name": "propose_persist_fallback",
+                        "backend": backend,
+                        "provider": None,
+                        "model": model,
+                        "success": True,
+                        "latency_ms": None,
+                        "prompt_tokens": None,
+                        "completion_tokens": None,
+                        "total_tokens": None,
+                        "source": "orchestrator_synthetic",
+                        "estimated": True,
+                        "error_type": None,
+                        "error_message": None,
+                        "started_at": None,
+                        "ended_at": None,
+                    }
+                ],
+            }
+            proposal["cli_result"] = cli_result
         history = list((task or {}).get("history") or [])
         verification_status = dict((task or {}).get("verification_status") or {})
         flow_metrics = {}

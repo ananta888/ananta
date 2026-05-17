@@ -1,41 +1,41 @@
 {
-  "goal_id": "ca1ebcb8-f37d-431a-a591-bad3d045f313",
-  "generated_at": 1779009643.2398818,
-  "task_count": 10,
+  "goal_id": "6fb2a832-39e6-4356-9d05-97fad4b90ab8",
+  "generated_at": 1779010204.2781672,
+  "task_count": 8,
   "phase_breakdown_seconds": {
     "queued_to_assigned": {
-      "mean": null,
-      "median": null,
-      "n": 0
+      "mean": 25.475427865982056,
+      "median": 25.475427865982056,
+      "n": 2
     },
     "assigned_to_propose_done": {
-      "mean": null,
-      "median": null,
-      "n": 0
+      "mean": 10.424396634101868,
+      "median": 10.424396634101868,
+      "n": 2
     },
     "propose_to_execute_done": {
-      "mean": null,
-      "median": null,
-      "n": 0
+      "mean": 0.37688255310058594,
+      "median": 0.37688255310058594,
+      "n": 1
     },
     "execute_to_terminal": {
-      "mean": null,
-      "median": null,
-      "n": 0
+      "mean": 0.43245363235473633,
+      "median": 0.43245363235473633,
+      "n": 1
     },
     "total": {
-      "mean": null,
-      "median": null,
-      "n": 0
+      "mean": 34.93769884109497,
+      "median": 34.93769884109497,
+      "n": 1
     }
   },
   "llm_call_profile": {
-    "calls_seen_total": 0,
+    "calls_seen_total": 1,
     "calls_seen_real": 0,
-    "calls_seen_synthetic": 0,
-    "calls_seen_estimated": 0,
-    "propose_events_seen": 0,
-    "success_count": 0,
+    "calls_seen_synthetic": 1,
+    "calls_seen_estimated": 1,
+    "propose_events_seen": 8,
+    "success_count": 1,
     "fail_count": 0,
     "success_count_real": 0,
     "fail_count_real": 0,
@@ -43,16 +43,22 @@
     "latency_ms_median_real": null,
     "prompt_tokens_mean_real": null,
     "completion_tokens_mean_real": null,
-    "by_model": {},
+    "by_model": {
+      "<unknown>": 1
+    },
     "by_model_real": {},
-    "by_model_synthetic": {},
-    "by_source": {},
+    "by_model_synthetic": {
+      "<unknown>": 1
+    },
+    "by_source": {
+      "orchestrator_synthetic": 1
+    },
     "note": "synthetic entries prove orchestration activity but are excluded from real latency/token statistics"
   },
   "autopilot_throughput_idle": {
-    "tasks_assigned_count": 0,
-    "tasks_assigned_per_min": null,
-    "median_idle_gap_seconds": null,
+    "tasks_assigned_count": 2,
+    "tasks_assigned_per_min": 6.1304129633977,
+    "median_idle_gap_seconds": 19.574537754058838,
     "no_candidates_ticks_seen": 0
   }
 }

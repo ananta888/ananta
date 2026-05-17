@@ -997,6 +997,7 @@ def _dispatch_one_task_inner(  # noqa: C901
                     snapshot=retry_snapshot,
                     app=app_ctx,
                 ),
+                force=True,
                 event_type="autopilot_strategy_retry_scheduled",
                 event_actor="autopilot_tick",
                 event_details={"retry_status": retry_status, "cooldown_seconds": cooldown_seconds},
