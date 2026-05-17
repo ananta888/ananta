@@ -14,6 +14,7 @@ def test_valid_transitions():
 
     # Review Pfad
     assert can_transition_to("in_progress", "waiting_for_review")[0]
+    assert can_transition_to("assigned", "waiting_for_review")[0]
     assert can_transition_to("waiting_for_review", "todo")[0] # Action: approve -> todo
     assert can_transition_to("waiting_for_review", "completed")[0]
     assert can_transition_to("proposing", "waiting_for_review")[0]
