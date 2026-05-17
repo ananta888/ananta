@@ -55,6 +55,24 @@ def _current_task_status(task_id: str, *, app: Any) -> str:
 def _is_terminal_status(status: str) -> bool:
     return status in {"completed", "failed", "cancelled"}
 
+def _recent_strategy_attempts(task: Any, *, now_ts: float, window_seconds: int) -> int:
+    if window_seconds <= 0:
+        return 0
+    threshold = now_ts - float(window_seconds)
+    count = 0
+    for entry in list(getattr(task, "history", None) or []):
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("event_type") or "") != "autopilot_strategy_attempt":
+            continue
+        try:
+            ts = float(entry.get("timestamp") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if ts >= threshold:
+            count += 1
+    return count
+
 
 def _is_transient_worker_transport_error(exc: Exception) -> bool:
     text = str(exc or "").strip().lower()
@@ -862,6 +880,47 @@ def _dispatch_one_task_inner(  # noqa: C901
         max_total_seconds = int(budget.get("max_total_seconds") or 90)
         max_llm_calls = int(budget.get("max_llm_calls") or 2)
         max_strategy_attempts = int(budget.get("max_strategy_attempts") or 2)
+        hard_guard_max_attempts_window = max(
+            5,
+            min(int((loop._agent_config() or {}).get("autopilot_task_propose_hard_guard_max_attempts") or 30), 500),
+        )
+        hard_guard_window_seconds = max(
+            10,
+            min(int((loop._agent_config() or {}).get("autopilot_task_propose_hard_guard_window_seconds") or 180), 3600),
+        )
+        hard_guard_status = str(
+            (loop._agent_config() or {}).get("autopilot_task_propose_hard_guard_status") or "needs_review"
+        ).strip().lower()
+        if hard_guard_status not in {"needs_review", "failed", "todo"}:
+            hard_guard_status = "needs_review"
+        recent_attempts = _recent_strategy_attempts(task, now_ts=time.time(), window_seconds=hard_guard_window_seconds)
+        if recent_attempts >= hard_guard_max_attempts_window:
+            update_local_task_status(
+                task.id,
+                hard_guard_status,
+                error="autopilot_task_propose_hard_guard_triggered",
+                force=True,
+                event_type="autopilot_task_propose_hard_guard_triggered",
+                event_actor="autopilot_tick",
+                event_details={
+                    "recent_attempts": int(recent_attempts),
+                    "window_seconds": int(hard_guard_window_seconds),
+                    "max_attempts": int(hard_guard_max_attempts_window),
+                    "status": hard_guard_status,
+                },
+            )
+            append_trace_event(
+                task.id,
+                "autopilot_task_propose_hard_guard_triggered",
+                delegated_to=target_worker.url,
+                recent_attempts=recent_attempts,
+                window_seconds=hard_guard_window_seconds,
+                max_attempts=hard_guard_max_attempts_window,
+                status=hard_guard_status,
+            )
+            result.failed = True
+            result.failure_type = "task_propose_hard_guard"
+            return result
         STRATEGY_ATTEMPT_COUNT.observe(float(len(strategy_candidates)))
         for attempt_index, candidate in enumerate(strategy_candidates, start=1):
             # Hard guard: never re-propose terminal tasks, even inside strategy loops.
