@@ -24,6 +24,7 @@ from agent.routes.tasks.orchestration_policy import compute_retry_delay_seconds
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.services.service_registry import get_core_services
 from agent.services.repository_registry import get_repository_registry
+from agent.services.provider_observer_service import get_provider_observer_service
 
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
 
@@ -284,7 +285,7 @@ class AutonomousLoopManager:
                 requested_max_concurrency=self.max_concurrency,
                 security_policy=policy,
             )
-            return {
+            status = {
                 "running": self.running,
                 "interval_seconds": self.interval_seconds,
                 "max_concurrency": self.max_concurrency,
@@ -304,6 +305,23 @@ class AutonomousLoopManager:
                 "effective_security_policy": policy,
                 "circuit_breakers": self._circuit_status_unlocked(),
             }
+        # Direct provider probing is intentionally outside self._lock so
+        # network probe latency never blocks loop state reads/writes.
+        try:
+            app_cfg = self._app_config()
+            status["provider_observer"] = get_provider_observer_service().snapshot(
+                agent_config=(app_cfg.get("AGENT_CONFIG", {}) or {}),
+                provider_urls=(app_cfg.get("PROVIDER_URLS", {}) or {}),
+            )
+        except Exception as exc:
+            status["provider_observer"] = {
+                "enabled": True,
+                "source": "hub_direct_probe",
+                "error": f"{type(exc).__name__}: {exc}",
+                "providers": {},
+                "observed_at": time.time(),
+            }
+        return status
 
     def circuit_status(self) -> dict:
         with self._lock:
