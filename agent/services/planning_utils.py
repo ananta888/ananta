@@ -155,6 +155,60 @@ def extract_task_items_from_payload(payload: object) -> list[object]:
         if isinstance(value, list):
             return value
 
+    # Common LLM response variants for plan-like outputs.
+    actionable_steps = payload.get("actionable_steps")
+    if isinstance(actionable_steps, list):
+        extracted_steps: list[object] = []
+        for step in actionable_steps:
+            if isinstance(step, dict):
+                extracted_steps.append(
+                    {
+                        "title": step.get("title") or step.get("name") or step.get("step") or "",
+                        "description": step.get("detail") or step.get("description") or step.get("title") or "",
+                        "priority": step.get("priority") or payload.get("priority"),
+                        "depends_on": step.get("depends_on") if isinstance(step.get("depends_on"), list) else [],
+                    }
+                )
+            elif isinstance(step, str):
+                extracted_steps.append({"description": step, "priority": payload.get("priority")})
+        if extracted_steps:
+            return extracted_steps
+
+    roadmap = payload.get("implementation_roadmap")
+    if isinstance(roadmap, dict):
+        roadmap_tasks: list[object] = []
+        for phase_value in roadmap.values():
+            if not isinstance(phase_value, dict):
+                continue
+            phase_goal = str(phase_value.get("goal") or "").strip()
+            phase_tasks = phase_value.get("tasks")
+            if not isinstance(phase_tasks, list):
+                continue
+            for task in phase_tasks:
+                if isinstance(task, str):
+                    title = task[:80]
+                    if phase_goal:
+                        title = f"{phase_goal}: {title}"[:80]
+                    roadmap_tasks.append(
+                        {
+                            "title": title,
+                            "description": task,
+                            "priority": payload.get("priority"),
+                            "depends_on": [],
+                        }
+                    )
+                elif isinstance(task, dict):
+                    roadmap_tasks.append(
+                        {
+                            "title": task.get("title") or task.get("name") or "",
+                            "description": task.get("detail") or task.get("description") or task.get("title") or "",
+                            "priority": task.get("priority") or payload.get("priority"),
+                            "depends_on": task.get("depends_on") if isinstance(task.get("depends_on"), list) else [],
+                        }
+                    )
+        if roadmap_tasks:
+            return roadmap_tasks
+
     nested_dependencies = payload.get("depends_on")
     if isinstance(nested_dependencies, list):
         extracted: list[object] = []
@@ -173,8 +227,41 @@ def extract_task_items_from_payload(payload: object) -> list[object]:
         if extracted:
             return extracted
 
-    if any(str(payload.get(key) or "").strip() for key in ("title", "name", "description", "task")):
+    if any(str(payload.get(key) or "").strip() for key in ("title", "name", "description", "task", "detail", "recommendation")):
         return [payload]
+
+    # Generic recursive fallback: collect list entries that look like actionable task items.
+    def _looks_task_like(obj: object) -> bool:
+        if not isinstance(obj, dict):
+            return False
+        has_title = any(str(obj.get(k) or "").strip() for k in ("title", "name", "task", "step", "layer", "area"))
+        has_desc = any(str(obj.get(k) or "").strip() for k in ("description", "detail", "content", "responsibility", "recommendation"))
+        return bool(has_title or has_desc)
+
+    collected: list[object] = []
+
+    def _walk(node: object) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if isinstance(value, list):
+                    key_lower = str(key).lower()
+                    if "task" in key_lower or "step" in key_lower or "action" in key_lower:
+                        for item in value:
+                            if _looks_task_like(item):
+                                collected.append(item)
+                            elif isinstance(item, str):
+                                collected.append({"description": item, "priority": payload.get("priority")})
+                    for item in value:
+                        _walk(item)
+                elif isinstance(value, dict):
+                    _walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                _walk(item)
+
+    _walk(payload)
+    if collected:
+        return collected
 
     return []
 
