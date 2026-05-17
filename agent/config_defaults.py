@@ -144,6 +144,8 @@ def build_default_agent_config() -> dict:
             # diagnostics only see real provider call telemetry.
             "allow_synthetic_fallback": False,
         },
+        "goal_scoped_config_enabled": True,
+        "goal_scoped_config_enforce_snapshot": False,
         "adaptive_model_routing_enabled": True,
         "adaptive_model_routing_min_samples": 3,
         "adaptive_model_routing_top_k": 3,

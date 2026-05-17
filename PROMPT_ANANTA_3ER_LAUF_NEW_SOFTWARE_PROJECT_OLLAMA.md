@@ -20,6 +20,10 @@ Diese Datei ist der übertragbare Standard-Run für:
 
 Der finale Zielmodus ist **goal_scoped**.
 
+Feature-Flags fuer Rollout/Enforcement:
+- `goal_scoped_config_enabled` (Default: `true`)
+- `goal_scoped_config_enforce_snapshot` (Default: `false`)
+
 Das bedeutet:
 - Szenario-Config wird pro Goal über `execution_preferences.config_profile` und optional `execution_preferences.config_overrides` gesetzt.
 - Der Runner darf pro Szenario nicht mehr global `/config` patchen.

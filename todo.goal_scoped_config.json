@@ -195,7 +195,7 @@
         "Implement secret redaction policy for read APIs/logging."
       ],
       "depends_on": [],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-002",
@@ -215,7 +215,7 @@
       "depends_on": [
         "T-001"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-003",
@@ -235,7 +235,7 @@
       "depends_on": [
         "T-002"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-004",
@@ -254,7 +254,7 @@
       "depends_on": [
         "T-003"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-005",
@@ -272,7 +272,7 @@
       "depends_on": [
         "T-004"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-006",
@@ -292,7 +292,7 @@
       "depends_on": [
         "T-004"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-007",
@@ -311,7 +311,7 @@
       "depends_on": [
         "T-006"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-008",
@@ -330,7 +330,7 @@
       "depends_on": [
         "T-001"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-009",
@@ -348,7 +348,7 @@
         "T-003",
         "T-008"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-010",
@@ -372,7 +372,7 @@
         "T-009",
         "T-007b"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-011",
@@ -391,7 +391,7 @@
       "depends_on": [
         "T-010"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-012",
@@ -410,7 +410,7 @@
       "depends_on": [
         "T-004"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-013",
@@ -428,7 +428,7 @@
       "depends_on": [
         "T-001"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-014",
@@ -448,7 +448,7 @@
         "T-003",
         "T-009"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-015",
@@ -468,7 +468,7 @@
         "T-006",
         "T-007"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-016",
@@ -488,7 +488,7 @@
         "T-011",
         "T-015"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-017",
@@ -507,7 +507,7 @@
       "depends_on": [
         "T-016"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-018",
@@ -526,7 +526,7 @@
       "depends_on": [
         "T-010"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-019",
@@ -546,7 +546,7 @@
         "T-010",
         "T-011"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-007b",
@@ -565,7 +565,7 @@
       "depends_on": [
         "T-003"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T-012b",
@@ -586,7 +586,7 @@
         "T-003",
         "T-012"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "execution_plan": [
@@ -639,19 +639,19 @@
   ],
   "summaries": {
     "executive": [
-      "Zielarchitektur ist goal-scoped config snapshots pro Goal; globale /config bleibt Legacy/Fallback.",
-      "Die kritischsten Risiken sind Runtime-Pfade mit globalem Read, fehlende Snapshot-Integritaet und fehlende Parallel-Guards.",
-      "Prioritaet 1 ist Resolver + Snapshot + Runtime-Consumption + Evidenzfelder; erst danach parallele Kampagnen."
+      "Goal-scoped configuration ist end-to-end umgesetzt: Snapshot-Resolver, Runtime-Consumption, API-Evidence und Runner-Dual-Mode.",
+      "Legacy global /config bleibt als kompatibler Fallbackpfad erhalten; Parallel-Guard blockiert unsichere Legacy-Parallel-Läufe standardmäßig.",
+      "Verifikation ist durch Unit-, API-, Integration- und Runner-Mode-Tests ergänzt; Dokumentation für Rollout und Betrieb wurde nachgezogen."
     ],
     "implementation_focus": [
-      "Snapshot-Resolver und deterministische Hash-Bildung (T-001, T-003, T-007b).",
-      "Runtime-Umstellung auf Snapshot-Lesen in planning/propose/execute/routing (T-005..T-007).",
-      "Dual-Mode Runner mit harten Safety-Guards (T-010, T-011, T-019)."
+      "Resolver/Snapshot/Hash + Effective-Config API inkl. Redaction und Provenance sind aktiv.",
+      "Planner/Propose/Dispatch konsumieren goal-scoped Runtime-Config mit Trace-Feld goal_config_source.",
+      "Acceptance-Runner unterstützt goal_scoped vs legacy_global_config inkl. Parallelmodus und Report-Evidence-Feldern."
     ],
     "verification_focus": [
-      "AC-04/AC-13/AC-14 pruefen echte Snapshot-Nutzung und Integritaet.",
-      "AC-15 prueft Parallel-Schutz in legacy_global_config.",
-      "E2E muss Cross-Contamination in parallelen Profil-Goals ausschliessen."
+      "Resolver-, API- und Runtime-Integrationstests decken Snapshot-Stabilität und Fallbacks ab.",
+      "Runner-Modustests prüfen no-patch-Verhalten in goal_scoped und Legacy-Parallel-Blockade.",
+      "E2E-nahe Szenario-Checks validieren Profil- und Isolationsgrundlagen für Parallelkampagnen."
     ]
   },
   "tasks_type_summary": {
@@ -665,22 +665,22 @@
   "tasks_status_summary": {
     "total": 21,
     "by_status": {
-      "todo": 21,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 21
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "formula": "done + 0.5*partial",
-    "open_work_items": 21
+    "open_work_items": 0
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 21,
+    "state": "completed",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 21
   }
 }
