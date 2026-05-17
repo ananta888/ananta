@@ -80,6 +80,58 @@ def _merged_last_proposal_snapshot(*, task_id: str, snapshot: dict[str, Any], ap
     return merged
 
 
+def _ensure_llm_profile_snapshot(
+    *,
+    snapshot: dict[str, Any],
+    strategy_id: str | None,
+    model_meta: dict[str, Any] | None,
+) -> dict[str, Any]:
+    updated = dict(snapshot or {})
+    cli_result = updated.get("cli_result")
+    if not isinstance(cli_result, dict):
+        cli_result = {}
+    profile = list(cli_result.get("llm_call_profile") or [])
+    has_profile = any(isinstance(entry, dict) for entry in profile)
+    if has_profile:
+        updated["cli_result"] = cli_result
+        return updated
+
+    provider = None
+    model = None
+    if isinstance(model_meta, dict):
+        provider = str(model_meta.get("runtime_provider") or "").strip() or None
+        model = str(model_meta.get("selected_model") or "").strip() or None
+
+    backend = str(updated.get("backend") or "").strip() or "orchestrator"
+    cli_result["llm_call_profile"] = [
+        {
+            "name": f"propose_{str(strategy_id or 'orchestrator').strip() or 'orchestrator'}",
+            "backend": backend,
+            "provider": provider,
+            "model": model,
+            "success": True,
+            "latency_ms": None,
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "total_tokens": None,
+            "source": "orchestrator_synthetic",
+            "estimated": True,
+            "error_type": None,
+            "error_message": None,
+            "started_at": None,
+            "ended_at": None,
+        }
+    ]
+    if "latency_ms" not in cli_result:
+        cli_result["latency_ms"] = None
+    if "returncode" not in cli_result:
+        cli_result["returncode"] = 0
+    if "output_source" not in cli_result:
+        cli_result["output_source"] = backend
+    updated["cli_result"] = cli_result
+    return updated
+
+
 def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, all_tasks: list[Any], goal_scope: str | None) -> bool:
     goal_id = str(goal_scope or "").strip()
     if not goal_id:
@@ -1021,6 +1073,16 @@ def _dispatch_one_task_inner(  # noqa: C901
     tool_calls = propose_data.get("tool_calls")
     reason = propose_data.get("reason")
     proposal_snapshot = services.autopilot_decision_service.build_proposal_snapshot(propose_data)
+    strategy_id = (
+        ((proposal_snapshot.get("routing") or {}).get("propose_strategy_meta") or {}).get("selected_strategy")
+        if isinstance(proposal_snapshot.get("routing"), dict)
+        else None
+    )
+    proposal_snapshot = _ensure_llm_profile_snapshot(
+        snapshot=proposal_snapshot,
+        strategy_id=strategy_id,
+        model_meta=model_meta if isinstance(model_meta, dict) else None,
+    )
     if isinstance(model_meta, dict):
         proposal_snapshot["model_selection"] = dict(model_meta)
     raw_preview = proposal_snapshot.get("raw_preview")

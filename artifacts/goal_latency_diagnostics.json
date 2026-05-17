@@ -1,17 +1,17 @@
 {
-  "goal_id": "9afa5600-33b6-4c6d-b14f-f50f270c3007",
-  "generated_at": 1779006702.374849,
-  "task_count": 16,
+  "goal_id": "0c387472-2821-4332-9365-04652bc749bd",
+  "generated_at": 1779008599.4084644,
+  "task_count": 27,
   "phase_breakdown_seconds": {
     "queued_to_assigned": {
-      "mean": 38.043618977069855,
-      "median": 38.39387631416321,
-      "n": 4
+      "mean": 89.74299728870392,
+      "median": 89.74299728870392,
+      "n": 2
     },
     "assigned_to_propose_done": {
-      "mean": 118.47596317529678,
-      "median": 112.9105794429779,
-      "n": 4
+      "mean": 243.8842889070511,
+      "median": 243.8842889070511,
+      "n": 2
     },
     "propose_to_execute_done": {
       "mean": null,
@@ -19,14 +19,14 @@
       "n": 0
     },
     "execute_to_terminal": {
-      "mean": 67.41928418477376,
-      "median": 4.2591001987457275,
-      "n": 3
+      "mean": null,
+      "median": null,
+      "n": 0
     },
     "total": {
-      "mean": 236.49075976285067,
-      "median": 253.94771814346313,
-      "n": 11
+      "mean": 250.3784033358097,
+      "median": 235.41060638427734,
+      "n": 8
     }
   },
   "llm_call_profile": {
@@ -34,7 +34,7 @@
     "calls_seen_real": 0,
     "calls_seen_synthetic": 0,
     "calls_seen_estimated": 0,
-    "propose_events_seen": 74,
+    "propose_events_seen": 422,
     "success_count": 0,
     "fail_count": 0,
     "success_count_real": 0,
@@ -50,9 +50,9 @@
     "note": "synthetic entries prove orchestration activity but are excluded from real latency/token statistics"
   },
   "autopilot_throughput_idle": {
-    "tasks_assigned_count": 4,
-    "tasks_assigned_per_min": 0.8407043827426774,
-    "median_idle_gap_seconds": 44.41923236846924,
+    "tasks_assigned_count": 2,
+    "tasks_assigned_per_min": 0.5498237039771472,
+    "median_idle_gap_seconds": 218.2517762184143,
     "no_candidates_ticks_seen": 0
   }
 }
