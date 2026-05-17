@@ -56,6 +56,9 @@
     "tasks_type_summary": {
       "$ref": "#/$defs/tasksTypeSummary"
     },
+    "progress_summary": {
+      "$ref": "#/$defs/progressSummary"
+    },
     "execution_stage_summary": {
       "type": "object",
       "additionalProperties": true
@@ -130,7 +133,7 @@
         "by_status": {
           "type": "object",
           "additionalProperties": true,
-          "required": ["todo", "in_progress", "blocked", "done"]
+          "required": ["todo", "in_progress", "partial", "blocked", "done"]
         },
         "progress_percent_done": { "type": "number", "minimum": 0 },
         "by_priority": { "type": "object", "additionalProperties": true },
@@ -145,6 +148,19 @@
           "additionalProperties": true,
           "required": ["total", "todo", "in_progress", "blocked", "done"]
         }
+      }
+    },
+    "progressSummary": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["state", "todo_remaining", "in_progress", "partial", "blocked", "done"],
+      "properties": {
+        "state": { "type": "string", "minLength": 1 },
+        "todo_remaining": { "type": "integer", "minimum": 0 },
+        "in_progress": { "type": "integer", "minimum": 0 },
+        "partial": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "done": { "type": "integer", "minimum": 0 }
       }
     },
     "tasksTypeSummary": {
