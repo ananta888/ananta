@@ -75,4 +75,34 @@ def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = 
     else:
         timeout = max(timeout, command_timeout)
     headers = {"Authorization": f"Bearer {token}"} if token else None
-    return _http_post(f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}", data=data, headers=headers, timeout=timeout)
+    url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
+    response = _http_post(url, data=data, headers=headers, timeout=timeout, return_response=True, silent=True)
+    if response is None:
+        return None
+    # Preserve API envelope on success.
+    if int(getattr(response, "status_code", 500) or 500) < 400:
+        try:
+            return response.json()
+        except Exception:
+            return {"status": "ok", "data": {}}
+    # Structured error payload for caller-side diagnostics/backoff.
+    code = int(getattr(response, "status_code", 500) or 500)
+    body: Any
+    try:
+        body = response.json()
+    except Exception:
+        body = {"raw": str(getattr(response, "text", "") or "")[:600]}
+    message = None
+    if isinstance(body, dict):
+        message = body.get("message") or body.get("error")
+        details = body.get("data") if isinstance(body.get("data"), dict) else body
+    else:
+        details = {"raw": str(body)}
+    return {
+        "status": "error",
+        "message": str(message or f"http_{code}"),
+        "http_status": code,
+        "details": details,
+        "worker_url": worker_url,
+        "endpoint": endpoint,
+    }

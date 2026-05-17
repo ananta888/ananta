@@ -91,6 +91,8 @@ class AutonomousLoopManager:
         self._worker_circuit_open_until: dict[str, float] = {}
         self._provider_backpressure_until: dict[str, float] = {}
         self._provider_backpressure_reason: dict[str, str] = {}
+        self._forward_http_error_counts: dict[str, int] = {}
+        self._forward_http_error_last: dict[str, dict[str, Any]] = {}
         self._task_propose_streak: dict[str, int] = {}
         self._task_propose_last_attempt_at: dict[str, float] = {}
         self._task_propose_next_allowed_at: dict[str, float] = {}
@@ -276,6 +278,10 @@ class AutonomousLoopManager:
             "open_count": len(open_items),
             "open_workers": open_items,
             "failure_streak": {k: int(v) for k, v in self._worker_failure_streak.items()},
+            "forward_http_errors": {
+                "counts": {k: int(v) for k, v in self._forward_http_error_counts.items()},
+                "last": {k: dict(v) for k, v in self._forward_http_error_last.items()},
+            },
         }
 
     def status(self) -> dict:
@@ -516,6 +522,29 @@ class AutonomousLoopManager:
                 res = _forward_to_worker(worker_url, endpoint, payload, token=resolved_token)
                 if res is None:
                     raise RuntimeError(f"worker_empty_response:{worker_url}:{endpoint}")
+                if isinstance(res, dict) and str(res.get("status") or "").strip().lower() == "error":
+                    http_status = int(res.get("http_status") or 0)
+                    key = f"{worker_url}|{endpoint}|{http_status or 'unknown'}"
+                    with self._routing_lock:
+                        self._forward_http_error_counts[key] = int(self._forward_http_error_counts.get(key, 0)) + 1
+                        self._forward_http_error_last[key] = {
+                            "http_status": http_status,
+                            "message": str(res.get("message") or ""),
+                            "at": time.time(),
+                            "task_id": str((payload or {}).get("task_id") or ""),
+                        }
+                    # Retry tokenless only on explicit auth failures.
+                    if resolved_token and http_status == 401:
+                        res = _forward_to_worker(worker_url, endpoint, payload, token=None)
+                        if isinstance(res, dict) and str(res.get("status") or "").strip().lower() == "error":
+                            raise RuntimeError(
+                                f"worker_http_error:{worker_url}:{endpoint}:status={int(res.get('http_status') or 0)}:"
+                                f"{str(res.get('message') or '')}"
+                            )
+                    else:
+                        raise RuntimeError(
+                            f"worker_http_error:{worker_url}:{endpoint}:status={http_status}:{str(res.get('message') or '')}"
+                        )
                 self._record_worker_success(worker_url)
                 normalized = unwrap_api_envelope(res)
                 if not isinstance(normalized, dict) or not normalized:
@@ -564,7 +593,10 @@ class AutonomousLoopManager:
                     task_id=(payload or {}).get("task_id"),
                     endpoint=endpoint,
                 )
+                permanent_http_4xx = "worker_http_error:" in err_lc and "status=4" in err_lc
                 if attempt < cfg["retry_attempts"]:
+                    if permanent_http_4xx:
+                        break
                     if cfg.get("retry_backoff_strategy") == "constant":
                         delay = float(min(cfg["retry_backoff_seconds"], cfg["retry_max_backoff_seconds"]))
                     else:
