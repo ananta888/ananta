@@ -63,7 +63,7 @@ def test_propose_persists_real_llm_profile_when_available(client, app, admin_aut
         assert profile[0]["latency_ms"] == 777
 
 
-def test_propose_persists_synthetic_profile_when_real_profile_missing(client, app, admin_auth_header):
+def test_propose_omits_synthetic_profile_when_real_profile_missing_by_default(client, app, admin_auth_header):
     from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 
     tid = "T-PROFILE-SYN"
@@ -78,9 +78,29 @@ def test_propose_persists_synthetic_profile_when_real_profile_missing(client, ap
         task = _get_local_task_status(tid)
         cli_result = ((task or {}).get("last_proposal") or {}).get("cli_result") or {}
         profile = list(cli_result.get("llm_call_profile") or [])
+        assert profile == []
+
+
+def test_propose_persists_synthetic_profile_when_explicitly_enabled(client, app, admin_auth_header):
+    from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+    tid = "T-PROFILE-SYN-ENABLED"
+    with app.app_context():
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        llm_policy = dict(cfg.get("llm_profile_policy") or {})
+        llm_policy["allow_synthetic_fallback"] = True
+        cfg["llm_profile_policy"] = llm_policy
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(tid, "assigned", goal_id="g-3", description="test")
+
+    with patch("worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_result(with_profile=False)):
+        res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "hello"}, headers=admin_auth_header)
+
+    assert res.status_code == 200
+    with app.app_context():
+        task = _get_local_task_status(tid)
+        cli_result = ((task or {}).get("last_proposal") or {}).get("cli_result") or {}
+        profile = list(cli_result.get("llm_call_profile") or [])
         assert profile
         assert profile[0]["source"] == "orchestrator_synthetic"
         assert profile[0]["estimated"] is True
-        assert profile[0]["latency_ms"] is None
-        assert profile[0]["prompt_tokens"] is None
-        assert profile[0]["completion_tokens"] is None

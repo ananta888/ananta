@@ -86,6 +86,7 @@ def _ensure_llm_profile_snapshot(
     strategy_id: str | None,
     model_meta: dict[str, Any] | None,
     preferred_profile: list[dict[str, Any]] | None = None,
+    allow_synthetic_fallback: bool = True,
 ) -> dict[str, Any]:
     updated = dict(snapshot or {})
     cli_result = updated.get("cli_result")
@@ -106,6 +107,9 @@ def _ensure_llm_profile_snapshot(
         backend_prefill = str(updated.get("backend") or "").strip() or "orchestrator"
         if "output_source" not in cli_result:
             cli_result["output_source"] = backend_prefill
+        updated["cli_result"] = cli_result
+        return updated
+    if not allow_synthetic_fallback:
         updated["cli_result"] = cli_result
         return updated
 
@@ -975,9 +979,6 @@ def _dispatch_one_task_inner(  # noqa: C901
                     token=target_worker.token,
                 )
                 WORKER_PROPOSE_DURATION_SECONDS.observe(max(0.0, time.time() - _propose_started))
-                record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
-                if callable(record_propose_attempt):
-                    record_propose_attempt(task.id, success=True)
                 candidate_data = services.autopilot_decision_service.normalize_proposal_data(candidate_data)
             except Exception as strategy_exc:
                 record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
@@ -1004,6 +1005,9 @@ def _dispatch_one_task_inner(  # noqa: C901
                     if isinstance(entry, dict):
                         collected_llm_profiles.append(dict(entry))
             if candidate_snapshot.get("command") or candidate_snapshot.get("tool_calls"):
+                record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
+                if callable(record_propose_attempt):
+                    record_propose_attempt(task.id, success=True)
                 selected_attempt_meta = {
                     "attempt": attempt_index,
                     "source": candidate_source,
@@ -1015,6 +1019,9 @@ def _dispatch_one_task_inner(  # noqa: C901
                 }
                 propose_data = candidate_data
                 break
+            record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
+            if callable(record_propose_attempt):
+                record_propose_attempt(task.id, success=False)
             strategy_failures.append(
                 {
                     "attempt": attempt_index,
@@ -1085,6 +1092,9 @@ def _dispatch_one_task_inner(  # noqa: C901
                 strategy_id=None,
                 model_meta=model_meta if isinstance(model_meta, dict) else None,
                 preferred_profile=collected_llm_profiles,
+                allow_synthetic_fallback=bool(
+                    ((loop._agent_config() or {}).get("llm_profile_policy") or {}).get("allow_synthetic_fallback", False)
+                ),
             )
             update_local_task_status(
                 task.id,
@@ -1184,6 +1194,9 @@ def _dispatch_one_task_inner(  # noqa: C901
         snapshot=proposal_snapshot,
         strategy_id=strategy_id,
         model_meta=model_meta if isinstance(model_meta, dict) else None,
+        allow_synthetic_fallback=bool(
+            ((loop._agent_config() or {}).get("llm_profile_policy") or {}).get("allow_synthetic_fallback", False)
+        ),
     )
     if isinstance(model_meta, dict):
         proposal_snapshot["model_selection"] = dict(model_meta)

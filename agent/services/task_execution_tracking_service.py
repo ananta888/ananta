@@ -798,7 +798,10 @@ class TaskExecutionTrackingService:
         # Keep telemetry structurally present for downstream diagnostics even
         # when worker/orchestrator did not return a cli_result payload.
         cli_result = proposal.get("cli_result")
-        if not isinstance(cli_result, dict):
+        cfg = (current_app.config.get("AGENT_CONFIG", {}) or {})
+        llm_profile_policy = dict(cfg.get("llm_profile_policy") or {})
+        allow_synthetic_fallback = bool(llm_profile_policy.get("allow_synthetic_fallback", False))
+        if not isinstance(cli_result, dict) and allow_synthetic_fallback:
             backend = str(proposal.get("backend") or "orchestrator").strip() or "orchestrator"
             model = str(proposal.get("model") or "").strip() or None
             cli_result = {
@@ -826,6 +829,12 @@ class TaskExecutionTrackingService:
                 ],
             }
             proposal["cli_result"] = cli_result
+        elif not isinstance(cli_result, dict):
+            proposal["cli_result"] = {
+                "returncode": 0,
+                "latency_ms": None,
+                "output_source": str(proposal.get("backend") or "orchestrator").strip() or "orchestrator",
+            }
         history = list((task or {}).get("history") or [])
         verification_status = dict((task or {}).get("verification_status") or {})
         flow_metrics = {}
