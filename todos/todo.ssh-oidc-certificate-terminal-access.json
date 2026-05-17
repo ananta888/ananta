@@ -1,0 +1,276 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "id": "todo.ssh-oidc-certificate-terminal-access",
+  "title": "Native SSH access with OIDC-backed short-lived SSH certificates for Ananta terminal targets",
+  "status": "draft",
+  "extends": [
+    "todo.tmux-oidc-terminal-sessions.json",
+    "todos/todo.tmux-oidc-terminal-sessions.json"
+  ],
+  "summary": {
+    "short": "Add a native SSH access path where OIDC authenticates the user and a trusted SSH CA issues short-lived SSH user certificates. SSH then enters an Ananta-controlled terminal wrapper which can start or attach to tmux sessions only after policy approval.",
+    "problem": "The existing tmux/OIDC terminal TODO covers browser and HTTPS/WSS terminal access, but not native SSH clients. Classic SSH does not provide OIDC as its normal protocol-level login model, so the clean production pattern is OIDC plus short-lived SSH certificates.",
+    "goal": "Introduce native SSH as a separate governed access mode: OIDC login produces a short-lived SSH certificate, OpenSSH validates that certificate, and the server-side Ananta wrapper starts controlled tmux only after TerminalPolicyService approval.",
+    "non_goal": "Do not make direct SSH shell access the default production path. Do not expose raw tmux sockets. Do not let SSH certificate possession skip Ananta user, target, workspace, goal/task or terminal policy checks."
+  },
+  "architecture": {
+    "access_modes": [
+      {
+        "name": "web_terminal_oidc_wss",
+        "summary": "Browser path from the existing tmux TODO: OIDC login, Ananta auth context, scoped attach token, HTTPS/WSS terminal stream."
+      },
+      {
+        "name": "native_ssh_oidc_certificate",
+        "summary": "Native SSH path: OIDC login through a CLI/helper, short-lived SSH user certificate, OpenSSH certificate validation, Ananta terminal wrapper, tmux backend."
+      },
+      {
+        "name": "local_dev_tmux",
+        "summary": "Local development path where tmux is available locally and remote access is disabled or not required."
+      }
+    ],
+    "flow": [
+      "User runs ananta ssh login or equivalent helper.",
+      "Helper starts OIDC Authorization Code Flow with PKCE against the configured identity provider.",
+      "Ananta SSH certificate issuer validates the OIDC token and maps claims to internal Ananta identity and terminal permissions.",
+      "Issuer creates a short-lived SSH user certificate with constrained principals, extensions and validity.",
+      "User connects with normal OpenSSH using the certificate.",
+      "sshd validates the certificate through TrustedUserCAKeys and principal mapping.",
+      "A server-side Ananta terminal wrapper calls TerminalPolicyService before starting or attaching to tmux.",
+      "tmux starts only inside the allowed target, workspace and session scope."
+    ],
+    "components": [
+      {
+        "name": "SshCertificateIssuer",
+        "summary": "Service that issues short-lived SSH user certificates after successful OIDC authentication and policy pre-checks.",
+        "responsibilities": [
+          "Validate OIDC issuer, audience, expiry, nonce and signature.",
+          "Map OIDC subject, groups and roles to Ananta user identity.",
+          "Issue SSH certificates with short validity and constrained principals.",
+          "Add non-secret metadata such as user id, auth source, policy version and decision id where suitable.",
+          "Emit audit events for certificate issuance and denied issuance."
+        ]
+      },
+      {
+        "name": "SshPrincipalMapper",
+        "summary": "Deterministic mapper between Ananta identities/policies and OpenSSH principals.",
+        "responsibilities": [
+          "Map user and role claims to allowed SSH principals.",
+          "Avoid broad principals for production.",
+          "Differentiate worker, hub and hub_as_worker access principals.",
+          "Reject unknown groups and unmapped roles by default.",
+          "Provide stable reason codes for denied mappings."
+        ]
+      },
+      {
+        "name": "AnantaSshTerminalWrapper",
+        "summary": "Server-side wrapper used by sshd ForceCommand or equivalent configuration to route SSH sessions into controlled Ananta terminal sessions.",
+        "responsibilities": [
+          "Read validated SSH certificate identity from sshd-provided metadata.",
+          "Resolve target type, target id, workspace, goal id and task id from allowed CLI arguments or server-side defaults.",
+          "Call TerminalPolicyService before creating or attaching to a tmux session.",
+          "Deny Hub and Hub-as-Worker access unless explicit terminal.hub.* or terminal.hub_as_worker.* permissions exist.",
+          "Start tmux only through TmuxSessionBackend or a strict wrapper, never by exposing raw tmux sockets."
+        ]
+      },
+      {
+        "name": "SshAccessAuditService",
+        "summary": "Audit layer for SSH certificate issuance and SSH terminal attach/write/kill events.",
+        "responsibilities": [
+          "Correlate certificate issuance, SSH login, terminal session creation and tmux lifecycle events.",
+          "Record certificate key id, principal, user id, target type, target id, decision id and policy version.",
+          "Avoid storing private certificate material, bearer tokens, OIDC tokens or raw secrets.",
+          "Support optional terminal recording policy for high-risk Hub sessions."
+        ]
+      }
+    ],
+    "recommended_backends": [
+      {
+        "name": "smallstep_step_ca",
+        "summary": "Preferred open-source friendly option for OIDC-backed SSH CA workflows and short-lived SSH certificates."
+      },
+      {
+        "name": "teleport",
+        "summary": "More complete access platform with SSO, RBAC and session recording. Useful as a heavier optional integration."
+      },
+      {
+        "name": "ananta_internal_ssh_ca_later",
+        "summary": "Possible later built-in issuer, but only after policy, audit, CA key storage and operational controls are mature."
+      }
+    ]
+  },
+  "policy_model_extensions": {
+    "default": "deny",
+    "new_permissions": [
+      {"name": "terminal.ssh.login", "summary": "Allow requesting a native SSH terminal login flow. Does not imply worker, hub or write permission."},
+      {"name": "terminal.ssh.certificate.issue", "summary": "Allow issuing a short-lived SSH user certificate for the mapped Ananta identity."},
+      {"name": "terminal.ssh.worker.create", "summary": "Allow creating worker terminal sessions through native SSH."},
+      {"name": "terminal.ssh.worker.attach", "summary": "Allow attaching to worker terminal sessions through native SSH."},
+      {"name": "terminal.ssh.hub.create", "summary": "Allow creating direct Hub terminal sessions through native SSH. High risk and denied by default."},
+      {"name": "terminal.ssh.hub.attach", "summary": "Allow attaching to direct Hub terminal sessions through native SSH. High risk and denied by default."},
+      {"name": "terminal.ssh.hub_as_worker.create", "summary": "Allow creating Hub-as-Worker terminal sessions through native SSH. Must be separate from worker SSH access."},
+      {"name": "terminal.ssh.hub_as_worker.attach", "summary": "Allow attaching to Hub-as-Worker terminal sessions through native SSH."}
+    ],
+    "new_risk_classes": [
+      "terminal_ssh_certificate_issuance",
+      "terminal_ssh_native_access",
+      "terminal_ssh_principal_mapping",
+      "terminal_ssh_hub_runtime_access",
+      "terminal_ssh_ca_key_management"
+    ],
+    "hard_denies": [
+      "production_ssh_password_login_without_explicit_exception",
+      "unbounded_ssh_certificate_lifetime",
+      "broad_ssh_principal_in_production",
+      "ssh_certificate_without_oidc_identity_binding",
+      "ssh_certificate_without_terminal_policy_binding",
+      "ssh_direct_shell_for_managed_targets",
+      "ssh_worker_permission_reused_for_hub_access",
+      "ca_private_key_available_to_worker_or_llm"
+    ],
+    "certificate_constraints": {
+      "max_validity_seconds_default": 3600,
+      "max_validity_seconds_hub": 900,
+      "allowed_principal_pattern": "deterministic allow-list only; no broad principal in production",
+      "key_id_required_fields": [
+        "user_id",
+        "auth_source",
+        "issuer",
+        "issued_at",
+        "policy_version",
+        "decision_id"
+      ]
+    }
+  },
+  "implementation_tasks": [
+    {
+      "id": "SSH-T001-access-mode-documentation",
+      "title": "Document native SSH as separate access mode",
+      "summary": "Extend terminal documentation to distinguish web OIDC/WSS, native SSH with OIDC-backed certificates, and local dev tmux.",
+      "files": ["docs/security/terminal-sessions.md", "docs/security/oidc.md", "docs/security/ssh-terminal-access.md", "docs/cli/commands.md"],
+      "acceptance_criteria": [
+        "Docs state that tmux itself has no OIDC support and must be protected by Ananta Gateway or SSH certificate flow.",
+        "Docs show web terminal and native SSH terminal as separate flows.",
+        "Docs explicitly reject raw tmux socket exposure.",
+        "Docs explain why production SSH should use short-lived certificates instead of long-lived shared credentials."
+      ]
+    },
+    {
+      "id": "SSH-T002-ssh-ca-backend-decision",
+      "title": "Select and model SSH CA backend integration",
+      "summary": "Define whether the first implementation uses smallstep step-ca, Teleport, or an Ananta-managed abstraction with pluggable backend.",
+      "files": ["agent/config.py", "docs/security/ssh-terminal-access.md", "docs/decisions/ADR-ssh-oidc-certificate-access.md"],
+      "acceptance_criteria": [
+        "ADR compares smallstep step-ca, Teleport and a later internal SSH CA option.",
+        "The selected first backend supports short-lived SSH certificates and OIDC identity binding.",
+        "CA signing material is isolated from workers, LLMs and normal terminal sessions.",
+        "Configuration supports disabling native SSH completely."
+      ]
+    },
+    {
+      "id": "SSH-T003-certificate-issuer-service",
+      "title": "Add SSH certificate issuer service abstraction",
+      "summary": "Introduce an issuer interface that validates OIDC identity and requests or creates constrained SSH user certificates.",
+      "files": ["agent/services/ssh_certificate_issuer.py", "agent/services/ssh_principal_mapper.py", "agent/config.py", "tests/test_ssh_certificate_issuer.py"],
+      "acceptance_criteria": [
+        "Issuer refuses invalid issuer, audience, expiry, nonce or signature.",
+        "Issuer refuses unknown OIDC groups by default.",
+        "Issued certificates have bounded validity and deterministic key id metadata.",
+        "Hub-target certificates use shorter maximum lifetime than worker-target certificates.",
+        "Tests prove that certificate issuance does not imply terminal attach/write authorization."
+      ]
+    },
+    {
+      "id": "SSH-T004-ssh-login-cli-flow",
+      "title": "Add CLI flow for OIDC-backed SSH login",
+      "summary": "Add commands that perform OIDC login, store short-lived SSH certificate material safely, and print or execute the ssh command.",
+      "files": ["agent/cli_goals.py", "docs/cli/commands.md", "tests/test_cli_ssh_terminal_commands.py"],
+      "acceptance_criteria": [
+        "ananta ssh login starts OIDC Authorization Code Flow with PKCE or calls the configured backend helper.",
+        "ananta ssh targets lists only targets allowed by TerminalPolicyService.",
+        "ananta ssh connect refuses ambiguous target selection.",
+        "ananta ssh connect --target-type hub requires explicit reason and separate permission.",
+        "CLI does not print OIDC tokens or private certificate material."
+      ]
+    },
+    {
+      "id": "SSH-T005-server-side-terminal-wrapper",
+      "title": "Add server-side SSH terminal wrapper",
+      "summary": "Create a strict wrapper that receives a validated SSH identity and opens only approved Ananta terminal sessions.",
+      "files": ["agent/services/ssh_terminal_wrapper.py", "agent/services/terminal_session_service.py", "agent/services/terminal_policy_service.py", "tests/test_ssh_terminal_wrapper.py", "docs/security/ssh-terminal-access.md"],
+      "acceptance_criteria": [
+        "Wrapper denies unmanaged direct shell mode for managed production targets unless explicitly configured.",
+        "Wrapper calls TerminalPolicyService before create, attach, read, write or kill operations.",
+        "Wrapper cannot turn worker SSH permission into Hub terminal access.",
+        "Wrapper validates workspace path and refuses path traversal or unconfigured host mount escape.",
+        "Wrapper starts tmux only through the safe tmux backend or equivalent controlled command path."
+      ]
+    },
+    {
+      "id": "SSH-T006-openssh-configuration-examples",
+      "title": "Add hardened OpenSSH configuration examples",
+      "summary": "Document safe sshd_config patterns for TrustedUserCAKeys, principal mapping and ForceCommand integration.",
+      "files": ["docs/security/ssh-terminal-access.md", "deploy/examples/sshd_config.ananta.example", "deploy/examples/ananta-authorized-principals.example"],
+      "acceptance_criteria": [
+        "Example uses TrustedUserCAKeys for the configured SSH CA public key.",
+        "Example uses deterministic principal mapping or AuthorizedPrincipalsCommand.",
+        "Example uses ForceCommand or equivalent wrapper for managed terminal accounts.",
+        "Example disables unsafe credential fallback for production profile.",
+        "Example does not allow unmanaged direct shell mode for managed terminal users."
+      ]
+    },
+    {
+      "id": "SSH-T007-audit-model",
+      "title": "Add SSH audit model",
+      "summary": "Ensure native SSH access is correlated with certificate issuance, terminal session lifecycle and policy decisions.",
+      "files": ["agent/common/audit.py", "agent/services/ssh_access_audit_service.py", "agent/db_models.py", "tests/test_ssh_access_audit.py", "docs/security/terminal-audit.md"],
+      "acceptance_criteria": [
+        "Certificate issuance emits audit event with key id, user id, auth source, principal, decision id and expiry.",
+        "SSH attach/create/write/kill events are correlated to the certificate issuance event where possible.",
+        "Audit logs never store OIDC tokens, private certificate material or raw bearer tokens.",
+        "Deny-list strategy is documented for the selected backend.",
+        "Expired certificates cannot be used to create new terminal sessions."
+      ]
+    },
+    {
+      "id": "SSH-T008-security-tests",
+      "title": "Add native SSH security tests",
+      "summary": "Test failure modes around certificates, principals, terminal wrapper, Hub access and stale credentials.",
+      "files": ["tests/test_ssh_certificate_security.py", "tests/test_ssh_terminal_wrapper.py", "tests/test_terminal_policy_service.py"],
+      "acceptance_criteria": [
+        "Expired SSH certificate is rejected.",
+        "Certificate with unknown principal is rejected.",
+        "Broad principal is rejected in production profile.",
+        "SSH worker permission cannot attach to Hub session.",
+        "Unmanaged shell request is denied for managed targets.",
+        "Certificate issuance fails closed when policy service is unavailable."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Native SSH access is unavailable unless explicitly enabled.",
+    "Native SSH access uses short-lived SSH certificates as the recommended production path.",
+    "OIDC identity is bound to every issued SSH certificate.",
+    "Certificate possession alone does not skip TerminalPolicyService.",
+    "Worker SSH access does not grant Hub or Hub-as-Worker terminal access.",
+    "Hub native SSH terminal access is denied by default and has shorter default certificate lifetime.",
+    "OpenSSH configuration examples use TrustedUserCAKeys and a forced Ananta wrapper for managed targets.",
+    "CA signing material is isolated from workers, LLMs, terminal sessions and frontend clients.",
+    "All SSH certificate issuance and SSH terminal lifecycle events are auditable.",
+    "The existing HTTPS/WSS OIDC terminal path remains separate from the native SSH certificate path."
+  ],
+  "recommended_defaults": {
+    "native_ssh_enabled": false,
+    "ssh_certificate_max_validity_seconds_worker": 3600,
+    "ssh_certificate_max_validity_seconds_hub": 900,
+    "ssh_broad_principals_allowed": false,
+    "ssh_terminal_wrapper_required_for_managed_targets": true,
+    "ssh_ca_backend": "smallstep_step_ca_or_configured_backend",
+    "ssh_audit_required": true
+  },
+  "open_questions": [
+    "Should the first implementation require smallstep step-ca, or should Ananta define only an abstraction first?",
+    "Should native SSH ever allow unmanaged direct shell mode, or always force Ananta terminal wrapper for managed targets?",
+    "Should Hub SSH terminal access require interactive approval in addition to explicit policy permission?",
+    "Should SSH certificates be scoped to one target/session, or may they be scoped to a short-lived set of allowed targets?"
+  ]
+}
