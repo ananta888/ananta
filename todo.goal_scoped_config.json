@@ -194,7 +194,8 @@
         "Implement provenance map per field (default/profile/goal/task).",
         "Implement secret redaction policy for read APIs/logging."
       ],
-      "depends_on": []
+      "depends_on": [],
+      "status": "todo"
     },
     {
       "id": "T-002",
@@ -213,7 +214,8 @@
       ],
       "depends_on": [
         "T-001"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-003",
@@ -232,7 +234,8 @@
       ],
       "depends_on": [
         "T-002"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-004",
@@ -250,7 +253,8 @@
       ],
       "depends_on": [
         "T-003"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-005",
@@ -267,7 +271,8 @@
       ],
       "depends_on": [
         "T-004"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-006",
@@ -286,7 +291,8 @@
       ],
       "depends_on": [
         "T-004"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-007",
@@ -304,7 +310,8 @@
       ],
       "depends_on": [
         "T-006"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-008",
@@ -322,7 +329,8 @@
       ],
       "depends_on": [
         "T-001"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-009",
@@ -339,7 +347,8 @@
       "depends_on": [
         "T-003",
         "T-008"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-010",
@@ -362,7 +371,8 @@
         "T-008",
         "T-009",
         "T-007b"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-011",
@@ -380,7 +390,8 @@
       ],
       "depends_on": [
         "T-010"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-012",
@@ -398,7 +409,8 @@
       ],
       "depends_on": [
         "T-004"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-013",
@@ -415,7 +427,8 @@
       ],
       "depends_on": [
         "T-001"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-014",
@@ -434,7 +447,8 @@
         "T-002",
         "T-003",
         "T-009"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-015",
@@ -453,7 +467,8 @@
         "T-005",
         "T-006",
         "T-007"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-016",
@@ -472,7 +487,8 @@
         "T-010",
         "T-011",
         "T-015"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-017",
@@ -490,7 +506,8 @@
       ],
       "depends_on": [
         "T-016"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-018",
@@ -508,7 +525,8 @@
       ],
       "depends_on": [
         "T-010"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-019",
@@ -527,7 +545,8 @@
       "depends_on": [
         "T-010",
         "T-011"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-007b",
@@ -545,7 +564,8 @@
       ],
       "depends_on": [
         "T-003"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "T-012b",
@@ -565,7 +585,8 @@
       "depends_on": [
         "T-003",
         "T-012"
-      ]
+      ],
+      "status": "todo"
     }
   ],
   "execution_plan": [
@@ -640,5 +661,26 @@
       "implementation": 14,
       "test": 5
     }
+  },
+  "tasks_status_summary": {
+    "total": 21,
+    "by_status": {
+      "todo": 21,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "formula": "done + 0.5*partial",
+    "open_work_items": 21
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 21,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
   }
 }
