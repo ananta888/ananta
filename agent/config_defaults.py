@@ -139,6 +139,11 @@ def build_default_agent_config() -> dict:
             "max_strategy_attempts": 2,
             "allow_parallel_strategy_race": False,
         },
+        "llm_profile_policy": {
+            # Synthetic llm_call_profile fallback is opt-in. When disabled,
+            # diagnostics only see real provider call telemetry.
+            "allow_synthetic_fallback": False,
+        },
         "adaptive_model_routing_enabled": True,
         "adaptive_model_routing_min_samples": 3,
         "adaptive_model_routing_top_k": 3,

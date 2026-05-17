@@ -153,6 +153,12 @@ class TaskScopedExecutionService:
     """Owns task-scoped proposal/execution orchestration so routes stay thin."""
 
     @staticmethod
+    def _allow_synthetic_llm_profile_fallback() -> bool:
+        cfg = (current_app.config.get("AGENT_CONFIG", {}) or {})
+        policy = dict(cfg.get("llm_profile_policy") or {})
+        return bool(policy.get("allow_synthetic_fallback", False))
+
+    @staticmethod
     def _is_interactive_terminal_session(session_payload: dict | None) -> bool:
         metadata = (session_payload or {}).get("metadata") if isinstance((session_payload or {}).get("metadata"), dict) else {}
         return str(metadata.get("opencode_execution_mode") or "").strip().lower() == "interactive_terminal"
@@ -568,7 +574,7 @@ class TaskScopedExecutionService:
             if not real_llm_call_profile:
                 real_llm_call_profile = list(proposal_meta.get("llm_call_profile") or [])
             llm_call_profile = [entry for entry in real_llm_call_profile if isinstance(entry, dict)]
-            if not llm_call_profile:
+            if not llm_call_profile and self._allow_synthetic_llm_profile_fallback():
                 # Bridge fallback: preserves correlation for diagnostics when strategy does not expose real call metrics yet.
                 llm_call_profile = [
                     {
@@ -594,7 +600,7 @@ class TaskScopedExecutionService:
                 "latency_ms": None,
                 "stderr_preview": None,
                 "output_source": "orchestrator",
-                "llm_call_profile": llm_call_profile,
+                **({"llm_call_profile": llm_call_profile} if llm_call_profile else {}),
             }
             get_core_services().task_execution_service.persist_task_proposal_result(
                 tid=tid,
@@ -2291,7 +2297,7 @@ class TaskScopedExecutionService:
             snapshot_cli = snapshot.get("cli_result") if isinstance(snapshot.get("cli_result"), dict) else None
             if isinstance(snapshot_cli, dict):
                 cli_result = dict(snapshot_cli)
-        if not isinstance(cli_result, dict):
+        if not isinstance(cli_result, dict) and self._allow_synthetic_llm_profile_fallback():
             backend = str(response.get("backend") or "orchestrator").strip() or "orchestrator"
             model = str(response.get("model") or "").strip() or None
             provider = None
@@ -2322,6 +2328,12 @@ class TaskScopedExecutionService:
                         "ended_at": None,
                     }
                 ],
+            }
+        if not isinstance(cli_result, dict):
+            cli_result = {
+                "returncode": 0,
+                "latency_ms": None,
+                "output_source": str(response.get("backend") or "orchestrator").strip() or "orchestrator",
             }
         get_core_services().task_execution_service.persist_task_proposal_result(
             tid=task["id"],
