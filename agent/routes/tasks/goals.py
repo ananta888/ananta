@@ -17,6 +17,16 @@ from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
 
 goals_bp = Blueprint("tasks_goals", __name__)
+_SOFTWARE_GOAL_HINTS = (
+    "software",
+    "projekt",
+    "project",
+    "backend",
+    "frontend",
+    "api",
+    "service",
+    "app",
+)
 
 
 def _services():
@@ -46,6 +56,13 @@ def _team_scope_allows(goal: GoalDB, user_payload: dict[str, Any] | None) -> boo
 
 def _can_access_goal(goal: GoalDB | None) -> bool:
     return _goal_service().can_access_goal(goal, getattr(g, "user", {}) or {}, _is_admin_request())
+
+
+def _looks_like_software_goal(text: str) -> bool:
+    normalized = str(text or "").strip().lower()
+    if not normalized:
+        return False
+    return any(token in normalized for token in _SOFTWARE_GOAL_HINTS)
 
 
 def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
@@ -104,6 +121,18 @@ def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
                 goal,
                 target_status="failed",
                 reason=str(result.get("error") or "planning_failed"),
+                readiness=dict(getattr(goal, "readiness", None) or {}),
+            )
+        created_task_ids = list(result.get("created_task_ids") or [])
+        if not created_task_ids:
+            recovery.update({"last_error": "planning_recovery_no_tasks_created"})
+            execution_preferences["planning_recovery"] = recovery
+            goal.execution_preferences = execution_preferences
+            goal = _repos().goal_repo.save(goal)
+            return _services().goal_lifecycle_service.transition_goal(
+                goal,
+                target_status="failed",
+                reason="planning_recovery_no_tasks_created",
                 readiness=dict(getattr(goal, "readiness", None) or {}),
             )
         goal = _services().goal_lifecycle_service.transition_goal(
@@ -470,6 +499,50 @@ def create_goal():
         )
         return api_response(status="error", message=result["error"], code=400)
 
+    created_task_ids = list(result.get("created_task_ids") or [])
+    create_tasks_enabled = bool(effective.get("planning", {}).get("create_tasks", True))
+    if (
+        create_tasks_enabled
+        and not created_task_ids
+        and mode_id == "generic"
+        and _looks_like_software_goal(goal_text)
+    ):
+        retry_mode = "new_software_project"
+        retry_mode_data = dict(goal_record.mode_data or {})
+        retry_mode_data.setdefault("project_idea", goal_text)
+        retry_result = auto_planner.plan_goal(
+            goal=goal_text,
+            context=mode_context,
+            team_id=effective.get("routing", {}).get("team_id"),
+            create_tasks=True,
+            use_template=bool(effective.get("planning", {}).get("use_template", True)),
+            use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
+            goal_id=goal_record.id,
+            goal_trace_id=goal_record.trace_id,
+            mode=retry_mode,
+            mode_data=retry_mode_data,
+        )
+        if not retry_result.get("error"):
+            result = retry_result
+            created_task_ids = list(result.get("created_task_ids") or [])
+
+    if create_tasks_enabled and not created_task_ids:
+        goal_record = _services().goal_lifecycle_service.transition_goal(
+            goal_record,
+            target_status="failed",
+            reason="planning_no_tasks_created",
+            readiness=readiness,
+        )
+        record_product_event(
+            "goal_planning_failed",
+            actor="auto_planner",
+            details={"reason": "planning_no_tasks_created", "source": goal_record.source, "mode": goal_record.mode},
+            goal_id=goal_record.id,
+            trace_id=goal_record.trace_id,
+            plan_id=result.get("plan_id"),
+        )
+        return api_response(status="error", message="planning_no_tasks_created", code=400)
+
     goal_record = _services().goal_lifecycle_service.transition_goal(
         goal_record,
         target_status="planned",
@@ -496,7 +569,7 @@ def create_goal():
             "goal_id": goal_record.id,
             "trace_id": goal_record.trace_id,
             "source": goal_record.source,
-            "task_count": len(result.get("created_task_ids") or []),
+            "task_count": len(created_task_ids),
             "workflow_overrides": overrides,
             "readiness_happy_path": readiness["happy_path_ready"],
         },
@@ -507,7 +580,7 @@ def create_goal():
         details={
             "source": goal_record.source,
             "mode": goal_record.mode,
-            "created_task_count": len(result.get("created_task_ids") or []),
+            "created_task_count": len(created_task_ids),
             "has_plan": bool(result.get("plan_id")),
         },
         goal_id=goal_record.id,

@@ -67,12 +67,12 @@ def build_default_agent_config() -> dict:
         },
         "llm_tool_guardrails": {
             "enabled": True,
-            "max_tool_calls_per_request": 5,
-            "max_external_calls_per_request": 2,
-            "max_estimated_cost_units_per_request": 20,
+            "max_tool_calls_per_request": 10,
+            "max_external_calls_per_request": 6,
+            "max_estimated_cost_units_per_request": 40,
             "max_tokens_per_request": 6000,
             "chars_per_token_estimate": 4,
-            "class_limits": {"read": 5, "write": 2, "admin": 1},
+            "class_limits": {"read": 8, "write": 6, "admin": 1},
             "class_cost_units": {"read": 1, "write": 5, "admin": 8, "unknown": 3},
             "external_classes": ["write", "admin"],
             "tool_classes": {

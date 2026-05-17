@@ -1,0 +1,3 @@
+# Dependencies for the project
+fastapi
+uvicorn[standard]

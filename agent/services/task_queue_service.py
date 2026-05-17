@@ -118,6 +118,14 @@ class TaskQueueService:
         )
 
     def claim_task(self, *, task_id: str, agent_url: str, lease_until: float, idempotency_key: str = "") -> None:
+        current = task_repo.get_by_id(task_id)
+        if current is None:
+            return
+        current_status = normalize_task_status(getattr(current, "status", None), default="todo")
+        if current_status in {"completed", "failed", "cancelled"}:
+            return
+        if not can_autopilot_dispatch(current_status):
+            return
         update_local_task_status(
             task_id,
             "assigned",
