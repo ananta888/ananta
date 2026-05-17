@@ -16,6 +16,7 @@ from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.service_registry import get_core_services
 from agent.services.system_contract_service import get_system_contract_service
 from agent.services.system_health_service import build_system_health_payload
+from agent.services.config_profile_service import get_config_profile_service
 from agent.tool_capabilities import build_capability_contract, describe_capabilities, resolve_allowed_tools
 
 from . import shared
@@ -240,3 +241,9 @@ def dashboard_read_model():
             artifact_flow_summary_builder=shared.artifact_flow_settings_summary,
         )
     )
+
+
+@read_models_bp.route("/config/profiles", methods=["GET"])
+@check_auth
+def list_config_profiles():
+    return api_response(data={"profiles": get_config_profile_service().list_profiles()})

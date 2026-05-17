@@ -17,6 +17,7 @@ from agent.services.planning_strategies import (
 )
 from agent.services.planning_utils import sanitize_input, validate_goal
 from agent.services.repository_registry import get_repository_registry
+from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.verification_policy_service import default_verification_spec
 from agent.services.worker_routing_policy_utils import (
     derive_required_capabilities,
@@ -617,6 +618,9 @@ class PlanningService:
 
         goal = sanitize_input(goal)
         context = sanitize_input(context) if context else None
+        scoped_resolution = get_goal_config_runtime_service().get_effective_config(goal_id=goal_id, task_id=None)
+        setattr(planner, "_goal_effective_config", dict(scoped_resolution.config or {}))
+        setattr(planner, "_goal_config_source", str(scoped_resolution.source or "global_fallback"))
 
         try:
             resolved = self._resolve_subtasks(
@@ -791,6 +795,7 @@ class PlanningService:
             "proposal_validation_errors": proposal_validation.errors,
             "planning_policy": planning_policy,
             "planner_selection": planner_selection,
+            "goal_config_source": str(getattr(planner, "_goal_config_source", "global_fallback")),
         }
 
     def get_latest_plan_for_goal(self, goal_id: str) -> tuple[PlanDB | None, list[PlanNodeDB]]:
