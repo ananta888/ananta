@@ -145,8 +145,32 @@ class TaskQueueService:
         snapshot_by_id = {task.id: task for task in tasks}
         for task in tasks:
             live_task = task_repo.get_by_id(task.id) or snapshot_by_id.get(task.id)
-            deps = dependency_resolver(live_task)
+            raw_deps = dependency_resolver(live_task)
+            deps: List[str] = []
+            seen: set[str] = set()
+            for dep in list(raw_deps or []):
+                dep_id = str(dep or "").strip()
+                if not dep_id:
+                    continue
+                if dep_id == str(getattr(live_task, "id", "") or "").strip():
+                    continue
+                if dep_id in seen:
+                    continue
+                seen.add(dep_id)
+                deps.append(dep_id)
+
+            my_status = normalize_task_status(getattr(live_task, "status", None), default="todo")
             if not deps:
+                if my_status in {"blocked", "blocked_by_dependency"}:
+                    update_local_task_status(live_task.id, "todo")
+                    transitions.append(
+                        {
+                            "task_id": live_task.id,
+                            "event_type": "dependency_unblocked",
+                            "depends_on": [],
+                            "reason": "no_valid_dependencies",
+                        }
+                    )
                 continue
             dep_statuses = []
             for dep_id in deps:
@@ -155,7 +179,6 @@ class TaskQueueService:
                     dep_statuses.append(("missing", dep_id))
                 else:
                     dep_statuses.append((normalize_task_status(getattr(dep_task, "status", None), default=""), dep_id))
-            my_status = normalize_task_status(getattr(live_task, "status", None), default="todo")
             has_failed = any(status == "failed" for status, _ in dep_statuses)
             all_done = bool(dep_statuses) and all(status == "completed" for status, _ in dep_statuses)
             if my_status in {"blocked", "blocked_by_dependency"} and all_done:
