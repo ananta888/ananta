@@ -53,6 +53,9 @@
     "tasks_status_summary": {
       "$ref": "#/$defs/tasksStatusSummary"
     },
+    "tasks_type_summary": {
+      "$ref": "#/$defs/tasksTypeSummary"
+    },
     "execution_stage_summary": {
       "type": "object",
       "additionalProperties": true
@@ -141,6 +144,21 @@
           "type": "object",
           "additionalProperties": true,
           "required": ["total", "todo", "in_progress", "blocked", "done"]
+        }
+      }
+    },
+    "tasksTypeSummary": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["total", "by_type"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "by_type": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
         }
       }
     }

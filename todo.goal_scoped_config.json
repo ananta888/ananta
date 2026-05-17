@@ -632,5 +632,13 @@
       "AC-15 prueft Parallel-Schutz in legacy_global_config.",
       "E2E muss Cross-Contamination in parallelen Profil-Goals ausschliessen."
     ]
+  },
+  "tasks_type_summary": {
+    "total": 21,
+    "by_type": {
+      "documentation": 2,
+      "implementation": 14,
+      "test": 5
+    }
   }
 }
