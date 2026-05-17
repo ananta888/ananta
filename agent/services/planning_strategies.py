@@ -265,7 +265,10 @@ class LLMPlanningStrategy:
             resolved_context = mode_context.strip()
 
         prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
-        llm_config = current_app.config.get("AGENT_CONFIG", {}).get("llm_config", {})
+        scoped_cfg = getattr(planner, "_goal_effective_config", None)
+        if not isinstance(scoped_cfg, dict):
+            scoped_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        llm_config = dict(scoped_cfg.get("llm_config") or {})
         raw_response = planner._call_llm_with_retry(prompt, llm_config)
         subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
         if not subtasks:

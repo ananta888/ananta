@@ -53,6 +53,7 @@ from agent.services.domain_policy_service import DomainPolicyService
 from agent.services.domain_registry import DomainRegistry
 from agent.services.native_worker_runtime_service import get_native_worker_runtime_service
 from agent.services.repository_registry import get_repository_registry
+from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.research_context_bridge_service import get_research_context_bridge_service
 from agent.services.service_registry import get_core_services
 from agent.services.task_execution_service import LocalExecutionResult
@@ -511,7 +512,11 @@ class TaskScopedExecutionService:
         if forwarded is not None:
             return forwarded
 
-        cfg = current_app.config["AGENT_CONFIG"]
+        scoped_resolution = get_goal_config_runtime_service().get_effective_config(
+            goal_id=str(task.get("goal_id") or "").strip() or None,
+            task_id=tid,
+        )
+        cfg = dict(scoped_resolution.config or {})
         base_prompt = request_data.prompt or task.get("description") or task.get("prompt") or f"Bearbeite Task {tid}"
         explicit_task_kind = str(task.get("task_kind") or "").strip().lower()
         task_kind = explicit_task_kind or normalize_task_kind(None, base_prompt)
@@ -564,6 +569,7 @@ class TaskScopedExecutionService:
             "proposal_reason": result.reason,
             "normalization_format": result.metadata.get("source_format"),
             "effective_strategy_mode": getattr(policy, "effective_strategy_mode", None) or task_override.get("strategy_mode"),
+            "goal_config_source": scoped_resolution.source,
         }
         proposal_meta = dict(getattr(result.proposal, "metadata", None) or {}) if result.proposal is not None else {}
         proposal_provider = str(proposal_meta.get("provider") or "").strip() or None
@@ -611,6 +617,7 @@ class TaskScopedExecutionService:
             routing={
                 "task_kind": task_kind,
                 "propose_strategy_meta": propose_strategy_meta,
+                "goal_config_source": scoped_resolution.source,
             },
             cli_result=cli_result,
             worker_context={"strategy": result.metadata.get("selected_strategy")},
@@ -691,7 +698,11 @@ class TaskScopedExecutionService:
                 code=403,
             )
 
-        agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        scoped_resolution = get_goal_config_runtime_service().get_effective_config(
+            goal_id=str(task.get("goal_id") or "").strip() or None,
+            task_id=tid,
+        )
+        agent_cfg = dict(scoped_resolution.config or {})
         execution_policy = get_core_services().task_execution_service.resolve_policy(
             request_data,
             agent_cfg=agent_cfg,

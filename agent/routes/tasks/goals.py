@@ -10,6 +10,8 @@ from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest, GoalPlanNodePatchRequest, GoalProvisionRequest
 from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
+from agent.services.goal_config_resolver_service import get_goal_config_resolver_service
+from agent.services.config_profile_service import get_config_profile_service
 from agent.services.product_event_service import record_product_event
 from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.repository_registry import get_repository_registry
@@ -384,6 +386,27 @@ def create_goal():
             )
 
     execution_preferences = dict(payload.execution_preferences or {})
+    config_profile = str(execution_preferences.get("config_profile") or "").strip() or None
+    config_overrides = execution_preferences.get("config_overrides")
+    if config_overrides is None:
+        config_overrides = {}
+    if not isinstance(config_overrides, dict):
+        return api_response(status="error", message="invalid_config_overrides", code=400)
+    if config_profile and get_config_profile_service().get_profile(config_profile) is None:
+        return api_response(status="error", message="unknown_config_profile", code=400)
+
+    resolver = get_goal_config_resolver_service()
+    resolution = resolver.resolve(
+        system_config=dict(current_app.config.get("AGENT_CONFIG", {}) or {}),
+        profile_id=config_profile,
+        goal_overrides=config_overrides,
+    )
+    execution_preferences["config_profile"] = config_profile
+    execution_preferences["config_overrides"] = dict(config_overrides)
+    execution_preferences["config_snapshot"] = dict(resolution.config_snapshot)
+    execution_preferences["config_snapshot_provenance"] = dict(resolution.provenance)
+    execution_preferences["config_snapshot_checksum"] = str(resolution.checksum)
+    execution_preferences["config_redaction_summary"] = dict(resolution.redaction_summary)
     execution_preferences = get_goal_execution_contract_service().attach_to_execution_preferences(
         goal_text=goal_text,
         execution_preferences=execution_preferences,

@@ -21,6 +21,7 @@ from agent.routes.tasks.orchestration_policy import (
     persist_policy_decision,
 )
 from agent.services.task_execution_policy_service import normalize_allowed_tools
+from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.worker_todo_planner_service import get_worker_todo_planner_service
 from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 from agent.services.workspace_scope_builder import build_worker_workspace, derive_workspace_scope
@@ -102,7 +103,10 @@ class TaskDelegationPlanner:
                 parent_task.get("required_capabilities")
                 or derive_required_capabilities(parent_task, effective_task_kind)
             )
-        preferred_backend = self._preferred_backend(effective_task_kind)
+        preferred_backend = self._preferred_backend(
+            effective_task_kind,
+            goal_id=str(parent_task.get("goal_id") or "").strip() or None,
+        )
         worker_runtime_decision = None
 
         # DRR-T053/T048: Try new worker/runtime selection if policy exists
@@ -187,12 +191,18 @@ class TaskDelegationPlanner:
         )
 
     @staticmethod
-    def _preferred_backend(effective_task_kind: str | None) -> str | None:
-        if str(effective_task_kind or "").strip().lower() != "research":
+    def _preferred_backend(effective_task_kind: str | None, goal_id: str | None = None) -> str | None:
+        scoped = get_goal_config_runtime_service().get_effective_config(goal_id=goal_id, task_id=None)
+        cfg = dict(scoped.config or {})
+        normalized_kind = str(effective_task_kind or "").strip().lower()
+        routing_cfg = cfg.get("sgpt_routing") if isinstance(cfg.get("sgpt_routing"), dict) else {}
+        backend_map = routing_cfg.get("task_kind_backend") if isinstance(routing_cfg.get("task_kind_backend"), dict) else {}
+        mapped = str(backend_map.get(normalized_kind) or backend_map.get("*") or "").strip().lower()
+        if mapped:
+            return mapped
+        if normalized_kind != "research":
             return None
-        return resolve_research_backend_config(
-            agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {}
-        ).get("provider")
+        return resolve_research_backend_config(agent_cfg=cfg).get("provider")
 
 
 class WorkerExecutionContextFactory:
@@ -246,6 +256,11 @@ class WorkerExecutionContextFactory:
             selection=plan.selection,
             preferred_backend=plan.preferred_backend,
         )
+        scoped_resolution = get_goal_config_runtime_service().get_effective_config(
+            goal_id=str(parent_task.get("goal_id") or "").strip() or None,
+            task_id=task_id,
+        )
+        routing_decision_payload["goal_config_source"] = scoped_resolution.source
         routing_decision_payload["worker_profile"] = resolved_profile
         routing_decision_payload["profile_source"] = profile_source
         if plan.routing_hint:
