@@ -950,6 +950,14 @@ def generate_text(
     if effective_base_url:
         urls[p] = effective_base_url
 
+    if p == "ollama":
+        ollama_base_url = str(urls.get("ollama") or "").strip()
+        if ollama_base_url:
+            probe_timeout = max(1, min(int(actual_timeout), _LOCAL_RUNTIME_PROBE_TIMEOUT_SECONDS))
+            resolved_model = resolve_ollama_model(m, ollama_base_url, probe_timeout)
+            if resolved_model:
+                m = resolved_model
+
     key = api_key
     if not key:
         key = _runtime_api_key(p)

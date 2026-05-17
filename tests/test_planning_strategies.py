@@ -132,3 +132,29 @@ def test_llm_planning_strategy_repair_for_new_project_enforces_execution_coverag
     texts = [f"{s.get('title','')} {s.get('description','')}".lower() for s in result.subtasks]
     assert any(("datei" in t) or ("readme" in t) or ("src" in t) for t in texts)
     assert any(("test" in t) or ("pytest" in t) for t in texts)
+
+
+def test_llm_planning_strategy_new_project_third_attempt_when_empty(app, monkeypatch) -> None:
+    strategy = LLMPlanningStrategy(use_repo_context=False)
+    planner = _LLMPlannerStub(responses=["first", "repair", "strict-repair"])
+
+    def _parse(raw: str, default_priority: str = "Medium"):  # noqa: ARG001
+        if raw in {"first", "repair"}:
+            return []
+        return [
+            {"title": "Projektdateien erstellen", "description": "README und src/tests anlegen", "priority": "High"},
+            {"title": "Tests ausführen", "description": "pytest run und Ergebnis dokumentieren", "priority": "High"},
+        ]
+
+    monkeypatch.setattr("agent.services.planning_strategies.parse_subtasks_from_llm_response", _parse)
+    with app.app_context():
+        result = strategy.execute(
+            planner,
+            goal="Build a new software project",
+            context=None,
+            mode="new_software_project",
+            mode_data={"project_idea": "demo"},
+        )
+    assert result is not None
+    assert planner.calls == 3
+    assert len(result.subtasks) >= 2

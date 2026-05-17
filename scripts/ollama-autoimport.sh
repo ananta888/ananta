@@ -11,7 +11,7 @@ OLLAMA_DEFAULT_ALIAS_CANDIDATES="${OLLAMA_DEFAULT_ALIAS_CANDIDATES:-bartowski-qw
 OLLAMA_SMOKE_ALIAS="${OLLAMA_SMOKE_ALIAS:-ananta-smoke}"
 OLLAMA_SMOKE_ALIAS_CANDIDATES="${OLLAMA_SMOKE_ALIAS_CANDIDATES:-mradermacher-qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abl-0836a1d595c6,lmstudio-community-qwen2.5-coder-0.5b-instruct-gguf-qwen2.5-coder-0-8a0ee15fcff4,mradermacher-lfm2.5-1.2b-glm-4.7-flash-thinking-i1-gguf-lfm2.5-1.2b-c7d4a41ae661,bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s}"
 OLLAMA_RESCAN_SEC="${OLLAMA_RESCAN_SEC:-30}"
-OLLAMA_NUM_CTX="${OLLAMA_NUM_CTX:-32768}"
+OLLAMA_NUM_CTX="${OLLAMA_NUM_CTX:-4096}"
 OLLAMA_AUTOIMPORT_MODE="${OLLAMA_AUTOIMPORT_MODE:-full}"
 OLLAMA_READY_TIMEOUT_SEC="${OLLAMA_READY_TIMEOUT_SEC:-180}"
 INITIAL_SCAN_PID=""
@@ -347,7 +347,10 @@ main() {
 
   if autoimport_mode_is_seed_only; then
     echo "autoimport mode: seed-only"
-    return 0
+    echo "seed-only completed; entering idle loop to avoid restart storm"
+    while true; do
+      sleep "${OLLAMA_RESCAN_SEC:-30}"
+    done
   fi
 
   echo "autoimport mode: full"

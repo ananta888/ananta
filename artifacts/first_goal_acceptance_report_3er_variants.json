@@ -1,0 +1,642 @@
+{
+  "summary": {
+    "schema": "first_goal_acceptance.v1",
+    "total_runs": 9,
+    "completed_runs": 0,
+    "write_phase_runs": 0,
+    "autopilot_progress_runs": 0,
+    "repeatability_pass": false
+  },
+  "runs": [
+    {
+      "run_index": 1,
+      "scenario_id": "opencode_preconfigured",
+      "scenario_label": "OpenCode Worker + Preconfigured Model",
+      "config_mode": "goal_scoped",
+      "config_profile": "opencode_preconfigured",
+      "goal_id": "aec0e743-1dfd-47bd-b821-1f3e5bd374a8",
+      "output_dir": "first-goal-run-1-99e402",
+      "final_goal_status": "failed",
+      "config_checksum": null,
+      "goal_config_source": null,
+      "effective_config_endpoint_status": 404,
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": false,
+          "details": "new_goal_ids=['aec0e743-1dfd-47bd-b821-1f3e5bd374a8']; submit_error=None"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": false,
+          "details": "task_count_within_60s=0; first_task_seen_at=None; planning_extended_by_activity=False; idle_hang_violation=False; max_idle_stretch_s=0.0"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": false,
+          "details": "first_assigned_at=None; post_assigned_change=False; planning_real_llm_seen=False; planning_synthetic_llm_seen=False; idle_hang_violation=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-1-99e402; file_seen=False"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": false,
+          "details": "verification_seen=False"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=900"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    },
+    {
+      "run_index": 2,
+      "scenario_id": "opencode_ollama_local",
+      "scenario_label": "OpenCode Worker + Local Ollama",
+      "config_mode": "goal_scoped",
+      "config_profile": "opencode_ollama_local",
+      "goal_id": "149b02b6-b4e0-4405-a79c-02e78acee117",
+      "output_dir": "first-goal-run-2-d973a0",
+      "final_goal_status": "failed",
+      "config_checksum": null,
+      "goal_config_source": null,
+      "effective_config_endpoint_status": 404,
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": false,
+          "details": "new_goal_ids=['149b02b6-b4e0-4405-a79c-02e78acee117']; submit_error=None"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": false,
+          "details": "task_count_within_60s=0; first_task_seen_at=None; planning_extended_by_activity=False; idle_hang_violation=False; max_idle_stretch_s=0.0"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": false,
+          "details": "first_assigned_at=None; post_assigned_change=False; planning_real_llm_seen=False; planning_synthetic_llm_seen=False; idle_hang_violation=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-2-d973a0; file_seen=False"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": false,
+          "details": "verification_seen=False"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=900"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    },
+    {
+      "run_index": 3,
+      "scenario_id": "ananta_ollama_local",
+      "scenario_label": "Ananta Worker + Local Ollama",
+      "config_mode": "goal_scoped",
+      "config_profile": "ananta_ollama_local",
+      "goal_id": "4c999a08-1f62-4542-8547-0f7d1f9767b0",
+      "output_dir": "first-goal-run-3-9d20cc",
+      "final_goal_status": "failed",
+      "config_checksum": null,
+      "goal_config_source": null,
+      "effective_config_endpoint_status": 404,
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": false,
+          "details": "new_goal_ids=['4c999a08-1f62-4542-8547-0f7d1f9767b0']; submit_error=None"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": false,
+          "details": "task_count_within_60s=0; first_task_seen_at=None; planning_extended_by_activity=False; idle_hang_violation=False; max_idle_stretch_s=0.0"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": false,
+          "details": "first_assigned_at=None; post_assigned_change=False; planning_real_llm_seen=False; planning_synthetic_llm_seen=False; idle_hang_violation=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-3-9d20cc; file_seen=False"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": false,
+          "details": "verification_seen=False"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=900"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    },
+    {
+      "run_index": 4,
+      "scenario_id": "opencode_preconfigured",
+      "scenario_label": "OpenCode Worker + Preconfigured Model",
+      "config_mode": "goal_scoped",
+      "config_profile": "opencode_preconfigured",
+      "goal_id": "4a864396-5bfa-47d9-8fd4-d7e5de5a6a4b",
+      "output_dir": "first-goal-run-4-5b8644",
+      "final_goal_status": "failed",
+      "config_checksum": null,
+      "goal_config_source": null,
+      "effective_config_endpoint_status": 404,
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": false,
+          "details": "new_goal_ids=['4a864396-5bfa-47d9-8fd4-d7e5de5a6a4b']; submit_error=None"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": false,
+          "details": "task_count_within_60s=0; first_task_seen_at=None; planning_extended_by_activity=False; idle_hang_violation=False; max_idle_stretch_s=0.0"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": false,
+          "details": "first_assigned_at=None; post_assigned_change=False; planning_real_llm_seen=False; planning_synthetic_llm_seen=False; idle_hang_violation=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-4-5b8644; file_seen=False"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": false,
+          "details": "verification_seen=False"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=900"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    },
+    {
+      "run_index": 5,
+      "scenario_id": "opencode_ollama_local",
+      "scenario_label": "OpenCode Worker + Local Ollama",
+      "config_mode": "goal_scoped",
+      "config_profile": "opencode_ollama_local",
+      "goal_id": "0f03d0a5-b50f-400f-814a-d33e4bfc7f20",
+      "output_dir": "first-goal-run-5-885d81",
+      "final_goal_status": "failed",
+      "config_checksum": null,
+      "goal_config_source": null,
+      "effective_config_endpoint_status": 404,
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": false,
+          "details": "new_goal_ids=['0f03d0a5-b50f-400f-814a-d33e4bfc7f20']; submit_error=None"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": false,
+          "details": "task_count_within_60s=0; first_task_seen_at=None; planning_extended_by_activity=False; idle_hang_violation=False; max_idle_stretch_s=0.0"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": false,
+          "details": "first_assigned_at=None; post_assigned_change=False; planning_real_llm_seen=False; planning_synthetic_llm_seen=False; idle_hang_violation=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-5-885d81; file_seen=False"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": false,
+          "details": "verification_seen=False"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=900"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    },
+    {
+      "run_index": 6,
+      "scenario_id": "ananta_ollama_local",
+      "scenario_label": "Ananta Worker + Local Ollama",
+      "config_mode": "goal_scoped",
+      "config_profile": "ananta_ollama_local",
+      "goal_id": "5125e0de-6b3b-4c57-bf4e-f55388b0f878",
+      "output_dir": "first-goal-run-6-55c8a5",
+      "final_goal_status": "failed",
+      "config_checksum": null,
+      "goal_config_source": null,
+      "effective_config_endpoint_status": 404,
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": false,
+          "details": "new_goal_ids=['5125e0de-6b3b-4c57-bf4e-f55388b0f878']; submit_error=None"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": false,
+          "details": "task_count_within_60s=0; first_task_seen_at=None; planning_extended_by_activity=False; idle_hang_violation=False; max_idle_stretch_s=0.0"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": false,
+          "details": "first_assigned_at=None; post_assigned_change=False; planning_real_llm_seen=False; planning_synthetic_llm_seen=False; idle_hang_violation=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-6-55c8a5; file_seen=False"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": false,
+          "details": "verification_seen=False"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=900"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    },
+    {
+      "run_index": 7,
+      "scenario_id": "opencode_preconfigured",
+      "scenario_label": "OpenCode Worker + Preconfigured Model",
+      "config_mode": "goal_scoped",
+      "config_profile": "opencode_preconfigured",
+      "goal_id": "7bd3716f-3317-4063-b5bb-12a07df08730",
+      "output_dir": "first-goal-run-7-52699e",
+      "final_goal_status": "failed",
+      "config_checksum": null,
+      "goal_config_source": null,
+      "effective_config_endpoint_status": 404,
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": false,
+          "details": "new_goal_ids=['7bd3716f-3317-4063-b5bb-12a07df08730']; submit_error=None"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": false,
+          "details": "task_count_within_60s=0; first_task_seen_at=None; planning_extended_by_activity=False; idle_hang_violation=False; max_idle_stretch_s=0.0"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": false,
+          "details": "first_assigned_at=None; post_assigned_change=False; planning_real_llm_seen=False; planning_synthetic_llm_seen=False; idle_hang_violation=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-7-52699e; file_seen=False"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": false,
+          "details": "verification_seen=False"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=900"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    },
+    {
+      "run_index": 8,
+      "scenario_id": "opencode_ollama_local",
+      "scenario_label": "OpenCode Worker + Local Ollama",
+      "config_mode": "goal_scoped",
+      "config_profile": "opencode_ollama_local",
+      "goal_id": "c3e9ee0b-522b-4120-a655-b720748a6c68",
+      "output_dir": "first-goal-run-8-bc6a09",
+      "final_goal_status": "failed",
+      "config_checksum": null,
+      "goal_config_source": null,
+      "effective_config_endpoint_status": 404,
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": false,
+          "details": "new_goal_ids=['c3e9ee0b-522b-4120-a655-b720748a6c68']; submit_error=None"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": false,
+          "details": "task_count_within_60s=0; first_task_seen_at=None; planning_extended_by_activity=False; idle_hang_violation=False; max_idle_stretch_s=0.0"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": false,
+          "details": "first_assigned_at=None; post_assigned_change=False; planning_real_llm_seen=False; planning_synthetic_llm_seen=False; idle_hang_violation=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-8-bc6a09; file_seen=False"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": false,
+          "details": "verification_seen=False"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=900"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    },
+    {
+      "run_index": 9,
+      "scenario_id": "ananta_ollama_local",
+      "scenario_label": "Ananta Worker + Local Ollama",
+      "config_mode": "goal_scoped",
+      "config_profile": "ananta_ollama_local",
+      "goal_id": "d0fcc4aa-7ca6-4bc7-a4ab-7284db57e730",
+      "output_dir": "first-goal-run-9-0cd9eb",
+      "final_goal_status": "failed",
+      "config_checksum": null,
+      "goal_config_source": null,
+      "effective_config_endpoint_status": 404,
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": false,
+          "details": "new_goal_ids=['d0fcc4aa-7ca6-4bc7-a4ab-7284db57e730']; submit_error=None"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": false,
+          "details": "task_count_within_60s=0; first_task_seen_at=None; planning_extended_by_activity=False; idle_hang_violation=False; max_idle_stretch_s=0.0"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": false,
+          "details": "first_assigned_at=None; post_assigned_change=False; planning_real_llm_seen=False; planning_synthetic_llm_seen=False; idle_hang_violation=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-9-0cd9eb; file_seen=False"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": false,
+          "details": "verification_seen=False"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=900"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    }
+  ]
+}
