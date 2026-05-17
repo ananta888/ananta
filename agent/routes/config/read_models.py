@@ -247,3 +247,12 @@ def dashboard_read_model():
 @check_auth
 def list_config_profiles():
     return api_response(data={"profiles": get_config_profile_service().list_profiles()})
+
+
+@read_models_bp.route("/config/profiles/<profile_id>", methods=["GET"])
+@check_auth
+def get_config_profile(profile_id: str):
+    profile = get_config_profile_service().get_profile(profile_id)
+    if profile is None:
+        return api_response(status="error", message="not_found", code=404)
+    return api_response(data=profile)

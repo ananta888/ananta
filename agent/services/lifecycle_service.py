@@ -6,6 +6,7 @@ from typing import Any
 from agent.db_models import GoalDB
 from agent.repository import goal_repo, task_repo
 from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
+from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import update_local_task_status
 
@@ -216,6 +217,8 @@ class GoalLifecycleService:
         if reason:
             current = dict(goal.execution_preferences or {})
             current["last_status_reason"] = str(reason)
+            scoped = get_goal_config_runtime_service().get_effective_config(goal_id=str(getattr(goal, "id", "") or "").strip() or None)
+            current["goal_config_source"] = str(scoped.source or "global_fallback")
             goal.execution_preferences = current
         if normalized_target in {"failed", "completed"} and str(getattr(goal, "id", "") or "").strip():
             goal_id = str(goal.id)

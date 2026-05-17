@@ -200,6 +200,27 @@ def get_goal_detail(goal_id: str):
     return api_response(data=_goal_service().goal_detail(goal, is_admin=_is_admin_request()))
 
 
+@goals_bp.route("/goals/<goal_id>/effective-config", methods=["GET"])
+@check_auth
+def get_goal_effective_config(goal_id: str):
+    goal = _repos().goal_repo.get_by_id(goal_id)
+    if not goal or not _can_access_goal(goal):
+        return api_response(status="error", message="not_found", code=404)
+    execution_preferences = dict(getattr(goal, "execution_preferences", None) or {})
+    snapshot = dict(execution_preferences.get("config_snapshot") or {})
+    return api_response(
+        data={
+            "goal_id": str(getattr(goal, "id", "") or ""),
+            "config_snapshot": snapshot,
+            "provenance": dict(execution_preferences.get("config_snapshot_provenance") or snapshot.get("provenance") or {}),
+            "config_checksum": str(execution_preferences.get("config_snapshot_checksum") or "").strip() or None,
+            "config_snapshot_hash": str(execution_preferences.get("config_snapshot_hash") or "").strip() or None,
+            "redaction_summary": dict(execution_preferences.get("config_redaction_summary") or {}),
+            "goal_config_source": "snapshot" if snapshot else "global_fallback",
+        }
+    )
+
+
 @goals_bp.route("/goals/<goal_id>/plan", methods=["GET"])
 @check_auth
 def get_goal_plan(goal_id: str):
@@ -406,6 +427,7 @@ def create_goal():
     execution_preferences["config_snapshot"] = dict(resolution.config_snapshot)
     execution_preferences["config_snapshot_provenance"] = dict(resolution.provenance)
     execution_preferences["config_snapshot_checksum"] = str(resolution.checksum)
+    execution_preferences["config_snapshot_hash"] = str(resolution.checksum)
     execution_preferences["config_redaction_summary"] = dict(resolution.redaction_summary)
     execution_preferences = get_goal_execution_contract_service().attach_to_execution_preferences(
         goal_text=goal_text,
