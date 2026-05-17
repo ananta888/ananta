@@ -416,19 +416,25 @@ def create_goal():
     if config_profile and get_config_profile_service().get_profile(config_profile) is None:
         return api_response(status="error", message="unknown_config_profile", code=400)
 
-    resolver = get_goal_config_resolver_service()
-    resolution = resolver.resolve(
-        system_config=dict(current_app.config.get("AGENT_CONFIG", {}) or {}),
-        profile_id=config_profile,
-        goal_overrides=config_overrides,
-    )
+    agent_cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {})
+    goal_scoped_config_enabled = bool(agent_cfg.get("goal_scoped_config_enabled", True))
+    goal_scoped_config_enforce_snapshot = bool(agent_cfg.get("goal_scoped_config_enforce_snapshot", False))
     execution_preferences["config_profile"] = config_profile
     execution_preferences["config_overrides"] = dict(config_overrides)
-    execution_preferences["config_snapshot"] = dict(resolution.config_snapshot)
-    execution_preferences["config_snapshot_provenance"] = dict(resolution.provenance)
-    execution_preferences["config_snapshot_checksum"] = str(resolution.checksum)
-    execution_preferences["config_snapshot_hash"] = str(resolution.checksum)
-    execution_preferences["config_redaction_summary"] = dict(resolution.redaction_summary)
+    if goal_scoped_config_enabled:
+        resolver = get_goal_config_resolver_service()
+        resolution = resolver.resolve(
+            system_config=agent_cfg,
+            profile_id=config_profile,
+            goal_overrides=config_overrides,
+        )
+        execution_preferences["config_snapshot"] = dict(resolution.config_snapshot)
+        execution_preferences["config_snapshot_provenance"] = dict(resolution.provenance)
+        execution_preferences["config_snapshot_checksum"] = str(resolution.checksum)
+        execution_preferences["config_snapshot_hash"] = str(resolution.checksum)
+        execution_preferences["config_redaction_summary"] = dict(resolution.redaction_summary)
+    elif goal_scoped_config_enforce_snapshot:
+        return api_response(status="error", message="goal_scoped_config_snapshot_required", code=412)
     execution_preferences = get_goal_execution_contract_service().attach_to_execution_preferences(
         goal_text=goal_text,
         execution_preferences=execution_preferences,

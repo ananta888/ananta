@@ -94,6 +94,10 @@ def set_config():
         if requested and requested not in governance_mode_catalog():
             return api_response(status="error", message="invalid_governance_mode", code=400)
         new_cfg["governance_mode"] = requested or "balanced"
+    if "goal_scoped_config_enabled" in new_cfg:
+        new_cfg["goal_scoped_config_enabled"] = bool(new_cfg.get("goal_scoped_config_enabled"))
+    if "goal_scoped_config_enforce_snapshot" in new_cfg:
+        new_cfg["goal_scoped_config_enforce_snapshot"] = bool(new_cfg.get("goal_scoped_config_enforce_snapshot"))
     if "execution_fallback_policy" in new_cfg:
         fallback_cfg = new_cfg.get("execution_fallback_policy")
         if not isinstance(fallback_cfg, dict):
