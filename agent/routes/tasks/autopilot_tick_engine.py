@@ -55,6 +55,23 @@ def _is_terminal_status(status: str) -> bool:
     return status in {"completed", "failed", "cancelled"}
 
 
+def _is_transient_worker_transport_error(exc: Exception) -> bool:
+    text = str(exc or "").strip().lower()
+    if not text:
+        return False
+    markers = (
+        "connection reset by peer",
+        "remote end closed connection",
+        "failed to establish a new connection",
+        "max retries exceeded",
+        "connection refused",
+        "read timed out",
+        "connect timeout",
+        "temporarily unavailable",
+    )
+    return any(marker in text for marker in markers)
+
+
 def _merged_last_proposal_snapshot(*, task_id: str, snapshot: dict[str, Any], app: Any) -> dict[str, Any]:
     repos = get_repository_registry(app)
     current = repos.task_repo.get_by_id(task_id)
@@ -572,6 +589,19 @@ def _dispatch_one_task_inner(  # noqa: C901
         return result
 
     if was_assigned:
+        latest_status = _current_task_status(task.id, app=app_ctx)
+        if _is_terminal_status(latest_status):
+            append_trace_event(
+                task.id,
+                "autopilot_handoff_skipped_terminal",
+                delegated_to=target_worker.url,
+                terminal_status=latest_status,
+            )
+            result.dispatched = True
+            result.completed = latest_status == "completed"
+            result.failed = latest_status != "completed"
+            result.failure_type = None if result.completed else latest_status
+            return result
         update_local_task_status(
             task.id,
             "assigned",
@@ -898,6 +928,11 @@ def _dispatch_one_task_inner(  # noqa: C901
             }
             current_retry_status = _current_task_status(task.id, app=app_ctx)
             retry_status = "assigned" if current_retry_status in {"assigned", "proposing", "in_progress"} else "todo"
+            retry_status = "needs_review" if any(
+                str(item.get("failure_type") or "") == "proposal_budget_exhausted" for item in strategy_failures
+            ) else (
+                "assigned" if current_retry_status in {"assigned", "proposing", "in_progress"} else "todo"
+            )
             update_local_task_status(
                 task.id,
                 retry_status,
@@ -926,6 +961,24 @@ def _dispatch_one_task_inner(  # noqa: C901
 
         model_meta.update(selected_attempt_meta)
     except Exception as e:
+        if _is_transient_worker_transport_error(e):
+            defer_until = time.time() + 30
+            update_local_task_status(
+                task.id,
+                "todo",
+                manual_override_until=defer_until,
+                error=f"transient_worker_transport_error:{str(e)[:180]}",
+            )
+            append_trace_event(
+                task.id,
+                "autopilot_worker_transport_deferred",
+                delegated_to=target_worker.url,
+                reason=str(e),
+                defer_seconds=30,
+            )
+            result.failed = True
+            result.failure_type = "propose_transport_deferred"
+            return result
         latest_status = _current_task_status(task.id, app=app_ctx)
         if _is_terminal_status(latest_status):
             append_trace_event(
@@ -1057,6 +1110,19 @@ def _dispatch_one_task_inner(  # noqa: C901
         "retries": int(policy["execute_retries"]),
     }
     try:
+        latest_status = _current_task_status(task.id, app=app_ctx)
+        if _is_terminal_status(latest_status):
+            append_trace_event(
+                task.id,
+                "autopilot_execute_skipped_terminal",
+                delegated_to=target_worker.url,
+                terminal_status=latest_status,
+            )
+            result.dispatched = True
+            result.completed = latest_status == "completed"
+            result.failed = latest_status != "completed"
+            result.failure_type = None if result.completed else latest_status
+            return result
         _execute_started = time.time()
         execute_data = loop._forward_with_retry(
             target_worker.url,
@@ -1066,6 +1132,25 @@ def _dispatch_one_task_inner(  # noqa: C901
         )
         WORKER_BUSY_SECONDS.observe(max(0.0, time.time() - _execute_started))
     except Exception as e:
+        if _is_transient_worker_transport_error(e):
+            defer_until = time.time() + 30
+            update_local_task_status(
+                task.id,
+                "todo",
+                manual_override_until=defer_until,
+                error=f"transient_worker_transport_error:{str(e)[:180]}",
+                last_proposal=_merged_last_proposal_snapshot(task_id=task.id, snapshot=proposal_snapshot, app=app_ctx),
+            )
+            append_trace_event(
+                task.id,
+                "autopilot_worker_transport_deferred",
+                delegated_to=target_worker.url,
+                reason=str(e),
+                defer_seconds=30,
+            )
+            result.failed = True
+            result.failure_type = "execute_transport_deferred"
+            return result
         latest_status = _current_task_status(task.id, app=app_ctx)
         if _is_terminal_status(latest_status):
             append_trace_event(

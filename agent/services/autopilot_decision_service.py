@@ -73,6 +73,10 @@ class AutopilotDecisionService:
             snapshot["routing"] = normalized.get("routing")
         if isinstance(normalized.get("cli_result"), dict):
             snapshot["cli_result"] = normalized.get("cli_result")
+        elif isinstance(normalized.get("metadata"), dict):
+            profile = list((normalized.get("metadata") or {}).get("llm_call_profile") or [])
+            if profile:
+                snapshot["cli_result"] = {"llm_call_profile": profile}
         return snapshot
 
     def evaluate_tool_guardrails_for_autopilot(

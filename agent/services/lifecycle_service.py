@@ -4,7 +4,7 @@ import time
 from typing import Any
 
 from agent.db_models import GoalDB
-from agent.repository import goal_repo
+from agent.repository import goal_repo, task_repo
 from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import update_local_task_status
@@ -208,7 +208,8 @@ class GoalLifecycleService:
         reason: str | None = None,
         readiness: dict[str, Any] | None = None,
     ) -> GoalDB:
-        goal.status = str(target_status or goal.status)
+        normalized_target = str(target_status or goal.status)
+        goal.status = normalized_target
         goal.updated_at = time.time()
         if readiness is not None:
             goal.readiness = dict(readiness)
@@ -216,6 +217,22 @@ class GoalLifecycleService:
             current = dict(goal.execution_preferences or {})
             current["last_status_reason"] = str(reason)
             goal.execution_preferences = current
+        if normalized_target in {"failed", "completed"} and str(getattr(goal, "id", "") or "").strip():
+            goal_id = str(goal.id)
+            for task in task_repo.get_all():
+                if str(getattr(task, "goal_id", "") or "").strip() != goal_id:
+                    continue
+                task_status = str(getattr(task, "status", "") or "").strip().lower()
+                if task_status in {"completed", "failed"}:
+                    continue
+                update_local_task_status(
+                    str(task.id),
+                    "failed",
+                    error=f"goal_terminal:{normalized_target}",
+                    event_type="goal_terminal_task_sweep",
+                    event_actor="goal_lifecycle_service",
+                    event_details={"goal_id": goal_id, "target_status": normalized_target},
+                )
         return goal_repo.save(goal)
 
 
