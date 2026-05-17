@@ -3,6 +3,7 @@ from __future__ import annotations
 import concurrent.futures
 import contextlib
 import logging
+import math
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -300,6 +301,8 @@ def _normalize_temperature_value(value: Any) -> float | None:
     try:
         normalized = float(value)
     except (TypeError, ValueError):
+        return None
+    if not math.isfinite(normalized):
         return None
     if normalized < 0.0:
         normalized = 0.0
