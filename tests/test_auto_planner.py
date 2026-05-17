@@ -145,7 +145,7 @@ class TestAutoPlannerPrompts:
 
 
 class TestAutoPlanner:
-    def test_ensure_autopilot_running_does_not_retarget_when_old_goal_has_actionable_tasks(self, app, monkeypatch):
+    def test_ensure_autopilot_running_switches_to_unscoped_when_old_goal_has_actionable_tasks(self, app, monkeypatch):
         planner = AutoPlanner()
 
         fake_loop = types.SimpleNamespace(
@@ -169,6 +169,15 @@ class TestAutoPlanner:
             planner._ensure_autopilot_running(goal_id="new-goal", team_id=None)
 
         fake_loop.restart_for_goal.assert_not_called()
+        assert fake_loop.start.call_count >= 1
+        call_kwargs = fake_loop.start.call_args.kwargs
+        assert call_kwargs["goal"] == ""
+        assert call_kwargs["team_id"] is None
+        assert call_kwargs["security_level"] == "balanced"
+        assert call_kwargs["interval_seconds"] == 5
+        assert call_kwargs["max_concurrency"] == 1
+        assert call_kwargs["persist"] is True
+        assert isinstance(call_kwargs["background"], bool)
         fake_loop.wake.assert_called_once()
 
     def test_planning_service_build_nodes_infers_work_task_kind(self):

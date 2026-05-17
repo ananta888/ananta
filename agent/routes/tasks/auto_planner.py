@@ -459,9 +459,21 @@ class AutoPlanner:
                     )
                     if has_actionable_old_goal_tasks:
                         _log().info(
-                            "Autopilot already running for goal %s; ignoring retarget to %s to avoid dispatch thrash",
+                            "Autopilot running for goal %s while %s is queued; switching to unscoped mode for per-goal dispatch",
                             old_goal[:12],
                             resolved_goal[:12],
+                        )
+                        # Keep the current loop alive (avoid stop_event side effects on
+                        # in-flight work) but remove goal pinning so one loop can
+                        # dispatch across multiple active goals.
+                        autonomous_loop.start(
+                            goal="",
+                            team_id=team_id,
+                            security_level="balanced",
+                            interval_seconds=5,
+                            max_concurrency=1,
+                            persist=True,
+                            background=not _background_threads_disabled(),
                         )
                     else:
                         _log().info(
