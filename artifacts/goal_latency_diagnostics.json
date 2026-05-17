@@ -1,32 +1,32 @@
 {
-  "goal_id": "023198e7-7329-4bc1-ae6b-fa6b2d669a05",
-  "generated_at": 1779005436.3326483,
-  "task_count": 8,
+  "goal_id": "9afa5600-33b6-4c6d-b14f-f50f270c3007",
+  "generated_at": 1779006702.374849,
+  "task_count": 16,
   "phase_breakdown_seconds": {
     "queued_to_assigned": {
-      "mean": 138.79729634523392,
-      "median": 90.74385786056519,
+      "mean": 38.043618977069855,
+      "median": 38.39387631416321,
       "n": 4
     },
     "assigned_to_propose_done": {
-      "mean": 271.93229216337204,
-      "median": 271.4227080345154,
+      "mean": 118.47596317529678,
+      "median": 112.9105794429779,
       "n": 4
     },
     "propose_to_execute_done": {
-      "mean": 3.410735249519348,
-      "median": 3.410735249519348,
-      "n": 2
+      "mean": null,
+      "median": null,
+      "n": 0
     },
     "execute_to_terminal": {
-      "mean": 83.21495183308919,
-      "median": 119.23617696762085,
+      "mean": 67.41928418477376,
+      "median": 4.2591001987457275,
       "n": 3
     },
     "total": {
-      "mean": 616.7065292767116,
-      "median": 845.199946641922,
-      "n": 7
+      "mean": 236.49075976285067,
+      "median": 253.94771814346313,
+      "n": 11
     }
   },
   "llm_call_profile": {
@@ -34,7 +34,7 @@
     "calls_seen_real": 0,
     "calls_seen_synthetic": 0,
     "calls_seen_estimated": 0,
-    "propose_events_seen": 757,
+    "propose_events_seen": 74,
     "success_count": 0,
     "fail_count": 0,
     "success_count_real": 0,
@@ -51,8 +51,8 @@
   },
   "autopilot_throughput_idle": {
     "tasks_assigned_count": 4,
-    "tasks_assigned_per_min": 0.6987064843376948,
-    "median_idle_gap_seconds": 131.21854853630066,
+    "tasks_assigned_per_min": 0.8407043827426774,
+    "median_idle_gap_seconds": 44.41923236846924,
     "no_candidates_ticks_seen": 0
   }
 }

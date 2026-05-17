@@ -73,11 +73,27 @@ class AutopilotDecisionService:
             snapshot["routing"] = normalized.get("routing")
         if isinstance(normalized.get("cli_result"), dict):
             snapshot["cli_result"] = normalized.get("cli_result")
-        elif isinstance(normalized.get("metadata"), dict):
-            profile = list((normalized.get("metadata") or {}).get("llm_call_profile") or [])
+        else:
+            profile = self._extract_llm_call_profile(normalized)
             if profile:
                 snapshot["cli_result"] = {"llm_call_profile": profile}
         return snapshot
+
+    def _extract_llm_call_profile(self, normalized: dict[str, Any]) -> list[dict[str, Any]]:
+        entries: list[dict[str, Any]] = []
+        meta = normalized.get("metadata")
+        if isinstance(meta, dict):
+            for item in list(meta.get("llm_call_profile") or []):
+                if isinstance(item, dict):
+                    entries.append(dict(item))
+        wrapped = normalized.get("proposal")
+        if isinstance(wrapped, dict):
+            wrapped_meta = wrapped.get("metadata")
+            if isinstance(wrapped_meta, dict):
+                for item in list(wrapped_meta.get("llm_call_profile") or []):
+                    if isinstance(item, dict):
+                        entries.append(dict(item))
+        return entries
 
     def evaluate_tool_guardrails_for_autopilot(
         self,
