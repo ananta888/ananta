@@ -186,23 +186,6 @@ def _scenario_definitions(config_snapshot: dict[str, Any]) -> list[dict[str, Any
 
     return [
         {
-            "id": "ananta_ollama_local",
-            "label": "Ananta Worker + Local Ollama",
-            "config_patch": _deep_merge(
-                _backend_patch("ananta-worker"),
-                {
-                    "default_provider": "ollama",
-                    "default_model": local_ollama_model,
-                    "llm_config": {
-                        "provider": "ollama",
-                        "model": local_ollama_model,
-                        "base_url": "http://ollama:11434/api/generate",
-                    },
-                    "opencode_runtime": {"target_provider": "ollama"},
-                },
-            ),
-        },
-        {
             "id": "opencode_preconfigured",
             "label": "OpenCode Worker + Preconfigured Model",
             "config_patch": _deep_merge(
@@ -222,6 +205,23 @@ def _scenario_definitions(config_snapshot: dict[str, Any]) -> list[dict[str, Any
             "label": "OpenCode Worker + Local Ollama",
             "config_patch": _deep_merge(
                 _backend_patch("opencode"),
+                {
+                    "default_provider": "ollama",
+                    "default_model": local_ollama_model,
+                    "llm_config": {
+                        "provider": "ollama",
+                        "model": local_ollama_model,
+                        "base_url": "http://ollama:11434/api/generate",
+                    },
+                    "opencode_runtime": {"target_provider": "ollama"},
+                },
+            ),
+        },
+        {
+            "id": "ananta_ollama_local",
+            "label": "Ananta Worker + Local Ollama",
+            "config_patch": _deep_merge(
+                _backend_patch("ananta-worker"),
                 {
                     "default_provider": "ollama",
                     "default_model": local_ollama_model,
