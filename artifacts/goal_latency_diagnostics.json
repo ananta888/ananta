@@ -1,41 +1,41 @@
 {
-  "goal_id": "6fb2a832-39e6-4356-9d05-97fad4b90ab8",
-  "generated_at": 1779010204.2781672,
-  "task_count": 8,
+  "goal_id": "8874e137-87dc-4191-af9f-b8879a027c7a",
+  "generated_at": 1779017719.3531585,
+  "task_count": 30,
   "phase_breakdown_seconds": {
     "queued_to_assigned": {
-      "mean": 25.475427865982056,
-      "median": 25.475427865982056,
-      "n": 2
+      "mean": 54.840067863464355,
+      "median": 47.35351073741913,
+      "n": 4
     },
     "assigned_to_propose_done": {
-      "mean": 10.424396634101868,
-      "median": 10.424396634101868,
-      "n": 2
+      "mean": 149.4980302453041,
+      "median": 179.94404983520508,
+      "n": 4
     },
     "propose_to_execute_done": {
-      "mean": 0.37688255310058594,
-      "median": 0.37688255310058594,
-      "n": 1
+      "mean": null,
+      "median": null,
+      "n": 0
     },
     "execute_to_terminal": {
-      "mean": 0.43245363235473633,
-      "median": 0.43245363235473633,
-      "n": 1
+      "mean": 79.08206311861674,
+      "median": 109.983882188797,
+      "n": 3
     },
     "total": {
-      "mean": 34.93769884109497,
-      "median": 34.93769884109497,
-      "n": 1
+      "mean": 242.9853793144226,
+      "median": 243.3525266647339,
+      "n": 30
     }
   },
   "llm_call_profile": {
-    "calls_seen_total": 1,
+    "calls_seen_total": 5,
     "calls_seen_real": 0,
-    "calls_seen_synthetic": 1,
-    "calls_seen_estimated": 1,
-    "propose_events_seen": 8,
-    "success_count": 1,
+    "calls_seen_synthetic": 5,
+    "calls_seen_estimated": 5,
+    "propose_events_seen": 6,
+    "success_count": 5,
     "fail_count": 0,
     "success_count_real": 0,
     "fail_count_real": 0,
@@ -44,21 +44,23 @@
     "prompt_tokens_mean_real": null,
     "completion_tokens_mean_real": null,
     "by_model": {
+      "ananta-default:latest": 4,
       "<unknown>": 1
     },
     "by_model_real": {},
     "by_model_synthetic": {
+      "ananta-default:latest": 4,
       "<unknown>": 1
     },
     "by_source": {
-      "orchestrator_synthetic": 1
+      "orchestrator_synthetic": 5
     },
     "note": "synthetic entries prove orchestration activity but are excluded from real latency/token statistics"
   },
   "autopilot_throughput_idle": {
-    "tasks_assigned_count": 2,
-    "tasks_assigned_per_min": 6.1304129633977,
-    "median_idle_gap_seconds": 19.574537754058838,
+    "tasks_assigned_count": 4,
+    "tasks_assigned_per_min": 0.9341347074392853,
+    "median_idle_gap_seconds": 123.96380877494812,
     "no_candidates_ticks_seen": 0
   }
 }

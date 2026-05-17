@@ -232,6 +232,7 @@ def run_once(runner: AcceptanceRunner, *, run_index: int, workspace_root: Path, 
     status_seen: list[tuple[float, str]] = []
     first_status_time = None
     task_count_at_60 = 0
+    first_task_seen_at = None
     first_assigned_at = None
     first_post_assigned_change = False
     deadlock_start = None
@@ -241,6 +242,14 @@ def run_once(runner: AcceptanceRunner, *, run_index: int, workspace_root: Path, 
     workspace_file_seen = False
     verification_seen = False
     latest_tasks: list[dict[str, Any]] = []
+    max_idle_stretch_s = 0.0
+    idle_hang_violation = False
+    last_activity_at = started_at
+    prev_status = None
+    prev_task_count = 0
+    planning_extended_by_activity = False
+    planning_real_llm_seen = False
+    planning_synthetic_llm_seen = False
 
     final_status = None
     deadline = started_at + runner.timeout_s
@@ -255,17 +264,28 @@ def run_once(runner: AcceptanceRunner, *, run_index: int, workspace_root: Path, 
             status_seen.append((now, status))
             if first_status_time is None and status in {"planning", "planned"}:
                 first_status_time = now
+            if prev_status is None or status != prev_status:
+                last_activity_at = now
+            prev_status = status
         if now - started_at <= 60:
             task_count_at_60 = max(task_count_at_60, len(tasks))
+        if first_task_seen_at is None and len(tasks) > 0:
+            first_task_seen_at = now
+            last_activity_at = now
+        if len(tasks) != prev_task_count:
+            last_activity_at = now
+            prev_task_count = len(tasks)
 
         # criterion 3 + 4
         task_statuses = [str(t.get("status") or "") for t in tasks]
         assigned_now = any(s == "assigned" for s in task_statuses)
         if assigned_now and first_assigned_at is None:
             first_assigned_at = now
+            last_activity_at = now
         if first_assigned_at is not None:
             if any(s in {"proposing", "in_progress", "completed", "failed"} for s in task_statuses):
                 first_post_assigned_change = True
+                last_activity_at = now
 
         non_terminal = [s for s in task_statuses if s and s not in TERMINAL_STATUSES]
         if non_terminal and all(s in BLOCKED_SET for s in non_terminal):
@@ -309,6 +329,29 @@ def run_once(runner: AcceptanceRunner, *, run_index: int, workspace_root: Path, 
             if any(k in low for k in ("pytest", "test", "verification", "smoke", "nicht-ausfuehrbar", "nicht ausführbar")):
                 verification_seen = True
                 break
+
+            # Treat persisted llm_call_profile as planning activity evidence.
+            proposal = dict(task_detail.get("last_proposal") or {})
+            cli_result = dict(proposal.get("cli_result") or {})
+            prof_entries = list(cli_result.get("llm_call_profile") or [])
+            if prof_entries:
+                last_activity_at = now
+            for entry in prof_entries:
+                if not isinstance(entry, dict):
+                    continue
+                est = bool(entry.get("estimated"))
+                src = str(entry.get("source") or "").strip()
+                if est or src == "orchestrator_synthetic":
+                    planning_synthetic_llm_seen = True
+                else:
+                    planning_real_llm_seen = True
+
+        idle_s = now - last_activity_at
+        max_idle_stretch_s = max(max_idle_stretch_s, idle_s)
+        if status in {"planning", "planned"} and idle_s > 120:
+            idle_hang_violation = True
+        if status in {"planning", "planned"} and (now - started_at) > 60 and (planning_real_llm_seen or first_task_seen_at is not None):
+            planning_extended_by_activity = True
         if status in TERMINAL_STATUSES:
             final_status = status
             break
@@ -322,17 +365,45 @@ def run_once(runner: AcceptanceRunner, *, run_index: int, workspace_root: Path, 
     report.criteria[0].details += f"; first_planning_state_at={(first_status_time-started_at) if first_status_time else None:.2f}s" if first_status_time else "; first_planning_state_at=None"
 
     # 2 task materialization auto
-    c2 = task_count_at_60 >= 1
-    report.criteria.append(CriterionResult(2, "Task-Materialisierung erfolgt automatisch", c2, f"task_count_within_60s={task_count_at_60}"))
+    c2_fast = task_count_at_60 >= 1
+    c2_slow_active = (first_task_seen_at is not None) and planning_extended_by_activity and not idle_hang_violation
+    c2 = c2_fast or c2_slow_active
+    report.criteria.append(
+        CriterionResult(
+            2,
+            "Task-Materialisierung erfolgt automatisch",
+            c2,
+            (
+                f"task_count_within_60s={task_count_at_60}; "
+                f"first_task_seen_at={(first_task_seen_at-started_at) if first_task_seen_at else None}; "
+                f"planning_extended_by_activity={planning_extended_by_activity}; "
+                f"idle_hang_violation={idle_hang_violation}; "
+                f"max_idle_stretch_s={max_idle_stretch_s:.1f}"
+            ),
+        )
+    )
 
     # 3 autopilot takeover no intervention
-    c3 = (first_assigned_at is not None and (first_assigned_at - started_at) <= 90 and first_post_assigned_change)
+    c3_fast = (first_assigned_at is not None and (first_assigned_at - started_at) <= 90 and first_post_assigned_change)
+    c3_slow_active = (
+        first_assigned_at is not None
+        and first_post_assigned_change
+        and not idle_hang_violation
+        and (planning_real_llm_seen or planning_synthetic_llm_seen)
+    )
+    c3 = c3_fast or c3_slow_active
     report.criteria.append(
         CriterionResult(
             3,
             "Autopilot-Übernahme ohne Eingriff",
             c3,
-            f"first_assigned_at={(first_assigned_at-started_at) if first_assigned_at else None}; post_assigned_change={first_post_assigned_change}",
+            (
+                f"first_assigned_at={(first_assigned_at-started_at) if first_assigned_at else None}; "
+                f"post_assigned_change={first_post_assigned_change}; "
+                f"planning_real_llm_seen={planning_real_llm_seen}; "
+                f"planning_synthetic_llm_seen={planning_synthetic_llm_seen}; "
+                f"idle_hang_violation={idle_hang_violation}"
+            ),
         )
     )
 

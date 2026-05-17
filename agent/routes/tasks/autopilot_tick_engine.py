@@ -85,6 +85,7 @@ def _ensure_llm_profile_snapshot(
     snapshot: dict[str, Any],
     strategy_id: str | None,
     model_meta: dict[str, Any] | None,
+    preferred_profile: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     updated = dict(snapshot or {})
     cli_result = updated.get("cli_result")
@@ -93,6 +94,18 @@ def _ensure_llm_profile_snapshot(
     profile = list(cli_result.get("llm_call_profile") or [])
     has_profile = any(isinstance(entry, dict) for entry in profile)
     if has_profile:
+        updated["cli_result"] = cli_result
+        return updated
+    preferred = [dict(entry) for entry in list(preferred_profile or []) if isinstance(entry, dict)]
+    if preferred:
+        cli_result["llm_call_profile"] = preferred
+        if "latency_ms" not in cli_result:
+            cli_result["latency_ms"] = None
+        if "returncode" not in cli_result:
+            cli_result["returncode"] = 0
+        backend_prefill = str(updated.get("backend") or "").strip() or "orchestrator"
+        if "output_source" not in cli_result:
+            cli_result["output_source"] = backend_prefill
         updated["cli_result"] = cli_result
         return updated
 
@@ -146,7 +159,7 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
         return False
 
     non_terminal = [task for task in all_tasks if not _is_terminal_status(str(getattr(task, "status", "") or "").strip().lower())]
-    active_statuses = {"assigned", "proposing", "in_progress", "waiting_for_review"}
+    active_statuses = {"assigned", "proposing", "in_progress"}
     has_active = any(str(getattr(task, "status", "") or "").strip().lower() in active_statuses for task in non_terminal)
     if has_active:
         return False
@@ -159,9 +172,46 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
     max_attempts = 2
     cooldown_seconds = 45
     if attempts >= max_attempts or (last_attempt_at and (now_ts - last_attempt_at) < cooldown_seconds):
+        # If planning has exhausted recovery attempts and still has no dispatchable
+        # candidates, terminate the goal explicitly to avoid indefinite planned hangs.
+        stall_since = float(recovery.get("stall_since") or 0.0) or now_ts
+        recovery.setdefault("stall_since", stall_since)
+        stalled_for = max(0.0, now_ts - stall_since)
+        stale_threshold_seconds = 120.0
+        if attempts >= max_attempts and stalled_for >= stale_threshold_seconds:
+            try:
+                services.goal_lifecycle_service.transition_goal(
+                    goal,
+                    target_status="failed",
+                    reason="planned_stall_no_dispatchable_candidates",
+                )
+                recovery.update(
+                    {
+                        "last_attempt_at": now_ts,
+                        "last_reason": "planned_stall_no_dispatchable_candidates",
+                        "stalled_for_seconds": int(stalled_for),
+                    }
+                )
+                execution_preferences["autopilot_recovery"] = recovery
+                goal.execution_preferences = execution_preferences
+                repos.goal_repo.save(goal)
+            except Exception:
+                pass
+        else:
+            recovery.update(
+                {
+                    "last_attempt_at": now_ts,
+                    "last_reason": "recovery_cooldown_or_exhausted",
+                    "stalled_for_seconds": int(stalled_for),
+                }
+            )
+            execution_preferences["autopilot_recovery"] = recovery
+            goal.execution_preferences = execution_preferences
+            repos.goal_repo.save(goal)
         return False
 
     recovery_reason = "no_nonterminal_tasks" if not non_terminal else "no_dispatchable_candidates"
+    recovery.setdefault("stall_since", now_ts)
     try:
         from agent.routes.tasks.auto_planner import auto_planner
 
@@ -193,6 +243,7 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
         goal.execution_preferences = execution_preferences
         repos.goal_repo.save(goal)
         if created_ids:
+            recovery["stall_since"] = now_ts
             with contextlib.suppress(Exception):
                 loop.wake()
             return True
@@ -762,6 +813,7 @@ def _dispatch_one_task_inner(  # noqa: C901
         )
         propose_data = None
         strategy_failures: list[dict[str, Any]] = []
+        collected_llm_profiles: list[dict[str, Any]] = []
         selected_attempt_meta: dict[str, Any] = {}
         required_context_tokens = max(
             1024,
@@ -904,6 +956,11 @@ def _dispatch_one_task_inner(  # noqa: C901
                 )
                 continue
             candidate_snapshot = services.autopilot_decision_service.build_proposal_snapshot(candidate_data)
+            candidate_cli = candidate_snapshot.get("cli_result")
+            if isinstance(candidate_cli, dict):
+                for entry in list(candidate_cli.get("llm_call_profile") or []):
+                    if isinstance(entry, dict):
+                        collected_llm_profiles.append(dict(entry))
             if candidate_snapshot.get("command") or candidate_snapshot.get("tool_calls"):
                 selected_attempt_meta = {
                     "attempt": attempt_index,
@@ -985,6 +1042,7 @@ def _dispatch_one_task_inner(  # noqa: C901
                 snapshot={"strategy_failures": strategy_failures[-5:]},
                 strategy_id=None,
                 model_meta=model_meta if isinstance(model_meta, dict) else None,
+                preferred_profile=collected_llm_profiles,
             )
             update_local_task_status(
                 task.id,
@@ -1363,6 +1421,8 @@ def execute_autopilot_tick(
     # Reset tasks stuck in `proposing` with no output for > 90 s back to `todo`
     # so the autopilot can retry them (workers can crash mid-dispatch).
     _PROPOSING_STALE_SECONDS = 30
+    _ASSIGNED_STALE_SECONDS = 60
+    _IN_PROGRESS_STALE_SECONDS = 120
     _RECOVER_WAITING_REVIEW_SECONDS = 30
     now_ts = time.time()
     for _t in all_tasks:
@@ -1381,6 +1441,61 @@ def execute_autopilot_tick(
             force=True,
         )
         append_trace_event(_t.id, "stale_proposing_reset", reason="no_output_after_90s")
+
+    # Recover stale active tasks that stopped progressing without terminal output.
+    # This keeps autonomous runs moving when worker transport/runtime hangs.
+    for _t in all_tasks:
+        _status = str(getattr(_t, "status", "") or "").lower()
+        if _status not in {"assigned", "in_progress"}:
+            continue
+        _updated = float(getattr(_t, "updated_at", None) or 0)
+        stale_after = _ASSIGNED_STALE_SECONDS if _status == "assigned" else _IN_PROGRESS_STALE_SECONDS
+        if _updated and (now_ts - _updated) < stale_after:
+            continue
+        _verification = dict(getattr(_t, "verification_status", None) or {})
+        _recovery = dict(_verification.get("autopilot_recovery") or {})
+        retries = int(_recovery.get("stale_active_retries") or 0)
+        max_retries = 3
+        if retries < max_retries:
+            _recovery.update(
+                {
+                    "stale_active_retries": retries + 1,
+                    "last_stale_active_status": _status,
+                    "last_stale_active_retry_at": now_ts,
+                }
+            )
+            _verification["autopilot_recovery"] = _recovery
+            update_local_task_status(
+                _t.id,
+                "todo",
+                verification_status=_verification,
+                event_type="stale_active_task_retry",
+                event_actor="autopilot_tick",
+                force=True,
+            )
+            append_trace_event(
+                _t.id,
+                "stale_active_task_retry",
+                stale_status=_status,
+                retry_attempt=retries + 1,
+                stale_after_seconds=stale_after,
+            )
+            continue
+        update_local_task_status(
+            _t.id,
+            "failed",
+            error=f"stale_active_task_exhausted:{_status}",
+            event_type="stale_active_task_auto_failed",
+            event_actor="autopilot_tick",
+            force=True,
+        )
+        append_trace_event(
+            _t.id,
+            "stale_active_task_auto_failed",
+            stale_status=_status,
+            retry_attempt=retries,
+            stale_after_seconds=stale_after,
+        )
 
     # Auto-recover waiting_for_review tasks caused by recoverable runtime/tooling issues.
     # These are machine-retryable artifacts and should not deadlock the chain.
@@ -1411,6 +1526,31 @@ def execute_autopilot_tick(
             _t.id,
             "recover_waiting_review_retryable_failure",
             reason="auto_retry_recoverable_waiting_review_failure",
+        )
+
+    # Guardrail: in fully autonomous runs, stale waiting_for_review tasks must
+    # not block goal terminalization indefinitely. If no machine-retry marker
+    # was detected above, fail the task after a grace window.
+    _FORCE_FAIL_WAITING_REVIEW_SECONDS = 90
+    for _t in all_tasks:
+        if str(getattr(_t, "status", "") or "").lower() != "waiting_for_review":
+            continue
+        _updated = float(getattr(_t, "updated_at", None) or 0)
+        if _updated and (now_ts - _updated) < _FORCE_FAIL_WAITING_REVIEW_SECONDS:
+            continue
+        update_local_task_status(
+            _t.id,
+            "failed",
+            error="waiting_for_review_timeout_auto_failed",
+            event_type="waiting_for_review_timeout_auto_failed",
+            event_actor="autopilot_tick",
+            force=True,
+        )
+        append_trace_event(
+            _t.id,
+            "waiting_for_review_timeout_auto_failed",
+            reason="auto_fail_stale_waiting_for_review",
+            timeout_seconds=_FORCE_FAIL_WAITING_REVIEW_SECONDS,
         )
 
     transitions = services.task_queue_service.reconcile_dependencies(tasks=all_tasks, dependency_resolver=task_dependencies)
