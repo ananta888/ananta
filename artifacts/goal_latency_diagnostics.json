@@ -1,17 +1,17 @@
 {
-  "goal_id": "d2242767-39be-4e17-a13c-d2d0f7278e60",
-  "generated_at": 1779009426.934952,
-  "task_count": 9,
+  "goal_id": "ca1ebcb8-f37d-431a-a591-bad3d045f313",
+  "generated_at": 1779009643.2398818,
+  "task_count": 10,
   "phase_breakdown_seconds": {
     "queued_to_assigned": {
-      "mean": 4.072570323944092,
-      "median": 4.072570323944092,
-      "n": 1
+      "mean": null,
+      "median": null,
+      "n": 0
     },
     "assigned_to_propose_done": {
-      "mean": 11.686615705490112,
-      "median": 11.686615705490112,
-      "n": 1
+      "mean": null,
+      "median": null,
+      "n": 0
     },
     "propose_to_execute_done": {
       "mean": null,
@@ -34,7 +34,7 @@
     "calls_seen_real": 0,
     "calls_seen_synthetic": 0,
     "calls_seen_estimated": 0,
-    "propose_events_seen": 28,
+    "propose_events_seen": 0,
     "success_count": 0,
     "fail_count": 0,
     "success_count_real": 0,
@@ -50,7 +50,7 @@
     "note": "synthetic entries prove orchestration activity but are excluded from real latency/token statistics"
   },
   "autopilot_throughput_idle": {
-    "tasks_assigned_count": 1,
+    "tasks_assigned_count": 0,
     "tasks_assigned_per_min": null,
     "median_idle_gap_seconds": null,
     "no_candidates_ticks_seen": 0
