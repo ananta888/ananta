@@ -14,10 +14,10 @@
       "scenario_label": "OpenCode Worker + Preconfigured Model",
       "config_mode": "goal_scoped",
       "config_profile": "opencode_preconfigured",
-      "goal_id": "12b37992-3d50-435a-b957-801c2facaf54",
-      "output_dir": "first-goal-run-1-2c107a",
+      "goal_id": "42bc08d1-607e-4a85-89dd-774f7d3bd36e",
+      "output_dir": "first-goal-run-1-9316e3",
       "final_goal_status": "failed",
-      "config_checksum": "e8a325b6c23fe11a03749fe0398b80cc4ffbeeb2709b88dbe33759516325b45d",
+      "config_checksum": "dd7f3943625dc909bc6e4860cebfed78e0157055d76a43440a9a7bf6f61fe73f",
       "goal_config_source": "snapshot",
       "effective_config_endpoint_status": 200,
       "passed": false,
@@ -26,13 +26,13 @@
           "id": 1,
           "name": "Goal-Ingestion stabil",
           "passed": true,
-          "details": "new_goal_ids=['12b37992-3d50-435a-b957-801c2facaf54']; submit_error=HTTPConnectionPool(host='127.0.0.1', port=5000): Read timed out. (read timeout=12); first_planning_state_at=12.02s"
+          "details": "new_goal_ids=['42bc08d1-607e-4a85-89dd-774f7d3bd36e']; submit_error=HTTPConnectionPool(host='127.0.0.1', port=5000): Read timed out. (read timeout=12); first_planning_state_at=12.01s"
         },
         {
           "id": 2,
           "name": "Task-Materialisierung erfolgt automatisch",
           "passed": false,
-          "details": "task_count_within_60s=0; first_task_seen_at=None; planning_extended_by_activity=False; idle_hang_violation=False; max_idle_stretch_s=64.7"
+          "details": "task_count_within_60s=0; first_task_seen_at=None; planning_extended_by_activity=False; idle_hang_violation=False; max_idle_stretch_s=0.0"
         },
         {
           "id": 3,
@@ -56,7 +56,7 @@
           "id": 6,
           "name": "Workspace-Schreibphase erreicht",
           "passed": false,
-          "details": "workspace=/app/artifacts/first_goal_acceptance_runs/first-goal-run-1-2c107a; file_seen=False"
+          "details": "workspace=/app/artifacts/first_goal_acceptance_runs/first-goal-run-1-9316e3; file_seen=False"
         },
         {
           "id": 7,
@@ -84,8 +84,8 @@
       "scenario_label": "OpenCode Worker + Local Ollama",
       "config_mode": "goal_scoped",
       "config_profile": "opencode_ollama_local",
-      "goal_id": "8438989c-1421-4fef-8c17-c0b833ed53ac",
-      "output_dir": "first-goal-run-2-e87942",
+      "goal_id": "46916669-c59d-40c3-b0ca-0cb202ef0b9c",
+      "output_dir": "first-goal-run-2-5b47a8",
       "final_goal_status": "failed",
       "config_checksum": "473d9fabe4f166416c6be5455281b55b69a12422e7e5c131dbf005d7d9e79695",
       "goal_config_source": "snapshot",
@@ -95,8 +95,8 @@
         {
           "id": 1,
           "name": "Goal-Ingestion stabil",
-          "passed": false,
-          "details": "new_goal_ids=['8438989c-1421-4fef-8c17-c0b833ed53ac']; submit_error=None"
+          "passed": true,
+          "details": "new_goal_ids=['46916669-c59d-40c3-b0ca-0cb202ef0b9c']; submit_error=HTTPConnectionPool(host='127.0.0.1', port=5000): Read timed out. (read timeout=12); first_planning_state_at=12.02s"
         },
         {
           "id": 2,
@@ -126,7 +126,7 @@
           "id": 6,
           "name": "Workspace-Schreibphase erreicht",
           "passed": false,
-          "details": "workspace=/app/artifacts/first_goal_acceptance_runs/first-goal-run-2-e87942; file_seen=False"
+          "details": "workspace=/app/artifacts/first_goal_acceptance_runs/first-goal-run-2-5b47a8; file_seen=False"
         },
         {
           "id": 7,
@@ -154,8 +154,8 @@
       "scenario_label": "Ananta Worker + Local Ollama",
       "config_mode": "goal_scoped",
       "config_profile": "ananta_ollama_local",
-      "goal_id": "b332c125-55b1-47d5-b193-a7bc536c201f",
-      "output_dir": "first-goal-run-3-cb1272",
+      "goal_id": "e0e9a188-2e2d-403c-8c1a-f9a058c2a5ff",
+      "output_dir": "first-goal-run-3-cfb086",
       "final_goal_status": "failed",
       "config_checksum": "9a1430ea6ebeee538c2120bbd398a6f61022bb35dc72890f5b4e76993edcb696",
       "goal_config_source": "snapshot",
@@ -165,8 +165,8 @@
         {
           "id": 1,
           "name": "Goal-Ingestion stabil",
-          "passed": false,
-          "details": "new_goal_ids=['b332c125-55b1-47d5-b193-a7bc536c201f']; submit_error=None"
+          "passed": true,
+          "details": "new_goal_ids=['e0e9a188-2e2d-403c-8c1a-f9a058c2a5ff']; submit_error=HTTPConnectionPool(host='127.0.0.1', port=5000): Read timed out. (read timeout=12); first_planning_state_at=12.04s"
         },
         {
           "id": 2,
@@ -196,7 +196,7 @@
           "id": 6,
           "name": "Workspace-Schreibphase erreicht",
           "passed": false,
-          "details": "workspace=/app/artifacts/first_goal_acceptance_runs/first-goal-run-3-cb1272; file_seen=False"
+          "details": "workspace=/app/artifacts/first_goal_acceptance_runs/first-goal-run-3-cfb086; file_seen=False"
         },
         {
           "id": 7,

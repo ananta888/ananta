@@ -53,3 +53,51 @@ def test_parse_followup_analysis_returns_parse_error_for_invalid_json() -> None:
     parsed = parse_followup_analysis("not-json")
     assert parsed["parse_error"] is True
     assert parsed["error_classification"] == "missing_json"
+
+
+def test_parse_subtasks_from_llm_response_extracts_actionable_steps() -> None:
+    response = """
+    {
+      "actionable_steps": [
+        {"step": 1, "title": "Create project skeleton", "detail": "Initialize package and files"},
+        {"step": 2, "title": "Add tests", "detail": "Implement pytest coverage"}
+      ]
+    }
+    """
+    subtasks = parse_subtasks_from_llm_response(response)
+    assert len(subtasks) == 2
+    assert subtasks[0]["title"] == "Create project skeleton"
+    assert "Initialize package" in subtasks[0]["description"]
+
+
+def test_parse_subtasks_from_llm_response_extracts_implementation_roadmap_tasks() -> None:
+    response = """
+    {
+      "implementation_roadmap": {
+        "phase_1": {
+          "goal": "Foundation",
+          "tasks": [
+            "Create FastAPI app",
+            "Add fibonacci service"
+          ]
+        }
+      }
+    }
+    """
+    subtasks = parse_subtasks_from_llm_response(response)
+    assert len(subtasks) == 2
+    assert "Create FastAPI app" in subtasks[0]["description"]
+
+
+def test_parse_subtasks_from_llm_response_extracts_next_action_items() -> None:
+    response = """
+    {
+      "next_action_items": [
+        {"task": "Define Core Entities", "details": "Identify domain objects"},
+        {"task": "Set up FastAPI Skeleton", "details": "Create endpoint structure"}
+      ]
+    }
+    """
+    subtasks = parse_subtasks_from_llm_response(response)
+    assert len(subtasks) == 2
+    assert subtasks[0]["title"] == "Define Core Entities"
