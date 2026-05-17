@@ -2285,6 +2285,44 @@ class TaskScopedExecutionService:
         )
         if not has_proposal_payload:
             return
+        cli_result = response.get("cli_result") if isinstance(response.get("cli_result"), dict) else None
+        if cli_result is None:
+            snapshot = get_core_services().autopilot_decision_service.build_proposal_snapshot(response)
+            snapshot_cli = snapshot.get("cli_result") if isinstance(snapshot.get("cli_result"), dict) else None
+            if isinstance(snapshot_cli, dict):
+                cli_result = dict(snapshot_cli)
+        if not isinstance(cli_result, dict):
+            backend = str(response.get("backend") or "orchestrator").strip() or "orchestrator"
+            model = str(response.get("model") or "").strip() or None
+            provider = None
+            ms = response.get("model_selection")
+            if isinstance(ms, dict):
+                provider = str(ms.get("runtime_provider") or "").strip() or None
+                model = model or (str(ms.get("selected_model") or "").strip() or None)
+            cli_result = {
+                "returncode": 0,
+                "latency_ms": None,
+                "output_source": backend,
+                "llm_call_profile": [
+                    {
+                        "name": "propose_forwarded",
+                        "backend": backend,
+                        "provider": provider,
+                        "model": model,
+                        "success": True,
+                        "latency_ms": None,
+                        "prompt_tokens": None,
+                        "completion_tokens": None,
+                        "total_tokens": None,
+                        "source": "orchestrator_synthetic",
+                        "estimated": True,
+                        "error_type": None,
+                        "error_message": None,
+                        "started_at": None,
+                        "ended_at": None,
+                    }
+                ],
+            }
         get_core_services().task_execution_service.persist_task_proposal_result(
             tid=task["id"],
             task=task,
@@ -2293,7 +2331,7 @@ class TaskScopedExecutionService:
             backend=(str(response.get("backend") or "").strip() or None),
             model=(str(response.get("model") or "").strip() or None),
             routing=response.get("routing") if isinstance(response.get("routing"), dict) else None,
-            cli_result=response.get("cli_result") if isinstance(response.get("cli_result"), dict) else None,
+            cli_result=cli_result,
             worker_context=response.get("worker_context") if isinstance(response.get("worker_context"), dict) else None,
             trace=response.get("trace") if isinstance(response.get("trace"), dict) else None,
             review=response.get("review") if isinstance(response.get("review"), dict) else None,

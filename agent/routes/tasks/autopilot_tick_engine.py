@@ -978,12 +978,13 @@ def _dispatch_one_task_inner(  # noqa: C901
                     ),
                 },
             }
-            current_retry_status = _current_task_status(task.id, app=app_ctx)
-            retry_status = "assigned" if current_retry_status in {"assigned", "proposing", "in_progress"} else "todo"
             retry_status = "needs_review" if any(
                 str(item.get("failure_type") or "") == "proposal_budget_exhausted" for item in strategy_failures
-            ) else (
-                "assigned" if current_retry_status in {"assigned", "proposing", "in_progress"} else "todo"
+            ) else "todo"
+            retry_snapshot = _ensure_llm_profile_snapshot(
+                snapshot={"strategy_failures": strategy_failures[-5:]},
+                strategy_id=None,
+                model_meta=model_meta if isinstance(model_meta, dict) else None,
             )
             update_local_task_status(
                 task.id,
@@ -993,7 +994,7 @@ def _dispatch_one_task_inner(  # noqa: C901
                 manual_override_until=(now_ts + cooldown_seconds) if cooldown_seconds > 0 else None,
                 last_proposal=_merged_last_proposal_snapshot(
                     task_id=task.id,
-                    snapshot={"strategy_failures": strategy_failures[-5:]},
+                    snapshot=retry_snapshot,
                     app=app_ctx,
                 ),
                 event_type="autopilot_strategy_retry_scheduled",
