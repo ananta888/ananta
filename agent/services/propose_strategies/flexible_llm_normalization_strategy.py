@@ -32,31 +32,54 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
     def __init__(self) -> None:
         self._normalizer = LLMResponseNormalizer()
 
+    @staticmethod
+    def _with_llm_profile(
+        result: ProposeStrategyResult, llm_profile: list[dict] | None,
+    ) -> ProposeStrategyResult:
+        profile = [entry for entry in list(llm_profile or []) if isinstance(entry, dict)]
+        if not profile:
+            return result
+        result.metadata = dict(result.metadata or {})
+        result.metadata["llm_call_profile"] = profile
+        if result.proposal is not None:
+            result.proposal.metadata = dict(result.proposal.metadata or {})
+            result.proposal.metadata["llm_call_profile"] = profile
+        return result
+
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
+        llm_profile: list[dict] = []
         try:
-            raw = ModelInvocationService.invoke(
+            llm_result = ModelInvocationService.invoke_result(
                 prompt=context.base_prompt,
                 system_prompt=_JSON_SYSTEM_PROMPT,
             )
+            raw = str(llm_result.get("content") or "")
+            llm_profile = [
+                entry
+                for entry in list(((llm_result.get("metadata") or {}).get("llm_call_profile") or []))
+                if isinstance(entry, dict)
+            ]
         except LLMUnavailableError as exc:
-            return ProposeStrategyResult.declined(
+            llm_profile = [entry for entry in list(getattr(exc, "llm_call_profile", []) or []) if isinstance(entry, dict)]
+            return self._with_llm_profile(ProposeStrategyResult.declined(
                 "flexible_llm_normalization",
                 reason=f"llm_required_but_unavailable: {exc}",
                 reason_codes=["llm_required", "llm_provider_unavailable"],
-            )
+            ), llm_profile)
         except Exception as exc:
-            return ProposeStrategyResult.failed(
+            return self._with_llm_profile(ProposeStrategyResult.failed(
                 "flexible_llm_normalization", f"llm_call_failed: {exc}",
-            )
+            ), llm_profile)
 
         if not raw or not raw.strip():
-            return ProposeStrategyResult.declined(
+            return self._with_llm_profile(ProposeStrategyResult.declined(
                 "flexible_llm_normalization", reason="llm_returned_empty_response",
-            )
+            ), llm_profile)
 
         # Determine shell execution policy from context
         allow_shell = False
         if context.policy is not None:
             allow_shell = context.policy.allow_shell_execution
 
-        return self._normalizer.normalize(raw, context, allow_shell_execution=allow_shell)
+        normalized = self._normalizer.normalize(raw, context, allow_shell_execution=allow_shell)
+        return self._with_llm_profile(normalized, llm_profile)

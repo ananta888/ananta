@@ -326,3 +326,23 @@ class ModelInvocationService:
         response = cls._make_chat_call(messages, model=model)
         choice = (response.get("choices") or [{}])[0]
         return (choice.get("message") or {}).get("content") or ""
+
+    @classmethod
+    def invoke_result(cls, prompt: str, model: str | None = None, **kwargs) -> dict[str, Any]:
+        """Plain chat completion with metadata/usage (additive API)."""
+        messages = [{"role": "user", "content": prompt}]
+        if kwargs.get("system_prompt"):
+            messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
+        response = cls._make_chat_call(messages, model=model)
+        choice = (response.get("choices") or [{}])[0]
+        msg = choice.get("message") if isinstance(choice, dict) else {}
+        metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
+        provider = cls._provider_info()[0]
+        return {
+            "content": (msg.get("content") or "") if isinstance(msg, dict) else "",
+            "finish_reason": choice.get("finish_reason") if isinstance(choice, dict) else None,
+            "usage": response.get("usage") if isinstance(response.get("usage"), dict) else {},
+            "metadata": metadata,
+            "provider": provider,
+            "model": response.get("model") or model,
+        }

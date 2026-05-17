@@ -565,68 +565,67 @@ class TaskScopedExecutionService:
             "normalization_format": result.metadata.get("source_format"),
             "effective_strategy_mode": getattr(policy, "effective_strategy_mode", None) or task_override.get("strategy_mode"),
         }
-        if result.is_executable and result.proposal is not None:
-            proposal_meta = dict(getattr(result.proposal, "metadata", None) or {})
-            proposal_provider = str(proposal_meta.get("provider") or "").strip() or None
-            proposal_model = str(proposal_meta.get("model") or "").strip() or None
-            strategy_id = str(getattr(result, "strategy_id", "") or "").strip() or None
-            real_llm_call_profile = list((result.metadata or {}).get("llm_call_profile") or [])
-            if not real_llm_call_profile:
-                real_llm_call_profile = list(proposal_meta.get("llm_call_profile") or [])
-            llm_call_profile = [entry for entry in real_llm_call_profile if isinstance(entry, dict)]
-            if not llm_call_profile and self._allow_synthetic_llm_profile_fallback():
-                # Bridge fallback: preserves correlation for diagnostics when strategy does not expose real call metrics yet.
-                llm_call_profile = [
-                    {
-                        "name": f"propose_{strategy_id or 'orchestrator'}",
-                        "backend": "orchestrator",
-                        "provider": proposal_provider,
-                        "model": proposal_model,
-                        "success": True,
-                        "latency_ms": None,
-                        "prompt_tokens": None,
-                        "completion_tokens": None,
-                        "total_tokens": None,
-                        "source": "orchestrator_synthetic",
-                        "estimated": True,
-                        "error_type": None,
-                        "error_message": None,
-                        "started_at": None,
-                        "ended_at": None,
-                    }
-                ]
-            cli_result = {
-                "returncode": 0,
-                "latency_ms": None,
-                "stderr_preview": None,
-                "output_source": "orchestrator",
-                **({"llm_call_profile": llm_call_profile} if llm_call_profile else {}),
-            }
-            get_core_services().task_execution_service.persist_task_proposal_result(
-                tid=tid,
-                task=task,
-                reason=result.reason,
-                raw=None,
-                backend="orchestrator",
-                model=None,
-                routing={
-                    "task_kind": task_kind,
-                    "propose_strategy_meta": propose_strategy_meta,
-                },
-                cli_result=cli_result,
-                worker_context={"strategy": result.metadata.get("selected_strategy")},
-                trace={"policy_version": "v1"},
-                review=None,
-                command=result.proposal.command,
-                tool_calls=result.proposal.tool_calls or [],
-                research_context=research_context_summary,
-                history_event={
-                    "event_type": "proposal_result",
-                    "reason": result.reason,
+        proposal_meta = dict(getattr(result.proposal, "metadata", None) or {}) if result.proposal is not None else {}
+        proposal_provider = str(proposal_meta.get("provider") or "").strip() or None
+        proposal_model = str(proposal_meta.get("model") or "").strip() or None
+        strategy_id = str(getattr(result, "strategy_id", "") or "").strip() or None
+        real_llm_call_profile = list((result.metadata or {}).get("llm_call_profile") or [])
+        if not real_llm_call_profile:
+            real_llm_call_profile = list(proposal_meta.get("llm_call_profile") or [])
+        llm_call_profile = [entry for entry in real_llm_call_profile if isinstance(entry, dict)]
+        if not llm_call_profile and self._allow_synthetic_llm_profile_fallback():
+            # Bridge fallback: preserves correlation for diagnostics when strategy does not expose real call metrics yet.
+            llm_call_profile = [
+                {
+                    "name": f"propose_{strategy_id or 'orchestrator'}",
                     "backend": "orchestrator",
-                    "propose_strategy_meta": propose_strategy_meta,
-                },
-            )
+                    "provider": proposal_provider,
+                    "model": proposal_model,
+                    "success": True,
+                    "latency_ms": None,
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "total_tokens": None,
+                    "source": "orchestrator_synthetic",
+                    "estimated": True,
+                    "error_type": None,
+                    "error_message": None,
+                    "started_at": None,
+                    "ended_at": None,
+                }
+            ]
+        cli_result = {
+            "returncode": 0,
+            "latency_ms": None,
+            "stderr_preview": None,
+            "output_source": "orchestrator",
+            **({"llm_call_profile": llm_call_profile} if llm_call_profile else {}),
+        }
+        get_core_services().task_execution_service.persist_task_proposal_result(
+            tid=tid,
+            task=task,
+            reason=result.reason,
+            raw=None,
+            backend="orchestrator",
+            model=None,
+            routing={
+                "task_kind": task_kind,
+                "propose_strategy_meta": propose_strategy_meta,
+            },
+            cli_result=cli_result,
+            worker_context={"strategy": result.metadata.get("selected_strategy")},
+            trace={"policy_version": "v1"},
+            review=None,
+            command=(result.proposal.command if result.is_executable and result.proposal is not None else None),
+            tool_calls=(result.proposal.tool_calls or []) if result.is_executable and result.proposal is not None else [],
+            research_context=research_context_summary,
+            history_event={
+                "event_type": "proposal_result",
+                "reason": result.reason,
+                "backend": "orchestrator",
+                "propose_strategy_meta": propose_strategy_meta,
+            },
+        )
 
         return TaskScopedRouteResponse(data={**result_dict, "propose_strategy_meta": propose_strategy_meta})
 

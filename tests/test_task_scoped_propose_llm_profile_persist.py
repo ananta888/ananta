@@ -42,6 +42,30 @@ def _mk_result(*, with_profile: bool) -> ProposeStrategyResult:
     return result
 
 
+def _mk_declined_result_with_profile() -> ProposeStrategyResult:
+    result = ProposeStrategyResult.declined("json_schema_llm", reason="llm_returned_no_executable_output")
+    result.metadata["llm_call_profile"] = [
+        {
+            "name": "chat_completions",
+            "backend": "llm_api",
+            "provider": "ollama",
+            "model": "qwen2.5",
+            "success": True,
+            "latency_ms": 321,
+            "prompt_tokens": 12,
+            "completion_tokens": 3,
+            "total_tokens": 15,
+            "source": "model_invocation_service",
+            "estimated": False,
+            "error_type": None,
+            "error_message": None,
+            "started_at": 1.0,
+            "ended_at": 2.0,
+        }
+    ]
+    return result
+
+
 def test_propose_persists_real_llm_profile_when_available(client, app, admin_auth_header):
     from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 
@@ -104,3 +128,23 @@ def test_propose_persists_synthetic_profile_when_explicitly_enabled(client, app,
         assert profile
         assert profile[0]["source"] == "orchestrator_synthetic"
         assert profile[0]["estimated"] is True
+
+
+def test_propose_persists_real_profile_for_declined_result(client, app, admin_auth_header):
+    from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+    tid = "T-PROFILE-DECLINED-REAL"
+    with app.app_context():
+        _update_local_task_status(tid, "assigned", goal_id="g-4", description="test")
+
+    with patch("worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", return_value=_mk_declined_result_with_profile()):
+        res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "hello"}, headers=admin_auth_header)
+
+    assert res.status_code == 200
+    with app.app_context():
+        task = _get_local_task_status(tid)
+        cli_result = ((task or {}).get("last_proposal") or {}).get("cli_result") or {}
+        profile = list(cli_result.get("llm_call_profile") or [])
+        assert profile
+        assert profile[0]["source"] == "model_invocation_service"
+        assert profile[0]["estimated"] is False
