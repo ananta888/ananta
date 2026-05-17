@@ -106,7 +106,9 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
 
         if not raw_response or not raw_response.strip():
             return ProposeStrategyResult.declined(
-                "json_schema_llm", reason="llm_returned_empty_response",
+                "json_schema_llm",
+                reason="llm_returned_empty_response",
+                metadata={"llm_call_profile": llm_profile} if llm_profile else None,
             )
 
         try:
@@ -117,6 +119,7 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 advisory_text=raw_response[:300],
                 reason="json_parse_failed",
                 reason_codes=["json_parse_failed"],
+                metadata={"llm_call_profile": llm_profile} if llm_profile else None,
             )
 
         if not isinstance(parsed, dict):
@@ -124,6 +127,7 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 "json_schema_llm",
                 advisory_text=str(parsed)[:300],
                 reason="json_not_object",
+                metadata={"llm_call_profile": llm_profile} if llm_profile else None,
             )
 
         tool_calls = parsed.get("tool_calls") or []
@@ -181,5 +185,7 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
             return ProposeStrategyResult.executable("json_schema_llm", proposal)
 
         return ProposeStrategyResult.declined(
-            "json_schema_llm", reason="llm_returned_no_executable_output",
+            "json_schema_llm",
+            reason="llm_returned_no_executable_output",
+            metadata={"llm_call_profile": llm_profile} if llm_profile else None,
         )

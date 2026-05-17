@@ -84,7 +84,12 @@ class TestJsonSchemaLLMStrategy:
 
     def test_declined_empty_json_no_output(self, context, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
-        mock_svc = Mock(return_value={"content": json.dumps({})})
+        mock_svc = Mock(
+            return_value={
+                "content": json.dumps({}),
+                "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
+            }
+        )
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             mock_svc,
@@ -94,10 +99,16 @@ class TestJsonSchemaLLMStrategy:
         # empty JSON has no command or tool_calls → declined (not advisory)
         assert result.status == STATUS_DECLINED
         assert "llm_returned_no_executable_output" in result.reason
+        assert result.metadata["llm_call_profile"][0]["estimated"] is False
 
     def test_advisory_invalid_json_parse_failure(self, context, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
-        mock_svc = Mock(return_value={"content": "invalid { json malformed"})
+        mock_svc = Mock(
+            return_value={
+                "content": "invalid { json malformed",
+                "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
+            }
+        )
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
             mock_svc,
@@ -106,6 +117,7 @@ class TestJsonSchemaLLMStrategy:
         result = strategy.run(context)
         assert result.status == STATUS_ADVISORY
         assert "json_parse_failed" in result.reason
+        assert result.metadata["llm_call_profile"][0]["estimated"] is False
 
     def test_failed_unexpected_exception(self, context, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")

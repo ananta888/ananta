@@ -126,6 +126,7 @@ class ToolCallingLLMStrategy(ProposeStrategy):
         tool_calls = llm_response.get("tool_calls") or []
         content = llm_response.get("content") or ""
         finish_reason = llm_response.get("finish_reason") or ""
+        llm_profile = list(((llm_response.get("metadata") or {}).get("llm_call_profile") or []))
         allow_shell_execution = bool(
             getattr(getattr(context, "policy", None), "allow_shell_execution", False)
         )
@@ -141,6 +142,8 @@ class ToolCallingLLMStrategy(ProposeStrategy):
             if isinstance(fallback.metadata, dict):
                 fallback.metadata["source"] = "tool_calling_llm_content_fallback"
                 fallback.metadata["allow_shell_execution"] = allow_shell_execution
+                if llm_profile:
+                    fallback.metadata["llm_call_profile"] = llm_profile
             if fallback.is_executable or fallback.status == "advisory":
                 return fallback
 
@@ -150,9 +153,12 @@ class ToolCallingLLMStrategy(ProposeStrategy):
                     "tool_calling_llm",
                     reason="tools_not_supported_model_returned_stop",
                     reason_codes=["tools_not_supported"],
+                    metadata={"llm_call_profile": llm_profile} if llm_profile else None,
                 )
             return ProposeStrategyResult.declined(
-                "tool_calling_llm", reason="llm_returned_no_tool_calls",
+                "tool_calling_llm",
+                reason="llm_returned_no_tool_calls",
+                metadata={"llm_call_profile": llm_profile} if llm_profile else None,
             )
 
         # Validate tool calls: each must have a name
@@ -168,7 +174,9 @@ class ToolCallingLLMStrategy(ProposeStrategy):
             valid_tcs.append(tc)
         if not valid_tcs:
             return ProposeStrategyResult.declined(
-                "tool_calling_llm", reason="tool_calls_invalid_or_missing_names",
+                "tool_calling_llm",
+                reason="tool_calls_invalid_or_missing_names",
+                metadata={"llm_call_profile": llm_profile} if llm_profile else None,
             )
 
         proposal = ExecutableProposal(
@@ -182,7 +190,7 @@ class ToolCallingLLMStrategy(ProposeStrategy):
             metadata={
                 "provider": str(llm_response.get("provider") or provider).strip().lower() or provider,
                 "model": str(llm_response.get("model") or "").strip() or None,
-                "llm_call_profile": list(((llm_response.get("metadata") or {}).get("llm_call_profile") or [])),
+                "llm_call_profile": llm_profile,
                 "tools_used": [tc.get("name") for tc in valid_tcs],
                 "prompt_context_bundle": {
                     "schema": pcb.get("schema"),

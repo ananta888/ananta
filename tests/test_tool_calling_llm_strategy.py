@@ -66,7 +66,13 @@ class TestToolCallingLLMStrategy:
 
     def test_declined_empty_tool_calls(self, context_with_tools, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
-        mock_llm = Mock(return_value={"tool_calls": [], "finish_reason": "stop"})
+        mock_llm = Mock(
+            return_value={
+                "tool_calls": [],
+                "finish_reason": "stop",
+                "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
+            }
+        )
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
             mock_llm,
@@ -75,10 +81,17 @@ class TestToolCallingLLMStrategy:
         result = strategy.run(context_with_tools)
         assert result.status == STATUS_DECLINED
         assert "tools_not_supported" in result.reason_codes
+        assert result.metadata["llm_call_profile"][0]["estimated"] is False
 
     def test_declined_no_tool_calls_returned(self, context_with_tools, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
-        mock_llm = Mock(return_value={"tool_calls": [], "finish_reason": "unknown"})
+        mock_llm = Mock(
+            return_value={
+                "tool_calls": [],
+                "finish_reason": "unknown",
+                "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
+            }
+        )
         monkeypatch.setattr(
             "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
             mock_llm,
@@ -87,6 +100,7 @@ class TestToolCallingLLMStrategy:
         result = strategy.run(context_with_tools)
         assert result.status == STATUS_DECLINED
         assert "llm_returned_no_tool_calls" in result.reason
+        assert result.metadata["llm_call_profile"][0]["estimated"] is False
 
     def test_executable_valid_tool_calls(self, context_with_tools, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")

@@ -1,0 +1,201 @@
+{
+  "summary": {
+    "schema": "first_goal_acceptance.v1",
+    "total_runs": 3,
+    "completed_runs": 0,
+    "write_phase_runs": 1,
+    "autopilot_progress_runs": 2,
+    "repeatability_pass": false
+  },
+  "runs": [
+    {
+      "run_index": 1,
+      "goal_id": "d17f3736-ad1a-48cc-a141-8d3a6cfd89c0",
+      "output_dir": "first-goal-run-1-4dfadb",
+      "final_goal_status": "failed",
+      "passed": true,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": true,
+          "details": "new_goal_ids=['d17f3736-ad1a-48cc-a141-8d3a6cfd89c0']; submit_error=HTTPConnectionPool(host='localhost', port=5000): Read timed out. (read timeout=12); first_planning_state_at=12.03s"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": true,
+          "details": "task_count_within_60s=9; first_task_seen_at=17.0513436794281; planning_extended_by_activity=True; idle_hang_violation=False; max_idle_stretch_s=10.1"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": true,
+          "details": "first_assigned_at=32.205390214920044; post_assigned_change=True; planning_real_llm_seen=False; planning_synthetic_llm_seen=False; idle_hang_violation=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": true,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-1-4dfadb; file_seen=True"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": true,
+          "details": "verification_seen=True"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=900"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    },
+    {
+      "run_index": 2,
+      "goal_id": "daa23656-c925-4d1a-a7e4-f14e1be937cf",
+      "output_dir": "first-goal-run-2-dbce5d",
+      "final_goal_status": "failed",
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": true,
+          "details": "new_goal_ids=['daa23656-c925-4d1a-a7e4-f14e1be937cf']; submit_error=HTTPConnectionPool(host='localhost', port=5000): Read timed out. (read timeout=12); first_planning_state_at=12.03s"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": true,
+          "details": "task_count_within_60s=0; first_task_seen_at=74.34586763381958; planning_extended_by_activity=True; idle_hang_violation=False; max_idle_stretch_s=57.3"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": true,
+          "details": "first_assigned_at=89.538015127182; post_assigned_change=True; planning_real_llm_seen=False; planning_synthetic_llm_seen=False; idle_hang_violation=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-2-dbce5d; file_seen=False"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": true,
+          "details": "verification_seen=True"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=900"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    },
+    {
+      "run_index": 3,
+      "goal_id": "8874e137-87dc-4191-af9f-b8879a027c7a",
+      "output_dir": "first-goal-run-3-6c4b5f",
+      "final_goal_status": "failed",
+      "passed": false,
+      "criteria": [
+        {
+          "id": 1,
+          "name": "Goal-Ingestion stabil",
+          "passed": true,
+          "details": "new_goal_ids=['8874e137-87dc-4191-af9f-b8879a027c7a']; submit_error=HTTPConnectionPool(host='localhost', port=5000): Read timed out. (read timeout=12); first_planning_state_at=12.03s"
+        },
+        {
+          "id": 2,
+          "name": "Task-Materialisierung erfolgt automatisch",
+          "passed": true,
+          "details": "task_count_within_60s=0; first_task_seen_at=79.37719178199768; planning_extended_by_activity=True; idle_hang_violation=False; max_idle_stretch_s=89.9"
+        },
+        {
+          "id": 3,
+          "name": "Autopilot-Übernahme ohne Eingriff",
+          "passed": false,
+          "details": "first_assigned_at=94.67403960227966; post_assigned_change=True; planning_real_llm_seen=False; planning_synthetic_llm_seen=False; idle_hang_violation=False"
+        },
+        {
+          "id": 4,
+          "name": "Kein Planungs-Deadlock",
+          "passed": true,
+          "details": "deadlock_violation=False"
+        },
+        {
+          "id": 5,
+          "name": "Provider-Stabilität ausreichend",
+          "passed": true,
+          "details": "circuit_open_violation=False"
+        },
+        {
+          "id": 6,
+          "name": "Workspace-Schreibphase erreicht",
+          "passed": false,
+          "details": "workspace=/home/krusty/ananta/project-workspaces/first-goal-run-3-6c4b5f; file_seen=False"
+        },
+        {
+          "id": 7,
+          "name": "Verifikation vorhanden",
+          "passed": true,
+          "details": "verification_seen=True"
+        },
+        {
+          "id": 8,
+          "name": "Terminaler Goal-Status",
+          "passed": true,
+          "details": "final_status=failed; sla_s=900"
+        },
+        {
+          "id": 10,
+          "name": "Kein manueller Operatoreingriff",
+          "passed": true,
+          "details": "runner used no manual start/tick/retarget/db edits during run"
+        }
+      ]
+    }
+  ]
+}
