@@ -90,6 +90,9 @@ class AutonomousLoopManager:
         self._worker_circuit_open_until: dict[str, float] = {}
         self._provider_backpressure_until: dict[str, float] = {}
         self._provider_backpressure_reason: dict[str, str] = {}
+        self._task_propose_streak: dict[str, int] = {}
+        self._task_propose_last_attempt_at: dict[str, float] = {}
+        self._task_propose_next_allowed_at: dict[str, float] = {}
         self.goal: str = ""
         self.team_id: str = ""
         self.budget_label: str = ""
@@ -446,6 +449,40 @@ class AutonomousLoopManager:
         with self._routing_lock:
             self._provider_backpressure_until[provider_key] = until
             self._provider_backpressure_reason[provider_key] = str(reason or "runtime_backpressure")
+
+    def _task_propose_backoff_details(self, task_id: str) -> tuple[bool, float]:
+        key = str(task_id or "").strip()
+        if not key:
+            return False, 0.0
+        now = time.time()
+        with self._routing_lock:
+            allowed_at = float(self._task_propose_next_allowed_at.get(key, 0.0) or 0.0)
+        if allowed_at <= now:
+            return False, 0.0
+        return True, max(0.0, allowed_at - now)
+
+    def _record_task_propose_attempt(self, task_id: str, *, success: bool) -> None:
+        key = str(task_id or "").strip()
+        if not key:
+            return
+        now = time.time()
+        cfg = self._agent_config() or {}
+        min_interval = max(0.1, min(float(cfg.get("autopilot_task_propose_min_interval_seconds") or 0.75), 5.0))
+        max_backoff = max(min_interval, min(float(cfg.get("autopilot_task_propose_max_backoff_seconds") or 30.0), 120.0))
+        with self._routing_lock:
+            prev_ts = float(self._task_propose_last_attempt_at.get(key, 0.0) or 0.0)
+            streak = int(self._task_propose_streak.get(key, 0))
+            if success:
+                streak = 0
+            else:
+                if prev_ts and (now - prev_ts) <= max(min_interval * 2.0, 2.0):
+                    streak = min(streak + 1, 8)
+                else:
+                    streak = 1
+            delay = min(max_backoff, min_interval * (2 ** max(0, streak)))
+            self._task_propose_streak[key] = streak
+            self._task_propose_last_attempt_at[key] = now
+            self._task_propose_next_allowed_at[key] = now + delay
 
     def _forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:
         cfg = self._resilience_config()

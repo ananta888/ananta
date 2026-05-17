@@ -857,6 +857,42 @@ def _dispatch_one_task_inner(  # noqa: C901
         max_strategy_attempts = int(budget.get("max_strategy_attempts") or 2)
         STRATEGY_ATTEMPT_COUNT.observe(float(len(strategy_candidates)))
         for attempt_index, candidate in enumerate(strategy_candidates, start=1):
+            # Hard guard: never re-propose terminal tasks, even inside strategy loops.
+            latest_status = _current_task_status(task.id, app=app_ctx)
+            if _is_terminal_status(latest_status):
+                append_trace_event(
+                    task.id,
+                    "autopilot_strategy_attempt_skipped_terminal",
+                    delegated_to=target_worker.url,
+                    terminal_status=latest_status,
+                    attempt=attempt_index,
+                )
+                result.dispatched = True
+                result.completed = latest_status == "completed"
+                result.failed = latest_status != "completed"
+                result.failure_type = None if result.completed else latest_status
+                return result
+            # Task-local propose backoff to prevent rapid propose storms.
+            task_propose_backoff = getattr(loop, "_task_propose_backoff_details", None)
+            if callable(task_propose_backoff):
+                deferred, remaining_s = task_propose_backoff(task.id)
+                if deferred:
+                    append_trace_event(
+                        task.id,
+                        "autopilot_strategy_attempt_deferred_backoff",
+                        delegated_to=target_worker.url,
+                        attempt=attempt_index,
+                        backoff_remaining_seconds=round(float(remaining_s), 3),
+                    )
+                    strategy_failures.append(
+                        {
+                            "attempt": attempt_index,
+                            "reason": "task_propose_backoff_deferred",
+                            "failure_type": "task_propose_backoff",
+                            "backoff_remaining_seconds": round(float(remaining_s), 3),
+                        }
+                    )
+                    break
             elapsed = time.time() - budget_started_at
             if elapsed > max_total_seconds:
                 strategy_failures.append(
@@ -939,8 +975,14 @@ def _dispatch_one_task_inner(  # noqa: C901
                     token=target_worker.token,
                 )
                 WORKER_PROPOSE_DURATION_SECONDS.observe(max(0.0, time.time() - _propose_started))
+                record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
+                if callable(record_propose_attempt):
+                    record_propose_attempt(task.id, success=True)
                 candidate_data = services.autopilot_decision_service.normalize_proposal_data(candidate_data)
             except Exception as strategy_exc:
+                record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
+                if callable(record_propose_attempt):
+                    record_propose_attempt(task.id, success=False)
                 strategy_failures.append(
                     {
                         "attempt": attempt_index,
