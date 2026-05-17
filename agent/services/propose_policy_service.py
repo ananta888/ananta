@@ -76,7 +76,7 @@ class ProposePolicyService:
     def _system_default() -> dict[str, Any]:
         return {
             "strategy_order": list(SAFE_DEFAULT_STRATEGY_ORDER),
-            "llm_mode": "assisted",
+            "llm_mode": "primary_with_guardrails",
             "accepted_output_formats": [
                 "tool_calls", "strict_json", "fenced_json",
                 "shell_block", "unified_diff", "file_blocks", "natural_language",
@@ -87,7 +87,7 @@ class ProposePolicyService:
             "allow_json_schema_fallback": True,
             "allow_flexible_normalization": True,
             "allow_worker_fallback": True,
-            "allow_deterministic_fallback": True,
+            "allow_deterministic_fallback": False,
             "allow_human_review": True,
             "max_strategy_attempts": 1,
             "max_repair_attempts": 1,

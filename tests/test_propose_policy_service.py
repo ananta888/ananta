@@ -126,7 +126,9 @@ class TestProposePolicyService:
     def test_task_kind_coding_preset(self):
         svc = self._svc()
         p = svc.get_effective_policy(task_kind="coding")
-        assert STRATEGY_DETERMINISTIC_HANDLER in p.effective_strategy_order()
+        assert STRATEGY_DETERMINISTIC_HANDLER not in p.effective_strategy_order()
+        assert p.allow_deterministic_fallback is False
+        assert p.llm_required is True
         assert p.requires_executable_step is True
 
     def test_unknown_task_kind_uses_defaults(self):
@@ -138,6 +140,6 @@ class TestProposePolicyService:
         svc = self._svc()
         with pytest.raises(Exception):
             svc.get_effective_policy(
-                task_kind="coding",
+                task_kind="exotic_custom_task",
                 project_config={"propose_policy": {"llm_mode": "turbo_go_fast"}},
             )

@@ -185,6 +185,7 @@ class TestLlmRequiredEnforcement:
         policy = ProposePolicy(
             strategy_order=order,
             llm_mode=LLM_MODE_FALLBACK,
+            allow_deterministic_fallback=True,
             on_all_strategies_declined="needs_review",
         )
         proposal = ExecutableProposal.from_command(
