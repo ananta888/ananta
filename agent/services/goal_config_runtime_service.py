@@ -42,6 +42,13 @@ class GoalConfigRuntimeService:
             )
         execution_preferences = dict(getattr(goal, "execution_preferences", None) or {})
         snapshot = dict(execution_preferences.get("config_snapshot") or {})
+        if snapshot and not isinstance(snapshot.get("config"), dict):
+            return GoalEffectiveConfig(
+                config=self._global_config(),
+                source="global_fallback_invalid_snapshot",
+                profile_id=str(execution_preferences.get("config_profile") or "").strip() or None,
+                checksum=str(execution_preferences.get("config_snapshot_checksum") or "").strip() or None,
+            )
         scoped_config = dict(snapshot.get("config") or {}) if isinstance(snapshot, dict) else {}
         if not scoped_config:
             return GoalEffectiveConfig(
