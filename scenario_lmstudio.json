@@ -3,7 +3,6 @@
     {
       "id": "opencode_lmstudio",
       "label": "OpenCode Worker + LMStudio (Gemma-4-E4B)",
-      "config_profile": "opencode_lmstudio",
       "config_overrides": {
         "default_provider": "lmstudio",
         "default_model": "google/gemma-4-e4b",
