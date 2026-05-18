@@ -201,11 +201,11 @@
       "first_seen": 1774556729
     },
     "google/gemma-4-e4b": {
-      "success": 4,
-      "fail": 6,
-      "last_success": 1779105142,
-      "last_fail": 1779105418,
-      "last_used": 1779105418,
+      "success": 9,
+      "fail": 10,
+      "last_success": 1779106418,
+      "last_fail": 1779106150,
+      "last_used": 1779106418,
       "first_seen": 1779104390
     }
   }

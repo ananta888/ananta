@@ -199,6 +199,12 @@ class AutoPlanner:
                 }
                 if llm_temperature is not None:
                     llm_kwargs["temperature"] = llm_temperature
+                raw_max_tokens = llm_config.get("max_output_tokens")
+                if raw_max_tokens is not None:
+                    try:
+                        llm_kwargs["max_output_tokens"] = int(raw_max_tokens)
+                    except (TypeError, ValueError):
+                        pass
                 try:
                     raw_response = generate_text(**llm_kwargs)
                 except TypeError as exc:
