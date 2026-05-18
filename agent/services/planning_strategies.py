@@ -187,6 +187,30 @@ class LLMPlanningStrategy:
         ][: max(1, min(repair_attempts, 6))]
 
     @staticmethod
+    def _compact_mode_data_for_prompt(mode_data: dict[str, Any] | None, *, max_chars: int = 4000) -> dict[str, Any]:
+        data = dict(mode_data or {})
+        text = json.dumps(data, ensure_ascii=False)
+        if len(text) <= max_chars:
+            return data
+        compact: dict[str, Any] = {}
+        for key, value in data.items():
+            if key in {"reference_profile_plan", "repository_map", "repo_context", "files"}:
+                compact[key] = "<<omitted_for_prompt_size>>"
+                continue
+            if isinstance(value, str) and len(value) > 600:
+                compact[key] = value[:600] + "...(truncated)"
+            elif isinstance(value, list) and len(value) > 20:
+                compact[key] = value[:20]
+            elif isinstance(value, dict) and len(value) > 30:
+                compact[key] = {k: value[k] for k in list(value.keys())[:30]}
+            else:
+                compact[key] = value
+        compact_text = json.dumps(compact, ensure_ascii=False)
+        if len(compact_text) > max_chars:
+            return {"mode_data_summary": compact_text[:max_chars]}
+        return compact
+
+    @staticmethod
     def _split_context_into_segments(context: str | None, *, segment_chars: int, max_segments: int) -> list[str]:
         text = str(context or "").strip()
         if not text:
@@ -395,17 +419,22 @@ class LLMPlanningStrategy:
 
         # Configurable context truncation — helps small models with limited context windows
         context_max_chars = planning_policy.get("context_max_chars")
+        if not context_max_chars:
+            segment_chars = self._safe_int(planning_policy.get("segment_context_chars", 2400), default=2400, minimum=600, maximum=12000)
+            max_segments = self._safe_int(planning_policy.get("max_segments", 3), default=3, minimum=1, maximum=8)
+            context_max_chars = segment_chars * max_segments
         if context_max_chars and resolved_context:
             limit = self._safe_int(context_max_chars, default=400, minimum=100)
             if len(resolved_context) > limit:
                 resolved_context = resolved_context[:limit]
 
         if mode != "generic" and mode_data:
+            compact_mode_data = self._compact_mode_data_for_prompt(mode_data, max_chars=4000)
             mode_label = f"Mode: {mode}" if planning_policy.get("prompt_language", "de") == "en" else f"Modus: {mode}"
             mode_context = (
                 f"{(resolved_context or '').strip()}\n\n"
                 f"{mode_label}\n"
-                f"{json.dumps(mode_data, indent=2)}"
+                f"{json.dumps(compact_mode_data, indent=2)}"
             )
             resolved_context = mode_context.strip()
 
