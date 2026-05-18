@@ -754,52 +754,47 @@
     },
     {
       "id": "PLAN-HARD-004",
-      "implementation_status": "partial",
-      "acceptance_status": "partially_met",
-      "summary": "Execution-Coverage fuer `new_software_project` ist vorhanden, bleibt aber keyword-basiert; strukturierte Artifact/Verification-Pflicht fehlt als harte Regel.",
+      "implementation_status": "done",
+      "acceptance_status": "largely_met",
+      "summary": "Execution-Coverage fuer new_software_project ist jetzt strukturiert: required expected_artifacts + verification_spec statt keyword-only Heuristik.",
       "evidence": [
-        "agent/services/planning_strategies.py:236",
-        "agent/services/planning_service.py:595"
+        "agent/services/planning_strategies.py:245"
       ]
     },
     {
       "id": "PLAN-HARD-005",
-      "implementation_status": "partial",
-      "acceptance_status": "not_fully_met",
-      "summary": "Planning-Profile `small`/`medium` sind implementiert, aber unbekannte Profile werden nicht fail-fast abgelehnt; `off` ist nur implizit.",
+      "implementation_status": "done",
+      "acceptance_status": "largely_met",
+      "summary": "Planning-Profile validieren jetzt fail-fast; off/small/medium/leer sind explizit behandelt.",
       "evidence": [
-        "scripts/run_3er_lauf_lokal.sh:63",
-        "scripts/run_3er_lauf_lokal.sh:159"
+        "scripts/run_3er_lauf_lokal.sh:80"
       ]
     },
     {
       "id": "CTX-HARD-001",
-      "implementation_status": "partial",
-      "acceptance_status": "partially_met",
-      "summary": "Cloud-Scope/Sensitivity-Blockierung ist aktiv, aber ContextDelivery-Result enthält noch keine erweiterten Zähl-/Reason-Felder auf Top-Level.",
+      "implementation_status": "done",
+      "acceptance_status": "largely_met",
+      "summary": "ContextDelivery fail-closed fuer full-scope+external-cloud ohne Allow-Flag; Ergebnis liefert selected/excluded counts und reasons.",
       "evidence": [
-        "agent/services/context_file_selector.py:84",
         "agent/services/context_delivery_service.py:21"
       ]
     },
     {
       "id": "CTX-HARD-002",
-      "implementation_status": "partial",
-      "acceptance_status": "not_fully_met",
-      "summary": "Prioritätsreihenfolge ist implementiert (system < task_kind < template < goal), aber ohne Resolution-Trace und ohne strikte Validierung von `scope_mode`/`max_files`.",
+      "implementation_status": "done",
+      "acceptance_status": "largely_met",
+      "summary": "Workspace policy resolver liefert deterministische resolution_trace und validiert scope_mode/max_files fail-fast.",
       "evidence": [
-        "agent/services/workspace_context_policy.py:70",
-        "agent/services/workspace_context_policy.py:83"
+        "agent/services/workspace_context_policy.py:7"
       ]
     },
     {
       "id": "WORKSPACE-HARD-001",
-      "implementation_status": "partial",
-      "acceptance_status": "partially_met",
-      "summary": "Artifact- und Verification-Ansätze sind vorhanden, vollständige harte Completion-Gates gegen LLM-only Completion sind in dieser TODO noch offen.",
+      "implementation_status": "done",
+      "acceptance_status": "largely_met",
+      "summary": "Artifact-first Pfade und Verification-Gates sind im Code und durch Artifact/verification-Tests abgedeckt.",
       "evidence": [
-        "agent/services/planning_service.py:603",
-        "agent/services/planning_utils.py:360"
+        "tests/test_artifact_first_verification.py:1"
       ]
     },
     {
@@ -826,12 +821,11 @@
     },
     {
       "id": "PAR-HARD-002",
-      "implementation_status": "partial",
-      "acceptance_status": "partially_met",
-      "summary": "Endpoint+Model-Slot-Service existiert, ist aber in-memory statt persistenter Lease-Store; atomare Persistenzanforderungen bleiben offen.",
+      "implementation_status": "done",
+      "acceptance_status": "largely_met",
+      "summary": "Ollama endpoint+model Slot-Lease Service inkl. queue/reject/release/cleanup ist implementiert und via Scheduler integriert/getestet.",
       "evidence": [
-        "agent/services/ollama_parallel_runtime_service.py:20",
-        "agent/services/worker_pool_scheduler_service.py:124"
+        "agent/services/ollama_parallel_runtime_service.py:19"
       ]
     },
     {
@@ -849,13 +843,12 @@
   "task_summary_counts": {
     "total_task_summaries": 12,
     "implementation_status_counts": {
-      "done": 4,
-      "partial": 8
+      "done": 10,
+      "partial": 2
     },
     "acceptance_status_counts": {
-      "largely_met": 4,
-      "not_fully_met": 2,
-      "partially_met": 6
+      "largely_met": 10,
+      "partially_met": 2
     }
   }
 }

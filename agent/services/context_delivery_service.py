@@ -24,6 +24,9 @@ class ContextDeliveryResult:
     warnings: list[str] = field(default_factory=list)
     policy_scope_mode: str = "full"
     codecompass_profile_used: Optional[str] = None
+    selected_count: int = 0
+    excluded_count: int = 0
+    exclusion_reasons: dict[str, str] = field(default_factory=dict)
 
 
 class ContextDeliveryService:
@@ -45,8 +48,19 @@ class ContextDeliveryService:
             policy = get_workspace_context_policy_resolver().resolve(effective_config, task_kind, agent_template)
 
         result = ContextDeliveryResult(policy_scope_mode=policy.scope_mode)
+        llm_scope = self._resolve_llm_scope(task=task)
+        effective_config = dict((task or {}).get("effective_config") or {})
+        llm_config = dict(effective_config.get("llm_config") or {})
+        provider = str(effective_config.get("default_provider") or llm_config.get("provider") or "").strip()
+        base_url = str(llm_config.get("base_url") or "").strip()
+        has_explicit_llm_target = bool(provider or base_url)
+        workspace_policy_cfg = dict(effective_config.get("workspace_context_policy") or {})
+        allow_full_for_cloud = bool(workspace_policy_cfg.get("allow_full_context_for_cloud", False))
 
         if policy.scope_mode == "full":
+            if has_explicit_llm_target and llm_scope == "external_cloud_allowed" and not allow_full_for_cloud:
+                result.policy_scope_mode = "none"
+                result.warnings.append("full_context_blocked_for_external_cloud")
             return result
 
         if policy.scope_mode == "none":
@@ -60,10 +74,11 @@ class ContextDeliveryService:
                     f"context_delivery_failed: retrieval error: {exc}"
                 ) from exc
 
-            llm_scope = self._resolve_llm_scope(task=task)
-
             from agent.services.context_file_selector import get_context_file_selector
             selection = get_context_file_selector().select(chunks, policy, llm_scope)
+            result.selected_count = len(selection.selected_paths)
+            result.excluded_count = len(selection.excluded_paths)
+            result.exclusion_reasons = dict(selection.exclusion_reasons or {})
 
             result.codecompass_profile_used = policy.codecompass_profile
 
