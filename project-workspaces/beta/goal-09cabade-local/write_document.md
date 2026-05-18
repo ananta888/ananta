@@ -1,8 +1,0 @@
-# write_document
-
-```json
-{
-  "content": "Zielgruppenanalyse: Primäre Zielgruppe sind Grafikdesigner und Multimedia-Enthusiasten (Endbenutzer), die externe Grafikleistung für Workstation-Anwendungen benötigen. Sekundäre Nutzerschaft sind kleine IT-Dienstleister, die Endbenutzer mit begrenzten internen Ressourcen unterstützen.\n\nAnwendungsfall (Use Case): Optimierung der Performance und Stabilität von eGPU-Setups. Dies umfasst die Optimierung von Treiberkonfigurationen, Energieverwaltung und die Reduzierung von Latenzen zwischen dem eGPU-Gehäuse und dem Host-PC.\n\nProjektgrenzen (Scope): \n1. **InScope:** Systemtests unter Verwendung standardisierter Benchmark-Benchmarks (z.B. Adobe Premiere Pro/After Effects, Blender Rendering).\n2. **InScope:** Entwicklung eines Optimierungsleitfadens für gängige Betriebssysteme (Windows/macOS).\n3. **InScope:** Identifizierung und Dokumentation der kritischen Performance-Engpässe (z.B. Thunderbolt-Bandbreitenprobleme).\n4. **OutScope:** Entwicklung oder Änderung von Hardware-Treiber-Firmware für Drittanbieter-Gehäuse. Die Optimierung beschränkt sich auf Software-Einstellungen und Betriebssystem-Konfigurationen.\n5. **OutScope:** Unterstützung oder Optimierung von spezifischen, nicht-standardisierten Workflows oder proprietärer Software, die außerhalb der genannten Multimedia-Anwendungen liegen.\n\nDeliverables: Ein verifizierbarer Leitfaden mit optimierten Konfigurationseinstellungen (Checklisten) und einem Bericht mit gemessener Performance-Verbesserung (Metrics).",
-  "document_title": "Scope Definition: eGPU Optimization Project"
-}
-```
