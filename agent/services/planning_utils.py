@@ -4,7 +4,7 @@ import json
 import logging
 import re
 import ast
-from typing import Optional
+from typing import Any, Optional
 from warnings import warn
 
 from agent.services.execution_focused_planning import (
@@ -136,11 +136,18 @@ def normalize_subtask(item: dict, default_priority: str = "Medium") -> dict | No
     if not isinstance(depends_on, list):
         depends_on = []
     normalized_depends_on = [str(dep).strip() for dep in depends_on if str(dep).strip()][:5]
+    dependency_mode = str(item.get("dependency_mode") or "").strip().lower()
+    if dependency_mode not in {"parallel", "explicit", "sequential"}:
+        dependency_mode = "explicit" if normalized_depends_on else "sequential"
+    if "__parallel__" in normalized_depends_on:
+        dependency_mode = "parallel"
+        normalized_depends_on = []
     return {
         "title": title[:200],
         "description": description[:2000],
         "priority": normalize_priority(item.get("priority"), default_priority),
         "depends_on": normalized_depends_on,
+        "dependency_mode": dependency_mode,
     }
 
 
@@ -266,23 +273,46 @@ def extract_task_items_from_payload(payload: object) -> list[object]:
     return []
 
 
-def parse_subtasks_from_llm_response(response: str, default_priority: str = "Medium") -> list[dict]:
+def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medium") -> tuple[list[dict], dict[str, Any]]:
     cleaned = strip_markdown_fences(response)
     json_payload = extract_json_payload(cleaned) or cleaned
+    warnings: list[str] = []
+    parse_mode = "parse_failed"
+    confidence = "low"
     parsed = None
     try:
         parsed = json.loads(json_payload)
+        parse_mode = "strict_json" if json_payload.strip() == cleaned.strip() else "json_extracted"
+        confidence = "high"
     except json.JSONDecodeError:
         # Fallback for Python-literal style payloads (single quotes, True/False/None).
         try:
             parsed = ast.literal_eval(json_payload)
+            parse_mode = "python_literal"
+            confidence = "medium"
         except Exception:
             parsed = None
 
     if parsed is not None:
+        if isinstance(parsed, dict):
+            if isinstance(parsed.get("implementation_roadmap"), dict):
+                parse_mode = "roadmap_extracted"
+                confidence = "medium"
+            elif isinstance(parsed.get("depends_on"), list):
+                parse_mode = "nested_extracted"
+                confidence = "medium"
         items = extract_task_items_from_payload(parsed)
         normalized = [normalize_subtask(item, default_priority=default_priority) for item in items]
-        return [item for item in normalized if item]
+        subtasks = [item for item in normalized if item]
+        if not subtasks:
+            parse_mode = "parse_failed"
+            confidence = "low"
+            warnings.append("no_subtasks_extracted")
+        return subtasks, {
+            "parse_mode": parse_mode,
+            "confidence": confidence,
+            "warnings": warnings,
+        }
 
     tasks = []
     for line in cleaned.split("\n"):
@@ -297,7 +327,23 @@ def parse_subtasks_from_llm_response(response: str, default_priority: str = "Med
             )
             if normalized:
                 tasks.append(normalized)
-    return tasks
+    if tasks:
+        return tasks, {
+            "parse_mode": "bullet_fallback",
+            "confidence": "low",
+            "warnings": warnings,
+        }
+    warnings.append("unparseable_response")
+    return [], {
+        "parse_mode": "parse_failed",
+        "confidence": "low",
+        "warnings": warnings,
+    }
+
+
+def parse_subtasks_from_llm_response(response: str, default_priority: str = "Medium") -> list[dict]:
+    subtasks, _diag = parse_subtasks_with_diagnostics(response, default_priority=default_priority)
+    return subtasks
 
 
 def parse_followup_analysis(raw_response: str, default_priority: str = "Medium") -> dict:

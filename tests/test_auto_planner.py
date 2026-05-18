@@ -475,7 +475,8 @@ class TestAutoPlanner:
         subtasks = list(result.get("subtasks") or [])
         assert len(subtasks) == 3
         for task in subtasks:
-            assert task.get("depends_on") == ["__parallel__"]
+            assert task.get("dependency_mode") == "parallel"
+            assert task.get("depends_on") in ([], None)
 
     def test_plan_goal_aborts_on_max_plan_depth_limit(self, app, monkeypatch):
         mock_response = json.dumps(
