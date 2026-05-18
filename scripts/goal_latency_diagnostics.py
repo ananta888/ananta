@@ -61,6 +61,58 @@ def _safe_delta(a: float | None, b: float | None) -> float | None:
     return d if d >= 0 else None
 
 
+_REASON_CATEGORIES = (
+    "llm_wait",
+    "provider_unavailable",
+    "worker_unavailable",
+    "dependency_blocked",
+    "policy_blocked",
+    "unknown",
+)
+
+
+def _classify_idle_reason_from_history(history: list[dict[str, Any]], phase_seconds: float | None) -> str:
+    """ARD-004: Classify the dominant reason for idle/queue time using event history."""
+    if phase_seconds is None:
+        return "unknown"
+    event_types = {str(e.get("event_type") or "") for e in history}
+    if "circuit_open" in event_types or "provider_circuit_breaker_open" in event_types:
+        return "provider_unavailable"
+    if "blocked_by_dependency" in event_types or "task_blocked" in event_types:
+        return "dependency_blocked"
+    if "no_workers_available" in event_types or "worker_unavailable" in event_types:
+        return "worker_unavailable"
+    if "policy_blocked" in event_types or "policy_denied" in event_types:
+        return "policy_blocked"
+    if "autopilot_strategy_attempt" in event_types or "autopilot_decision" in event_types:
+        return "llm_wait"
+    return "unknown"
+
+
+def _build_reason_breakdown(
+    phase_rows: list[PhaseDurations],
+    task_histories: list[list[dict[str, Any]]],
+) -> dict[str, Any]:
+    """ARD-004: Aggregate idle time by classified reason category."""
+    reason_totals: dict[str, float] = {r: 0.0 for r in _REASON_CATEGORIES}
+    reason_counts: dict[str, int] = {r: 0 for r in _REASON_CATEGORIES}
+
+    for phase, history in zip(phase_rows, task_histories):
+        q2a = phase.queued_to_assigned
+        reason = _classify_idle_reason_from_history(history, q2a)
+        if q2a is not None:
+            reason_totals[reason] = reason_totals.get(reason, 0.0) + q2a
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
+
+    return {
+        r: {
+            "total_seconds": round(reason_totals[r], 3),
+            "task_count": reason_counts[r],
+        }
+        for r in _REASON_CATEGORIES
+    }
+
+
 def _summarize_llm_call_profile(entries: list[dict[str, Any]]) -> dict[str, Any]:
     llm_calls_total = 0
     llm_calls_real = 0
@@ -201,6 +253,7 @@ def main() -> int:
         task_details.append((_fetch_json(s, f"{base}/tasks/{tid}", headers).get("data") or {}))
 
     phase_rows: list[PhaseDurations] = []
+    task_histories: list[list[dict[str, Any]]] = []
     assign_ts: list[float] = []
     propose_calls = 0
     no_candidates_ticks = 0
@@ -255,6 +308,7 @@ def main() -> int:
                 total=_safe_delta(created, terminal),
             )
         )
+        task_histories.append(history)
 
     q2a = [x.queued_to_assigned for x in phase_rows if x.queued_to_assigned is not None]
     a2p = [x.assigned_to_propose_done for x in phase_rows if x.assigned_to_propose_done is not None]
@@ -273,6 +327,7 @@ def main() -> int:
         idle_gap_seconds = _median(gaps) if gaps else None
 
     llm_summary = _summarize_llm_call_profile(llm_profile_entries)
+    reason_breakdown = _build_reason_breakdown(phase_rows, task_histories)
 
     out = {
         "goal_id": goal_id,
@@ -311,6 +366,7 @@ def main() -> int:
             "median_idle_gap_seconds": idle_gap_seconds,
             "no_candidates_ticks_seen": no_candidates_ticks,
         },
+        "reason_breakdown_seconds": reason_breakdown,
     }
 
     out_path = Path(args.out)

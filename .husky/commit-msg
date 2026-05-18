@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# Commitlint hook — validates commit message against .commitlintrc.json
+# Install: npx husky install (requires root-level package.json with husky devDependency)
+# Or install manually: cp .husky/commit-msg .git/hooks/commit-msg && chmod +x .git/hooks/commit-msg
+
+npx --no -- commitlint --edit "$1"

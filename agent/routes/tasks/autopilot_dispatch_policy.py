@@ -50,6 +50,25 @@ def resolve_target_worker_for_task(
     return target_worker, worker_cursor + 1, True
 
 
+def classify_no_candidate_reason(
+    *,
+    all_tasks: list[Any],
+    workers_available_count: int,
+) -> str:
+    """APR-003: Classify why the dispatch queue has no candidates."""
+    if not all_tasks:
+        return "no_tasks"
+    _TERMINAL = {"completed", "failed", "cancelled"}
+    statuses = [str(getattr(t, "status", "") or "").strip().lower() for t in all_tasks]
+    if all(s in _TERMINAL for s in statuses):
+        return "all_terminal"
+    if all(s in _TERMINAL | {"blocked_by_dependency"} for s in statuses):
+        return "all_blocked_by_dependency"
+    if workers_available_count == 0:
+        return "no_workers_available"
+    return "policy_or_state_blocked"
+
+
 def build_tick_debug_payload(
     *,
     team_id_scope: str | None,
@@ -58,8 +77,9 @@ def build_tick_debug_payload(
     candidate_count: int,
     workers_online_count: int,
     workers_available_count: int,
+    no_candidate_reason: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    payload: dict[str, Any] = {
         "team_id_scope": team_id_scope,
         "total_tasks_unfiltered": total_tasks_unfiltered,
         "total_tasks_scoped": total_tasks_scoped,
@@ -67,3 +87,6 @@ def build_tick_debug_payload(
         "workers_online_count": workers_online_count,
         "workers_available_count": workers_available_count,
     }
+    if no_candidate_reason is not None:
+        payload["no_candidate_reason"] = no_candidate_reason
+    return payload

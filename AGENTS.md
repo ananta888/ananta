@@ -292,30 +292,36 @@ Agents must follow the same commit conventions as human contributors. See `CONTR
 
 # Output Boundary for Agents
 
-Before running `git add`, check each file against this table:
+Before running `git add`, check each file against this table. The **Reason** column explains the classification so you can judge edge cases.
 
-| Path / Glob | Category | Commit? |
-|-------------|----------|---------|
-| `agent/`, `tests/`, `scripts/`, `docs/` | Source | Yes |
-| `AGENTS.md`, `CONTRIBUTING.md`, `README.md` | Source | Yes |
-| `docker-compose*.yml`, `.env.example` | Source | Yes |
-| `todo.*.json` | Source | Yes |
-| `autoimport-state/modelfiles/ananta-default.Modelfile` | Source (template) | Yes |
-| `autoimport-state/modelfiles/ananta-smoke.Modelfile` | Source (template) | Yes |
-| `autoimport-state/modelfiles/<other>.Modelfile` | Runtime (script-generated) | No |
-| `autoimport-state/hash/**` | Runtime | No |
-| `autoimport-state/logs/**` | Runtime | No |
-| `artifacts/*.json` | Runtime | No |
-| `project-workspaces/**` | Runtime | No |
-| `*.log` | Runtime | No |
-| `data/**` | Runtime | No |
-| `.env` | Secret | Never |
-| `tests/fixtures/reports/*` | Fixture | Only if explicit |
-| `tests/fixtures/artifacts/*` | Fixture | Only if explicit |
+| Path / Glob | Category | Commit? | Reason |
+|-------------|----------|---------|--------|
+| `agent/`, `tests/`, `scripts/`, `docs/` | Source | Yes | Application and test code |
+| `AGENTS.md`, `CONTRIBUTING.md`, `README.md` | Source | Yes | Project documentation |
+| `docker-compose*.yml`, `.env.example` | Source | Yes | Infrastructure templates |
+| `todo.*.json` | Source | Yes | Tracked planning artifacts |
+| `artifacts/domain/`, `artifacts/e2e/`, `artifacts/test-gates/` | Source | Yes | Structured audit/gate reports with stable content |
+| `autoimport-state/modelfiles/ananta-default.Modelfile` | Source (template) | Yes | Hand-authored base Modelfile for ananta-default |
+| `autoimport-state/modelfiles/ananta-smoke.Modelfile` | Source (template) | Yes | Hand-authored smoke-test Modelfile |
+| `autoimport-state/modelfiles/<other>.Modelfile` | Runtime (script-generated) | No | Derived by `ollama-autoimport.sh` from the templates; regenerated on each deploy |
+| `autoimport-state/hash/**` | Runtime | No | Content hashes written by the autoimport script at runtime |
+| `autoimport-state/logs/**` | Runtime | No | Script run logs, not reproducible from source |
+| `artifacts/*.json` | Runtime | No | Generated per acceptance run; gitignored by `/artifacts/*.json` |
+| `project-workspaces/**` | Runtime | No | Per-goal workspace outputs; gitignored by `/project-workspaces/` |
+| `*.log`, `data/**` | Runtime | No | Application logs and database files |
+| `.env` | Secret | Never | Contains credentials; gitignored unconditionally |
+| `tests/fixtures/reports/*` | Fixture | Only if explicit | Small deterministic test fixtures; must have a documented purpose |
+| `tests/fixtures/artifacts/*` | Fixture | Only if explicit | Same — stable content required, no volatile timestamps or IDs |
+| `tests/fixtures/scenarios/*` | Fixture | Only if explicit | Scenario definitions used in acceptance runner tests |
 
-Fixtures require an explicit reason in the commit body. When in doubt, do not commit.
+**Fixture Approval Criterion:** A fixture commit is approved when:
+1. The file is deterministic (no volatile timestamps, no random IDs, no environment-specific paths).
+2. The commit body names the test(s) that depend on it.
+3. The file is kept as small as possible (minimal, not a full live-run dump).
 
 **Never use `git add .` or `git add -A`** without first reviewing `git status`. Stage files by name.
+
+Policy alignment: the above table matches `.gitignore` rules — `artifacts/*.json`, `project-workspaces/`, `data/`, `*.log` are all gitignored. Structured subdirs (`artifacts/domain/`, etc.) are explicitly tracked because they contain audit results with meaningful history.
 
 ---
 

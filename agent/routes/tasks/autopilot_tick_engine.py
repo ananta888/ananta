@@ -21,6 +21,7 @@ from agent.services.task_template_resolution import resolve_task_role_template
 from agent.tool_guardrails import estimate_text_tokens
 from agent.routes.tasks.autopilot_dispatch_policy import (
     build_tick_debug_payload,
+    classify_no_candidate_reason,
     dispatch_queue_positions,
     resolve_effective_concurrency,
     resolve_target_worker_for_task,
@@ -1705,24 +1706,31 @@ def execute_autopilot_tick(
             all_tasks=all_tasks,
             goal_scope=goal_scope,
         )
+        _workers_online = services.autopilot_support_service.available_workers(
+            team_id=loop.team_id or None,
+            is_worker_circuit_open=lambda _url: False,
+            app_config=loop._app_config(),
+            app=loop._app,
+        )[1]
+        _no_cand_reason = classify_no_candidate_reason(
+            all_tasks=all_tasks,
+            workers_available_count=_workers_online,
+        )
         loop.last_tick_at = time.time()
         loop.tick_count += 1
         loop._persist_state(enabled=loop.running)
         return {
             "dispatched": 0,
             "reason": "goal_recovery_triggered" if recovered else "no_candidates",
+            "no_candidate_reason": _no_cand_reason,
             "debug": build_tick_debug_payload(
                 team_id_scope=loop.team_id or None,
                 total_tasks_unfiltered=total_tasks_unfiltered,
                 total_tasks_scoped=scoped_tasks,
                 candidate_count=0,
-                workers_online_count=services.autopilot_support_service.available_workers(
-                    team_id=loop.team_id or None,
-                    is_worker_circuit_open=lambda _url: False,
-                    app_config=loop._app_config(),
-                    app=loop._app,
-                )[1],
+                workers_online_count=_workers_online,
                 workers_available_count=0,
+                no_candidate_reason=_no_cand_reason,
             ),
         }
 

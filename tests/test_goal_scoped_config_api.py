@@ -173,3 +173,88 @@ def test_profile_overrides_contain_no_secret_values():
 
     for profile in svc.list_profiles():
         _scan(profile["overrides"], profile["id"])
+
+
+# TRM-002: End-to-End goal creation matrix for all profiles
+import pytest
+
+
+@pytest.mark.parametrize("profile_id", [
+    "opencode_preconfigured",
+    "opencode_ollama_local",
+    "ananta_ollama_local",
+    "ananta_lmstudio_local",
+    "opencode_lmstudio_local",
+])
+def test_goal_creation_succeeds_for_all_profiles(profile_id, client, admin_auth_header, monkeypatch):
+    _mock_goal_planning_llm(monkeypatch)
+    res = client.post(
+        "/goals",
+        headers=admin_auth_header,
+        json={
+            "goal": f"Matrix test goal for profile {profile_id}",
+            "execution_preferences": {"config_profile": profile_id},
+        },
+    )
+    assert res.status_code == 201, f"profile '{profile_id}' failed: {res.get_json()}"
+    goal_id = res.get_json()["data"]["goal"]["id"]
+    goal = goal_repo.get_by_id(goal_id)
+    prefs = dict(goal.execution_preferences or {})
+    assert prefs.get("config_profile") == profile_id
+    assert isinstance(prefs.get("config_snapshot"), dict)
+    assert prefs["config_snapshot"].get("version") == "goal_config_snapshot.v1"
+
+
+def test_goal_create_with_explicit_overrides_snapshot_and_effective_config_agree(
+    client, admin_auth_header, monkeypatch
+):
+    _mock_goal_planning_llm(monkeypatch)
+    res = client.post(
+        "/goals",
+        headers=admin_auth_header,
+        json={
+            "goal": "Snapshot consistency check",
+            "execution_preferences": {
+                "config_profile": "ananta_ollama_local",
+                "config_overrides": {"default_model": "matrix-model"},
+            },
+        },
+    )
+    assert res.status_code == 201
+    goal_id = res.get_json()["data"]["goal"]["id"]
+
+    effective = client.get(f"/goals/{goal_id}/effective-config", headers=admin_auth_header)
+    assert effective.status_code == 200
+    data = effective.get_json()["data"]
+    # effective-config endpoint and persisted snapshot must agree on model
+    cfg = data["config_snapshot"]["config"]
+    assert cfg.get("default_model") == "matrix-model"
+    assert data.get("goal_config_source") == "snapshot"
+    assert isinstance(data.get("config_checksum"), str)
+
+
+def test_invalid_config_blocks_creation_not_just_planning(client, admin_auth_header, monkeypatch):
+    """TRM-002: Unknown override keys must be rejected at create time, before planning runs."""
+    planner_calls = []
+    original = __import__(
+        "agent.routes.tasks.auto_planner", fromlist=["generate_text"]
+    ).generate_text
+
+    def _spy(**kwargs):
+        planner_calls.append(kwargs)
+        return original(**kwargs)
+
+    _mock_goal_planning_llm(monkeypatch)
+    monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", lambda **kw: planner_calls.append(kw) or "[]")
+
+    res = client.post(
+        "/goals",
+        headers=admin_auth_header,
+        json={
+            "goal": "Bad config goal",
+            "execution_preferences": {"config_overrides": {"nonexistent_setting": True}},
+        },
+    )
+    assert res.status_code == 400
+    assert res.get_json()["message"] == "invalid_goal_config_key"
+    assert not planner_calls, "planner must not run when config validation fails"
