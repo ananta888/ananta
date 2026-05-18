@@ -16,9 +16,12 @@ from agent.services.planning_strategies import (
     TemplatePlanningStrategy,
 )
 from agent.services.planning_utils import sanitize_input, validate_goal
+from agent.services.planning_utils import parse_subtasks_from_llm_response
 from agent.services.planning_evaluation_service import get_planning_evaluation_service
 from agent.services.planning_telemetry_service import get_planning_telemetry_service
 from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
+from agent.services.planning_quality_service import get_planning_quality_service
+from agent.services.planning_prompt_evolver_service import get_planning_prompt_evolver_service
 from agent.services.llm_first_planning_orchestrator_service import get_llm_first_planning_orchestrator_service
 from agent.services.planning_template_mining_service import get_planning_template_mining_service
 from agent.services.planning_review_queue_service import get_planning_review_queue_service
@@ -280,6 +283,16 @@ def get_plan_generation_limits() -> dict[str, int]:
 
 
 class PlanningService:
+    @staticmethod
+    def _maybe_evolve_prompt(*, telemetry_run, planning_policy: dict[str, Any]) -> None:
+        try:
+            get_planning_prompt_evolver_service().evolve_from_run(
+                run=telemetry_run,
+                planning_policy=planning_policy,
+            )
+        except Exception:
+            pass
+
     def _resolve_planning_policy(self) -> dict[str, Any]:
         try:
             cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
@@ -399,6 +412,28 @@ class PlanningService:
             "prompt_version_id": result.prompt_version_id,
             "planning_profile": result.planning_profile,
         }
+
+    @staticmethod
+    def _build_selective_repair_prompt(
+        *,
+        goal: str,
+        mode: str,
+        missing_categories: list[str],
+        generic_task_indices: list[int],
+        preferred_output_format: str,
+    ) -> str:
+        missing = ", ".join(missing_categories) if missing_categories else "none"
+        generic = ", ".join(str(i) for i in generic_task_indices[:12]) if generic_task_indices else "none"
+        return (
+            "Repair only missing or weak parts of the plan. Do not rewrite everything.\n"
+            f"GOAL: {goal}\n"
+            f"MODE: {mode}\n"
+            f"MISSING_CATEGORIES: {missing}\n"
+            f"GENERIC_TASK_INDEXES: {generic}\n"
+            "Return only additional or replacement tasks needed to close gaps.\n"
+            f"Preferred output format: {preferred_output_format}.\n"
+            "Keep fields short and concrete."
+        )
 
     def _run_planning_strategies(
         self,
@@ -801,6 +836,78 @@ class PlanningService:
             hardened_subtasks.append(cleaned)
             policy_gate_warnings.extend(list(warns or []))
         subtasks = hardened_subtasks
+        preferred_output_format = str(
+            planning_policy.get("preferred_output_format")
+            or ((planning_policy.get("runtime_profiles") or {}).get(str(planning_policy.get("default_runtime_profile") or ""), {}) or {}).get("preferred_output_format")
+            or "json"
+        ).strip().lower()
+
+        # Pipeline phase: Validate -> Selective Repair (bounded rounds).
+        quality = get_planning_quality_service().evaluate(
+            subtasks=subtasks,
+            mode=mode,
+            planning_policy=planning_policy,
+            team_id=team_id,
+        )
+        selective_rounds = max(0, min(int(planning_policy.get("selective_repair_rounds") or 2), 4))
+        selective_repair_applied = 0
+        while (not quality.ok) and selective_rounds > 0:
+            selective_rounds -= 1
+            selective_repair_applied += 1
+            repair_prompt = self._build_selective_repair_prompt(
+                goal=goal,
+                mode=mode,
+                missing_categories=quality.missing_categories,
+                generic_task_indices=quality.generic_task_indices,
+                preferred_output_format=preferred_output_format,
+            )
+            repair_resp = planner._call_llm_with_retry(repair_prompt, scoped_llm_cfg, temperature=0.1)
+            repair_subtasks = parse_subtasks_from_llm_response(repair_resp, default_priority=planner.default_priority)
+            if not repair_subtasks:
+                break
+            # Selective merge: keep original and append only non-duplicate candidates.
+            seen = {
+                (str(t.get("title") or "").strip().lower(), str(t.get("description") or "").strip().lower())
+                for t in subtasks
+            }
+            for candidate in repair_subtasks:
+                key = (
+                    str(candidate.get("title") or "").strip().lower(),
+                    str(candidate.get("description") or "").strip().lower(),
+                )
+                if key not in seen:
+                    subtasks.append(dict(candidate))
+                    seen.add(key)
+            quality = get_planning_quality_service().evaluate(
+                subtasks=subtasks,
+                mode=mode,
+                planning_policy=planning_policy,
+                team_id=team_id,
+            )
+        selective_repair_codes: list[str] = []
+        if selective_repair_applied:
+            selective_repair_codes.append(f"selective_repair_rounds:{selective_repair_applied}")
+        if not quality.ok:
+            telemetry_run = get_planning_telemetry_service().update_run(
+                telemetry_run,
+                validation_success=False,
+                validation_errors=[quality.reason],
+                error_classification="planning_quality_gate_failed",
+                status="failed",
+            )
+            self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
+            return {
+                "subtasks": [],
+                "created_task_ids": [],
+                "error": "planning_insufficient_task_detail",
+                "error_classification": "planning_quality_gate_failed",
+                "planning_quality_reason": quality.reason,
+                "planning_quality_details": quality.details,
+                "planning_policy": planning_policy,
+                "planner_selection": {"selection_reason": "quality_gate_failed"},
+                "planning_run_id": telemetry_run.id,
+            }
+
         subtasks, limits, limit_exceeded = self._apply_plan_generation_limits(subtasks)
         raw_response = resolved["raw_response"]
         planning_mode = resolved["planning_mode"]
@@ -811,12 +918,17 @@ class PlanningService:
         parse_confidence = resolved.get("parse_confidence")
         output_shape = str(resolved.get("output_shape") or "")
         format_error_codes = [str(x) for x in list(resolved.get("format_error_codes") or [])]
+        for code in selective_repair_codes:
+            if code not in format_error_codes:
+                format_error_codes.append(code)
         for warning in policy_gate_warnings:
             if warning not in format_error_codes:
                 format_error_codes.append(warning)
         parser_trace = list(resolved.get("parser_trace") or [])
         prompt_version_id = str(resolved.get("prompt_version_id") or "")
         planning_profile = str(resolved.get("planning_profile") or "")
+        telemetry_run.prompt_version_id = prompt_version_id or telemetry_run.prompt_version_id
+        telemetry_run.planning_profile = planning_profile or telemetry_run.planning_profile
         context = resolved["context"]
         template_used = resolved["template_used"]
         get_planning_telemetry_service().update_run(
@@ -888,6 +1000,14 @@ class PlanningService:
                 limits["fallback_task_generated"] = True
                 limits["fallback_task_reason"] = "unstructured_llm_response"
             else:
+                telemetry_run = get_planning_telemetry_service().update_run(
+                    telemetry_run,
+                    validation_success=False,
+                    validation_errors=["unstructured_llm_response"],
+                    error_classification="unstructured_llm_response",
+                    status="failed",
+                )
+                self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
                 return {
                     "subtasks": [],
                     "created_task_ids": [],
@@ -932,6 +1052,14 @@ class PlanningService:
                 proposal_validation = repaired_validation
         if not proposal_validation.ok:
             planner._stats["errors"] += 1
+            telemetry_run = get_planning_telemetry_service().update_run(
+                telemetry_run,
+                validation_success=False,
+                validation_errors=list(proposal_validation.errors or []),
+                error_classification="invalid_plan_proposal",
+                status="failed",
+            )
+            self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
             return {
                 "subtasks": [],
                 "created_task_ids": [],
@@ -1036,6 +1164,7 @@ class PlanningService:
             get_planning_review_queue_service().evaluate_run_for_review(telemetry_run)
         except Exception:
             pass
+        self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
         get_planning_evaluation_service().evaluate(
             planning_run_id=str(telemetry_run.id),
             goal_id=goal_id,

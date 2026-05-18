@@ -65,6 +65,7 @@ class PlanningPromptRegistry:
         model_family: str | None = None,
         preferred_prompt_version_id: str | None = None,
         preferred_output_format: str | None = None,
+        domain_hints: list[str] | None = None,
         behavior_profile: dict[str, Any] | None = None,
     ) -> ResolvedPlanningPrompt:
         self.ensure_default_versions()
@@ -116,10 +117,17 @@ class PlanningPromptRegistry:
                 checksum=self._checksum({"template": template, "lang": lang, "mode": mode}),
             )
 
+        hints_block = ""
+        for idx, hint in enumerate(list(domain_hints or []), start=1):
+            text = str(hint or "").strip()
+            if text:
+                hints_block += f"{idx}. {text}\n"
+        hints_block = hints_block.strip()
         rendered = str(selected.user_prompt_template or "").format(
             goal=goal,
             context=context or "",
             preferred_output_format=(str(preferred_output_format or "").strip().lower() or "json"),
+            domain_hints_block=hints_block,
         )
         try:
             from agent.services.planning_prompt_optimizer_service import get_planning_prompt_optimizer_service

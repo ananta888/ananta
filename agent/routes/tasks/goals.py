@@ -18,24 +18,12 @@ from agent.services.product_event_service import record_product_event
 from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
+from agent.services.planning_quality_service import get_planning_quality_service
+from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
 from agent.utils import validate_request
 
 goals_bp = Blueprint("tasks_goals", __name__)
 _GOAL_PLANNING_LOCK = threading.Lock()
-_SOFTWARE_GOAL_HINTS = (
-    "software",
-    "projekt",
-    "project",
-    "python",
-    "script",
-    "skript",
-    "fibonacci",
-    "backend",
-    "frontend",
-    "api",
-    "service",
-    "app",
-)
 
 
 def _services():
@@ -68,52 +56,34 @@ def _can_access_goal(goal: GoalDB | None) -> bool:
 
 
 def _looks_like_software_goal(text: str) -> bool:
-    normalized = str(text or "").strip().lower()
-    if not normalized:
-        return False
-    return any(token in normalized for token in _SOFTWARE_GOAL_HINTS)
+    intent = get_goal_planning_intent_service().classify(goal_text=text, mode="generic")
+    return str(intent.get("goal_type") or "") == "software_project"
 
 
-def _software_plan_quality(task_ids: list[str]) -> tuple[bool, str]:
+def _plan_quality_from_task_ids(*, task_ids: list[str], mode: str, planning_policy: dict[str, Any], team_id: str | None) -> tuple[bool, str]:
     if not task_ids:
         return False, "no_tasks"
-    aggregate_parts: list[str] = []
+    subtasks: list[dict[str, Any]] = []
     for tid in task_ids:
         task = _repos().task_repo.get_by_id(tid)
         if not task:
             continue
-        title = str(getattr(task, "title", "") or "").lower()
-        description = str(getattr(task, "description", "") or "").lower()
-        aggregate_parts.append(f"{title} {description}")
-    if not aggregate_parts:
+        subtasks.append(
+            {
+                "title": str(getattr(task, "title", "") or ""),
+                "description": str(getattr(task, "description", "") or ""),
+                "task_kind": str(getattr(task, "task_type", "") or ""),
+            }
+        )
+    if not subtasks:
         return False, "tasks_missing_payload"
-    if len(aggregate_parts) < 5:
-        return False, f"too_few_tasks:{len(aggregate_parts)}"
-    text = " ".join(aggregate_parts)
-    implementation_markers = (
-        "implement",
-        "code",
-        "print(",
-        "python",
-        "funktion",
-        "algorithm",
-        "backend",
+    quality = get_planning_quality_service().evaluate(
+        subtasks=subtasks,
+        mode=mode,
+        planning_policy=planning_policy,
+        team_id=team_id,
     )
-    execution_markers = (
-        "run",
-        "execute",
-        "ausführen",
-        "ausfuehren",
-        "test",
-        "verify",
-        "prüfung",
-        "pruefung",
-    )
-    if not any(marker in text for marker in implementation_markers):
-        return False, "missing_implementation_task"
-    if not any(marker in text for marker in execution_markers):
-        return False, "missing_execution_or_verification_task"
-    return True, "ok"
+    return quality.ok, quality.reason
 
 
 def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
@@ -751,7 +721,12 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         and str(context.get("mode_id") or "generic") == "generic"
         and software_goal
     ):
-        quality_ok, quality_reason = _software_plan_quality(created_task_ids)
+        quality_ok, quality_reason = _plan_quality_from_task_ids(
+            task_ids=created_task_ids,
+            mode="new_software_project",
+            planning_policy=(effective.get("planning_policy") if isinstance(effective.get("planning_policy"), dict) else {}),
+            team_id=str(effective.get("routing", {}).get("team_id") or "") or None,
+        )
     else:
         quality_ok, quality_reason = True, "not_software_goal_or_disabled"
     if (
@@ -779,7 +754,12 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         if not retry_result.get("error"):
             result = retry_result
             created_task_ids = list(result.get("created_task_ids") or [])
-            quality_ok, quality_reason = _software_plan_quality(created_task_ids)
+            quality_ok, quality_reason = _plan_quality_from_task_ids(
+                task_ids=created_task_ids,
+                mode="new_software_project",
+                planning_policy=(effective.get("planning_policy") if isinstance(effective.get("planning_policy"), dict) else {}),
+                team_id=str(effective.get("routing", {}).get("team_id") or "") or None,
+            )
 
     if create_tasks_enabled and not created_task_ids:
         _services().goal_lifecycle_service.transition_goal(

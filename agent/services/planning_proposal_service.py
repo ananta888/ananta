@@ -7,7 +7,7 @@ from typing import Any
 
 _ALLOWED_TASK_KINDS = {"coding", "testing", "review", "research", "planning", "ops", "analysis", "doc"}
 _ALLOWED_RISK_LEVELS = {"low", "medium", "high", "critical"}
-_SOFTWARE_HINTS = ("software", "project", "java", "angular", "frontend", "backend", "fibonacci")
+_SOFTWARE_HINTS = ("software", "project", "java", "angular", "frontend", "backend", "api", "service", "app")
 _ALLOWED_OUTPUT_FORMATS = {"json", "markdown", "yaml"}
 
 
@@ -66,6 +66,10 @@ def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
             if str(payload.get("preferred_output_format") or "json").strip().lower() in _ALLOWED_OUTPUT_FORMATS
             else "json"
         ),
+        "selective_repair_rounds": _bounded_int(payload.get("selective_repair_rounds"), default=2, minimum=0, maximum=4),
+        "validation_profiles": dict(payload.get("validation_profiles") or {}) if isinstance(payload.get("validation_profiles"), dict) else {},
+        "team_overrides": dict(payload.get("team_overrides") or {}) if isinstance(payload.get("team_overrides"), dict) else {},
+        "planner_prompt_evolution": dict(payload.get("planner_prompt_evolution") or {}) if isinstance(payload.get("planner_prompt_evolution"), dict) else {},
         "default_runtime_profile": str(payload.get("default_runtime_profile") or "").strip() or None,
         "runtime_profiles": runtime_profiles,
     }

@@ -22,12 +22,12 @@ class PlanningModelProfileService:
     def ensure_default_profiles(self) -> None:
         repo = get_repository_registry().planning_model_profile_repo
         existing = repo.get_enabled()
-        existing_keys = {
+        existing_by_key = {
             (
                 str(item.provider or "").strip().lower(),
                 str(item.model_name_pattern or "").strip().lower(),
                 str(item.profile_name or "").strip().lower(),
-            )
+            ): item
             for item in existing
         }
         for item in self._load_defaults():
@@ -36,10 +36,24 @@ class PlanningModelProfileService:
                 str(item.get("model_name_pattern") or "").strip().lower(),
                 str(item.get("profile_name") or "default").strip().lower(),
             )
-            if key in existing_keys:
+            existing_profile = existing_by_key.get(key)
+            if existing_profile is not None:
+                existing_profile.model_family = item.get("model_family")
+                existing_profile.prompt_language = str(item.get("prompt_language") or "de")
+                existing_profile.context_max_chars = int(item.get("context_max_chars") or 1200)
+                existing_profile.max_output_tokens = int(item.get("max_output_tokens") or 1024)
+                existing_profile.temperature = float(item.get("temperature") or 0.2)
+                existing_profile.repair_attempts = int(item.get("repair_attempts") or 2)
+                existing_profile.repair_strategies = list(item.get("repair_strategies") or [])
+                existing_profile.preferred_prompt_version_id = item.get("preferred_prompt_version_id")
+                existing_profile.output_contract_strictness = str(item.get("output_contract_strictness") or "repair_required")
+                existing_profile.supports_json_mode = bool(item.get("supports_json_mode", False))
+                existing_profile.requires_english_prompt = bool(item.get("requires_english_prompt", False))
+                existing_profile.notes = item.get("notes")
+                existing_profile.enabled = bool(item.get("enabled", True))
+                repo.save(existing_profile)
                 continue
-            repo.save(
-                PlanningModelProfileDB(
+            repo.save(PlanningModelProfileDB(
                     provider=str(item.get("provider") or ""),
                     model_name_pattern=item.get("model_name_pattern"),
                     model_family=item.get("model_family"),
@@ -56,8 +70,7 @@ class PlanningModelProfileService:
                     requires_english_prompt=bool(item.get("requires_english_prompt", False)),
                     notes=item.get("notes"),
                     enabled=bool(item.get("enabled", True)),
-                )
-            )
+                ))
 
     def resolve_profile(self, *, provider: str | None, model_name: str | None, explicit_profile: str | None = None) -> dict[str, Any]:
         self.ensure_default_profiles()

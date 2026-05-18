@@ -11,6 +11,7 @@ from agent.services.execution_focused_planning import match_execution_focused_go
 from agent.services.hub_llm_service import get_hub_llm_service
 from agent.services.planning_model_profile_service import get_planning_model_profile_service
 from agent.services.model_response_behavior_profile_service import get_model_response_behavior_profile_service
+from agent.services.planning_domain_hints_service import get_planning_domain_hints_service
 from agent.services.planning_prompt_registry import get_planning_prompt_registry
 from agent.services.planning_template_catalog import get_planning_template_catalog
 from agent.services.planning_utils import (
@@ -416,6 +417,7 @@ class LLMPlanningStrategy:
         if not isinstance(scoped_cfg, dict):
             scoped_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         planning_policy = scoped_cfg.get("planning_policy") if isinstance(scoped_cfg.get("planning_policy"), dict) else {}
+        team_id = str((scoped_cfg.get("routing") or {}).get("team_id") or "").strip() or None
         runtime_profiles = planning_policy.get("runtime_profiles") if isinstance(planning_policy.get("runtime_profiles"), dict) else {}
         runtime_profile_id = str(planning_policy.get("default_runtime_profile") or "").strip()
         runtime_profile = runtime_profiles.get(runtime_profile_id) if runtime_profile_id and isinstance(runtime_profiles, dict) else {}
@@ -471,6 +473,12 @@ class LLMPlanningStrategy:
             model_family=profile.get("model_family"),
             preferred_prompt_version_id=profile.get("preferred_prompt_version_id"),
             preferred_output_format=preferred_output_format,
+            domain_hints=get_planning_domain_hints_service().derive_hints(
+                goal=goal,
+                mode=prompt_mode,
+                team_id=team_id,
+                planning_policy=planning_policy,
+            ),
             behavior_profile=get_model_response_behavior_profile_service().resolve(
                 provider=llm_cfg.get("provider"),
                 model_name=llm_cfg.get("model"),
