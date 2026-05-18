@@ -98,6 +98,24 @@ def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
     if updated_at and (now_ts - updated_at) < 30:
         return goal
 
+    # Hard timeout fallback: if planning_run for this goal is stuck in "started"
+    # for too long, force terminal failure to avoid endless planning_running.
+    try:
+        planning_runs = [r for r in _repos().planning_run_repo.get_by_goal_id(goal_id, limit=20) if str(getattr(r, "goal_id", "") or "") == goal_id]
+        started_runs = [r for r in planning_runs if str(getattr(r, "status", "") or "") == "started"]
+        if started_runs:
+            latest_started = sorted(started_runs, key=lambda x: float(getattr(x, "updated_at", 0.0) or 0.0), reverse=True)[0]
+            started_age = now_ts - float(getattr(latest_started, "updated_at", 0.0) or 0.0)
+            if started_age > 180:
+                return _services().goal_lifecycle_service.transition_goal(
+                    goal,
+                    target_status="failed",
+                    reason="planning_stuck_timeout_recovery",
+                    readiness=dict(getattr(goal, "readiness", None) or {}),
+                )
+    except Exception:
+        pass
+
     tasks = [t for t in _repos().task_repo.get_all() if str(getattr(t, "goal_id", "") or "").strip() == goal_id]
     if tasks:
         return goal
@@ -620,10 +638,34 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                     mode_data=goal_record.mode_data,
                 )
 
-        with _GOAL_PLANNING_LOCK:
+        lock_acquired = _GOAL_PLANNING_LOCK.acquire(timeout=planning_timeout_s)
+        if not lock_acquired:
+            _services().goal_lifecycle_service.transition_goal(
+                goal_record,
+                target_status="failed",
+                reason="planning_lock_timeout",
+                readiness=readiness,
+            )
+            record_product_event(
+                "goal_planning_failed",
+                actor="auto_planner",
+                details={
+                    "reason": "planning_lock_timeout",
+                    "timeout_seconds": planning_timeout_s,
+                    "source": goal_record.source,
+                    "mode": goal_record.mode,
+                },
+                goal_id=goal_record.id,
+                trace_id=goal_record.trace_id,
+                plan_id=None,
+            )
+            return
+        try:
             with ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(_run_plan_goal_with_app_context)
                 result = future.result(timeout=planning_timeout_s)
+        finally:
+            _GOAL_PLANNING_LOCK.release()
     except FutureTimeoutError:
         _services().goal_lifecycle_service.transition_goal(
             goal_record,
