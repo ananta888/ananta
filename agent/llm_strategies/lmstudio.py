@@ -196,11 +196,16 @@ class LMStudioStrategy(LLMStrategy):
         resp = _http_post(
             url, payload, timeout=timeout, return_response=True, silent=True, idempotency_key=idempotency_key
         )
-        if resp and hasattr(resp, "status_code") and resp.status_code < 400:
-            try:
-                return resp.json()
-            except (ValueError, TypeError):
-                return resp.text
+        if resp is not None and hasattr(resp, "status_code"):
+            if resp.status_code < 400:
+                try:
+                    return resp.json()
+                except (ValueError, TypeError):
+                    return resp.text
+            logging.warning("LMStudio HTTP %s: %.200s", resp.status_code, resp.text)
+            return None
+        if resp is None:
+            logging.error("LMStudio response is None (timeout/connection error) for url=%s", url)
         return None
 
     def _list_lmstudio_candidates(self, base_url, timeout):
