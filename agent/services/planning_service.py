@@ -760,13 +760,19 @@ class PlanningService:
             )
         except Exception as exc:
             planner._stats["errors"] += 1
+            if isinstance(exc, RecursionError):
+                error_message = "planning_recursion_guard_triggered"
+                error_classification = "planning_recursion_error"
+            else:
+                error_message = str(exc)
+                error_classification = "resolve_subtasks_exception"
             get_planning_telemetry_service().update_run(
                 telemetry_run,
                 status="failed",
-                error_classification="resolve_subtasks_exception",
-                validation_errors=[str(exc)],
+                error_classification=error_classification,
+                validation_errors=[error_message],
             )
-            return {"subtasks": [], "created_task_ids": [], "error": str(exc), "planning_run_id": telemetry_run.id}
+            return {"subtasks": [], "created_task_ids": [], "error": error_message, "planning_run_id": telemetry_run.id}
 
         subtasks = resolved["subtasks"]
         planning_policy = self._resolve_planning_policy()

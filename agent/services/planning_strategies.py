@@ -180,7 +180,11 @@ class LLMPlanningStrategy:
                 temp = max(0.0, min(2.0, temp))
             resolved.append({"name": name, "temperature": temp})
         if resolved:
-        return resolved
+            return resolved
+        return [
+            {"name": "hub_copilot", "temperature": 0.15},
+            {"name": "llm_config", "temperature": 0.1},
+        ][: max(1, min(repair_attempts, 6))]
 
     @staticmethod
     def _split_context_into_segments(context: str | None, *, segment_chars: int, max_segments: int) -> list[str]:

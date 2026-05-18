@@ -247,8 +247,19 @@ def extract_task_items_from_payload(payload: object) -> list[object]:
         return bool(has_title or has_desc)
 
     collected: list[object] = []
+    stack: list[object] = [payload]
+    visited: set[int] = set()
+    max_nodes = 20000
+    visited_count = 0
 
-    def _walk(node: object) -> None:
+    while stack and visited_count < max_nodes:
+        node = stack.pop()
+        node_id = id(node)
+        if node_id in visited:
+            continue
+        visited.add(node_id)
+        visited_count += 1
+
         if isinstance(node, dict):
             for key, value in node.items():
                 if isinstance(value, list):
@@ -260,14 +271,12 @@ def extract_task_items_from_payload(payload: object) -> list[object]:
                             elif isinstance(item, str):
                                 collected.append({"description": item, "priority": payload.get("priority")})
                     for item in value:
-                        _walk(item)
+                        stack.append(item)
                 elif isinstance(value, dict):
-                    _walk(value)
+                    stack.append(value)
         elif isinstance(node, list):
             for item in node:
-                _walk(item)
-
-    _walk(payload)
+                stack.append(item)
     if collected:
         return collected
 
