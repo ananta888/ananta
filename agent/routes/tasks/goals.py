@@ -70,9 +70,9 @@ def _looks_like_software_goal(text: str) -> bool:
     return any(token in normalized for token in _SOFTWARE_GOAL_HINTS)
 
 
-def _plan_looks_too_thin_for_software_goal(task_ids: list[str]) -> bool:
+def _software_plan_quality(task_ids: list[str]) -> tuple[bool, str]:
     if not task_ids:
-        return True
+        return False, "no_tasks"
     aggregate_parts: list[str] = []
     for tid in task_ids:
         task = _repos().task_repo.get_by_id(tid)
@@ -82,19 +82,34 @@ def _plan_looks_too_thin_for_software_goal(task_ids: list[str]) -> bool:
         description = str(getattr(task, "description", "") or "").lower()
         aggregate_parts.append(f"{title} {description}")
     if not aggregate_parts:
-        return True
+        return False, "tasks_missing_payload"
+    if len(aggregate_parts) < 5:
+        return False, f"too_few_tasks:{len(aggregate_parts)}"
     text = " ".join(aggregate_parts)
     implementation_markers = (
         "implement",
         "code",
         "print(",
         "python",
+        "funktion",
+        "algorithm",
+        "backend",
+    )
+    execution_markers = (
         "run",
         "execute",
         "ausführen",
         "ausfuehren",
+        "test",
+        "verify",
+        "prüfung",
+        "pruefung",
     )
-    return not any(marker in text for marker in implementation_markers)
+    if not any(marker in text for marker in implementation_markers):
+        return False, "missing_implementation_task"
+    if not any(marker in text for marker in execution_markers):
+        return False, "missing_execution_or_verification_task"
+    return True, "ok"
 
 
 def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
@@ -731,7 +746,16 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         and created_task_ids
         and str(context.get("mode_id") or "generic") == "generic"
         and software_goal
-        and _plan_looks_too_thin_for_software_goal(created_task_ids)
+    ):
+        quality_ok, quality_reason = _software_plan_quality(created_task_ids)
+    else:
+        quality_ok, quality_reason = True, "not_software_goal_or_disabled"
+    if (
+        create_tasks_enabled
+        and created_task_ids
+        and str(context.get("mode_id") or "generic") == "generic"
+        and software_goal
+        and not quality_ok
     ):
         retry_mode = "new_software_project"
         retry_mode_data = dict(goal_record.mode_data or {})
@@ -751,6 +775,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         if not retry_result.get("error"):
             result = retry_result
             created_task_ids = list(result.get("created_task_ids") or [])
+            quality_ok, quality_reason = _software_plan_quality(created_task_ids)
 
     if create_tasks_enabled and not created_task_ids:
         _services().goal_lifecycle_service.transition_goal(
@@ -772,7 +797,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
     if (
         create_tasks_enabled
         and software_goal
-        and _plan_looks_too_thin_for_software_goal(created_task_ids)
+        and not quality_ok
     ):
         _services().goal_lifecycle_service.transition_goal(
             goal_record,
@@ -783,7 +808,13 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         record_product_event(
             "goal_planning_failed",
             actor="auto_planner",
-            details={"reason": "planning_insufficient_task_detail", "source": goal_record.source, "mode": goal_record.mode},
+            details={
+                "reason": "planning_insufficient_task_detail",
+                "quality_reason": quality_reason,
+                "task_count": len(created_task_ids),
+                "source": goal_record.source,
+                "mode": goal_record.mode,
+            },
             goal_id=goal_record.id,
             trace_id=goal_record.trace_id,
             plan_id=result.get("plan_id"),
