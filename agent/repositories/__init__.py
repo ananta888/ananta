@@ -40,6 +40,14 @@ from .organization import (
 )
 from .tasks import ArchivedTaskRepository, TaskRepository
 from .worker_slot_lease import WorkerSlotLeaseRepository
+from .planning_learning import (
+    PlanningEvaluationRepository,
+    PlanningModelProfileRepository,
+    PlanningPatternClusterRepository,
+    PlanningPromptVersionRepository,
+    PlanningRunRepository,
+    PlanningTemplateCandidateRepository,
+)
 
 __all__ = [
     "ActionPackRepository",
@@ -88,4 +96,10 @@ __all__ = [
     "WorkerJobRepository",
     "WorkerResultRepository",
     "WorkerSlotLeaseRepository",
+    "PlanningRunRepository",
+    "PlanningPromptVersionRepository",
+    "PlanningModelProfileRepository",
+    "PlanningEvaluationRepository",
+    "PlanningTemplateCandidateRepository",
+    "PlanningPatternClusterRepository",
 ]

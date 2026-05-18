@@ -1,0 +1,34 @@
+{
+  "prompt_versions": [
+    {
+      "version": "v1-generic-de",
+      "language": "de",
+      "mode": "generic",
+      "output_contract": {"format": "json_array", "max_nodes": 8},
+      "system_rules": ["no_sudo", "no_systemctl", "json_only"],
+      "user_prompt_template": "Du bist ein Projektplanungs-Assistent. Zerlege das Ziel in umsetzbare Teilaufgaben.\n\nZIEL:\n{goal}\n\nKONTEXT:\n{context}\n\nLiefere nur ein JSON-Array mit title, description, priority, depends_on.",
+      "repair_prompt_template": "Der vorherige Output war unstrukturiert. Erzeuge valides JSON-Array fuer das Ziel: {goal}",
+      "enabled": true
+    },
+    {
+      "version": "v1-generic-en",
+      "language": "en",
+      "mode": "generic",
+      "output_contract": {"format": "json_array", "max_nodes": 8},
+      "system_rules": ["no_sudo", "json_only"],
+      "user_prompt_template": "You are a planning assistant. Break down the goal into actionable tasks.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nReturn JSON array only with title, description, priority, depends_on.",
+      "repair_prompt_template": "Previous output was invalid. Return strict JSON array for goal: {goal}",
+      "enabled": true
+    },
+    {
+      "version": "v1-new-project-en",
+      "language": "en",
+      "mode": "new_software_project",
+      "output_contract": {"format": "json_array", "requires": ["expected_artifacts", "verification_spec", "dependency_mode", "task_kind"]},
+      "system_rules": ["json_only", "execution_path_required"],
+      "user_prompt_template": "Plan a new software project with executable steps.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nReturn JSON array only. Include concrete file/workspace tasks and verification tasks.",
+      "repair_prompt_template": "Repair the project plan into strict JSON array including execution + verification steps for: {goal}",
+      "enabled": true
+    }
+  ]
+}

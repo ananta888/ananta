@@ -16,6 +16,11 @@ from agent.services.planning_strategies import (
     TemplatePlanningStrategy,
 )
 from agent.services.planning_utils import sanitize_input, validate_goal
+from agent.services.planning_evaluation_service import get_planning_evaluation_service
+from agent.services.planning_telemetry_service import get_planning_telemetry_service
+from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
+from agent.services.llm_first_planning_orchestrator_service import get_llm_first_planning_orchestrator_service
+from agent.services.planning_template_mining_service import get_planning_template_mining_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.verification_policy_service import default_verification_spec
@@ -347,6 +352,9 @@ class PlanningService:
             "repair_strategy_used": result.repair_strategy_used,
             "repair_attempt_count": result.repair_attempt_count,
             "parse_mode": result.parse_mode,
+            "parse_confidence": result.parse_confidence,
+            "prompt_version_id": result.prompt_version_id,
+            "planning_profile": result.planning_profile,
         }
 
     def _run_planning_strategies(
@@ -360,14 +368,25 @@ class PlanningService:
         mode: str = "generic",
         mode_data: Optional[dict] = None,
     ) -> PlanningStrategyResult:
-        strategies = [
-            TemplatePlanningStrategy(enabled=use_template),
-            HubCopilotPlanningStrategy(use_repo_context=use_repo_context),
-            LLMPlanningStrategy(use_repo_context=use_repo_context),
-        ]
+        planning_policy = self._resolve_planning_policy()
+        decision = get_llm_first_planning_orchestrator_service().decide_strategy_order(
+            mode=mode,
+            use_template=use_template,
+            use_repo_context=use_repo_context,
+            planning_policy=planning_policy,
+        )
+        strategy_map = {
+            "template": TemplatePlanningStrategy(enabled=use_template),
+            "hub_copilot": HubCopilotPlanningStrategy(use_repo_context=use_repo_context),
+            "llm": LLMPlanningStrategy(use_repo_context=use_repo_context),
+        }
+        strategies = [strategy_map[name] for name in decision.strategy_order if name in strategy_map]
+        if not strategies:
+            strategies = [LLMPlanningStrategy(use_repo_context=use_repo_context)]
         for strategy in strategies:
             result = strategy.execute(planner, goal, context, mode=mode, mode_data=mode_data)
             if result is not None:
+                setattr(planner, "_planning_strategy_rationale", decision.rationale)
                 return result
         raise RuntimeError("planning_strategy_resolution_failed")
 
@@ -469,6 +488,7 @@ class PlanningService:
         repair_strategy_used: str | None = None,
         repair_attempt_count: int = 0,
         parse_mode: str | None = None,
+        planning_run_id: str | None = None,
     ) -> tuple[PlanDB | None, list[PlanNodeDB]]:
         repos = get_repository_registry()
         flags = get_goal_feature_flags()
@@ -486,6 +506,7 @@ class PlanningService:
                 "repair_strategy_used": repair_strategy_used,
                 "repair_attempt_count": int(repair_attempt_count or 0),
                 "parse_mode": parse_mode,
+                "planning_run_id": planning_run_id,
                 "node_count": len(subtasks),
                 "context_used": bool(context),
                 "raw_response_preview": (raw_response or "")[:400],
@@ -662,9 +683,27 @@ class PlanningService:
 
         goal = sanitize_input(goal)
         context = sanitize_input(context) if context else None
+        intent = get_goal_planning_intent_service().classify(goal_text=goal, mode=mode)
         scoped_resolution = get_goal_config_runtime_service().get_effective_config(goal_id=goal_id, task_id=None)
         setattr(planner, "_goal_effective_config", dict(scoped_resolution.config or {}))
         setattr(planner, "_goal_config_source", str(scoped_resolution.source or "global_fallback"))
+        scoped_cfg = dict(scoped_resolution.config or {})
+        scoped_llm_cfg = dict(scoped_cfg.get("llm_config") or {})
+        telemetry_run = get_planning_telemetry_service().start_run(
+            goal_id=goal_id,
+            trace_id=goal_trace_id,
+            goal_text=goal,
+            mode=mode,
+            mode_data={**dict(mode_data or {}), "__intent__": intent},
+            provider=str(scoped_llm_cfg.get("provider") or ""),
+            model_name=str(scoped_llm_cfg.get("model") or ""),
+            model_base_url=str(scoped_llm_cfg.get("base_url") or ""),
+            planning_profile=None,
+            prompt_version_id=None,
+            prompt_language=None,
+            context_char_count=len(str(context or "")),
+            status="started",
+        )
 
         try:
             resolved = self._resolve_subtasks(
@@ -678,7 +717,13 @@ class PlanningService:
             )
         except Exception as exc:
             planner._stats["errors"] += 1
-            return {"subtasks": [], "created_task_ids": [], "error": str(exc)}
+            get_planning_telemetry_service().update_run(
+                telemetry_run,
+                status="failed",
+                error_classification="resolve_subtasks_exception",
+                validation_errors=[str(exc)],
+            )
+            return {"subtasks": [], "created_task_ids": [], "error": str(exc), "planning_run_id": telemetry_run.id}
 
         subtasks = resolved["subtasks"]
         planning_policy = self._resolve_planning_policy()
@@ -707,8 +752,22 @@ class PlanningService:
         repair_strategy_used = resolved.get("repair_strategy_used")
         repair_attempt_count = int(resolved.get("repair_attempt_count") or 0)
         parse_mode = resolved.get("parse_mode")
+        parse_confidence = resolved.get("parse_confidence")
+        prompt_version_id = str(resolved.get("prompt_version_id") or "")
+        planning_profile = str(resolved.get("planning_profile") or "")
         context = resolved["context"]
         template_used = resolved["template_used"]
+        get_planning_telemetry_service().update_run(
+            telemetry_run,
+            raw_output=str(raw_response or ""),
+            parse_mode=str(parse_mode or ""),
+            parse_confidence=str(parse_confidence or "low"),
+            repair_needed=bool(repair_attempt_count),
+            repair_success=bool(subtasks),
+            repair_strategy_used=str(repair_strategy_used or ""),
+            repair_attempt_count=repair_attempt_count,
+            status="resolved",
+        )
         planner_selection: dict[str, Any] = {
             "delegated_planning_enabled": bool(planning_policy.get("delegated_planning_enabled")),
             "selected_agent": None,
@@ -741,6 +800,7 @@ class PlanningService:
                 "limit_exceeded_reason": limit_exceeded,
                 "planning_policy": planning_policy,
                 "planner_selection": planner_selection,
+                "planning_run_id": telemetry_run.id,
             }
         if limit_exceeded and str(limit_exceeded) == "max_plan_nodes":
             logging.warning(
@@ -775,6 +835,7 @@ class PlanningService:
                     "error_classification": "unstructured_llm_response",
                     "planning_policy": planning_policy,
                     "planner_selection": planner_selection,
+                    "planning_run_id": telemetry_run.id,
                 }
 
         proposal_payload = build_plan_proposal(
@@ -823,6 +884,7 @@ class PlanningService:
                 "proposal_validation_errors": proposal_validation.errors,
                 "planning_policy": planning_policy,
                 "planner_selection": planner_selection,
+                "planning_run_id": telemetry_run.id,
             }
 
         plan = None
@@ -839,6 +901,7 @@ class PlanningService:
                 repair_strategy_used=repair_strategy_used,
                 repair_attempt_count=repair_attempt_count,
                 parse_mode=parse_mode,
+                planning_run_id=str(telemetry_run.id),
             )
 
         created_ids: list[str] = []
@@ -876,9 +939,45 @@ class PlanningService:
                     "proposal_validation_errors": proposal_validation.errors,
                     "planning_policy": planning_policy,
                     "planner_selection": planner_selection,
+                    "planning_run_id": telemetry_run.id,
                 }
             planner._stats["goals_processed"] += 1
             planner._persist_state()
+
+        dependency_modes: dict[str, int] = {}
+        for subtask in list(subtasks or []):
+            dep_mode = str(subtask.get("dependency_mode") or "sequential").strip().lower() or "sequential"
+            dependency_modes[dep_mode] = dependency_modes.get(dep_mode, 0) + 1
+        expected_artifacts_count = sum(
+            len([item for item in list((subtask or {}).get("expected_artifacts") or []) if isinstance(item, dict)])
+            for subtask in list(subtasks or [])
+        )
+        verification_spec_count = sum(
+            1
+            for subtask in list(subtasks or [])
+            if isinstance((subtask or {}).get("verification_spec"), dict) and bool((subtask or {}).get("verification_spec"))
+        )
+        telemetry_run = get_planning_telemetry_service().update_run(
+            telemetry_run,
+            validation_success=True,
+            validation_errors=list(proposal_validation.errors or []),
+            generated_task_count=len(created_ids),
+            expected_artifacts_count=expected_artifacts_count,
+            verification_spec_count=verification_spec_count,
+            dependency_mode_distribution=dependency_modes,
+            materialized_task_ids=created_ids,
+            status="materialized" if created_ids else "planned",
+        )
+        get_planning_evaluation_service().evaluate(
+            planning_run_id=str(telemetry_run.id),
+            goal_id=goal_id,
+            trace_id=goal_trace_id,
+        )
+        # opportunistic mining step (bounded window inside service)
+        try:
+            get_planning_template_mining_service().mine_candidates(min_total_score=0.85, limit=30)
+        except Exception:
+            pass
 
         return {
             "subtasks": subtasks,
@@ -898,6 +997,11 @@ class PlanningService:
             "planning_policy": planning_policy,
             "planner_selection": planner_selection,
             "goal_config_source": str(getattr(planner, "_goal_config_source", "global_fallback")),
+            "planning_run_id": telemetry_run.id,
+            "prompt_version_id": prompt_version_id or None,
+            "planning_profile": planning_profile or None,
+            "planning_intent": intent,
+            "planning_strategy_rationale": str(getattr(planner, "_planning_strategy_rationale", "")) or None,
         }
 
     def get_latest_plan_for_goal(self, goal_id: str) -> tuple[PlanDB | None, list[PlanNodeDB]]:

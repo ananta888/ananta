@@ -463,6 +463,20 @@ def try_load_repo_context(goal: str) -> Optional[str]:
 
 
 def build_planning_prompt(goal: str, context: Optional[str] = None, max_tasks: int = 8) -> str:
+    try:
+        from agent.services.planning_prompt_registry import get_planning_prompt_registry
+
+        resolved = get_planning_prompt_registry().resolve(
+            goal=goal,
+            context=context,
+            mode="generic",
+            language="de",
+            model_family=None,
+        )
+        if str(resolved.prompt or "").strip():
+            return str(resolved.prompt)
+    except Exception:
+        pass
     prompt = (
         "Du bist ein Projektplanungs-Assistent. Analysiere das folgende Ziel und "
         "zerlege es in konkrete, ausfuehrbare Teilaufgaben.\n\n"
@@ -493,6 +507,20 @@ def build_planning_prompt(goal: str, context: Optional[str] = None, max_tasks: i
 
 def build_planning_prompt_en(goal: str, context: Optional[str] = None, max_tasks: int = 8) -> str:
     """English planning prompt — more compatible with small/embedded models like gemma-4-e4b."""
+    try:
+        from agent.services.planning_prompt_registry import get_planning_prompt_registry
+
+        resolved = get_planning_prompt_registry().resolve(
+            goal=goal,
+            context=context,
+            mode="generic",
+            language="en",
+            model_family=None,
+        )
+        if str(resolved.prompt or "").strip():
+            return str(resolved.prompt)
+    except Exception:
+        pass
     prompt = (
         "You are a project planning assistant. Break down the following goal into concrete, "
         f"actionable subtasks. Output ONLY a valid JSON array with {max_tasks} or fewer tasks, "

@@ -51,6 +51,12 @@ from agent.repositories import (
     WorkerJobRepository,
     WorkerResultRepository,
     WorkerSlotLeaseRepository,
+    PlanningRunRepository,
+    PlanningPromptVersionRepository,
+    PlanningModelProfileRepository,
+    PlanningEvaluationRepository,
+    PlanningTemplateCandidateRepository,
+    PlanningPatternClusterRepository,
 )
 
 # Singletons für Repositories
@@ -100,6 +106,12 @@ team_blueprint_repo = TeamBlueprintRepository()
 blueprint_role_repo = BlueprintRoleRepository()
 blueprint_artifact_repo = BlueprintArtifactRepository()
 team_type_role_link_repo = TeamTypeRoleLinkRepository()
+planning_run_repo = PlanningRunRepository()
+planning_prompt_version_repo = PlanningPromptVersionRepository()
+planning_model_profile_repo = PlanningModelProfileRepository()
+planning_evaluation_repo = PlanningEvaluationRepository()
+planning_template_candidate_repo = PlanningTemplateCandidateRepository()
+planning_pattern_cluster_repo = PlanningPatternClusterRepository()
 
 __all__ = [
     "ActionPackRepository",
@@ -148,6 +160,12 @@ __all__ = [
     "WorkerJobRepository",
     "WorkerResultRepository",
     "WorkerSlotLeaseRepository",
+    "PlanningRunRepository",
+    "PlanningPromptVersionRepository",
+    "PlanningModelProfileRepository",
+    "PlanningEvaluationRepository",
+    "PlanningTemplateCandidateRepository",
+    "PlanningPatternClusterRepository",
     "action_pack_repo",
     "agent_repo",
     "artifact_repo",
@@ -194,4 +212,10 @@ __all__ = [
     "worker_job_repo",
     "worker_result_repo",
     "worker_slot_lease_repo",
+    "planning_run_repo",
+    "planning_prompt_version_repo",
+    "planning_model_profile_repo",
+    "planning_evaluation_repo",
+    "planning_template_candidate_repo",
+    "planning_pattern_cluster_repo",
 ]

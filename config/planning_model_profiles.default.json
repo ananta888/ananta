@@ -1,0 +1,37 @@
+{
+  "profiles": [
+    {
+      "provider": "lmstudio",
+      "model_name_pattern": "*gemma*",
+      "profile_name": "small_local",
+      "prompt_language": "en",
+      "context_max_chars": 400,
+      "max_output_tokens": 512,
+      "temperature": 0.2,
+      "repair_attempts": 1,
+      "output_contract_strictness": "repair_required",
+      "requires_english_prompt": true,
+      "enabled": true
+    },
+    {
+      "provider": "ollama",
+      "profile_name": "medium_local",
+      "prompt_language": "en",
+      "context_max_chars": 600,
+      "max_output_tokens": 768,
+      "temperature": 0.2,
+      "repair_attempts": 2,
+      "enabled": true
+    },
+    {
+      "provider": "*",
+      "profile_name": "global_default",
+      "prompt_language": "de",
+      "context_max_chars": 1200,
+      "max_output_tokens": 1024,
+      "temperature": 0.2,
+      "repair_attempts": 2,
+      "enabled": true
+    }
+  ]
+}

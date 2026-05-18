@@ -30,7 +30,8 @@
       "P2": 2
     },
     "by_status": {
-      "todo": 27
+      "completed": 10,
+      "todo": 17
     },
     "source_tasks": {
       "todo.llm-first-planning-learning.json": 15,
@@ -89,7 +90,7 @@
     {
       "id": "LLMPLAN-001",
       "title": "PlanningRunDB fuer vollstaendige LLM-Planning-Telemetrie einfuehren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "critical",
       "summary": "Jeder LLM-basierte Planning-Lauf muss als eigener Datensatz persistiert werden, inklusive Modell, Prompt-Version, Rohantwort, Parsergebnis, Repair-Pfad, Validation und spaeter Execution Feedback.",
@@ -121,12 +122,13 @@
       "tests": [
         "tests/test_planning_run_repository.py",
         "tests/test_planning_telemetry_service.py::test_llm_planning_run_is_recorded"
-      ]
+      ],
+      "implementation_notes": "DB-Modelle + Repository + PlanningTelemetryService integriert; planning_run_id wird im Planning-Flow zurueckgegeben."
     },
     {
       "id": "LLMPLAN-002",
       "title": "Prompt-Versionierung fuer Planning einfuehren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "high",
       "summary": "Planning Prompts muessen versioniert werden, damit Output-Qualitaet pro Prompt, Modell und Profil messbar wird.",
@@ -159,12 +161,13 @@
       "tests": [
         "tests/test_planning_prompt_registry.py::test_prompt_version_is_resolved_for_model_profile",
         "tests/test_planning_prompt_registry.py::test_new_project_prompt_contains_structured_contract"
-      ]
+      ],
+      "implementation_notes": "PlanningPromptVersionDB + PromptRegistry + Default-Promptkatalog + Schema eingefuehrt; Prompt-Aufloesung aktiv in LLMPlanningStrategy."
     },
     {
       "id": "LLMPLAN-003",
       "title": "Modellspezifische PlanningProfileDB einfuehren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "high",
       "summary": "Kleine lokale Modelle, groessere lokale Modelle und Cloud-Modelle verhalten sich unterschiedlich. Das Planning braucht lernbare Profile pro Modell/Provider.",
@@ -199,12 +202,13 @@
         "tests/test_planning_model_profile_service.py::test_exact_model_profile_wins",
         "tests/test_planning_model_profile_service.py::test_provider_default_profile_fallback",
         "tests/test_planning_model_profile_service.py::test_profile_applies_to_llm_planning_strategy"
-      ]
+      ],
+      "implementation_notes": "PlanningModelProfileDB + ProfileService + Default-Profile eingefuehrt; profilbasierte Aufloesung in Strategy integriert."
     },
     {
       "id": "LLMPLAN-004",
       "title": "LLMPlanningStrategy auf Telemetry, PromptRegistry und ModelProfile umstellen",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "critical",
       "summary": "Die bestehende LLMPlanningStrategy muss der zentrale LLM-first Datenlieferant werden und alle relevanten Daten schreiben.",
@@ -242,12 +246,13 @@
         "tests/test_planning_strategies.py::test_llm_strategy_records_planning_run",
         "tests/test_planning_strategies.py::test_repair_uses_diagnostic_parser",
         "tests/test_commit_planner_integration.py::test_plan_rationale_contains_planning_run_id"
-      ]
+      ],
+      "implementation_notes": "LLMPlanningStrategy nutzt Profile+PromptRegistry; PlanningService schreibt Telemetrie-Updates inkl. parse/repair/materialization."
     },
     {
       "id": "LLMPLAN-005",
       "title": "Planning Evaluation nach Materialisierung und Worker-Ausfuehrung einfuehren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "critical",
       "summary": "Ein Plan muss anhand realer Ausfuehrung bewertet werden: Materialisierung, Worker-Erfolg, Artefakte, Tests und Verification.",
@@ -283,12 +288,13 @@
       "tests": [
         "tests/test_planning_evaluation_service.py::test_successful_execution_improves_total_score",
         "tests/test_planning_evaluation_service.py::test_parse_success_without_artifacts_is_not_high_quality"
-      ]
+      ],
+      "implementation_notes": "EvaluationService integriert und an PlanningRun gekoppelt; Score-Berechnung + Persistenz aktiv."
     },
     {
       "id": "LLMPLAN-006",
       "title": "Planning Metrics API und Dashboard-Daten bereitstellen",
-      "status": "todo",
+      "status": "completed",
       "priority": "P1",
       "risk": "medium",
       "summary": "Damit Prompt- und Modellqualitaet sichtbar wird, braucht der Hub eine API fuer Planning-Metriken pro Modell, Prompt-Version und Profil.",
@@ -319,12 +325,13 @@
         "tests/test_planning_metrics_api.py::test_metrics_grouped_by_model",
         "tests/test_planning_metrics_api.py::test_prompt_version_filter",
         "tests/test_planning_metrics_api.py::test_raw_output_masked_by_default"
-      ]
+      ],
+      "implementation_notes": "Metrics-Service und Admin-Endpoint /admin/planning/metrics integriert."
     },
     {
       "id": "LLMPLAN-007",
       "title": "Prompt Improvement Loop implementieren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P1",
       "risk": "high",
       "summary": "Aus Planning-Telemetrie sollen bessere Prompt-Versionen vorgeschlagen werden, aber nicht ungeprueft aktiviert werden.",
@@ -356,12 +363,13 @@
       "tests": [
         "tests/test_planning_prompt_optimizer_service.py::test_missing_artifacts_creates_prompt_candidate",
         "tests/test_planning_prompt_optimizer_service.py::test_candidate_is_not_auto_activated"
-      ]
+      ],
+      "implementation_notes": "PromptImprovementService eingefuehrt (datenbasierte Verbesserungsvorschlaege aus Metrics)."
     },
     {
       "id": "LLMPLAN-008",
       "title": "Goal-Type und Planning Intent als lernbare Klassifikation einfuehren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P1",
       "risk": "medium",
       "summary": "Das Goal muss vor dem Planning nicht deterministisch final klassifiziert werden, aber eine lernbare Hypothese fuer Prompt-Auswahl und Auswertung erhalten.",
@@ -392,12 +400,13 @@
       "tests": [
         "tests/test_goal_interpretation_service.py::test_new_software_project_hint",
         "tests/test_goal_interpretation_service.py::test_low_confidence_does_not_block_planning"
-      ]
+      ],
+      "implementation_notes": "GoalPlanningIntentService integriert; Intent wird im plan_goal Response und mode_data-Telemetrie hinterlegt."
     },
     {
       "id": "LLMPLAN-009",
       "title": "Deterministic Template Candidate Mining aus erfolgreichen LLM-Runs",
-      "status": "todo",
+      "status": "completed",
       "priority": "P1",
       "risk": "high",
       "summary": "Deterministische Templates sollen nicht frei erfunden werden, sondern aus erfolgreichen LLM-Plans und Execution-Ergebnissen extrahiert werden.",
@@ -430,12 +439,13 @@
       "tests": [
         "tests/test_planning_template_mining_service.py::test_successful_runs_create_template_candidate",
         "tests/test_planning_template_mining_service.py::test_candidate_requires_minimum_evidence"
-      ]
+      ],
+      "implementation_notes": "Template-Candidate-Mining + Pattern-Cluster aus erfolgreichen PlanningRuns implementiert."
     },
     {
       "id": "LLMPLAN-010",
       "title": "LLM-first Strategy Orchestrator statt starrer Template-first Reihenfolge einfuehren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "critical",
       "summary": "Die aktuelle Strategie-Reihenfolge ist Template -> HubCopilot -> LLM. Fuer die Lernphase braucht es einen Orchestrator, der je nach Evidenz LLM-first oder Template-first entscheidet.",
@@ -471,7 +481,8 @@
         "tests/test_planning_strategy_orchestrator.py::test_llm_first_learning_prefers_llm",
         "tests/test_planning_strategy_orchestrator.py::test_deterministic_first_prefers_template",
         "tests/test_planning_strategy_orchestrator.py::test_evidence_weighted_uses_template_only_with_threshold"
-      ]
+      ],
+      "implementation_notes": "LLM-first Planning Orchestrator eingefuehrt und Strategy-Reihenfolge zentral in _run_planning_strategies verdrahtet."
     },
     {
       "id": "LLMPLAN-011",
@@ -1061,5 +1072,6 @@
     "PlanningRun/Evaluation-Daten erlauben Vergleich nach Modell, Prompt-Version und Profil.",
     "3er-Lauf liefert reproduzierbare Fortschrittsmetriken und fruehe Diagnoseberichte.",
     "Deterministische Templates werden nur aus evidenzbasierten erfolgreichen Mustern aktiviert."
-  ]
+  ],
+  "updated_at": 1779114213.907675
 }
