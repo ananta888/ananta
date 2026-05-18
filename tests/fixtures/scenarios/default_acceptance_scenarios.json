@@ -1,0 +1,20 @@
+{
+  "schema_version": "acceptance_scenarios.v1",
+  "description": "Default acceptance scenarios for the first-goal runner",
+  "scenarios": [
+    {
+      "id": "ananta_ollama_local",
+      "label": "Ananta Worker + Local Ollama",
+      "config_mode": "goal_scoped",
+      "config_profile": "ananta_ollama_local",
+      "config_overrides": {}
+    },
+    {
+      "id": "opencode_ollama_local",
+      "label": "OpenCode Worker + Local Ollama",
+      "config_mode": "goal_scoped",
+      "config_profile": "opencode_ollama_local",
+      "config_overrides": {}
+    }
+  ]
+}

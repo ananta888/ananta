@@ -213,3 +213,84 @@ def test_provider_observer_timeout_clamped_to_min():
     svc = ProviderObserverService()
     raw_timeout = svc._cfg_int({"provider_observer_timeout_seconds": 0}, "provider_observer_timeout_seconds", 3, 1, 15)
     assert raw_timeout == 1
+
+
+# CPR-002: profile availability validation
+class TestProfileAvailabilityValidation:
+    def test_unknown_profile_returns_structural_valid(self):
+        from agent.services.config_profile_service import get_config_profile_service
+        svc = get_config_profile_service()
+        result = svc.validate_profile_availability(None)
+        assert result["validation_level"] == "structural_valid"
+        assert result["errors"] == []
+
+    def test_profile_without_provider_returns_structural_valid(self, monkeypatch):
+        from agent.services.config_profile_service import get_config_profile_service, ConfigProfile, _DEFAULT_PROFILES
+        svc = get_config_profile_service()
+        # opencode_preconfigured has no default_provider in overrides
+        result = svc.validate_profile_availability("opencode_preconfigured")
+        assert result["validation_level"] == "structural_valid"
+        assert result["errors"] == []
+
+    def test_unavailable_provider_warns_when_policy_allows(self, monkeypatch):
+        from agent.services.config_profile_service import get_config_profile_service
+        from unittest.mock import Mock
+        svc = get_config_profile_service()
+
+        mock_snapshot = {"providers": {"ollama": {"runtime": {"ok": False, "status": "connection_error"}}}}
+        monkeypatch.setattr(
+            "agent.services.provider_observer_service.ProviderObserverService.snapshot",
+            Mock(return_value=mock_snapshot),
+        )
+        result = svc.validate_profile_availability(
+            "ananta_ollama_local", block_on_unavailable=False
+        )
+        assert result["validation_level"] == "provider_unavailable"
+        assert len(result["warnings"]) >= 1
+        assert result["errors"] == []
+
+    def test_unavailable_provider_errors_when_policy_blocks(self, monkeypatch):
+        from agent.services.config_profile_service import get_config_profile_service
+        from unittest.mock import Mock
+        svc = get_config_profile_service()
+
+        mock_snapshot = {"providers": {"ollama": {"runtime": {"ok": False, "status": "connection_error"}}}}
+        monkeypatch.setattr(
+            "agent.services.provider_observer_service.ProviderObserverService.snapshot",
+            Mock(return_value=mock_snapshot),
+        )
+        result = svc.validate_profile_availability(
+            "ananta_ollama_local", block_on_unavailable=True
+        )
+        assert result["validation_level"] == "provider_unavailable"
+        assert len(result["errors"]) >= 1
+        assert result["warnings"] == []
+
+    def test_available_provider_returns_observable(self, monkeypatch):
+        from agent.services.config_profile_service import get_config_profile_service
+        from unittest.mock import Mock
+        svc = get_config_profile_service()
+
+        mock_snapshot = {"providers": {"ollama": {"runtime": {"ok": True, "status": "models_loaded"}}}}
+        monkeypatch.setattr(
+            "agent.services.provider_observer_service.ProviderObserverService.snapshot",
+            Mock(return_value=mock_snapshot),
+        )
+        result = svc.validate_profile_availability("ananta_ollama_local")
+        assert result["validation_level"] == "provider_observable"
+        assert result["errors"] == []
+        assert result["warnings"] == []
+
+    def test_probe_exception_is_a_warning_not_error(self, monkeypatch):
+        from agent.services.config_profile_service import get_config_profile_service
+        from unittest.mock import Mock
+        svc = get_config_profile_service()
+
+        monkeypatch.setattr(
+            "agent.services.provider_observer_service.ProviderObserverService.snapshot",
+            Mock(side_effect=RuntimeError("observer down")),
+        )
+        result = svc.validate_profile_availability("ananta_ollama_local")
+        assert result["errors"] == []
+        assert len(result["warnings"]) >= 1
+        assert "observer down" in result["warnings"][0]

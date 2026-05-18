@@ -20,12 +20,31 @@ ACTIVE_STATUSES = {"assigned", "proposing", "in_progress", "running"}
 BLOCKED_SET = {"todo", "blocked_by_dependency"}
 
 
+_CRITERION_STABLE_IDS: dict[int, str] = {
+    1: "goal_ingestion",
+    2: "task_materialization",
+    3: "autopilot_takeover",
+    4: "no_planning_deadlock",
+    5: "provider_stability",
+    6: "write_phase_reached",
+    7: "verification_present",
+    8: "terminal_goal_status",
+    10: "no_manual_intervention",
+}
+
+REPORT_SCHEMA_VERSION = "first_goal_acceptance_report.v2"
+
+
 @dataclass
 class CriterionResult:
     id: int
     name: str
     passed: bool
     details: str
+
+    @property
+    def criterion_id(self) -> str:
+        return _CRITERION_STABLE_IDS.get(self.id, f"criterion_{self.id}")
 
 
 @dataclass
@@ -42,6 +61,10 @@ class RunReport:
     goal_config_source: str | None = None
     effective_config_endpoint_status: int | None = None
     criteria: list[CriterionResult] = field(default_factory=list)
+    pre_run_provider_snapshot: dict[str, Any] | None = None
+    post_run_provider_snapshot: dict[str, Any] | None = None
+    ci_safe_mode: bool = False
+    skipped_checks: list[str] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -137,6 +160,20 @@ class AcceptanceRunner:
             return {}
         return dict(resp.json().get("data") or {})
 
+    def get_provider_observer_snapshot(self) -> dict[str, Any]:
+        """PO-003: Capture provider-observer state. Returns diagnostic fallback on any error."""
+        try:
+            resp = requests.get(
+                f"{self.base_url}/api/system/provider-observer",
+                headers=self.headers,
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                return dict(resp.json().get("data") or {})
+            return {"error": f"http_{resp.status_code}", "available": False}
+        except Exception as exc:
+            return {"error": str(exc)[:120], "available": False}
+
     def get_goal_effective_config(self, goal_id: str) -> tuple[int, dict[str, Any]]:
         resp = requests.get(f"{self.base_url}/goals/{goal_id}/effective-config", headers=self.headers, timeout=20)
         status = int(resp.status_code)
@@ -215,6 +252,36 @@ def _deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+_SCENARIO_REQUIRED_KEYS = frozenset({"id", "label"})
+
+
+def load_scenarios_from_file(path: str) -> list[dict[str, Any]]:
+    """ARD-001: Load scenario definitions from a JSON file.
+
+    The file must contain a top-level 'scenarios' list, each item with at
+    least 'id' and 'label'. Fails with a clear SystemExit on any validation error.
+    """
+    p = Path(path)
+    if not p.exists():
+        raise SystemExit(f"SCENARIO FILE NOT FOUND: {path}")
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"INVALID JSON in scenario file '{path}': {exc}") from exc
+    if not isinstance(raw, dict):
+        raise SystemExit(f"Scenario file '{path}': expected top-level object, got {type(raw).__name__}")
+    scenarios = raw.get("scenarios")
+    if not isinstance(scenarios, list) or not scenarios:
+        raise SystemExit(f"Scenario file '{path}': 'scenarios' key must be a non-empty list")
+    for idx, item in enumerate(scenarios):
+        if not isinstance(item, dict):
+            raise SystemExit(f"Scenario file '{path}': scenario[{idx}] must be an object, got {type(item).__name__}")
+        missing = _SCENARIO_REQUIRED_KEYS - set(item.keys())
+        if missing:
+            raise SystemExit(f"Scenario file '{path}': scenario[{idx}] missing required keys: {sorted(missing)}")
+    return [dict(s) for s in scenarios]
+
+
 def _scenario_definitions(config_snapshot: dict[str, Any]) -> list[dict[str, Any]]:
     default_provider = str(config_snapshot.get("default_provider") or "ollama").strip().lower() or "ollama"
     default_model = str(config_snapshot.get("default_model") or "").strip() or None
@@ -285,7 +352,29 @@ def _scenario_definitions(config_snapshot: dict[str, Any]) -> list[dict[str, Any
     ]
 
 
-def reset_runtime_data() -> None:
+_LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+
+
+def _is_local_base_url(base_url: str) -> bool:
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(base_url).hostname or ""
+        return host in _LOCAL_HOSTS
+    except Exception:
+        return False
+
+
+def reset_runtime_data(*, base_url: str, confirmed: bool) -> None:
+    """DESTRUCTIVE: truncates all runtime tables. Requires confirmed=True and a local base_url."""
+    if not confirmed:
+        raise SystemExit(
+            "SAFETY: --reset-db requires --i-understand-this-deletes-local-test-data to be set"
+        )
+    if not _is_local_base_url(base_url):
+        raise SystemExit(
+            f"SAFETY: --reset-db refused for non-local base_url '{base_url}'. "
+            "Only localhost / 127.0.0.1 targets are permitted."
+        )
     sql = """
 begin;
 truncate table
@@ -321,6 +410,8 @@ def run_once(
     config_mode: str,
     config_profile: str | None,
     config_overrides: dict[str, Any] | None,
+    max_circuit_breaker_open_seconds: int = 120,
+    ci_safe: bool = False,
 ) -> RunReport:
     report = RunReport(
         run_index=run_index,
@@ -328,6 +419,7 @@ def run_once(
         scenario_label=scenario_label,
         config_mode=config_mode,
         config_profile=config_profile,
+        ci_safe_mode=ci_safe,
     )
     output_dir = f"first-goal-run-{run_index}-{uuid.uuid4().hex[:6]}"
     run_trace_id = f"acc-{run_index}-{uuid.uuid4().hex[:10]}"
@@ -335,6 +427,12 @@ def run_once(
     host_dir = workspace_root / output_dir
     if host_dir.exists():
         shutil.rmtree(host_dir, ignore_errors=True)
+
+    # PO-003: capture provider state before the run (skipped in CI-safe mode)
+    if ci_safe:
+        report.skipped_checks.append("pre_run_provider_snapshot")
+    else:
+        report.pre_run_provider_snapshot = runner.get_provider_observer_snapshot()
 
     started_at = time.time()
     goal_id, new_ids, submit_error = runner.submit_goal(
@@ -422,7 +520,7 @@ def run_once(
         if open_count > 0:
             if cb_open_start is None:
                 cb_open_start = now
-            elif now - cb_open_start > 120:
+            elif now - cb_open_start > max_circuit_breaker_open_seconds:
                 cb_open_violation = True
         else:
             cb_open_start = None
@@ -483,7 +581,12 @@ def run_once(
     c3_slow = first_assigned_at is not None and first_post_assigned_change and not idle_hang_violation and (planning_real_llm_seen or planning_synthetic_llm_seen)
     report.criteria.append(CriterionResult(3, "Autopilot-Übernahme ohne Eingriff", c3_fast or c3_slow, f"first_assigned_at={(first_assigned_at-started_at) if first_assigned_at else None}; post_assigned_change={first_post_assigned_change}; planning_real_llm_seen={planning_real_llm_seen}; planning_synthetic_llm_seen={planning_synthetic_llm_seen}; idle_hang_violation={idle_hang_violation}"))
     report.criteria.append(CriterionResult(4, "Kein Planungs-Deadlock", not deadlock_violation, f"deadlock_violation={deadlock_violation}"))
-    report.criteria.append(CriterionResult(5, "Provider-Stabilität ausreichend", not cb_open_violation, f"circuit_open_violation={cb_open_violation}"))
+    if ci_safe:
+        # In CI-safe mode, skip the live provider check and mark it explicitly
+        report.criteria.append(CriterionResult(5, "Provider-Stabilität ausreichend", True, "skipped_in_ci_safe_mode"))
+        report.skipped_checks.append("provider_stability")
+    else:
+        report.criteria.append(CriterionResult(5, "Provider-Stabilität ausreichend", not cb_open_violation, f"circuit_open_violation={cb_open_violation}"))
     report.criteria.append(CriterionResult(6, "Workspace-Schreibphase erreicht", workspace_file_seen, f"workspace={host_dir}; file_seen={workspace_file_seen}"))
     report.criteria.append(CriterionResult(7, "Verifikation vorhanden", verification_seen, f"verification_seen={verification_seen}"))
     report.criteria.append(CriterionResult(8, "Terminaler Goal-Status", report.final_goal_status in {"completed", "failed"}, f"final_status={report.final_goal_status}; sla_s={runner.timeout_s}"))
@@ -494,6 +597,12 @@ def run_once(
     report.config_checksum = str(cfg_payload.get("config_checksum") or "").strip() or None
     report.goal_config_source = str(cfg_payload.get("goal_config_source") or "").strip() or None
 
+    # PO-003: capture provider state after the run for diagnostics (skipped in CI-safe mode)
+    if ci_safe:
+        report.skipped_checks.append("post_run_provider_snapshot")
+    else:
+        report.post_run_provider_snapshot = runner.get_provider_observer_snapshot()
+
     return report
 
 
@@ -503,7 +612,7 @@ def aggregate(run_reports: list[RunReport]) -> dict[str, Any]:
     write_phase_runs = sum(1 for r in run_reports if any(c.id == 6 and c.passed for c in r.criteria))
     all_progress_runs = sum(1 for r in run_reports if any(c.id == 3 and c.passed for c in r.criteria))
     return {
-        "schema": "first_goal_acceptance.v1",
+        "schema": REPORT_SCHEMA_VERSION,
         "total_runs": total,
         "completed_runs": completed_runs,
         "write_phase_runs": write_phase_runs,
@@ -527,7 +636,41 @@ def main() -> int:
     p.add_argument("--goal-text", default="Create a real multi-file Python project for RTX3080 eGPU utilization optimization; write README, src package, tests, run pytest, store report artifact")
     p.add_argument("--workspace-root", default=str(Path.cwd() / "project-workspaces"))
     p.add_argument("--out", default=str(Path("artifacts") / "first_goal_acceptance_report.json"))
-    p.add_argument("--reset-db", action="store_true")
+    p.add_argument(
+        "--reset-db",
+        action="store_true",
+        help=(
+            "WARNING: truncates ALL runtime tables before each run. "
+            "Must be combined with --i-understand-this-deletes-local-test-data. "
+            "Refused against non-local base_url."
+        ),
+    )
+    p.add_argument(
+        "--i-understand-this-deletes-local-test-data",
+        dest="reset_db_confirmed",
+        action="store_true",
+        help="Required guard flag for --reset-db. Acknowledges destructive intent.",
+    )
+    p.add_argument("--max-circuit-breaker-open-seconds", type=int, default=120,
+                   help="Seconds a circuit breaker may stay open before the run fails (default: 120)")
+    p.add_argument(
+        "--scenario-file",
+        default=None,
+        help=(
+            "Path to a JSON file containing scenario definitions "
+            "(must have top-level 'scenarios' list with 'id' and 'label' per item). "
+            "When omitted, built-in default scenarios are used."
+        ),
+    )
+    p.add_argument(
+        "--ci-safe",
+        action="store_true",
+        help=(
+            "CI-safe mode: skips live provider checks (provider-observer, LLM reachability). "
+            "Skipped checks are marked as 'skipped' in the report instead of failed. "
+            "Only deterministic local checks affect the exit code."
+        ),
+    )
     args = p.parse_args()
 
     if int(args.parallel_goals_per_scenario) > 1 and args.config_mode == "legacy_global_config" and not args.allow_unsafe_global_parallel:
@@ -538,7 +681,10 @@ def main() -> int:
 
     runner = AcceptanceRunner(base_url=args.base_url, username=args.user, password=args.password, timeout_s=int(args.sla_seconds), poll_s=float(args.poll_seconds))
     baseline_cfg = runner.get_config()
-    scenarios = _scenario_definitions(baseline_cfg)
+    if getattr(args, "scenario_file", None):
+        scenarios = load_scenarios_from_file(args.scenario_file)
+    else:
+        scenarios = _scenario_definitions(baseline_cfg)
     scenario_repeats = max(1, int(args.scenario_repeats))
 
     expanded_runs: list[dict[str, Any]] = []
@@ -556,13 +702,14 @@ def main() -> int:
         i = int(item["run_index"])
         scenario = dict(item["scenario"] or {})
         if args.reset_db:
-            reset_runtime_data()
+            reset_runtime_data(base_url=args.base_url, confirmed=getattr(args, "reset_db_confirmed", False))
 
         if args.config_mode == "legacy_global_config":
             runner.set_config_patch(dict(scenario.get("config_patch") or {}))
             runner.restart_autopilot_unscoped()
 
         parallel_n = max(1, int(args.parallel_goals_per_scenario))
+        _ci_safe = getattr(args, "ci_safe", False)
         if parallel_n == 1:
             report = run_once(
                 runner,
@@ -574,6 +721,8 @@ def main() -> int:
                 config_mode=args.config_mode,
                 config_profile=str(scenario.get("config_profile") or "") or None,
                 config_overrides=dict(scenario.get("config_overrides") or {}),
+                max_circuit_breaker_open_seconds=int(args.max_circuit_breaker_open_seconds),
+                ci_safe=_ci_safe,
             )
             all_reports.append(report)
             print(f"run {i} [{report.scenario_id}]: goal={report.goal_id} final={report.final_goal_status} pass={report.passed}")
@@ -590,6 +739,8 @@ def main() -> int:
                 config_mode=args.config_mode,
                 config_profile=str(scenario.get("config_profile") or "") or None,
                 config_overrides=dict(scenario.get("config_overrides") or {}),
+                max_circuit_breaker_open_seconds=int(args.max_circuit_breaker_open_seconds),
+                ci_safe=_ci_safe,
             )
 
         with ThreadPoolExecutor(max_workers=parallel_n) as ex:
@@ -623,7 +774,14 @@ def main() -> int:
                 "goal_config_source": r.goal_config_source,
                 "effective_config_endpoint_status": r.effective_config_endpoint_status,
                 "passed": r.passed,
-                "criteria": [c.__dict__ for c in r.criteria],
+                "ci_safe_mode": r.ci_safe_mode,
+                "skipped_checks": r.skipped_checks,
+                "criteria": [
+                    {**c.__dict__, "criterion_id": c.criterion_id}
+                    for c in r.criteria
+                ],
+                "pre_run_provider_snapshot": r.pre_run_provider_snapshot,
+                "post_run_provider_snapshot": r.post_run_provider_snapshot,
             }
             for r in all_reports
         ],

@@ -1,0 +1,26 @@
+{
+  "summary": {
+    "schema": "first_goal_acceptance_report_v1",
+    "total_runs": 1,
+    "completed_runs": 0,
+    "write_phase_runs": 0,
+    "autopilot_progress_runs": 0,
+    "repeatability_pass": false
+  },
+  "runs": [
+    {
+      "run_index": 1,
+      "goal_id": "fixture-goal-stalled-001",
+      "output_dir": "first-goal-run-1-ccddee",
+      "final_goal_status": "planning",
+      "passed": false,
+      "failure_reason": "sla_timeout_stalled_planning",
+      "criteria": {
+        "goal_completed": false,
+        "write_phase_reached": false,
+        "autopilot_made_progress": false,
+        "no_fatal_errors": true
+      }
+    }
+  ]
+}

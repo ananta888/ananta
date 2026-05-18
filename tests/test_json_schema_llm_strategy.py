@@ -23,6 +23,7 @@ class TestJsonSchemaLLMStrategy:
         ctx.task_id = "t1"
         ctx.task = {}
         ctx.base_prompt = "Create a Fibonacci API"
+        ctx.effective_config = None
         return ctx
 
     def test_declined_mock_provider(self, context, monkeypatch):
@@ -131,3 +132,42 @@ class TestJsonSchemaLLMStrategy:
         assert result.status == STATUS_FAILED
         assert "llm_call_failed" in result.reason
         assert result.metadata["llm_call_profile"][0]["success"] is False
+
+
+# TRM-003: effective_config propagation in JsonSchemaLLMStrategy
+class TestJsonSchemaEffectiveConfigPropagation:
+    @pytest.fixture
+    def ctx(self):
+        ctx = Mock(spec=ProposeContext)
+        ctx.goal_id = "g-eff"
+        ctx.task_id = "t-eff"
+        ctx.task = {}
+        ctx.base_prompt = "Do something"
+        ctx.effective_config = {"default_provider": "ollama", "default_model": "eff-model"}
+        return ctx
+
+    def test_effective_config_mock_provider_declines(self, ctx, monkeypatch):
+        ctx.effective_config = {"default_provider": "mock"}
+        monkeypatch.setattr("agent.config.settings.default_provider", "ollama")
+        strategy = JsonSchemaLLMStrategy()
+        result = strategy.run(ctx)
+        assert result.status == STATUS_DECLINED
+        assert "not_supported_mock" in result.reason
+
+    def test_effective_config_real_provider_invokes_llm(self, ctx, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "mock")
+        mock_invoke = Mock(return_value={
+            "content": json.dumps({"tool_calls": [{"name": "write_file", "args": {"path": "f.py", "content": ""}}]}),
+            "provider": "ollama",
+            "model": "eff-model",
+            "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False, "success": True}]},
+        })
+        monkeypatch.setattr(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_json_schema_result",
+            mock_invoke,
+        )
+        strategy = JsonSchemaLLMStrategy()
+        result = strategy.run(ctx)
+        # effective_config overrides settings' "mock" to "ollama" — LLM should be invoked
+        assert mock_invoke.called, "invoke must be called when effective_config provider is real"
+        assert result.status in (STATUS_EXECUTABLE, STATUS_DECLINED)  # declined only if tool-name filtered

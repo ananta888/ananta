@@ -60,3 +60,45 @@ def test_flexible_strategy_attaches_llm_profile_on_declined_unavailable():
     assert result.status == "declined"
     assert result.metadata["llm_call_profile"][0]["success"] is False
 
+
+# TRM-003: malformed response still carries llm_call_profile with provider/model
+def test_flexible_strategy_profile_survives_malformed_response():
+    strategy = FlexibleLLMNormalizationStrategy()
+    llm_profile = [
+        {
+            "source": "model_invocation_service",
+            "estimated": False,
+            "success": True,
+            "provider": "ollama",
+            "model": "qwen2.5",
+            "latency_ms": 400,
+        }
+    ]
+    with patch(
+        "agent.services.propose_strategies.flexible_llm_normalization_strategy.ModelInvocationService.invoke_result",
+        return_value={"content": "NOT VALID JSON {{{", "metadata": {"llm_call_profile": llm_profile}},
+    ):
+        result = strategy.run(_context())
+
+    # Malformed response may be advisory or declined, but profile must be present with diagnostics
+    profile = result.metadata.get("llm_call_profile")
+    assert profile is not None, "llm_call_profile must survive malformed response"
+    assert profile[0]["provider"] == "ollama"
+    assert profile[0]["model"] == "qwen2.5"
+
+
+def test_flexible_strategy_profile_survives_general_exception():
+    strategy = FlexibleLLMNormalizationStrategy()
+    with patch(
+        "agent.services.propose_strategies.flexible_llm_normalization_strategy.ModelInvocationService.invoke_result",
+        side_effect=RuntimeError("unexpected crash"),
+    ):
+        result = strategy.run(_context())
+
+    # Status is failed but the result must not throw — profile may be empty
+    assert result.status == "failed"
+    # llm_call_profile key may be missing (no profile captured before exception) — that's acceptable
+    # but the result itself must be a ProposeStrategyResult
+    from worker.core.propose import ProposeStrategyResult
+    assert isinstance(result, ProposeStrategyResult)
+

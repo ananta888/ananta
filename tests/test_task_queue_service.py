@@ -34,3 +34,46 @@ def test_reconcile_dependencies_unblocks_tasks_without_valid_dependencies(app):
             for item in transitions
             if isinstance(item, dict)
         )
+
+
+# APR-003: no-candidate reason classification
+def test_classify_no_candidate_reason_no_tasks():
+    from agent.routes.tasks.autopilot_dispatch_policy import classify_no_candidate_reason
+    reason = classify_no_candidate_reason(all_tasks=[], workers_available_count=2)
+    assert reason == "no_tasks"
+
+
+def test_classify_no_candidate_reason_all_terminal():
+    from unittest.mock import MagicMock
+    from agent.routes.tasks.autopilot_dispatch_policy import classify_no_candidate_reason
+
+    tasks = [MagicMock(status="completed"), MagicMock(status="failed")]
+    reason = classify_no_candidate_reason(all_tasks=tasks, workers_available_count=2)
+    assert reason == "all_terminal"
+
+
+def test_classify_no_candidate_reason_all_blocked_by_dependency():
+    from unittest.mock import MagicMock
+    from agent.routes.tasks.autopilot_dispatch_policy import classify_no_candidate_reason
+
+    tasks = [MagicMock(status="blocked_by_dependency"), MagicMock(status="completed")]
+    reason = classify_no_candidate_reason(all_tasks=tasks, workers_available_count=2)
+    assert reason == "all_blocked_by_dependency"
+
+
+def test_classify_no_candidate_reason_no_workers():
+    from unittest.mock import MagicMock
+    from agent.routes.tasks.autopilot_dispatch_policy import classify_no_candidate_reason
+
+    tasks = [MagicMock(status="todo")]
+    reason = classify_no_candidate_reason(all_tasks=tasks, workers_available_count=0)
+    assert reason == "no_workers_available"
+
+
+def test_classify_no_candidate_reason_policy_or_state_blocked():
+    from unittest.mock import MagicMock
+    from agent.routes.tasks.autopilot_dispatch_policy import classify_no_candidate_reason
+
+    tasks = [MagicMock(status="todo"), MagicMock(status="waiting_for_review")]
+    reason = classify_no_candidate_reason(all_tasks=tasks, workers_available_count=3)
+    assert reason == "policy_or_state_blocked"

@@ -125,7 +125,27 @@
       "Bash(./venv/bin/pytest tests/test_goal_config_resolver_service.py tests/test_goal_scoped_config_api.py tests/test_llm_usage.py tests/test_runtime_policy.py -q)",
       "Bash(./venv/bin/pytest tests/test_goal_config_resolver_service.py tests/test_goal_scoped_config_api.py tests/test_llm_usage.py -q)",
       "Bash(sed -n '140,165p' /home/krusty/ananta/agent/llm_integration.py)",
-      "Bash(sed -n '960,990p' /home/krusty/ananta/agent/llm_integration.py)"
+      "Bash(sed -n '960,990p' /home/krusty/ananta/agent/llm_integration.py)",
+      "Bash(venv/bin/pytest tests/test_acceptance_runner_safety.py -v)",
+      "Bash(grep -v \"^domain$\\\\|^e2e$\")",
+      "Bash(git -C /home/krusty/ananta ls-files artifacts/)",
+      "Bash(git -C /home/krusty/ananta ls-files project-workspaces/)",
+      "Bash(git rm *)",
+      "Bash(venv/bin/pytest tests/test_acceptance_report_fixtures.py -v)",
+      "Bash(venv/bin/pytest tests/test_goal_config_resolver_service.py -v)",
+      "Bash(venv/bin/python3 -c ' *)",
+      "Bash(venv/bin/pytest tests/test_goal_scoped_config_api.py -v)",
+      "Bash(venv/bin/pytest tests/test_tool_calling_llm_strategy.py -v)",
+      "Bash(venv/bin/pytest tests/test_json_schema_llm_strategy.py -v)",
+      "Bash(venv/bin/pytest tests/test_flexible_llm_normalization_strategy_llm_profile.py -v)",
+      "Bash(venv/bin/pytest tests/test_provider_observer_service.py::TestProfileAvailabilityValidation -v)",
+      "Bash(venv/bin/pytest tests/test_acceptance_runner_scenarios.py -v)",
+      "Bash(venv/bin/pytest tests/test_goal_latency_diagnostics.py -v)",
+      "Bash(venv/bin/pytest tests/test_first_goal_acceptance_runner.py -v)",
+      "Bash(chmod +x *)",
+      "Bash(venv/bin/pytest tests/test_acceptance_runner_safety.py tests/test_acceptance_runner_scenarios.py tests/test_acceptance_report_fixtures.py tests/test_first_goal_acceptance_runner.py tests/test_goal_config_resolver_service.py tests/test_goal_scoped_config_api.py tests/test_provider_observer_service.py tests/test_tool_calling_llm_strategy.py tests/test_json_schema_llm_strategy.py tests/test_flexible_llm_normalization_strategy_llm_profile.py tests/test_goal_latency_diagnostics.py tests/test_acceptance_runner_scenarios.py --tb=short)",
+      "Bash(git -C /home/krusty/ananta status --short)",
+      "Bash(git -C /home/krusty/ananta diff --stat HEAD)"
     ]
   }
 }

@@ -739,7 +739,7 @@ def test_recover_stalled_planning_goal_increments_attempts(app):
     from agent.services.lifecycle_service import get_goal_lifecycle_service
 
     with app.app_context():
-        from agent.models import GoalDB
+        from agent.db_models import GoalDB
         from agent.repository import goal_repo
         goal = GoalDB(
             goal="Test stalled goal",
@@ -759,7 +759,7 @@ def test_recover_stalled_planning_goal_caps_at_two_attempts(app):
     from agent.services.lifecycle_service import get_goal_lifecycle_service
 
     with app.app_context():
-        from agent.models import GoalDB
+        from agent.db_models import GoalDB
         from agent.repository import goal_repo
         goal = GoalDB(
             goal="Capped recovery",
@@ -781,7 +781,7 @@ def test_recover_stalled_planning_goal_skips_non_planning_status(app):
     from agent.services.lifecycle_service import get_goal_lifecycle_service
 
     with app.app_context():
-        from agent.models import GoalDB
+        from agent.db_models import GoalDB
         from agent.repository import goal_repo
         goal = GoalDB(
             goal="Planned goal",

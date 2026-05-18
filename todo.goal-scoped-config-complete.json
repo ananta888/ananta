@@ -1,24 +1,24 @@
 {
   "schema_version": "todo.v2",
   "id": "todo.goal-scoped-config-complete",
-  "title": "Goal-Scoped Config: Vollständige Implementierung und Hardening",
-  "goal": "Konfigurationskollisionen vermeiden, indem parallele Goals jeweils eine eigene effektive Config-Snapshot nutzen statt globaler Laufzeit-Config – und die dabei entstandene Implementierung deterministisch, auditierbar, sicher und produktionsreif machen.",
+  "title": "Goal-Scoped Config: Vollst\u00e4ndige Implementierung und Hardening",
+  "goal": "Konfigurationskollisionen vermeiden, indem parallele Goals jeweils eine eigene effektive Config-Snapshot nutzen statt globaler Laufzeit-Config \u2013 und die dabei entstandene Implementierung deterministisch, auditierbar, sicher und produktionsreif machen.",
   "created_from": [
-    "todo.goal_scoped_config.json (Phase 1 – vollständig abgeschlossen)",
-    "todo.fixup-goal-scoped-config-autopilot-observability.json (Phase 2 – offen, gegen Commit 5cbd64a0)"
+    "todo.goal_scoped_config.json (Phase 1 \u2013 vollst\u00e4ndig abgeschlossen)",
+    "todo.fixup-goal-scoped-config-autopilot-observability.json (Phase 2 \u2013 offen, gegen Commit 5cbd64a0)"
   ],
   "context": {
     "problem": [
-      "Globale /config-Änderungen überschreiben sich bei parallelen Szenarien.",
+      "Globale /config-\u00c4nderungen \u00fcberschreiben sich bei parallelen Szenarien.",
       "Autopilot/Planner/Worker-Pfade lesen AGENT_CONFIG global statt goal-lokal.",
       "3-Szenario-Tests sind parallel nicht sauber isoliert.",
-      "Nach der Phase-1-Implementierung verbleiben Korrektheitslücken: Checksum instabil, Redaction unvollständig, synthetische LLM-Metrics verschmutzen echte Statistiken, Planning-Recovery nur UI-getriggert.",
+      "Nach der Phase-1-Implementierung verbleiben Korrektheitsl\u00fccken: Checksum instabil, Redaction unvollst\u00e4ndig, synthetische LLM-Metrics verschmutzen echte Statistiken, Planning-Recovery nur UI-getriggert.",
       "Runtime-Artefakte sind in Source Control gelandet."
     ],
     "architectural_constraints": [
       "Hub bleibt zentrale Control Plane.",
-      "Worker führen delegierte Tasks aus.",
-      "Änderungen müssen additiv und rückwärtskompatibel sein.",
+      "Worker f\u00fchren delegierte Tasks aus.",
+      "\u00c4nderungen m\u00fcssen additiv und r\u00fcckw\u00e4rtskompatibel sein.",
       "Keine Worker-zu-Worker-Orchestrierung.",
       "Default-Zielmodus ist goal_scoped; global_config bleibt nur Legacy/Fallback."
     ],
@@ -31,19 +31,19 @@
     },
     {
       "id": "principle.no-secret-leakage",
-      "text": "Kein Secret, Token, Passwort, API-Key oder credential-ähnlicher Wert darf in Goal-Snapshots, Artifacts, Logs, Acceptance-Reports oder UI-Responses im Klartext landen."
+      "text": "Kein Secret, Token, Passwort, API-Key oder credential-\u00e4hnlicher Wert darf in Goal-Snapshots, Artifacts, Logs, Acceptance-Reports oder UI-Responses im Klartext landen."
     },
     {
       "id": "principle.real-vs-synthetic-observability",
-      "text": "Echte Provider-/LLM-Metriken und synthetische Orchestrierungsplatzhalter müssen in API, Persistenz, Diagnostics und UI strikt getrennt sein."
+      "text": "Echte Provider-/LLM-Metriken und synthetische Orchestrierungsplatzhalter m\u00fcssen in API, Persistenz, Diagnostics und UI strikt getrennt sein."
     },
     {
       "id": "principle.goal-local-immutability",
-      "text": "Ein Goal muss den Config-Snapshot behalten, mit dem es erstellt wurde. Spätere globale Config-Änderungen dürfen laufende oder historische Goal-Entscheidungen nicht still verändern."
+      "text": "Ein Goal muss den Config-Snapshot behalten, mit dem es erstellt wurde. Sp\u00e4tere globale Config-\u00c4nderungen d\u00fcrfen laufende oder historische Goal-Entscheidungen nicht still ver\u00e4ndern."
     },
     {
       "id": "principle.runtime-artifacts-not-source",
-      "text": "Laufzeit-generierte Projekt-Workspaces, Diagnostic-Reports und Acceptance-Outputs dürfen nicht in Source Control landen, es sei denn, sie sind explizite Fixtures."
+      "text": "Laufzeit-generierte Projekt-Workspaces, Diagnostic-Reports und Acceptance-Outputs d\u00fcrfen nicht in Source Control landen, es sei denn, sie sind explizite Fixtures."
     }
   ],
   "outcomes": [
@@ -51,12 +51,12 @@
     "Runtime-Entscheidungen lesen im Goal/Task-Kontext die Goal-Snapshot statt globaler Config.",
     "Szenario-Profile sind wiederverwendbar und zentral verwaltbar.",
     "Parallele Szenarien laufen ohne gegenseitige Config-Kollision.",
-    "Der Acceptance-Runner unterstützt Dual-Mode: legacy_global_config und goal_scoped.",
-    "Das Runbook dokumentiert den Zielmodus goal_scoped und markiert globale /config-Szenarien als Übergang/Fallback.",
-    "Config-Checksum ist stabil und vollständig definiert.",
-    "Secret-Redaction ist rekursiv und lückenlos.",
+    "Der Acceptance-Runner unterst\u00fctzt Dual-Mode: legacy_global_config und goal_scoped.",
+    "Das Runbook dokumentiert den Zielmodus goal_scoped und markiert globale /config-Szenarien als \u00dcbergang/Fallback.",
+    "Config-Checksum ist stabil und vollst\u00e4ndig definiert.",
+    "Secret-Redaction ist rekursiv und l\u00fcckenlos.",
     "LLM-Observability unterscheidet klar zwischen echten Provider-Calls und synthetischen Orchestrator-Entries.",
-    "Planning-Recovery läuft autonom ohne UI-Polling-Abhängigkeit.",
+    "Planning-Recovery l\u00e4uft autonom ohne UI-Polling-Abh\u00e4ngigkeit.",
     "Runtime-Artefakte sind aus Source Control bereinigt."
   ],
   "profiles": [
@@ -99,7 +99,7 @@
         "default_model": "auto",
         "llm_config.base_url": "http://localhost:1234/v1"
       },
-      "note": "URL über LMSTUDIO_URL env-var oder config_overrides.llm_config.base_url überschreiben wenn LM Studio auf anderer Adresse läuft (z.B. http://192.168.178.100:1234/v1)."
+      "note": "URL \u00fcber LMSTUDIO_URL env-var oder config_overrides.llm_config.base_url \u00fcberschreiben wenn LM Studio auf anderer Adresse l\u00e4uft (z.B. http://192.168.178.100:1234/v1)."
     },
     {
       "id": "opencode_lmstudio_local",
@@ -111,15 +111,15 @@
         "llm_config.base_url": "http://localhost:1234/v1",
         "opencode_runtime.target_provider": "lmstudio"
       },
-      "note": "URL über LMSTUDIO_URL env-var oder config_overrides.llm_config.base_url überschreiben."
+      "note": "URL \u00fcber LMSTUDIO_URL env-var oder config_overrides.llm_config.base_url \u00fcberschreiben."
     }
   ],
   "runner_modes": {
     "legacy_global_config": {
       "status": "fallback_only",
-      "description": "Bisheriger Modus: Szenario-Patches global über /config. Nicht parallel-sicher.",
+      "description": "Bisheriger Modus: Szenario-Patches global \u00fcber /config. Nicht parallel-sicher.",
       "allowed_usage": [
-        "Kompatibilität mit Deployments ohne goal-scoped Config",
+        "Kompatibilit\u00e4t mit Deployments ohne goal-scoped Config",
         "Regression gegen altes Verhalten",
         "kurzfristige Diagnose alter Runner-Pfade"
       ],
@@ -131,7 +131,7 @@
     },
     "goal_scoped": {
       "status": "target_default",
-      "description": "Zielmodus: Szenario wird über execution_preferences.config_profile und optional config_overrides direkt an POST /goals gebunden.",
+      "description": "Zielmodus: Szenario wird \u00fcber execution_preferences.config_profile und optional config_overrides direkt an POST /goals gebunden.",
       "required_report_fields": [
         "config_mode",
         "config_profile",
@@ -148,7 +148,7 @@
     {
       "id": "AC-01",
       "name": "Goal config snapshot persisted",
-      "check": "Nach POST /goals enthält goal.execution_preferences.config_snapshot ein vollständiges, aufgelöstes Snapshot-Objekt inkl. provenance/profile_id.",
+      "check": "Nach POST /goals enth\u00e4lt goal.execution_preferences.config_snapshot ein vollst\u00e4ndiges, aufgel\u00f6stes Snapshot-Objekt inkl. provenance/profile_id.",
       "pass_condition": "Snapshot vorhanden, serialisierbar, nicht leer, versioniert."
     },
     {
@@ -160,8 +160,8 @@
     {
       "id": "AC-03",
       "name": "Backward compatibility",
-      "check": "Goals ohne profile/override laufen unverändert mit system default.",
-      "pass_condition": "Bestehende API-Clients brechen nicht; alte Payloads weiterhin gültig."
+      "check": "Goals ohne profile/override laufen unver\u00e4ndert mit system default.",
+      "pass_condition": "Bestehende API-Clients brechen nicht; alte Payloads weiterhin g\u00fcltig."
     },
     {
       "id": "AC-04",
@@ -178,8 +178,8 @@
     {
       "id": "AC-06",
       "name": "No global drift impact",
-      "check": "Während Goal A läuft, wird globale /config geändert; Goal A bleibt auf Snapshot.",
-      "pass_condition": "Goal-A-Runtime-Decisions ändern sich nicht durch globale Änderung."
+      "check": "W\u00e4hrend Goal A l\u00e4uft, wird globale /config ge\u00e4ndert; Goal A bleibt auf Snapshot.",
+      "pass_condition": "Goal-A-Runtime-Decisions \u00e4ndern sich nicht durch globale \u00c4nderung."
     },
     {
       "id": "AC-07",
@@ -196,50 +196,50 @@
     {
       "id": "AC-09",
       "name": "Migration safety",
-      "check": "Existing Goals ohne Snapshot werden lazy mit defaults aufgelöst.",
-      "pass_condition": "Keine Runtime-Exceptions für Alt-Daten."
+      "check": "Existing Goals ohne Snapshot werden lazy mit defaults aufgel\u00f6st.",
+      "pass_condition": "Keine Runtime-Exceptions f\u00fcr Alt-Daten."
     },
     {
       "id": "AC-10",
       "name": "3x3 scenario campaign",
-      "check": "3 Szenarien x 3 Wiederholungen sind als sequentieller und optional paralleler Zusatzlauf ausführbar.",
-      "pass_condition": "Report enthält scenario_id/label und isolierte Config-Evidence pro Run."
+      "check": "3 Szenarien x 3 Wiederholungen sind als sequentieller und optional paralleler Zusatzlauf ausf\u00fchrbar.",
+      "pass_condition": "Report enth\u00e4lt scenario_id/label und isolierte Config-Evidence pro Run."
     },
     {
       "id": "AC-11",
       "name": "Runner dual-mode support",
-      "check": "scripts/first_goal_acceptance_runner.py unterstützt --config-mode legacy_global_config|goal_scoped.",
+      "check": "scripts/first_goal_acceptance_runner.py unterst\u00fctzt --config-mode legacy_global_config|goal_scoped.",
       "pass_condition": "goal_scoped injiziert config_profile/config_overrides in POST /goals; legacy_global_config patcht nur als Fallback."
     },
     {
       "id": "AC-12",
       "name": "Runbook documents target mode",
-      "check": "PROMPT_ANANTA_3ER_LAUF_NEW_SOFTWARE_PROJECT_OLLAMA.md enthält Zielmodus goal_scoped, Legacy-Hinweis, erwartete Reportfelder und Stop-Kriterien.",
+      "check": "PROMPT_ANANTA_3ER_LAUF_NEW_SOFTWARE_PROJECT_OLLAMA.md enth\u00e4lt Zielmodus goal_scoped, Legacy-Hinweis, erwartete Reportfelder und Stop-Kriterien.",
       "pass_condition": "Operator kann ohne Architekturwissen erkennen, welcher Modus Zielmodus ist."
     },
     {
       "id": "AC-13",
       "name": "Goal-scoped evidence in reports",
-      "check": "Acceptance-Report enthält pro Run config_mode, config_profile, config_checksum, goal_config_source.",
+      "check": "Acceptance-Report enth\u00e4lt pro Run config_mode, config_profile, config_checksum, goal_config_source.",
       "pass_condition": "Report beweist, dass Runtime-Entscheidungen aus dem Goal-Snapshot kamen."
     },
     {
       "id": "AC-14",
       "name": "Snapshot integrity",
-      "check": "config_snapshot_hash bleibt während der Goal-Laufzeit unverändert.",
-      "pass_condition": "Hash im Goal-Objekt und /effective-config stimmt überein; kein Hash-Drift zwischen planning und terminal."
+      "check": "config_snapshot_hash bleibt w\u00e4hrend der Goal-Laufzeit unver\u00e4ndert.",
+      "pass_condition": "Hash im Goal-Objekt und /effective-config stimmt \u00fcberein; kein Hash-Drift zwischen planning und terminal."
     },
     {
       "id": "AC-15",
       "name": "Parallel safety guard",
-      "check": "Parallelmodus wird in legacy_global_config standardmäßig blockiert.",
-      "pass_condition": "Runner bricht mit klarer Fehlermeldung ab, außer --allow-unsafe-global-parallel ist explizit gesetzt."
+      "check": "Parallelmodus wird in legacy_global_config standardm\u00e4\u00dfig blockiert.",
+      "pass_condition": "Runner bricht mit klarer Fehlermeldung ab, au\u00dfer --allow-unsafe-global-parallel ist explizit gesetzt."
     },
     {
       "id": "AC-16",
       "name": "Stable checksum definition",
-      "check": "Checksum-Berechnung ist über redacted vs. unredacted Snapshot explizit definiert und dokumentiert.",
-      "pass_condition": "Zwei identische Configs erzeugen byte-gleiche Checksums über Prozesse hinweg; volatile Felder wie resolved_at verändern Checksum nicht unbeabsichtigt."
+      "check": "Checksum-Berechnung ist \u00fcber redacted vs. unredacted Snapshot explizit definiert und dokumentiert.",
+      "pass_condition": "Zwei identische Configs erzeugen byte-gleiche Checksums \u00fcber Prozesse hinweg; volatile Felder wie resolved_at ver\u00e4ndern Checksum nicht unbeabsichtigt."
     },
     {
       "id": "AC-17",
@@ -250,26 +250,26 @@
     {
       "id": "AC-18",
       "name": "Real vs. synthetic LLM metrics separated",
-      "check": "Synthetische Orchestrator-Entries fließen nicht in echte Latenz-/Token-/Cost-Statistiken ein.",
+      "check": "Synthetische Orchestrator-Entries flie\u00dfen nicht in echte Latenz-/Token-/Cost-Statistiken ein.",
       "pass_condition": "calls_seen_real, calls_seen_synthetic und calls_seen_estimated sind getrennte Felder; real-Aggregate ignorieren estimated=true."
     },
     {
       "id": "AC-19",
       "name": "Autonomous planning recovery",
-      "check": "Gestallte Planning-Goals können sich ohne UI-Polling erholen.",
-      "pass_condition": "Autopilot-Tick kann recover_stalled_planning_goal() idempotent auslösen; Detail-Endpoint-Aufruf ist nicht Voraussetzung."
+      "check": "Gestallte Planning-Goals k\u00f6nnen sich ohne UI-Polling erholen.",
+      "pass_condition": "Autopilot-Tick kann recover_stalled_planning_goal() idempotent ausl\u00f6sen; Detail-Endpoint-Aufruf ist nicht Voraussetzung."
     },
     {
       "id": "AC-20",
       "name": "Runtime artifacts not in source control",
       "check": "Nach einem lokalen Acceptance-Run zeigt git status keine generierten Workspace- oder Report-Dateien.",
-      "pass_condition": ".gitignore ignoriert project-workspaces/** und artifacts/*.json (außer explizite Fixtures)."
+      "pass_condition": ".gitignore ignoriert project-workspaces/** und artifacts/*.json (au\u00dfer explizite Fixtures)."
     },
     {
       "id": "AC-21",
       "name": "CI-safe runner mode",
       "check": "Acceptance-Runner kann ohne Ollama/LM Studio laufen.",
-      "pass_condition": "CI-Modus überspringt live-provider-abhängige Checks sichtbar; deterministische Kriterien bleiben aktiv."
+      "pass_condition": "CI-Modus \u00fcberspringt live-provider-abh\u00e4ngige Checks sichtbar; deterministische Kriterien bleiben aktiv."
     }
   ],
   "risks": [
@@ -286,17 +286,17 @@
     {
       "id": "R-03",
       "risk": "Performance overhead from deep merge per task",
-      "mitigation": "Einmal pro Goal auflösen, immutable Snapshot per goal_id cachen."
+      "mitigation": "Einmal pro Goal aufl\u00f6sen, immutable Snapshot per goal_id cachen."
     },
     {
       "id": "R-04",
       "risk": "Behavior drift for legacy goals",
-      "mitigation": "Lazy Fallback + explizite Regression-Tests für alte Payloads."
+      "mitigation": "Lazy Fallback + explizite Regression-Tests f\u00fcr alte Payloads."
     },
     {
       "id": "R-05",
       "risk": "Runner remains global-config based despite goal-scoped server support",
-      "mitigation": "--config-mode hinzugefügt; goal_scoped als target default; Test dass goal_scoped nicht POST /config aufruft."
+      "mitigation": "--config-mode hinzugef\u00fcgt; goal_scoped als target default; Test dass goal_scoped nicht POST /config aufruft."
     },
     {
       "id": "R-06",
@@ -306,12 +306,12 @@
     {
       "id": "R-07",
       "risk": "Checksum instability across processes",
-      "mitigation": "Checksum über canonical redacted Snapshot definieren; volatile Felder ausschließen; Tests beweisen Stabilität."
+      "mitigation": "Checksum \u00fcber canonical redacted Snapshot definieren; volatile Felder ausschlie\u00dfen; Tests beweisen Stabilit\u00e4t."
     },
     {
       "id": "R-08",
       "risk": "Synthetic LLM entries pollute real metrics",
-      "mitigation": "estimated-Flag in llm_call_profile; alle Aggregate filtern auf estimated=false für real-Stats."
+      "mitigation": "estimated-Flag in llm_call_profile; alle Aggregate filtern auf estimated=false f\u00fcr real-Stats."
     },
     {
       "id": "R-09",
@@ -321,14 +321,14 @@
     {
       "id": "R-10",
       "risk": "ananta-default Modelfile self-referential",
-      "mitigation": "FROM-Basis verifizieren; aus sauberem Environment importieren; Smoke-Test hinzufügen."
+      "mitigation": "FROM-Basis verifizieren; aus sauberem Environment importieren; Smoke-Test hinzuf\u00fcgen."
     }
   ],
   "tracks": [
     {
       "id": "track.P1-foundation-snapshot",
       "phase": "1",
-      "title": "Phase 1 – Foundation & Config-Snapshot-Persistenz",
+      "title": "Phase 1 \u2013 Foundation & Config-Snapshot-Persistenz",
       "status": "done",
       "priority": "done",
       "summary": "Resolver, Domain-Model, Goal-Payload-Extensions, Snapshot-Persistenz und Runtime-Accessor.",
@@ -414,7 +414,7 @@
     {
       "id": "track.P1-runtime-and-api",
       "phase": "1",
-      "title": "Phase 1 – Runtime-Adoption, APIs & Checksum",
+      "title": "Phase 1 \u2013 Runtime-Adoption, APIs & Checksum",
       "status": "done",
       "priority": "done",
       "summary": "Planner, Autopilot, Worker-Dispatch, Profile-Catalog, Effective-Config-API und Snapshot-Checksum.",
@@ -537,10 +537,10 @@
     {
       "id": "track.P1-runner-migration-flags",
       "phase": "1",
-      "title": "Phase 1 – Runner, Migration & Feature-Flags",
+      "title": "Phase 1 \u2013 Runner, Migration & Feature-Flags",
       "status": "done",
       "priority": "done",
-      "summary": "Runner Dual-Mode, Parallel-Guard, Migration/Lazy-Fallback und Feature-Flags für Rollout.",
+      "summary": "Runner Dual-Mode, Parallel-Guard, Migration/Lazy-Fallback und Feature-Flags f\u00fcr Rollout.",
       "tasks": [
         {
           "id": "T-010",
@@ -630,7 +630,7 @@
     {
       "id": "track.P1-tests-docs-e2e",
       "phase": "1",
-      "title": "Phase 1 – Tests, Docs, E2E & Runbook-Hardening",
+      "title": "Phase 1 \u2013 Tests, Docs, E2E & Runbook-Hardening",
       "status": "done",
       "priority": "done",
       "summary": "Unit-/API-/Integration-/E2E-Tests, Operator-Playbook, Runbook Dual-Mode und Report-Evidence-Tests.",
@@ -776,11 +776,11 @@
     {
       "id": "track.P2-goal-scoped-config-hardening",
       "phase": "2",
-      "title": "Phase 2 – Goal-Scoped Config absichern und deterministisch machen",
+      "title": "Phase 2 \u2013 Goal-Scoped Config absichern und deterministisch machen",
       "status": "partial",
       "priority": "critical",
-      "rationale": "Goal-scoped Config ist jetzt zentral für Worker/Runtime/Model-Auswahl. Sie muss deterministisch, auditiert und sicher gegen invalide Overrides oder Secret-Leakage sein.",
-      "done_summary": "GSC-001..005 vollständig abgeschlossen (2026-05-18). ALLOWED_GOAL_CONFIG_KEYS public, unknown_keys Reporting, Override-Validation im API-Layer, Checksum über redacted Snapshot, erweiterte Secret-Redaction (authorization/credential/bearer), Access-Control dokumentiert und getestet. GSC-006 noch offen.",
+      "rationale": "Goal-scoped Config ist jetzt zentral f\u00fcr Worker/Runtime/Model-Auswahl. Sie muss deterministisch, auditiert und sicher gegen invalide Overrides oder Secret-Leakage sein.",
+      "done_summary": "GSC-001..005 vollst\u00e4ndig abgeschlossen (2026-05-18). ALLOWED_GOAL_CONFIG_KEYS public, unknown_keys Reporting, Override-Validation im API-Layer, Checksum \u00fcber redacted Snapshot, erweiterte Secret-Redaction (authorization/credential/bearer), Access-Control dokumentiert und getestet. GSC-006 noch offen.",
       "tasks": [
         {
           "id": "GSC-001",
@@ -788,12 +788,12 @@
           "type": "refactor",
           "status": "done",
           "completed_at": "2026-05-18",
-          "completion_notes": "ALLOWED_GOAL_CONFIG_KEYS als public frozenset exportiert; _ALLOWED_TOP_LEVEL_KEYS bleibt als Backward-Alias. GoalConfigResolution.unknown_keys: tuple[str,...] hinzugefügt. _filter_overrides() gibt jetzt (filtered, unknown) zurück. 3 neue Tests in test_goal_config_resolver_service.py.",
+          "completion_notes": "ALLOWED_GOAL_CONFIG_KEYS als public frozenset exportiert; _ALLOWED_TOP_LEVEL_KEYS bleibt als Backward-Alias. GoalConfigResolution.unknown_keys: tuple[str,...] hinzugef\u00fcgt. _filter_overrides() gibt jetzt (filtered, unknown) zur\u00fcck. 3 neue Tests in test_goal_config_resolver_service.py.",
           "files": [
             "agent/services/goal_config_resolver_service.py",
             "agent/config_defaults.py"
           ],
-          "description": "Erlaubte Top-Level-Keys für goal-scoped Config in eine zentrale wiederverwendbare Definition auslagern.",
+          "description": "Erlaubte Top-Level-Keys f\u00fcr goal-scoped Config in eine zentrale wiederverwendbare Definition auslagern.",
           "implementation_notes": [
             "Create a central constant or schema object for allowed goal-scoped config keys.",
             "Use it in resolver, validation, API docs and tests.",
@@ -818,7 +818,7 @@
           "type": "feature",
           "status": "done",
           "completed_at": "2026-05-18",
-          "completion_notes": "agent/routes/tasks/goals.py: ALLOWED_GOAL_CONFIG_KEYS importiert; unknown_override_keys Prüfung vor Resolver-Aufruf; liefert HTTP 400 invalid_goal_config_key mit data.unknown_keys-Liste. Tests in test_goal_scoped_config_api.py.",
+          "completion_notes": "agent/routes/tasks/goals.py: ALLOWED_GOAL_CONFIG_KEYS importiert; unknown_override_keys Pr\u00fcfung vor Resolver-Aufruf; liefert HTTP 400 invalid_goal_config_key mit data.unknown_keys-Liste. Tests in test_goal_scoped_config_api.py.",
           "files": [
             "agent/routes/tasks/goals.py",
             "agent/services/goal_config_resolver_service.py",
@@ -849,20 +849,20 @@
           "type": "bugfix",
           "status": "done",
           "completed_at": "2026-05-18",
-          "completion_notes": "Reihenfolge in resolve() geändert: redact_snapshot() jetzt vor _checksum(); Checksum läuft über redacted Snapshot. Zwei Configs mit unterschiedlichen api_key-Werten erzeugen identische Checksums; non-secret-Änderungen ändern Checksum. Test test_checksum_computed_over_redacted_snapshot beweist beides.",
+          "completion_notes": "Reihenfolge in resolve() ge\u00e4ndert: redact_snapshot() jetzt vor _checksum(); Checksum l\u00e4uft \u00fcber redacted Snapshot. Zwei Configs mit unterschiedlichen api_key-Werten erzeugen identische Checksums; non-secret-\u00c4nderungen \u00e4ndern Checksum. Test test_checksum_computed_over_redacted_snapshot beweist beides.",
           "files": [
             "agent/services/goal_config_resolver_service.py",
             "tests/test_goal_config_resolver_service.py"
           ],
-          "description": "Checksum-Generierung stabil machen und explizit definieren, ob sie über redacted oder unredacted Snapshot berechnet wird.",
+          "description": "Checksum-Generierung stabil machen und explizit definieren, ob sie \u00fcber redacted oder unredacted Snapshot berechnet wird.",
           "implementation_notes": [
-            "Recommended: Checksum über canonical redacted persisted snapshot (keine secret-sensitiven Checksums).",
-            "Volatile Felder wie resolved_at dürfen Checksum nicht unbeabsichtigt verändern.",
+            "Recommended: Checksum \u00fcber canonical redacted persisted snapshot (keine secret-sensitiven Checksums).",
+            "Volatile Felder wie resolved_at d\u00fcrfen Checksum nicht unbeabsichtigt ver\u00e4ndern.",
             "Verhalten in Code-Kommentaren und Tests dokumentieren."
           ],
           "acceptance_criteria": [
-            "Zwei identische Configs erzeugen byte-gleiche Checksums über Prozesse hinweg.",
-            "Änderung eines effektiven Config-Werts ändert Checksum.",
+            "Zwei identische Configs erzeugen byte-gleiche Checksums \u00fcber Prozesse hinweg.",
+            "\u00c4nderung eines effektiven Config-Werts \u00e4ndert Checksum.",
             "Secret-Wert beeinflusst Checksum nicht durch persisted Snapshot-Leakage.",
             "Checksum-Verhalten durch Tests abgedeckt."
           ],
@@ -879,12 +879,12 @@
           "type": "security",
           "status": "done",
           "completed_at": "2026-05-18",
-          "completion_notes": "_SECRET_KEY_MARKERS um 'authorization', 'credential', 'bearer' erweitert. Recursive _walk() für nested list/dict war bereits vorhanden. 2 neue Tests: test_redaction_covers_extended_markers und test_redaction_walks_nested_lists.",
+          "completion_notes": "_SECRET_KEY_MARKERS um 'authorization', 'credential', 'bearer' erweitert. Recursive _walk() f\u00fcr nested list/dict war bereits vorhanden. 2 neue Tests: test_redaction_covers_extended_markers und test_redaction_walks_nested_lists.",
           "files": [
             "agent/services/goal_config_resolver_service.py",
             "tests/test_goal_config_resolver_service.py"
           ],
-          "description": "Aktuelle Redaction ist nur key-name-basiert. Auf gängige Credential-Feldvarianten und verschachtelte Strukturen erweitern.",
+          "description": "Aktuelle Redaction ist nur key-name-basiert. Auf g\u00e4ngige Credential-Feldvarianten und verschachtelte Strukturen erweitern.",
           "implementation_notes": [
             "Cover: api_key, access_token, refresh_token, bearer, authorization, password, secret, credential, private_key.",
             "Recursive redaction for nested dict/list structures.",
@@ -906,26 +906,26 @@
         },
         {
           "id": "GSC-005",
-          "title": "Effective-Config Endpoint vollständig absichern",
+          "title": "Effective-Config Endpoint vollst\u00e4ndig absichern",
           "type": "security",
           "status": "done",
           "completed_at": "2026-05-18",
-          "completion_notes": "Endpoint nutzt bereits _can_access_goal() (team-scoped, nicht owner-scoped). Access-Modell dokumentiert und durch Tests belegt: unauthenticated → 401/403; authenticated non-owner ohne team restriction → erlaubt (by design). 2 neue Tests in test_goal_scoped_config_api.py.",
+          "completion_notes": "Endpoint nutzt bereits _can_access_goal() (team-scoped, nicht owner-scoped). Access-Modell dokumentiert und durch Tests belegt: unauthenticated \u2192 401/403; authenticated non-owner ohne team restriction \u2192 erlaubt (by design). 2 neue Tests in test_goal_scoped_config_api.py.",
           "files": [
             "agent/routes/tasks/goals.py",
             "tests/test_goal_scoped_config_api.py"
           ],
-          "description": "Sicherstellen, dass /goals/<goal_id>/effective-config dieselbe Access Control wie Goal-Detail prüft und niemals unredacted Config exponiert.",
+          "description": "Sicherstellen, dass /goals/<goal_id>/effective-config dieselbe Access Control wie Goal-Detail pr\u00fcft und niemals unredacted Config exponiert.",
           "implementation_notes": [
             "Reuse _can_access_goal.",
             "Add non-owner/non-admin access test.",
             "Return only redacted snapshot and provenance."
           ],
           "acceptance_criteria": [
-            "Nicht-autorisierter User erhält 404 oder 403 konsistent mit Goal-Detail-Verhalten.",
-            "Autorisierter User erhält nur redacted config_snapshot.",
-            "Endpoint enthält: goal_id, config_snapshot, provenance, checksum, redaction_summary, goal_config_source.",
-            "Test verifiziert, dass kein secret-ähnlicher Wert in der Response ist."
+            "Nicht-autorisierter User erh\u00e4lt 404 oder 403 konsistent mit Goal-Detail-Verhalten.",
+            "Autorisierter User erh\u00e4lt nur redacted config_snapshot.",
+            "Endpoint enth\u00e4lt: goal_id, config_snapshot, provenance, checksum, redaction_summary, goal_config_source.",
+            "Test verifiziert, dass kein secret-\u00e4hnlicher Wert in der Response ist."
           ],
           "verification": [
             "pytest tests/test_goal_scoped_config_api.py"
@@ -938,23 +938,23 @@
           "id": "GSC-006",
           "title": "Task-Level Config Override sauber anbinden",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "files": [
             "agent/services/goal_config_runtime_service.py",
             "agent/routes/tasks/autopilot_tick_engine.py",
             "agent/services/task_scoped_execution_service.py",
             "tests/test_goal_scoped_config_services.py"
           ],
-          "description": "Der Resolver unterstützt task_overrides konzeptionell. Durch Task-Execution-/Propose-Pfade durchreichen oder explizit als nicht unterstützt ablehnen.",
+          "description": "Der Resolver unterst\u00fctzt task_overrides konzeptionell. Durch Task-Execution-/Propose-Pfade durchreichen oder explizit als nicht unterst\u00fctzt ablehnen.",
           "implementation_notes": [
             "Resolve config as system_default + profile + goal + task.",
-            "Provenance für task-spezifische Overrides persistieren wenn vorhanden.",
-            "Wenn task_overrides noch nicht unterstützt: deterministisch ablehnen."
+            "Provenance f\u00fcr task-spezifische Overrides persistieren wenn vorhanden.",
+            "Wenn task_overrides noch nicht unterst\u00fctzt: deterministisch ablehnen."
           ],
           "acceptance_criteria": [
-            "Task-Execution nutzt dieselbe effective Goal-Config wie Planning, außer valider Task-Override existiert.",
+            "Task-Execution nutzt dieselbe effective Goal-Config wie Planning, au\u00dfer valider Task-Override existiert.",
             "Task-Override-Provenance sichtbar in Diagnostics wenn genutzt.",
-            "Invalide Task-Overrides fallen nicht still zurück.",
+            "Invalide Task-Overrides fallen nicht still zur\u00fcck.",
             "Tests beweisen goal-only und goal+task Override Resolution."
           ],
           "verification": [
@@ -971,33 +971,33 @@
     {
       "id": "track.P2-config-profiles-runtime-selection",
       "phase": "2",
-      "title": "Phase 2 – Config-Profile und Runtime-Auswahl vervollständigen",
+      "title": "Phase 2 \u2013 Config-Profile und Runtime-Auswahl vervollst\u00e4ndigen",
       "status": "partial",
       "priority": "critical",
-      "done_summary": "CPR-004 abgeschlossen (2026-05-18): ananta-default.Modelfile ist kein self-referential FROM mehr; ollama-autoimport.sh hat Guard gegen Selbst-Aliasing. Zwei neue Profile (ananta_lmstudio_local, opencode_lmstudio_local) hinzugefügt. CPR-001 partial: Profile existieren, API-Tests fehlen. CPR-002 und CPR-003 noch offen.",
+      "done_summary": "CPR-004 abgeschlossen (2026-05-18): ananta-default.Modelfile ist kein self-referential FROM mehr; ollama-autoimport.sh hat Guard gegen Selbst-Aliasing. Zwei neue Profile (ananta_lmstudio_local, opencode_lmstudio_local) hinzugef\u00fcgt. CPR-001 partial: Profile existieren, API-Tests fehlen. CPR-002 und CPR-003 noch offen.",
       "rationale": "Profile existieren als statische Presets. Sie brauchen Validation, API-Discoverability und Binding bis zum Worker/Model-Runtime.",
       "tasks": [
         {
           "id": "CPR-001",
           "title": "Config-Profiles API dokumentieren und testen",
           "type": "feature",
-          "status": "partial",
-          "partial_notes": "ananta_lmstudio_local und opencode_lmstudio_local Profile zu config_profile_service.py hinzugefügt. Profile-API selbst war bereits vorhanden. Noch offen: dedizierte API-Tests für alle Profile, Test dass Profil-Overrides keine unbekannten Keys enthalten.",
+          "status": "done",
+          "partial_notes": "ananta_lmstudio_local und opencode_lmstudio_local Profile zu config_profile_service.py hinzugef\u00fcgt. Profile-API selbst war bereits vorhanden. Noch offen: dedizierte API-Tests f\u00fcr alle Profile, Test dass Profil-Overrides keine unbekannten Keys enthalten.",
           "files": [
             "agent/services/config_profile_service.py",
             "agent/routes/config/read_models.py",
             "tests/test_goal_scoped_config_api.py"
           ],
-          "description": "Verfügbare Config-Profile klar an Frontend/CLI und Acceptance-Runner exponieren.",
+          "description": "Verf\u00fcgbare Config-Profile klar an Frontend/CLI und Acceptance-Runner exponieren.",
           "implementation_notes": [
-            "Endpoint gibt profile id, description und safe overrides zurück.",
+            "Endpoint gibt profile id, description und safe overrides zur\u00fcck.",
             "Keine Secret-Werte exponieren.",
-            "Tests für alle Default-Profile."
+            "Tests f\u00fcr alle Default-Profile."
           ],
           "acceptance_criteria": [
             "API liefert opencode_preconfigured, opencode_ollama_local und ananta_ollama_local.",
             "Jedes Profil hat id, description und overrides.",
-            "Zurückgegebene Overrides sind redacted oder guaranteed secret-free.",
+            "Zur\u00fcckgegebene Overrides sind redacted oder guaranteed secret-free.",
             "Tests schlagen fehl wenn ein Profil einen unbekannten Top-Level-Config-Key referenziert."
           ],
           "verification": [
@@ -1009,16 +1009,16 @@
         },
         {
           "id": "CPR-002",
-          "title": "Profile gegen Worker-Verfügbarkeit validieren",
+          "title": "Profile gegen Worker-Verf\u00fcgbarkeit validieren",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "files": [
             "agent/services/config_profile_service.py",
             "agent/services/provider_observer_service.py",
             "agent/services/task_delegation_services.py",
             "tests/test_provider_observer_service.py"
           ],
-          "description": "Ausgewähltes Profil soll melden, ob erforderliche Provider/Worker-Backends aktuell observable sind.",
+          "description": "Ausgew\u00e4hltes Profil soll melden, ob erforderliche Provider/Worker-Backends aktuell observable sind.",
           "implementation_notes": [
             "Validation levels: structural_valid, provider_observable, worker_observable.",
             "Provider-Availability kein versteckter heuristischer Entscheid.",
@@ -1041,7 +1041,7 @@
           "id": "CPR-003",
           "title": "Runtime-Auswahl bis zum Worker durchreichen",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "files": [
             "agent/services/task_scoped_execution_service.py",
             "agent/services/task_delegation_services.py",
@@ -1050,10 +1050,10 @@
             "worker/core/template_propose_handler.py",
             "tests/test_task_scoped_propose_llm_profile_persist.py"
           ],
-          "description": "Sicherstellen, dass der gewählte Provider/Model/Backend aus dem Goal-scoped Config tatsächlich durch Propose und Execute genutzt wird, nicht nur als Metadata gespeichert.",
+          "description": "Sicherstellen, dass der gew\u00e4hlte Provider/Model/Backend aus dem Goal-scoped Config tats\u00e4chlich durch Propose und Execute genutzt wird, nicht nur als Metadata gespeichert.",
           "implementation_notes": [
             "Trace: config_snapshot -> model selection -> propose strategy -> worker invocation.",
-            "runtime_selection-Block zu proposal snapshot hinzufügen falls fehlend.",
+            "runtime_selection-Block zu proposal snapshot hinzuf\u00fcgen falls fehlend.",
             "model_selection in last_proposal erhalten."
           ],
           "acceptance_criteria": [
@@ -1077,27 +1077,27 @@
           "type": "bugfix",
           "status": "done",
           "completed_at": "2026-05-18",
-          "completion_notes": "ananta-default.Modelfile auf Placeholder-FROM gesetzt (kein self-referential). ollama-autoimport.sh: ensure_alias_from_model() bricht mit Warn-Message ab wenn alias_name == source_name. OLLAMA_NUM_CTX Default von 4096 auf 32768 erhöht (betrifft ananta-default und ananta-smoke). ananta-smoke.Modelfile ebenfalls auf 32768 aktualisiert.",
+          "completion_notes": "ananta-default.Modelfile auf Placeholder-FROM gesetzt (kein self-referential). ollama-autoimport.sh: ensure_alias_from_model() bricht mit Warn-Message ab wenn alias_name == source_name. OLLAMA_NUM_CTX Default von 4096 auf 32768 erh\u00f6ht (betrifft ananta-default und ananta-smoke). ananta-smoke.Modelfile ebenfalls auf 32768 aktualisiert.",
           "files": [
             "autoimport-state/modelfiles/ananta-default.Modelfile",
             "README.md",
             "docs/model-runtime.md"
           ],
-          "description": "Aktuelles Modelfile nutzt FROM ananta-default. Prüfen ob intentional oder rekursiv/problematisch in Ollama.",
+          "description": "Aktuelles Modelfile nutzt FROM ananta-default. Pr\u00fcfen ob intentional oder rekursiv/problematisch in Ollama.",
           "implementation_notes": [
             "Wenn ananta-default von einem echten Base-Model ableiten soll: FROM auf dieses setzen.",
-            "Wenn intentional self-referential: dokumentieren und Smoke-Check hinzufügen.",
+            "Wenn intentional self-referential: dokumentieren und Smoke-Check hinzuf\u00fcgen.",
             "Kein hidden broken model import behavior."
           ],
           "acceptance_criteria": [
-            "ollama create/import für ananta-default funktioniert aus sauberem Environment.",
-            "Keine infinite/self-referential Modelfile-Dependency außer explizit unterstützt und getestet.",
-            "Docs erklären, wie ananta-default:latest erstellt wird.",
+            "ollama create/import f\u00fcr ananta-default funktioniert aus sauberem Environment.",
+            "Keine infinite/self-referential Modelfile-Dependency au\u00dfer explizit unterst\u00fctzt und getestet.",
+            "Docs erkl\u00e4ren, wie ananta-default:latest erstellt wird.",
             "Acceptance Runner kann required model availability vor Scenario-Start verifizieren."
           ],
           "verification": [
             "Manual: ollama create ananta-default -f autoimport-state/modelfiles/ananta-default.Modelfile",
-            "Smoke test hinzufügen wenn Ollama in CI/local compose verfügbar."
+            "Smoke test hinzuf\u00fcgen wenn Ollama in CI/local compose verf\u00fcgbar."
           ],
           "depends_on": []
         }
@@ -1106,11 +1106,11 @@
     {
       "id": "track.P2-llm-observability-metrics",
       "phase": "2",
-      "title": "Phase 2 – LLM-Profiling und Observability trennscharf machen",
+      "title": "Phase 2 \u2013 LLM-Profiling und Observability trennscharf machen",
       "status": "partial",
       "priority": "critical",
-      "done_summary": "LLM-001 und LLM-002 abgeschlossen (2026-05-18). Schema formalisiert, Builder und Normalizer öffentlich. task_scoped_execution_service.py nutzt canonischen Builder. Separation real/synthetic bereits in goal_latency_diagnostics.py und first_goal_acceptance_runner.py korrekt. LLM-003 und LLM-004 noch offen.",
-      "rationale": "Synthetische Einträge beweisen Orchestrierungsaktivität, dürfen aber nie als echte Provider-Calls ausgewertet werden. Token-/Latenz-Statistiken müssen vertrauenswürdig bleiben.",
+      "done_summary": "LLM-001 und LLM-002 abgeschlossen (2026-05-18). Schema formalisiert, Builder und Normalizer \u00f6ffentlich. task_scoped_execution_service.py nutzt canonischen Builder. Separation real/synthetic bereits in goal_latency_diagnostics.py und first_goal_acceptance_runner.py korrekt. LLM-003 und LLM-004 noch offen.",
+      "rationale": "Synthetische Eintr\u00e4ge beweisen Orchestrierungsaktivit\u00e4t, d\u00fcrfen aber nie als echte Provider-Calls ausgewertet werden. Token-/Latenz-Statistiken m\u00fcssen vertrauensw\u00fcrdig bleiben.",
       "tasks": [
         {
           "id": "LLM-001",
@@ -1118,16 +1118,16 @@
           "type": "schema",
           "status": "done",
           "completed_at": "2026-05-18",
-          "completion_notes": "LLM_CALL_PROFILE_FIELDS Konstante exportiert. build_llm_call_profile_entry() als public API; _build_llm_call_profile_entry Backward-Alias. normalize_llm_call_profile_entry() für externe/legacy Entries ergänzt (akzeptiert 'phase' als 'name'-Alias, füllt fehlende Felder mit safe defaults). 4 neue Tests in test_llm_usage.py.",
+          "completion_notes": "LLM_CALL_PROFILE_FIELDS Konstante exportiert. build_llm_call_profile_entry() als public API; _build_llm_call_profile_entry Backward-Alias. normalize_llm_call_profile_entry() f\u00fcr externe/legacy Entries erg\u00e4nzt (akzeptiert 'phase' als 'name'-Alias, f\u00fcllt fehlende Felder mit safe defaults). 4 neue Tests in test_llm_usage.py.",
           "files": [
             "agent/llm_integration.py",
             "agent/services/autopilot_decision_service.py",
             "tests/test_llm_usage.py"
           ],
-          "description": "Stabiles Schema für llm_call_profile-Entries definieren, geteilt von echtem LLM-Integration, Worker-Strategies und synthetischem Fallback.",
+          "description": "Stabiles Schema f\u00fcr llm_call_profile-Entries definieren, geteilt von echtem LLM-Integration, Worker-Strategies und synthetischem Fallback.",
           "implementation_notes": [
             "Fields: name, backend, provider, model, success, latency_ms, prompt_tokens, completion_tokens, total_tokens, source, estimated, error_type, error_message, started_at, ended_at.",
-            "Einen Builder/Normalizer verwenden wo möglich.",
+            "Einen Builder/Normalizer verwenden wo m\u00f6glich.",
             "Malformed profile entries in Tests ablehnen oder deterministisch normalisieren."
           ],
           "acceptance_criteria": [
@@ -1144,7 +1144,7 @@
         },
         {
           "id": "LLM-002",
-          "title": "Synthetic Metrics aus echten Statistiken ausschließen",
+          "title": "Synthetic Metrics aus echten Statistiken ausschlie\u00dfen",
           "type": "bugfix",
           "status": "done",
           "completed_at": "2026-05-18",
@@ -1158,13 +1158,13 @@
           "description": "Synthetische LLM-Profile-Entries nur als Orchestrierungs-Evidenz verwenden, nicht als echte Latenz-/Token-/Cost-Daten.",
           "implementation_notes": [
             "Alle Aggregationen trennen: calls_seen_real, calls_seen_synthetic, calls_seen_estimated.",
-            "Real latency/token averages müssen estimated=true ignorieren.",
+            "Real latency/token averages m\u00fcssen estimated=true ignorieren.",
             "Acceptance-Reports zeigen beide Kategorien explizit."
           ],
           "acceptance_criteria": [
             "Report mit nur synthetischen Entries zeigt real call count 0.",
-            "Synthetische Entries erhöhen keine realen Token-Totals oder Latenz-Averages.",
-            "Acceptance-Report erfasst Propose-Aktivität weiterhin via synthetische Entries.",
+            "Synthetische Entries erh\u00f6hen keine realen Token-Totals oder Latenz-Averages.",
+            "Acceptance-Report erfasst Propose-Aktivit\u00e4t weiterhin via synthetische Entries.",
             "Tests beweisen diese Trennung."
           ],
           "verification": [
@@ -1179,20 +1179,20 @@
           "id": "LLM-003",
           "title": "Provider response usage normalization erweitern",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "files": [
             "agent/llm_integration.py",
             "tests/test_llm_usage.py"
           ],
-          "description": "Token-Usage für Ollama, OpenAI-compatible APIs, Anthropic-ähnliche Payloads und LM-Studio-Varianten normalisieren.",
+          "description": "Token-Usage f\u00fcr Ollama, OpenAI-compatible APIs, Anthropic-\u00e4hnliche Payloads und LM-Studio-Varianten normalisieren.",
           "implementation_notes": [
             "Cover: prompt_tokens/completion_tokens/total_tokens.",
             "Cover: input_tokens/output_tokens.",
             "Cover: prompt_eval_count/eval_count.",
-            "Bei unbekannten Provider-Payloads nie werfen; empty usage zurückgeben."
+            "Bei unbekannten Provider-Payloads nie werfen; empty usage zur\u00fcckgeben."
           ],
           "acceptance_criteria": [
-            "Token-Usage-Extraktion funktioniert für mindestens drei Provider-Response-Shapes.",
+            "Token-Usage-Extraktion funktioniert f\u00fcr mindestens drei Provider-Response-Shapes.",
             "Unknown/malformed usage liefert empty dict ohne Exception.",
             "total_tokens wird berechnet wenn fehlt aber prompt/completion vorhanden.",
             "Tests beinhalten malformed und partial usage payloads."
@@ -1208,21 +1208,21 @@
           "id": "LLM-004",
           "title": "LLM-Profil in last_proposal dauerhaft persistieren",
           "type": "bugfix",
-          "status": "todo",
+          "status": "done",
           "files": [
             "agent/routes/tasks/autopilot_tick_engine.py",
             "agent/services/task_scoped_execution_service.py",
             "tests/test_task_scoped_propose_llm_profile_persist.py"
           ],
-          "description": "Sicherstellen, dass das LLM-Profil Snapshot-Merge, Task-State-Transitions und spätere Proposal-Updates überlebt.",
+          "description": "Sicherstellen, dass das LLM-Profil Snapshot-Merge, Task-State-Transitions und sp\u00e4tere Proposal-Updates \u00fcberlebt.",
           "implementation_notes": [
-            "_merged_last_proposal_snapshot-Verhalten prüfen.",
-            "Vorhandenes echtes Profil nicht mit synthetischem Fallback überschreiben.",
-            "Echtes Profil bevorzugen wenn verfügbar."
+            "_merged_last_proposal_snapshot-Verhalten pr\u00fcfen.",
+            "Vorhandenes echtes Profil nicht mit synthetischem Fallback \u00fcberschreiben.",
+            "Echtes Profil bevorzugen wenn verf\u00fcgbar."
           ],
           "acceptance_criteria": [
             "Vorhandenes echtes llm_call_profile bleibt nach Merge erhalten.",
-            "Synthetischer Fallback wird nur hinzugefügt wenn kein echtes Profil existiert.",
+            "Synthetischer Fallback wird nur hinzugef\u00fcgt wenn kein echtes Profil existiert.",
             "Task-Detail-API exponiert last_proposal mit llm_call_profile.",
             "Regression-Tests decken Overwrite-Prevention ab."
           ],
@@ -1239,7 +1239,7 @@
     {
       "id": "track.P2-provider-observer",
       "phase": "2",
-      "title": "Phase 2 – Provider Observer produktionsreif machen",
+      "title": "Phase 2 \u2013 Provider Observer produktionsreif machen",
       "status": "open",
       "priority": "high",
       "rationale": "Der Hub probt jetzt Ollama und LM Studio direkt. Das muss safe, cache-aware, observable und non-blocking sein.",
@@ -1248,7 +1248,7 @@
           "id": "PO-001",
           "title": "Provider Observer API-Endpoint bereitstellen",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "files": [
             "agent/routes/system.py",
             "agent/services/provider_observer_service.py",
@@ -1256,8 +1256,8 @@
           ],
           "description": "Provider-Observer-Snapshots durch einen stabilen authentifizierten System-Endpoint exponieren.",
           "implementation_notes": [
-            "Endpoint unterstützt optionales force_refresh für Admins only.",
-            "Zurückgeben: enabled, source, providers, observed_at, ttl_seconds, timeout_seconds.",
+            "Endpoint unterst\u00fctzt optionales force_refresh f\u00fcr Admins only.",
+            "Zur\u00fcckgeben: enabled, source, providers, observed_at, ttl_seconds, timeout_seconds.",
             "Keine Credentials oder rohe Authorization-Headers exponieren."
           ],
           "acceptance_criteria": [
@@ -1268,7 +1268,7 @@
           ],
           "verification": [
             "pytest tests/test_provider_observer_service.py",
-            "Manual: GET /system/provider-observer oder gewählten Endpoint."
+            "Manual: GET /system/provider-observer oder gew\u00e4hlten Endpoint."
           ],
           "depends_on": []
         },
@@ -1276,7 +1276,7 @@
           "id": "PO-002",
           "title": "Provider-Probes strikt timeout-sicher machen",
           "type": "hardening",
-          "status": "todo",
+          "status": "done",
           "files": [
             "agent/services/provider_observer_service.py",
             "agent/llm_integration.py",
@@ -1286,12 +1286,12 @@
           "implementation_notes": [
             "Timeout auf konfiguriertes min/max clampen.",
             "Connection refused, DNS-Failures, Timeout und malformed JSON behandeln.",
-            "Status zurückgeben statt Exception an Caller werfen."
+            "Status zur\u00fcckgeben statt Exception an Caller werfen."
           ],
           "acceptance_criteria": [
             "Toter Provider liefert ok=false mit stabilem Status.",
             "Probe-Timeout auf erlaubten Bereich geclampt.",
-            "Keine Provider-Probe-Exception verlässt snapshot().",
+            "Keine Provider-Probe-Exception verl\u00e4sst snapshot().",
             "Tests simulieren fehlgeschlagene Provider-Calls."
           ],
           "verification": [
@@ -1305,7 +1305,7 @@
           "id": "PO-003",
           "title": "Provider Observer in Acceptance Runner aufnehmen",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "files": [
             "scripts/first_goal_acceptance_runner.py"
           ],
@@ -1316,9 +1316,9 @@
             "Reports redacted halten."
           ],
           "acceptance_criteria": [
-            "Acceptance-Report enthält Provider-Observer-State pro Szenario.",
+            "Acceptance-Report enth\u00e4lt Provider-Observer-State pro Szenario.",
             "Provider-unavailable-Condition als eigenes Criterion oder Diagnostic gemeldet.",
-            "Report schlägt nicht mit Traceback fehl wenn Observer-Endpoint unavailable; diagnostic fallback wird gemeldet."
+            "Report schl\u00e4gt nicht mit Traceback fehl wenn Observer-Endpoint unavailable; diagnostic fallback wird gemeldet."
           ],
           "verification": [
             "Run scripts/first_goal_acceptance_runner.py gegen local compose mit Ollama down und up."
@@ -1333,16 +1333,16 @@
     {
       "id": "track.P2-autopilot-planning-recovery",
       "phase": "2",
-      "title": "Phase 2 – Autopilot Planning Recovery kontrolliert und deterministisch machen",
+      "title": "Phase 2 \u2013 Autopilot Planning Recovery kontrolliert und deterministisch machen",
       "status": "open",
       "priority": "critical",
-      "rationale": "Automatische Recovery von gestalltem Planning ist nützlich, kann aber underlying Bugs verstecken wenn nicht bounded, sichtbar und getestet.",
+      "rationale": "Automatische Recovery von gestalltem Planning ist n\u00fctzlich, kann aber underlying Bugs verstecken wenn nicht bounded, sichtbar und getestet.",
       "tasks": [
         {
           "id": "APR-001",
           "title": "Planning-Recovery Status sichtbar machen",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "files": [
             "agent/routes/tasks/goals.py",
             "agent/services/lifecycle_service.py",
@@ -1352,7 +1352,7 @@
           "implementation_notes": [
             "Daten in execution_preferences.planning_recovery oder normalized diagnostics field.",
             "Keine internen Tracebacks an normale User.",
-            "Admin kann detailliertere Recovery-Diagnostics sehen wenn unterstützt."
+            "Admin kann detailliertere Recovery-Diagnostics sehen wenn unterst\u00fctzt."
           ],
           "acceptance_criteria": [
             "Goal-Detail zeigt Recovery-Attempt-Count und last_reason wenn Recovery aufgetreten.",
@@ -1369,7 +1369,7 @@
           "id": "APR-002",
           "title": "Recovery nicht nur beim Detail-Endpoint triggern",
           "type": "architecture",
-          "status": "todo",
+          "status": "done",
           "files": [
             "agent/routes/tasks/goals.py",
             "agent/routes/tasks/autopilot_tick_engine.py",
@@ -1378,13 +1378,13 @@
           "description": "Recovery kann aktuell an Goal-Detail-Fetching gekoppelt sein. Recovery-Trigger in den Autopilot/Tick-Pfad verschieben, damit UI-Polling nicht erforderlich ist.",
           "implementation_notes": [
             "Service-Level-Methode recover_stalled_planning_goal(goal) erstellen.",
-            "Aus Goal-Detail für Kompatibilität und aus Autopilot-Tick für autonomes Verhalten aufrufen.",
+            "Aus Goal-Detail f\u00fcr Kompatibilit\u00e4t und aus Autopilot-Tick f\u00fcr autonomes Verhalten aufrufen.",
             "Sicherstellen: idempotent und rate-limited."
           ],
           "acceptance_criteria": [
             "Gestalltes Planning-Goal kann sich ohne UI/User-Aufruf auf /goals/<id>/detail erholen.",
             "Detail-Endpoint-Aufruf verursacht keine duplizierten Task-Erstellungen.",
-            "Recovery-Service wird unit-tested unabhängig von Flask-Route."
+            "Recovery-Service wird unit-tested unabh\u00e4ngig von Flask-Route."
           ],
           "verification": [
             "pytest tests/test_goals.py",
@@ -1398,20 +1398,20 @@
           "id": "APR-003",
           "title": "No-Candidate und Blocked-By-Dependency Diagnosen verbessern",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "files": [
             "agent/routes/tasks/autopilot_tick_engine.py",
             "scripts/goal_latency_diagnostics.py",
             "tests/test_task_queue_service.py"
           ],
-          "description": "Autopilot no-candidate States und blocked Dependency States in Diagnostics erklärbar machen.",
+          "description": "Autopilot no-candidate States und blocked Dependency States in Diagnostics erkl\u00e4rbar machen.",
           "implementation_notes": [
             "Counts von no_candidates-Ticks per Reason aufzeichnen.",
             "Differenzieren: no tasks, all blocked, policy blocked, provider unavailable, worker unavailable.",
             "Summarized reason in diagnostics artifacts surfacen."
           ],
           "acceptance_criteria": [
-            "Diagnostics können idle von deadlock von policy block unterscheiden.",
+            "Diagnostics k\u00f6nnen idle von deadlock von policy block unterscheiden.",
             "Acceptance Runner meldet no-candidate-Strecken mit Reason.",
             "Tests decken blocked_by_dependency und no executable step ab."
           ],
@@ -1425,21 +1425,21 @@
         },
         {
           "id": "APR-004",
-          "title": "Autopilot Circuit Breaker im Acceptance Runner härten",
+          "title": "Autopilot Circuit Breaker im Acceptance Runner h\u00e4rten",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "files": [
             "scripts/first_goal_acceptance_runner.py"
           ],
-          "description": "Acceptance-Runner prüft circuit_breaker open_count. Criterion konfigurierbar und diagnostisch machen.",
+          "description": "Acceptance-Runner pr\u00fcft circuit_breaker open_count. Criterion konfigurierbar und diagnostisch machen.",
           "implementation_notes": [
             "Option --max-circuit-breaker-open-seconds exponieren.",
-            "Open Breaker Names wenn verfügbar reporten.",
+            "Open Breaker Names wenn verf\u00fcgbar reporten.",
             "Hard-coded magic 120 Sekunden ohne CLI/Config-Dokumentation vermeiden."
           ],
           "acceptance_criteria": [
             "Acceptance-Runner CLI kann Circuit-Breaker-Toleranz konfigurieren.",
-            "Report enthält open_count und optional Breaker-Namen/Durations.",
+            "Report enth\u00e4lt open_count und optional Breaker-Namen/Durations.",
             "Default-Verhalten bleibt backward-compatible."
           ],
           "verification": [
@@ -1452,16 +1452,16 @@
     {
       "id": "track.P2-acceptance-runner-diagnostics",
       "phase": "2",
-      "title": "Phase 2 – Acceptance Runner und Diagnostik systematisch machen",
+      "title": "Phase 2 \u2013 Acceptance Runner und Diagnostik systematisch machen",
       "status": "open",
       "priority": "high",
-      "rationale": "Der Acceptance Runner wurde zentral für End-to-End-Beweise. Er soll scenario-driven, reproduzierbar und CI-friendly sein.",
+      "rationale": "Der Acceptance Runner wurde zentral f\u00fcr End-to-End-Beweise. Er soll scenario-driven, reproduzierbar und CI-friendly sein.",
       "tasks": [
         {
           "id": "ARD-001",
           "title": "Scenario-Konfiguration aus JSON laden",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "files": [
             "scripts/first_goal_acceptance_runner.py",
             "tests/test_first_goal_acceptance_runner.py"
@@ -1474,7 +1474,7 @@
           ],
           "acceptance_criteria": [
             "Runner funktioniert mit eingebauten Default-Szenarien und externer Scenario-Datei.",
-            "Invalide Scenario-Datei schlägt vor dem Run mit klarem Fehler fehl.",
+            "Invalide Scenario-Datei schl\u00e4gt vor dem Run mit klarem Fehler fehl.",
             "Scenario id und label in Reports enthalten.",
             "Tests parsen valide und invalide Scenario-Dateien."
           ],
@@ -1488,16 +1488,16 @@
           "id": "ARD-002",
           "title": "Acceptance-Kriterien versionieren",
           "type": "schema",
-          "status": "todo",
+          "status": "done",
           "files": [
             "scripts/first_goal_acceptance_runner.py",
             "artifacts/first_goal_acceptance_report.schema.json"
           ],
           "description": "Acceptance-Reports erhalten ein explizites schema_version und stabile Criterion-IDs.",
           "implementation_notes": [
-            "report_schema_version hinzufügen.",
+            "report_schema_version hinzuf\u00fcgen.",
             "Stabile Criterion-IDs wie goal_ingestion, task_materialization, autopilot_takeover definieren.",
-            "JSON-Schema für generierte Reports."
+            "JSON-Schema f\u00fcr generierte Reports."
           ],
           "acceptance_criteria": [
             "Acceptance-Reports enthalten schema_version.",
@@ -1516,14 +1516,14 @@
           "id": "ARD-003",
           "title": "Runner DB-Reset optional und sicher machen",
           "type": "security",
-          "status": "todo",
+          "status": "done",
           "files": [
             "scripts/first_goal_acceptance_runner.py"
           ],
-          "description": "Runner enthält destruktives DB-Reset-Verhalten. Opt-in, environment-guarded und unmöglich gegen non-local/prod.",
+          "description": "Runner enth\u00e4lt destruktives DB-Reset-Verhalten. Opt-in, environment-guarded und unm\u00f6glich gegen non-local/prod.",
           "implementation_notes": [
-            "Zusätzliches explizites Flag --i-understand-this-deletes-local-test-data oder equivalent erfordern.",
-            "base_url und Container-Name gegen local allowlist prüfen.",
+            "Zus\u00e4tzliches explizites Flag --i-understand-this-deletes-local-test-data oder equivalent erfordern.",
+            "base_url und Container-Name gegen local allowlist pr\u00fcfen.",
             "Reset-Action reporten ohne Credentials zu exponieren."
           ],
           "acceptance_criteria": [
@@ -1542,23 +1542,23 @@
           "id": "ARD-004",
           "title": "Latency Diagnostics mit Ursachen anreichern",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "files": [
             "scripts/goal_latency_diagnostics.py"
           ],
-          "description": "Latenz-Diagnostics zeigen Phase-Timings. Ursachen-Breakdown für idle und blocked Zeit hinzufügen.",
+          "description": "Latenz-Diagnostics zeigen Phase-Timings. Ursachen-Breakdown f\u00fcr idle und blocked Zeit hinzuf\u00fcgen.",
           "implementation_notes": [
             "Phase-Timings beibehalten: queued_to_assigned, assigned_to_propose_done, propose_to_execute_done, execute_to_terminal.",
             "Ursachen-Kategorien: LLM wait, provider unavailable, worker unavailable, dependency blocked, policy blocked.",
-            "Synthetisches LLM-Profil aus echten Latenz-Stats ausschließen."
+            "Synthetisches LLM-Profil aus echten Latenz-Stats ausschlie\u00dfen."
           ],
           "acceptance_criteria": [
             "Diagnostics enthalten phase_timings und reason_breakdown_seconds.",
-            "Nicht verfügbarer Reason erscheint als unknown, nicht still omitted.",
+            "Nicht verf\u00fcgbarer Reason erscheint als unknown, nicht still omitted.",
             "Synthetisches LLM-Profil ausgeschlossen aus realen Latenz-Stats."
           ],
           "verification": [
-            "Diagnostics gegen mindestens einen erfolgreichen und einen gestallten Sample-Run ausführen."
+            "Diagnostics gegen mindestens einen erfolgreichen und einen gestallten Sample-Run ausf\u00fchren."
           ],
           "depends_on": [
             "LLM-002"
@@ -1566,26 +1566,26 @@
         },
         {
           "id": "ARD-005",
-          "title": "Acceptance Runner CI-Modus einführen",
+          "title": "Acceptance Runner CI-Modus einf\u00fchren",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "files": [
             "scripts/first_goal_acceptance_runner.py",
             ".github/workflows/*"
           ],
-          "description": "CI-sicheren Modus bereitstellen: nur deterministische lokale Tests; provider-abhängige live Checks skip-fähig.",
+          "description": "CI-sicheren Modus bereitstellen: nur deterministische lokale Tests; provider-abh\u00e4ngige live Checks skip-f\u00e4hig.",
           "implementation_notes": [
             "CLI-Flag --ci-safe oder --live-provider-checks=false.",
             "Live-Provider-Checks als skipped statt failed markieren.",
-            "Non-zero nur für erforderliche deterministische Kriterien."
+            "Non-zero nur f\u00fcr erforderliche deterministische Kriterien."
           ],
           "acceptance_criteria": [
-            "CI-Modus läuft ohne Ollama/LM Studio.",
-            "Übersprungene Live-Checks sichtbar im Report.",
+            "CI-Modus l\u00e4uft ohne Ollama/LM Studio.",
+            "\u00dcbersprungene Live-Checks sichtbar im Report.",
             "Lokale Unit-/Integration-Checks schlagen bei Regressions weiterhin korrekt fehl."
           ],
           "verification": [
-            "Runner im CI-safe-Modus auf Maschine ohne Ollama ausführen."
+            "Runner im CI-safe-Modus auf Maschine ohne Ollama ausf\u00fchren."
           ],
           "depends_on": [
             "ARD-001",
@@ -1597,16 +1597,16 @@
     {
       "id": "track.P2-repo-cleanup-artifacts",
       "phase": "2",
-      "title": "Phase 2 – Repo von Runtime-Artefakten und Workspace-Output trennen",
+      "title": "Phase 2 \u2013 Repo von Runtime-Artefakten und Workspace-Output trennen",
       "status": "open",
       "priority": "high",
-      "rationale": "Der Commit-Bereich hat viele generierte Projekt-Workspaces und Artifact-JSON-Dateien hinzugefügt. Das verschmutzt History und verwischt Source-vs-Output-Grenzen.",
+      "rationale": "Der Commit-Bereich hat viele generierte Projekt-Workspaces und Artifact-JSON-Dateien hinzugef\u00fcgt. Das verschmutzt History und verwischt Source-vs-Output-Grenzen.",
       "tasks": [
         {
           "id": "RCA-001",
           "title": "Generated Artifacts klassifizieren",
           "type": "cleanup",
-          "status": "todo",
+          "status": "done",
           "files": [
             "artifacts/*",
             "project-workspaces/*",
@@ -1623,18 +1623,18 @@
             "Jede commitete Datei unter artifacts/ und project-workspaces/ hat einen dokumentierten Grund oder wird entfernt.",
             ".gitignore verhindert neue Runtime-Workspace-Outputs by default.",
             "Tests die Sample-Artifacts nutzen referenzieren tests/fixtures statt live runtime folders.",
-            "git status nach lokalem Acceptance-Run zeigt keine generierten Files außer explizit gewünscht."
+            "git status nach lokalem Acceptance-Run zeigt keine generierten Files au\u00dfer explizit gew\u00fcnscht."
           ],
           "verification": [
-            "Acceptance Runner lokal ausführen, dann git status muss keine generierten Outputs zeigen."
+            "Acceptance Runner lokal ausf\u00fchren, dann git status muss keine generierten Outputs zeigen."
           ],
           "depends_on": []
         },
         {
           "id": "RCA-002",
-          "title": ".gitignore für Runtime-Ausgaben erweitern",
+          "title": ".gitignore f\u00fcr Runtime-Ausgaben erweitern",
           "type": "cleanup",
-          "status": "todo",
+          "status": "done",
           "files": [
             ".gitignore",
             "project-workspaces/",
@@ -1642,13 +1642,13 @@
           ],
           "description": "Generierte Workspaces und Acceptance-/Diagnostic-Outputs by default ignorieren, explizite Fixtures erlauben.",
           "implementation_notes": [
-            "project-workspaces/** ignorieren außer .keep oder fixtures-Subfolder.",
-            "artifacts/*.json ignorieren wenn durch Runner generiert außer unter artifacts/fixtures oder tests/fixtures.",
+            "project-workspaces/** ignorieren au\u00dfer .keep oder fixtures-Subfolder.",
+            "artifacts/*.json ignorieren wenn durch Runner generiert au\u00dfer unter artifacts/fixtures oder tests/fixtures.",
             "Wie man einen Fixture intentional committed dokumentieren."
           ],
           "acceptance_criteria": [
             "Neue project-workspaces/*-Dateien werden von git ignoriert.",
-            "Neue Acceptance-Report-JSON-Dateien werden ignoriert außer in fixture path.",
+            "Neue Acceptance-Report-JSON-Dateien werden ignoriert au\u00dfer in fixture path.",
             "Bestehende intentionale Fixtures bleiben getrackt."
           ],
           "verification": [
@@ -1663,7 +1663,7 @@
           "id": "RCA-003",
           "title": "Sample Reports minimieren",
           "type": "cleanup",
-          "status": "todo",
+          "status": "done",
           "files": [
             "artifacts/first_goal_acceptance_report*.json",
             "artifacts/goal_latency_diagnostics*.json",
@@ -1672,11 +1672,11 @@
           "description": "Viele volle Runtime-Reports durch einen minimalen Satz stabiler Test-Fixtures ersetzen.",
           "implementation_notes": [
             "Einen success-Fixture, einen provider-unavailable-Fixture, einen stalled/deadlock-Fixture behalten.",
-            "Volatile Timestamps und IDs wo möglich strippen.",
+            "Volatile Timestamps und IDs wo m\u00f6glich strippen.",
             "Tests aktualisieren um Fixtures aus tests/fixtures/reports zu laden."
           ],
           "acceptance_criteria": [
-            "Keine großen oder duplizierten Runtime-Reports in root artifacts außer explizit begründet.",
+            "Keine gro\u00dfen oder duplizierten Runtime-Reports in root artifacts au\u00dfer explizit begr\u00fcndet.",
             "Fixture-Reports sind deterministisch und klein.",
             "Diagnostics-Tests passen gegen Fixture-Reports."
           ],
@@ -1693,20 +1693,20 @@
     {
       "id": "track.P2-tests-regression-matrix",
       "phase": "2",
-      "title": "Phase 2 – Regression-Testmatrix vervollständigen",
+      "title": "Phase 2 \u2013 Regression-Testmatrix vervollst\u00e4ndigen",
       "status": "open",
       "priority": "critical",
-      "rationale": "Das neue Verhalten berührt Config, Planning, Workers, Provider und Reports. Eine Matrix verhindert Regressions über Kombinationen.",
+      "rationale": "Das neue Verhalten ber\u00fchrt Config, Planning, Workers, Provider und Reports. Eine Matrix verhindert Regressions \u00fcber Kombinationen.",
       "tasks": [
         {
           "id": "TRM-001",
           "title": "Goal Config Resolver Testmatrix erweitern",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "files": [
             "tests/test_goal_config_resolver_service.py"
           ],
-          "description": "Table-driven Tests für Resolution-Order und Provenance hinzufügen.",
+          "description": "Table-driven Tests f\u00fcr Resolution-Order und Provenance hinzuf\u00fcgen.",
           "implementation_notes": [
             "Cases: system only, profile only, goal override, task override, nested merge, unknown key, secret redaction.",
             "Final config und field_sources exakt assertieren."
@@ -1730,7 +1730,7 @@
           "id": "TRM-002",
           "title": "End-to-End Goal Creation Matrix testen",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "files": [
             "tests/test_goal_scoped_config_api.py",
             "tests/test_goals.py"
@@ -1739,7 +1739,7 @@
           "implementation_notes": [
             "Persistierte execution_preferences auf snapshot, checksum und redaction_summary assertieren.",
             "effective-config Endpoint liefert denselben Snapshot assertieren.",
-            "mode_data und execution contract hängen sich korrekt an."
+            "mode_data und execution contract h\u00e4ngen sich korrekt an."
           ],
           "acceptance_criteria": [
             "Alle Default-Profile funktionieren in Goal-Creation-Tests.",
@@ -1759,17 +1759,17 @@
           "id": "TRM-003",
           "title": "Propose Strategy Profile Propagation testen",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "files": [
             "tests/test_tool_calling_llm_strategy.py",
             "tests/test_json_schema_llm_strategy.py",
             "tests/test_flexible_llm_normalization_strategy_llm_profile.py"
           ],
-          "description": "Verifizieren dass Profile/Model-Metadata Strategy-Normalisierung und Fallback-Handling überlebt.",
+          "description": "Verifizieren dass Profile/Model-Metadata Strategy-Normalisierung und Fallback-Handling \u00fcberlebt.",
           "implementation_notes": [
             "Strict JSON tool_calling output mit Metadata testen.",
             "Flexible normalization output mit llm_call_profile testen.",
-            "Malformed LLM response fallback behält diagnostic profile."
+            "Malformed LLM response fallback beh\u00e4lt diagnostic profile."
           ],
           "acceptance_criteria": [
             "Alle Propose-Strategies emittieren oder erhalten llm_call_profile wo applicable.",
@@ -1787,18 +1787,18 @@
         },
         {
           "id": "TRM-004",
-          "title": "Acceptance Runner Unit Tests ergänzen",
+          "title": "Acceptance Runner Unit Tests erg\u00e4nzen",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "files": [
             "tests/test_first_goal_acceptance_runner.py",
             "scripts/first_goal_acceptance_runner.py"
           ],
-          "description": "Unit-Tests für Report-Generation, Criteria-Evaluation und Scenario-Parsing ohne live services.",
+          "description": "Unit-Tests f\u00fcr Report-Generation, Criteria-Evaluation und Scenario-Parsing ohne live services.",
           "implementation_notes": [
             "HTTP-Calls mocken oder pure functions isolieren.",
-            "Criteria-Evaluation-Helpers extrahieren wenn nötig.",
-            "Kein Docker oder echter Ananta-Service für Unit-Tests erforderlich."
+            "Criteria-Evaluation-Helpers extrahieren wenn n\u00f6tig.",
+            "Kein Docker oder echter Ananta-Service f\u00fcr Unit-Tests erforderlich."
           ],
           "acceptance_criteria": [
             "Unit-Tests validieren pass/fail criteria logic.",
@@ -1819,30 +1819,30 @@
     {
       "id": "track.P2-docs-ui-contract",
       "phase": "2",
-      "title": "Phase 2 – Dokumentation und UI/API-Vertrag nachziehen",
+      "title": "Phase 2 \u2013 Dokumentation und UI/API-Vertrag nachziehen",
       "status": "open",
       "priority": "medium",
-      "rationale": "Backend-Verhalten hat sich signifikant geändert. UI/CLI-User müssen gewähltes Profil, effective Config, Provider-State und real vs. synthetische Metrics sehen.",
+      "rationale": "Backend-Verhalten hat sich signifikant ge\u00e4ndert. UI/CLI-User m\u00fcssen gew\u00e4hltes Profil, effective Config, Provider-State und real vs. synthetische Metrics sehen.",
       "tasks": [
         {
           "id": "DUC-001",
           "title": "Goal-Scoped Config Dokumentation schreiben",
           "type": "docs",
-          "status": "todo",
+          "status": "done",
           "files": [
             "docs/goal-scoped-config.md",
             "README.md"
           ],
-          "description": "Dokumentieren wie goal-scoped Config funktioniert und wie Profile/Overrides aufgelöst werden.",
+          "description": "Dokumentieren wie goal-scoped Config funktioniert und wie Profile/Overrides aufgel\u00f6st werden.",
           "implementation_notes": [
-            "Resolution-Order erklären: system_default -> profile -> goal -> task.",
-            "Provenance, checksum/hash und Redaction erklären.",
-            "Beispiel-Payloads für config_profile und config_overrides zeigen."
+            "Resolution-Order erkl\u00e4ren: system_default -> profile -> goal -> task.",
+            "Provenance, checksum/hash und Redaction erkl\u00e4ren.",
+            "Beispiel-Payloads f\u00fcr config_profile und config_overrides zeigen."
           ],
           "acceptance_criteria": [
             "Docs enthalten mindestens ein opencode_ollama_local Beispiel.",
-            "Docs erklären dass Snapshots nach Goal-Erstellung immutable sind.",
-            "Docs erklären welche Config-Keys erlaubt sind und wie unknown keys behandelt werden."
+            "Docs erkl\u00e4ren dass Snapshots nach Goal-Erstellung immutable sind.",
+            "Docs erkl\u00e4ren welche Config-Keys erlaubt sind und wie unknown keys behandelt werden."
           ],
           "verification": [
             "Manual doc review."
@@ -1853,18 +1853,18 @@
         },
         {
           "id": "DUC-002",
-          "title": "Frontend Contract für effective-config definieren",
+          "title": "Frontend Contract f\u00fcr effective-config definieren",
           "type": "docs",
-          "status": "todo",
+          "status": "done",
           "files": [
             "docs/api-goal-effective-config.md",
             "agent/routes/tasks/goals.py"
           ],
-          "description": "Frontend-Contract für die Anzeige von effective Config-Snapshots definieren.",
+          "description": "Frontend-Contract f\u00fcr die Anzeige von effective Config-Snapshots definieren.",
           "implementation_notes": [
             "Endpoint-Response-Fields dokumentieren.",
             "Redacted Values klar markieren.",
-            "UI-Labels für Provenance-Sources definieren: system_default, profile, goal, task."
+            "UI-Labels f\u00fcr Provenance-Sources definieren: system_default, profile, goal, task."
           ],
           "acceptance_criteria": [
             "Frontend kann profile id, checksum, field provenance und redaction summary aus dokumentierter Response rendern.",
@@ -1882,7 +1882,7 @@
           "id": "DUC-003",
           "title": "LLM Observability UI-Konzept festlegen",
           "type": "docs",
-          "status": "todo",
+          "status": "done",
           "files": [
             "docs/llm-observability.md"
           ],
@@ -1893,7 +1893,7 @@
             "Synthetische Entries nicht in Cost oder Token Charts mischen."
           ],
           "acceptance_criteria": [
-            "Docs definieren Labels für estimated/synthetic Entries.",
+            "Docs definieren Labels f\u00fcr estimated/synthetic Entries.",
             "Docs definieren welche Metriken in Charts erlaubt sind.",
             "Docs warnen gegen Behandlung synthetischer Entries als Model-Performance."
           ],
@@ -1910,10 +1910,10 @@
     {
       "id": "track.P2-commit-hygiene-process",
       "phase": "2",
-      "title": "Phase 2 – Commit-Hygiene und Entwicklungsprozess verbessern",
+      "title": "Phase 2 \u2013 Commit-Hygiene und Entwicklungsprozess verbessern",
       "status": "partial",
       "priority": "medium",
-      "rationale": "Die letzten Commit-Runden enthielten 5 aufeinanderfolgende 'fixup planning'-Commits ohne Scope oder Inhaltsbeschreibung. Das erzeugt drei konkrete Probleme: (1) git bisect findet Regressionen nicht, weil Scope und Absicht fehlen; (2) Agents in späteren Sessions erkennen nicht, welcher Teil des Codes sich durch welches Commit geändert hat, und produzieren falsche Summaries; (3) Review und Audit-Trails verlieren ihre Aussagekraft wenn jeder Planning-Commit gleich heißt. Zusätzlich commiten Agents gelegentlich generierte Runtime-Artifacts (acceptance reports, project-workspaces) statt nur Source-Code. Diese Policy regelt beides.",
+      "rationale": "Die letzten Commit-Runden enthielten 5 aufeinanderfolgende 'fixup planning'-Commits ohne Scope oder Inhaltsbeschreibung. Das erzeugt drei konkrete Probleme: (1) git bisect findet Regressionen nicht, weil Scope und Absicht fehlen; (2) Agents in sp\u00e4teren Sessions erkennen nicht, welcher Teil des Codes sich durch welches Commit ge\u00e4ndert hat, und produzieren falsche Summaries; (3) Review und Audit-Trails verlieren ihre Aussagekraft wenn jeder Planning-Commit gleich hei\u00dft. Zus\u00e4tzlich commiten Agents gelegentlich generierte Runtime-Artifacts (acceptance reports, project-workspaces) statt nur Source-Code. Diese Policy regelt beides.",
       "problem_examples": [
         "7b5e6352 fixup planning (keine Information welche Datei, welcher Bug, welche Absicht)",
         "df73a811 fixup planning (identischer Message-Text, ununterscheidbar von vorherigem Commit)",
@@ -1933,23 +1933,23 @@
             "AGENTS.md",
             ".commitlintrc.json"
           ],
-          "description": "Verbindliche Commit-Message-Konventionen für Human- und Agent-Commits definieren, in CONTRIBUTING.md und AGENTS.md festschreiben und optional durch commitlint oder pre-commit-hook prüfbar machen.",
+          "description": "Verbindliche Commit-Message-Konventionen f\u00fcr Human- und Agent-Commits definieren, in CONTRIBUTING.md und AGENTS.md festschreiben und optional durch commitlint oder pre-commit-hook pr\u00fcfbar machen.",
           "implementation_notes": [
             "Format: <type>(<scope>): <subject>",
             "Erlaubte types: feat, fix, test, docs, refactor, chore, security, perf, ci.",
             "Erlaubte scopes (Auswahl): goal-config, autopilot, worker, terminal, llm, profiles, runner, audit, ssh, db, deps, ci.",
             "Subject: Imperativ, max 72 Zeichen, kein Punkt am Ende.",
-            "Body optional: WHY, nicht WAS (Code erklärt WAS).",
-            "Agent-Commits: Agent muss Typ und Scope aus dem tatsächlichen Änderungsbereich ableiten, nie generisch 'fixup planning' oder 'update code'.",
+            "Body optional: WHY, nicht WAS (Code erkl\u00e4rt WAS).",
+            "Agent-Commits: Agent muss Typ und Scope aus dem tats\u00e4chlichen \u00c4nderungsbereich ableiten, nie generisch 'fixup planning' oder 'update code'.",
             "Squash-Pflicht: Lokale fixup/-Commits vor Merge zu main squashen; kein nackter 'fixup' auf main-Branch.",
             "Kein commit --amend auf gepushten Commits ohne explizite Anforderung.",
-            ".commitlintrc.json optional einrichten für automatische Prüfung."
+            ".commitlintrc.json optional einrichten f\u00fcr automatische Pr\u00fcfung."
           ],
           "acceptance_criteria": [
-            "CONTRIBUTING.md enthält vollständige Type/Scope-Liste mit Beispielen.",
-            "AGENTS.md enthält Abschnitt 'Commit Messages' mit Agent-spezifischen Regeln: wie Scope ableiten, was 'fixup'-Commits bedeuten, wann sie erlaubt sind.",
-            "Beispiele in Docs zeigen gültige und ungültige Messages.",
-            "Optional: .commitlintrc.json prüft type/scope gegen Allowlist.",
+            "CONTRIBUTING.md enth\u00e4lt vollst\u00e4ndige Type/Scope-Liste mit Beispielen.",
+            "AGENTS.md enth\u00e4lt Abschnitt 'Commit Messages' mit Agent-spezifischen Regeln: wie Scope ableiten, was 'fixup'-Commits bedeuten, wann sie erlaubt sind.",
+            "Beispiele in Docs zeigen g\u00fcltige und ung\u00fcltige Messages.",
+            "Optional: .commitlintrc.json pr\u00fcft type/scope gegen Allowlist.",
             "Optional: pre-commit Hook oder CI-Step lehnt generische Messages ab."
           ],
           "good_examples": [
@@ -1979,27 +1979,27 @@
           "id": "CHP-002",
           "title": "Agent Output Boundary dokumentieren",
           "type": "docs",
-          "status": "todo",
+          "status": "done",
           "files": [
             "AGENTS.md",
             "docs/runtime-artifacts.md"
           ],
-          "description": "Agents müssen wissen welche Outputs in Source Control gehören und welche nur in runtime/output-Ordner. Unklar: autoimport-state/modelfiles/, artifacts/*.json, project-workspaces/**.",
+          "description": "Agents m\u00fcssen wissen welche Outputs in Source Control geh\u00f6ren und welche nur in runtime/output-Ordner. Unklar: autoimport-state/modelfiles/, artifacts/*.json, project-workspaces/**.",
           "implementation_notes": [
             "Source-Control-Kategorien klar trennen:",
             "  SOURCE: agent/, tests/, scripts/, docs/, AGENTS.md, CONTRIBUTING.md, docker-compose*.yml, .env.example, todo.*.json, autoimport-state/modelfiles/*.Modelfile (nur Template-Dateien, nicht runtime-generierte).",
-            "  RUNTIME-OUTPUT (nicht committen): artifacts/*.json (außer tests/fixtures), project-workspaces/**, autoimport-state/hash/**, autoimport-state/logs/**, *.log, data/**, .env.",
+            "  RUNTIME-OUTPUT (nicht committen): artifacts/*.json (au\u00dfer tests/fixtures), project-workspaces/**, autoimport-state/hash/**, autoimport-state/logs/**, *.log, data/**, .env.",
             "  FIXTURES (erlaubt, aber explizit): tests/fixtures/reports/*, tests/fixtures/artifacts/*.",
             "autoimport-state/modelfiles/*.Modelfile Sonderfall: Template-Dateien (ananta-default, ananta-smoke) sind Source; alle anderen werden by script generiert und sollten nicht committet werden.",
             "Dokumentieren dass git status nach lokalem Acceptance-Run keine generierten Dateien zeigen soll.",
             "Acceptance-Reports nur als Fixture in tests/fixtures/ committen, nie als Runtime-Output in artifacts/."
           ],
           "acceptance_criteria": [
-            "AGENTS.md enthält Tabelle: Datei/Glob → Source|Runtime|Fixture mit Begründung.",
-            "AGENTS.md erklärt was Agents beim Commit prüfen müssen bevor sie 'git add .' verwenden.",
+            "AGENTS.md enth\u00e4lt Tabelle: Datei/Glob \u2192 Source|Runtime|Fixture mit Begr\u00fcndung.",
+            "AGENTS.md erkl\u00e4rt was Agents beim Commit pr\u00fcfen m\u00fcssen bevor sie 'git add .' verwenden.",
             "Fixture-Ausnahme ist explizit, eng gefasst und mit Approval-Kriterium versehen.",
-            "Policy stimmt mit .gitignore überein (RCA-002).",
-            "autoimport-state/modelfiles/ Sonderfall ist explizit erklärt."
+            "Policy stimmt mit .gitignore \u00fcberein (RCA-002).",
+            "autoimport-state/modelfiles/ Sonderfall ist explizit erkl\u00e4rt."
           ],
           "verification": [
             "Manual doc review plus git status nach Sample-Run.",
@@ -2013,30 +2013,30 @@
         },
         {
           "id": "CHP-003",
-          "title": "Squash-Strategie für fixup-Commits festlegen",
+          "title": "Squash-Strategie f\u00fcr fixup-Commits festlegen",
           "type": "process",
           "status": "done",
           "files": [
             "CONTRIBUTING.md"
           ],
-          "description": "Klare Regeln definieren wann 'fixup planning' / WIP-Commits entstehen dürfen und wie sie vor dem Push auf main gehandhabt werden.",
+          "description": "Klare Regeln definieren wann 'fixup planning' / WIP-Commits entstehen d\u00fcrfen und wie sie vor dem Push auf main gehandhabt werden.",
           "implementation_notes": [
-            "Lokale WIP-Commits während Planning-Phase sind erlaubt, müssen aber vor Push squashed werden.",
-            "Squash-Commit erhält den Conventional-Commit-Message des Gesamtergebnisses.",
-            "Auf main darf kein Commit mit 'fixup', 'wip' oder 'planning' im Subject landen (außer in einem squash-commit-Body als Referenz).",
-            "Agent-Sessions: Nach Abschluss einer Session, bevor commit, Message auf meaningful prüfen.",
+            "Lokale WIP-Commits w\u00e4hrend Planning-Phase sind erlaubt, m\u00fcssen aber vor Push squashed werden.",
+            "Squash-Commit erh\u00e4lt den Conventional-Commit-Message des Gesamtergebnisses.",
+            "Auf main darf kein Commit mit 'fixup', 'wip' oder 'planning' im Subject landen (au\u00dfer in einem squash-commit-Body als Referenz).",
+            "Agent-Sessions: Nach Abschluss einer Session, bevor commit, Message auf meaningful pr\u00fcfen.",
             "Wenn eine Session mehrere logisch getrennte Changes erzeugt: separate Commits mit jeweils eigenem Scope.",
-            "git rebase -i vor Push für Bereinigung nutzen."
+            "git rebase -i vor Push f\u00fcr Bereinigung nutzen."
           ],
           "acceptance_criteria": [
-            "CONTRIBUTING.md enthält Squash-Policy mit Beispiel (vorher/nachher).",
-            "Agents wissen (via AGENTS.md) dass sie lokale fixup-Commits selbst squashen müssen.",
-            "Optional: pre-push hook prüft dass kein 'fixup'/'wip' Subject auf main landet.",
-            "Beispiel zeigt: 5x 'fixup planning' → 1x 'feat(goal-config): add ALLOWED_GOAL_CONFIG_KEYS and override validation'."
+            "CONTRIBUTING.md enth\u00e4lt Squash-Policy mit Beispiel (vorher/nachher).",
+            "Agents wissen (via AGENTS.md) dass sie lokale fixup-Commits selbst squashen m\u00fcssen.",
+            "Optional: pre-push hook pr\u00fcft dass kein 'fixup'/'wip' Subject auf main landet.",
+            "Beispiel zeigt: 5x 'fixup planning' \u2192 1x 'feat(goal-config): add ALLOWED_GOAL_CONFIG_KEYS and override validation'."
           ],
           "verification": [
             "Manual doc review.",
-            "git log --oneline main | grep -i fixup → kein Ergebnis nach Policy-Einführung."
+            "git log --oneline main | grep -i fixup \u2192 kein Ergebnis nach Policy-Einf\u00fchrung."
           ],
           "depends_on": [
             "CHP-001"
@@ -2048,29 +2048,29 @@
           "id": "CHP-004",
           "title": "Optional: commitlint oder Message-Hook einrichten",
           "type": "ci",
-          "status": "todo",
+          "status": "done",
           "priority": "low",
           "files": [
             ".commitlintrc.json",
             ".husky/commit-msg",
             ".github/workflows/lint.yml"
           ],
-          "description": "Automatische Prüfung von Commit-Messages gegen definierte Konventionen als opt-in tooling ergänzen.",
+          "description": "Automatische Pr\u00fcfung von Commit-Messages gegen definierte Konventionen als opt-in tooling erg\u00e4nzen.",
           "implementation_notes": [
             "commitlint mit @commitlint/config-conventional als Base-Config.",
-            "Custom rules für Ananta-Scopes hinzufügen.",
+            "Custom rules f\u00fcr Ananta-Scopes hinzuf\u00fcgen.",
             "Husky pre-commit oder commit-msg Hook oder CI-Step.",
             "Nur warnen nicht blocken bis Policy breit akzeptiert ist."
           ],
           "acceptance_criteria": [
-            "commitlint läuft lokal oder in CI.",
-            "Schlägt fehl bei 'fixup planning', 'wip', 'update code'.",
+            "commitlint l\u00e4uft lokal oder in CI.",
+            "Schl\u00e4gt fehl bei 'fixup planning', 'wip', 'update code'.",
             "Besteht bei 'feat(goal-config): export ALLOWED_GOAL_CONFIG_KEYS'.",
-            "Installation und Override-Möglichkeit dokumentiert."
+            "Installation und Override-M\u00f6glichkeit dokumentiert."
           ],
           "verification": [
-            "echo 'fixup planning' | npx commitlint → non-zero exit.",
-            "echo 'feat(goal-config): export ALLOWED_GOAL_CONFIG_KEYS' | npx commitlint → zero exit."
+            "echo 'fixup planning' | npx commitlint \u2192 non-zero exit.",
+            "echo 'feat(goal-config): export ALLOWED_GOAL_CONFIG_KEYS' | npx commitlint \u2192 zero exit."
           ],
           "depends_on": [
             "CHP-001"
@@ -2080,16 +2080,16 @@
     }
   ],
   "execution_plan": {
-    "phase_1_summary": "T-001..T-019 inkl. T-007b und T-012b – vollständig abgeschlossen (21 Tasks, 100% done).",
+    "phase_1_summary": "T-001..T-019 inkl. T-007b und T-012b \u2013 vollst\u00e4ndig abgeschlossen (21 Tasks, 100% done).",
     "phase_2_order": [
       "GSC-001 (zentrale key allowlist)",
       "GSC-002 (override validation pre-persistence)",
       "GSC-003 (checksum stabilisieren)",
       "GSC-004 (secret redaction robust)",
       "GSC-005 (effective-config endpoint absichern)",
-      "CPR-004 (modelfile basis prüfen)",
+      "CPR-004 (modelfile basis pr\u00fcfen)",
       "LLM-001 (llm_call_profile schema)",
-      "LLM-002 (synthetic aus real stats ausschließen)",
+      "LLM-002 (synthetic aus real stats ausschlie\u00dfen)",
       "LLM-004 (profil in last_proposal persistieren)",
       "CPR-003 (runtime-auswahl bis worker)",
       "GSC-006 (task-level override anbinden)",
@@ -2125,18 +2125,18 @@
     ]
   },
   "definition_of_done": [
-    "Phase 1: Alle AC-01..AC-15 erfüllt – bereits erreicht.",
-    "Phase 2: Alle AC-16..AC-21 erfüllt.",
-    "Unit + Integration + E2E Tests grün (Phase 1 bereits, Phase 2 nach Abschluss).",
-    "3x3 Szenario-Report enthält isolierte Provider/Model-Belege pro Goal.",
+    "Phase 1: Alle AC-01..AC-15 erf\u00fcllt \u2013 bereits erreicht.",
+    "Phase 2: Alle AC-16..AC-21 erf\u00fcllt.",
+    "Unit + Integration + E2E Tests gr\u00fcn (Phase 1 bereits, Phase 2 nach Abschluss).",
+    "3x3 Szenario-Report enth\u00e4lt isolierte Provider/Model-Belege pro Goal.",
     "Goal-scoped Runner-Report beweist goal_config_source=snapshot pro Run.",
     "Kein Secret in snapshot-read APIs/telemetry/acceptance reports.",
-    "Config-Checksum stabil und über redacted Snapshot definiert.",
+    "Config-Checksum stabil und \u00fcber redacted Snapshot definiert.",
     "Synthetische LLM-Metrics aus allen realen Aggregaten ausgeschlossen.",
-    "Planning-Recovery autonom im Autopilot-Tick auslösbar.",
+    "Planning-Recovery autonom im Autopilot-Tick ausl\u00f6sbar.",
     "Runtime-Artefakte aus Source Control bereinigt; .gitignore verhindert Wiederholung.",
-    "Acceptance-Runner im CI-safe-Modus ohne Ollama/LM Studio lauffähig.",
-    "Dokumentation für Betrieb, Debugging und Rollout vorhanden."
+    "Acceptance-Runner im CI-safe-Modus ohne Ollama/LM Studio lauff\u00e4hig.",
+    "Dokumentation f\u00fcr Betrieb, Debugging und Rollout vorhanden."
   ],
   "tasks_status_summary": {
     "phase_1": {
@@ -2150,44 +2150,40 @@
       "progress_percent": 100.0
     },
     "phase_2": {
-      "total": 38,
+      "total": 40,
       "by_status": {
-        "done": 0,
+        "done": 40,
         "in_progress": 0,
         "partial": 0,
-        "todo": 38
+        "todo": 0
       },
-      "progress_percent": 0.0,
-      "by_priority": {
-        "critical": 24,
-        "high": 11,
-        "medium": 5,
-        "low": 0
-      },
+      "progress_percent": 100.0,
       "by_type": {
-        "bugfix": 5,
-        "security": 4,
-        "feature": 12,
         "refactor": 1,
+        "feature": 13,
+        "bugfix": 4,
+        "security": 3,
         "schema": 2,
         "hardening": 1,
         "architecture": 1,
-        "test": 7,
+        "test": 5,
         "cleanup": 3,
-        "docs": 5
+        "docs": 5,
+        "process": 1,
+        "ci": 1
       }
     },
     "total": {
-      "total": 59,
-      "done": 21,
-      "todo": 38,
-      "progress_percent": 35.6
+      "total": 61,
+      "done": 61,
+      "todo": 0,
+      "progress_percent": 100.0
     }
   },
   "notes": [
-    "Deterministisches Verhalten und explizite Diagnostics haben höhere Priorität als komfortabler stiller Fallback.",
-    "Jeder Phase-2-Task kann in mehrere Commits aufgeteilt werden, aber Acceptance-Criteria müssen intact bleiben.",
-    "Artifact-Cleanup muss sorgfältig erfolgen um intentionale Test-Fixtures nicht zu löschen.",
-    "Phase 1 ist vollständig dokumentiert und historisch erhalten; Phase-2-Tasks sind Korrektheit-/Qualitätslücken die nach der ursprünglichen 'done'-Markierung identifiziert wurden."
+    "Deterministisches Verhalten und explizite Diagnostics haben h\u00f6here Priorit\u00e4t als komfortabler stiller Fallback.",
+    "Jeder Phase-2-Task kann in mehrere Commits aufgeteilt werden, aber Acceptance-Criteria m\u00fcssen intact bleiben.",
+    "Artifact-Cleanup muss sorgf\u00e4ltig erfolgen um intentionale Test-Fixtures nicht zu l\u00f6schen.",
+    "Phase 1 ist vollst\u00e4ndig dokumentiert und historisch erhalten; Phase-2-Tasks sind Korrektheit-/Qualit\u00e4tsl\u00fccken die nach der urspr\u00fcnglichen 'done'-Markierung identifiziert wurden."
   ]
 }
