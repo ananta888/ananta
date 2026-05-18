@@ -337,6 +337,10 @@ class PlanningService:
             "context": result.context,
             "template_used": result.template_used,
             "planning_mode": result.planning_mode,
+            "planning_origin": result.planning_origin,
+            "repair_strategy_used": result.repair_strategy_used,
+            "repair_attempt_count": result.repair_attempt_count,
+            "parse_mode": result.parse_mode,
         }
 
     def _run_planning_strategies(
@@ -448,6 +452,10 @@ class PlanningService:
         planning_mode: str,
         raw_response: Optional[str],
         context: Optional[str],
+        planning_origin: str | None = None,
+        repair_strategy_used: str | None = None,
+        repair_attempt_count: int = 0,
+        parse_mode: str | None = None,
     ) -> tuple[PlanDB | None, list[PlanNodeDB]]:
         repos = get_repository_registry()
         flags = get_goal_feature_flags()
@@ -461,6 +469,10 @@ class PlanningService:
             planning_mode=planning_mode,
             rationale={
                 "planning_mode": planning_mode,
+                "planning_origin": planning_origin or planning_mode,
+                "repair_strategy_used": repair_strategy_used,
+                "repair_attempt_count": int(repair_attempt_count or 0),
+                "parse_mode": parse_mode,
                 "node_count": len(subtasks),
                 "context_used": bool(context),
                 "raw_response_preview": (raw_response or "")[:400],
@@ -676,6 +688,10 @@ class PlanningService:
         subtasks, limits, limit_exceeded = self._apply_plan_generation_limits(subtasks)
         raw_response = resolved["raw_response"]
         planning_mode = resolved["planning_mode"]
+        planning_origin = str(resolved.get("planning_origin") or planning_mode)
+        repair_strategy_used = resolved.get("repair_strategy_used")
+        repair_attempt_count = int(resolved.get("repair_attempt_count") or 0)
+        parse_mode = resolved.get("parse_mode")
         context = resolved["context"]
         template_used = resolved["template_used"]
         planner_selection: dict[str, Any] = {
@@ -699,6 +715,10 @@ class PlanningService:
                 "created_task_ids": [],
                 "raw_response": raw_response if not create_tasks else None,
                 "template_used": template_used,
+                "planning_origin": planning_origin,
+                "repair_strategy_used": repair_strategy_used,
+                "repair_attempt_count": repair_attempt_count,
+                "parse_mode": parse_mode,
                 "feature_flags": flags,
                 "plan_limits": limits,
                 "error": f"limit_exceeded:{limit_exceeded}",
@@ -733,6 +753,10 @@ class PlanningService:
                     "subtasks": [],
                     "created_task_ids": [],
                     "raw_response": raw_response,
+                    "planning_origin": planning_origin,
+                    "repair_strategy_used": repair_strategy_used,
+                    "repair_attempt_count": repair_attempt_count,
+                    "parse_mode": parse_mode,
                     "error_classification": "unstructured_llm_response",
                     "planning_policy": planning_policy,
                     "planner_selection": planner_selection,
@@ -773,6 +797,10 @@ class PlanningService:
                 "created_task_ids": [],
                 "raw_response": raw_response if not create_tasks else None,
                 "template_used": template_used,
+                "planning_origin": planning_origin,
+                "repair_strategy_used": repair_strategy_used,
+                "repair_attempt_count": repair_attempt_count,
+                "parse_mode": parse_mode,
                 "feature_flags": flags,
                 "plan_limits": limits,
                 "error": "invalid_plan_proposal",
@@ -792,6 +820,10 @@ class PlanningService:
                 planning_mode=planning_mode,
                 raw_response=raw_response,
                 context=context,
+                planning_origin=planning_origin,
+                repair_strategy_used=repair_strategy_used,
+                repair_attempt_count=repair_attempt_count,
+                parse_mode=parse_mode,
             )
 
         created_ids: list[str] = []
@@ -815,6 +847,10 @@ class PlanningService:
                     "created_task_ids": [],
                     "raw_response": raw_response if not create_tasks else None,
                     "template_used": template_used,
+                    "planning_origin": planning_origin,
+                    "repair_strategy_used": repair_strategy_used,
+                    "repair_attempt_count": repair_attempt_count,
+                    "parse_mode": parse_mode,
                     "plan_id": plan.id if plan else None,
                     "plan_node_ids": [node.id for node in nodes],
                     "feature_flags": flags,
@@ -834,6 +870,10 @@ class PlanningService:
             "created_task_ids": created_ids,
             "raw_response": raw_response if not create_tasks else None,
             "template_used": template_used,
+            "planning_origin": planning_origin,
+            "repair_strategy_used": repair_strategy_used,
+            "repair_attempt_count": repair_attempt_count,
+            "parse_mode": parse_mode,
             "plan_id": plan.id if plan else None,
             "plan_node_ids": [node.id for node in nodes],
             "feature_flags": flags,

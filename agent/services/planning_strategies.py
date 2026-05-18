@@ -25,6 +25,10 @@ class PlanningStrategyResult:
     context: str | None
     template_used: bool
     planning_mode: str
+    planning_origin: str = "unknown"
+    repair_strategy_used: str | None = None
+    repair_attempt_count: int = 0
+    parse_mode: str | None = None
 
 
 class PlannerLike(Protocol):
@@ -87,6 +91,7 @@ class TemplatePlanningStrategy:
                     context=context,
                     template_used=True,
                     planning_mode="template",
+                    planning_origin="template",
                 )
 
             blueprint_subtasks = self._blueprint_adapter.resolve_subtasks(candidate)
@@ -97,6 +102,7 @@ class TemplatePlanningStrategy:
                     context=context,
                     template_used=True,
                     planning_mode="template",
+                    planning_origin="template",
                 )
 
         execution_focused_subtasks = match_execution_focused_goal_template(goal)
@@ -107,6 +113,7 @@ class TemplatePlanningStrategy:
                 context=context,
                 template_used=True,
                 planning_mode="template",
+                planning_origin="template",
             )
         return None
 
@@ -328,9 +335,13 @@ class LLMPlanningStrategy:
             llm_config = {**llm_config, "max_output_tokens": int(policy_max_tokens)}
 
         raw_response = planner._call_llm_with_retry(prompt, llm_config)
+        planning_origin = "llm"
+        repair_strategy_used: str | None = None
+        repair_attempt_count = 0
         subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
         if not subtasks:
             for idx, strategy in enumerate(repair_strategies):
+                repair_attempt_count += 1
                 strategy_name = str(strategy.get("name") or "").strip().lower()
                 retry_temperature = strategy.get("temperature")
                 use_execution_prompt = mode == "new_software_project" and idx >= max(1, repair_attempts - 1)
@@ -373,6 +384,8 @@ class LLMPlanningStrategy:
                             if hub_subtasks:
                                 raw_response = hub_text
                                 subtasks = hub_subtasks
+                                planning_origin = "llm_repair"
+                                repair_strategy_used = "hub_copilot"
                                 break
                             if hub_text.strip():
                                 raw_response = hub_text
@@ -391,6 +404,8 @@ class LLMPlanningStrategy:
                     if repaired_subtasks:
                         raw_response = repaired_response
                         subtasks = repaired_subtasks
+                        planning_origin = "llm_repair"
+                        repair_strategy_used = "llm_config"
                         break
                     if str(repaired_response or "").strip():
                         raw_response = repaired_response
@@ -411,6 +426,8 @@ class LLMPlanningStrategy:
             if repaired_subtasks:
                 raw_response = repaired_response
                 subtasks = repaired_subtasks
+                planning_origin = "llm_repair"
+                repair_strategy_used = "llm_config"
         if mode == "new_software_project" and subtasks and not self._has_new_project_execution_coverage(subtasks):
             repair_prompt = self._build_new_project_execution_repair_prompt(
                 goal=goal,
@@ -427,12 +444,17 @@ class LLMPlanningStrategy:
             if repaired_subtasks:
                 raw_response = repaired_response
                 subtasks = repaired_subtasks
+                planning_origin = "llm_repair"
+                repair_strategy_used = "llm_config"
         return PlanningStrategyResult(
             subtasks=subtasks,
             raw_response=raw_response,
             context=resolved_context,
             template_used=False,
             planning_mode="llm",
+            planning_origin=planning_origin,
+            repair_strategy_used=repair_strategy_used,
+            repair_attempt_count=repair_attempt_count,
         )
 
 
@@ -485,4 +507,5 @@ class HubCopilotPlanningStrategy:
             context=resolved_context,
             template_used=False,
             planning_mode="hub_copilot",
+            planning_origin="hub_copilot",
         )
