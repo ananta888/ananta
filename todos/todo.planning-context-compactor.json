@@ -1,37 +1,23 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "owner": "Peter Stuiber",
   "track": "planning-context-compactor",
-  "purpose": "Additiver vorgelagerter Context-Compactor für Ananta Goal-/Task-Planning, damit goal/context/mode_data vor dem Planner-LLM-Call deterministisch vorgekürzt, LLM-basiert verdichtet, validiert und beobachtbar in den bestehenden Propose-/Planning-Flow eingespeist werden.",
-  "goal": "Planner erhält kompaktere, strukturierte Inputs ohne Verlust kritischer Constraints. Hub orchestriert weiterhin, Worker führen nur aus. Keine Breaking Changes an bestehenden Endpoints/Flows.",
+  "purpose": "Additiver vorgelagerter Context-Compactor für Ananta Goal-/Task-Planning. goal, context und mode_data werden vor dem Planner-LLM-Call verdichtet, normalisiert, validiert und beobachtbar in den bestehenden Propose-/Planning-Flow eingespeist. Zusätzlich werden modell- und runtime-spezifische Ausgabeformat-Profile eingeführt: nicht jedes Modell muss strikt JSON liefern; LM Studio/Ollama-Modelle sollen anhand tatsächlicher Antwortmuster kalibriert werden und je nach Profil JSON, fenced JSON, Markdown, YAML oder Hybrid-Formate bevorzugen dürfen.",
+  "goal": "Planner erhält kompaktere, strukturierte Inputs ohne Verlust kritischer Constraints. Hub orchestriert weiterhin, Worker führen aus. Keine Breaking Changes. Intern bleibt ein kanonisches Schema, extern darf das Modell so antworten, wie es pro Modell/Runtime am stabilsten parsebar ist.",
   "generated_at": "2026-05-18",
-  "status_scale": [
-    "todo",
-    "in_progress",
-    "partial",
-    "blocked",
-    "done"
-  ],
-  "priority_scale": [
-    "P0",
-    "P1",
-    "P2",
-    "P3"
-  ],
-  "risk_scale": [
-    "low",
-    "medium",
-    "high",
-    "critical"
-  ],
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
   "code_analysis": {
     "summary": [
       "Aktueller Einstiegspunkt für taskbezogene Planning-/Proposal-Erzeugung ist agent/services/task_scoped_execution_service.py::propose_task_step.",
-      "Der Service löst aktuell goal-/task-spezifische Config über get_goal_config_runtime_service().get_effective_config(...) auf, baut base_prompt und research_context_summary und übergibt diese direkt an ProposeContext.",
-      "ProposeContext in worker/core/propose_orchestrator.py enthält aktuell goal_id, task_id, task, base_prompt, research_context, cli_runner, tool_definitions_resolver, policy und effective_config.",
-      "ProposePolicy ist dataclass-basiert und wird über build_policy_from_dict(...) erzeugt; neue Policy-Felder müssen dort additiv aufgenommen werden.",
-      "ProposePolicyService hat bereits System-Defaults und Merge-Layer; context_compaction_* Defaultwerte gehören dort hinein, damit alte Configs weiter funktionieren.",
-      "Telemetry/Meta wird in propose_strategy_meta, proposal routing/history_event und cli_result/llm_call_profile gesammelt. Context-Compactor-Meta sollte dort ergänzend, null-safe und ohne Schema-Bruch angehängt werden."
+      "Dort werden scoped config, base_prompt, research_context_summary und ProposePolicy aufgelöst und danach ProposeContext gebaut.",
+      "Der Compactor passt direkt zwischen Policy-Auflösung/research_context_summary und ProposeContext-Erzeugung.",
+      "ProposeContext in worker/core/propose_orchestrator.py ist schlank und kann additiv um planning_context_compaction und planning_context_compaction_meta erweitert werden.",
+      "ProposePolicy ist dataclass-basiert; neue context_compaction_* und output_format_profile Felder können additiv in ProposePolicy/build_policy_from_dict aufgenommen werden.",
+      "accepted_output_formats existiert bereits konzeptionell und soll als Basis für modelladaptive Formatprofile genutzt werden.",
+      "Flexible Normalization existiert bereits als Planning-Idee; der Compactor nutzt sie vorgelagert für JSON/Markdown/YAML/Hybrid-Output.",
+      "Telemetry/Meta wird in propose_strategy_meta, routing/history_event und llm_call_profile gesammelt und kann um Compaction- und Formatkalibrierungsdaten ergänzt werden."
     ],
     "current_entrypoints": [
       "agent/services/task_scoped_execution_service.py::propose_task_step",
@@ -42,27 +28,73 @@
       "worker/core/propose_orchestrator.py::ProposeStrategyOrchestrator.run",
       "agent/services/goal_config_runtime_service.py::get_effective_config"
     ],
-    "integration_decision": "Compactor wird im Hub-Service vor Erstellung von ProposeContext ausgeführt. Der Worker-Orchestrator erhält bereits verdichtete Context-Felder und muss keine eigene Orchestrierung starten.",
+    "integration_decision": "Compactor wird im Hub-Service vor Erstellung von ProposeContext ausgeführt. Worker erhalten bereits verdichteten und normalisierten Kontext. Keine Worker-zu-Worker-Orchestrierung.",
     "non_breaking_strategy": [
       "Neue Felder optional/defaulted.",
-      "ProposeContext bleibt abwärtskompatibel durch zusätzliche optionale Felder oder Nutzung von metadata im research_context.",
-      "Keine Änderung bestehender API-Endpunkte.",
-      "Fallback auf deterministic_only oder needs_review/fail-closed je nach Policy."
+      "Bestehende Endpoints bleiben unverändert.",
+      "Planner/Strategies sehen kanonische Struktur, nicht zwingend Roh-JSON-Ausgabe vom Modell.",
+      "Fallback auf Repair-Retry, deterministic-only oder policy-erlaubten bypass.",
+      "Default bleibt fail-closed."
     ]
   },
   "architecture_constraints": [
     "Hub orchestriert; Worker orchestrieren keine anderen Worker.",
     "Planner bleibt Planner; Compactor wird separater Service mit SRP.",
-    "Feature additiv, policy-gesteuert, Default sicher.",
+    "Feature additiv, policy-gesteuert, default sicher.",
     "Kein stilles Droppen von Security-/Review-/Verification-/Policy-Constraints.",
     "Bei Unsicherheit fail-closed, außer explizit context_compactor_fail_open=true.",
     "Segmentierung läuft auf kompaktiertem Kontext, nicht auf Rohdump.",
-    "Observability ist Pflicht: Status, Gründe, Metriken, Fallbacks."
+    "Observability ist Pflicht: Status, Gründe, Metriken, Fallbacks.",
+    "Strict JSON ist nicht global verpflichtend, sondern nur ein mögliches externes Modellformat.",
+    "Intern bleibt ein einheitliches kanonisches Schema planning_context_compaction.v1.",
+    "Externe Modellformate können strict_json, fenced_json, markdown_sections, yaml, yaml_frontmatter_plus_markdown, xml_tags, tool_calls oder marker_text sein.",
+    "Formatwahl wird aus Modell/Provider/Runtime-Profil und Telemetry abgeleitet.",
+    "Gelernt wird die stabilste Kommunikationsform je Modell, nicht die Sicherheitslogik."
   ],
+  "model_specific_format_profiles": {
+    "purpose": "Modelle werden nicht gezwungen, alle dasselbe Ausgabeformat zu liefern. Pro Modell/Provider wird gelernt, welches Format stabil parsebar ist.",
+    "canonical_internal_schema": "planning_context_compaction.v1",
+    "supported_external_formats": [
+      "strict_json",
+      "fenced_json",
+      "markdown_sections",
+      "markdown_table",
+      "yaml",
+      "yaml_frontmatter_plus_markdown",
+      "xml_tags",
+      "tool_calls",
+      "natural_language_with_markers"
+    ],
+    "profile_examples": {
+      "lmstudio_laptop": {
+        "preferred_order": ["markdown_sections", "fenced_json", "yaml_frontmatter_plus_markdown", "strict_json"],
+        "reason": "Viele kleinere/lokale Modelle antworten stabiler in klaren Markdown-Sektionen als in hartem JSON.",
+        "repair_strategy": "section_parser_then_schema_normalizer"
+      },
+      "ollama_rtx3080": {
+        "preferred_order": ["strict_json", "fenced_json", "yaml", "markdown_sections"],
+        "reason": "Stärkere lokale Modelle können JSON oft stabiler liefern, müssen aber fallback-fähig bleiben.",
+        "repair_strategy": "json_parser_then_fenced_json_then_section_parser"
+      }
+    },
+    "training_signals": [
+      "parse_success_rate_by_format",
+      "repair_attempts_by_format",
+      "schema_violation_rate",
+      "constraint_loss_rate",
+      "average_reduction_ratio",
+      "timeout_rate",
+      "model/provider/runtime_profile",
+      "task_kind/mode"
+    ]
+  },
   "expected_new_files": [
     "agent/services/planning_context_compactor_service.py",
+    "agent/services/model_output_format_profile_service.py",
+    "agent/common/utils/context_compaction_format_utils.py",
     "tests/test_planning_context_compactor_service.py",
     "tests/test_planning_context_compactor_integration.py",
+    "tests/test_model_output_format_profile_service.py",
     "docs/planning-context-compactor.md"
   ],
   "expected_modified_files": [
@@ -71,69 +103,17 @@
     "agent/services/propose_policy_service.py",
     "worker/core/propose_orchestrator.py",
     "tests/test_propose_policy_service.py",
-    "tests/test_propose_orchestrator.py"
+    "tests/test_propose_orchestrator.py",
+    "tests/test_strategy_mode_fallbacks.py"
   ],
   "milestones": [
-    {
-      "id": "M1",
-      "title": "Policy und Datenmodell additiv vorbereiten",
-      "task_ids": [
-        "PCC-001",
-        "PCC-002",
-        "PCC-003"
-      ],
-      "status": "todo"
-    },
-    {
-      "id": "M2",
-      "title": "Compactor-Service implementieren",
-      "task_ids": [
-        "PCC-004",
-        "PCC-005",
-        "PCC-006",
-        "PCC-007"
-      ],
-      "status": "todo"
-    },
-    {
-      "id": "M3",
-      "title": "Planning-/Propose-Flow integrieren",
-      "task_ids": [
-        "PCC-008",
-        "PCC-009",
-        "PCC-010"
-      ],
-      "status": "todo"
-    },
-    {
-      "id": "M4",
-      "title": "Telemetry, Audit und Fehlergründe sichtbar machen",
-      "task_ids": [
-        "PCC-011",
-        "PCC-012"
-      ],
-      "status": "todo"
-    },
-    {
-      "id": "M5",
-      "title": "Tests und Regression absichern",
-      "task_ids": [
-        "PCC-013",
-        "PCC-014",
-        "PCC-015",
-        "PCC-016"
-      ],
-      "status": "todo"
-    },
-    {
-      "id": "M6",
-      "title": "Doku und Betriebshinweise",
-      "task_ids": [
-        "PCC-017",
-        "PCC-018"
-      ],
-      "status": "todo"
-    }
+    {"id": "M1", "title": "Policy und Datenmodell additiv vorbereiten", "task_ids": ["PCC-001", "PCC-002", "PCC-003"], "status": "todo"},
+    {"id": "M2", "title": "Compactor-Service implementieren", "task_ids": ["PCC-004", "PCC-005", "PCC-006", "PCC-007", "PCC-008"], "status": "todo"},
+    {"id": "M2A", "title": "Modelladaptive Output-Format-Profile und Kalibrierung", "task_ids": ["PCC-019", "PCC-020", "PCC-021", "PCC-022", "PCC-023"], "status": "todo"},
+    {"id": "M3", "title": "Planning-/Propose-Flow integrieren", "task_ids": ["PCC-009", "PCC-010"], "status": "todo"},
+    {"id": "M4", "title": "Telemetry, Audit und Fehlergründe sichtbar machen", "task_ids": ["PCC-011", "PCC-012"], "status": "todo"},
+    {"id": "M5", "title": "Tests und Regression absichern", "task_ids": ["PCC-013", "PCC-014", "PCC-015", "PCC-016"], "status": "todo"},
+    {"id": "M6", "title": "Doku und Betriebshinweise", "task_ids": ["PCC-017", "PCC-018"], "status": "todo"}
   ],
   "tasks": [
     {
@@ -143,23 +123,21 @@
       "priority": "P0",
       "risk": "medium",
       "type": "config",
-      "files": [
-        "agent/services/propose_policy.py"
-      ],
+      "files": ["agent/services/propose_policy.py"],
       "description": "Neue optionale Policy-Felder in ProposePolicy und build_policy_from_dict aufnehmen.",
       "implementation_notes": [
         "Felder: context_compaction_enabled, context_compaction_required, context_compactor_timeout_seconds, context_compactor_max_output_chars, context_compactor_retry_attempts, context_compactor_fail_open, context_compactor_profile, context_compactor_preserve_keywords.",
+        "Zusätzlich: context_compactor_output_format_profile, context_compactor_accepted_output_formats, context_compactor_preferred_output_formats.",
         "Defaults sicher setzen: enabled=true, required=false, fail_open=false.",
-        "Timeout clampen, z. B. 30..120 Sekunden.",
-        "max_output_chars clampen, z. B. 1000..50000.",
-        "retry_attempts clampen, z. B. 0..3."
+        "accepted formats default: strict_json, fenced_json, markdown_sections, yaml.",
+        "Timeout/retry/output-limits clampen."
       ],
       "acceptance_criteria": [
         "build_policy_from_dict akzeptiert alte Configs ohne neue Felder.",
-        "ProposePolicy.to_dict gibt die neuen Felder aus.",
-        "Ungültige Werte werden normalisiert oder validiert, ohne bestehende Presets zu brechen.",
+        "ProposePolicy.to_dict gibt neue Felder aus.",
         "context_compactor_fail_open ist default false.",
-        "Unit-Test belegt, dass Default-Policy alle neuen Felder enthält."
+        "Strict JSON ist nicht als einzig erlaubtes Format hart codiert.",
+        "Unit-Test belegt Default-Policy inklusive Formatfelder."
       ]
     },
     {
@@ -169,21 +147,18 @@
       "priority": "P0",
       "risk": "medium",
       "type": "config",
-      "files": [
-        "agent/services/propose_policy_service.py",
-        "agent/services/propose_policy.py"
-      ],
-      "description": "Compactor-Defaults im System-Default und optional task_kind-spezifisch ergänzen.",
+      "files": ["agent/services/propose_policy_service.py", "agent/services/propose_policy.py"],
+      "description": "Compactor- und Format-Defaults im System-Default und optional task_kind-spezifisch ergänzen.",
       "implementation_notes": [
         "System default: enabled=true, required=false, fail_open=false.",
-        "Für coding/new_software_project höhere max_output_chars erlauben.",
-        "Für documentation/research ggf. niedrigeres required=false lassen.",
+        "coding/new_software_project: größere max_output_chars und bevorzugt strict_json/fenced_json, wenn Modellprofil es hergibt.",
+        "lmstudio_laptop: markdown_sections/fenced_json bevorzugen.",
         "Keine Änderung an strategy_order."
       ],
       "acceptance_criteria": [
-        "Bestehende Tests für ProposePolicyService bleiben grün.",
+        "Bestehende ProposePolicyService-Tests bleiben grün.",
         "Policy-Merge-Reihenfolge bleibt unverändert.",
-        "Neue Felder können per project_config, blueprint_role_config und admin_overrides überschrieben werden.",
+        "Neue Felder können per project_config/blueprint_role/admin_overrides überschrieben werden.",
         "Keine Strategy wird durch Compactor-Config automatisch aktiviert/deaktiviert."
       ]
     },
@@ -194,22 +169,19 @@
       "priority": "P1",
       "risk": "medium",
       "type": "config",
-      "files": [
-        "agent/services/propose_policy_service.py",
-        "docs/planning-context-compactor.md"
-      ],
-      "description": "Profile wie lmstudio_laptop und ollama_rtx3080 als additive Compactor-Limits beschreiben und auflösen.",
+      "files": ["agent/services/propose_policy_service.py", "docs/planning-context-compactor.md"],
+      "description": "Profile wie lmstudio_laptop und ollama_rtx3080 als additive Compactor-Limits und Formatpräferenzen beschreiben und auflösen.",
       "implementation_notes": [
-        "Profilauflösung aus effective_config/runtime profile ableiten, aber optional halten.",
-        "lmstudio_laptop konservativ: kürzerer Output, weniger Retries, niedriger Timeout.",
-        "ollama_rtx3080 großzügiger: mehr Output, ggf. mehr Retries.",
+        "Profilauflösung aus effective_config/runtime profile ableiten, optional halten.",
+        "lmstudio_laptop konservativ: kürzerer Output, weniger Retries, Markdown/fenced_json bevorzugt.",
+        "ollama_rtx3080 großzügiger: mehr Output, ggf. strict_json zuerst.",
         "Profil darf Policy nicht heimlich fail-open setzen."
       ],
       "acceptance_criteria": [
         "Unbekanntes Profil fällt auf sichere Defaults zurück.",
-        "Profile beeinflussen nur Compactor-Limits, nicht Planner-Strategien.",
+        "Profile beeinflussen Compactor-Limits und Ausgabeformatpräferenz, nicht Planner-Strategien.",
         "Doku beschreibt beide Profile mit Zweck und Grenzen.",
-        "Test belegt, dass context_compactor_profile korrekt aufgelöst wird."
+        "Test belegt Profilauflösung."
       ]
     },
     {
@@ -219,61 +191,23 @@
       "priority": "P0",
       "risk": "high",
       "type": "service",
-      "files": [
-        "agent/services/planning_context_compactor_service.py"
-      ],
+      "files": ["agent/services/planning_context_compactor_service.py"],
       "description": "Eigenen Service mit klarer API implementieren.",
       "api_contract": {
-        "input": {
-          "goal_text": "str",
-          "context_text": "str | None",
-          "mode": "str",
-          "mode_data": "dict | None",
-          "planning_policy": "dict",
-          "llm_config": "dict"
-        },
-        "output_schema": {
-          "goal_summary": "string",
-          "hard_constraints": [
-            "string"
-          ],
-          "non_negotiables": [
-            "string"
-          ],
-          "relevant_context": [
-            "string"
-          ],
-          "omitted_context_summary": "string",
-          "risks": [
-            "string"
-          ],
-          "open_questions": [
-            "string"
-          ],
-          "compactor_meta": {
-            "input_chars": "int",
-            "output_chars": "int",
-            "reduction_ratio": "float",
-            "truncated_fields": [
-              "string"
-            ],
-            "model": "string",
-            "provider": "string",
-            "duration_ms": "int"
-          }
-        }
+        "input": {"goal_text": "str", "context_text": "str | None", "mode": "str", "mode_data": "dict | None", "planning_policy": "dict", "llm_config": "dict"},
+        "canonical_output_schema": {"schema": "planning_context_compaction.v1", "goal_summary": "string", "hard_constraints": ["string"], "non_negotiables": ["string"], "relevant_context": ["string"], "omitted_context_summary": "string", "risks": ["string"], "open_questions": ["string"], "compactor_meta": "dict"}
       },
       "implementation_notes": [
-        "Service-Klasse z. B. PlanningContextCompactorService.",
+        "Service-Klasse PlanningContextCompactorService.",
         "Öffentliche Methode compact(...).",
-        "Interne Schritte: deterministic_pre_trim -> llm_compact -> validate -> guardrails -> fallback.",
-        "Rückgabe enthält status/error_classification zusätzlich als Meta, wenn nötig, aber Hauptschema bleibt stabil."
+        "Interne Schritte: deterministic_pre_trim -> select_output_format_profile -> llm_compact -> parse/normalize -> validate -> guardrails -> fallback.",
+        "Planner bekommt immer kanonisches dict, nie rohen Modelltext."
       ],
       "acceptance_criteria": [
         "Service ist ohne Flask-App-Kontext testbar.",
         "Service hat keine Seiteneffekte auf task/global config.",
-        "compact(...) liefert immer ein normalisiertes dict oder ein klar klassifiziertes Failure-Objekt.",
-        "Keine Worker-Aufrufe oder Worker-zu-Worker-Orchestrierung im Service.",
+        "compact(...) liefert normalisiertes dict oder klar klassifiziertes Failure-Objekt.",
+        "Keine Worker-Aufrufe im Service.",
         "SRP erfüllt: keine Planner-Strategie-Logik im Compactor."
       ]
     },
@@ -284,50 +218,46 @@
       "priority": "P0",
       "risk": "high",
       "type": "service",
-      "files": [
-        "agent/services/planning_context_compactor_service.py"
-      ],
+      "files": ["agent/services/planning_context_compactor_service.py"],
       "description": "Vor jedem LLM-Call große Felder deterministisch begrenzen und markieren.",
       "implementation_notes": [
-        "Strings nach max chars kürzen, aber Anfang/Ende erhalten.",
-        "Listen nach max_items begrenzen und omitted_count notieren.",
-        "Dicts rekursiv begrenzen, bekannte Heavy-Felder markieren: logs, history, raw_output, stdout, stderr, traces, artifacts, diffs, context_dump.",
-        "Preserve-Keywords aus Policy prüfen und entsprechende Ausschnitte bevorzugt erhalten.",
-        "truncated_fields vollständig in compactor_meta erfassen."
+        "Strings mit Anfang/Ende erhalten kürzen.",
+        "Listen und Dicts rekursiv begrenzen.",
+        "Heavy-Felder markieren: logs, history, raw_output, stdout, stderr, traces, artifacts, diffs, context_dump.",
+        "Preserve-Keywords bevorzugt erhalten.",
+        "truncated_fields vollständig erfassen."
       ],
       "acceptance_criteria": [
         "Pre-trim reduziert große mode_data/context_payloads deterministisch.",
-        "Truncated-Felder werden vollständig und testbar protokolliert.",
+        "Truncated-Felder werden protokolliert.",
         "Preserve-Keywords wie security, policy, verification, review, constraints werden nicht entfernt.",
-        "Pre-trim funktioniert auch ohne LLM und liefert deterministic-only Compaction.",
+        "Pre-trim funktioniert auch ohne LLM.",
         "Unit-Test deckt verschachtelte Dict/List/String-Fälle ab."
       ]
     },
     {
       "id": "PCC-006",
-      "title": "LLM-Compaction mit Strict-JSON-Prompt bauen",
+      "title": "LLM-Compaction formatadaptiv statt nur Strict-JSON bauen",
       "status": "todo",
       "priority": "P0",
       "risk": "high",
       "type": "llm",
-      "files": [
-        "agent/services/planning_context_compactor_service.py"
-      ],
-      "description": "Compactor ruft spezialisierten LLM-Call auf und erzwingt strikt JSON-kompatible Ausgabe.",
+      "files": ["agent/services/planning_context_compactor_service.py"],
+      "description": "Compactor ruft spezialisierten LLM-Call auf und verlangt je Modellprofil das stabilste Ausgabeformat.",
       "implementation_notes": [
-        "Prompt enthält nur Aufgabe, Schema, Constraints und pre-trimmed Input.",
-        "Keine Markdown-Fences erlauben.",
+        "Prompt enthält Aufgabe, Schema, Constraints und pre-trimmed Input.",
+        "Prompt-Style abhängig vom Formatprofil: strict_json, fenced_json, markdown_sections, yaml.",
         "Temperatur niedrig setzen.",
         "Provider/Model aus llm_config oder resolved profile ableiten.",
         "Timeout aus Policy verwenden.",
-        "LLM-Call sollte vorhandene OpenAI-kompatible/sgpt Routing-Helfer nutzen, aber nicht Planner-Strategie missbrauchen."
+        "LLM-Call nutzt vorhandene Routing-Helfer, aber nicht Planner-Strategie missbrauchen."
       ],
       "acceptance_criteria": [
-        "LLM-Ausgabe wird als JSON geparst und gegen Schema geprüft.",
+        "Requested output format wird in Telemetry gespeichert.",
+        "LLM-Ausgabe wird über Multi-Format-Normalizer verarbeitet.",
         "Unparseable Output erzeugt context_compactor_unparseable_output.",
         "Timeout erzeugt context_compactor_timeout.",
-        "Runtime-Fehler erzeugt context_compactor_runtime_unavailable.",
-        "compactor_meta enthält provider, model und duration_ms."
+        "compactor_meta enthält provider, model, requested_format, detected_format und duration_ms."
       ]
     },
     {
@@ -337,24 +267,22 @@
       "priority": "P0",
       "risk": "critical",
       "type": "safety",
-      "files": [
-        "agent/services/planning_context_compactor_service.py"
-      ],
-      "description": "Compactor darf kritische Constraints nicht verlieren.",
+      "files": ["agent/services/planning_context_compactor_service.py"],
+      "description": "Compactor darf kritische Constraints nicht verlieren, egal aus welchem externen Format normalisiert wurde.",
       "implementation_notes": [
         "Pflichtfelder erzwingen und fehlende Listen als [] normalisieren.",
         "Strings trimmen, leere Items entfernen.",
         "Max output chars prüfen.",
         "Guardrail-Suchmenge aus hard_constraints/non_negotiables/preserve_keywords ableiten.",
-        "Originalinput nach Security-/Policy-/Review-/Verification-Signalen durchsuchen und sicherstellen, dass diese in hard_constraints oder non_negotiables erhalten bleiben.",
+        "Originalinput nach Security-/Policy-/Review-/Verification-Signalen durchsuchen.",
         "Bei Constraint-Loss nicht still akzeptieren."
       ],
       "acceptance_criteria": [
         "Schema-Verstoß erzeugt context_compactor_schema_violation.",
         "Constraint-Verlust erzeugt context_compactor_constraint_loss_detected.",
-        "Security/Policy/Review/Verification-Constraints bleiben nachweislich erhalten.",
-        "Guardrail-Test mit absichtlich fehlendem non-negotiable schlägt fehl und nutzt Fallback.",
-        "Keine leeren oder falschen Typen im finalen Compactor-Ergebnis."
+        "Security/Policy/Review/Verification-Constraints bleiben erhalten.",
+        "Guardrail-Test mit fehlendem non-negotiable schlägt fehl und nutzt Fallback.",
+        "Keine leeren/falschen Typen im finalen Ergebnis."
       ]
     },
     {
@@ -364,24 +292,21 @@
       "priority": "P0",
       "risk": "critical",
       "type": "safety",
-      "files": [
-        "agent/services/planning_context_compactor_service.py",
-        "agent/services/propose_policy.py"
-      ],
-      "description": "Definierte Fallbacks umsetzen: Repair-Retry, deterministic-only, optional bypass.",
+      "files": ["agent/services/planning_context_compactor_service.py", "agent/services/propose_policy.py"],
+      "description": "Definierte Fallbacks umsetzen: Repair-Retry, anderes Format, deterministic-only, optional bypass.",
       "implementation_notes": [
-        "Fallback 1: Reparaturprompt mit Originalfehlerklasse und kaputtem Output.",
-        "Fallback 2: deterministic compaction only.",
-        "Fallback 3: Originalkontext nur bei context_compactor_fail_open=true.",
-        "Wenn context_compaction_required=true und kein sicherer Fallback möglich: failed/needs_review mit klarer Klassifikation.",
-        "Fallback-Status und error_classification in Meta erfassen."
+        "Fallback 1: Reparaturprompt im gleichen Format.",
+        "Fallback 2: nächstes erlaubtes Format aus Profil versuchen.",
+        "Fallback 3: deterministic compaction only.",
+        "Fallback 4: Originalkontext nur bei context_compactor_fail_open=true.",
+        "Required+fail_open=false führt zu needs_review/failed mit Klassifikation."
       ],
       "acceptance_criteria": [
         "Parse-Fehler triggert maximal policy-konforme Retry-Anzahl.",
+        "Alternatives Format wird versucht, wenn Profil mehrere Formate erlaubt.",
         "Deterministic-only Fallback erzeugt valides Schema.",
         "Bypass wird nur bei explizitem fail_open=true genutzt.",
-        "Required+fail_open=false führt nicht zu stummem Originalkontext.",
-        "Fallback-Tests decken alle drei Stufen ab."
+        "Fallback-Tests decken alle Stufen ab."
       ]
     },
     {
@@ -391,9 +316,7 @@
       "priority": "P0",
       "risk": "high",
       "type": "integration",
-      "files": [
-        "agent/services/task_scoped_execution_service.py"
-      ],
+      "files": ["agent/services/task_scoped_execution_service.py"],
       "description": "In propose_task_step nach Policy-Auflösung und vor ProposeContext den Compactor aufrufen.",
       "implementation_notes": [
         "Inputs: base_prompt, research_context_summary als context_text/json, mode/task_kind, mode_data aus task/request/effective_config.",
@@ -405,9 +328,9 @@
       "acceptance_criteria": [
         "Bei enabled=true wird compact(...) vor orch.run(context) aufgerufen.",
         "Bei enabled=false bleibt bisheriger Flow unverändert.",
-        "ProposeContext enthält kompaktierte Daten deterministisch lesbar.",
-        "propose_task_step funktioniert weiterhin ohne neue Config-Felder.",
-        "Unit-/Integrationstest prüft, dass der Planner nicht den vollen Rohdump bekommt."
+        "ProposeContext enthält kompaktierte Daten.",
+        "propose_task_step funktioniert ohne neue Config-Felder.",
+        "Test prüft, dass Planner nicht den vollen Rohdump bekommt."
       ]
     },
     {
@@ -417,20 +340,18 @@
       "priority": "P1",
       "risk": "medium",
       "type": "integration",
-      "files": [
-        "worker/core/propose_orchestrator.py"
-      ],
+      "files": ["worker/core/propose_orchestrator.py"],
       "description": "ProposeContext kann Compactor-Ergebnis und Meta explizit transportieren.",
       "implementation_notes": [
         "Neue optionale Felder: planning_context_compaction: dict | None, planning_context_compaction_meta: dict | None.",
-        "Alternativ kompaktierte Struktur in research_context einbetten, aber explizite Felder sind sauberer.",
-        "Bestehende Strategien dürfen weiter funktionieren, auch wenn sie die Felder ignorieren."
+        "Bestehende Strategien dürfen Felder ignorieren.",
+        "Keine Änderung der Strategy-Schnittstelle run(context)."
       ],
       "acceptance_criteria": [
-        "Bestehende Tests für ProposeContext/Orchestrator bleiben grün.",
-        "Neue Felder sind optional und haben Default None.",
+        "Bestehende Orchestrator-Tests bleiben grün.",
+        "Neue Felder sind optional und Default None.",
         "Strategien können künftig gezielt auf compaction_meta zugreifen.",
-        "Keine Änderung der Strategy-Schnittstelle run(context)."
+        "Keine Breaking Changes."
       ]
     },
     {
@@ -440,23 +361,20 @@
       "priority": "P0",
       "risk": "medium",
       "type": "observability",
-      "files": [
-        "agent/services/task_scoped_execution_service.py",
-        "agent/services/planning_context_compactor_service.py"
-      ],
-      "description": "Compaction-Status und Metriken in Proposal-Meta, Routing und History sichtbar machen.",
+      "files": ["agent/services/task_scoped_execution_service.py", "agent/services/planning_context_compactor_service.py"],
+      "description": "Compaction-Status, Formatwahl und Metriken in Proposal-Meta, Routing und History sichtbar machen.",
       "implementation_notes": [
         "Felder: context_compaction_used, context_compaction_status, context_compaction_reduction_ratio, context_compaction_error_classification.",
+        "Formatfelder: requested_format, detected_format, normalized_from_format, parse_success, repair_attempts.",
         "Events: planning_context_compaction_succeeded, planning_context_compaction_failed, planning_context_compaction_fallback_used.",
-        "Metriken null-safe schreiben.",
         "Bei failure reason in Goal/Run sichtbar machen."
       ],
       "acceptance_criteria": [
-        "Successful compaction zeigt input_chars, output_chars, reduction_ratio.",
+        "Successful compaction zeigt input_chars/output_chars/reduction_ratio.",
         "Fallback zeigt status=fallback und error_classification.",
-        "Bypass zeigt status=bypassed und Policy-Grund.",
+        "Formatwahl ist sichtbar.",
         "Failure zeigt status=failed und klassifizierten Grund.",
-        "Telemetry bricht Persistenz nicht, wenn Felder fehlen."
+        "Telemetry bricht Persistenz nicht."
       ]
     },
     {
@@ -466,23 +384,21 @@
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
-      "files": [
-        "agent/services/planning_context_compactor_service.py"
-      ],
+      "files": ["agent/services/planning_context_compactor_service.py"],
       "description": "Keine freien Fehlerstrings; nur bekannte Klassifikationen.",
       "implementation_notes": [
-        "Konstanten oder Enum-artige Strings definieren.",
         "context_compactor_timeout",
         "context_compactor_unparseable_output",
         "context_compactor_schema_violation",
         "context_compactor_constraint_loss_detected",
-        "context_compactor_runtime_unavailable"
+        "context_compactor_runtime_unavailable",
+        "context_compactor_no_supported_format"
       ],
       "acceptance_criteria": [
-        "Alle Fehlerpfade liefern eine erlaubte Klassifikation.",
+        "Alle Fehlerpfade liefern erlaubte Klassifikation.",
         "Tests prüfen exakte Fehlerklasse.",
-        "Keine unspezifischen Exception-Strings werden direkt als reason verwendet.",
-        "User-/Run-sichtbare Reasons sind kurz, stabil und maschinenlesbar."
+        "Keine unspezifischen Exception-Strings als reason.",
+        "Reasons sind kurz, stabil und maschinenlesbar."
       ]
     },
     {
@@ -492,10 +408,8 @@
       "priority": "P0",
       "risk": "medium",
       "type": "test",
-      "files": [
-        "tests/test_planning_context_compactor_service.py"
-      ],
-      "description": "Service-Ausgabe gegen erwartetes Schema testen.",
+      "files": ["tests/test_planning_context_compactor_service.py"],
+      "description": "Service-Ausgabe gegen kanonisches Schema testen.",
       "acceptance_criteria": [
         "Valide LLM-Ausgabe wird normalisiert.",
         "Fehlende optionale Listen werden zu [].",
@@ -511,15 +425,13 @@
       "priority": "P0",
       "risk": "high",
       "type": "test",
-      "files": [
-        "tests/test_planning_context_compactor_service.py"
-      ],
+      "files": ["tests/test_planning_context_compactor_service.py"],
       "description": "Kritische Constraints müssen erhalten bleiben.",
       "acceptance_criteria": [
         "Große Strings/Listen/Dicts werden gekürzt und markiert.",
-        "Preserve-Keywords bleiben im kompaktierten Ergebnis sichtbar.",
+        "Preserve-Keywords bleiben sichtbar.",
         "Security-/Policy-/Verification-Signale werden nicht gedroppt.",
-        "Absichtlich fehlendes non-negotiable triggert constraint_loss_detected.",
+        "Fehlendes non-negotiable triggert constraint_loss_detected.",
         "Deterministic-only Ergebnis ist valides Schema."
       ]
     },
@@ -530,17 +442,14 @@
       "priority": "P0",
       "risk": "high",
       "type": "test",
-      "files": [
-        "tests/test_planning_context_compactor_integration.py",
-        "tests/test_task_scoped_handler_propose.py"
-      ],
+      "files": ["tests/test_planning_context_compactor_integration.py", "tests/test_task_scoped_handler_propose.py"],
       "description": "End-to-end im bestehenden Propose-Flow testen.",
       "acceptance_criteria": [
         "Mit aktivem Compactor wird orch.run(context) mit kompaktiertem Kontext erreicht.",
         "Bei Compactor-Fehler wird policy-konformer Fallback genutzt.",
         "Bei context_compaction_enabled=false bleibt alter Flow unverändert.",
-        "Telemetry enthält reduction_ratio.",
-        "Der Run scheitert kontrolliert, wenn required=true und fail_open=false ohne sicheren Fallback."
+        "Telemetry enthält reduction_ratio und requested/detected format.",
+        "required=true/fail_open=false scheitert kontrolliert ohne sicheren Fallback."
       ]
     },
     {
@@ -550,17 +459,13 @@
       "priority": "P0",
       "risk": "high",
       "type": "test",
-      "files": [
-        "tests/test_propose_orchestrator.py",
-        "tests/test_strategy_mode_fallbacks.py",
-        "tests/e2e/test_autopilot_new_project_fibonacci.py"
-      ],
+      "files": ["tests/test_propose_orchestrator.py", "tests/test_strategy_mode_fallbacks.py", "tests/e2e/test_autopilot_new_project_fibonacci.py"],
       "description": "Bestehende Flows dürfen nicht brechen.",
       "acceptance_criteria": [
         "Bestehende ProposePolicyService-Tests grün.",
         "Bestehende Orchestrator-Tests grün.",
-        "E2E new_project Flow grün oder explizit aktualisiert, falls Testdaten Rohkontext erwarten.",
-        "Keine Snapshot-/Response-Struktur wird unnötig geändert.",
+        "E2E new_project Flow grün oder bewusst aktualisiert.",
+        "Keine Response-Struktur wird unnötig geändert.",
         "Segmentiertes Planning arbeitet auf kompaktiertem Kontext."
       ]
     },
@@ -571,16 +476,14 @@
       "priority": "P1",
       "risk": "low",
       "type": "docs",
-      "files": [
-        "docs/planning-context-compactor.md"
-      ],
-      "description": "Kurze, technische Doku für Zweck, Ablauf, Policy und Troubleshooting.",
+      "files": ["docs/planning-context-compactor.md"],
+      "description": "Kurze technische Doku für Zweck, Ablauf, Policy, Formatprofile und Troubleshooting.",
       "acceptance_criteria": [
-        "Doku erklärt Ablauf: pre-trim -> LLM compact -> validate -> guardrails -> fallback.",
+        "Doku erklärt Ablauf: pre-trim -> profile -> LLM compact -> parse/normalize -> validate -> guardrails -> fallback.",
         "Alle Policy-Felder sind dokumentiert.",
-        "lmstudio_laptop und ollama_rtx3080 werden verglichen.",
+        "LMStudio-Laptop und Ollama-RTX3080 werden verglichen.",
         "Troubleshooting deckt timeout, parse_failed, schema_violation, constraint_loss und runtime_unavailable ab.",
-        "Doku nennt fail-closed Default ausdrücklich."
+        "Doku nennt fail-closed Default."
       ]
     },
     {
@@ -590,123 +493,161 @@
       "priority": "P2",
       "risk": "low",
       "type": "docs",
-      "files": [
-        "docs/planning-context-compactor.md"
-      ],
+      "files": ["docs/planning-context-compactor.md"],
       "description": "Kurze Checkliste für Reviews und Betrieb.",
       "acceptance_criteria": [
         "Checkliste enthält: Constraints erhalten, reduction_ratio plausibel, fallback sichtbar, keine Rohdumps im Planner.",
         "Checkliste enthält sichere Default-Konfiguration.",
-        "Checkliste beschreibt, wann fail_open überhaupt erlaubt ist.",
+        "Checkliste beschreibt, wann fail_open erlaubt ist.",
         "Checkliste enthält Beispiel-Telemetry für success/fallback/failed."
+      ]
+    },
+    {
+      "id": "PCC-019",
+      "title": "Kanonisches internes Schema von externem LLM-Ausgabeformat trennen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "architecture",
+      "files": ["agent/services/planning_context_compactor_service.py", "docs/planning-context-compactor.md"],
+      "description": "Strict JSON darf nicht als einziges Modellformat verstanden werden. Intern bleibt ein kanonisches dict/schema, extern dürfen mehrere Formate verwendet werden.",
+      "implementation_notes": [
+        "Internes Schema bleibt planning_context_compaction.v1.",
+        "LLM-Prompt enthält je nach Profil unterschiedliche Format-Anweisungen.",
+        "Normalizer wandelt jedes akzeptierte externe Format in das kanonische Schema.",
+        "Telemetry speichert requested_format, detected_format, normalized_from_format."
+      ],
+      "acceptance_criteria": [
+        "Compactor arbeitet intern mit einheitlichem dict.",
+        "LLM-Ausgabe darf strict_json, fenced_json, markdown_sections oder yaml sein.",
+        "Normalizer produziert aus allen unterstützten Formaten dasselbe kanonische Schema.",
+        "Planner/ProposeContext sieht normalisierte Felder.",
+        "Tests belegen gleiche interne Ausgabe aus JSON und Markdown-Sektionsinput."
+      ]
+    },
+    {
+      "id": "PCC-020",
+      "title": "ModelOutputFormatProfile-Service einführen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "service",
+      "files": ["agent/services/model_output_format_profile_service.py", "agent/services/planning_context_compactor_service.py"],
+      "description": "Eigener Service zur Auswahl des stabilsten Ausgabeformats je Provider/Modell/Runtime-Profil.",
+      "implementation_notes": [
+        "Input: provider, model, runtime_profile, task_kind, mode, observed telemetry.",
+        "Output: preferred_format_order, prompt_style, parser_order, repair_strategy.",
+        "Initiale Profile: lmstudio_laptop und ollama_rtx3080.",
+        "Keine harte globale JSON-Pflicht.",
+        "Profil kann später aus persistierter Telemetry lernen."
+      ],
+      "acceptance_criteria": [
+        "Unbekannte Modelle nutzen konservativen Default.",
+        "LM Studio Profil bevorzugt Markdown-Sektionen/fenced_json, wenn JSON instabil ist.",
+        "Ollama RTX3080 Profil kann strict_json bevorzugen, bleibt fallback-fähig.",
+        "Service ist ohne Flask-Kontext testbar.",
+        "Policy kann Profilwahl begrenzen/überschreiben."
+      ]
+    },
+    {
+      "id": "PCC-021",
+      "title": "Multi-Format-Normalizer für JSON, Markdown und YAML bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "normalization",
+      "files": ["agent/services/planning_context_compactor_service.py", "agent/common/utils/context_compaction_format_utils.py"],
+      "description": "Parser-/Normalizer-Kette für verschiedene Modellantworten implementieren.",
+      "implementation_notes": [
+        "Parser-Reihenfolge profilabhängig: json -> fenced_json -> yaml -> markdown_sections -> marker_text.",
+        "Markdown-Sektionsparser erkennt Überschriften wie Goal Summary, Hard Constraints, Non Negotiables, Risks, Open Questions.",
+        "YAML-Parser nur für sichere einfache Strukturen nutzen.",
+        "Alle Parser liefern denselben NormalizedCompactionCandidate.",
+        "Danach erst Schema-Validation und Guardrails."
+      ],
+      "acceptance_criteria": [
+        "Markdown-Sektionen werden korrekt gemappt.",
+        "Fenced JSON wird auch mit ```json extrahiert.",
+        "YAML-Frontmatter plus Markdown-Body wird verarbeitet.",
+        "Unbekannte Sektionen werden in omitted_context_summary oder meta.unknown_sections erfasst.",
+        "Parserfehler erzeugen context_compactor_unparseable_output mit detected_format."
+      ]
+    },
+    {
+      "id": "PCC-022",
+      "title": "Format-Kalibrierung aus Telemetry trainierbar machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "learning",
+      "files": ["agent/services/model_output_format_profile_service.py", "agent/services/task_scoped_execution_service.py"],
+      "description": "Das System sammelt pro Modell/Profil, welches Format stabil funktioniert, und nutzt diese Daten für spätere Formatwahl.",
+      "implementation_notes": [
+        "Telemetry-Felder: requested_format, detected_format, parse_success, repair_attempts, schema_violation, constraint_loss, timeout, final_status.",
+        "Score pro Format: parse_success_rate - repair_penalty - constraint_loss_penalty - timeout_penalty.",
+        "Nicht autonom riskante Policy ändern; nur Formatpräferenz innerhalb erlaubter accepted_output_formats anpassen.",
+        "Optional persistieren über bestehende Config-/Telemetry-Strukturen, zunächst in-memory/testbar möglich.",
+        "Klare Trennung: Lernen der Kommunikationsform, nicht Lernen fachlicher Sicherheitsregeln."
+      ],
+      "acceptance_criteria": [
+        "Nach erfolgreichen Markdown-Antworten kann Profil Markdown vor JSON priorisieren.",
+        "Nach JSON-Parse-Fehlern sinkt JSON-Score für dieses Modell.",
+        "Constraint-Loss verschlechtert Format stark, auch wenn Parse erfolgreich war.",
+        "Policy accepted_output_formats begrenzt alle Formatentscheidungen.",
+        "Tests simulieren LM Studio mit Markdown-stabil und JSON-instabil."
+      ]
+    },
+    {
+      "id": "PCC-023",
+      "title": "Prompt-Templates pro Ausgabeformat definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "prompting",
+      "files": ["agent/services/planning_context_compactor_service.py", "docs/planning-context-compactor.md"],
+      "description": "Compactor-Prompt darf je nach Profil anderes Ausgabeformat verlangen.",
+      "implementation_notes": [
+        "strict_json prompt: keine Markdown-Fences, reines JSON.",
+        "fenced_json prompt: ein einziger json-Codeblock.",
+        "markdown_sections prompt: feste Überschriften und Bulletlisten.",
+        "yaml_frontmatter_plus_markdown prompt: YAML-Meta oben, Details als Markdown.",
+        "Prompt muss immer kritische Constraints explizit nennen und Preservation erzwingen."
+      ],
+      "acceptance_criteria": [
+        "Für jedes unterstützte Format existiert ein klarer Prompt-Builder.",
+        "Prompts enthalten identische fachliche Anforderungen, nur anderes Ausgabeformat.",
+        "Tests prüfen, dass Format-Prompt keine sicherheitsrelevanten Felder auslässt.",
+        "Doku zeigt Beispielausgaben für JSON, Markdown und YAML.",
+        "LMStudio/Ollama Profile referenzieren konkrete Prompt-Styles."
       ]
     }
   ],
-  "critical_path_tasks": [
-    "PCC-001",
-    "PCC-002",
-    "PCC-004",
-    "PCC-005",
-    "PCC-006",
-    "PCC-007",
-    "PCC-008",
-    "PCC-009",
-    "PCC-011",
-    "PCC-013",
-    "PCC-014",
-    "PCC-015",
-    "PCC-016"
-  ],
+  "critical_path_tasks": ["PCC-001", "PCC-002", "PCC-004", "PCC-005", "PCC-006", "PCC-007", "PCC-008", "PCC-009", "PCC-011", "PCC-013", "PCC-014", "PCC-015", "PCC-016", "PCC-019", "PCC-020", "PCC-021"],
   "tasks_status_summary": {
-    "total": 18,
-    "by_status": {
-      "todo": 18,
-      "in_progress": 0,
-      "partial": 0,
-      "blocked": 0,
-      "done": 0
-    },
+    "total": 23,
+    "by_status": {"todo": 23, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
     "progress_percent_done": 0,
-    "by_priority": {
-      "P0": 13,
-      "P1": 4,
-      "P2": 1,
-      "P3": 0
-    },
-    "by_risk": {
-      "low": 2,
-      "medium": 7,
-      "high": 7,
-      "critical": 2
-    },
-    "critical_path": {
-      "total": 13,
-      "done": 0,
-      "remaining": 13
-    },
-    "milestones": {
-      "total": 6,
-      "todo": 6,
-      "in_progress": 0,
-      "blocked": 0,
-      "done": 0
-    }
+    "by_priority": {"P0": 16, "P1": 6, "P2": 1, "P3": 0},
+    "by_risk": {"low": 2, "medium": 8, "high": 8, "critical": 5},
+    "critical_path": {"total": 16, "done": 0, "remaining": 16},
+    "milestones": {"total": 7, "todo": 7, "in_progress": 0, "blocked": 0, "done": 0}
   },
   "tasks_type_summary": {
-    "total": 18,
-    "by_type": {
-      "config": 3,
-      "service": 2,
-      "llm": 1,
-      "safety": 2,
-      "integration": 2,
-      "observability": 2,
-      "test": 4,
-      "docs": 2
-    }
+    "total": 23,
+    "by_type": {"config": 3, "service": 3, "llm": 1, "safety": 2, "integration": 2, "observability": 2, "test": 4, "docs": 2, "architecture": 1, "normalization": 1, "learning": 1, "prompting": 1}
   },
-  "progress_summary": {
-    "state": "todo_created",
-    "todo_remaining": 18,
-    "in_progress": 0,
-    "partial": 0,
-    "blocked": 0,
-    "done": 0
-  },
+  "progress_summary": {"state": "todo_created_with_model_adaptive_format_profiles", "todo_remaining": 23, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
   "active_fallback_policy": {
     "default": "fail-closed",
     "context_compaction_enabled": true,
     "context_compaction_required": false,
     "context_compactor_fail_open": false,
-    "fallback_order": [
-      "retry_with_repair_prompt",
-      "deterministic_compaction_only",
-      "optional_original_context_bypass_only_if_policy_allows"
-    ],
+    "fallback_order": ["retry_with_repair_prompt", "try_next_allowed_output_format", "deterministic_compaction_only", "optional_original_context_bypass_only_if_policy_allows"],
     "final_failure_behavior": "needs_review_or_failed_with_context_compactor_error_classification"
   },
   "end_summaries": [
-    {
-      "summary_id": "architecture",
-      "title": "Architekturbegründung SRP/OCP",
-      "items": [
-        "Compactor ist eigener Service und verändert den Planner nicht.",
-        "ProposePolicy wird additiv erweitert; bestehende Strategien bleiben unverändert.",
-        "ProposeContext bekommt optionale Felder; vorhandene Strategien können sie ignorieren.",
-        "Hub bleibt Orchestrator; Worker erhalten vorbereiteten Kontext."
-      ]
-    },
-    {
-      "summary_id": "definition_of_done",
-      "title": "Definition of Done",
-      "items": [
-        "Telemetry zeigt reduzierten Charcount und reduction_ratio.",
-        "Kritische Constraints bleiben in hard_constraints/non_negotiables erhalten.",
-        "Fallback-Policy ist getestet und sichtbar.",
-        "Bestehende Tests laufen weiter.",
-        "Neue Unit-/Integrationstests für Compactor sind vorhanden.",
-        "Doku beschreibt Zweck, Policy, Profile und Troubleshooting."
-      ]
-    }
+    {"summary_id": "architecture", "title": "Architekturbegründung SRP/OCP", "items": ["Compactor ist eigener Service und verändert den Planner nicht.", "ProposePolicy wird additiv erweitert; bestehende Strategien bleiben unverändert.", "ProposeContext bekommt optionale Felder; vorhandene Strategien können sie ignorieren.", "Hub bleibt Orchestrator; Worker erhalten vorbereiteten Kontext."]},
+    {"summary_id": "model_adaptive_formats", "title": "Modelladaptive Ausgabeformate", "items": ["JSON ist nicht alleiniger Zielmodus; es gibt externe Modellformate und ein internes kanonisches Schema.", "LM Studio/Ollama-Profile wählen bevorzugte Formate anhand Parse-/Repair-/Constraint-Telemetry.", "Markdown/YAML/Fenced JSON werden normalisiert, bevor Planner oder Guardrails sie sehen.", "Gelernt wird die stabilste Kommunikationsform je Modell, nicht die Sicherheitslogik."]},
+    {"summary_id": "definition_of_done", "title": "Definition of Done", "items": ["Telemetry zeigt reduzierten Charcount und reduction_ratio.", "Kritische Constraints bleiben in hard_constraints/non_negotiables erhalten.", "Formatprofil und detected_format sind sichtbar.", "Fallback-Policy ist getestet und sichtbar.", "Bestehende Tests laufen weiter.", "Neue Unit-/Integrationstests für Compactor und Formatprofile sind vorhanden.", "Doku beschreibt Zweck, Policy, Profile, Ausgabeformate und Troubleshooting."]}
   ]
 }
