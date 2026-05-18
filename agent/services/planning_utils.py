@@ -352,7 +352,12 @@ def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medi
                             if isinstance(obj, dict):
                                 objects.append(obj)
                         except Exception:
-                            pass
+                            try:
+                                obj = ast.literal_eval(candidate)
+                                if isinstance(obj, dict):
+                                    objects.append(obj)
+                            except Exception:
+                                pass
                         start = -1
         if objects:
             items = extract_task_items_from_payload(objects)
