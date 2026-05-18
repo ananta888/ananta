@@ -2,6 +2,7 @@ import json
 import logging
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Any, Optional
 
 from flask import current_app
@@ -784,15 +785,42 @@ class PlanningService:
         )
 
         try:
-            resolved = self._resolve_subtasks(
-                planner=planner,
-                goal=goal,
-                context=context,
-                use_template=use_template,
-                use_repo_context=use_repo_context,
-                mode=mode,
-                mode_data=mode_data,
+            inner_timeout = max(15, min(int((self._resolve_planning_policy().get("timeout_seconds") or 45) * 1.5), 180))
+            app_obj = current_app._get_current_object()
+
+            def _resolve_with_app_context() -> dict[str, Any]:
+                with app_obj.app_context():
+                    return self._resolve_subtasks(
+                        planner=planner,
+                        goal=goal,
+                        context=context,
+                        use_template=use_template,
+                        use_repo_context=use_repo_context,
+                        mode=mode,
+                        mode_data=mode_data,
+                    )
+
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    _resolve_with_app_context,
+                )
+                resolved = future.result(timeout=inner_timeout)
+        except FutureTimeoutError:
+            planner._stats["errors"] += 1
+            telemetry_run = get_planning_telemetry_service().update_run(
+                telemetry_run,
+                status="failed",
+                error_classification="resolve_subtasks_timeout",
+                validation_errors=[f"resolve_subtasks_timeout:{inner_timeout}s"],
             )
+            self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=self._resolve_planning_policy())
+            return {
+                "subtasks": [],
+                "created_task_ids": [],
+                "error": "resolve_subtasks_timeout",
+                "planning_run_id": telemetry_run.id,
+                "error_classification": "resolve_subtasks_timeout",
+            }
         except Exception as exc:
             planner._stats["errors"] += 1
             if isinstance(exc, RecursionError):
