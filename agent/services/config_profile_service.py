@@ -46,7 +46,7 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
         overrides={
             "default_provider": "lmstudio",
             "default_model": "auto",
-            "llm_config": {"base_url": "http://localhost:1234/v1"},
+            "llm_config": {"base_url": "http://192.168.178.100:1234/v1"},
             "sgpt_routing": {"task_kind_backend": {"*": "ananta-worker"}},
         },
     ),
@@ -56,7 +56,7 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
         overrides={
             "default_provider": "lmstudio",
             "default_model": "auto",
-            "llm_config": {"base_url": "http://localhost:1234/v1"},
+            "llm_config": {"base_url": "http://192.168.178.100:1234/v1"},
             "opencode_runtime": {"target_provider": "lmstudio"},
             "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
         },

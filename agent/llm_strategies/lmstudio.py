@@ -22,7 +22,6 @@ class LMStudioStrategy(LLMStrategy):
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
     ) -> Any:
-        logging.error("LMStudioStrategy.execute: url=%s, model=%s, provider-param-omitted", url, model)
         base_url = url
         base_url_lower = (base_url or "").lower()
         normalized_base_url = self._normalize_lmstudio_base_url(base_url)
@@ -206,7 +205,7 @@ class LMStudioStrategy(LLMStrategy):
             logging.warning("LMStudio HTTP %s: %.200s", resp.status_code, resp.text)
             return None
         if resp is None:
-            logging.error("LMStudio response is None (timeout/connection error) for url=%s", url)
+            logging.warning("LMStudio response is None (timeout/connection error) for url=%s", url)
         return None
 
     def _list_lmstudio_candidates(self, base_url, timeout):

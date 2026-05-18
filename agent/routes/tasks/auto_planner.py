@@ -193,10 +193,9 @@ class AutoPlanner:
                 raw_timeout = llm_config.get("timeout")
                 if raw_timeout is not None:
                     try:
-                        llm_timeout = max(5, min(int(raw_timeout), 120))
+                        llm_timeout = max(5, int(raw_timeout))
                     except (TypeError, ValueError):
                         llm_timeout = self.llm_timeout
-                _log().error("AutoPlanner._call_llm_with_retry: llm_config=%s", llm_config)
                 llm_kwargs = {
                     "prompt": prompt,
                     "provider": llm_config.get("provider"),
