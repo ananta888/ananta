@@ -54,7 +54,16 @@ class PlanningPromptRegistry:
             checksum = self._checksum(payload)
             repo.save(PlanningPromptVersionDB(**payload, checksum=checksum))
 
-    def resolve(self, *, goal: str, context: str | None, mode: str, language: str, model_family: str | None = None) -> ResolvedPlanningPrompt:
+    def resolve(
+        self,
+        *,
+        goal: str,
+        context: str | None,
+        mode: str,
+        language: str,
+        model_family: str | None = None,
+        behavior_profile: dict[str, Any] | None = None,
+    ) -> ResolvedPlanningPrompt:
         self.ensure_default_versions()
         candidates = get_repository_registry().planning_prompt_version_repo.get_enabled()
         lang = str(language or "de").strip().lower() or "de"
@@ -94,6 +103,15 @@ class PlanningPromptRegistry:
             )
 
         rendered = str(selected.user_prompt_template or "").format(goal=goal, context=context or "")
+        try:
+            from agent.services.planning_prompt_optimizer_service import get_planning_prompt_optimizer_service
+
+            rendered, _style = get_planning_prompt_optimizer_service().optimize(
+                prompt=rendered,
+                behavior_profile=behavior_profile,
+            )
+        except Exception:
+            pass
         return ResolvedPlanningPrompt(
             prompt_version_id=str(selected.id),
             version=str(selected.version),

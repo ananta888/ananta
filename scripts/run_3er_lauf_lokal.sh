@@ -40,6 +40,7 @@ GOAL_TEXT="Create a real multi-file Python project for RTX3080 eGPU utilization 
 OUT_FILE=""
 # Planning-Policy für lokale Modelle (leer = keine Overrides, "small" = kompakte englische Prompts)
 PLANNING_PROFILE="${PLANNING_PROFILE:-small}"
+EARLY_ANALYSIS_SECONDS="${EARLY_ANALYSIS_SECONDS:-0}"
 
 # ── 2) Env-Datei laden ─────────────────────────────────────────────────────
 if [[ -f "$ENV_FILE" ]]; then
@@ -61,6 +62,7 @@ while [[ $# -gt 0 ]]; do
     --out)         OUT_FILE="$2";         shift 2 ;;
     --goal-text)       GOAL_TEXT="$2";       shift 2 ;;
     --planning-profile) PLANNING_PROFILE="$2"; shift 2 ;;
+    --early-analysis-seconds) EARLY_ANALYSIS_SECONDS="$2"; shift 2 ;;
     *) echo "Unbekannter Parameter: $1" >&2; exit 1 ;;
   esac
 done
@@ -220,6 +222,7 @@ echo ""
 echo "══════════════════════════════════════════════════════════════════════"
 echo " 3er-Lauf lokal – ${LOCAL_PROVIDER} @ ${LOCAL_URL}"
 echo " Config-Modus: ${CONFIG_MODE}  │  SLA: ${SLA_SECONDS}s"
+echo " Early-Analysis: ${EARLY_ANALYSIS_SECONDS}s"
 echo " Hub: ${ANANTA_BASE_URL}  │  User: ${ANANTA_USER}"
 echo " Report: ${OUT_FILE}"
 echo "══════════════════════════════════════════════════════════════════════"
@@ -245,6 +248,7 @@ python3 scripts/first_goal_acceptance_runner.py \
   --workspace-root "$REPO_DIR/project-workspaces" \
   --out          "$OUT_FILE" \
   --allow-planning-minimal-fallback-task \
+  --early-analysis-seconds "$EARLY_ANALYSIS_SECONDS" \
   "${RESET_FLAGS[@]}"
 
 echo ""

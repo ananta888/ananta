@@ -30,8 +30,8 @@
       "P2": 2
     },
     "by_status": {
-      "completed": 23,
-      "todo": 4
+      "completed": 27,
+      "todo": 0
     },
     "source_tasks": {
       "todo.llm-first-planning-learning.json": 15,
@@ -487,7 +487,7 @@
     {
       "id": "LLMPLAN-011",
       "title": "Model Benchmarking fuer Planning-Qualitaet erweitern",
-      "status": "todo",
+      "status": "completed",
       "priority": "P1",
       "risk": "medium",
       "summary": "Bestehende Modell-Benchmarks sollen nicht nur allgemeine LLM-Nutzung messen, sondern spezifische Planning-Qualitaet.",
@@ -519,7 +519,8 @@
       "tests": [
         "tests/test_provider_observer_service.py::test_planning_quality_metrics_recorded",
         "tests/test_planning_metrics_api.py::test_model_benchmark_planning_scores"
-      ]
+      ],
+      "implementation_notes": "OllamaBenchmarkService um summarize_planning_quality erweitert (strict_json_rate, repair_rate, structured_artifact_rate, verification_spec_rate, dependency_mode_accuracy, average_plan_score, planning_profile_hint) + Tests."
     },
     {
       "id": "LLMPLAN-012",
@@ -879,7 +880,7 @@
     {
       "id": "MRBP-007",
       "title": "Prompt Style pro Response Behavior Profile ableiten",
-      "status": "todo",
+      "status": "completed",
       "priority": "P1",
       "risk": "medium",
       "summary": "Das Profil soll nicht nur Parser steuern, sondern auch Prompting: manche Modelle brauchen Beispiele, andere kurze englische Contracts, andere explizite Verbote von Mermaid/Markdown.",
@@ -911,12 +912,13 @@
       "tests": [
         "tests/test_planning_prompt_registry.py::test_mermaid_prone_profile_forbids_mermaid_in_prompt",
         "tests/test_planning_prompt_registry.py::test_markdown_prone_profile_uses_no_fence_contract"
-      ]
+      ],
+      "implementation_notes": "PlanningPromptOptimizerService eingefuehrt; PromptRegistry resolve kann behavior_profile beruecksichtigen (Markdown-Fence/Mermaid-Verbote, Beispiel-JSON-Hinweise)."
     },
     {
       "id": "MRBP-008",
       "title": "Semantic Behavior Analyzer fuer Planqualitaet einfuehren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P1",
       "risk": "medium",
       "summary": "Neben Ausgabeformat soll das Profil typische semantische Macken erfassen: zu abstrakt, alles sequentiell, keine Artifacts, keine Verification, Halluzination von Tools usw.",
@@ -945,7 +947,8 @@
       "tests": [
         "tests/test_planning_semantic_behavior_analyzer.py::test_detects_architecture_only_no_execution",
         "tests/test_planning_semantic_behavior_analyzer.py::test_detects_sequentializes_everything"
-      ]
+      ],
+      "implementation_notes": "PlanningSemanticBehaviorAnalyzer eingefuehrt und in PlanningEvaluationService integriert (semantic_behavior_codes in evaluation.details)."
     },
     {
       "id": "MRBP-009",
@@ -1047,7 +1050,7 @@
     {
       "id": "MRBP-011",
       "title": "Akzeptanzlauf-Integration: 3er-Lauf als harte Regression-Gate",
-      "status": "todo",
+      "status": "completed",
       "priority": "P1",
       "risk": "high",
       "summary": "Die neuen Learning/Profile-Funktionen muessen im 3er-Lauf messbar stabil sein (Task-Materialisierung, Write-Phase, Autopilot-Progress).",
@@ -1076,7 +1079,8 @@
       "tests": [
         "tests/e2e/test_first_goal_acceptance_runner.py::test_report_contains_learning_metrics",
         "tests/e2e/test_first_goal_acceptance_runner.py::test_early_analysis_mode_outputs_classification"
-      ]
+      ],
+      "implementation_notes": "3er-Lauf Runner erweitert: learning metrics pro Run (planning_run_id/parse_mode/repair_attempt_count) und frueher Analysemodus via --early-analysis-seconds inkl. early_classification im Summary."
     }
   ],
   "acceptance_criteria": [
@@ -1086,5 +1090,5 @@
     "3er-Lauf liefert reproduzierbare Fortschrittsmetriken und fruehe Diagnoseberichte.",
     "Deterministische Templates werden nur aus evidenzbasierten erfolgreichen Mustern aktiviert."
   ],
-  "updated_at": 1779117733.5586302
+  "updated_at": 1779122941.3906422
 }

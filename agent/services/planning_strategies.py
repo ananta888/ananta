@@ -10,6 +10,7 @@ from agent.services.blueprint_planning_adapter import get_blueprint_planning_ada
 from agent.services.execution_focused_planning import match_execution_focused_goal_template
 from agent.services.hub_llm_service import get_hub_llm_service
 from agent.services.planning_model_profile_service import get_planning_model_profile_service
+from agent.services.model_response_behavior_profile_service import get_model_response_behavior_profile_service
 from agent.services.planning_prompt_registry import get_planning_prompt_registry
 from agent.services.planning_template_catalog import get_planning_template_catalog
 from agent.services.planning_utils import (
@@ -338,6 +339,10 @@ class LLMPlanningStrategy:
             mode=prompt_mode,
             language=prompt_language,
             model_family=profile.get("model_family"),
+            behavior_profile=get_model_response_behavior_profile_service().resolve(
+                provider=llm_cfg.get("provider"),
+                model_name=llm_cfg.get("model"),
+            ),
         )
         prompt = str(resolved_prompt.prompt or "")
         if not prompt:

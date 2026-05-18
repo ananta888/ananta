@@ -65,6 +65,10 @@ class RunReport:
     post_run_provider_snapshot: dict[str, Any] | None = None
     ci_safe_mode: bool = False
     skipped_checks: list[str] = field(default_factory=list)
+    planning_run_id: str | None = None
+    planning_parse_mode: str | None = None
+    planning_repair_attempt_count: int | None = None
+    early_analysis: dict[str, Any] | None = None
 
     @property
     def passed(self) -> bool:
@@ -153,6 +157,12 @@ class AcceptanceRunner:
 
     def _get_task(self, task_id: str) -> dict[str, Any]:
         return dict(self._get_json_with_retry(f"{self.base_url}/tasks/{task_id}").get("data") or {})
+    
+    def _get_goal_plan(self, goal_id: str) -> dict[str, Any]:
+        try:
+            return dict(self._get_json_with_retry(f"{self.base_url}/goals/{goal_id}/plan").get("data") or {})
+        except Exception:
+            return {}
 
     def _get_autopilot_status(self) -> dict[str, Any]:
         # Hub may be blocked on LLM inference (single-threaded Flask) → treat timeout as transient
@@ -417,6 +427,7 @@ def run_once(
     planning_fallback_task_enabled: bool = False,
     max_circuit_breaker_open_seconds: int = 120,
     ci_safe: bool = False,
+    early_analysis_seconds: int = 0,
 ) -> RunReport:
     report = RunReport(
         run_index=run_index,
@@ -487,6 +498,7 @@ def run_once(
 
     final_status = None
     deadline = started_at + runner.timeout_s
+    early_deadline = started_at + max(0, int(early_analysis_seconds or 0))
     while time.time() < deadline:
         now = time.time()
         detail = runner._get_goal_detail(goal_id)
@@ -577,6 +589,14 @@ def run_once(
         if status in TERMINAL_STATUSES:
             final_status = status
             break
+        if early_analysis_seconds and time.time() >= early_deadline:
+            report.early_analysis = {
+                "mode": "early_exit",
+                "classification": "planning_stuck" if status in {"planning", "planning_queued", "planning_running"} and not tasks else "progressing",
+                "status": status,
+                "task_count": len(tasks),
+            }
+            break
         time.sleep(runner.poll_s)
 
     report.final_goal_status = final_status or str((runner._get_goal_detail(goal_id).get("goal") or {}).get("status") or "")
@@ -608,6 +628,12 @@ def run_once(
     report.effective_config_endpoint_status = cfg_status
     report.config_checksum = str(cfg_payload.get("config_checksum") or "").strip() or None
     report.goal_config_source = str(cfg_payload.get("goal_config_source") or "").strip() or None
+    plan_payload = runner._get_goal_plan(goal_id)
+    plan = dict(plan_payload.get("plan") or {})
+    rationale = dict(plan.get("rationale") or {})
+    report.planning_run_id = str(rationale.get("planning_run_id") or "").strip() or None
+    report.planning_parse_mode = str(rationale.get("parse_mode") or "").strip() or None
+    report.planning_repair_attempt_count = int(rationale.get("repair_attempt_count") or 0)
 
     # PO-003: capture provider state after the run for diagnostics (skipped in CI-safe mode)
     if ci_safe:
@@ -623,6 +649,13 @@ def aggregate(run_reports: list[RunReport]) -> dict[str, Any]:
     completed_runs = sum(1 for r in run_reports if r.final_goal_status == "completed")
     write_phase_runs = sum(1 for r in run_reports if any(c.id == 6 and c.passed for c in r.criteria))
     all_progress_runs = sum(1 for r in run_reports if any(c.id == 3 and c.passed for c in r.criteria))
+    early_analysis_runs = sum(1 for r in run_reports if isinstance(r.early_analysis, dict))
+    early_classification: dict[str, int] = {}
+    for r in run_reports:
+        if not isinstance(r.early_analysis, dict):
+            continue
+        key = str(r.early_analysis.get("classification") or "unknown")
+        early_classification[key] = early_classification.get(key, 0) + 1
     return {
         "schema": REPORT_SCHEMA_VERSION,
         "total_runs": total,
@@ -630,6 +663,8 @@ def aggregate(run_reports: list[RunReport]) -> dict[str, Any]:
         "write_phase_runs": write_phase_runs,
         "autopilot_progress_runs": all_progress_runs,
         "repeatability_pass": (completed_runs >= 2 and write_phase_runs == total),
+        "early_analysis_runs": early_analysis_runs,
+        "early_classification": early_classification,
     }
 
 
@@ -691,6 +726,12 @@ def main() -> int:
             "Default is disabled."
         ),
     )
+    p.add_argument(
+        "--early-analysis-seconds",
+        type=int,
+        default=0,
+        help="Optional early-exit analysis mode for fast diagnostics before SLA end.",
+    )
     args = p.parse_args()
 
     if int(args.parallel_goals_per_scenario) > 1 and args.config_mode == "legacy_global_config" and not args.allow_unsafe_global_parallel:
@@ -750,6 +791,7 @@ def main() -> int:
                 planning_fallback_task_enabled=bool(args.allow_planning_minimal_fallback_task),
                 max_circuit_breaker_open_seconds=int(args.max_circuit_breaker_open_seconds),
                 ci_safe=_ci_safe,
+                early_analysis_seconds=int(args.early_analysis_seconds),
             )
             all_reports.append(report)
             print(f"run {i} [{report.scenario_id}]: goal={report.goal_id} final={report.final_goal_status} pass={report.passed}")
@@ -769,6 +811,7 @@ def main() -> int:
                 planning_fallback_task_enabled=bool(args.allow_planning_minimal_fallback_task),
                 max_circuit_breaker_open_seconds=int(args.max_circuit_breaker_open_seconds),
                 ci_safe=_ci_safe,
+                early_analysis_seconds=int(args.early_analysis_seconds),
             )
 
         with ThreadPoolExecutor(max_workers=parallel_n) as ex:
@@ -801,6 +844,10 @@ def main() -> int:
                 "config_checksum": r.config_checksum,
                 "goal_config_source": r.goal_config_source,
                 "effective_config_endpoint_status": r.effective_config_endpoint_status,
+                "planning_run_id": r.planning_run_id,
+                "planning_parse_mode": r.planning_parse_mode,
+                "planning_repair_attempt_count": r.planning_repair_attempt_count,
+                "early_analysis": r.early_analysis,
                 "passed": r.passed,
                 "ci_safe_mode": r.ci_safe_mode,
                 "skipped_checks": r.skipped_checks,
