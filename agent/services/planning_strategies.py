@@ -30,7 +30,13 @@ class PlannerLike(Protocol):
     max_subtasks_per_goal: int
     default_priority: str
 
-    def _call_llm_with_retry(self, prompt: str, llm_config: dict) -> str: ...
+    def _call_llm_with_retry(
+        self,
+        prompt: str,
+        llm_config: dict,
+        *,
+        temperature: float | None = None,
+    ) -> str: ...
 
 
 class PlanningStrategy(Protocol):
@@ -121,6 +127,33 @@ class TemplatePlanningStrategy:
 
 
 class LLMPlanningStrategy:
+    @staticmethod
+    def _resolve_repair_strategies(planning_policy: dict[str, Any], *, repair_attempts: int) -> list[dict[str, Any]]:
+        raw = list(planning_policy.get("repair_strategies") or [])
+        resolved: list[dict[str, Any]] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip().lower()
+            if name not in {"hub_copilot", "llm_config"}:
+                continue
+            try:
+                temp = float(item.get("temperature")) if item.get("temperature") is not None else None
+            except (TypeError, ValueError):
+                temp = None
+            if temp is not None:
+                temp = max(0.0, min(2.0, temp))
+            resolved.append({"name": name, "temperature": temp})
+        if resolved:
+            return resolved
+
+        # Sensible generic default: first try hub/evolver at moderate temperature,
+        # then local llm with progressively lower temperature for stricter JSON.
+        defaults: list[dict[str, Any]] = [{"name": "hub_copilot", "temperature": 0.35}]
+        for i in range(max(1, repair_attempts)):
+            defaults.append({"name": "llm_config", "temperature": max(0.0, 0.30 - (0.10 * i))})
+        return defaults
+
     def __init__(self, use_repo_context: bool) -> None:
         self._use_repo_context = bool(use_repo_context)
 
@@ -268,26 +301,77 @@ class LLMPlanningStrategy:
         scoped_cfg = getattr(planner, "_goal_effective_config", None)
         if not isinstance(scoped_cfg, dict):
             scoped_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        planning_policy = scoped_cfg.get("planning_policy") if isinstance(scoped_cfg.get("planning_policy"), dict) else {}
+        repair_attempts = max(1, min(int(planning_policy.get("unstructured_repair_attempts", 3) or 3), 6))
+        repair_strategies = self._resolve_repair_strategies(planning_policy, repair_attempts=repair_attempts)
         llm_config = dict(scoped_cfg.get("llm_config") or {})
         raw_response = planner._call_llm_with_retry(prompt, llm_config)
         subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
         if not subtasks:
-            repair_prompt = self._build_planning_repair_prompt(
-                goal=goal,
-                context=resolved_context,
-                max_subtasks=planner.max_subtasks_per_goal,
-                previous_output=raw_response,
-                mode=mode,
-                mode_data=mode_data,
-            )
-            repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config)
-            repaired_subtasks = parse_subtasks_from_llm_response(
-                repaired_response,
-                default_priority=planner.default_priority,
-            )
-            if repaired_subtasks:
-                raw_response = repaired_response
-                subtasks = repaired_subtasks
+            for idx, strategy in enumerate(repair_strategies):
+                strategy_name = str(strategy.get("name") or "").strip().lower()
+                retry_temperature = strategy.get("temperature")
+                use_execution_prompt = mode == "new_software_project" and idx >= max(1, repair_attempts - 1)
+                if use_execution_prompt:
+                    repair_prompt = self._build_new_project_execution_repair_prompt(
+                        goal=goal,
+                        context=resolved_context,
+                        max_subtasks=planner.max_subtasks_per_goal,
+                        previous_output=raw_response,
+                        mode_data=mode_data,
+                    )
+                else:
+                    repair_prompt = self._build_planning_repair_prompt(
+                        goal=goal,
+                        context=resolved_context,
+                        max_subtasks=planner.max_subtasks_per_goal,
+                        previous_output=raw_response,
+                        mode=mode,
+                        mode_data=mode_data,
+                    )
+                if strategy_name == "hub_copilot":
+                    try:
+                        hub_llm = get_hub_llm_service()
+                        copilot_cfg = hub_llm.resolve_copilot_config()
+                        if (
+                            copilot_cfg.get("enabled")
+                            and copilot_cfg.get("supports_planning")
+                            and copilot_cfg.get("active")
+                        ):
+                            hub_resp = hub_llm.plan_with_copilot(
+                                prompt=repair_prompt,
+                                timeout=getattr(planner, "llm_timeout", None),
+                                temperature=retry_temperature,
+                            )
+                            hub_text = str(hub_resp.get("text") or "")
+                            hub_subtasks = parse_subtasks_from_llm_response(
+                                hub_text,
+                                default_priority=planner.default_priority,
+                            )
+                            if hub_subtasks:
+                                raw_response = hub_text
+                                subtasks = hub_subtasks
+                                break
+                            if hub_text.strip():
+                                raw_response = hub_text
+                    except Exception:
+                        pass
+                elif strategy_name == "llm_config":
+                    repaired_response = planner._call_llm_with_retry(
+                        repair_prompt,
+                        llm_config,
+                        temperature=retry_temperature,
+                    )
+                    repaired_subtasks = parse_subtasks_from_llm_response(
+                        repaired_response,
+                        default_priority=planner.default_priority,
+                    )
+                    if repaired_subtasks:
+                        raw_response = repaired_response
+                        subtasks = repaired_subtasks
+                        break
+                    if str(repaired_response or "").strip():
+                        raw_response = repaired_response
         if mode == "new_software_project" and not subtasks:
             # Last LLM-only repair attempt with stricter execution-focused framing.
             repair_prompt = self._build_new_project_execution_repair_prompt(
@@ -297,7 +381,7 @@ class LLMPlanningStrategy:
                 previous_output=raw_response,
                 mode_data=mode_data,
             )
-            repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config)
+            repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config, temperature=0.1)
             repaired_subtasks = parse_subtasks_from_llm_response(
                 repaired_response,
                 default_priority=planner.default_priority,
@@ -313,7 +397,7 @@ class LLMPlanningStrategy:
                 previous_output=raw_response,
                 mode_data=mode_data,
             )
-            repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config)
+            repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config, temperature=0.1)
             repaired_subtasks = parse_subtasks_from_llm_response(
                 repaired_response,
                 default_priority=planner.default_priority,

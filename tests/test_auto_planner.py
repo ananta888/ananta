@@ -307,6 +307,27 @@ class TestAutoPlanner:
         assert result["subtasks"] == []
         assert result["error_classification"] == "unstructured_llm_response"
 
+    def test_plan_goal_can_emit_minimal_non_llm_fallback_task_when_enabled(self, app, monkeypatch):
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.generate_text",
+            lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: "unstructured text only",
+        )
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        planner = AutoPlanner()
+        planner.configure(auto_start_autopilot=False)
+
+        with app.app_context():
+            cfg = app.config.setdefault("AGENT_CONFIG", {})
+            planning_policy = dict(cfg.get("planning_policy") or {})
+            planning_policy["allow_non_llm_minimal_task_fallback"] = True
+            cfg["planning_policy"] = planning_policy
+            result = planner.plan_goal("Test Goal", create_tasks=False, use_template=False, use_repo_context=False)
+
+        assert result.get("error") is None
+        subtasks = list(result.get("subtasks") or [])
+        assert len(subtasks) == 1
+        assert subtasks[0].get("fallback_origin") == "non_llm_minimal_task"
+
     def test_plan_goal_repairs_unstructured_llm_response_with_second_llm_call(self, app, monkeypatch):
         responses = iter(
             [

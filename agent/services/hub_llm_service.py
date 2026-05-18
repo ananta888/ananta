@@ -173,7 +173,13 @@ class HubLLMService:
             },
         }
 
-    def plan_with_copilot(self, *, prompt: str, timeout: int | None = None) -> dict[str, Any]:
+    def plan_with_copilot(
+        self,
+        *,
+        prompt: str,
+        timeout: int | None = None,
+        temperature: float | None = None,
+    ) -> dict[str, Any]:
         config = self.resolve_copilot_config()
         if not config["enabled"]:
             raise RuntimeError("hub_copilot_disabled")
@@ -187,7 +193,11 @@ class HubLLMService:
             provider=config["effective"]["provider"],
             model=config["effective"]["model"],
             base_url=config["effective"]["base_url"],
-            temperature=config["effective"]["temperature"],
+            temperature=(
+                config["effective"]["temperature"]
+                if temperature is None
+                else max(0.0, min(2.0, float(temperature)))
+            ),
             timeout=timeout,
         )
         return {"text": text, "usage": usage, "result": result, "config": config}
