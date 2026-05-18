@@ -19,6 +19,7 @@
 #   --reset-db                                  (DB vor jedem Run leeren)
 #   --out        artifacts/report.json
 #   --goal-text  "..."                          (abweichende Goal-Beschreibung)
+#   --planning-profile  small | medium | ""     (Planning-Anpassungen für kleine Modelle)
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -37,6 +38,8 @@ SLA_SECONDS="${SLA_SECONDS:-900}"
 RESET_DB="${RESET_DB:-0}"
 GOAL_TEXT="Create a real multi-file Python project for RTX3080 eGPU utilization optimization; write README, src package, tests, run pytest, store report artifact"
 OUT_FILE=""
+# Planning-Policy für lokale Modelle (leer = keine Overrides, "small" = kompakte englische Prompts)
+PLANNING_PROFILE="${PLANNING_PROFILE:-small}"
 
 # ── 2) Env-Datei laden ─────────────────────────────────────────────────────
 if [[ -f "$ENV_FILE" ]]; then
@@ -56,7 +59,8 @@ while [[ $# -gt 0 ]]; do
     --sla)         SLA_SECONDS="$2";      shift 2 ;;
     --reset-db)    RESET_DB=1;            shift   ;;
     --out)         OUT_FILE="$2";         shift 2 ;;
-    --goal-text)   GOAL_TEXT="$2";        shift 2 ;;
+    --goal-text)       GOAL_TEXT="$2";       shift 2 ;;
+    --planning-profile) PLANNING_PROFILE="$2"; shift 2 ;;
     *) echo "Unbekannter Parameter: $1" >&2; exit 1 ;;
   esac
 done
@@ -94,14 +98,16 @@ trap 'rm -f "$SCENARIO_FILE"' EXIT
 export _LP="$LOCAL_PROVIDER"
 export _LU="$LOCAL_URL"
 export _LM="$LOCAL_MODEL"
+export _PP="$PLANNING_PROFILE"
 
 python3 - > "$SCENARIO_FILE" <<'PYEOF'
 from __future__ import annotations
 import json, os, sys
 
-provider = os.environ["_LP"].strip().lower()
-url      = os.environ["_LU"].rstrip("/")
-model    = os.environ["_LM"].strip()
+provider         = os.environ["_LP"].strip().lower()
+url              = os.environ["_LU"].rstrip("/")
+model            = os.environ["_LM"].strip()
+planning_profile = os.environ.get("_PP", "").strip().lower()
 
 SUPPORTED = {"ollama", "lmstudio"}
 if provider not in SUPPORTED:
@@ -141,30 +147,46 @@ def _llm_cfg(provider: str, url: str, model: str) -> dict:
         },
     }
 
+# planning_policy profiles:
+#   "small"  – English prompt + 512 max tokens + 400 char context cap (for small/embedded models)
+#   "medium" – English prompt + 768 max tokens (balanced)
+#   ""/"off" – no overrides (use Hub defaults, German prompt)
+PLANNING_POLICIES = {
+    "small":  {"prompt_language": "en", "max_output_tokens": 512, "context_max_chars": 400},
+    "medium": {"prompt_language": "en", "max_output_tokens": 768, "context_max_chars": 600},
+}
+
+def _planning_patch(profile: str) -> dict:
+    policy = PLANNING_POLICIES.get(profile)
+    if not policy:
+        return {}
+    return {"planning_policy": policy}
+
 llm = _llm_cfg(provider, url, model)
 opencode_llm = _merge(llm, {"opencode_runtime": {"target_provider": provider}})
+pp = _planning_patch(planning_profile)
 
 scenarios = [
     {
         "id": f"opencode_{provider}_local",
         "label": f"OpenCode Worker + Local {provider.title()} ({url})",
         "config_profile": f"opencode_{provider}_local",
-        "config_overrides": _merge(_backend_patch("opencode"), opencode_llm),
-        "config_patch":     _merge(_backend_patch("opencode"), opencode_llm),
+        "config_overrides": _merge(_merge(_backend_patch("opencode"), opencode_llm), pp),
+        "config_patch":     _merge(_merge(_backend_patch("opencode"), opencode_llm), pp),
     },
     {
         "id": f"ananta_{provider}_local",
         "label": f"Ananta Worker + Local {provider.title()} ({url})",
         "config_profile": f"ananta_{provider}_local",
-        "config_overrides": _merge(_backend_patch("ananta-worker"), llm),
-        "config_patch":     _merge(_backend_patch("ananta-worker"), llm),
+        "config_overrides": _merge(_merge(_backend_patch("ananta-worker"), llm), pp),
+        "config_patch":     _merge(_merge(_backend_patch("ananta-worker"), llm), pp),
     },
     {
         "id": "opencode_preconfigured",
         "label": "OpenCode Worker + Preconfigured (Hub-Config)",
         "config_profile": "opencode_preconfigured",
-        "config_overrides": _backend_patch("opencode"),
-        "config_patch":     _backend_patch("opencode"),
+        "config_overrides": _merge(_backend_patch("opencode"), pp),
+        "config_patch":     _merge(_backend_patch("opencode"), pp),
     },
 ]
 print(json.dumps({"scenarios": scenarios}, indent=2, ensure_ascii=False))

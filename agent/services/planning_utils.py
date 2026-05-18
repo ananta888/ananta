@@ -445,6 +445,28 @@ def build_planning_prompt(goal: str, context: Optional[str] = None, max_tasks: i
     return prompt
 
 
+def build_planning_prompt_en(goal: str, context: Optional[str] = None, max_tasks: int = 8) -> str:
+    """English planning prompt — more compatible with small/embedded models like gemma-4-e4b."""
+    prompt = (
+        "You are a project planning assistant. Break down the following goal into concrete, "
+        f"actionable subtasks. Output ONLY a valid JSON array with {max_tasks} or fewer tasks, "
+        "no explanation, no markdown fences.\n\n"
+        f"GOAL: {goal}\n\n"
+        "RULES:\n"
+        "- No sudo, su, or privilege escalation\n"
+        "- No systemctl, service, or ss commands\n"
+        "- Set depends_on only for real sequential dependencies\n\n"
+        "OUTPUT FORMAT (JSON array only):\n"
+        '[{"title":"Short title","description":"Detailed description",'
+        '"priority":"High|Medium|Low","depends_on":[]}]\n'
+    )
+    if context:
+        # Include a short summary of context only
+        ctx_summary = str(context).strip()
+        prompt = f"{prompt}\nCONTEXT:\n{ctx_summary}\n"
+    return prompt
+
+
 def sanitize_input(text: str, max_length: int = 4000) -> str:
     if not text:
         return ""

@@ -12,6 +12,7 @@ from agent.services.hub_llm_service import get_hub_llm_service
 from agent.services.planning_template_catalog import get_planning_template_catalog
 from agent.services.planning_utils import (
     build_planning_prompt,
+    build_planning_prompt_en,
     parse_subtasks_from_llm_response,
     try_load_repo_context,
 )
@@ -289,22 +290,43 @@ class LLMPlanningStrategy:
             if repo_context:
                 resolved_context = repo_context
 
-        if mode != "generic" and mode_data:
-            mode_context = (
-                f"{(resolved_context or '').strip()}\n\n"
-                f"STEUERUNGSDATEN (Modus: {mode}):\n"
-                f"{json.dumps(mode_data, indent=2)}"
-            )
-            resolved_context = mode_context.strip()
-
-        prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
         scoped_cfg = getattr(planner, "_goal_effective_config", None)
         if not isinstance(scoped_cfg, dict):
             scoped_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         planning_policy = scoped_cfg.get("planning_policy") if isinstance(scoped_cfg.get("planning_policy"), dict) else {}
+
+        # Configurable context truncation — helps small models with limited context windows
+        context_max_chars = planning_policy.get("context_max_chars")
+        if context_max_chars and resolved_context:
+            limit = max(100, int(context_max_chars))
+            if len(resolved_context) > limit:
+                resolved_context = resolved_context[:limit]
+
+        if mode != "generic" and mode_data:
+            mode_label = f"Mode: {mode}" if planning_policy.get("prompt_language", "de") == "en" else f"Modus: {mode}"
+            mode_context = (
+                f"{(resolved_context or '').strip()}\n\n"
+                f"{mode_label}\n"
+                f"{json.dumps(mode_data, indent=2)}"
+            )
+            resolved_context = mode_context.strip()
+
+        # Configurable prompt language — "en" works better for small/embedded models
+        prompt_language = str(planning_policy.get("prompt_language") or "de").strip().lower()
+        if prompt_language == "en":
+            prompt = build_planning_prompt_en(goal, resolved_context, planner.max_subtasks_per_goal)
+        else:
+            prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
+
         repair_attempts = max(1, min(int(planning_policy.get("unstructured_repair_attempts", 3) or 3), 6))
         repair_strategies = self._resolve_repair_strategies(planning_policy, repair_attempts=repair_attempts)
         llm_config = dict(scoped_cfg.get("llm_config") or {})
+
+        # Configurable max_output_tokens for planning — reduces empty responses from small models
+        policy_max_tokens = planning_policy.get("max_output_tokens")
+        if policy_max_tokens and "max_output_tokens" not in llm_config:
+            llm_config = {**llm_config, "max_output_tokens": int(policy_max_tokens)}
+
         raw_response = planner._call_llm_with_retry(prompt, llm_config)
         subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
         if not subtasks:
