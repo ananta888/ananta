@@ -8,6 +8,7 @@ from typing import Any
 _ALLOWED_TASK_KINDS = {"coding", "testing", "review", "research", "planning", "ops", "analysis", "doc"}
 _ALLOWED_RISK_LEVELS = {"low", "medium", "high", "critical"}
 _SOFTWARE_HINTS = ("software", "project", "java", "angular", "frontend", "backend", "fibonacci")
+_ALLOWED_OUTPUT_FORMATS = {"json", "markdown", "yaml"}
 
 
 def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
@@ -41,6 +42,11 @@ def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
             "segmented_planning_enabled": bool(raw_profile.get("segmented_planning_enabled", False)),
             "segment_context_chars": _bounded_int(raw_profile.get("segment_context_chars"), default=2400, minimum=600, maximum=12000),
             "max_segments": _bounded_int(raw_profile.get("max_segments"), default=3, minimum=1, maximum=8),
+            "preferred_output_format": (
+                str(raw_profile.get("preferred_output_format") or "json").strip().lower()
+                if str(raw_profile.get("preferred_output_format") or "json").strip().lower() in _ALLOWED_OUTPUT_FORMATS
+                else "json"
+            ),
         }
 
     return {
@@ -55,6 +61,11 @@ def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
         "segmented_planning_enabled": bool(payload.get("segmented_planning_enabled", False)),
         "segment_context_chars": _bounded_int(payload.get("segment_context_chars"), default=2400, minimum=600, maximum=12000),
         "max_segments": _bounded_int(payload.get("max_segments"), default=3, minimum=1, maximum=8),
+        "preferred_output_format": (
+            str(payload.get("preferred_output_format") or "json").strip().lower()
+            if str(payload.get("preferred_output_format") or "json").strip().lower() in _ALLOWED_OUTPUT_FORMATS
+            else "json"
+        ),
         "default_runtime_profile": str(payload.get("default_runtime_profile") or "").strip() or None,
         "runtime_profiles": runtime_profiles,
     }

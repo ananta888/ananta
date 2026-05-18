@@ -21,9 +21,23 @@ class PlanningModelProfileService:
 
     def ensure_default_profiles(self) -> None:
         repo = get_repository_registry().planning_model_profile_repo
-        if repo.get_enabled():
-            return
+        existing = repo.get_enabled()
+        existing_keys = {
+            (
+                str(item.provider or "").strip().lower(),
+                str(item.model_name_pattern or "").strip().lower(),
+                str(item.profile_name or "").strip().lower(),
+            )
+            for item in existing
+        }
         for item in self._load_defaults():
+            key = (
+                str(item.get("provider") or "").strip().lower(),
+                str(item.get("model_name_pattern") or "").strip().lower(),
+                str(item.get("profile_name") or "default").strip().lower(),
+            )
+            if key in existing_keys:
+                continue
             repo.save(
                 PlanningModelProfileDB(
                     provider=str(item.get("provider") or ""),
@@ -91,10 +105,12 @@ class PlanningModelProfileService:
             "output_contract_strictness": "repair_required",
             "supports_json_mode": False,
             "requires_english_prompt": False,
+            "preferred_output_format": "json",
         }
 
     @staticmethod
     def _to_dict(profile: PlanningModelProfileDB) -> dict[str, Any]:
+        notes = profile.notes if isinstance(profile.notes, dict) else {}
         return {
             "id": str(profile.id),
             "provider": str(profile.provider or ""),
@@ -111,6 +127,7 @@ class PlanningModelProfileService:
             "output_contract_strictness": str(profile.output_contract_strictness or "repair_required"),
             "supports_json_mode": bool(profile.supports_json_mode),
             "requires_english_prompt": bool(profile.requires_english_prompt),
+            "preferred_output_format": str(notes.get("preferred_output_format") or "json"),
             "notes": profile.notes,
         }
 

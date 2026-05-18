@@ -31,6 +31,38 @@ def _parse_subtasks_quick(text: str, *, default_priority: str) -> list[dict[str,
         items = extract_task_items_from_payload(parsed)
         normalized = [normalize_subtask(item, default_priority=default_priority) for item in items]
         return [item for item in normalized if item]
+    # YAML-like fallback:
+    # - title: Setup
+    #   description: Create venv
+    #   priority: High
+    yaml_tasks: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    for raw_line in cleaned.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("- "):
+            if current:
+                n = normalize_subtask(current, default_priority=default_priority)
+                if n:
+                    yaml_tasks.append(n)
+            current = {}
+            line = line[2:].strip()
+        if ":" in line and current is not None:
+            key, value = line.split(":", 1)
+            k = key.strip().lower()
+            v = value.strip().strip('"').strip("'")
+            if k in {"title", "description", "priority"}:
+                current[k] = v
+            elif k == "depends_on":
+                current[k] = []
+    if current:
+        n = normalize_subtask(current, default_priority=default_priority)
+        if n:
+            yaml_tasks.append(n)
+    if yaml_tasks:
+        return yaml_tasks
+
     tasks: list[dict[str, Any]] = []
     for line in cleaned.splitlines():
         s = line.strip()
