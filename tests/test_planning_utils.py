@@ -4,6 +4,7 @@ from agent.services.planning_utils import (
     extract_json_payload,
     parse_followup_analysis,
     parse_subtasks_from_llm_response,
+    parse_subtasks_with_diagnostics,
     sanitize_input,
     validate_goal,
 )
@@ -38,6 +39,7 @@ def test_parse_subtasks_from_llm_response_normalizes_priority_and_depends_on() -
     assert len(subtasks) == 1
     assert subtasks[0]["priority"] == "High"
     assert subtasks[0]["depends_on"] == ["1"]
+    assert subtasks[0]["dependency_mode"] == "explicit"
 
 
 def test_parse_subtasks_from_llm_response_accepts_python_literal_payload() -> None:
@@ -47,6 +49,34 @@ def test_parse_subtasks_from_llm_response_accepts_python_literal_payload() -> No
     assert len(subtasks) == 1
     assert subtasks[0]["title"] == "Task 1"
     assert subtasks[0]["priority"] == "High"
+
+
+def test_parse_diagnostics_strict_json() -> None:
+    _tasks, diag = parse_subtasks_with_diagnostics(
+        '[{"title":"Task 1","description":"Desc","priority":"high"}]'
+    )
+    assert diag["parse_mode"] == "strict_json"
+    assert diag["confidence"] == "high"
+
+
+def test_parse_diagnostics_python_literal() -> None:
+    _tasks, diag = parse_subtasks_with_diagnostics(
+        "[{'title':'Task 1','description':'Desc 1','priority':'high'}]"
+    )
+    assert diag["parse_mode"] == "python_literal"
+    assert diag["confidence"] == "medium"
+
+
+def test_parse_diagnostics_bullet_fallback() -> None:
+    _tasks, diag = parse_subtasks_with_diagnostics("- one task\n- second task")
+    assert diag["parse_mode"] == "bullet_fallback"
+    assert diag["confidence"] == "low"
+
+
+def test_parse_diagnostics_parse_failed() -> None:
+    tasks, diag = parse_subtasks_with_diagnostics("completely unstructured response without bullets")
+    assert tasks == []
+    assert diag["parse_mode"] == "parse_failed"
 
 
 def test_parse_followup_analysis_returns_parse_error_for_invalid_json() -> None:

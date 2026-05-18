@@ -282,8 +282,12 @@ class PlanningService:
         node_count = len(bounded)
         for subtask in bounded:
             raw_deps = list(subtask.get("depends_on") or [])
+            raw_mode = str(subtask.get("dependency_mode") or "").strip().lower()
+            if raw_mode not in {"parallel", "explicit", "sequential"}:
+                raw_mode = "explicit" if raw_deps else "sequential"
             if "__parallel__" in raw_deps:
-                subtask["depends_on"] = ["__parallel__"]
+                subtask["dependency_mode"] = "parallel"
+                subtask["depends_on"] = []
                 continue
             depends_on = []
             for dep in raw_deps:
@@ -296,8 +300,10 @@ class PlanningService:
                     depends_on.append(dep_text)
             if depends_on:
                 subtask["depends_on"] = depends_on
+                subtask["dependency_mode"] = "explicit"
             elif "depends_on" in subtask:
                 subtask.pop("depends_on", None)
+                subtask["dependency_mode"] = "parallel" if raw_mode == "parallel" else "sequential"
 
         limits = {
             **limits,
@@ -389,9 +395,15 @@ class PlanningService:
                 {"blueprint_role_defaults": role_defaults},
             )
             raw_depends_on = list(subtask.get("depends_on") or [])
-            is_parallel = "__parallel__" in raw_depends_on
+            dependency_mode = str(subtask.get("dependency_mode") or "").strip().lower()
+            if dependency_mode not in {"parallel", "explicit", "sequential"}:
+                dependency_mode = "explicit" if raw_depends_on else "sequential"
+            if "__parallel__" in raw_depends_on:
+                dependency_mode = "parallel"
+                raw_depends_on = []
+            is_parallel = dependency_mode == "parallel"
             depends_on: list[str] = []
-            if raw_depends_on and not is_parallel:
+            if raw_depends_on and dependency_mode == "explicit":
                 for dep in raw_depends_on:
                     dep_text = str(dep).strip()
                     if dep_text in node_keys:
@@ -400,7 +412,7 @@ class PlanningService:
                         dep_index = int(dep_text) - 1
                         if 0 <= dep_index < len(node_keys):
                             depends_on.append(node_keys[dep_index])
-            elif not is_parallel and index > 1:
+            elif dependency_mode == "sequential" and index > 1:
                 depends_on.append(node_keys[index - 2])
 
             nodes.append(
@@ -420,6 +432,7 @@ class PlanningService:
                         "preferred_bundle_mode": retrieval_hints["preferred_bundle_mode"],
                         "required_capabilities": required_capabilities,
                         "source_depends_on": raw_depends_on,
+                        "dependency_mode": dependency_mode,
                         "artifact_trace_id": str(subtask.get("artifact_trace_id") or f"A{index}"),
                         "expected_artifacts": [dict(a) for a in list(subtask.get("expected_artifacts") or []) if isinstance(a, dict)],
                         "artifact": subtask.get("artifact"),
@@ -568,10 +581,11 @@ class PlanningService:
             task_id = node_to_task_id[node.node_key]
             task_depends_on = []
             is_parallel_node = bool((node.rationale or {}).get("parallel"))
+            dependency_mode = str((node.rationale or {}).get("dependency_mode") or "").strip().lower()
             if node.depends_on:
                 mapped = [node_to_task_id.get(dep) for dep in node.depends_on]
                 task_depends_on = [dep for dep in mapped if dep]
-            elif not is_parallel_node and created_order:
+            elif dependency_mode == "sequential" and not is_parallel_node and created_order:
                 task_depends_on = created_order[-1:]
             task_depends_on = normalize_depends_on(task_depends_on, task_id)
             staged_graph[task_id] = task_depends_on
@@ -684,7 +698,8 @@ class PlanningService:
             # _build_nodes and _prepare_materialization both check rationale["parallel"] to skip
             # the auto-sequential fallback.
             for subtask in subtasks:
-                subtask["depends_on"] = ["__parallel__"]
+                subtask["dependency_mode"] = "parallel"
+                subtask["depends_on"] = []
         subtasks, limits, limit_exceeded = self._apply_plan_generation_limits(subtasks)
         raw_response = resolved["raw_response"]
         planning_mode = resolved["planning_mode"]

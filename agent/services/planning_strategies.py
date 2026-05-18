@@ -14,6 +14,7 @@ from agent.services.planning_utils import (
     build_planning_prompt,
     build_planning_prompt_en,
     parse_subtasks_from_llm_response,
+    parse_subtasks_with_diagnostics,
     try_load_repo_context,
 )
 
@@ -29,6 +30,7 @@ class PlanningStrategyResult:
     repair_strategy_used: str | None = None
     repair_attempt_count: int = 0
     parse_mode: str | None = None
+    warnings: list[str] | None = None
 
 
 class PlannerLike(Protocol):
@@ -338,7 +340,9 @@ class LLMPlanningStrategy:
         planning_origin = "llm"
         repair_strategy_used: str | None = None
         repair_attempt_count = 0
-        subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
+        subtasks, parse_diag = parse_subtasks_with_diagnostics(raw_response, default_priority=planner.default_priority)
+        parse_mode = str(parse_diag.get("parse_mode") or "parse_failed")
+        warnings = list(parse_diag.get("warnings") or [])
         if not subtasks:
             for idx, strategy in enumerate(repair_strategies):
                 repair_attempt_count += 1
@@ -386,6 +390,7 @@ class LLMPlanningStrategy:
                                 subtasks = hub_subtasks
                                 planning_origin = "llm_repair"
                                 repair_strategy_used = "hub_copilot"
+                                parse_mode = "repair_hub_copilot"
                                 break
                             if hub_text.strip():
                                 raw_response = hub_text
@@ -406,6 +411,7 @@ class LLMPlanningStrategy:
                         subtasks = repaired_subtasks
                         planning_origin = "llm_repair"
                         repair_strategy_used = "llm_config"
+                        parse_mode = "repair_llm_config"
                         break
                     if str(repaired_response or "").strip():
                         raw_response = repaired_response
@@ -428,6 +434,7 @@ class LLMPlanningStrategy:
                 subtasks = repaired_subtasks
                 planning_origin = "llm_repair"
                 repair_strategy_used = "llm_config"
+                parse_mode = "repair_llm_config"
         if mode == "new_software_project" and subtasks and not self._has_new_project_execution_coverage(subtasks):
             repair_prompt = self._build_new_project_execution_repair_prompt(
                 goal=goal,
@@ -446,6 +453,7 @@ class LLMPlanningStrategy:
                 subtasks = repaired_subtasks
                 planning_origin = "llm_repair"
                 repair_strategy_used = "llm_config"
+                parse_mode = "repair_llm_config"
         return PlanningStrategyResult(
             subtasks=subtasks,
             raw_response=raw_response,
@@ -455,6 +463,8 @@ class LLMPlanningStrategy:
             planning_origin=planning_origin,
             repair_strategy_used=repair_strategy_used,
             repair_attempt_count=repair_attempt_count,
+            parse_mode=parse_mode,
+            warnings=warnings,
         )
 
 

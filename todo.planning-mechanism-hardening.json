@@ -732,23 +732,24 @@
     },
     {
       "id": "PLAN-HARD-002",
-      "implementation_status": "todo",
-      "acceptance_status": "not_met",
-      "summary": "Parser-Diagnostik mit explizitem Parse-Mode/Confidence ist noch nicht implementiert.",
+      "implementation_status": "done",
+      "acceptance_status": "largely_met",
+      "summary": "Parser-Diagnostik eingefuehrt (strict_json, json_extracted, python_literal, roadmap_extracted, nested_extracted, bullet_fallback, parse_failed) mit confidence/warnings bei rueckwaertskompatibler API.",
       "evidence": [
+        "agent/services/planning_utils.py:277",
         "agent/services/planning_strategies.py:331",
-        "agent/services/planning_utils.py:419"
+        "tests/test_planning_utils.py:52"
       ]
     },
     {
       "id": "PLAN-HARD-003",
-      "implementation_status": "partial",
-      "acceptance_status": "not_met",
-      "summary": "`__parallel__`-Sentinel wird aktiv verwendet; `dependency_mode` existiert nicht.",
+      "implementation_status": "done",
+      "acceptance_status": "largely_met",
+      "summary": "dependency_mode (parallel|explicit|sequential) eingefuehrt; Legacy-__parallel__ wird normalisiert und neue Payloads laufen ohne Sentinel.",
       "evidence": [
-        "agent/services/planning_service.py:285",
-        "agent/services/planning_service.py:388",
-        "agent/services/planning_service.py:675"
+        "agent/services/planning_utils.py:138",
+        "agent/services/planning_service.py:283",
+        "tests/test_auto_planner.py:450"
       ]
     },
     {
@@ -848,14 +849,12 @@
   "task_summary_counts": {
     "total_task_summaries": 12,
     "implementation_status_counts": {
-      "done": 2,
-      "partial": 9,
-      "todo": 1
+      "done": 4,
+      "partial": 8
     },
     "acceptance_status_counts": {
-      "largely_met": 2,
+      "largely_met": 4,
       "not_fully_met": 2,
-      "not_met": 2,
       "partially_met": 6
     }
   }
