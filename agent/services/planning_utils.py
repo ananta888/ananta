@@ -19,8 +19,6 @@ from agent.services.execution_focused_planning import (
 from agent.services.planning_template_catalog import get_planning_template_catalog
 from agent.services.planning_output_shape_classifier import classify_output_shape
 from agent.services.planning_format_error_analyzer import analyze_format_errors
-from agent.services.planning_parser_chain import run_parser_chain
-
 VALID_PRIORITIES = {"high": "High", "medium": "Medium", "low": "Low"}
 SUSPICIOUS_TASK_PATTERNS = [
     r"\bignore\b",
@@ -277,6 +275,8 @@ def extract_task_items_from_payload(payload: object) -> list[object]:
 
 
 def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medium") -> tuple[list[dict], dict[str, Any]]:
+    from agent.services.planning_parser_chain import run_parser_chain
+
     shape = classify_output_shape(response)
     chain_result = run_parser_chain(response, default_priority=default_priority)
     if chain_result.get("subtasks"):
