@@ -70,6 +70,30 @@ def _looks_like_software_goal(text: str) -> bool:
     return any(token in normalized for token in _SOFTWARE_GOAL_HINTS)
 
 
+def _plan_looks_too_thin_for_software_goal(task_ids: list[str]) -> bool:
+    if len(task_ids) >= 2:
+        return False
+    if not task_ids:
+        return True
+    task = _repos().task_repo.get_by_id(task_ids[0])
+    if not task:
+        return True
+    title = str(getattr(task, "title", "") or "").lower()
+    description = str(getattr(task, "description", "") or "").lower()
+    text = f"{title} {description}"
+    implementation_markers = (
+        "implement",
+        "code",
+        "print(",
+        "python",
+        "run",
+        "execute",
+        "ausführen",
+        "ausfuehren",
+    )
+    return not any(marker in text for marker in implementation_markers)
+
+
 def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
     status = str(getattr(goal, "status", "") or "").strip().lower()
     if status not in {"planning", "planning_queued", "planning_running"}:
@@ -673,11 +697,38 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
 
     created_task_ids = list(result.get("created_task_ids") or [])
     create_tasks_enabled = bool(effective.get("planning", {}).get("create_tasks", True))
+    software_goal = _looks_like_software_goal(str(context.get("goal_text") or ""))
     if (
         create_tasks_enabled
         and not created_task_ids
         and str(context.get("mode_id") or "generic") == "generic"
-        and _looks_like_software_goal(str(context.get("goal_text") or ""))
+        and software_goal
+    ):
+        retry_mode = "new_software_project"
+        retry_mode_data = dict(goal_record.mode_data or {})
+        retry_mode_data.setdefault("project_idea", str(context.get("goal_text") or ""))
+        retry_result = auto_planner.plan_goal(
+            goal=str(context.get("goal_text") or goal_record.goal or ""),
+            context=context.get("mode_context"),
+            team_id=effective.get("routing", {}).get("team_id"),
+            create_tasks=True,
+            use_template=bool(effective.get("planning", {}).get("use_template", True)),
+            use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
+            goal_id=goal_record.id,
+            goal_trace_id=goal_record.trace_id,
+            mode=retry_mode,
+            mode_data=retry_mode_data,
+        )
+        if not retry_result.get("error"):
+            result = retry_result
+            created_task_ids = list(result.get("created_task_ids") or [])
+
+    if (
+        create_tasks_enabled
+        and created_task_ids
+        and str(context.get("mode_id") or "generic") == "generic"
+        and software_goal
+        and _plan_looks_too_thin_for_software_goal(created_task_ids)
     ):
         retry_mode = "new_software_project"
         retry_mode_data = dict(goal_record.mode_data or {})
@@ -709,6 +760,27 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             "goal_planning_failed",
             actor="auto_planner",
             details={"reason": "planning_no_tasks_created", "source": goal_record.source, "mode": goal_record.mode},
+            goal_id=goal_record.id,
+            trace_id=goal_record.trace_id,
+            plan_id=result.get("plan_id"),
+        )
+        return
+
+    if (
+        create_tasks_enabled
+        and software_goal
+        and _plan_looks_too_thin_for_software_goal(created_task_ids)
+    ):
+        _services().goal_lifecycle_service.transition_goal(
+            goal_record,
+            target_status="failed",
+            reason="planning_insufficient_task_detail",
+            readiness=readiness,
+        )
+        record_product_event(
+            "goal_planning_failed",
+            actor="auto_planner",
+            details={"reason": "planning_insufficient_task_detail", "source": goal_record.source, "mode": goal_record.mode},
             goal_id=goal_record.id,
             trace_id=goal_record.trace_id,
             plan_id=result.get("plan_id"),
