@@ -531,9 +531,10 @@ def create_goal():
         "mode_id": mode_id,
         "readiness": dict(readiness or {}),
     }
+    _app = current_app._get_current_object()
     thread = threading.Thread(
         target=_run_goal_planning_background,
-        kwargs={"goal_id": goal_record.id, "context": planning_context},
+        kwargs={"goal_id": goal_record.id, "context": planning_context, "app": _app},
         daemon=True,
         name=f"goal-planning-{goal_record.id[:8]}",
     )
@@ -554,7 +555,12 @@ def create_goal():
     )
 
 
-def _run_goal_planning_background(*, goal_id: str, context: dict[str, Any]) -> None:
+def _run_goal_planning_background(*, goal_id: str, context: dict[str, Any], app: Any) -> None:
+    with app.app_context():
+        _run_goal_planning_background_impl(goal_id=goal_id, context=context)
+
+
+def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any]) -> None:
     goal_record = _repos().goal_repo.get_by_id(goal_id)
     if not goal_record:
         return
