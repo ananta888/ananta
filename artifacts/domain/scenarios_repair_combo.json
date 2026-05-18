@@ -1,0 +1,57 @@
+{
+  "schema_version": "acceptance_scenarios.v1",
+  "description": "3 scenarios with planning repair strategy combo",
+  "scenarios": [
+    {
+      "id": "opencode_preconfigured",
+      "label": "OpenCode Worker + Preconfigured Model",
+      "config_profile": "opencode_preconfigured",
+      "config_overrides": {
+        "planning_policy": {
+          "unstructured_repair_attempts": 4,
+          "allow_non_llm_minimal_task_fallback": false,
+          "repair_strategies": [
+            {"name": "hub_copilot", "temperature": 0.35},
+            {"name": "llm_config", "temperature": 0.25},
+            {"name": "llm_config", "temperature": 0.15},
+            {"name": "llm_config", "temperature": 0.05}
+          ]
+        }
+      }
+    },
+    {
+      "id": "opencode_ollama_local",
+      "label": "OpenCode Worker + Ollama Local Model",
+      "config_profile": "opencode_ollama_local",
+      "config_overrides": {
+        "planning_policy": {
+          "unstructured_repair_attempts": 4,
+          "allow_non_llm_minimal_task_fallback": false,
+          "repair_strategies": [
+            {"name": "hub_copilot", "temperature": 0.35},
+            {"name": "llm_config", "temperature": 0.25},
+            {"name": "llm_config", "temperature": 0.15},
+            {"name": "llm_config", "temperature": 0.05}
+          ]
+        }
+      }
+    },
+    {
+      "id": "ananta_ollama_local",
+      "label": "Ananta Worker + Ollama Local Model",
+      "config_profile": "ananta_ollama_local",
+      "config_overrides": {
+        "planning_policy": {
+          "unstructured_repair_attempts": 4,
+          "allow_non_llm_minimal_task_fallback": false,
+          "repair_strategies": [
+            {"name": "hub_copilot", "temperature": 0.35},
+            {"name": "llm_config", "temperature": 0.25},
+            {"name": "llm_config", "temperature": 0.15},
+            {"name": "llm_config", "temperature": 0.05}
+          ]
+        }
+      }
+    }
+  ]
+}
