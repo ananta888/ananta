@@ -497,7 +497,7 @@
     {
       "id": "COMMIT-HARD-002",
       "title": "Commit scope resolver erweitern und Drift testen",
-      "status": "todo",
+      "status": "completed",
       "priority": "P2",
       "risk": "low",
       "summary": "Der Scope Resolver ist nuetzlich, muss aber regelmaessig gegen neue Module und Pfade aktualisiert werden.",
@@ -524,7 +524,7 @@
         "tests/test_commit_scope_resolver.py::test_known_new_services_have_scopes",
         "tests/test_commit_scope_resolver.py::test_scope_map_drift_detection"
       ],
-      "implementation_notes": "Scope-Mapping ist vorhanden, Drift-Detection fuer neue Module fehlt noch."
+      "implementation_notes": "Scope-Resolver um planning/context scopes erweitert; Drift-Test fuer unbekannte neue service-Pfade hinzugefuegt."
     },
     {
       "id": "PAR-HARD-001",
@@ -712,7 +712,7 @@
     {
       "id": "WORKSPACE-HARD-003",
       "title": "Central artifact-first completion gate als single source of truth",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "critical",
       "summary": "Completion fuer coding/testing/ops darf nur bei positiver Evidenz (artifact/diff/verification) erfolgen; advisory LLM-Signale bleiben non-authoritative.",
@@ -728,12 +728,13 @@
         "completed ohne Artifact-Evidenz wird blockiert",
         "advisory parse failures verhindern artifact-basierte completion nicht",
         "eine zentrale Policy-Funktion entscheidet Completion deterministisch"
-      ]
+      ],
+      "implementation_notes": "Zentraler TaskArtifactCompletionGateService eingefuehrt und in task_runtime_service, task_finalization_service und artifact_reconciliation_service als single source of truth fuer decision->status/event-details verdrahtet."
     },
     {
       "id": "REPO-HARD-002",
       "title": "CI guard fuer verbotene Runtime-Pfade beim Commit",
-      "status": "todo",
+      "status": "completed",
       "priority": "P1",
       "risk": "medium",
       "summary": "Commits mit Dateien unter project-workspaces/** oder artifacts/*.json(jsonl) sollen mit klarer Fehlermeldung scheitern.",
@@ -749,7 +750,8 @@
         "CI meldet verbotene Pfade eindeutig",
         "Fixtures unter tests/fixtures bleiben erlaubt",
         "lokaler Release-Gate liefert identische Fehlermeldung wie CI"
-      ]
+      ],
+      "implementation_notes": "Release-Gate um runtime-path hygiene check erweitert; verbotene Pfade (project-workspaces, artifacts/*.json/jsonl) werden erkannt, erlaubte Fixtures/strukturierte Reports ausgenommen."
     }
   ],
   "acceptance_summary": [
@@ -912,7 +914,7 @@
   "links": {
     "related_unified_todo": "todo.llm-first-planning-learning-and-response-behavior.json"
   },
-  "updated_at": 1779123401.2260952,
+  "updated_at": 1779123657.3906002,
   "state_assessment": {
     "as_of": "2026-05-18",
     "summary": "TODO auf realen Implementierungsstand abgeglichen. Mehrere Punkte sind bereits umgesetzt; kritische Restluecken liegen bei artifact-first completion gate, scope-drift detection, runtime enforcement proofs und CI path guards.",
@@ -928,9 +930,8 @@
   "counts": {
     "total_tasks": 18,
     "by_status": {
-      "completed": 4,
-      "partial": 11,
-      "todo": 3
+      "completed": 7,
+      "partial": 11
     },
     "by_priority": {
       "P0": 11,
