@@ -28,6 +28,21 @@ def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
     if not roles:
         roles = ["planning-agent", "planner"]
 
+    raw_runtime_profiles = payload.get("runtime_profiles") if isinstance(payload.get("runtime_profiles"), dict) else {}
+    runtime_profiles: dict[str, dict[str, Any]] = {}
+    for profile_id, raw_profile in raw_runtime_profiles.items():
+        if not isinstance(raw_profile, dict):
+            continue
+        runtime_profiles[str(profile_id)] = {
+            "timeout_seconds": _bounded_int(raw_profile.get("timeout_seconds"), default=120, minimum=5, maximum=300),
+            "max_output_tokens": _bounded_int(raw_profile.get("max_output_tokens"), default=512, minimum=128, maximum=2048),
+            "retry_attempts": _bounded_int(raw_profile.get("retry_attempts"), default=2, minimum=1, maximum=5),
+            "retry_backoff_seconds": float(raw_profile.get("retry_backoff_seconds") or 1.0),
+            "segmented_planning_enabled": bool(raw_profile.get("segmented_planning_enabled", False)),
+            "segment_context_chars": _bounded_int(raw_profile.get("segment_context_chars"), default=2400, minimum=600, maximum=12000),
+            "max_segments": _bounded_int(raw_profile.get("max_segments"), default=3, minimum=1, maximum=8),
+        }
+
     return {
         "delegated_planning_enabled": bool(payload.get("delegated_planning_enabled", False)),
         "allowed_planner_roles": roles,
@@ -36,6 +51,12 @@ def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
         "max_nodes": _bounded_int(payload.get("max_nodes"), default=8, minimum=1, maximum=50),
         "max_depth": _bounded_int(payload.get("max_depth"), default=8, minimum=1, maximum=50),
         "timeout_seconds": _bounded_int(payload.get("timeout_seconds"), default=45, minimum=5, maximum=300),
+        "max_output_tokens": _bounded_int(payload.get("max_output_tokens"), default=512, minimum=128, maximum=2048),
+        "segmented_planning_enabled": bool(payload.get("segmented_planning_enabled", False)),
+        "segment_context_chars": _bounded_int(payload.get("segment_context_chars"), default=2400, minimum=600, maximum=12000),
+        "max_segments": _bounded_int(payload.get("max_segments"), default=3, minimum=1, maximum=8),
+        "default_runtime_profile": str(payload.get("default_runtime_profile") or "").strip() or None,
+        "runtime_profiles": runtime_profiles,
     }
 
 

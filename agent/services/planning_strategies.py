@@ -180,7 +180,77 @@ class LLMPlanningStrategy:
                 temp = max(0.0, min(2.0, temp))
             resolved.append({"name": name, "temperature": temp})
         if resolved:
-            return resolved
+        return resolved
+
+    @staticmethod
+    def _split_context_into_segments(context: str | None, *, segment_chars: int, max_segments: int) -> list[str]:
+        text = str(context or "").strip()
+        if not text:
+            return []
+        segment_chars = max(600, int(segment_chars))
+        max_segments = max(1, int(max_segments))
+        if len(text) <= segment_chars:
+            return [text]
+        chunks: list[str] = []
+        cursor = 0
+        for _ in range(max_segments):
+            if cursor >= len(text):
+                break
+            end = min(len(text), cursor + segment_chars)
+            if end < len(text):
+                nl = text.rfind("\n", cursor, end)
+                if nl > cursor + 200:
+                    end = nl
+            chunk = text[cursor:end].strip()
+            if chunk:
+                chunks.append(chunk)
+            cursor = end
+        return chunks
+
+    def _execute_segmented_planning(
+        self,
+        *,
+        planner: PlannerLike,
+        goal: str,
+        resolved_context: str | None,
+        llm_config: dict[str, Any],
+        planning_policy: dict[str, Any],
+    ) -> tuple[list[dict[str, Any]], str, str] | None:
+        if not bool(planning_policy.get("segmented_planning_enabled", False)):
+            return None
+        segment_chars = self._safe_int(planning_policy.get("segment_context_chars", 2400), default=2400, minimum=600, maximum=12000)
+        max_segments = self._safe_int(planning_policy.get("max_segments", 3), default=3, minimum=1, maximum=8)
+        segments = self._split_context_into_segments(resolved_context, segment_chars=segment_chars, max_segments=max_segments)
+        if len(segments) <= 1:
+            return None
+
+        subtasks_merged: list[dict[str, Any]] = []
+        raw_parts: list[str] = []
+        seen_titles: set[str] = set()
+        per_segment_budget = max(2, planner.max_subtasks_per_goal // len(segments))
+        for index, segment in enumerate(segments, start=1):
+            prompt = build_planning_prompt(
+                goal=f"{goal}\n\nSegment {index}/{len(segments)}. Focus only on this segment and avoid duplicates.",
+                context=segment,
+                max_subtasks=per_segment_budget,
+            )
+            response = planner._call_llm_with_retry(prompt, llm_config, temperature=0.1)
+            raw_parts.append(str(response or ""))
+            parsed = parse_subtasks_from_llm_response(response, default_priority=planner.default_priority)
+            for subtask in parsed:
+                key = str(subtask.get("title") or "").strip().lower()
+                if key and key in seen_titles:
+                    continue
+                if key:
+                    seen_titles.add(key)
+                subtasks_merged.append(subtask)
+                if len(subtasks_merged) >= planner.max_subtasks_per_goal:
+                    break
+            if len(subtasks_merged) >= planner.max_subtasks_per_goal:
+                break
+        if not subtasks_merged:
+            return None
+        return subtasks_merged, "\n\n--- SEGMENT BREAK ---\n\n".join(raw_parts), "segmented_context"
 
         # Sensible generic default: first try hub/evolver at moderate temperature,
         # then local llm with progressively lower temperature for stricter JSON.
@@ -392,8 +462,37 @@ class LLMPlanningStrategy:
         if policy_timeout and "timeout" not in llm_config:
             llm_config = {
                 **llm_config,
-                "timeout": self._safe_int(policy_timeout, default=20, minimum=5, maximum=120),
+                "timeout": self._safe_int(policy_timeout, default=20, minimum=5, maximum=300),
             }
+
+        segmented_result = self._execute_segmented_planning(
+            planner=planner,
+            goal=goal,
+            resolved_context=resolved_context,
+            llm_config=llm_config,
+            planning_policy=planning_policy,
+        )
+        if segmented_result is not None:
+            subtasks, raw_response, parse_mode = segmented_result
+            planning_origin = "llm_segmented"
+            return PlanningStrategyResult(
+                subtasks=subtasks,
+                raw_response=raw_response,
+                context=resolved_context,
+                template_used=False,
+                planning_mode="llm",
+                planning_origin=planning_origin,
+                repair_strategy_used=None,
+                repair_attempt_count=0,
+                parse_mode=parse_mode,
+                parse_confidence="medium",
+                warnings=[],
+                output_shape="segmented",
+                format_error_codes=[],
+                parser_trace=[],
+                prompt_version_id=str(getattr(planner, "_resolved_planning_prompt_version_id", "") or ""),
+                planning_profile=str(getattr(planner, "_resolved_planning_profile", "") or ""),
+            )
 
         raw_response = planner._call_llm_with_retry(prompt, llm_config)
         planning_origin = "llm"
