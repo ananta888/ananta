@@ -6,6 +6,7 @@ from agent.auth import admin_required, check_auth
 from agent.common.errors import api_response
 from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
 from agent.routes.tasks.status import normalize_task_status
+from agent.services.commit_metadata_inferrer import get_commit_metadata_inferrer
 from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.governance_read_model_service import get_governance_read_model_service
 from agent.services.repository_registry import get_repository_registry
@@ -392,6 +393,14 @@ def create_task():
     data: TaskCreateRequest = g.validated_data
     source = str((request.get_json(silent=True) or {}).get("source") or "ui").strip().lower()
     created_by = str((request.get_json(silent=True) or {}).get("created_by") or "unknown").strip()
+    if data.commit_metadata is None and str(data.task_kind or "").strip().lower() in ("coding", "ops", ""):
+        data = data.model_copy(update={
+            "commit_metadata": get_commit_metadata_inferrer().infer(
+                description=str(data.description or ""),
+                task_kind=data.task_kind,
+                title=str(data.title or ""),
+            )
+        })
     result = get_core_services().task_management_service.create_task(data=data, source=source, created_by=created_by)
     if result.get("error"):
         return api_response(status="error", message=result["error"], code=result.get("code", 400))

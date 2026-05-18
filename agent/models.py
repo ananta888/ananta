@@ -4,6 +4,12 @@ from typing import List, Optional
 from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
+
+class CommitMetadata(SQLModel):
+    commit_type: Optional[str] = None
+    commit_scope: Optional[str] = None
+    commit_subject_hint: Optional[str] = None
+
 from agent.task_models import TaskStatus  # noqa: F401 - re-exported for legacy imports
 
 
@@ -767,6 +773,7 @@ class TaskCreateRequest(SQLModel):
     instruction_owner_username: Optional[str] = None
     instruction_profile_id: Optional[str] = None
     instruction_overlay_id: Optional[str] = None
+    commit_metadata: Optional[CommitMetadata] = None
 
 
 class TaskUpdateRequest(SQLModel):

@@ -676,3 +676,122 @@ class TestGoalsAPI:
         )
         assert res.status_code == 403
         assert res.get_json()["message"] == "policy_override_requires_admin"
+
+
+# APR-001: Planning recovery diagnostics visible in goal detail
+def test_goal_detail_shows_planning_recovery_when_present(client, admin_auth_header, monkeypatch, app):
+    from agent.repository import goal_repo
+    monkeypatch.setattr(
+        "agent.routes.tasks.auto_planner.generate_text",
+        lambda **kwargs: '[{"title":"Plan","description":"Do it","priority":"Medium"}]',
+    )
+    monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+    res = client.post(
+        "/goals",
+        headers=admin_auth_header,
+        json={"goal": "Recovery visibility test"},
+    )
+    assert res.status_code == 201
+    goal_id = res.get_json()["data"]["goal"]["id"]
+
+    # Manually inject planning_recovery into execution_preferences
+    with app.app_context():
+        goal = goal_repo.get_by_id(goal_id)
+        prefs = dict(goal.execution_preferences or {})
+        prefs["planning_recovery"] = {
+            "attempts": 1,
+            "last_reason": "stalled_planning_no_tasks",
+            "last_attempt_at": 1234567890.0,
+        }
+        goal.execution_preferences = prefs
+        goal_repo.save(goal)
+
+    res2 = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
+    assert res2.status_code == 200
+    data = res2.get_json()["data"]
+    recovery = data.get("planning_recovery") or {}
+    assert recovery["attempts"] == 1
+    assert recovery["last_reason"] == "stalled_planning_no_tasks"
+
+
+def test_goal_detail_planning_recovery_none_when_no_recovery_occurred(client, admin_auth_header, monkeypatch):
+    monkeypatch.setattr(
+        "agent.routes.tasks.auto_planner.generate_text",
+        lambda **kwargs: '[{"title":"Plan","description":"Do it","priority":"Medium"}]',
+    )
+    monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+    res = client.post(
+        "/goals",
+        headers=admin_auth_header,
+        json={"goal": "No recovery goal"},
+    )
+    assert res.status_code == 201
+    goal_id = res.get_json()["data"]["goal"]["id"]
+
+    res2 = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
+    assert res2.status_code == 200
+    data = res2.get_json()["data"]
+    assert data.get("planning_recovery") is None
+
+
+# APR-002: Service-level recovery method testable independently of Flask route
+def test_recover_stalled_planning_goal_increments_attempts(app):
+    from agent.services.lifecycle_service import get_goal_lifecycle_service
+
+    with app.app_context():
+        from agent.models import GoalDB
+        from agent.repository import goal_repo
+        goal = GoalDB(
+            goal="Test stalled goal",
+            status="planning",
+            summary="test",
+            updated_at=0.0,  # stale
+        )
+        goal = goal_repo.save(goal)
+        svc = get_goal_lifecycle_service()
+        result = svc.recover_stalled_planning_goal(goal)
+        prefs = dict(result.execution_preferences or {})
+        recovery = prefs.get("planning_recovery") or {}
+        assert int(recovery.get("attempts") or 0) == 1
+
+
+def test_recover_stalled_planning_goal_caps_at_two_attempts(app):
+    from agent.services.lifecycle_service import get_goal_lifecycle_service
+
+    with app.app_context():
+        from agent.models import GoalDB
+        from agent.repository import goal_repo
+        goal = GoalDB(
+            goal="Capped recovery",
+            status="planning",
+            summary="test",
+            updated_at=0.0,
+            execution_preferences={"planning_recovery": {"attempts": 2}},
+        )
+        goal = goal_repo.save(goal)
+        svc = get_goal_lifecycle_service()
+        result = svc.recover_stalled_planning_goal(goal)
+        prefs = dict(result.execution_preferences or {})
+        recovery = prefs.get("planning_recovery") or {}
+        # Should stay at 2, not increment further
+        assert int(recovery.get("attempts") or 0) == 2
+
+
+def test_recover_stalled_planning_goal_skips_non_planning_status(app):
+    from agent.services.lifecycle_service import get_goal_lifecycle_service
+
+    with app.app_context():
+        from agent.models import GoalDB
+        from agent.repository import goal_repo
+        goal = GoalDB(
+            goal="Planned goal",
+            status="planned",
+            summary="test",
+            updated_at=0.0,
+        )
+        goal = goal_repo.save(goal)
+        svc = get_goal_lifecycle_service()
+        result = svc.recover_stalled_planning_goal(goal)
+        prefs = dict(result.execution_preferences or {})
+        # Should not touch planning_recovery for non-planning goals
+        assert prefs.get("planning_recovery") is None

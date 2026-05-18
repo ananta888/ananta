@@ -1,4 +1,6 @@
 from agent.repository import goal_repo
+from agent.services.config_profile_service import get_config_profile_service
+from agent.services.goal_config_resolver_service import ALLOWED_GOAL_CONFIG_KEYS
 
 
 def _mock_goal_planning_llm(monkeypatch):
@@ -126,3 +128,48 @@ def test_effective_config_accessible_to_authenticated_non_owner(client, admin_au
     assert res.status_code == 200
     body = res.get_json()["data"]
     assert "config_snapshot" in body
+
+
+# CPR-001: Config-Profiles API — all profiles have required fields, no secret leakage,
+# no unknown override keys.
+def test_all_profiles_have_required_fields():
+    svc = get_config_profile_service()
+    for profile in svc.list_profiles():
+        assert "id" in profile, f"profile missing 'id': {profile}"
+        assert "description" in profile, f"profile missing 'description': {profile}"
+        assert "overrides" in profile, f"profile missing 'overrides': {profile}"
+        assert isinstance(profile["overrides"], dict)
+
+
+def test_profiles_api_returns_required_profile_ids(client, admin_auth_header):
+    res = client.get("/config/profiles", headers=admin_auth_header)
+    assert res.status_code == 200
+    ids = {p["id"] for p in res.get_json()["data"]["profiles"]}
+    assert {"opencode_preconfigured", "opencode_ollama_local", "ananta_ollama_local"}.issubset(ids)
+
+
+def test_all_profile_override_keys_are_allowed():
+    svc = get_config_profile_service()
+    for profile in svc.list_profiles():
+        for key in profile["overrides"]:
+            assert key in ALLOWED_GOAL_CONFIG_KEYS, (
+                f"Profile '{profile['id']}' contains unknown config key '{key}'"
+            )
+
+
+def test_profile_overrides_contain_no_secret_values():
+    _SECRET_INDICATORS = ("password", "api_key", "token", "secret", "credential")
+    svc = get_config_profile_service()
+
+    def _scan(obj, path=""):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                full = f"{path}.{k}" if path else k
+                for indicator in _SECRET_INDICATORS:
+                    assert indicator not in str(k).lower() or v in (None, ""), (
+                        f"Profile overrides may contain secret at '{full}'"
+                    )
+                _scan(v, full)
+
+    for profile in svc.list_profiles():
+        _scan(profile["overrides"], profile["id"])

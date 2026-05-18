@@ -1692,6 +1692,13 @@ def execute_autopilot_tick(
         ]
     candidates = [item["task"] for item in dispatch_queue if item.get("task") is not None]
     if not candidates:
+        # APR-002: autonomous planning recovery — trigger without requiring UI polling
+        if goal_scope and not all_tasks:
+            repos = get_repository_registry(loop._app)
+            _stalled_goal = repos.goal_repo.get_by_id(goal_scope)
+            if _stalled_goal and str(getattr(_stalled_goal, "status", "") or "").strip().lower() == "planning":
+                from agent.services.lifecycle_service import get_goal_lifecycle_service
+                get_goal_lifecycle_service().recover_stalled_planning_goal(_stalled_goal)
         recovered = _maybe_recover_planned_goal_without_candidates(
             loop=loop,
             services=services,

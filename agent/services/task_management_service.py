@@ -17,6 +17,7 @@ from agent.routes.tasks.orchestration_policy import (
     evaluate_worker_routing_policy,
     persist_policy_decision,
 )
+from agent.services.commit_followup_service import maybe_create_git_commit_followup
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.instruction_layer_service import get_instruction_layer_service
@@ -183,6 +184,13 @@ class TaskManagementService:
             if not ok:
                 return {"error": reason, "code": 400}
         update_local_task_status(task_id, status, **update_data)
+        if status == "completed":
+            task = get_local_task_status(task_id) or {}
+            maybe_create_git_commit_followup(
+                task=task,
+                task_queue_service=get_task_queue_service(),
+                actor=self.actor_username(),
+            )
         return {"data": {"id": task_id, "status": "updated"}}
 
     def review_task_proposal(self, *, task_id: str, action: str, comment: str | None) -> dict[str, Any]:

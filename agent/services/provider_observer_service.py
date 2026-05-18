@@ -32,15 +32,21 @@ class ProviderObserverService:
 
     def _probe_provider(self, provider: str, base_url: str, timeout_s: int, include_activity: bool) -> dict[str, Any]:
         started_at = time.time()
-        if provider == "ollama":
-            runtime = probe_ollama_runtime(base_url, timeout=timeout_s)
-            activity = probe_ollama_activity(base_url, timeout=timeout_s) if include_activity else None
-        elif provider == "lmstudio":
-            runtime = probe_lmstudio_runtime(base_url, timeout=timeout_s)
+        error_detail: str | None = None
+        try:
+            if provider == "ollama":
+                runtime = probe_ollama_runtime(base_url, timeout=timeout_s)
+                activity = probe_ollama_activity(base_url, timeout=timeout_s) if include_activity else None
+            elif provider == "lmstudio":
+                runtime = probe_lmstudio_runtime(base_url, timeout=timeout_s)
+                activity = None
+            else:
+                runtime = {"ok": False, "status": "unsupported_provider_probe"}
+                activity = None
+        except Exception as exc:
+            runtime = {"ok": False, "status": "probe_exception"}
             activity = None
-        else:
-            runtime = {"ok": False, "status": "unsupported_provider_probe"}
-            activity = None
+            error_detail = str(exc)[:200]
         ended_at = time.time()
         return {
             "provider": provider,
@@ -54,6 +60,7 @@ class ProviderObserverService:
             "ended_at": ended_at,
             "latency_ms": max(0, int((ended_at - started_at) * 1000)),
             "source": "hub_direct_probe",
+            **({"error_detail": error_detail} if error_detail else {}),
         }
 
     def snapshot(

@@ -28,6 +28,7 @@ class ProposeContext:
     cli_runner: 'Callable' = None
     tool_definitions_resolver: 'Callable' = None
     policy: ProposePolicy | None = None  # T003: strategies may read policy
+    effective_config: dict[str, Any] | None = None  # CPR-003: goal-scoped config passed through
 
 
 class ProposeStrategy(ABC):

@@ -571,6 +571,16 @@ class GoalService:
         governance = get_verification_service().governance_summary(goal.id, include_sensitive=is_admin)
         memory_entries = repos.memory_entry_repo.get_by_goal(goal.id)
         cost_summary = get_cost_aggregation_service().aggregate_goal_costs(goal.id)
+        execution_preferences = dict(getattr(goal, "execution_preferences", None) or {})
+        recovery = dict(execution_preferences.get("planning_recovery") or {})
+        planning_recovery_diagnostics: dict | None = None
+        if recovery:
+            planning_recovery_diagnostics = {
+                "attempts": int(recovery.get("attempts") or 0),
+                "last_reason": recovery.get("last_reason"),
+                "last_attempt_at": recovery.get("last_attempt_at"),
+                "last_error": recovery.get("last_error") if is_admin else None,
+            }
         return {
             "goal": self.serialize_goal(goal),
             "trace": {
@@ -612,6 +622,7 @@ class GoalService:
                 }
                 for entry in memory_entries
             ],
+            "planning_recovery": planning_recovery_diagnostics,
         }
 
     def get_guided_modes(self) -> List[dict[str, Any]]:
