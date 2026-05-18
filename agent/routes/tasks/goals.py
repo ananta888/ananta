@@ -1,6 +1,5 @@
 import time
 import threading
-import uuid
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Any
 
@@ -698,30 +697,21 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             created_task_ids = list(result.get("created_task_ids") or [])
 
     if create_tasks_enabled and not created_task_ids:
-        fallback_task_id = f"goal-{uuid.uuid4().hex[:8]}"
-        _services().task_queue_service.ingest_task(
-            task_id=fallback_task_id,
-            status="todo",
-            title="Goal direkt ausfuehren (Planner-Fallback)",
-            description=str(context.get("goal_text") or goal_record.goal or "").strip() or "Execute goal",
-            priority="high",
-            created_by="planning_fallback",
-            source="goal_planning_fallback",
-            team_id=effective.get("routing", {}).get("team_id"),
-            event_type="task_materialized_from_fallback",
-            event_channel="planning_fallback",
-            event_details={"goal_id": goal_record.id, "reason": "planning_no_tasks_created"},
-            extra_fields={
-                "goal_id": goal_record.id,
-                "goal_trace_id": goal_record.trace_id,
-                "task_kind": "coding",
-                "derivation_reason": "planning_fallback_deterministic",
-                "derivation_depth": 0,
-            },
+        _services().goal_lifecycle_service.transition_goal(
+            goal_record,
+            target_status="failed",
+            reason="planning_no_tasks_created",
+            readiness=readiness,
         )
-        created_task_ids = [fallback_task_id]
-        result = dict(result or {})
-        result["created_task_ids"] = list(created_task_ids)
+        record_product_event(
+            "goal_planning_failed",
+            actor="auto_planner",
+            details={"reason": "planning_no_tasks_created", "source": goal_record.source, "mode": goal_record.mode},
+            goal_id=goal_record.id,
+            trace_id=goal_record.trace_id,
+            plan_id=result.get("plan_id"),
+        )
+        return
 
     _services().goal_lifecycle_service.transition_goal(
         goal_record,
