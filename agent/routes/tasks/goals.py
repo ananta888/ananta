@@ -596,6 +596,47 @@ def _run_goal_planning_background(*, goal_id: str, context: dict[str, Any], app:
         _run_goal_planning_background_impl(goal_id=goal_id, context=context)
 
 
+def _start_planning_deadline_guard(*, goal_id: str, app: Any, timeout_s: int) -> None:
+    def _guard() -> None:
+        try:
+            app.logger.warning("planning_deadline_guard_started goal_id=%s timeout_s=%s", goal_id, int(timeout_s))
+        except Exception:
+            pass
+        time.sleep(max(10, int(timeout_s)))
+        with app.app_context():
+            goal = _repos().goal_repo.get_by_id(goal_id)
+            if not goal:
+                return
+            status = str(getattr(goal, "status", "") or "").strip().lower()
+            if status in {"completed", "failed", "cancelled", "aborted", "timeout"}:
+                return
+            try:
+                goal.status = "failed"
+                _repos().goal_repo.save(goal)
+            except Exception:
+                _services().goal_lifecycle_service.transition_goal(
+                    goal,
+                    target_status="failed",
+                    reason="planning_deadline_guard_timeout",
+                    readiness=dict(getattr(goal, "readiness", None) or {}),
+                )
+            try:
+                app.logger.error("planning_deadline_guard_timeout goal_id=%s", goal_id)
+            except Exception:
+                pass
+            record_product_event(
+                "goal_planning_failed",
+                actor="auto_planner",
+                details={"reason": "planning_deadline_guard_timeout", "timeout_seconds": int(timeout_s)},
+                goal_id=goal_id,
+                trace_id=str(getattr(goal, "trace_id", "") or ""),
+                plan_id=None,
+            )
+
+    thread = threading.Thread(target=_guard, daemon=True, name=f"planning-deadline-guard-{goal_id[:8]}")
+    thread.start()
+
+
 def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any]) -> None:
     goal_record = _repos().goal_repo.get_by_id(goal_id)
     if not goal_record:
@@ -619,6 +660,11 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                 180,
             ),
         )
+    )
+    _start_planning_deadline_guard(
+        goal_id=goal_record.id,
+        app=current_app._get_current_object(),
+        timeout_s=min(75, max(45, planning_timeout_s + 15)),
     )
     try:
         app_obj = current_app._get_current_object()
