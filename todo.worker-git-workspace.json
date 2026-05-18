@@ -5,48 +5,56 @@
   "goal": "Jeder Worker erhält pro Goal einen eigenen git-fähigen Workspace (Branch oder Worktree). Worker committen lokal in ihren Branch. Der Hub koordiniert Merges und Pushes in ein zentrales Repo. Git-Tools operieren im richtigen Workspace-Verzeichnis, nicht im Container-Root.",
   "created_from": [
     "Gespräch 2026-05-18: Worker-Git-Workspace-Idee",
-    "todo.commit-hygiene-integration.json (CHI-Tracks – Commit-Validation als Basis)",
-    "Codeanalyse: WorkerWorkspaceService, workspace_scope_builder, git_*-Tools in tools.py"
+    "todo.commit-hygiene-integration.json (CHI-Tracks – alle abgeschlossen)",
+    "Codeanalyse 2026-05-18: WorkerWorkspaceService, workspace_scope_builder, git_*-Tools in tools.py"
   ],
-
   "context": {
     "existing_foundation": {
-      "workspace_isolation": "project-workspaces/<agent>/<scope_key>/ – existiert, mit Locking und Artifact-Sync",
-      "workspace_reuse_mode": "task | goal_worker – konfigurierbar in worker_runtime",
-      "artifact_sync": "sync_changed_files_to_artifacts() – Worker→Hub Dateiübertragung via Ingestion-Service",
-      "git_tools": "git_status, git_diff, git_log, git_commit in agent/tools.py – kein cwd gesetzt, operieren im Container-Root",
-      "worker_profile": "Bereits in WorkerExecutionContextContract und TaskCreateRequest",
-      "commit_validation": "CommitScopeResolver + CommitMessageValidator (aus todo.commit-hygiene-integration.json)"
+      "workspace_isolation": "project-workspaces/<agent>/<scope_key>/ – existiert mit Locking und Artifact-Sync. WorkerWorkspaceService in agent/services/worker_workspace_service.py.",
+      "workspace_context_dataclass": "WorkerWorkspaceContext(frozen dataclass) hat derzeit 4 Felder: workspace_dir: Path, artifacts_dir: Path, rag_helper_dir: Path, artifact_sync: dict. Kein git_context, kein context_policy – beide müssen ergänzt werden.",
+      "workspace_reuse_mode": "workspace_scope_builder.py: derive_workspace_scope() und resolve_workspace_reuse_mode() – Modi 'task' | 'goal_worker' konfigurierbar in worker_runtime.",
+      "artifact_sync": "sync_changed_files_to_artifacts() – Worker→Hub Dateiübertragung via Ingestion-Service. Bleibt unverändert für Goals ohne git_workspace.",
+      "git_tools_current_state": "git_status_tool (tools.py:1104), git_diff_tool (tools.py:1126), git_log_tool (tools.py:1151), git_commit_tool (tools.py:1173) – alle subprocess.run ohne cwd-Argument. Operieren im Container-Root, nicht im Workspace-Verzeichnis.",
+      "git_commit_tool_gaps": "git_commit_tool ruft subprocess.run(['git','commit','-m', message]) ohne cwd und ohne CommitMessageValidator.validate(). Blocklist-Messages wie 'fixup planning' werden nicht abgefangen.",
+      "task_kinds_current": "TASK_KINDS in agent/runtime_policy.py = {'coding','analysis','doc','ops','research','git_commit'}. 'git_merge' fehlt noch – wird in WGW-011 ergänzt.",
+      "commit_hygiene_complete": "CHI-Tracks vollständig abgeschlossen: CommitMessageValidator (agent/services/commit_message_validator.py), CommitScopeResolver (agent/services/commit_scope_resolver.py), CommitWorkerService (agent/services/commit_worker_service.py), CommitMetadataInferrer (agent/services/commit_metadata_inferrer.py), CommitFollowupService (agent/services/commit_followup_service.py) – alle als Basis für WGW-007/008/011 verfügbar.",
+      "commit_followup_service_partial": "agent/services/commit_followup_service.py liest bereits goal_config.git_workspace.auto_commit intern aus effective_config. Der Key 'git_workspace' ist aber noch NICHT in ALLOWED_GOAL_CONFIG_KEYS – daher blockt die API Goal-Create mit git_workspace-Block. WGW-002 muss das nachholen.",
+      "allowed_goal_config_keys_current": "ALLOWED_GOAL_CONFIG_KEYS in agent/services/goal_config_resolver_service.py:11 enthält derzeit: default_provider, default_model, llm_config, opencode_runtime, worker_runtime, sgpt_routing, task_kind_model_overrides, role_model_overrides, template_model_overrides, planning_policy, llm_profile_policy, task_kind_execution_policies, worker_selection. Weder 'git_workspace' noch 'workspace_context_policy' sind enthalten.",
+      "worker_profile": "worker_profile bereits in WorkerExecutionContextContract und TaskCreateRequest.",
+      "context_policy_stub": "WorkspaceContextPolicy und WorkspaceContextPolicyResolver existieren noch NICHT. workspace_context_policy.py fehlt. WGW-013/014 legen diesen Stub an – Basis für todo.context-scoped-delivery.json."
     },
     "what_is_missing": [
-      "git init / git clone pro Workspace – kein .git in project-workspaces/",
-      "Branch-pro-Goal-Konzept – kein Branch-Lifecycle im Hub",
-      "git push zu zentralem Repo – git_push_tool existiert nicht",
-      "Hub Merge-Koordination – Hub weiß nicht welche Worker-Branches fertig sind",
-      "cwd-Kontext für git_*-Tools – commits landen im falschen Repo"
+      "workspace_git_service.py – git init/clone, Branch-Naming, WorkspaceGitContext",
+      "'git_workspace' in ALLOWED_GOAL_CONFIG_KEYS (commit_followup_service.py liest es, aber die API blockiert es noch)",
+      "git_merge in TASK_KINDS (agent/runtime_policy.py)",
+      "WorkerWorkspaceContext.git_context Feld",
+      "cwd-Kontext für alle 4 git_*-Tools (tools.py:1104,1126,1151,1173)",
+      "CommitMessageValidator.validate() in git_commit_tool (CHI-011 ist done, aber Tool-Integration noch nicht)",
+      "git_push_tool – existiert nicht",
+      "GoalWorkspaceCoordinatorService – Hub weiß nicht welche Worker-Branches fertig sind",
+      "git_merge-Folgetask nach Goal-Completion",
+      "WorkspaceContextPolicy + WorkspaceContextPolicyResolver Stub (Basis für todo.context-scoped-delivery.json)"
     ],
     "design_decision": "Isolation-Stufe: Branch-per-Goal (nicht Clone) als Standard. Ein Goal → ein Branch. Mehrere Workers am selben Goal → derselbe Branch, sequentiell via Locking. Alternative: Worktree pro Worker-Job, Merge nach Completion. Zentral-Repo: konfigurierbar per Goal-Config (git_remote_url). Context-Scope-Interface wird hier als Stub vorbereitet und in todo.context-scoped-delivery.json vollständig implementiert."
   },
-
   "principles": [
     {
       "id": "principle.workspace-git-optional",
-      "text": "Git-Layer ist opt-in pro Goal. Goals ohne git_workspace_enabled laufen wie bisher (Artifact-Sync). Kein Breaking Change."
+      "text": "Git-Layer ist opt-in pro Goal. Goals ohne git_workspace.enabled=True laufen wie bisher (Artifact-Sync). Kein Breaking Change."
     },
     {
       "id": "principle.hub-owns-merge",
-      "text": "Worker commiten nur in ihren eigenen Branch. Merge in main/central obliegt ausschließlich dem Hub."
+      "text": "Worker committen nur in ihren eigenen Branch. Merge in main/central obliegt ausschließlich dem Hub."
     },
     {
       "id": "principle.commit-validation-mandatory",
-      "text": "Jeder Commit eines Workers läuft durch CommitMessageValidator (aus CHI-005). Kein --no-verify."
+      "text": "Jeder Commit eines Workers läuft durch CommitMessageValidator (agent/services/commit_message_validator.py). Kein --no-verify."
     },
     {
       "id": "principle.no-force-push",
       "text": "Workers führen niemals git push --force aus. Hub koordiniert Rebase/Merge explizit."
     }
   ],
-
   "tracks": [
     {
       "id": "track.WGW-init",
@@ -69,46 +77,51 @@
             "WorkspaceGitService.init_workspace(workspace_dir, *, remote_url, branch) -> WorkspaceGitContext.",
             "Wenn remote_url gesetzt: git clone remote_url workspace_dir --branch branch (oder checkout nach clone).",
             "Wenn remote_url=None: git init workspace_dir; git checkout -b branch.",
-            "Wenn .git bereits existiert: nur branch sicherstellen (kein erneutes init).",
-            "branch-Naming: siehe WGW-004.",
+            "Wenn .git bereits existiert: nur branch sicherstellen (kein erneutes init) – idempotent.",
+            "branch-Naming: siehe WGW-004 (resolve_branch_name).",
             "Alle subprocess-Aufrufe mit cwd=workspace_dir.",
-            "git_workspace_enabled in Goal-Config steuert ob init aufgerufen wird (default: False)."
+            "git_workspace_enabled in Goal-Config steuert ob init aufgerufen wird (default: False).",
+            "Muster aus workspace_scope_builder.py (build_worker_workspace, derive_workspace_scope) als Vorlage für den Service-Aufbau nutzen."
           ],
           "acceptance_criteria": [
             "init_workspace mit remote_url=None → .git im workspace_dir vorhanden, branch korrekt ausgecheckt.",
             "init_workspace zweimal aufgerufen → idempotent, kein Fehler.",
             "init_workspace mit remote_url → workspace_dir ist Clone des Remote, branch gesetzt.",
             "Wenn git_workspace_enabled=False → kein .git, kein Fehler (early return).",
-            "subprocess-Fehler (git nicht verfügbar) → klarer Fehler mit Kontext, kein Absturz."
+            "subprocess-Fehler (git nicht verfügbar) → WorkspaceGitInitError mit workspace_dir und original stderr."
           ],
           "depends_on": []
         },
         {
           "id": "WGW-002",
-          "title": "git_workspace_config in Goal-Config verdrahten",
+          "title": "git_workspace in ALLOWED_GOAL_CONFIG_KEYS und Goal-Config-Schema",
           "type": "feature",
           "status": "todo",
           "priority": "critical",
           "files": [
             "agent/services/goal_config_resolver_service.py"
           ],
-          "description": "ALLOWED_GOAL_CONFIG_KEYS um 'git_workspace' erweitern. Goal-Config-Schema für git_workspace-Block definieren.",
+          "description": "ALLOWED_GOAL_CONFIG_KEYS um 'git_workspace' erweitern. commit_followup_service.py liest git_workspace.auto_commit bereits intern – ohne diesen Eintrag blockiert die API Goal-Create mit git_workspace-Block.",
           "implementation_notes": [
-            "Neuer erlaubter Key: 'git_workspace'.",
-            "Schema: { enabled: bool, remote_url: str | None, branch_strategy: 'goal' | 'goal_worker', merge_strategy: 'squash' | 'merge' | 'rebase' }.",
+            "Eintrag 'git_workspace' in frozenset ALLOWED_GOAL_CONFIG_KEYS (Zeile 11 in goal_config_resolver_service.py).",
+            "Schema: { enabled: bool, remote_url: str | None, branch_strategy: 'goal' | 'goal_worker', merge_strategy: 'squash' | 'merge' | 'rebase', auto_commit: bool }.",
             "branch_strategy='goal': ein Branch pro Goal (default).",
             "branch_strategy='goal_worker': ein Branch pro Goal+Worker-Kombination.",
             "merge_strategy: wie Hub den Worker-Branch in main merged.",
-            "Defaults: enabled=False, remote_url=None, branch_strategy='goal', merge_strategy='squash'.",
-            "Secret-Redaction: remote_url wird NICHT redacted (ist kein Secret) – aber Auth-Token in URL würde erkannt (enthält 'token')."
+            "Defaults: enabled=False, remote_url=None, branch_strategy='goal', merge_strategy='squash', auto_commit=False.",
+            "remote_url: kein Secret (keine Redaction), aber Auth-Token in URL würde via _SECRET_KEY_MARKERS ('token') erkannt.",
+            "auto_commit=False ist Default bis die gesamte Policy breit akzeptiert ist."
           ],
           "acceptance_criteria": [
             "'git_workspace' in ALLOWED_GOAL_CONFIG_KEYS.",
             "GoalConfigResolver akzeptiert git_workspace-Block ohne unknown_keys-Fehler.",
             "Goal-Config ohne git_workspace → defaults greifen (enabled=False).",
-            "remote_url mit eingebettetem Token → Redaction greift via Secret-Key-Marker-Regel."
+            "remote_url mit eingebettetem Token → Redaction greift via _SECRET_KEY_MARKERS-Regel.",
+            "commit_followup_service._auto_commit_enabled() funktioniert korrekt wenn auto_commit via Goal-Config gesetzt."
           ],
-          "depends_on": ["WGW-001"]
+          "depends_on": [
+            "WGW-001"
+          ]
         },
         {
           "id": "WGW-003",
@@ -136,7 +149,7 @@
               "id": "WGW-003-T03",
               "name": "test_init_disabled_when_git_workspace_not_enabled",
               "setup": "git_workspace_enabled=False in goal_config",
-              "expected": "Kein .git, WorkspaceGitContext.is_clone=False, no subprocess called"
+              "expected": "Kein .git, WorkspaceGitContext.is_clone=False, kein subprocess-Aufruf"
             },
             {
               "id": "WGW-003-T04",
@@ -145,11 +158,12 @@
               "expected": "WorkspaceGitInitError mit workspace_dir und original stderr im message"
             }
           ],
-          "depends_on": ["WGW-001"]
+          "depends_on": [
+            "WGW-001"
+          ]
         }
       ]
     },
-
     {
       "id": "track.WGW-branch",
       "title": "Branch-Strategie pro Goal",
@@ -165,21 +179,25 @@
           "files": [
             "agent/services/workspace_git_service.py"
           ],
-          "description": "Deterministisches Branch-Naming aus Goal-ID und optional Worker-Key.",
+          "description": "Deterministisches Branch-Naming aus Goal-ID und optional Worker-Key. Reine Funktion, keine subprocess-Aufrufe.",
           "implementation_notes": [
             "branch_strategy='goal': branch = 'goal/{sanitized_goal_id}' (z.B. 'goal/356af41f').",
             "branch_strategy='goal_worker': branch = 'goal/{sanitized_goal_id}/{sanitized_worker_key}'.",
             "sanitize: Kleinbuchstaben, nur [a-z0-9/_-], max 80 Zeichen gesamt.",
             "WorkspaceGitService.resolve_branch_name(goal_id, worker_key, strategy) -> str.",
-            "Funktion ist rein (keine subprocess-Aufrufe), leicht testbar."
+            "goal_id auf max 12 Zeichen kürzen (erste Hex-Zeichen eines UUID).",
+            "Muster analog zu safe_scope_segment() in workspace_scope_builder.py."
           ],
           "acceptance_criteria": [
             "resolve_branch_name('356af41f-...', 'alpha', 'goal') == 'goal/356af41f'.",
             "resolve_branch_name('356af41f-...', 'alpha', 'goal_worker') == 'goal/356af41f/alpha'.",
             "Lange goal_id wird auf 12 Zeichen gekürzt (kein zu langer Branch-Name).",
-            "Sonderzeichen in goal_id oder worker_key werden sanitized."
+            "Sonderzeichen in goal_id oder worker_key werden sanitized.",
+            "Ergebnis ist immer <= 80 Zeichen."
           ],
-          "depends_on": ["WGW-001"]
+          "depends_on": [
+            "WGW-001"
+          ]
         },
         {
           "id": "WGW-005",
@@ -191,21 +209,25 @@
             "agent/services/worker_workspace_service.py",
             "agent/services/workspace_git_service.py"
           ],
-          "description": "Nach dem Resolve des Workspace-Verzeichnisses wird WorkspaceGitService.init_workspace aufgerufen wenn git_workspace_enabled=True in der effektiven Goal-Config.",
+          "description": "Nach dem Resolve des Workspace-Verzeichnisses wird WorkspaceGitService.init_workspace aufgerufen wenn git_workspace.enabled=True in der effektiven Goal-Config. WorkerWorkspaceContext erhält neues Feld git_context.",
           "implementation_notes": [
-            "WorkerWorkspaceContext um git_context: WorkspaceGitContext | None erweitern.",
-            "resolve_workspace_context liest goal_config aus task, extrahiert git_workspace-Block.",
-            "Wenn enabled: WorkspaceGitService.init_workspace aufrufen, Ergebnis in git_context.",
-            "Wenn nicht enabled: git_context=None, Verhalten wie bisher.",
+            "WorkerWorkspaceContext (frozen dataclass, worker_workspace_service.py:29) bekommt neues Feld: git_context: WorkspaceGitContext | None = None.",
+            "resolve_workspace_context (Zeile 214) liest goal_config aus task['effective_config'], extrahiert git_workspace-Block.",
+            "Wenn git_workspace.enabled=True: WorkspaceGitService.init_workspace aufrufen, Ergebnis in git_context.",
+            "Wenn nicht enabled: git_context=None, Verhalten wie bisher (kein Breaking Change).",
+            "branch: WorkspaceGitService.resolve_branch_name aus goal_id + worker_key + branch_strategy.",
             "Goal-Config kommt aus task['effective_config'] (bereits als Snapshot persistiert)."
           ],
           "acceptance_criteria": [
             "resolve_workspace_context mit git_workspace.enabled=True → ctx.git_context ist nicht None, .git existiert.",
             "resolve_workspace_context mit git_workspace.enabled=False → ctx.git_context=None, kein .git.",
             "Bestehende Tests für resolve_workspace_context bleiben grün.",
-            "git_context.branch entspricht resolve_branch_name-Ergebnis."
+            "ctx.git_context.branch entspricht resolve_branch_name-Ergebnis."
           ],
-          "depends_on": ["WGW-001", "WGW-004"]
+          "depends_on": [
+            "WGW-001",
+            "WGW-004"
+          ]
         },
         {
           "id": "WGW-006",
@@ -221,32 +243,34 @@
               "id": "WGW-006-T01",
               "name": "test_branch_name_goal_strategy",
               "input": "goal_id='356af41f-local', strategy='goal'",
-              "expected": "'goal/356af41f' (oder ähnlich sanitized)"
+              "expected": "branch beginnt mit 'goal/', max 80 Zeichen"
             },
             {
               "id": "WGW-006-T02",
               "name": "test_branch_name_goal_worker_strategy",
               "input": "goal_id='356af41f-local', worker_key='alpha', strategy='goal_worker'",
-              "expected": "'goal/356af41f/alpha'"
+              "expected": "'goal/356af41f/alpha' (oder ähnlich sanitized)"
             },
             {
               "id": "WGW-006-T03",
               "name": "test_branch_name_max_length_respected",
-              "input": "sehr langer goal_id-String (> 60 Zeichen)",
-              "expected": "branch-Name <= 80 Zeichen"
+              "input": "goal_id='a' * 60, worker_key='b' * 60, strategy='goal_worker'",
+              "expected": "len(result) <= 80"
             },
             {
               "id": "WGW-006-T04",
               "name": "test_workspace_context_contains_git_context_when_enabled",
               "setup": "Task mit effective_config.git_workspace.enabled=True; mock subprocess",
-              "expected": "ctx.git_context is not None, ctx.git_context.branch korrekt"
+              "expected": "ctx.git_context is not None, ctx.git_context.branch korrekt gesetzt"
             }
           ],
-          "depends_on": ["WGW-004", "WGW-005"]
+          "depends_on": [
+            "WGW-004",
+            "WGW-005"
+          ]
         }
       ]
     },
-
     {
       "id": "track.WGW-tools",
       "title": "Git-Tools im richtigen Workspace-Verzeichnis",
@@ -255,28 +279,34 @@
       "tasks": [
         {
           "id": "WGW-007",
-          "title": "git_*-Tools auf Workspace-cwd umstellen",
+          "title": "git_*-Tools auf Workspace-cwd umstellen und CommitMessageValidator einbinden",
           "type": "fix",
           "status": "todo",
           "priority": "high",
           "files": [
             "agent/tools.py"
           ],
-          "description": "git_status, git_diff, git_log, git_commit in tools.py erhalten cwd aus dem aktuellen Workspace-Kontext (flask_g.workspace_dir) statt ohne cwd (Container-Root).",
+          "description": "git_status_tool (tools.py:1104), git_diff_tool (tools.py:1126), git_log_tool (tools.py:1151) und git_commit_tool (tools.py:1173) erhalten cwd aus dem aktuellen Workspace-Kontext (flask_g.workspace_dir). git_commit_tool zusätzlich mit CommitMessageValidator.validate().",
           "implementation_notes": [
-            "flask_g.workspace_dir wird in resolve_workspace_context gesetzt (bereits vorhanden).",
-            "Helper _git_cwd() -> str | None: liest flask_g.workspace_dir wenn verfügbar.",
-            "subprocess.run([...], cwd=_git_cwd(), ...) in allen git_*-Tools.",
-            "Wenn workspace_dir nicht gesetzt (kein Request-Context): cwd=None (Fallback wie bisher).",
-            "git_commit_tool zusätzlich: CommitMessageValidator.validate(message) aufrufen; bei Fehler → {'error': 'invalid_commit_message', 'details': errors} statt blind committen."
+            "Helper _git_cwd() -> str | None: liest g.get('workspace_dir') aus flask_g wenn verfügbar; None wenn kein Request-Context.",
+            "subprocess.run([...], cwd=_git_cwd(), ...) in git_status_tool, git_diff_tool, git_log_tool, git_commit_tool.",
+            "git_commit_tool: vor dem subprocess.run → CommitMessageValidator.validate(message) aufrufen; wenn nicht valid → {'error': 'invalid_commit_message', 'details': errors} ohne git-Aufruf.",
+            "CommitMessageValidator importieren aus agent.services.commit_message_validator (bereits implementiert).",
+            "Wenn workspace_dir nicht gesetzt (kein Request-Context): cwd=None (Fallback wie bisher, kein Breaking Change).",
+            "Kein --no-verify in irgendeinem git-Aufruf.",
+            "Der bestehende _check_git_access()-Check bleibt unverändert erhalten."
           ],
           "acceptance_criteria": [
-            "git_commit_tool mit flask_g.workspace_dir=/some/path → subprocess.run cwd='/some/path'.",
-            "git_commit_tool mit blocked message ('fixup planning') → error ohne git commit subprocess-Aufruf.",
-            "git_status_tool ohne Request-Context → cwd=None, verhält sich wie bisher.",
-            "Kein --no-verify in irgendwelchen git-Aufrufen."
+            "git_commit_tool mit flask_g.workspace_dir='/some/path' → subprocess.run cwd='/some/path'.",
+            "git_status_tool mit flask_g.workspace_dir gesetzt → subprocess.run cwd gesetzt.",
+            "git_diff_tool und git_log_tool analog.",
+            "git_commit_tool mit blocked message ('fixup planning') → {'error': 'invalid_commit_message'}, git commit subprocess NICHT aufgerufen.",
+            "git_commit_tool ohne Request-Context → cwd=None, verhält sich wie bisher.",
+            "'--no-verify' taucht in keinem git subprocess-Aufruf auf."
           ],
-          "depends_on": ["WGW-005"]
+          "depends_on": [
+            "WGW-005"
+          ]
         },
         {
           "id": "WGW-008",
@@ -289,19 +319,23 @@
           ],
           "description": "Neues Tool git_push das den aktuellen Branch auf das konfigurierte Remote pusht. Nur verfügbar wenn git_workspace.remote_url gesetzt und Action-Pack 'git' aktiv.",
           "implementation_notes": [
-            "git_push_tool() → liest remote_url aus flask_g.git_context (gesetzt in resolve_workspace_context).",
-            "Wenn remote_url=None → {'error': 'no_remote_configured'}.",
-            "Führt git push origin <branch> aus (kein --force).",
-            "Schreibt push-Ergebnis in audit log.",
-            "Tool ist im Action-Pack 'git' mit operation='push' abgesichert (erweitert _check_git_access)."
+            "git_push_tool() → liest remote_url aus g.get('git_context') (WorkspaceGitContext, gesetzt in resolve_workspace_context).",
+            "Wenn remote_url=None → {'error': 'no_remote_configured', 'hint': 'Set git_workspace.remote_url in goal config'}.",
+            "Führt git push origin <branch> aus mit cwd=_git_cwd() – kein --force.",
+            "Push-Ergebnis (returncode, stdout, stderr) in audit log via log_audit('git_push', ...).",
+            "Tool in Action-Pack 'git' mit operation='push' absichern (analog zu _check_git_access('write')).",
+            "Registrierung via @registry.register(...) analog zu den anderen git_*-Tools."
           ],
           "acceptance_criteria": [
-            "git_push_tool ohne remote_url → error 'no_remote_configured', kein subprocess.",
+            "git_push_tool ohne remote_url → {'error': 'no_remote_configured'}, kein subprocess.",
             "git_push_tool mit remote_url → git push origin <branch> mit korrektem cwd.",
-            "git push --force wird nie ausgeführt.",
-            "Push-Ergebnis (returncode, stdout, stderr) wird in audit log geschrieben."
+            "'--force' taucht in keinem git push-Aufruf auf.",
+            "Push-Ergebnis in audit log geschrieben.",
+            "Tool nur verfügbar wenn Action-Pack 'git' aktiv (analog zu git_commit_tool)."
           ],
-          "depends_on": ["WGW-007"]
+          "depends_on": [
+            "WGW-007"
+          ]
         },
         {
           "id": "WGW-009",
@@ -316,7 +350,7 @@
             {
               "id": "WGW-009-T01",
               "name": "test_git_commit_uses_workspace_cwd",
-              "setup": "flask_g.workspace_dir='/test/workspace'; mock subprocess",
+              "setup": "flask app context; g.workspace_dir='/test/workspace'; mock subprocess",
               "expected": "subprocess.run called with cwd='/test/workspace'"
             },
             {
@@ -334,27 +368,35 @@
             {
               "id": "WGW-009-T04",
               "name": "test_git_push_without_remote_returns_error",
-              "setup": "flask_g.git_context.remote_url=None",
+              "setup": "g.git_context mit remote_url=None",
               "expected": "{'error': 'no_remote_configured'}"
             },
             {
               "id": "WGW-009-T05",
               "name": "test_git_push_never_uses_force",
-              "setup": "flask_g.git_context.remote_url='http://hub/repo.git'",
-              "expected": "'--force' not in subprocess call args"
+              "setup": "g.git_context.remote_url='http://hub/repo.git'",
+              "expected": "'--force' not in any(call.args for call in subprocess_mock.call_args_list)"
             },
             {
               "id": "WGW-009-T06",
               "name": "test_git_tools_fallback_without_workspace_context",
-              "setup": "Kein Request-Context (no flask_g.workspace_dir)",
+              "setup": "Kein flask Request-Context (g nicht verfügbar)",
               "expected": "cwd=None, kein Fehler (Fallback-Verhalten)"
+            },
+            {
+              "id": "WGW-009-T07",
+              "name": "test_git_status_uses_workspace_cwd",
+              "setup": "g.workspace_dir='/test/workspace'",
+              "expected": "subprocess.run für git status mit cwd='/test/workspace'"
             }
           ],
-          "depends_on": ["WGW-007", "WGW-008"]
+          "depends_on": [
+            "WGW-007",
+            "WGW-008"
+          ]
         }
       ]
     },
-
     {
       "id": "track.WGW-hub",
       "title": "Hub Merge-Koordination",
@@ -363,7 +405,7 @@
       "tasks": [
         {
           "id": "WGW-010",
-          "title": "Hub verfolgt Worker-Branch-Status pro Goal",
+          "title": "GoalWorkspaceCoordinatorService: Branch-Status pro Goal verfolgen",
           "type": "feature",
           "status": "todo",
           "priority": "high",
@@ -375,45 +417,56 @@
             "GoalWorkspaceCoordinatorService.register_branch(goal_id, branch, worker_url) → Hub weiß dass Branch existiert.",
             "GoalWorkspaceCoordinatorService.mark_branch_ready(goal_id, branch) → Branch ist commit-complete, bereit zum Merge.",
             "GoalWorkspaceCoordinatorService.get_merge_candidates(goal_id) -> list[str] → Branches die bereit sind.",
-            "State in DB oder In-Memory (first pass: In-Memory mit Goal-keyed dict).",
-            "Kein direktes git auf Hub-Seite – Hub delegiert Merge-Task an Merge-Worker (WGW-011)."
+            "State in In-Memory mit Goal-keyed dict (first pass). DB-Persistenz als spätere Erweiterung.",
+            "Kein direktes git auf Hub-Seite – Hub delegiert Merge-Task an Merge-Worker (WGW-011).",
+            "register_branch ist idempotent."
           ],
           "acceptance_criteria": [
             "register_branch + mark_branch_ready → get_merge_candidates enthält branch.",
+            "register_branch ohne mark_branch_ready → nicht in candidates.",
             "Zwei verschiedene Goals → gegenseitig isoliert.",
             "get_merge_candidates für Goal ohne Branches → leere Liste.",
-            "register_branch ist idempotent."
+            "register_branch zweimal → idempotent, kein Duplikat."
           ],
-          "depends_on": ["WGW-005"]
+          "depends_on": [
+            "WGW-005"
+          ]
         },
         {
           "id": "WGW-011",
-          "title": "Hub erzeugt Merge-Task nach Goal-Completion",
+          "title": "Hub erzeugt git_merge-Task nach Goal-Completion",
           "type": "feature",
           "status": "todo",
           "priority": "high",
           "files": [
             "agent/services/goal_workspace_coordinator_service.py",
-            "agent/services/autopilot_service.py"
+            "agent/services/commit_followup_service.py",
+            "agent/runtime_policy.py"
           ],
-          "description": "Nach erfolgreicher Goal-Completion (alle Tasks done) erzeugt der Hub einen git_merge-Task der die Worker-Branches in main integriert.",
+          "description": "Nach erfolgreicher Goal-Completion (alle Tasks done) erzeugt der Hub einen git_merge-Task der die Worker-Branches in main integriert. git_merge muss zudem zu TASK_KINDS hinzugefügt werden.",
           "implementation_notes": [
-            "Neuer Task-Kind: 'git_merge'.",
-            "git_merge-Task erhält: source_branches, target_branch, merge_strategy aus Goal-Config.",
+            "Schritt 1: 'git_merge' in TASK_KINDS ergänzen (agent/runtime_policy.py:11). Aktuell: {'coding','analysis','doc','ops','research','git_commit'}.",
+            "Neuer Task-Kind: 'git_merge'. normalize_task_kind: 'git_merge' exakt matchen.",
+            "git_merge-Task enthält: source_branches, target_branch, merge_strategy aus Goal-Config.",
             "merge_strategy='squash': git merge --squash; finaler Commit mit Goal-Summary als Message.",
             "merge_strategy='merge': git merge --no-ff.",
             "merge_strategy='rebase': git rebase target source-branch.",
+            "Trigger: Goal-Completion-Handler (analog zu commit_followup_service.maybe_create_git_commit_followup) – prüft git_workspace.enabled=True.",
             "Merge-Task wird demselben Worker delegiert der den finalen Coding-Task ausgeführt hat (oder einem dedizierten Git-Worker).",
             "Bei Merge-Konflikt: Task schlägt fehl mit conflict_files-Liste; Hub markiert Goal als 'needs_intervention'."
           ],
           "acceptance_criteria": [
+            "'git_merge' in TASK_KINDS (agent/runtime_policy.py).",
+            "normalize_task_kind('git_merge', '') == 'git_merge'.",
             "Goal-Completion mit git_workspace.enabled=True → git_merge-Folgetask erstellt.",
             "git_merge-Task enthält source_branches, target_branch, merge_strategy.",
             "Merge-Konflikt → Task.status='failed', result enthält conflict_files.",
             "merge_strategy='squash' → finaler Commit enthält Goal-Summary im Body.",
             "Goal ohne git_workspace → kein git_merge-Task."
           ],
-          "depends_on": ["WGW-010"]
+          "depends_on": [
+            "WGW-010"
+          ]
         },
         {
           "id": "WGW-012",
@@ -443,20 +496,27 @@
             {
               "id": "WGW-012-T04",
               "name": "test_goal_completion_creates_merge_task",
-              "setup": "Mock hub task creation; Goal mit git_workspace.enabled=True; alle Tasks complete",
+              "setup": "Mock task_queue_service; Goal mit git_workspace.enabled=True; alle Tasks complete",
               "expected": "git_merge-Task mit korrekten source_branches erstellt"
             },
             {
               "id": "WGW-012-T05",
               "name": "test_goal_completion_without_git_workspace_no_merge_task",
               "expected": "Kein git_merge-Task wenn git_workspace.enabled=False"
+            },
+            {
+              "id": "WGW-012-T06",
+              "name": "test_git_merge_in_task_kinds",
+              "expected": "'git_merge' in TASK_KINDS, normalize_task_kind('git_merge','')=='git_merge'"
             }
           ],
-          "depends_on": ["WGW-010", "WGW-011"]
+          "depends_on": [
+            "WGW-010",
+            "WGW-011"
+          ]
         }
       ]
     },
-
     {
       "id": "track.WGW-context-stub",
       "title": "Context-Scope-Interface (Vorbereitung für todo.context-scoped-delivery)",
@@ -474,23 +534,26 @@
             "agent/services/workspace_context_policy.py",
             "agent/services/goal_config_resolver_service.py"
           ],
-          "description": "Definiert welche Code-Teile ein Worker erhält. Stub – Filterlogik kommt in todo.context-scoped-delivery.json.",
+          "description": "Definiert welche Code-Teile ein Worker erhält. Stub – die echte Filterlogik kommt in todo.context-scoped-delivery.json (CSD-001). Muss zusammen mit WGW-002 implementiert werden da beide ALLOWED_GOAL_CONFIG_KEYS erweitern.",
           "implementation_notes": [
             "WorkspaceContextPolicy(frozen dataclass): scope_mode: str ('full' | 'selective' | 'none'), allowed_paths: list[str] (glob patterns), codecompass_profile: str | None, max_files: int, sensitivity_ceiling: str.",
             "scope_mode='full': Worker erhält gesamtes Repo (default, Rückwärtskompatibilität).",
             "scope_mode='selective': nur Dateien die dem Profil und allowed_paths entsprechen.",
-            "scope_mode='none': Worker startet mit leerem Workspace (nur seine eigenen Outputs).",
-            "Neuer ALLOWED_GOAL_CONFIG_KEY: 'workspace_context_policy'.",
-            "WorkspaceContextPolicyResolver.resolve(goal_config, task_kind, agent_template) -> WorkspaceContextPolicy – stub returns full-scope immer."
+            "scope_mode='none': Worker startet mit leerem Workspace.",
+            "Neuer ALLOWED_GOAL_CONFIG_KEY: 'workspace_context_policy' (in goal_config_resolver_service.py:11 ergänzen – koordiniert mit WGW-002 für 'git_workspace').",
+            "WorkspaceContextPolicyResolver.resolve(goal_config, task_kind, agent_template) -> WorkspaceContextPolicy – Stub gibt immer scope_mode='full' zurück.",
+            "Echte Auswertungslogik kommt in CSD-001."
           ],
           "acceptance_criteria": [
             "'workspace_context_policy' in ALLOWED_GOAL_CONFIG_KEYS.",
             "WorkspaceContextPolicy importierbar aus agent.services.workspace_context_policy.",
             "WorkspaceContextPolicyResolver.resolve() gibt WorkspaceContextPolicy zurück.",
-            "scope_mode='full' ist default, keine andere Logik aktiv (Stub).",
-            "Schnittstelle für todo.context-scoped-delivery ist vollständig definiert."
+            "scope_mode='full' ist default (Stub – keine andere Logik aktiv).",
+            "Schnittstelle für todo.context-scoped-delivery CSD-001 vollständig definiert."
           ],
-          "depends_on": ["WGW-002"]
+          "depends_on": [
+            "WGW-002"
+          ]
         },
         {
           "id": "WGW-014",
@@ -501,63 +564,78 @@
           "files": [
             "agent/services/worker_workspace_service.py"
           ],
-          "description": "WorkerWorkspaceContext erhält context_policy: WorkspaceContextPolicy. resolve_workspace_context befüllt es via WorkspaceContextPolicyResolver.",
+          "description": "WorkerWorkspaceContext (frozen dataclass, worker_workspace_service.py:29) erhält context_policy: WorkspaceContextPolicy. resolve_workspace_context (Zeile 214) befüllt es via WorkspaceContextPolicyResolver.",
           "implementation_notes": [
-            "WorkerWorkspaceContext(frozen dataclass) bekommt neues Feld: context_policy: WorkspaceContextPolicy.",
-            "resolve_workspace_context ruft WorkspaceContextPolicyResolver.resolve() auf.",
+            "WorkerWorkspaceContext bekommt neues Feld: context_policy: WorkspaceContextPolicy.",
+            "resolve_workspace_context ruft WorkspaceContextPolicyResolver.resolve(goal_config, task_kind, agent_template) auf.",
             "Im Stub: immer scope_mode='full' → Verhalten unverändert.",
-            "task_scoped_execution_service kann später context_policy.scope_mode prüfen und selektiven Checkout triggern."
+            "task_scoped_execution_service kann später context_policy.scope_mode prüfen und selektiven Checkout triggern.",
+            "Frozen dataclass – Feld mit Default None erlaubt (Optional[WorkspaceContextPolicy] = None für rückwärtskompatibles Hinzufügen)."
           ],
           "acceptance_criteria": [
             "ctx.context_policy ist nicht None nach resolve_workspace_context.",
             "ctx.context_policy.scope_mode == 'full' (Stub-Default).",
-            "Bestehende Tests unverändert grün."
+            "Bestehende Tests unverändert grün.",
+            "task_scoped_execution_service kann ctx.context_policy.scope_mode lesen ohne Fehler."
           ],
-          "depends_on": ["WGW-013"]
+          "depends_on": [
+            "WGW-013"
+          ]
         }
       ]
     }
   ],
-
   "execution_plan": {
     "order": [
       "WGW-001 (workspace git init service)",
       "WGW-003 (test: init)",
-      "WGW-002 (goal-config key)",
+      "WGW-002 (goal-config key: git_workspace + workspace_context_policy parallel möglich)",
       "WGW-004 (branch naming)",
       "WGW-005 (workspace context integration)",
       "WGW-006 (test: branch + context)",
-      "WGW-007 (git tools cwd fix)",
+      "WGW-007 (git tools cwd fix + CommitMessageValidator)",
       "WGW-008 (git_push_tool)",
       "WGW-009 (test: tools)",
       "WGW-010 (hub branch tracking)",
-      "WGW-011 (merge task after goal completion)",
+      "WGW-011 (merge task + git_merge TASK_KIND)",
       "WGW-012 (test: coordinator + merge task)",
-      "WGW-013 (context policy stub)",
-      "WGW-014 (workspace context + policy)"
+      "WGW-013 (context policy stub + ALLOWED_GOAL_CONFIG_KEYS)",
+      "WGW-014 (workspace context + policy field)"
     ],
     "prerequisite_todos": [
-      "todo.commit-hygiene-integration.json (CHI-005 CommitMessageValidator – wird in WGW-007 genutzt)"
+      "todo.commit-hygiene-integration.json → VOLLSTÄNDIG ABGESCHLOSSEN (CHI-005 CommitMessageValidator, CHI-003 CommitScopeResolver – beide verfügbar für WGW-007/008)"
     ],
-    "minimal_viable_slice": "WGW-001, WGW-004, WGW-005, WGW-007 – lokale git-Repos in Workspaces, git_commit im richtigen Verzeichnis, Commit-Validation. Kein Hub-Merge, kein Push.",
-    "later_slice": "WGW-010, WGW-011 – Hub Merge-Koordination, erst sinnvoll wenn mindestens 2 parallele Workers ein Goal teilen."
+    "minimal_viable_slice": "WGW-001, WGW-002, WGW-004, WGW-005, WGW-007 – lokale git-Repos in Workspaces, git_commit im richtigen Verzeichnis mit Commit-Validation. Kein Hub-Merge, kein Push.",
+    "later_slice": "WGW-010, WGW-011 – Hub Merge-Koordination, erst sinnvoll wenn mindestens 2 parallele Workers ein Goal teilen.",
+    "parallel_opportunities": "WGW-002 (goal-config keys) kann parallel zu WGW-001 implementiert werden. WGW-013 (context policy stub) koordiniert mit WGW-002 für ALLOWED_GOAL_CONFIG_KEYS."
   },
-
   "tasks_status_summary": {
     "total": 14,
-    "by_status": { "done": 0, "partial": 0, "in_progress": 0, "todo": 14 },
-    "by_type": { "feature": 7, "test": 5, "fix": 1, "schema": 2 },
-    "progress_percent": 0.0
+    "by_status": {
+      "done": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "todo": 14
+    },
+    "by_type": {
+      "feature": 7,
+      "test": 4,
+      "fix": 1,
+      "schema": 2
+    },
+    "progress_percent": 0.0,
+    "code_analysis_date": "2026-05-18",
+    "analysis_findings": "Alle 14 Tasks unimplementiert. CHI-Prerequisite vollständig erfüllt. commit_followup_service.py referenziert git_workspace.auto_commit – Key fehlt noch in ALLOWED_GOAL_CONFIG_KEYS. git_merge fehlt in TASK_KINDS."
   },
-
   "definition_of_done": [
     "Workspace-Verzeichnisse enthalten .git wenn git_workspace.enabled=True.",
-    "git_commit_tool operiert im Workspace-Verzeichnis, nicht im Container-Root.",
-    "git_commit_tool lehnt blocked messages ab (via CommitMessageValidator).",
+    "git_commit_tool operiert im Workspace-Verzeichnis (cwd gesetzt), nicht im Container-Root.",
+    "git_commit_tool lehnt blocked messages ab (via CommitMessageValidator aus agent/services/commit_message_validator.py).",
     "git_push_tool führt niemals --force aus.",
-    "Hub erzeugt git_merge-Task nach Goal-Completion.",
+    "Hub erzeugt git_merge-Task nach Goal-Completion wenn git_workspace.enabled=True.",
+    "'git_merge' in TASK_KINDS (agent/runtime_policy.py).",
     "WorkspaceContextPolicy-Stub ist definiert und in WorkerWorkspaceContext eingebunden.",
     "Alle bestehenden Workspace-Tests bleiben grün.",
-    "Kein Breaking Change für Goals ohne git_workspace_enabled."
+    "Kein Breaking Change für Goals ohne git_workspace.enabled."
   ]
 }
