@@ -65,11 +65,16 @@ class AgentRegistryService:
         return normalized, None, 200
 
     def validate_agent_endpoint(self, *, url: str, http_client, timeout: float) -> tuple[bool, str | None]:
+        # Use ?basic=1 to skip DB queries and LLM probes — full health check can hang
+        # for 30+ seconds during startup (PostgreSQL connections + LLM probes).
+        probe_timeout = min(timeout, 10.0)
         try:
-            check_url = f"{url.rstrip('/')}/health"
-            response = http_client.get(check_url, timeout=timeout, return_response=True, silent=True)
-            if not response or response.status_code >= 500:
-                response = http_client.get(url, timeout=timeout, return_response=True, silent=True)
+            check_url = f"{url.rstrip('/')}/health?basic=1"
+            response = http_client.get(check_url, timeout=probe_timeout, return_response=True, silent=True)
+            if response and response.status_code < 500:
+                return True, None
+            # Fallback: try root URL
+            response = http_client.get(url, timeout=probe_timeout, return_response=True, silent=True)
             if not response:
                 return False, f"Agent URL {url} is unreachable"
         except Exception as exc:

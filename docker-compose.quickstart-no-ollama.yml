@@ -21,6 +21,14 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       REDIS_URL: ${REDIS_URL:-}
       DATABASE_URL: ${HUB_DATABASE_URL:-sqlite:////app/data/ananta-hub.db}
+    volumes:
+      - hub-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5000/health?basic=1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   ai-agent-alpha:
     image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
@@ -40,6 +48,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       REDIS_URL: ${REDIS_URL:-}
       DATABASE_URL: ${ALPHA_DATABASE_URL:-sqlite:////app/data/ananta-alpha.db}
+    volumes:
+      - alpha-data:/app/data
     depends_on:
       ai-agent-hub:
         condition: service_healthy
@@ -62,6 +72,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       REDIS_URL: ${REDIS_URL:-}
       DATABASE_URL: ${BETA_DATABASE_URL:-sqlite:////app/data/ananta-beta.db}
+    volumes:
+      - beta-data:/app/data
     depends_on:
       ai-agent-hub:
         condition: service_healthy
@@ -80,3 +92,8 @@ services:
     depends_on:
       ai-agent-hub:
         condition: service_healthy
+
+volumes:
+  hub-data:
+  alpha-data:
+  beta-data:
