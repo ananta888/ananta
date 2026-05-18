@@ -74,7 +74,7 @@ class AutopilotSupportService:
                 and (now - float(getattr(w, "last_seen", 0) or 0)) < 120
             )
         ]
-        if settings.role == "hub" and settings.hub_can_be_worker:
+        if settings.role == "hub":
             my_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
             has_local = any((getattr(w, "url", "") or "").rstrip("/") == my_url for w in workers)
             if not has_local:

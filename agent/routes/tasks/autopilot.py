@@ -512,6 +512,8 @@ class AutonomousLoopManager:
         cfg = self._resilience_config()
         last_exc: Exception | None = None
         resolved_token = token
+        hub_url = str(getattr(settings, "hub_url", "") or "").strip().rstrip("/")
+        is_step_endpoint = endpoint.startswith("/tasks/") and "/step/" in endpoint
         with contextlib.suppress(Exception):
             agent = get_repository_registry(self._app).agent_repo.get_by_url(worker_url)
             current_token = str(getattr(agent, "token", "") or "").strip()
@@ -533,6 +535,21 @@ class AutonomousLoopManager:
                             "at": time.time(),
                             "task_id": str((payload or {}).get("task_id") or ""),
                         }
+                    # Some worker runtimes intentionally do not expose step endpoints.
+                    # Fall back to local hub execution path for task step operations.
+                    if (
+                        http_status == 404
+                        and is_step_endpoint
+                        and hub_url
+                        and worker_url.rstrip("/") != hub_url
+                    ):
+                        res = _forward_to_worker(hub_url, endpoint, payload, token=None)
+                        if not (isinstance(res, dict) and str(res.get("status") or "").strip().lower() == "error"):
+                            self._record_worker_success(worker_url)
+                            normalized = unwrap_api_envelope(res)
+                            if not isinstance(normalized, dict) or not normalized:
+                                raise RuntimeError(f"worker_empty_payload:{hub_url}:{endpoint}")
+                            return normalized
                     # Retry tokenless only on explicit auth failures.
                     if resolved_token and http_status == 401:
                         res = _forward_to_worker(worker_url, endpoint, payload, token=None)
