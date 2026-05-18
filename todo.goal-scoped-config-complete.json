@@ -7,7 +7,6 @@
     "todo.goal_scoped_config.json (Phase 1 – vollständig abgeschlossen)",
     "todo.fixup-goal-scoped-config-autopilot-observability.json (Phase 2 – offen, gegen Commit 5cbd64a0)"
   ],
-
   "context": {
     "problem": [
       "Globale /config-Änderungen überschreiben sich bei parallelen Szenarien.",
@@ -25,7 +24,6 @@
     ],
     "baseline_commit": "5cbd64a0fb3e35af71ac94e84103662c79378bd3"
   },
-
   "principles": [
     {
       "id": "principle.deterministic-default",
@@ -48,7 +46,6 @@
       "text": "Laufzeit-generierte Projekt-Workspaces, Diagnostic-Reports und Acceptance-Outputs dürfen nicht in Source Control landen, es sei denn, sie sind explizite Fixtures."
     }
   ],
-
   "outcomes": [
     "Jedes Goal hat eine persistierte, immutable effective Config-Snapshot.",
     "Runtime-Entscheidungen lesen im Goal/Task-Kontext die Goal-Snapshot statt globaler Config.",
@@ -62,7 +59,6 @@
     "Planning-Recovery läuft autonom ohne UI-Polling-Abhängigkeit.",
     "Runtime-Artefakte sind aus Source Control bereinigt."
   ],
-
   "profiles": [
     {
       "id": "opencode_preconfigured",
@@ -118,7 +114,6 @@
       "note": "URL über LMSTUDIO_URL env-var oder config_overrides.llm_config.base_url überschreiben."
     }
   ],
-
   "runner_modes": {
     "legacy_global_config": {
       "status": "fallback_only",
@@ -149,7 +144,6 @@
       ]
     }
   },
-
   "acceptance_criteria": [
     {
       "id": "AC-01",
@@ -278,7 +272,6 @@
       "pass_condition": "CI-Modus überspringt live-provider-abhängige Checks sichtbar; deterministische Kriterien bleiben aktiv."
     }
   ],
-
   "risks": [
     {
       "id": "R-01",
@@ -331,9 +324,7 @@
       "mitigation": "FROM-Basis verifizieren; aus sauberem Environment importieren; Smoke-Test hinzufügen."
     }
   ],
-
   "tracks": [
-
     {
       "id": "track.P1-foundation-snapshot",
       "phase": "1",
@@ -348,7 +339,9 @@
           "owner": "hub",
           "type": "implementation",
           "status": "done",
-          "files": ["agent/services/goal_config_resolver_service.py"],
+          "files": [
+            "agent/services/goal_config_resolver_service.py"
+          ],
           "steps": [
             "Define normalized schema for effective goal config.",
             "Implement deep merge with allowlist and conflict policy.",
@@ -363,14 +356,19 @@
           "owner": "hub",
           "type": "implementation",
           "status": "done",
-          "files": ["agent/models.py", "agent/routes/tasks/goals.py"],
+          "files": [
+            "agent/models.py",
+            "agent/routes/tasks/goals.py"
+          ],
           "steps": [
             "Add optional execution_preferences.config_profile.",
             "Add optional execution_preferences.config_overrides.",
             "Validate schema and unknown keys handling.",
             "Keep old payloads fully valid."
           ],
-          "depends_on": ["T-001"]
+          "depends_on": [
+            "T-001"
+          ]
         },
         {
           "id": "T-003",
@@ -388,7 +386,9 @@
             "Store config_profile/config_overrides provenance summary.",
             "Prevent mutation of snapshot during runtime."
           ],
-          "depends_on": ["T-002"]
+          "depends_on": [
+            "T-002"
+          ]
         },
         {
           "id": "T-004",
@@ -405,11 +405,12 @@
             "Fallback to global config when goal snapshot absent.",
             "Add helper for scoped reads in routes/services."
           ],
-          "depends_on": ["T-003"]
+          "depends_on": [
+            "T-003"
+          ]
         }
       ]
     },
-
     {
       "id": "track.P1-runtime-and-api",
       "phase": "1",
@@ -432,7 +433,9 @@
             "Use goal-scoped effective config in planning provider/model decisions.",
             "Emit trace metadata goal_config_source=snapshot|global_fallback."
           ],
-          "depends_on": ["T-004"]
+          "depends_on": [
+            "T-004"
+          ]
         },
         {
           "id": "T-006",
@@ -450,7 +453,9 @@
             "Ensure hard-guard/backoff respect scoped config values.",
             "Keep behavior unchanged for non-goal/scoped-missing tasks."
           ],
-          "depends_on": ["T-004"]
+          "depends_on": [
+            "T-004"
+          ]
         },
         {
           "id": "T-007",
@@ -467,7 +472,9 @@
             "Preserve capability safety checks.",
             "Record selected worker/backend with config provenance."
           ],
-          "depends_on": ["T-006"]
+          "depends_on": [
+            "T-006"
+          ]
         },
         {
           "id": "T-007b",
@@ -484,7 +491,9 @@
             "Persist hash alongside snapshot in execution_preferences.",
             "Expose hash in goal read model and /goals/{id}/effective-config."
           ],
-          "depends_on": ["T-003"]
+          "depends_on": [
+            "T-003"
+          ]
         },
         {
           "id": "T-008",
@@ -501,7 +510,9 @@
             "Expose profile list/read endpoints.",
             "Validate profile existence on goal submit."
           ],
-          "depends_on": ["T-001"]
+          "depends_on": [
+            "T-001"
+          ]
         },
         {
           "id": "T-009",
@@ -509,16 +520,20 @@
           "owner": "hub",
           "type": "implementation",
           "status": "done",
-          "files": ["agent/routes/tasks/goals.py"],
+          "files": [
+            "agent/routes/tasks/goals.py"
+          ],
           "steps": [
             "Add GET /goals/{id}/effective-config.",
             "Return snapshot + redacted fields + provenance map + checksum."
           ],
-          "depends_on": ["T-003", "T-008"]
+          "depends_on": [
+            "T-003",
+            "T-008"
+          ]
         }
       ]
     },
-
     {
       "id": "track.P1-runner-migration-flags",
       "phase": "1",
@@ -533,7 +548,9 @@
           "owner": "tooling",
           "type": "implementation",
           "status": "done",
-          "files": ["scripts/first_goal_acceptance_runner.py"],
+          "files": [
+            "scripts/first_goal_acceptance_runner.py"
+          ],
           "steps": [
             "Add --config-mode legacy_global_config|goal_scoped.",
             "In goal_scoped mode, do not call POST /config per scenario.",
@@ -541,7 +558,13 @@
             "Keep legacy_global_config mode for older deployments.",
             "Add report fields: config_mode, config_profile, config_checksum, goal_config_source, effective_config_endpoint_status."
           ],
-          "depends_on": ["T-002", "T-003", "T-007b", "T-008", "T-009"]
+          "depends_on": [
+            "T-002",
+            "T-003",
+            "T-007b",
+            "T-008",
+            "T-009"
+          ]
         },
         {
           "id": "T-011",
@@ -549,14 +572,18 @@
           "owner": "tooling",
           "type": "implementation",
           "status": "done",
-          "files": ["scripts/first_goal_acceptance_runner.py"],
+          "files": [
+            "scripts/first_goal_acceptance_runner.py"
+          ],
           "steps": [
             "Add --parallel-goals-per-scenario N for additive stress run.",
             "For each scenario, submit N goals concurrently with same profile.",
             "Collect isolation evidence per goal.",
             "Reject parallel mode when --config-mode legacy_global_config is active unless --allow-unsafe-global-parallel is set."
           ],
-          "depends_on": ["T-010"]
+          "depends_on": [
+            "T-010"
+          ]
         },
         {
           "id": "T-012",
@@ -573,7 +600,9 @@
             "Optional backfill job/script for historical goals.",
             "Guardrails for partial/invalid snapshot."
           ],
-          "depends_on": ["T-004"]
+          "depends_on": [
+            "T-004"
+          ]
         },
         {
           "id": "T-012b",
@@ -591,11 +620,13 @@
             "Define staged rollout rules (observe -> opt-in -> default -> enforce).",
             "Document rollback procedure to legacy_global_config."
           ],
-          "depends_on": ["T-003", "T-012"]
+          "depends_on": [
+            "T-003",
+            "T-012"
+          ]
         }
       ]
     },
-
     {
       "id": "track.P1-tests-docs-e2e",
       "phase": "1",
@@ -610,13 +641,17 @@
           "owner": "qa",
           "type": "test",
           "status": "done",
-          "files": ["tests/test_goal_config_resolver_service.py"],
+          "files": [
+            "tests/test_goal_config_resolver_service.py"
+          ],
           "steps": [
             "Test merge precedence and deterministic output.",
             "Test unknown keys and validation behavior.",
             "Test redaction of secret fields."
           ],
-          "depends_on": ["T-001"]
+          "depends_on": [
+            "T-001"
+          ]
         },
         {
           "id": "T-014",
@@ -624,13 +659,19 @@
           "owner": "qa",
           "type": "test",
           "status": "done",
-          "files": ["tests/test_goal_scoped_config_api.py"],
+          "files": [
+            "tests/test_goal_scoped_config_api.py"
+          ],
           "steps": [
             "POST /goals with config_profile/config_overrides persists snapshot.",
             "GET /goals/{id}/effective-config returns redacted snapshot.",
             "Legacy payloads still pass."
           ],
-          "depends_on": ["T-002", "T-003", "T-009"]
+          "depends_on": [
+            "T-002",
+            "T-003",
+            "T-009"
+          ]
         },
         {
           "id": "T-015",
@@ -638,13 +679,19 @@
           "owner": "qa",
           "type": "test",
           "status": "done",
-          "files": ["tests/test_goal_scoped_config_runtime_integration.py"],
+          "files": [
+            "tests/test_goal_scoped_config_runtime_integration.py"
+          ],
           "steps": [
             "Planner/propose/execute use scoped provider/model.",
             "Global config mutation mid-run does not affect running goal.",
             "Trace fields prove snapshot source."
           ],
-          "depends_on": ["T-005", "T-006", "T-007"]
+          "depends_on": [
+            "T-005",
+            "T-006",
+            "T-007"
+          ]
         },
         {
           "id": "T-016",
@@ -652,13 +699,19 @@
           "owner": "qa",
           "type": "test",
           "status": "done",
-          "files": ["tests/e2e/test_parallel_scenario_goal_scoped_config.py"],
+          "files": [
+            "tests/e2e/test_parallel_scenario_goal_scoped_config.py"
+          ],
           "steps": [
             "Start 3 goals simultaneously with distinct profiles.",
             "Assert each goal keeps its own backend/provider/model.",
             "Assert no cross-goal config contamination."
           ],
-          "depends_on": ["T-010", "T-011", "T-015"]
+          "depends_on": [
+            "T-010",
+            "T-011",
+            "T-015"
+          ]
         },
         {
           "id": "T-017",
@@ -675,7 +728,9 @@
             "Document profile authoring and rollout.",
             "Document troubleshooting for isolation failures."
           ],
-          "depends_on": ["T-016"]
+          "depends_on": [
+            "T-016"
+          ]
         },
         {
           "id": "T-018",
@@ -683,14 +738,18 @@
           "owner": "docs",
           "type": "documentation",
           "status": "done",
-          "files": ["PROMPT_ANANTA_3ER_LAUF_NEW_SOFTWARE_PROJECT_OLLAMA.md"],
+          "files": [
+            "PROMPT_ANANTA_3ER_LAUF_NEW_SOFTWARE_PROJECT_OLLAMA.md"
+          ],
           "steps": [
             "Add explicit Zielmodus goal_scoped section.",
             "Mark global /config scenario patching as legacy fallback.",
             "Document expected runner flags for both modes.",
             "Document required evidence fields in acceptance report."
           ],
-          "depends_on": ["T-010"]
+          "depends_on": [
+            "T-010"
+          ]
         },
         {
           "id": "T-019",
@@ -698,18 +757,22 @@
           "owner": "qa",
           "type": "test",
           "status": "done",
-          "files": ["tests/test_first_goal_acceptance_runner_config_modes.py"],
+          "files": [
+            "tests/test_first_goal_acceptance_runner_config_modes.py"
+          ],
           "steps": [
             "Test that goal_scoped mode never calls set_config_patch.",
             "Test that legacy_global_config mode keeps old behavior.",
             "Test report serialization includes config_mode/config_profile/config_checksum.",
             "Test parallel mode refuses legacy_global_config by default."
           ],
-          "depends_on": ["T-010", "T-011"]
+          "depends_on": [
+            "T-010",
+            "T-011"
+          ]
         }
       ]
     },
-
     {
       "id": "track.P2-goal-scoped-config-hardening",
       "phase": "2",
@@ -776,7 +839,9 @@
             "pytest tests/test_goal_scoped_config_api.py",
             "Manual API call: POST /goals with invalid config_overrides returns 400."
           ],
-          "depends_on": ["GSC-001"]
+          "depends_on": [
+            "GSC-001"
+          ]
         },
         {
           "id": "GSC-003",
@@ -804,7 +869,9 @@
           "verification": [
             "pytest tests/test_goal_config_resolver_service.py -k checksum"
           ],
-          "depends_on": ["GSC-001"]
+          "depends_on": [
+            "GSC-001"
+          ]
         },
         {
           "id": "GSC-004",
@@ -833,7 +900,9 @@
             "pytest tests/test_goal_config_resolver_service.py -k redaction",
             "pytest tests/test_goal_scoped_config_api.py -k redaction"
           ],
-          "depends_on": ["GSC-001"]
+          "depends_on": [
+            "GSC-001"
+          ]
         },
         {
           "id": "GSC-005",
@@ -861,7 +930,9 @@
           "verification": [
             "pytest tests/test_goal_scoped_config_api.py"
           ],
-          "depends_on": ["GSC-004"]
+          "depends_on": [
+            "GSC-004"
+          ]
         },
         {
           "id": "GSC-006",
@@ -890,11 +961,13 @@
             "pytest tests/test_goal_scoped_config_services.py",
             "pytest tests/test_task_scoped_handler_propose.py"
           ],
-          "depends_on": ["GSC-002", "GSC-003"]
+          "depends_on": [
+            "GSC-002",
+            "GSC-003"
+          ]
         }
       ]
     },
-
     {
       "id": "track.P2-config-profiles-runtime-selection",
       "phase": "2",
@@ -930,7 +1003,9 @@
           "verification": [
             "pytest tests/test_goal_scoped_config_api.py -k profile"
           ],
-          "depends_on": ["GSC-001"]
+          "depends_on": [
+            "GSC-001"
+          ]
         },
         {
           "id": "CPR-002",
@@ -958,7 +1033,9 @@
             "pytest tests/test_provider_observer_service.py",
             "pytest tests/test_goal_scoped_config_api.py -k provider"
           ],
-          "depends_on": ["CPR-001"]
+          "depends_on": [
+            "CPR-001"
+          ]
         },
         {
           "id": "CPR-003",
@@ -990,7 +1067,9 @@
             "pytest tests/test_tool_calling_llm_strategy.py",
             "pytest tests/test_json_schema_llm_strategy.py"
           ],
-          "depends_on": ["GSC-006"]
+          "depends_on": [
+            "GSC-006"
+          ]
         },
         {
           "id": "CPR-004",
@@ -1024,7 +1103,6 @@
         }
       ]
     },
-
     {
       "id": "track.P2-llm-observability-metrics",
       "phase": "2",
@@ -1093,7 +1171,9 @@
             "pytest tests/test_autopilot_llm_profile_snapshot_fallback.py",
             "Run scripts/goal_latency_diagnostics.py against sample artifacts."
           ],
-          "depends_on": ["LLM-001"]
+          "depends_on": [
+            "LLM-001"
+          ]
         },
         {
           "id": "LLM-003",
@@ -1120,7 +1200,9 @@
           "verification": [
             "pytest tests/test_llm_usage.py -k usage"
           ],
-          "depends_on": ["LLM-001"]
+          "depends_on": [
+            "LLM-001"
+          ]
         },
         {
           "id": "LLM-004",
@@ -1148,11 +1230,12 @@
             "pytest tests/test_task_scoped_propose_llm_profile_persist.py",
             "pytest tests/test_autopilot_llm_profile_snapshot_fallback.py"
           ],
-          "depends_on": ["LLM-001"]
+          "depends_on": [
+            "LLM-001"
+          ]
         }
       ]
     },
-
     {
       "id": "track.P2-provider-observer",
       "phase": "2",
@@ -1214,7 +1297,9 @@
           "verification": [
             "pytest tests/test_provider_observer_service.py -k timeout"
           ],
-          "depends_on": ["PO-001"]
+          "depends_on": [
+            "PO-001"
+          ]
         },
         {
           "id": "PO-003",
@@ -1238,11 +1323,13 @@
           "verification": [
             "Run scripts/first_goal_acceptance_runner.py gegen local compose mit Ollama down und up."
           ],
-          "depends_on": ["PO-001", "PO-002"]
+          "depends_on": [
+            "PO-001",
+            "PO-002"
+          ]
         }
       ]
     },
-
     {
       "id": "track.P2-autopilot-planning-recovery",
       "phase": "2",
@@ -1303,7 +1390,9 @@
             "pytest tests/test_goals.py",
             "pytest tests/test_task_queue_service.py"
           ],
-          "depends_on": ["APR-001"]
+          "depends_on": [
+            "APR-001"
+          ]
         },
         {
           "id": "APR-003",
@@ -1330,7 +1419,9 @@
             "pytest tests/test_task_queue_service.py",
             "Run scripts/goal_latency_diagnostics.py on a stalled run."
           ],
-          "depends_on": ["APR-001"]
+          "depends_on": [
+            "APR-001"
+          ]
         },
         {
           "id": "APR-004",
@@ -1358,7 +1449,6 @@
         }
       ]
     },
-
     {
       "id": "track.P2-acceptance-runner-diagnostics",
       "phase": "2",
@@ -1418,7 +1508,9 @@
           "verification": [
             "Report generieren und gegen Schema validieren."
           ],
-          "depends_on": ["ARD-001"]
+          "depends_on": [
+            "ARD-001"
+          ]
         },
         {
           "id": "ARD-003",
@@ -1468,7 +1560,9 @@
           "verification": [
             "Diagnostics gegen mindestens einen erfolgreichen und einen gestallten Sample-Run ausführen."
           ],
-          "depends_on": ["LLM-002"]
+          "depends_on": [
+            "LLM-002"
+          ]
         },
         {
           "id": "ARD-005",
@@ -1493,11 +1587,13 @@
           "verification": [
             "Runner im CI-safe-Modus auf Maschine ohne Ollama ausführen."
           ],
-          "depends_on": ["ARD-001", "ARD-003"]
+          "depends_on": [
+            "ARD-001",
+            "ARD-003"
+          ]
         }
       ]
     },
-
     {
       "id": "track.P2-repo-cleanup-artifacts",
       "phase": "2",
@@ -1559,7 +1655,9 @@
             "git check-ignore project-workspaces/some-run/main.py",
             "git check-ignore artifacts/first_goal_acceptance_report_tmp.json"
           ],
-          "depends_on": ["RCA-001"]
+          "depends_on": [
+            "RCA-001"
+          ]
         },
         {
           "id": "RCA-003",
@@ -1585,11 +1683,13 @@
           "verification": [
             "pytest tests -k diagnostics"
           ],
-          "depends_on": ["RCA-001", "RCA-002"]
+          "depends_on": [
+            "RCA-001",
+            "RCA-002"
+          ]
         }
       ]
     },
-
     {
       "id": "track.P2-tests-regression-matrix",
       "phase": "2",
@@ -1620,7 +1720,11 @@
           "verification": [
             "pytest tests/test_goal_config_resolver_service.py"
           ],
-          "depends_on": ["GSC-001", "GSC-003", "GSC-004"]
+          "depends_on": [
+            "GSC-001",
+            "GSC-003",
+            "GSC-004"
+          ]
         },
         {
           "id": "TRM-002",
@@ -1645,7 +1749,11 @@
           "verification": [
             "pytest tests/test_goal_scoped_config_api.py tests/test_goals.py"
           ],
-          "depends_on": ["GSC-002", "GSC-005", "CPR-001"]
+          "depends_on": [
+            "GSC-002",
+            "GSC-005",
+            "CPR-001"
+          ]
         },
         {
           "id": "TRM-003",
@@ -1671,7 +1779,11 @@
           "verification": [
             "pytest tests/test_tool_calling_llm_strategy.py tests/test_json_schema_llm_strategy.py tests/test_flexible_llm_normalization_strategy_llm_profile.py"
           ],
-          "depends_on": ["LLM-001", "LLM-004", "CPR-003"]
+          "depends_on": [
+            "LLM-001",
+            "LLM-004",
+            "CPR-003"
+          ]
         },
         {
           "id": "TRM-004",
@@ -1697,11 +1809,13 @@
           "verification": [
             "pytest tests/test_first_goal_acceptance_runner.py"
           ],
-          "depends_on": ["ARD-001", "ARD-002"]
+          "depends_on": [
+            "ARD-001",
+            "ARD-002"
+          ]
         }
       ]
     },
-
     {
       "id": "track.P2-docs-ui-contract",
       "phase": "2",
@@ -1733,7 +1847,9 @@
           "verification": [
             "Manual doc review."
           ],
-          "depends_on": ["GSC-001"]
+          "depends_on": [
+            "GSC-001"
+          ]
         },
         {
           "id": "DUC-002",
@@ -1758,7 +1874,9 @@
           "verification": [
             "Manual compare docs vs actual endpoint response."
           ],
-          "depends_on": ["GSC-005"]
+          "depends_on": [
+            "GSC-005"
+          ]
         },
         {
           "id": "DUC-003",
@@ -1782,16 +1900,18 @@
           "verification": [
             "Manual doc review."
           ],
-          "depends_on": ["LLM-001", "LLM-002"]
+          "depends_on": [
+            "LLM-001",
+            "LLM-002"
+          ]
         }
       ]
     },
-
     {
       "id": "track.P2-commit-hygiene-process",
       "phase": "2",
       "title": "Phase 2 – Commit-Hygiene und Entwicklungsprozess verbessern",
-      "status": "open",
+      "status": "partial",
       "priority": "medium",
       "rationale": "Die letzten Commit-Runden enthielten 5 aufeinanderfolgende 'fixup planning'-Commits ohne Scope oder Inhaltsbeschreibung. Das erzeugt drei konkrete Probleme: (1) git bisect findet Regressionen nicht, weil Scope und Absicht fehlen; (2) Agents in späteren Sessions erkennen nicht, welcher Teil des Codes sich durch welches Commit geändert hat, und produzieren falsche Summaries; (3) Review und Audit-Trails verlieren ihre Aussagekraft wenn jeder Planning-Commit gleich heißt. Zusätzlich commiten Agents gelegentlich generierte Runtime-Artifacts (acceptance reports, project-workspaces) statt nur Source-Code. Diese Policy regelt beides.",
       "problem_examples": [
@@ -1807,7 +1927,7 @@
           "id": "CHP-001",
           "title": "Commit Message Konventionen dokumentieren und durchsetzen",
           "type": "docs",
-          "status": "todo",
+          "status": "done",
           "files": [
             "CONTRIBUTING.md",
             "AGENTS.md",
@@ -1851,7 +1971,9 @@
             "Manual doc review.",
             "npx commitlint --from HEAD~5 --to HEAD wenn .commitlintrc.json vorhanden."
           ],
-          "depends_on": []
+          "depends_on": [],
+          "completed_at": "2026-05-18",
+          "completion_notes": "CONTRIBUTING.md and AGENTS.md updated with commit conventions, type/scope table, good/bad examples, and squash policy."
         },
         {
           "id": "CHP-002",
@@ -1884,13 +2006,16 @@
             "git check-ignore project-workspaces/some-run/main.py",
             "git check-ignore artifacts/first_goal_acceptance_report_tmp.json"
           ],
-          "depends_on": ["RCA-001", "RCA-002"]
+          "depends_on": [
+            "RCA-001",
+            "RCA-002"
+          ]
         },
         {
           "id": "CHP-003",
           "title": "Squash-Strategie für fixup-Commits festlegen",
           "type": "process",
-          "status": "todo",
+          "status": "done",
           "files": [
             "CONTRIBUTING.md"
           ],
@@ -1913,7 +2038,11 @@
             "Manual doc review.",
             "git log --oneline main | grep -i fixup → kein Ergebnis nach Policy-Einführung."
           ],
-          "depends_on": ["CHP-001"]
+          "depends_on": [
+            "CHP-001"
+          ],
+          "completed_at": "2026-05-18",
+          "completion_notes": "Squash policy documented in CONTRIBUTING.md squash policy section; AGENTS.md instructs agents to squash before final commit."
         },
         {
           "id": "CHP-004",
@@ -1943,13 +2072,13 @@
             "echo 'fixup planning' | npx commitlint → non-zero exit.",
             "echo 'feat(goal-config): export ALLOWED_GOAL_CONFIG_KEYS' | npx commitlint → zero exit."
           ],
-          "depends_on": ["CHP-001"]
+          "depends_on": [
+            "CHP-001"
+          ]
         }
       ]
     }
-
   ],
-
   "execution_plan": {
     "phase_1_summary": "T-001..T-019 inkl. T-007b und T-012b – vollständig abgeschlossen (21 Tasks, 100% done).",
     "phase_2_order": [
@@ -1995,7 +2124,6 @@
       "CHP-004 (commitlint tooling, optional)"
     ]
   },
-
   "definition_of_done": [
     "Phase 1: Alle AC-01..AC-15 erfüllt – bereits erreicht.",
     "Phase 2: Alle AC-16..AC-21 erfüllt.",
@@ -2010,16 +2138,25 @@
     "Acceptance-Runner im CI-safe-Modus ohne Ollama/LM Studio lauffähig.",
     "Dokumentation für Betrieb, Debugging und Rollout vorhanden."
   ],
-
   "tasks_status_summary": {
     "phase_1": {
       "total": 21,
-      "by_status": { "done": 21, "in_progress": 0, "partial": 0, "todo": 0 },
+      "by_status": {
+        "done": 21,
+        "in_progress": 0,
+        "partial": 0,
+        "todo": 0
+      },
       "progress_percent": 100.0
     },
     "phase_2": {
       "total": 38,
-      "by_status": { "done": 0, "in_progress": 0, "partial": 0, "todo": 38 },
+      "by_status": {
+        "done": 0,
+        "in_progress": 0,
+        "partial": 0,
+        "todo": 38
+      },
       "progress_percent": 0.0,
       "by_priority": {
         "critical": 24,
@@ -2047,7 +2184,6 @@
       "progress_percent": 35.6
     }
   },
-
   "notes": [
     "Deterministisches Verhalten und explizite Diagnostics haben höhere Priorität als komfortabler stiller Fallback.",
     "Jeder Phase-2-Task kann in mehrere Commits aufgeteilt werden, aber Acceptance-Criteria müssen intact bleiben.",
