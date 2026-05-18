@@ -229,7 +229,61 @@
           ]
         }
       }
+    },
+    "ollama:ananta-smoke": {
+      "provider": "ollama",
+      "model": "ananta-smoke",
+      "overall": {
+        "total": 1,
+        "success": 1,
+        "failed": 0,
+        "quality_pass": 1,
+        "quality_fail": 0,
+        "latency_ms_total": 65,
+        "tokens_total": 90,
+        "cost_units_total": 0.0,
+        "last_seen": 1779105633,
+        "samples": [
+          {
+            "ts": 1779105633,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 65,
+            "tokens_total": 90,
+            "cost_units": 0.0,
+            "context": {
+              "task_kind": "analysis"
+            }
+          }
+        ]
+      },
+      "task_kinds": {
+        "analysis": {
+          "total": 1,
+          "success": 1,
+          "failed": 0,
+          "quality_pass": 1,
+          "quality_fail": 0,
+          "latency_ms_total": 65,
+          "tokens_total": 90,
+          "cost_units_total": 0.0,
+          "last_seen": 1779105633,
+          "samples": [
+            {
+              "ts": 1779105633,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 65,
+              "tokens_total": 90,
+              "cost_units": 0.0,
+              "context": {
+                "task_kind": "analysis"
+              }
+            }
+          ]
+        }
+      }
     }
   },
-  "updated_at": 1779027297
+  "updated_at": 1779105633
 }
