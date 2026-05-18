@@ -62,6 +62,19 @@ class PlanningPromptEvolverService:
         repos = get_repository_registry()
         base = repos.planning_prompt_version_repo.get_by_id(str(run.prompt_version_id or "")) if str(run.prompt_version_id or "") else None
         if base is None:
+            # Fallback: choose latest enabled prompt by mode + model family
+            mode = str(getattr(run, "mode", "") or "generic").strip() or "generic"
+            model_family = self._infer_model_family(getattr(run, "model_name", None))
+            enabled = repos.planning_prompt_version_repo.get_enabled()
+            for candidate in enabled:
+                if str(candidate.mode or "").strip() != mode:
+                    continue
+                target = str(candidate.target_model_family or "").strip().lower()
+                if model_family and target and target != model_family:
+                    continue
+                base = candidate
+                break
+        if base is None:
             return {"evolved": False, "reason": "base_prompt_missing"}
 
         output_format = str(
