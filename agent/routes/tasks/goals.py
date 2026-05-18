@@ -575,18 +575,41 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
     effective = dict(context.get("effective") or {})
     overrides = dict(getattr(goal_record, "workflow_overrides", None) or {})
 
-    result = auto_planner.plan_goal(
-        goal=str(context.get("goal_text") or goal_record.goal or ""),
-        context=context.get("mode_context"),
-        team_id=effective.get("routing", {}).get("team_id"),
-        create_tasks=bool(effective.get("planning", {}).get("create_tasks", True)),
-        use_template=bool(effective.get("planning", {}).get("use_template", True)),
-        use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
-        goal_id=goal_record.id,
-        goal_trace_id=goal_record.trace_id,
-        mode=goal_record.mode,
-        mode_data=goal_record.mode_data,
-    )
+    try:
+        result = auto_planner.plan_goal(
+            goal=str(context.get("goal_text") or goal_record.goal or ""),
+            context=context.get("mode_context"),
+            team_id=effective.get("routing", {}).get("team_id"),
+            create_tasks=bool(effective.get("planning", {}).get("create_tasks", True)),
+            use_template=bool(effective.get("planning", {}).get("use_template", True)),
+            use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
+            goal_id=goal_record.id,
+            goal_trace_id=goal_record.trace_id,
+            mode=goal_record.mode,
+            mode_data=goal_record.mode_data,
+        )
+    except Exception as exc:
+        current_app.logger.exception("background_goal_planning_failed goal_id=%s", goal_record.id)
+        _services().goal_lifecycle_service.transition_goal(
+            goal_record,
+            target_status="failed",
+            reason=f"planning_background_exception:{type(exc).__name__}",
+            readiness=readiness,
+        )
+        record_product_event(
+            "goal_planning_failed",
+            actor="auto_planner",
+            details={
+                "reason": f"planning_background_exception:{type(exc).__name__}",
+                "error": str(exc)[:240],
+                "source": goal_record.source,
+                "mode": goal_record.mode,
+            },
+            goal_id=goal_record.id,
+            trace_id=goal_record.trace_id,
+            plan_id=None,
+        )
+        return
 
     current_app.logger.debug(f"plan result: {result}")
 

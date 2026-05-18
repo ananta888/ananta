@@ -543,6 +543,7 @@ class TaskScopedExecutionService:
         policy = get_propose_policy_service().get_effective_policy(
             task_kind=task_kind,
             task_override=task_override or None,
+            project_config=cfg,
             admin_overrides=propose_policy_override
         )
 

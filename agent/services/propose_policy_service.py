@@ -66,6 +66,12 @@ class ProposePolicyService:
             merged = self._merge(merged, mode_overrides)
             merged["effective_strategy_mode"] = str(mode_id)
 
+        merged = self._apply_provider_compatibility(
+            merged=merged,
+            project_config=project_config,
+            task_override=task_override,
+        )
+
         policy = build_policy_from_dict(merged, admin_overrides=admin_overrides)
         setattr(policy, "effective_strategy_mode", str(merged.get("effective_strategy_mode") or "").strip() or None)
         return policy
@@ -102,6 +108,36 @@ class ProposePolicyService:
         for k, v in override.items():
             if v is not None:
                 result[k] = v
+        return result
+
+    @staticmethod
+    def _apply_provider_compatibility(
+        merged: dict[str, Any],
+        *,
+        project_config: dict[str, Any] | None,
+        task_override: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        result = dict(merged or {})
+        override_provider = str((task_override or {}).get("provider") or "").strip().lower()
+        provider = override_provider
+        if not provider:
+            provider = str((((project_config or {}).get("llm_config") or {}).get("provider") or "")).strip().lower()
+        if provider != "lmstudio":
+            return result
+
+        # LMStudio compatibility: avoid strict OpenAI JSON-schema/tool-call contracts first,
+        # because many local runtimes reject these response_format/tool constraints.
+        order = [str(s).strip() for s in list(result.get("strategy_order") or []) if str(s).strip()]
+        preferred = ["flexible_llm_normalization", "tool_calling_llm", "worker_strategy", "advisory_proposal", "human_review"]
+        normalized: list[str] = []
+        for sid in preferred + order:
+            if sid not in normalized:
+                normalized.append(sid)
+        # Keep json_schema_llm out for LMStudio unless explicitly re-enabled later.
+        normalized = [sid for sid in normalized if sid != "json_schema_llm"]
+        result["strategy_order"] = normalized
+        result["allow_json_schema_fallback"] = False
+        result["allow_flexible_normalization"] = True
         return result
 
 

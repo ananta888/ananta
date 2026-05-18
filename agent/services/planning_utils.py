@@ -319,6 +319,56 @@ def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medi
         except Exception:
             parsed = None
 
+    if parsed is None:
+        # Truncation-safe fallback: extract JSON objects from partial arrays/text.
+        objects: list[dict[str, Any]] = []
+        depth = 0
+        start = -1
+        in_string = False
+        escaped = False
+        for idx, ch in enumerate(json_payload):
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == "\"":
+                    in_string = False
+                continue
+            if ch == "\"":
+                in_string = True
+                continue
+            if ch == "{":
+                if depth == 0:
+                    start = idx
+                depth += 1
+            elif ch == "}":
+                if depth > 0:
+                    depth -= 1
+                    if depth == 0 and start >= 0:
+                        candidate = json_payload[start : idx + 1]
+                        try:
+                            obj = json.loads(candidate)
+                            if isinstance(obj, dict):
+                                objects.append(obj)
+                        except Exception:
+                            pass
+                        start = -1
+        if objects:
+            items = extract_task_items_from_payload(objects)
+            normalized = [normalize_subtask(item, default_priority=default_priority) for item in items]
+            subtasks = [item for item in normalized if item]
+            if subtasks:
+                return subtasks, {
+                    "parse_mode": "partial_json_objects",
+                    "confidence": "low",
+                    "warnings": ["truncated_json_recovered"],
+                    "output_shape": shape.get("primary_shape"),
+                    "detected_shapes": list(shape.get("detected_shapes") or []),
+                    "format_error_codes": analyze_format_errors(response, parse_result={}),
+                    "parser_trace": list(chain_result.get("trace") or []),
+                }
+
     if parsed is not None:
         if isinstance(parsed, dict):
             if isinstance(parsed.get("implementation_roadmap"), dict):
