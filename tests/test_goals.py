@@ -795,3 +795,57 @@ def test_recover_stalled_planning_goal_skips_non_planning_status(app):
         prefs = dict(result.execution_preferences or {})
         # Should not touch planning_recovery for non-planning goals
         assert prefs.get("planning_recovery") is None
+
+
+def test_recover_stalled_planning_goal_no_tasks_first_attempt_stays_planning(app, monkeypatch):
+    from agent.services.lifecycle_service import get_goal_lifecycle_service
+
+    with app.app_context():
+        from agent.db_models import GoalDB
+        from agent.repository import goal_repo
+        goal = GoalDB(
+            goal="Recoverable stalled goal",
+            status="planning",
+            summary="test",
+            updated_at=0.0,
+        )
+        goal = goal_repo.save(goal)
+        from agent.routes.tasks import auto_planner as ap_module
+        monkeypatch.setattr(
+            ap_module.auto_planner,
+            "plan_goal",
+            lambda **kwargs: {"created_task_ids": [], "subtasks": []},
+        )
+        svc = get_goal_lifecycle_service()
+        result = svc.recover_stalled_planning_goal(goal)
+        assert str(result.status) == "planning"
+        prefs = dict(result.execution_preferences or {})
+        assert str(prefs.get("last_status_reason") or "") == "planning_recovery_retry_scheduled"
+
+
+def test_recover_stalled_planning_goal_no_tasks_second_attempt_fails(app, monkeypatch):
+    from agent.services.lifecycle_service import get_goal_lifecycle_service
+
+    with app.app_context():
+        from agent.db_models import GoalDB
+        from agent.repository import goal_repo
+        now = time.time()
+        goal = GoalDB(
+            goal="Recoverable stalled goal second attempt",
+            status="planning",
+            summary="test",
+            updated_at=0.0,
+            execution_preferences={"planning_recovery": {"attempts": 1, "last_attempt_at": now - 120}},
+        )
+        goal = goal_repo.save(goal)
+        from agent.routes.tasks import auto_planner as ap_module
+        monkeypatch.setattr(
+            ap_module.auto_planner,
+            "plan_goal",
+            lambda **kwargs: {"created_task_ids": [], "subtasks": []},
+        )
+        svc = get_goal_lifecycle_service()
+        result = svc.recover_stalled_planning_goal(goal)
+        assert str(result.status) == "failed"
+        prefs = dict(result.execution_preferences or {})
+        assert str(prefs.get("last_status_reason") or "") == "planning_recovery_no_tasks_created"

@@ -290,14 +290,18 @@ class GoalLifecycleService:
                 execution_preferences["planning_recovery"] = recovery
                 goal.execution_preferences = execution_preferences
                 goal = goal_repo.save(goal)
-                return self.transition_goal(goal, target_status="failed", reason=str(result.get("error") or "planning_failed"))
+                if int(recovery.get("attempts") or 0) >= 2:
+                    return self.transition_goal(goal, target_status="failed", reason=str(result.get("error") or "planning_failed"))
+                return self.transition_goal(goal, target_status="planning", reason="planning_recovery_retry_scheduled")
             created_task_ids = list(result.get("created_task_ids") or [])
             if not created_task_ids:
                 recovery.update({"last_error": "planning_recovery_no_tasks_created"})
                 execution_preferences["planning_recovery"] = recovery
                 goal.execution_preferences = execution_preferences
                 goal = goal_repo.save(goal)
-                return self.transition_goal(goal, target_status="failed", reason="planning_recovery_no_tasks_created")
+                if int(recovery.get("attempts") or 0) >= 2:
+                    return self.transition_goal(goal, target_status="failed", reason="planning_recovery_no_tasks_created")
+                return self.transition_goal(goal, target_status="planning", reason="planning_recovery_retry_scheduled")
             return self.transition_goal(goal, target_status="planned", reason="planning_recovery_completed")
         except Exception as exc:
             recovery.update({"last_error": str(exc)[:240]})

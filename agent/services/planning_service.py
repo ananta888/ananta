@@ -665,7 +665,7 @@ class PlanningService:
             else:
                 planner_selection["selection_reason"] = "no_planning_agent_available_fallback_to_hub"
 
-        if limit_exceeded:
+        if limit_exceeded and str(limit_exceeded) != "max_plan_nodes":
             planner._stats["errors"] += 1
             return {
                 "subtasks": [],
@@ -680,6 +680,12 @@ class PlanningService:
                 "planning_policy": planning_policy,
                 "planner_selection": planner_selection,
             }
+        if limit_exceeded and str(limit_exceeded) == "max_plan_nodes":
+            logging.warning(
+                "plan_soft_truncated:max_plan_nodes observed=%s allowed=%s",
+                limits.get("observed_plan_nodes"),
+                limits.get("max_plan_nodes"),
+            )
 
         if not subtasks:
             return {

@@ -71,7 +71,7 @@ from agent.services.task_runtime_service import (
 )
 from agent.services.task_template_resolution import resolve_task_role_template
 from agent.services.verification_service import get_verification_service
-from agent.llm_integration import build_llm_call_profile_entry
+from agent.llm_integration import build_llm_call_profile_entry, normalize_llm_call_profile_entry
 from agent.services.worker_workspace_service import get_worker_workspace_service
 from agent.utils import _extract_reason, _log_terminal_entry
 
@@ -589,7 +589,7 @@ class TaskScopedExecutionService:
         real_llm_call_profile = list((result.metadata or {}).get("llm_call_profile") or [])
         if not real_llm_call_profile:
             real_llm_call_profile = list(proposal_meta.get("llm_call_profile") or [])
-        llm_call_profile = [entry for entry in real_llm_call_profile if isinstance(entry, dict)]
+        llm_call_profile = [normalize_llm_call_profile_entry(entry) for entry in real_llm_call_profile if isinstance(entry, dict)]
         if not llm_call_profile and self._allow_synthetic_llm_profile_fallback():
             # Bridge fallback: preserves correlation for diagnostics when strategy does not expose real call metrics yet.
             llm_call_profile = [
@@ -2325,6 +2325,20 @@ class TaskScopedExecutionService:
         if not has_proposal_payload:
             return
         cli_result = response.get("cli_result") if isinstance(response.get("cli_result"), dict) else None
+        if not isinstance(cli_result, dict):
+            response_meta = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
+            meta_profile = [
+                normalize_llm_call_profile_entry(entry)
+                for entry in list(response_meta.get("llm_call_profile") or [])
+                if isinstance(entry, dict)
+            ]
+            if meta_profile:
+                cli_result = {
+                    "returncode": 0,
+                    "latency_ms": None,
+                    "output_source": str(response.get("backend") or "orchestrator").strip() or "orchestrator",
+                    "llm_call_profile": meta_profile,
+                }
         if cli_result is None:
             snapshot = get_core_services().autopilot_decision_service.build_proposal_snapshot(response)
             snapshot_cli = snapshot.get("cli_result") if isinstance(snapshot.get("cli_result"), dict) else None

@@ -1,2 +1,2 @@
-FROM ananta-default
+FROM ananta-smoke
 PARAMETER num_ctx 4096
