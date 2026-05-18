@@ -722,12 +722,12 @@
     {
       "id": "PLAN-HARD-001",
       "implementation_status": "partial",
-      "acceptance_status": "not_fully_met",
-      "summary": "Fallback-Provenance (`fallback_origin`) existiert, aber es fehlen zentrale Felder wie `planning_origin`, `repair_strategy_used`, `repair_attempt_count`, `parse_mode` im persistierten Plan.",
+      "acceptance_status": "partially_met",
+      "summary": "Planning-Provenance wurde durch Strategy->Service->API und PlanDB.rationale durchgezogen (origin/repair_count/strategy). parse_mode bleibt noch offen.",
       "evidence": [
-        "agent/services/planning_service.py:261",
-        "agent/services/planning_service.py:462",
-        "agent/services/planning_strategies.py:430"
+        "agent/services/planning_strategies.py:22",
+        "agent/services/planning_service.py:334",
+        "agent/services/planning_service.py:457"
       ]
     },
     {
@@ -835,11 +835,13 @@
     },
     {
       "id": "SEC-HARD-001",
-      "implementation_status": "todo",
-      "acceptance_status": "not_met",
-      "summary": "Aktuell liegt ein Klartext-Passwort-Fallback in `scripts/dyndns.sh`; Secret-Hardening ist kritisch offen.",
+      "implementation_status": "partial",
+      "acceptance_status": "partially_met",
+      "summary": "Klartext-Secret aus Script entfernt, fail-closed Verhalten und conf.example eingefuehrt, plus einfacher CI-Pattern-Scan. Externe Secret-Rotation/History-Cleanup bleibt operativ offen.",
       "evidence": [
-        "scripts/dyndns.sh:7"
+        "scripts/dyndns.sh:1",
+        "scripts/dyndns.conf.example:1",
+        ".github/workflows/lint.yml:36"
       ]
     }
   ],
@@ -847,14 +849,14 @@
     "total_task_summaries": 12,
     "implementation_status_counts": {
       "done": 2,
-      "partial": 8,
-      "todo": 2
+      "partial": 9,
+      "todo": 1
     },
     "acceptance_status_counts": {
       "largely_met": 2,
-      "not_fully_met": 3,
-      "not_met": 3,
-      "partially_met": 4
+      "not_fully_met": 2,
+      "not_met": 2,
+      "partially_met": 6
     }
   }
 }

@@ -1,0 +1,10 @@
+# Copy to scripts/dyndns.conf and set real values locally.
+# This file must never contain real credentials.
+
+# Option A: provide fully formed URL
+# DYNDNS_URL="https://example.org/dynDns/update?login=<login>&password=<password>"
+
+# Option B: provide parts
+# DYNDNS_BASE_URL="https://example.org/dynDns/update"
+# DYNDNS_LOGIN="<login>"
+# DYNDNS_PASSWORD="<password>"

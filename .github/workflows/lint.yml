@@ -32,3 +32,12 @@ jobs:
             --from ${{ github.event.pull_request.base.sha || 'HEAD~1' }} \
             --to HEAD \
             --verbose
+
+      - name: Secret scan (basic patterns)
+        run: |
+          if rg -n --hidden --glob '!.git' --glob '!scripts/dyndns.conf' \
+            '(password=|token=|api[_-]?key=|secret=|authorization: ?bearer )' \
+            scripts agent config docs; then
+            echo "Potential plaintext secret pattern detected."
+            exit 1
+          fi
