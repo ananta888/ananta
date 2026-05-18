@@ -1,0 +1,721 @@
+{
+  "schema": "ananta_todo_plan_v2",
+  "id": "todo.planning-mechanism-hardening",
+  "title": "Planning Mechanism Hardening, Context Delivery, Commit Hygiene and Runtime Enforcement",
+  "status": "draft_from_commit_analysis",
+  "priority": "P0",
+  "risk": "critical",
+  "language": "de",
+  "created_from_analysis": {
+    "repository": "ananta888/ananta",
+    "branch": "main",
+    "analyzed_range": {
+      "base": "5cbd64a0fb3e35af71ac94e84103662c79378bd3",
+      "head": "e2f4e7920ac7acc4f609d3814436481cd40a6f98",
+      "commit_count": 25
+    },
+    "main_topics": [
+      "planning strategies",
+      "goal-scoped config",
+      "llm planning repair",
+      "new software project execution planning",
+      "parallel plan materialization",
+      "context-scoped workspace delivery",
+      "workspace git coordination",
+      "commit metadata and commit message enforcement",
+      "worker parallelism config",
+      "security cleanup"
+    ],
+    "summary": "Die letzten Planning-Commits verbessern den Mechanismus stark, fuehren aber mehrere neue Policy-, Fallback- und Runtime-Pfade ein. Diese TODO haertet die Semantik, macht Reparaturpfade auditierbar, trennt deterministische und LLM-basierte Entscheidungen klarer und prueft, ob neue Config-Werte wirklich zur Laufzeit enforced werden."
+  },
+  "core_principles": [
+    {
+      "id": "PRINCIPLE-001",
+      "title": "Deterministic-first planning",
+      "description": "Templates, explizite Policies und validierte Schemas haben Vorrang vor LLM-generierten oder reparierten Ergebnissen. LLM-Fallbacks muessen sichtbar, konfigurierbar und auditierbar sein."
+    },
+    {
+      "id": "PRINCIPLE-002",
+      "title": "No hidden heuristic defaults",
+      "description": "Heuristische Textklassifikation darf nicht stillschweigend policy-relevante Entscheidungen treffen. Wenn Heuristik verwendet wird, muss sie als advisory oder repair markiert werden."
+    },
+    {
+      "id": "PRINCIPLE-003",
+      "title": "Fail closed for sensitive context",
+      "description": "Cloud- oder nicht eindeutig lokale Worker/LLMs duerfen nie automatisch den vollen Repository-Kontext oder sensitive Dateien erhalten. Credentials und Secrets sind immer blockiert."
+    },
+    {
+      "id": "PRINCIPLE-004",
+      "title": "Configured means enforced",
+      "description": "Neue Config-Defaults sind nur wertvoll, wenn es Runtime-Code, Tests, Statusausgabe und Fail-Closed-Verhalten gibt. Reine Config ohne Enforcement gilt als unvollstaendig."
+    },
+    {
+      "id": "PRINCIPLE-005",
+      "title": "Artifact-first completion",
+      "description": "Task-Erfolg soll nicht primaer aus LLM-Text abgeleitet werden, sondern aus Workspace-Diff, Artefakten, Manifesten, Tests und Verification-Gates."
+    }
+  ],
+  "affected_files_observed": [
+    "agent/services/planning_service.py",
+    "agent/services/planning_strategies.py",
+    "agent/services/planning_utils.py",
+    "agent/services/context_delivery_service.py",
+    "agent/services/context_file_selector.py",
+    "agent/services/workspace_context_policy.py",
+    "agent/services/worker_workspace_service.py",
+    "agent/services/workspace_git_service.py",
+    "agent/services/commit_message_validator.py",
+    "agent/services/commit_scope_resolver.py",
+    "agent/config_defaults.py",
+    "agent/routes/tasks/auto_planner.py",
+    "agent/routes/tasks/goals.py",
+    "agent/routes/tasks/autopilot_tick_engine.py",
+    "agent/routes/tasks/autopilot_dispatch_policy.py",
+    "agent/llm_integration.py",
+    "scripts/run_3er_lauf_lokal.sh",
+    ".commitlintrc.json",
+    ".husky/commit-msg",
+    ".github/workflows/lint.yml"
+  ],
+  "risk_register": [
+    {
+      "id": "RISK-001",
+      "title": "LLM repair hides invalid planning output",
+      "severity": "high",
+      "description": "Unstrukturierte LLM-Ausgaben koennen durch Parser- und Repair-Fallbacks scheinbar erfolgreich werden, ohne dass spaeter sichtbar ist, wie stark repariert wurde.",
+      "mitigation": "planning_origin, parse_mode, repair_strategy_used und validation_warnings persistieren und in API/Logs anzeigen."
+    },
+    {
+      "id": "RISK-002",
+      "title": "Parallel sentinel is implicit string magic",
+      "severity": "medium",
+      "description": "Der Sentinel __parallel__ in depends_on ist technisch fragil und semantisch unsauber.",
+      "mitigation": "Explizites Feld dependency_mode einfuehren und __parallel__ nur als Legacy-Import behandeln."
+    },
+    {
+      "id": "RISK-003",
+      "title": "Context policy may be too coarse for cloud LLMs",
+      "severity": "critical",
+      "description": "provider_to_llm_scope basiert derzeit auf Providername/Base-URL und ist fuer harte Sicherheitsentscheidungen zu grob.",
+      "mitigation": "Explizite ModelPolicy/ContextAccessPolicy fuer Worker/Agent/Provider einfuehren und sensitive Klassen fail-closed behandeln."
+    },
+    {
+      "id": "RISK-004",
+      "title": "Worker parallelism config may not be runtime enforced",
+      "severity": "high",
+      "description": "worker_parallelism ist umfangreich in config_defaults vorhanden, aber muss gegen echte Slot-/Queue-/Lease-Runtime validiert werden.",
+      "mitigation": "Scheduler-/Lease-Tests und Statusendpunkte ergaenzen."
+    },
+    {
+      "id": "RISK-005",
+      "title": "Potential committed DynDNS secret",
+      "severity": "critical",
+      "description": "Ein DynDNS-Script enthielt einen Fallback mit Zugangsdaten in einer URL. Keine Secrets duerfen im Repository oder in Git-History verbleiben.",
+      "mitigation": "Secret rotieren, Script bereinigen, Secret-Scanning und CI-Blocker aktivieren."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PLAN-HARD-001",
+      "title": "Planning origin and repair provenance persistieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Jeder Plan muss eindeutig zeigen, ob er aus Template, Hub-Copilot, LLM, LLM-Repair oder Non-LLM-Fallback stammt.",
+      "depends_on": [],
+      "files": [
+        "agent/services/planning_strategies.py",
+        "agent/services/planning_service.py",
+        "agent/db_models.py",
+        "tests/test_planning_strategies.py",
+        "tests/test_commit_planner_integration.py"
+      ],
+      "changes": [
+        "PlanningStrategyResult um Felder planning_origin, repair_strategy_used, repair_attempt_count, parse_mode und warnings erweitern.",
+        "TemplatePlanningStrategy setzt planning_origin=template.",
+        "HubCopilotPlanningStrategy setzt planning_origin=hub_copilot.",
+        "LLMPlanningStrategy setzt planning_origin=llm oder llm_repair, wenn ein Repair-Pfad erfolgreich war.",
+        "Non-LLM-Minimalfallback setzt planning_origin=non_llm_minimal_fallback.",
+        "PlanDB.rationale speichert diese Provenance dauerhaft.",
+        "API-Antwort von plan_goal gibt die Provenance zurueck."
+      ],
+      "acceptance_criteria": [
+        "Ein Template-Plan enthaelt planning_origin=template.",
+        "Ein unveraenderter LLM-Plan enthaelt planning_origin=llm und repair_attempt_count=0.",
+        "Ein reparierter LLM-Plan enthaelt planning_origin=llm_repair und die verwendete repair_strategy_used.",
+        "Ein Non-LLM-Fallback enthaelt planning_origin=non_llm_minimal_fallback.",
+        "PlanDB.rationale enthaelt planning_origin, parse_mode und repair_strategy_used, sofern vorhanden.",
+        "Bestehende Tests fuer Planning laufen weiter.",
+        "Neue Tests pruefen mindestens Template, LLM, LLM-Repair und Fallback."
+      ],
+      "tests": [
+        "tests/test_planning_strategies.py::test_planning_origin_template",
+        "tests/test_planning_strategies.py::test_planning_origin_llm_repair",
+        "tests/test_commit_planner_integration.py::test_plan_rationale_contains_provenance"
+      ]
+    },
+    {
+      "id": "PLAN-HARD-002",
+      "title": "Parse mode and parser confidence sichtbar machen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Der robuste Parser ist sinnvoll, darf aber nicht verstecken, ob striktes JSON oder ein toleranter Fallback verwendet wurde.",
+      "depends_on": [
+        "PLAN-HARD-001"
+      ],
+      "files": [
+        "agent/services/planning_utils.py",
+        "agent/services/planning_strategies.py",
+        "tests/test_planning_utils.py"
+      ],
+      "changes": [
+        "parse_subtasks_from_llm_response optional mit Diagnoseobjekt erweitern oder neue Funktion parse_subtasks_with_diagnostics einfuehren.",
+        "Parse modes definieren: strict_json, json_extracted, python_literal, roadmap_extracted, nested_extracted, bullet_fallback, parse_failed.",
+        "Parser-Diagnose darf bestehende Aufrufer nicht brechen.",
+        "Suspicious text drops als warnings ausgeben.",
+        "Bullet-Fallback als low_confidence markieren."
+      ],
+      "acceptance_criteria": [
+        "Strict JSON Array liefert parse_mode=strict_json.",
+        "Markdown-fenced JSON liefert parse_mode=json_extracted oder markdown_json_extracted.",
+        "Python literal style liefert parse_mode=python_literal.",
+        "Bullet list fallback liefert parse_mode=bullet_fallback und confidence=low.",
+        "Ungueltiger Output liefert parse_mode=parse_failed ohne Exception.",
+        "Bestehende parse_subtasks_from_llm_response API bleibt abwaertskompatibel."
+      ],
+      "tests": [
+        "tests/test_planning_utils.py::test_parse_diagnostics_strict_json",
+        "tests/test_planning_utils.py::test_parse_diagnostics_python_literal",
+        "tests/test_planning_utils.py::test_parse_diagnostics_bullet_fallback"
+      ]
+    },
+    {
+      "id": "PLAN-HARD-003",
+      "title": "Explicit dependency_mode statt __parallel__ Sentinel einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Parallelitaet soll explizit und schema-validierbar sein, nicht ueber einen magischen String in depends_on.",
+      "depends_on": [],
+      "files": [
+        "agent/services/planning_service.py",
+        "agent/services/planning_proposal_service.py",
+        "agent/db_models.py",
+        "tests/test_planning_service.py",
+        "tests/test_auto_planner.py"
+      ],
+      "changes": [
+        "Subtask-Feld dependency_mode mit Werten sequential, parallel, explicit einfuehren.",
+        "__parallel__ weiter als Legacy-Input akzeptieren, aber intern in dependency_mode=parallel normalisieren.",
+        "_apply_plan_generation_limits beruecksichtigt dependency_mode=parallel beim Depth-Probe.",
+        "_build_nodes schreibt rationale.parallel aus dependency_mode, nicht aus Sentinel.",
+        "_prepare_materialization vermeidet auto-sequential fallback bei dependency_mode=parallel.",
+        "Plan proposal schema um dependency_mode erweitern."
+      ],
+      "acceptance_criteria": [
+        "new_software_project mit Parallel-Default erzeugt dependency_mode=parallel.",
+        "depends_on enthaelt nach Normalisierung keinen __parallel__ Sentinel mehr in neuen Payloads.",
+        "Legacy-Input mit __parallel__ funktioniert weiterhin.",
+        "Parallel Nodes erzeugen keine kuenstliche dependency chain.",
+        "Explicit depends_on bleibt erhalten, wenn dependency_mode=explicit ist.",
+        "Depth-Limit blockiert parallele Nodes nicht faelschlich."
+      ],
+      "tests": [
+        "tests/test_planning_service.py::test_parallel_dependency_mode_materializes_without_chain",
+        "tests/test_planning_service.py::test_legacy_parallel_sentinel_normalized"
+      ]
+    },
+    {
+      "id": "PLAN-HARD-004",
+      "title": "new_software_project coverage strukturiert statt keyword-basiert pruefen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Die aktuelle Execution-Coverage-Erkennung nutzt Keywords. Fuer stabile Autopilot-Laeufe braucht es strukturierte Expected Artifacts und Verification Specs.",
+      "depends_on": [
+        "PLAN-HARD-001",
+        "PLAN-HARD-002"
+      ],
+      "files": [
+        "agent/services/planning_strategies.py",
+        "agent/services/planning_service.py",
+        "agent/services/planning_proposal_service.py",
+        "agent/services/verification_policy_service.py",
+        "tests/test_planning_strategies.py",
+        "tests/test_commit_planner_integration.py"
+      ],
+      "changes": [
+        "LLM repair prompt fuer new_software_project fordert expected_artifacts und verification_spec pro relevanter Task.",
+        "_has_new_project_execution_coverage durch strukturierte Pruefung ersetzen: mindestens ein workspace_change Artifact und mindestens eine required Verification.",
+        "Coding/Testing/Ops Tasks ohne expected_artifacts werden nicht still akzeptiert, sondern repariert oder validiert abgelehnt.",
+        "Plan proposal validation erzwingt fuer coding/testing mindestens ein erwartetes Artifact oder begruendeten no_artifact_reason.",
+        "Keyword-basierte Pruefung nur noch als advisory fallback markieren."
+      ],
+      "acceptance_criteria": [
+        "new_software_project Plan ohne expected_artifacts wird repariert oder mit invalid_plan_proposal abgelehnt.",
+        "Plan mit workspace_change Artifact und required Verification wird akzeptiert.",
+        "Keyword-only Treffer reichen nicht mehr als harte Execution-Coverage.",
+        "Reparaturpfad ist in planning_origin/repair_strategy sichtbar.",
+        "Tests pruefen erfolgreiche und fehlerhafte new_software_project Plaene."
+      ],
+      "tests": [
+        "tests/test_planning_strategies.py::test_new_project_requires_structured_artifacts",
+        "tests/test_commit_planner_integration.py::test_new_project_plan_proposal_requires_verification"
+      ]
+    },
+    {
+      "id": "PLAN-HARD-005",
+      "title": "Goal-scoped planning profiles vollstaendig dokumentieren und testen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Die neuen Planning-Profile small, medium und off muessen reproduzierbar, API-sichtbar und getestet sein.",
+      "depends_on": [],
+      "files": [
+        "scripts/run_3er_lauf_lokal.sh",
+        "agent/services/config_profile_service.py",
+        "agent/services/goal_config_resolver_service.py",
+        "docs/goal-scoped-config.md",
+        "docs/api-goal-effective-config.md",
+        "tests/test_goal_config_resolver_service.py",
+        "tests/e2e/test_parallel_scenario_goal_scoped_config.py"
+      ],
+      "changes": [
+        "Planning profile semantics dokumentieren: off, small, medium.",
+        "Fuer small Profil konkrete Defaults dokumentieren: prompt_language=en, context_max_chars, max_output_tokens, repair_attempts.",
+        "run_3er_lauf_lokal.sh validiert unbekannte Profile fail-fast.",
+        "Effective config API zeigt angewendetes Planning-Profil und Quelle.",
+        "Tests fuer Env/Profile/Goal-Override-Prioritaet ergaenzen."
+      ],
+      "acceptance_criteria": [
+        "--planning-profile small setzt reproduzierbar kleine Kontext-/Tokenlimits.",
+        "--planning-profile off deaktiviert LLM-Planning oder setzt den dokumentierten sicheren Modus.",
+        "Unbekanntes Profil bricht mit klarer Fehlermeldung ab.",
+        "GET effective config zeigt planning_policy und config_source.",
+        "E2E-Test beweist Profilwirkung im Goal-Lauf."
+      ],
+      "tests": [
+        "tests/test_goal_config_resolver_service.py::test_planning_profile_small_overrides_defaults",
+        "tests/e2e/test_parallel_scenario_goal_scoped_config.py"
+      ]
+    },
+    {
+      "id": "CTX-HARD-001",
+      "title": "Context delivery fuer externe/cloud LLMs fail-closed haerten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Selektive Context Delivery ist eingefuehrt, muss aber fuer Cloud-Provider und sensitive Dateien strenger werden.",
+      "depends_on": [],
+      "files": [
+        "agent/services/context_delivery_service.py",
+        "agent/services/context_file_selector.py",
+        "agent/services/workspace_context_policy.py",
+        "agent/services/rag_policy_service.py",
+        "tests/test_context_delivery_service.py",
+        "tests/test_context_file_selector.py",
+        "tests/test_workspace_context_policy_resolver.py"
+      ],
+      "changes": [
+        "Explizite ContextAccessPolicy-Auswertung fuer Worker/Agent/Provider vorbereiten.",
+        "provider_to_llm_scope nicht als alleinige Sicherheitsquelle verwenden, sondern nur als Default-Resolver.",
+        "Sensitivity-Klassen credential, secret, security_sensitive fuer external_cloud_allowed defaultmaessig blockieren.",
+        "scope_mode=full fuer externe Cloud nur erlauben, wenn explizite Policy allow_full_context_for_cloud=true gesetzt ist.",
+        "Jede ausgelieferte und jede blockierte Datei mit reason_code auditieren.",
+        "ContextDeliveryResult um selected_count, excluded_count, exclusion_reasons erweitern."
+      ],
+      "acceptance_criteria": [
+        "Cloud-Provider bekommt ohne explizite Allow-Policy keinen full context.",
+        "credential/secret Chunks werden fuer externe Cloud immer blockiert.",
+        "Lokaler Ollama/LmStudio Pfad bleibt mit lokaler Policy nutzbar.",
+        "ContextDeliveryResult enthaelt Ausschlussgruende pro Datei.",
+        "Tests pruefen local_only, trusted_private_cloud und external_cloud_allowed."
+      ],
+      "tests": [
+        "tests/test_context_file_selector.py::test_external_cloud_blocks_credentials",
+        "tests/test_context_delivery_service.py::test_cloud_full_context_requires_explicit_allow"
+      ]
+    },
+    {
+      "id": "CTX-HARD-002",
+      "title": "Workspace context policy mit Agent Template und Task Kind sauber priorisieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Policy-Resolution muss deterministisch dokumentiert und getestet sein: System Default, Task Kind, Agent Template, Goal Policy.",
+      "depends_on": [
+        "CTX-HARD-001"
+      ],
+      "files": [
+        "agent/services/workspace_context_policy.py",
+        "agent/services/agent_template_registry.py",
+        "agent/routes/admin/agent_templates.py",
+        "tests/test_workspace_context_policy_resolver.py",
+        "tests/test_context_scoped_config_api.py"
+      ],
+      "changes": [
+        "Prioritaetsreihenfolge explizit dokumentieren: system < task_kind < agent_template < goal_config.",
+        "PolicyResolutionTrace einfuehren mit source pro gesetztem Feld.",
+        "Admin API fuer Agent Templates zeigt context_policy_defaults.",
+        "Ungueltige scope_mode Werte fail-fast ablehnen.",
+        "max_files begrenzen und negative Werte ablehnen."
+      ],
+      "acceptance_criteria": [
+        "Goal Config ueberschreibt Agent Template, Agent Template ueberschreibt Task Kind, Task Kind ueberschreibt System Default.",
+        "Resolution Trace zeigt fuer jedes Feld die Quelle.",
+        "Invalid scope_mode wird abgelehnt.",
+        "max_files < 0 wird abgelehnt.",
+        "Tests decken alle Prioritaetsstufen ab."
+      ],
+      "tests": [
+        "tests/test_workspace_context_policy_resolver.py::test_policy_resolution_priority_order",
+        "tests/test_context_scoped_config_api.py::test_context_policy_validation"
+      ]
+    },
+    {
+      "id": "WORKSPACE-HARD-001",
+      "title": "Artifact-first completion pipeline absichern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Worker-Erfolg darf nicht nur aus LLM-Text entstehen. Workspace-Diffs, Artifacts und Verification muessen primaere Evidenz sein.",
+      "depends_on": [
+        "PLAN-HARD-004"
+      ],
+      "files": [
+        "agent/services/worker_workspace_service.py",
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/task_management_service.py",
+        "agent/services/lifecycle_service.py",
+        "tests/test_workspace_git_tools.py",
+        "tests/test_task_scoped_propose_llm_profile_persist.py",
+        "tests/test_worker_security_regression.py"
+      ],
+      "changes": [
+        "Workspace-Diff nach Worker-Ausfuehrung als Artifact manifestieren.",
+        "Task Completion nur als success markieren, wenn expected_artifacts oder verification_spec erfuellt sind.",
+        "LLM followup task_complete bleibt advisory und darf Completion nicht alleine setzen.",
+        "No-change Ergebnisse fuer coding/testing als failed oder needs_review markieren, ausser no_artifact_reason ist explizit erlaubt.",
+        "Manifest enthaelt changed_files, created_files, deleted_files, verification_results und collection_status."
+      ],
+      "acceptance_criteria": [
+        "Coding Task ohne Workspace-Diff und ohne Artifact wird nicht automatisch completed.",
+        "Coding Task mit erwarteter Datei und erfolgreichem Test kann completed werden.",
+        "LLM task_complete=true ohne Artifact-Evidenz reicht nicht aus.",
+        "Manifest wird pro WorkerJob persistiert.",
+        "Regressionstest beweist advisory_parse_failed_ignored blockiert Artifact Completion nicht."
+      ],
+      "tests": [
+        "tests/test_task_scoped_propose_llm_profile_persist.py::test_artifact_evidence_required_for_completion",
+        "tests/test_workspace_git_tools.py::test_workspace_diff_manifest_created"
+      ]
+    },
+    {
+      "id": "WORKSPACE-HARD-002",
+      "title": "Workspace Git Flow mit Commit Metadata verbinden",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Workspace Git existiert, Commit-Hygiene existiert. Beide muessen in einem sicheren Commit-/Review-Flow verbunden werden.",
+      "depends_on": [
+        "WORKSPACE-HARD-001",
+        "COMMIT-HARD-001"
+      ],
+      "files": [
+        "agent/services/workspace_git_service.py",
+        "agent/services/commit_worker_service.py",
+        "agent/services/commit_metadata_inferrer.py",
+        "agent/services/commit_scope_resolver.py",
+        "tests/test_workspace_git_service.py",
+        "tests/test_commit_worker_service.py"
+      ],
+      "changes": [
+        "WorkspaceGitService um status(), diff(), staged_files(), commit() erweitern.",
+        "CommitMetadataInferrer nutzt Workspace-Diff statt nur manuelle Inputs.",
+        "CommitWorkerService validiert Message vor commit.",
+        "Auto-commit nur wenn git_workspace.auto_commit=true und Verification erfolgreich ist.",
+        "Mixed-scope Commits entweder blockieren oder mit scope=mixed und Review markieren."
+      ],
+      "acceptance_criteria": [
+        "Auto-commit ist default false.",
+        "Commit mit invalid message wird blockiert.",
+        "Commit mit mixed scope wird als needs_review markiert oder blockiert gemaess Policy.",
+        "Commit enthaelt validierte Conventional-Commit-Message.",
+        "Tests pruefen valid, invalid, mixed-scope und no-change Commit."
+      ],
+      "tests": [
+        "tests/test_workspace_git_service.py::test_commit_requires_valid_message",
+        "tests/test_commit_worker_service.py::test_mixed_scope_requires_review"
+      ]
+    },
+    {
+      "id": "COMMIT-HARD-001",
+      "title": "Commit message enforcement serverseitig erzwingen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Husky und commitlint reichen nicht fuer Agent-/Worker-Flows. Commit-Regeln muessen im Hub/Worker-Service enforced werden.",
+      "depends_on": [],
+      "files": [
+        "agent/services/commit_message_validator.py",
+        "agent/services/commit_worker_service.py",
+        "agent/services/commit_followup_service.py",
+        "agent/tools.py",
+        "tests/test_commit_message_validator.py",
+        "tests/test_commit_hygiene_integration.py"
+      ],
+      "changes": [
+        "Alle Tool-/Service-Pfade, die git commit ausloesen koennen, muessen CommitMessageValidator verwenden.",
+        "Blocked Subjects wie fixup planning, wip, changes serverseitig blockieren.",
+        "Commit-Validation-Fehler als strukturierte Reason Codes zurueckgeben.",
+        "Optionaler Auto-Repair-Vorschlag fuer Commit Message generieren, aber nicht ungeprueft committen.",
+        "CI prueft, dass keine neuen fixup/wip commits in PR-History landen, falls technisch moeglich."
+      ],
+      "acceptance_criteria": [
+        "git_commit Tool blockiert invalid messages.",
+        "CommitWorkerService blockiert invalid messages.",
+        "fixup planning wird serverseitig abgelehnt.",
+        "Gueltige Message wie feat(planning): add explicit dependency mode wird akzeptiert.",
+        "Tests decken Tool- und Service-Pfad ab."
+      ],
+      "tests": [
+        "tests/test_commit_message_validator.py",
+        "tests/test_commit_hygiene_integration.py::test_invalid_commit_message_blocked_in_service"
+      ]
+    },
+    {
+      "id": "COMMIT-HARD-002",
+      "title": "Commit scope resolver erweitern und Drift testen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "summary": "Der Scope Resolver ist nuetzlich, muss aber regelmaessig gegen neue Module und Pfade aktualisiert werden.",
+      "depends_on": [
+        "COMMIT-HARD-001"
+      ],
+      "files": [
+        "agent/services/commit_scope_resolver.py",
+        "tests/test_commit_scope_resolver.py"
+      ],
+      "changes": [
+        "Neue Scopes fuer context-delivery, planning, workspace-git, parallelism, security-cleanup pruefen.",
+        "Unresolved paths in mixed commits als warning ausgeben.",
+        "Test hinzufuegen, dass alle agent/services/*.py mindestens einem Scope oder explizit None zugeordnet sind.",
+        "Scope Map nach Spezifitaet sortieren und dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "planning_service.py wird Scope planning oder goal zugeordnet, nicht nur generisch api/schema.",
+        "context_delivery_service.py wird context oder workspace zugeordnet.",
+        "Unbekannte neue service-Datei faellt in Drift-Test auf.",
+        "Mixed commits werden eindeutig erkannt."
+      ],
+      "tests": [
+        "tests/test_commit_scope_resolver.py::test_known_new_services_have_scopes",
+        "tests/test_commit_scope_resolver.py::test_scope_map_drift_detection"
+      ]
+    },
+    {
+      "id": "PAR-HARD-001",
+      "title": "worker_parallelism Config gegen echte Runtime-Enforcement pruefen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Die Config fuer Worker/Ollama/Subworker Parallelitaet ist umfangreich vorhanden. Jetzt muss bewiesen werden, dass sie enforced wird.",
+      "depends_on": [],
+      "files": [
+        "agent/config_defaults.py",
+        "agent/services/worker_runtime_selection_service.py",
+        "agent/services/worker_job_service.py",
+        "agent/services/agent_registry_service.py",
+        "agent/db_models.py",
+        "tests/test_worker_runtime_selection_service.py",
+        "tests/test_worker_job_service.py",
+        "tests/e2e/test_parallel_worker_ollama_saturation.py"
+      ],
+      "changes": [
+        "Ist-Analyse im Code ergaenzen: Welche worker_parallelism Felder werden gelesen und enforced?",
+        "Statusendpunkt oder Diagnosefunktion fuer effective_worker_parallelism einfuehren.",
+        "max_parallel_tasks pro Worker enforced testen.",
+        "Ollama max_parallel_requests pro endpoint+model enforced testen oder TODO fuer fehlenden Slot-Service erzeugen.",
+        "Security cap max_concurrency_cap muss effective concurrency begrenzen."
+      ],
+      "acceptance_criteria": [
+        "Ein Test zeigt, dass Worker max_parallel_tasks nicht ueberschritten wird.",
+        "Ein Test zeigt, dass Security Policy Cap die Worker-Kapazitaet begrenzt.",
+        "Wenn Ollama Slot Enforcement noch nicht implementiert ist, gibt es einen klaren failing/xfail Test mit Reason.",
+        "Effective Config wird mit Quelle und finalen Limits ausgegeben.",
+        "Keine Config-Werte bleiben ohne dokumentierten Enforcement-Status."
+      ],
+      "tests": [
+        "tests/test_worker_runtime_selection_service.py::test_capacity_limit_enforced",
+        "tests/e2e/test_parallel_worker_ollama_saturation.py"
+      ]
+    },
+    {
+      "id": "PAR-HARD-002",
+      "title": "Ollama endpoint+model Slot-Lease Service implementieren oder TODO konkretisieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Ollama-Slots sind getrennte Ressourcen von Worker-Slots. Ohne endpoint+model Lease kann Ollama ueberbucht werden.",
+      "depends_on": [
+        "PAR-HARD-001"
+      ],
+      "files": [
+        "agent/services/ollama_parallel_runtime_service.py",
+        "agent/db_models.py",
+        "agent/repositories/worker_slot_lease.py",
+        "agent/services/worker_pool_scheduler_service.py",
+        "tests/test_ollama_parallel_runtime_service.py",
+        "tests/test_worker_pool_scheduler_service.py"
+      ],
+      "changes": [
+        "OllamaModelSlotLease Modell einfuehren.",
+        "Slot-Key als normalized_endpoint + model definieren.",
+        "acquire, release, cleanup_stale_leases, get_status implementieren.",
+        "Queue-Strategien queue_then_reject, reject_immediately und wait_with_timeout unterstuetzen.",
+        "Worker-Slot und Ollama-Slot atomar reservieren oder rollbacken."
+      ],
+      "acceptance_criteria": [
+        "Bei max_parallel_requests=4 laufen maximal vier gleiche endpoint+model Requests parallel.",
+        "Der fuenfte Request wird queued oder rejected gemaess Config.",
+        "Andere Modelle oder Endpoints haben eigene Slot-Pools.",
+        "Release ist idempotent.",
+        "Stale Leases werden bereinigt.",
+        "Teilfehler leaken keine Worker- oder Ollama-Slots."
+      ],
+      "tests": [
+        "tests/test_ollama_parallel_runtime_service.py",
+        "tests/test_worker_pool_scheduler_service.py::test_ollama_full_does_not_leak_worker_slot"
+      ]
+    },
+    {
+      "id": "SEC-HARD-001",
+      "title": "DynDNS Secret aus Repository und History entfernen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Ein DynDNS-Script enthielt einen Credential-Fallback in einer URL. Das muss sofort bereinigt und rotiert werden.",
+      "depends_on": [],
+      "files": [
+        "scripts/dyndns-update.sh",
+        "scripts/dyndns.conf.example",
+        ".gitignore",
+        ".github/workflows/lint.yml"
+      ],
+      "changes": [
+        "Credential sofort beim Provider rotieren.",
+        "scripts/dyndns-update.sh so umbauen, dass keine Default-URL mit Passwort enthalten ist.",
+        "DYNDNS_URL oder getrennte Variablen DYNDNS_LOGIN/DYNDNS_PASSWORD nur aus Env oder lokaler conf lesen.",
+        "scripts/dyndns.conf.example ohne echte Secrets anlegen.",
+        "scripts/dyndns.conf in .gitignore sicherstellen.",
+        "Secret-Scanning/grep CI Check fuer password=, token=, api_key und aehnliche Muster ergaenzen.",
+        "Falls Secret bereits gepusht wurde: Git-History-Cleanup oder mindestens Security-Note dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Kein echtes Secret steht in scripts/dyndns-update.sh.",
+        "Script bricht mit klarer Fehlermeldung ab, wenn keine Credentials gesetzt sind.",
+        "scripts/dyndns.conf.example enthaelt nur Platzhalter.",
+        "CI blockiert neue offensichtliche Secrets.",
+        "Rotationsdatum und betroffener Credential-Typ sind intern dokumentiert, ohne Secret zu nennen."
+      ],
+      "tests": [
+        "tests/test_secret_scanning.py::test_no_plain_dyndns_credentials",
+        "tests/test_secret_scanning.py::test_dyndns_script_requires_env_or_conf"
+      ]
+    },
+    {
+      "id": "REPO-HARD-001",
+      "title": "Generierte Workspace- und Artifact-Dateien dauerhaft aus Git halten",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Viele project-workspaces und acceptance artifacts wurden entfernt. Jetzt muss verhindert werden, dass solche Dateien wieder committed werden.",
+      "depends_on": [],
+      "files": [
+        ".gitignore",
+        ".github/workflows/lint.yml",
+        "scripts/first_goal_acceptance_runner.py",
+        "tests/test_repository_hygiene.py"
+      ],
+      "changes": [
+        "project-workspaces/** ignorieren, ausser explizit erlaubte fixture Pfade.",
+        "artifacts/ runtime reports ignorieren oder in tests/fixtures verschieben.",
+        "CI Check fuer verbotene Pfade einfuehren.",
+        "Acceptance Runner so konfigurieren, dass Reports nach artifacts/runtime oder tmp geschrieben werden, nicht in tracked Pfade.",
+        "Dokumentieren, welche Artefakte versioniert werden duerfen."
+      ],
+      "acceptance_criteria": [
+        "Neue Dateien unter project-workspaces/** werden von Git ignoriert oder CI blockiert.",
+        "Runtime acceptance reports landen nicht mehr in tracked default paths.",
+        "Tests fixtures bleiben erlaubt.",
+        "CI gibt klare Fehlermeldung mit verbotenen Pfaden aus."
+      ],
+      "tests": [
+        "tests/test_repository_hygiene.py::test_generated_workspace_paths_are_blocked",
+        "tests/test_repository_hygiene.py::test_runtime_artifacts_not_tracked"
+      ]
+    },
+    {
+      "id": "DOC-HARD-001",
+      "title": "Planning pipeline Dokumentation aktualisieren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "summary": "Die neue Pipeline ist stark gewachsen und braucht eine klare technische Dokumentation fuer Betrieb und Weiterentwicklung.",
+      "depends_on": [
+        "PLAN-HARD-001",
+        "PLAN-HARD-003",
+        "CTX-HARD-001",
+        "WORKSPACE-HARD-001"
+      ],
+      "files": [
+        "docs/planning-pipeline.md",
+        "docs/goal-scoped-config.md",
+        "docs/llm-observability.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "changes": [
+        "Pipeline dokumentieren: Goal -> Effective Config -> Strategy -> Proposal -> Persisted Plan -> Materialized Tasks -> Workspace -> Artifacts -> Verification.",
+        "Deterministic-first Regel dokumentieren.",
+        "Planning origins und parse modes dokumentieren.",
+        "Context Delivery Security Modes dokumentieren.",
+        "Commit Hygiene Flow dokumentieren.",
+        "Known limitations und offene Enforcement-Luecken dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "docs/planning-pipeline.md existiert und beschreibt alle Hauptphasen.",
+        "Dokumentation nennt explizit, welche Entscheidungen deterministisch sind und welche LLM-basiert/advisory sind.",
+        "AGENTS.md verweist auf die Planning-Pipeline-Regeln.",
+        "CONTRIBUTING.md beschreibt Commit-Hygiene fuer Agent/Worker-Commits."
+      ],
+      "tests": []
+    }
+  ],
+  "acceptance_summary": [
+    "Planning-Ergebnisse sind vollstaendig hinsichtlich Ursprung, Parsermodus und Reparaturpfad auditierbar.",
+    "Parallelitaet wird explizit ueber dependency_mode statt versteckten depends_on Sentinel modelliert.",
+    "new_software_project Plaene benoetigen strukturierte Artifacts und Verification Specs.",
+    "Context Delivery blockiert sensitive Dateien fail-closed fuer externe Cloud-LLMs.",
+    "Workspace Completion basiert auf Artifacts/Diffs/Verification statt LLM-Text allein.",
+    "Commit-Hygiene wird serverseitig im Agent/Worker-Flow enforced.",
+    "worker_parallelism Config ist entweder runtime-enforced oder als nicht implementierte Luecke mit failing/xfail Tests sichtbar.",
+    "Keine Secrets und keine generierten Workspaces/Runtime-Artefakte landen erneut im Repository."
+  ],
+  "recommended_execution_order": [
+    "SEC-HARD-001",
+    "PLAN-HARD-001",
+    "PLAN-HARD-002",
+    "PLAN-HARD-003",
+    "PLAN-HARD-004",
+    "CTX-HARD-001",
+    "WORKSPACE-HARD-001",
+    "COMMIT-HARD-001",
+    "PAR-HARD-001",
+    "PAR-HARD-002",
+    "REPO-HARD-001",
+    "DOC-HARD-001"
+  ]
+}
