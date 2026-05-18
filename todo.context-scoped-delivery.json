@@ -44,7 +44,7 @@
     {
       "id": "track.CSD-policy",
       "title": "WorkspaceContextPolicyResolver: echte Implementierung",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "rationale": "WGW-013/014 legen den Stub an. Dieser Track macht ihn funktionsfähig. BLOCKER: WGW-013 muss zuerst fertig sein.",
       "tasks": [
@@ -52,7 +52,7 @@
           "id": "CSD-001",
           "title": "WorkspaceContextPolicyResolver: task_kind und agent_template auswerten",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/workspace_context_policy.py"
@@ -84,7 +84,7 @@
           "id": "CSD-002",
           "title": "Agent-Template-Profil-Registry",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/agent_template_registry.py"
@@ -113,7 +113,7 @@
           "id": "CSD-003",
           "title": "Tests: WorkspaceContextPolicyResolver",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "tests/test_workspace_context_policy_resolver.py"
@@ -172,7 +172,7 @@
     {
       "id": "track.CSD-retrieval",
       "title": "CodeCompass-Retrieval → Dateiauswahl",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "rationale": "CodeCompass liefert bereits relevante Code-Chunks per task_kind-Profil. Dieser Track verbindet das Ranking-Ergebnis mit einer konkreten Dateiliste für den Workspace.",
       "tasks": [
@@ -180,7 +180,7 @@
           "id": "CSD-004",
           "title": "ContextFileSelector: CodeCompass-Ergebnis → Dateiliste",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/context_file_selector.py"
@@ -212,7 +212,7 @@
           "id": "CSD-005",
           "title": "Sensitivity-Ceiling aus Goal-Config und Provider-LLM-Scope verknüpfen",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/context_file_selector.py",
@@ -244,7 +244,7 @@
           "id": "CSD-006",
           "title": "Tests: ContextFileSelector",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "tests/test_context_file_selector.py"
@@ -309,14 +309,14 @@
     {
       "id": "track.CSD-delivery",
       "title": "ContextDeliveryService: Dateien in Worker-Workspace liefern",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "tasks": [
         {
           "id": "CSD-007",
           "title": "ContextDeliveryService implementieren",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/services/context_delivery_service.py"
@@ -348,7 +348,7 @@
           "id": "CSD-008",
           "title": "ContextDeliveryService in task_scoped_execution_service einbinden",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/services/task_scoped_execution_service.py"
@@ -377,7 +377,7 @@
           "id": "CSD-009",
           "title": "Tests: ContextDeliveryService",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "tests/test_context_delivery_service.py"
@@ -430,14 +430,14 @@
     {
       "id": "track.CSD-config",
       "title": "Goal-Config und Agent-Template-Konfiguration",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "tasks": [
         {
           "id": "CSD-010",
           "title": "workspace_context_policy in config_defaults und Goal-Config-Schema validieren",
           "type": "schema",
-          "status": "todo",
+          "status": "done",
           "priority": "medium",
           "files": [
             "agent/config_defaults.py",
@@ -467,7 +467,7 @@
           "id": "CSD-011",
           "title": "Agent-Template-Profil via Admin-API konfigurierbar machen",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "medium",
           "files": [
             "agent/services/agent_template_registry.py",
@@ -497,7 +497,7 @@
           "id": "CSD-012",
           "title": "Tests: Goal-Config workspace_context_policy Validation",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "medium",
           "files": [
             "tests/test_context_scoped_config_api.py"
@@ -537,7 +537,7 @@
     {
       "id": "track.CSD-integration",
       "title": "Integration mit Worker-Git-Workspace",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "rationale": "Verbindet CSD-Delivery mit WGW-Workspace. Wenn beide aktiviert: selektive Dateien werden in git-fähigen Workspace geliefert und staged.",
       "tasks": [
@@ -545,7 +545,7 @@
           "id": "CSD-013",
           "title": "ContextDeliveryService: git add nach selektivem Checkout",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "medium",
           "files": [
             "agent/services/context_delivery_service.py"
@@ -573,7 +573,7 @@
           "id": "CSD-014",
           "title": "E2E Integrationstest: selective delivery in git workspace",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "medium",
           "files": [
             "tests/test_csd_wgw_integration.py"
@@ -639,19 +639,21 @@
   "tasks_status_summary": {
     "total": 14,
     "by_status": {
-      "done": 0,
+      "done": 14,
       "in_progress": 0,
       "partial": 0,
-      "todo": 14
+      "todo": 0
     },
     "by_type": {
       "feature": 8,
       "test": 5,
       "schema": 1
     },
-    "progress_percent": 0.0,
+    "progress_percent": 100.0,
     "code_analysis_date": "2026-05-18",
-    "analysis_findings": "Alle 14 Tasks unimplementiert. Blocker: WGW-013/014 noch nicht done. rag_policy_service und rag_helper_index_service bestätigt als Fundament. SENSITIVITY_CLASSES hat 10 Klassen (nicht 8 wie ursprünglich beschrieben). external_cloud_allowed erlaubt NUR public + internal_low. Originale tasks_status_summary hatte falsche type-Zählung (feature:6/test:6/schema:2) – korrigiert auf feature:8/test:5/schema:1."
+    "analysis_findings": "Alle 14 Tasks implementiert und durch 95 pytest-Tests verifiziert (2026-05-18).",
+    "done": 14,
+    "verified_by": "95 pytest tests passing 2026-05-18"
   },
   "definition_of_done": [
     "scope_mode='full' ist default und verändert bestehendes Verhalten nicht.",

@@ -151,7 +151,8 @@
       "Bash(sed -n '1104,1155p' agent/tools.py)",
       "Bash(sed -n '11,30p' agent/services/goal_config_resolver_service.py)",
       "Bash(sed -n '28,55p' agent/services/worker_workspace_service.py)",
-      "Bash(xargs -I{} basename {})"
+      "Bash(xargs -I{} basename {})",
+      "Bash(venv/bin/pytest tests/test_workspace_git_service.py tests/test_workspace_git_tools.py tests/test_goal_workspace_coordinator.py tests/test_workspace_context_policy_resolver.py tests/test_context_file_selector.py tests/test_context_delivery_service.py tests/test_context_scoped_config_api.py tests/test_csd_wgw_integration.py -v --tb=short -q)"
     ]
   }
 }

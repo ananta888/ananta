@@ -1096,6 +1096,18 @@ def _check_git_access(operation: str = "read") -> tuple[bool, str]:
         return False, "Action Pack 'git' ist deaktiviert."
     return True, ""
 
+def _git_cwd() -> str | None:
+    try:
+        from flask import g, has_request_context
+        if has_request_context():
+            wd = g.get("workspace_dir")
+            if wd:
+                return str(wd)
+    except Exception:
+        pass
+    return None
+
+
 @registry.register(
     name="git_status",
     description="Zeigt den aktuellen Git-Status.",
@@ -1107,7 +1119,7 @@ def git_status_tool():
 
     import subprocess
     try:
-        res = subprocess.run(["git", "status"], capture_output=True, text=True, timeout=10)
+        res = subprocess.run(["git", "status"], capture_output=True, text=True, timeout=10, cwd=_git_cwd())
         return {"output": res.stdout}
     except Exception as e:
         return {"error": f"Git-Fehler: {e}"}
@@ -1133,7 +1145,7 @@ def git_diff_tool(path: Optional[str] = None, cached: bool = False):
     if path: cmd.append(path)
 
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=10, cwd=_git_cwd())
         return {"output": res.stdout}
     except Exception as e:
         return {"error": f"Git-Fehler: {e}"}
@@ -1154,7 +1166,7 @@ def git_log_tool(limit: int = 10):
 
     import subprocess
     try:
-        res = subprocess.run(["git", "log", "-n", str(limit), "--oneline"], capture_output=True, text=True, timeout=10)
+        res = subprocess.run(["git", "log", "-n", str(limit), "--oneline"], capture_output=True, text=True, timeout=10, cwd=_git_cwd())
         return {"output": res.stdout}
     except Exception as e:
         return {"error": f"Git-Fehler: {e}"}
@@ -1174,16 +1186,58 @@ def git_commit_tool(message: str):
     ok, err = _check_git_access("write")
     if not ok: return {"error": err}
 
+    try:
+        from agent.services.commit_message_validator import CommitMessageValidator
+        result = CommitMessageValidator().validate(message)
+        if not result.valid:
+            return {"error": "invalid_commit_message", "details": result.errors}
+    except Exception:
+        pass
+
     import subprocess
     try:
-        # Commit erstellen
-        res = subprocess.run(["git", "commit", "-m", message], capture_output=True, text=True, timeout=10)
+        res = subprocess.run(["git", "commit", "-m", message], capture_output=True, text=True, timeout=10, cwd=_git_cwd())
         if res.returncode != 0:
             return {"error": f"Commit fehlgeschlagen: {res.stderr}"}
 
         from agent.common.audit import log_audit
         log_audit("git_commit", {"message": message})
         return {"status": "success", "output": res.stdout}
+    except Exception as e:
+        return {"error": f"Git-Fehler: {e}"}
+
+@registry.register(
+    name="git_push",
+    description="Pusht den aktuellen Branch auf das konfigurierte Remote-Repository.",
+    parameters={"type": "object", "properties": {}},
+)
+def git_push_tool():
+    ok, err = _check_git_access("write")
+    if not ok: return {"error": err}
+
+    try:
+        from flask import g, has_request_context
+        git_ctx = g.get("git_context") if has_request_context() else None
+    except Exception:
+        git_ctx = None
+
+    remote_url = getattr(git_ctx, "remote_url", None) if git_ctx else None
+    if not remote_url:
+        return {"error": "no_remote_configured", "hint": "Set git_workspace.remote_url in goal config"}
+
+    branch = getattr(git_ctx, "branch", "HEAD")
+
+    import subprocess
+    try:
+        res = subprocess.run(
+            ["git", "push", "origin", branch],
+            capture_output=True, text=True, timeout=30, cwd=_git_cwd()
+        )
+        from agent.common.audit import log_audit
+        log_audit("git_push", {"branch": branch, "remote_url": remote_url, "returncode": res.returncode})
+        if res.returncode != 0:
+            return {"error": f"Push fehlgeschlagen: {res.stderr}"}
+        return {"status": "success", "output": res.stdout, "branch": branch}
     except Exception as e:
         return {"error": f"Git-Fehler: {e}"}
 
