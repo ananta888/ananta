@@ -155,10 +155,14 @@ class AcceptanceRunner:
         return dict(self._get_json_with_retry(f"{self.base_url}/tasks/{task_id}").get("data") or {})
 
     def _get_autopilot_status(self) -> dict[str, Any]:
-        resp = requests.get(f"{self.base_url}/tasks/autopilot/status", headers=self.headers, timeout=20)
-        if resp.status_code >= 400:
+        # Hub may be blocked on LLM inference (single-threaded Flask) → treat timeout as transient
+        try:
+            resp = requests.get(f"{self.base_url}/tasks/autopilot/status", headers=self.headers, timeout=60)
+            if resp.status_code >= 400:
+                return {}
+            return dict(resp.json().get("data") or {})
+        except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError):
             return {}
-        return dict(resp.json().get("data") or {})
 
     def get_provider_observer_snapshot(self) -> dict[str, Any]:
         """PO-003: Capture provider-observer state. Returns diagnostic fallback on any error."""
@@ -688,9 +692,15 @@ def main() -> int:
     scenario_repeats = max(1, int(args.scenario_repeats))
 
     expanded_runs: list[dict[str, Any]] = []
+    using_scenario_file = bool(getattr(args, "scenario_file", None))
     if scenario_repeats <= 1:
-        for i in range(1, max(1, int(args.runs)) + 1):
-            expanded_runs.append({"run_index": i, "scenario": scenarios[0]})
+        if using_scenario_file and len(scenarios) > 1:
+            # scenario-file mit mehreren Einträgen: jeden Eintrag genau einmal
+            for i, scenario in enumerate(scenarios, 1):
+                expanded_runs.append({"run_index": i, "scenario": scenario})
+        else:
+            for i in range(1, max(1, int(args.runs)) + 1):
+                expanded_runs.append({"run_index": i, "scenario": scenarios[0]})
     else:
         idx = 1
         for _rep in range(scenario_repeats):
