@@ -22,6 +22,7 @@ class LMStudioStrategy(LLMStrategy):
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
     ) -> Any:
+        logging.error("LMStudioStrategy.execute: url=%s, model=%s, provider-param-omitted", url, model)
         base_url = url
         base_url_lower = (base_url or "").lower()
         normalized_base_url = self._normalize_lmstudio_base_url(base_url)
