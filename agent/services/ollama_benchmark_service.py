@@ -19,6 +19,7 @@ from agent.ollama_benchmark import (
 )
 from agent.llm_integration import extract_llm_text_and_usage, generate_text as _generate_text
 from agent.services.ollama_parallel_runtime_service import get_ollama_parallel_runtime_service
+from agent.services.repository_registry import get_repository_registry
 
 
 class OllamaBenchmarkService:
@@ -327,6 +328,47 @@ class OllamaBenchmarkService:
             "available_models_in_ollama": len(available_models),
             "models_online": list(available_names),
             "rankings": rows,
+        }
+    
+    def summarize_planning_quality(self, *, model: str | None = None, provider: str | None = None, scenarios: list[str] | None = None) -> dict[str, Any]:
+        """LLMPLAN-011: planning-spezifische Qualitätsmetriken aus PlanningRun/Evaluation-Daten."""
+        runs = get_repository_registry().planning_run_repo.get_recent(limit=1000)
+        eval_repo = get_repository_registry().planning_evaluation_repo
+        scenario_ids = set(scenarios or ["simple_project", "bugfix", "refactor", "docs", "config_fix", "multi_step_project"])
+        filtered = []
+        for r in runs:
+            if model and str(r.model_name or "") != str(model):
+                continue
+            if provider and str(r.model_provider or "") != str(provider):
+                continue
+            mode_data = dict(r.mode_data or {})
+            scenario = str(mode_data.get("benchmark_scenario") or mode_data.get("__intent__") or "")
+            if scenario_ids and scenario and scenario not in scenario_ids:
+                continue
+            filtered.append(r)
+        total = max(1, len(filtered))
+        strict_json_rate = sum(1 for r in filtered if str(r.parse_mode or "") == "strict_json") / total
+        repair_rate = sum(1 for r in filtered if bool(r.repair_needed)) / total
+        structured_artifact_rate = sum(1 for r in filtered if int(r.expected_artifacts_count or 0) > 0) / total
+        verification_spec_rate = sum(1 for r in filtered if int(r.verification_spec_count or 0) > 0) / total
+        dependency_mode_accuracy = sum(1 for r in filtered if bool((r.dependency_mode_distribution or {}).get("parallel")) or bool((r.dependency_mode_distribution or {}).get("explicit"))) / total
+        scores = []
+        for r in filtered:
+            ev = eval_repo.get_by_run_id(str(r.id))
+            if ev:
+                scores.append(float(ev.total_score or 0.0))
+        average_plan_score = round(sum(scores) / max(1, len(scores)), 4)
+        planning_profile_hint = "planning_not_recommended" if repair_rate >= 0.6 else ("planning_requires_repair" if repair_rate >= 0.3 else "planning_recommended")
+        return {
+            "run_count": len(filtered),
+            "scenarios": sorted(scenario_ids),
+            "strict_json_rate": round(strict_json_rate, 4),
+            "repair_rate": round(repair_rate, 4),
+            "structured_artifact_rate": round(structured_artifact_rate, 4),
+            "verification_spec_rate": round(verification_spec_rate, 4),
+            "dependency_mode_accuracy": round(dependency_mode_accuracy, 4),
+            "average_plan_score": average_plan_score,
+            "planning_profile_hint": planning_profile_hint,
         }
 
     def get_parallel_runtime_status(self) -> dict[str, dict[str, int]]:

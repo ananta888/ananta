@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from agent.db_models import PlanningEvaluationDB
 from agent.services.repository_registry import get_repository_registry
+from agent.services.planning_semantic_behavior_analyzer import analyze_semantic_behavior
 
 
 class PlanningEvaluationService:
@@ -52,6 +53,29 @@ class PlanningEvaluationService:
             "parse_mode": run.parse_mode,
             "repair_attempt_count": int(run.repair_attempt_count or 0),
         }
+        try:
+            semantic_codes: list[str] = []
+            if goal_id:
+                plans = get_repository_registry().plan_repo.get_by_goal_id(goal_id)
+                if plans:
+                    nodes = get_repository_registry().plan_node_repo.get_by_plan_id(plans[0].id)
+                    subtasks = []
+                    for n in nodes:
+                        subtasks.append(
+                            {
+                                "title": n.title,
+                                "description": n.description,
+                                "task_kind": (n.rationale or {}).get("task_kind"),
+                                "depends_on": list(n.depends_on or []),
+                                "dependency_mode": (n.rationale or {}).get("dependency_mode"),
+                                "expected_artifacts": list((n.rationale or {}).get("expected_artifacts") or []),
+                                "verification_spec": dict(n.verification_spec or {}),
+                            }
+                        )
+                    semantic_codes = analyze_semantic_behavior(subtasks=subtasks)
+            evaluation.details = {**dict(evaluation.details or {}), "semantic_behavior_codes": semantic_codes}
+        except Exception:
+            pass
         return get_repository_registry().planning_evaluation_repo.save(evaluation)
 
 
