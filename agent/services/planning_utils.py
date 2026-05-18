@@ -17,6 +17,9 @@ from agent.services.execution_focused_planning import (
     match_execution_focused_goal_template,
 )
 from agent.services.planning_template_catalog import get_planning_template_catalog
+from agent.services.planning_output_shape_classifier import classify_output_shape
+from agent.services.planning_format_error_analyzer import analyze_format_errors
+from agent.services.planning_parser_chain import run_parser_chain
 
 VALID_PRIORITIES = {"high": "High", "medium": "Medium", "low": "Low"}
 SUSPICIOUS_TASK_PATTERNS = [
@@ -274,6 +277,20 @@ def extract_task_items_from_payload(payload: object) -> list[object]:
 
 
 def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medium") -> tuple[list[dict], dict[str, Any]]:
+    shape = classify_output_shape(response)
+    chain_result = run_parser_chain(response, default_priority=default_priority)
+    if chain_result.get("subtasks"):
+        subtasks = list(chain_result.get("subtasks") or [])
+        return subtasks, {
+            "parse_mode": str(chain_result.get("used_step") or "parser_chain"),
+            "confidence": "medium",
+            "warnings": [],
+            "output_shape": shape.get("primary_shape"),
+            "detected_shapes": list(shape.get("detected_shapes") or []),
+            "format_error_codes": [],
+            "parser_trace": list(chain_result.get("trace") or []),
+        }
+
     cleaned = strip_markdown_fences(response)
     json_payload = extract_json_payload(cleaned) or cleaned
     warnings: list[str] = []
@@ -308,11 +325,16 @@ def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medi
             parse_mode = "parse_failed"
             confidence = "low"
             warnings.append("no_subtasks_extracted")
-        return subtasks, {
+        diag = {
             "parse_mode": parse_mode,
             "confidence": confidence,
             "warnings": warnings,
+            "output_shape": shape.get("primary_shape"),
+            "detected_shapes": list(shape.get("detected_shapes") or []),
+            "format_error_codes": analyze_format_errors(response, parse_result={}),
+            "parser_trace": list(chain_result.get("trace") or []),
         }
+        return subtasks, diag
 
     tasks = []
     for line in cleaned.split("\n"):
@@ -332,12 +354,20 @@ def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medi
             "parse_mode": "bullet_fallback",
             "confidence": "low",
             "warnings": warnings,
+            "output_shape": shape.get("primary_shape"),
+            "detected_shapes": list(shape.get("detected_shapes") or []),
+            "format_error_codes": analyze_format_errors(response, parse_result={}),
+            "parser_trace": list(chain_result.get("trace") or []),
         }
     warnings.append("unparseable_response")
     return [], {
         "parse_mode": "parse_failed",
         "confidence": "low",
         "warnings": warnings,
+        "output_shape": shape.get("primary_shape"),
+        "detected_shapes": list(shape.get("detected_shapes") or []),
+        "format_error_codes": analyze_format_errors(response, parse_result={}),
+        "parser_trace": list(chain_result.get("trace") or []),
     }
 
 

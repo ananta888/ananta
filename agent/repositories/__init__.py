@@ -45,6 +45,7 @@ from .planning_learning import (
     PlanningModelProfileRepository,
     PlanningPatternClusterRepository,
     PlanningPromptVersionRepository,
+    PlanningReviewItemRepository,
     PlanningRunRepository,
     PlanningTemplateCandidateRepository,
 )
@@ -102,4 +103,5 @@ __all__ = [
     "PlanningEvaluationRepository",
     "PlanningTemplateCandidateRepository",
     "PlanningPatternClusterRepository",
+    "PlanningReviewItemRepository",
 ]

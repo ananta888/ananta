@@ -39,6 +39,7 @@ from agent.repository import (
     planning_evaluation_repo,
     planning_model_profile_repo,
     planning_pattern_cluster_repo,
+    planning_review_item_repo,
     planning_prompt_version_repo,
     planning_run_repo,
     planning_template_candidate_repo,
@@ -112,6 +113,7 @@ class RepositoryRegistry:
     planning_evaluation_repo: object
     planning_template_candidate_repo: object
     planning_pattern_cluster_repo: object
+    planning_review_item_repo: object
 
 
 def build_repository_registry() -> RepositoryRegistry:
@@ -167,6 +169,7 @@ def build_repository_registry() -> RepositoryRegistry:
         planning_evaluation_repo=planning_evaluation_repo,
         planning_template_candidate_repo=planning_template_candidate_repo,
         planning_pattern_cluster_repo=planning_pattern_cluster_repo,
+        planning_review_item_repo=planning_review_item_repo,
     )
 
 

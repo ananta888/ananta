@@ -30,8 +30,8 @@
       "P2": 2
     },
     "by_status": {
-      "completed": 10,
-      "todo": 17
+      "completed": 23,
+      "todo": 4
     },
     "source_tasks": {
       "todo.llm-first-planning-learning.json": 15,
@@ -187,14 +187,14 @@
         "PlanningModelProfileDB einfuehren.",
         "Felder: id, provider, model_name_pattern, model_family, profile_name, prompt_language, context_max_chars, max_output_tokens, temperature, repair_attempts, repair_strategies, preferred_prompt_version_id, output_contract_strictness, supports_json_mode, requires_english_prompt, notes, enabled.",
         "Default-Profile definieren: small_local, medium_local, large_local, cloud_strict_json, cloud_general.",
-        "Profilauflösung: exact model > model pattern > provider default > global default.",
-        "PlanningPolicy kann Profil explizit überschreiben.",
+        "Profilaufl\u00f6sung: exact model > model pattern > provider default > global default.",
+        "PlanningPolicy kann Profil explizit \u00fcberschreiben.",
         "PlanningRunDB speichert resolved profile."
       ],
       "acceptance_criteria": [
         "Gemma/kleine Modelle koennen automatisch small_local Profil erhalten.",
         "Ollama Default kann von Cloud Default abweichen.",
-        "Profilauflösung ist deterministisch und testbar.",
+        "Profilaufl\u00f6sung ist deterministisch und testbar.",
         "Unbekanntes Modell bekommt global fallback profile.",
         "Profilwerte fliessen in Prompt Language, Kontextlimit, max_output_tokens und Repair Attempts ein."
       ],
@@ -524,7 +524,7 @@
     {
       "id": "LLMPLAN-012",
       "title": "Planning Dataset Export fuer Offline-Analyse und lokale Modellverbesserung",
-      "status": "todo",
+      "status": "completed",
       "priority": "P2",
       "risk": "medium",
       "summary": "Die gesammelten Planning-Daten sollen fuer Offline-Auswertung, Prompt-Vergleich und optional spaetere lokale Feinabstimmung exportierbar sein, ohne Secrets oder Kundendaten zu leaken.",
@@ -554,12 +554,13 @@
       "tests": [
         "tests/test_planning_dataset_export_service.py::test_export_redacts_secrets",
         "tests/test_planning_dataset_export_service.py::test_jsonl_export_valid"
-      ]
+      ],
+      "implementation_notes": "PlanningDatasetExportService + Admin-Route inkl. Filter (model/prompt/min tasks), JSON/JSONL und optional raw-output redaction implementiert."
     },
     {
       "id": "LLMPLAN-013",
       "title": "Planning Review Queue fuer schlechte oder interessante LLM-Runs einfuehren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P2",
       "risk": "medium",
       "summary": "Nicht jeder schlechte Run soll nur verschwinden. Besonders lehrreiche Fehler und gute Kandidaten sollen reviewbar werden.",
@@ -589,12 +590,13 @@
       "tests": [
         "tests/test_planning_review_queue_service.py::test_repeated_parse_failures_create_review_item",
         "tests/test_planning_review_queue_service.py::test_template_candidate_review_flow"
-      ]
+      ],
+      "implementation_notes": "PlanningReviewItemDB + Repository + ReviewQueueService + Admin-API (/admin/planning/review-queue, action endpoint) eingefuehrt."
     },
     {
       "id": "LLMPLAN-014",
       "title": "Bestehende planning-mechanism-hardening TODO mit LLM-first Semantik abgleichen",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "medium",
       "summary": "Die vorhandene Hardening-TODO darf nicht mehr so gelesen werden, als muesse sofort deterministic-first gelten. Sie muss auf LLM-first Learning Phase verweisen.",
@@ -615,12 +617,13 @@
         "Beide TODOs referenzieren sich gegenseitig konsistent.",
         "Dokumentation beschreibt klar den Uebergang von LLM-first learning zu evidence-based deterministic planning."
       ],
-      "tests": []
+      "tests": [],
+      "implementation_notes": "Hardening-TODO und docs/planning-pipeline.md auf LLM-first Lernphase und evidence-based deterministic transition abgeglichen."
     },
     {
       "id": "LLMPLAN-015",
       "title": "Safety Gates fuer LLM-first Planning explizit absichern",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "critical",
       "summary": "LLM-first darf nicht bedeuten, dass LLMs Policy-Grenzen setzen oder umgehen. Safety Gates bleiben deterministisch und hart.",
@@ -654,12 +657,13 @@
         "tests/test_planning_safety_gates.py::test_llm_plan_cannot_escalate_capabilities",
         "tests/test_planning_safety_gates.py::test_llm_plan_cannot_expand_cloud_context",
         "tests/test_worker_security_regression.py::test_llm_first_planning_respects_tool_policy"
-      ]
+      ],
+      "implementation_notes": "Deterministische Safety-Gates im Planning-Flow: capability/context/tool escalation aus LLM-Subtasks wird blockiert und als warning telemetriert."
     },
     {
       "id": "MRBP-001",
       "title": "Response Behavior Profile Schema einfuehren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "high",
       "summary": "PlanningModelProfile muss um ein konkretes Antwortverhaltensprofil erweitert oder durch ein separates ModelResponseBehaviorProfile ergaenzt werden.",
@@ -688,12 +692,13 @@
       "tests": [
         "tests/test_model_response_behavior_profile_service.py::test_exact_model_behavior_profile_wins",
         "tests/test_model_response_behavior_profile_service.py::test_schema_accepts_mermaid_and_markdown_shapes"
-      ]
+      ],
+      "implementation_notes": "Schema model_response_behavior_profile.v1 vorhanden und Response-Behavior-Service integriert."
     },
     {
       "id": "MRBP-002",
       "title": "Raw Output Shape Classifier fuer Planning-Antworten bauen",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "high",
       "summary": "Nach jedem LLM-Planning-Call soll Ananta erkennen, welche Ausgabeform das Modell geliefert hat: JSON, Markdown, Mermaid, Bullet-Liste, Prosa, Python-Literal oder Mischform.",
@@ -725,12 +730,13 @@
         "tests/test_planning_output_shape_classifier.py::test_detects_mermaid_graph",
         "tests/test_planning_output_shape_classifier.py::test_detects_fenced_json",
         "tests/test_planning_output_shape_classifier.py::test_detects_mixed_explanation_then_json"
-      ]
+      ],
+      "implementation_notes": "Output-Shape-Classifier integriert; output shape wird in Planning-Diagnostik und Telemetrie gespeichert."
     },
     {
       "id": "MRBP-003",
       "title": "Format Error Analyzer fuer LLM-Planning-Ausgaben einfuehren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "medium",
       "summary": "Neben parse_mode muss sichtbar werden, welche konkreten Formatfehler ein Modell typischerweise macht.",
@@ -758,12 +764,13 @@
       "tests": [
         "tests/test_planning_format_error_analyzer.py::test_single_quotes_detected",
         "tests/test_planning_format_error_analyzer.py::test_missing_artifact_contract_detected"
-      ]
+      ],
+      "implementation_notes": "Format-Error-Analyzer integriert; format_error_codes werden in parse warnings persistiert."
     },
     {
       "id": "MRBP-004",
       "title": "Mermaid als moegliche Zwischenform erkennen und optional in PlanGraph ueberfuehren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P1",
       "risk": "medium",
       "summary": "Manche Modelle antworten bei Planning/Architektur gern mit Mermaid. Das ist nicht der finale Contract, kann aber als Dependency-/Architektur-Hinweis verwertet werden.",
@@ -791,12 +798,13 @@
       "tests": [
         "tests/test_mermaid_planning_extractor.py::test_extracts_simple_graph_dependencies",
         "tests/test_mermaid_planning_extractor.py::test_invalid_mermaid_is_safe_failure"
-      ]
+      ],
+      "implementation_notes": "Mermaid Extractor implementiert und in Parser-Chain als Zwischenform nutzbar."
     },
     {
       "id": "MRBP-005",
       "title": "Parser Chain pro Modellprofil konfigurierbar machen",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "high",
       "summary": "Nicht jedes Modell sollte mit derselben Parser-Reihenfolge behandelt werden. Ein JSON-treues Modell braucht strict JSON first; ein Markdown-Modell braucht Fence-Strip first; ein Mermaid-Modell ggf. Mermaid Extractor als Zwischenstufe.",
@@ -828,12 +836,13 @@
       "tests": [
         "tests/test_planning_parser_chain.py::test_markdown_profile_strips_fence_first",
         "tests/test_planning_parser_chain.py::test_mermaid_profile_uses_mermaid_extractor"
-      ]
+      ],
+      "implementation_notes": "Konfigurierbare Parser-Chain implementiert und Parser-Trace in Run-Mode-Data hinterlegt."
     },
     {
       "id": "MRBP-006",
       "title": "Behavior Profile Aggregation aus PlanningRunDB implementieren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "high",
       "summary": "Aus vielen PlanningRunDB Eintraegen sollen automatisch Verteilungen entstehen: wie oft JSON, wie oft Mermaid, wie oft Repair, welche Fehler usw.",
@@ -864,7 +873,8 @@
       "tests": [
         "tests/test_model_response_behavior_aggregation_service.py::test_fenced_json_distribution_creates_markdown_json_profile",
         "tests/test_model_response_behavior_aggregation_service.py::test_mermaid_distribution_creates_mermaid_profile"
-      ]
+      ],
+      "implementation_notes": "Behavior-Aggregation-Service aus PlanningRuns implementiert."
     },
     {
       "id": "MRBP-007",
@@ -940,7 +950,7 @@
     {
       "id": "MRBP-009",
       "title": "Behavior Profile in Benchmarking und Metrics API sichtbar machen",
-      "status": "todo",
+      "status": "completed",
       "priority": "P1",
       "risk": "low",
       "summary": "Im Dashboard/API soll sichtbar sein, welches Modell typischerweise welche Antwortform liefert und welche Parser-/Repair-Kosten daraus entstehen.",
@@ -970,12 +980,13 @@
       "tests": [
         "tests/test_planning_metrics_api.py::test_metrics_include_output_shape_distribution",
         "tests/test_planning_metrics_api.py::test_filter_by_behavior_profile"
-      ]
+      ],
+      "implementation_notes": "Planning-Metrics API erweitert um output_shape/behavior_profile Filter und shape/error distributions."
     },
     {
       "id": "MRBP-010",
       "title": "Bestehende LLM-first TODO um Response Behavior Semantik erweitern",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "low",
       "summary": "todo.llm-first-planning-learning.json soll klarstellen, dass PlanningModelProfile insbesondere das typische Antwortverhalten des Modells beschreibt.",
@@ -994,12 +1005,13 @@
         "Response Behavior Profile ist explizit mit PlanningModelProfile verknuepft.",
         "Akzeptanzkriterien nennen JSON, Mermaid, Markdown/Bullets und sonstige Outputformen."
       ],
-      "tests": []
+      "tests": [],
+      "implementation_notes": "Original-TODOs wurden in Unified-TODO zusammengefuehrt; Response-Behavior-Semantik ist jetzt im Unified-Programm verankert."
     },
     {
       "id": "LLMPLAN-016",
       "title": "Asynchrones Goal-Planning einfuehren (non-blocking POST /goals)",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "critical",
       "summary": "Goal-Erstellung darf nicht am synchronen LLM-Planning haengen. POST /goals muss schnell mit accepted/planning antworten, Planning laeuft im Background mit Status-Tracking.",
@@ -1029,7 +1041,8 @@
       "tests": [
         "tests/test_goals_async_planning.py::test_post_goals_returns_quickly_and_queues_planning",
         "tests/test_goals_async_planning.py::test_planning_timeout_transitions_to_failed_or_fallback"
-      ]
+      ],
+      "implementation_notes": "POST /goals auf async/non-blocking umgestellt: planning_queued/planning_running Statuspfad mit Background-Planning-Thread."
     },
     {
       "id": "MRBP-011",
@@ -1073,5 +1086,5 @@
     "3er-Lauf liefert reproduzierbare Fortschrittsmetriken und fruehe Diagnoseberichte.",
     "Deterministische Templates werden nur aus evidenzbasierten erfolgreichen Mustern aktiviert."
   ],
-  "updated_at": 1779114213.907675
+  "updated_at": 1779117733.5586302
 }

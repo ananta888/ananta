@@ -21,6 +21,7 @@ from agent.services.planning_telemetry_service import get_planning_telemetry_ser
 from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
 from agent.services.llm_first_planning_orchestrator_service import get_llm_first_planning_orchestrator_service
 from agent.services.planning_template_mining_service import get_planning_template_mining_service
+from agent.services.planning_review_queue_service import get_planning_review_queue_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.verification_policy_service import default_verification_spec
@@ -125,6 +126,45 @@ def _sanitize_role_defaults(subtask: dict[str, Any]) -> dict[str, Any]:
             }
         }
     )
+
+
+_ALLOWED_CAPS_BY_KIND: dict[str, set[str]] = {
+    "coding": {"coding", "analysis", "doc"},
+    "testing": {"testing", "analysis", "doc"},
+    "review": {"review", "analysis", "doc"},
+    "research": {"research", "analysis", "doc"},
+    "planning": {"planning", "analysis", "doc"},
+    "ops": {"ops", "analysis", "doc"},
+    "analysis": {"analysis", "doc"},
+    "doc": {"doc", "analysis"},
+}
+
+
+def _sanitize_llm_subtask_policy_hints(subtask: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Apply deterministic safety gates to LLM-suggested policy hints.
+
+    LLM output may suggest capabilities/context/tooling, but cannot expand policy.
+    """
+    out = dict(subtask or {})
+    warnings: list[str] = []
+    task_kind = str(out.get("task_kind") or "").strip().lower() or _infer_subtask_task_kind(out)
+    allowed_caps = _ALLOWED_CAPS_BY_KIND.get(task_kind, {"analysis", "doc"})
+    requested_caps = [str(item).strip().lower() for item in list(out.get("required_capabilities") or []) if str(item).strip()]
+    filtered_caps = [cap for cap in requested_caps if cap in allowed_caps]
+    if requested_caps and len(filtered_caps) != len(requested_caps):
+        warnings.append("capability_escalation_blocked")
+    out["required_capabilities"] = filtered_caps
+
+    requested_scope = str(out.get("context_scope") or "").strip().lower()
+    if requested_scope in {"full", "global", "admin"}:
+        warnings.append("context_scope_escalation_blocked")
+        out.pop("context_scope", None)
+
+    if "tool_permissions" in out or "allowed_tools" in out:
+        warnings.append("tool_escalation_blocked")
+        out.pop("tool_permissions", None)
+        out.pop("allowed_tools", None)
+    return out, warnings
 
 
 def _merge_verification_defaults(
@@ -353,6 +393,9 @@ class PlanningService:
             "repair_attempt_count": result.repair_attempt_count,
             "parse_mode": result.parse_mode,
             "parse_confidence": result.parse_confidence,
+            "output_shape": result.output_shape,
+            "format_error_codes": result.format_error_codes or [],
+            "parser_trace": result.parser_trace or [],
             "prompt_version_id": result.prompt_version_id,
             "planning_profile": result.planning_profile,
         }
@@ -745,6 +788,13 @@ class PlanningService:
             for subtask in subtasks:
                 subtask["dependency_mode"] = "parallel"
                 subtask["depends_on"] = []
+        policy_gate_warnings: list[str] = []
+        hardened_subtasks: list[dict[str, Any]] = []
+        for subtask in list(subtasks or []):
+            cleaned, warns = _sanitize_llm_subtask_policy_hints(subtask)
+            hardened_subtasks.append(cleaned)
+            policy_gate_warnings.extend(list(warns or []))
+        subtasks = hardened_subtasks
         subtasks, limits, limit_exceeded = self._apply_plan_generation_limits(subtasks)
         raw_response = resolved["raw_response"]
         planning_mode = resolved["planning_mode"]
@@ -753,12 +803,19 @@ class PlanningService:
         repair_attempt_count = int(resolved.get("repair_attempt_count") or 0)
         parse_mode = resolved.get("parse_mode")
         parse_confidence = resolved.get("parse_confidence")
+        output_shape = str(resolved.get("output_shape") or "")
+        format_error_codes = [str(x) for x in list(resolved.get("format_error_codes") or [])]
+        for warning in policy_gate_warnings:
+            if warning not in format_error_codes:
+                format_error_codes.append(warning)
+        parser_trace = list(resolved.get("parser_trace") or [])
         prompt_version_id = str(resolved.get("prompt_version_id") or "")
         planning_profile = str(resolved.get("planning_profile") or "")
         context = resolved["context"]
         template_used = resolved["template_used"]
         get_planning_telemetry_service().update_run(
             telemetry_run,
+            mode_data_patch={"__output_shape__": output_shape, "__parser_trace__": parser_trace},
             raw_output=str(raw_response or ""),
             parse_mode=str(parse_mode or ""),
             parse_confidence=str(parse_confidence or "low"),
@@ -766,6 +823,7 @@ class PlanningService:
             repair_success=bool(subtasks),
             repair_strategy_used=str(repair_strategy_used or ""),
             repair_attempt_count=repair_attempt_count,
+            parse_warnings=format_error_codes,
             status="resolved",
         )
         planner_selection: dict[str, Any] = {
@@ -968,6 +1026,10 @@ class PlanningService:
             materialized_task_ids=created_ids,
             status="materialized" if created_ids else "planned",
         )
+        try:
+            get_planning_review_queue_service().evaluate_run_for_review(telemetry_run)
+        except Exception:
+            pass
         get_planning_evaluation_service().evaluate(
             planning_run_id=str(telemetry_run.id),
             goal_id=goal_id,

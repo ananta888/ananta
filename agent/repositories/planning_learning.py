@@ -11,6 +11,7 @@ from agent.db_models import (
     PlanningModelProfileDB,
     PlanningPatternClusterDB,
     PlanningPromptVersionDB,
+    PlanningReviewItemDB,
     PlanningRunDB,
     PlanningTemplateCandidateDB,
 )
@@ -116,6 +117,26 @@ class PlanningPatternClusterRepository:
     def save(self, cluster: PlanningPatternClusterDB) -> PlanningPatternClusterDB:
         with Session(engine) as session:
             merged = session.merge(cluster)
+            merged.updated_at = time.time()
+            session.commit()
+            session.refresh(merged)
+            return merged
+
+
+class PlanningReviewItemRepository:
+    def get_open(self, limit: int = 200) -> list[PlanningReviewItemDB]:
+        with Session(engine) as session:
+            statement = (
+                select(PlanningReviewItemDB)
+                .where(PlanningReviewItemDB.status == "open")
+                .order_by(PlanningReviewItemDB.created_at.desc())
+                .limit(max(1, min(int(limit), 1000)))
+            )
+            return session.exec(statement).all()
+
+    def save(self, item: PlanningReviewItemDB) -> PlanningReviewItemDB:
+        with Session(engine) as session:
+            merged = session.merge(item)
             merged.updated_at = time.time()
             session.commit()
             session.refresh(merged)

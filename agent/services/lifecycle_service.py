@@ -245,7 +245,7 @@ class GoalLifecycleService:
         Idempotent: capped at 2 attempts with a 60s cooldown.
         """
         status = str(getattr(goal, "status", "") or "").strip().lower()
-        if status != "planning":
+        if status not in {"planning", "planning_queued", "planning_running"}:
             return goal
         goal_id = str(getattr(goal, "id", "") or "").strip()
         if not goal_id:

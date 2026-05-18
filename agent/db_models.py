@@ -525,6 +525,19 @@ class PlanningPatternClusterDB(SQLModel, table=True):
     updated_at: float = Field(default_factory=time.time)
 
 
+class PlanningReviewItemDB(SQLModel, table=True):
+    __tablename__ = "planning_review_items"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    planning_run_id: str = Field(index=True)
+    review_type: str = Field(index=True)
+    status: str = Field(default="open", index=True)
+    reason_codes: List[str] = Field(default=[], sa_column=Column(JSON))
+    action_log: List[dict] = Field(default=[], sa_column=Column(JSON))
+    payload: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
 class TaskDB(SQLModel, table=True):
     __tablename__ = "tasks"
     id: str = Field(primary_key=True)

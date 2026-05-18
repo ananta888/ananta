@@ -31,8 +31,8 @@
   "core_principles": [
     {
       "id": "PRINCIPLE-001",
-      "title": "Deterministic-first planning",
-      "description": "Templates, explizite Policies und validierte Schemas haben Vorrang vor LLM-generierten oder reparierten Ergebnissen. LLM-Fallbacks muessen sichtbar, konfigurierbar und auditierbar sein."
+      "title": "Evidence-based planning mode selection",
+      "description": "During the LLM-first learning phase, deterministic templates are policy-controlled options. Deterministic-first is enabled per policy mode after sufficient evidence."
     },
     {
       "id": "PRINCIPLE-002",
@@ -812,7 +812,7 @@
       "id": "PAR-HARD-001",
       "implementation_status": "done",
       "acceptance_status": "largely_met",
-      "summary": "Worker-/Runtime-/Security-Caps werden zur Laufzeit berechnet und über Slot-Leases enforced; Scheduler-Status liefert Laufzeit-Sicht.",
+      "summary": "Worker-/Runtime-/Security-Caps werden zur Laufzeit berechnet und \u00fcber Slot-Leases enforced; Scheduler-Status liefert Laufzeit-Sicht.",
       "evidence": [
         "agent/services/worker_pool_scheduler_service.py:33",
         "agent/services/worker_pool_scheduler_service.py:73",
@@ -850,5 +850,9 @@
       "largely_met": 10,
       "partially_met": 2
     }
-  }
+  },
+  "links": {
+    "related_unified_todo": "todo.llm-first-planning-learning-and-response-behavior.json"
+  },
+  "updated_at": 1779117733.5565345
 }

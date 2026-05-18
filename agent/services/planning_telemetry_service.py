@@ -54,6 +54,7 @@ class PlanningTelemetryService:
         self,
         run: PlanningRunDB,
         *,
+        mode_data_patch: dict[str, Any] | None = None,
         raw_output: str | None = None,
         parse_mode: str | None = None,
         parse_confidence: str | None = None,
@@ -72,6 +73,10 @@ class PlanningTelemetryService:
         error_classification: str | None = None,
         status: str | None = None,
     ) -> PlanningRunDB:
+        if mode_data_patch:
+            merged_mode_data = dict(run.mode_data or {})
+            merged_mode_data.update(dict(mode_data_patch))
+            run.mode_data = merged_mode_data
         if raw_output is not None:
             run.raw_output_preview = str(raw_output or "")[:1200]
         if parse_mode is not None:

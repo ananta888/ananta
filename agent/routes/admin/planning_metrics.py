@@ -17,5 +17,7 @@ def planning_metrics():
         model_provider=request.args.get("model_provider"),
         model_name=request.args.get("model_name"),
         prompt_version=request.args.get("prompt_version"),
+        output_shape=request.args.get("output_shape"),
+        behavior_profile_name=request.args.get("behavior_profile_name"),
     )
     return api_response(data=data)
