@@ -8,7 +8,7 @@ from typing import Any
 
 from agent.services.config_profile_service import get_config_profile_service
 
-_ALLOWED_TOP_LEVEL_KEYS = {
+ALLOWED_GOAL_CONFIG_KEYS: frozenset[str] = frozenset({
     "default_provider",
     "default_model",
     "llm_config",
@@ -22,9 +22,12 @@ _ALLOWED_TOP_LEVEL_KEYS = {
     "llm_profile_policy",
     "task_kind_execution_policies",
     "worker_selection",
-}
+})
 
-_SECRET_KEY_MARKERS = ("key", "token", "secret", "password")
+# Backward-compatible alias — internal code should migrate to ALLOWED_GOAL_CONFIG_KEYS.
+_ALLOWED_TOP_LEVEL_KEYS = ALLOWED_GOAL_CONFIG_KEYS
+
+_SECRET_KEY_MARKERS = ("key", "token", "secret", "password", "authorization", "credential", "bearer")
 
 
 @dataclass(frozen=True)
@@ -33,6 +36,7 @@ class GoalConfigResolution:
     provenance: dict[str, Any]
     checksum: str
     redaction_summary: dict[str, Any]
+    unknown_keys: tuple[str, ...]
 
 
 class GoalConfigResolverService:
@@ -47,8 +51,9 @@ class GoalConfigResolverService:
         base = self._build_system_default_snapshot(system_config)
         profile_payload = self._resolve_profile(profile_id)
         profile_overrides = dict(profile_payload.get("overrides") or {}) if profile_payload else {}
-        goal_filtered = self._filter_overrides(goal_overrides or {})
-        task_filtered = self._filter_overrides(task_overrides or {})
+        goal_filtered, goal_unknown = self._filter_overrides(goal_overrides or {})
+        task_filtered, task_unknown = self._filter_overrides(task_overrides or {})
+        unknown_keys: tuple[str, ...] = tuple(sorted(set(goal_unknown) | set(task_unknown)))
 
         merged = copy.deepcopy(base)
         provenance: dict[str, Any] = {}
@@ -67,13 +72,16 @@ class GoalConfigResolverService:
                 "field_sources": provenance,
             },
         }
-        checksum = self._checksum(snapshot)
+        # GSC-003: checksum is computed over the redacted snapshot so that
+        # secret values never influence the stored hash.
         redacted, redaction_summary = self.redact_snapshot(snapshot)
+        checksum = self._checksum(redacted)
         return GoalConfigResolution(
             config_snapshot=redacted,
             provenance=dict(snapshot.get("provenance") or {}),
             checksum=checksum,
             redaction_summary=redaction_summary,
+            unknown_keys=unknown_keys,
         )
 
     def redact_snapshot(self, snapshot: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -102,7 +110,7 @@ class GoalConfigResolverService:
     def _build_system_default_snapshot(self, system_config: dict[str, Any]) -> dict[str, Any]:
         source = dict(system_config or {})
         normalized: dict[str, Any] = {}
-        for key in _ALLOWED_TOP_LEVEL_KEYS:
+        for key in ALLOWED_GOAL_CONFIG_KEYS:
             if key in source:
                 normalized[key] = copy.deepcopy(source[key])
         return normalized
@@ -112,12 +120,15 @@ class GoalConfigResolverService:
             return None
         return get_config_profile_service().get_profile(profile_id)
 
-    def _filter_overrides(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def _filter_overrides(self, payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
         filtered: dict[str, Any] = {}
+        unknown: list[str] = []
         for key, value in dict(payload or {}).items():
-            if key in _ALLOWED_TOP_LEVEL_KEYS:
+            if key in ALLOWED_GOAL_CONFIG_KEYS:
                 filtered[key] = copy.deepcopy(value)
-        return filtered
+            else:
+                unknown.append(key)
+        return filtered, unknown
 
     def _apply_with_provenance(self, target: dict[str, Any], patch: dict[str, Any], source: str, provenance: dict[str, Any], prefix: str = "") -> None:
         for key, value in patch.items():

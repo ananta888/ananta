@@ -40,6 +40,27 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             "sgpt_routing": {"task_kind_backend": {"*": "ananta-worker"}},
         },
     ),
+    "ananta_lmstudio_local": ConfigProfile(
+        id="ananta_lmstudio_local",
+        description="Ananta worker using local LM Studio instance (auto-selects loaded model)",
+        overrides={
+            "default_provider": "lmstudio",
+            "default_model": "auto",
+            "llm_config": {"base_url": "http://localhost:1234/v1"},
+            "sgpt_routing": {"task_kind_backend": {"*": "ananta-worker"}},
+        },
+    ),
+    "opencode_lmstudio_local": ConfigProfile(
+        id="opencode_lmstudio_local",
+        description="OpenCode worker using local LM Studio instance (auto-selects loaded model)",
+        overrides={
+            "default_provider": "lmstudio",
+            "default_model": "auto",
+            "llm_config": {"base_url": "http://localhost:1234/v1"},
+            "opencode_runtime": {"target_provider": "lmstudio"},
+            "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
+        },
+    ),
 }
 
 

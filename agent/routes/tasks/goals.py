@@ -10,7 +10,7 @@ from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest, GoalPlanNodePatchRequest, GoalProvisionRequest
 from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
-from agent.services.goal_config_resolver_service import get_goal_config_resolver_service
+from agent.services.goal_config_resolver_service import ALLOWED_GOAL_CONFIG_KEYS, get_goal_config_resolver_service
 from agent.services.config_profile_service import get_config_profile_service
 from agent.services.product_event_service import record_product_event
 from agent.services.instruction_layer_service import get_instruction_layer_service
@@ -413,6 +413,14 @@ def create_goal():
         config_overrides = {}
     if not isinstance(config_overrides, dict):
         return api_response(status="error", message="invalid_config_overrides", code=400)
+    unknown_override_keys = sorted(k for k in config_overrides if k not in ALLOWED_GOAL_CONFIG_KEYS)
+    if unknown_override_keys:
+        return api_response(
+            status="error",
+            message="invalid_goal_config_key",
+            data={"unknown_keys": unknown_override_keys},
+            code=400,
+        )
     if config_profile and get_config_profile_service().get_profile(config_profile) is None:
         return api_response(status="error", message="unknown_config_profile", code=400)
 

@@ -102,7 +102,19 @@
       "Bash(xargs -I{} sh -c 'echo \"=== {} ===\"; grep -E '\"'\"'\"status\"'\"'\" {})",
       "Bash(git show *)",
       "Bash(git push *)",
-      "Bash(xargs ls -la)"
+      "Bash(xargs ls -la)",
+      "Bash(./venv/bin/pytest tests/test_goal_config_resolver_service.py -v)",
+      "Bash(./venv/bin/pytest tests/test_goal_scoped_config_api.py -v)",
+      "Bash(./venv/bin/pytest tests/test_llm_usage.py -v)",
+      "Bash(./venv/bin/pytest tests/test_llm_usage.py -v --timeout=60)",
+      "Bash(./venv/bin/pytest tests/test_llm_usage.py -x)",
+      "Bash(./venv/bin/pytest tests/test_llm_usage.py::test_build_llm_call_profile_entry_produces_canonical_schema tests/test_llm_usage.py::test_normalize_llm_call_profile_entry_fills_missing_fields tests/test_llm_usage.py::test_normalize_llm_call_profile_entry_handles_non_dict tests/test_llm_usage.py::test_build_llm_call_profile_entry_private_alias_still_works -v)",
+      "Bash(./venv/bin/pytest tests/test_goal_config_resolver_service.py tests/test_goal_scoped_config_api.py tests/test_llm_usage.py -v)",
+      "Bash(./venv/bin/pytest tests/ -k \"goal_config or llm_usage or llm_call_profile\" --no-header -q)",
+      "Bash(./venv/bin/pytest tests/test_goal_config_resolver_service.py tests/test_goal_scoped_config_api.py tests/test_llm_usage.py --no-header -q)",
+      "Bash(./venv/bin/pytest tests/test_goal_config_resolver_service.py tests/test_goal_scoped_config_api.py -q --no-header)",
+      "Bash(./venv/bin/pytest tests/test_llm_usage.py::test_llm_generate_runtime_falls_back_to_ollama_in_routing_metadata -v)",
+      "Bash(./venv/bin/pytest tests/test_llm_usage.py::test_build_llm_call_profile_entry_produces_canonical_schema tests/test_llm_usage.py::test_normalize_llm_call_profile_entry_fills_missing_fields tests/test_llm_usage.py::test_build_llm_call_profile_entry_private_alias_still_works -q)"
     ]
   }
 }

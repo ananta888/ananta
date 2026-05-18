@@ -93,6 +93,29 @@
         "default_model": "ananta-default:latest",
         "llm_config.base_url": "http://ollama:11434/api/generate"
       }
+    },
+    {
+      "id": "ananta_lmstudio_local",
+      "description": "Ananta-Worker mit lokaler LM Studio Instanz (auto-selects loaded model)",
+      "overrides": {
+        "sgpt_routing.task_kind_backend.*": "ananta-worker",
+        "default_provider": "lmstudio",
+        "default_model": "auto",
+        "llm_config.base_url": "http://localhost:1234/v1"
+      },
+      "note": "URL über LMSTUDIO_URL env-var oder config_overrides.llm_config.base_url überschreiben wenn LM Studio auf anderer Adresse läuft (z.B. http://192.168.178.100:1234/v1)."
+    },
+    {
+      "id": "opencode_lmstudio_local",
+      "description": "OpenCode-Worker mit lokaler LM Studio Instanz (auto-selects loaded model)",
+      "overrides": {
+        "sgpt_routing.task_kind_backend.*": "opencode",
+        "default_provider": "lmstudio",
+        "default_model": "auto",
+        "llm_config.base_url": "http://localhost:1234/v1",
+        "opencode_runtime.target_provider": "lmstudio"
+      },
+      "note": "URL über LMSTUDIO_URL env-var oder config_overrides.llm_config.base_url überschreiben."
     }
   ],
 
@@ -691,15 +714,18 @@
       "id": "track.P2-goal-scoped-config-hardening",
       "phase": "2",
       "title": "Phase 2 – Goal-Scoped Config absichern und deterministisch machen",
-      "status": "open",
+      "status": "partial",
       "priority": "critical",
       "rationale": "Goal-scoped Config ist jetzt zentral für Worker/Runtime/Model-Auswahl. Sie muss deterministisch, auditiert und sicher gegen invalide Overrides oder Secret-Leakage sein.",
+      "done_summary": "GSC-001..005 vollständig abgeschlossen (2026-05-18). ALLOWED_GOAL_CONFIG_KEYS public, unknown_keys Reporting, Override-Validation im API-Layer, Checksum über redacted Snapshot, erweiterte Secret-Redaction (authorization/credential/bearer), Access-Control dokumentiert und getestet. GSC-006 noch offen.",
       "tasks": [
         {
           "id": "GSC-001",
           "title": "Allowed Config Keys zentral definieren",
           "type": "refactor",
-          "status": "todo",
+          "status": "done",
+          "completed_at": "2026-05-18",
+          "completion_notes": "ALLOWED_GOAL_CONFIG_KEYS als public frozenset exportiert; _ALLOWED_TOP_LEVEL_KEYS bleibt als Backward-Alias. GoalConfigResolution.unknown_keys: tuple[str,...] hinzugefügt. _filter_overrides() gibt jetzt (filtered, unknown) zurück. 3 neue Tests in test_goal_config_resolver_service.py.",
           "files": [
             "agent/services/goal_config_resolver_service.py",
             "agent/config_defaults.py"
@@ -727,7 +753,9 @@
           "id": "GSC-002",
           "title": "Override-Validation vor Goal-Erstellung erzwingen",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
+          "completed_at": "2026-05-18",
+          "completion_notes": "agent/routes/tasks/goals.py: ALLOWED_GOAL_CONFIG_KEYS importiert; unknown_override_keys Prüfung vor Resolver-Aufruf; liefert HTTP 400 invalid_goal_config_key mit data.unknown_keys-Liste. Tests in test_goal_scoped_config_api.py.",
           "files": [
             "agent/routes/tasks/goals.py",
             "agent/services/goal_config_resolver_service.py",
@@ -754,7 +782,9 @@
           "id": "GSC-003",
           "title": "Config-Snapshot-Checksum stabilisieren",
           "type": "bugfix",
-          "status": "todo",
+          "status": "done",
+          "completed_at": "2026-05-18",
+          "completion_notes": "Reihenfolge in resolve() geändert: redact_snapshot() jetzt vor _checksum(); Checksum läuft über redacted Snapshot. Zwei Configs mit unterschiedlichen api_key-Werten erzeugen identische Checksums; non-secret-Änderungen ändern Checksum. Test test_checksum_computed_over_redacted_snapshot beweist beides.",
           "files": [
             "agent/services/goal_config_resolver_service.py",
             "tests/test_goal_config_resolver_service.py"
@@ -780,7 +810,9 @@
           "id": "GSC-004",
           "title": "Secret-Redaction robuster machen",
           "type": "security",
-          "status": "todo",
+          "status": "done",
+          "completed_at": "2026-05-18",
+          "completion_notes": "_SECRET_KEY_MARKERS um 'authorization', 'credential', 'bearer' erweitert. Recursive _walk() für nested list/dict war bereits vorhanden. 2 neue Tests: test_redaction_covers_extended_markers und test_redaction_walks_nested_lists.",
           "files": [
             "agent/services/goal_config_resolver_service.py",
             "tests/test_goal_config_resolver_service.py"
@@ -807,7 +839,9 @@
           "id": "GSC-005",
           "title": "Effective-Config Endpoint vollständig absichern",
           "type": "security",
-          "status": "todo",
+          "status": "done",
+          "completed_at": "2026-05-18",
+          "completion_notes": "Endpoint nutzt bereits _can_access_goal() (team-scoped, nicht owner-scoped). Access-Modell dokumentiert und durch Tests belegt: unauthenticated → 401/403; authenticated non-owner ohne team restriction → erlaubt (by design). 2 neue Tests in test_goal_scoped_config_api.py.",
           "files": [
             "agent/routes/tasks/goals.py",
             "tests/test_goal_scoped_config_api.py"
@@ -865,15 +899,17 @@
       "id": "track.P2-config-profiles-runtime-selection",
       "phase": "2",
       "title": "Phase 2 – Config-Profile und Runtime-Auswahl vervollständigen",
-      "status": "open",
+      "status": "partial",
       "priority": "critical",
+      "done_summary": "CPR-004 abgeschlossen (2026-05-18): ananta-default.Modelfile ist kein self-referential FROM mehr; ollama-autoimport.sh hat Guard gegen Selbst-Aliasing. Zwei neue Profile (ananta_lmstudio_local, opencode_lmstudio_local) hinzugefügt. CPR-001 partial: Profile existieren, API-Tests fehlen. CPR-002 und CPR-003 noch offen.",
       "rationale": "Profile existieren als statische Presets. Sie brauchen Validation, API-Discoverability und Binding bis zum Worker/Model-Runtime.",
       "tasks": [
         {
           "id": "CPR-001",
           "title": "Config-Profiles API dokumentieren und testen",
           "type": "feature",
-          "status": "todo",
+          "status": "partial",
+          "partial_notes": "ananta_lmstudio_local und opencode_lmstudio_local Profile zu config_profile_service.py hinzugefügt. Profile-API selbst war bereits vorhanden. Noch offen: dedizierte API-Tests für alle Profile, Test dass Profil-Overrides keine unbekannten Keys enthalten.",
           "files": [
             "agent/services/config_profile_service.py",
             "agent/routes/config/read_models.py",
@@ -960,7 +996,9 @@
           "id": "CPR-004",
           "title": "ananta-default Modelfile Basis korrigieren oder dokumentieren",
           "type": "bugfix",
-          "status": "todo",
+          "status": "done",
+          "completed_at": "2026-05-18",
+          "completion_notes": "ananta-default.Modelfile auf Placeholder-FROM gesetzt (kein self-referential). ollama-autoimport.sh: ensure_alias_from_model() bricht mit Warn-Message ab wenn alias_name == source_name. OLLAMA_NUM_CTX Default von 4096 auf 32768 erhöht (betrifft ananta-default und ananta-smoke). ananta-smoke.Modelfile ebenfalls auf 32768 aktualisiert.",
           "files": [
             "autoimport-state/modelfiles/ananta-default.Modelfile",
             "README.md",
@@ -991,15 +1029,18 @@
       "id": "track.P2-llm-observability-metrics",
       "phase": "2",
       "title": "Phase 2 – LLM-Profiling und Observability trennscharf machen",
-      "status": "open",
+      "status": "partial",
       "priority": "critical",
+      "done_summary": "LLM-001 und LLM-002 abgeschlossen (2026-05-18). Schema formalisiert, Builder und Normalizer öffentlich. task_scoped_execution_service.py nutzt canonischen Builder. Separation real/synthetic bereits in goal_latency_diagnostics.py und first_goal_acceptance_runner.py korrekt. LLM-003 und LLM-004 noch offen.",
       "rationale": "Synthetische Einträge beweisen Orchestrierungsaktivität, dürfen aber nie als echte Provider-Calls ausgewertet werden. Token-/Latenz-Statistiken müssen vertrauenswürdig bleiben.",
       "tasks": [
         {
           "id": "LLM-001",
           "title": "llm_call_profile Schema formalisieren",
           "type": "schema",
-          "status": "todo",
+          "status": "done",
+          "completed_at": "2026-05-18",
+          "completion_notes": "LLM_CALL_PROFILE_FIELDS Konstante exportiert. build_llm_call_profile_entry() als public API; _build_llm_call_profile_entry Backward-Alias. normalize_llm_call_profile_entry() für externe/legacy Entries ergänzt (akzeptiert 'phase' als 'name'-Alias, füllt fehlende Felder mit safe defaults). 4 neue Tests in test_llm_usage.py.",
           "files": [
             "agent/llm_integration.py",
             "agent/services/autopilot_decision_service.py",
@@ -1027,7 +1068,9 @@
           "id": "LLM-002",
           "title": "Synthetic Metrics aus echten Statistiken ausschließen",
           "type": "bugfix",
-          "status": "todo",
+          "status": "done",
+          "completed_at": "2026-05-18",
+          "completion_notes": "goal_latency_diagnostics.py und first_goal_acceptance_runner.py hatten die Trennung bereits korrekt implementiert (estimated-Flag + source==orchestrator_synthetic). task_scoped_execution_service.py._build_llm_call_profile_entries() nutzt jetzt build_llm_call_profile_entry() mit estimated=True und source='cli_backend' statt inkonsistenter inline-Dicts.",
           "files": [
             "scripts/goal_latency_diagnostics.py",
             "scripts/first_goal_acceptance_runner.py",
@@ -1750,30 +1793,63 @@
       "title": "Phase 2 – Commit-Hygiene und Entwicklungsprozess verbessern",
       "status": "open",
       "priority": "medium",
-      "rationale": "Viele Commits heißen 'fixup planning', was zukünftiges Review und Bisecting unnötig schwer macht.",
+      "rationale": "Die letzten Commit-Runden enthielten 5 aufeinanderfolgende 'fixup planning'-Commits ohne Scope oder Inhaltsbeschreibung. Das erzeugt drei konkrete Probleme: (1) git bisect findet Regressionen nicht, weil Scope und Absicht fehlen; (2) Agents in späteren Sessions erkennen nicht, welcher Teil des Codes sich durch welches Commit geändert hat, und produzieren falsche Summaries; (3) Review und Audit-Trails verlieren ihre Aussagekraft wenn jeder Planning-Commit gleich heißt. Zusätzlich commiten Agents gelegentlich generierte Runtime-Artifacts (acceptance reports, project-workspaces) statt nur Source-Code. Diese Policy regelt beides.",
+      "problem_examples": [
+        "7b5e6352 fixup planning (keine Information welche Datei, welcher Bug, welche Absicht)",
+        "df73a811 fixup planning (identischer Message-Text, ununterscheidbar von vorherigem Commit)",
+        "e608396d docs: add SSH OIDC certificate terminal access todo (korrekt)",
+        "3fe6add6 fixup planning",
+        "5cbd64a0 fixup planning",
+        "artifacts/first_goal_acceptance_report_3er_manual.json in git history obwohl runtime output"
+      ],
       "tasks": [
         {
           "id": "CHP-001",
-          "title": "Commit Message Policy dokumentieren",
+          "title": "Commit Message Konventionen dokumentieren und durchsetzen",
           "type": "docs",
           "status": "todo",
           "files": [
             "CONTRIBUTING.md",
-            "AGENTS.md"
+            "AGENTS.md",
+            ".commitlintrc.json"
           ],
-          "description": "Bedeutungsvolle Commit-Message-Konventionen für künftige Agent/Human-Commits definieren.",
+          "description": "Verbindliche Commit-Message-Konventionen für Human- und Agent-Commits definieren, in CONTRIBUTING.md und AGENTS.md festschreiben und optional durch commitlint oder pre-commit-hook prüfbar machen.",
           "implementation_notes": [
-            "Prefixes: feat:, fix:, test:, docs:, refactor:, chore:.",
-            "Component scope wo sinnvoll: feat(goal-config): ...",
-            "Wiederholte generische Messages wie 'fixup planning' außer für lokale squashed history bannen."
+            "Format: <type>(<scope>): <subject>",
+            "Erlaubte types: feat, fix, test, docs, refactor, chore, security, perf, ci.",
+            "Erlaubte scopes (Auswahl): goal-config, autopilot, worker, terminal, llm, profiles, runner, audit, ssh, db, deps, ci.",
+            "Subject: Imperativ, max 72 Zeichen, kein Punkt am Ende.",
+            "Body optional: WHY, nicht WAS (Code erklärt WAS).",
+            "Agent-Commits: Agent muss Typ und Scope aus dem tatsächlichen Änderungsbereich ableiten, nie generisch 'fixup planning' oder 'update code'.",
+            "Squash-Pflicht: Lokale fixup/-Commits vor Merge zu main squashen; kein nackter 'fixup' auf main-Branch.",
+            "Kein commit --amend auf gepushten Commits ohne explizite Anforderung.",
+            ".commitlintrc.json optional einrichten für automatische Prüfung."
           ],
           "acceptance_criteria": [
-            "CONTRIBUTING.md dokumentiert Commit-Stil.",
-            "AGENTS.md instruiert Agents bedeutungsvolle Commit-Messages zu nutzen.",
-            "Künftige TODOs referenzieren diese Policy."
+            "CONTRIBUTING.md enthält vollständige Type/Scope-Liste mit Beispielen.",
+            "AGENTS.md enthält Abschnitt 'Commit Messages' mit Agent-spezifischen Regeln: wie Scope ableiten, was 'fixup'-Commits bedeuten, wann sie erlaubt sind.",
+            "Beispiele in Docs zeigen gültige und ungültige Messages.",
+            "Optional: .commitlintrc.json prüft type/scope gegen Allowlist.",
+            "Optional: pre-commit Hook oder CI-Step lehnt generische Messages ab."
+          ],
+          "good_examples": [
+            "feat(goal-config): export ALLOWED_GOAL_CONFIG_KEYS as public frozenset",
+            "fix(goal-config): compute checksum over redacted snapshot not raw",
+            "security(goal-config): extend secret redaction markers with authorization and bearer",
+            "fix(modelfile): guard ollama-autoimport against self-referential alias",
+            "feat(profiles): add ananta_lmstudio_local and opencode_lmstudio_local profiles",
+            "test(goal-config): add access control tests for effective-config endpoint",
+            "chore(ctx): increase OLLAMA_NUM_CTX default from 4096 to 32768"
+          ],
+          "bad_examples": [
+            "fixup planning (kein Typ, kein Scope, keine Information)",
+            "update code (zu generisch)",
+            "wip (kein Merge auf main)",
+            "fix stuff (kein Scope, kein konkretes Subject)"
           ],
           "verification": [
-            "Manual doc review."
+            "Manual doc review.",
+            "npx commitlint --from HEAD~5 --to HEAD wenn .commitlintrc.json vorhanden."
           ],
           "depends_on": []
         },
@@ -1786,21 +1862,88 @@
             "AGENTS.md",
             "docs/runtime-artifacts.md"
           ],
-          "description": "Agents müssen wissen welche Outputs in Source und welche nur in runtime/output-Ordner gehören.",
+          "description": "Agents müssen wissen welche Outputs in Source Control gehören und welche nur in runtime/output-Ordner. Unklar: autoimport-state/modelfiles/, artifacts/*.json, project-workspaces/**.",
           "implementation_notes": [
-            "Dokumentieren dass generierte Workspaces normalerweise nicht committed werden.",
-            "Fixture-Ausnahme-Pfad explizit beschreiben.",
-            "Acceptance-Report-Handling dokumentieren."
+            "Source-Control-Kategorien klar trennen:",
+            "  SOURCE: agent/, tests/, scripts/, docs/, AGENTS.md, CONTRIBUTING.md, docker-compose*.yml, .env.example, todo.*.json, autoimport-state/modelfiles/*.Modelfile (nur Template-Dateien, nicht runtime-generierte).",
+            "  RUNTIME-OUTPUT (nicht committen): artifacts/*.json (außer tests/fixtures), project-workspaces/**, autoimport-state/hash/**, autoimport-state/logs/**, *.log, data/**, .env.",
+            "  FIXTURES (erlaubt, aber explizit): tests/fixtures/reports/*, tests/fixtures/artifacts/*.",
+            "autoimport-state/modelfiles/*.Modelfile Sonderfall: Template-Dateien (ananta-default, ananta-smoke) sind Source; alle anderen werden by script generiert und sollten nicht committet werden.",
+            "Dokumentieren dass git status nach lokalem Acceptance-Run keine generierten Dateien zeigen soll.",
+            "Acceptance-Reports nur als Fixture in tests/fixtures/ committen, nie als Runtime-Output in artifacts/."
           ],
           "acceptance_criteria": [
-            "AGENTS.md stellt fest dass Runtime-Artifacts by default kein Source sind.",
-            "Fixture-Ausnahme ist explizit und eng gefasst.",
-            "Policy stimmt mit .gitignore überein."
+            "AGENTS.md enthält Tabelle: Datei/Glob → Source|Runtime|Fixture mit Begründung.",
+            "AGENTS.md erklärt was Agents beim Commit prüfen müssen bevor sie 'git add .' verwenden.",
+            "Fixture-Ausnahme ist explizit, eng gefasst und mit Approval-Kriterium versehen.",
+            "Policy stimmt mit .gitignore überein (RCA-002).",
+            "autoimport-state/modelfiles/ Sonderfall ist explizit erklärt."
           ],
           "verification": [
-            "Manual doc review plus git status nach Sample-Run."
+            "Manual doc review plus git status nach Sample-Run.",
+            "git check-ignore project-workspaces/some-run/main.py",
+            "git check-ignore artifacts/first_goal_acceptance_report_tmp.json"
           ],
           "depends_on": ["RCA-001", "RCA-002"]
+        },
+        {
+          "id": "CHP-003",
+          "title": "Squash-Strategie für fixup-Commits festlegen",
+          "type": "process",
+          "status": "todo",
+          "files": [
+            "CONTRIBUTING.md"
+          ],
+          "description": "Klare Regeln definieren wann 'fixup planning' / WIP-Commits entstehen dürfen und wie sie vor dem Push auf main gehandhabt werden.",
+          "implementation_notes": [
+            "Lokale WIP-Commits während Planning-Phase sind erlaubt, müssen aber vor Push squashed werden.",
+            "Squash-Commit erhält den Conventional-Commit-Message des Gesamtergebnisses.",
+            "Auf main darf kein Commit mit 'fixup', 'wip' oder 'planning' im Subject landen (außer in einem squash-commit-Body als Referenz).",
+            "Agent-Sessions: Nach Abschluss einer Session, bevor commit, Message auf meaningful prüfen.",
+            "Wenn eine Session mehrere logisch getrennte Changes erzeugt: separate Commits mit jeweils eigenem Scope.",
+            "git rebase -i vor Push für Bereinigung nutzen."
+          ],
+          "acceptance_criteria": [
+            "CONTRIBUTING.md enthält Squash-Policy mit Beispiel (vorher/nachher).",
+            "Agents wissen (via AGENTS.md) dass sie lokale fixup-Commits selbst squashen müssen.",
+            "Optional: pre-push hook prüft dass kein 'fixup'/'wip' Subject auf main landet.",
+            "Beispiel zeigt: 5x 'fixup planning' → 1x 'feat(goal-config): add ALLOWED_GOAL_CONFIG_KEYS and override validation'."
+          ],
+          "verification": [
+            "Manual doc review.",
+            "git log --oneline main | grep -i fixup → kein Ergebnis nach Policy-Einführung."
+          ],
+          "depends_on": ["CHP-001"]
+        },
+        {
+          "id": "CHP-004",
+          "title": "Optional: commitlint oder Message-Hook einrichten",
+          "type": "ci",
+          "status": "todo",
+          "priority": "low",
+          "files": [
+            ".commitlintrc.json",
+            ".husky/commit-msg",
+            ".github/workflows/lint.yml"
+          ],
+          "description": "Automatische Prüfung von Commit-Messages gegen definierte Konventionen als opt-in tooling ergänzen.",
+          "implementation_notes": [
+            "commitlint mit @commitlint/config-conventional als Base-Config.",
+            "Custom rules für Ananta-Scopes hinzufügen.",
+            "Husky pre-commit oder commit-msg Hook oder CI-Step.",
+            "Nur warnen nicht blocken bis Policy breit akzeptiert ist."
+          ],
+          "acceptance_criteria": [
+            "commitlint läuft lokal oder in CI.",
+            "Schlägt fehl bei 'fixup planning', 'wip', 'update code'.",
+            "Besteht bei 'feat(goal-config): export ALLOWED_GOAL_CONFIG_KEYS'.",
+            "Installation und Override-Möglichkeit dokumentiert."
+          ],
+          "verification": [
+            "echo 'fixup planning' | npx commitlint → non-zero exit.",
+            "echo 'feat(goal-config): export ALLOWED_GOAL_CONFIG_KEYS' | npx commitlint → zero exit."
+          ],
+          "depends_on": ["CHP-001"]
         }
       ]
     }
@@ -1847,7 +1990,9 @@
       "DUC-002 (frontend contract docs)",
       "DUC-003 (llm observability ui-konzept)",
       "CHP-001 (commit message policy)",
-      "CHP-002 (agent output boundary)"
+      "CHP-002 (agent output boundary)",
+      "CHP-003 (squash-strategie)",
+      "CHP-004 (commitlint tooling, optional)"
     ]
   },
 
