@@ -12,6 +12,44 @@ from agent.services.repository_registry import get_repository_registry
 _DEFAULT_PATH = Path("config/planning_model_profiles.default.json")
 
 
+def _normalize_notes(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        return text or None
+    try:
+        return json.dumps(value, ensure_ascii=True, separators=(",", ":"))
+    except Exception:
+        text = str(value).strip()
+        return text or None
+
+
+def _extract_preferred_output_format(notes: Any) -> str:
+    allowed = {"json", "markdown", "yaml"}
+    if isinstance(notes, str):
+        text = notes.strip()
+        if not text:
+            return "json"
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                fmt = str(parsed.get("preferred_output_format") or "").strip().lower()
+                if fmt in allowed:
+                    return fmt
+        except Exception:
+            pass
+        if text.lower().startswith("preferred_output_format="):
+            fmt = text.split("=", 1)[1].strip().lower()
+            if fmt in allowed:
+                return fmt
+    elif isinstance(notes, dict):
+        fmt = str(notes.get("preferred_output_format") or "").strip().lower()
+        if fmt in allowed:
+            return fmt
+    return "json"
+
+
 class PlanningModelProfileService:
     def _load_defaults(self) -> list[dict[str, Any]]:
         if not _DEFAULT_PATH.exists():
@@ -49,7 +87,7 @@ class PlanningModelProfileService:
                 existing_profile.output_contract_strictness = str(item.get("output_contract_strictness") or "repair_required")
                 existing_profile.supports_json_mode = bool(item.get("supports_json_mode", False))
                 existing_profile.requires_english_prompt = bool(item.get("requires_english_prompt", False))
-                existing_profile.notes = item.get("notes")
+                existing_profile.notes = _normalize_notes(item.get("notes"))
                 existing_profile.enabled = bool(item.get("enabled", True))
                 repo.save(existing_profile)
                 continue
@@ -68,7 +106,7 @@ class PlanningModelProfileService:
                     output_contract_strictness=str(item.get("output_contract_strictness") or "repair_required"),
                     supports_json_mode=bool(item.get("supports_json_mode", False)),
                     requires_english_prompt=bool(item.get("requires_english_prompt", False)),
-                    notes=item.get("notes"),
+                    notes=_normalize_notes(item.get("notes")),
                     enabled=bool(item.get("enabled", True)),
                 ))
 
@@ -123,7 +161,7 @@ class PlanningModelProfileService:
 
     @staticmethod
     def _to_dict(profile: PlanningModelProfileDB) -> dict[str, Any]:
-        notes = profile.notes if isinstance(profile.notes, dict) else {}
+        notes = profile.notes
         return {
             "id": str(profile.id),
             "provider": str(profile.provider or ""),
@@ -140,7 +178,7 @@ class PlanningModelProfileService:
             "output_contract_strictness": str(profile.output_contract_strictness or "repair_required"),
             "supports_json_mode": bool(profile.supports_json_mode),
             "requires_english_prompt": bool(profile.requires_english_prompt),
-            "preferred_output_format": str(notes.get("preferred_output_format") or "json"),
+            "preferred_output_format": _extract_preferred_output_format(notes),
             "notes": profile.notes,
         }
 

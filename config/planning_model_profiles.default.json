@@ -13,7 +13,7 @@
       "preferred_prompt_version_id": "v3-gemma-new-software-project-en",
       "output_contract_strictness": "repair_required",
       "requires_english_prompt": true,
-      "notes": {"preferred_output_format": "json"},
+      "notes": "preferred_output_format=json",
       "enabled": true
     },
     {
@@ -29,7 +29,7 @@
       "preferred_prompt_version_id": "v3-new-software-project-en",
       "output_contract_strictness": "repair_required",
       "requires_english_prompt": true,
-      "notes": {"preferred_output_format": "json"},
+      "notes": "preferred_output_format=json",
       "enabled": true
     },
     {
@@ -41,7 +41,7 @@
       "temperature": 0.2,
       "repair_attempts": 2,
       "preferred_prompt_version_id": "v3-new-software-project-en",
-      "notes": {"preferred_output_format": "markdown"},
+      "notes": "preferred_output_format=markdown",
       "enabled": true
     },
     {
@@ -52,7 +52,7 @@
       "max_output_tokens": 1024,
       "temperature": 0.2,
       "repair_attempts": 2,
-      "notes": {"preferred_output_format": "json"},
+      "notes": "preferred_output_format=json",
       "enabled": true
     }
   ]
