@@ -37,8 +37,7 @@ class PlanningPromptRegistry:
     def ensure_default_versions(self) -> None:
         repo = get_repository_registry().planning_prompt_version_repo
         existing = repo.get_enabled()
-        if existing:
-            return
+        existing_versions = {str(item.version or "").strip() for item in existing}
         for item in self._load_defaults():
             payload = {
                 "version": str(item.get("version") or "v1"),
@@ -51,6 +50,8 @@ class PlanningPromptRegistry:
                 "repair_prompt_template": str(item.get("repair_prompt_template") or ""),
                 "enabled": bool(item.get("enabled", True)),
             }
+            if payload["version"] in existing_versions:
+                continue
             checksum = self._checksum(payload)
             repo.save(PlanningPromptVersionDB(**payload, checksum=checksum))
 
@@ -62,13 +63,26 @@ class PlanningPromptRegistry:
         mode: str,
         language: str,
         model_family: str | None = None,
+        preferred_prompt_version_id: str | None = None,
+        preferred_output_format: str | None = None,
         behavior_profile: dict[str, Any] | None = None,
     ) -> ResolvedPlanningPrompt:
         self.ensure_default_versions()
         candidates = get_repository_registry().planning_prompt_version_repo.get_enabled()
         lang = str(language or "de").strip().lower() or "de"
         selected = None
+        preferred_id = str(preferred_prompt_version_id or "").strip()
+        if preferred_id:
+            for item in candidates:
+                if (
+                    str(item.id or "").strip() == preferred_id
+                    or str(item.version or "").strip() == preferred_id
+                ) and bool(item.enabled):
+                    selected = item
+                    break
         for item in candidates:
+            if selected is not None:
+                break
             if str(item.mode or "").strip() != str(mode or "generic"):
                 continue
             if str(item.language or "").strip().lower() != lang:
@@ -102,12 +116,17 @@ class PlanningPromptRegistry:
                 checksum=self._checksum({"template": template, "lang": lang, "mode": mode}),
             )
 
-        rendered = str(selected.user_prompt_template or "").format(goal=goal, context=context or "")
+        rendered = str(selected.user_prompt_template or "").format(
+            goal=goal,
+            context=context or "",
+            preferred_output_format=(str(preferred_output_format or "").strip().lower() or "json"),
+        )
         try:
             from agent.services.planning_prompt_optimizer_service import get_planning_prompt_optimizer_service
 
             rendered, _style = get_planning_prompt_optimizer_service().optimize(
                 prompt=rendered,
+                preferred_output_format=preferred_output_format,
                 behavior_profile=behavior_profile,
             )
         except Exception:

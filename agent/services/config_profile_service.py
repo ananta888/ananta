@@ -25,7 +25,7 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
         overrides={
             "default_provider": "ollama",
             "default_model": "ananta-default:latest",
-            "llm_config": {"base_url": "http://ollama:11434/api/generate"},
+            "llm_config": {"base_url": "http://ollama:11434/api/generate", "planner_output_format": "markdown"},
             "opencode_runtime": {"target_provider": "ollama"},
             "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
         },
@@ -36,7 +36,7 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
         overrides={
             "default_provider": "ollama",
             "default_model": "ananta-default:latest",
-            "llm_config": {"base_url": "http://ollama:11434/api/generate"},
+            "llm_config": {"base_url": "http://ollama:11434/api/generate", "planner_output_format": "markdown"},
             "sgpt_routing": {"task_kind_backend": {"*": "ananta-worker"}},
         },
     ),
@@ -46,7 +46,7 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
         overrides={
             "default_provider": "lmstudio",
             "default_model": "auto",
-            "llm_config": {"base_url": "http://192.168.178.100:1234/v1"},
+            "llm_config": {"base_url": "http://192.168.178.100:1234/v1", "planner_output_format": "json"},
             "sgpt_routing": {"task_kind_backend": {"*": "ananta-worker"}},
         },
     ),
@@ -56,7 +56,7 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
         overrides={
             "default_provider": "lmstudio",
             "default_model": "auto",
-            "llm_config": {"base_url": "http://192.168.178.100:1234/v1"},
+            "llm_config": {"base_url": "http://192.168.178.100:1234/v1", "planner_output_format": "json"},
             "opencode_runtime": {"target_provider": "lmstudio"},
             "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
         },

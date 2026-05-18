@@ -1,33 +1,34 @@
 {
   "prompt_versions": [
     {
-      "version": "v1-generic-de",
-      "language": "de",
-      "mode": "generic",
-      "output_contract": {"format": "json_array", "max_nodes": 8},
-      "system_rules": ["no_sudo", "no_systemctl", "json_only"],
-      "user_prompt_template": "Du bist ein Projektplanungs-Assistent. Zerlege das Ziel in umsetzbare Teilaufgaben.\n\nZIEL:\n{goal}\n\nKONTEXT:\n{context}\n\nLiefere nur ein JSON-Array mit title, description, priority, depends_on.",
-      "repair_prompt_template": "Der vorherige Output war unstrukturiert. Erzeuge valides JSON-Array fuer das Ziel: {goal}",
-      "enabled": true
-    },
-    {
-      "version": "v1-generic-en",
+      "version": "v2-generic-en",
       "language": "en",
       "mode": "generic",
-      "output_contract": {"format": "json_array", "max_nodes": 8},
-      "system_rules": ["no_sudo", "json_only"],
-      "user_prompt_template": "You are a planning assistant. Break down the goal into actionable tasks.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nReturn JSON array only with title, description, priority, depends_on.",
-      "repair_prompt_template": "Previous output was invalid. Return strict JSON array for goal: {goal}",
+      "output_contract": {"format": "json_array", "max_nodes": 9},
+      "system_rules": ["no_sudo", "no_systemctl", "structured_only"],
+      "user_prompt_template": "You are a project planning assistant. Break the goal into 5-9 concrete, executable tasks.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nRules:\n1) Mandatory phases must exist as separate tasks: setup, implementation, execution, verification, summary.\n2) Do not create generic catch-all tasks like 'prepare environment' without concrete action/output.\n3) Each task must have: title, description, priority, depends_on.\n4) Keep fields short and specific (small local model friendly).\n5) Preferred output format: {preferred_output_format}.\n\nReturn structured output only.",
+      "repair_prompt_template": "Previous plan was invalid or too generic. Return a strict, concrete plan with 5-9 tasks and mandatory phases for goal: {goal}",
       "enabled": true
     },
     {
-      "version": "v1-new-project-en",
+      "version": "v2-new-software-project-en",
       "language": "en",
       "mode": "new_software_project",
-      "output_contract": {"format": "json_array", "requires": ["expected_artifacts", "verification_spec", "dependency_mode", "task_kind"]},
-      "system_rules": ["json_only", "execution_path_required"],
-      "user_prompt_template": "Plan a new software project with executable steps.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nReturn JSON array only. Include concrete file/workspace tasks and verification tasks.",
-      "repair_prompt_template": "Repair the project plan into strict JSON array including execution + verification steps for: {goal}",
+      "output_contract": {"format": "json_array", "max_nodes": 9, "requires": ["expected_artifacts", "verification_spec", "dependency_mode", "task_kind"]},
+      "system_rules": ["structured_only", "execution_path_required"],
+      "user_prompt_template": "Plan a new software project. Output 5-9 tasks with concrete executable steps.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nMandatory phases (separate tasks):\n- setup\n- implementation\n- execution\n- verification\n- summary\n\nQuality rules:\n- No generic umbrella tasks.\n- Include at least one implementation task that creates or edits source code.\n- Include at least one execution task that runs commands.\n- Include at least one verification task (tests/checks).\n- Include a final summary/report task with acceptance criteria status.\n\nDomain hint for Fibonacci Python backend:\n- Define API endpoint for Fibonacci calculation.\n- Add tests for valid and invalid input.\n- Include run command and test command in execution/verification tasks.\n\nKeep fields short. Preferred output format: {preferred_output_format}. Return structured output only.",
+      "repair_prompt_template": "Repair this software project plan. Enforce mandatory phases, implementation+execution+verification coverage, and concrete outputs for: {goal}",
+      "enabled": true
+    },
+    {
+      "version": "v2-gemma-new-software-project-en",
+      "language": "en",
+      "target_model_family": "gemma",
+      "mode": "new_software_project",
+      "output_contract": {"format": "json_array", "max_nodes": 8, "requires": ["expected_artifacts", "verification_spec", "task_kind"]},
+      "system_rules": ["structured_only", "compact_fields"],
+      "user_prompt_template": "Create 5-8 concrete tasks for this new software project.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nMust include these phases as separate tasks: setup, implementation, execution, verification, summary.\nNo generic tasks. Each task must be directly executable and have clear output.\nFor Fibonacci Python backend include: API endpoint task, implementation task, run command task, tests task, final summary task.\nKeep title/description short. Preferred output format: {preferred_output_format}.\nReturn structured output only.",
+      "repair_prompt_template": "Rewrite as compact, concrete, structured project plan with mandatory phases and no generic tasks for: {goal}",
       "enabled": true
     }
   ]

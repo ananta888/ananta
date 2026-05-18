@@ -416,6 +416,11 @@ class LLMPlanningStrategy:
         if not isinstance(scoped_cfg, dict):
             scoped_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         planning_policy = scoped_cfg.get("planning_policy") if isinstance(scoped_cfg.get("planning_policy"), dict) else {}
+        runtime_profiles = planning_policy.get("runtime_profiles") if isinstance(planning_policy.get("runtime_profiles"), dict) else {}
+        runtime_profile_id = str(planning_policy.get("default_runtime_profile") or "").strip()
+        runtime_profile = runtime_profiles.get(runtime_profile_id) if runtime_profile_id and isinstance(runtime_profiles, dict) else {}
+        if not isinstance(runtime_profile, dict):
+            runtime_profile = {}
 
         # Configurable context truncation — helps small models with limited context windows
         context_max_chars = planning_policy.get("context_max_chars")
@@ -445,6 +450,13 @@ class LLMPlanningStrategy:
             model_name=llm_cfg.get("model"),
             explicit_profile=(planning_policy.get("planning_profile") or None),
         )
+        preferred_output_format = str(
+            planning_policy.get("preferred_output_format")
+            or runtime_profile.get("preferred_output_format")
+            or llm_cfg.get("planner_output_format")
+            or profile.get("preferred_output_format")
+            or "json"
+        ).strip().lower()
         prompt_language = str(
             planning_policy.get("prompt_language")
             or profile.get("prompt_language")
@@ -457,6 +469,8 @@ class LLMPlanningStrategy:
             mode=prompt_mode,
             language=prompt_language,
             model_family=profile.get("model_family"),
+            preferred_prompt_version_id=profile.get("preferred_prompt_version_id"),
+            preferred_output_format=preferred_output_format,
             behavior_profile=get_model_response_behavior_profile_service().resolve(
                 provider=llm_cfg.get("provider"),
                 model_name=llm_cfg.get("model"),

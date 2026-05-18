@@ -544,6 +544,7 @@ def build_default_agent_config() -> dict:
             "segmented_planning_enabled": True,
             "segment_context_chars": 2400,
             "max_segments": 3,
+            "preferred_output_format": "json",
             "default_runtime_profile": "lmstudio_laptop",
             "runtime_profiles": {
                 "lmstudio_laptop": {
@@ -554,6 +555,7 @@ def build_default_agent_config() -> dict:
                     "segmented_planning_enabled": True,
                     "segment_context_chars": 2000,
                     "max_segments": 4,
+                    "preferred_output_format": "json",
                 },
                 "ollama_rtx3080": {
                     "timeout_seconds": 180,
@@ -563,6 +565,7 @@ def build_default_agent_config() -> dict:
                     "segmented_planning_enabled": True,
                     "segment_context_chars": 3200,
                     "max_segments": 3,
+                    "preferred_output_format": "markdown",
                 },
             },
         },

@@ -3,37 +3,45 @@
     {
       "provider": "lmstudio",
       "model_name_pattern": "*gemma*",
-      "profile_name": "small_local",
+      "model_family": "gemma",
+      "profile_name": "small_local_gemma",
       "prompt_language": "en",
-      "context_max_chars": 400,
+      "context_max_chars": 420,
       "max_output_tokens": 512,
-      "temperature": 0.2,
-      "repair_attempts": 1,
+      "temperature": 0.15,
+      "repair_attempts": 2,
+      "preferred_prompt_version_id": "v2-gemma-new-software-project-en",
       "output_contract_strictness": "repair_required",
       "requires_english_prompt": true,
+      "notes": {"preferred_output_format": "json"},
       "enabled": true
     },
     {
       "provider": "lmstudio",
       "model_name_pattern": "auto",
+      "model_family": "gemma",
       "profile_name": "small_local_auto",
       "prompt_language": "en",
-      "context_max_chars": 400,
+      "context_max_chars": 420,
       "max_output_tokens": 512,
-      "temperature": 0.2,
-      "repair_attempts": 1,
+      "temperature": 0.15,
+      "repair_attempts": 2,
+      "preferred_prompt_version_id": "v2-new-software-project-en",
       "output_contract_strictness": "repair_required",
       "requires_english_prompt": true,
+      "notes": {"preferred_output_format": "json"},
       "enabled": true
     },
     {
       "provider": "ollama",
       "profile_name": "medium_local",
       "prompt_language": "en",
-      "context_max_chars": 600,
+      "context_max_chars": 700,
       "max_output_tokens": 768,
       "temperature": 0.2,
       "repair_attempts": 2,
+      "preferred_prompt_version_id": "v2-new-software-project-en",
+      "notes": {"preferred_output_format": "markdown"},
       "enabled": true
     },
     {
@@ -44,6 +52,7 @@
       "max_output_tokens": 1024,
       "temperature": 0.2,
       "repair_attempts": 2,
+      "notes": {"preferred_output_format": "json"},
       "enabled": true
     }
   ]
