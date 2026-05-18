@@ -656,7 +656,16 @@ class PlanningService:
 
         subtasks = resolved["subtasks"]
         planning_policy = self._resolve_planning_policy()
-        if bool((mode_data or {}).get("no_task_dependencies")):
+        mode_data_dict = dict(mode_data or {})
+        no_task_dependencies = bool(mode_data_dict.get("no_task_dependencies"))
+        if (
+            mode == "new_software_project"
+            and "no_task_dependencies" not in mode_data_dict
+            and bool(planning_policy.get("new_software_project_parallel_default", True))
+        ):
+            no_task_dependencies = True
+
+        if no_task_dependencies:
             # Sentinel must be applied before _apply_plan_generation_limits so the depth probe
             # sees parallel nodes (depth=1) and doesn't reject the plan.
             # _apply_plan_generation_limits preserves __parallel__ unchanged.

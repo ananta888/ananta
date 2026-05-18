@@ -447,6 +447,36 @@ class TestAutoPlanner:
         assert bool(result.get("plan_limits", {}).get("truncated")) is True
         assert len(result.get("subtasks") or []) == 2
 
+    def test_new_software_project_defaults_to_parallel_dependencies(self, app, monkeypatch):
+        mock_response = json.dumps(
+            [
+                {"title": "Task 1", "description": "Desc 1", "priority": "High"},
+                {"title": "Task 2", "description": "Desc 2", "priority": "Medium"},
+                {"title": "Task 3", "description": "Desc 3", "priority": "Low"},
+            ]
+        )
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.generate_text",
+            lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
+        )
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        planner = AutoPlanner()
+        planner.configure(auto_start_autopilot=False, max_subtasks_per_goal=10)
+
+        with app.app_context():
+            result = planner.plan_goal(
+                "Build new project",
+                create_tasks=False,
+                use_template=False,
+                use_repo_context=False,
+                mode="new_software_project",
+            )
+
+        subtasks = list(result.get("subtasks") or [])
+        assert len(subtasks) == 3
+        for task in subtasks:
+            assert task.get("depends_on") == ["__parallel__"]
+
     def test_plan_goal_aborts_on_max_plan_depth_limit(self, app, monkeypatch):
         mock_response = json.dumps(
             [
