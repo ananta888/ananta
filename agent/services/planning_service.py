@@ -801,12 +801,13 @@ class PlanningService:
             else:
                 error_message = str(exc)
                 error_classification = "resolve_subtasks_exception"
-            get_planning_telemetry_service().update_run(
+            telemetry_run = get_planning_telemetry_service().update_run(
                 telemetry_run,
                 status="failed",
                 error_classification=error_classification,
                 validation_errors=[error_message],
             )
+            self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=self._resolve_planning_policy())
             return {"subtasks": [], "created_task_ids": [], "error": error_message, "planning_run_id": telemetry_run.id}
 
         subtasks = resolved["subtasks"]
