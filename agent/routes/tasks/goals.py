@@ -71,16 +71,19 @@ def _looks_like_software_goal(text: str) -> bool:
 
 
 def _plan_looks_too_thin_for_software_goal(task_ids: list[str]) -> bool:
-    if len(task_ids) >= 2:
-        return False
     if not task_ids:
         return True
-    task = _repos().task_repo.get_by_id(task_ids[0])
-    if not task:
+    aggregate_parts: list[str] = []
+    for tid in task_ids:
+        task = _repos().task_repo.get_by_id(tid)
+        if not task:
+            continue
+        title = str(getattr(task, "title", "") or "").lower()
+        description = str(getattr(task, "description", "") or "").lower()
+        aggregate_parts.append(f"{title} {description}")
+    if not aggregate_parts:
         return True
-    title = str(getattr(task, "title", "") or "").lower()
-    description = str(getattr(task, "description", "") or "").lower()
-    text = f"{title} {description}"
+    text = " ".join(aggregate_parts)
     implementation_markers = (
         "implement",
         "code",
