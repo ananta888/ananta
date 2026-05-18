@@ -54,6 +54,16 @@ class CommitWorkerService:
 
         resolver = get_commit_scope_resolver()
         resolution = resolver.resolve(staged)
+        policy = dict(meta.get("policy") or {})
+        block_mixed_scope = bool(policy.get("block_mixed_scope", True))
+        if resolution.is_mixed and block_mixed_scope:
+            return CommitResult(
+                success=False,
+                errors=[
+                    "mixed_scope_blocked",
+                    f"detected_scopes={resolution.all_scopes}",
+                ],
+            )
 
         planned_scope = str(meta.get("commit_scope") or "").strip() or None
         actual_scope = resolution.primary_scope

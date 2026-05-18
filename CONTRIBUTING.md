@@ -15,6 +15,7 @@ Contributions should respect the core architecture and existing project principl
 Please read these files before contributing:
 
 - `AGENTS.md`
+- `docs/planning-pipeline.md`
 - `LICENSE`
 - `LICENSE.en.md`
 - `LICENSE.de.md`

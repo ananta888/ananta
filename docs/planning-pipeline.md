@@ -8,6 +8,11 @@ Deterministic templates remain available, but they are selected by policy and ev
 Flow:
 Goal -> planning_queued -> planning_running -> planned/failed
 
+Runner profile semantics:
+- `small`: compact English planning prompts and tighter output/context limits for weaker local models.
+- `medium`: moderate limits with English prompt defaults.
+- `off`: no runner-injected planning overrides; hub defaults remain active (safe baseline mode, not a hard planning disable).
+
 ## Safety boundary
 
 LLM output may suggest task details, but policy-relevant decisions remain deterministic:

@@ -46,7 +46,8 @@ def provider_to_llm_scope(provider: str, base_url: Optional[str]) -> str:
         return "external_cloud_allowed"
     if url:
         return "trusted_private_cloud"
-    return "external_cloud_allowed"
+    # Fail-closed default for unknown/no-target providers.
+    return "trusted_private_cloud"
 
 
 @dataclass

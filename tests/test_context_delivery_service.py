@@ -146,3 +146,13 @@ class TestContextDeliveryService:
 
         assert len(result.warnings) > 0
         assert "agent/baz.py" in result.delivered_paths
+
+    def test_resolve_llm_scope_prefers_explicit_policy_scope(self, svc):
+        task = {
+            "effective_config": {
+                "workspace_context_policy": {"llm_scope": "external_cloud_allowed"},
+                "default_provider": "ollama",
+                "llm_config": {"provider": "ollama", "base_url": "http://localhost:11434"},
+            }
+        }
+        assert svc._resolve_llm_scope(task=task) == "external_cloud_allowed"

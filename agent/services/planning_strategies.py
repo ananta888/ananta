@@ -268,22 +268,37 @@ class LLMPlanningStrategy:
 
     @staticmethod
     def _has_new_project_execution_coverage(subtasks: list[dict[str, Any]]) -> bool:
-        has_workspace_artifact = False
+        """Strict structural coverage check for new_software_project plans.
+
+        Only structured execution signals count:
+        - execution-relevant task kinds must carry required expected_artifacts
+        - at least one verification_spec must be present
+        """
         has_required_verification = False
+        has_required_workspace_artifact = False
+        execution_task_seen = False
+        execution_kinds = {"coding", "testing", "ops"}
         for item in subtasks or []:
+            task_kind = str(item.get("task_kind") or "").strip().lower()
             expected = [dict(x) for x in list(item.get("expected_artifacts") or []) if isinstance(x, dict)]
-            for artifact in expected:
-                kind = str(artifact.get("kind") or "").strip().lower()
-                required = bool(artifact.get("required", False))
-                if kind in {"workspace_change", "workspace_change_set", "generated_file", "project_structure_manifest"} and required:
-                    has_workspace_artifact = True
-                    break
             verification_spec = dict(item.get("verification_spec") or {})
             if verification_spec:
                 has_required_verification = True
-            if has_workspace_artifact and has_required_verification:
-                return True
-        return has_workspace_artifact and has_required_verification
+            if task_kind not in execution_kinds:
+                continue
+            execution_task_seen = True
+            required_artifacts = [a for a in expected if bool(a.get("required", False))]
+            if not required_artifacts:
+                return False
+            if any(
+                str(a.get("kind") or "").strip().lower()
+                in {"workspace_change", "workspace_change_set", "generated_file", "project_structure_manifest"}
+                for a in required_artifacts
+            ):
+                has_required_workspace_artifact = True
+        if not execution_task_seen:
+            return False
+        return has_required_workspace_artifact and has_required_verification
 
     def execute(
         self,

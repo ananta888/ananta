@@ -61,3 +61,8 @@ def test_runtime_path_hygiene_flags_forbidden_runtime_paths() -> None:
     assert "artifacts/report.jsonl" in violations
     assert "tests/fixtures/artifacts/ok.json" not in violations
     assert "artifacts/domain/allowed.json" not in violations
+
+
+def test_dyndns_secret_hygiene_check_passes_for_repo_files() -> None:
+    result = run_release_gate.check_dyndns_secret_hygiene()
+    assert result.ok is True

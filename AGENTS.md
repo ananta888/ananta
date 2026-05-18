@@ -8,6 +8,8 @@ All AI agents, automation tools, and contributors must follow these rules when m
 
 The goal is to evolve the system without breaking its core architecture.
 
+Planning pipeline hardening and operational rules are documented in `docs/planning-pipeline.md` and must be followed for planning-related changes.
+
 ---
 
 # Core Architecture
