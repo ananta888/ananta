@@ -145,7 +145,8 @@
       "Bash(chmod +x *)",
       "Bash(venv/bin/pytest tests/test_acceptance_runner_safety.py tests/test_acceptance_runner_scenarios.py tests/test_acceptance_report_fixtures.py tests/test_first_goal_acceptance_runner.py tests/test_goal_config_resolver_service.py tests/test_goal_scoped_config_api.py tests/test_provider_observer_service.py tests/test_tool_calling_llm_strategy.py tests/test_json_schema_llm_strategy.py tests/test_flexible_llm_normalization_strategy_llm_profile.py tests/test_goal_latency_diagnostics.py tests/test_acceptance_runner_scenarios.py --tb=short)",
       "Bash(git -C /home/krusty/ananta status --short)",
-      "Bash(git -C /home/krusty/ananta diff --stat HEAD)"
+      "Bash(git -C /home/krusty/ananta diff --stat HEAD)",
+      "Bash(venv/bin/pytest tests/test_commit_metadata_schema.py tests/test_commit_scope_resolver.py tests/test_commit_message_validator.py tests/test_commit_planner_integration.py tests/test_commit_worker_service.py tests/test_commit_hub_delegation.py tests/test_commit_hygiene_integration.py -v --tb=short -q)"
     ]
   }
 }

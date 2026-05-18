@@ -7,7 +7,6 @@
     "todo.goal-scoped-config-complete.json (track.P2-commit-hygiene-process, CHP-001..004 – Dokumentationsphase abgeschlossen)",
     "Gespräch 2026-05-18: Integration in Plannung und Worker"
   ],
-
   "context": {
     "baseline_state": "CONTRIBUTING.md und AGENTS.md enthalten Konventionen und Squash-Policy. Kein Code erzwingt diese – Agents weichen gelegentlich auf generische Messages ab.",
     "architecture": "Hub-Worker-Modell. TASK_KINDS = {coding, analysis, doc, ops, research} in agent/runtime_policy.py. TaskCreateRequest in agent/models.py enthält task_kind: Optional[str]. Planner erzeugt Tasks; Worker führen diese aus.",
@@ -19,7 +18,6 @@
     },
     "design_decision": "Commit-Metadata wird beim Task-Erstellen durch den Planner gesetzt (präventiv, basierend auf Intention). Nach Task-Completion erzeugt der Hub einen Folgetask der Kind git_commit. Der Commit-Worker liest commit_metadata, analysiert git diff für tatsächliche Scope-Bestätigung, validiert und führt den Commit aus."
   },
-
   "principles": [
     {
       "id": "principle.additive",
@@ -38,12 +36,11 @@
       "text": "Wenn kein valider Scope ableitbar ist, schlägt der Commit-Task fehl mit klarem Fehlertext – kein stiller Fallback auf eine generische Message."
     }
   ],
-
   "tracks": [
     {
       "id": "track.CHI-schema",
       "title": "Task-Schema-Erweiterung: commit_metadata",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "rationale": "Alle weiteren Tracks bauen auf diesem Feld auf. Ohne commit_metadata im Task-Objekt kann der Planner keine Absicht persistieren und der Commit-Worker hat keine Grundlage.",
       "tasks": [
@@ -51,7 +48,7 @@
           "id": "CHI-001",
           "title": "CommitMetadata-Datenklasse und TaskCreateRequest-Erweiterung",
           "type": "schema",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/models.py"
@@ -79,7 +76,7 @@
           "id": "CHI-002",
           "title": "Tests: CommitMetadata Schema",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "tests/test_commit_metadata_schema.py"
@@ -115,15 +112,16 @@
               "expected": "Keine Exception, commit_metadata == None"
             }
           ],
-          "depends_on": ["CHI-001"]
+          "depends_on": [
+            "CHI-001"
+          ]
         }
       ]
     },
-
     {
       "id": "track.CHI-resolver",
       "title": "CommitScopeResolver: Dateipfade zu Scopes",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "rationale": "Kern der maschinellen Durchsetzung: der Resolver mappt tatsächlich geänderte Dateien auf Scopes und löst Konflikte bei Mehrfach-Scopes. Wird vom Commit-Worker verwendet.",
       "tasks": [
@@ -131,7 +129,7 @@
           "id": "CHI-003",
           "title": "FILE_TO_SCOPE_MAP und CommitScopeResolver implementieren",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/commit_scope_resolver.py"
@@ -155,13 +153,15 @@
             "resolve(['unknown/path/foo.py']) → unresolved_paths=['unknown/path/foo.py'], primary_scope=None.",
             "FILE_TO_SCOPE_MAP ist als Modul-Konstante exportiert und kann in Tests überschrieben werden."
           ],
-          "depends_on": ["CHI-001"]
+          "depends_on": [
+            "CHI-001"
+          ]
         },
         {
           "id": "CHI-004",
           "title": "Tests: CommitScopeResolver",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "tests/test_commit_scope_resolver.py"
@@ -223,22 +223,23 @@
               "expected": "CommitScopeResolver(scope_map=[...]) akzeptiert eigenen Map"
             }
           ],
-          "depends_on": ["CHI-003"]
+          "depends_on": [
+            "CHI-003"
+          ]
         }
       ]
     },
-
     {
       "id": "track.CHI-validator",
       "title": "CommitMessageValidator: Format und Blocklist",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "tasks": [
         {
           "id": "CHI-005",
           "title": "CommitMessageValidator implementieren",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/services/commit_message_validator.py"
@@ -268,7 +269,7 @@
           "id": "CHI-006",
           "title": "Tests: CommitMessageValidator",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "tests/test_commit_message_validator.py"
@@ -341,15 +342,16 @@
               "expected": "isinstance(ALLOWED_TYPES, frozenset), 'feat' in ALLOWED_TYPES, 'security' in ALLOWED_TYPES"
             }
           ],
-          "depends_on": ["CHI-005"]
+          "depends_on": [
+            "CHI-005"
+          ]
         }
       ]
     },
-
     {
       "id": "track.CHI-planner",
       "title": "Planner-Integration: commit_metadata beim Task-Erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "rationale": "Der Planner kennt die Absicht des Tasks vor der Ausführung. Dieses Wissen (type, scope) wird als commit_metadata persistiert damit der Commit-Worker es als Basis nutzen kann.",
       "tasks": [
@@ -357,7 +359,7 @@
           "id": "CHI-007",
           "title": "Autopilot/Planner befüllt commit_metadata aus Task-Intention",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/services/autopilot_service.py"
@@ -378,13 +380,16 @@
             "Bestehende Tasks ohne diese Felder verhalten sich unverändert.",
             "commit_subject_hint wird optional aus dem Task-Titel generiert (max 60 Zeichen)."
           ],
-          "depends_on": ["CHI-001", "CHI-003"]
+          "depends_on": [
+            "CHI-001",
+            "CHI-003"
+          ]
         },
         {
           "id": "CHI-008",
           "title": "Tests: Planner commit_metadata Population",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "tests/test_commit_planner_integration.py"
@@ -415,15 +420,16 @@
               "expected": "Keine Exception, Rückwärtskompatibilität"
             }
           ],
-          "depends_on": ["CHI-007"]
+          "depends_on": [
+            "CHI-007"
+          ]
         }
       ]
     },
-
     {
       "id": "track.CHI-worker",
       "title": "git_commit Task-Kind und Commit-Worker",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "rationale": "Das eigentliche Commit soll als eigener Task-Kind laufen den der Hub nach erfolgreicher Task-Completion delegiert. So bleibt die Hub-Worker-Boundary klar: Hub entscheidet ob committed wird; Worker führt aus.",
       "tasks": [
@@ -431,7 +437,7 @@
           "id": "CHI-009",
           "title": "git_commit zu TASK_KINDS hinzufügen",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/runtime_policy.py"
@@ -448,13 +454,15 @@
             "TASK_KINDS enthält 'git_commit'.",
             "Bestehende Kind-Normalisierung (coding, analysis, etc.) unverändert."
           ],
-          "depends_on": ["CHI-001"]
+          "depends_on": [
+            "CHI-001"
+          ]
         },
         {
           "id": "CHI-010",
           "title": "CommitWorkerService implementieren",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/services/commit_worker_service.py"
@@ -479,13 +487,17 @@
             "execute staged files → nur staged changes, nicht alle untracked files.",
             "Subprocess-Fehler (git nicht vorhanden, non-zero exit) → success=False mit propagiertem stderr."
           ],
-          "depends_on": ["CHI-003", "CHI-005", "CHI-009"]
+          "depends_on": [
+            "CHI-003",
+            "CHI-005",
+            "CHI-009"
+          ]
         },
         {
           "id": "CHI-011",
           "title": "Hub erzeugt git_commit-Folgetask nach Task-Completion",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/services/autopilot_service.py",
@@ -506,13 +518,17 @@
             "auto_commit=False in Goal-Config → kein git_commit-Folgetask auch wenn commit_metadata gesetzt.",
             "git_commit-Folgetask erhält dieselbe commit_metadata wie Ursprungs-Task."
           ],
-          "depends_on": ["CHI-001", "CHI-009", "CHI-010"]
+          "depends_on": [
+            "CHI-001",
+            "CHI-009",
+            "CHI-010"
+          ]
         },
         {
           "id": "CHI-012",
           "title": "Tests: CommitWorkerService Unit-Tests",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "tests/test_commit_worker_service.py"
@@ -569,13 +585,15 @@
               "expected": "result.scope_confirmed='goal-config' (Mehrheit)"
             }
           ],
-          "depends_on": ["CHI-010"]
+          "depends_on": [
+            "CHI-010"
+          ]
         },
         {
           "id": "CHI-013",
           "title": "Tests: Hub git_commit Folgetask Delegation",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "tests/test_commit_hub_delegation.py"
@@ -607,22 +625,23 @@
               "expected": "Kein git_commit-Folgetask"
             }
           ],
-          "depends_on": ["CHI-011"]
+          "depends_on": [
+            "CHI-011"
+          ]
         }
       ]
     },
-
     {
       "id": "track.CHI-integration",
       "title": "End-to-End Integrationstests",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "tasks": [
         {
           "id": "CHI-014",
           "title": "Integrationstests: vollständiger Commit-Hygiene-Pfad",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "medium",
           "files": [
             "tests/test_commit_hygiene_integration.py"
@@ -657,12 +676,15 @@
               "expected": "from agent.services.commit_scope_resolver import CommitScopeResolver; from agent.services.commit_message_validator import CommitMessageValidator → keine ImportError"
             }
           ],
-          "depends_on": ["CHI-007", "CHI-010", "CHI-011"]
+          "depends_on": [
+            "CHI-007",
+            "CHI-010",
+            "CHI-011"
+          ]
         }
       ]
     }
   ],
-
   "execution_plan": {
     "order": [
       "CHI-001 (schema: CommitMetadata)",
@@ -683,19 +705,21 @@
     "minimal_viable_slice": "CHI-001, CHI-003, CHI-005, CHI-009, CHI-010 – Validator + Resolver + Worker ohne Hub-Integration. Manuell als git_commit-Task auslösbar.",
     "rationale": "Schema zuerst (alle anderen hängen davon ab). Resolver und Validator sind unabhängig von Hub-Logik und können parallel nach CHI-001 implementiert werden. Worker erst wenn beide Services fertig. Hub-Integration zuletzt."
   },
-
   "tasks_status_summary": {
     "total": 14,
-    "by_status": { "done": 0, "in_progress": 0, "partial": 0, "todo": 14 },
+    "by_status": {
+      "done": 14,
+      "in_progress": 0,
+      "partial": 0,
+      "todo": 0
+    },
     "by_type": {
       "schema": 1,
-      "feature": 5,
-      "test": 7,
-      "docs": 0
+      "feature": 6,
+      "test": 7
     },
-    "progress_percent": 0.0
+    "progress_percent": 100.0
   },
-
   "definition_of_done": [
     "CommitMetadata-Schema rückwärtskompatibel in TaskCreateRequest.",
     "CommitScopeResolver mappt alle Ananta-Kernpfade korrekt.",
