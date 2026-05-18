@@ -537,7 +537,7 @@ def build_default_agent_config() -> dict:
             "allow_remote_planners": False,
             "max_nodes": 8,
             "max_depth": 8,
-            "timeout_seconds": 120,
+            "timeout_seconds": 300,
         },
         "research_backend": {
             "provider": "deerflow",
