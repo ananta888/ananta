@@ -1,0 +1,705 @@
+{
+  "schema": "ananta_todo_plan_v2",
+  "id": "todo.llm-first-planning-learning",
+  "title": "LLM-first Planning Learning Layer and Deterministic Extraction Pipeline",
+  "status": "draft",
+  "priority": "P0",
+  "risk": "critical",
+  "language": "de",
+  "summary": {
+    "problem": "Der aktuelle Planning-Mechanismus ist bereits robuster geworden, aber die Gewichtung darf nicht zu frueh deterministic-first sein. Der deterministische Teil muss aus echten LLM-Planning-Laeufen, Modellverhalten, Prompt-Varianten, Reparaturpfaden, Artifact-Qualitaet und Verification-Ergebnissen erst gelernt beziehungsweise abgeleitet werden.",
+    "goal": "LLM-basiertes Planning steht im Vordergrund. Ananta sammelt pro Modell und pro Planning-Profil verwertbare Daten, bewertet Output-Qualitaet, verbessert Prompts systematisch und extrahiert erst spaeter deterministische Templates, Regeln und Profile aus erfolgreichen Planning-Laeufen.",
+    "core_shift": "Nicht Template zuerst und LLM nur Fallback. Sondern: LLM erzeugt Plaene, System beobachtet, bewertet, repariert, versioniert Prompts und lernt daraus wiederverwendbare deterministische Strukturen.",
+    "target_architecture": "raw goal -> goal interpretation -> model/profile selection -> prompt version -> LLM planning -> parser/repair -> validation -> materialization -> execution/verification -> telemetry -> prompt/profile improvement -> deterministic template candidate extraction."
+  },
+  "principles": [
+    {
+      "id": "PRINCIPLE-001",
+      "title": "LLM-first during learning phase",
+      "description": "Solange fuer ein Goal-Type/Model/Profile nicht genuegend belastbare Daten existieren, darf deterministisches Planning nicht blind bevorzugt werden. LLM-Planning ist die primaere Datenquelle."
+    },
+    {
+      "id": "PRINCIPLE-002",
+      "title": "Determinism is derived, not invented",
+      "description": "Deterministische Templates, Regeln und Standard-Task-Graphen entstehen aus erfolgreichen beobachteten LLM-Laeufen und muessen mit Telemetrie, Tests und optional Review abgesichert werden."
+    },
+    {
+      "id": "PRINCIPLE-003",
+      "title": "Prompt engineering must be measurable",
+      "description": "Jede Prompt-Variante braucht Version, Einsatzkontext, Modellbezug, Output-Metriken, Repair-Rate, Validation-Ergebnis und Execution-Erfolg."
+    },
+    {
+      "id": "PRINCIPLE-004",
+      "title": "Model-specific planning behavior",
+      "description": "Unterschiedliche Modelle brauchen unterschiedliche Planning-Profile: Sprache, Kontextgroesse, Output-Format-Strenge, JSON-Reparatur, Temperatur, max_output_tokens und Strukturhilfen."
+    },
+    {
+      "id": "PRINCIPLE-005",
+      "title": "Execution closes the learning loop",
+      "description": "Ein Plan ist nicht gut, weil er gut aussieht, sondern weil daraus ausfuehrbare Tasks, Artefakte, Tests und brauchbare Worker-Ergebnisse entstehen."
+    },
+    {
+      "id": "PRINCIPLE-006",
+      "title": "Safety remains non-negotiable",
+      "description": "Auch im LLM-first-Modus bleiben ContextAccessPolicy, ToolPolicy, RuntimePolicy, CapabilityGrant, Secret-Blocking und Workspace-Sandboxing harte Grenzen."
+    }
+  ],
+  "desired_flow": {
+    "phase_1_goal_interpretation": [
+      "Raw Goal normalisieren und Prompt-Injection filtern.",
+      "Goal-Type, Task-Kind, Risk-Focus, expected execution mode und moegliche Artifact-Erwartung als Hypothese ableiten.",
+      "Diese Hypothese nicht als harte Wahrheit behandeln, sondern als Planning Context fuer das LLM."
+    ],
+    "phase_2_model_profile_selection": [
+      "Modell anhand bisheriger Planning-Telemetrie auswaehlen.",
+      "Fallback auf Default-Profil, wenn noch keine Daten existieren.",
+      "Profil enthaelt Prompt-Sprache, Kontextlimit, max_output_tokens, Repair-Strategien und Output-Schema-Hinweise."
+    ],
+    "phase_3_llm_planning": [
+      "Prompt-Version + Goal + Context + Mode Data an das Modell geben.",
+      "Raw Output vollstaendig persistieren, soweit Policy erlaubt.",
+      "Parsing und Repair transparent protokollieren."
+    ],
+    "phase_4_validation_and_materialization": [
+      "Plan Proposal validieren.",
+      "Dependency Mode, expected_artifacts, verification_spec und task_kind normalisieren.",
+      "Tasks materialisieren und Ausfuehrung starten."
+    ],
+    "phase_5_execution_feedback": [
+      "Worker-Ergebnis, Workspace-Diff, Artefakte, Verification und Completion-Status sammeln.",
+      "Planqualitaet nicht nur anhand Parserfolg, sondern anhand Ausfuehrungserfolg bewerten."
+    ],
+    "phase_6_learning_and_extraction": [
+      "Planning Telemetry aggregieren.",
+      "Prompt/Profile Performance berechnen.",
+      "Erfolgreiche Planmuster clustern.",
+      "Template Candidates erzeugen.",
+      "Deterministische Templates erst nach Review oder ausreichend Evidenz aktivieren."
+    ]
+  },
+  "data_model_overview": {
+    "new_entities": [
+      "PlanningRunDB",
+      "PlanningPromptVersionDB",
+      "PlanningModelProfileDB",
+      "PlanningEvaluationDB",
+      "PlanningTemplateCandidateDB",
+      "PlanningPatternClusterDB"
+    ],
+    "important_metrics": [
+      "parse_mode",
+      "parse_confidence",
+      "repair_needed",
+      "repair_success",
+      "repair_strategy_used",
+      "validation_success",
+      "missing_expected_artifacts_count",
+      "missing_verification_spec_count",
+      "materialization_success",
+      "worker_execution_success",
+      "artifact_evidence_success",
+      "verification_success",
+      "human_or_agent_review_score",
+      "total_latency_ms",
+      "llm_latency_ms",
+      "token_estimate_input",
+      "token_estimate_output",
+      "model_provider",
+      "model_name",
+      "prompt_version",
+      "planning_profile"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "LLMPLAN-001",
+      "title": "PlanningRunDB fuer vollstaendige LLM-Planning-Telemetrie einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Jeder LLM-basierte Planning-Lauf muss als eigener Datensatz persistiert werden, inklusive Modell, Prompt-Version, Rohantwort, Parsergebnis, Repair-Pfad, Validation und spaeter Execution Feedback.",
+      "depends_on": [],
+      "files": [
+        "agent/db_models.py",
+        "agent/repositories/planning_run.py",
+        "agent/repositories/__init__.py",
+        "agent/repository.py",
+        "agent/services/planning_telemetry_service.py",
+        "tests/test_planning_telemetry_service.py",
+        "tests/test_planning_run_repository.py"
+      ],
+      "changes": [
+        "PlanningRunDB als neue Tabelle einfuehren.",
+        "Felder: id, goal_id, trace_id, task_id, goal_text_hash, goal_text_preview, mode, mode_data, model_provider, model_name, model_base_url_hash, planning_profile, prompt_version_id, prompt_language, context_policy_ref, context_char_count, raw_output_ref, raw_output_preview, parse_mode, parse_confidence, parse_warnings, repair_needed, repair_success, repair_strategy_used, repair_attempt_count, validation_success, validation_errors, generated_task_count, expected_artifacts_count, verification_spec_count, dependency_mode_distribution, materialized_task_ids, status, created_at, updated_at.",
+        "Raw Output je nach Policy entweder direkt gekuerzt speichern oder als ArtifactRef auslagern.",
+        "Repository mit create, update_parse_result, update_validation_result, update_materialization_result und get_by_goal_id implementieren.",
+        "PlanningTelemetryService als zentrale Schreibstelle einfuehren."
+      ],
+      "acceptance_criteria": [
+        "Jeder LLMPlanningStrategy-Lauf erzeugt genau einen PlanningRunDB Datensatz.",
+        "PlanningRunDB enthaelt Modell, Provider, Planning Profile und Prompt Version.",
+        "Parse Mode und Repair Strategy werden persistiert.",
+        "Validation Errors werden strukturiert gespeichert.",
+        "Raw Output wird nicht unbegrenzt in der DB gespeichert.",
+        "Tests pruefen create/update/get und Policy-konformes Truncation-Verhalten."
+      ],
+      "tests": [
+        "tests/test_planning_run_repository.py",
+        "tests/test_planning_telemetry_service.py::test_llm_planning_run_is_recorded"
+      ]
+    },
+    {
+      "id": "LLMPLAN-002",
+      "title": "Prompt-Versionierung fuer Planning einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Planning Prompts muessen versioniert werden, damit Output-Qualitaet pro Prompt, Modell und Profil messbar wird.",
+      "depends_on": [
+        "LLMPLAN-001"
+      ],
+      "files": [
+        "agent/services/planning_prompt_registry.py",
+        "agent/services/planning_utils.py",
+        "agent/config_defaults.py",
+        "config/planning_prompts.default.json",
+        "schemas/planning/planning_prompt_version.v1.json",
+        "tests/test_planning_prompt_registry.py"
+      ],
+      "changes": [
+        "PlanningPromptVersion Modell definieren mit id, version, language, target_model_family, mode, output_contract, system_rules, user_prompt_template, repair_prompt_template und checksum.",
+        "build_planning_prompt und build_planning_prompt_en als Legacy Wrapper behalten, aber intern ueber PlanningPromptRegistry routen.",
+        "Prompt-Version in PlanningRunDB referenzieren.",
+        "Prompt-Templates fuer generic, new_software_project, repair_generic und repair_new_software_project versionieren.",
+        "Config-Override fuer active prompt per planning_profile/model erlauben."
+      ],
+      "acceptance_criteria": [
+        "Jeder LLM-Planning-Lauf referenziert eine prompt_version_id.",
+        "Prompt-Checksum aendert sich bei Template-Aenderung.",
+        "Deutsch und Englisch koennen getrennte Prompt-Versionen haben.",
+        "new_software_project Prompt fordert explizit expected_artifacts, verification_spec, dependency_mode und task_kind.",
+        "Repair Prompts haben eigene Versionen.",
+        "Tests beweisen stabile Prompt-Rendering-Ausgabe fuer bekannte Inputs."
+      ],
+      "tests": [
+        "tests/test_planning_prompt_registry.py::test_prompt_version_is_resolved_for_model_profile",
+        "tests/test_planning_prompt_registry.py::test_new_project_prompt_contains_structured_contract"
+      ]
+    },
+    {
+      "id": "LLMPLAN-003",
+      "title": "Modellspezifische PlanningProfileDB einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Kleine lokale Modelle, groessere lokale Modelle und Cloud-Modelle verhalten sich unterschiedlich. Das Planning braucht lernbare Profile pro Modell/Provider.",
+      "depends_on": [
+        "LLMPLAN-001",
+        "LLMPLAN-002"
+      ],
+      "files": [
+        "agent/db_models.py",
+        "agent/services/planning_model_profile_service.py",
+        "agent/services/config_profile_service.py",
+        "agent/config_defaults.py",
+        "config/planning_model_profiles.default.json",
+        "tests/test_planning_model_profile_service.py"
+      ],
+      "changes": [
+        "PlanningModelProfileDB einfuehren.",
+        "Felder: id, provider, model_name_pattern, model_family, profile_name, prompt_language, context_max_chars, max_output_tokens, temperature, repair_attempts, repair_strategies, preferred_prompt_version_id, output_contract_strictness, supports_json_mode, requires_english_prompt, notes, enabled.",
+        "Default-Profile definieren: small_local, medium_local, large_local, cloud_strict_json, cloud_general.",
+        "Profilauflösung: exact model > model pattern > provider default > global default.",
+        "PlanningPolicy kann Profil explizit überschreiben.",
+        "PlanningRunDB speichert resolved profile."
+      ],
+      "acceptance_criteria": [
+        "Gemma/kleine Modelle koennen automatisch small_local Profil erhalten.",
+        "Ollama Default kann von Cloud Default abweichen.",
+        "Profilauflösung ist deterministisch und testbar.",
+        "Unbekanntes Modell bekommt global fallback profile.",
+        "Profilwerte fliessen in Prompt Language, Kontextlimit, max_output_tokens und Repair Attempts ein."
+      ],
+      "tests": [
+        "tests/test_planning_model_profile_service.py::test_exact_model_profile_wins",
+        "tests/test_planning_model_profile_service.py::test_provider_default_profile_fallback",
+        "tests/test_planning_model_profile_service.py::test_profile_applies_to_llm_planning_strategy"
+      ]
+    },
+    {
+      "id": "LLMPLAN-004",
+      "title": "LLMPlanningStrategy auf Telemetry, PromptRegistry und ModelProfile umstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Die bestehende LLMPlanningStrategy muss der zentrale LLM-first Datenlieferant werden und alle relevanten Daten schreiben.",
+      "depends_on": [
+        "LLMPLAN-001",
+        "LLMPLAN-002",
+        "LLMPLAN-003"
+      ],
+      "files": [
+        "agent/services/planning_strategies.py",
+        "agent/services/planning_service.py",
+        "agent/services/planning_telemetry_service.py",
+        "agent/services/planning_prompt_registry.py",
+        "agent/services/planning_model_profile_service.py",
+        "tests/test_planning_strategies.py",
+        "tests/test_commit_planner_integration.py"
+      ],
+      "changes": [
+        "LLMPlanningStrategy resolved zuerst PlanningModelProfile.",
+        "Prompt wird ueber PlanningPromptRegistry gerendert.",
+        "Vor LLM-Call wird PlanningRunDB im Status started angelegt.",
+        "Nach Raw Output wird PlanningRunDB mit raw_output_ref/raw_output_preview aktualisiert.",
+        "Parsing nutzt durchgehend parse_subtasks_with_diagnostics, auch fuer Repair-Outputs.",
+        "Repair-Versuche aktualisieren denselben PlanningRunDB Datensatz mit repair_attempt_count und repair history.",
+        "PlanningStrategyResult enthaelt planning_run_id."
+      ],
+      "acceptance_criteria": [
+        "LLMPlanningStrategy erzeugt und aktualisiert PlanningRunDB in happy path und failure path.",
+        "Repair-Outputs haben echte parse_mode Diagnostik, nicht nur repair_llm_config pauschal.",
+        "planning_run_id wird in plan_goal Response und PlanDB.rationale gespeichert.",
+        "Bei Exception wird PlanningRunDB status=failed mit error_classification gesetzt.",
+        "Bestehende Planning Tests bleiben kompatibel oder werden gezielt angepasst."
+      ],
+      "tests": [
+        "tests/test_planning_strategies.py::test_llm_strategy_records_planning_run",
+        "tests/test_planning_strategies.py::test_repair_uses_diagnostic_parser",
+        "tests/test_commit_planner_integration.py::test_plan_rationale_contains_planning_run_id"
+      ]
+    },
+    {
+      "id": "LLMPLAN-005",
+      "title": "Planning Evaluation nach Materialisierung und Worker-Ausfuehrung einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Ein Plan muss anhand realer Ausfuehrung bewertet werden: Materialisierung, Worker-Erfolg, Artefakte, Tests und Verification.",
+      "depends_on": [
+        "LLMPLAN-001",
+        "LLMPLAN-004"
+      ],
+      "files": [
+        "agent/db_models.py",
+        "agent/services/planning_evaluation_service.py",
+        "agent/services/task_management_service.py",
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/worker_job_service.py",
+        "agent/services/verification_policy_service.py",
+        "tests/test_planning_evaluation_service.py",
+        "tests/test_task_scoped_propose_llm_profile_persist.py"
+      ],
+      "changes": [
+        "PlanningEvaluationDB einfuehren.",
+        "Evaluation nach Materialisierung initialisieren.",
+        "Nach Task-/Worker-Abschluss Evaluation aktualisieren: artifact_evidence, verification_result, completion_status, failure_reason.",
+        "Plan-Level Score berechnen: parse_score, validation_score, materialization_score, execution_score, artifact_score, verification_score, total_score.",
+        "LLM task_complete bleibt advisory und fliesst nicht hart in den Score ein.",
+        "Evaluation wird pro PlanningRunDB aggregiert."
+      ],
+      "acceptance_criteria": [
+        "Ein Plan mit gueltigem JSON aber ohne erfolgreiche Ausfuehrung bekommt niedrigen execution_score.",
+        "Ein Plan mit Artefakten und erfolgreicher Verification bekommt hohen total_score.",
+        "No-change coding task reduziert artifact_score.",
+        "Evaluation kann fuer einen goal_id/report abgefragt werden.",
+        "Tests decken success, validation failure, materialization failure und worker failure ab."
+      ],
+      "tests": [
+        "tests/test_planning_evaluation_service.py::test_successful_execution_improves_total_score",
+        "tests/test_planning_evaluation_service.py::test_parse_success_without_artifacts_is_not_high_quality"
+      ]
+    },
+    {
+      "id": "LLMPLAN-006",
+      "title": "Planning Metrics API und Dashboard-Daten bereitstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Damit Prompt- und Modellqualitaet sichtbar wird, braucht der Hub eine API fuer Planning-Metriken pro Modell, Prompt-Version und Profil.",
+      "depends_on": [
+        "LLMPLAN-001",
+        "LLMPLAN-005"
+      ],
+      "files": [
+        "agent/routes/admin/planning_metrics.py",
+        "agent/routes/admin/__init__.py",
+        "agent/services/planning_metrics_service.py",
+        "tests/test_planning_metrics_api.py"
+      ],
+      "changes": [
+        "GET /admin/planning/metrics einfuehren.",
+        "Filter: model_provider, model_name, prompt_version, planning_profile, mode, date range, goal_type.",
+        "Kennzahlen: run_count, parse_success_rate, repair_rate, repair_success_rate, validation_success_rate, materialization_success_rate, execution_success_rate, artifact_success_rate, average_score, p50/p95 latency.",
+        "GET /admin/planning/runs/{id} fuer Detailansicht.",
+        "Sensitive Raw Outputs nur mit Admin/Policy anzeigen oder maskieren."
+      ],
+      "acceptance_criteria": [
+        "Metrics API liefert aggregierte Metriken pro Modell.",
+        "Metrics API kann Prompt-Versionen vergleichen.",
+        "Raw Output wird ohne ausreichende Rechte nicht vollstaendig angezeigt.",
+        "Tests pruefen Filter und Aggregation."
+      ],
+      "tests": [
+        "tests/test_planning_metrics_api.py::test_metrics_grouped_by_model",
+        "tests/test_planning_metrics_api.py::test_prompt_version_filter",
+        "tests/test_planning_metrics_api.py::test_raw_output_masked_by_default"
+      ]
+    },
+    {
+      "id": "LLMPLAN-007",
+      "title": "Prompt Improvement Loop implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "summary": "Aus Planning-Telemetrie sollen bessere Prompt-Versionen vorgeschlagen werden, aber nicht ungeprueft aktiviert werden.",
+      "depends_on": [
+        "LLMPLAN-002",
+        "LLMPLAN-005",
+        "LLMPLAN-006"
+      ],
+      "files": [
+        "agent/services/planning_prompt_optimizer_service.py",
+        "agent/services/planning_prompt_registry.py",
+        "agent/routes/admin/planning_prompts.py",
+        "tests/test_planning_prompt_optimizer_service.py"
+      ],
+      "changes": [
+        "PromptOptimizer analysiert haeufige Fehler: parse_failed, missing_expected_artifacts, missing_verification_spec, wrong_dependency_mode, too_many_tasks, too_verbose_output.",
+        "Optimizer erzeugt Prompt-Version-Candidates mit diff/summary/reason.",
+        "Candidates bleiben draft und muessen manuell oder durch Review-Gate aktiviert werden.",
+        "A/B Vergleich von Prompt-Versionen vorbereiten.",
+        "Keine automatische Prompt-Aenderung ohne explizite Policy."
+      ],
+      "acceptance_criteria": [
+        "Optimizer kann aus fehlerhaften Runs einen Prompt-Candidate erzeugen.",
+        "Candidate enthaelt Reason Codes und erwartete Verbesserung.",
+        "Candidate ist default inactive.",
+        "Aktivierung erfordert Admin-API oder explizite Config.",
+        "Tests pruefen missing_artifacts -> Prompt-Candidate mit Artifact Contract."
+      ],
+      "tests": [
+        "tests/test_planning_prompt_optimizer_service.py::test_missing_artifacts_creates_prompt_candidate",
+        "tests/test_planning_prompt_optimizer_service.py::test_candidate_is_not_auto_activated"
+      ]
+    },
+    {
+      "id": "LLMPLAN-008",
+      "title": "Goal-Type und Planning Intent als lernbare Klassifikation einfuehren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Das Goal muss vor dem Planning nicht deterministisch final klassifiziert werden, aber eine lernbare Hypothese fuer Prompt-Auswahl und Auswertung erhalten.",
+      "depends_on": [
+        "LLMPLAN-001",
+        "LLMPLAN-003"
+      ],
+      "files": [
+        "agent/services/goal_interpretation_service.py",
+        "agent/services/planning_model_profile_service.py",
+        "agent/services/planning_service.py",
+        "tests/test_goal_interpretation_service.py"
+      ],
+      "changes": [
+        "GoalInterpretationResult einfuehren: goal_type, task_kind_hints, risk_hints, artifact_expectation_hint, verification_hint, confidence, source.",
+        "Quellen: rules, llm_classifier, previous_similar_runs.",
+        "Interpretation nur als planning context verwenden, nicht als harte Policy-Wahrheit.",
+        "PlanningRunDB speichert interpretation snapshot.",
+        "Spaeter kann Evaluation zeigen, welche Interpretationen erfolgreich waren."
+      ],
+      "acceptance_criteria": [
+        "Goal Interpretation erzeugt Hypothese fuer new_software_project, bugfix, refactor, docs, research.",
+        "Niedrige Confidence blockiert Planning nicht.",
+        "Interpretation wird im Prompt-Kontext sichtbar gemacht.",
+        "Interpretation wird in PlanningRunDB gespeichert.",
+        "Tests pruefen rule-basierte und fallback Interpretation."
+      ],
+      "tests": [
+        "tests/test_goal_interpretation_service.py::test_new_software_project_hint",
+        "tests/test_goal_interpretation_service.py::test_low_confidence_does_not_block_planning"
+      ]
+    },
+    {
+      "id": "LLMPLAN-009",
+      "title": "Deterministic Template Candidate Mining aus erfolgreichen LLM-Runs",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "summary": "Deterministische Templates sollen nicht frei erfunden werden, sondern aus erfolgreichen LLM-Plans und Execution-Ergebnissen extrahiert werden.",
+      "depends_on": [
+        "LLMPLAN-005",
+        "LLMPLAN-006"
+      ],
+      "files": [
+        "agent/db_models.py",
+        "agent/services/planning_template_mining_service.py",
+        "agent/services/planning_template_catalog.py",
+        "agent/routes/admin/planning_templates.py",
+        "tests/test_planning_template_mining_service.py"
+      ],
+      "changes": [
+        "PlanningTemplateCandidateDB einfuehren.",
+        "Erfolgreiche PlanningRuns nach goal_type, task_kind_distribution, artifact patterns und dependency graph clustern.",
+        "Template Candidate aus wiederkehrenden Strukturen erzeugen.",
+        "Candidate enthaelt source_run_ids, confidence, observed_success_rate, common_task_graph, required_artifacts, verification_defaults.",
+        "Candidate bleibt draft bis Review oder Mindestschwelle erreicht ist.",
+        "Template Catalog kann Candidates importieren, aber nicht automatisch aktivieren, ausser Policy erlaubt es."
+      ],
+      "acceptance_criteria": [
+        "Mindestens N erfolgreiche aehnliche Runs koennen einen Template Candidate erzeugen.",
+        "Candidate enthaelt Referenzen auf Quell-Laeufe.",
+        "Candidate enthaelt keine Raw Goal Secrets oder ungefilterten Raw Output.",
+        "Candidate wird nicht automatisch als aktives Template verwendet.",
+        "Tests pruefen Clustering und Candidate-Erzeugung."
+      ],
+      "tests": [
+        "tests/test_planning_template_mining_service.py::test_successful_runs_create_template_candidate",
+        "tests/test_planning_template_mining_service.py::test_candidate_requires_minimum_evidence"
+      ]
+    },
+    {
+      "id": "LLMPLAN-010",
+      "title": "LLM-first Strategy Orchestrator statt starrer Template-first Reihenfolge einfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Die aktuelle Strategie-Reihenfolge ist Template -> HubCopilot -> LLM. Fuer die Lernphase braucht es einen Orchestrator, der je nach Evidenz LLM-first oder Template-first entscheidet.",
+      "depends_on": [
+        "LLMPLAN-001",
+        "LLMPLAN-003",
+        "LLMPLAN-009"
+      ],
+      "files": [
+        "agent/services/planning_service.py",
+        "agent/services/planning_strategy_orchestrator.py",
+        "agent/services/planning_strategies.py",
+        "agent/config_defaults.py",
+        "tests/test_planning_strategy_orchestrator.py",
+        "tests/test_planning_service.py"
+      ],
+      "changes": [
+        "PlanningStrategyOrchestrator einfuehren.",
+        "Policy-Modi definieren: llm_first_learning, evidence_weighted, deterministic_first, template_only, llm_only.",
+        "Default fuer Entwicklungs-/Lernphase: llm_first_learning.",
+        "Template wird nur bevorzugt, wenn Template Evidence Score ausreichend ist oder Policy deterministic_first setzt.",
+        "Orchestrator protokolliert selection_reason und rejected_strategies.",
+        "PlanningRunDB/PlanDB speichern strategy_selection_trace."
+      ],
+      "acceptance_criteria": [
+        "Im Modus llm_first_learning wird LLMPlanningStrategy vor TemplatePlanningStrategy verwendet.",
+        "Im Modus deterministic_first bleibt Template zuerst.",
+        "Evidence weighted nutzt Template nur bei ausreichendem observed_success_rate.",
+        "Selection Trace wird in API und PlanDB sichtbar.",
+        "Tests pruefen alle Strategy-Modi."
+      ],
+      "tests": [
+        "tests/test_planning_strategy_orchestrator.py::test_llm_first_learning_prefers_llm",
+        "tests/test_planning_strategy_orchestrator.py::test_deterministic_first_prefers_template",
+        "tests/test_planning_strategy_orchestrator.py::test_evidence_weighted_uses_template_only_with_threshold"
+      ]
+    },
+    {
+      "id": "LLMPLAN-011",
+      "title": "Model Benchmarking fuer Planning-Qualitaet erweitern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Bestehende Modell-Benchmarks sollen nicht nur allgemeine LLM-Nutzung messen, sondern spezifische Planning-Qualitaet.",
+      "depends_on": [
+        "LLMPLAN-001",
+        "LLMPLAN-005"
+      ],
+      "files": [
+        "agent/services/ollama_benchmark_service.py",
+        "agent/services/provider_observer_service.py",
+        "agent/services/planning_metrics_service.py",
+        "data/alpha/llm_model_benchmarks.json",
+        "tests/test_provider_observer_service.py",
+        "tests/test_planning_metrics_api.py"
+      ],
+      "changes": [
+        "Planning Benchmark Szenarien definieren: simple_project, bugfix, refactor, docs, config_fix, multi_step_project.",
+        "Pro Modell Benchmark-Laeufe mit gleichen Goals und Prompt-Versionen ausfuehren.",
+        "Metriken: strict_json_rate, repair_rate, structured_artifact_rate, verification_spec_rate, dependency_mode_accuracy, average_plan_score.",
+        "Benchmark-Ergebnisse fuer ModelProfile-Auswahl nutzbar machen.",
+        "Niedrige Scores markieren Modell als planning_requires_repair oder planning_not_recommended."
+      ],
+      "acceptance_criteria": [
+        "Benchmark kann mindestens drei Planning-Szenarien pro Modell ausfuehren.",
+        "Benchmark-Ergebnis beeinflusst ModelProfile-Auswahl optional.",
+        "Modelle mit hoher Repair-Rate werden sichtbar markiert.",
+        "Tests koennen Benchmark-Auswertung mit Fixtures simulieren."
+      ],
+      "tests": [
+        "tests/test_provider_observer_service.py::test_planning_quality_metrics_recorded",
+        "tests/test_planning_metrics_api.py::test_model_benchmark_planning_scores"
+      ]
+    },
+    {
+      "id": "LLMPLAN-012",
+      "title": "Planning Dataset Export fuer Offline-Analyse und lokale Modellverbesserung",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "summary": "Die gesammelten Planning-Daten sollen fuer Offline-Auswertung, Prompt-Vergleich und optional spaetere lokale Feinabstimmung exportierbar sein, ohne Secrets oder Kundendaten zu leaken.",
+      "depends_on": [
+        "LLMPLAN-001",
+        "LLMPLAN-005"
+      ],
+      "files": [
+        "agent/services/planning_dataset_export_service.py",
+        "agent/routes/admin/planning_dataset.py",
+        "tests/test_planning_dataset_export_service.py"
+      ],
+      "changes": [
+        "Exportformate JSONL und Parquet optional vorbereiten.",
+        "Exportfelder: sanitized_goal, mode, prompt_version, model, profile, raw_output_sanitized, parsed_tasks, validation_result, evaluation_scores.",
+        "PII/secret redaction ueber bestehende RAG/Context sensitivity rules anwenden.",
+        "Admin-only API fuer Export.",
+        "Export kann nach Modell, Prompt-Version, Score und Zeitraum filtern."
+      ],
+      "acceptance_criteria": [
+        "Export enthaelt keine credential/secret klassifizierten Inhalte.",
+        "Raw Output kann optional ausgeschlossen werden.",
+        "JSONL Export ist valide und pro Zeile ein Datensatz.",
+        "Filter nach Modell und Score funktionieren.",
+        "Tests pruefen Redaction und Format."
+      ],
+      "tests": [
+        "tests/test_planning_dataset_export_service.py::test_export_redacts_secrets",
+        "tests/test_planning_dataset_export_service.py::test_jsonl_export_valid"
+      ]
+    },
+    {
+      "id": "LLMPLAN-013",
+      "title": "Planning Review Queue fuer schlechte oder interessante LLM-Runs einfuehren",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "summary": "Nicht jeder schlechte Run soll nur verschwinden. Besonders lehrreiche Fehler und gute Kandidaten sollen reviewbar werden.",
+      "depends_on": [
+        "LLMPLAN-005",
+        "LLMPLAN-007",
+        "LLMPLAN-009"
+      ],
+      "files": [
+        "agent/db_models.py",
+        "agent/services/planning_review_queue_service.py",
+        "agent/routes/admin/planning_review.py",
+        "tests/test_planning_review_queue_service.py"
+      ],
+      "changes": [
+        "PlanningReviewItemDB einfuehren.",
+        "Automatisch Review Items erzeugen bei: repeated parse_failed, high score template candidate, security-sensitive context block, no artifacts despite coding task, model regression.",
+        "Review Actions: mark_prompt_issue, approve_template_candidate, reject_template_candidate, mark_model_not_recommended, create_followup_todo.",
+        "Review Queue API fuer Admin."
+      ],
+      "acceptance_criteria": [
+        "Wiederholte parse_failed Runs erzeugen Review Item.",
+        "Hoher Template Candidate Score erzeugt Review Item.",
+        "Review Item kann abgeschlossen werden.",
+        "Review Action wird auditierbar gespeichert."
+      ],
+      "tests": [
+        "tests/test_planning_review_queue_service.py::test_repeated_parse_failures_create_review_item",
+        "tests/test_planning_review_queue_service.py::test_template_candidate_review_flow"
+      ]
+    },
+    {
+      "id": "LLMPLAN-014",
+      "title": "Bestehende planning-mechanism-hardening TODO mit LLM-first Semantik abgleichen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Die vorhandene Hardening-TODO darf nicht mehr so gelesen werden, als muesse sofort deterministic-first gelten. Sie muss auf LLM-first Learning Phase verweisen.",
+      "depends_on": [],
+      "files": [
+        "todo.planning-mechanism-hardening.json",
+        "todo.llm-first-planning-learning.json",
+        "docs/planning-pipeline.md"
+      ],
+      "changes": [
+        "In todo.planning-mechanism-hardening.json core_principles oder summary korrigieren: deterministic-first nur nach ausreichender Evidenz oder in deterministic_first Policy Mode.",
+        "Verweis auf diese neue TODO einfuegen.",
+        "Aufgaben, die Template-first implizieren, als spaetere Phase oder policy-abhaengig markieren.",
+        "docs/planning-pipeline.md mit LLM-first learning phase ergaenzen."
+      ],
+      "acceptance_criteria": [
+        "Keine TODO suggeriert mehr blindes deterministic-first als Default in der Lernphase.",
+        "Beide TODOs referenzieren sich gegenseitig konsistent.",
+        "Dokumentation beschreibt klar den Uebergang von LLM-first learning zu evidence-based deterministic planning."
+      ],
+      "tests": []
+    },
+    {
+      "id": "LLMPLAN-015",
+      "title": "Safety Gates fuer LLM-first Planning explizit absichern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "LLM-first darf nicht bedeuten, dass LLMs Policy-Grenzen setzen oder umgehen. Safety Gates bleiben deterministisch und hart.",
+      "depends_on": [
+        "LLMPLAN-004"
+      ],
+      "files": [
+        "agent/services/planning_service.py",
+        "agent/services/planning_proposal_service.py",
+        "agent/services/context_delivery_service.py",
+        "agent/services/workspace_context_policy.py",
+        "agent/services/worker_routing_policy_utils.py",
+        "tests/test_planning_safety_gates.py",
+        "tests/test_worker_security_regression.py"
+      ],
+      "changes": [
+        "LLM darf task_kind, capabilities, artifact expectation und verification vorschlagen, aber harte Policies werden danach deterministisch validiert.",
+        "Capability escalation aus LLM-Plan blockieren.",
+        "Context scope aus LLM-Plan ignorieren, wenn es Policy erweitert.",
+        "Tool permissions werden nicht aus LLM-Output uebernommen.",
+        "Risky modes benoetigen bestehende Approval/Policy."
+      ],
+      "acceptance_criteria": [
+        "LLM-Plan kann keine zusaetzlichen Capabilities erlangen, die Policy nicht erlaubt.",
+        "LLM-Plan kann workspace_context_policy nicht auf full fuer Cloud setzen.",
+        "LLM-Plan kann keine admin tools aktivieren.",
+        "Safety Gate Failure erzeugt validation error und PlanningRunDB Eintrag.",
+        "Tests pruefen Capability Escalation, Context Escalation und Tool Escalation."
+      ],
+      "tests": [
+        "tests/test_planning_safety_gates.py::test_llm_plan_cannot_escalate_capabilities",
+        "tests/test_planning_safety_gates.py::test_llm_plan_cannot_expand_cloud_context",
+        "tests/test_worker_security_regression.py::test_llm_first_planning_respects_tool_policy"
+      ]
+    }
+  ],
+  "recommended_execution_order": [
+    "LLMPLAN-014",
+    "LLMPLAN-001",
+    "LLMPLAN-002",
+    "LLMPLAN-003",
+    "LLMPLAN-004",
+    "LLMPLAN-015",
+    "LLMPLAN-005",
+    "LLMPLAN-006",
+    "LLMPLAN-010",
+    "LLMPLAN-007",
+    "LLMPLAN-008",
+    "LLMPLAN-011",
+    "LLMPLAN-009",
+    "LLMPLAN-013",
+    "LLMPLAN-012"
+  ],
+  "acceptance_summary": [
+    "LLM-basiertes Planning ist der primaere Lernpfad fuer unbekannte oder nicht ausreichend beobachtete Goal Types.",
+    "Jeder LLM-Planning-Lauf wird mit Modell, Prompt-Version, Profil, Parsergebnis, Repair-Pfad, Validation und Execution Feedback persistiert.",
+    "Prompt-Varianten sind versioniert und messbar vergleichbar.",
+    "Modellprofile werden aus realer Planning-Qualitaet abgeleitet und koennen pro Modell/Provider unterschiedlich sein.",
+    "Deterministische Templates entstehen erst als Kandidaten aus erfolgreichen beobachteten Runs und werden nicht frei erfunden.",
+    "Strategy-Auswahl ist policy- und evidenzbasiert: llm_first_learning, evidence_weighted, deterministic_first, template_only und llm_only sind unterscheidbar.",
+    "LLM-first Planning bleibt innerhalb harter deterministischer Safety Gates fuer Kontext, Capabilities, Tools und Runtime."
+  ],
+  "notes": [
+    "Diese TODO korrigiert die Gewichtung der bestehenden Planning-Hardening-Arbeiten: Deterministik ist Ziel der spaeteren Extraktion, nicht zwingend der erste Default in der Lernphase.",
+    "Die vorhandenen Felder planning_origin, repair_strategy_used, repair_attempt_count, parse_mode und dependency_mode sind gute Vorarbeit und sollen in PlanningRunDB/Telemetry ueberfuehrt werden.",
+    "Der wichtigste naechste Schritt ist nicht noch ein Prompt-Fix, sondern die systematische Datensammlung pro Modell und Prompt-Version."
+  ]
+}
