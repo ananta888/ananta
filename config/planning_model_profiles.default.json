@@ -14,6 +14,19 @@
       "enabled": true
     },
     {
+      "provider": "lmstudio",
+      "model_name_pattern": "auto",
+      "profile_name": "small_local_auto",
+      "prompt_language": "en",
+      "context_max_chars": 400,
+      "max_output_tokens": 512,
+      "temperature": 0.2,
+      "repair_attempts": 1,
+      "output_contract_strictness": "repair_required",
+      "requires_english_prompt": true,
+      "enabled": true
+    },
+    {
       "provider": "ollama",
       "profile_name": "medium_local",
       "prompt_language": "en",
