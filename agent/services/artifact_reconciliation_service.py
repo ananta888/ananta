@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from agent.common.audit import log_audit
-from agent.services.task_completion_policy_service import get_task_completion_policy_service
+from agent.services.task_artifact_completion_gate_service import get_task_artifact_completion_gate_service
 from agent.services.worker_output_collector_service import get_worker_output_collector_service
 
 log = logging.getLogger(__name__)
@@ -49,8 +49,8 @@ class ArtifactReconciliationService:
             after_snapshot_id=after_snapshot_id,
             after_snapshot=after_snapshot,
         )
-        completion_svc = get_task_completion_policy_service()
-        decision = completion_svc.evaluate(
+        completion_gate = get_task_artifact_completion_gate_service()
+        final_status, decision = completion_gate.decide(
             task_id=task_id,
             goal_id=goal_id,
             collection_result=collection,
@@ -62,7 +62,7 @@ class ArtifactReconciliationService:
             "task_id": task_id,
             "collection": collection,
             "would_apply_decision": decision.decision,
-            "would_apply_status": completion_svc.to_status(decision),
+            "would_apply_status": final_status,
             "reason_codes": decision.reason_codes,
             "artifact_ids": decision.artifact_ids,
         }
@@ -117,15 +117,14 @@ class ArtifactReconciliationService:
             after_snapshot_id=after_snapshot_id,
             after_snapshot=after_snapshot,
         )
-        completion_svc = get_task_completion_policy_service()
-        decision = completion_svc.evaluate(
+        completion_gate = get_task_artifact_completion_gate_service()
+        final_status, decision = completion_gate.decide(
             task_id=task_id,
             goal_id=goal_id,
             collection_result=collection,
             expected_paths=list(expected_paths or []),
             allow_synthesized_manifest=allow_synthesized_manifest,
         )
-        final_status = completion_svc.to_status(decision)
 
         from agent.services.task_runtime_service import update_local_task_status
         update_local_task_status(
@@ -133,13 +132,10 @@ class ArtifactReconciliationService:
             final_status,
             event_type="artifact_reconciliation_applied",
             event_actor=actor,
-            event_details={
-                "reason": reason,
-                "completion_decision": decision.decision,
-                "reason_codes": decision.reason_codes,
-                "artifact_ids": decision.artifact_ids,
-                "manifest_id": decision.manifest_id,
-            },
+            event_details=completion_gate.event_details(
+                decision=decision,
+                extra={"reason": reason},
+            ),
         )
         log_audit(
             "artifact_reconciliation_applied",

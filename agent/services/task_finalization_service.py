@@ -16,7 +16,7 @@ from agent.common.audit import (
     AUDIT_TASK_FINALIZED_FROM_ARTIFACTS,
     AUDIT_ADVISORY_JSON_PARSE_FAILED_IGNORED,
 )
-from agent.services.task_completion_policy_service import get_task_completion_policy_service
+from agent.services.task_artifact_completion_gate_service import get_task_artifact_completion_gate_service
 from agent.services.task_runtime_service import update_local_task_status
 from agent.services.worker_output_collector_service import get_worker_output_collector_service
 
@@ -83,8 +83,8 @@ class TaskFinalizationService:
                 "has_valid_artifacts": bool(collection.get("manifest_valid")),
             })
 
-        completion_svc = get_task_completion_policy_service()
-        decision = completion_svc.evaluate(
+        completion_gate = get_task_artifact_completion_gate_service()
+        final_status, decision = completion_gate.decide(
             task_id=task_id,
             goal_id=goal_id,
             collection_result=collection,
@@ -95,7 +95,6 @@ class TaskFinalizationService:
             verification_required=verification_required,
             allow_synthesized_manifest=allow_synthesized_manifest,
         )
-        final_status = completion_svc.to_status(decision)
 
         log_audit(AUDIT_ARTIFACT_COMPLETION_DECIDED, {
             "task_id": task_id, "goal_id": goal_id, "execution_id": execution_id,
@@ -110,14 +109,10 @@ class TaskFinalizationService:
             final_status,
             event_type="artifact_first_finalization",
             event_actor="system",
-            event_details={
-                "completion_decision": decision.decision,
-                "reason_codes": decision.reason_codes,
-                "advisory_parse_status": decision.advisory_parse_status,
-                "manifest_id": decision.manifest_id,
-                "artifact_ids": decision.artifact_ids,
-                "execution_id": execution_id,
-            },
+            event_details=completion_gate.event_details(
+                decision=decision,
+                extra={"execution_id": execution_id},
+            ),
         )
 
         log_audit(AUDIT_TASK_FINALIZED_FROM_ARTIFACTS, {

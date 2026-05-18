@@ -44,3 +44,20 @@ def test_planning_cleanup_check_allows_catalog_backed_code(tmp_path: Path) -> No
 
     assert ok is True
     assert reason == "ok"
+
+
+def test_runtime_path_hygiene_flags_forbidden_runtime_paths() -> None:
+    violations = run_release_gate._forbidden_runtime_paths(
+        [
+            "project-workspaces/run-1/output.txt",
+            "artifacts/report.json",
+            "artifacts/report.jsonl",
+            "tests/fixtures/artifacts/ok.json",
+            "artifacts/domain/allowed.json",
+        ]
+    )
+    assert "project-workspaces/run-1/output.txt" in violations
+    assert "artifacts/report.json" in violations
+    assert "artifacts/report.jsonl" in violations
+    assert "tests/fixtures/artifacts/ok.json" not in violations
+    assert "artifacts/domain/allowed.json" not in violations

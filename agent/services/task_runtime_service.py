@@ -263,16 +263,15 @@ def apply_artifact_first_completion(
 
     Malformed advisory JSON never causes an infinite retry loop when artifacts pass.
     """
-    from agent.services.task_completion_policy_service import get_task_completion_policy_service
+    from agent.services.task_artifact_completion_gate_service import get_task_artifact_completion_gate_service
     from agent.services.task_retry_policy_service import (
         get_task_retry_policy_service,
         REASON_ADVISORY_JSON_PARSE_FAILED,
     )
 
-    completion_svc = get_task_completion_policy_service()
+    completion_gate = get_task_artifact_completion_gate_service()
     retry_svc = get_task_retry_policy_service()
-
-    decision = completion_svc.evaluate(
+    final_status, decision = completion_gate.decide(
         task_id=tid,
         collection_result=collection_result,
         advisory_parse_result=advisory_parse_result,
@@ -297,13 +296,8 @@ def apply_artifact_first_completion(
                 "for task %s — not requeueing (reason_code=advisory_parse_failed_ignored)", tid,
             )
 
-    final_status = completion_svc.to_status(decision)
     event_details = {
-        "completion_decision": decision.decision,
-        "reason_codes": decision.reason_codes,
-        "advisory_parse_status": decision.advisory_parse_status,
-        "artifact_ids": decision.artifact_ids,
-        "manifest_id": decision.manifest_id,
+        **completion_gate.event_details(decision=decision),
     }
     update_local_task_status(
         tid,
