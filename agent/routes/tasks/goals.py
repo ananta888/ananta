@@ -572,14 +572,16 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         readiness=readiness,
     )
     from agent.routes.tasks.auto_planner import auto_planner
+    effective = dict(context.get("effective") or {})
+    overrides = dict(getattr(goal_record, "workflow_overrides", None) or {})
 
     result = auto_planner.plan_goal(
         goal=str(context.get("goal_text") or goal_record.goal or ""),
         context=context.get("mode_context"),
-        team_id=(context.get("effective") or {}).get("routing", {}).get("team_id"),
-        create_tasks=bool((context.get("effective") or {}).get("planning", {}).get("create_tasks", True)),
-        use_template=bool((context.get("effective") or {}).get("planning", {}).get("use_template", True)),
-        use_repo_context=bool((context.get("effective") or {}).get("planning", {}).get("use_repo_context", True)),
+        team_id=effective.get("routing", {}).get("team_id"),
+        create_tasks=bool(effective.get("planning", {}).get("create_tasks", True)),
+        use_template=bool(effective.get("planning", {}).get("use_template", True)),
+        use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
         goal_id=goal_record.id,
         goal_trace_id=goal_record.trace_id,
         mode=goal_record.mode,
@@ -619,10 +621,10 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         retry_result = auto_planner.plan_goal(
             goal=str(context.get("goal_text") or goal_record.goal or ""),
             context=context.get("mode_context"),
-            team_id=(context.get("effective") or {}).get("routing", {}).get("team_id"),
+            team_id=effective.get("routing", {}).get("team_id"),
             create_tasks=True,
-            use_template=bool((context.get("effective") or {}).get("planning", {}).get("use_template", True)),
-            use_repo_context=bool((context.get("effective") or {}).get("planning", {}).get("use_repo_context", True)),
+            use_template=bool(effective.get("planning", {}).get("use_template", True)),
+            use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
             goal_id=goal_record.id,
             goal_trace_id=goal_record.trace_id,
             mode=retry_mode,
@@ -659,7 +661,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
     try:
         _services().autopilot_runtime_service.start(
             goal=goal_record.id,
-            team_id=(context.get("effective") or {}).get("routing", {}).get("team_id"),
+            team_id=effective.get("routing", {}).get("team_id"),
             interval_seconds=1,
             max_concurrency=1,
             security_level="balanced",

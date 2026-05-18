@@ -21,7 +21,7 @@ from agent.common.audit import log_audit
 from agent.common.errors import PlanningError, api_response, with_error_context
 from agent.config import settings
 from agent.db_models import ConfigDB
-from agent.llm_integration import generate_text
+from agent.llm_integration import generate_text, probe_lmstudio_runtime, probe_ollama_runtime
 from agent.models import AutoPlannerAnalyzeRequest, AutoPlannerConfigureRequest, AutoPlannerPlanRequest
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
@@ -153,6 +153,7 @@ class AutoPlanner:
         self.llm_timeout = max(30, default_timeout)
         self.llm_retry_attempts = 2
         self.llm_retry_backoff = 1.0
+        self._runtime_calibration_cache: dict[str, dict] = {}
         self._stats = {
             "goals_processed": 0,
             "tasks_created": 0,
@@ -178,9 +179,97 @@ class AutoPlanner:
         error_msg = str(exc).lower()
         return any(t in error_name or t in error_msg for t in ["timeout", "timedout", "timed out"])
 
+    def _resolve_runtime_profile(self, llm_config: dict) -> dict:
+        agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        planning_policy = agent_cfg.get("planning_policy") if isinstance(agent_cfg.get("planning_policy"), dict) else {}
+        profiles = planning_policy.get("runtime_profiles") if isinstance(planning_policy.get("runtime_profiles"), dict) else {}
+        default_profile_id = str(planning_policy.get("default_runtime_profile") or "").strip()
+        explicit_profile_id = str(llm_config.get("planner_runtime_profile") or "").strip()
+        provider = str(llm_config.get("provider") or "").strip().lower()
+        selected_profile_id = explicit_profile_id or default_profile_id
+        if not selected_profile_id:
+            if provider == "ollama":
+                selected_profile_id = "ollama_rtx3080"
+            elif provider == "lmstudio":
+                selected_profile_id = "lmstudio_laptop"
+        selected = profiles.get(selected_profile_id) if isinstance(profiles, dict) else {}
+        if not isinstance(selected, dict):
+            selected = {}
+        return {
+            "id": selected_profile_id or "default",
+            "timeout_seconds": int(selected.get("timeout_seconds") or self.llm_timeout),
+            "max_output_tokens": int(selected.get("max_output_tokens") or 512),
+            "retry_attempts": int(selected.get("retry_attempts") or self.llm_retry_attempts),
+            "retry_backoff_seconds": float(selected.get("retry_backoff_seconds") or self.llm_retry_backoff),
+        }
+
+    def _preflight_calibrate_runtime(self, llm_config: dict, runtime_profile: dict) -> dict:
+        provider = str(llm_config.get("provider") or "").strip().lower()
+        base_url = str(llm_config.get("base_url") or "").strip()
+        model = str(llm_config.get("model") or "").strip() or "auto"
+        key = f"{provider}|{base_url}|{model}|{runtime_profile.get('id')}"
+        now = time.time()
+        cached = self._runtime_calibration_cache.get(key)
+        if isinstance(cached, dict) and (now - float(cached.get("checked_at") or 0.0) < 120):
+            return dict(cached)
+
+        timeout_seconds = int(runtime_profile.get("timeout_seconds") or self.llm_timeout)
+        max_output_tokens = int(runtime_profile.get("max_output_tokens") or 512)
+        probe_ok = False
+        try:
+            if provider == "lmstudio":
+                probe_ok = bool(probe_lmstudio_runtime(base_url, timeout=min(timeout_seconds, 10)).get("ok"))
+            elif provider == "ollama":
+                probe_ok = bool(probe_ollama_runtime(base_url, timeout=min(timeout_seconds, 10)).get("ok"))
+        except Exception:
+            probe_ok = False
+
+        start = time.time()
+        ping_ok = False
+        try:
+            ping = generate_text(
+                prompt="Reply only with: OK",
+                provider=provider or llm_config.get("provider"),
+                model=model,
+                base_url=base_url or None,
+                api_key=llm_config.get("api_key"),
+                timeout=min(timeout_seconds, 25),
+                max_output_tokens=24,
+                temperature=0.0,
+            )
+            ping_ok = bool(str(ping or "").strip())
+        except Exception:
+            ping_ok = False
+        latency = time.time() - start
+
+        if ping_ok:
+            timeout_seconds = max(timeout_seconds, min(300, int(latency * 6) + 20))
+            if latency > 12:
+                max_output_tokens = min(max_output_tokens, 384)
+            elif latency < 4:
+                max_output_tokens = min(1024, max(max_output_tokens, 640))
+        elif not probe_ok:
+            timeout_seconds = min(300, max(timeout_seconds, 180))
+            max_output_tokens = min(max_output_tokens, 320)
+
+        calibrated = {
+            "checked_at": now,
+            "probe_ok": probe_ok,
+            "ping_ok": ping_ok,
+            "latency_seconds": round(latency, 3),
+            "timeout_seconds": int(timeout_seconds),
+            "max_output_tokens": int(max_output_tokens),
+        }
+        self._runtime_calibration_cache[key] = dict(calibrated)
+        return calibrated
+
     def _call_llm_with_retry(self, prompt: str, llm_config: dict, *, temperature: float | None = None) -> str:
+        runtime_profile = self._resolve_runtime_profile(llm_config)
+        calibrated = self._preflight_calibrate_runtime(llm_config, runtime_profile)
         last_exc: Optional[Exception] = None
-        for attempt in range(1, self.llm_retry_attempts + 1):
+        retry_attempts = max(1, min(int(runtime_profile.get("retry_attempts") or self.llm_retry_attempts), 5))
+        retry_backoff = max(0.1, min(float(runtime_profile.get("retry_backoff_seconds") or self.llm_retry_backoff), 10.0))
+        for attempt in range(1, retry_attempts + 1):
             try:
                 llm_temperature = temperature
                 if llm_temperature is None:
@@ -196,6 +285,8 @@ class AutoPlanner:
                         llm_timeout = max(self.llm_timeout, max(5, int(raw_timeout)))
                     except (TypeError, ValueError):
                         llm_timeout = self.llm_timeout
+                llm_timeout = max(llm_timeout, int(runtime_profile.get("timeout_seconds") or llm_timeout))
+                llm_timeout = max(llm_timeout, int(calibrated.get("timeout_seconds") or llm_timeout))
                 llm_kwargs = {
                     "prompt": prompt,
                     "provider": llm_config.get("provider"),
@@ -207,12 +298,13 @@ class AutoPlanner:
                 if llm_temperature is not None:
                     llm_kwargs["temperature"] = llm_temperature
                 raw_max_tokens = llm_config.get("max_output_tokens")
-                planner_max_tokens = 512
+                planner_max_tokens = int(runtime_profile.get("max_output_tokens") or 512)
                 if raw_max_tokens is not None:
                     try:
-                        planner_max_tokens = max(128, min(int(raw_max_tokens), 512))
+                        planner_max_tokens = max(128, min(int(raw_max_tokens), planner_max_tokens))
                     except (TypeError, ValueError):
-                        planner_max_tokens = 512
+                        planner_max_tokens = int(runtime_profile.get("max_output_tokens") or 512)
+                planner_max_tokens = int(calibrated.get("max_output_tokens") or planner_max_tokens)
                 llm_kwargs["max_output_tokens"] = planner_max_tokens
                 try:
                     raw_response = generate_text(**llm_kwargs)
@@ -227,13 +319,13 @@ class AutoPlanner:
             except Exception as e:
                 last_exc = e
                 is_timeout = self._is_timeout_error(e)
-                if is_timeout and attempt < self.llm_retry_attempts:
+                if is_timeout and attempt < retry_attempts:
                     self._stats["llm_retries"] += 1
-                    backoff = self.llm_retry_backoff * attempt
+                    backoff = retry_backoff * attempt
                     _log().warning(
                         "LLM timeout (attempt %s/%s), retrying in %ss: %s",
                         attempt,
-                        self.llm_retry_attempts,
+                        retry_attempts,
                         backoff,
                         e,
                     )
@@ -244,7 +336,7 @@ class AutoPlanner:
             raise with_error_context(
                 PlanningError(
                     "auto_planner_llm_failed",
-                    details={"timeout_seconds": self.llm_timeout, "attempts": self.llm_retry_attempts},
+                    details={"timeout_seconds": self.llm_timeout, "attempts": retry_attempts},
                 ),
                 cause=str(last_exc),
             )
@@ -306,7 +398,7 @@ class AutoPlanner:
             if auto_start_autopilot is not None:
                 self.auto_start_autopilot = bool(auto_start_autopilot)
             if llm_timeout is not None:
-                self.llm_timeout = max(5, min(int(llm_timeout), 180))
+                self.llm_timeout = max(5, min(int(llm_timeout), 300))
             if llm_retry_attempts is not None:
                 self.llm_retry_attempts = max(1, min(int(llm_retry_attempts), 5))
             if llm_retry_backoff is not None:
