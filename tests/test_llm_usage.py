@@ -860,3 +860,65 @@ def test_model_invocation_service_timeout_exposes_failed_llm_call_profile():
                     assert prof[0]["success"] is False
                     assert prof[0]["estimated"] is False
                     assert prof[0]["error_type"] == "timeout"
+
+
+# LLM-001: public schema builder and normalizer
+def test_build_llm_call_profile_entry_produces_canonical_schema():
+    from agent.llm_integration import LLM_CALL_PROFILE_FIELDS, build_llm_call_profile_entry
+
+    entry = build_llm_call_profile_entry(
+        name="test_call",
+        backend="llm_integration",
+        provider="ollama",
+        model="llama3",
+        success=True,
+        started_at=1000.0,
+        ended_at=1001.5,
+        usage={"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+        source="llm_integration",
+        estimated=False,
+    )
+    for field in LLM_CALL_PROFILE_FIELDS:
+        assert field in entry, f"Missing field: {field}"
+    assert entry["latency_ms"] == 1500
+    assert entry["estimated"] is False
+    assert entry["prompt_tokens"] == 10
+    assert entry["completion_tokens"] == 20
+    assert entry["total_tokens"] == 30
+
+
+def test_normalize_llm_call_profile_entry_fills_missing_fields():
+    from agent.llm_integration import LLM_CALL_PROFILE_FIELDS, normalize_llm_call_profile_entry
+
+    # Legacy entry with 'phase' key instead of 'name', missing many fields
+    legacy = {
+        "phase": "propose_primary",
+        "backend": "cli",
+        "model": "llama3",
+        "success": True,
+        "latency_ms": 500,
+        "prompt_tokens": 100,
+        "completion_tokens": 50,
+    }
+    normalized = normalize_llm_call_profile_entry(legacy)
+    for field in LLM_CALL_PROFILE_FIELDS:
+        assert field in normalized, f"Missing field after normalization: {field}"
+    assert normalized["name"] == "propose_primary"
+    assert normalized["estimated"] is False
+    assert normalized["source"] == "unknown"
+    assert normalized["error_type"] is None
+
+
+def test_normalize_llm_call_profile_entry_handles_non_dict():
+    from agent.llm_integration import normalize_llm_call_profile_entry
+
+    entry = normalize_llm_call_profile_entry("bad_value")
+    assert entry["name"] == "unknown"
+    assert entry["estimated"] is True
+    assert entry["success"] is False
+
+
+def test_build_llm_call_profile_entry_private_alias_still_works():
+    from agent.llm_integration import _build_llm_call_profile_entry, build_llm_call_profile_entry
+
+    assert _build_llm_call_profile_entry is build_llm_call_profile_entry

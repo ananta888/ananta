@@ -11,7 +11,7 @@ OLLAMA_DEFAULT_ALIAS_CANDIDATES="${OLLAMA_DEFAULT_ALIAS_CANDIDATES:-bartowski-qw
 OLLAMA_SMOKE_ALIAS="${OLLAMA_SMOKE_ALIAS:-ananta-smoke}"
 OLLAMA_SMOKE_ALIAS_CANDIDATES="${OLLAMA_SMOKE_ALIAS_CANDIDATES:-mradermacher-qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abl-0836a1d595c6,lmstudio-community-qwen2.5-coder-0.5b-instruct-gguf-qwen2.5-coder-0-8a0ee15fcff4,mradermacher-lfm2.5-1.2b-glm-4.7-flash-thinking-i1-gguf-lfm2.5-1.2b-c7d4a41ae661,bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s}"
 OLLAMA_RESCAN_SEC="${OLLAMA_RESCAN_SEC:-30}"
-OLLAMA_NUM_CTX="${OLLAMA_NUM_CTX:-4096}"
+OLLAMA_NUM_CTX="${OLLAMA_NUM_CTX:-32768}"
 OLLAMA_AUTOIMPORT_MODE="${OLLAMA_AUTOIMPORT_MODE:-full}"
 OLLAMA_READY_TIMEOUT_SEC="${OLLAMA_READY_TIMEOUT_SEC:-180}"
 INITIAL_SCAN_PID=""
@@ -83,6 +83,14 @@ ensure_alias_from_model() {
   [ -n "$alias_name" ] || return 0
   [ -n "$source_name" ] || return 0
   source_name="$(normalize_model_ref "$source_name")"
+  # Guard: refuse to create a self-referential Modelfile (FROM <alias_name>).
+  # This happens when the alias itself is the only available model and
+  # first_available_text_model returns it — Ollama would loop indefinitely.
+  alias_normalized="$(normalize_model_ref "$alias_name")"
+  if [ "$source_name" = "$alias_normalized" ]; then
+    echo "autoimport: skipping self-referential alias '$alias_name' -> '$source_name'" >&2
+    return 0
+  fi
   is_text_model "$source_name" || return 0
   mf="$AUTOIMPORT_STATE_DIR/modelfiles/$alias_name.Modelfile"
   write_modelfile "$mf" "$source_name"

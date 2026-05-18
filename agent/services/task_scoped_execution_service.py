@@ -71,6 +71,7 @@ from agent.services.task_runtime_service import (
 )
 from agent.services.task_template_resolution import resolve_task_role_template
 from agent.services.verification_service import get_verification_service
+from agent.llm_integration import build_llm_call_profile_entry
 from agent.services.worker_workspace_service import get_worker_workspace_service
 from agent.utils import _extract_reason, _log_terminal_entry
 
@@ -2865,27 +2866,37 @@ class TaskScopedExecutionService:
         repair_model: str | None,
     ) -> list[dict]:
         entries = [
-            {
-                "phase": "propose_primary",
-                "backend": str(backend_used or ""),
-                "model": str(model or ""),
-                "success": bool(rc == 0),
-                "latency_ms": int(latency_ms or 0),
-                "prompt_tokens": self._estimate_tokens(prompt),
-                "completion_tokens": self._estimate_tokens(raw_output),
-            }
+            build_llm_call_profile_entry(
+                name="propose_primary",
+                backend=str(backend_used or ""),
+                provider=None,
+                model=str(model or "") or None,
+                success=bool(rc == 0),
+                started_at=None,
+                ended_at=None,
+                usage={
+                    "prompt_tokens": self._estimate_tokens(prompt),
+                    "completion_tokens": self._estimate_tokens(raw_output),
+                },
+                source="cli_backend",
+                estimated=True,
+            )
         ]
+        # Override latency_ms post-hoc since we have the real value but not started_at/ended_at.
+        entries[0]["latency_ms"] = int(latency_ms or 0)
         if repair_attempted:
             entries.append(
-                {
-                    "phase": "propose_repair",
-                    "backend": str(repair_backend or ""),
-                    "model": str(repair_model or ""),
-                    "success": bool(rc == 0),
-                    "latency_ms": None,
-                    "prompt_tokens": None,
-                    "completion_tokens": None,
-                }
+                build_llm_call_profile_entry(
+                    name="propose_repair",
+                    backend=str(repair_backend or ""),
+                    provider=None,
+                    model=str(repair_model or "") or None,
+                    success=bool(rc == 0),
+                    started_at=None,
+                    ended_at=None,
+                    source="cli_backend",
+                    estimated=True,
+                )
             )
         return entries
 

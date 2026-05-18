@@ -155,7 +155,27 @@ def _normalize_llm_usage(usage: Any) -> dict[str, int]:
         return {}
 
 
-def _build_llm_call_profile_entry(
+# Canonical field order for llm_call_profile entries — used by both real and synthetic entries.
+LLM_CALL_PROFILE_FIELDS: tuple[str, ...] = (
+    "name",
+    "backend",
+    "provider",
+    "model",
+    "success",
+    "latency_ms",
+    "prompt_tokens",
+    "completion_tokens",
+    "total_tokens",
+    "source",
+    "estimated",
+    "error_type",
+    "error_message",
+    "started_at",
+    "ended_at",
+)
+
+
+def build_llm_call_profile_entry(
     *,
     name: str,
     backend: str,
@@ -194,6 +214,70 @@ def _build_llm_call_profile_entry(
         "started_at": float(started_at) if started_at is not None else None,
         "ended_at": float(ended_at) if ended_at is not None else None,
     }
+
+
+def normalize_llm_call_profile_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    """Coerce an arbitrary llm_call_profile dict to the canonical field set.
+
+    Entries created outside llm_integration (orchestrator synthetic entries,
+    legacy CLI result dicts) may be missing fields or use different key names
+    such as ``phase`` instead of ``name``.  This function fills gaps with safe
+    defaults so downstream aggregation code can assume a stable schema.
+    """
+    if not isinstance(entry, dict):
+        return build_llm_call_profile_entry(
+            name="unknown",
+            backend="unknown",
+            provider=None,
+            model=None,
+            success=False,
+            started_at=None,
+            ended_at=None,
+            source="normalized",
+            estimated=True,
+        )
+    # Accept 'phase' as an alias for 'name' used by some legacy paths.
+    name = str(entry.get("name") or entry.get("phase") or "").strip() or "unknown"
+    latency_raw = entry.get("latency_ms")
+    try:
+        latency_ms: int | None = max(0, int(latency_raw)) if latency_raw is not None else None
+    except (TypeError, ValueError):
+        latency_ms = None
+
+    def _int_or_none(v: Any) -> int | None:
+        try:
+            return max(0, int(v)) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    started_at = entry.get("started_at")
+    ended_at = entry.get("ended_at")
+    if latency_ms is None and started_at is not None and ended_at is not None:
+        try:
+            latency_ms = max(0, int((float(ended_at) - float(started_at)) * 1000))
+        except (TypeError, ValueError):
+            pass
+    return {
+        "name": name,
+        "backend": str(entry.get("backend") or "").strip() or "unknown",
+        "provider": str(entry.get("provider") or "").strip() or None,
+        "model": str(entry.get("model") or "").strip() or None,
+        "success": bool(entry.get("success", False)),
+        "latency_ms": latency_ms,
+        "prompt_tokens": _int_or_none(entry.get("prompt_tokens")),
+        "completion_tokens": _int_or_none(entry.get("completion_tokens")),
+        "total_tokens": _int_or_none(entry.get("total_tokens")),
+        "source": str(entry.get("source") or "").strip() or "unknown",
+        "estimated": bool(entry.get("estimated", False)),
+        "error_type": str(entry.get("error_type") or "").strip() or None,
+        "error_message": str(entry.get("error_message") or "").strip() or None,
+        "started_at": float(started_at) if started_at is not None else None,
+        "ended_at": float(ended_at) if ended_at is not None else None,
+    }
+
+
+# Backward-compatible private alias so existing internal call sites still work.
+_build_llm_call_profile_entry = build_llm_call_profile_entry
 
 
 def _attach_llm_call_profile(result: Any, entry: dict[str, Any]) -> Any:

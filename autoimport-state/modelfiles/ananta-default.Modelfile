@@ -1,2 +1,5 @@
-FROM ananta-default
-PARAMETER num_ctx 4096
+# Placeholder — rewritten at runtime by ollama-autoimport.sh.
+# FROM must reference a real base model, never ananta-default itself.
+# Example: FROM bartowski-qwen2.5-coder-7b-instruct-gguf-qwen2.5-coder-7b-instruct-q4_k_s
+FROM __PLACEHOLDER_CONFIGURE_VIA_OLLAMA_DEFAULT_ALIAS_CANDIDATES__
+PARAMETER num_ctx 32768

@@ -1,2 +1,2 @@
 FROM ananta-default
-PARAMETER num_ctx 4096
+PARAMETER num_ctx 32768
