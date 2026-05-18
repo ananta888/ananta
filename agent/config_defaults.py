@@ -131,6 +131,8 @@ def build_default_agent_config() -> dict:
         },
         "autopilot_strategy_max_attempts": 3,
         "autopilot_strategy_retry_delay_seconds": 20,
+        # Use hard guard as recovery (todo) instead of dead-end review gate.
+        "autopilot_task_propose_hard_guard_status": "todo",
         "autopilot_strategy_fallback_models": [opencode_default_model] if opencode_default_model else [],
         "autopilot_strategy_temperature_profiles": [0.2, 0.5, 0.8],
         "proposal_budget": {
