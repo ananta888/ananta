@@ -132,6 +132,16 @@ def test_redaction_walks_nested_lists():
     assert providers[1]["base_url"] == "http://local"
 
 
+def test_redaction_does_not_mask_max_output_tokens():
+    resolver = get_goal_config_resolver_service()
+    result = resolver.resolve(
+        system_config={"planning_policy": {"max_output_tokens": 768}},
+        profile_id=None,
+    )
+    policy = result.config_snapshot["config"]["planning_policy"]
+    assert policy["max_output_tokens"] == 768
+
+
 # TRM-001: Resolution-Order testmatrix
 _RESOLVER = get_goal_config_resolver_service()
 

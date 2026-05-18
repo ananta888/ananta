@@ -14,9 +14,13 @@ from agent.services.planning_utils import (
     build_planning_prompt,
     build_planning_prompt_en,
     parse_subtasks_from_llm_response,
-    parse_subtasks_with_diagnostics,
     try_load_repo_context,
 )
+
+try:
+    from agent.services.planning_utils import parse_subtasks_with_diagnostics
+except ImportError:
+    parse_subtasks_with_diagnostics = None
 
 
 @dataclass(frozen=True)
@@ -137,6 +141,18 @@ class TemplatePlanningStrategy:
 
 
 class LLMPlanningStrategy:
+    @staticmethod
+    def _safe_int(value: Any, default: int, minimum: int | None = None, maximum: int | None = None) -> int:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            parsed = int(default)
+        if minimum is not None and parsed < minimum:
+            parsed = minimum
+        if maximum is not None and parsed > maximum:
+            parsed = maximum
+        return parsed
+
     @staticmethod
     def _resolve_repair_strategies(planning_policy: dict[str, Any], *, repair_attempts: int) -> list[dict[str, Any]]:
         raw = list(planning_policy.get("repair_strategies") or [])
@@ -282,7 +298,7 @@ class LLMPlanningStrategy:
         # Configurable context truncation — helps small models with limited context windows
         context_max_chars = planning_policy.get("context_max_chars")
         if context_max_chars and resolved_context:
-            limit = max(100, int(context_max_chars))
+            limit = self._safe_int(context_max_chars, default=400, minimum=100)
             if len(resolved_context) > limit:
                 resolved_context = resolved_context[:limit]
 
@@ -302,23 +318,44 @@ class LLMPlanningStrategy:
         else:
             prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
 
-        repair_attempts = max(1, min(int(planning_policy.get("unstructured_repair_attempts", 3) or 3), 6))
+        repair_attempts = self._safe_int(
+            planning_policy.get("unstructured_repair_attempts", 3) or 3,
+            default=3,
+            minimum=1,
+            maximum=6,
+        )
         repair_strategies = self._resolve_repair_strategies(planning_policy, repair_attempts=repair_attempts)
         llm_config = dict(scoped_cfg.get("llm_config") or {})
 
         # Configurable max_output_tokens for planning — reduces empty responses from small models
         policy_max_tokens = planning_policy.get("max_output_tokens")
         if policy_max_tokens and "max_output_tokens" not in llm_config:
-            llm_config = {**llm_config, "max_output_tokens": int(policy_max_tokens)}
+            llm_config = {
+                **llm_config,
+                "max_output_tokens": self._safe_int(policy_max_tokens, default=1024, minimum=128, maximum=8192),
+            }
+        # Respect planning-policy timeout for goal-scoped runs to avoid long request-thread stalls.
+        policy_timeout = planning_policy.get("timeout_seconds")
+        if policy_timeout and "timeout" not in llm_config:
+            llm_config = {
+                **llm_config,
+                "timeout": self._safe_int(policy_timeout, default=20, minimum=5, maximum=120),
+            }
 
         raw_response = planner._call_llm_with_retry(prompt, llm_config)
         planning_origin = "llm"
         repair_strategy_used: str | None = None
         repair_attempt_count = 0
-        subtasks, parse_diag = parse_subtasks_with_diagnostics(raw_response, default_priority=planner.default_priority)
-        parse_mode = str(parse_diag.get("parse_mode") or "parse_failed")
-        warnings = list(parse_diag.get("warnings") or [])
-        if not subtasks:
+        if callable(parse_subtasks_with_diagnostics):
+            subtasks, parse_diag = parse_subtasks_with_diagnostics(raw_response, default_priority=planner.default_priority)
+            parse_mode = str(parse_diag.get("parse_mode") or "parse_failed")
+            warnings = list(parse_diag.get("warnings") or [])
+        else:
+            subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
+            parse_mode = "legacy_parser"
+            warnings = []
+        fast_fail_empty = bool(planning_policy.get("fast_fail_on_empty_response", mode == "new_software_project"))
+        if not subtasks and not (fast_fail_empty and not str(raw_response or "").strip()):
             for idx, strategy in enumerate(repair_strategies):
                 repair_attempt_count += 1
                 strategy_name = str(strategy.get("name") or "").strip().lower()

@@ -30,6 +30,9 @@ ALLOWED_GOAL_CONFIG_KEYS: frozenset[str] = frozenset({
 _ALLOWED_TOP_LEVEL_KEYS = ALLOWED_GOAL_CONFIG_KEYS
 
 _SECRET_KEY_MARKERS = ("key", "token", "secret", "password", "authorization", "credential", "bearer")
+_NON_SECRET_KEY_EXCEPTIONS: frozenset[str] = frozenset({
+    "max_output_tokens",
+})
 
 
 @dataclass(frozen=True)
@@ -149,6 +152,8 @@ class GoalConfigResolverService:
     @staticmethod
     def _looks_secret_key(key: str) -> bool:
         lowered = str(key or "").strip().lower()
+        if lowered in _NON_SECRET_KEY_EXCEPTIONS:
+            return False
         return any(marker in lowered for marker in _SECRET_KEY_MARKERS)
 
 
