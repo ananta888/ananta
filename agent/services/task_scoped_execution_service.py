@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlparse
 
 from flask import current_app, has_app_context
 
@@ -2262,6 +2263,19 @@ class TaskScopedExecutionService:
         my_url = settings.agent_url or f"http://localhost:{settings.port}"
         if worker_url.rstrip("/") == my_url.rstrip("/"):
             return None
+        try:
+            parsed_worker = urlparse(str(worker_url))
+            parsed_self = urlparse(str(my_url))
+            worker_host = str(parsed_worker.hostname or "").strip().lower()
+            self_host = str(parsed_self.hostname or "").strip().lower()
+            worker_port = int(parsed_worker.port or settings.port)
+            self_port = int(parsed_self.port or settings.port)
+            if worker_port == self_port and (
+                worker_host in {"localhost", "127.0.0.1", "0.0.0.0"} or worker_host == self_host
+            ):
+                return None
+        except Exception:
+            pass
         assigned_token = task.get("assigned_agent_token")
         resolved_token = assigned_token
         try:

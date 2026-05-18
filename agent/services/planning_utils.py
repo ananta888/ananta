@@ -374,6 +374,35 @@ def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medi
                     "parser_trace": list(chain_result.get("trace") or []),
                 }
 
+        # Last-resort salvage for truncated pseudo-JSON:
+        # extract title/description pairs directly from raw text.
+        title_matches = re.findall(r'"title"\s*:\s*"([^"\n]{1,180})"', json_payload)
+        desc_matches = re.findall(r'"description"\s*:\s*"([^"\n]{1,600})"', json_payload)
+        if title_matches:
+            recovered: list[dict[str, Any]] = []
+            for idx, title in enumerate(title_matches):
+                desc = desc_matches[idx] if idx < len(desc_matches) else f"Execute task: {title}"
+                recovered.append(
+                    {
+                        "title": str(title).strip(),
+                        "description": str(desc).strip(),
+                        "priority": default_priority,
+                        "depends_on": [],
+                    }
+                )
+            normalized = [normalize_subtask(item, default_priority=default_priority) for item in recovered]
+            subtasks = [item for item in normalized if item]
+            if subtasks:
+                return subtasks, {
+                    "parse_mode": "kv_text_salvage",
+                    "confidence": "low",
+                    "warnings": ["truncated_json_key_value_recovered"],
+                    "output_shape": shape.get("primary_shape"),
+                    "detected_shapes": list(shape.get("detected_shapes") or []),
+                    "format_error_codes": analyze_format_errors(response, parse_result={}),
+                    "parser_trace": list(chain_result.get("trace") or []),
+                }
+
     if parsed is not None:
         if isinstance(parsed, dict):
             if isinstance(parsed.get("implementation_roadmap"), dict):
