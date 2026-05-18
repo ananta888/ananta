@@ -30,6 +30,7 @@ run_hub() {
   export ROLE=hub
   export PORT="${PORT:-5000}"
   log "Starting hub on port ${PORT}"
+  mkdir -p /app/data
   alembic upgrade head
   exec python -m agent.ai_agent
 }
@@ -39,6 +40,7 @@ run_worker() {
   export ROLE=worker
   export PORT="${PORT:-5000}"
   log "Starting worker '${AGENT_NAME:-worker}' on port ${PORT}"
+  mkdir -p /app/data
   exec python -m agent.ai_agent
 }
 
