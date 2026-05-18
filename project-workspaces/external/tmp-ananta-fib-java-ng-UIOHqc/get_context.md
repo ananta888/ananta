@@ -1,5 +1,0 @@
-# get_context
-
-```json
-{}
-```
