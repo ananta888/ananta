@@ -109,7 +109,7 @@ def test_subprocess_nonzero_exit_returns_failure():
     assert "pre-commit hook failed" in result.errors[0]
 
 
-def test_mixed_scope_uses_primary_scope():
+def test_mixed_scope_blocked_by_default():
     files = [
         "agent/services/goal_config_resolver_service.py",
         "agent/services/goal_config_resolver_service.py",
@@ -117,8 +117,21 @@ def test_mixed_scope_uses_primary_scope():
     ]
     with patch("agent.services.commit_worker_service.subprocess.run") as mock_run:
         mock_run.side_effect = _mock_run(staged_files=files)
-        result = CommitWorkerService().execute(
-            make_task(commit_type="fix", subject_hint="fix resolver"),
-            "/repo",
-        )
+        result = CommitWorkerService().execute(make_task(commit_type="fix", subject_hint="fix resolver"), "/repo")
+    assert result.success is False
+    assert "mixed_scope_blocked" in result.errors
+
+
+def test_mixed_scope_can_use_primary_scope_when_policy_allows():
+    files = [
+        "agent/services/goal_config_resolver_service.py",
+        "agent/services/goal_config_resolver_service.py",
+        "agent/services/config_profile_service.py",
+    ]
+    task = make_task(commit_type="fix", subject_hint="fix resolver")
+    task["commit_metadata"]["policy"] = {"block_mixed_scope": False}
+    with patch("agent.services.commit_worker_service.subprocess.run") as mock_run:
+        mock_run.side_effect = _mock_run(staged_files=files)
+        result = CommitWorkerService().execute(task, "/repo")
+    assert result.success is True
     assert result.scope_confirmed == "goal-config"

@@ -1,0 +1,45 @@
+{
+  "scenarios": [
+    {
+      "id": "opencode_lmstudio",
+      "label": "OpenCode Worker + LMStudio (Gemma-4-E4B)",
+      "config_profile": "opencode_lmstudio",
+      "config_overrides": {
+        "default_provider": "lmstudio",
+        "default_model": "google/gemma-4-e4b",
+        "opencode_runtime": {"target_provider": "lmstudio"},
+        "sgpt_routing": {
+          "task_kind_backend": {
+            "coding": "opencode",
+            "analysis": "opencode",
+            "doc": "opencode",
+            "ops": "opencode",
+            "research": "opencode"
+          }
+        },
+        "llm_config": {
+          "provider": "lmstudio",
+          "model": "google/gemma-4-e4b"
+        }
+      },
+      "config_patch": {
+        "default_provider": "lmstudio",
+        "default_model": "google/gemma-4-e4b",
+        "sgpt_routing": {
+          "task_kind_backend": {
+            "coding": "opencode",
+            "analysis": "opencode",
+            "doc": "opencode",
+            "ops": "opencode",
+            "research": "opencode"
+          }
+        },
+        "llm_config": {
+          "provider": "lmstudio",
+          "model": "google/gemma-4-e4b"
+        },
+        "opencode_runtime": {"target_provider": "lmstudio"}
+      }
+    }
+  ]
+}

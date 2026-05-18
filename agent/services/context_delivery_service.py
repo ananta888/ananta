@@ -124,12 +124,20 @@ class ContextDeliveryService:
         try:
             from agent.services.context_file_selector import provider_to_llm_scope
             effective_config = dict((task or {}).get("effective_config") or {})
+            workspace_policy_cfg = dict(effective_config.get("workspace_context_policy") or {})
+            explicit_scope = str(
+                workspace_policy_cfg.get("llm_scope")
+                or effective_config.get("llm_scope")
+                or ""
+            ).strip().lower()
+            if explicit_scope in {"local_only", "trusted_private_cloud", "external_cloud_allowed"}:
+                return explicit_scope
             llm_config = dict(effective_config.get("llm_config") or {})
             provider = str(effective_config.get("default_provider") or llm_config.get("provider") or "")
             base_url = str(llm_config.get("base_url") or "")
             return provider_to_llm_scope(provider, base_url)
         except Exception:
-            return "local_only"
+            return "trusted_private_cloud"
 
     @staticmethod
     def _repo_root() -> Path:

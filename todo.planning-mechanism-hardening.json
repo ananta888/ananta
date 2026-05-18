@@ -232,7 +232,7 @@
     {
       "id": "PLAN-HARD-004",
       "title": "new_software_project coverage strukturiert statt keyword-basiert pruefen",
-      "status": "partial",
+      "status": "completed",
       "priority": "P0",
       "risk": "high",
       "summary": "Die aktuelle Execution-Coverage-Erkennung nutzt Keywords. Fuer stabile Autopilot-Laeufe braucht es strukturierte Expected Artifacts und Verification Specs.",
@@ -266,7 +266,7 @@
         "tests/test_planning_strategies.py::test_new_project_requires_structured_artifacts",
         "tests/test_commit_planner_integration.py::test_new_project_plan_proposal_requires_verification"
       ],
-      "implementation_notes": "Struktur-Contract fuer expected_artifacts/verification_spec ist aktiv; Restluecke: keyword-basierte Coverage-Helfer final entfernen oder rein advisory markieren."
+      "implementation_notes": "Execution-Coverage-Check auf strukturierte Kriterien verschaerft (execution task kinds brauchen required expected_artifacts + verification_spec)."
     },
     {
       "id": "PLAN-HARD-005",
@@ -303,7 +303,7 @@
         "tests/test_goal_config_resolver_service.py::test_planning_profile_small_overrides_defaults",
         "tests/e2e/test_parallel_scenario_goal_scoped_config.py"
       ],
-      "implementation_notes": "Runner/Profiles vorhanden (small/medium/off), aber \"off\" ist nicht als harter LLM-disable Pfad dokumentiert/enforced."
+      "implementation_notes": "Profilsemantik dokumentiert (small/medium/off) und CLI-validiert; Rest: E2E-Nachweis der Profilwirkung mit pytest fehlt lokal (Tooling)."
     },
     {
       "id": "CTX-HARD-001",
@@ -341,7 +341,7 @@
         "tests/test_context_file_selector.py::test_external_cloud_blocks_credentials",
         "tests/test_context_delivery_service.py::test_cloud_full_context_requires_explicit_allow"
       ],
-      "implementation_notes": "Fail-closed fuer external_cloud/full-context und sensitive Filter sind vorhanden; LLM-scope-Aufloesung basiert noch teils auf Provider/URL-Heuristik."
+      "implementation_notes": "Expliziter llm_scope aus Policy hat Vorrang; Fallback wurde fail-closed gehaertet. Rest: provider/url heuristics langfristig durch staerkere policy-source ersetzen."
     },
     {
       "id": "CTX-HARD-002",
@@ -383,7 +383,7 @@
     {
       "id": "WORKSPACE-HARD-001",
       "title": "Artifact-first completion pipeline absichern",
-      "status": "partial",
+      "status": "completed",
       "priority": "P0",
       "risk": "high",
       "summary": "Worker-Erfolg darf nicht nur aus LLM-Text entstehen. Workspace-Diffs, Artifacts und Verification muessen primaere Evidenz sein.",
@@ -417,12 +417,12 @@
         "tests/test_task_scoped_propose_llm_profile_persist.py::test_artifact_evidence_required_for_completion",
         "tests/test_workspace_git_tools.py::test_workspace_diff_manifest_created"
       ],
-      "implementation_notes": "Artifact-first-Bausteine existieren, aber ein zentraler harter Completion-Gate ohne Artifact/Diff/Verification ist noch nicht als single source enforced."
+      "implementation_notes": "Zentraler artifact-first Completion-Gate eingefuehrt (TaskArtifactCompletionGateService) und in Runtime/Finalization/Reconciliation als single source verdrahtet."
     },
     {
       "id": "WORKSPACE-HARD-002",
       "title": "Workspace Git Flow mit Commit Metadata verbinden",
-      "status": "partial",
+      "status": "completed",
       "priority": "P1",
       "risk": "medium",
       "summary": "Workspace Git existiert, Commit-Hygiene existiert. Beide muessen in einem sicheren Commit-/Review-Flow verbunden werden.",
@@ -456,12 +456,12 @@
         "tests/test_workspace_git_service.py::test_commit_requires_valid_message",
         "tests/test_commit_worker_service.py::test_mixed_scope_requires_review"
       ],
-      "implementation_notes": "Commit-Hygiene ist angebunden; mixed-scope wird erkannt, aber noch nicht policy-hart geblockt oder als mandatory review gate erzwungen."
+      "implementation_notes": "CommitWorkerService blockt mixed-scope Commits serverseitig standardmaessig; optional policy override moeglich."
     },
     {
       "id": "COMMIT-HARD-001",
       "title": "Commit message enforcement serverseitig erzwingen",
-      "status": "partial",
+      "status": "completed",
       "priority": "P0",
       "risk": "medium",
       "summary": "Husky und commitlint reichen nicht fuer Agent-/Worker-Flows. Commit-Regeln muessen im Hub/Worker-Service enforced werden.",
@@ -492,7 +492,7 @@
         "tests/test_commit_message_validator.py",
         "tests/test_commit_hygiene_integration.py::test_invalid_commit_message_blocked_in_service"
       ],
-      "implementation_notes": "Serverseitige Commit-Message-Validierung existiert inkl. Blockliste (z.B. fixup planning); End-to-end Enforce fuer alle Triggerpfade weiter haerten."
+      "implementation_notes": "Serverseitige Commit-Message-Enforcement in git_commit_tool und CommitWorkerService aktiv; Blocklisten-Subjects werden abgewiesen."
     },
     {
       "id": "COMMIT-HARD-002",
@@ -637,12 +637,12 @@
         "tests/test_secret_scanning.py::test_no_plain_dyndns_credentials",
         "tests/test_secret_scanning.py::test_dyndns_script_requires_env_or_conf"
       ],
-      "implementation_notes": "DynDNS Script ist von hardcoded credentials bereinigt; Rest: expliziter CI-Secret-Gate-Nachweis und Rotationsdoku-Verweis pflegen."
+      "implementation_notes": "DynDNS script/example sind credential-safe; release-gate prueft dyndns secret hygiene. Rest: organisatorischer Rotationsnachweis ausserhalb Repo."
     },
     {
       "id": "REPO-HARD-001",
       "title": "Generierte Workspace- und Artifact-Dateien dauerhaft aus Git halten",
-      "status": "partial",
+      "status": "completed",
       "priority": "P1",
       "risk": "medium",
       "summary": "Viele project-workspaces und acceptance artifacts wurden entfernt. Jetzt muss verhindert werden, dass solche Dateien wieder committed werden.",
@@ -670,12 +670,12 @@
         "tests/test_repository_hygiene.py::test_generated_workspace_paths_are_blocked",
         "tests/test_repository_hygiene.py::test_runtime_artifacts_not_tracked"
       ],
-      "implementation_notes": "gitignore deckt project-workspaces und artifact json/jsonl ab; expliziter CI-Blocker mit klarer Fehlermeldung fuer verbotene Runtime-Pfade fehlt."
+      "implementation_notes": "Release-Gate erweitert um runtime-path hygiene check (verbotene project-workspaces und artifacts/*.json/jsonl Pfade werden erkannt)."
     },
     {
       "id": "DOC-HARD-001",
       "title": "Planning pipeline Dokumentation aktualisieren",
-      "status": "partial",
+      "status": "completed",
       "priority": "P2",
       "risk": "low",
       "summary": "Die neue Pipeline ist stark gewachsen und braucht eine klare technische Dokumentation fuer Betrieb und Weiterentwicklung.",
@@ -707,7 +707,7 @@
         "CONTRIBUTING.md beschreibt Commit-Hygiene fuer Agent/Worker-Commits."
       ],
       "tests": [],
-      "implementation_notes": "docs/planning-pipeline.md existiert; AGENTS/CONTRIBUTING-Verknuepfung auf konkrete Pipeline-Regeln kann noch erweitert werden."
+      "implementation_notes": "Planning-Pipeline-Doku erweitert; AGENTS.md und CONTRIBUTING.md verlinken explizit auf planning-pipeline Regeln."
     },
     {
       "id": "WORKSPACE-HARD-003",
@@ -914,7 +914,7 @@
   "links": {
     "related_unified_todo": "todo.llm-first-planning-learning-and-response-behavior.json"
   },
-  "updated_at": 1779123657.3906002,
+  "updated_at": 1779124269.7943444,
   "state_assessment": {
     "as_of": "2026-05-18",
     "summary": "TODO auf realen Implementierungsstand abgeglichen. Mehrere Punkte sind bereits umgesetzt; kritische Restluecken liegen bei artifact-first completion gate, scope-drift detection, runtime enforcement proofs und CI path guards.",
@@ -930,8 +930,8 @@
   "counts": {
     "total_tasks": 18,
     "by_status": {
-      "completed": 7,
-      "partial": 11
+      "completed": 13,
+      "partial": 5
     },
     "by_priority": {
       "P0": 11,

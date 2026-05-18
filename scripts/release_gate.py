@@ -431,6 +431,26 @@ def check_runtime_path_hygiene() -> CheckResult:
     return CheckResult("runtime-path-hygiene", True, "no forbidden runtime paths are tracked")
 
 
+def check_dyndns_secret_hygiene() -> CheckResult:
+    script = read_text("scripts/dyndns.sh")
+    example = read_text("scripts/dyndns.conf.example")
+    problems = []
+    if "ERROR: missing DynDNS credentials." not in script:
+        problems.append("dyndns.sh must fail clearly when credentials are missing")
+    leaked_markers = ("password=", "token=", "apikey=", "secret=")
+    for marker in leaked_markers:
+        if marker in example.lower() and "<password>" not in example.lower() and "<login>" not in example.lower():
+            problems.append("dyndns.conf.example appears to contain credential-like concrete values")
+            break
+    if "must never contain real credentials" not in example.lower():
+        problems.append("dyndns.conf.example must document credential safety rule")
+    return CheckResult(
+        "dyndns-secret-hygiene",
+        not problems,
+        "DynDNS script/example enforce credential-safe behavior" if not problems else "; ".join(problems),
+    )
+
+
 def check_compose_config() -> CheckResult:
     env = {"POSTGRES_PASSWORD": "test-postgres-password", "INITIAL_ADMIN_PASSWORD": "test-admin-password", "SECRET_KEY": "test-secret-key-with-at-least-thirty-two-chars", "AGENT_TOKEN_HUB": "hub-token", "AGENT_TOKEN_ALPHA": "alpha-token", "AGENT_TOKEN_BETA": "beta-token", "AGENT_TOKEN_GAMMA": "gamma-token", "AGENT_TOKEN_DELTA": "delta-token", "GRAFANA_PASSWORD": "test-grafana-password"}
     commands = [["docker", "compose", "-f", "docker-compose.base.yml", "-f", "docker-compose-lite.yml", "config"], ["docker", "compose", "-f", "docker-compose.base.yml", "-f", "docker-compose.yml", "-f", "docker-compose.distributed.yml", "config"]]
@@ -472,7 +492,7 @@ def main() -> int:
     parser.add_argument("--build-images", action="store_true", help="build backend and frontend Docker images")
     parser.add_argument("--report", help="write a JSON verification report to this path")
     args = parser.parse_args()
-    results = [check_required_files(), check_python_dependency_sources(), check_python_locks(), check_frontend_manifest(), check_actions_pinning(), check_image_pinning(), check_tool_pinning(), check_ci_release_paths(), check_apt_snapshots(), check_client_surface_release_gate(), check_runtime_path_hygiene()]
+    results = [check_required_files(), check_python_dependency_sources(), check_python_locks(), check_frontend_manifest(), check_actions_pinning(), check_image_pinning(), check_tool_pinning(), check_ci_release_paths(), check_apt_snapshots(), check_client_surface_release_gate(), check_runtime_path_hygiene(), check_dyndns_secret_hygiene()]
     if not args.strict:
         results = [result for result in results if result.name not in {"actions-pinning", "apt-snapshots"}]
     if args.compose_config:
