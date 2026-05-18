@@ -22,6 +22,7 @@ services:
       OPENAI_URL: ${OPENAI_URL:-https://api.openai.com/v1/chat/completions}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       REDIS_URL: ${REDIS_URL:-}
+      HTTP_TIMEOUT: ${HTTP_TIMEOUT:-300}
       DATABASE_URL: ${HUB_DATABASE_URL:-sqlite:////app/data/ananta-hub.db}
     volumes:
       - hub-data:/app/data
@@ -49,6 +50,7 @@ services:
       OPENAI_URL: ${OPENAI_URL:-https://api.openai.com/v1/chat/completions}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       REDIS_URL: ${REDIS_URL:-}
+      HTTP_TIMEOUT: ${HTTP_TIMEOUT:-300}
       DATABASE_URL: ${ALPHA_DATABASE_URL:-sqlite:////app/data/ananta-alpha.db}
     volumes:
       - alpha-data:/app/data
@@ -73,6 +75,7 @@ services:
       OPENAI_URL: ${OPENAI_URL:-https://api.openai.com/v1/chat/completions}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       REDIS_URL: ${REDIS_URL:-}
+      HTTP_TIMEOUT: ${HTTP_TIMEOUT:-300}
       DATABASE_URL: ${BETA_DATABASE_URL:-sqlite:////app/data/ananta-beta.db}
     volumes:
       - beta-data:/app/data
