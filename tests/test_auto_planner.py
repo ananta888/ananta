@@ -400,7 +400,7 @@ class TestAutoPlanner:
         assert len(result.get("subtasks") or []) == 1
         assert "Investigate" in str(result.get("raw_response") or "")
 
-    def test_plan_goal_aborts_on_max_plan_nodes_limit(self, app, monkeypatch):
+    def test_plan_goal_truncates_on_max_plan_nodes_limit(self, app, monkeypatch):
         mock_response = json.dumps(
             [
                 {"title": "Task 1", "description": "Desc 1", "priority": "High"},
@@ -420,10 +420,11 @@ class TestAutoPlanner:
             app.config.setdefault("AGENT_CONFIG", {})["goal_plan_limits"] = {"max_plan_nodes": 2, "max_plan_depth": 8}
             result = planner.plan_goal("General engineering goal", create_tasks=False, use_template=False, use_repo_context=False)
 
-        assert result.get("error") == "limit_exceeded:max_plan_nodes"
-        assert result.get("error_classification") == "limit_exceeded"
-        assert result.get("limit_exceeded_reason") == "max_plan_nodes"
+        assert result.get("error") is None
+        assert result.get("limit_exceeded_reason") is None
         assert result.get("plan_limits", {}).get("observed_plan_nodes") == 3
+        assert bool(result.get("plan_limits", {}).get("truncated")) is True
+        assert len(result.get("subtasks") or []) == 2
 
     def test_plan_goal_aborts_on_max_plan_depth_limit(self, app, monkeypatch):
         mock_response = json.dumps(
