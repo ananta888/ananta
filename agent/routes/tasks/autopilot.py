@@ -519,14 +519,20 @@ class AutonomousLoopManager:
             current_token = str(getattr(agent, "token", "") or "").strip()
             if current_token:
                 resolved_token = current_token
+        target_url = worker_url
+        if settings.role == "hub" and is_step_endpoint and hub_url:
+            # Task-scoped step endpoints are hub-owned (task state + routing context).
+            # Hub may delegate internals further, but the API contract lives here.
+            target_url = hub_url
+
         for attempt in range(1, cfg["retry_attempts"] + 1):
             try:
-                res = _forward_to_worker(worker_url, endpoint, payload, token=resolved_token)
+                res = _forward_to_worker(target_url, endpoint, payload, token=resolved_token if target_url == worker_url else None)
                 if res is None:
-                    raise RuntimeError(f"worker_empty_response:{worker_url}:{endpoint}")
+                    raise RuntimeError(f"worker_empty_response:{target_url}:{endpoint}")
                 if isinstance(res, dict) and str(res.get("status") or "").strip().lower() == "error":
                     http_status = int(res.get("http_status") or 0)
-                    key = f"{worker_url}|{endpoint}|{http_status or 'unknown'}"
+                    key = f"{target_url}|{endpoint}|{http_status or 'unknown'}"
                     with self._routing_lock:
                         self._forward_http_error_counts[key] = int(self._forward_http_error_counts.get(key, 0)) + 1
                         self._forward_http_error_last[key] = {
@@ -555,17 +561,17 @@ class AutonomousLoopManager:
                         res = _forward_to_worker(worker_url, endpoint, payload, token=None)
                         if isinstance(res, dict) and str(res.get("status") or "").strip().lower() == "error":
                             raise RuntimeError(
-                                f"worker_http_error:{worker_url}:{endpoint}:status={int(res.get('http_status') or 0)}:"
+                                f"worker_http_error:{target_url}:{endpoint}:status={int(res.get('http_status') or 0)}:"
                                 f"{str(res.get('message') or '')}"
                             )
                     else:
                         raise RuntimeError(
-                            f"worker_http_error:{worker_url}:{endpoint}:status={http_status}:{str(res.get('message') or '')}"
+                            f"worker_http_error:{target_url}:{endpoint}:status={http_status}:{str(res.get('message') or '')}"
                         )
                 self._record_worker_success(worker_url)
                 normalized = unwrap_api_envelope(res)
                 if not isinstance(normalized, dict) or not normalized:
-                    raise RuntimeError(f"worker_empty_payload:{worker_url}:{endpoint}")
+                    raise RuntimeError(f"worker_empty_payload:{target_url}:{endpoint}")
                 return normalized
             except Exception as e:
                 err_text = str(e or "")
