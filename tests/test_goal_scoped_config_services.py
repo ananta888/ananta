@@ -72,3 +72,60 @@ def test_config_profiles_endpoint(client, admin_auth_header):
     payload = res.get_json()["data"]
     assert isinstance(payload.get("profiles"), list)
     assert any(item.get("id") == "ananta_ollama_local" for item in payload["profiles"])
+
+
+# GSC-006: task-level override resolution
+def test_resolver_goal_only_override_sets_provenance():
+    resolver = get_goal_config_resolver_service()
+    result = resolver.resolve(
+        system_config={"default_model": "system-model"},
+        goal_overrides={"default_model": "goal-model"},
+    )
+    cfg = result.config_snapshot["config"]
+    provenance = result.provenance.get("field_sources", {})
+    assert cfg["default_model"] == "goal-model"
+    assert provenance.get("default_model") == "goal"
+
+
+def test_resolver_task_override_takes_precedence_over_goal():
+    resolver = get_goal_config_resolver_service()
+    result = resolver.resolve(
+        system_config={"default_model": "system-model"},
+        goal_overrides={"default_model": "goal-model"},
+        task_overrides={"default_model": "task-model"},
+    )
+    cfg = result.config_snapshot["config"]
+    provenance = result.provenance.get("field_sources", {})
+    assert cfg["default_model"] == "task-model"
+    assert provenance.get("default_model") == "task"
+
+
+def test_resolver_unknown_task_override_keys_surface_in_unknown_keys():
+    resolver = get_goal_config_resolver_service()
+    result = resolver.resolve(
+        system_config={},
+        task_overrides={"nonexistent_key": "value", "another_bad_key": True},
+    )
+    assert "nonexistent_key" in result.unknown_keys
+    assert "another_bad_key" in result.unknown_keys
+
+
+def test_resolver_unknown_task_keys_do_not_appear_in_config():
+    resolver = get_goal_config_resolver_service()
+    result = resolver.resolve(
+        system_config={},
+        task_overrides={"nonexistent_key": "value"},
+    )
+    assert "nonexistent_key" not in result.config_snapshot.get("config", {})
+
+
+def test_resolver_task_override_provenance_visible_per_field():
+    resolver = get_goal_config_resolver_service()
+    result = resolver.resolve(
+        system_config={"default_model": "system"},
+        goal_overrides={"default_provider": "ollama"},
+        task_overrides={"default_model": "task-override"},
+    )
+    provenance = result.provenance.get("field_sources", {})
+    assert provenance.get("default_model") == "task"
+    assert provenance.get("default_provider") == "goal"

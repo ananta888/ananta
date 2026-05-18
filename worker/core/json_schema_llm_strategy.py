@@ -45,7 +45,8 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
 
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
         from agent.config import settings
-        provider = (settings.default_provider or "lmstudio").strip().lower()
+        _eff_cfg = dict(context.effective_config or {})
+        provider = (str(_eff_cfg.get("default_provider") or "") or settings.default_provider or "lmstudio").strip().lower()
 
         if provider in _MOCK_ONLY_PROVIDERS:
             return ProposeStrategyResult.declined(

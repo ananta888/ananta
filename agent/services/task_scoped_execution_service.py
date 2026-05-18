@@ -558,11 +558,15 @@ class TaskScopedExecutionService:
             cli_runner=cli_runner,
             tool_definitions_resolver=tool_definitions_resolver,
             policy=policy,
+            effective_config=cfg or None,
         )
         result = orch.run(context)
         result_dict = result.to_dict()
 
         # Persist to last_proposal so execute step and API can read it.
+        _sgpt_routing = cfg.get("sgpt_routing") if isinstance(cfg.get("sgpt_routing"), dict) else {}
+        _backend_map = _sgpt_routing.get("task_kind_backend") if isinstance(_sgpt_routing.get("task_kind_backend"), dict) else {}
+        _runtime_backend = str(_backend_map.get(task_kind) or _backend_map.get("*") or "").strip() or None
         propose_strategy_meta = {
             "attempted_strategies": result.metadata.get("attempted_strategies", []),
             "selected_strategy": result.metadata.get("selected_strategy"),
@@ -571,6 +575,12 @@ class TaskScopedExecutionService:
             "normalization_format": result.metadata.get("source_format"),
             "effective_strategy_mode": getattr(policy, "effective_strategy_mode", None) or task_override.get("strategy_mode"),
             "goal_config_source": scoped_resolution.source,
+            "runtime_selection": {
+                "provider": cfg.get("default_provider"),
+                "model": cfg.get("default_model"),
+                "backend": _runtime_backend,
+                "source": scoped_resolution.source,
+            },
         }
         proposal_meta = dict(getattr(result.proposal, "metadata", None) or {}) if result.proposal is not None else {}
         proposal_provider = str(proposal_meta.get("provider") or "").strip() or None

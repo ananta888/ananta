@@ -114,7 +114,18 @@
       "Bash(./venv/bin/pytest tests/test_goal_config_resolver_service.py tests/test_goal_scoped_config_api.py tests/test_llm_usage.py --no-header -q)",
       "Bash(./venv/bin/pytest tests/test_goal_config_resolver_service.py tests/test_goal_scoped_config_api.py -q --no-header)",
       "Bash(./venv/bin/pytest tests/test_llm_usage.py::test_llm_generate_runtime_falls_back_to_ollama_in_routing_metadata -v)",
-      "Bash(./venv/bin/pytest tests/test_llm_usage.py::test_build_llm_call_profile_entry_produces_canonical_schema tests/test_llm_usage.py::test_normalize_llm_call_profile_entry_fills_missing_fields tests/test_llm_usage.py::test_build_llm_call_profile_entry_private_alias_still_works -q)"
+      "Bash(./venv/bin/pytest tests/test_llm_usage.py::test_build_llm_call_profile_entry_produces_canonical_schema tests/test_llm_usage.py::test_normalize_llm_call_profile_entry_fills_missing_fields tests/test_llm_usage.py::test_build_llm_call_profile_entry_private_alias_still_works -q)",
+      "Bash(./venv/bin/pytest tests/test_commit_metadata_schema.py tests/test_commit_scope_resolver.py tests/test_commit_message_validator.py -x -q)",
+      "Bash(./venv/bin/pytest tests/test_commit_worker_service.py -x -q)",
+      "Bash(./venv/bin/pytest tests/test_commit_worker_service.py::test_empty_diff_returns_success_no_message -x -q -s)",
+      "Bash(./venv/bin/pytest tests/test_commit_worker_service.py tests/test_commit_message_validator.py -x -q)",
+      "Bash(./venv/bin/pytest tests/test_commit_planner_integration.py tests/test_commit_hub_delegation.py tests/test_commit_hygiene_integration.py tests/test_commit_metadata_schema.py tests/test_commit_scope_resolver.py tests/test_commit_message_validator.py tests/test_commit_worker_service.py -x -q)",
+      "Bash(./venv/bin/pytest --ignore=tests/test_commit_planner_integration.py --ignore=tests/test_commit_hub_delegation.py --ignore=tests/test_commit_hygiene_integration.py --ignore=tests/test_commit_metadata_schema.py --ignore=tests/test_commit_scope_resolver.py --ignore=tests/test_commit_message_validator.py --ignore=tests/test_commit_worker_service.py -x -q)",
+      "Bash(./venv/bin/pytest --ignore=tests/test_commit_planner_integration.py --ignore=tests/test_commit_hub_delegation.py --ignore=tests/test_commit_hygiene_integration.py --ignore=tests/test_commit_metadata_schema.py --ignore=tests/test_commit_scope_resolver.py --ignore=tests/test_commit_message_validator.py --ignore=tests/test_commit_worker_service.py --ignore=tests/test_context_bundle_codecompass_provenance.py -q)",
+      "Bash(./venv/bin/pytest tests/test_goal_config_resolver_service.py tests/test_goal_scoped_config_api.py tests/test_llm_usage.py tests/test_runtime_policy.py -q)",
+      "Bash(./venv/bin/pytest tests/test_goal_config_resolver_service.py tests/test_goal_scoped_config_api.py tests/test_llm_usage.py -q)",
+      "Bash(sed -n '140,165p' /home/krusty/ananta/agent/llm_integration.py)",
+      "Bash(sed -n '960,990p' /home/krusty/ananta/agent/llm_integration.py)"
     ]
   }
 }

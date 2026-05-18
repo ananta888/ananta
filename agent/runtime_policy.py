@@ -8,7 +8,7 @@ from agent.research_backend import resolve_research_backend_config
 from agent.security_risk import RISK_LEVEL_RANK, max_risk_level, normalize_risk_level
 
 
-TASK_KINDS = {"coding", "analysis", "doc", "ops", "research"}
+TASK_KINDS = {"coding", "analysis", "doc", "ops", "research", "git_commit"}
 
 
 def normalize_task_kind(task_kind: str | None, prompt: str) -> str:
@@ -16,6 +16,8 @@ def normalize_task_kind(task_kind: str | None, prompt: str) -> str:
         val = str(task_kind).strip().lower()
         if val in TASK_KINDS:
             return val
+        if val == "git_commit":
+            return "git_commit"
     text = (prompt or "").lower()
     if any(k in text for k in ("refactor", "implement", "fix", "code", "test", "bug")):
         return "coding"

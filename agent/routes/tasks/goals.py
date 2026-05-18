@@ -196,7 +196,7 @@ def get_goal_detail(goal_id: str):
     goal = _repos().goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
-    goal = _maybe_recover_stalled_planning_goal(goal)
+    goal = _services().goal_lifecycle_service.recover_stalled_planning_goal(goal)
     return api_response(data=_goal_service().goal_detail(goal, is_admin=_is_admin_request()))
 
 

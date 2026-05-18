@@ -232,6 +232,32 @@ def monitor_providers_live():
     return api_response(data=snapshot)
 
 
+@system_bp.route("/provider-observer", methods=["GET"])
+@check_auth
+def provider_observer_snapshot():
+    """Stable provider observer endpoint — reads from cache by default.
+
+    force_refresh=true requires admin and triggers a live probe.
+    """
+    from flask import g, request as flask_request
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    urls = current_app.config.get("PROVIDER_URLS", {}) or {}
+    force_refresh_param = str(flask_request.args.get("force_refresh") or "").strip().lower()
+    want_refresh = force_refresh_param in ("1", "true", "yes")
+    if want_refresh and not getattr(g, "is_admin", False):
+        return api_response(
+            status="error",
+            message="admin_required_for_force_refresh",
+            code=403,
+        )
+    snapshot = get_provider_observer_service().snapshot(
+        agent_config=cfg,
+        provider_urls=urls,
+        force_refresh=want_refresh,
+    )
+    return api_response(data=snapshot)
+
+
 @system_bp.route("/contracts", methods=["GET"])
 @check_auth
 def contract_catalog():

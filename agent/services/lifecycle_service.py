@@ -239,6 +239,73 @@ class GoalLifecycleService:
         return goal_repo.save(goal)
 
 
+    def recover_stalled_planning_goal(self, goal: GoalDB) -> GoalDB:
+        """Re-triggers planning for a goal stuck in 'planning' with no tasks.
+
+        Idempotent: capped at 2 attempts with a 60s cooldown.
+        """
+        status = str(getattr(goal, "status", "") or "").strip().lower()
+        if status != "planning":
+            return goal
+        goal_id = str(getattr(goal, "id", "") or "").strip()
+        if not goal_id:
+            return goal
+        now_ts = time.time()
+        updated_at = float(getattr(goal, "updated_at", 0.0) or 0.0)
+        if updated_at and (now_ts - updated_at) < 30:
+            return goal
+        tasks = [t for t in task_repo.get_all() if str(getattr(t, "goal_id", "") or "").strip() == goal_id]
+        if tasks:
+            return goal
+        execution_preferences = dict(getattr(goal, "execution_preferences", None) or {})
+        recovery = dict(execution_preferences.get("planning_recovery") or {})
+        attempts = int(recovery.get("attempts") or 0)
+        last_attempt_at = float(recovery.get("last_attempt_at") or 0.0)
+        if attempts >= 2:
+            return goal
+        if last_attempt_at and (now_ts - last_attempt_at) < 60:
+            return goal
+        recovery.update({"attempts": attempts + 1, "last_attempt_at": now_ts, "last_reason": "stalled_planning_no_tasks"})
+        execution_preferences["planning_recovery"] = recovery
+        goal.execution_preferences = execution_preferences
+        goal = goal_repo.save(goal)
+        try:
+            effective = dict(getattr(goal, "workflow_effective", None) or {})
+            from agent.routes.tasks.auto_planner import auto_planner
+            result = auto_planner.plan_goal(
+                goal=str(getattr(goal, "goal", "") or ""),
+                context=str(getattr(goal, "context", "") or "") or None,
+                team_id=effective.get("routing", {}).get("team_id"),
+                parent_task_id=None,
+                create_tasks=bool(effective.get("planning", {}).get("create_tasks", True)),
+                use_template=bool(effective.get("planning", {}).get("use_template", True)),
+                use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
+                goal_id=goal.id,
+                goal_trace_id=str(getattr(goal, "trace_id", "") or ""),
+                mode=str(getattr(goal, "mode", "") or "generic"),
+                mode_data=dict(getattr(goal, "mode_data", None) or {}),
+            )
+            if result.get("error"):
+                recovery.update({"last_error": str(result.get("error"))[:240]})
+                execution_preferences["planning_recovery"] = recovery
+                goal.execution_preferences = execution_preferences
+                goal = goal_repo.save(goal)
+                return self.transition_goal(goal, target_status="failed", reason=str(result.get("error") or "planning_failed"))
+            created_task_ids = list(result.get("created_task_ids") or [])
+            if not created_task_ids:
+                recovery.update({"last_error": "planning_recovery_no_tasks_created"})
+                execution_preferences["planning_recovery"] = recovery
+                goal.execution_preferences = execution_preferences
+                goal = goal_repo.save(goal)
+                return self.transition_goal(goal, target_status="failed", reason="planning_recovery_no_tasks_created")
+            return self.transition_goal(goal, target_status="planned", reason="planning_recovery_completed")
+        except Exception as exc:
+            recovery.update({"last_error": str(exc)[:240]})
+            execution_preferences["planning_recovery"] = recovery
+            goal.execution_preferences = execution_preferences
+            return goal_repo.save(goal)
+
+
 task_lifecycle_service = TaskLifecycleService()
 goal_lifecycle_service = GoalLifecycleService()
 
