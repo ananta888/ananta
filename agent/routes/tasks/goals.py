@@ -21,6 +21,7 @@ from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
 
 goals_bp = Blueprint("tasks_goals", __name__)
+_GOAL_PLANNING_LOCK = threading.Lock()
 _SOFTWARE_GOAL_HINTS = (
     "software",
     "projekt",
@@ -603,9 +604,10 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                     mode_data=goal_record.mode_data,
                 )
 
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(_run_plan_goal_with_app_context)
-            result = future.result(timeout=planning_timeout_s)
+        with _GOAL_PLANNING_LOCK:
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(_run_plan_goal_with_app_context)
+                result = future.result(timeout=planning_timeout_s)
     except FutureTimeoutError:
         _services().goal_lifecycle_service.transition_goal(
             goal_record,
