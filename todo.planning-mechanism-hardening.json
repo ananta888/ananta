@@ -599,14 +599,14 @@
       "summary": "Ein DynDNS-Script enthielt einen Credential-Fallback in einer URL. Das muss sofort bereinigt und rotiert werden.",
       "depends_on": [],
       "files": [
-        "scripts/dyndns-update.sh",
+        "scripts/dyndns.sh",
         "scripts/dyndns.conf.example",
         ".gitignore",
         ".github/workflows/lint.yml"
       ],
       "changes": [
         "Credential sofort beim Provider rotieren.",
-        "scripts/dyndns-update.sh so umbauen, dass keine Default-URL mit Passwort enthalten ist.",
+        "scripts/dyndns.sh so umbauen, dass keine Default-URL mit Passwort enthalten ist.",
         "DYNDNS_URL oder getrennte Variablen DYNDNS_LOGIN/DYNDNS_PASSWORD nur aus Env oder lokaler conf lesen.",
         "scripts/dyndns.conf.example ohne echte Secrets anlegen.",
         "scripts/dyndns.conf in .gitignore sicherstellen.",
@@ -614,7 +614,7 @@
         "Falls Secret bereits gepusht wurde: Git-History-Cleanup oder mindestens Security-Note dokumentieren."
       ],
       "acceptance_criteria": [
-        "Kein echtes Secret steht in scripts/dyndns-update.sh.",
+        "Kein echtes Secret steht in scripts/dyndns.sh.",
         "Script bricht mit klarer Fehlermeldung ab, wenn keine Credentials gesetzt sind.",
         "scripts/dyndns.conf.example enthaelt nur Platzhalter.",
         "CI blockiert neue offensichtliche Secrets.",
@@ -717,5 +717,144 @@
     "PAR-HARD-002",
     "REPO-HARD-001",
     "DOC-HARD-001"
-  ]
+  ],
+  "task_summaries": [
+    {
+      "id": "PLAN-HARD-001",
+      "implementation_status": "partial",
+      "acceptance_status": "not_fully_met",
+      "summary": "Fallback-Provenance (`fallback_origin`) existiert, aber es fehlen zentrale Felder wie `planning_origin`, `repair_strategy_used`, `repair_attempt_count`, `parse_mode` im persistierten Plan.",
+      "evidence": [
+        "agent/services/planning_service.py:261",
+        "agent/services/planning_service.py:462",
+        "agent/services/planning_strategies.py:430"
+      ]
+    },
+    {
+      "id": "PLAN-HARD-002",
+      "implementation_status": "todo",
+      "acceptance_status": "not_met",
+      "summary": "Parser-Diagnostik mit explizitem Parse-Mode/Confidence ist noch nicht implementiert.",
+      "evidence": [
+        "agent/services/planning_strategies.py:331",
+        "agent/services/planning_utils.py:419"
+      ]
+    },
+    {
+      "id": "PLAN-HARD-003",
+      "implementation_status": "partial",
+      "acceptance_status": "not_met",
+      "summary": "`__parallel__`-Sentinel wird aktiv verwendet; `dependency_mode` existiert nicht.",
+      "evidence": [
+        "agent/services/planning_service.py:285",
+        "agent/services/planning_service.py:388",
+        "agent/services/planning_service.py:675"
+      ]
+    },
+    {
+      "id": "PLAN-HARD-004",
+      "implementation_status": "partial",
+      "acceptance_status": "partially_met",
+      "summary": "Execution-Coverage fuer `new_software_project` ist vorhanden, bleibt aber keyword-basiert; strukturierte Artifact/Verification-Pflicht fehlt als harte Regel.",
+      "evidence": [
+        "agent/services/planning_strategies.py:236",
+        "agent/services/planning_service.py:595"
+      ]
+    },
+    {
+      "id": "PLAN-HARD-005",
+      "implementation_status": "partial",
+      "acceptance_status": "not_fully_met",
+      "summary": "Planning-Profile `small`/`medium` sind implementiert, aber unbekannte Profile werden nicht fail-fast abgelehnt; `off` ist nur implizit.",
+      "evidence": [
+        "scripts/run_3er_lauf_lokal.sh:63",
+        "scripts/run_3er_lauf_lokal.sh:159"
+      ]
+    },
+    {
+      "id": "CTX-HARD-001",
+      "implementation_status": "partial",
+      "acceptance_status": "partially_met",
+      "summary": "Cloud-Scope/Sensitivity-Blockierung ist aktiv, aber ContextDelivery-Result enthält noch keine erweiterten Zähl-/Reason-Felder auf Top-Level.",
+      "evidence": [
+        "agent/services/context_file_selector.py:84",
+        "agent/services/context_delivery_service.py:21"
+      ]
+    },
+    {
+      "id": "CTX-HARD-002",
+      "implementation_status": "partial",
+      "acceptance_status": "not_fully_met",
+      "summary": "Prioritätsreihenfolge ist implementiert (system < task_kind < template < goal), aber ohne Resolution-Trace und ohne strikte Validierung von `scope_mode`/`max_files`.",
+      "evidence": [
+        "agent/services/workspace_context_policy.py:70",
+        "agent/services/workspace_context_policy.py:83"
+      ]
+    },
+    {
+      "id": "WORKSPACE-HARD-001",
+      "implementation_status": "partial",
+      "acceptance_status": "partially_met",
+      "summary": "Artifact- und Verification-Ansätze sind vorhanden, vollständige harte Completion-Gates gegen LLM-only Completion sind in dieser TODO noch offen.",
+      "evidence": [
+        "agent/services/planning_service.py:603",
+        "agent/services/planning_utils.py:360"
+      ]
+    },
+    {
+      "id": "COMMIT-HARD-001",
+      "implementation_status": "done",
+      "acceptance_status": "largely_met",
+      "summary": "Serverseitige Commit-Message-Validierung inkl. Blocklist (`fixup planning`, `wip`) ist umgesetzt und getestet.",
+      "evidence": [
+        "agent/services/commit_message_validator.py:12",
+        "agent/tools.py:1190",
+        "tests/test_commit_hygiene_integration.py:1"
+      ]
+    },
+    {
+      "id": "PAR-HARD-001",
+      "implementation_status": "done",
+      "acceptance_status": "largely_met",
+      "summary": "Worker-/Runtime-/Security-Caps werden zur Laufzeit berechnet und über Slot-Leases enforced; Scheduler-Status liefert Laufzeit-Sicht.",
+      "evidence": [
+        "agent/services/worker_pool_scheduler_service.py:33",
+        "agent/services/worker_pool_scheduler_service.py:73",
+        "agent/services/worker_pool_scheduler_service.py:302"
+      ]
+    },
+    {
+      "id": "PAR-HARD-002",
+      "implementation_status": "partial",
+      "acceptance_status": "partially_met",
+      "summary": "Endpoint+Model-Slot-Service existiert, ist aber in-memory statt persistenter Lease-Store; atomare Persistenzanforderungen bleiben offen.",
+      "evidence": [
+        "agent/services/ollama_parallel_runtime_service.py:20",
+        "agent/services/worker_pool_scheduler_service.py:124"
+      ]
+    },
+    {
+      "id": "SEC-HARD-001",
+      "implementation_status": "todo",
+      "acceptance_status": "not_met",
+      "summary": "Aktuell liegt ein Klartext-Passwort-Fallback in `scripts/dyndns.sh`; Secret-Hardening ist kritisch offen.",
+      "evidence": [
+        "scripts/dyndns.sh:7"
+      ]
+    }
+  ],
+  "task_summary_counts": {
+    "total_task_summaries": 12,
+    "implementation_status_counts": {
+      "done": 2,
+      "partial": 8,
+      "todo": 2
+    },
+    "acceptance_status_counts": {
+      "largely_met": 2,
+      "not_fully_met": 3,
+      "not_met": 3,
+      "partially_met": 4
+    }
+  }
 }
