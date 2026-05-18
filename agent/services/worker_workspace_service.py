@@ -31,6 +31,8 @@ class WorkerWorkspaceContext:
     artifacts_dir: Path
     rag_helper_dir: Path
     artifact_sync: dict
+    git_context: object = None
+    context_policy: object = None
 
 
 class WorkerWorkspaceService:
@@ -253,12 +255,51 @@ class WorkerWorkspaceService:
             "max_changed_files": max(1, min(int(artifact_sync_cfg.get("max_changed_files") or 30), 200)),
             "max_file_size_bytes": max(1024, min(int(artifact_sync_cfg.get("max_file_size_bytes") or (2 * 1024 * 1024)), 25 * 1024 * 1024)),
         }
+
+        git_context = self._init_git_context(task=task, workspace_dir=workspace_dir)
+        if has_request_context() and git_context is not None:
+            flask_g.git_context = git_context
+
+        context_policy = self._resolve_context_policy(task=task)
+
         return WorkerWorkspaceContext(
             workspace_dir=workspace_dir,
             artifacts_dir=artifacts_dir,
             rag_helper_dir=rag_helper_dir,
             artifact_sync=artifact_sync,
+            git_context=git_context,
+            context_policy=context_policy,
         )
+
+    def _init_git_context(self, *, task: dict, workspace_dir: Path):
+        try:
+            effective_config = dict((task or {}).get("effective_config") or {})
+            git_workspace_cfg = dict((effective_config.get("git_workspace")) or {})
+            if not git_workspace_cfg.get("enabled"):
+                return None
+            from agent.services.workspace_git_service import get_workspace_git_service
+            svc = get_workspace_git_service()
+            goal_id = str((task or {}).get("goal_id") or "")
+            worker_key = str((task or {}).get("worker_key") or (task or {}).get("agent_url") or "")
+            branch_strategy = str(git_workspace_cfg.get("branch_strategy") or "goal")
+            branch = svc.resolve_branch_name(goal_id, worker_key, branch_strategy)
+            remote_url = git_workspace_cfg.get("remote_url") or None
+            return svc.init_workspace(workspace_dir, remote_url=remote_url, branch=branch, enabled=True)
+        except Exception:
+            return None
+
+    def _resolve_context_policy(self, *, task: dict):
+        try:
+            from agent.services.workspace_context_policy import get_workspace_context_policy_resolver
+            effective_config = dict((task or {}).get("effective_config") or {})
+            task_kind = str((task or {}).get("task_kind") or "")
+            agent_template = str((task or {}).get("agent_template") or "")
+            return get_workspace_context_policy_resolver().resolve(
+                effective_config, task_kind, agent_template or None
+            )
+        except Exception:
+            from agent.services.workspace_context_policy import WorkspaceContextPolicy
+            return WorkspaceContextPolicy()
 
     def acquire_output_dir_lock(self, *, task: dict, workspace_dir: Path) -> tuple[bool, str | None]:
         cfg = current_app.config.get("AGENT_CONFIG", {}) or {}

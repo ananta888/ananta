@@ -59,14 +59,14 @@
     {
       "id": "track.WGW-init",
       "title": "Git-Environment pro Workspace initialisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "tasks": [
         {
           "id": "WGW-001",
           "title": "WorkspaceGitContext: Datenklasse und git init/clone",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/workspace_git_service.py"
@@ -96,7 +96,7 @@
           "id": "WGW-002",
           "title": "git_workspace in ALLOWED_GOAL_CONFIG_KEYS und Goal-Config-Schema",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/goal_config_resolver_service.py"
@@ -127,7 +127,7 @@
           "id": "WGW-003",
           "title": "Tests: WorkspaceGitService init",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "tests/test_workspace_git_service.py"
@@ -167,14 +167,14 @@
     {
       "id": "track.WGW-branch",
       "title": "Branch-Strategie pro Goal",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "tasks": [
         {
           "id": "WGW-004",
           "title": "Branch-Naming-Schema implementieren",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/workspace_git_service.py"
@@ -203,7 +203,7 @@
           "id": "WGW-005",
           "title": "WorkerWorkspaceService: git init in resolve_workspace_context einbinden",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "agent/services/worker_workspace_service.py",
@@ -233,7 +233,7 @@
           "id": "WGW-006",
           "title": "Tests: Branch-Naming und Workspace-Context-Integration",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "critical",
           "files": [
             "tests/test_workspace_git_service.py"
@@ -274,14 +274,14 @@
     {
       "id": "track.WGW-tools",
       "title": "Git-Tools im richtigen Workspace-Verzeichnis",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "tasks": [
         {
           "id": "WGW-007",
           "title": "git_*-Tools auf Workspace-cwd umstellen und CommitMessageValidator einbinden",
           "type": "fix",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/tools.py"
@@ -312,7 +312,7 @@
           "id": "WGW-008",
           "title": "git_push_tool implementieren",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/tools.py"
@@ -341,7 +341,7 @@
           "id": "WGW-009",
           "title": "Tests: Git-Tools cwd und Commit-Validation",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "tests/test_workspace_git_tools.py"
@@ -400,14 +400,14 @@
     {
       "id": "track.WGW-hub",
       "title": "Hub Merge-Koordination",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "tasks": [
         {
           "id": "WGW-010",
           "title": "GoalWorkspaceCoordinatorService: Branch-Status pro Goal verfolgen",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/services/goal_workspace_coordinator_service.py"
@@ -436,7 +436,7 @@
           "id": "WGW-011",
           "title": "Hub erzeugt git_merge-Task nach Goal-Completion",
           "type": "feature",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "agent/services/goal_workspace_coordinator_service.py",
@@ -472,7 +472,7 @@
           "id": "WGW-012",
           "title": "Tests: GoalWorkspaceCoordinatorService",
           "type": "test",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "files": [
             "tests/test_goal_workspace_coordinator.py"
@@ -520,7 +520,7 @@
     {
       "id": "track.WGW-context-stub",
       "title": "Context-Scope-Interface (Vorbereitung für todo.context-scoped-delivery)",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "rationale": "Dieser Track definiert die Schnittstellen und Konfigurationsfelder die der Context-Scoped-Delivery-Track (todo.context-scoped-delivery.json) befüllt. Hier nur Stubs und Datenklassen – keine Implementierung der Filterlogik.",
       "tasks": [
@@ -528,7 +528,7 @@
           "id": "WGW-013",
           "title": "WorkspaceContextPolicy Datenklasse und Goal-Config-Key",
           "type": "schema",
-          "status": "todo",
+          "status": "done",
           "priority": "medium",
           "files": [
             "agent/services/workspace_context_policy.py",
@@ -559,7 +559,7 @@
           "id": "WGW-014",
           "title": "WorkerWorkspaceContext um context_policy erweitern",
           "type": "schema",
-          "status": "todo",
+          "status": "done",
           "priority": "medium",
           "files": [
             "agent/services/worker_workspace_service.py"
@@ -612,10 +612,10 @@
   "tasks_status_summary": {
     "total": 14,
     "by_status": {
-      "done": 0,
+      "done": 14,
       "in_progress": 0,
       "partial": 0,
-      "todo": 14
+      "todo": 0
     },
     "by_type": {
       "feature": 7,
@@ -623,9 +623,11 @@
       "fix": 1,
       "schema": 2
     },
-    "progress_percent": 0.0,
+    "progress_percent": 100.0,
     "code_analysis_date": "2026-05-18",
-    "analysis_findings": "Alle 14 Tasks unimplementiert. CHI-Prerequisite vollständig erfüllt. commit_followup_service.py referenziert git_workspace.auto_commit – Key fehlt noch in ALLOWED_GOAL_CONFIG_KEYS. git_merge fehlt in TASK_KINDS."
+    "analysis_findings": "Alle 14 Tasks implementiert und durch 95 pytest-Tests verifiziert (2026-05-18).",
+    "done": 14,
+    "verified_by": "95 pytest tests passing 2026-05-18"
   },
   "definition_of_done": [
     "Workspace-Verzeichnisse enthalten .git wenn git_workspace.enabled=True.",

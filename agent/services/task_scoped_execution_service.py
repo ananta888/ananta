@@ -798,6 +798,18 @@ class TaskScopedExecutionService:
                 message="Shared output directory is currently locked",
                 code=409,
             )
+        context_delivery_result = None
+        if workspace_ctx.context_policy is not None and getattr(workspace_ctx.context_policy, "scope_mode", "full") != "full":
+            try:
+                from agent.services.context_delivery_service import get_context_delivery_service
+                context_delivery_result = get_context_delivery_service().deliver(task=task, workspace_ctx=workspace_ctx)
+            except Exception as _csd_err:
+                return TaskScopedRouteResponse(
+                    data={"status": "failed", "error": "context_delivery_failed", "detail": str(_csd_err), "task_id": tid},
+                    status="failed",
+                    message="Context delivery failed",
+                    code=500,
+                )
         try:
             before_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
             pipeline = new_pipeline_trace(

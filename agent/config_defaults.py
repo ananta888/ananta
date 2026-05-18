@@ -422,6 +422,20 @@ def build_default_agent_config() -> dict:
                 "task_kinds": [],
             },
         },
+        "git_workspace": {
+            "enabled": False,
+            "remote_url": None,
+            "branch_strategy": "goal",
+            "merge_strategy": "squash",
+            "auto_commit": False,
+        },
+        "workspace_context_policy": {
+            "scope_mode": "full",
+            "max_files": 200,
+            "sensitivity_ceiling": "confidential",
+            "allowed_paths": [],
+            "codecompass_profile": None,
+        },
         "worker_parallelism": {
             "schema": "ananta_worker_parallelism_config_v1",
             "enabled": True,
