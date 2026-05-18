@@ -1,0 +1,592 @@
+{
+  "schema_version": "todo.v2",
+  "id": "todo.context-scoped-delivery",
+  "title": "Context-Scoped Delivery: Selektive Code-Auslieferung an Worker und Agent-Templates",
+  "goal": "Nicht jeder Worker und nicht jedes Agent-Template bekommt das gesamte Repo. Code wird context-bezogen, aufgaben-spezifisch und per Agent-Template/Worker-Profil konfigurierbar ausgeliefert – über CodeCompass/RAG-Helper als Retrieval-Backend. Sensitivitäts-Filter und LLM-Scope-Policy steuern was an welche Provider gesendet werden darf.",
+  "created_from": [
+    "Gespräch 2026-05-18: Selektive Context-Auslieferung",
+    "todo.worker-git-workspace.json (WGW-013/014 – WorkspaceContextPolicy Stub als Basis)",
+    "Codeanalyse: rag_helper_index_service (task_kind-Profile), rag_policy_service (Sensitivity+LLM-Scope), rag_source_profile_loader, workspace_scope_builder"
+  ],
+
+  "context": {
+    "existing_foundation": {
+      "codecompass_profiles": "RagHelperIndexService hat bereits task_kind-basierte Profil-Auswahl: subtask_bugfix_local, subtask_refactor_navigation, subtask_architecture_review, subtask_config_integration",
+      "rag_policy": "rag_policy_service hat SENSITIVITY_CLASSES (8 Klassen) und LLM_SCOPES (local_only, trusted_private_cloud, external_cloud_allowed, no_llm) mit is_chunk_allowed_for_scope()",
+      "rag_source_profiles": "RagSourceProfileLoader lädt Profile aus JSON-Descriptors, validiert gegen Schema",
+      "worker_profile": "worker_profile bereits in WorkerExecutionContextContract und TaskCreateRequest",
+      "context_policy_stub": "WorkspaceContextPolicy und WorkspaceContextPolicyResolver aus WGW-013/014 (Stubs)",
+      "workspace_scope_builder": "derive_workspace_scope: task | goal_worker Modi"
+    },
+    "what_is_missing": [
+      "Per-Agent-Template konfigurierbare Context-Profile (welche Dateien/Module ein Template-Typ bekommt)",
+      "Verbindung: CodeCompass-Retrieval → tatsächliche Dateiauswahl → Workspace-Delivery",
+      "task_kind-basiertes Profil wird ausgewählt aber Ergebnis nicht für selektiven Checkout genutzt",
+      "Keine Konfiguration auf Goal-Ebene was Worker sehen dürfen (Sensitivity-Ceiling pro Goal)",
+      "Keine Verbindung zwischen worker_profile und Context-Scope"
+    ],
+    "design_principles": [
+      "scope_mode='full' bleibt default – kein Breaking Change",
+      "Selektive Delivery ist additiv opt-in via workspace_context_policy in Goal-Config",
+      "CodeCompass liefert Relevanz-Ranking; ContextDeliveryService entscheidet was in den Workspace kommt",
+      "Sensitivity-Filter ist nicht optional wenn scope_mode='selective' – LLM-Scope-Policy des Providers greift immer",
+      "Worker sieht nur was der Hub ihm explizit liefert – kein impliziter Zugriff auf gesamtes Repo"
+    ],
+    "agent_template_concept": "Ein Agent-Template ist eine vordefinierte Worker-Konfiguration (z.B. 'code-reviewer', 'bugfix-specialist', 'architecture-analyst'). Jedes Template hat ein Default-Context-Profil das bestimmt wie viel und welchen Teil des Codes es erhält."
+  },
+
+  "tracks": [
+    {
+      "id": "track.CSD-policy",
+      "title": "WorkspaceContextPolicyResolver: echte Implementierung",
+      "status": "todo",
+      "priority": "critical",
+      "rationale": "WGW-013/014 legen den Stub an. Dieser Track macht ihn funktionsfähig.",
+      "tasks": [
+        {
+          "id": "CSD-001",
+          "title": "WorkspaceContextPolicyResolver: task_kind und agent_template auswerten",
+          "type": "feature",
+          "status": "todo",
+          "priority": "critical",
+          "files": [
+            "agent/services/workspace_context_policy.py"
+          ],
+          "description": "Der Resolver (Stub aus WGW-013) wird mit echten Auswertungsregeln befüllt: Goal-Config-Policy > Agent-Template-Default > task_kind-Default > system_default.",
+          "implementation_notes": [
+            "Auflösungsreihenfolge (analog zu goal_config_resolver): system_default → agent_template_default → task_kind_override → goal_config_override.",
+            "system_default: scope_mode='full', max_files=unlimited, sensitivity_ceiling='confidential'.",
+            "task_kind_defaults: coding → scope_mode='selective', codecompass_profile='subtask_refactor_navigation'; analysis → 'subtask_architecture_review'; bugfix/test → 'subtask_bugfix_local'; ops/config → 'subtask_config_integration'.",
+            "agent_template_defaults: pro Template-ID ein Dict mit WorkspaceContextPolicy-Werten (konfigurierbar).",
+            "goal_config_override: workspace_context_policy aus Goal-Config überschreibt alles.",
+            "resolve(goal_config, task_kind, agent_template) -> WorkspaceContextPolicy.",
+            "Ergebnis-Policy ist immutable (frozen dataclass)."
+          ],
+          "acceptance_criteria": [
+            "resolve(goal_config={}, task_kind='coding', agent_template=None) → scope_mode='selective', codecompass_profile='subtask_refactor_navigation'.",
+            "resolve(goal_config={'workspace_context_policy': {'scope_mode': 'full'}}, ...) → scope_mode='full' (Goal-Config gewinnt).",
+            "resolve(goal_config={}, task_kind='analysis', agent_template='architecture-analyst') → Template-Default wenn konfiguriert.",
+            "resolve(goal_config={}, task_kind='unknown', agent_template=None) → scope_mode='full' (system_default).",
+            "Resolver ist rein (keine Seiteneffekte, keine subprocess-Aufrufe)."
+          ],
+          "depends_on": ["WGW-013"]
+        },
+        {
+          "id": "CSD-002",
+          "title": "Agent-Template-Profil-Registry",
+          "type": "feature",
+          "status": "todo",
+          "priority": "critical",
+          "files": [
+            "agent/services/agent_template_registry.py"
+          ],
+          "description": "Registry die für bekannte Agent-Template-IDs die Default-WorkspaceContextPolicy liefert. Konfigurierbar via config_defaults oder Goal-Config.",
+          "implementation_notes": [
+            "AGENT_TEMPLATE_DEFAULTS: dict[str, dict] mit Template-ID → Partial-WorkspaceContextPolicy.",
+            "Einträge z.B.: 'code-reviewer': {scope_mode: 'selective', codecompass_profile: 'subtask_refactor_navigation', max_files: 50}, 'bugfix-specialist': {scope_mode: 'selective', codecompass_profile: 'subtask_bugfix_local', max_files: 30}, 'architecture-analyst': {scope_mode: 'selective', codecompass_profile: 'subtask_architecture_review', max_files: 100}.",
+            "Unbekannte Template-IDs → None (system_default greift).",
+            "AgentTemplateRegistry.get_context_policy_defaults(agent_template: str | None) -> dict | None.",
+            "Registry ist erweiterbar: config_defaults kann zusätzliche Templates registrieren."
+          ],
+          "acceptance_criteria": [
+            "get_context_policy_defaults('code-reviewer') → dict mit scope_mode, codecompass_profile.",
+            "get_context_policy_defaults('unknown-template') → None.",
+            "get_context_policy_defaults(None) → None.",
+            "AGENT_TEMPLATE_DEFAULTS ist als Modul-Konstante exportiert und in Tests überschreibbar."
+          ],
+          "depends_on": ["CSD-001"]
+        },
+        {
+          "id": "CSD-003",
+          "title": "Tests: WorkspaceContextPolicyResolver",
+          "type": "test",
+          "status": "todo",
+          "priority": "critical",
+          "files": [
+            "tests/test_workspace_context_policy_resolver.py"
+          ],
+          "test_cases": [
+            {
+              "id": "CSD-003-T01",
+              "name": "test_task_kind_coding_gives_selective_scope",
+              "input": "task_kind='coding', goal_config={}, agent_template=None",
+              "expected": "scope_mode='selective', codecompass_profile='subtask_refactor_navigation'"
+            },
+            {
+              "id": "CSD-003-T02",
+              "name": "test_task_kind_analysis_gives_architecture_profile",
+              "input": "task_kind='analysis'",
+              "expected": "codecompass_profile='subtask_architecture_review'"
+            },
+            {
+              "id": "CSD-003-T03",
+              "name": "test_goal_config_full_overrides_task_kind",
+              "input": "task_kind='coding', goal_config={'workspace_context_policy': {'scope_mode': 'full'}}",
+              "expected": "scope_mode='full'"
+            },
+            {
+              "id": "CSD-003-T04",
+              "name": "test_unknown_task_kind_falls_back_to_full",
+              "input": "task_kind='git_commit'",
+              "expected": "scope_mode='full'"
+            },
+            {
+              "id": "CSD-003-T05",
+              "name": "test_agent_template_overrides_task_kind_default",
+              "input": "task_kind='coding', agent_template='architecture-analyst'",
+              "expected": "codecompass_profile='subtask_architecture_review' (Template-Default gewinnt gegen task_kind-Default)"
+            },
+            {
+              "id": "CSD-003-T06",
+              "name": "test_goal_config_overrides_agent_template",
+              "input": "agent_template='code-reviewer', goal_config={'workspace_context_policy': {'codecompass_profile': 'subtask_bugfix_local'}}",
+              "expected": "codecompass_profile='subtask_bugfix_local' (Goal-Config gewinnt)"
+            },
+            {
+              "id": "CSD-003-T07",
+              "name": "test_resolver_is_pure_no_side_effects",
+              "description": "Mehrfache Aufrufe mit gleichen Inputs → identische Ergebnisse, keine DB/FS-Zugriffe.",
+              "expected": "result1 == result2, keine IO-Calls"
+            }
+          ],
+          "depends_on": ["CSD-001", "CSD-002"]
+        }
+      ]
+    },
+
+    {
+      "id": "track.CSD-retrieval",
+      "title": "CodeCompass-Retrieval → Dateiauswahl",
+      "status": "todo",
+      "priority": "critical",
+      "rationale": "CodeCompass liefert bereits relevante Code-Chunks per task_kind-Profil. Dieser Track verbindet das Ranking-Ergebnis mit einer konkreten Dateiliste für den Workspace.",
+      "tasks": [
+        {
+          "id": "CSD-004",
+          "title": "ContextFileSelector: CodeCompass-Ergebnis → Dateiliste",
+          "type": "feature",
+          "status": "todo",
+          "priority": "critical",
+          "files": [
+            "agent/services/context_file_selector.py"
+          ],
+          "description": "Nimmt CodeCompass-Retrieval-Ergebnis (ranked chunks) und WorkspaceContextPolicy und gibt eine konkrete Liste von Dateipfaden zurück die in den Worker-Workspace geliefert werden.",
+          "implementation_notes": [
+            "ContextFileSelector.select(chunks: list[dict], policy: WorkspaceContextPolicy, llm_scope: str) -> ContextFileSelection.",
+            "ContextFileSelection: selected_paths: list[str], excluded_paths: list[str], exclusion_reasons: dict[str, str], total_chunks_evaluated: int.",
+            "Filter-Pipeline: (1) Deduplizierung nach Dateipfad, (2) Sensitivity-Filter via rag_policy_service.is_chunk_allowed_for_scope(), (3) allowed_paths-Glob-Match wenn policy.allowed_paths nicht leer, (4) max_files-Limit (höchstgerankete Dateien behalten).",
+            "Sensitivity-Filter: chunk mit sensitivity > sensitivity_ceiling wird ausgeschlossen.",
+            "Exclusion-Reason pro Datei: 'sensitivity_blocked', 'path_not_allowed', 'max_files_exceeded'.",
+            "select() ist rein – keine Filesystem-Zugriffe, keine subprocess-Aufrufe.",
+            "llm_scope kommt aus Provider-Config des Goals (z.B. 'local_only' für Ollama)."
+          ],
+          "acceptance_criteria": [
+            "select(chunks mit sensitivity='secret', llm_scope='external_cloud_allowed') → secret-Chunk in excluded_paths mit reason='sensitivity_blocked'.",
+            "select(chunks=50, policy.max_files=10) → selected_paths hat maximal 10 Einträge.",
+            "select mit policy.allowed_paths=['agent/services/**'] → nur Dateien unter agent/services/ in selected_paths.",
+            "select(chunks=[], ...) → selected_paths=[], keine Fehler.",
+            "Höchstgerankete Chunks überleben max_files-Filter (Reihenfolge zählt)."
+          ],
+          "depends_on": ["CSD-001"]
+        },
+        {
+          "id": "CSD-005",
+          "title": "Sensitivity-Ceiling aus Goal-Config und Provider-LLM-Scope verknüpfen",
+          "type": "feature",
+          "status": "todo",
+          "priority": "critical",
+          "files": [
+            "agent/services/context_file_selector.py",
+            "agent/services/rag_policy_service.py"
+          ],
+          "description": "sensitivity_ceiling und llm_scope kommen aus verschiedenen Quellen (Goal-Config und Provider-Config). Dieser Task verdrahtet beide korrekt.",
+          "implementation_notes": [
+            "llm_scope aus effective_config.llm_config: ollama → 'local_only'; lmstudio (lokal) → 'local_only'; externe APIs → 'external_cloud_allowed' oder 'trusted_private_cloud'.",
+            "provider_to_llm_scope(provider: str, base_url: str | None) -> str: heuristik-basiert.",
+            "sensitivity_ceiling aus workspace_context_policy.sensitivity_ceiling (Goal-Config) oder system_default.",
+            "Beide Filter kumulativ: Chunk muss sensitivity_ceiling UND llm_scope-Filter bestehen.",
+            "rag_policy_service.is_chunk_allowed_for_scope() bereits vorhanden – direkt nutzen."
+          ],
+          "acceptance_criteria": [
+            "provider='ollama' → llm_scope='local_only', alle sensitivity_classes erlaubt.",
+            "provider='openai' → llm_scope='external_cloud_allowed', nur 'public' und 'internal_low' erlaubt.",
+            "sensitivity_ceiling='internal_medium' → 'internal_high', 'confidential', 'secret' blockiert.",
+            "Beide Filter unabhängig: ein Chunk muss beide bestehen."
+          ],
+          "depends_on": ["CSD-004"]
+        },
+        {
+          "id": "CSD-006",
+          "title": "Tests: ContextFileSelector",
+          "type": "test",
+          "status": "todo",
+          "priority": "critical",
+          "files": [
+            "tests/test_context_file_selector.py"
+          ],
+          "test_cases": [
+            {
+              "id": "CSD-006-T01",
+              "name": "test_sensitivity_blocks_secret_chunks_for_external_provider",
+              "input": "chunks=[{path: 'agent/config.py', sensitivity: 'secret'}], llm_scope='external_cloud_allowed'",
+              "expected": "excluded_paths=['agent/config.py'], reason='sensitivity_blocked'"
+            },
+            {
+              "id": "CSD-006-T02",
+              "name": "test_local_provider_allows_all_sensitivity_classes",
+              "input": "chunks=[{sensitivity: 'secret'}], llm_scope='local_only'",
+              "expected": "selected_paths enthält den Chunk"
+            },
+            {
+              "id": "CSD-006-T03",
+              "name": "test_max_files_truncates_to_highest_ranked",
+              "input": "chunks (ranked 1..20), max_files=5",
+              "expected": "len(selected_paths)==5, die 5 top-geranktesten"
+            },
+            {
+              "id": "CSD-006-T04",
+              "name": "test_allowed_paths_glob_filters_correctly",
+              "input": "policy.allowed_paths=['agent/services/**'], chunks mit Pfaden außerhalb",
+              "expected": "nur Dateien unter agent/services/ in selected_paths"
+            },
+            {
+              "id": "CSD-006-T05",
+              "name": "test_empty_chunks_returns_empty_selection",
+              "input": "chunks=[]",
+              "expected": "selected_paths=[], kein Fehler"
+            },
+            {
+              "id": "CSD-006-T06",
+              "name": "test_exclusion_reasons_populated",
+              "input": "Mix aus sensitivity-blocked und path-not-allowed",
+              "expected": "exclusion_reasons[path] enthält korrekten reason-String"
+            },
+            {
+              "id": "CSD-006-T07",
+              "name": "test_selector_is_pure",
+              "description": "Kein FS-Zugriff, kein subprocess, kein DB.",
+              "expected": "Kein Mock nötig, läuft ohne Seiteneffekte"
+            }
+          ],
+          "depends_on": ["CSD-004", "CSD-005"]
+        }
+      ]
+    },
+
+    {
+      "id": "track.CSD-delivery",
+      "title": "ContextDeliveryService: Dateien in Worker-Workspace liefern",
+      "status": "todo",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "CSD-007",
+          "title": "ContextDeliveryService implementieren",
+          "type": "feature",
+          "status": "todo",
+          "priority": "high",
+          "files": [
+            "agent/services/context_delivery_service.py"
+          ],
+          "description": "Orchestriert den vollständigen Fluss: Policy auflösen → CodeCompass-Retrieval → ContextFileSelector → Dateien in Workspace kopieren (oder per git checkout auschecken).",
+          "implementation_notes": [
+            "ContextDeliveryService.deliver(task: dict, workspace_ctx: WorkerWorkspaceContext) -> ContextDeliveryResult.",
+            "ContextDeliveryResult: delivered_paths: list[str], skipped_paths: list[str], policy: WorkspaceContextPolicy, codecompass_profile_used: str | None.",
+            "Ablauf: (1) WorkspaceContextPolicyResolver.resolve(goal_config, task_kind, agent_template), (2) wenn scope_mode='full': alle Dateien, kein Retrieval, (3) wenn scope_mode='selective': RagHelperIndexService.select_profile() → CodeCompass-Retrieval → ContextFileSelector.select() → Dateien nach workspace_ctx.workspace_dir kopieren, (4) wenn scope_mode='none': nichts liefern.",
+            "Datei-Lieferung: shutil.copy2(src, workspace_dir / rel_path) für jede selected_path.",
+            "Wenn workspace_ctx.git_context: nach dem Kopieren git add (keine git commit – das passiert später via CHI-Worker).",
+            "Repo-Root für Quell-Dateien: WorkerWorkspaceService._repo_root() (bereits vorhanden)."
+          ],
+          "acceptance_criteria": [
+            "deliver mit scope_mode='full' → alle Dateien im Workspace, kein CodeCompass-Aufruf.",
+            "deliver mit scope_mode='selective' → nur gefilterte Dateien im Workspace.",
+            "deliver mit scope_mode='none' → leerer Workspace, keine Dateien.",
+            "delivered_paths enthält nur tatsächlich kopierte Dateien.",
+            "Quelldateien die nicht existieren → in skipped_paths, kein Fehler.",
+            "codecompass_profile_used enthält das verwendete Profil oder None wenn scope_mode='full'."
+          ],
+          "depends_on": ["CSD-004", "CSD-001"]
+        },
+        {
+          "id": "CSD-008",
+          "title": "ContextDeliveryService in task_scoped_execution_service einbinden",
+          "type": "feature",
+          "status": "todo",
+          "priority": "high",
+          "files": [
+            "agent/services/task_scoped_execution_service.py"
+          ],
+          "description": "Vor der eigentlichen Task-Ausführung wird ContextDeliveryService.deliver() aufgerufen um den Workspace mit dem richtigen Code-Kontext zu befüllen.",
+          "implementation_notes": [
+            "Einbindungspunkt: nach resolve_workspace_context(), vor dem eigentlichen LLM-Aufruf.",
+            "Nur wenn workspace_ctx.context_policy.scope_mode != 'full': delivery aufrufen.",
+            "Bei scope_mode='full': Verhalten wie bisher (kein Delivery-Schritt, kein Breaking Change).",
+            "delivery_result in task metadata schreiben (delivered_paths, codecompass_profile_used) für Audit.",
+            "Fehler in deliver() → Task schlägt fehl mit context_delivery_failed, kein stiller Fallback."
+          ],
+          "acceptance_criteria": [
+            "scope_mode='full' (default) → ContextDeliveryService.deliver() wird NICHT aufgerufen (Rückwärtskompatibilität).",
+            "scope_mode='selective' → deliver() wird aufgerufen, Workspace enthält nur ausgewählte Dateien.",
+            "delivery_result in task.result_metadata geschrieben.",
+            "Fehler in deliver() → task.status='failed', error='context_delivery_failed'.",
+            "Bestehende Tasks ohne workspace_context_policy in Goal-Config: scope_mode='full', unverändert."
+          ],
+          "depends_on": ["CSD-007"]
+        },
+        {
+          "id": "CSD-009",
+          "title": "Tests: ContextDeliveryService",
+          "type": "test",
+          "status": "todo",
+          "priority": "high",
+          "files": [
+            "tests/test_context_delivery_service.py"
+          ],
+          "test_cases": [
+            {
+              "id": "CSD-009-T01",
+              "name": "test_full_scope_copies_no_files_via_delivery",
+              "setup": "scope_mode='full'",
+              "expected": "CodeCompass nicht aufgerufen, deliver gibt scope_mode='full' in result"
+            },
+            {
+              "id": "CSD-009-T02",
+              "name": "test_selective_scope_copies_only_selected_files",
+              "setup": "scope_mode='selective'; mock CodeCompass → 3 files; mock shutil.copy2",
+              "expected": "shutil.copy2 für genau 3 Dateien aufgerufen"
+            },
+            {
+              "id": "CSD-009-T03",
+              "name": "test_none_scope_copies_nothing",
+              "setup": "scope_mode='none'",
+              "expected": "delivered_paths=[], kein copy, kein CodeCompass"
+            },
+            {
+              "id": "CSD-009-T04",
+              "name": "test_missing_source_file_goes_to_skipped",
+              "setup": "selected_path verweist auf nicht-existierende Datei",
+              "expected": "skipped_paths enthält Pfad, kein Fehler"
+            },
+            {
+              "id": "CSD-009-T05",
+              "name": "test_codecompass_error_propagates_as_delivery_failed",
+              "setup": "CodeCompass wirft Exception",
+              "expected": "ContextDeliveryError mit context_delivery_failed"
+            },
+            {
+              "id": "CSD-009-T06",
+              "name": "test_delivery_result_written_to_task_metadata",
+              "setup": "task_scoped_execution mit scope_mode='selective'",
+              "expected": "task.result_metadata enthält delivered_paths, codecompass_profile_used"
+            }
+          ],
+          "depends_on": ["CSD-007", "CSD-008"]
+        }
+      ]
+    },
+
+    {
+      "id": "track.CSD-config",
+      "title": "Goal-Config und Agent-Template-Konfiguration",
+      "status": "todo",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "CSD-010",
+          "title": "workspace_context_policy in config_defaults und Goal-Config-Schema",
+          "type": "schema",
+          "status": "todo",
+          "priority": "medium",
+          "files": [
+            "agent/config_defaults.py",
+            "agent/services/goal_config_resolver_service.py"
+          ],
+          "description": "workspace_context_policy in config_defaults als system-weiter Default dokumentieren. Schema-Validierung für alle Felder.",
+          "implementation_notes": [
+            "config_defaults: workspace_context_policy: { scope_mode: 'full', max_files: 200, sensitivity_ceiling: 'confidential', allowed_paths: [], codecompass_profile: null }.",
+            "ALLOWED_GOAL_CONFIG_KEYS bereits via WGW-002 um 'workspace_context_policy' erweitert.",
+            "Validierung in goal_config_resolver: scope_mode muss in {'full','selective','none'} sein; max_files muss int > 0; sensitivity_ceiling muss in SENSITIVITY_CLASSES.",
+            "Ungültige Werte → unknown_keys analog zu ALLOWED_GOAL_CONFIG_KEYS-Fehler (400 bei Goal-Create)."
+          ],
+          "acceptance_criteria": [
+            "config_defaults enthält workspace_context_policy mit allen Feldern.",
+            "Goal-Create mit scope_mode='invalid' → 400 mit validem Fehlertext.",
+            "Goal-Create mit scope_mode='selective', max_files=50 → 201, Policy korrekt im Snapshot.",
+            "Snapshot-Checksum ist stabil über workspace_context_policy (kein Secret → kein Redaction-Einfluss)."
+          ],
+          "depends_on": ["CSD-001", "WGW-002"]
+        },
+        {
+          "id": "CSD-011",
+          "title": "Agent-Template-Profil via API konfigurierbar machen",
+          "type": "feature",
+          "status": "todo",
+          "priority": "medium",
+          "files": [
+            "agent/services/agent_template_registry.py",
+            "agent/routes/admin/"
+          ],
+          "description": "Admin-Endpoint um Agent-Template-Context-Profile zu registrieren und abzufragen. Ergänzt die statischen AGENT_TEMPLATE_DEFAULTS.",
+          "implementation_notes": [
+            "GET /admin/agent-templates → Liste aller bekannten Templates mit ihren Default-Context-Policies.",
+            "POST /admin/agent-templates/{id}/context-policy → setzt Override für Template-ID.",
+            "Overrides in-memory für first pass; DB-Persistenz als spätere Erweiterung.",
+            "Template-Overrides haben Priorität über AGENT_TEMPLATE_DEFAULTS, aber nicht über Goal-Config."
+          ],
+          "acceptance_criteria": [
+            "GET /admin/agent-templates → 200 mit Liste.",
+            "POST /admin/agent-templates/code-reviewer/context-policy mit scope_mode='selective' → 200.",
+            "Nachfolgender WorkspaceContextPolicyResolver.resolve mit agent_template='code-reviewer' → nutzt Override.",
+            "POST mit scope_mode='invalid' → 400."
+          ],
+          "depends_on": ["CSD-002"]
+        },
+        {
+          "id": "CSD-012",
+          "title": "Tests: Goal-Config workspace_context_policy Validation",
+          "type": "test",
+          "status": "todo",
+          "priority": "medium",
+          "files": [
+            "tests/test_context_scoped_config_api.py"
+          ],
+          "test_cases": [
+            {
+              "id": "CSD-012-T01",
+              "name": "test_create_goal_with_valid_context_policy",
+              "input": "config_overrides={'workspace_context_policy': {'scope_mode': 'selective', 'max_files': 30}}",
+              "expected": "201, policy im effective_config Snapshot"
+            },
+            {
+              "id": "CSD-012-T02",
+              "name": "test_create_goal_invalid_scope_mode",
+              "input": "config_overrides={'workspace_context_policy': {'scope_mode': 'invalid'}}",
+              "expected": "400 mit Fehlertext der scope_mode nennt"
+            },
+            {
+              "id": "CSD-012-T03",
+              "name": "test_create_goal_invalid_sensitivity_ceiling",
+              "input": "config_overrides={'workspace_context_policy': {'sensitivity_ceiling': 'topsecret'}}",
+              "expected": "400"
+            },
+            {
+              "id": "CSD-012-T04",
+              "name": "test_effective_config_contains_policy_defaults_when_not_set",
+              "description": "Goal ohne workspace_context_policy → effective_config enthält system_default.",
+              "expected": "effective_config.workspace_context_policy.scope_mode == 'full'"
+            }
+          ],
+          "depends_on": ["CSD-010"]
+        }
+      ]
+    },
+
+    {
+      "id": "track.CSD-integration",
+      "title": "Integration mit Worker-Git-Workspace",
+      "status": "todo",
+      "priority": "medium",
+      "rationale": "Verbindet CSD-Delivery mit WGW-Workspace. Wenn beide aktiviert: selektive Dateien werden in git-fähigen Workspace geliefert und staged.",
+      "tasks": [
+        {
+          "id": "CSD-013",
+          "title": "ContextDeliveryService: git add nach selektivem Checkout",
+          "type": "feature",
+          "status": "todo",
+          "priority": "medium",
+          "files": [
+            "agent/services/context_delivery_service.py"
+          ],
+          "description": "Wenn workspace_ctx.git_context vorhanden und scope_mode='selective': nach dem Kopieren der Dateien git add für jede delivered_path ausführen damit der Worker-Branch den Basis-Zustand korrekt tracked.",
+          "implementation_notes": [
+            "git add <path> mit cwd=workspace_dir für jede delivered_path.",
+            "Kein git commit – nur staging. Commit passiert durch Worker oder CHI-Worker.",
+            "Wenn git_context=None: kein git add (reine Dateikopierer-Modus).",
+            "git add Fehler → warning log, nicht fataler Fehler (Datei ist trotzdem im Workspace)."
+          ],
+          "acceptance_criteria": [
+            "scope_mode='selective' + git_context → git add für jede delivered_path aufgerufen.",
+            "scope_mode='full' → kein git add (kein Delivery-Schritt).",
+            "git_context=None → kein git add, kein Fehler.",
+            "git add Fehler → ContextDeliveryResult.warnings enthält Pfad."
+          ],
+          "depends_on": ["CSD-007", "WGW-005"]
+        },
+        {
+          "id": "CSD-014",
+          "title": "E2E Integrationstest: selective delivery in git workspace",
+          "type": "test",
+          "status": "todo",
+          "priority": "medium",
+          "files": [
+            "tests/test_csd_wgw_integration.py"
+          ],
+          "test_cases": [
+            {
+              "id": "CSD-014-T01",
+              "name": "test_selective_delivery_with_git_workspace_stages_files",
+              "setup": "tmp_dir mit git init; scope_mode='selective'; 3 mock files; mock CodeCompass",
+              "expected": "3 Dateien im workspace_dir; git status zeigt staged changes"
+            },
+            {
+              "id": "CSD-014-T02",
+              "name": "test_sensitivity_blocked_file_not_delivered_to_workspace",
+              "setup": "chunk mit sensitivity='secret', llm_scope='external_cloud_allowed'",
+              "expected": "Datei nicht in workspace_dir"
+            },
+            {
+              "id": "CSD-014-T03",
+              "name": "test_full_scope_with_git_workspace_no_selective_delivery",
+              "setup": "scope_mode='full', git_context gesetzt",
+              "expected": "CodeCompass nicht aufgerufen, kein selektiver Delivery-Schritt"
+            }
+          ],
+          "depends_on": ["CSD-013"]
+        }
+      ]
+    }
+  ],
+
+  "execution_plan": {
+    "prerequisite_todos": [
+      "todo.worker-git-workspace.json (WGW-013/014 – WorkspaceContextPolicy Stub)",
+      "todo.commit-hygiene-integration.json (CHI-005 CommitMessageValidator)"
+    ],
+    "order": [
+      "CSD-001 (policy resolver: echte Implementierung)",
+      "CSD-002 (agent template registry)",
+      "CSD-003 (test: resolver)",
+      "CSD-004 (context file selector)",
+      "CSD-005 (sensitivity + llm scope verknüpfen)",
+      "CSD-006 (test: file selector)",
+      "CSD-007 (context delivery service)",
+      "CSD-008 (in task execution einbinden)",
+      "CSD-009 (test: delivery service)",
+      "CSD-010 (goal-config schema + defaults)",
+      "CSD-011 (admin api für templates)",
+      "CSD-012 (test: goal-config api)",
+      "CSD-013 (git add nach delivery)",
+      "CSD-014 (e2e integration)"
+    ],
+    "minimal_viable_slice": "CSD-001, CSD-004, CSD-006, CSD-007 – Policy-Resolver + File-Selector + Delivery ohne git-Integration. Scope-Mode='selective' liefert Dateien in Workspace ohne git add.",
+    "rationale": "Policy-Resolver und File-Selector sind rein (keine IO) und schnell testbar. Delivery-Service baut darauf auf. Git-Integration (CSD-013) und Admin-API (CSD-011) sind letzte Schritte."
+  },
+
+  "tasks_status_summary": {
+    "total": 14,
+    "by_status": { "done": 0, "partial": 0, "in_progress": 0, "todo": 14 },
+    "by_type": { "feature": 6, "test": 6, "schema": 2 },
+    "progress_percent": 0.0
+  },
+
+  "definition_of_done": [
+    "scope_mode='full' ist default und verändert bestehendes Verhalten nicht.",
+    "scope_mode='selective' liefert nur CodeCompass-gefilterte Dateien in den Worker-Workspace.",
+    "Sensitivity-Filter blockiert Chunks die der Provider-LLM-Scope nicht erlaubt.",
+    "Agent-Template-Defaults sind konfigurierbar und überschreibbar via Goal-Config.",
+    "ContextDeliveryService.deliver() macht git add wenn git_context vorhanden.",
+    "delivery_result in task.result_metadata für Audit.",
+    "Fehler in Delivery → task.status='failed', kein stiller Fallback.",
+    "Alle Tests grün, bestehende Tests unverändert."
+  ]
+}
