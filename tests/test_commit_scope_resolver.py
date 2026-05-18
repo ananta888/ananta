@@ -79,3 +79,19 @@ def test_custom_map_override():
 def test_file_to_scope_map_is_exported():
     assert isinstance(FILE_TO_SCOPE_MAP, tuple)
     assert len(FILE_TO_SCOPE_MAP) > 0
+
+
+def test_planning_service_maps_to_planning_scope():
+    r = resolver().resolve(["agent/services/planning_service.py"])
+    assert r.primary_scope == "planning"
+
+
+def test_context_delivery_service_maps_to_context_scope():
+    r = resolver().resolve(["agent/services/context_delivery_service.py"])
+    assert r.primary_scope == "context"
+
+
+def test_scope_resolver_drift_flags_unknown_new_service_path():
+    r = resolver().resolve(["agent/services/new_unmapped_service.py"])
+    assert r.primary_scope is None
+    assert "agent/services/new_unmapped_service.py" in r.unresolved_paths

@@ -62,6 +62,19 @@ CLIENT_SURFACE_ALLOWED_STATUSES = {
     "deferred",
     "blocked",
 }
+FORBIDDEN_RUNTIME_PATH_PREFIXES = (
+    "project-workspaces/",
+)
+FORBIDDEN_RUNTIME_PATH_PATTERNS = (
+    re.compile(r"^artifacts/.+\.json$", re.IGNORECASE),
+    re.compile(r"^artifacts/.+\.jsonl$", re.IGNORECASE),
+)
+FORBIDDEN_RUNTIME_PATH_ALLOW_PREFIXES = (
+    "tests/fixtures/",
+    "artifacts/domain/",
+    "artifacts/e2e/",
+    "artifacts/test-gates/",
+)
 TODO_PATH_CANDIDATES = ("todo.json", "todo_last.json")
 
 PINNED_ACTIONS = {
@@ -381,6 +394,43 @@ def check_client_surface_release_gate() -> CheckResult:
     return CheckResult("client-surface-release-gate", not problems, detail)
 
 
+def _normalize_repo_path(path: str) -> str:
+    return str(path or "").strip().lstrip("./").replace("\\", "/")
+
+
+def _forbidden_runtime_paths(paths: list[str]) -> list[str]:
+    violations: list[str] = []
+    for raw in paths:
+        path = _normalize_repo_path(raw)
+        if not path:
+            continue
+        if any(path.startswith(prefix) for prefix in FORBIDDEN_RUNTIME_PATH_ALLOW_PREFIXES):
+            continue
+        if any(path.startswith(prefix) for prefix in FORBIDDEN_RUNTIME_PATH_PREFIXES):
+            violations.append(path)
+            continue
+        if any(pattern.match(path) for pattern in FORBIDDEN_RUNTIME_PATH_PATTERNS):
+            violations.append(path)
+    return sorted(set(violations))
+
+
+def check_runtime_path_hygiene() -> CheckResult:
+    tracked = run_command(["git", "ls-files"])
+    if tracked.returncode != 0:
+        return CheckResult("runtime-path-hygiene", False, f"git ls-files failed: {tracked.stdout[-400:]}")
+    paths = [line.strip() for line in tracked.stdout.splitlines() if line.strip()]
+    violations = _forbidden_runtime_paths(paths)
+    if violations:
+        return CheckResult(
+            "runtime-path-hygiene",
+            False,
+            "forbidden runtime paths tracked in git: "
+            + ", ".join(violations[:10])
+            + (" ..." if len(violations) > 10 else ""),
+        )
+    return CheckResult("runtime-path-hygiene", True, "no forbidden runtime paths are tracked")
+
+
 def check_compose_config() -> CheckResult:
     env = {"POSTGRES_PASSWORD": "test-postgres-password", "INITIAL_ADMIN_PASSWORD": "test-admin-password", "SECRET_KEY": "test-secret-key-with-at-least-thirty-two-chars", "AGENT_TOKEN_HUB": "hub-token", "AGENT_TOKEN_ALPHA": "alpha-token", "AGENT_TOKEN_BETA": "beta-token", "AGENT_TOKEN_GAMMA": "gamma-token", "AGENT_TOKEN_DELTA": "delta-token", "GRAFANA_PASSWORD": "test-grafana-password"}
     commands = [["docker", "compose", "-f", "docker-compose.base.yml", "-f", "docker-compose-lite.yml", "config"], ["docker", "compose", "-f", "docker-compose.base.yml", "-f", "docker-compose.yml", "-f", "docker-compose.distributed.yml", "config"]]
@@ -422,7 +472,7 @@ def main() -> int:
     parser.add_argument("--build-images", action="store_true", help="build backend and frontend Docker images")
     parser.add_argument("--report", help="write a JSON verification report to this path")
     args = parser.parse_args()
-    results = [check_required_files(), check_python_dependency_sources(), check_python_locks(), check_frontend_manifest(), check_actions_pinning(), check_image_pinning(), check_tool_pinning(), check_ci_release_paths(), check_apt_snapshots(), check_client_surface_release_gate()]
+    results = [check_required_files(), check_python_dependency_sources(), check_python_locks(), check_frontend_manifest(), check_actions_pinning(), check_image_pinning(), check_tool_pinning(), check_ci_release_paths(), check_apt_snapshots(), check_client_surface_release_gate(), check_runtime_path_hygiene()]
     if not args.strict:
         results = [result for result in results if result.name not in {"actions-pinning", "apt-snapshots"}]
     if args.compose_config:
