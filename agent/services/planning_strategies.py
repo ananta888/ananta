@@ -243,47 +243,22 @@ class LLMPlanningStrategy:
 
     @staticmethod
     def _has_new_project_execution_coverage(subtasks: list[dict[str, Any]]) -> bool:
-        file_tokens = {
-            "file",
-            "files",
-            "datei",
-            "dateien",
-            "readme",
-            "pyproject",
-            "src",
-            "tests",
-            "ordner",
-            "directory",
-            "repository",
-            "projektstruktur",
-            "create",
-            "write",
-            "anlegen",
-            "erstellen",
-        }
-        verify_tokens = {
-            "test",
-            "tests",
-            "pytest",
-            "verify",
-            "verification",
-            "check",
-            "smoke",
-            "run",
-            "ausfuehren",
-            "ausführen",
-        }
-        has_file_task = False
-        has_verify_task = False
+        has_workspace_artifact = False
+        has_required_verification = False
         for item in subtasks or []:
-            text = f"{item.get('title', '')} {item.get('description', '')}".lower()
-            if any(token in text for token in file_tokens):
-                has_file_task = True
-            if any(token in text for token in verify_tokens):
-                has_verify_task = True
-            if has_file_task and has_verify_task:
+            expected = [dict(x) for x in list(item.get("expected_artifacts") or []) if isinstance(x, dict)]
+            for artifact in expected:
+                kind = str(artifact.get("kind") or "").strip().lower()
+                required = bool(artifact.get("required", False))
+                if kind in {"workspace_change", "workspace_change_set", "generated_file", "project_structure_manifest"} and required:
+                    has_workspace_artifact = True
+                    break
+            verification_spec = dict(item.get("verification_spec") or {})
+            if verification_spec:
+                has_required_verification = True
+            if has_workspace_artifact and has_required_verification:
                 return True
-        return has_file_task and has_verify_task
+        return has_workspace_artifact and has_required_verification
 
     def execute(
         self,

@@ -77,6 +77,16 @@ if [[ -z "$LOCAL_URL" ]]; then
   esac
 fi
 
+# ── 4b) Planning-Profile validieren ────────────────────────────────────────
+case "${PLANNING_PROFILE,,}" in
+  ""|off|small|medium) ;;
+  *)
+    echo "ERROR: Unbekanntes Planning-Profil '${PLANNING_PROFILE}'." >&2
+    echo "       Erlaubt: off | small | medium | \"\" (leer)" >&2
+    exit 1
+    ;;
+esac
+
 # ── 5) Passwort prüfen ────────────────────────────────────────────────────
 if [[ -z "${ANANTA_PASSWORD:-}" ]]; then
   echo "ERROR: ANANTA_PASSWORD ist nicht gesetzt." >&2
@@ -157,6 +167,8 @@ PLANNING_POLICIES = {
 }
 
 def _planning_patch(profile: str) -> dict:
+    if profile == "off":
+        return {}
     policy = PLANNING_POLICIES.get(profile)
     if not policy:
         return {}
