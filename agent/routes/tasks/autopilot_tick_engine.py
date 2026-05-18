@@ -719,6 +719,16 @@ def _dispatch_one_task_inner(  # noqa: C901
 
     if was_assigned:
         latest_status = _current_task_status(task.id, app=app_ctx)
+        if latest_status in {"waiting_for_review", "needs_review"}:
+            append_trace_event(
+                task.id,
+                "autopilot_handoff_skipped_review_gated",
+                delegated_to=target_worker.url,
+                status=latest_status,
+            )
+            # Review-gated tasks must not be re-assigned by autopilot.
+            result.dispatched = True
+            return result
         if _is_terminal_status(latest_status):
             append_trace_event(
                 task.id,
