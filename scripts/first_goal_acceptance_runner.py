@@ -161,7 +161,7 @@ class AcceptanceRunner:
             if resp.status_code >= 400:
                 return {}
             return dict(resp.json().get("data") or {})
-        except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError):
+        except Exception:
             return {}
 
     def get_provider_observer_snapshot(self) -> dict[str, Any]:
@@ -414,6 +414,7 @@ def run_once(
     config_mode: str,
     config_profile: str | None,
     config_overrides: dict[str, Any] | None,
+    planning_fallback_task_enabled: bool = False,
     max_circuit_breaker_open_seconds: int = 120,
     ci_safe: bool = False,
 ) -> RunReport:
@@ -439,12 +440,19 @@ def run_once(
         report.pre_run_provider_snapshot = runner.get_provider_observer_snapshot()
 
     started_at = time.time()
+    effective_overrides = dict(config_overrides or {})
+    if planning_fallback_task_enabled:
+        pp = effective_overrides.get("planning_policy") if isinstance(effective_overrides.get("planning_policy"), dict) else {}
+        pp = dict(pp)
+        pp["allow_non_llm_minimal_task_fallback"] = True
+        effective_overrides["planning_policy"] = pp
+
     goal_id, new_ids, submit_error = runner.submit_goal(
         goal_text=goal_text,
         output_dir=output_dir,
         run_trace_id=run_trace_id,
         config_profile=config_profile if config_mode == "goal_scoped" else None,
-        config_overrides=config_overrides if config_mode == "goal_scoped" else None,
+        config_overrides=effective_overrides if config_mode == "goal_scoped" else None,
     )
     report.goal_id = goal_id
 
@@ -675,6 +683,14 @@ def main() -> int:
             "Only deterministic local checks affect the exit code."
         ),
     )
+    p.add_argument(
+        "--allow-planning-minimal-fallback-task",
+        action="store_true",
+        help=(
+            "Enable non-LLM minimal fallback task generation when planning returns unstructured output. "
+            "Default is disabled."
+        ),
+    )
     args = p.parse_args()
 
     if int(args.parallel_goals_per_scenario) > 1 and args.config_mode == "legacy_global_config" and not args.allow_unsafe_global_parallel:
@@ -731,6 +747,7 @@ def main() -> int:
                 config_mode=args.config_mode,
                 config_profile=str(scenario.get("config_profile") or "") or None,
                 config_overrides=dict(scenario.get("config_overrides") or {}),
+                planning_fallback_task_enabled=bool(args.allow_planning_minimal_fallback_task),
                 max_circuit_breaker_open_seconds=int(args.max_circuit_breaker_open_seconds),
                 ci_safe=_ci_safe,
             )
@@ -749,6 +766,7 @@ def main() -> int:
                 config_mode=args.config_mode,
                 config_profile=str(scenario.get("config_profile") or "") or None,
                 config_overrides=dict(scenario.get("config_overrides") or {}),
+                planning_fallback_task_enabled=bool(args.allow_planning_minimal_fallback_task),
                 max_circuit_breaker_open_seconds=int(args.max_circuit_breaker_open_seconds),
                 ci_safe=_ci_safe,
             )

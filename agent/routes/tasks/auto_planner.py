@@ -178,18 +178,34 @@ class AutoPlanner:
         error_msg = str(exc).lower()
         return any(t in error_name or t in error_msg for t in ["timeout", "timedout", "timed out"])
 
-    def _call_llm_with_retry(self, prompt: str, llm_config: dict) -> str:
+    def _call_llm_with_retry(self, prompt: str, llm_config: dict, *, temperature: float | None = None) -> str:
         last_exc: Optional[Exception] = None
         for attempt in range(1, self.llm_retry_attempts + 1):
             try:
-                raw_response = generate_text(
-                    prompt=prompt,
-                    provider=llm_config.get("provider"),
-                    model=llm_config.get("model"),
-                    base_url=llm_config.get("base_url"),
-                    api_key=llm_config.get("api_key"),
-                    timeout=self.llm_timeout,
-                )
+                llm_temperature = temperature
+                if llm_temperature is None:
+                    raw_temp = llm_config.get("temperature")
+                    try:
+                        llm_temperature = float(raw_temp) if raw_temp is not None else None
+                    except (TypeError, ValueError):
+                        llm_temperature = None
+                llm_kwargs = {
+                    "prompt": prompt,
+                    "provider": llm_config.get("provider"),
+                    "model": llm_config.get("model"),
+                    "base_url": llm_config.get("base_url"),
+                    "api_key": llm_config.get("api_key"),
+                    "timeout": self.llm_timeout,
+                }
+                if llm_temperature is not None:
+                    llm_kwargs["temperature"] = llm_temperature
+                try:
+                    raw_response = generate_text(**llm_kwargs)
+                except TypeError as exc:
+                    if "unexpected keyword argument 'temperature'" not in str(exc):
+                        raise
+                    llm_kwargs.pop("temperature", None)
+                    raw_response = generate_text(**llm_kwargs)
                 if not isinstance(raw_response, str):
                     raw_response = str(raw_response or "")
                 return raw_response

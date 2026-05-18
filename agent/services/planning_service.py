@@ -243,6 +243,24 @@ class PlanningService:
         raw = cfg.get("planning_policy") if isinstance(cfg.get("planning_policy"), dict) else {}
         return normalize_planning_policy_config(raw)
 
+    @staticmethod
+    def _build_minimal_non_llm_fallback_subtask(*, goal: str, mode: str = "generic") -> dict[str, Any]:
+        goal_preview = str(goal or "").strip()[:160] or "Goal"
+        title = "Create initial executable project skeleton"
+        if mode == "new_software_project":
+            title = "Create project skeleton and first runnable check"
+        return {
+            "title": title,
+            "description": (
+                f"Initialize a minimal executable baseline for goal: {goal_preview}. "
+                "Create at least one concrete project artifact and one basic verification/check command."
+            ),
+            "priority": "High",
+            "task_kind": "coding",
+            "depends_on": [],
+            "fallback_origin": "non_llm_minimal_task",
+        }
+
     def _compute_plan_depth(self, probe_nodes: list[PlanNodeDB]) -> int:
         depth_by_key: dict[str, int] = {}
         max_depth = 0
@@ -688,14 +706,28 @@ class PlanningService:
             )
 
         if not subtasks:
-            return {
-                "subtasks": [],
-                "created_task_ids": [],
-                "raw_response": raw_response,
-                "error_classification": "unstructured_llm_response",
-                "planning_policy": planning_policy,
-                "planner_selection": planner_selection,
-            }
+            scoped_cfg = dict(getattr(planner, "_goal_effective_config", {}) or {})
+            raw_planning_policy = scoped_cfg.get("planning_policy") if isinstance(scoped_cfg.get("planning_policy"), dict) else {}
+            allow_non_llm_fallback = bool(raw_planning_policy.get("allow_non_llm_minimal_task_fallback", False))
+            if allow_non_llm_fallback:
+                subtasks = [
+                    self._build_minimal_non_llm_fallback_subtask(
+                        goal=goal,
+                        mode=mode,
+                    )
+                ]
+                limits = dict(limits or {})
+                limits["fallback_task_generated"] = True
+                limits["fallback_task_reason"] = "unstructured_llm_response"
+            else:
+                return {
+                    "subtasks": [],
+                    "created_task_ids": [],
+                    "raw_response": raw_response,
+                    "error_classification": "unstructured_llm_response",
+                    "planning_policy": planning_policy,
+                    "planner_selection": planner_selection,
+                }
 
         proposal_payload = build_plan_proposal(
             goal_id=str(goal_id or "").strip() or "ad-hoc-goal",
