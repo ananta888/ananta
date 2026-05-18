@@ -2,7 +2,7 @@
   "schema": "ananta_todo_plan_v2",
   "id": "todo.planning-mechanism-hardening",
   "title": "Planning Mechanism Hardening, Context Delivery, Commit Hygiene and Runtime Enforcement",
-  "status": "draft_from_commit_analysis",
+  "status": "in_progress",
   "priority": "P0",
   "risk": "critical",
   "language": "de",
@@ -118,7 +118,7 @@
     {
       "id": "PLAN-HARD-001",
       "title": "Planning origin and repair provenance persistieren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "high",
       "summary": "Jeder Plan muss eindeutig zeigen, ob er aus Template, Hub-Copilot, LLM, LLM-Repair oder Non-LLM-Fallback stammt.",
@@ -152,12 +152,13 @@
         "tests/test_planning_strategies.py::test_planning_origin_template",
         "tests/test_planning_strategies.py::test_planning_origin_llm_repair",
         "tests/test_commit_planner_integration.py::test_plan_rationale_contains_provenance"
-      ]
+      ],
+      "implementation_notes": "Planning provenance ist im Planning-Flow durchgaengig sichtbar (planning_origin, repair_strategy_used, repair_attempt_count, parse_mode, planning_run_id in PlanDB.rationale/Response)."
     },
     {
       "id": "PLAN-HARD-002",
       "title": "Parse mode and parser confidence sichtbar machen",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "high",
       "summary": "Der robuste Parser ist sinnvoll, darf aber nicht verstecken, ob striktes JSON oder ein toleranter Fallback verwendet wurde.",
@@ -188,12 +189,13 @@
         "tests/test_planning_utils.py::test_parse_diagnostics_strict_json",
         "tests/test_planning_utils.py::test_parse_diagnostics_python_literal",
         "tests/test_planning_utils.py::test_parse_diagnostics_bullet_fallback"
-      ]
+      ],
+      "implementation_notes": "Diagnostischer Parser inkl. parse_mode und confidence ist implementiert; bestehende API bleibt kompatibel."
     },
     {
       "id": "PLAN-HARD-003",
       "title": "Explicit dependency_mode statt __parallel__ Sentinel einfuehren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P0",
       "risk": "medium",
       "summary": "Parallelitaet soll explizit und schema-validierbar sein, nicht ueber einen magischen String in depends_on.",
@@ -224,12 +226,13 @@
       "tests": [
         "tests/test_planning_service.py::test_parallel_dependency_mode_materializes_without_chain",
         "tests/test_planning_service.py::test_legacy_parallel_sentinel_normalized"
-      ]
+      ],
+      "implementation_notes": "dependency_mode ist aktiv; __parallel__ wird als Legacy-Input normalisiert und nicht als neues Primitaiv propagiert."
     },
     {
       "id": "PLAN-HARD-004",
       "title": "new_software_project coverage strukturiert statt keyword-basiert pruefen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "summary": "Die aktuelle Execution-Coverage-Erkennung nutzt Keywords. Fuer stabile Autopilot-Laeufe braucht es strukturierte Expected Artifacts und Verification Specs.",
@@ -262,12 +265,13 @@
       "tests": [
         "tests/test_planning_strategies.py::test_new_project_requires_structured_artifacts",
         "tests/test_commit_planner_integration.py::test_new_project_plan_proposal_requires_verification"
-      ]
+      ],
+      "implementation_notes": "Struktur-Contract fuer expected_artifacts/verification_spec ist aktiv; Restluecke: keyword-basierte Coverage-Helfer final entfernen oder rein advisory markieren."
     },
     {
       "id": "PLAN-HARD-005",
       "title": "Goal-scoped planning profiles vollstaendig dokumentieren und testen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "summary": "Die neuen Planning-Profile small, medium und off muessen reproduzierbar, API-sichtbar und getestet sein.",
@@ -298,12 +302,13 @@
       "tests": [
         "tests/test_goal_config_resolver_service.py::test_planning_profile_small_overrides_defaults",
         "tests/e2e/test_parallel_scenario_goal_scoped_config.py"
-      ]
+      ],
+      "implementation_notes": "Runner/Profiles vorhanden (small/medium/off), aber \"off\" ist nicht als harter LLM-disable Pfad dokumentiert/enforced."
     },
     {
       "id": "CTX-HARD-001",
       "title": "Context delivery fuer externe/cloud LLMs fail-closed haerten",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "summary": "Selektive Context Delivery ist eingefuehrt, muss aber fuer Cloud-Provider und sensitive Dateien strenger werden.",
@@ -335,12 +340,13 @@
       "tests": [
         "tests/test_context_file_selector.py::test_external_cloud_blocks_credentials",
         "tests/test_context_delivery_service.py::test_cloud_full_context_requires_explicit_allow"
-      ]
+      ],
+      "implementation_notes": "Fail-closed fuer external_cloud/full-context und sensitive Filter sind vorhanden; LLM-scope-Aufloesung basiert noch teils auf Provider/URL-Heuristik."
     },
     {
       "id": "CTX-HARD-002",
       "title": "Workspace context policy mit Agent Template und Task Kind sauber priorisieren",
-      "status": "todo",
+      "status": "completed",
       "priority": "P1",
       "risk": "medium",
       "summary": "Policy-Resolution muss deterministisch dokumentiert und getestet sein: System Default, Task Kind, Agent Template, Goal Policy.",
@@ -371,12 +377,13 @@
       "tests": [
         "tests/test_workspace_context_policy_resolver.py::test_policy_resolution_priority_order",
         "tests/test_context_scoped_config_api.py::test_context_policy_validation"
-      ]
+      ],
+      "implementation_notes": "Prioritaetskette und resolution_trace sind implementiert und getestet; scope_mode/max_files werden validiert."
     },
     {
       "id": "WORKSPACE-HARD-001",
       "title": "Artifact-first completion pipeline absichern",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "summary": "Worker-Erfolg darf nicht nur aus LLM-Text entstehen. Workspace-Diffs, Artifacts und Verification muessen primaere Evidenz sein.",
@@ -409,12 +416,13 @@
       "tests": [
         "tests/test_task_scoped_propose_llm_profile_persist.py::test_artifact_evidence_required_for_completion",
         "tests/test_workspace_git_tools.py::test_workspace_diff_manifest_created"
-      ]
+      ],
+      "implementation_notes": "Artifact-first-Bausteine existieren, aber ein zentraler harter Completion-Gate ohne Artifact/Diff/Verification ist noch nicht als single source enforced."
     },
     {
       "id": "WORKSPACE-HARD-002",
       "title": "Workspace Git Flow mit Commit Metadata verbinden",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "summary": "Workspace Git existiert, Commit-Hygiene existiert. Beide muessen in einem sicheren Commit-/Review-Flow verbunden werden.",
@@ -447,12 +455,13 @@
       "tests": [
         "tests/test_workspace_git_service.py::test_commit_requires_valid_message",
         "tests/test_commit_worker_service.py::test_mixed_scope_requires_review"
-      ]
+      ],
+      "implementation_notes": "Commit-Hygiene ist angebunden; mixed-scope wird erkannt, aber noch nicht policy-hart geblockt oder als mandatory review gate erzwungen."
     },
     {
       "id": "COMMIT-HARD-001",
       "title": "Commit message enforcement serverseitig erzwingen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "medium",
       "summary": "Husky und commitlint reichen nicht fuer Agent-/Worker-Flows. Commit-Regeln muessen im Hub/Worker-Service enforced werden.",
@@ -482,7 +491,8 @@
       "tests": [
         "tests/test_commit_message_validator.py",
         "tests/test_commit_hygiene_integration.py::test_invalid_commit_message_blocked_in_service"
-      ]
+      ],
+      "implementation_notes": "Serverseitige Commit-Message-Validierung existiert inkl. Blockliste (z.B. fixup planning); End-to-end Enforce fuer alle Triggerpfade weiter haerten."
     },
     {
       "id": "COMMIT-HARD-002",
@@ -513,12 +523,13 @@
       "tests": [
         "tests/test_commit_scope_resolver.py::test_known_new_services_have_scopes",
         "tests/test_commit_scope_resolver.py::test_scope_map_drift_detection"
-      ]
+      ],
+      "implementation_notes": "Scope-Mapping ist vorhanden, Drift-Detection fuer neue Module fehlt noch."
     },
     {
       "id": "PAR-HARD-001",
       "title": "worker_parallelism Config gegen echte Runtime-Enforcement pruefen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "summary": "Die Config fuer Worker/Ollama/Subworker Parallelitaet ist umfangreich vorhanden. Jetzt muss bewiesen werden, dass sie enforced wird.",
@@ -550,12 +561,13 @@
       "tests": [
         "tests/test_worker_runtime_selection_service.py::test_capacity_limit_enforced",
         "tests/e2e/test_parallel_worker_ollama_saturation.py"
-      ]
+      ],
+      "implementation_notes": "Schema/Config/Teile der Runtime-Enforcement-Checks sind vorhanden; durchgaengige Nachweise aller Limits gegen Live-Runtime noch nicht vollstaendig."
     },
     {
       "id": "PAR-HARD-002",
       "title": "Ollama endpoint+model Slot-Lease Service implementieren oder TODO konkretisieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "summary": "Ollama-Slots sind getrennte Ressourcen von Worker-Slots. Ohne endpoint+model Lease kann Ollama ueberbucht werden.",
@@ -588,12 +600,13 @@
       "tests": [
         "tests/test_ollama_parallel_runtime_service.py",
         "tests/test_worker_pool_scheduler_service.py::test_ollama_full_does_not_leak_worker_slot"
-      ]
+      ],
+      "implementation_notes": "Ollama endpoint+model Slot-Leasing (acquire/queue/release/stale cleanup) ist implementiert; TODO auf echten Restumfang zuschneiden."
     },
     {
       "id": "SEC-HARD-001",
       "title": "DynDNS Secret aus Repository und History entfernen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "summary": "Ein DynDNS-Script enthielt einen Credential-Fallback in einer URL. Das muss sofort bereinigt und rotiert werden.",
@@ -623,12 +636,13 @@
       "tests": [
         "tests/test_secret_scanning.py::test_no_plain_dyndns_credentials",
         "tests/test_secret_scanning.py::test_dyndns_script_requires_env_or_conf"
-      ]
+      ],
+      "implementation_notes": "DynDNS Script ist von hardcoded credentials bereinigt; Rest: expliziter CI-Secret-Gate-Nachweis und Rotationsdoku-Verweis pflegen."
     },
     {
       "id": "REPO-HARD-001",
       "title": "Generierte Workspace- und Artifact-Dateien dauerhaft aus Git halten",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "summary": "Viele project-workspaces und acceptance artifacts wurden entfernt. Jetzt muss verhindert werden, dass solche Dateien wieder committed werden.",
@@ -655,12 +669,13 @@
       "tests": [
         "tests/test_repository_hygiene.py::test_generated_workspace_paths_are_blocked",
         "tests/test_repository_hygiene.py::test_runtime_artifacts_not_tracked"
-      ]
+      ],
+      "implementation_notes": "gitignore deckt project-workspaces und artifact json/jsonl ab; expliziter CI-Blocker mit klarer Fehlermeldung fuer verbotene Runtime-Pfade fehlt."
     },
     {
       "id": "DOC-HARD-001",
       "title": "Planning pipeline Dokumentation aktualisieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "low",
       "summary": "Die neue Pipeline ist stark gewachsen und braucht eine klare technische Dokumentation fuer Betrieb und Weiterentwicklung.",
@@ -691,7 +706,50 @@
         "AGENTS.md verweist auf die Planning-Pipeline-Regeln.",
         "CONTRIBUTING.md beschreibt Commit-Hygiene fuer Agent/Worker-Commits."
       ],
-      "tests": []
+      "tests": [],
+      "implementation_notes": "docs/planning-pipeline.md existiert; AGENTS/CONTRIBUTING-Verknuepfung auf konkrete Pipeline-Regeln kann noch erweitert werden."
+    },
+    {
+      "id": "WORKSPACE-HARD-003",
+      "title": "Central artifact-first completion gate als single source of truth",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Completion fuer coding/testing/ops darf nur bei positiver Evidenz (artifact/diff/verification) erfolgen; advisory LLM-Signale bleiben non-authoritative.",
+      "depends_on": [
+        "WORKSPACE-HARD-001"
+      ],
+      "files": [
+        "agent/services/task_completion_service.py",
+        "agent/services/task_management_service.py",
+        "tests/test_artifact_first_completion_policy.py"
+      ],
+      "acceptance_criteria": [
+        "completed ohne Artifact-Evidenz wird blockiert",
+        "advisory parse failures verhindern artifact-basierte completion nicht",
+        "eine zentrale Policy-Funktion entscheidet Completion deterministisch"
+      ]
+    },
+    {
+      "id": "REPO-HARD-002",
+      "title": "CI guard fuer verbotene Runtime-Pfade beim Commit",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Commits mit Dateien unter project-workspaces/** oder artifacts/*.json(jsonl) sollen mit klarer Fehlermeldung scheitern.",
+      "depends_on": [
+        "REPO-HARD-001"
+      ],
+      "files": [
+        "scripts/release_gate.py",
+        ".github/workflows/lint.yml",
+        "tests/test_release_gate_planning_cleanup.py"
+      ],
+      "acceptance_criteria": [
+        "CI meldet verbotene Pfade eindeutig",
+        "Fixtures unter tests/fixtures bleiben erlaubt",
+        "lokaler Release-Gate liefert identische Fehlermeldung wie CI"
+      ]
     }
   ],
   "acceptance_summary": [
@@ -854,5 +912,30 @@
   "links": {
     "related_unified_todo": "todo.llm-first-planning-learning-and-response-behavior.json"
   },
-  "updated_at": 1779117733.5565345
+  "updated_at": 1779123401.2260952,
+  "state_assessment": {
+    "as_of": "2026-05-18",
+    "summary": "TODO auf realen Implementierungsstand abgeglichen. Mehrere Punkte sind bereits umgesetzt; kritische Restluecken liegen bei artifact-first completion gate, scope-drift detection, runtime enforcement proofs und CI path guards.",
+    "next_focus_order": [
+      "WORKSPACE-HARD-001",
+      "PLAN-HARD-004",
+      "CTX-HARD-001",
+      "COMMIT-HARD-002",
+      "PAR-HARD-001",
+      "REPO-HARD-001"
+    ]
+  },
+  "counts": {
+    "total_tasks": 18,
+    "by_status": {
+      "completed": 4,
+      "partial": 11,
+      "todo": 3
+    },
+    "by_priority": {
+      "P0": 11,
+      "P1": 5,
+      "P2": 2
+    }
+  }
 }
