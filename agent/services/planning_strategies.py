@@ -38,6 +38,9 @@ class PlanningStrategyResult:
     parse_mode: str | None = None
     parse_confidence: str | None = None
     warnings: list[str] | None = None
+    output_shape: str | None = None
+    format_error_codes: list[str] | None = None
+    parser_trace: list[dict[str, Any]] | None = None
     prompt_version_id: str | None = None
     planning_profile: str | None = None
 
@@ -381,11 +384,17 @@ class LLMPlanningStrategy:
             parse_mode = str(parse_diag.get("parse_mode") or "parse_failed")
             parse_confidence = str(parse_diag.get("confidence") or "low")
             warnings = list(parse_diag.get("warnings") or [])
+            output_shape = str(parse_diag.get("output_shape") or "")
+            format_error_codes = [str(x) for x in list(parse_diag.get("format_error_codes") or [])]
+            parser_trace = [dict(x) for x in list(parse_diag.get("parser_trace") or []) if isinstance(x, dict)]
         else:
             subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
             parse_mode = "legacy_parser"
             parse_confidence = "low"
             warnings = []
+            output_shape = ""
+            format_error_codes = []
+            parser_trace = []
         fast_fail_empty = bool(planning_policy.get("fast_fail_on_empty_response", mode == "new_software_project"))
         if not subtasks and not (fast_fail_empty and not str(raw_response or "").strip()):
             for idx, strategy in enumerate(repair_strategies):
@@ -510,6 +519,9 @@ class LLMPlanningStrategy:
             parse_mode=parse_mode,
             parse_confidence=parse_confidence,
             warnings=warnings,
+            output_shape=output_shape,
+            format_error_codes=format_error_codes,
+            parser_trace=parser_trace,
             prompt_version_id=str(getattr(planner, "_resolved_planning_prompt_version_id", "") or ""),
             planning_profile=str(getattr(planner, "_resolved_planning_profile", "") or ""),
         )

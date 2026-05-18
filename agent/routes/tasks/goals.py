@@ -1,4 +1,5 @@
 import time
+import threading
 from typing import Any
 
 from flask import Blueprint, current_app, g, request
@@ -69,7 +70,7 @@ def _looks_like_software_goal(text: str) -> bool:
 
 def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
     status = str(getattr(goal, "status", "") or "").strip().lower()
-    if status != "planning":
+    if status not in {"planning", "planning_queued", "planning_running"}:
         return goal
     goal_id = str(getattr(goal, "id", "") or "").strip()
     if not goal_id:
@@ -519,20 +520,60 @@ def create_goal():
     )
     goal_record = _services().goal_lifecycle_service.transition_goal(
         goal_record,
-        target_status="planning",
-        reason="goal_accepted_for_planning",
+        target_status="planning_queued",
+        reason="goal_accepted_for_planning_queue",
         readiness=readiness,
     )
+    planning_context = {
+        "goal_text": goal_text,
+        "mode_context": mode_context,
+        "effective": effective,
+        "mode_id": mode_id,
+        "readiness": dict(readiness or {}),
+    }
+    thread = threading.Thread(
+        target=_run_goal_planning_background,
+        kwargs={"goal_id": goal_record.id, "context": planning_context},
+        daemon=True,
+        name=f"goal-planning-{goal_record.id[:8]}",
+    )
+    thread.start()
+    return api_response(
+        data={
+            "goal": _goal_service().serialize_goal(goal_record),
+            "planning_status": "queued",
+            "workflow": {
+                "defaults": defaults,
+                "overrides": overrides,
+                "effective": effective,
+                "provenance": provenance,
+            },
+            "readiness": readiness,
+        },
+        code=202,
+    )
 
+
+def _run_goal_planning_background(*, goal_id: str, context: dict[str, Any]) -> None:
+    goal_record = _repos().goal_repo.get_by_id(goal_id)
+    if not goal_record:
+        return
+    readiness = dict(context.get("readiness") or {})
+    goal_record = _services().goal_lifecycle_service.transition_goal(
+        goal_record,
+        target_status="planning_running",
+        reason="planning_background_started",
+        readiness=readiness,
+    )
     from agent.routes.tasks.auto_planner import auto_planner
 
     result = auto_planner.plan_goal(
-        goal=goal_text,
-        context=mode_context,
-        team_id=effective.get("routing", {}).get("team_id"),
-        create_tasks=bool(effective.get("planning", {}).get("create_tasks", True)),
-        use_template=bool(effective.get("planning", {}).get("use_template", True)),
-        use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
+        goal=str(context.get("goal_text") or goal_record.goal or ""),
+        context=context.get("mode_context"),
+        team_id=(context.get("effective") or {}).get("routing", {}).get("team_id"),
+        create_tasks=bool((context.get("effective") or {}).get("planning", {}).get("create_tasks", True)),
+        use_template=bool((context.get("effective") or {}).get("planning", {}).get("use_template", True)),
+        use_repo_context=bool((context.get("effective") or {}).get("planning", {}).get("use_repo_context", True)),
         goal_id=goal_record.id,
         goal_trace_id=goal_record.trace_id,
         mode=goal_record.mode,
@@ -542,7 +583,7 @@ def create_goal():
     current_app.logger.debug(f"plan result: {result}")
 
     if result.get("error"):
-        goal_record = _services().goal_lifecycle_service.transition_goal(
+        _services().goal_lifecycle_service.transition_goal(
             goal_record,
             target_status="failed",
             reason=str(result.get("error") or "planning_failed"),
@@ -556,26 +597,26 @@ def create_goal():
             trace_id=goal_record.trace_id,
             plan_id=result.get("plan_id"),
         )
-        return api_response(status="error", message=result["error"], code=400)
+        return
 
     created_task_ids = list(result.get("created_task_ids") or [])
     create_tasks_enabled = bool(effective.get("planning", {}).get("create_tasks", True))
     if (
         create_tasks_enabled
         and not created_task_ids
-        and mode_id == "generic"
-        and _looks_like_software_goal(goal_text)
+        and str(context.get("mode_id") or "generic") == "generic"
+        and _looks_like_software_goal(str(context.get("goal_text") or ""))
     ):
         retry_mode = "new_software_project"
         retry_mode_data = dict(goal_record.mode_data or {})
-        retry_mode_data.setdefault("project_idea", goal_text)
+        retry_mode_data.setdefault("project_idea", str(context.get("goal_text") or ""))
         retry_result = auto_planner.plan_goal(
-            goal=goal_text,
-            context=mode_context,
-            team_id=effective.get("routing", {}).get("team_id"),
+            goal=str(context.get("goal_text") or goal_record.goal or ""),
+            context=context.get("mode_context"),
+            team_id=(context.get("effective") or {}).get("routing", {}).get("team_id"),
             create_tasks=True,
-            use_template=bool(effective.get("planning", {}).get("use_template", True)),
-            use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
+            use_template=bool((context.get("effective") or {}).get("planning", {}).get("use_template", True)),
+            use_repo_context=bool((context.get("effective") or {}).get("planning", {}).get("use_repo_context", True)),
             goal_id=goal_record.id,
             goal_trace_id=goal_record.trace_id,
             mode=retry_mode,
@@ -586,7 +627,7 @@ def create_goal():
             created_task_ids = list(result.get("created_task_ids") or [])
 
     if create_tasks_enabled and not created_task_ids:
-        goal_record = _services().goal_lifecycle_service.transition_goal(
+        _services().goal_lifecycle_service.transition_goal(
             goal_record,
             target_status="failed",
             reason="planning_no_tasks_created",
@@ -600,9 +641,9 @@ def create_goal():
             trace_id=goal_record.trace_id,
             plan_id=result.get("plan_id"),
         )
-        return api_response(status="error", message="planning_no_tasks_created", code=400)
+        return
 
-    goal_record = _services().goal_lifecycle_service.transition_goal(
+    _services().goal_lifecycle_service.transition_goal(
         goal_record,
         target_status="planned",
         reason="planning_completed",
@@ -612,7 +653,7 @@ def create_goal():
     try:
         _services().autopilot_runtime_service.start(
             goal=goal_record.id,
-            team_id=effective.get("routing", {}).get("team_id"),
+            team_id=(context.get("effective") or {}).get("routing", {}).get("team_id"),
             interval_seconds=1,
             max_concurrency=1,
             security_level="balanced",
@@ -645,22 +686,4 @@ def create_goal():
         goal_id=goal_record.id,
         trace_id=goal_record.trace_id,
         plan_id=result.get("plan_id"),
-    )
-
-    return api_response(
-        data={
-            "goal": _goal_service().serialize_goal(goal_record),
-            "created_task_ids": result.get("created_task_ids", []),
-            "subtasks": result.get("subtasks", []),
-            "workflow": {
-                "defaults": defaults,
-                "overrides": overrides,
-                "effective": effective,
-                "provenance": provenance,
-            },
-            "readiness": readiness,
-            "plan_id": result.get("plan_id"),
-            "plan_node_ids": result.get("plan_node_ids", []),
-        },
-        code=201,
     )
