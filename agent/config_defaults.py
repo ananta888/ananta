@@ -545,6 +545,29 @@ def build_default_agent_config() -> dict:
             "segment_context_chars": 2400,
             "max_segments": 3,
             "preferred_output_format": "json",
+            "selective_repair_rounds": 2,
+            "validation_profiles": {
+                "new_software_project": {
+                    "min_total_tasks": 5,
+                    "required_categories": {
+                        "analysis": 1,
+                        "infrastructure": 1,
+                        "implementation": 1,
+                        "tests": 1,
+                        "review": 1,
+                    },
+                    "max_generic_tasks": 0,
+                },
+                "generic": {
+                    "min_total_tasks": 3,
+                    "required_categories": {"implementation": 1},
+                    "max_generic_tasks": 1,
+                },
+            },
+            "planner_prompt_evolution": {
+                "enabled": True,
+                "min_repair_attempts": 2,
+            },
             "default_runtime_profile": "lmstudio_laptop",
             "runtime_profiles": {
                 "lmstudio_laptop": {
