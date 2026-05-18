@@ -162,8 +162,20 @@ def _llm_cfg(provider: str, url: str, model: str) -> dict:
 #   "medium" – English prompt + 768 max tokens (balanced)
 #   ""/"off" – no overrides (use Hub defaults, German prompt)
 PLANNING_POLICIES = {
-    "small":  {"prompt_language": "en", "max_output_tokens": 512, "context_max_chars": 400},
-    "medium": {"prompt_language": "en", "max_output_tokens": 768, "context_max_chars": 600},
+    "small":  {
+        "prompt_language": "en",
+        "max_output_tokens": 512,
+        "context_max_chars": 400,
+        "unstructured_repair_attempts": 1,
+        "allow_non_llm_minimal_task_fallback": True,
+    },
+    "medium": {
+        "prompt_language": "en",
+        "max_output_tokens": 768,
+        "context_max_chars": 600,
+        "unstructured_repair_attempts": 1,
+        "allow_non_llm_minimal_task_fallback": True,
+    },
 }
 
 def _planning_patch(profile: str) -> dict:
@@ -232,6 +244,7 @@ python3 scripts/first_goal_acceptance_runner.py \
   --goal-text    "$GOAL_TEXT" \
   --workspace-root "$REPO_DIR/project-workspaces" \
   --out          "$OUT_FILE" \
+  --allow-planning-minimal-fallback-task \
   "${RESET_FLAGS[@]}"
 
 echo ""

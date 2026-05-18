@@ -189,13 +189,20 @@ class AutoPlanner:
                         llm_temperature = float(raw_temp) if raw_temp is not None else None
                     except (TypeError, ValueError):
                         llm_temperature = None
+                llm_timeout = self.llm_timeout
+                raw_timeout = llm_config.get("timeout")
+                if raw_timeout is not None:
+                    try:
+                        llm_timeout = max(5, min(int(raw_timeout), 120))
+                    except (TypeError, ValueError):
+                        llm_timeout = self.llm_timeout
                 llm_kwargs = {
                     "prompt": prompt,
                     "provider": llm_config.get("provider"),
                     "model": llm_config.get("model"),
                     "base_url": llm_config.get("base_url"),
                     "api_key": llm_config.get("api_key"),
-                    "timeout": self.llm_timeout,
+                    "timeout": llm_timeout,
                 }
                 if llm_temperature is not None:
                     llm_kwargs["temperature"] = llm_temperature

@@ -14,6 +14,8 @@ services:
       dockerfile: Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: ${ANANTA_QUICKSTART_MODE_HUB:-agent-only}
+      ROLE: hub
+      AGENT_NAME: ${ANANTA_HUB_ID:-ananta-hub}
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
       LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
