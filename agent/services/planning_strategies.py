@@ -9,6 +9,8 @@ from flask import current_app
 from agent.services.blueprint_planning_adapter import get_blueprint_planning_adapter
 from agent.services.execution_focused_planning import match_execution_focused_goal_template
 from agent.services.hub_llm_service import get_hub_llm_service
+from agent.services.planning_model_profile_service import get_planning_model_profile_service
+from agent.services.planning_prompt_registry import get_planning_prompt_registry
 from agent.services.planning_template_catalog import get_planning_template_catalog
 from agent.services.planning_utils import (
     build_planning_prompt,
@@ -34,7 +36,10 @@ class PlanningStrategyResult:
     repair_strategy_used: str | None = None
     repair_attempt_count: int = 0
     parse_mode: str | None = None
+    parse_confidence: str | None = None
     warnings: list[str] | None = None
+    prompt_version_id: str | None = None
+    planning_profile: str | None = None
 
 
 class PlannerLike(Protocol):
@@ -312,11 +317,34 @@ class LLMPlanningStrategy:
             resolved_context = mode_context.strip()
 
         # Configurable prompt language — "en" works better for small/embedded models
-        prompt_language = str(planning_policy.get("prompt_language") or "de").strip().lower()
-        if prompt_language == "en":
-            prompt = build_planning_prompt_en(goal, resolved_context, planner.max_subtasks_per_goal)
-        else:
-            prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
+        llm_cfg = dict(scoped_cfg.get("llm_config") or {})
+        profile = get_planning_model_profile_service().resolve_profile(
+            provider=llm_cfg.get("provider"),
+            model_name=llm_cfg.get("model"),
+            explicit_profile=(planning_policy.get("planning_profile") or None),
+        )
+        prompt_language = str(
+            planning_policy.get("prompt_language")
+            or profile.get("prompt_language")
+            or ("en" if bool(profile.get("requires_english_prompt")) else "de")
+        ).strip().lower()
+        prompt_mode = str(mode or "generic").strip() or "generic"
+        resolved_prompt = get_planning_prompt_registry().resolve(
+            goal=goal,
+            context=resolved_context,
+            mode=prompt_mode,
+            language=prompt_language,
+            model_family=profile.get("model_family"),
+        )
+        prompt = str(resolved_prompt.prompt or "")
+        if not prompt:
+            if prompt_language == "en":
+                prompt = build_planning_prompt_en(goal, resolved_context, planner.max_subtasks_per_goal)
+            else:
+                prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
+        setattr(planner, "_resolved_planning_prompt_version_id", str(resolved_prompt.prompt_version_id or ""))
+        setattr(planner, "_resolved_planning_profile", str(profile.get("profile_name") or ""))
+        setattr(planner, "_resolved_planning_prompt_language", prompt_language)
 
         repair_attempts = self._safe_int(
             planning_policy.get("unstructured_repair_attempts", 3) or 3,
@@ -325,10 +353,12 @@ class LLMPlanningStrategy:
             maximum=6,
         )
         repair_strategies = self._resolve_repair_strategies(planning_policy, repair_attempts=repair_attempts)
-        llm_config = dict(scoped_cfg.get("llm_config") or {})
+        llm_config = llm_cfg
 
         # Configurable max_output_tokens for planning — reduces empty responses from small models
         policy_max_tokens = planning_policy.get("max_output_tokens")
+        if not policy_max_tokens:
+            policy_max_tokens = profile.get("max_output_tokens")
         if policy_max_tokens and "max_output_tokens" not in llm_config:
             llm_config = {
                 **llm_config,
@@ -349,10 +379,12 @@ class LLMPlanningStrategy:
         if callable(parse_subtasks_with_diagnostics):
             subtasks, parse_diag = parse_subtasks_with_diagnostics(raw_response, default_priority=planner.default_priority)
             parse_mode = str(parse_diag.get("parse_mode") or "parse_failed")
+            parse_confidence = str(parse_diag.get("confidence") or "low")
             warnings = list(parse_diag.get("warnings") or [])
         else:
             subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
             parse_mode = "legacy_parser"
+            parse_confidence = "low"
             warnings = []
         fast_fail_empty = bool(planning_policy.get("fast_fail_on_empty_response", mode == "new_software_project"))
         if not subtasks and not (fast_fail_empty and not str(raw_response or "").strip()):
@@ -476,7 +508,10 @@ class LLMPlanningStrategy:
             repair_strategy_used=repair_strategy_used,
             repair_attempt_count=repair_attempt_count,
             parse_mode=parse_mode,
+            parse_confidence=parse_confidence,
             warnings=warnings,
+            prompt_version_id=str(getattr(planner, "_resolved_planning_prompt_version_id", "") or ""),
+            planning_profile=str(getattr(planner, "_resolved_planning_profile", "") or ""),
         )
 
 

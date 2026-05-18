@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "planning_prompt_version.v1",
+  "type": "object",
+  "required": ["version", "language", "mode", "user_prompt_template", "checksum"],
+  "properties": {
+    "id": {"type": "string"},
+    "version": {"type": "string"},
+    "language": {"type": "string", "enum": ["de", "en"]},
+    "target_model_family": {"type": ["string", "null"]},
+    "mode": {"type": "string"},
+    "output_contract": {"type": "object"},
+    "system_rules": {"type": "array", "items": {"type": "string"}},
+    "user_prompt_template": {"type": "string"},
+    "repair_prompt_template": {"type": ["string", "null"]},
+    "checksum": {"type": "string"},
+    "enabled": {"type": "boolean"}
+  }
+}

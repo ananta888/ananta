@@ -399,6 +399,132 @@ class PlanNodeDB(SQLModel, table=True):
     updated_at: float = Field(default_factory=time.time)
 
 
+class PlanningRunDB(SQLModel, table=True):
+    __tablename__ = "planning_runs"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    trace_id: Optional[str] = Field(default=None, index=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    goal_text_hash: Optional[str] = None
+    goal_text_preview: Optional[str] = None
+    mode: str = Field(default="generic", index=True)
+    mode_data: dict = Field(default={}, sa_column=Column(JSON))
+    model_provider: Optional[str] = Field(default=None, index=True)
+    model_name: Optional[str] = Field(default=None, index=True)
+    model_base_url_hash: Optional[str] = None
+    planning_profile: Optional[str] = Field(default=None, index=True)
+    prompt_version_id: Optional[str] = Field(default=None, index=True)
+    prompt_language: Optional[str] = None
+    context_policy_ref: Optional[str] = None
+    context_char_count: int = 0
+    raw_output_ref: Optional[str] = None
+    raw_output_preview: Optional[str] = None
+    parse_mode: Optional[str] = None
+    parse_confidence: Optional[str] = None
+    parse_warnings: list[str] = Field(default=[], sa_column=Column(JSON))
+    repair_needed: bool = False
+    repair_success: bool = False
+    repair_strategy_used: Optional[str] = None
+    repair_attempt_count: int = 0
+    validation_success: bool = False
+    validation_errors: list[str] = Field(default=[], sa_column=Column(JSON))
+    generated_task_count: int = 0
+    expected_artifacts_count: int = 0
+    verification_spec_count: int = 0
+    dependency_mode_distribution: dict = Field(default={}, sa_column=Column(JSON))
+    materialized_task_ids: list[str] = Field(default=[], sa_column=Column(JSON))
+    status: str = Field(default="started", index=True)
+    error_classification: Optional[str] = None
+    created_at: float = Field(default_factory=time.time, index=True)
+    updated_at: float = Field(default_factory=time.time, index=True)
+
+
+class PlanningPromptVersionDB(SQLModel, table=True):
+    __tablename__ = "planning_prompt_versions"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    version: str = Field(index=True)
+    language: str = Field(default="de", index=True)
+    target_model_family: Optional[str] = Field(default=None, index=True)
+    mode: str = Field(default="generic", index=True)
+    output_contract: dict = Field(default={}, sa_column=Column(JSON))
+    system_rules: list[str] = Field(default=[], sa_column=Column(JSON))
+    user_prompt_template: str
+    repair_prompt_template: Optional[str] = None
+    checksum: str = Field(index=True)
+    enabled: bool = True
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class PlanningModelProfileDB(SQLModel, table=True):
+    __tablename__ = "planning_model_profiles"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    provider: str = Field(index=True)
+    model_name_pattern: Optional[str] = Field(default=None, index=True)
+    model_family: Optional[str] = Field(default=None, index=True)
+    profile_name: str = Field(index=True)
+    prompt_language: str = "de"
+    context_max_chars: int = 1200
+    max_output_tokens: int = 1024
+    temperature: float = 0.2
+    repair_attempts: int = 2
+    repair_strategies: list[dict] = Field(default=[], sa_column=Column(JSON))
+    preferred_prompt_version_id: Optional[str] = None
+    output_contract_strictness: str = "repair_required"
+    supports_json_mode: bool = False
+    requires_english_prompt: bool = False
+    notes: Optional[str] = None
+    enabled: bool = True
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class PlanningEvaluationDB(SQLModel, table=True):
+    __tablename__ = "planning_evaluations"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    planning_run_id: Optional[str] = Field(default=None, index=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    trace_id: Optional[str] = Field(default=None, index=True)
+    parse_score: float = 0.0
+    validation_score: float = 0.0
+    materialization_score: float = 0.0
+    execution_score: float = 0.0
+    artifact_score: float = 0.0
+    verification_score: float = 0.0
+    total_score: float = 0.0
+    completion_status: str = Field(default="pending", index=True)
+    failure_reason: Optional[str] = None
+    details: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class PlanningTemplateCandidateDB(SQLModel, table=True):
+    __tablename__ = "planning_template_candidates"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    source_run_id: Optional[str] = Field(default=None, index=True)
+    goal_type: Optional[str] = Field(default=None, index=True)
+    mode: str = Field(default="generic", index=True)
+    candidate_payload: dict = Field(default={}, sa_column=Column(JSON))
+    confidence: str = Field(default="low", index=True)
+    status: str = Field(default="proposed", index=True)
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class PlanningPatternClusterDB(SQLModel, table=True):
+    __tablename__ = "planning_pattern_clusters"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    goal_type: Optional[str] = Field(default=None, index=True)
+    model_provider: Optional[str] = Field(default=None, index=True)
+    model_name: Optional[str] = Field(default=None, index=True)
+    cluster_key: str = Field(index=True)
+    cluster_payload: dict = Field(default={}, sa_column=Column(JSON))
+    sample_count: int = 0
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
 class TaskDB(SQLModel, table=True):
     __tablename__ = "tasks"
     id: str = Field(primary_key=True)

@@ -36,6 +36,12 @@ from agent.repository import (
     refresh_token_repo,
     retrieval_run_repo,
     role_repo,
+    planning_evaluation_repo,
+    planning_model_profile_repo,
+    planning_pattern_cluster_repo,
+    planning_prompt_version_repo,
+    planning_run_repo,
+    planning_template_candidate_repo,
     scheduled_task_repo,
     stats_repo,
     task_repo,
@@ -100,6 +106,12 @@ class RepositoryRegistry:
     verification_record_repo: object
     worker_job_repo: object
     worker_result_repo: object
+    planning_run_repo: object
+    planning_prompt_version_repo: object
+    planning_model_profile_repo: object
+    planning_evaluation_repo: object
+    planning_template_candidate_repo: object
+    planning_pattern_cluster_repo: object
 
 
 def build_repository_registry() -> RepositoryRegistry:
@@ -149,6 +161,12 @@ def build_repository_registry() -> RepositoryRegistry:
         verification_record_repo=verification_record_repo,
         worker_job_repo=worker_job_repo,
         worker_result_repo=worker_result_repo,
+        planning_run_repo=planning_run_repo,
+        planning_prompt_version_repo=planning_prompt_version_repo,
+        planning_model_profile_repo=planning_model_profile_repo,
+        planning_evaluation_repo=planning_evaluation_repo,
+        planning_template_candidate_repo=planning_template_candidate_repo,
+        planning_pattern_cluster_repo=planning_pattern_cluster_repo,
     )
 
 
