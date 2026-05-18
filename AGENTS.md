@@ -261,6 +261,64 @@ The hub continues to manage:
 
 ---
 
+# Commit Messages for Agents
+
+Agents must follow the same commit conventions as human contributors. See `CONTRIBUTING.md` for the full format.
+
+**Key rules for agents:**
+
+- Derive `type` and `scope` from the actual files changed, not from what was planned.
+- `scope` must name the subsystem touched: `goal-config`, `autopilot`, `worker`, `llm`, `profiles`, `runner`, `modelfile`, `ctx`, etc.
+- Never use `fixup planning`, `update code`, `wip`, or any generic placeholder as a commit message.
+- A session that produces multiple logically separate changes → multiple commits, each with its own scope.
+- Local fixup commits during planning are acceptable, but must be squashed before the final commit. After completing a session, check `git log --oneline` — no `fixup`/`wip` subjects should remain.
+- Never use `--no-verify` to bypass hooks unless explicitly requested by the user.
+- Never amend a commit that has already been pushed unless explicitly requested.
+
+**Derive scope like this:**
+
+| Files changed | Scope |
+|---------------|-------|
+| `agent/services/goal_config_*` | `goal-config` |
+| `agent/services/config_profile_*` | `profiles` |
+| `scripts/ollama-autoimport.sh`, `autoimport-state/modelfiles/` | `modelfile` |
+| `agent/llm_integration.py`, `agent/services/task_scoped_execution*` | `llm` |
+| `agent/routes/tasks/goals.py` | `goal-config` or `api` |
+| `tests/` only | `test` as type, scope from the tested subsystem |
+| `AGENTS.md`, `CONTRIBUTING.md`, `docs/` | `docs` |
+| `OLLAMA_NUM_CTX`, container config | `ctx` |
+
+---
+
+# Output Boundary for Agents
+
+Before running `git add`, check each file against this table:
+
+| Path / Glob | Category | Commit? |
+|-------------|----------|---------|
+| `agent/`, `tests/`, `scripts/`, `docs/` | Source | Yes |
+| `AGENTS.md`, `CONTRIBUTING.md`, `README.md` | Source | Yes |
+| `docker-compose*.yml`, `.env.example` | Source | Yes |
+| `todo.*.json` | Source | Yes |
+| `autoimport-state/modelfiles/ananta-default.Modelfile` | Source (template) | Yes |
+| `autoimport-state/modelfiles/ananta-smoke.Modelfile` | Source (template) | Yes |
+| `autoimport-state/modelfiles/<other>.Modelfile` | Runtime (script-generated) | No |
+| `autoimport-state/hash/**` | Runtime | No |
+| `autoimport-state/logs/**` | Runtime | No |
+| `artifacts/*.json` | Runtime | No |
+| `project-workspaces/**` | Runtime | No |
+| `*.log` | Runtime | No |
+| `data/**` | Runtime | No |
+| `.env` | Secret | Never |
+| `tests/fixtures/reports/*` | Fixture | Only if explicit |
+| `tests/fixtures/artifacts/*` | Fixture | Only if explicit |
+
+Fixtures require an explicit reason in the commit body. When in doubt, do not commit.
+
+**Never use `git add .` or `git add -A`** without first reviewing `git status`. Stage files by name.
+
+---
+
 # Development Guidance for Agents
 
 When generating code or tasks:
