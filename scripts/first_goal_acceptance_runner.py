@@ -155,6 +155,49 @@ class AcceptanceRunner:
     def _get_goal_detail(self, goal_id: str) -> dict[str, Any]:
         return dict(self._get_json_with_retry(f"{self.base_url}/goals/{goal_id}/detail").get("data") or {})
 
+    def _default_worker_registration_payloads(self) -> list[dict[str, Any]]:
+        raw = str(os.getenv("ACCEPTANCE_WORKERS_JSON") or "").strip()
+        if raw:
+            try:
+                data = json.loads(raw)
+                if isinstance(data, list):
+                    return [dict(item) for item in data if isinstance(item, dict)]
+            except Exception:
+                pass
+        caps = ["planning", "analysis", "research", "coding", "implementation", "review", "testing", "verification"]
+        return [
+            {"name": "ananta-worker-1", "url": "http://ananta-ai-agent-alpha-1:5000", "role": "worker", "capabilities": caps, "token": ""},
+            {"name": "ananta-worker-2", "url": "http://ananta-ai-agent-beta-1:5000", "role": "worker", "capabilities": caps, "token": ""},
+        ]
+
+    def ensure_workers_ready(self, *, min_workers: int = 1, timeout_s: int = 60) -> None:
+        for payload in self._default_worker_registration_payloads():
+            try:
+                self._post_json_with_retry(f"{self.base_url}/register", payload=payload, timeout=10, retries=1)
+            except Exception:
+                pass
+        deadline = time.time() + max(5, int(timeout_s))
+        while time.time() < deadline:
+            try:
+                agents_payload = self._get_json_with_retry(f"{self.base_url}/agents", timeout=10, retries=1)
+                agents = agents_payload.get("data")
+                workers = [
+                    item
+                    for item in (agents if isinstance(agents, list) else [])
+                    if isinstance(item, dict) and str(item.get("role") or "").strip().lower() == "worker"
+                ]
+                ready = [
+                    w for w in workers
+                    if bool(w.get("available_for_routing"))
+                    and str((w.get("liveness") or {}).get("status") or w.get("status") or "").strip().lower() in {"online", "degraded"}
+                ]
+                if len(ready) >= int(min_workers):
+                    return
+            except Exception:
+                pass
+            time.sleep(2)
+        raise RuntimeError(f"worker_preflight_failed: fewer than {min_workers} reachable workers via hub")
+
     def _get_task(self, task_id: str) -> dict[str, Any]:
         return dict(self._get_json_with_retry(f"{self.base_url}/tasks/{task_id}").get("data") or {})
     
@@ -437,6 +480,7 @@ def run_once(
         config_profile=config_profile,
         ci_safe_mode=ci_safe,
     )
+    runner.ensure_workers_ready(min_workers=1, timeout_s=90)
     output_dir = f"first-goal-run-{run_index}-{uuid.uuid4().hex[:6]}"
     run_trace_id = f"acc-{run_index}-{uuid.uuid4().hex[:10]}"
     report.output_dir = output_dir
