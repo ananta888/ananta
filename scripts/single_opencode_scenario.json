@@ -1,0 +1,31 @@
+{
+  "scenarios": [
+    {
+      "id": "opencode_preconfigured",
+      "label": "OpenCode Worker + Preconfigured (Hub-Config)",
+      "config_profile": "opencode_preconfigured",
+      "config_overrides": {
+        "sgpt_routing": {
+          "task_kind_backend": {
+            "coding": "opencode",
+            "analysis": "opencode",
+            "doc": "opencode",
+            "ops": "opencode",
+            "research": "opencode"
+          }
+        }
+      },
+      "config_patch": {
+        "sgpt_routing": {
+          "task_kind_backend": {
+            "coding": "opencode",
+            "analysis": "opencode",
+            "doc": "opencode",
+            "ops": "opencode",
+            "research": "opencode"
+          }
+        }
+      }
+    }
+  ]
+}

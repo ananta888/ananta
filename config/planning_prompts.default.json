@@ -39,7 +39,6 @@
       "user_prompt_template": "Plan a new software project. Return a JSON array of tasks.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nEach task JSON object:\n{{\n  \"title\": \"<max 8 words>\",\n  \"description\": \"<concrete action naming a file, command, or artifact>\",\n  \"task_kind\": \"<analysis|coding|testing|ops|review>\",\n  \"priority\": \"<High|Medium|Low>\"\n}}\n\nRequired task_kind coverage:\n- At least 1x analysis (requirement/design)\n- At least 1x ops (setup/infrastructure/dependencies)\n- At least 2x coding (implement features/API/logic)\n- At least 1x testing (write and run tests)\n- At least 1x review (documentation/final check)\n\nRules:\n- Max 8 tasks total.\n- No generic tasks — every description must name a concrete file, endpoint, or command.\n- Preferred output: {preferred_output_format}.\n\n{domain_hints_block}\n\nReturn JSON array only. No explanation.",
       "repair_prompt_template": "Add missing task_kind fields. Required: analysis, ops, coding, testing, review. Concretize vague descriptions for goal: {goal}",
       "enabled": true
-    },
-
+    }
   ]
 }
