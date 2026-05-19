@@ -676,18 +676,12 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
     overrides = dict(getattr(goal_record, "workflow_overrides", None) or {})
 
     planning_timeout_s = int(
-        max(
-            30,
-            min(
-                int(((effective.get("planning_policy") or {}).get("timeout_seconds") or 120) * 2),
-                180,
-            ),
-        )
+        max(30, (effective.get("planning_policy") or {}).get("timeout_seconds") or 300)
     )
     _start_planning_deadline_guard(
         goal_id=goal_record.id,
         app=current_app._get_current_object(),
-        timeout_s=min(300, max(45, planning_timeout_s + 15)),
+        timeout_s=max(60, planning_timeout_s + 30),
     )
     try:
         app_obj = current_app._get_current_object()
