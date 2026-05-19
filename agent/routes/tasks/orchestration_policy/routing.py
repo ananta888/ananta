@@ -174,7 +174,9 @@ def build_dispatch_queue(tasks: list[dict]) -> list[dict]:
     dispatchable = []
     for task in tasks:
         status = str(task.get("status") or "").lower()
-        if status not in {"todo", "assigned", "blocked", "created"}:
+        # `assigned` is intentionally excluded to prevent repeated re-dispatch
+        # storms for already handed-off tasks.
+        if status not in {"todo", "blocked", "created"}:
             continue
         dispatchable.append(task)
     dispatchable.sort(
