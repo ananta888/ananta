@@ -33,6 +33,8 @@ _ALLOWED_TOP_LEVEL_KEYS = ALLOWED_GOAL_CONFIG_KEYS
 _SECRET_KEY_MARKERS = ("key", "token", "secret", "password", "authorization", "credential", "bearer")
 _NON_SECRET_KEY_EXCEPTIONS: frozenset[str] = frozenset({
     "max_output_tokens",
+    "max_tokens_per_request",
+    "chars_per_token_estimate",
 })
 
 
