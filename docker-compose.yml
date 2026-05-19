@@ -46,7 +46,7 @@ services:
 
   ai-agent-hub:
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
       EVOLVER_ENABLED: ${EVOLVER_ENABLED:-0}
       EVOLVER_BASE_URL: ${EVOLVER_BASE_URL:-http://evolver:8080}
       EVOLVER_ANALYZE_PATH: ${EVOLVER_ANALYZE_PATH:-/evolution/analyze}
@@ -83,7 +83,7 @@ services:
 
   ai-agent-alpha:
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
       ANANTA_WORKSPACE_ROOT: /project-workspaces
     deploy:
       resources:
@@ -98,7 +98,7 @@ services:
 
   ai-agent-beta:
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
       ANANTA_WORKSPACE_ROOT: /project-workspaces
     deploy:
       resources:
