@@ -572,12 +572,22 @@ def build_default_agent_config() -> dict:
             "runtime_profiles": {
                 "lmstudio_laptop": {
                     "timeout_seconds": 300,
-                    "max_output_tokens": 384,
+                    "max_output_tokens": 1500,
                     "retry_attempts": 2,
                     "retry_backoff_seconds": 1.0,
                     "segmented_planning_enabled": True,
                     "segment_context_chars": 2000,
                     "max_segments": 4,
+                    "preferred_output_format": "json",
+                },
+                "lmstudio_laptop_thinking": {
+                    "timeout_seconds": 300,
+                    "max_output_tokens": 4000,
+                    "retry_attempts": 1,
+                    "retry_backoff_seconds": 2.0,
+                    "segmented_planning_enabled": False,
+                    "segment_context_chars": 2000,
+                    "max_segments": 1,
                     "preferred_output_format": "json",
                 },
                 "ollama_rtx3080": {

@@ -118,6 +118,27 @@ class LMStudioStrategy(LLMStrategy):
             return result, {}
         return "", {}
 
+    @staticmethod
+    def _resolve_thinking_param() -> dict | None:
+        """Return the thinking control parameter for the current request context.
+
+        Reads LMSTUDIO_THINKING_MODE from the environment:
+          - "disabled" (default): pass thinking={"type":"disabled"} — fast, direct output
+          - "enabled": no thinking param — model reasons freely, needs high max_tokens
+          - "budget:<n>": pass budget_tokens=n (supported by some LMStudio versions)
+        """
+        import os
+        mode = os.environ.get("LMSTUDIO_THINKING_MODE", "disabled").strip().lower()
+        if mode == "enabled":
+            return None
+        if mode.startswith("budget:"):
+            try:
+                n = int(mode.split(":", 1)[1])
+                return {"budget_tokens": n}
+            except (ValueError, IndexError):
+                pass
+        return {"thinking": {"type": "disabled"}}
+
     def _call_with_model(
         self,
         model_id,
@@ -149,6 +170,9 @@ class LMStudioStrategy(LLMStrategy):
                 "max_tokens": max_tokens,
                 "temperature": temp,
             }
+            thinking_param = self._resolve_thinking_param()
+            if thinking_param:
+                payload.update(thinking_param)
             if tools:
                 payload["tools"] = tools
                 if tool_choice:

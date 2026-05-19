@@ -11,6 +11,16 @@
       "enabled": true
     },
     {
+      "version": "v4-generic-en",
+      "language": "en",
+      "mode": "generic",
+      "output_contract": {"format": "structured", "max_nodes": 12, "requires": ["task_kind"]},
+      "system_rules": ["no_sudo", "structured_only"],
+      "user_prompt_template": "You are a planning assistant. Create concrete executable tasks for the goal.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nEach task must be a JSON object with these fields:\n- \"title\": short and specific (max 8 words)\n- \"description\": concrete action naming a file, command, endpoint, or artifact\n- \"task_kind\": one of \"analysis\" | \"coding\" | \"testing\" | \"ops\" | \"review\" | \"doc\"\n- \"priority\": \"High\" | \"Medium\" | \"Low\"\n\nRules:\n1) No umbrella tasks — each task has exactly one concrete deliverable.\n2) Descriptions must include keywords like: implement, run, create, test, file, endpoint, command, artifact.\n3) For software goals: include at least one coding task and one testing task.\n4) Max 8 tasks. Preferred output format: {preferred_output_format}.\n\n{domain_hints_block}\n\nReturn JSON array only. No explanation.",
+      "repair_prompt_template": "Repair missing task_kind fields and concretize vague descriptions. Keep structure for goal: {goal}",
+      "enabled": true
+    },
+    {
       "version": "v3-new-software-project-en",
       "language": "en",
       "mode": "new_software_project",
@@ -18,6 +28,16 @@
       "system_rules": ["structured_only", "execution_path_required"],
       "user_prompt_template": "Plan a new software project into concrete executable tasks.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nRules:\n1) Include setup, implementation, execution, verification, summary coverage.\n2) Avoid generic catch-all tasks.\n3) Include at least one code-change task and one verification task.\n4) Keep fields short; include explicit expected outputs.\n5) Preferred output format: {preferred_output_format}.\n\nDynamic domain hints (apply only if relevant):\n{domain_hints_block}\n\nReturn structured output only.",
       "repair_prompt_template": "Selective repair only: add missing categories and concretize generic tasks for goal: {goal}",
+      "enabled": true
+    },
+    {
+      "version": "v4-new-software-project-en",
+      "language": "en",
+      "mode": "new_software_project",
+      "output_contract": {"format": "structured", "max_nodes": 10, "requires": ["task_kind", "priority"]},
+      "system_rules": ["structured_only", "execution_path_required"],
+      "user_prompt_template": "Plan a new software project. Return a JSON array of tasks.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nEach task JSON object:\n{\n  \"title\": \"<max 8 words>\",\n  \"description\": \"<concrete action naming a file, command, or artifact>\",\n  \"task_kind\": \"<analysis|coding|testing|ops|review>\",\n  \"priority\": \"<High|Medium|Low>\"\n}\n\nRequired task_kind coverage:\n- At least 1x analysis (requirement/design)\n- At least 1x ops (setup/infrastructure/dependencies)\n- At least 2x coding (implement features/API/logic)\n- At least 1x testing (write and run tests)\n- At least 1x review (documentation/final check)\n\nRules:\n- Max 8 tasks total.\n- No generic tasks — every description must name a concrete file, endpoint, or command.\n- Preferred output: {preferred_output_format}.\n\n{domain_hints_block}\n\nReturn JSON array only. No explanation.",
+      "repair_prompt_template": "Add missing task_kind fields. Required: analysis, ops, coding, testing, review. Concretize vague descriptions for goal: {goal}",
       "enabled": true
     },
     {
@@ -29,6 +49,17 @@
       "system_rules": ["structured_only", "compact_fields"],
       "user_prompt_template": "Create a compact, concrete software-project task plan.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nRules:\n- Cover setup, implementation, execution, verification, summary.\n- No generic tasks.\n- Short title and short description only.\n- Preferred output format: {preferred_output_format}.\n\nDynamic domain hints (apply only if relevant):\n{domain_hints_block}\n\nReturn structured output only.",
       "repair_prompt_template": "Selective repair for compact structured plan: fill missing categories, replace generic tasks, keep short fields for goal: {goal}",
+      "enabled": true
+    },
+    {
+      "version": "v4-gemma-generic-en",
+      "language": "en",
+      "target_model_family": "gemma",
+      "mode": "generic",
+      "output_contract": {"format": "structured", "max_nodes": 8, "requires": ["task_kind"]},
+      "system_rules": ["structured_only", "compact_fields"],
+      "user_prompt_template": "Plan tasks for the goal. Return JSON array.\n\nGOAL: {goal}\n\nEach item: {\"title\":\"short\",\"description\":\"concrete action with file/command/endpoint\",\"task_kind\":\"analysis|coding|testing|ops|review\",\"priority\":\"High|Medium|Low\"}\n\nRules:\n- Max 8 tasks. No generic tasks.\n- For software: include coding task and testing task.\n- Preferred format: {preferred_output_format}.\n\n{domain_hints_block}\n\nReturn JSON array only.",
+      "repair_prompt_template": "Fix missing task_kind and vague descriptions for goal: {goal}",
       "enabled": true
     }
   ]
