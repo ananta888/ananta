@@ -200,7 +200,7 @@ class AcceptanceRunner:
 
     def _get_task(self, task_id: str) -> dict[str, Any]:
         return dict(self._get_json_with_retry(f"{self.base_url}/tasks/{task_id}").get("data") or {})
-    
+
     def _get_goal_plan(self, goal_id: str) -> dict[str, Any]:
         try:
             return dict(self._get_json_with_retry(f"{self.base_url}/goals/{goal_id}/plan").get("data") or {})
@@ -252,7 +252,7 @@ class AcceptanceRunner:
         payload = {
             "goal": goal_text,
             "mode": "new_software_project",
-            "mode_data": {"project_idea": "RTX3080 eGPU utilization optimization python project"},
+            "mode_data": {"project_idea": "Create a real multi-file Python Backend project for Fibonacci calculation; write README, src package, tests, run pytest, store report artifact"},
             # LLM-only planning path for acceptance diagnostics.
             "use_template": False,
             "context": f"acceptance_runner_trace_id={run_trace_id}",

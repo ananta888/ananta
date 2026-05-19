@@ -152,3 +152,4 @@ scripts/dyndns.conf
 /autoimport-state/hash/
 /autoimport-state/logs/
 /autoimport-state/modelfiles/[!a]*.Modelfile
+/data/
