@@ -724,7 +724,7 @@ def main() -> int:
     p.add_argument("--config-mode", choices=["legacy_global_config", "goal_scoped"], default="goal_scoped")
     p.add_argument("--sla-seconds", type=int, default=900)
     p.add_argument("--poll-seconds", type=float, default=5.0)
-    p.add_argument("--goal-text", default="Create a real multi-file Python project for RTX3080 eGPU utilization optimization; write README, src package, tests, run pytest, store report artifact")
+    p.add_argument("--goal-text", default="Create a small Fibonacci REST API in Python: Flask app with /fib/<n> endpoint, Dockerfile, docker-compose.yml, and pytest tests; run tests and store report artifact")
     p.add_argument("--workspace-root", default=str(Path.cwd() / "project-workspaces"))
     p.add_argument("--out", default=str(Path("artifacts") / "first_goal_acceptance_report.json"))
     p.add_argument(
