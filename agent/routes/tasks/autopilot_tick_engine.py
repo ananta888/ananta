@@ -1539,6 +1539,15 @@ def execute_autopilot_tick(
             return {"dispatched": 0, "reason": guardrail_reason}
 
     goal_scope = str(getattr(loop, "goal", "") or "").strip() or None
+    if goal_scope:
+        repos = get_repository_registry(loop._app)
+        goal = repos.goal_repo.get_by_id(goal_scope)
+        goal_status = str(getattr(goal, "status", "") or "").strip().lower() if goal else ""
+        if goal_status in {"completed", "failed", "cancelled", "aborted", "timeout"}:
+            loop.last_tick_at = time.time()
+            loop.tick_count += 1
+            loop._persist_state(enabled=loop.running)
+            return {"dispatched": 0, "reason": f"goal_terminal_{goal_status}"}
 
     total_tasks_unfiltered = len(services.autopilot_support_service.scoped_tasks(team_id=None, app=loop._app))
     all_tasks = services.autopilot_support_service.scoped_tasks(team_id=loop.team_id or None, app=loop._app)

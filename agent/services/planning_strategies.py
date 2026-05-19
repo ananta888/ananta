@@ -15,7 +15,6 @@ from agent.services.planning_domain_hints_service import get_planning_domain_hin
 from agent.services.planning_prompt_registry import get_planning_prompt_registry
 from agent.services.planning_template_catalog import get_planning_template_catalog
 from agent.services.planning_utils import (
-    build_planning_prompt,
     build_planning_prompt_en,
     parse_subtasks_from_llm_response,
     try_load_repo_context,
@@ -244,6 +243,13 @@ class LLMPlanningStrategy:
         resolved_context: str | None,
         llm_config: dict[str, Any],
         planning_policy: dict[str, Any],
+        prompt_mode: str,
+        prompt_language: str,
+        model_family: str | None,
+        preferred_prompt_version_id: str | None,
+        preferred_output_format: str,
+        domain_hints: list[str],
+        behavior_profile: dict[str, Any] | None,
     ) -> tuple[list[dict[str, Any]], str, str] | None:
         if not bool(planning_policy.get("segmented_planning_enabled", False)):
             return None
@@ -258,11 +264,24 @@ class LLMPlanningStrategy:
         seen_titles: set[str] = set()
         per_segment_budget = max(2, planner.max_subtasks_per_goal // len(segments))
         for index, segment in enumerate(segments, start=1):
-            prompt = build_planning_prompt(
+            resolved_prompt = get_planning_prompt_registry().resolve(
                 goal=f"{goal}\n\nSegment {index}/{len(segments)}. Focus only on this segment and avoid duplicates.",
                 context=segment,
-                max_subtasks=per_segment_budget,
+                mode=prompt_mode,
+                language=prompt_language,
+                model_family=model_family,
+                preferred_prompt_version_id=preferred_prompt_version_id,
+                preferred_output_format=preferred_output_format,
+                domain_hints=domain_hints,
+                behavior_profile=behavior_profile,
             )
+            prompt = str(resolved_prompt.prompt or "")
+            if not prompt:
+                prompt = build_planning_prompt_en(
+                    goal=f"{goal}\n\nSegment {index}/{len(segments)}. Focus only on this segment and avoid duplicates.",
+                    context=segment,
+                    max_tasks=per_segment_budget,
+                )
             response = planner._call_llm_with_retry(prompt, llm_config, temperature=0.1)
             raw_parts.append(str(response or ""))
             parsed = parse_subtasks_from_llm_response(response, default_priority=planner.default_priority)
@@ -465,6 +484,16 @@ class LLMPlanningStrategy:
             or ("en" if bool(profile.get("requires_english_prompt")) else "de")
         ).strip().lower()
         prompt_mode = str(mode or "generic").strip() or "generic"
+        behavior_profile = get_model_response_behavior_profile_service().resolve(
+            provider=llm_cfg.get("provider"),
+            model_name=llm_cfg.get("model"),
+        )
+        domain_hints = get_planning_domain_hints_service().derive_hints(
+            goal=goal,
+            mode=prompt_mode,
+            team_id=team_id,
+            planning_policy=planning_policy,
+        )
         resolved_prompt = get_planning_prompt_registry().resolve(
             goal=goal,
             context=resolved_context,
@@ -473,16 +502,8 @@ class LLMPlanningStrategy:
             model_family=profile.get("model_family"),
             preferred_prompt_version_id=profile.get("preferred_prompt_version_id"),
             preferred_output_format=preferred_output_format,
-            domain_hints=get_planning_domain_hints_service().derive_hints(
-                goal=goal,
-                mode=prompt_mode,
-                team_id=team_id,
-                planning_policy=planning_policy,
-            ),
-            behavior_profile=get_model_response_behavior_profile_service().resolve(
-                provider=llm_cfg.get("provider"),
-                model_name=llm_cfg.get("model"),
-            ),
+            domain_hints=domain_hints,
+            behavior_profile=behavior_profile,
         )
         prompt = str(resolved_prompt.prompt or "")
         if not prompt:
@@ -526,6 +547,13 @@ class LLMPlanningStrategy:
             resolved_context=resolved_context,
             llm_config=llm_config,
             planning_policy=planning_policy,
+            prompt_mode=prompt_mode,
+            prompt_language=prompt_language,
+            model_family=profile.get("model_family"),
+            preferred_prompt_version_id=profile.get("preferred_prompt_version_id"),
+            preferred_output_format=preferred_output_format,
+            domain_hints=domain_hints,
+            behavior_profile=behavior_profile,
         )
         if segmented_result is not None:
             subtasks, raw_response, parse_mode = segmented_result
