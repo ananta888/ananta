@@ -675,9 +675,9 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
     effective = dict(context.get("effective") or {})
     overrides = dict(getattr(goal_record, "workflow_overrides", None) or {})
 
-    planning_timeout_s = int(
-        max(30, (effective.get("planning_policy") or {}).get("timeout_seconds") or 300)
-    )
+    _live_planning_policy = (current_app.config.get("AGENT_CONFIG") or {}).get("planning_policy") or {}
+    _pp_timeout = (effective.get("planning_policy") or _live_planning_policy).get("timeout_seconds")
+    planning_timeout_s = int(max(30, _pp_timeout if _pp_timeout is not None else 300))
     _start_planning_deadline_guard(
         goal_id=goal_record.id,
         app=current_app._get_current_object(),
@@ -849,7 +849,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         quality_ok, quality_reason = _plan_quality_from_task_ids(
             task_ids=created_task_ids,
             mode="new_software_project",
-            planning_policy=(effective.get("planning_policy") if isinstance(effective.get("planning_policy"), dict) else {}),
+            planning_policy=(effective.get("planning_policy") if isinstance(effective.get("planning_policy"), dict) else _live_planning_policy),
             team_id=str(effective.get("routing", {}).get("team_id") or "") or None,
         )
     else:
@@ -882,7 +882,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             quality_ok, quality_reason = _plan_quality_from_task_ids(
                 task_ids=created_task_ids,
                 mode="new_software_project",
-                planning_policy=(effective.get("planning_policy") if isinstance(effective.get("planning_policy"), dict) else {}),
+                planning_policy=(effective.get("planning_policy") if isinstance(effective.get("planning_policy"), dict) else _live_planning_policy),
                 team_id=str(effective.get("routing", {}).get("team_id") or "") or None,
             )
 
