@@ -57,6 +57,13 @@ class GoalConfigRuntimeService:
                 profile_id=str(execution_preferences.get("config_profile") or "").strip() or None,
                 checksum=str(execution_preferences.get("config_snapshot_checksum") or "").strip() or None,
             )
+        # Back-fill security-critical keys missing from older snapshots so that
+        # hardcoded fallbacks in _extract_guardrail_config (or 2, or 5) never fire
+        # against goals created before llm_tool_guardrails was added to ALLOWED_GOAL_CONFIG_KEYS.
+        global_cfg = self._global_config()
+        for key in ("llm_tool_guardrails",):
+            if scoped_config.get(key) is None and global_cfg.get(key) is not None:
+                scoped_config[key] = global_cfg[key]
         return GoalEffectiveConfig(
             config=scoped_config,
             source="snapshot",

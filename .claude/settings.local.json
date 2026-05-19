@@ -159,7 +159,8 @@
       "Bash(ANANTA_PASSWORD=test123 bash scripts/run_3er_lauf_lokal.sh)",
       "Bash(echo \"Neuer PID: $!\")",
       "Bash(docker network *)",
-      "Bash(docker inspect *)"
+      "Bash(docker inspect *)",
+      "Bash(docker cp *)"
     ]
   }
 }
