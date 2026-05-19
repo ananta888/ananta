@@ -127,7 +127,7 @@ services:
     restart: unless-stopped
     ports:
       - "11434:11434"
-    runtime: nvidia
+#    runtime: nvidia
     environment:
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
