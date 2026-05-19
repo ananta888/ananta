@@ -19,6 +19,7 @@ from agent.services.instruction_layer_service import get_instruction_layer_servi
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.planning_quality_service import get_planning_quality_service
+from agent.services.planning_telemetry_service import get_planning_telemetry_service
 from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
 from agent.utils import validate_request
 
@@ -86,6 +87,24 @@ def _plan_quality_from_task_ids(*, task_ids: list[str], mode: str, planning_poli
     return quality.ok, quality.reason
 
 
+def _mark_started_planning_runs_failed(*, goal_id: str, reason: str) -> int:
+    updated = 0
+    runs = list(_repos().planning_run_repo.get_by_goal_id(goal_id, limit=50) or [])
+    for run in runs:
+        if str(getattr(run, "goal_id", "") or "").strip() != goal_id:
+            continue
+        if str(getattr(run, "status", "") or "").strip().lower() != "started":
+            continue
+        get_planning_telemetry_service().update_run(
+            run,
+            status="failed",
+            error_classification=str(reason or "planning_failed"),
+            validation_errors=[str(reason or "planning_failed")],
+        )
+        updated += 1
+    return updated
+
+
 def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
     status = str(getattr(goal, "status", "") or "").strip().lower()
     if status not in {"planning", "planning_queued", "planning_running"}:
@@ -107,6 +126,10 @@ def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
             latest_started = sorted(started_runs, key=lambda x: float(getattr(x, "updated_at", 0.0) or 0.0), reverse=True)[0]
             started_age = now_ts - float(getattr(latest_started, "updated_at", 0.0) or 0.0)
             if started_age > 180:
+                _mark_started_planning_runs_failed(
+                    goal_id=goal_id,
+                    reason="planning_stuck_timeout_recovery",
+                )
                 return _services().goal_lifecycle_service.transition_goal(
                     goal,
                     target_status="failed",
@@ -610,16 +633,16 @@ def _start_planning_deadline_guard(*, goal_id: str, app: Any, timeout_s: int) ->
             status = str(getattr(goal, "status", "") or "").strip().lower()
             if status in {"completed", "failed", "cancelled", "aborted", "timeout"}:
                 return
-            try:
-                goal.status = "failed"
-                _repos().goal_repo.save(goal)
-            except Exception:
-                _services().goal_lifecycle_service.transition_goal(
-                    goal,
-                    target_status="failed",
-                    reason="planning_deadline_guard_timeout",
-                    readiness=dict(getattr(goal, "readiness", None) or {}),
-                )
+            _mark_started_planning_runs_failed(
+                goal_id=goal_id,
+                reason="planning_deadline_guard_timeout",
+            )
+            _services().goal_lifecycle_service.transition_goal(
+                goal,
+                target_status="failed",
+                reason="planning_deadline_guard_timeout",
+                readiness=dict(getattr(goal, "readiness", None) or {}),
+            )
             try:
                 app.logger.error("planning_deadline_guard_timeout goal_id=%s", goal_id)
             except Exception:
@@ -664,7 +687,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
     _start_planning_deadline_guard(
         goal_id=goal_record.id,
         app=current_app._get_current_object(),
-        timeout_s=min(75, max(45, planning_timeout_s + 15)),
+        timeout_s=min(300, max(45, planning_timeout_s + 15)),
     )
     try:
         app_obj = current_app._get_current_object()
@@ -707,12 +730,28 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             )
             return
         try:
+            current_app.logger.warning(
+                "goal_planning_invoke_start goal_id=%s timeout_s=%s mode=%s",
+                goal_record.id,
+                planning_timeout_s,
+                str(goal_record.mode or "generic"),
+            )
             with ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(_run_plan_goal_with_app_context)
                 result = future.result(timeout=planning_timeout_s)
+            current_app.logger.warning(
+                "goal_planning_invoke_done goal_id=%s created=%s error=%s",
+                goal_record.id,
+                len(list(result.get("created_task_ids") or [])) if isinstance(result, dict) else -1,
+                (result.get("error") if isinstance(result, dict) else "invalid_result"),
+            )
         finally:
             _GOAL_PLANNING_LOCK.release()
     except FutureTimeoutError:
+        _mark_started_planning_runs_failed(
+            goal_id=goal_record.id,
+            reason=f"planning_background_timeout:{planning_timeout_s}s",
+        )
         _services().goal_lifecycle_service.transition_goal(
             goal_record,
             target_status="failed",
@@ -735,6 +774,10 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         return
     except Exception as exc:
         current_app.logger.exception("background_goal_planning_failed goal_id=%s", goal_record.id)
+        _mark_started_planning_runs_failed(
+            goal_id=goal_record.id,
+            reason=f"planning_background_exception:{type(exc).__name__}",
+        )
         _services().goal_lifecycle_service.transition_goal(
             goal_record,
             target_status="failed",
