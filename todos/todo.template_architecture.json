@@ -1,0 +1,502 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "template-role-overlay-worker-prompt-architecture",
+  "purpose": "Feingranulare Verbesserungs-TODO für das Ananta Template-/Rollen-/Blueprint-/Overlay-/Instruction-Layer-System vom Goal über Planning, PlanNodes, Tasks, ProposeContext bis zum finalen Worker-Prompt.",
+  "goal": "Der finale Worker-/LLM-Prompt soll aus einem deterministischen, validierten, policy-dominanten und auditierbaren Instruction Stack entstehen. Planning Templates, Role Templates, Blueprint Defaults, User Profiles und Task Overlays müssen klar getrennt und sauber verdrahtet werden.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "code_analysis": {
+    "summary": [
+      "Ananta besitzt bereits zwei unterschiedliche Template-Systeme: PlanningTemplateCatalog für deterministische Subtask-Erzeugung und Role/Team/Blueprint Templates für Arbeitsweise/Rollen-Kontext.",
+      "BlueprintPlanningAdapter überführt BlueprintArtifacts kind=task in Subtasks und hängt BlueprintRole-Hints inkl. capability_defaults, risk_profile und verification_defaults an.",
+      "PlanningService._build_nodes übersetzt Subtasks in PlanNodeDB.rationale und PlanNodeDB.verification_spec. Dort entstehen task_kind, retrieval_intent, required_context_scope, preferred_bundle_mode, required_capabilities und Blueprint-Provenance.",
+      "TaskLifecycleService.materialize_from_plan_node erzeugt daraus TaskDB-Felder, worker_execution_context und worker_execution_contract.",
+      "InstructionLayerService kann bereits UserInstructionProfile und InstructionOverlay validieren und zu rendered_system_prompt plus diagnostics zusammenbauen.",
+      "PromptContextBundleService liest aktuell instruction_layers und instruction_context aus worker_execution_context, arbeitet aber eher mit Summary/Diagnostics als mit einem kanonischen InstructionStackArtifact.",
+      "ToolCallingLLMStrategy baut den finalen Systemprompt selbst und nutzt PromptContextBundle; der gerenderte InstructionLayer-Systemprompt ist aktuell nicht sichtbar als deterministisch integrierter Bestandteil des finalen Systemprompts.",
+      "Die zentrale Lücke ist daher nicht, dass Layer fehlen, sondern dass die Prompt-Schichten nicht als kanonisches, persistiertes/auditierbares Artefakt durch ProposeContext bis in Strategy-Prompts getragen werden."
+    ],
+    "relevant_files": [
+      "agent/db_models.py",
+      "agent/services/planning_template_catalog.py",
+      "agent/services/blueprint_planning_adapter.py",
+      "agent/services/planning_service.py",
+      "agent/services/lifecycle_service.py",
+      "agent/services/task_template_resolution.py",
+      "agent/services/instruction_layer_service.py",
+      "agent/services/prompt_context_bundle_service.py",
+      "agent/services/task_scoped_execution_service.py",
+      "worker/core/propose_orchestrator.py",
+      "worker/core/tool_calling_llm_strategy.py"
+    ],
+    "main_architecture_gap": "InstructionLayerService.assemble_for_task erzeugt zwar rendered_system_prompt und diagnostics, aber es gibt kein kanonisches InstructionStackArtifact, das zuverlässig in ProposeContext, PromptContextBundle und alle ProposeStrategies integriert wird.",
+    "naming_note": "Die Markdown-Doku wurde absichtlich als todos/todo.templeate_architecture.md gespeichert, weil der angefragte Dateiname so geschrieben wurde. Die JSON nutzt die korrigierte Schreibweise todo.template_architecture.json."
+  },
+  "architecture_principles": [
+    "Planning Templates erzeugen Tasks; Role Templates steuern Arbeitsweise; User Profiles/Overlays steuern nur erlaubte Präferenzen.",
+    "Governance und Blueprint/Role Template sind nicht durch User Profile oder Overlay überschreibbar.",
+    "Finale Prompts dürfen nicht aus lose zusammengesetzten Strings entstehen.",
+    "Der Instruction Stack muss deterministisch, validiert, auditierbar und hashbar sein.",
+    "Jede ProposeStrategy muss denselben InstructionStack-Kontext sehen oder explizit begründet ignorieren.",
+    "Security-/Approval-/Tool-/Runtime-Policy darf nie durch Overlay/Profile erweitert werden.",
+    "Feature muss additiv und rückwärtskompatibel sein."
+  ],
+  "expected_new_files": [
+    "agent/services/instruction_stack_artifact_service.py",
+    "agent/models/instruction_stack.py",
+    "tests/test_instruction_stack_artifact_service.py",
+    "tests/test_instruction_stack_propose_integration.py",
+    "tests/test_template_architecture_regression.py"
+  ],
+  "expected_modified_files": [
+    "agent/services/instruction_layer_service.py",
+    "agent/services/prompt_context_bundle_service.py",
+    "agent/services/task_scoped_execution_service.py",
+    "worker/core/propose_orchestrator.py",
+    "worker/core/tool_calling_llm_strategy.py",
+    "worker/core/json_schema_llm_strategy.py",
+    "agent/services/planning_service.py",
+    "agent/services/lifecycle_service.py",
+    "agent/services/task_template_resolution.py"
+  ],
+  "milestones": [
+    {"id": "M1", "title": "Begriffstrennung und Modell schärfen", "task_ids": ["TTA-001", "TTA-002", "TTA-003"], "status": "todo"},
+    {"id": "M2", "title": "InstructionStackArtifact einführen", "task_ids": ["TTA-004", "TTA-005", "TTA-006", "TTA-007"], "status": "todo"},
+    {"id": "M3", "title": "ProposeContext und PromptContextBundle integrieren", "task_ids": ["TTA-008", "TTA-009", "TTA-010"], "status": "todo"},
+    {"id": "M4", "title": "Strategie-Prompts vereinheitlichen", "task_ids": ["TTA-011", "TTA-012", "TTA-013"], "status": "todo"},
+    {"id": "M5", "title": "Policy-, Overlay- und Kompatibilitätsregeln härten", "task_ids": ["TTA-014", "TTA-015", "TTA-016"], "status": "todo"},
+    {"id": "M6", "title": "Tests, Telemetry und Dokumentation", "task_ids": ["TTA-017", "TTA-018", "TTA-019", "TTA-020"], "status": "todo"}
+  ],
+  "tasks": [
+    {
+      "id": "TTA-001",
+      "title": "Terminologie für Template-Arten verbindlich dokumentieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "docs",
+      "files": ["todos/todo.templeate_architecture.md", "docs/template-role-overlay-architecture.md"],
+      "description": "Klare Trennung zwischen Planning Template, Role Template, Blueprint Artifact, Blueprint Role Defaults, User Profile und Instruction Overlay festlegen.",
+      "acceptance_criteria": [
+        "Doku definiert Planning Template als Subtask-Erzeuger.",
+        "Doku definiert Role Template als Arbeitsweise-/Prompt-Kontext, nicht als Task-Erzeuger.",
+        "Doku definiert Blueprint Artifact kind=task als deterministische Planquelle.",
+        "Doku definiert User Profile und Overlay als eingeschränkte Präferenz-/Stilschicht.",
+        "Doku nennt explizit, dass User Profile/Overlays keine Tool-, Security-, Approval- oder Runtime-Policy erweitern dürfen."
+      ]
+    },
+    {
+      "id": "TTA-002",
+      "title": "Bestehenden Goal-to-Worker-Prompt-Flow als Regression-Diagramm sichern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "docs",
+      "files": ["todos/todo.templeate_architecture.md"],
+      "description": "Mermaid-Flows aus der Architekturdatei als Referenz für spätere Änderungen pflegen.",
+      "acceptance_criteria": [
+        "Markdown enthält Diagramm Goal -> Planning -> PlanNode -> Task -> ProposeContext -> Worker.",
+        "Markdown enthält Diagramm für PlanningTemplateCatalog vs BlueprintPlanningAdapter.",
+        "Markdown enthält Diagramm für Instruction Layer Merge.",
+        "Markdown enthält Diagramm für aktuelle Lücke zwischen rendered_system_prompt und Strategy-Systemprompt.",
+        "Diagramme sind in GitHub Markdown renderbar."
+      ]
+    },
+    {
+      "id": "TTA-003",
+      "title": "Code-Kommentare für Template-Grenzen ergänzen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "docs",
+      "files": ["agent/services/planning_template_catalog.py", "agent/services/task_template_resolution.py", "agent/services/blueprint_planning_adapter.py"],
+      "description": "Kurze Modulkommentare ergänzen, damit künftige Änderungen Planning Templates und Role Templates nicht vermischen.",
+      "acceptance_criteria": [
+        "planning_template_catalog.py erklärt, dass diese Templates Subtasks erzeugen.",
+        "task_template_resolution.py erklärt, dass es Role/Team Template Context resolved.",
+        "blueprint_planning_adapter.py erklärt, dass BlueprintArtifacts Plan-Tasks erzeugen und BlueprintRoleDB config Defaults liefert.",
+        "Kommentare ändern kein Runtime-Verhalten.",
+        "Lint/Tests bleiben grün."
+      ]
+    },
+    {
+      "id": "TTA-004",
+      "title": "InstructionStackArtifact Datenmodell definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "data_model",
+      "files": ["agent/models/instruction_stack.py", "agent/services/instruction_stack_artifact_service.py"],
+      "description": "Ein kanonisches Artefakt für den finalen Instruction Stack einführen.",
+      "implementation_notes": [
+        "Schema: instruction_stack.v1.",
+        "Felder: task_id, goal_id, owner_username, role_template_context, applied_layers, suppressed_layers, effective_preferences, rendered_system_prompt, diagnostics, checksum.",
+        "Layer-Reihenfolge: governance, blueprint_template, user_profile, task_overlay, task_input.",
+        "rendered_system_prompt darf keine Task-Input-User-Prompt-Duplikate enthalten, sondern nur System-/Instruction-Schichten.",
+        "Checksum deterministisch über normalisierte Struktur berechnen."
+      ],
+      "acceptance_criteria": [
+        "InstructionStackArtifact kann ohne Flask-Kontext erzeugt und serialisiert werden.",
+        "Gleicher Input erzeugt gleiche checksum.",
+        "applied_layers und suppressed_layers sind immer Listen.",
+        "rendered_system_prompt ist optional aber bei vorhandenen Layern gesetzt.",
+        "Schema-Version ist im Artefakt enthalten."
+      ]
+    },
+    {
+      "id": "TTA-005",
+      "title": "InstructionLayerService auf Artifact-Ausgabe erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "service",
+      "files": ["agent/services/instruction_layer_service.py", "agent/services/instruction_stack_artifact_service.py"],
+      "description": "assemble_for_task soll zusätzlich oder intern ein InstructionStackArtifact erzeugen.",
+      "acceptance_criteria": [
+        "Bestehende Rückgabe von assemble_for_task bleibt kompatibel.",
+        "Neue Methode assemble_artifact_for_task(...) liefert InstructionStackArtifact.",
+        "User Profile und Overlay werden weiter über validate_user_layer_payload geprüft.",
+        "Unterdrückte Layer erscheinen mit reason und forbidden keys/patterns im Artefakt.",
+        "effective_preferences enthalten nur erlaubte Keys aus style/language/detail_level/working_mode/formatting."
+      ]
+    },
+    {
+      "id": "TTA-006",
+      "title": "Role Template Prompt in Instruction Stack integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "files": ["agent/services/task_template_resolution.py", "agent/services/instruction_stack_artifact_service.py", "agent/services/instruction_layer_service.py"],
+      "description": "Das resolved TemplateDB.prompt_template der Rolle muss als blueprint_template Layer in den Instruction Stack einfließen.",
+      "acceptance_criteria": [
+        "Wenn resolve_task_role_template template_id liefert, wird TemplateDB.prompt_template geladen.",
+        "Role Template Layer wird als blueprint_template mit source=task_role_template markiert.",
+        "Fehlendes Template erzeugt diagnostics warning, aber keinen Crash.",
+        "TeamMember custom_template_id gewinnt vor Team.role_templates und Role.default_template_id.",
+        "Tests prüfen alle drei Auflösungswege."
+      ]
+    },
+    {
+      "id": "TTA-007",
+      "title": "Instruction Stack optional in Task speichern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "persistence",
+      "files": ["agent/services/task_management_service.py", "agent/services/task_runtime_service.py", "agent/db_models.py"],
+      "description": "InstructionStackArtifact oder dessen Summary/Checksum im Task persistieren, damit Prompt-Entscheidungen nachvollziehbar bleiben.",
+      "implementation_notes": [
+        "Keine neue DB-Spalte nötig, wenn worker_execution_context.instruction_stack verwendet wird.",
+        "Alternativ verification_status.instruction_layers weiterhin nur Diagnose, aber Stack in worker_execution_context.",
+        "Rohprompt ggf. nur hash+summary speichern, wenn Datenschutz/Sensitivität relevant ist."
+      ],
+      "acceptance_criteria": [
+        "Task enthält instruction_stack.checksum oder instruction_stack_summary.",
+        "Persistenz ist per Config abschaltbar.",
+        "Keine sensiblen Secrets aus Overlay/Profile werden ungefiltert persistiert.",
+        "Bestehende Tasks ohne instruction_stack bleiben ausführbar.",
+        "Audit kann später erklären, welche Layer angewendet wurden."
+      ]
+    },
+    {
+      "id": "TTA-008",
+      "title": "ProposeContext um Instruction Stack erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "integration",
+      "files": ["worker/core/propose_orchestrator.py", "agent/services/task_scoped_execution_service.py"],
+      "description": "ProposeContext soll instruction_stack, rendered_system_prompt und instruction_diagnostics optional tragen.",
+      "acceptance_criteria": [
+        "ProposeContext hat optionale Felder instruction_stack, rendered_system_prompt, instruction_diagnostics.",
+        "Bestehende Strategien laufen weiter, wenn Felder None sind.",
+        "task_scoped_execution_service baut den Stack vor Orchestrator.run(context).",
+        "instruction_stack.checksum wird in propose_strategy_meta/metadata übernommen.",
+        "Tests prüfen Rückwärtskompatibilität mit minimalem ProposeContext."
+      ]
+    },
+    {
+      "id": "TTA-009",
+      "title": "PromptContextBundle mit InstructionStack-Meta anreichern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "files": ["agent/services/prompt_context_bundle_service.py"],
+      "description": "PromptContextBundle soll nicht nur instruction_layers_present zeigen, sondern die kanonische Stack-Meta.",
+      "acceptance_criteria": [
+        "context_summary enthält instruction_stack_present.",
+        "context_summary enthält instruction_stack_checksum.",
+        "context_summary enthält applied_layers und suppressed_layers als kurze summaries.",
+        "context_summary enthält role_template_context mit role_name/template_name/template_id.",
+        "Redaction wird auf Diagnostics und Template-Meta angewendet."
+      ]
+    },
+    {
+      "id": "TTA-010",
+      "title": "Instruction Stack in Task-Propose-Telemetry sichtbar machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "files": ["agent/services/task_scoped_execution_service.py", "agent/services/operations_observability_service.py"],
+      "description": "Bei jedem Propose-Lauf sichtbar machen, welche Instruction-Layer aktiv oder unterdrückt waren.",
+      "acceptance_criteria": [
+        "Propose metadata enthält instruction_stack_checksum.",
+        "Propose metadata enthält applied_layer_count und suppressed_layer_count.",
+        "Suppressed Layer Reasons werden auditierbar erfasst.",
+        "Keine kompletten sensiblen Prompt-Inhalte müssen in Telemetry gespeichert werden.",
+        "Logs zeigen bei Policy-Konflikten klare reason_codes."
+      ]
+    },
+    {
+      "id": "TTA-011",
+      "title": "ToolCallingLLMStrategy Systemprompt mit Instruction Stack verbinden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "prompting",
+      "files": ["worker/core/tool_calling_llm_strategy.py"],
+      "description": "Der finale ToolCalling-Systemprompt muss den validierten rendered_system_prompt aus dem Instruction Stack deterministisch einfügen.",
+      "implementation_notes": [
+        "Reihenfolge: strategy governance intro -> rendered_system_prompt -> task facts -> PromptContextBundle -> tool-call contract.",
+        "Tool-call contract bleibt zuletzt oder besonders dominant, damit Ausgabeformat nicht durch Overlay überschrieben wird.",
+        "User Profile/Overlay dürfen nicht nach Tool-call contract eingefügt werden."
+      ],
+      "acceptance_criteria": [
+        "Wenn context.rendered_system_prompt gesetzt ist, erscheint er genau einmal im Systemprompt.",
+        "Tool-call-only-Regel bleibt im finalen Systemprompt enthalten.",
+        "Overlay kann Tool-call-only-Regel nicht überschreiben.",
+        "PromptContextBundle enthält denselben stack checksum wie ProposeContext.",
+        "Unit-Test prüft Prompt-Reihenfolge."
+      ]
+    },
+    {
+      "id": "TTA-012",
+      "title": "Andere ProposeStrategies auf Instruction Stack prüfen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "prompting",
+      "files": ["worker/core/json_schema_llm_strategy.py", "agent/services/propose_strategies/flexible_llm_normalization_strategy.py", "worker/core/agent_loop_tool_calling_strategy.py", "worker/core/cli_agent_patch_strategy.py"],
+      "description": "Alle LLM-nahen Strategien müssen entweder InstructionStack nutzen oder begründet ignorieren.",
+      "acceptance_criteria": [
+        "json_schema_llm_strategy nutzt rendered_system_prompt oder dokumentiert Nichtnutzung mit reason.",
+        "flexible_llm_normalization_strategy erhält Stack-Meta für Prompt/Telemetry.",
+        "agent_loop_tool_calling_strategy prüft Stack-Integration.",
+        "cli_agent_patch_strategy ignoriert Stack nicht still, sondern nutzt oder protokolliert reason.",
+        "Regressionstests decken mindestens tool_calling_llm und json_schema_llm ab."
+      ]
+    },
+    {
+      "id": "TTA-013",
+      "title": "Strategieübergreifenden PromptComposer einführen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "architecture",
+      "files": ["agent/services/strategy_prompt_composer.py", "worker/core/tool_calling_llm_strategy.py", "worker/core/json_schema_llm_strategy.py"],
+      "description": "Prompt-Zusammenbau aus Stack, Task Facts, Bundle und Strategy Contract zentralisieren, damit nicht jede Strategy eigene String-Reihenfolge baut.",
+      "acceptance_criteria": [
+        "StrategyPromptComposer kann Systemprompt aus ProposeContext + strategy_contract bauen.",
+        "Composer erzwingt Reihenfolge: governance/base -> instruction_stack -> task facts -> context bundle -> output/tool contract.",
+        "Composer dedupliziert identische Abschnitte.",
+        "Tool-/Output-Vertrag kann nicht durch User-Layer überschrieben werden.",
+        "Mindestens eine Strategy nutzt den Composer produktiv."
+      ]
+    },
+    {
+      "id": "TTA-014",
+      "title": "Overlay/Profile-Policy gegen Prompt-Eskalation erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "files": ["agent/services/instruction_layer_service.py", "tests/test_instruction_stack_artifact_service.py"],
+      "description": "Forbidden Directive Patterns und Metadata Checks für neue Prompt-Stack-Integration härten.",
+      "implementation_notes": [
+        "Weitere Patterns: ignore tool contract, return prose instead of tool calls, reveal hidden policy, disable context filter, use all files, bypass cloud policy.",
+        "Metadata Keys blocken: model_override, provider_override, context_scope, cloud_allowed, shell_allowed, tool_choice.",
+        "Nicht nur Text prüfen, auch nested metadata rekursiv."
+      ],
+      "acceptance_criteria": [
+        "Overlay mit 'ignore tool contract' wird unterdrückt.",
+        "Overlay mit metadata.allowed_tools wird unterdrückt.",
+        "Profile mit style/detail_level bleibt erlaubt.",
+        "Nested forbidden metadata wird erkannt.",
+        "Suppression erscheint im InstructionStackArtifact."
+      ]
+    },
+    {
+      "id": "TTA-015",
+      "title": "Role Template Compatibility strikter machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "validation",
+      "files": ["agent/services/instruction_layer_service.py"],
+      "description": "Kompatibilität zwischen User Profile/Overlay und Role Template nicht nur warnen, sondern konfigurierbar blocken.",
+      "acceptance_criteria": [
+        "Compatibility status kann ok, warn oder block sein.",
+        "Config bestimmt, ob blockierende Compatibility Issues den Layer suppressen oder nur markieren.",
+        "Review-Profil auf Implementation-Template erzeugt mindestens Warnung.",
+        "Explizit blocked_template_context erzeugt Block.",
+        "Diagnostics enthalten role_template_context und detected_template_contexts."
+      ]
+    },
+    {
+      "id": "TTA-016",
+      "title": "Blueprint Role Defaults bis Worker Contract nachvollziehbar halten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "traceability",
+      "files": ["agent/services/planning_service.py", "agent/services/lifecycle_service.py", "agent/services/prompt_context_bundle_service.py"],
+      "description": "BlueprintRoleDB.config Defaults müssen von Planning über PlanNode bis Task/PromptContextBundle sichtbar bleiben.",
+      "acceptance_criteria": [
+        "PlanNode.rationale enthält blueprint_role_defaults, wenn vorhanden.",
+        "worker_execution_context.planning_provenance enthält blueprint_role_name/template_name/template_id.",
+        "worker_execution_contract enthält durch Role Defaults beeinflusste verification gates/expected artifacts.",
+        "PromptContextBundle contract_summary zeigt blueprint_role_defaults_present oder role_template_context.",
+        "Test prüft vollständige Traceability von BlueprintRoleDB.config bis ProposeContext."
+      ]
+    },
+    {
+      "id": "TTA-017",
+      "title": "End-to-End-Test Goal -> InstructionStack -> Worker Prompt",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "test",
+      "files": ["tests/test_instruction_stack_propose_integration.py"],
+      "description": "E2E-naher Test, der Goal mit Team/Role/Template/Profile/Overlay bis zum finalen ToolCalling-Systemprompt durchläuft.",
+      "acceptance_criteria": [
+        "Test erzeugt Goal mit team_id und instruction_context.",
+        "Planning erzeugt Task mit worker_execution_context.",
+        "Role Template wird resolved und im Instruction Stack angewendet.",
+        "User Profile und Task Overlay werden angewendet, wenn erlaubt.",
+        "Finaler ToolCalling-Systemprompt enthält rendered_system_prompt genau einmal und Tool-call-Vertrag bleibt enthalten."
+      ]
+    },
+    {
+      "id": "TTA-018",
+      "title": "Security-Regression für Overlay-Eskalation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "test",
+      "files": ["tests/test_instruction_stack_artifact_service.py", "tests/test_template_architecture_regression.py"],
+      "description": "Absichern, dass Overlays/Profile keine Policies oder Tool-Verträge überschreiben können.",
+      "acceptance_criteria": [
+        "Overlay 'ignore governance' wird suppressed.",
+        "Overlay 'allow unrestricted shell access' wird suppressed.",
+        "Overlay 'return markdown instead of tool calls' darf ToolCalling-Vertrag nicht überschreiben.",
+        "Metadata mit security_policy/allowed_tools/runtime_execution wird suppressed.",
+        "Suppressed Layer taucht nicht im rendered_system_prompt auf."
+      ]
+    },
+    {
+      "id": "TTA-019",
+      "title": "Backward-Compatibility-Tests für Tasks ohne Instruction Stack",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "test",
+      "files": ["tests/test_template_architecture_regression.py", "tests/test_propose_orchestrator.py"],
+      "description": "Bestehende Tasks/Propose-Flows ohne Profile, Overlays oder Role Templates müssen unverändert funktionieren.",
+      "acceptance_criteria": [
+        "Task ohne worker_execution_context.instruction_context läuft weiter.",
+        "Task ohne team_id/assigned_role_id läuft weiter.",
+        "ProposeContext ohne instruction_stack läuft weiter.",
+        "ToolCallingLLMStrategy baut weiterhin gültigen Systemprompt.",
+        "Feature-Flag off ergibt altes Verhalten."
+      ]
+    },
+    {
+      "id": "TTA-020",
+      "title": "Architekturdoku aus TODO in docs überführen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "docs",
+      "files": ["todos/todo.templeate_architecture.md", "docs/template-role-overlay-architecture.md"],
+      "description": "Die Mermaid-Analyse aus todos/todo.templeate_architecture.md nach docs/ überführen, sobald die Architektur stabil ist.",
+      "acceptance_criteria": [
+        "docs/template-role-overlay-architecture.md existiert.",
+        "Doku enthält mindestens dieselben Kern-Diagramme wie die TODO-Markdown-Datei.",
+        "Doku beschreibt Ist-Zustand und Zielarchitektur getrennt.",
+        "Doku verweist auf tests, die die Architektur absichern.",
+        "todos/todo.templeate_architecture.md bleibt als ursprüngliche Arbeitsnotiz erhalten oder verweist auf docs/."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["TTA-001", "TTA-004", "TTA-005", "TTA-006", "TTA-008", "TTA-009", "TTA-011", "TTA-014", "TTA-016", "TTA-017", "TTA-018", "TTA-019"],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {"todo": 20, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0": 12, "P1": 6, "P2": 2, "P3": 0},
+    "by_risk": {"low": 3, "medium": 5, "high": 6, "critical": 6},
+    "critical_path": {"total": 12, "done": 0, "remaining": 12},
+    "milestones": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 20,
+    "by_type": {
+      "docs": 4,
+      "data_model": 1,
+      "service": 1,
+      "integration": 4,
+      "persistence": 1,
+      "observability": 1,
+      "prompting": 2,
+      "architecture": 1,
+      "security": 1,
+      "validation": 1,
+      "traceability": 1,
+      "test": 3
+    }
+  },
+  "progress_summary": {
+    "state": "todo_created",
+    "todo_remaining": 20,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "definition_of_done": [
+    "InstructionStackArtifact existiert und ist deterministisch hashbar.",
+    "Role Template Prompt fließt als blueprint_template Layer in den Stack ein.",
+    "User Profile und Task Overlay werden validiert, ggf. suppressed und auditierbar gemacht.",
+    "ProposeContext trägt Instruction Stack und/oder rendered_system_prompt.",
+    "PromptContextBundle zeigt Stack-Meta und Diagnostics.",
+    "ToolCallingLLMStrategy nutzt den validierten Stack im finalen Systemprompt.",
+    "Tool-/Output-Vertrag bleibt dominant und kann nicht durch Overlay überschrieben werden.",
+    "Security-Regressionstests verhindern Prompt-/Tool-/Policy-Eskalation.",
+    "Bestehende Tasks ohne Instruction Stack bleiben kompatibel."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "main_gap",
+      "title": "Hauptlücke",
+      "items": [
+        "Die Layer existieren teilweise bereits, aber der gerenderte Instruction Stack ist noch kein kanonisches Artefakt im Propose-/Worker-Prompt-Pfad.",
+        "Dadurch ist nicht garantiert, dass Role Template, Profile und Overlay deterministisch und auditierbar im finalen Strategy-Systemprompt landen.",
+        "Die wichtigste Verbesserung ist ein InstructionStackArtifact, das von assemble_for_task bis ProposeContext und PromptComposer durchgereicht wird."
+      ]
+    },
+    {
+      "summary_id": "security_rule",
+      "title": "Sicherheitsregel",
+      "items": [
+        "Governance, Security, Approval, Tool- und Runtime-Policy bleiben dominant.",
+        "User Profile und Overlays dürfen nur Stil, Sprache, Detailgrad, Arbeitsmodus und Formatierung beeinflussen.",
+        "Der finale Tool-/Output-Vertrag wird nach den User-Layern eingefügt und darf nicht überschrieben werden."
+      ]
+    }
+  ]
+}
