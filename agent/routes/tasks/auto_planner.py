@@ -151,7 +151,7 @@ class AutoPlanner:
         self.default_priority = "Medium"
         self.auto_start_autopilot = True
         self.llm_timeout = max(30, default_timeout)
-        self.llm_retry_attempts = 2
+        self.llm_retry_attempts = 1
         self.llm_retry_backoff = 1.0
         self._runtime_calibration_cache: dict[str, dict] = {}
         self._stats = {
@@ -170,6 +170,7 @@ class AutoPlanner:
             "default_priority": self.default_priority,
             "auto_start_autopilot": self.auto_start_autopilot,
             "llm_timeout": self.llm_timeout,
+            "llm_retry_attempts": self.llm_retry_attempts,
             "stats": self._stats,
         }
         config_repo.save(ConfigDB(key=AUTO_PLANNER_STATE_KEY, value_json=json.dumps(state)))
@@ -226,21 +227,25 @@ class AutoPlanner:
 
         start = time.time()
         ping_ok = False
-        try:
-            ping = generate_text(
-                prompt="Reply only with: OK",
-                provider=provider or llm_config.get("provider"),
-                model=model,
-                base_url=base_url or None,
-                api_key=llm_config.get("api_key"),
-                timeout=min(timeout_seconds, 25),
-                max_output_tokens=24,
-                temperature=0.0,
-            )
-            ping_ok = bool(str(ping or "").strip())
-        except Exception:
-            ping_ok = False
-        latency = time.time() - start
+        latency = 0.0
+        if not probe_ok:
+            try:
+                ping = generate_text(
+                    prompt="Reply only with: OK",
+                    provider=provider or llm_config.get("provider"),
+                    model=model,
+                    base_url=base_url or None,
+                    api_key=llm_config.get("api_key"),
+                    timeout=min(timeout_seconds, 25),
+                    max_output_tokens=24,
+                    temperature=0.0,
+                )
+                ping_ok = bool(str(ping or "").strip())
+            except Exception:
+                ping_ok = False
+            latency = time.time() - start
+        else:
+            ping_ok = True
 
         if ping_ok:
             timeout_seconds = max(timeout_seconds, min(300, int(latency * 6) + 20))
@@ -356,6 +361,7 @@ class AutoPlanner:
             default_timeout = int(getattr(settings, "http_timeout", 60) or 60)
             restored_timeout = int(data.get("llm_timeout", default_timeout))
             self.llm_timeout = max(restored_timeout, default_timeout)
+            self.llm_retry_attempts = max(1, int(data.get("llm_retry_attempts", 1)))
             if isinstance(data.get("stats"), dict):
                 self._stats = data["stats"]
         except Exception as e:
