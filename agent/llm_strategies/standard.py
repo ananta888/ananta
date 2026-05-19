@@ -45,6 +45,7 @@ class OpenAIStrategy(LLMStrategy):
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
+        provider: Optional[str] = None,
     ) -> Any:
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         headers.update(_ananta_hop_headers())
@@ -64,7 +65,9 @@ class OpenAIStrategy(LLMStrategy):
                 payload["tool_choice"] = tool_choice
 
         if "json" in prompt.lower() and not tools:
-            payload["response_format"] = {"type": "json_object"}
+            provider_key = (provider or "").strip().lower()
+            if provider_key not in ("lmstudio",):
+                payload["response_format"] = {"type": "json_object"}
 
         resp = _http_post(
             url, payload, headers=headers, timeout=timeout, idempotency_key=idempotency_key, return_response=True
@@ -96,6 +99,7 @@ class AnthropicStrategy(LLMStrategy):
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
+        provider: Optional[str] = None,
     ) -> Any:
         import logging
 
@@ -179,6 +183,7 @@ class OllamaStrategy(LLMStrategy):
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
+        provider: Optional[str] = None,
     ) -> Any:
         full_prompt = self._build_history_prompt(prompt, history)
         payload = {"model": model, "prompt": full_prompt, "stream": False}

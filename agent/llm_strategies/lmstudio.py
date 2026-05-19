@@ -21,6 +21,7 @@ class LMStudioStrategy(LLMStrategy):
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
+        provider: Optional[str] = None,
     ) -> Any:
         base_url = url
         base_url_lower = (base_url or "").lower()

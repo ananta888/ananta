@@ -1272,6 +1272,7 @@ def _execute_llm_call(
             tools=tools,
             tool_choice=tool_choice,
             idempotency_key=idempotency_key,
+            provider=provider,
         )
 
 

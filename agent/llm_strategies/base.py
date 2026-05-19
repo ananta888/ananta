@@ -21,6 +21,7 @@ class LLMStrategy(ABC):
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
+        provider: Optional[str] = None,
     ) -> Any:
         pass
 

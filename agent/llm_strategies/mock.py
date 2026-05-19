@@ -25,6 +25,7 @@ class MockStrategy(LLMStrategy):
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
+        provider: Optional[str] = None,
     ) -> Any:
         logging.info(f"Mock-LLM aufgerufen mit Prompt: {prompt[:50]}...")
 
