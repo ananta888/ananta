@@ -3,7 +3,6 @@
     {
       "provider": "lmstudio",
       "model_name_pattern": "*gemma*",
-      "model_family": "gemma",
       "profile_name": "small_local_gemma",
       "prompt_language": "en",
       "context_max_chars": 2000,
@@ -18,7 +17,6 @@
     {
       "provider": "lmstudio",
       "model_name_pattern": "auto",
-      "model_family": "gemma",
       "profile_name": "small_local_auto",
       "prompt_language": "en",
       "context_max_chars": 2000,
@@ -38,7 +36,6 @@
       "max_output_tokens": 768,
       "temperature": 0.2,
       "repair_attempts": 2,
-      "preferred_prompt_version_id": "v3-new-software-project-en",
       "notes": "preferred_output_format=markdown",
       "enabled": true
     },
