@@ -1,8 +1,8 @@
 # Ananta Template-/Rollen-/Overlay-Architektur
 
-Status: Entwurf / Analyse
+Status: Entwurf / Analyse v1.1
 
-Ziel dieser Datei: das aktuelle Template-, Rollen-, Blueprint-, Overlay- und Prompt-System von Ananta verständlich darstellen und daraus konkrete Architekturverbesserungen ableiten.
+Ziel dieser Datei: das aktuelle Template-, Rollen-, Blueprint-, Overlay-, Prompt- und Prompt-Evolver-System von Ananta verständlich darstellen und daraus konkrete Architekturverbesserungen ableiten.
 
 Wichtig: Der Dateiname `templeate` folgt absichtlich der angefragten Schreibweise.
 
@@ -21,22 +21,25 @@ Ananta hat mehrere Ebenen, die zusammen den späteren Worker-Prompt und die Task
 3. **Planning Templates**  
    deterministische Subtask-Vorlagen aus dem Planning-Katalog.
 
-4. **Blueprints / Blueprint Roles / Blueprint Artifacts**  
+4. **Planning Prompt Registry / Planning Prompt Evolver**  
+   Prompt-Versionen für das Erzeugen von Plänen. Der Evolver darf nur diese Planning-Prompt-Schicht verbessern.
+
+5. **Blueprints / Blueprint Roles / Blueprint Artifacts**  
    Team- und Rollenstruktur mit Task-Artifacts, Templates und Defaults.
 
-5. **Plan / PlanNodes**  
+6. **Plan / PlanNodes**  
    materialisierte Planstruktur mit Rationale, Retrieval-Hints, Verification-Spec und Blueprint-Provenance.
 
-6. **Task / Worker Execution Context / Worker Execution Contract**  
+7. **Task / Worker Execution Context / Worker Execution Contract**  
    konkrete ausführbare Arbeitseinheit für Worker.
 
-7. **Instruction Layer / User Profile / Overlay**  
+8. **Instruction Layer / User Profile / Overlay**  
    zusätzliche Prompt-Schichten für Stil, Sprache, Arbeitsmodus und taskbezogene Hinweise.
 
-8. **ProposeContext / PromptContextBundle / ProposeStrategy**  
+9. **ProposeContext / PromptContextBundle / ProposeStrategy**  
    finaler Kontext für LLM-/Worker-Strategien.
 
-9. **Finaler Worker-Prompt**  
+10. **Finaler Worker-Prompt**  
    strategieabhängig gebauter Prompt plus Tools, Policies und Context Bundle.
 
 ---
@@ -60,9 +63,11 @@ flowchart TD
     G --> G1[PlanningTemplateCatalog]
     G --> G2[BlueprintPlanningAdapter]
     G2 --> G3[BlueprintRoleDB config<br/>capability/risk/verification defaults]
+
     I --> I1[PlanningPromptRegistry]
     I --> I2[PlanningModelProfile]
     I --> I3[Domain/Behavior Hints]
+    I --> I4[PlanningPromptEvolver<br/>after telemetry only]
 
     G1 --> J[Subtasks]
     G2 --> J
@@ -86,13 +91,14 @@ flowchart TD
 
     Q --> U[InstructionLayerService]
     T --> U
-    U --> V[profile/overlay diagnostics or rendered prompt]
+    U --> V[InstructionStackArtifact<br/>target]
 
     Q --> W[TaskScopedExecutionService.propose_task_step]
     W --> X[ResearchContextBridge]
     W --> Y[ProposePolicyService]
     X --> Z[ProposeContext]
     Y --> Z
+    V --> Z
 
     Z --> AA[ProposeStrategyOrchestrator]
     AA --> AB[ToolCallingLLMStrategy / JsonSchema / WorkerStrategy]
@@ -104,116 +110,9 @@ flowchart TD
 
 ---
 
-## 3. Datenmodell-Überblick
+## 3. Zwei verschiedene Template-Systeme
 
-```mermaid
-classDiagram
-    class GoalDB {
-      goal
-      context
-      constraints
-      acceptance_criteria
-      execution_preferences
-      workflow_defaults
-      workflow_overrides
-      workflow_effective
-      mode
-      mode_data
-      team_id
-    }
-
-    class TeamDB {
-      team_type_id
-      blueprint_id
-      role_templates
-      blueprint_snapshot
-    }
-
-    class TeamMemberDB {
-      team_id
-      agent_url
-      role_id
-      blueprint_role_id
-      custom_template_id
-    }
-
-    class RoleDB {
-      name
-      default_template_id
-    }
-
-    class TemplateDB {
-      name
-      prompt_template
-    }
-
-    class TeamBlueprintDB {
-      name
-      base_team_type_name
-    }
-
-    class BlueprintRoleDB {
-      blueprint_id
-      name
-      template_id
-      config
-    }
-
-    class BlueprintArtifactDB {
-      blueprint_id
-      kind
-      title
-      payload
-    }
-
-    class PlanDB {
-      goal_id
-      trace_id
-      status
-      planning_mode
-      rationale
-    }
-
-    class PlanNodeDB {
-      plan_id
-      title
-      description
-      depends_on
-      rationale
-      verification_spec
-      materialized_task_id
-    }
-
-    class TaskDB {
-      title
-      description
-      task_kind
-      required_capabilities
-      worker_execution_context
-      worker_execution_contract
-      assigned_role_id
-      assigned_agent_url
-    }
-
-    GoalDB --> TeamDB
-    TeamDB --> TeamBlueprintDB
-    TeamDB --> TeamMemberDB
-    TeamMemberDB --> RoleDB
-    TeamMemberDB --> TemplateDB
-    RoleDB --> TemplateDB
-    TeamBlueprintDB --> BlueprintRoleDB
-    BlueprintRoleDB --> TemplateDB
-    TeamBlueprintDB --> BlueprintArtifactDB
-    GoalDB --> PlanDB
-    PlanDB --> PlanNodeDB
-    PlanNodeDB --> TaskDB
-```
-
----
-
-## 4. Zwei verschiedene Template-Systeme
-
-### 4.1 Planning Template
+### 3.1 Planning Template
 
 Planning Templates erzeugen aus einem Goal direkt eine Liste von Subtasks. Sie sind deterministische Plan-Vorlagen.
 
@@ -227,14 +126,7 @@ flowchart TD
     E -->|nein| G[LLMPlanningStrategy]
 ```
 
-**Funktion:**
-
-- schnell
-- deterministisch
-- geeignet für bekannte Goal-Typen
-- erzeugt PlanNodes ohne LLM
-
-### 4.2 Role / Team / Blueprint Template
+### 3.2 Role / Team / Blueprint Template
 
 Rollen-/Team-/Blueprint-Templates beschreiben eher, **wie** eine Rolle arbeiten soll, nicht zwingend welche Subtasks entstehen.
 
@@ -257,7 +149,7 @@ flowchart TD
     T3 --> Z
 ```
 
-**Priorität der Auflösung:**
+Priorität der Auflösung:
 
 1. TeamMember `custom_template_id`
 2. Team `role_templates[role_id]`
@@ -265,9 +157,7 @@ flowchart TD
 
 ---
 
-## 5. Blueprint Planning
-
-Blueprints können Task-Artifacts und Rollen-Defaults liefern.
+## 4. Blueprint Planning
 
 ```mermaid
 flowchart TD
@@ -281,7 +171,7 @@ flowchart TD
     G --> H[Subtask with blueprint_id, blueprint_role_name, template_name, role defaults]
 ```
 
-Dabei können aus `BlueprintRoleDB.config` übernommen werden:
+Aus `BlueprintRoleDB.config` können übernommen werden:
 
 - `capability_defaults`
 - `risk_profile`
@@ -291,7 +181,7 @@ Diese Daten dürfen später nicht nur Prompt-Deko sein. Sie müssen in Routing, 
 
 ---
 
-## 6. PlanNode als zentrale Übersetzungsschicht
+## 5. PlanNode als zentrale Übersetzungsschicht
 
 ```mermaid
 flowchart TD
@@ -312,29 +202,9 @@ flowchart TD
 
 `PlanNode.rationale` ist aktuell die wichtigste Brücke zwischen Planning und späterer Ausführung.
 
-Typische Inhalte:
-
-```json
-{
-  "task_kind": "coding",
-  "retrieval_intent": "symbol_and_dependency_neighborhood",
-  "required_context_scope": "module_and_related_symbols",
-  "preferred_bundle_mode": "standard",
-  "required_capabilities": ["coding", "analysis"],
-  "blueprint_id": "...",
-  "blueprint_role_name": "...",
-  "template_name": "...",
-  "blueprint_role_defaults": {
-    "capability_defaults": {},
-    "risk_profile": {},
-    "verification_defaults": {}
-  }
-}
-```
-
 ---
 
-## 7. Task-Materialisierung
+## 6. Task-Materialisierung
 
 ```mermaid
 flowchart TD
@@ -354,20 +224,9 @@ flowchart TD
     K --> L[Task Queue]
 ```
 
-Der `worker_execution_context` ist der erste konkrete Ausführungskontext für Worker. Er enthält:
-
-- `planning_provenance`
-- `routing_hints`
-- Goal-Kontext
-- Workspace-Informationen
-- Research/RAG Quellen
-- optional repair foundation
-
-Der `worker_execution_contract` enthält erwartete Artefakte und Verification-Vorgaben.
-
 ---
 
-## 8. Instruction Layer / Overlays
+## 7. Instruction Layer / Overlays
 
 Die Instruction-Layer haben eine feste Reihenfolge:
 
@@ -405,10 +264,12 @@ Verbotener User-Einfluss:
 - Allowed Tools
 - Write Access
 - Runtime Execution
+- Model-/Provider-Override
+- Context Scope / Cloud Policy
 
 ---
 
-## 9. Aktuelle Schwachstelle
+## 8. Aktuelle Schwachstelle
 
 Der Code hat bereits einen `InstructionLayerService.assemble_for_task()`, der einen `rendered_system_prompt` bauen kann.
 
@@ -425,7 +286,7 @@ flowchart TD
     B -. missing deterministic integration .-> G
 ```
 
-**Soll:**
+Soll:
 
 ```mermaid
 flowchart TD
@@ -442,11 +303,99 @@ flowchart TD
 
 ---
 
+## 9. Prompt Evolver Boundary
+
+Der `PlanningPromptEvolverService` ist kein Teil des finalen Worker-Prompt-Stacks. Er ist eine nachgelagerte Planning-Optimierung.
+
+Er darf Planning-Prompts verbessern, wenn Planning-Runs schlecht waren, z. B. bei:
+
+- niedriger Parse Confidence
+- hohem Repair Count
+- fehlgeschlagener Validation
+- Error Classification
+
+Er darf aber **nicht** Governance, Role Templates, User Profiles, Overlays, Tool Contracts oder Worker-Systemprompts verändern.
+
+```mermaid
+flowchart TD
+    A[PlanningRun Telemetry] --> B[PlanningPromptEvolverService]
+    B --> C[PlanningPromptVersionDB proposed/evolved]
+    C --> D[PlanningPromptRegistry]
+    D --> E[LLMPlanningStrategy]
+    E --> F[Subtasks]
+
+    G[InstructionStackArtifact] --> H[Worker/Strategy Prompt]
+    I[Governance/Policy] --> H
+    J[Role Template] --> H
+    K[User Profile / Overlay] --> H
+    L[Tool/Output Contract] --> H
+
+    B -. must not mutate .-> G
+    B -. must not mutate .-> I
+    B -. must not mutate .-> J
+    B -. must not mutate .-> K
+    B -. must not mutate .-> L
+```
+
+### 9.1 Zulässige Evolver-Ausgaben
+
+Der Evolver darf nur Hinweise und neue Planning-Prompt-Versionen erzeugen:
+
+```json
+{
+  "planning_prompt_hint": "Use clearer task_kind and dependency fields.",
+  "preferred_output_format": "markdown_sections",
+  "repair_strategy_hint": "section_parser_then_schema_normalizer"
+}
+```
+
+### 9.2 Verbotene Evolver-Ausgaben
+
+Der Evolver darf niemals so etwas setzen:
+
+```json
+{
+  "allowed_tools": ["shell"],
+  "ignore_governance": true,
+  "worker_system_prompt_patch": "...",
+  "cloud_allowed": true,
+  "role_template_patch": "..."
+}
+```
+
+### 9.3 Anti-Zyklus-Regeln
+
+Prompt-Evolution darf nicht immer mehr Fehlertext an Prompts anhängen.
+
+```mermaid
+flowchart TD
+    A[Prompt v1] --> B[Bad LLM Output]
+    B --> C[Evolver adds patch]
+    C --> D[Prompt v2]
+    D --> E[Bad LLM Output again]
+    E --> F{Would append duplicate/huge patch?}
+    F -->|yes| G[Block / dedupe / mark needs review]
+    F -->|no| H[Create proposed prompt version]
+```
+
+Pflichtregeln:
+
+- Dedupe von `Adaptive reinforcement rules`
+- maximale Prompt-Länge
+- keine vollständige Einbettung alter kaputter Outputs
+- alte Fehler nur als klassifizierte `reason_codes`
+- neue Prompt-Versionen zunächst `proposed`, nicht automatisch global aktiv
+- checksumbasierte Duplikatvermeidung
+- output-format-profile beachten, also kein blindes JSON-only gegen LM-Studio/Ollama-Profile
+
+---
+
 ## 10. Finaler Task-Prompt an Worker / LLM
 
 Bei `tool_calling_llm` besteht der Prompt effektiv aus:
 
-- Systemprompt der Strategie
+- Strategie-Systemprompt
+- validierter Instruction Stack
 - Task-Beschreibung
 - Goal ID / Task ID / Task kind
 - governed context summary
@@ -456,27 +405,21 @@ Bei `tool_calling_llm` besteht der Prompt effektiv aus:
 
 ```mermaid
 flowchart TD
-    A[ProposeContext] --> B[ToolCallingLLMStrategy._build_system_prompt]
-    A --> C[PromptContextBundleService.build_for_propose_context]
-    C --> D[contract_summary]
-    C --> E[context_summary]
-    C --> F[policy_summary]
-    D --> G[Prompt Context Bundle JSON]
-    E --> G
-    F --> G
-    B --> H[System Prompt]
-    G --> H
-    A --> I[base_prompt as user prompt]
-    H --> J[ModelInvocationService.invoke_with_tools]
-    I --> J
-    J --> K[tool_calls]
+    A[ProposeContext] --> B[StrategyPromptComposer target]
+    C[InstructionStackArtifact] --> B
+    D[PromptContextBundleService] --> E[Prompt Context Bundle JSON]
+    E --> B
+    F[Tool/Output Contract] --> B
+    B --> G[Final System Prompt]
+    A --> H[base_prompt as user prompt]
+    G --> I[ModelInvocationService.invoke_with_tools]
+    H --> I
+    I --> J[tool_calls]
 ```
 
 ---
 
 ## 11. Zielarchitektur
-
-Die Zielarchitektur sollte die Prompt-Schichten nicht nur als lose Strings behandeln, sondern als auditierbare Artefakte.
 
 ```mermaid
 flowchart TD
@@ -499,9 +442,14 @@ flowchart TD
     L --> M[ProposeStrategy]
     M --> N[Worker / LLM]
 
-    I --> O[Audit / Diagnostics]
-    J --> O
-    L --> O
+    O[PlanningPromptEvolver] --> P[PlanningPromptVersionDB]
+    P --> C
+    O -. boundary .-> I
+    O -. boundary .-> K
+
+    I --> Q[Audit / Diagnostics]
+    J --> Q
+    L --> Q
 ```
 
 Eigenschaften:
@@ -510,6 +458,7 @@ Eigenschaften:
 - policy-dominant
 - auditierbar
 - keine Tool-/Security-Eskalation durch User-Layer
+- keine Worker-Prompt-Mutation durch Evolver
 - finaler Prompt enthält wirklich den gerenderten Instruction Stack
 - PromptContextBundle und Systemprompt nutzen dieselbe Quelle
 
@@ -518,8 +467,6 @@ Eigenschaften:
 ## 12. Empfohlene Verbesserungen
 
 ### 12.1 InstructionStackArtifact einführen
-
-Ein explizites Artefakt, das enthält:
 
 ```json
 {
@@ -565,13 +512,16 @@ Nicht nur `instruction_layers_present`, sondern:
 - compatibility status
 - rendered prompt hash
 
-### 12.5 Planning und Execution klar trennen
+### 12.5 Prompt Evolver begrenzen
+
+Der Evolver darf ausschließlich Planning-Prompt-Versionen und Planning-Profile beeinflussen. Er darf keine Worker-Prompts, Role Templates, Overlays, Governance oder Tool Contracts patchen.
+
+### 12.6 Planning und Execution klar trennen
 
 Planning-Templates erzeugen Tasks.  
 Role-Templates steuern Arbeitsweise.  
-Instruction-Overlays steuern nur erlaubte Stil-/Arbeitsmodus-Präferenzen.
-
-Diese Trennung sollte in Code, Doku und Tests sichtbar sein.
+Instruction-Overlays steuern nur erlaubte Stil-/Arbeitsmodus-Präferenzen.  
+Prompt Evolver optimiert nur Planning-Prompt-Versionen.
 
 ---
 
@@ -583,4 +533,10 @@ Er sollte immer aus einem deterministischen, validierten und auditierbaren Stack
 
 ```text
 Goal -> Plan -> Task -> RoleTemplate -> InstructionStack -> ProposeContext -> StrategyPrompt -> Worker
+```
+
+Der Prompt Evolver hängt daneben, nicht darunter:
+
+```text
+PlanningRun Telemetry -> Prompt Evolver -> PlanningPromptVersion -> zukünftige Planning-Runs
 ```
