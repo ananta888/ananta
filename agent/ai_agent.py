@@ -15,6 +15,7 @@ from agent.common.logging import setup_logging
 from agent.common.signals import setup_signal_handlers
 from agent.config import settings
 from agent.database import init_db
+from agent import db_models as _
 from agent.metrics import APP_STARTUP_DURATION
 from agent.services.app_runtime_service import build_base_app_config, initialize_runtime_state
 from agent.services.repository_registry import initialize_repository_registry

@@ -18,7 +18,10 @@ class HubLLMService:
 
     def generate_text_and_usage(self, **kwargs) -> tuple[str, dict[str, int], Any]:
         result = self.generate_text(**kwargs)
+        import logging
+        logging.getLogger(__name__).debug(f"HubLLMService: Raw LLM API response (result): {result!r}")
         text, usage = extract_llm_text_and_usage(result)
+        logging.getLogger(__name__).debug(f"HubLLMService: Extracted LLM text: {text!r}")
         return text, usage, result
 
     def _get_benchmark_recommended_model(self, task_kind: str | None = None) -> dict[str, Any] | None:
