@@ -35,7 +35,7 @@ def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
         if not isinstance(raw_profile, dict):
             continue
         runtime_profiles[str(profile_id)] = {
-            "timeout_seconds": _bounded_int(raw_profile.get("timeout_seconds"), default=120, minimum=5, maximum=300),
+            "timeout_seconds": _bounded_int(raw_profile.get("timeout_seconds"), default=120, minimum=5, maximum=900),
             "max_output_tokens": _bounded_int(raw_profile.get("max_output_tokens"), default=512, minimum=128, maximum=2048),
             "retry_attempts": _bounded_int(raw_profile.get("retry_attempts"), default=2, minimum=1, maximum=5),
             "retry_backoff_seconds": float(raw_profile.get("retry_backoff_seconds") or 1.0),
@@ -56,7 +56,7 @@ def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
         "allow_remote_planners": bool(payload.get("allow_remote_planners", False)),
         "max_nodes": _bounded_int(payload.get("max_nodes"), default=8, minimum=1, maximum=50),
         "max_depth": _bounded_int(payload.get("max_depth"), default=8, minimum=1, maximum=50),
-        "timeout_seconds": _bounded_int(payload.get("timeout_seconds"), default=45, minimum=5, maximum=300),
+        "timeout_seconds": _bounded_int(payload.get("timeout_seconds"), default=45, minimum=5, maximum=900),
         "max_output_tokens": _bounded_int(payload.get("max_output_tokens"), default=512, minimum=128, maximum=2048),
         "segmented_planning_enabled": bool(payload.get("segmented_planning_enabled", False)),
         "segment_context_chars": _bounded_int(payload.get("segment_context_chars"), default=2400, minimum=600, maximum=12000),
