@@ -81,7 +81,7 @@ class PlanningModelProfileService:
                 existing_profile.context_max_chars = int(item.get("context_max_chars") or 1200)
                 existing_profile.max_output_tokens = int(item.get("max_output_tokens") or 1024)
                 existing_profile.temperature = float(item.get("temperature") or 0.2)
-                existing_profile.repair_attempts = int(item.get("repair_attempts") or 2)
+                existing_profile.repair_attempts = int(item["repair_attempts"] if item.get("repair_attempts") is not None else 2)
                 existing_profile.repair_strategies = list(item.get("repair_strategies") or [])
                 existing_profile.preferred_prompt_version_id = item.get("preferred_prompt_version_id")
                 existing_profile.output_contract_strictness = str(item.get("output_contract_strictness") or "repair_required")
@@ -100,7 +100,7 @@ class PlanningModelProfileService:
                     context_max_chars=int(item.get("context_max_chars") or 1200),
                     max_output_tokens=int(item.get("max_output_tokens") or 1024),
                     temperature=float(item.get("temperature") or 0.2),
-                    repair_attempts=int(item.get("repair_attempts") or 2),
+                    repair_attempts=int(item["repair_attempts"] if item.get("repair_attempts") is not None else 2),
                     repair_strategies=list(item.get("repair_strategies") or []),
                     preferred_prompt_version_id=item.get("preferred_prompt_version_id"),
                     output_contract_strictness=str(item.get("output_contract_strictness") or "repair_required"),
@@ -172,7 +172,7 @@ class PlanningModelProfileService:
             "context_max_chars": int(profile.context_max_chars or 1200),
             "max_output_tokens": int(profile.max_output_tokens or 1024),
             "temperature": float(profile.temperature or 0.2),
-            "repair_attempts": int(profile.repair_attempts or 2),
+            "repair_attempts": int(profile.repair_attempts if profile.repair_attempts is not None else 2),
             "repair_strategies": list(profile.repair_strategies or []),
             "preferred_prompt_version_id": profile.preferred_prompt_version_id,
             "output_contract_strictness": str(profile.output_contract_strictness or "repair_required"),

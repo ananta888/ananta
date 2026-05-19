@@ -36,7 +36,7 @@ ANANTA_USER="${ANANTA_USER:-admin}"
 CONFIG_MODE="${CONFIG_MODE:-goal_scoped}"
 SLA_SECONDS="${SLA_SECONDS:-900}"
 RESET_DB="${RESET_DB:-0}"
-GOAL_TEXT="Create a real multi-file Python project for RTX3080 eGPU utilization optimization; write README, src package, tests, run pytest, store report artifact"
+GOAL_TEXT="Create a real multi-file Python Backend project for Fibonacci calculation; write README, src package, tests, run pytest, store report artifact"
 OUT_FILE=""
 # Planning-Policy für lokale Modelle (leer = keine Overrides, "small" = kompakte englische Prompts)
 PLANNING_PROFILE="${PLANNING_PROFILE:-small}"
