@@ -92,6 +92,7 @@ def _authenticate_request(provided_token: str | None, *, require_admin: bool = F
     agent_token = current_app.config.get("AGENT_TOKEN")
     if not agent_token and not require_admin:
         logging.warning("Agent läuft OHNE Authentifizierung! Setzen Sie AGENT_TOKEN für mehr Sicherheit.")
+        _set_agent_admin_context()
         return True, "auth_disabled"
 
     if not provided_token:
