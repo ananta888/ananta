@@ -160,7 +160,8 @@
       "Bash(echo \"Neuer PID: $!\")",
       "Bash(docker network *)",
       "Bash(docker inspect *)",
-      "Bash(docker cp *)"
+      "Bash(docker cp *)",
+      "Bash(grep -v \"WARNING\\\\|INFO\\\\|DEBUG\\\\|^$\")"
     ]
   }
 }
