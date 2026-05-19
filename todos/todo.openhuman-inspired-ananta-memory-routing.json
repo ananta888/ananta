@@ -1,0 +1,679 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "openhuman-inspired-ananta-memory-routing",
+  "purpose": "Analyse des OpenHuman-Projekts und Ableitung konkreter, sicherheitsorientierter Verbesserungen für Ananta: Memory Tree statt bloßer Retrieval-Fragmente, TokenJuice-artige Tool-Output-Kompression, modell-/workload-basiertes Hint-Routing, lokale AI für passende Hintergrundaufgaben, Markdown/Obsidian-artiger Memory Vault und streng policy-gesteuerter Context-Zugriff pro Worker.",
+  "goal": "Ananta soll aus OpenHuman lernen, ohne dessen Produkt-/UX-Fokus oder riskante Integrationsbreite blind zu übernehmen. Ziel ist ein deterministischer, hub-orchestrierter, observierbarer und sicherheitsorientierter Kontext- und Memory-Layer für Worker, Planner und Retrieval.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "source_analysis": {
+    "openhuman_relevant_concepts": [
+      {
+        "concept": "Memory Tree",
+        "summary": "OpenHuman canonicalized Quellen in Markdown, erzeugt deterministische Chunks, persistiert diese lokal und baut Source-/Topic-/Global-Trees mit Summary-Knoten. Heavy Work läuft in Background Workers.",
+        "relevance_for_ananta": "Sehr hoch: Ananta hat bereits rag_helper/codecompass, KnowledgeIndex und ResultMemory. Daraus kann ein strukturiertes Memory-Tree-Modell mit Provenance, Lifecycle und Worker-Context-Views entstehen.",
+        "do_not_copy_blindly": "Keine ungeprüften externen Datenquellen oder Auto-Fetches ohne Default-Deny-Policy. Keine LLM-Heuristik als Sicherheitsentscheidung."
+      },
+      {
+        "concept": "TokenJuice",
+        "summary": "OpenHuman komprimiert Tool-, Scrape-, E-Mail- und Suchausgaben regelbasiert, bevor sie in Modellkontext gelangen. Regeln sind mehrschichtig: builtin, user-global, projektlokal.",
+        "relevance_for_ananta": "Sehr hoch: Ananta führt Tools und Shell-Kommandos aus; die Kompression gehört direkt in den Tool-/Shell-Output-Pfad, bevor Result Memory, Planner oder Worker-Kontext damit gefüttert werden.",
+        "do_not_copy_blindly": "Keine LLM-basierte Zusammenfassung als einziger Beweis. Rohdaten müssen optional referenzierbar bleiben; Kompression braucht Provenance und omitted_summary."
+      },
+      {
+        "concept": "Automatic Model Routing via hint:*",
+        "summary": "OpenHuman erlaubt konkrete Modelle oder Hint-Präfixe wie hint:reasoning, hint:fast, hint:summarize und löst diese in Provider/Model-Routen auf.",
+        "relevance_for_ananta": "Hoch: Ananta hat bereits RoutingDecisionService, Runtime-Profile, ProposePolicy und Modell-/Provider-Konfiguration. Hint-Routing kann task_kind, risk, context_size und privacy_policy sauberer ausdrücken als feste Modellnamen.",
+        "do_not_copy_blindly": "Keine Cloud-Fallbacks, wenn cloud_allowed=false. Kein automatisches Hochrouten sensitiver Kontexte."
+      },
+      {
+        "concept": "Local AI opt-in",
+        "summary": "OpenHuman nutzt lokale Modelle optional für Embeddings, Summary Trees und Hintergrundreflexion, während schwere Chat-/Vision-Aufgaben eher Cloud bleiben.",
+        "relevance_for_ananta": "Hoch: Ananta kann lokale Modelle für embeddings, code summaries, compaction, normalization und cheap classification nutzen. Cloud/Remote nur policy-erlaubt.",
+        "do_not_copy_blindly": "Nicht global alles lokal routen; lokale Modelle pro Workload aktivieren und auf Qualitäts-/Formatprofile prüfen."
+      },
+      {
+        "concept": "Obsidian Wiki / Markdown Vault",
+        "summary": "OpenHuman macht Memory als Markdown-Vault sichtbar und editierbar.",
+        "relevance_for_ananta": "Mittel bis hoch: CodeCompass-/Memory-Ergebnisse können als .ananta/memory/*.md materialisiert werden, damit Kontext auditierbar, versionierbar und für Humans nachvollziehbar ist.",
+        "do_not_copy_blindly": "Markdown Vault ist Sicht-/Export-Schicht, nicht alleinige Wahrheit. Canonical Store bleibt DB/JSONL/Graph mit Hashes."
+      },
+      {
+        "concept": "Sandboxed skills / MCP tool sync",
+        "summary": "OpenHuman nutzt Skills, Tool Registry und MCP-artige Tool Discovery.",
+        "relevance_for_ananta": "Teilweise: Ananta hat bereits MCP-Registry, Tool-Guardrails und Worker-Verträge. Interessant ist eher Tool-Katalog-Synchronisation und Observability, nicht das OpenHuman Skill-System selbst.",
+        "do_not_copy_blindly": "Keine freie Skill-Installation ohne Policy, Signatur, Allowlist und Review."
+      }
+    ],
+    "ananta_existing_code_analysis": [
+      {
+        "file": "agent/services/context_bundle_service.py",
+        "observed": "ContextBundler hat bereits Budget-Modi compact/standard/full, filtert Chunks nach Sensitivity und baut worker_context_bundle.v1 mit policy_filter und context_policy.",
+        "gap": "Noch kein Memory Tree Scope, kein Source/Topic/Global Summary Layer, keine token-komprimierten Tool-Outputs als eigene Chunk-Klasse, keine vollständige Provenance/Lifecycle-State-Maschine.",
+        "extension_direction": "ContextBundler soll MemoryTreeViews konsumieren und nicht direkt nur rohe chunks/context_text verteilen."
+      },
+      {
+        "file": "agent/services/rag_helper_index_service.py",
+        "observed": "RagHelperIndexService besitzt Profile wie default, fast_docs, deep_code und subtask_* mit graph_export_mode, retrieval_output_mode, output_compaction_mode und task_kinds/retrieval_intents.",
+        "gap": "Profile sind index-/retrieval-orientiert, aber noch kein persistenter Memory-Tree-Lifecycle mit admitted/buffered/sealed/dropped und kein Markdown Vault als first-class Output.",
+        "extension_direction": "CodeCompass-Outputs sollen in einen MemoryTreeStore überführt werden: source tree pro Repo/Artifact, topic tree pro Symbol/Modul/Task, global digest pro Goal/Projekt."
+      },
+      {
+        "file": "agent/services/knowledge_index_retrieval_service.py",
+        "observed": "Liest completed rag-helper outputs aus index.jsonl/details.jsonl/relations.jsonl, klassifiziert Code/Doc/Relation/Config und gewichtet nach task_kind/retrieval_intent.",
+        "gap": "Retrieval ist bereits stark, aber eher record-scoring als navigierbarer Summary Tree. Chunk-Lifecycle, hotness, sealing und provenance-linked summaries fehlen.",
+        "extension_direction": "KnowledgeIndexRetrievalService bleibt Retrieval-Adapter, wird aber um MemoryTreeRetrievalAdapter ergänzt."
+      },
+      {
+        "file": "agent/services/task_context_policy_service.py",
+        "observed": "Leitet retrieval_hints und required_context_scope aus task_kind ab und baut Context-Policy mit Task-Nachbarschaft.",
+        "gap": "Policy kennt noch keine explizite Source-Sensitivity/Worker-Destination-Matrix und keine Memory-Tree-Scopes wie source/topic/global.",
+        "extension_direction": "Policy erweitert um worker_profile, llm_scope, cloud_allowed, source_sensitivity, memory_scope und retrieval_tree_scope."
+      },
+      {
+        "file": "agent/services/routing_decision_service.py",
+        "observed": "Erzeugt explainable RoutingDecisionChain mit request_override/task_benchmark/configured_default/local_runtime_probe und context_policy_scope.",
+        "gap": "Noch kein hint:planning/hint:compaction/hint:code/hint:security_review Routing und keine explizite Privacy-Gating-Logik für lokale vs externe Provider.",
+        "extension_direction": "HintRoutingService baut auf RoutingDecisionService auf und erzeugt erklärbare, policy-gated Provider/Model-Auswahl."
+      },
+      {
+        "file": "agent/services/task_execution_service.py",
+        "observed": "Tool- und Shell-Ausführung laufen zentral durch execute_local_step; Tool-Ergebnisse werden aktuell direkt als Text in output_parts übernommen.",
+        "gap": "Kein regelbasierter Tool-Output-Compaction-Layer vor output_parts, Result Memory, Planner-Feedback oder Worker-Kontext.",
+        "extension_direction": "ToolOutputCompactionService direkt nach tool_registry.execute(...) und nach Shell-Ausführung einhängen."
+      },
+      {
+        "file": "agent/services/result_memory_service.py",
+        "observed": "Persistiert Worker-Ergebnisse als MemoryEntryDB, hat Redaction, TTL, scope, sensitivity und ContextAccessPolicy-Evaluator.",
+        "gap": "Memory ist result-orientiert; noch kein Tree-/Vault-/Summary-Bucket-Modell und keine Chunk-Lifecycle-Verarbeitung.",
+        "extension_direction": "ResultMemory wird Quelle für Memory Tree Leaves und speist source/topic/global summaries."
+      },
+      {
+        "file": "agent/services/ingestion_service.py",
+        "observed": "Koordiniert Artifact-Upload, Extraction und Wiki-Import inkl. Normalizer/Checkpoint/JSONL Cache.",
+        "gap": "Keine allgemeine Auto-Fetch-/Ingest-Queue für Repo/Logs/Tasks/Commits/Tool-Outputs mit dedupe_key/retry/lease.",
+        "extension_direction": "MemoryIngestionQueueService ergänzt IngestionService für Ananta-interne Quellen und optional externe Quellen."
+      },
+      {
+        "file": "agent/services/service_registry.py",
+        "observed": "CoreServiceRegistry trennt Task/Governance/Knowledge/Integration/Runtime Services. KnowledgeServices enthalten bereits rag_service, rag_helper_index_service, ingestion_service, knowledge_index_job_service, knowledge_index_retrieval_service und result_memory_service.",
+        "gap": "Neue MemoryTree/TokenCompaction/HintRouting Services müssen sauber in passende Teilregistries einsortiert werden.",
+        "extension_direction": "MemoryTree-Services in KnowledgeServices, ToolOutputCompaction ggf. TaskServices oder KnowledgeServices, HintRouting in Integration/Runtime."
+      }
+    ],
+    "license_note": "OpenHuman steht laut Repository unter GNU/GPL-Lizenz. Für Ananta sollten Konzepte nachgebaut, aber kein Code direkt kopiert werden, solange Lizenzkompatibilität nicht ausdrücklich geklärt ist."
+  },
+  "architecture_principles": [
+    "Hub orchestriert; Worker erhalten nur geprüften, kompaktierten und erlaubten Kontext.",
+    "Memory Tree ist additive Schicht auf bestehenden KnowledgeIndex/ResultMemory/CodeCompass-Outputs.",
+    "Security-Entscheidungen bleiben deterministisch und policy-basiert, nicht LLM-basiert.",
+    "Token-Kompression darf keine kritischen Fehler/Constraints/Beweise entfernen.",
+    "Komprimierte Outputs müssen immer Provenance, original_ref und omitted_summary tragen.",
+    "Cloud-/Remote-Provider bekommen nur explizit erlaubte Chunks.",
+    "Lokale AI ist workload-spezifisch opt-in/health-gated, nicht global magisch aktiv.",
+    "Markdown Vault ist Sicht-/Audit-Schicht, nicht alleinige Persistenzquelle.",
+    "Alles additiv, keine Breaking Changes an bestehenden Endpoints."
+  ],
+  "expected_new_files": [
+    "agent/services/memory_tree_store_service.py",
+    "agent/services/memory_tree_ingestion_service.py",
+    "agent/services/memory_tree_summary_service.py",
+    "agent/services/memory_tree_retrieval_service.py",
+    "agent/services/tool_output_compaction_service.py",
+    "agent/services/tool_output_compaction_rule_loader.py",
+    "agent/services/hint_routing_service.py",
+    "agent/services/memory_vault_export_service.py",
+    "agent/common/utils/tool_output_compaction_utils.py",
+    "configs/tool_output_compaction_rules/builtin.json",
+    "docs/openhuman-inspired-memory-routing.md",
+    "tests/test_memory_tree_store_service.py",
+    "tests/test_tool_output_compaction_service.py",
+    "tests/test_hint_routing_service.py",
+    "tests/test_memory_tree_context_policy.py"
+  ],
+  "expected_modified_files": [
+    "agent/services/context_bundle_service.py",
+    "agent/services/rag_helper_index_service.py",
+    "agent/services/knowledge_index_retrieval_service.py",
+    "agent/services/task_context_policy_service.py",
+    "agent/services/routing_decision_service.py",
+    "agent/services/task_execution_service.py",
+    "agent/services/result_memory_service.py",
+    "agent/services/ingestion_service.py",
+    "agent/services/service_registry.py",
+    "agent/config_defaults.py",
+    "agent/models.py"
+  ],
+  "milestones": [
+    {"id": "M1", "title": "Bestehende Ananta-Kontext-/Memory-Pfade absichern", "task_ids": ["OHA-001", "OHA-002", "OHA-003"], "status": "todo"},
+    {"id": "M2", "title": "TokenJuice-artige Tool-Output-Kompression", "task_ids": ["OHA-004", "OHA-005", "OHA-006", "OHA-007"], "status": "todo"},
+    {"id": "M3", "title": "Memory Tree auf CodeCompass/KnowledgeIndex aufbauen", "task_ids": ["OHA-008", "OHA-009", "OHA-010", "OHA-011", "OHA-012"], "status": "todo"},
+    {"id": "M4", "title": "Policy-gesteuerter Worker-Context-Zugriff", "task_ids": ["OHA-013", "OHA-014", "OHA-015"], "status": "todo"},
+    {"id": "M5", "title": "Hint-basiertes Modellrouting und Local-AI-Workloads", "task_ids": ["OHA-016", "OHA-017", "OHA-018"], "status": "todo"},
+    {"id": "M6", "title": "Markdown Vault, Observability und UI-Anbindung", "task_ids": ["OHA-019", "OHA-020", "OHA-021", "OHA-022"], "status": "todo"},
+    {"id": "M7", "title": "Tests, Regression und Dokumentation", "task_ids": ["OHA-023", "OHA-024", "OHA-025"], "status": "todo"}
+  ],
+  "tasks": [
+    {
+      "id": "OHA-001",
+      "title": "Aktuelle Context-/Memory-/Retrieval-Flows als Baseline dokumentieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "analysis",
+      "files": ["docs/openhuman-inspired-memory-routing.md", "agent/services/context_bundle_service.py", "agent/services/rag_helper_index_service.py", "agent/services/knowledge_index_retrieval_service.py", "agent/services/result_memory_service.py"],
+      "description": "Vor Implementierung die bestehenden Ananta-Flows dokumentieren: CodeCompass Indexing, KnowledgeIndex Retrieval, ContextBundler, ResultMemory und TaskContextPolicy.",
+      "acceptance_criteria": [
+        "Doku enthält ein Flowdiagramm für artifact/repo/wiki -> rag_helper -> knowledge_index -> retrieval -> context_bundle -> worker.",
+        "Doku markiert vorhandene Policy-Gates: sensitivity filtering, ContextAccessPolicy, task_kind retrieval hints.",
+        "Doku benennt konkrete Lücken gegenüber OpenHuman: Memory Tree, TokenJuice, Hint-Routing, Vault, Lifecycle.",
+        "Keine Implementierung startet, bevor Baseline dokumentiert ist."
+      ]
+    },
+    {
+      "id": "OHA-002",
+      "title": "Service-Zuordnung im CoreServiceRegistry planen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "architecture",
+      "files": ["agent/services/service_registry.py"],
+      "description": "Neue Services sauber in KnowledgeServices, TaskServices, IntegrationServices oder RuntimeServices einsortieren.",
+      "acceptance_criteria": [
+        "MemoryTreeStore/Ingress/Retrieval/Summary liegen in KnowledgeServices.",
+        "ToolOutputCompactionService ist eindeutig TaskServices oder KnowledgeServices zugeordnet und begründet.",
+        "HintRoutingService ist eindeutig Routing/Integration zugeordnet.",
+        "Registry-Felder kollidieren nicht mit bestehenden Namen.",
+        "Bestehende ServiceRegistry-Tests bleiben grün."
+      ]
+    },
+    {
+      "id": "OHA-003",
+      "title": "Konfigurationsschema für OpenHuman-inspirierte Features definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "config",
+      "files": ["agent/config_defaults.py", "agent/models.py", "docs/openhuman-inspired-memory-routing.md"],
+      "description": "Additive Feature-Flags und Policies definieren, default sicher und deaktivierbar.",
+      "implementation_notes": [
+        "memory_tree.enabled default false oder safe_readonly.",
+        "tool_output_compaction.enabled default true für safe builtin rules, aber raw refs behalten.",
+        "hint_routing.enabled default false/compatibility mode.",
+        "memory_vault_export.enabled default false oder local_only.",
+        "cloud_context_policy.default_deny default true."
+      ],
+      "acceptance_criteria": [
+        "Alle neuen Features sind additiv und per Config deaktivierbar.",
+        "Default erlaubt keine Cloud-Leaks sensitiver Chunks.",
+        "Config-Normalisierung toleriert fehlende Felder.",
+        "Doku enthält Beispiel-Konfigurationen für local_only, mixed_local_cloud und strict_enterprise."
+      ]
+    },
+    {
+      "id": "OHA-004",
+      "title": "ToolOutputCompactionService bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "service",
+      "files": ["agent/services/tool_output_compaction_service.py", "agent/common/utils/tool_output_compaction_utils.py"],
+      "description": "Regelbasierte Kompression für Tool- und Shell-Ausgaben vor LLM-Kontext, ResultMemory und Planner-Feedback.",
+      "implementation_notes": [
+        "Input: tool_name, command, output, error, exit_code, task_kind, risk_context.",
+        "Output: compacted_text, original_ref/hash, omitted_summary, preserved_signals, compaction_ratio, applied_rule_ids.",
+        "Keine LLM-Pflicht im Hot Path.",
+        "Fehler, Tracebacks, failed tests, blocked/review/security Hinweise immer erhalten.",
+        "CJK/Emoji/Unicode nicht kaputt normalisieren."
+      ],
+      "acceptance_criteria": [
+        "Service komprimiert lange Ausgaben deterministisch.",
+        "Traceback, ERROR, FAILED, AssertionError, permission denied und security warnings bleiben erhalten.",
+        "compaction_ratio und applied_rule_ids werden geliefert.",
+        "Bei unbekannten Tools greift safe generic compaction.",
+        "Unit-Tests decken pytest, npm, git diff, docker ps, grep und generische Logs ab."
+      ]
+    },
+    {
+      "id": "OHA-005",
+      "title": "Mehrschichtige Compaction-Regeln einführen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "config",
+      "files": ["agent/services/tool_output_compaction_rule_loader.py", "configs/tool_output_compaction_rules/builtin.json"],
+      "description": "Builtin-, User- und Projektregeln analog TokenJuice, aber sicherheitsorientiert für Ananta.",
+      "implementation_notes": [
+        "Merge-Reihenfolge: builtin -> user_global -> project_local -> task_override.",
+        "Projektregeln z. B. .ananta/tool-output-rules/*.json.",
+        "Regeltypen: truncate, preserve_regex, drop_regex, dedup_lines, keep_first_last, section_summary, hunk_budget.",
+        "Projektregeln dürfen keine preserve_security_signals deaktivieren."
+      ],
+      "acceptance_criteria": [
+        "Builtin-Regeln funktionieren ohne Projektdateien.",
+        "Projektregeln können Limits verschärfen, aber kritische Preserve-Regeln nicht entfernen.",
+        "Ungültige Regeln werden ignoriert und als warning sichtbar.",
+        "Regelauflösung ist deterministisch und testbar.",
+        "Doku beschreibt Rule Schema mit Beispielen."
+      ]
+    },
+    {
+      "id": "OHA-006",
+      "title": "ToolOutputCompaction in task_execution_service einhängen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "integration",
+      "files": ["agent/services/task_execution_service.py"],
+      "description": "Nach tool_registry.execute(...) und nach Shell-Ausführung kompaktierte Ausgaben verwenden, aber Originalreferenz behalten.",
+      "acceptance_criteria": [
+        "Tool-Ausgabe wird vor output_parts.append(...) komprimiert.",
+        "Shell-Ausgabe wird vor Speicherung/Antwort kompaktierbar.",
+        "Original hash/ref wird in execution metadata gespeichert.",
+        "Approval/Risk/Guardrail-Checks laufen weiterhin vor Ausführung und werden nicht durch Kompression umgangen.",
+        "Regressionstest belegt, dass bestehende Tool-Ausführung nicht bricht."
+      ]
+    },
+    {
+      "id": "OHA-007",
+      "title": "Compaction-Telemetry und Auditing ergänzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "files": ["agent/services/task_execution_service.py", "agent/services/tool_output_compaction_service.py", "agent/services/operations_observability_service.py"],
+      "description": "Kompression sichtbar machen: wie viel gekürzt, welche Regel, welche Signale erhalten, welcher Raw-Ref.",
+      "acceptance_criteria": [
+        "Telemetry enthält input_chars, output_chars, compaction_ratio, rule_ids, preserve_hits.",
+        "Audit-Event tool_output_compacted wird emittiert.",
+        "Bei Kompressionsfehler wird Originalausgabe policy-konform verwendet oder blockiert, aber nicht still verändert.",
+        "UI/Logs können Kompressionsentscheidungen nachvollziehen."
+      ]
+    },
+    {
+      "id": "OHA-008",
+      "title": "MemoryTreeStore Datenmodell definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "data_model",
+      "files": ["agent/services/memory_tree_store_service.py", "agent/db_models.py", "agent/repositories/memory.py"],
+      "description": "Persistente Memory-Tree-Struktur für Chunks, Leaves, Summary Nodes, Jobs, Hotness und Provenance definieren.",
+      "implementation_notes": [
+        "Entities: MemoryTreeChunk, MemoryTreeLeaf, MemoryTreeNode, MemoryTreeJob, MemoryTreeSource, MemoryTreeTopic.",
+        "Lifecycle: pending_extraction -> admitted -> buffered -> sealed oder dropped.",
+        "Chunk IDs content-addressed: source_id + path/ref + content hash.",
+        "Jeder Chunk bekommt source_type, sensitivity, provenance_ref, original_ref, created_by, scope.",
+        "DB optional: SQLModel Tabellen oder zunächst JSONL/SQLite-kompatibler Store, aber mit klarer Migrationsstrategie."
+      ],
+      "acceptance_criteria": [
+        "Datenmodell ist dokumentiert und testbar.",
+        "Identischer Input erzeugt identische chunk_id und keine Duplikate.",
+        "Lifecycle-State ist maschinenlesbar.",
+        "Provenance kann auf File/Line/Commit/Task/Artifact zeigen.",
+        "Sensitivity und worker/cloud access metadata sind Pflichtfelder oder sichere Defaults."
+      ]
+    },
+    {
+      "id": "OHA-009",
+      "title": "CodeCompass/KnowledgeIndex Outputs in Memory Tree ingestieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "files": ["agent/services/rag_helper_index_service.py", "agent/services/knowledge_index_retrieval_service.py", "agent/services/memory_tree_ingestion_service.py"],
+      "description": "index.jsonl/details.jsonl/relations.jsonl und CodeCompass-Graphdaten als MemoryTreeLeaves übernehmen.",
+      "acceptance_criteria": [
+        "Completed KnowledgeIndex kann MemoryTree-Ingest triggern.",
+        "Code records, doc records und relation records werden unterschiedlich getaggt.",
+        "Graph relations werden als relation leaves oder edges erhalten.",
+        "Retrieval_intent/task_kind Profile aus rag_helper bleiben nutzbar.",
+        "Ingest ist idempotent und dedupliziert über deterministic IDs."
+      ]
+    },
+    {
+      "id": "OHA-010",
+      "title": "Source-/Topic-/Global-Tree-Building implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "service",
+      "files": ["agent/services/memory_tree_summary_service.py", "agent/services/memory_tree_store_service.py"],
+      "description": "OpenHuman-inspiriertes Tree-Konzept auf Ananta übertragen: source trees pro Repo/Artifact/Task, topic trees pro Symbol/Modul/Goal, global digest pro Projekt/Tag/Goal.",
+      "implementation_notes": [
+        "Source tree: pro repo_path/artifact/task/source_id.",
+        "Topic tree: pro symbol/module/domain/task_kind, hotness-basiert oder explizit angefordert.",
+        "Global tree: pro goal/project daily oder run-scope digest.",
+        "Sealing deterministisch: L0 buffer -> L1 summary -> höhere Levels.",
+        "LLM-Summary optional und nur policy-erlaubt; deterministic fallback summary vorhanden."
+      ],
+      "acceptance_criteria": [
+        "Leaves können in source tree gebuffert und sealed werden.",
+        "Topic tree wird nur für hot/angeforderte Themen erzeugt.",
+        "Global digest kann aus vorhandenen leaves/summaries gebaut werden.",
+        "Summary Nodes enthalten provenance_refs zu children.",
+        "Bei LLM-Ausfall existiert deterministic summary fallback."
+      ]
+    },
+    {
+      "id": "OHA-011",
+      "title": "MemoryTreeRetrievalService bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "retrieval",
+      "files": ["agent/services/memory_tree_retrieval_service.py", "agent/services/knowledge_index_retrieval_service.py"],
+      "description": "Retrieval über source/topic/global scopes und drill-down ermöglichen, ohne bestehenden KnowledgeIndexRetrievalService zu ersetzen.",
+      "acceptance_criteria": [
+        "Query kann source_scope, topic_scope oder global_scope verwenden.",
+        "Retrieval liefert summary nodes plus drilldown refs.",
+        "Policy filtert Sensitivity vor Ausgabe.",
+        "Bestehender KnowledgeIndexRetrievalService bleibt kompatibel.",
+        "Tests prüfen architecture, bugfix und config retrieval intents."
+      ]
+    },
+    {
+      "id": "OHA-012",
+      "title": "ResultMemory als MemoryTree-Quelle anbinden",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "integration",
+      "files": ["agent/services/result_memory_service.py", "agent/services/memory_tree_ingestion_service.py"],
+      "description": "Worker-Ergebnisse, Tests, changed_files, risks und next_steps als Memory Tree Leaves aufnehmen.",
+      "acceptance_criteria": [
+        "record_worker_result_memory kann optional MemoryTree-Ingest triggern.",
+        "Redaction läuft vor MemoryTree-Persistenz.",
+        "TTL/scope/sensitivity aus ResultMemoryPolicy werden übernommen.",
+        "Approved/proposed Memory unterscheidet trusted vs untrusted leaves.",
+        "Tests prüfen, dass denied ContextAccessPolicy keine Tree-Write erzeugt."
+      ]
+    },
+    {
+      "id": "OHA-013",
+      "title": "Context Policy um MemoryTree-Scopes und Worker-Destination erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "files": ["agent/services/task_context_policy_service.py", "agent/services/context_bundle_service.py"],
+      "description": "Worker bekommt nur erlaubte MemoryTree-Scopes und Chunks, abhängig von worker_profile, llm_scope, cloud_allowed, task_risk und source_sensitivity.",
+      "acceptance_criteria": [
+        "ContextPolicy enthält retrieval_tree_scope: source|topic|global|mixed.",
+        "ContextPolicy enthält destination: worker_id, runtime_kind, provider_location, model_scope, cloud_effective.",
+        "Cloud/external destinations sind default-deny für internal_high/secret/credential/security_sensitive.",
+        "Policy-Filter liefert denied_count und denied_reasons.",
+        "Tests prüfen local worker darf mehr sehen als external_cloud worker."
+      ]
+    },
+    {
+      "id": "OHA-014",
+      "title": "ContextBundler auf MemoryTreeViews erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "integration",
+      "files": ["agent/services/context_bundle_service.py", "agent/services/memory_tree_retrieval_service.py"],
+      "description": "ContextBundler soll nicht nur rohe chunks/context_text, sondern geprüfte MemoryTreeViews bündeln können.",
+      "acceptance_criteria": [
+        "worker_context_bundle.v1 bleibt kompatibel.",
+        "Optionales Feld memory_tree_view enthält source/topic/global summary refs.",
+        "Tokenbudget berücksichtigt Summary Nodes und Drilldown-Chunks getrennt.",
+        "Policy_filter zählt MemoryTree denied/allowed separat.",
+        "Bestehende ContextBundle-Tests bleiben grün."
+      ]
+    },
+    {
+      "id": "OHA-015",
+      "title": "Cloud-Leak Regression-Suite für Kontextzugriff bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "test",
+      "files": ["tests/test_memory_tree_context_policy.py", "tests/test_context_bundle_codecompass_provenance.py"],
+      "description": "Absichern, dass externe/cloud Worker keine sensitiven Memory/CodeCompass/ResultMemory Chunks erhalten.",
+      "acceptance_criteria": [
+        "secret/credential Chunks werden für external_cloud denied.",
+        "public/internal_low Chunks können je nach Policy erlaubt werden.",
+        "Denied chunks erscheinen nicht im context_text.",
+        "Denied reasons sind auditierbar.",
+        "Regressionstest mit gemischten chunks verhindert versehentliche Policy-Lockerung."
+      ]
+    },
+    {
+      "id": "OHA-016",
+      "title": "HintRoutingService einführen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "routing",
+      "files": ["agent/services/hint_routing_service.py", "agent/services/routing_decision_service.py", "agent/runtime_profiles.py"],
+      "description": "OpenHuman-inspiriertes hint:* Routing für Ananta: planning, compaction, summarize, code, repair, security_review, cheap_classify, local_embedding.",
+      "implementation_notes": [
+        "Hints werden in Provider/Model/Profile aufgelöst.",
+        "Routing berücksichtigt task_kind, risk, context_size, privacy_policy, cloud_allowed, local_health.",
+        "Bestehender RoutingDecisionChain wird erweitert, nicht ersetzt.",
+        "Keine Cloud-Fallbacks bei local_only oder cloud_allowed=false."
+      ],
+      "acceptance_criteria": [
+        "hint:planning, hint:context_compaction, hint:code, hint:security_review, hint:summarize sind definiert.",
+        "RoutingDecisionChain zeigt den Hint und die Auflösung.",
+        "Local-only Policy blockiert externe Provider.",
+        "Unbekannter Hint führt zu mark_unavailable/needs_review statt stiller Default-Cloud.",
+        "Tests prüfen Routing für LM Studio, Ollama und remote provider."
+      ]
+    },
+    {
+      "id": "OHA-017",
+      "title": "Local-AI Workload Flags ergänzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "config",
+      "files": ["agent/config_defaults.py", "agent/local_llm_backends.py", "agent/services/openai_compat_service.py"],
+      "description": "Lokale Modelle workload-spezifisch aktivieren: embeddings, summary_tree, context_compaction, format_normalization, cheap_classify.",
+      "acceptance_criteria": [
+        "local_ai.runtime_enabled und local_ai.usage.* Flags sind vorhanden.",
+        "Jeder Workload kann separat aktiviert/deaktiviert werden.",
+        "Health-Gate verhindert kaputte lokale Provider.",
+        "Fallback respektiert Privacy Policy.",
+        "Doku nennt sinnvolle Defaults für RTX3080, Laptop und CPU-only."
+      ]
+    },
+    {
+      "id": "OHA-018",
+      "title": "Hint-Routing mit modelladaptiven Formatprofilen verbinden",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "integration",
+      "files": ["agent/services/hint_routing_service.py", "agent/services/model_output_format_profile_service.py"],
+      "description": "Die neue Context-Compactor-TODO zu modelladaptiven JSON/Markdown/YAML-Profilen mit Hint-Routing koppeln.",
+      "acceptance_criteria": [
+        "hint:context_compaction liefert auch output_format_profile.",
+        "LM Studio kann markdown_sections bevorzugen.",
+        "Ollama RTX3080 kann strict_json/fenced_json bevorzugen.",
+        "Telemetry fließt in Formatprofil-Scoring ein.",
+        "Keine globale JSON-Pflicht wird wieder eingeführt."
+      ]
+    },
+    {
+      "id": "OHA-019",
+      "title": "Markdown Memory Vault Export bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "export",
+      "files": ["agent/services/memory_vault_export_service.py"],
+      "description": "Memory Tree und CodeCompass-Summaries als lesbare Markdown-Dateien unter .ananta/memory oder data_dir/memory_vault exportieren.",
+      "implementation_notes": [
+        "Frontmatter: source_type, sensitivity, provenance, worker_allowed, cloud_allowed, hash, generated_at.",
+        "Pfadstruktur: sources/, topics/, goals/, tasks/, decisions/, security/.",
+        "Vault ist export/cache, nicht authoritative store.",
+        "Optional git-ignore-freundlich und secrets-safe."
+      ],
+      "acceptance_criteria": [
+        "Export erzeugt deterministische Dateinamen.",
+        "Markdown enthält Provenance und Sensitivity.",
+        "Secret/credential Inhalte werden nicht exportiert, außer explizit local_only und erlaubt.",
+        "Re-Export ist idempotent.",
+        "Doku beschreibt Nutzung mit Obsidian oder normalem Editor."
+      ]
+    },
+    {
+      "id": "OHA-020",
+      "title": "Memory/Context Observability für Dashboard vorbereiten",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "files": ["agent/services/operations_observability_service.py", "agent/services/system_stats_service.py"],
+      "description": "Metriken für Memory Tree, Token-Kompression, Context Policy und Routing sichtbar machen.",
+      "acceptance_criteria": [
+        "Metriken: memory_tree_chunks, source_nodes, topic_nodes, sealed_nodes, dropped_leaves.",
+        "Metriken: compaction_ratio_avg, raw_chars_saved, rule_hits.",
+        "Metriken: context_policy_allowed/denied by sensitivity/provider.",
+        "Metriken: hint_routing_decisions by hint/provider/model.",
+        "Status kann ohne teure Full-Scan-Operation gelesen werden."
+      ]
+    },
+    {
+      "id": "OHA-021",
+      "title": "Memory Tree Ingest Queue skizzieren und minimal implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "queue",
+      "files": ["agent/services/memory_tree_ingestion_service.py", "agent/services/knowledge_index_job_service.py", "agent/services/scheduler_runtime_service.py"],
+      "description": "Durable/Restart-sichere Queue für Memory-Ingest und Summary-Sealing vorbereiten.",
+      "acceptance_criteria": [
+        "Jobs haben kind, payload, dedupe_key, retry_count, status, lease_until.",
+        "Job kinds: ingest_source, extract_leaf, append_buffer, seal, route_topic, digest_goal, flush_stale.",
+        "Crash/Restart kann leased jobs wieder freigeben.",
+        "LLM-bound jobs sind concurrency-limited.",
+        "Minimaler In-Memory/DB-kompatibler Testpfad ist vorhanden."
+      ]
+    },
+    {
+      "id": "OHA-022",
+      "title": "Auto-Fetch nur für Ananta-interne Quellen vorbereiten",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "scheduler",
+      "files": ["agent/services/scheduler_runtime_service.py", "agent/services/memory_tree_ingestion_service.py"],
+      "description": "OpenHuman Auto-Fetch-Idee sicher adaptieren: zunächst nur Repo/Commits/Todos/Task-History/Test-Outputs, keine 118 externen Integrationen.",
+      "acceptance_criteria": [
+        "Auto-Fetch ist default aus oder local/internal-only.",
+        "Quellen: current repo, todos, task history, result memory, knowledge indices.",
+        "Jede Quelle hat cursor/checkpoint und dedupe_key.",
+        "Keine externen OAuth-/Cloud-Integrationen werden eingeführt.",
+        "Scheduler-Status ist beobachtbar."
+      ]
+    },
+    {
+      "id": "OHA-023",
+      "title": "Unit- und Integrationstests für neue Services",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "test",
+      "files": ["tests/test_memory_tree_store_service.py", "tests/test_tool_output_compaction_service.py", "tests/test_hint_routing_service.py", "tests/test_memory_tree_context_policy.py"],
+      "description": "Tests für Determinismus, Policy, Kompression, Routing und Retrieval.",
+      "acceptance_criteria": [
+        "Deterministic chunk IDs sind stabil.",
+        "Tool-Output-Kompression bewahrt kritische Signale.",
+        "HintRouting respektiert local_only/cloud_allowed=false.",
+        "MemoryTreeRetrieval filtert nach Sensitivity.",
+        "ContextBundler Regression bleibt grün."
+      ]
+    },
+    {
+      "id": "OHA-024",
+      "title": "Regression gegen bestehende Ananta-Flows ausführen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "test",
+      "files": ["tests/test_context_bundle_service.py", "tests/test_context_bundle_codecompass_provenance.py", "tests/test_task_scoped_handler_propose.py", "tests/test_propose_orchestrator.py"],
+      "description": "Neue Features dürfen Planning, Propose, ContextBundle, Execution und ResultMemory nicht brechen.",
+      "acceptance_criteria": [
+        "Bestehende Tests laufen unverändert oder mit bewusst dokumentierten Erweiterungen.",
+        "Feature Flags off ergibt altes Verhalten.",
+        "Tool-Ausführung funktioniert auch ohne Compaction-Regeln.",
+        "KnowledgeIndexRetrieval bleibt ohne MemoryTree nutzbar.",
+        "Keine API Response verliert bestehende Felder."
+      ]
+    },
+    {
+      "id": "OHA-025",
+      "title": "Doku und Architekturdiagramme erstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "docs",
+      "files": ["docs/openhuman-inspired-memory-routing.md"],
+      "description": "Dokumentieren, was von OpenHuman gelernt wurde, was bewusst nicht übernommen wird und wie Anantas sichere Variante aussieht.",
+      "acceptance_criteria": [
+        "Doku enthält Mermaid-Diagramm für ToolOutputCompaction-Pipeline.",
+        "Doku enthält Mermaid-Diagramm für MemoryTree-Ingest/Seal/Retrieve.",
+        "Doku enthält Matrix OpenHuman Concept -> Ananta Adaptation -> Security Constraint.",
+        "Doku erklärt GPL-Code nicht direkt kopieren.",
+        "Doku nennt Rollout-Plan: feature flags, tests, migration, dashboard."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["OHA-001", "OHA-003", "OHA-004", "OHA-006", "OHA-008", "OHA-009", "OHA-010", "OHA-011", "OHA-013", "OHA-014", "OHA-015", "OHA-016", "OHA-023", "OHA-024"],
+  "tasks_status_summary": {
+    "total": 25,
+    "by_status": {"todo": 25, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0": 15, "P1": 9, "P2": 1, "P3": 0},
+    "by_risk": {"low": 1, "medium": 10, "high": 9, "critical": 5},
+    "critical_path": {"total": 14, "done": 0, "remaining": 14},
+    "milestones": {"total": 7, "todo": 7, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 25,
+    "by_type": {"analysis": 1, "architecture": 1, "config": 3, "service": 3, "integration": 5, "observability": 2, "data_model": 1, "retrieval": 1, "security": 1, "test": 3, "routing": 1, "export": 1, "queue": 1, "scheduler": 1, "docs": 1}
+  },
+  "progress_summary": {"state": "todo_created_from_openhuman_analysis", "todo_remaining": 25, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "end_summaries": [
+    {
+      "summary_id": "main_takeaway",
+      "title": "Hauptableitung",
+      "items": [
+        "Ananta soll nicht OpenHuman kopieren, sondern dessen Memory-/Compression-/Routing-Ideen sicherheitsorientiert adaptieren.",
+        "Der Hub entscheidet, welcher Worker welchen geprüften, kompaktierten und erlaubten Kontext bekommt.",
+        "Memory Tree ergänzt CodeCompass/RAG um navigierbare Summary-Strukturen mit Provenance und Lifecycle.",
+        "TokenJuice-artige Kompression gehört in den Tool-/Shell-Output-Pfad, nicht erst in den Planner-Prompt.",
+        "Hint-Routing macht Modellwahl semantisch und policy-gated statt nur UI-/Config-basiert."
+      ]
+    },
+    {
+      "summary_id": "do_not_copy",
+      "title": "Bewusst nicht übernehmen",
+      "items": [
+        "Keine direkte Codeübernahme ohne GPL-Lizenzprüfung.",
+        "Keine breite 118+-Integrationsstrategie ohne hartes Default-Deny-Modell.",
+        "Keine freien Subagent-/Skill-Installationen ohne Signatur, Allowlist und Review.",
+        "Keine Cloud-Fallbacks für sensitive/local_only Kontexte.",
+        "Keine LLM-Heuristik als Sicherheitsentscheidung."
+      ]
+    },
+    {
+      "summary_id": "definition_of_done",
+      "title": "Definition of Done",
+      "items": [
+        "Tool-Ausgaben werden nachweislich komprimiert und kritische Signale bleiben erhalten.",
+        "MemoryTree kann aus KnowledgeIndex/CodeCompass/ResultMemory idempotent befüllt werden.",
+        "ContextBundler kann MemoryTreeViews policy-gefiltert ausliefern.",
+        "External/cloud Worker erhalten keine sensitiven Chunks.",
+        "HintRouting löst Workloads erklärbar in Provider/Model/Profile auf.",
+        "Feature Flags off erhalten bestehendes Verhalten.",
+        "Tests und Doku decken Security, Regression und Betrieb ab."
+      ]
+    }
+  ]
+}
