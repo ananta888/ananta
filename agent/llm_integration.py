@@ -951,6 +951,11 @@ def _extract_lmstudio_text(payload: Any) -> str:
     message = first.get("message")
     if isinstance(message, dict):
         content = message.get("content")
+        if content:
+            return str(content)
+        reasoning = message.get("reasoning_content")
+        if reasoning:
+            return str(reasoning)
         if content is not None:
             return str(content)
         tool_calls = message.get("tool_calls")

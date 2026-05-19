@@ -785,7 +785,7 @@ class PlanningService:
         )
 
         try:
-            inner_timeout = max(15, min(int((self._resolve_planning_policy().get("timeout_seconds") or 45) * 1.5), 180))
+            inner_timeout = max(30, int(self._resolve_planning_policy().get("timeout_seconds") or 300))
             app_obj = current_app._get_current_object()
 
             def _resolve_with_app_context() -> dict[str, Any]:

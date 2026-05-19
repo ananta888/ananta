@@ -24,6 +24,8 @@ services:
       REDIS_URL: ${REDIS_URL:-}
       HTTP_TIMEOUT: ${HTTP_TIMEOUT:-300}
       DATABASE_URL: ${HUB_DATABASE_URL:-sqlite:////app/data/ananta-hub.db}
+    ports:
+      - "5000:5000"
     volumes:
       - hub-data:/app/data
     healthcheck:
