@@ -878,7 +878,8 @@ class PlanningService:
             planning_policy=planning_policy,
             team_id=team_id,
         )
-        selective_rounds = max(0, min(int(planning_policy.get("selective_repair_rounds") or 2), 4))
+        _sr = planning_policy.get("selective_repair_rounds")
+        selective_rounds = max(0, min(int(_sr if _sr is not None else 2), 4))
         selective_repair_applied = 0
         while (not quality.ok) and selective_rounds > 0:
             selective_rounds -= 1
