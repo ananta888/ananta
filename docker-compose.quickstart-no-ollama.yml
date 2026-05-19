@@ -57,6 +57,7 @@ services:
       HTTP_TIMEOUT: ${HTTP_TIMEOUT:-300}
       DATABASE_URL: ${ALPHA_DATABASE_URL:-sqlite:////app/data/ananta-alpha.db}
       HUB_URL: http://ai-agent-hub:5000
+      AGENT_URL: http://ai-agent-alpha:5000
       ANANTA_WORKSPACE_ROOT: /project-workspaces
     volumes:
       - alpha-data:/app/data
@@ -85,6 +86,7 @@ services:
       HTTP_TIMEOUT: ${HTTP_TIMEOUT:-300}
       DATABASE_URL: ${BETA_DATABASE_URL:-sqlite:////app/data/ananta-beta.db}
       HUB_URL: http://ai-agent-hub:5000
+      AGENT_URL: http://ai-agent-beta:5000
       ANANTA_WORKSPACE_ROOT: /project-workspaces
     volumes:
       - beta-data:/app/data
