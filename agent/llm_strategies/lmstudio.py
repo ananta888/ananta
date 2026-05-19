@@ -224,10 +224,14 @@ class LMStudioStrategy(LLMStrategy):
         if resp is not None and hasattr(resp, "status_code"):
             if resp.status_code < 400:
                 try:
-                    return resp.json()
+                    json_resp = resp.json()
+                    logging.debug(f"LMStudioStrategy: Raw LM Studio JSON response (from resp.json()): {json_resp!r}")
+                    return json_resp
                 except (ValueError, TypeError):
+                    logging.debug(f"LMStudioStrategy: Failed to parse JSON, raw text response: {resp.text!r}")
                     return resp.text
             logging.warning("LMStudio HTTP %s: %.200s", resp.status_code, resp.text)
+            logging.debug(f"LMStudioStrategy: Error response from LM Studio: {resp.text!r}")
             return None
         if resp is None:
             logging.warning("LMStudio response is None (timeout/connection error) for url=%s", url)

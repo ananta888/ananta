@@ -578,6 +578,8 @@ class LLMPlanningStrategy:
             )
 
         raw_response = planner._call_llm_with_retry(prompt, llm_config)
+        import logging
+        logging.getLogger(__name__).debug(f"LLMPlanningStrategy: main LLM response: {raw_response}")
         planning_origin = "llm"
         repair_strategy_used: str | None = None
         repair_attempt_count = 0
