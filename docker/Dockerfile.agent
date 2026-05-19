@@ -1,0 +1,18 @@
+# Use a Python base image suitable for Ananta's requirements
+FROM python:3.11-slim-bookworm
+
+# Set working directory for the application
+WORKDIR /app
+
+# Copy agent code and dependencies
+COPY . /app
+
+# Install Python dependencies
+# Assuming requirements.txt is in the root of the project
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Expose the port the agent runs on (defaulting to 5000 in Ananta's config)
+EXPOSE 5000
+
+# Command to run the agent (can be overridden by docker-compose)
+CMD ["python", "-m", "agent.ai_agent"]
