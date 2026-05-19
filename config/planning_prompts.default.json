@@ -40,27 +40,6 @@
       "repair_prompt_template": "Add missing task_kind fields. Required: analysis, ops, coding, testing, review. Concretize vague descriptions for goal: {goal}",
       "enabled": true
     },
-    {
-      "version": "v3-gemma-new-software-project-en",
-      "language": "en",
-      "target_model_family": "gemma",
-      "mode": "new_software_project",
-      "output_contract": {"format": "structured", "max_nodes": 10, "requires": ["task_kind", "priority"]},
-      "system_rules": ["structured_only", "compact_fields"],
-      "user_prompt_template": "Create a compact, concrete software-project task plan.\n\nGOAL:\n{goal}\n\nCONTEXT:\n{context}\n\nRules:\n- Cover setup, implementation, execution, verification, summary.\n- No generic tasks.\n- Short title and short description only.\n- Preferred output format: {preferred_output_format}.\n\nDynamic domain hints (apply only if relevant):\n{domain_hints_block}\n\nReturn structured output only.",
-      "repair_prompt_template": "Selective repair for compact structured plan: fill missing categories, replace generic tasks, keep short fields for goal: {goal}",
-      "enabled": true
-    },
-    {
-      "version": "v4-gemma-generic-en",
-      "language": "en",
-      "target_model_family": "gemma",
-      "mode": "generic",
-      "output_contract": {"format": "structured", "max_nodes": 8, "requires": ["task_kind"]},
-      "system_rules": ["structured_only", "compact_fields"],
-      "user_prompt_template": "Plan tasks for the goal. Return JSON array.\n\nGOAL: {goal}\n\nEach item: {{\"title\":\"short\",\"description\":\"concrete action with file/command/endpoint\",\"task_kind\":\"analysis|coding|testing|ops|review\",\"priority\":\"High|Medium|Low\"}}\n\nRules:\n- Max 8 tasks. No generic tasks.\n- For software: include coding task and testing task.\n- Preferred format: {preferred_output_format}.\n\n{domain_hints_block}\n\nReturn JSON array only.",
-      "repair_prompt_template": "Fix missing task_kind and vague descriptions for goal: {goal}",
-      "enabled": true
-    }
+
   ]
 }
