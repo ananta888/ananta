@@ -161,6 +161,10 @@ def _run_prompt(argv: Sequence[str]) -> int:
     gt_p.add_argument("--goal-id", dest="goal_id", required=True)
     gt_p.add_argument("--json", action="store_true")
 
+    gr_p = sub_sub.add_parser("goal-report", help="Show tasks + prompt traces + artifacts for a goal")
+    gr_p.add_argument("--goal-id", dest="goal_id", required=True)
+    gr_p.add_argument("--json", action="store_true")
+
     if not argv or argv[0] in ("-h", "--help"):
         sub_parser.print_help()
         return 0
