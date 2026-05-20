@@ -73,8 +73,17 @@ def resolve_session_auth_token(base_url: str, *, auth_mode: str, auth_token: str
     if env_token:
         return env_token
 
-    username = _clean_text(os.environ.get("ANANTA_USER", "admin"), max_chars=120)
-    password = str(os.environ.get("ANANTA_PASSWORD", "admin"))
+    username = _clean_text(
+        os.environ.get("ANANTA_USER")
+        or os.environ.get("INITIAL_ADMIN_USER")
+        or "admin",
+        max_chars=120,
+    )
+    password = str(
+        os.environ.get("ANANTA_PASSWORD")
+        or os.environ.get("INITIAL_ADMIN_PASSWORD")
+        or "admin"
+    )
     request = urllib.request.Request(
         f"{_normalize_base_url(base_url)}/login",
         data=json.dumps({"username": username, "password": password}).encode("utf-8"),

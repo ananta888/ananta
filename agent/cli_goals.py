@@ -600,8 +600,16 @@ def _parse_rag_sources(raw: str) -> dict:
 
 
 def get_auth_token(base_url: str) -> str:
-    username = os.environ.get("ANANTA_USER", "admin")
-    password = os.environ.get("ANANTA_PASSWORD", "admin")
+    username = (
+        os.environ.get("ANANTA_USER")
+        or os.environ.get("INITIAL_ADMIN_USER")
+        or "admin"
+    )
+    password = (
+        os.environ.get("ANANTA_PASSWORD")
+        or os.environ.get("INITIAL_ADMIN_PASSWORD")
+        or "admin"
+    )
 
     try:
         response = requests.post(f"{base_url}/login", json={"username": username, "password": password}, timeout=10)
