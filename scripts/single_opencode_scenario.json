@@ -24,6 +24,13 @@
             "ops": "opencode",
             "research": "opencode"
           }
+        },
+        "workspace": {
+          "sync_mode": "artifact_hub_sync"
+        },
+        "git_workspace": {
+          "enabled": true,
+          "branch_strategy": "goal"
         }
       }
     }
