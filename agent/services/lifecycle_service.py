@@ -271,10 +271,33 @@ class GoalLifecycleService:
         goal_id = str(getattr(goal, "id", "") or "").strip()
         if not goal_id:
             return goal
+        # Never trigger recovery re-planning while planning is actively queued/running.
+        if status in {"planning_queued", "planning_running"}:
+            return goal
         now_ts = time.time()
         updated_at = float(getattr(goal, "updated_at", 0.0) or 0.0)
         if updated_at and (now_ts - updated_at) < 30:
             return goal
+        # If there is a very recent started planning run, do not trigger a second plan call.
+        try:
+            from agent.services.repository_registry import get_repository_registry
+            planning_runs = [
+                r
+                for r in get_repository_registry().planning_run_repo.get_by_goal_id(goal_id, limit=20)
+                if str(getattr(r, "goal_id", "") or "") == goal_id
+            ]
+            started_runs = [r for r in planning_runs if str(getattr(r, "status", "") or "").strip().lower() == "started"]
+            if started_runs:
+                latest_started = sorted(
+                    started_runs,
+                    key=lambda x: float(getattr(x, "updated_at", 0.0) or 0.0),
+                    reverse=True,
+                )[0]
+                started_age = now_ts - float(getattr(latest_started, "updated_at", 0.0) or 0.0)
+                if started_age <= 180:
+                    return goal
+        except Exception:
+            pass
         tasks = [t for t in task_repo.get_all() if str(getattr(t, "goal_id", "") or "").strip() == goal_id]
         if tasks:
             return goal
