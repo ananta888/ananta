@@ -180,6 +180,12 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
             },
         },
         **({"workspace": workspace_cfg} if workspace_cfg else {}),
+        "worker_runtime": {
+            "todo_contract": {
+                "planner_llm_enabled": False,
+                "planner_llm_retry_attempts": 0,
+            },
+        },
     }
     r = requests.post(f"{base}/config", json=policy, headers=_headers(token), timeout=15)
     if not r.ok:
