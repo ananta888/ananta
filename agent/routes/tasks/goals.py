@@ -25,6 +25,8 @@ from agent.utils import validate_request
 
 goals_bp = Blueprint("tasks_goals", __name__)
 _GOAL_PLANNING_LOCK = threading.Lock()
+_GOAL_ACTIVE_PLANNING_LOCK = threading.Lock()
+_GOAL_ACTIVE_PLANNING_IDS: set[str] = set()
 
 
 def _services():
@@ -661,87 +663,96 @@ def _start_planning_deadline_guard(*, goal_id: str, app: Any, timeout_s: int) ->
 
 
 def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any]) -> None:
-    goal_record = _repos().goal_repo.get_by_id(goal_id)
-    if not goal_record:
-        return
-    readiness = dict(context.get("readiness") or {})
-    goal_record = _services().goal_lifecycle_service.transition_goal(
-        goal_record,
-        target_status="planning_running",
-        reason="planning_background_started",
-        readiness=readiness,
-    )
-    from agent.routes.tasks.auto_planner import auto_planner
-    effective = dict(context.get("effective") or {})
-    overrides = dict(getattr(goal_record, "workflow_overrides", None) or {})
-
-    _live_planning_policy = (current_app.config.get("AGENT_CONFIG") or {}).get("planning_policy") or {}
-    _pp_timeout = (effective.get("planning_policy") or _live_planning_policy).get("timeout_seconds")
-    planning_timeout_s = int(max(30, _pp_timeout if _pp_timeout is not None else 300))
-    _start_planning_deadline_guard(
-        goal_id=goal_record.id,
-        app=current_app._get_current_object(),
-        timeout_s=max(60, planning_timeout_s + 30),
-    )
-    try:
-        app_obj = current_app._get_current_object()
-
-        def _run_plan_goal_with_app_context():
-            with app_obj.app_context():
-                return auto_planner.plan_goal(
-                    goal=str(context.get("goal_text") or goal_record.goal or ""),
-                    context=context.get("mode_context"),
-                    team_id=effective.get("routing", {}).get("team_id"),
-                    create_tasks=bool(effective.get("planning", {}).get("create_tasks", True)),
-                    use_template=bool(effective.get("planning", {}).get("use_template", True)),
-                    use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
-                    goal_id=goal_record.id,
-                    goal_trace_id=goal_record.trace_id,
-                    mode=goal_record.mode,
-                    mode_data=goal_record.mode_data,
-                )
-
-        lock_acquired = _GOAL_PLANNING_LOCK.acquire(timeout=planning_timeout_s)
-        if not lock_acquired:
-            _services().goal_lifecycle_service.transition_goal(
-                goal_record,
-                target_status="failed",
-                reason="planning_lock_timeout",
-                readiness=readiness,
-            )
-            record_product_event(
-                "goal_planning_failed",
-                actor="auto_planner",
-                details={
-                    "reason": "planning_lock_timeout",
-                    "timeout_seconds": planning_timeout_s,
-                    "source": goal_record.source,
-                    "mode": goal_record.mode,
-                },
-                goal_id=goal_record.id,
-                trace_id=goal_record.trace_id,
-                plan_id=None,
-            )
+    with _GOAL_ACTIVE_PLANNING_LOCK:
+        if goal_id in _GOAL_ACTIVE_PLANNING_IDS:
+            try:
+                current_app.logger.warning("goal_planning_skip_duplicate_inflight goal_id=%s", goal_id)
+            except Exception:
+                pass
             return
+        _GOAL_ACTIVE_PLANNING_IDS.add(goal_id)
+    try:
+        goal_record = _repos().goal_repo.get_by_id(goal_id)
+        if not goal_record:
+            return
+        readiness = dict(context.get("readiness") or {})
+        goal_record = _services().goal_lifecycle_service.transition_goal(
+            goal_record,
+            target_status="planning_running",
+            reason="planning_background_started",
+            readiness=readiness,
+        )
+        from agent.routes.tasks.auto_planner import auto_planner
+        effective = dict(context.get("effective") or {})
+        overrides = dict(getattr(goal_record, "workflow_overrides", None) or {})
+
+        _live_planning_policy = (current_app.config.get("AGENT_CONFIG") or {}).get("planning_policy") or {}
+        _pp_timeout = (effective.get("planning_policy") or _live_planning_policy).get("timeout_seconds")
+        planning_timeout_s = int(max(30, _pp_timeout if _pp_timeout is not None else 300))
+        _start_planning_deadline_guard(
+            goal_id=goal_record.id,
+            app=current_app._get_current_object(),
+            timeout_s=max(60, planning_timeout_s + 30),
+        )
         try:
-            current_app.logger.warning(
-                "goal_planning_invoke_start goal_id=%s timeout_s=%s mode=%s",
-                goal_record.id,
-                planning_timeout_s,
-                str(goal_record.mode or "generic"),
-            )
-            with ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(_run_plan_goal_with_app_context)
-                result = future.result(timeout=planning_timeout_s)
-            current_app.logger.warning(
-                "goal_planning_invoke_done goal_id=%s created=%s error=%s",
-                goal_record.id,
-                len(list(result.get("created_task_ids") or [])) if isinstance(result, dict) else -1,
-                (result.get("error") if isinstance(result, dict) else "invalid_result"),
-            )
-        finally:
-            _GOAL_PLANNING_LOCK.release()
-    except FutureTimeoutError:
+            app_obj = current_app._get_current_object()
+
+            def _run_plan_goal_with_app_context():
+                with app_obj.app_context():
+                    return auto_planner.plan_goal(
+                        goal=str(context.get("goal_text") or goal_record.goal or ""),
+                        context=context.get("mode_context"),
+                        team_id=effective.get("routing", {}).get("team_id"),
+                        create_tasks=bool(effective.get("planning", {}).get("create_tasks", True)),
+                        use_template=bool(effective.get("planning", {}).get("use_template", True)),
+                        use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
+                        goal_id=goal_record.id,
+                        goal_trace_id=goal_record.trace_id,
+                        mode=goal_record.mode,
+                        mode_data=goal_record.mode_data,
+                    )
+
+            lock_acquired = _GOAL_PLANNING_LOCK.acquire(timeout=planning_timeout_s)
+            if not lock_acquired:
+                _services().goal_lifecycle_service.transition_goal(
+                    goal_record,
+                    target_status="failed",
+                    reason="planning_lock_timeout",
+                    readiness=readiness,
+                )
+                record_product_event(
+                    "goal_planning_failed",
+                    actor="auto_planner",
+                    details={
+                        "reason": "planning_lock_timeout",
+                        "timeout_seconds": planning_timeout_s,
+                        "source": goal_record.source,
+                        "mode": goal_record.mode,
+                    },
+                    goal_id=goal_record.id,
+                    trace_id=goal_record.trace_id,
+                    plan_id=None,
+                )
+                return
+            try:
+                current_app.logger.warning(
+                    "goal_planning_invoke_start goal_id=%s timeout_s=%s mode=%s",
+                    goal_record.id,
+                    planning_timeout_s,
+                    str(goal_record.mode or "generic"),
+                )
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(_run_plan_goal_with_app_context)
+                    result = future.result(timeout=planning_timeout_s)
+                current_app.logger.warning(
+                    "goal_planning_invoke_done goal_id=%s created=%s error=%s",
+                    goal_record.id,
+                    len(list(result.get("created_task_ids") or [])) if isinstance(result, dict) else -1,
+                    (result.get("error") if isinstance(result, dict) else "invalid_result"),
+                )
+            finally:
+                _GOAL_PLANNING_LOCK.release()
+        except FutureTimeoutError:
         _mark_started_planning_runs_failed(
             goal_id=goal_record.id,
             reason=f"planning_background_timeout:{planning_timeout_s}s",
@@ -765,8 +776,8 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             trace_id=goal_record.trace_id,
             plan_id=None,
         )
-        return
-    except Exception as exc:
+            return
+        except Exception as exc:
         current_app.logger.exception("background_goal_planning_failed goal_id=%s", goal_record.id)
         _mark_started_planning_runs_failed(
             goal_id=goal_record.id,
@@ -791,11 +802,11 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             trace_id=goal_record.trace_id,
             plan_id=None,
         )
-        return
+            return
 
-    current_app.logger.debug(f"plan result: {result}")
+        current_app.logger.debug(f"plan result: {result}")
 
-    if result.get("error"):
+        if result.get("error"):
         _services().goal_lifecycle_service.transition_goal(
             goal_record,
             target_status="failed",
@@ -810,17 +821,17 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             trace_id=goal_record.trace_id,
             plan_id=result.get("plan_id"),
         )
-        return
+            return
 
-    created_task_ids = list(result.get("created_task_ids") or [])
-    create_tasks_enabled = bool(effective.get("planning", {}).get("create_tasks", True))
-    software_goal = _looks_like_software_goal(str(context.get("goal_text") or ""))
-    if (
-        create_tasks_enabled
-        and not created_task_ids
-        and str(context.get("mode_id") or "generic") == "generic"
-        and software_goal
-    ):
+        created_task_ids = list(result.get("created_task_ids") or [])
+        create_tasks_enabled = bool(effective.get("planning", {}).get("create_tasks", True))
+        software_goal = _looks_like_software_goal(str(context.get("goal_text") or ""))
+        if (
+            create_tasks_enabled
+            and not created_task_ids
+            and str(context.get("mode_id") or "generic") == "generic"
+            and software_goal
+        ):
         retry_mode = "new_software_project"
         retry_mode_data = dict(goal_record.mode_data or {})
         retry_mode_data.setdefault("project_idea", str(context.get("goal_text") or ""))
@@ -840,12 +851,12 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             result = retry_result
             created_task_ids = list(result.get("created_task_ids") or [])
 
-    if (
-        create_tasks_enabled
-        and created_task_ids
-        and str(context.get("mode_id") or "generic") == "generic"
-        and software_goal
-    ):
+        if (
+            create_tasks_enabled
+            and created_task_ids
+            and str(context.get("mode_id") or "generic") == "generic"
+            and software_goal
+        ):
         quality_ok, quality_reason = _plan_quality_from_task_ids(
             task_ids=created_task_ids,
             mode="new_software_project",
@@ -854,39 +865,10 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         )
     else:
         quality_ok, quality_reason = True, "not_software_goal_or_disabled"
-    if (
-        create_tasks_enabled
-        and created_task_ids
-        and str(context.get("mode_id") or "generic") == "generic"
-        and software_goal
-        and not quality_ok
-    ):
-        retry_mode = "new_software_project"
-        retry_mode_data = dict(goal_record.mode_data or {})
-        retry_mode_data.setdefault("project_idea", str(context.get("goal_text") or ""))
-        retry_result = auto_planner.plan_goal(
-            goal=str(context.get("goal_text") or goal_record.goal or ""),
-            context=context.get("mode_context"),
-            team_id=effective.get("routing", {}).get("team_id"),
-            create_tasks=True,
-            use_template=bool(effective.get("planning", {}).get("use_template", True)),
-            use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
-            goal_id=goal_record.id,
-            goal_trace_id=goal_record.trace_id,
-            mode=retry_mode,
-            mode_data=retry_mode_data,
-        )
-        if not retry_result.get("error"):
-            result = retry_result
-            created_task_ids = list(result.get("created_task_ids") or [])
-            quality_ok, quality_reason = _plan_quality_from_task_ids(
-                task_ids=created_task_ids,
-                mode="new_software_project",
-                planning_policy=(effective.get("planning_policy") if isinstance(effective.get("planning_policy"), dict) else _live_planning_policy),
-                team_id=str(effective.get("routing", {}).get("team_id") or "") or None,
-            )
+        # Avoid duplicate task materialization from retry-planning after tasks
+        # were already created. Keep first plan and fail quality explicitly.
 
-    if create_tasks_enabled and not created_task_ids:
+        if create_tasks_enabled and not created_task_ids:
         _services().goal_lifecycle_service.transition_goal(
             goal_record,
             target_status="failed",
@@ -901,13 +883,13 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             trace_id=goal_record.trace_id,
             plan_id=result.get("plan_id"),
         )
-        return
+            return
 
-    if (
-        create_tasks_enabled
-        and software_goal
-        and not quality_ok
-    ):
+        if (
+            create_tasks_enabled
+            and software_goal
+            and not quality_ok
+        ):
         _services().goal_lifecycle_service.transition_goal(
             goal_record,
             target_status="failed",
@@ -928,16 +910,16 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             trace_id=goal_record.trace_id,
             plan_id=result.get("plan_id"),
         )
-        return
+            return
 
-    _services().goal_lifecycle_service.transition_goal(
+        _services().goal_lifecycle_service.transition_goal(
         goal_record,
         target_status="planned",
         reason="planning_completed",
         readiness=readiness,
     )
 
-    try:
+        try:
         _services().autopilot_runtime_service.start(
             goal=goal_record.id,
             team_id=effective.get("routing", {}).get("team_id"),
@@ -947,10 +929,10 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         )
         from agent.routes.tasks.autopilot import autonomous_loop
         autonomous_loop.wake()
-    except Exception:
-        pass
+        except Exception:
+            pass
 
-    log_audit(
+        log_audit(
         "goal_created",
         {
             "goal_id": goal_record.id,
@@ -961,7 +943,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             "readiness_happy_path": readiness["happy_path_ready"],
         },
     )
-    record_product_event(
+        record_product_event(
         "goal_planning_succeeded",
         actor="auto_planner",
         details={
@@ -972,5 +954,8 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         },
         goal_id=goal_record.id,
         trace_id=goal_record.trace_id,
-        plan_id=result.get("plan_id"),
-    )
+            plan_id=result.get("plan_id"),
+        )
+    finally:
+        with _GOAL_ACTIVE_PLANNING_LOCK:
+            _GOAL_ACTIVE_PLANNING_IDS.discard(goal_id)
