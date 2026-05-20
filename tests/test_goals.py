@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import jwt
 
 from agent.config import settings
-from agent.db_models import AgentInfoDB
+from agent.db_models import AgentInfoDB, GoalDB, TaskDB
 from agent.repository import agent_repo, audit_repo, goal_repo, plan_node_repo, task_repo
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
@@ -68,6 +68,44 @@ def test_soft_planning_quality_failure_allows_generic_task_overflow() -> None:
 
 
 class TestGoalsAPI:
+    def test_goal_purge_deletes_goal_and_tasks(self, client, admin_auth_header, monkeypatch):
+        goal = goal_repo.save(
+            GoalDB(
+                goal="purge me",
+                summary="purge me",
+                status="planned",
+                source="test",
+                requested_by="admin",
+            )
+        )
+        task_repo.save(
+            TaskDB(
+                id="purge-task-1",
+                title="t1",
+                status="todo",
+                goal_id=goal.id,
+                goal_trace_id=goal.trace_id,
+            )
+        )
+        monkeypatch.setattr(
+            "agent.services.goal_purge_service.get_prompt_trace_service",
+            lambda: SimpleNamespace(delete_by_goal_id=lambda _gid: 0),
+        )
+
+        res = client.delete(f"/goals/{goal.id}/purge", headers=admin_auth_header)
+        assert res.status_code == 200
+        payload = res.get_json()["data"]
+        assert payload["goal_id"] == goal.id
+        assert int(payload["deleted"].get("goal") or 0) == 1
+        assert int(payload["deleted"].get("tasks") or 0) >= 1
+        assert goal_repo.get_by_id(goal.id) is None
+        assert task_repo.get_by_id("purge-task-1") is None
+
+    def test_goal_purge_returns_not_found_for_unknown_goal(self, client, admin_auth_header):
+        res = client.delete("/goals/not-a-goal/purge", headers=admin_auth_header)
+        assert res.status_code == 404
+        assert res.get_json()["message"] == "not_found"
+
     def test_generic_software_goal_soft_quality_miss_does_not_fail(self, client, admin_auth_header, monkeypatch):
         monkeypatch.setattr(
             "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
