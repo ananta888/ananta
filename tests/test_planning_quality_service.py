@@ -27,3 +27,30 @@ def test_generic_mode_uses_default_validation_profile_when_policy_missing() -> N
     )
     assert quality.ok is False
     assert "too_few_tasks" in quality.reason
+
+
+def test_generic_mode_accepts_german_implementation_signals() -> None:
+    quality = get_planning_quality_service().evaluate(
+        subtasks=[
+            {
+                "title": "API Implementierung umsetzen",
+                "description": "Implementierung des Fibonacci-Endpunkts inklusive Python-Code und Run-Command.",
+                "task_kind": "",
+            },
+            {
+                "title": "Tests anlegen",
+                "description": "Erstelle Testdatei fuer API-Validierung und Edge-Cases.",
+                "task_kind": "testing",
+            },
+            {
+                "title": "README aktualisieren",
+                "description": "Dokumentiere Setup, Startkommando und Testausfuehrung.",
+                "task_kind": "doc",
+            },
+        ],
+        mode="generic",
+        planning_policy={},
+        team_id=None,
+    )
+    assert quality.ok is True
+    assert quality.reason == "ok"

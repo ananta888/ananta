@@ -17,7 +17,61 @@ def _mock_goal_planning_llm(monkeypatch):
     monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
 
 
+def _wait_goal_status(client, headers, goal_id: str, *, timeout_s: float = 5.0) -> str:
+    deadline = time.time() + timeout_s
+    status = "unknown"
+    while time.time() < deadline:
+        payload = client.get(f"/goals/{goal_id}", headers=headers).get_json()["data"]
+        status = str(payload.get("status") or "unknown")
+        if status not in {"planning_queued", "planning_running", "planning"}:
+            return status
+        time.sleep(0.05)
+    return status
+
+
 class TestGoalsAPI:
+    def test_generic_software_goal_soft_quality_miss_does_not_fail(self, client, admin_auth_header, monkeypatch):
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
+            lambda **_kwargs: {"subtasks": [{"title": "x", "description": "y"}], "created_task_ids": ["task-soft"], "plan_id": "plan-soft"},
+        )
+        monkeypatch.setattr(
+            "agent.routes.tasks.goals._plan_quality_from_task_ids",
+            lambda **_kwargs: (False, "missing_categories:analysis:0/1,review:0/1"),
+        )
+
+        res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={"goal": "Create a Python Fibonacci backend API with tests and run commands"},
+        )
+        assert res.status_code in (201, 202)
+        goal_id = res.get_json()["data"]["goal"]["id"]
+        status = _wait_goal_status(client, admin_auth_header, goal_id)
+        assert status in {"planned", "running", "completed", "queued"}
+
+    def test_generic_software_goal_hard_quality_fail_still_fails(self, client, admin_auth_header, monkeypatch):
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
+            lambda **_kwargs: {"subtasks": [{"title": "x", "description": "y"}], "created_task_ids": ["task-hard"], "plan_id": "plan-hard"},
+        )
+        monkeypatch.setattr(
+            "agent.routes.tasks.goals._plan_quality_from_task_ids",
+            lambda **_kwargs: (False, "too_few_tasks:1/5|missing_categories:implementation:0/1"),
+        )
+
+        res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={"goal": "Create a Python Fibonacci backend API with tests and run commands"},
+        )
+        assert res.status_code in (201, 202)
+        goal_id = res.get_json()["data"]["goal"]["id"]
+        status = _wait_goal_status(client, admin_auth_header, goal_id)
+        assert status == "failed"
+        goal_payload = client.get(f"/goals/{goal_id}", headers=admin_auth_header).get_json()["data"]
+        assert goal_payload["execution_preferences"]["last_status_reason"] == "planning_insufficient_task_detail"
+
     def test_goal_readiness_exposes_defaults(self, client, admin_auth_header):
         res = client.get("/goals/readiness", headers=admin_auth_header)
         assert res.status_code == 200
