@@ -131,6 +131,28 @@ def test_autopilot_tick_respects_goal_scope(app, monkeypatch):
     assert b_task is not None and b_task.status == "todo"
 
 
+def test_autopilot_goal_scoped_loop_stops_when_goal_terminal(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    autonomous_loop.stop(persist=False)
+    goal_repo.save(
+        GoalDB(
+            id="goal-terminal-stop",
+            goal="Terminal goal",
+            summary="s",
+            status="completed",
+        )
+    )
+    autonomous_loop.goal = "goal-terminal-stop"
+    autonomous_loop.running = True
+
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+
+    assert res["dispatched"] == 0
+    assert res["reason"] == "goal_terminal_completed"
+    assert autonomous_loop.running is False
+
+
 def test_quality_gate_fails_for_coding_task_without_markers():
     t = TaskDB(id="qg-1", title="Implement endpoint", description="Fix code path")
     ok, reason = evaluate_quality_gates(t, output="done", exit_code=0)

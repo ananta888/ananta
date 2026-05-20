@@ -1703,7 +1703,12 @@ def execute_autopilot_tick(
         if goal_status in {"completed", "failed", "cancelled", "aborted", "timeout"}:
             loop.last_tick_at = time.time()
             loop.tick_count += 1
-            loop._persist_state(enabled=loop.running)
+            # Stop goal-scoped loops once the goal is terminal to avoid
+            # indefinite idle polling and persisted stale loop sessions.
+            try:
+                loop.stop(persist=True)
+            except Exception:
+                loop._persist_state(enabled=loop.running)
             return {"dispatched": 0, "reason": f"goal_terminal_{goal_status}"}
 
     total_tasks_unfiltered = len(services.autopilot_support_service.scoped_tasks(team_id=None, app=loop._app))

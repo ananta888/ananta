@@ -46,6 +46,21 @@ def _workspace_file_count(path: Path) -> int:
     return count
 
 
+def _workspace_has_any(path: Path, patterns: list[str]) -> bool:
+    if not str(path) or not path.exists() or not path.is_dir():
+        return False
+    for pattern in patterns:
+        if any(path.glob(pattern)):
+            return True
+    return False
+
+
+def _goal_requires_fibonacci_artifacts(goal: Any) -> bool:
+    goal_text = str(getattr(goal, "goal", "") or "").lower()
+    mode = str(getattr(goal, "mode", "") or "").strip().lower()
+    return mode == "new_software_project" and "fibonacci" in goal_text
+
+
 def _maybe_finalize_goal(goal_id: str) -> None:
     try:
         from agent.repository import goal_repo
@@ -76,6 +91,30 @@ def _maybe_finalize_goal(goal_id: str) -> None:
                     new_status = "failed"
                     current_preferences["last_status_reason"] = "no_workspace_artifact_created"
                     current_preferences["failure_classification"] = "no_workspace_artifact_created"
+                elif _goal_requires_fibonacci_artifacts(goal):
+                    has_source = _workspace_has_any(
+                        resolved_output_dir,
+                        ["src/**/*fibonacci*.py", "src/**/*fib*.py", "src/**/*.py"],
+                    )
+                    has_tests = _workspace_has_any(
+                        resolved_output_dir,
+                        ["tests/test_*.py", "tests/**/*test*.py"],
+                    )
+                    has_pytest_evidence = _workspace_has_any(
+                        resolved_output_dir,
+                        ["artifacts/**/*pytest*.*", "**/*pytest-report*.*", "**/.pytest_cache/**"],
+                    )
+                    current_preferences["finalization_diagnostics"].update(
+                        {
+                            "fibonacci_source_present": bool(has_source),
+                            "fibonacci_tests_present": bool(has_tests),
+                            "pytest_evidence_present": bool(has_pytest_evidence),
+                        }
+                    )
+                    if not (has_source and has_tests and has_pytest_evidence):
+                        new_status = "failed"
+                        current_preferences["last_status_reason"] = "missing_required_fibonacci_artifacts"
+                        current_preferences["failure_classification"] = "missing_required_fibonacci_artifacts"
                 goal.execution_preferences = current_preferences
         goal.status = new_status
         goal.updated_at = time.time()
