@@ -33,6 +33,7 @@ class WorkerWorkspaceContext:
     artifact_sync: dict
     git_context: object = None
     context_policy: object = None
+    materialization_manifest: object = None  # list[dict] from TaskArtifactMaterializer, None if sync disabled
 
 
 class WorkerWorkspaceService:
@@ -260,7 +261,7 @@ class WorkerWorkspaceService:
         if has_request_context() and git_context is not None:
             flask_g.git_context = git_context
 
-        self._materialize_predecessor_artifacts(task=task, workspace_dir=workspace_dir)
+        materialization_manifest = self._materialize_predecessor_artifacts(task=task, workspace_dir=workspace_dir)
 
         context_policy = self._resolve_context_policy(task=task)
 
@@ -271,6 +272,7 @@ class WorkerWorkspaceService:
             artifact_sync=artifact_sync,
             git_context=git_context,
             context_policy=context_policy,
+            materialization_manifest=materialization_manifest,
         )
 
     def _init_git_context(self, *, task: dict, workspace_dir: Path):
@@ -295,8 +297,11 @@ class WorkerWorkspaceService:
         except Exception:
             return None
 
-    def _materialize_predecessor_artifacts(self, *, task: dict, workspace_dir: Path) -> None:
-        """Inject workspace_file artifacts from completed sibling tasks when artifact_hub_sync is active."""
+    def _materialize_predecessor_artifacts(self, *, task: dict, workspace_dir: Path) -> list | None:
+        """Inject workspace_file artifacts from completed sibling tasks when artifact_hub_sync is active.
+
+        Returns the materialization manifest (list of injected file records) or None if sync is disabled.
+        """
         try:
             execution_context = dict((task or {}).get("worker_execution_context") or {})
             sync_mode = str(
@@ -305,19 +310,20 @@ class WorkerWorkspaceService:
                 or ""
             ).strip().lower()
             if sync_mode != "artifact_hub_sync":
-                return
+                return None
             goal_id = str((task or {}).get("goal_id") or "").strip()
             task_id = str((task or {}).get("id") or "").strip()
             if not goal_id or not task_id:
-                return
+                return None
             from agent.services.task_artifact_materializer import get_task_artifact_materializer
-            get_task_artifact_materializer().materialize_predecessor_artifacts(
+            return get_task_artifact_materializer().materialize_predecessor_artifacts(
                 goal_id=goal_id,
                 task_id=task_id,
                 workspace_dir=workspace_dir,
             )
         except Exception as exc:
             logging.warning("Artifact materialization failed (non-fatal): %s", exc)
+            return None
 
     def _resolve_context_policy(self, *, task: dict):
         try:
