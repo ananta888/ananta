@@ -1,0 +1,846 @@
+{
+  "schema_version": "todo.v2",
+  "id": "todo.latest-commits-improvements",
+  "title": "Verbesserungen aus Analyse der letzten Commits",
+  "summary": "Diese Todo-Datei bündelt die Verbesserungen aus der Analyse der jüngsten Commits im ananta-Repository. Schwerpunkt sind robustere Planning-Verträge, deterministischere Planprüfung, sauberere Goal-Lifecycle-Übergänge, bessere OpenCode-/Worker-Isolation, stabilere Model-Profile und die Vorbereitung einer echten Context-Scoped-Delivery-Sicherheitsarchitektur.",
+  "created_from": [
+    "Commit fa9250c6: hub_can_be_worker Guard für Hub als Worker",
+    "Commit 55ca5857: OpenCode-Szenario und Dockerfile.agent",
+    "Commit 995fdb6d: Planning Deadline Guard",
+    "Commit 4126a39b: Planning Model Profile Notes Normalisierung",
+    "Commit 8d3ebac6: Software Plan Quality Check",
+    "Commit 21a283f1: autopilot_task_propose_hard_guard_status",
+    "Commit 159a3750: Context-Scoped Delivery Planung"
+  ],
+  "global_goals": [
+    "Planning soll nicht nur per Textmarker validiert werden, sondern über harte strukturierte Contracts.",
+    "Goal-Statuswechsel sollen immer über den Lifecycle-Service laufen, nicht direkt am DB-Objekt vorbei.",
+    "Hub und Worker-Rolle sollen explizit und sicher getrennt bleiben.",
+    "OpenCode-Worker sollen reproduzierbar, isoliert und auditierbar gestartet werden können.",
+    "Modelle sollen anhand messbarer Profile, Output-Formate und Repair-Strategien gesteuert werden.",
+    "Worker sollen nur den explizit erlaubten Kontext erhalten, insbesondere bei externen Cloud-LLMs."
+  ],
+  "tracks": [
+    {
+      "id": "LCI-TRACK-001",
+      "title": "Structured Planning Contract statt heuristischer Planprüfung",
+      "summary": "Der aktuelle Planqualitätscheck erkennt zu dünne Software-Pläne über Wortmarker wie implement, code, test oder verify. Das ist als schneller Guard nützlich, aber nicht deterministisch genug. Dieser Track führt einen expliziten PlanningContract ein, der erwartete Task-Kinds, Artefakte, Commands, Verification-Schritte und Acceptance-Kriterien strukturiert prüft.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "LCI-001",
+          "title": "PlanningContract-Datenmodell einführen",
+          "type": "feature",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Ein explizites Datenmodell beschreibt, was ein gültiger Plan enthalten muss. Dadurch wird die bisherige Keyword-Heuristik schrittweise ersetzbar.",
+          "files": [
+            "agent/services/planning_contract.py",
+            "agent/routes/tasks/goals.py"
+          ],
+          "description": "Ein neues PlanningContract-Modell definiert required_task_kinds, min_task_count, required_artifact_kinds, required_command_kinds und required_acceptance_criteria. Der Contract wird anhand von Goal-Type, mode_id und Planning-Profil aufgelöst.",
+          "implementation_notes": [
+            "PlanningContract als frozen dataclass oder Pydantic-Modell implementieren.",
+            "Felder: contract_id, applies_to_goal_kind, required_task_kinds, min_task_count, max_task_count, required_artifacts, required_commands, required_verification_steps, required_acceptance_criteria.",
+            "Default für Software-Goal: analysis, ops, coding, coding, testing, review.",
+            "Contract darf keine LLM-Ausgabe erfinden, sondern nur vorhandene Taskdaten prüfen.",
+            "goals.py soll Contract-Service aufrufen, nicht selbst Contract-Regeln enthalten."
+          ],
+          "acceptance_criteria": [
+            "Für ein Software-Goal ohne Tasks liefert validate() den Fehlercode no_tasks.",
+            "Für ein Software-Goal mit nur analysis/review liefert validate() missing_required_task_kind:coding und missing_required_task_kind:testing.",
+            "Ein Plan mit mindestens analysis, ops, coding, coding, testing, review besteht den Default-Software-Contract.",
+            "Die bisherige Funktion _software_plan_quality bleibt maximal als Fallback erhalten und wird nicht mehr als primäre Prüfung verwendet.",
+            "Contract-Regeln sind in Unit-Tests ohne DB, ohne Flask-App und ohne LLM ausführbar."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "LCI-002",
+          "title": "PlanValidationResult mit stabilen Fehlercodes",
+          "type": "feature",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Planprüfungen sollen maschinenlesbare Fehlercodes liefern, damit Repair, UI und Logs darauf reagieren können.",
+          "files": [
+            "agent/services/planning_contract.py",
+            "agent/services/planning_validation_service.py"
+          ],
+          "description": "PlanValidationResult kapselt ok, error_codes, warnings, missing_task_kinds, task_count, contract_id und human_summary. Alle Planning-Fehler werden darüber normalisiert.",
+          "implementation_notes": [
+            "Fehlercodes stabil halten: no_tasks, too_few_tasks, too_many_tasks, missing_required_task_kind, missing_required_artifact, missing_verification_step, invalid_task_payload.",
+            "human_summary ist nur Anzeige, keine Logikgrundlage.",
+            "result.to_event_details() für Product Events bereitstellen.",
+            "result.to_repair_prompt_context() für LLM-Reparatur nutzen."
+          ],
+          "acceptance_criteria": [
+            "PlanValidationResult.ok ist false, sobald mindestens ein required error vorliegt.",
+            "Alle Fehlercodes sind deterministisch aus Taskdaten ableitbar.",
+            "Product Events enthalten contract_id, task_count und error_codes.",
+            "Repair-Prompts erhalten strukturierte Fehlerdaten statt freier Logtexte.",
+            "Tests prüfen mindestens fünf verschiedene Fehlerfälle."
+          ],
+          "depends_on": ["LCI-001"]
+        },
+        {
+          "id": "LCI-003",
+          "title": "Planning Repair an Contract-Fehler koppeln",
+          "type": "feature",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Wenn ein Plan unvollständig ist, soll der Repair-Prompt nicht allgemein nachbessern, sondern exakt die fehlenden Contract-Teile verlangen.",
+          "files": [
+            "agent/services/plan_goal_service.py",
+            "agent/routes/tasks/goals.py",
+            "config/planning_prompts.default.json"
+          ],
+          "description": "Der Retry/Repair-Pfad verwendet PlanValidationResult.error_codes und missing_* Felder, um dem Modell präzise Korrekturanweisungen zu geben.",
+          "implementation_notes": [
+            "Repair Prompt Template um {planning_contract_errors} und {missing_required_parts} erweitern.",
+            "Keine unstrukturierte Fehlermeldung als alleinige Repair-Grundlage verwenden.",
+            "Nach Repair erneute Contract-Validierung durchführen.",
+            "Maximale Repair-Versuche aus PlanningModelProfile übernehmen."
+          ],
+          "acceptance_criteria": [
+            "Fehlt testing, enthält der Repair-Kontext explizit missing_required_task_kind:testing.",
+            "Fehlt coding, fordert der Repair-Kontext konkrete coding-Tasks mit Datei-/Artefaktbezug.",
+            "Nach erfolgreichem Repair wird das Goal nicht failed gesetzt.",
+            "Nach ausgeschöpften Repair-Versuchen wird goal_planning_failed mit error_codes geschrieben.",
+            "Repair-Prompt gibt weiterhin JSON-only vor, wenn preferred_output_format=json ist."
+          ],
+          "depends_on": ["LCI-001", "LCI-002"]
+        },
+        {
+          "id": "LCI-004",
+          "title": "Tests für PlanningContract und Repair-Fluss",
+          "type": "test",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Der neue Contract-Mechanismus braucht Unit- und Integrationstests, damit spätere Prompt-Änderungen nicht wieder dünne Pläne durchlassen.",
+          "files": [
+            "tests/test_planning_contract.py",
+            "tests/test_goal_planning_contract_integration.py"
+          ],
+          "description": "Tests für gültige und ungültige Pläne, Repair-Kontext, Product Events und Goal-Lifecycle-Ergebnis.",
+          "test_cases": [
+            "test_empty_plan_fails_with_no_tasks",
+            "test_software_plan_requires_two_coding_tasks",
+            "test_software_plan_requires_testing_task",
+            "test_valid_software_plan_passes_contract",
+            "test_repair_context_contains_missing_task_kinds",
+            "test_failed_after_repair_attempts_records_error_codes",
+            "test_contract_validation_has_no_llm_or_network_dependency"
+          ],
+          "acceptance_criteria": [
+            "Alle Contract-Tests laufen offline und deterministisch.",
+            "Mindestens ein Integrationstest prüft Goal-Erstellung bis Planvalidierung.",
+            "Fehlercodes im Test sind exakt, nicht nur teilweise per contains geprüft.",
+            "Der alte markerbasierte Pfad ist nicht mehr die primäre Entscheidungsgrundlage.",
+            "Regression: Ein Ein-Task-Plan für ein Softwareprojekt wird zuverlässig abgelehnt."
+          ],
+          "depends_on": ["LCI-001", "LCI-002", "LCI-003"]
+        }
+      ]
+    },
+    {
+      "id": "LCI-TRACK-002",
+      "title": "Goal Lifecycle und Deadline Guard härten",
+      "summary": "Der neue Deadline Guard verhindert hängende Planning-Goals, setzt aber teilweise direkt goal.status. Dieser Track sorgt dafür, dass alle Statuswechsel über den Lifecycle-Service laufen und der Guard idempotent, auditierbar und nebenläufigkeitssicher wird.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "LCI-005",
+          "title": "Deadline Guard immer über Lifecycle-Service führen",
+          "type": "refactor",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Direkte Statusänderungen am Goal werden entfernt, damit Events, Readiness und Audit konsistent bleiben.",
+          "files": [
+            "agent/routes/tasks/goals.py",
+            "agent/services/goal_lifecycle_service.py"
+          ],
+          "description": "Die Logik im Planning Deadline Guard darf goal.status nicht direkt setzen, sondern ruft ausschließlich goal_lifecycle_service.transition_goal() auf.",
+          "implementation_notes": [
+            "Direktes goal.status = 'failed' entfernen.",
+            "transition_goal mit reason='planning_deadline_guard_timeout' verwenden.",
+            "Falls transition_goal fehlschlägt, Fehler loggen und Product Event goal_lifecycle_transition_failed schreiben.",
+            "Keine stille Ausnahmeverschluckung außer bei Logging-Fallbacks."
+          ],
+          "acceptance_criteria": [
+            "Im Deadline-Guard existiert keine direkte Zuweisung goal.status = ... mehr.",
+            "Timeout-Statuswechsel erzeugt Lifecycle-Event und Product Event.",
+            "Bereits completed/failed/cancelled Goals werden nicht erneut verändert.",
+            "Ein fehlendes Goal beendet den Guard ohne Fehler.",
+            "Unit-Test beweist, dass transition_goal exakt einmal aufgerufen wird."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "LCI-006",
+          "title": "Deadline Guard idempotent machen",
+          "type": "feature",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Mehrere Guard-Threads für dasselbe Goal dürfen nicht mehrere widersprüchliche Events oder Statuswechsel auslösen.",
+          "files": [
+            "agent/routes/tasks/goals.py",
+            "agent/services/goal_lifecycle_service.py"
+          ],
+          "description": "Der Guard prüft vor und während des Übergangs atomar den aktuellen Status. Mehrfach gestartete Guards müssen harmlos sein.",
+          "implementation_notes": [
+            "transition_goal soll optional expected_current_statuses unterstützen.",
+            "Deadline Guard erlaubt Übergang nur von planning/planning_started/in_progress nach failed.",
+            "Bei Statusänderung zwischen read und transition: no-op mit Log.",
+            "Guard-Name und trace_id in Logs aufnehmen."
+          ],
+          "acceptance_criteria": [
+            "Zwei parallele Guards für dasselbe Goal erzeugen maximal einen failed-Übergang.",
+            "Wenn Goal kurz vor Timeout completed wird, setzt der Guard es nicht mehr auf failed.",
+            "Logs enthalten goal_id, trace_id, timeout_s und final_decision.",
+            "Product Event wird nur für echte Timeout-Failures geschrieben.",
+            "Race-Condition-Test läuft reproduzierbar."
+          ],
+          "depends_on": ["LCI-005"]
+        },
+        {
+          "id": "LCI-007",
+          "title": "Deadline Guard durch zentralen TimeoutService kapseln",
+          "type": "refactor",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Die Timeout-Logik soll nicht dauerhaft als verschachtelte Thread-Funktion in goals.py bleiben.",
+          "files": [
+            "agent/services/planning_timeout_service.py",
+            "agent/routes/tasks/goals.py"
+          ],
+          "description": "PlanningTimeoutService kapselt Start, Guard-Thread, Statusprüfung und Event-Erzeugung. goals.py startet nur noch den Service.",
+          "implementation_notes": [
+            "Service-Konstruktor bekommt goal_repo, lifecycle_service, product_event_recorder und logger.",
+            "start_deadline_guard(goal_id, timeout_s, trace_id) als öffentliche Methode.",
+            "Threading bleibt intern gekapselt.",
+            "Langfristig kann dieser Service später durch Scheduler/Queue ersetzt werden."
+          ],
+          "acceptance_criteria": [
+            "goals.py enthält keine innere _guard-Funktion mehr.",
+            "PlanningTimeoutService ist isoliert testbar.",
+            "Bestehendes Verhalten bleibt funktional gleich: überfälliges Planning-Goal wird failed.",
+            "Service kann mit Fake-Repos getestet werden.",
+            "Timeout-Berechnung bleibt konfigurierbar."
+          ],
+          "depends_on": ["LCI-005", "LCI-006"]
+        }
+      ]
+    },
+    {
+      "id": "LCI-TRACK-003",
+      "title": "Hub/Worker-Rollentrennung und Worker-Auswahl absichern",
+      "summary": "Der neue hub_can_be_worker-Check ist richtig, aber er sollte durch Tests, UI/API-Sichtbarkeit und klare Runtime-Policies ergänzt werden. Hub darf nicht versehentlich Ausführungsworker werden.",
+      "priority": "high",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "LCI-008",
+          "title": "hub_can_be_worker vollständig testen",
+          "type": "test",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Der neue Guard braucht Regressionstests, damit Hub nicht wieder implizit als Worker auftaucht.",
+          "files": [
+            "tests/test_autopilot_available_workers.py",
+            "agent/services/autopilot_support_service.py"
+          ],
+          "description": "Tests für available_workers mit role=hub und hub_can_be_worker true/false sowie mit registriertem lokalen Worker.",
+          "test_cases": [
+            "test_hub_not_added_as_worker_when_disabled",
+            "test_hub_added_as_worker_when_enabled",
+            "test_hub_not_duplicated_when_local_worker_already_registered",
+            "test_stale_workers_are_filtered",
+            "test_worker_url_normalization_avoids_duplicate_trailing_slash"
+          ],
+          "acceptance_criteria": [
+            "role=hub und hub_can_be_worker=false liefert keinen synthetischen lokalen Worker.",
+            "role=hub und hub_can_be_worker=true liefert lokalen Worker, wenn keiner existiert.",
+            "Bereits registrierter lokaler Worker wird nicht dupliziert.",
+            "Stale Worker mit last_seen älter als 120 Sekunden werden entfernt.",
+            "Tests laufen ohne Netzwerk und ohne echte Worker-Prozesse."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "LCI-009",
+          "title": "Worker-Runtime-Policy explizit machen",
+          "type": "feature",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Worker-Auswahl soll nicht nur anhand Verfügbarkeit passieren, sondern auch anhand erlaubter Runtime-Profile.",
+          "files": [
+            "agent/services/autopilot_support_service.py",
+            "agent/services/worker_policy_service.py",
+            "agent/config_defaults.py"
+          ],
+          "description": "WorkerPolicyService entscheidet, ob ein Worker für task_kind, risk_profile, provider_scope und required_capabilities zulässig ist.",
+          "implementation_notes": [
+            "Policy-Felder: allowed_task_kinds, denied_task_kinds, allowed_llm_scopes, allowed_risk_profiles, capabilities.",
+            "Hub-as-worker bekommt eigenes Runtime-Profil hub_local_worker.",
+            "available_workers liefert optional nur policy-konforme Worker.",
+            "Ablehnungsgründe werden protokolliert, aber nicht als Fehler gewertet."
+          ],
+          "acceptance_criteria": [
+            "Ein Worker ohne coding capability wird für coding Tasks nicht ausgewählt.",
+            "Ein Cloud-Worker wird für local_only Goals nicht ausgewählt.",
+            "hub_can_be_worker=true reicht alleine nicht, wenn WorkerPolicy den Hub ablehnt.",
+            "Ablehnungsgründe sind maschinenlesbar: missing_capability, llm_scope_denied, risk_profile_denied.",
+            "Default-Konfiguration bleibt rückwärtskompatibel für bestehende lokale Worker."
+          ],
+          "depends_on": ["LCI-008"]
+        },
+        {
+          "id": "LCI-010",
+          "title": "Worker-Auswahl im Product Event sichtbar machen",
+          "type": "observability",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Warum ein Worker gewählt oder abgelehnt wurde, muss später nachvollziehbar sein.",
+          "files": [
+            "agent/services/autopilot_support_service.py",
+            "agent/services/task_scoped_execution_service.py"
+          ],
+          "description": "Bei Worker-Auswahl werden selected_worker, candidate_count, rejected_candidates und rejection_reasons in Product Events oder Task Metadata geschrieben.",
+          "implementation_notes": [
+            "Keine Secrets oder Tokens in Events schreiben.",
+            "Worker-URLs ggf. normalisiert und redacted speichern.",
+            "Für Debugging: worker_id, role, capabilities, policy_decision.",
+            "Event-Typ: worker_selection_decision."
+          ],
+          "acceptance_criteria": [
+            "Jede automatische Worker-Auswahl erzeugt ein worker_selection_decision Event.",
+            "Abgelehnte Worker enthalten rejection_reason.",
+            "Keine API-Keys, Tokens oder Authorization-Header landen in Events.",
+            "Wenn kein Worker verfügbar ist, enthält Event candidate_count=0.",
+            "Tests prüfen Redaction von sensiblen Feldern."
+          ],
+          "depends_on": ["LCI-009"]
+        }
+      ]
+    },
+    {
+      "id": "LCI-TRACK-004",
+      "title": "OpenCode Worker Setup und Docker-Isolation verbessern",
+      "summary": "Das neue Dockerfile.agent und das OpenCode-Szenario sind ein guter Start, aber noch nicht sicher genug. Dieser Track macht daraus ein reproduzierbares, isoliertes Worker-Setup mit Healthchecks, Non-root-Ausführung, klarer Konfiguration und Tests.",
+      "priority": "high",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "LCI-011",
+          "title": "Dockerfile.agent sicherer machen",
+          "type": "security",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Der Agent-Container soll nicht als root laufen und nicht unnötig viel Kontext oder Build-Müll enthalten.",
+          "files": [
+            "docker/Dockerfile.agent",
+            ".dockerignore"
+          ],
+          "description": "Dockerfile.agent wird auf Non-root-User, minimale Runtime-Abhängigkeiten, saubere Layer und Healthcheck vorbereitet.",
+          "implementation_notes": [
+            "Non-root User anlegen, z.B. ananta.",
+            "WORKDIR /app bleibt, aber Ownership korrekt setzen.",
+            "pip install mit constraints/requirements und ohne Cache.",
+            ".dockerignore um .git, .venv, node_modules, logs, workspaces, __pycache__ erweitern.",
+            "HEALTHCHECK gegen /health oder passenden Agent-Endpunkt ergänzen, falls vorhanden."
+          ],
+          "acceptance_criteria": [
+            "Container läuft nicht als root.",
+            "docker build -f docker/Dockerfile.agent . funktioniert.",
+            "Build-Kontext enthält keine .git-, workspace- oder venv-Verzeichnisse.",
+            "Healthcheck ist definiert oder es existiert ein dokumentierter Grund, warum er noch nicht aktiv ist.",
+            "Agent startet weiterhin mit python -m agent.ai_agent oder dokumentiertem EntryPoint."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "LCI-012",
+          "title": "OpenCode-Szenario validieren und deduplizieren",
+          "type": "config",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Das neue single_opencode_scenario.json enthält config_overrides und config_patch mit ähnlichem Inhalt. Das sollte bewusst validiert oder vereinfacht werden.",
+          "files": [
+            "scripts/single_opencode_scenario.json",
+            "tests/test_scenario_config_validation.py"
+          ],
+          "description": "Szenario-JSON bekommt Validierung gegen erwartetes Schema. Doppelte Felder werden entweder entfernt oder klar begründet.",
+          "implementation_notes": [
+            "Schema für scenario id, label, config_profile, config_overrides, config_patch definieren.",
+            "Prüfen, ob config_overrides und config_patch beide wirklich gebraucht werden.",
+            "task_kind_backend muss nur bekannte task_kinds enthalten oder unknown explizit erlauben.",
+            "JSON-Datei muss mit newline enden."
+          ],
+          "acceptance_criteria": [
+            "single_opencode_scenario.json ist valides JSON und endet mit newline.",
+            "Schema-Test läuft für das Szenario grün.",
+            "Doppelte Routing-Konfiguration ist entfernt oder mit Kommentar/Dokumentation begründet.",
+            "Alle referenzierten task_kinds sind im System bekannt oder absichtlich erlaubt.",
+            "Ein ungültiges Szenario fällt im Test mit klarer Fehlermeldung durch."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "LCI-013",
+          "title": "OpenCode Worker Smoke-Test hinzufügen",
+          "type": "test",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Das Setup soll nicht nur konfiguriert sein, sondern minimal beweisen, dass ein OpenCode-Worker erreichbar und routingfähig ist.",
+          "files": [
+            "tests/test_opencode_worker_scenario.py",
+            "scripts/single_opencode_scenario.json"
+          ],
+          "description": "Ein Smoke-Test lädt das Szenario, resolved die config und prüft, dass coding/analysis/ops auf opencode geroutet werden.",
+          "implementation_notes": [
+            "Kein echter OpenCode-Prozess nötig für Unit-Smoke-Test.",
+            "Optional separater integration marker für echten Containerstart.",
+            "Test prüft config_profile und task_kind_backend.",
+            "Bei fehlendem OpenCode-Binary sauber skippen statt failen."
+          ],
+          "acceptance_criteria": [
+            "Unit-Smoke-Test läuft ohne externe Abhängigkeiten.",
+            "coding, analysis, ops und research werden auf opencode geroutet.",
+            "Fehlendes OpenCode-Binary führt nur im optionalen Integrationstest zu skip.",
+            "Szenario-Änderungen brechen sichtbar im Test, wenn Routing ungültig wird.",
+            "Dokumentation erklärt, wie der echte OpenCode-Worker gestartet wird."
+          ],
+          "depends_on": ["LCI-012"]
+        }
+      ]
+    },
+    {
+      "id": "LCI-TRACK-005",
+      "title": "Planning Model Profiles stabilisieren",
+      "summary": "Die Notes-Normalisierung ist nützlich, aber notes darf nicht zu einer unkontrollierten Mini-Konfigurationssprache werden. Dieser Track trennt harte Profilfelder von freien Notizen und macht Profilauflösung testbar.",
+      "priority": "medium",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "LCI-014",
+          "title": "preferred_output_format als echtes Profilfeld modellieren",
+          "type": "schema",
+          "priority": "high",
+          "status": "todo",
+          "summary": "preferred_output_format sollte langfristig nicht aus notes geparst werden, sondern ein eigenes Feld sein.",
+          "files": [
+            "agent/models.py",
+            "agent/services/planning_model_profile_service.py",
+            "config/planning_model_profiles.default.json"
+          ],
+          "description": "PlanningModelProfile bekommt optional preferred_output_format als eigenes Feld. notes bleibt für freie Zusatzinformationen, nicht für steuernde Kernlogik.",
+          "implementation_notes": [
+            "DB-Migration oder kompatibler Fallback einplanen.",
+            "Beim Laden: eigenes Feld bevorzugen, notes nur als Legacy-Fallback nutzen.",
+            "Allowed values: json, markdown, yaml.",
+            "UI/API-Ausgabe zeigt preferred_output_format immer als eigenes Feld."
+          ],
+          "acceptance_criteria": [
+            "Profile mit preferred_output_format=json liefern json ohne notes parsing.",
+            "Alte Profile mit notes='preferred_output_format=json' funktionieren weiterhin.",
+            "Ungültiger Wert fällt auf json zurück oder erzeugt klaren Validierungsfehler nach definierter Policy.",
+            "notes kann leer sein, ohne preferred_output_format zu verlieren.",
+            "Tests decken neues Feld und Legacy-Fallback ab."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "LCI-015",
+          "title": "PlanningProfile-Resolution vollständig testen",
+          "type": "test",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Die Auflösung von provider/model/explizitem Profil muss zuverlässig und reproduzierbar sein.",
+          "files": [
+            "tests/test_planning_model_profile_service.py"
+          ],
+          "description": "Tests für ensure_default_profiles(), resolve_profile(), preferred_output_format, notes-Kompatibilität und deaktivierte Profile.",
+          "test_cases": [
+            "test_notes_string_preferred_output_format_json",
+            "test_notes_json_dict_legacy_supported",
+            "test_empty_notes_defaults_to_json",
+            "test_explicit_profile_id_wins",
+            "test_disabled_profile_not_selected_by_default",
+            "test_requires_english_prompt_preserved"
+          ],
+          "acceptance_criteria": [
+            "Alle unterstützten notes-Altformate werden korrekt gelesen.",
+            "preferred_output_format ist immer json, markdown oder yaml.",
+            "Disabled Profiles werden nicht versehentlich automatisch gewählt.",
+            "Explizite Profilwahl ist deterministisch.",
+            "Tests brauchen keine echte Datenbank, sofern Repository-Fakes möglich sind."
+          ],
+          "depends_on": ["LCI-014"]
+        },
+        {
+          "id": "LCI-016",
+          "title": "Modellspezifische Output-Repair-Strategien ergänzen",
+          "type": "feature",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Unterschiedliche Modelle liefern unterschiedliche Fehler: Markdown-Fences, freie Prosa, halbes JSON. Das Profil soll Repair-Strategien modellieren.",
+          "files": [
+            "agent/services/planning_model_profile_service.py",
+            "agent/services/planning_response_parser.py",
+            "config/planning_model_profiles.default.json"
+          ],
+          "description": "Profile definieren parser_strategy und repair_strategy, z.B. strict_json, markdown_json_extract, yaml_extract, raw_text_to_json_repair.",
+          "implementation_notes": [
+            "Allowed parser_strategy Werte zentral definieren.",
+            "Gemma/LM-Studio Profile können markdown_json_extract oder raw_text_to_json_repair bekommen.",
+            "Parser darf keine stillen Taskdaten erfinden.",
+            "Repair muss die Rohantwort auditierbar speichern."
+          ],
+          "acceptance_criteria": [
+            "Markdown-Codefence mit JSON wird korrekt extrahiert, wenn Strategie es erlaubt.",
+            "Freie Prosa ohne JSON wird nicht still als gültiger Plan akzeptiert.",
+            "Repair-Versuch enthält Originalfehler und parser_strategy.",
+            "Profile können unterschiedliche parser_strategy Werte setzen.",
+            "Tests decken mindestens strict_json und markdown_json_extract ab."
+          ],
+          "depends_on": ["LCI-014", "LCI-015"]
+        }
+      ]
+    },
+    {
+      "id": "LCI-TRACK-006",
+      "title": "autopilot_task_propose Hard Guard verwertbar machen",
+      "summary": "Der neue Config-Wert autopilot_task_propose_hard_guard_status ist bisher vor allem Vorbereitung. Dieser Track sorgt dafür, dass Hard-Guard-Fälle nicht in toten Gates landen, sondern als Recovery-fähige Todo-Schritte behandelt werden.",
+      "priority": "high",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "LCI-017",
+          "title": "Hard-Guard-Status in Propose-Pipeline nutzen",
+          "type": "feature",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Die Propose-Pipeline soll den neuen Config-Wert tatsächlich verwenden.",
+          "files": [
+            "agent/services/task_scoped_execution_service.py",
+            "agent/config_defaults.py"
+          ],
+          "description": "Wenn autopilot_task_propose an einem Hard Guard scheitert, wird der Task-Status gemäß autopilot_task_propose_hard_guard_status gesetzt und Recovery-Metadaten werden geschrieben.",
+          "implementation_notes": [
+            "Config-Wert lesen mit Default 'todo'.",
+            "Erlaubte Werte: todo, blocked, review_required, failed.",
+            "Bei todo: Task bleibt wieder ausführbar, aber mit guard_failure metadata.",
+            "Bei failed: bisheriges hartes Fehlerverhalten."
+          ],
+          "acceptance_criteria": [
+            "Bei hard_guard_status=todo landet der Task nicht in einem Dead-End-Status.",
+            "Task Metadata enthält guard_reason, previous_status und recovery_allowed=true.",
+            "Bei hard_guard_status=failed wird der Task deterministisch failed.",
+            "Ungültiger Config-Wert fällt auf todo zurück oder erzeugt klaren Config-Fehler.",
+            "Tests prüfen todo und failed Verhalten."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "LCI-018",
+          "title": "Hard-Guard-Recovery-Event ergänzen",
+          "type": "observability",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Recovery-Entscheidungen müssen nachvollziehbar sein, sonst sieht ein zurückgesetzter Task wie Magie aus.",
+          "files": [
+            "agent/services/task_scoped_execution_service.py"
+          ],
+          "description": "Bei Hard-Guard-Handling wird ein Product Event autopilot_hard_guard_recovery_decision geschrieben.",
+          "implementation_notes": [
+            "Details: task_id, goal_id, guard_reason, configured_status, resulting_status, recovery_allowed.",
+            "Keine Rohprompts oder Secrets in Eventdetails speichern.",
+            "Trace-ID übernehmen, falls vorhanden."
+          ],
+          "acceptance_criteria": [
+            "Jeder Hard-Guard-Fall erzeugt genau ein Recovery-Event.",
+            "Eventdetails enthalten configured_status und resulting_status.",
+            "Event enthält keine sensiblen Promptdaten.",
+            "Tests prüfen Event-Erzeugung und Redaction.",
+            "UI/API kann anhand Metadata erkennen, dass Recovery möglich ist."
+          ],
+          "depends_on": ["LCI-017"]
+        }
+      ]
+    },
+    {
+      "id": "LCI-TRACK-007",
+      "title": "Context-Scoped Delivery vom Todo zur Runtime bringen",
+      "summary": "Die neue context-scoped-delivery Todo beschreibt die richtige Sicherheitsrichtung. Dieser Track fokussiert die erste lauffähige Runtime-Scheibe: Policy auflösen, Dateien auswählen, Sensitivity anwenden und Worker-Workspace nur selektiv befüllen.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "LCI-019",
+          "title": "WorkspaceContextPolicy Runtime-Modell implementieren",
+          "type": "feature",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Worker-Kontext braucht eine harte Policy, nicht nur eine Planungsbeschreibung.",
+          "files": [
+            "agent/services/workspace_context_policy.py",
+            "agent/config_defaults.py"
+          ],
+          "description": "WorkspaceContextPolicy definiert scope_mode, max_files, allowed_paths, denied_paths, sensitivity_ceiling, llm_scope und codecompass_profile.",
+          "implementation_notes": [
+            "scope_mode: full, selective, none.",
+            "Default bleibt full für Rückwärtskompatibilität.",
+            "selective verlangt Sensitivity- und Path-Filter.",
+            "none liefert keinen Repo-Kontext an Worker.",
+            "Policy muss serialisierbar in Task Metadata sein."
+          ],
+          "acceptance_criteria": [
+            "Default-Policy ist scope_mode=full.",
+            "Ungültiger scope_mode wird abgelehnt.",
+            "max_files muss positiv sein, außer bei full/unlimited nach definierter Policy.",
+            "Policy lässt sich als JSON serialisieren.",
+            "Unit-Tests decken full, selective und none ab."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "LCI-020",
+          "title": "ContextFileSelector implementieren",
+          "type": "feature",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Aus CodeCompass-/RAG-Ergebnissen muss eine konkrete erlaubte Dateiliste entstehen.",
+          "files": [
+            "agent/services/context_file_selector.py",
+            "agent/services/rag_policy_service.py"
+          ],
+          "description": "ContextFileSelector nimmt ranked chunks und WorkspaceContextPolicy und gibt selected_paths, excluded_paths und exclusion_reasons zurück.",
+          "implementation_notes": [
+            "Pipeline: dedupe by path, sensitivity filter, allowed_paths filter, denied_paths filter, max_files limit.",
+            "Reihenfolge des Rankings bleibt erhalten.",
+            "Exclusion reasons: sensitivity_blocked, path_not_allowed, path_denied, max_files_exceeded, invalid_path.",
+            "Keine Filesystem-Zugriffe im Selector."
+          ],
+          "acceptance_criteria": [
+            "Secret-Dateien werden für external_cloud_allowed blockiert.",
+            "allowed_paths begrenzt Auswahl korrekt per Glob.",
+            "denied_paths blockiert auch dann, wenn allowed_paths passen würde.",
+            "max_files kappt auf höchstgerankte Dateien.",
+            "Selector ist rein und offline testbar."
+          ],
+          "depends_on": ["LCI-019"]
+        },
+        {
+          "id": "LCI-021",
+          "title": "ContextDeliveryService erste Runtime-Version",
+          "type": "feature",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Die ausgewählten Dateien werden in den Worker-Workspace geliefert, statt dem Worker pauschal das ganze Repo zu geben.",
+          "files": [
+            "agent/services/context_delivery_service.py",
+            "agent/services/task_scoped_execution_service.py"
+          ],
+          "description": "ContextDeliveryService kopiert nur erlaubte Dateien in den Worker-Workspace und schreibt ein Delivery-Manifest.",
+          "implementation_notes": [
+            "Bei scope_mode=full bleibt bisheriges Verhalten erhalten.",
+            "Bei scope_mode=selective werden nur selected_paths geliefert.",
+            "Bei scope_mode=none wird kein Repo-Kontext kopiert.",
+            "Manifest enthält delivered_paths, skipped_paths, excluded_paths, policy_snapshot und codecompass_profile_used.",
+            "Fehler bei einzelnen fehlenden Dateien führen zu skipped_paths, nicht zum kompletten Abbruch. Policy-Verletzungen führen zu Fehler."
+          ],
+          "acceptance_criteria": [
+            "selective Workspace enthält nur selected_paths.",
+            "none Workspace enthält keine Repo-Dateien.",
+            "Manifest wird pro Task geschrieben und in Metadata referenziert.",
+            "Policy-Verletzung wird als context_delivery_policy_violation failed.",
+            "Bestehende full-Workflows bleiben unverändert."
+          ],
+          "depends_on": ["LCI-019", "LCI-020"]
+        },
+        {
+          "id": "LCI-022",
+          "title": "Provider-Scope zu Sensitivity-Policy verdrahten",
+          "type": "security",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Ob ein Worker lokal oder Cloud-basiert arbeitet, muss direkt beeinflussen, welche Dateien er bekommt.",
+          "files": [
+            "agent/services/rag_policy_service.py",
+            "agent/services/context_file_selector.py",
+            "agent/services/worker_policy_service.py"
+          ],
+          "description": "Provider und Worker-Profil werden auf llm_scope abgebildet. Dieser Scope begrenzt die erlaubten Sensitivity-Klassen.",
+          "implementation_notes": [
+            "Scopes: local_only, trusted_private_cloud, external_cloud_allowed, no_llm.",
+            "Ollama/LM Studio lokal -> local_only.",
+            "OpenAI/OpenRouter/externe Provider -> external_cloud_allowed, sofern nicht explizit anders konfiguriert.",
+            "no_llm darf keinen LLM-Kontext erhalten.",
+            "Cloud-Scope darf niemals secret/confidential erhalten, außer explizit durch spätere trusted policy erlaubt."
+          ],
+          "acceptance_criteria": [
+            "local_only darf alle Sensitivity-Klassen nach Policy erhalten.",
+            "external_cloud_allowed blockiert confidential und secret.",
+            "no_llm liefert keinen LLM-Kontext.",
+            "Ein falsch klassifizierter Provider fällt konservativ auf external_cloud_allowed oder no_llm, nicht auf local_only.",
+            "Tests prüfen Ollama, LM Studio lokal, OpenRouter und unbekannten Provider."
+          ],
+          "depends_on": ["LCI-020"]
+        }
+      ]
+    },
+    {
+      "id": "LCI-TRACK-008",
+      "title": "Observability, Audit und Dokumentation",
+      "summary": "Die neuen Guards, Policies und Planning-Contracts müssen sichtbar werden. Sonst sind Fehler zwar technisch behandelt, aber schwer nachvollziehbar.",
+      "priority": "medium",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "LCI-023",
+          "title": "Planning- und Worker-Entscheidungen im Dashboard anzeigen",
+          "type": "ui",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Im Dashboard soll sichtbar werden, warum ein Goal scheiterte, welcher Worker gewählt wurde und welche Policy griff.",
+          "files": [
+            "agent/routes/",
+            "web/src/app/"
+          ],
+          "description": "API und UI zeigen PlanValidationResult, Worker Selection Decision und Context Delivery Manifest in komprimierter Form an.",
+          "implementation_notes": [
+            "Backend-Endpunkte für Goal Diagnostic Summary bereitstellen.",
+            "Frontend-Komponente zeigt error_codes, selected_worker, policy_scope, delivered_file_count.",
+            "Keine sensiblen Pfade/Secrets unredacted anzeigen, wenn Scope dies verbietet.",
+            "Für erste Version reichen JSON-Details im Admin-Bereich."
+          ],
+          "acceptance_criteria": [
+            "Für failed Planning Goal sind error_codes sichtbar.",
+            "Für ausgeführten Task ist selected_worker sichtbar.",
+            "Für selective context delivery ist delivered_file_count sichtbar.",
+            "Sensitive Details werden redacted dargestellt.",
+            "UI bricht nicht, wenn alte Tasks keine neuen Metadata-Felder besitzen."
+          ],
+          "depends_on": ["LCI-002", "LCI-010", "LCI-021"]
+        },
+        {
+          "id": "LCI-024",
+          "title": "Architektur-Dokumentation aktualisieren",
+          "type": "docs",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Die neuen Konzepte brauchen eine klare Doku, damit später nicht wieder implizite Heuristik eingebaut wird.",
+          "files": [
+            "docs/planning_contracts.md",
+            "docs/worker_context_policy.md",
+            "docs/opencode_worker_setup.md"
+          ],
+          "description": "Dokumentation für Planning Contracts, Hub/Worker-Trennung, OpenCode Worker Setup und Context-Scoped Delivery.",
+          "implementation_notes": [
+            "Mermaid-Diagramme für Goal -> Planning -> Contract Validation -> Repair -> Task Execution.",
+            "Mermaid-Diagramm für Worker Context Delivery: Goal Policy -> CodeCompass -> Selector -> Workspace.",
+            "Explizit dokumentieren: Default ist full aus Kompatibilitätsgründen, Security-Ziel ist selective für Cloud/isolierte Worker.",
+            "Determinismus-Regel dokumentieren: KI darf keine nicht beschriebenen Mechanismen erfinden."
+          ],
+          "acceptance_criteria": [
+            "docs/planning_contracts.md erklärt Contract-Felder und Fehlercodes.",
+            "docs/worker_context_policy.md erklärt scope_mode full/selective/none und llm_scope.",
+            "docs/opencode_worker_setup.md erklärt Docker-Start und Szenario-Konfiguration.",
+            "Mindestens zwei Mermaid-Diagramme sind enthalten.",
+            "Doku nennt klar, welche Teile bereits implementiert und welche geplant sind."
+          ],
+          "depends_on": ["LCI-001", "LCI-019"]
+        },
+        {
+          "id": "LCI-025",
+          "title": "Regression-Test-Suite für letzte Commit-Themen bündeln",
+          "type": "test",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Alle Verbesserungen aus dieser Todo brauchen eine gemeinsame Regression-Suite, damit Planning/Worker-Sicherheit nicht wieder bricht.",
+          "files": [
+            "tests/test_latest_commit_improvements_regression.py"
+          ],
+          "description": "Eine Regression-Suite prüft die wichtigsten invarianten Eigenschaften: Hub nicht automatisch Worker, Planning Contract lehnt dünne Pläne ab, Timeout geht über Lifecycle, OpenCode-Szenario ist valide, Context Policy blockiert Secrets für Cloud.",
+          "test_cases": [
+            "test_hub_not_worker_by_default",
+            "test_thin_software_plan_rejected_by_contract",
+            "test_deadline_guard_uses_lifecycle_service",
+            "test_opencode_scenario_valid",
+            "test_external_cloud_context_blocks_secret_files",
+            "test_legacy_full_scope_still_supported"
+          ],
+          "acceptance_criteria": [
+            "Regression-Suite läuft in normalem pytest ohne externe Services.",
+            "Jeder Test prüft eine sicherheits- oder stabilitätsrelevante Invariante.",
+            "Fehlertexte sind aussagekräftig genug für schnelle Diagnose.",
+            "Suite darf nicht von Testreihenfolge abhängen.",
+            "CI kann die Suite ohne spezielle Secrets ausführen."
+          ],
+          "depends_on": ["LCI-004", "LCI-008", "LCI-012", "LCI-020"]
+        }
+      ]
+    }
+  ],
+  "recommended_execution_order": [
+    "LCI-005",
+    "LCI-006",
+    "LCI-008",
+    "LCI-001",
+    "LCI-002",
+    "LCI-003",
+    "LCI-004",
+    "LCI-011",
+    "LCI-012",
+    "LCI-013",
+    "LCI-014",
+    "LCI-015",
+    "LCI-016",
+    "LCI-017",
+    "LCI-018",
+    "LCI-019",
+    "LCI-020",
+    "LCI-022",
+    "LCI-021",
+    "LCI-009",
+    "LCI-010",
+    "LCI-023",
+    "LCI-024",
+    "LCI-025"
+  ],
+  "definition_of_done": [
+    "Planning-Qualität wird primär über strukturierte Contracts geprüft, nicht über lose Keyword-Marker.",
+    "Deadline-Timeouts laufen ausschließlich über den GoalLifecycleService.",
+    "Hub wird nur dann Worker, wenn hub_can_be_worker und WorkerPolicy dies erlauben.",
+    "OpenCode-Szenario und Dockerfile sind validiert, testbar und sicherer isoliert.",
+    "PlanningModelProfile trennt steuernde Felder von freien Notes.",
+    "Hard-Guard-Fälle sind recovery-fähig und auditierbar.",
+    "Context-Scoped Delivery kann mindestens in einer ersten Runtime-Version selektiv Dateien liefern und Secrets für Cloud-Scope blockieren.",
+    "Alle Kernentscheidungen erzeugen nachvollziehbare Metadata oder Product Events.",
+    "Regression-Tests decken die wichtigsten Invarianten aus den letzten Commits ab."
+  ],
+  "risks": [
+    {
+      "id": "RISK-001",
+      "title": "Zu frühe harte Contracts können kreative Planning-Fälle blockieren",
+      "mitigation": "Contracts pro mode_id und goal_kind konfigurierbar machen; Default-Software-Contract nur für Software-Goals verwenden."
+    },
+    {
+      "id": "RISK-002",
+      "title": "Context-Scoped Delivery kann bestehende Workflows brechen",
+      "mitigation": "Default scope_mode=full beibehalten; selective nur opt-in aktivieren, bis Tests und UI stabil sind."
+    },
+    {
+      "id": "RISK-003",
+      "title": "Provider-Scope falsch klassifiziert lokalen oder externen Worker",
+      "mitigation": "Konservativer Fallback: unbekannte Provider nie als local_only behandeln."
+    },
+    {
+      "id": "RISK-004",
+      "title": "Zu viele Product Events erzeugen Rauschen",
+      "mitigation": "Events kompakt halten und detaillierte Diagnosedaten in Task Metadata/Manifest speichern."
+    }
+  ]
+}
