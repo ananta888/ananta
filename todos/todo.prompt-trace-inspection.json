@@ -50,7 +50,7 @@
           "title": "PromptTrace-Datenmodell definieren",
           "type": "schema",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Ein zentrales Modell für LLM-Request-Inspection wird eingeführt.",
           "files": [
             "agent/services/prompt_trace_service.py",
@@ -80,7 +80,7 @@
           "title": "PromptTraceStorage implementieren",
           "type": "feature",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Traces müssen abrufbar gespeichert werden, nicht nur als unstrukturierte Logzeilen.",
           "files": [
             "agent/services/prompt_trace_service.py",
@@ -103,14 +103,16 @@
             "Defekte JSONL-Zeilen brechen die Liste nicht ab.",
             "Tests laufen ohne echte Datenbank."
           ],
-          "depends_on": ["PTI-001"]
+          "depends_on": [
+            "PTI-001"
+          ]
         },
         {
           "id": "PTI-003",
           "title": "Konfigurationsschalter für Prompt-Tracing ergänzen",
           "type": "config",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Tracing muss sicher konfigurierbar sein: Metadaten ja, Raw-Prompts nur bewusst.",
           "files": [
             "agent/config_defaults.py",
@@ -130,7 +132,10 @@
             "diagnostics zeigt store_raw_prompts und redact_by_default an.",
             "Tests prüfen Default-Sicherheitsverhalten."
           ],
-          "depends_on": ["PTI-001", "PTI-002"]
+          "depends_on": [
+            "PTI-001",
+            "PTI-002"
+          ]
         }
       ]
     },
@@ -146,7 +151,7 @@
           "title": "generate_text/_call_llm mit PromptTrace integrieren",
           "type": "feature",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Der zentrale LLM-Pfad soll für jeden Provider-Call einen PromptTrace schreiben.",
           "files": [
             "agent/llm_integration.py",
@@ -170,14 +175,18 @@
             "Trace enthält keinen api_key und keinen Authorization Header.",
             "Bestehendes llm_log.jsonl Verhalten bleibt erhalten."
           ],
-          "depends_on": ["PTI-001", "PTI-002", "PTI-003"]
+          "depends_on": [
+            "PTI-001",
+            "PTI-002",
+            "PTI-003"
+          ]
         },
         {
           "id": "PTI-005",
           "title": "/llm/generate mit Trace-Metadaten erweitern",
           "type": "feature",
           "priority": "high",
-          "status": "todo",
+          "status": "completed",
           "summary": "Der vorhandene API-Endpunkt soll die Trace-ID zurückgeben, damit Nutzer den echten Request inspizieren können.",
           "files": [
             "agent/routes/config/llm_generate.py"
@@ -196,14 +205,16 @@
             "Routing-Metadata bleibt wie bisher vorhanden.",
             "Tests prüfen, dass trace_id aus Response per Inspect-API abrufbar ist."
           ],
-          "depends_on": ["PTI-004"]
+          "depends_on": [
+            "PTI-004"
+          ]
         },
         {
           "id": "PTI-006",
           "title": "PlanningPromptRegistry-Provenance an Trace übergeben",
           "type": "feature",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Planning-Traces müssen zeigen, welches Template und welche Version den finalen Prompt erzeugt haben.",
           "files": [
             "agent/services/planning_prompt_registry.py",
@@ -224,7 +235,9 @@
             "Template-Herkunft aus config oder DB wird soweit verfügbar gespeichert.",
             "Test prüft, dass ein gerenderter PlanningPrompt und der danach gesendete Prompt denselben Hash haben."
           ],
-          "depends_on": ["PTI-004"]
+          "depends_on": [
+            "PTI-004"
+          ]
         },
         {
           "id": "PTI-007",
@@ -255,7 +268,9 @@
             "Task Metadata referenziert erzeugte prompt_trace_ids.",
             "Wenn Worker keinen finalen Prompt liefern kann, ist das im Trace klar als uninspectable markiert."
           ],
-          "depends_on": ["PTI-004"]
+          "depends_on": [
+            "PTI-004"
+          ]
         }
       ]
     },
@@ -271,7 +286,7 @@
           "title": "PromptProvenanceChain definieren",
           "type": "schema",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Die Herkunft eines Prompts wird als geordnete Kette modelliert.",
           "files": [
             "agent/services/prompt_provenance.py",
@@ -291,14 +306,16 @@
             "Jeder Eintrag hat type, order und checksum oder reason_no_checksum.",
             "Tests prüfen stabile Reihenfolge der Chain."
           ],
-          "depends_on": ["PTI-001"]
+          "depends_on": [
+            "PTI-001"
+          ]
         },
         {
           "id": "PTI-009",
           "title": "Overlay- und Optimizer-Schritte erfassen",
           "type": "feature",
           "priority": "high",
-          "status": "todo",
+          "status": "partial",
           "summary": "Wenn Prompts durch Optimizer oder Overlays verändert werden, muss das sichtbar sein.",
           "files": [
             "agent/services/planning_prompt_optimizer_service.py",
@@ -319,7 +336,9 @@
             "Trace zeigt optimizer_steps in Reihenfolge.",
             "Bestehende PlanningPromptRegistry Tests bleiben grün."
           ],
-          "depends_on": ["PTI-008"]
+          "depends_on": [
+            "PTI-008"
+          ]
         },
         {
           "id": "PTI-010",
@@ -348,14 +367,16 @@
             "Sensitive Context-Blöcke werden redacted oder ausgeschlossen gemäß Policy.",
             "Tests prüfen, dass Tool-Definition-Änderung den Hash verändert."
           ],
-          "depends_on": ["PTI-008"]
+          "depends_on": [
+            "PTI-008"
+          ]
         },
         {
           "id": "PTI-011",
           "title": "Blueprint-/Template-Rationale mit PromptTrace verbinden",
           "type": "feature",
           "priority": "medium",
-          "status": "todo",
+          "status": "partial",
           "summary": "Vorhandene Blueprint- und Template-Metadaten sollen bis zum LLM-Request nachvollziehbar bleiben.",
           "files": [
             "agent/services/planning_service.py",
@@ -376,7 +397,9 @@
             "Bestehender test_planning_blueprint_provenance bleibt grün und wird um Trace-Fall erweitert.",
             "Trace zeigt Herkunft eindeutig als blueprint/template Provenance."
           ],
-          "depends_on": ["PTI-008"]
+          "depends_on": [
+            "PTI-008"
+          ]
         }
       ]
     },
@@ -392,7 +415,7 @@
           "title": "PromptRedactionService implementieren",
           "type": "security",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Prompts, Messages und Provider-Payloads müssen vor Speicherung und Anzeige redacted werden.",
           "files": [
             "agent/services/prompt_redaction_service.py",
@@ -414,14 +437,16 @@
             "Redaction Report enthält Anzahl und Pattern IDs.",
             "Tests enthalten mindestens 12 Secret-Pattern-Fälle."
           ],
-          "depends_on": ["PTI-001"]
+          "depends_on": [
+            "PTI-001"
+          ]
         },
         {
           "id": "PTI-013",
           "title": "Raw Prompt Access Policy einführen",
           "type": "security",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Raw-Prompts dürfen nur bewusst und kontrolliert sichtbar werden.",
           "files": [
             "agent/services/prompt_trace_access_policy.py",
@@ -442,7 +467,9 @@
             "Wenn raw nicht gespeichert wurde, liefert API raw_available=false statt Fehler.",
             "Tests prüfen remote/non-admin/admin/local Fälle."
           ],
-          "depends_on": ["PTI-012"]
+          "depends_on": [
+            "PTI-012"
+          ]
         },
         {
           "id": "PTI-014",
@@ -470,7 +497,10 @@
             "Trace enthält sensitivity_ceiling der angewendeten Policy.",
             "Tests prüfen local_only vs external_cloud_allowed."
           ],
-          "depends_on": ["PTI-010", "PTI-012"]
+          "depends_on": [
+            "PTI-010",
+            "PTI-012"
+          ]
         }
       ]
     },
@@ -486,7 +516,7 @@
           "title": "GET /debug/llm-requests implementieren",
           "type": "api",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Liste der letzten LLM-Requests mit Filter und redacted Kurzansicht.",
           "files": [
             "agent/routes/debug/prompt_traces.py",
@@ -508,14 +538,17 @@
             "Nicht autorisierte Anfrage erhält 401/403 gemäß bestehender Auth-Policy.",
             "Limit über Maximalwert wird gekappt."
           ],
-          "depends_on": ["PTI-002", "PTI-013"]
+          "depends_on": [
+            "PTI-002",
+            "PTI-013"
+          ]
         },
         {
           "id": "PTI-016",
           "title": "GET /debug/llm-requests/{trace_id} implementieren",
           "type": "api",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Einzelner Trace mit Prompt, Messages, Routing und Provenance.",
           "files": [
             "agent/routes/debug/prompt_traces.py"
@@ -536,14 +569,16 @@
             "Response enthält template_chain und overlay_chain auch wenn leer.",
             "Raw-Zugriff schreibt Audit Event."
           ],
-          "depends_on": ["PTI-015"]
+          "depends_on": [
+            "PTI-015"
+          ]
         },
         {
           "id": "PTI-017",
           "title": "GET /goals/{goal_id}/prompt-traces implementieren",
           "type": "api",
           "priority": "high",
-          "status": "todo",
+          "status": "completed",
           "summary": "Vom Goal direkt zu allen erzeugten LLM-Prompts springen.",
           "files": [
             "agent/routes/tasks/goals.py",
@@ -563,14 +598,17 @@
             "Nicht-admin bekommt redacted-only Ansicht.",
             "Tests prüfen Gruppierung nach request_kind."
           ],
-          "depends_on": ["PTI-015", "PTI-016"]
+          "depends_on": [
+            "PTI-015",
+            "PTI-016"
+          ]
         },
         {
           "id": "PTI-018",
           "title": "POST /debug/prompts/render-dry-run implementieren",
           "type": "api",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Prompts sollen inspizierbar sein, bevor ein Provider kontaktiert wird.",
           "files": [
             "agent/routes/debug/prompt_render.py",
@@ -593,7 +631,11 @@
             "persist_trace=true schreibt Trace mit request_kind=dry_run und success=null.",
             "Tests mocken Provider und beweisen, dass kein Netzwerk aufgerufen wird."
           ],
-          "depends_on": ["PTI-006", "PTI-008", "PTI-012"]
+          "depends_on": [
+            "PTI-006",
+            "PTI-008",
+            "PTI-012"
+          ]
         }
       ]
     },
@@ -609,7 +651,7 @@
           "title": "CLI Command Gruppe prompt/llm-log ergänzen",
           "type": "cli",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Neue CLI-Befehle werden im bestehenden argparse EntryPoint ergänzt.",
           "files": [
             "agent/cli/main.py",
@@ -631,14 +673,18 @@
             "Bestehende CLI-Commands bleiben unverändert funktionsfähig.",
             "Tests prüfen Help-Ausgaben und Exit-Codes."
           ],
-          "depends_on": ["PTI-015", "PTI-016", "PTI-018"]
+          "depends_on": [
+            "PTI-015",
+            "PTI-016",
+            "PTI-018"
+          ]
         },
         {
           "id": "PTI-020",
           "title": "ananta llm-log tail implementieren",
           "type": "cli",
           "priority": "high",
-          "status": "todo",
+          "status": "completed",
           "summary": "Schneller Blick auf die letzten LLM-Calls aus dem Terminal.",
           "files": [
             "agent/cli/prompt_inspect.py"
@@ -657,14 +703,16 @@
             "Keine Raw-Secrets werden angezeigt.",
             "Wenn keine Logdatei existiert, erscheint klare Meldung und Exit-Code 0."
           ],
-          "depends_on": ["PTI-019"]
+          "depends_on": [
+            "PTI-019"
+          ]
         },
         {
           "id": "PTI-021",
           "title": "ananta prompt inspect implementieren",
           "type": "cli",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Ein konkreter Trace kann inklusive Template-Kette und finalem Prompt angezeigt werden.",
           "files": [
             "agent/cli/prompt_inspect.py"
@@ -683,14 +731,17 @@
             "--raw ohne Berechtigung schlägt kontrolliert fehl.",
             "Unbekannte trace_id liefert Exit-Code 1 und klare Meldung."
           ],
-          "depends_on": ["PTI-019", "PTI-020"]
+          "depends_on": [
+            "PTI-019",
+            "PTI-020"
+          ]
         },
         {
           "id": "PTI-022",
           "title": "ananta prompt render Dry-Run implementieren",
           "type": "cli",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Prompts können lokal gerendert werden, ohne LLM-Aufruf.",
           "files": [
             "agent/cli/prompt_inspect.py"
@@ -709,14 +760,17 @@
             "--context-file lädt Kontext aus Datei und redacted Secrets.",
             "--save-trace erzeugt request_kind=dry_run Trace."
           ],
-          "depends_on": ["PTI-018", "PTI-019"]
+          "depends_on": [
+            "PTI-018",
+            "PTI-019"
+          ]
         },
         {
           "id": "PTI-023",
           "title": "ananta prompt goal-traces implementieren",
           "type": "cli",
           "priority": "medium",
-          "status": "todo",
+          "status": "completed",
           "summary": "Alle Prompt-Traces eines Goals schnell anzeigen.",
           "files": [
             "agent/cli/prompt_inspect.py"
@@ -735,7 +789,10 @@
             "Prompt Preview ist redacted.",
             "Unbekannte goal_id führt nicht zu Crash."
           ],
-          "depends_on": ["PTI-017", "PTI-019"]
+          "depends_on": [
+            "PTI-017",
+            "PTI-019"
+          ]
         }
       ]
     },
@@ -771,7 +828,9 @@
             "Unauthorized/Forbidden wird verständlich angezeigt.",
             "UI bricht nicht, wenn API keine Traces liefert."
           ],
-          "depends_on": ["PTI-015"]
+          "depends_on": [
+            "PTI-015"
+          ]
         },
         {
           "id": "PTI-025",
@@ -798,7 +857,10 @@
             "Context Sources zeigen included/excluded und reason.",
             "Copy-Button kopiert nur redacted Text."
           ],
-          "depends_on": ["PTI-016", "PTI-024"]
+          "depends_on": [
+            "PTI-016",
+            "PTI-024"
+          ]
         },
         {
           "id": "PTI-026",
@@ -824,7 +886,10 @@
             "Leerer Zustand ist verständlich.",
             "Fehler beim Laden blockiert nicht die restliche Goal-Seite."
           ],
-          "depends_on": ["PTI-017", "PTI-025"]
+          "depends_on": [
+            "PTI-017",
+            "PTI-025"
+          ]
         }
       ]
     },
@@ -840,7 +905,7 @@
           "title": "PromptTraceService Unit-Tests",
           "type": "test",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Grundmodell, Storage, Hashing und Redaction werden isoliert getestet.",
           "files": [
             "tests/test_prompt_trace_service.py",
@@ -863,7 +928,11 @@
             "Redaction erkennt mindestens API Key, Bearer Token, Passwort und Private Key.",
             "Storage-Tests nutzen temporäres data dir."
           ],
-          "depends_on": ["PTI-001", "PTI-002", "PTI-012"]
+          "depends_on": [
+            "PTI-001",
+            "PTI-002",
+            "PTI-012"
+          ]
         },
         {
           "id": "PTI-028",
@@ -890,14 +959,17 @@
             "Keine Secrets im redacted Trace.",
             "Bestehende llm_integration Tests bleiben grün."
           ],
-          "depends_on": ["PTI-004", "PTI-027"]
+          "depends_on": [
+            "PTI-004",
+            "PTI-027"
+          ]
         },
         {
           "id": "PTI-029",
           "title": "API-Contract-Tests für Prompt Inspection",
           "type": "test",
           "priority": "critical",
-          "status": "todo",
+          "status": "completed",
           "summary": "Die neuen Endpunkte brauchen stabile API-Verträge.",
           "files": [
             "tests/test_prompt_trace_api.py"
@@ -919,14 +991,19 @@
             "Dry-Run ruft keinen Provider auf.",
             "API-Responses sind JSON-schema-stabil genug für Frontend/CLI."
           ],
-          "depends_on": ["PTI-015", "PTI-016", "PTI-017", "PTI-018"]
+          "depends_on": [
+            "PTI-015",
+            "PTI-016",
+            "PTI-017",
+            "PTI-018"
+          ]
         },
         {
           "id": "PTI-030",
           "title": "CLI-Contract-Tests für Prompt Inspection",
           "type": "test",
           "priority": "high",
-          "status": "todo",
+          "status": "completed",
           "summary": "CLI-Kommandos müssen stabil, scriptbar und sicher sein.",
           "files": [
             "tests/test_cli_prompt_inspect.py",
@@ -948,7 +1025,13 @@
             "Raw-Zugriff ist per Default blockiert.",
             "Bestehende CLI-Tests bleiben grün."
           ],
-          "depends_on": ["PTI-019", "PTI-020", "PTI-021", "PTI-022", "PTI-023"]
+          "depends_on": [
+            "PTI-019",
+            "PTI-020",
+            "PTI-021",
+            "PTI-022",
+            "PTI-023"
+          ]
         },
         {
           "id": "PTI-031",
@@ -977,7 +1060,10 @@
             "Doku nennt Ollama und LM Studio explizit als Provider-Beispiele.",
             "README verlinkt auf die Prompt-Trace-Doku."
           ],
-          "depends_on": ["PTI-019", "PTI-029"]
+          "depends_on": [
+            "PTI-019",
+            "PTI-029"
+          ]
         }
       ]
     }
