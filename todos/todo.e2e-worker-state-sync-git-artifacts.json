@@ -1,0 +1,446 @@
+{
+  "schema_version": "todo.v2",
+  "id": "todo.e2e-worker-state-sync-git-artifacts",
+  "title": "E2E Worker-State-Sync: Git-/Artifact-Flow statt shared task workspace",
+  "summary": "Die Worker mounten zwar denselben Host-Pfad `./project-workspaces:/project-workspaces:rw`, aber das darf nicht der eigentliche Koordinationsmechanismus sein. Der saubere Mechanismus soll über den Hub laufen: entweder Git-basiert, wobei jeder Worker den aktuellen Stand vom Hub holt und Änderungen als Commit/Push/Merge-Request zurückgibt, oder Artifact-basiert, wobei Worker geänderte Dateien/Diffs als Artefakte an den Hub übermitteln und Folge-Tasks daraus ihren Kontext/Workspace aufbauen. Diese Todo ergänzt und korrigiert den bisherigen E2E-Plan: kein blind gemeinsames Goal-Verzeichnis als Zielarchitektur, sondern isolierte Worker-Workspaces plus expliziter Hub-synchronisierter State-Flow.",
+  "related_todos": [
+    "todos/todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json",
+    "todos/todo.prompt-trace-inspection.json",
+    "todos/todo.latest-commits-improvements.json"
+  ],
+  "code_analysis_findings": [
+    {
+      "id": "WS-SYNC-FINDING-001",
+      "file": "agent/services/workspace_git_service.py",
+      "summary": "WorkspaceGitService existiert bereits, kann Workspace init/clone durchführen, Branches erzeugen/checkouten und Branch-Namen aus goal_id und worker_key ableiten.",
+      "current_limit": "Der Service deckt aktuell vor allem Init/Clone/Branch ab. Es fehlen noch explizite Pull/Commit/Push/Merge-/Hub-Receive-Operationen als definierter Worker-State-Sync-Flow."
+    },
+    {
+      "id": "WS-SYNC-FINDING-002",
+      "file": "agent/services/worker_workspace_service.py",
+      "summary": "WorkerWorkspaceService aktiviert Git-Kontext über effective_config.git_workspace.enabled und ruft WorkspaceGitService.init_workspace() auf. Branch-Strategien `goal` und `goal_worker` sind vorbereitet.",
+      "current_limit": "Git-Kontext wird initialisiert, aber nicht zwingend als Sync-Protokoll zwischen Hub und Worker verwendet."
+    },
+    {
+      "id": "WS-SYNC-FINDING-003",
+      "file": "agent/services/worker_workspace_service.py",
+      "summary": "Artifact-Sync existiert bereits: create_workspace_diff_artifact() erzeugt Workspace-Diff-Artefakte; sync_changed_files_to_artifacts() lädt geänderte Dateien über ingestion_service an den Hub hoch.",
+      "current_limit": "Der Upload-Pfad existiert, aber Folge-Tasks müssen noch zuverlässig aus Hub-Artefakten oder Diffs ihren Startzustand rekonstruieren."
+    },
+    {
+      "id": "WS-SYNC-FINDING-004",
+      "file": "agent/services/worker_workspace_service.py",
+      "summary": "Changed-File-Erkennung, meaningful file filtering und Non-Artifact-Pfade wie `.ananta/` und `rag_helper/` sind bereits berücksichtigt.",
+      "current_limit": "Es fehlt eine klare Policy, wann Diff-Artefakte, File-Artefakte oder Git-Commits die Quelle der Wahrheit sind."
+    },
+    {
+      "id": "WS-SYNC-FINDING-005",
+      "file": "agent/services/worker_workspace_service.py",
+      "summary": "Der gemeinsame Docker-Mount erklärt, warum Worker physisch denselben Host-Pfad sehen können. Trotzdem erzeugt task-scoped Workspace-Logik pro Task eigene Unterverzeichnisse.",
+      "current_limit": "Dasselbe Dateisystem zu teilen löst nicht automatisch fachliche State-Weitergabe, Konfliktkontrolle oder Auditierbarkeit."
+    }
+  ],
+  "architecture_decision": {
+    "wrong_target": "Ein gemeinsames, blind geteiltes Goal-Verzeichnis als eigentliche Koordination zwischen Workern.",
+    "correct_target": "Isolierte Worker-Workspaces plus explizite Hub-synchronisierte State-Weitergabe über Git oder Artefakte.",
+    "recommended_first_e2e_mode": "artifact_hub_sync",
+    "recommended_second_mode": "git_hub_remote",
+    "reasoning": [
+      "Artifact-Sync ist im Code bereits weiter als Git-Push/Pull/Merge.",
+      "Artifact-Sync ist CI-/offline-freundlicher und braucht keinen echten Git-Remote-Server.",
+      "Git bleibt langfristig der sauberere Weg für Code-State, Branches, Diffs und Merge-Konflikte.",
+      "Gemeinsamer Mount kann als Transport/Performance-Hilfe bleiben, darf aber nicht als Sicherheits- oder Orchestrierungsmodell gelten."
+    ]
+  },
+  "target_flow_artifact_mode": [
+    "Hub erstellt Goal und Tasks.",
+    "Worker bekommt isolierten task-scoped Workspace.",
+    "Worker holt optional Hub-Artefakte/Vorarbeiten aus vorherigen Tasks und rekonstruiert lokalen Startzustand.",
+    "Worker führt OpenCode-Aufgabe aus.",
+    "WorkerWorkspaceService erkennt meaningful changed files.",
+    "Worker lädt geänderte Dateien und/oder Diff-Artefakt über ingestion_service an den Hub hoch.",
+    "Hub verknüpft Artefakte mit Task, Goal und Workspace-Provenance.",
+    "Folge-Task bekommt Artefakte vorheriger Tasks als materialisierten Workspace-Kontext oder explicit context bundle.",
+    "Final Verification arbeitet auf Hub-materialisiertem final state."
+  ],
+  "target_flow_git_mode": [
+    "Hub stellt pro Goal ein Git-Remote oder bare repo bereit.",
+    "Worker klont/pullt aktuellen Hub-State in isolierten Workspace.",
+    "Worker arbeitet auf goal_worker Branch oder worktree.",
+    "Worker committet Änderungen mit task_id/goal_id Metadata.",
+    "Worker pusht Branch/Commit zurück an Hub-Remote.",
+    "Hub validiert, testet und merged seriell oder per Policy.",
+    "Folge-Worker pullt den vom Hub gemergten aktuellen Goal-State.",
+    "Final Verification läuft auf Hub-main/goal Branch."
+  ],
+  "tracks": [
+    {
+      "id": "WS-SYNC-TRACK-001",
+      "title": "Workspace-State-Policy definieren",
+      "summary": "Es muss explizit konfigurierbar sein, ob Worker-State über Artifact-Hub-Sync, Git-Hub-Remote oder nur local shared workspace läuft. Shared workspace ist höchstens Dev-/Fallback-Modus.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "WS-SYNC-001",
+          "title": "WorkspaceStateSyncPolicy einführen",
+          "type": "schema",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Eine zentrale Policy beschreibt, wie Worker ihren Arbeitsstand vom Hub holen und zurückgeben.",
+          "files": [
+            "agent/services/workspace_state_sync_policy.py",
+            "agent/config_defaults.py"
+          ],
+          "description": "WorkspaceStateSyncPolicy definiert sync_mode, source_of_truth, task_workspace_strategy, artifact_sync, git_sync, materialization und conflict_policy.",
+          "implementation_notes": [
+            "sync_mode Werte: artifact_hub_sync, git_hub_remote, shared_goal_workspace_dev, none.",
+            "source_of_truth Werte: hub_artifacts, hub_git_remote, shared_filesystem, task_local.",
+            "Default für sicheren E2E: artifact_hub_sync.",
+            "shared_goal_workspace_dev muss explizit als dev/unsafe markiert sein.",
+            "Policy muss in Task effective_config und WorkerWorkspaceContext sichtbar sein.",
+            "Altes Verhalten kann als fallback task_local erhalten bleiben."
+          ],
+          "acceptance_criteria": [
+            "Default Policy für E2E ist sync_mode=artifact_hub_sync.",
+            "shared_goal_workspace_dev wird nicht versehentlich default.",
+            "Policy normalisiert fehlende Felder robust.",
+            "Ungültiger sync_mode erzeugt klaren Config-Fehler oder konservativen Fallback.",
+            "Task metadata zeigt angewendeten sync_mode und source_of_truth.",
+            "Unit-Tests decken artifact_hub_sync, git_hub_remote, shared_goal_workspace_dev und none ab."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "WS-SYNC-002",
+          "title": "E2E-Szenario auf artifact_hub_sync umstellen",
+          "type": "config",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Der BigPickle/Gemma-E2E soll nicht auf gemeinsamem Goal-Verzeichnis beruhen, sondern auf Artifact-Sync über den Hub.",
+          "files": [
+            "scripts/single_opencode_bigpickle_gemma_planner_scenario.json",
+            "todos/todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+          ],
+          "description": "Das E2E-Profil setzt workspace_state_sync.sync_mode=artifact_hub_sync. Worker dürfen task-scoped Workspaces behalten. Folge-Tasks bekommen Hub-Artefakte als materialisierten Input.",
+          "implementation_notes": [
+            "task_workspace_strategy='task_scoped'.",
+            "artifact_sync.enabled=true und sync_to_hub=true.",
+            "collection_name z.B. 'e2e-opencode-bigpickle-gemma-artifacts'.",
+            "shared_goal_workspace_dev explizit nicht verwenden.",
+            "max_concurrency kann für ersten E2E trotzdem 1 bleiben, aber nicht wegen Shared-FS-Abhängigkeit."
+          ],
+          "acceptance_criteria": [
+            "Szenario enthält workspace_state_sync.sync_mode=artifact_hub_sync.",
+            "Tasks dürfen unterschiedliche workspace_dir haben.",
+            "State-Weitergabe zwischen Tasks läuft über Hub-Artefakte, nicht über gleichen Pfad.",
+            "Artifact-Sync ist im Szenario aktiv.",
+            "E2E-Tests schlagen fehl, wenn source_of_truth=shared_filesystem ist."
+          ],
+          "depends_on": ["WS-SYNC-001"]
+        }
+      ]
+    },
+    {
+      "id": "WS-SYNC-TRACK-002",
+      "title": "Artifact-Hub-Sync als erster stabiler E2E-Mechanismus",
+      "summary": "Der vorhandene Artifact-Upload-Code soll zum vollständigen State-Sync ausgebaut werden: nicht nur Ergebnisse hochladen, sondern Folge-Tasks aus vorherigen Artefakten materialisieren.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "WS-SYNC-003",
+          "title": "TaskArtifactMaterializer implementieren",
+          "type": "feature",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Folge-Tasks müssen Hub-Artefakte vorheriger Tasks in ihren isolierten Workspace übernehmen können.",
+          "files": [
+            "agent/services/task_artifact_materializer.py",
+            "agent/services/worker_workspace_service.py",
+            "agent/services/task_scoped_execution_service.py"
+          ],
+          "description": "TaskArtifactMaterializer lädt relevante Artifact-Refs eines Goals aus dem Hub/ingestion_service und schreibt sie vor Worker-Ausführung in den task-scoped Workspace.",
+          "implementation_notes": [
+            "Input: goal_id, task_id, workspace_dir, materialization_policy.",
+            "Nutzt ArtifactRefs aus vorherigen completed Tasks desselben Goals.",
+            "Workspace-relative Pfade aus provenance_summary.workspace_relative_path verwenden.",
+            "Diff-Artefakte optional zunächst nur als Kontextdatei ablegen, File-Artefakte direkt materialisieren.",
+            "Keine Dateien außerhalb workspace_dir schreiben.",
+            "Konflikte je nach Policy: fail, overwrite, keep_existing, rename_conflict."
+          ],
+          "acceptance_criteria": [
+            "Folge-Task bekommt mini_slugify.py aus vorherigem Task-Artefakt in seinen Workspace materialisiert.",
+            "Materializer schreibt nie außerhalb workspace_dir.",
+            "Konfliktfall wird gemäß conflict_policy behandelt.",
+            "Materialization manifest listet artifact_id, source_task_id, relative_path und content_hash.",
+            "Tests laufen mit Fake ingestion_service ohne echten Worker."
+          ],
+          "depends_on": ["WS-SYNC-001"]
+        },
+        {
+          "id": "WS-SYNC-004",
+          "title": "Artifact manifest pro Task/Goal erzeugen",
+          "type": "feature",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Der Hub braucht eine klare Sicht auf erzeugte und materialisierte Artefakte je Task und Goal.",
+          "files": [
+            "agent/services/worker_workspace_service.py",
+            "agent/services/task_runtime_service.py",
+            "agent/services/goal_artifact_state_service.py"
+          ],
+          "description": "Nach jeder Worker-Ausführung wird ein Manifest gespeichert, das changed files, uploaded artifacts, diff artifacts, materialized input artifacts und final state refs enthält.",
+          "implementation_notes": [
+            "Neuer GoalArtifactStateService kann aus Task-History/ArtifactRefs den aktuellen Goal-State ableiten.",
+            "Manifest-Felder: goal_id, task_id, worker_id, workspace_dir_redacted, input_artifacts, output_artifacts, diff_artifact, changed_files, ignored_files.",
+            "Manifest selbst kann als JSON-Artefakt oder Task metadata gespeichert werden.",
+            "Nicht-Artefakte wie .ananta/ und rag_helper/ bleiben ausgeschlossen."
+          ],
+          "acceptance_criteria": [
+            "Nach Task-Ausführung existiert ein Artifact-Manifest.",
+            "Manifest enthält output_artifacts mit workspace_relative_path.",
+            "Manifest enthält input_artifacts, wenn Materializer vorher Artefakte geladen hat.",
+            "GoalArtifactStateService kann aktuellen Goal-State aus Manifesten rekonstruieren.",
+            "Tests prüfen zwei Tasks: Task 2 sieht Artefakt von Task 1."
+          ],
+          "depends_on": ["WS-SYNC-003"]
+        },
+        {
+          "id": "WS-SYNC-005",
+          "title": "Artifact-first E2E-Test korrigieren",
+          "type": "test",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Der E2E-Test darf nicht mehr verlangen, dass alle Tasks denselben workspace_dir nutzen.",
+          "files": [
+            "tests/e2e/test_opencode_bigpickle_gemma_goal_flow.py",
+            "tests/test_e2e_workspace_artifact_flow.py"
+          ],
+          "description": "Tests prüfen stattdessen: Worker-Workspaces sind task-scoped/isoliert; Output von Task 1 wird als Hub-Artefakt gespeichert; Task 2 materialisiert dieses Artefakt in seinem eigenen Workspace.",
+          "implementation_notes": [
+            "Assert: task1.workspace_dir != task2.workspace_dir im artifact_hub_sync Modus.",
+            "Assert: task1 output artifact exists.",
+            "Assert: task2 input manifest references task1 artifact.",
+            "Assert: task2 workspace contains materialized file from task1.",
+            "Assert: source_of_truth=hub_artifacts."
+          ],
+          "acceptance_criteria": [
+            "E2E-Mock besteht mit getrennten Task-Workspaces.",
+            "E2E-Mock schlägt fehl, wenn Task 2 nur zufällig über Shared-FS an Task-1-Dateien kommt.",
+            "Artifact-Upload und Materialization werden beide geprüft.",
+            "Final Verification nutzt rekonstruierten Hub-State oder final materialized workspace.",
+            "Keine Annahme eines gemeinsamen Goal-Verzeichnisses bleibt im Test."
+          ],
+          "depends_on": ["WS-SYNC-003", "WS-SYNC-004"]
+        }
+      ]
+    },
+    {
+      "id": "WS-SYNC-TRACK-003",
+      "title": "Git-Hub-Remote als sauberer Code-State-Mechanismus",
+      "summary": "Git ist langfristig der bessere Mechanismus für Code-State: jeder Worker pullt vom Hub, arbeitet isoliert, committet und pusht zurück. Der bestehende WorkspaceGitService braucht dafür Pull/Commit/Push/Merge-Funktionen.",
+      "priority": "high",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "WS-SYNC-006",
+          "title": "WorkspaceGitService um pull/status/commit/push erweitern",
+          "type": "feature",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Git-Init reicht nicht; Worker brauchen echte Sync-Operationen mit dem Hub.",
+          "files": [
+            "agent/services/workspace_git_service.py",
+            "tests/test_workspace_git_service.py"
+          ],
+          "description": "WorkspaceGitService erhält Methoden fetch_or_pull_current(), status_porcelain(), commit_all(), push_branch(), create_patch() und optional merge_branch_to_goal().",
+          "implementation_notes": [
+            "Methoden verwenden _run_git mit Timeout und strukturierter Fehlerklasse.",
+            "commit message enthält goal_id, task_id, worker_key.",
+            "Bei no changes kein leerer Commit, sondern result no_changes.",
+            "push_branch nur wenn remote_url gesetzt ist.",
+            "create_patch erzeugt text/x-diff für Artifact-Fallback."
+          ],
+          "acceptance_criteria": [
+            "status_porcelain erkennt geänderte Dateien.",
+            "commit_all erzeugt Commit mit Task-Metadata.",
+            "no changes erzeugt keinen Commit und klaren Status.",
+            "push_branch schlägt ohne remote_url kontrolliert fehl oder skippt mit reason no_remote.",
+            "Tests nutzen temporäres Git-Repo."
+          ],
+          "depends_on": ["WS-SYNC-001"]
+        },
+        {
+          "id": "WS-SYNC-007",
+          "title": "HubGitRemoteService für Goal-Repositories definieren",
+          "type": "feature",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Der Hub braucht eine eigene Abstraktion als Git-Source-of-Truth pro Goal.",
+          "files": [
+            "agent/services/hub_git_remote_service.py",
+            "agent/config_defaults.py",
+            "tests/test_hub_git_remote_service.py"
+          ],
+          "description": "HubGitRemoteService verwaltet lokale bare repos oder normale repos pro Goal und stellt clone URLs/Pfade für Worker bereit.",
+          "implementation_notes": [
+            "Für lokalen Docker-E2E kann remote_url ein File-Path zu bare repo sein.",
+            "create_goal_repo(goal_id, seed_artifacts=None).",
+            "get_remote_url(goal_id).",
+            "merge_worker_branch(goal_id, branch, strategy).",
+            "Conflict handling: fail_with_conflict_artifact für ersten Schritt.",
+            "Kein externer GitHub-Remote nötig."
+          ],
+          "acceptance_criteria": [
+            "Hub kann pro Goal ein lokales bare repo erzeugen.",
+            "Worker kann vom Hub-Remote klonen.",
+            "Worker kann Branch pushen.",
+            "Hub kann Branch in goal branch mergen oder Konflikt diagnostizieren.",
+            "Tests laufen lokal ohne Netzwerk."
+          ],
+          "depends_on": ["WS-SYNC-006"]
+        },
+        {
+          "id": "WS-SYNC-008",
+          "title": "Git-Sync-Modus im E2E optional testen",
+          "type": "integration-test",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Neben artifact_hub_sync soll ein optionaler Git-E2E zeigen, dass Worker über Hub-Git-State kooperieren können.",
+          "files": [
+            "tests/e2e/test_opencode_bigpickle_gemma_git_sync_flow.py",
+            "scripts/single_opencode_bigpickle_gemma_planner_scenario.json"
+          ],
+          "description": "Test nutzt lokale bare repo als Hub-Remote: Task 1 commit/push, Hub merge, Task 2 pullt aktuellen Stand und baut darauf auf.",
+          "implementation_notes": [
+            "sync_mode=git_hub_remote.",
+            "branch_strategy=goal_worker oder goal.",
+            "max_concurrency=1 für ersten Git-E2E.",
+            "Bei Merge-Konflikt kontrollierter fail mit conflict artifact.",
+            "OpenCode kann gemockt werden."
+          ],
+          "acceptance_criteria": [
+            "Task 1 pusht Commit zum Hub-Remote.",
+            "Hub merged oder fast-forwarded den Commit.",
+            "Task 2 pullt den Stand und sieht Datei aus Task 1.",
+            "Final Verification läuft auf Hub goal branch.",
+            "Test läuft ohne externen Git-Server."
+          ],
+          "depends_on": ["WS-SYNC-007"]
+        }
+      ]
+    },
+    {
+      "id": "WS-SYNC-TRACK-004",
+      "title": "Shared Mount nur als Dev-Transport absichern",
+      "summary": "Der gemeinsame Mount darf nicht verdecken, ob Artifact-/Git-Sync wirklich funktioniert. Tests und Diagnostics müssen Shared-FS-Abhängigkeiten erkennen.",
+      "priority": "high",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "WS-SYNC-009",
+          "title": "Shared-FS-Leakage-Test hinzufügen",
+          "type": "security-test",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Tests sollen fehlschlagen, wenn Task 2 Dateien nur wegen shared mount sieht statt über Hub-Sync.",
+          "files": [
+            "tests/test_workspace_state_sync_isolation.py"
+          ],
+          "description": "Test erzeugt zwei task-scoped Workspaces im selben project-workspaces Mount. Task 2 darf Task-1-Dateien erst sehen, nachdem ArtifactMaterializer oder GitPull gelaufen ist.",
+          "implementation_notes": [
+            "Task1 workspace: /project-workspaces/worker-a/task-1.",
+            "Task2 workspace: /project-workspaces/worker-b/task-2.",
+            "Ohne materialize: file absent.",
+            "Mit artifact materialize: file present.",
+            "Mit git pull mode: file present nach pull/merge."
+          ],
+          "acceptance_criteria": [
+            "Ohne Hub-Sync sieht Task 2 Task-1-Datei nicht.",
+            "Mit Artifact-Sync sieht Task 2 materialisierte Datei.",
+            "Mit Git-Sync sieht Task 2 gepullte Datei.",
+            "Test beweist, dass gemeinsamer Host-Mount nicht als State-Mechanismus genutzt wird.",
+            "Diagnostics markieren source_of_truth korrekt."
+          ],
+          "depends_on": ["WS-SYNC-003"]
+        },
+        {
+          "id": "WS-SYNC-010",
+          "title": "Diagnostics: State-Sync-Quelle sichtbar machen",
+          "type": "observability",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Im E2E-Report muss stehen, ob State über Hub-Artefakte, Git oder Shared-FS kam.",
+          "files": [
+            "agent/services/e2e_diagnostics_service.py",
+            "agent/services/worker_workspace_service.py",
+            "agent/services/task_scoped_execution_service.py"
+          ],
+          "description": "Diagnostics Report ergänzt workspace_state_sync mit sync_mode, source_of_truth, input_materialization, output_publication und violations.",
+          "implementation_notes": [
+            "Violation: shared_filesystem_dependency_detected.",
+            "Violation: missing_artifact_materialization_for_dependent_task.",
+            "Violation: git_sync_enabled_but_no_push.",
+            "Report zeigt pro Task input_artifacts/output_artifacts/git_commit/git_branch.",
+            "Bei shared_goal_workspace_dev klar als dev/unsafe markieren."
+          ],
+          "acceptance_criteria": [
+            "Report zeigt sync_mode pro Task.",
+            "Report zeigt source_of_truth=hub_artifacts im ersten E2E.",
+            "Report markiert shared_filesystem als violation, wenn nicht explizit dev mode.",
+            "Report zeigt materialisierte input artifacts.",
+            "Report zeigt Git Branch/Commit im git_hub_remote Modus."
+          ],
+          "depends_on": ["WS-SYNC-004", "WS-SYNC-008"]
+        }
+      ]
+    }
+  ],
+  "recommended_execution_order": [
+    "WS-SYNC-001",
+    "WS-SYNC-002",
+    "WS-SYNC-003",
+    "WS-SYNC-004",
+    "WS-SYNC-005",
+    "WS-SYNC-009",
+    "WS-SYNC-010",
+    "WS-SYNC-006",
+    "WS-SYNC-007",
+    "WS-SYNC-008"
+  ],
+  "definition_of_done": [
+    "Der BigPickle/Gemma-E2E verlässt sich nicht mehr auf ein gemeinsames Goal-Verzeichnis als Koordinationsmodell.",
+    "Worker behalten isolierte task-scoped Workspaces im artifact_hub_sync Modus.",
+    "Task-Outputs werden über Hub-Artefakte veröffentlicht.",
+    "Folge-Tasks materialisieren benötigte Hub-Artefakte in ihren eigenen Workspace.",
+    "E2E-Tests beweisen, dass Task 2 nicht zufällig über Shared-FS an Task-1-State kommt.",
+    "Git-Sync ist als optionaler zweiter Modus mit lokalem Hub-Remote vorbereitet.",
+    "Diagnostics zeigen source_of_truth, input/output artifacts und ggf. Git Branch/Commit.",
+    "Shared workspace bleibt nur expliziter Dev-/Unsafe-Modus."
+  ],
+  "non_goals": [
+    "Kein blindes Umschalten auf gemeinsamen Goal-Workspace als Zielarchitektur.",
+    "Kein Verlass auf Docker-Shared-Mount als Sicherheits- oder State-Sync-Modell.",
+    "Kein externer GitHub/Git-Server als Pflicht für normale Tests.",
+    "Kein Entfernen des bestehenden Artifact-Sync-Codes; er wird zum ersten stabilen Mechanismus ausgebaut.",
+    "Kein paralleler Merge-Konflikt-Automatismus im ersten Schritt. Konflikte dürfen kontrolliert fehlschlagen."
+  ],
+  "risks": [
+    {
+      "id": "WS-SYNC-RISK-001",
+      "title": "Artifact-Sync rekonstruiert Code-State unvollständig",
+      "mitigation": "Manifest + materialized input artifacts + final verification gegen rekonstruierten Hub-State. Git-Modus als langfristig sauberere Code-State-Lösung."
+    },
+    {
+      "id": "WS-SYNC-RISK-002",
+      "title": "Git-Modus erhöht Komplexität durch Merge-Konflikte",
+      "mitigation": "Ersten Git-E2E seriell mit max_concurrency=1 fahren; Konflikte als conflict artifact diagnostizieren."
+    },
+    {
+      "id": "WS-SYNC-RISK-003",
+      "title": "Shared Mount kaschiert fehlenden Sync",
+      "mitigation": "Isolation-/Leakage-Tests erzwingen getrennte task-scoped Workspaces und prüfen explizite Materialization."
+    }
+  ]
+}
