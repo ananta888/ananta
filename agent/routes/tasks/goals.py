@@ -89,6 +89,35 @@ def _plan_quality_from_task_ids(*, task_ids: list[str], mode: str, planning_poli
     return quality.ok, quality.reason
 
 
+def _is_soft_planning_quality_failure(*, quality_reason: str) -> bool:
+    """Allow non-critical category misses without hard-failing full software-goal runs.
+
+    We keep hard blockers (e.g. too few tasks, generic-only plans), but tolerate
+    missing analysis/review category hints for otherwise executable plans.
+    """
+    normalized = str(quality_reason or "").strip().lower()
+    if not normalized or normalized == "ok":
+        return False
+    parts = [p for p in normalized.split("|") if p]
+    if not parts:
+        return False
+    if any(p.startswith("too_few_tasks:") or p.startswith("too_many_generic_tasks:") for p in parts):
+        return False
+    missing_parts = [p for p in parts if p.startswith("missing_categories:")]
+    if len(missing_parts) != len(parts):
+        return False
+    missing_blob = ",".join(p.removeprefix("missing_categories:") for p in missing_parts)
+    missing_entries = [entry.strip() for entry in missing_blob.split(",") if entry.strip()]
+    if not missing_entries:
+        return False
+    tolerated = {"analysis", "review"}
+    for entry in missing_entries:
+        category = entry.split(":", 1)[0].strip()
+        if category not in tolerated:
+            return False
+    return True
+
+
 def _mark_started_planning_runs_failed(*, goal_id: str, reason: str) -> int:
     updated = 0
     runs = list(_repos().planning_run_repo.get_by_goal_id(goal_id, limit=50) or [])
@@ -905,7 +934,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             )
             return
 
-        if create_tasks_enabled and software_goal and not quality_ok:
+        if create_tasks_enabled and software_goal and not quality_ok and not _is_soft_planning_quality_failure(quality_reason=quality_reason):
             _services().goal_lifecycle_service.transition_goal(
                 goal_record,
                 target_status="failed",
@@ -927,6 +956,21 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                 plan_id=result.get("plan_id"),
             )
             return
+        if create_tasks_enabled and software_goal and not quality_ok:
+            record_product_event(
+                "goal_planning_quality_soft_failed",
+                actor="auto_planner",
+                details={
+                    "reason": "planning_quality_soft_failed",
+                    "quality_reason": quality_reason,
+                    "task_count": len(created_task_ids),
+                    "source": goal_record.source,
+                    "mode": goal_record.mode,
+                },
+                goal_id=goal_record.id,
+                trace_id=goal_record.trace_id,
+                plan_id=result.get("plan_id"),
+            )
 
         _services().goal_lifecycle_service.transition_goal(
             goal_record,

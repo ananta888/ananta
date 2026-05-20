@@ -58,11 +58,29 @@ class PlanningQualityService:
             return "review"
 
         text = f"{task.get('title') or ''} {task.get('description') or ''}".lower()
+        padded_text = f" {text} "
         if any(k in text for k in ["analy", "analyse", "plan", "requirement"]):
             return "analysis"
-        if any(k in text for k in ["docker", "env", "infra", "pipeline", "ci", "install"]):
+        if any(k in text for k in ["docker", "env", "infra", "pipeline", "install"]):
             return "infrastructure"
-        if any(k in text for k in ["implement", "code", "build", "create", "api", "endpoint"]):
+        if any(k in padded_text for k in [" github actions ", " continuous integration ", " ci/cd ", " ci-cd "]):
+            return "infrastructure"
+        if any(
+            k in text
+            for k in [
+                "implement",
+                "implementation",
+                "implementierung",
+                "umsetzen",
+                "entwickeln",
+                "programmieren",
+                "code",
+                "build",
+                "create",
+                "api",
+                "endpoint",
+            ]
+        ):
             return "implementation"
         if any(k in text for k in ["test", "verify", "assert", "validation", "check"]):
             return "tests"
