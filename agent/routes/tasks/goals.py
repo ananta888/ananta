@@ -689,7 +689,10 @@ def _start_planning_deadline_guard(*, goal_id: str, app: Any, timeout_s: int) ->
             if not goal:
                 return
             status = str(getattr(goal, "status", "") or "").strip().lower()
-            if status in {"completed", "failed", "cancelled", "aborted", "timeout"}:
+            # Guard applies only while planning is still in progress. Once the
+            # goal leaves planning states, this watchdog must no longer force
+            # a terminal failure.
+            if status not in {"planning", "planning_queued", "planning_running"}:
                 return
             _mark_started_planning_runs_failed(
                 goal_id=goal_id,
