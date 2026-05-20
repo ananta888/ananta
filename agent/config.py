@@ -56,6 +56,7 @@ class Settings(BaseSettings):
 
     # Timeouts
     http_timeout: int = Field(default=60, validation_alias="HTTP_TIMEOUT")
+    llm_invoke_timeout_seconds: int = Field(default=120, validation_alias="LLM_INVOKE_TIMEOUT_SECONDS")
     command_timeout: int = Field(default=60, validation_alias="COMMAND_TIMEOUT")
     agent_offline_timeout: int = Field(default=300, validation_alias="AGENT_OFFLINE_TIMEOUT")
     voice_provider: str = Field(default="voice-runtime", validation_alias="VOICE_PROVIDER")
