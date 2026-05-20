@@ -276,7 +276,12 @@ class WorkerWorkspaceService:
             effective_config = dict((task or {}).get("effective_config") or {})
             git_workspace_cfg = dict((effective_config.get("git_workspace")) or {})
             if not git_workspace_cfg.get("enabled"):
-                return None
+                # Also check worker_execution_context.workspace.git_workspace (set per-goal by lifecycle_service)
+                exec_ctx = dict((task or {}).get("worker_execution_context") or {})
+                ws_git = dict((exec_ctx.get("workspace") or {}).get("git_workspace") or {})
+                if not ws_git.get("enabled"):
+                    return None
+                git_workspace_cfg = ws_git
             from agent.services.workspace_git_service import get_workspace_git_service
             svc = get_workspace_git_service()
             goal_id = str((task or {}).get("goal_id") or "")
