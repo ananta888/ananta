@@ -1,4 +1,5 @@
 import time
+from types import SimpleNamespace
 
 import jwt
 
@@ -27,6 +28,32 @@ def _wait_goal_status(client, headers, goal_id: str, *, timeout_s: float = 5.0) 
             return status
         time.sleep(0.05)
     return status
+
+
+def test_plan_quality_from_task_ids_uses_task_kind_field(monkeypatch) -> None:
+    from agent.routes.tasks.goals import _plan_quality_from_task_ids
+
+    class _Repo:
+        @staticmethod
+        def get_by_id(_tid):
+            return SimpleNamespace(
+                title="Implement endpoint",
+                description="Implement API endpoint in Python code.",
+                task_kind="coding",
+            )
+
+    class _Repos:
+        task_repo = _Repo()
+
+    monkeypatch.setattr("agent.routes.tasks.goals._repos", lambda: _Repos())
+    ok, reason = _plan_quality_from_task_ids(
+        task_ids=["t1", "t2", "t3"],
+        mode="generic",
+        planning_policy={},
+        team_id=None,
+    )
+    assert ok is True
+    assert reason == "ok"
 
 
 class TestGoalsAPI:

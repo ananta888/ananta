@@ -75,7 +75,11 @@ def _plan_quality_from_task_ids(*, task_ids: list[str], mode: str, planning_poli
             {
                 "title": str(getattr(task, "title", "") or ""),
                 "description": str(getattr(task, "description", "") or ""),
-                "task_kind": str(getattr(task, "task_type", "") or ""),
+                "task_kind": str(
+                    getattr(task, "task_kind", None)
+                    or getattr(task, "task_type", None)
+                    or ""
+                ),
             }
         )
     if not subtasks:
