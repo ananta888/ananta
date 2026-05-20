@@ -412,6 +412,167 @@ def cmd_prompt_goal_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _last_trace_by_task_id(traces_grouped: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    last: dict[str, dict[str, Any]] = {}
+    for kind, items in (traces_grouped or {}).items():
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            task_id = str(item.get("task_id") or "").strip()
+            if not task_id:
+                continue
+            created_at = float(item.get("created_at") or 0.0)
+            existing = last.get(task_id)
+            existing_ts = float((existing or {}).get("created_at") or 0.0)
+            if (existing is None) or (created_at >= existing_ts):
+                normalized = dict(item)
+                normalized["request_kind"] = str(item.get("request_kind") or kind or "")
+                last[task_id] = normalized
+    return last
+
+
+def cmd_prompt_delegation_report(args: argparse.Namespace) -> int:
+    goal_id = str(getattr(args, "goal_id", "") or "").strip()
+    if not goal_id:
+        print("Error: --goal-id is required", file=sys.stderr)
+        return 2
+
+    try:
+        from agent.cli_goals import _request, _api_data
+    except Exception as exc:
+        print(f"Error: delegation report helper unavailable: {exc}", file=sys.stderr)
+        return 1
+
+    goal_res = _request("GET", f"/goals/{goal_id}/detail", timeout=30)
+    if goal_res.status_code != 200:
+        if goal_res.status_code == 404:
+            print(f"Error: invalid goal id or not found: {goal_id}", file=sys.stderr)
+        else:
+            print(f"Error: goal detail request failed ({goal_res.status_code})", file=sys.stderr)
+        return 1
+    goal_detail = _api_data(goal_res) or {}
+    if not isinstance(goal_detail, dict):
+        print("Error: invalid goal detail payload", file=sys.stderr)
+        return 1
+
+    trace_res = _request("GET", f"/goals/{goal_id}/prompt-traces", params={"limit": 300}, timeout=30)
+    trace_payload = _api_data(trace_res) if trace_res.status_code == 200 else {}
+    if not isinstance(trace_payload, dict):
+        trace_payload = {}
+
+    tasks = list(goal_detail.get("tasks") or [])
+    traces_grouped = dict(trace_payload.get("traces") or {})
+    task_last_trace = _last_trace_by_task_id(traces_grouped)
+
+    rows: list[dict[str, Any]] = []
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        instruction_layers = dict(task.get("instruction_layers") or {})
+        template_compat = dict(instruction_layers.get("template_compatibility") or {})
+        role_ctx = dict(template_compat.get("role_template_context") or {})
+        verification_status = dict(task.get("verification_status") or {})
+        execution_scope = dict(verification_status.get("execution_scope") or {})
+        worker_ctx = dict(task.get("worker_execution_context") or {})
+        routing_hints = dict(worker_ctx.get("routing_hints") or {})
+
+        task_id = str(task.get("id") or "")
+        trace = dict(task_last_trace.get(task_id) or {})
+        trace_compact = {
+            "request_kind": str(trace.get("request_kind") or ""),
+            "provider": str(trace.get("provider") or ""),
+            "model": str(trace.get("model") or ""),
+            "prompt_hash": str(trace.get("prompt_hash_sha256") or ""),
+            "prompt_preview_redacted": str(trace.get("prompt_preview_redacted") or ""),
+            "created_at": trace.get("created_at"),
+        }
+        row = {
+            "task_id": task_id,
+            "title": str(task.get("title") or ""),
+            "status": str(task.get("status") or ""),
+            "task_kind": str(task.get("task_kind") or ""),
+            "required_capabilities": list(task.get("required_capabilities") or []),
+            "assigned_agent_url": str(task.get("assigned_agent_url") or ""),
+            "execution_worker_url": str(execution_scope.get("worker_url") or ""),
+            "execution_profile_hint": str(routing_hints.get("worker_profile") or ""),
+            "execution_profile_source": str(routing_hints.get("profile_source") or ""),
+            "instruction_layers": {
+                "selected_profile": instruction_layers.get("selected_profile"),
+                "selected_overlay": instruction_layers.get("selected_overlay"),
+                "template_compatibility": {
+                    "status": template_compat.get("status"),
+                    "role_template_context": {
+                        "template_id": role_ctx.get("template_id"),
+                        "template_name": role_ctx.get("template_name"),
+                    },
+                },
+            },
+            "last_prompt_trace": trace_compact,
+        }
+        rows.append(row)
+
+    result = {
+        "goal_id": goal_id,
+        "goal_status": str((goal_detail.get("goal") or {}).get("status") or ""),
+        "task_count": len(rows),
+        "tasks": rows,
+    }
+
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"=== Delegation Report: {goal_id} ===")
+    print(f"Goal Status: {result['goal_status'] or '-'}")
+    print(f"Tasks:       {result['task_count']}")
+    if not rows:
+        print("(no tasks)")
+        return 0
+
+    table_rows: list[dict[str, Any]] = []
+    for row in rows:
+        t = row["last_prompt_trace"]
+        il = row["instruction_layers"]
+        tc = il["template_compatibility"]
+        rtc = tc["role_template_context"]
+        table_rows.append(
+            {
+                "task_id": str(row.get("task_id") or "")[:14],
+                "status": str(row.get("status") or "")[:14],
+                "kind": str(row.get("task_kind") or "")[:10],
+                "caps": ",".join([str(x) for x in list(row.get("required_capabilities") or [])])[:24],
+                "agent": str(row.get("assigned_agent_url") or row.get("execution_worker_url") or "")[:34],
+                "profile": str(il.get("selected_profile") or row.get("execution_profile_hint") or "")[:16],
+                "overlay": str(il.get("selected_overlay") or "")[:16],
+                "tpl_status": str(tc.get("status") or "")[:12],
+                "template": str(rtc.get("template_name") or rtc.get("template_id") or "")[:24],
+                "trace": str(t.get("request_kind") or "")[:8],
+                "provider": str(t.get("provider") or "")[:10],
+                "model": str(t.get("model") or "")[:16],
+                "trace_at": _format_ts(t.get("created_at")),
+            }
+        )
+    _print_table(
+        table_rows,
+        ["task_id", "status", "kind", "caps", "agent", "profile", "overlay", "tpl_status", "template", "trace", "provider", "model", "trace_at"],
+    )
+
+    print("\n--- Last Trace Preview By Task ---")
+    for row in rows:
+        task_id = str(row.get("task_id") or "")
+        title = str(row.get("title") or "")
+        t = row["last_prompt_trace"]
+        preview = str(t.get("prompt_preview_redacted") or "").replace("\n", " ")
+        if len(preview) > 180:
+            preview = preview[:177] + "..."
+        print(f"- {task_id} | {title}")
+        print(f"  trace={t.get('request_kind') or '-'} provider={t.get('provider') or '-'} model={t.get('model') or '-'} hash={str(t.get('prompt_hash') or '')[:16]}")
+        print(f"  preview={preview or '-'}")
+    return 0
+
+
 # ── Subparser builder ─────────────────────────────────────────────────────────
 
 def build_prompt_subparser(subparsers) -> None:
@@ -445,6 +606,9 @@ def build_prompt_subparser(subparsers) -> None:
     gr_p = prompt_sub.add_parser("goal-report", help="Show tasks + prompt traces + artifacts for a goal")
     gr_p.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
     gr_p.add_argument("--json", action="store_true", help="JSON output")
+    dr_p = prompt_sub.add_parser("delegation-report", help="Show compact task delegation/template view for a goal")
+    dr_p.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
+    dr_p.add_argument("--json", action="store_true", help="JSON output")
 
 
 def build_llm_log_subparser(subparsers) -> None:
@@ -470,8 +634,10 @@ def run_prompt_command(args: argparse.Namespace) -> int:
         return cmd_prompt_goal_traces(args)
     elif cmd == "goal-report":
         return cmd_prompt_goal_report(args)
+    elif cmd == "delegation-report":
+        return cmd_prompt_delegation_report(args)
     else:
-        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report} --help")
+        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report} --help")
         return 2
 
 
