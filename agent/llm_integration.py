@@ -1011,6 +1011,8 @@ def generate_text(
     tools: Optional[list] = None,
     tool_choice: Optional[Any] = None,
     timeout: Optional[int] = None,
+    trace_goal_id: Optional[str] = None,
+    trace_task_id: Optional[str] = None,
 ) -> Any:
     """Höherwertige Funktion für LLM-Anfragen, nutzt Parameter oder Defaults."""
     p = provider or _runtime_default_provider()
@@ -1067,6 +1069,8 @@ def generate_text(
         max_output_tokens=max_output_tokens,
         tools=tools,
         tool_choice=tool_choice,
+        trace_goal_id=trace_goal_id,
+        trace_task_id=trace_task_id,
         idempotency_key=idempotency_key,
     )
 
@@ -1084,6 +1088,8 @@ def _call_llm(
     max_output_tokens: int | None = None,
     tools: list | None = None,
     tool_choice: Any | None = None,
+    trace_goal_id: Optional[str] = None,
+    trace_task_id: Optional[str] = None,
     idempotency_key: Optional[str] = None,
 ) -> Any:
     """Wrapper für _execute_llm_call mit automatischer Retry-Logik."""
@@ -1126,8 +1132,9 @@ def _call_llm(
         _trace_svc = get_prompt_trace_service()
         # Planning/background calls often run with app context but without request context.
         # Use app-context metadata so traces can still be correlated to goals/tasks.
-        _goal_id = getattr(g, "llm_goal_id", None) if has_app_context() else None
-        _task_id = getattr(g, "llm_task_id", None) if has_app_context() else None
+        # Explicit trace metadata always wins; app-context fallback is best-effort.
+        _goal_id = str(trace_goal_id or "").strip() or (getattr(g, "llm_goal_id", None) if has_app_context() else None)
+        _task_id = str(trace_task_id or "").strip() or (getattr(g, "llm_task_id", None) if has_app_context() else None)
         _prompt_trace = _trace_svc.create_trace(
             request_id=request_id,
             idempotency_key=idempotency_key,
