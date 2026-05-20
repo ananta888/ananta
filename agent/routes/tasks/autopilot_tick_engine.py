@@ -964,10 +964,19 @@ def _dispatch_one_task_inner(  # noqa: C901
             hard_guard_status = "needs_review"
         recent_attempts = _recent_strategy_attempts(task, now_ts=time.time(), window_seconds=hard_guard_window_seconds)
         if recent_attempts >= hard_guard_max_attempts_window:
+            _verification = {
+                **dict(getattr(task, "verification_status", None) or {}),
+                "autopilot_strategy": {
+                    **dict((getattr(task, "verification_status", None) or {}).get("autopilot_strategy") or {}),
+                    "reason_code": "task_propose_hard_guard",
+                    "last_failed_at": time.time(),
+                },
+            }
             update_local_task_status(
                 task.id,
                 hard_guard_status,
                 error="autopilot_task_propose_hard_guard_triggered",
+                verification_status=_verification,
                 force=True,
                 event_type="autopilot_task_propose_hard_guard_triggered",
                 event_actor="autopilot_tick",
@@ -1724,14 +1733,54 @@ def execute_autopilot_tick(
         )
 
     # Guardrail: in fully autonomous runs, stale waiting_for_review tasks must
-    # not block goal terminalization indefinitely. If no machine-retry marker
-    # was detected above, fail the task after a grace window.
+    # not block goal terminalization indefinitely.
+    #
+    # For strategy/budget guardrails, prefer controlled retry (todo) before
+    # hard-failing the task, otherwise autonomous opencode runs can dead-end
+    # without ever producing executable steps/artifacts.
     _FORCE_FAIL_WAITING_REVIEW_SECONDS = 90
+    _WAITING_REVIEW_RETRY_MAX = 2
     for _t in all_tasks:
         if str(getattr(_t, "status", "") or "").lower() != "waiting_for_review":
             continue
         _updated = float(getattr(_t, "updated_at", None) or 0)
         if _updated and (now_ts - _updated) < _FORCE_FAIL_WAITING_REVIEW_SECONDS:
+            continue
+        _verification = dict(getattr(_t, "verification_status", None) or {})
+        _strategy = dict(_verification.get("autopilot_strategy") or {})
+        _reason_code = str(_strategy.get("reason_code") or "").strip().lower()
+        _recover = dict(_verification.get("autopilot_recovery") or {})
+        _review_retries = int(_recover.get("waiting_review_retries") or 0)
+        _retryable_waiting_review = _reason_code in {
+            "proposal_budget_exhausted",
+            "autopilot_strategy_exhausted",
+            "task_propose_hard_guard",
+        }
+        if _retryable_waiting_review and _review_retries < _WAITING_REVIEW_RETRY_MAX:
+            _recover.update(
+                {
+                    "waiting_review_retries": _review_retries + 1,
+                    "last_waiting_review_retry_at": now_ts,
+                    "last_waiting_review_reason_code": _reason_code,
+                }
+            )
+            _verification["autopilot_recovery"] = _recover
+            update_local_task_status(
+                _t.id,
+                "todo",
+                verification_status=_verification,
+                manual_override_until=now_ts + 20,
+                event_type="waiting_for_review_retry_scheduled",
+                event_actor="autopilot_tick",
+                force=True,
+            )
+            append_trace_event(
+                _t.id,
+                "waiting_for_review_retry_scheduled",
+                reason_code=_reason_code,
+                retry_attempt=_review_retries + 1,
+                retry_max=_WAITING_REVIEW_RETRY_MAX,
+            )
             continue
         update_local_task_status(
             _t.id,
