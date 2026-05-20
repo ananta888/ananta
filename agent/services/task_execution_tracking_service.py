@@ -1148,6 +1148,22 @@ class TaskExecutionTrackingService:
                 "removed_count": len(list(file_change_set.get("removed_files") or [])),
                 "updated_at": time.time(),
             }
+        workspace_state_sync = dict((extra_history or {}).get("workspace_state_sync") or {})
+        if workspace_state_sync:
+            verification_status["workspace_state_sync"] = {
+                "sync_mode": workspace_state_sync.get("sync_mode", "none"),
+                "source_of_truth": workspace_state_sync.get("source_of_truth", "task_local"),
+                "input_materialization": {
+                    "artifact_count": len(list(workspace_state_sync.get("input_artifacts") or [])),
+                    "artifacts": list(workspace_state_sync.get("input_artifacts") or []),
+                },
+                "output_publication": {
+                    "artifact_count": len(list(workspace_state_sync.get("output_artifacts") or [])),
+                    "artifacts": list(workspace_state_sync.get("output_artifacts") or []),
+                    "git_pushed": bool(workspace_state_sync.get("git_pushed")),
+                },
+                "updated_at": time.time(),
+            }
         verification_status["execution_routing"] = {
             "inference_provider": cost_summary.get("inference_provider"),
             "inference_model": cost_summary.get("inference_model"),
