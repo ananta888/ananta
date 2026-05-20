@@ -85,7 +85,7 @@ class WorkspaceGitService:
                 ],
                 cwd=workspace_dir,
             )
-            res = _run_git(["push", "origin", branch], cwd=workspace_dir)
+            res = _run_git(["push", "origin", f"HEAD:{branch}"], cwd=workspace_dir)
             if res.returncode != 0:
                 logging.warning("git push failed for %s: %s", workspace_dir, res.stderr)
                 return False
@@ -184,13 +184,17 @@ class WorkspaceGitService:
     def _ensure_branch(self, workspace_dir: Path, *, branch: str) -> None:
         res = _run_git(["checkout", branch], cwd=workspace_dir)
         if res.returncode != 0:
-            res2 = _run_git(["checkout", "-b", branch], cwd=workspace_dir)
-            if res2.returncode != 0:
-                raise WorkspaceGitInitError(
-                    f"Failed to checkout branch '{branch}'",
-                    workspace_dir=workspace_dir,
-                    stderr=res2.stderr,
-                )
+            # Try tracking remote branch (exists in origin but not locally yet)
+            res_track = _run_git(["checkout", "-b", branch, f"origin/{branch}"], cwd=workspace_dir)
+            if res_track.returncode != 0:
+                # Remote branch doesn't exist — create local branch from current HEAD (or orphan)
+                res2 = _run_git(["checkout", "-b", branch], cwd=workspace_dir)
+                if res2.returncode != 0:
+                    raise WorkspaceGitInitError(
+                        f"Failed to checkout branch '{branch}'",
+                        workspace_dir=workspace_dir,
+                        stderr=res2.stderr,
+                    )
 
     def resolve_branch_name(
         self,
