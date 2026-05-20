@@ -724,6 +724,24 @@ def _dispatch_one_task_inner(  # noqa: C901
         result.failure_type = None if result.completed else latest_status
         return result
 
+    # Skip dispatch if the parent goal is already in a terminal state.
+    goal_id = str(getattr(task, "goal_id", "") or "").strip()
+    if goal_id:
+        repos = get_repository_registry(app_ctx)
+        goal_obj = repos.goal_repo.get_by_id(goal_id)
+        goal_status = str(getattr(goal_obj, "status", "") or "").strip().lower()
+        if goal_status in {"completed", "failed", "cancelled", "aborted", "timeout"}:
+            append_trace_event(
+                task.id,
+                "autopilot_dispatch_skipped_goal_terminal",
+                delegated_to=target_worker.url,
+                goal_status=goal_status,
+            )
+            result.dispatched = True
+            result.failed = True
+            result.failure_type = f"goal_{goal_status}"
+            return result
+
     if was_assigned:
         latest_status = _current_task_status(task.id, app=app_ctx)
         if latest_status in {"waiting_for_review", "needs_review"}:
