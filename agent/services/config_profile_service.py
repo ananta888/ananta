@@ -61,6 +61,92 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
         },
     ),
+    "hermes_free_models_preconfigured": ConfigProfile(
+        id="hermes_free_models_preconfigured",
+        description="Hermes read-only planning/review with free-model routing and OpenCode for mutation tasks",
+        overrides={
+            "feature_flags": {
+                "enable_hermes_worker_adapter": True,
+            },
+            "hermes_worker_adapter": {
+                "enabled": True,
+                "feature_flag_enabled": True,
+                "base_url": "http://192.168.178.100:1234/v1",
+                "cloud_allowed": True,
+                "strict_json_required": True,
+                "timeout_seconds": 120,
+                "max_retries": 1,
+                "max_context_chars": 12000,
+                "default_temperature": 0.1,
+                "allowed_task_kinds": ["plan_only", "review", "summarize", "patch_propose", "research_limited"],
+                "blocked_task_kinds": ["patch_apply", "command_execute", "shell_execute", "shell_execution", "service_mutation", "config_mutation"],
+                "default_model": "z-ai/glm-4.5-air:free",
+                "task_kind_models": {
+                    "plan_only": "z-ai/glm-4.5-air:free",
+                    "summarize": "z-ai/glm-4.5-air:free",
+                    "review": "qwen/qwen3-coder:free",
+                    "patch_propose": "qwen/qwen3-coder:free",
+                    "research_limited": "z-ai/glm-4.5-air:free",
+                },
+                "fallback_free_models": {
+                    "plan_only": ["z-ai/glm-4.5-air:free", "moonshotai/kimi-k2:free"],
+                    "review": ["qwen/qwen3-coder:free"],
+                    "patch_propose": ["qwen/qwen3-coder:free"],
+                    "default": ["moonshotai/kimi-k2:free"],
+                },
+                "model_selection_policy": {
+                    "prefer_task_specific_model": True,
+                    "require_free_model_suffix": True,
+                    "allow_fallback_on_unavailable": True,
+                    "reject_blocked_models": True,
+                    "reject_mutation_tasks_for_hermes": True,
+                    "allow_candidate_roles": True,
+                },
+            },
+            "sgpt_routing": {
+                "task_kind_backend": {
+                    "analysis": "hermes",
+                    "review": "hermes",
+                    "doc": "hermes",
+                    "research": "hermes",
+                    "coding": "opencode",
+                    "ops": "opencode",
+                    "testing": "opencode",
+                }
+            },
+            "planning_policy": {
+                "timeout_seconds": 700,
+                "max_output_tokens": 3000,
+                "segmented_planning_enabled": True,
+                "segment_context_chars": 2400,
+                "max_segments": 3,
+                "preferred_output_format": "json",
+                "selective_repair_rounds": 2,
+                "validation_profiles": {
+                    "new_software_project": {
+                        "min_total_tasks": 1,
+                        "required_categories": {
+                            "infrastructure": 1,
+                        },
+                        "max_generic_tasks": 2,
+                    },
+                },
+                "runtime_profiles": {
+                    "lmstudio_laptop": {
+                        "timeout_seconds": 700,
+                        "max_output_tokens": 3000,
+                        "retry_attempts": 1,
+                        "retry_backoff_seconds": 1.0,
+                        "segmented_planning_enabled": True,
+                        "segment_context_chars": 2200,
+                        "max_segments": 3,
+                        "preferred_output_format": "json",
+                    }
+                },
+                "default_runtime_profile": "lmstudio_laptop",
+            },
+        },
+    ),
 }
 
 

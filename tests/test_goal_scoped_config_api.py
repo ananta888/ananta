@@ -145,7 +145,7 @@ def test_profiles_api_returns_required_profile_ids(client, admin_auth_header):
     res = client.get("/config/profiles", headers=admin_auth_header)
     assert res.status_code == 200
     ids = {p["id"] for p in res.get_json()["data"]["profiles"]}
-    assert {"opencode_preconfigured", "opencode_ollama_local", "ananta_ollama_local"}.issubset(ids)
+    assert {"opencode_preconfigured", "opencode_ollama_local", "ananta_ollama_local", "hermes_free_models_preconfigured"}.issubset(ids)
 
 
 def test_all_profile_override_keys_are_allowed():
@@ -185,6 +185,7 @@ import pytest
     "ananta_ollama_local",
     "ananta_lmstudio_local",
     "opencode_lmstudio_local",
+    "hermes_free_models_preconfigured",
 ])
 def test_goal_creation_succeeds_for_all_profiles(profile_id, client, admin_auth_header, monkeypatch):
     _mock_goal_planning_llm(monkeypatch)
