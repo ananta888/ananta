@@ -35,7 +35,7 @@ def render_dry_run():
     provider = str(body.get("provider") or "").strip() or None
 
     if not goal:
-        return api_response(data={"error": "goal is required"}, status=400)
+        return api_response(data={"error": "goal is required"}, status="error", code=400)
 
     try:
         registry = get_planning_prompt_registry()
@@ -51,7 +51,7 @@ def render_dry_run():
         )
     except Exception as exc:
         logger.error("render_dry_run failed: %s", exc)
-        return api_response(data={"error": "render_failed", "detail": str(exc)}, status=500)
+        return api_response(data={"error": "render_failed", "detail": str(exc)}, status="error", code=500)
 
     # Build provenance chain
     chain = PromptProvenanceChain()
@@ -104,4 +104,4 @@ def render_dry_run():
         except Exception as exc:
             logger.warning("Could not persist dry_run trace: %s", exc)
 
-    return api_response(data=result, status=200)
+    return api_response(data=result, code=200)

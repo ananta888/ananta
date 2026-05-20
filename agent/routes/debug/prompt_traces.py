@@ -152,7 +152,7 @@ def list_llm_requests():
     traces = svc.list_traces(limit=limit, **filters)
     return api_response(
         data={"traces": [_trace_to_list_item(t) for t in traces], "count": len(traces)},
-        status=200,
+        code=200,
     )
 
 
@@ -167,7 +167,7 @@ def get_llm_request(trace_id: str):
     svc = get_prompt_trace_service()
     trace = svc.get_trace(trace_id)
     if trace is None:
-        return api_response(data={"error": "trace_not_found", "trace_id": trace_id}, status=404)
+        return api_response(data={"error": "trace_not_found", "trace_id": trace_id}, status="error", code=404)
 
     return api_response(data=_trace_to_detail(trace, include_raw=include_raw), status=200)
 
@@ -189,5 +189,5 @@ def get_goal_prompt_traces(goal_id: str):
 
     return api_response(
         data={"goal_id": goal_id, "traces": grouped, "total": len(traces)},
-        status=200,
+        code=200,
     )
