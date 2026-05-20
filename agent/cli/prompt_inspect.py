@@ -14,6 +14,22 @@ def _get_trace_svc():
     return get_prompt_trace_service()
 
 
+def _api_request(method: str, path: str, *, params: dict | None = None, timeout: int = 30):
+    from agent.cli_goals import _request
+    try:
+        return _request(method, path, params=params, timeout=timeout)
+    except SystemExit:
+        return None
+
+
+def _api_data(response) -> dict:
+    from agent.cli_goals import _api_data
+    if response is None:
+        return {}
+    data = _api_data(response)
+    return data if isinstance(data, dict) else {}
+
+
 def _print_table(rows: list[dict], columns: list[str]) -> None:
     widths = {col: len(col) for col in columns}
     for row in rows:
@@ -115,6 +131,33 @@ def cmd_prompt_inspect(args: argparse.Namespace) -> int:
 
     svc = _get_trace_svc()
     trace = svc.get_trace(trace_id)
+    if trace is None:
+        # Fallback to hub endpoint for traces that only exist remotely.
+        remote_res = _api_request("GET", f"/debug/llm-requests/{trace_id}", timeout=30)
+        if remote_res is not None and remote_res.status_code == 200:
+            data = _api_data(remote_res)
+            if getattr(args, "json", False):
+                print(json.dumps(data, indent=2))
+                return 0
+            print(f"=== Prompt Trace: {data.get('trace_id')} ===")
+            print(f"Provider:       {data.get('provider')}")
+            print(f"Model:          {data.get('model')}")
+            print(f"Request Kind:   {data.get('request_kind')}")
+            print(f"Source:         {data.get('source_component')}")
+            print(f"Goal ID:        {data.get('goal_id') or '-'}")
+            print(f"Task ID:        {data.get('task_id') or '-'}")
+            print(f"Created:        {_format_ts(data.get('created_at'))}")
+            print(f"Latency:        {data.get('latency_ms')}ms")
+            print(f"Success:        {data.get('success')}")
+            if data.get("error_type"):
+                print(f"Error:          {data.get('error_type')}: {data.get('error_message')}")
+            print()
+            print("--- Prompt (redacted) ---")
+            text = str(data.get("final_prompt_redacted") or "")
+            if text and not getattr(args, "full", False):
+                text = text[:1000] + ("..." if len(text) > 1000 else "")
+            print(text)
+            return 0
     if trace is None:
         print(f"Error: trace '{trace_id}' not found", file=sys.stderr)
         return 1
@@ -263,37 +306,62 @@ def cmd_prompt_goal_traces(args: argparse.Namespace) -> int:
 
     svc = _get_trace_svc()
     traces = svc.find_by_goal_id(goal_id)
+    remote_grouped: dict[str, list[dict[str, Any]]] = {}
+    if not traces:
+        remote_res = _api_request("GET", f"/goals/{goal_id}/prompt-traces", params={"limit": 200}, timeout=30)
+        if remote_res is not None and remote_res.status_code == 200:
+            remote_payload = _api_data(remote_res)
+            remote_grouped = dict(remote_payload.get("traces") or {})
 
     if getattr(args, "json", False):
         grouped: dict[str, list] = {}
-        for t in traces:
-            kind = t.request_kind or "unknown"
-            grouped.setdefault(kind, []).append(t.to_dict())
+        if traces:
+            for t in traces:
+                kind = t.request_kind or "unknown"
+                grouped.setdefault(kind, []).append(t.to_dict())
+        elif remote_grouped:
+            grouped = remote_grouped
         print(json.dumps({"goal_id": goal_id, "traces": grouped}, indent=2))
         return 0
 
-    if not traces:
+    if not traces and not remote_grouped:
         print(f"No traces found for goal {goal_id}")
         return 0
 
-    grouped_display: dict[str, list] = {}
-    for t in traces:
-        kind = t.request_kind or "unknown"
-        grouped_display.setdefault(kind, []).append(t)
+    if traces:
+        grouped_display: dict[str, list] = {}
+        for t in traces:
+            kind = t.request_kind or "unknown"
+            grouped_display.setdefault(kind, []).append(t)
+        grouped_items = sorted(grouped_display.items())
+    else:
+        grouped_items = sorted(remote_grouped.items())
 
-    for kind, group in sorted(grouped_display.items()):
+    for kind, group in grouped_items:
         print(f"\n=== {kind} ({len(group)}) ===")
         rows = []
-        for t in group:
-            preview = (t.final_prompt_redacted or "")[:60].replace("\n", " ")
-            rows.append({
-                "ts": _format_ts(t.created_at),
-                "provider": t.provider or "",
-                "model": (t.model or "")[:20],
-                "ok": str(t.success),
-                "trace_id": t.trace_id[:16],
-                "preview": preview,
-            })
+        if traces:
+            for t in group:
+                preview = (t.final_prompt_redacted or "")[:60].replace("\n", " ")
+                rows.append({
+                    "ts": _format_ts(t.created_at),
+                    "provider": t.provider or "",
+                    "model": (t.model or "")[:20],
+                    "ok": str(t.success),
+                    "trace_id": t.trace_id[:16],
+                    "preview": preview,
+                })
+        else:
+            for item in group:
+                preview = str(item.get("prompt_preview_redacted") or "")[:60].replace("\n", " ")
+                rows.append({
+                    "ts": _format_ts(item.get("created_at")),
+                    "provider": str(item.get("provider") or ""),
+                    "model": str(item.get("model") or "")[:20],
+                    "ok": str(item.get("success")),
+                    "trace_id": str(item.get("trace_id") or "")[:16],
+                    "preview": preview,
+                })
         _print_table(rows, ["ts", "provider", "model", "ok", "trace_id", "preview"])
 
     return 0
