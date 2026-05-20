@@ -83,33 +83,35 @@ class ProviderObserverService:
             if url:
                 providers.append((name, url))
 
-        with self._lock:
-            if not enabled:
-                return {
-                    "enabled": False,
-                    "source": "hub_direct_probe",
-                    "providers": {},
-                    "observed_at": now,
-                    "ttl_seconds": ttl_seconds,
-                }
+        if not enabled:
+            return {
+                "enabled": False,
+                "source": "hub_direct_probe",
+                "providers": {},
+                "observed_at": now,
+                "ttl_seconds": ttl_seconds,
+            }
 
-            out: dict[str, Any] = {}
-            for provider, base_url in providers:
-                key = f"{provider}|{base_url}"
+        out: dict[str, Any] = {}
+        for provider, base_url in providers:
+            key = f"{provider}|{base_url}"
+            with self._lock:
                 cached = dict(self._cache.get(key) or {})
-                observed_at = float(cached.get("observed_at") or 0.0)
-                fresh = (now - observed_at) <= ttl_seconds and not force_refresh
-                if fresh and cached:
-                    item = dict(cached)
-                    item["cache_hit"] = True
-                    out[provider] = item
-                    continue
-
-                item = self._probe_provider(provider, base_url, timeout_seconds, include_activity=include_activity)
-                item["observed_at"] = time.time()
-                item["cache_hit"] = False
-                self._cache[key] = dict(item)
+            observed_at = float(cached.get("observed_at") or 0.0)
+            fresh = (now - observed_at) <= ttl_seconds and not force_refresh
+            if fresh and cached:
+                item = dict(cached)
+                item["cache_hit"] = True
                 out[provider] = item
+                continue
+
+            # Never hold cache lock while probing network endpoints.
+            item = self._probe_provider(provider, base_url, timeout_seconds, include_activity=include_activity)
+            item["observed_at"] = time.time()
+            item["cache_hit"] = False
+            with self._lock:
+                self._cache[key] = dict(item)
+            out[provider] = item
 
         return {
             "enabled": True,
