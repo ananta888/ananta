@@ -1119,6 +1119,33 @@ def _call_llm(
         request_method=request_method,
     )
 
+    # PTI-004: create PromptTrace before the first attempt
+    _prompt_trace = None
+    try:
+        from agent.services.prompt_trace_service import get_prompt_trace_service
+        _trace_svc = get_prompt_trace_service()
+        _goal_id = getattr(g, "llm_goal_id", None) if has_request_context() else None
+        _task_id = getattr(g, "llm_task_id", None) if has_request_context() else None
+        _prompt_trace = _trace_svc.create_trace(
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+            goal_id=_goal_id,
+            task_id=_task_id,
+            source_component="llm_integration",
+            provider=provider,
+            model=model,
+            request_kind="generate",
+            prompt=prompt,
+            messages=history,
+            tools=tools,
+        )
+        if has_request_context():
+            existing = list(getattr(g, "llm_prompt_trace_ids", []) or [])
+            existing.append(_prompt_trace.trace_id)
+            g.llm_prompt_trace_ids = existing
+    except Exception as _pti_exc:
+        logging.debug("PTI trace creation skipped: %s", _pti_exc)
+
     for attempt in range(max_retries + 1):
         if attempt > 0:
             logging.info(f"LLM Retry Versuch {attempt}/{max_retries} für Provider {provider} (Key: {idempotency_key})")
@@ -1174,6 +1201,17 @@ def _call_llm(
                     attempts=attempt + 1,
                     response=text_out,
                 )
+                # PTI-004: finalize trace on success
+                if _prompt_trace is not None:
+                    try:
+                        _trace_svc = get_prompt_trace_service()
+                        _finalized = _trace_svc.finalize_trace(
+                            _prompt_trace, success=True, response_text=text_out,
+                            usage=normalized_usage or {},
+                        )
+                        _trace_svc.store(_finalized)
+                    except Exception as _pti_exc:
+                        logging.debug("PTI finalize trace skipped: %s", _pti_exc)
                 return text_out
         except PermanentError as e:
             ended_at = time.time()
@@ -1194,6 +1232,18 @@ def _call_llm(
             if has_request_context():
                 g.llm_last_call_profile = list(getattr(g, "llm_last_call_profile", []) or []) + [error_entry]
             logging.error(f"Permanenter Fehler bei LLM-Aufruf (Versuch {attempt + 1}): {e}")
+            # PTI-004: store failed trace
+            if _prompt_trace is not None:
+                try:
+                    _trace_svc = get_prompt_trace_service()
+                    _finalized = _trace_svc.finalize_trace(
+                        _prompt_trace, success=False,
+                        error_type=type(e).__name__, error_message=str(e),
+                    )
+                    _trace_svc.store(_finalized)
+                    _prompt_trace = None
+                except Exception:
+                    pass
             break
         except Exception as e:
             ended_at = time.time()
@@ -1228,6 +1278,16 @@ def _call_llm(
         attempts=max_retries + 1,
         response="",
     )
+    # PTI-004: store failed trace if not already stored
+    if _prompt_trace is not None:
+        try:
+            _trace_svc = get_prompt_trace_service()
+            _finalized = _trace_svc.finalize_trace(
+                _prompt_trace, success=False, error_type="max_retries_exceeded",
+            )
+            _trace_svc.store(_finalized)
+        except Exception:
+            pass
     return ""
 
 
