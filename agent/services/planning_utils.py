@@ -28,6 +28,20 @@ SUSPICIOUS_TASK_PATTERNS = [
     r"<script\b",
 ]
 
+_ACTIONABLE_VERBS = (
+    "implement",
+    "create",
+    "write",
+    "run",
+    "test",
+    "verify",
+    "configure",
+    "update",
+    "add",
+    "build",
+)
+_CONCRETE_TARGET_HINTS = ("file", "endpoint", "command", "artifact", "/", ".py", ".md", ".json", "api")
+
 def _load_goal_templates_from_catalog() -> dict[str, dict]:
     catalog = get_planning_template_catalog()
     loaded = catalog.load()
@@ -133,6 +147,12 @@ def normalize_subtask(item: dict, default_priority: str = "Medium") -> dict | No
         return None
     if contains_suspicious_text(title) or contains_suspicious_text(description):
         return None
+    desc_l = description.lower()
+    # Drop extremely generic recovered entries early to reduce parser noise.
+    if len(desc_l) < 16:
+        return None
+    if not any(v in desc_l for v in _ACTIONABLE_VERBS):
+        return None
     depends_on = item.get("depends_on")
     if not isinstance(depends_on, list):
         depends_on = []
@@ -150,6 +170,31 @@ def normalize_subtask(item: dict, default_priority: str = "Medium") -> dict | No
         "depends_on": normalized_depends_on,
         "dependency_mode": dependency_mode,
     }
+
+
+def _postprocess_subtasks(subtasks: list[dict], *, max_items: int = 16) -> list[dict]:
+    deduped: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    for task in list(subtasks or []):
+        if not isinstance(task, dict):
+            continue
+        title = str(task.get("title") or "").strip().lower()
+        desc = str(task.get("description") or "").strip().lower()
+        if not title or not desc:
+            continue
+        # Filter weak entries that still slipped through structural parsing.
+        if not any(v in desc for v in _ACTIONABLE_VERBS):
+            continue
+        if not any(h in desc for h in _CONCRETE_TARGET_HINTS):
+            continue
+        key = (title, desc)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(task)
+        if len(deduped) >= max_items:
+            break
+    return deduped
 
 
 def extract_task_items_from_payload(payload: object) -> list[object]:
@@ -289,7 +334,7 @@ def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medi
     shape = classify_output_shape(response)
     chain_result = run_parser_chain(response, default_priority=default_priority)
     if chain_result.get("subtasks"):
-        subtasks = list(chain_result.get("subtasks") or [])
+        subtasks = _postprocess_subtasks(list(chain_result.get("subtasks") or []))
         return subtasks, {
             "parse_mode": str(chain_result.get("used_step") or "parser_chain"),
             "confidence": "medium",
@@ -362,7 +407,7 @@ def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medi
         if objects:
             items = extract_task_items_from_payload(objects)
             normalized = [normalize_subtask(item, default_priority=default_priority) for item in items]
-            subtasks = [item for item in normalized if item]
+            subtasks = _postprocess_subtasks([item for item in normalized if item])
             if subtasks:
                 return subtasks, {
                     "parse_mode": "partial_json_objects",
@@ -391,7 +436,7 @@ def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medi
                     }
                 )
             normalized = [normalize_subtask(item, default_priority=default_priority) for item in recovered]
-            subtasks = [item for item in normalized if item]
+            subtasks = _postprocess_subtasks([item for item in normalized if item])
             if subtasks:
                 return subtasks, {
                     "parse_mode": "kv_text_salvage",
@@ -413,7 +458,7 @@ def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medi
                 confidence = "medium"
         items = extract_task_items_from_payload(parsed)
         normalized = [normalize_subtask(item, default_priority=default_priority) for item in items]
-        subtasks = [item for item in normalized if item]
+        subtasks = _postprocess_subtasks([item for item in normalized if item])
         if not subtasks:
             parse_mode = "parse_failed"
             confidence = "low"
@@ -443,6 +488,7 @@ def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medi
             if normalized:
                 tasks.append(normalized)
     if tasks:
+        tasks = _postprocess_subtasks(tasks)
         return tasks, {
             "parse_mode": "bullet_fallback",
             "confidence": "low",
