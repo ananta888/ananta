@@ -56,6 +56,17 @@ def test_plan_quality_from_task_ids_uses_task_kind_field(monkeypatch) -> None:
     assert reason == "ok"
 
 
+def test_soft_planning_quality_failure_allows_generic_task_overflow() -> None:
+    from agent.routes.tasks.goals import _is_soft_planning_quality_failure
+
+    assert _is_soft_planning_quality_failure(
+        quality_reason="too_many_generic_tasks:4/0"
+    ) is True
+    assert _is_soft_planning_quality_failure(
+        quality_reason="missing_categories:review:0/1|too_many_generic_tasks:2/0"
+    ) is True
+
+
 class TestGoalsAPI:
     def test_generic_software_goal_soft_quality_miss_does_not_fail(self, client, admin_auth_header, monkeypatch):
         monkeypatch.setattr(

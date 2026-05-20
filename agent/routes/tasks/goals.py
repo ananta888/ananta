@@ -105,14 +105,23 @@ def _is_soft_planning_quality_failure(*, quality_reason: str) -> bool:
     parts = [p for p in normalized.split("|") if p]
     if not parts:
         return False
-    if any(p.startswith("too_few_tasks:") or p.startswith("too_many_generic_tasks:") for p in parts):
+    if any(p.startswith("too_few_tasks:") for p in parts):
         return False
-    missing_parts = [p for p in parts if p.startswith("missing_categories:")]
-    if len(missing_parts) != len(parts):
+    # Overly strict generic-task detection on local/smaller models should not
+    # hard-fail otherwise executable plans.
+    non_soft_allowed_prefixes = ("missing_categories:", "too_many_generic_tasks:")
+    if any(not p.startswith(non_soft_allowed_prefixes) for p in parts):
         return False
-    missing_blob = ",".join(p.removeprefix("missing_categories:") for p in missing_parts)
-    missing_entries = [entry.strip() for entry in missing_blob.split(",") if entry.strip()]
-    return bool(missing_entries)
+    has_missing = any(p.startswith("missing_categories:") for p in parts)
+    has_generic = any(p.startswith("too_many_generic_tasks:") for p in parts)
+    if has_generic:
+        return True
+    if has_missing:
+        missing_parts = [p for p in parts if p.startswith("missing_categories:")]
+        missing_blob = ",".join(p.removeprefix("missing_categories:") for p in missing_parts)
+        missing_entries = [entry.strip() for entry in missing_blob.split(",") if entry.strip()]
+        return bool(missing_entries)
+    return False
 
 
 def _mark_started_planning_runs_failed(*, goal_id: str, reason: str) -> int:

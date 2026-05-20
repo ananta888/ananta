@@ -4,6 +4,7 @@ import concurrent.futures
 import hashlib
 import inspect
 import json
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -249,6 +250,35 @@ class TaskScopedExecutionService:
         except (TypeError, ValueError):
             parsed = default
         return max(minimum, min(maximum, parsed))
+
+    @staticmethod
+    def _rewrite_runtime_command_for_workspace_tools(*, command: str | None, workspace_dir: str | None) -> tuple[str | None, dict | None]:
+        command_text = str(command or "").strip()
+        workspace = str(workspace_dir or "").strip()
+        if not command_text or not workspace:
+            return command, None
+        if "uvicorn" not in command_text:
+            return command, None
+
+        venv_uvicorn = Path(workspace) / ".venv" / "bin" / "uvicorn"
+        if venv_uvicorn.exists():
+            # Replace bare uvicorn token only, keep shell operators/arguments unchanged.
+            rewritten = re.sub(r"(?<![\\w./-])uvicorn(?![\\w./-])", str(venv_uvicorn), command_text)
+            if rewritten != command_text:
+                return rewritten, {
+                    "strategy": "workspace_venv_uvicorn_binary",
+                    "from": "uvicorn",
+                    "to": str(venv_uvicorn),
+                }
+
+        venv_activate = Path(workspace) / ".venv" / "bin" / "activate"
+        if venv_activate.exists() and ".venv/bin/activate" not in command_text:
+            rewritten = f"source .venv/bin/activate && {command_text}"
+            return rewritten, {
+                "strategy": "workspace_venv_activate_prefix",
+                "activate_script": ".venv/bin/activate",
+            }
+        return command, None
 
     @classmethod
     def _resolve_worker_semantic_output_correction_policy(cls, agent_cfg: dict | None) -> dict:
@@ -873,6 +903,10 @@ class TaskScopedExecutionService:
                 )
         try:
             before_workspace_snapshot = get_worker_workspace_service().snapshot_directory(workspace_ctx.workspace_dir)
+            command, runtime_command_rewrite = self._rewrite_runtime_command_for_workspace_tools(
+                command=command,
+                workspace_dir=str(workspace_ctx.workspace_dir),
+            )
             pipeline = new_pipeline_trace(
                 pipeline="task_execute",
                 task_kind=((task.get("last_proposal", {}) or {}).get("routing") or {}).get("task_kind"),
@@ -1052,6 +1086,7 @@ class TaskScopedExecutionService:
                     "loop_detection": execution_run.loop_detection,
                     "approval_decision": execution_run.approval_decision,
                     "execution_repair": execution_repair_meta,
+                    "runtime_command_rewrite": runtime_command_rewrite,
                     "flow_metrics": self._build_flow_metrics_payload(
                         run_id=str((((task.get("last_proposal") or {}).get("trace") or {}).get("trace_id") or "")),
                         phase="execute",

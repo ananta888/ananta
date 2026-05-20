@@ -1189,6 +1189,22 @@ def _dispatch_one_task_inner(  # noqa: C901
                 required_context_tokens=required_context_tokens,
                 source=candidate_source,
             )
+            # Guard against stale dispatch candidates: task may have reached a
+            # terminal status while this strategy attempt was prepared.
+            latest_before_propose = _current_task_status(task.id, app=loop._app)
+            if _is_terminal_status(latest_before_propose):
+                append_trace_event(
+                    task.id,
+                    "autopilot_strategy_attempt_skipped",
+                    delegated_to=target_worker.url,
+                    attempt=attempt_index,
+                    model=candidate_model,
+                    temperature=candidate_temperature,
+                    reason="task_already_terminal_before_propose",
+                    latest_status=latest_before_propose,
+                    runtime_provider=runtime_provider,
+                )
+                continue
             # Mark propose-in-flight to avoid duplicate concurrent dispatches
             # on the same task while the worker is evaluating the proposal.
             update_local_task_status(
