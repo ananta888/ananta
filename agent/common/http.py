@@ -49,9 +49,10 @@ class HttpClient:
         timeout: Optional[int] = None,
         return_response: bool = False,
         silent: bool = False,
+        headers: dict | None = None,
     ) -> Any:
         try:
-            r = self.session.get(url, params=params, timeout=timeout or self.timeout)
+            r = self.session.get(url, params=params, timeout=timeout or self.timeout, headers=headers)
             if return_response:
                 return r
             r.raise_for_status()
@@ -76,7 +77,7 @@ class HttpClient:
                             f"host.docker.internal verweigert Verbindung. Versuche Fallback auf Gateway: {fallback_url}"
                         )
                     return self.get(
-                        fallback_url, params=params, timeout=timeout, return_response=return_response, silent=silent
+                        fallback_url, params=params, timeout=timeout, return_response=return_response, silent=silent, headers=headers
                     )
 
             if not silent:
