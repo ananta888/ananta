@@ -299,6 +299,119 @@ def cmd_prompt_goal_traces(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prompt_goal_report(args: argparse.Namespace) -> int:
+    goal_id = getattr(args, "goal_id", None)
+    if not goal_id:
+        print("Error: --goal-id is required", file=sys.stderr)
+        return 2
+
+    try:
+        from agent.cli_goals import _request, _api_data
+    except Exception as exc:
+        print(f"Error: goal report helper unavailable: {exc}", file=sys.stderr)
+        return 1
+
+    goal_res = _request("GET", f"/goals/{goal_id}/detail", timeout=30)
+    if goal_res.status_code != 200:
+        print(f"Error: goal detail request failed ({goal_res.status_code})", file=sys.stderr)
+        return 1
+    goal_detail = _api_data(goal_res) or {}
+
+    trace_res = _request("GET", f"/goals/{goal_id}/prompt-traces", params={"limit": 200}, timeout=30)
+    trace_payload = _api_data(trace_res) if trace_res.status_code == 200 else {}
+    if not isinstance(trace_payload, dict):
+        trace_payload = {}
+
+    goal_payload = goal_detail.get("goal") or {}
+    tasks = list(goal_detail.get("tasks") or [])
+    artifacts_summary = goal_detail.get("artifacts") or {}
+    artifacts = list(artifacts_summary.get("artifacts") or [])
+    traces_grouped = dict(trace_payload.get("traces") or {})
+
+    result = {
+        "goal_id": goal_id,
+        "goal_status": goal_payload.get("status"),
+        "goal_reason": goal_payload.get("last_status_reason"),
+        "task_count": len(tasks),
+        "tasks": [
+            {
+                "id": t.get("id"),
+                "status": t.get("status"),
+                "title": t.get("title"),
+                "assigned_agent_url": t.get("assigned_agent_url"),
+            }
+            for t in tasks
+        ],
+        "prompt_trace_total": int(trace_payload.get("total") or 0),
+        "prompt_traces": traces_grouped,
+        "artifact_count": len(artifacts),
+        "artifacts": artifacts,
+    }
+
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"=== Goal Report: {goal_id} ===")
+    print(f"Status:        {result['goal_status']}")
+    print(f"Reason:        {result['goal_reason'] or '-'}")
+    print(f"Tasks:         {result['task_count']}")
+    print(f"Prompt Traces: {result['prompt_trace_total']}")
+    print(f"Artifacts:     {result['artifact_count']}")
+
+    print("\n--- Tasks ---")
+    if not result["tasks"]:
+        print("(none)")
+    else:
+        rows = []
+        for t in result["tasks"]:
+            rows.append(
+                {
+                    "id": str(t.get("id") or "")[:16],
+                    "status": str(t.get("status") or ""),
+                    "title": str(t.get("title") or "")[:70],
+                    "agent": str(t.get("assigned_agent_url") or "")[:36],
+                }
+            )
+        _print_table(rows, ["id", "status", "title", "agent"])
+
+    print("\n--- Prompt Traces ---")
+    if result["prompt_trace_total"] <= 0:
+        print("(none)")
+    else:
+        rows = []
+        for kind, items in sorted((result["prompt_traces"] or {}).items()):
+            for item in items:
+                rows.append(
+                    {
+                        "kind": kind,
+                        "trace_id": str(item.get("trace_id") or "")[:16],
+                        "provider": str(item.get("provider") or ""),
+                        "model": str(item.get("model") or "")[:24],
+                        "ok": str(item.get("success")),
+                        "ms": str(item.get("latency_ms") or ""),
+                    }
+                )
+        _print_table(rows, ["kind", "provider", "model", "ok", "ms", "trace_id"])
+
+    print("\n--- Artifacts ---")
+    if not result["artifacts"]:
+        print("(none)")
+    else:
+        rows = []
+        for item in result["artifacts"]:
+            rows.append(
+                {
+                    "id": str(item.get("id") or item.get("artifact_id") or "")[:16],
+                    "kind": str(item.get("kind") or ""),
+                    "task_id": str(item.get("task_id") or "")[:16],
+                    "path": str(item.get("path") or item.get("name") or "")[:64],
+                }
+            )
+        _print_table(rows, ["id", "kind", "task_id", "path"])
+    return 0
+
+
 # ── Subparser builder ─────────────────────────────────────────────────────────
 
 def build_prompt_subparser(subparsers) -> None:
@@ -328,6 +441,11 @@ def build_prompt_subparser(subparsers) -> None:
     gt_p.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
     gt_p.add_argument("--json", action="store_true", help="JSON output")
 
+    # goal-report
+    gr_p = prompt_sub.add_parser("goal-report", help="Show tasks + prompt traces + artifacts for a goal")
+    gr_p.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
+    gr_p.add_argument("--json", action="store_true", help="JSON output")
+
 
 def build_llm_log_subparser(subparsers) -> None:
     llm_p = subparsers.add_parser("llm-log", help="LLM request log commands")
@@ -350,8 +468,10 @@ def run_prompt_command(args: argparse.Namespace) -> int:
         return cmd_prompt_render(args)
     elif cmd == "goal-traces":
         return cmd_prompt_goal_traces(args)
+    elif cmd == "goal-report":
+        return cmd_prompt_goal_report(args)
     else:
-        print("Usage: ananta prompt {inspect,render,goal-traces} --help")
+        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report} --help")
         return 2
 
 
