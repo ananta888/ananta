@@ -1,4 +1,4 @@
-{
+code{
   "title": "Add generic CodeCompass graph visualization component with simple, 2D and 3D views",
   "goal": "Create a reusable Angular graph viewer for CodeCompass-generated graphs. The viewer must support three UI/UX variants: simple textual/tree view, graphical 2D graph view, and graphical 3D graph view. The implementation must stay generic, renderer-independent and easily extensible.",
   "principles": [

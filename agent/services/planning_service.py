@@ -5,7 +5,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Any, Optional
 
-from flask import current_app
+from flask import current_app, g
 
 from agent.db_models import ConfigDB, PlanDB, PlanNodeDB
 from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependency_graph
@@ -790,6 +790,9 @@ class PlanningService:
 
             def _resolve_with_app_context() -> dict[str, Any]:
                 with app_obj.app_context():
+                    # Expose planning correlation metadata for prompt trace capture.
+                    g.llm_goal_id = str(goal_id or "") or None
+                    g.llm_task_id = None
                     return self._resolve_subtasks(
                         planner=planner,
                         goal=goal,
