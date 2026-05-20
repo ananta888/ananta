@@ -914,15 +914,16 @@ class TaskScopedExecutionService:
                 after_snapshot_id=after_id,
                 after_snapshot=after_workspace_snapshot,
             )
+            git_pushed: bool = False
             git_ctx = getattr(workspace_ctx, "git_context", None)
             if git_ctx is not None and getattr(git_ctx, "is_clone", False) and meaningful_changed_files:
                 try:
                     from agent.services.workspace_git_service import get_workspace_git_service
-                    get_workspace_git_service().commit_and_push(
+                    git_pushed = bool(get_workspace_git_service().commit_and_push(
                         git_ctx.workspace_dir,
                         branch=git_ctx.branch,
                         message=f"task {str(tid)[:12]}: {str(task.get('title') or tid)[:60]}",
-                    )
+                    ))
                 except Exception as _git_push_err:
                     logging.warning("git commit+push failed for task %s: %s", tid, _git_push_err)
             workspace_artifact_refs = get_worker_workspace_service().sync_changed_files_to_artifacts(
@@ -982,6 +983,12 @@ class TaskScopedExecutionService:
                     "workspace_dir": str(workspace_ctx.workspace_dir),
                     "workspace_artifact_count": len(workspace_artifact_refs),
                     "native_artifact_count": len(native_artifact_refs),
+                    "workspace_state_sync": _build_workspace_state_sync_record(
+                        task=task,
+                        materialization_manifest=workspace_ctx.materialization_manifest,
+                        workspace_artifact_refs=workspace_artifact_refs,
+                        git_pushed=git_pushed,
+                    ),
                     "loop_signals": execution_run.loop_signals,
                     "loop_detection": execution_run.loop_detection,
                     "approval_decision": execution_run.approval_decision,
