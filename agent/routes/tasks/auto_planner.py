@@ -14,7 +14,7 @@ import time
 import uuid
 from typing import Optional
 
-from flask import Blueprint, current_app, request
+from flask import Blueprint, current_app, g, has_app_context, request
 
 from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
@@ -300,6 +300,9 @@ class AutoPlanner:
                     "api_key": llm_config.get("api_key"),
                     "timeout": llm_timeout,
                 }
+                if has_app_context():
+                    llm_kwargs["trace_goal_id"] = str(getattr(g, "llm_goal_id", "") or "").strip() or None
+                    llm_kwargs["trace_task_id"] = str(getattr(g, "llm_task_id", "") or "").strip() or None
                 if llm_temperature is not None:
                     llm_kwargs["temperature"] = llm_temperature
                 raw_max_tokens = llm_config.get("max_output_tokens")

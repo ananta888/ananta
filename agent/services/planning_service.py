@@ -902,7 +902,29 @@ class PlanningService:
                 generic_task_indices=quality.generic_task_indices,
                 preferred_output_format=preferred_output_format,
             )
-            repair_resp = planner._call_llm_with_retry(repair_prompt, scoped_llm_cfg, temperature=0.1)
+            had_llm_goal_id = hasattr(g, "llm_goal_id")
+            had_llm_task_id = hasattr(g, "llm_task_id")
+            prev_llm_goal_id = getattr(g, "llm_goal_id", None)
+            prev_llm_task_id = getattr(g, "llm_task_id", None)
+            try:
+                g.llm_goal_id = str(goal_id or "").strip() or None
+                g.llm_task_id = None
+                repair_resp = planner._call_llm_with_retry(repair_prompt, scoped_llm_cfg, temperature=0.1)
+            finally:
+                if had_llm_goal_id:
+                    g.llm_goal_id = prev_llm_goal_id
+                else:
+                    try:
+                        delattr(g, "llm_goal_id")
+                    except Exception:
+                        pass
+                if had_llm_task_id:
+                    g.llm_task_id = prev_llm_task_id
+                else:
+                    try:
+                        delattr(g, "llm_task_id")
+                    except Exception:
+                        pass
             repair_subtasks = parse_subtasks_from_llm_response(repair_resp, default_priority=planner.default_priority)
             if not repair_subtasks:
                 break

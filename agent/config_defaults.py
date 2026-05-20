@@ -571,13 +571,13 @@ def build_default_agent_config() -> dict:
             "default_runtime_profile": "lmstudio_laptop",
             "runtime_profiles": {
                 "lmstudio_laptop": {
-                    "timeout_seconds": 300,
-                    "max_output_tokens": 1500,
+                    "timeout_seconds": 180,
+                    "max_output_tokens": 900,
                     "retry_attempts": 1,
                     "retry_backoff_seconds": 1.0,
-                    "segmented_planning_enabled": False,
-                    "segment_context_chars": 2000,
-                    "max_segments": 1,
+                    "segmented_planning_enabled": True,
+                    "segment_context_chars": 1400,
+                    "max_segments": 2,
                     "preferred_output_format": "json",
                 },
                 "lmstudio_laptop_thinking": {

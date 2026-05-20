@@ -1000,3 +1000,4 @@ def test_normalize_usage_negative_values_clamped_to_zero():
 def test_normalize_usage_malformed_string_returns_empty():
     result = _normalize({"prompt_tokens": "not-a-number"})
     assert result == {}
+
