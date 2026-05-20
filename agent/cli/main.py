@@ -136,32 +136,61 @@ def _run_voice_file(argv: Sequence[str]) -> int:
 
 
 def _run_prompt(argv: Sequence[str]) -> int:
-    from agent.cli.prompt_inspect import (
-        build_prompt_subparser,
-        run_prompt_command,
-    )
+    from agent.cli.prompt_inspect import run_prompt_command
     sub_parser = argparse.ArgumentParser(prog="ananta prompt")
     sub_sub = sub_parser.add_subparsers(dest="prompt_cmd")
-    build_prompt_subparser(sub_sub)
+
+    # Add subcommands directly (not wrapped in extra "prompt" layer)
+    inspect_p = sub_sub.add_parser("inspect", help="Show a specific prompt trace")
+    inspect_p.add_argument("--trace-id", dest="trace_id", required=True)
+    inspect_p.add_argument("--json", action="store_true")
+    inspect_p.add_argument("--raw", action="store_true")
+    inspect_p.add_argument("--full", action="store_true")
+
+    render_p = sub_sub.add_parser("render", help="Render a planning prompt without calling a provider")
+    render_p.add_argument("--mode", default="generic")
+    render_p.add_argument("--goal", default="Test goal")
+    render_p.add_argument("--language", default="de")
+    render_p.add_argument("--model-family", dest="model_family")
+    render_p.add_argument("--context-file", dest="context_file")
+    render_p.add_argument("--preferred-output-format", dest="preferred_output_format", default="json")
+    render_p.add_argument("--save-trace", dest="save_trace", action="store_true")
+    render_p.add_argument("--json", action="store_true")
+
+    gt_p = sub_sub.add_parser("goal-traces", help="Show all traces for a goal")
+    gt_p.add_argument("--goal-id", dest="goal_id", required=True)
+    gt_p.add_argument("--json", action="store_true")
+
     if not argv or argv[0] in ("-h", "--help"):
         sub_parser.print_help()
         return 0
-    parsed = sub_parser.parse_args(argv)
+    try:
+        parsed = sub_parser.parse_args(argv)
+    except SystemExit as exc:
+        return int(exc.code) if exc.code is not None else 2
     return run_prompt_command(parsed)
 
 
 def _run_llm_log(argv: Sequence[str]) -> int:
-    from agent.cli.prompt_inspect import (
-        build_llm_log_subparser,
-        run_llm_log_command,
-    )
+    from agent.cli.prompt_inspect import run_llm_log_command
     sub_parser = argparse.ArgumentParser(prog="ananta llm-log")
     sub_sub = sub_parser.add_subparsers(dest="llm_log_cmd")
-    build_llm_log_subparser(sub_sub)
+
+    tail_p = sub_sub.add_parser("tail", help="Show recent LLM requests")
+    tail_p.add_argument("--limit", type=int, default=20)
+    tail_p.add_argument("--provider")
+    tail_p.add_argument("--model")
+    tail_p.add_argument("--goal-id", dest="goal_id")
+    tail_p.add_argument("--task-id", dest="task_id")
+    tail_p.add_argument("--json", action="store_true")
+
     if not argv or argv[0] in ("-h", "--help"):
         sub_parser.print_help()
         return 0
-    parsed = sub_parser.parse_args(argv)
+    try:
+        parsed = sub_parser.parse_args(argv)
+    except SystemExit as exc:
+        return int(exc.code) if exc.code is not None else 2
     return run_llm_log_command(parsed)
 
 
