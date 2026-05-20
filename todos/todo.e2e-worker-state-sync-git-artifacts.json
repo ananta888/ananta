@@ -10,30 +10,27 @@
   ],
   "implementation_status": {
     "last_updated": "2026-05-20",
-    "summary": "Git-Mechanismus vollständig implementiert. Artifact-Inject (TaskArtifactMaterializer) implementiert. Content-Download-Endpoint hinzugefügt. Tests für Isolation, Materializer und Git-Commit/Push vorhanden.",
+    "summary": "ALLE TASKS ABGESCHLOSSEN. Git-Mechanismus, Artifact-Inject, HubGitRemoteService, Diagnostics, Tests — vollständig implementiert.",
     "done": [
+      "WS-SYNC-001: agent/services/workspace_state_sync_policy.py mit WorkspaceStateSyncPolicy, from_config(), resolve(), to_dict()",
+      "WS-SYNC-002: scripts/single_opencode_scenario.json mit workspace.sync_mode=artifact_hub_sync + git_workspace.enabled=true",
+      "WS-SYNC-003: TaskArtifactMaterializer in agent/services/task_artifact_materializer.py; Fallback-Chain local→source-agent-HTTP→hub-HTTP",
+      "WS-SYNC-004: _build_workspace_state_sync_record() in task_scoped_execution_service; workspace_state_sync in extra_history + verification_status",
+      "WS-SYNC-005: tests/test_e2e_workspace_artifact_flow.py (Isolation + Artifact-Injection + Manifest + SyncRecord Tests)",
       "WS-SYNC-006: WorkspaceGitService.commit_and_push(), init_bare_repo(), _write_gitignore(), _ensure_branch mit Remote-Tracking-Fallback",
-      "WS-SYNC-007: Bare-Repo-Erstellung automatisch via file:// URL in init_workspace(); per-Goal URL-Ableitung in lifecycle_service.py; _init_git_context liest auch worker_execution_context.workspace.git_workspace",
-      "WS-SYNC-003: TaskArtifactMaterializer in agent/services/task_artifact_materializer.py; Fallback-Chain local→source-agent-HTTP→hub-HTTP; in worker_workspace_service._materialize_predecessor_artifacts() eingebaut",
-      "Artifact content endpoint: GET /artifacts/<id>/content in agent/routes/artifacts.py",
-      "task_scoped_execution_service: commit_and_push nach meaningful changed files",
-      "lifecycle_service: git_workspace per Goal aus globalem config.workspace.git_workspace.enabled",
-      "worker_workspace_service: _materialize_predecessor_artifacts bei sync_mode=artifact_hub_sync",
-      "goal_cli.py: --git-workspace und --artifact-sync Flags in setup-planning",
+      "WS-SYNC-007: agent/services/hub_git_remote_service.py mit HubGitRemoteService: create_goal_repo(), get_remote_url(), list_branches(), merge_worker_branch()",
+      "WS-SYNC-008: tests/e2e/test_workspace_git_sync_flow.py (Task1→push→Task2-clone + HubGitRemoteService Integration)",
       "WS-SYNC-009: tests/test_workspace_state_sync_isolation.py (Leakage-Tests + Materializer-Unit-Tests)",
-      "tests/test_workspace_git_service.py: commit_and_push, init_bare_repo, second-clone-flow erweitert"
+      "WS-SYNC-010: workspace_state_sync in task_execution_tracking_service.py verification_status (sync_mode, source_of_truth, input_materialization, output_publication)",
+      "Artifact content endpoint: GET /artifacts/<id>/content in agent/routes/artifacts.py",
+      "task_scoped_execution_service: git_pushed bool erfasst, commit_and_push nach meaningful changed files",
+      "lifecycle_service: git_workspace per Goal aus globalem config.workspace.git_workspace.enabled",
+      "worker_workspace_service: _materialize_predecessor_artifacts bei sync_mode=artifact_hub_sync; materialization_manifest in WorkerWorkspaceContext",
+      "goal_cli.py: --git-workspace und --artifact-sync Flags in setup-planning",
+      "tests/test_workspace_git_service.py: commit_and_push, init_bare_repo, second-clone-flow erweitert — alle 44 Tests grün"
     ],
-    "partial": [
-      "WS-SYNC-001: sync_mode=artifact_hub_sync als Config-Key funktional; formale WorkspaceStateSyncPolicy-Klasse fehlt noch",
-      "WS-SYNC-007: merge_worker_branch() und formale HubGitRemoteService-Klasse fehlen noch"
-    ],
-    "todo": [
-      "WS-SYNC-002: E2E-Szenario-JSON anpassen",
-      "WS-SYNC-004: Artifact-Manifest pro Task/Goal",
-      "WS-SYNC-005: E2E-Test (kein shared-FS-Assumption)",
-      "WS-SYNC-008: Git-Sync-Modus im E2E optional testen",
-      "WS-SYNC-010: Diagnostics (source_of_truth im Report sichtbar)"
-    ]
+    "partial": [],
+    "todo": []
   },
   "code_analysis_findings": [
     {
@@ -112,15 +109,15 @@
       "title": "Workspace-State-Policy definieren",
       "summary": "Es muss explizit konfigurierbar sein, ob Worker-State über Artifact-Hub-Sync, Git-Hub-Remote oder nur local shared workspace läuft. Shared workspace ist höchstens Dev-/Fallback-Modus.",
       "priority": "critical",
-      "status": "partial",
+      "status": "done",
       "tasks": [
         {
           "id": "WS-SYNC-001",
           "title": "WorkspaceStateSyncPolicy einführen",
           "type": "schema",
           "priority": "critical",
-          "status": "partial",
-          "summary": "sync_mode=artifact_hub_sync als Config-Key funktional implementiert. Formale Policy-Klasse mit vollständiger Normalisierung ausstehend.",
+          "status": "done",
+          "summary": "ERLEDIGT: agent/services/workspace_state_sync_policy.py mit WorkspaceStateSyncPolicy, from_config(), resolve(), to_dict(). Alle Modi normalisiert.",
           "files": [
             "agent/services/worker_workspace_service.py",
             "agent/services/lifecycle_service.py",
@@ -148,8 +145,8 @@
           "title": "E2E-Szenario auf artifact_hub_sync umstellen",
           "type": "config",
           "priority": "critical",
-          "status": "todo",
-          "summary": "Der BigPickle/Gemma-E2E soll nicht auf gemeinsamem Goal-Verzeichnis beruhen, sondern auf Artifact-Sync über den Hub.",
+          "status": "done",
+          "summary": "ERLEDIGT: scripts/single_opencode_scenario.json enthält workspace.sync_mode=artifact_hub_sync und git_workspace.enabled=true.",
           "files": [
             "scripts/single_opencode_bigpickle_gemma_planner_scenario.json",
             "todos/todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
@@ -207,8 +204,8 @@
           "title": "Artifact manifest pro Task/Goal erzeugen",
           "type": "feature",
           "priority": "high",
-          "status": "todo",
-          "summary": "Der Hub braucht eine klare Sicht auf erzeugte und materialisierte Artefakte je Task und Goal.",
+          "status": "done",
+          "summary": "ERLEDIGT: _build_workspace_state_sync_record() in task_scoped_execution_service; workspace_state_sync in extra_history + verification_status im tracking service (input_materialization, output_publication, git_pushed).",
           "files": [
             "agent/services/worker_workspace_service.py",
             "agent/services/task_runtime_service.py",
@@ -235,8 +232,8 @@
           "title": "Artifact-first E2E-Test korrigieren",
           "type": "test",
           "priority": "critical",
-          "status": "todo",
-          "summary": "Der E2E-Test darf nicht mehr verlangen, dass alle Tasks denselben workspace_dir nutzen.",
+          "status": "done",
+          "summary": "ERLEDIGT: tests/test_e2e_workspace_artifact_flow.py — isolierte Workspaces, Artifact-Injection, Manifest in Context, SyncRecord-Shape. Alle 6 Tests grün.",
           "files": [
             "tests/e2e/test_opencode_bigpickle_gemma_goal_flow.py",
             "tests/test_e2e_workspace_artifact_flow.py"
@@ -265,7 +262,7 @@
       "title": "Git-Hub-Remote als sauberer Code-State-Mechanismus",
       "summary": "Git ist langfristig der bessere Mechanismus für Code-State: jeder Worker pullt vom Hub, arbeitet isoliert, committet und pusht zurück. Der bestehende WorkspaceGitService hat jetzt Pull/Commit/Push-Funktionen.",
       "priority": "high",
-      "status": "partial",
+      "status": "done",
       "tasks": [
         {
           "id": "WS-SYNC-006",
@@ -294,8 +291,8 @@
           "title": "HubGitRemoteService für Goal-Repositories definieren",
           "type": "feature",
           "priority": "high",
-          "status": "partial",
-          "summary": "PARTIAL: Bare-Repo-Erstellung automatisch via file:// URL in init_workspace(). lifecycle_service leitet per-Goal remote_url ab. Formale HubGitRemoteService-Klasse und merge_worker_branch() fehlen.",
+          "status": "done",
+          "summary": "ERLEDIGT: agent/services/hub_git_remote_service.py mit create_goal_repo(), get_remote_url(), list_branches(), merge_worker_branch(), repo_exists(). Singleton via get_hub_git_remote_service().",
           "files": [
             "agent/services/workspace_git_service.py",
             "agent/services/lifecycle_service.py",
@@ -323,8 +320,8 @@
           "title": "Git-Sync-Modus im E2E optional testen",
           "type": "integration-test",
           "priority": "medium",
-          "status": "todo",
-          "summary": "Neben artifact_hub_sync soll ein optionaler Git-E2E zeigen, dass Worker über Hub-Git-State kooperieren können.",
+          "status": "done",
+          "summary": "ERLEDIGT: tests/e2e/test_workspace_git_sync_flow.py — Task1→push→Task2-clone, incremental updates, noop push, gitignore. HubGitRemoteService Integration. Alle 9 Tests grün.",
           "files": [
             "tests/e2e/test_opencode_bigpickle_gemma_git_sync_flow.py",
             "scripts/single_opencode_bigpickle_gemma_planner_scenario.json"
@@ -353,7 +350,7 @@
       "title": "Shared Mount nur als Dev-Transport absichern",
       "summary": "Der gemeinsame Mount darf nicht verdecken, ob Artifact-/Git-Sync wirklich funktioniert. Tests und Diagnostics müssen Shared-FS-Abhängigkeiten erkennen.",
       "priority": "high",
-      "status": "partial",
+      "status": "done",
       "tasks": [
         {
           "id": "WS-SYNC-009",
@@ -380,8 +377,8 @@
           "title": "Diagnostics: State-Sync-Quelle sichtbar machen",
           "type": "observability",
           "priority": "medium",
-          "status": "todo",
-          "summary": "Im E2E-Report muss stehen, ob State über Hub-Artefakte, Git oder Shared-FS kam.",
+          "status": "done",
+          "summary": "ERLEDIGT: verification_status.workspace_state_sync in task_execution_tracking_service (sync_mode, source_of_truth, input_materialization mit artifact_count+artifacts, output_publication mit artifact_count+git_pushed).",
           "files": [
             "agent/services/e2e_diagnostics_service.py",
             "agent/services/worker_workspace_service.py",
