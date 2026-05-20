@@ -1124,8 +1124,10 @@ def _call_llm(
     try:
         from agent.services.prompt_trace_service import get_prompt_trace_service
         _trace_svc = get_prompt_trace_service()
-        _goal_id = getattr(g, "llm_goal_id", None) if has_request_context() else None
-        _task_id = getattr(g, "llm_task_id", None) if has_request_context() else None
+        # Planning/background calls often run with app context but without request context.
+        # Use app-context metadata so traces can still be correlated to goals/tasks.
+        _goal_id = getattr(g, "llm_goal_id", None) if has_app_context() else None
+        _task_id = getattr(g, "llm_task_id", None) if has_app_context() else None
         _prompt_trace = _trace_svc.create_trace(
             request_id=request_id,
             idempotency_key=idempotency_key,
@@ -1139,7 +1141,7 @@ def _call_llm(
             messages=history,
             tools=tools,
         )
-        if has_request_context():
+        if has_app_context():
             existing = list(getattr(g, "llm_prompt_trace_ids", []) or [])
             existing.append(_prompt_trace.trace_id)
             g.llm_prompt_trace_ids = existing
