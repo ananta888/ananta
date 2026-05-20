@@ -202,7 +202,7 @@ def main() -> int:
     run_p = sub.add_parser("run", help="Goal einreichen")
     run_p.add_argument("goal", help="Goal-Text")
     run_p.add_argument("--profile", default="opencode_preconfigured", help="Config-Profil")
-    run_p.add_argument("--software", action="store_true", default=True, help="Software-Projekt-Modus")
+    run_p.add_argument("--software", action="store_true", default=False, help="Software-Projekt-Modus (new_software_project)")
     run_p.add_argument("--no-wait", dest="wait", action="store_false", default=True)
     run_p.add_argument("--timeout", type=int, default=900, help="Warte-Timeout in Sekunden")
     run_p.add_argument("--poll", type=float, default=10.0, help="Poll-Intervall in Sekunden")
