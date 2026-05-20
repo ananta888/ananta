@@ -2306,6 +2306,10 @@ class TaskScopedExecutionService:
         forwarder: Callable,
         on_success: Callable[[dict, dict], None],
     ) -> TaskScopedRouteResponse | None:
+        # Hub owns cross-container routing. Worker containers must execute locally
+        # and never re-forward step endpoints to avoid forwarding loops.
+        if str(getattr(settings, "role", "") or "").strip().lower() != "hub":
+            return None
         worker_url = task.get("assigned_agent_url")
         if not worker_url:
             return None

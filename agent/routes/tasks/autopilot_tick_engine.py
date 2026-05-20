@@ -1046,6 +1046,32 @@ def _dispatch_one_task_inner(  # noqa: C901
             result.failed = True
             result.failure_type = "task_propose_hard_guard"
             return result
+        # Prevent duplicate rapid-fire propose dispatches while task is already in-flight.
+        propose_inflight_cooldown_s = max(
+            10.0,
+            float(
+                (loop._config.get("autopilot", {}) or {})
+                .get("strategy", {})
+                .get("propose_inflight_cooldown_seconds", 45.0)
+            ),
+        )
+        task_status_now = str(getattr(task, "status", "") or "").strip().lower()
+        task_updated_at = float(getattr(task, "updated_at", 0.0) or 0.0)
+        task_age_s = max(0.0, time.time() - task_updated_at) if task_updated_at else None
+        if task_status_now == "proposing" and task_age_s is not None and task_age_s < propose_inflight_cooldown_s:
+            append_trace_event(
+                task.id,
+                "autopilot_propose_cooldown_skip",
+                delegated_to=target_worker.url,
+                status=task_status_now,
+                updated_age_seconds=round(task_age_s, 3),
+                cooldown_seconds=propose_inflight_cooldown_s,
+            )
+            result.dispatched = True
+            result.failed = False
+            result.completed = False
+            result.failure_type = None
+            return result
         STRATEGY_ATTEMPT_COUNT.observe(float(len(strategy_candidates)))
         for attempt_index, candidate in enumerate(strategy_candidates, start=1):
             # Hard guard: never re-propose terminal tasks, even inside strategy loops.
