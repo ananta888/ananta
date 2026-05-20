@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import urlparse
 
-from flask import current_app, has_app_context
+from flask import current_app, g, has_app_context, has_request_context
 
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.errors import TaskConflictError, TaskNotFoundError, WorkerForwardingError
@@ -593,7 +593,35 @@ class TaskScopedExecutionService:
             policy=policy,
             effective_config=cfg or None,
         )
-        result = orch.run(context)
+        had_llm_goal_id = False
+        had_llm_task_id = False
+        previous_llm_goal_id = None
+        previous_llm_task_id = None
+        if has_request_context():
+            had_llm_goal_id = hasattr(g, "llm_goal_id")
+            had_llm_task_id = hasattr(g, "llm_task_id")
+            previous_llm_goal_id = getattr(g, "llm_goal_id", None)
+            previous_llm_task_id = getattr(g, "llm_task_id", None)
+            g.llm_goal_id = str(task.get("goal_id") or "").strip() or None
+            g.llm_task_id = str(tid or "").strip() or None
+        try:
+            result = orch.run(context)
+        finally:
+            if has_request_context():
+                if had_llm_goal_id:
+                    g.llm_goal_id = previous_llm_goal_id
+                else:
+                    try:
+                        delattr(g, "llm_goal_id")
+                    except Exception:
+                        pass
+                if had_llm_task_id:
+                    g.llm_task_id = previous_llm_task_id
+                else:
+                    try:
+                        delattr(g, "llm_task_id")
+                    except Exception:
+                        pass
         result_dict = result.to_dict()
 
         # Persist to last_proposal so execute step and API can read it.
