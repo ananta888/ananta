@@ -12,6 +12,7 @@ from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest, GoalPlanNodePatchRequest, GoalProvisionRequest
 from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
+from agent.services.goal_purge_service import get_goal_purge_service
 from agent.services.goal_config_resolver_service import ALLOWED_GOAL_CONFIG_KEYS, get_goal_config_resolver_service
 from agent.services.config_profile_service import get_config_profile_service
 from agent.services.product_event_service import record_product_event
@@ -386,6 +387,30 @@ def goal_governance_summary(goal_id: str):
     if not summary:
         return api_response(status="error", message="not_found", code=404)
     return api_response(data=_goal_service().sanitize_governance_summary(summary, _is_admin_request()))
+
+
+@goals_bp.route("/goals/<goal_id>/purge", methods=["DELETE"])
+@check_auth
+def purge_goal(goal_id: str):
+    goal = _repos().goal_repo.get_by_id(goal_id)
+    if not goal or not _can_access_goal(goal):
+        return api_response(status="error", message="not_found", code=404)
+    if not _is_admin_request():
+        return api_response(status="error", message="forbidden", code=403)
+    include_prompt_traces = str(request.args.get("include_prompt_traces", "1")).strip().lower() not in {"0", "false", "no"}
+    result = get_goal_purge_service().purge_goal(goal_id, include_prompt_traces=include_prompt_traces)
+    if result is None:
+        return api_response(status="error", message="not_found", code=404)
+    log_audit(
+        "goal_purged",
+        {
+            "goal_id": goal_id,
+            "trace_id": getattr(goal, "trace_id", None),
+            "include_prompt_traces": include_prompt_traces,
+            "deleted": result.to_dict(),
+        },
+    )
+    return api_response(data=result.to_dict())
 
 
 @goals_bp.route("/goals/test/provision", methods=["POST"])
