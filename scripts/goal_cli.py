@@ -138,10 +138,13 @@ def cmd_goals(args: argparse.Namespace) -> int:
 
 
 def cmd_setup_planning(args: argparse.Namespace) -> int:
-    """Setzt die Planning-Policy für LMStudio mit 700s Timeout."""
+    """Setzt die Planning-Policy für LMStudio (700s) + OpenCode Big-Pickle Worker-Config."""
     base = args.base_url
     token = _login(base, args.user, args.password)
     policy = {
+        "default_provider": "lmstudio",
+        "default_model": "google/gemma-4-e4b",
+        "lmstudio_url": "http://192.168.178.100:1234/v1",
         "planning_policy": {
             "delegated_planning_enabled": False,
             "allowed_planner_roles": ["planning-agent", "planner"],
@@ -172,7 +175,7 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
                     "preferred_output_format": "json",
                 }
             },
-        }
+        },
     }
     r = requests.post(f"{base}/config", json=policy, headers=_headers(token), timeout=15)
     if not r.ok:
