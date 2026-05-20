@@ -240,6 +240,48 @@ def test_parse_rag_sources_empty_returns_empty():
     assert cli_goals._parse_rag_sources("  ") == {}
 
 
+def test_purge_goal_calls_delete_endpoint(monkeypatch, capsys):
+    calls: list[dict] = []
+
+    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
+    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
+
+    def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
+        calls.append({"method": method, "url": url, "params": params})
+        return _FakeResponse(
+            200,
+            {
+                "data": {
+                    "goal_id": "goal-1",
+                    "deleted_total": 5,
+                    "prompt_traces_deleted": 2,
+                    "deleted": {"goal": 1, "tasks": 2},
+                }
+            },
+        )
+
+    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
+    rc = cli_goals.purge_goal("goal-1")
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert calls[0]["method"] == "DELETE"
+    assert calls[0]["url"] == "http://localhost:5000/goals/goal-1/purge"
+    assert calls[0]["params"] == {"include_prompt_traces": "1"}
+    assert "Goal purged: goal-1" in out
+
+
+def test_main_goal_purge_requires_yes(monkeypatch, capsys):
+    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
+    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
+    try:
+        cli_goals.main(["--goal-purge", "goal-1"])
+    except SystemExit as exc:
+        assert int(exc.code) == 2
+    captured = capsys.readouterr()
+    err = captured.out + captured.err
+    assert "--yes" in err
+
+
 def test_submit_goal_passes_rag_sources_in_execution_preferences(monkeypatch):
     calls: list[dict] = []
 

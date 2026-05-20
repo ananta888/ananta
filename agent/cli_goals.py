@@ -933,6 +933,31 @@ def show_goal_detail(goal_id: str):
         _print_terminal("  Headline artifact: {}", str(headline.get("preview"))[:120])
 
 
+def purge_goal(goal_id: str, *, include_prompt_traces: bool = True) -> int:
+    goal_id_norm = str(goal_id or "").strip()
+    if not goal_id_norm:
+        print("Error: --goal-purge requires a goal ID")
+        return 2
+    response = _request(
+        "DELETE",
+        f"/goals/{goal_id_norm}/purge",
+        params={"include_prompt_traces": "1" if include_prompt_traces else "0"},
+        timeout=60,
+    )
+    if response.status_code != 200:
+        _print_error(response)
+        return 1
+    data = _api_data(response) or {}
+    deleted = data.get("deleted") or {}
+    _print_terminal("Goal purged: {}", data.get("goal_id") or goal_id_norm)
+    print(f"  Deleted total: {int(data.get('deleted_total') or 0)}")
+    print(f"  Prompt traces deleted: {int(data.get('prompt_traces_deleted') or 0)}")
+    if isinstance(deleted, dict):
+        for key in sorted(deleted.keys()):
+            print(f"  - {key}: {int(deleted.get(key) or 0)}")
+    return 0
+
+
 def list_modes():
     response = _request("GET", "/goals/modes", timeout=10)
     if response.status_code != 200:
@@ -1091,6 +1116,8 @@ Examples:
     parser.add_argument("--first-run", action="store_true", help="Show the official first CLI path, success signals and failure help")
     parser.add_argument("--goals", action="store_true", help="List goals")
     parser.add_argument("--goal-detail", help="Show detail for a goal ID")
+    parser.add_argument("--goal-purge", help="Purge one goal and all related records (admin only)")
+    parser.add_argument("--yes", action="store_true", help="Required confirmation for destructive actions like --goal-purge")
     parser.add_argument("--modes", action="store_true", help="List guided goal modes")
     parser.add_argument("--tasks", action="store_true", help="List recent tasks")
     parser.add_argument("--task-status", help="Filter tasks by status")
@@ -1141,6 +1168,13 @@ Examples:
         show_status()
     elif args.goals:
         list_goals(limit=args.limit)
+    elif args.goal_purge:
+        if not args.yes:
+            print("Error: --goal-purge is destructive and requires --yes")
+            sys.exit(2)
+        rc = purge_goal(args.goal_purge)
+        if rc != 0:
+            sys.exit(rc)
     elif args.goal_detail:
         show_goal_detail(args.goal_detail)
     elif args.modes:
