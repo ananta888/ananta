@@ -182,7 +182,23 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
     if goal_status not in {"planning", "planned"}:
         return False
 
-    non_terminal = [task for task in all_tasks if not _is_terminal_status(str(getattr(task, "status", "") or "").strip().lower())]
+    # Use goal-global task view as fallback when scoped task list is empty.
+    # This prevents accidental re-planning/duplication when scope filters
+    # (team/cursor transitions) temporarily hide existing goal tasks.
+    goal_tasks_global = [
+        task
+        for task in repos.task_repo.get_all()
+        if str(getattr(task, "goal_id", "") or "").strip() == goal_id
+    ]
+    task_view = list(all_tasks or [])
+    if not task_view and goal_tasks_global:
+        task_view = list(goal_tasks_global)
+
+    non_terminal = [
+        task
+        for task in task_view
+        if not _is_terminal_status(str(getattr(task, "status", "") or "").strip().lower())
+    ]
     active_statuses = {"assigned", "proposing", "in_progress"}
     has_active = any(str(getattr(task, "status", "") or "").strip().lower() in active_statuses for task in non_terminal)
     if has_active:
@@ -213,9 +229,9 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
     # When ALL tasks are terminal and none completed, re-planning produces the same
     # plan against the same context — it won't fix the underlying failure. Fail the
     # goal immediately rather than burning max_attempts re-plan cycles.
-    if all_tasks and not non_terminal:
+    if task_view and not non_terminal:
         all_failed = all(
-            str(getattr(t, "status", "") or "").strip().lower() == "failed" for t in all_tasks
+            str(getattr(t, "status", "") or "").strip().lower() == "failed" for t in task_view
         )
         if all_failed:
             try:
