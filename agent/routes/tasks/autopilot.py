@@ -3,6 +3,7 @@ import os
 import threading
 import time
 import contextlib
+import concurrent.futures
 from typing import Any
 
 from flask import Blueprint, current_app, has_app_context, request
@@ -315,10 +316,31 @@ class AutonomousLoopManager:
         # network probe latency never blocks loop state reads/writes.
         try:
             app_cfg = self._app_config()
-            status["provider_observer"] = get_provider_observer_service().snapshot(
-                agent_config=(app_cfg.get("AGENT_CONFIG", {}) or {}),
-                provider_urls=(app_cfg.get("PROVIDER_URLS", {}) or {}),
-            )
+            agent_cfg = (app_cfg.get("AGENT_CONFIG", {}) or {})
+            provider_urls = (app_cfg.get("PROVIDER_URLS", {}) or {})
+            timeout_cfg = agent_cfg.get("provider_observer_timeout_seconds", 3)
+            try:
+                timeout_seconds = max(1.0, min(10.0, float(timeout_cfg) * 2.0 + 1.0))
+            except Exception:
+                timeout_seconds = 7.0
+            pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            try:
+                future = pool.submit(
+                    get_provider_observer_service().snapshot,
+                    agent_config=agent_cfg,
+                    provider_urls=provider_urls,
+                )
+                status["provider_observer"] = future.result(timeout=timeout_seconds)
+            finally:
+                pool.shutdown(wait=False, cancel_futures=True)
+        except concurrent.futures.TimeoutError:
+            status["provider_observer"] = {
+                "enabled": True,
+                "source": "hub_direct_probe",
+                "error": "provider_observer_timeout_guard",
+                "providers": {},
+                "observed_at": time.time(),
+            }
         except Exception as exc:
             status["provider_observer"] = {
                 "enabled": True,
