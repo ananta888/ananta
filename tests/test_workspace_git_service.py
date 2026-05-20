@@ -108,9 +108,9 @@ class TestCommitAndPush:
         ws = self._clone_and_file(tmp_path, bare, "hello.py", "print('hello')")
         result = svc.commit_and_push(ws, branch="goal/abc123", message="task abc: write hello")
         assert result is True
-        # Verify the bare repo has the commit
+        # Verify the bare repo has the commit on the correct branch
         log = subprocess.run(
-            ["git", "log", "--oneline"],
+            ["git", "log", "--oneline", "goal/abc123"],
             cwd=str(bare), capture_output=True, text=True,
         )
         assert "task abc" in log.stdout
@@ -124,24 +124,18 @@ class TestCommitAndPush:
 
     def test_second_clone_sees_pushed_files(self, tmp_path, svc):
         bare = self._make_bare(tmp_path)
-        ws1 = self._clone_and_file(tmp_path / "ws1", bare, "result.py", "x = 1")
-        (tmp_path / "ws1").mkdir(exist_ok=True)
-        ws1 = tmp_path / "ws1" / "workspace"
-        ws1.mkdir(exist_ok=True)
-        (ws1).mkdir(exist_ok=True)
-        subprocess.run(
-            ["git", "clone", f"file://{bare}", str(ws1), "--no-local"],
-            check=True, capture_output=True,
-        )
-        (ws1 / "result.py").write_text("x = 1")
-        svc.commit_and_push(ws1, branch="goal/test", message="task 1: create result.py")
+        remote_url = f"file://{bare}"
 
+        # Task 1: init workspace via svc (creates branch), write file, push
+        ws1 = tmp_path / "ws1"
+        svc.init_workspace(ws1, remote_url=remote_url, branch="goal/test", enabled=True)
+        (ws1 / "result.py").write_text("x = 1")
+        pushed = svc.commit_and_push(ws1, branch="goal/test", message="task 1: create result.py")
+        assert pushed is True
+
+        # Task 2: fresh clone via svc — should see result.py from Task 1
         ws2 = tmp_path / "ws2"
-        subprocess.run(
-            ["git", "clone", f"file://{bare}", str(ws2), "--no-local"],
-            check=True, capture_output=True,
-        )
-        svc._ensure_branch(ws2, branch="goal/test")
+        svc.init_workspace(ws2, remote_url=remote_url, branch="goal/test", enabled=True)
         assert (ws2 / "result.py").exists()
         assert (ws2 / "result.py").read_text() == "x = 1"
 
