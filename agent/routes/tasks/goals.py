@@ -114,6 +114,13 @@ def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
     goal_id = str(getattr(goal, "id", "") or "").strip()
     if not goal_id:
         return goal
+    # Never trigger recovery re-planning from read-path polling while planning
+    # is queued/running. The background planner thread is the single owner.
+    if status in {"planning_queued", "planning_running"}:
+        with _GOAL_ACTIVE_PLANNING_LOCK:
+            if goal_id in _GOAL_ACTIVE_PLANNING_IDS:
+                return goal
+        return goal
     now_ts = time.time()
     updated_at = float(getattr(goal, "updated_at", 0.0) or 0.0)
     if updated_at and (now_ts - updated_at) < 30:
