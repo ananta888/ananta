@@ -158,10 +158,8 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
             "segment_context_chars": 2400,
             "max_segments": 1,
             "preferred_output_format": "json",
-            "selective_repair_rounds": 1,
+            "selective_repair_rounds": 0,
             "validation_profiles": {},
-            "team_overrides": {},
-            "planner_prompt_evolution": {},
             "default_runtime_profile": "lmstudio_laptop",
             "runtime_profiles": {
                 "lmstudio_laptop": {
