@@ -1,0 +1,33 @@
+services:
+  # Live-code overlay for quickstart-no-ollama:
+  # - Source code is bind-mounted into /app for hub/workers/frontend.
+  # - Data is kept in local ./data/* folders for transparent persistence.
+  ai-agent-hub:
+    environment:
+      FLASK_DEBUG: 1
+    volumes:
+      - ./:/app
+      - ./data/hub:/app/data
+      - ./project-workspaces:/project-workspaces:rw
+
+  ai-agent-alpha:
+    environment:
+      FLASK_DEBUG: 1
+    volumes:
+      - ./:/app
+      - ./data/alpha:/app/data
+      - ./project-workspaces:/project-workspaces:rw
+
+  ai-agent-beta:
+    environment:
+      FLASK_DEBUG: 1
+    volumes:
+      - ./:/app
+      - ./data/beta:/app/data
+      - ./project-workspaces:/project-workspaces:rw
+
+  angular-frontend:
+    volumes:
+      - ./frontend-angular:/app/frontend-angular
+      - /app/frontend-angular/node_modules
+      - /ms-playwright
