@@ -40,7 +40,8 @@ class TaskArtifactMaterializer:
                 continue
             if str(task.status or "").strip().lower() != "completed":
                 continue
-            refs = list(task.artifact_refs or [])
+            vs = dict(getattr(task, "verification_status", None) or {})
+            refs = list(vs.get("execution_artifacts") or [])
             source_agent_url = str(task.assigned_agent_url or "").strip()
             for ref in refs:
                 if ref.get("kind") != "workspace_file":

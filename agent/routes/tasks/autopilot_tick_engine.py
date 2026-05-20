@@ -195,6 +195,12 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
     if has_blocked:
         return False
 
+    # Don't trigger recovery replanning when todo tasks exist — they were just
+    # unblocked by reconcile_dependencies and will be dispatched on the next tick.
+    has_todo = any(str(getattr(task, "status", "") or "").strip().lower() in {"todo", "created"} for task in non_terminal)
+    if has_todo:
+        return False
+
     now_ts = time.time()
     execution_preferences = dict(getattr(goal, "execution_preferences", None) or {})
     recovery = dict(execution_preferences.get("autopilot_recovery") or {})
