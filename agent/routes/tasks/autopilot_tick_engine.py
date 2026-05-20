@@ -188,6 +188,13 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
     if has_active:
         return False
 
+    # Don't trigger recovery replanning when tasks are merely blocked by dependencies —
+    # they will unblock as their predecessors complete. Replanning here only creates
+    # duplicate tasks on top of the existing blocked ones.
+    has_blocked = any(str(getattr(task, "status", "") or "").strip().lower() == "blocked_by_dependency" for task in non_terminal)
+    if has_blocked:
+        return False
+
     now_ts = time.time()
     execution_preferences = dict(getattr(goal, "execution_preferences", None) or {})
     recovery = dict(execution_preferences.get("autopilot_recovery") or {})
