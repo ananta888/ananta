@@ -9,6 +9,8 @@ from typing import Any
 from agent.services.config_profile_service import get_config_profile_service
 
 ALLOWED_GOAL_CONFIG_KEYS: frozenset[str] = frozenset({
+    "feature_flags",
+    "hermes_worker_adapter",
     "default_provider",
     "default_model",
     "llm_config",

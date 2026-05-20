@@ -6,7 +6,7 @@ from agent.services.goal_config_runtime_service import get_goal_config_runtime_s
 
 def test_config_profile_catalog_contains_required_profiles():
     profiles = {item["id"] for item in get_config_profile_service().list_profiles()}
-    assert {"opencode_preconfigured", "opencode_ollama_local", "ananta_ollama_local"}.issubset(profiles)
+    assert {"opencode_preconfigured", "opencode_ollama_local", "ananta_ollama_local", "hermes_free_models_preconfigured"}.issubset(profiles)
 
 
 def test_goal_config_resolver_redacts_secret_fields():

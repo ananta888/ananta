@@ -14,6 +14,25 @@ _GENERIC_TITLE_MARKERS = {
     "misc",
 }
 
+_DEFAULT_VALIDATION_PROFILES: dict[str, dict[str, Any]] = {
+    "new_software_project": {
+        "min_total_tasks": 5,
+        "required_categories": {
+            "analysis": 1,
+            "infrastructure": 1,
+            "implementation": 1,
+            "tests": 1,
+            "review": 1,
+        },
+        "max_generic_tasks": 0,
+    },
+    "generic": {
+        "min_total_tasks": 3,
+        "required_categories": {"implementation": 1},
+        "max_generic_tasks": 1,
+    },
+}
+
 
 @dataclass
 class PlanningQualityResult:
@@ -70,15 +89,18 @@ class PlanningQualityService:
     ) -> PlanningQualityResult:
         policy = dict(planning_policy or {})
         validation_profiles = policy.get("validation_profiles") if isinstance(policy.get("validation_profiles"), dict) else {}
+        if not validation_profiles:
+            validation_profiles = dict(_DEFAULT_VALIDATION_PROFILES)
         profile = validation_profiles.get(str(mode or "generic")) if isinstance(validation_profiles.get(str(mode or "generic")), dict) else {}
+        if not profile and str(mode or "").strip().lower() == "new_software_project":
+            profile = dict(_DEFAULT_VALIDATION_PROFILES.get("new_software_project") or {})
+        if not profile:
+            profile = dict(_DEFAULT_VALIDATION_PROFILES.get("generic") or {})
 
         team_overrides = policy.get("team_overrides") if isinstance(policy.get("team_overrides"), dict) else {}
         if team_id and isinstance(team_overrides.get(str(team_id)), dict):
             # additive override only
             profile = {**profile, **dict(team_overrides.get(str(team_id)) or {})}
-
-        if not profile:
-            return PlanningQualityResult(ok=True, reason="no_validation_profile", missing_categories=[], generic_task_indices=[], details={})
 
         min_total = max(1, int(profile.get("min_total_tasks") or 1))
         req_categories = profile.get("required_categories") if isinstance(profile.get("required_categories"), dict) else {}

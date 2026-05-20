@@ -294,7 +294,11 @@ class PlanningService:
         except Exception:
             pass
 
-    def _resolve_planning_policy(self) -> dict[str, Any]:
+    def _resolve_planning_policy(self, scoped_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
+        if isinstance(scoped_cfg, dict):
+            scoped_raw = scoped_cfg.get("planning_policy")
+            if isinstance(scoped_raw, dict) and scoped_raw:
+                return normalize_planning_policy_config(scoped_raw)
         try:
             cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         except Exception:
@@ -386,6 +390,7 @@ class PlanningService:
         use_repo_context: bool,
         mode: str = "generic",
         mode_data: Optional[dict] = None,
+        planning_policy: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         result = self._run_planning_strategies(
             planner=planner,
@@ -395,6 +400,7 @@ class PlanningService:
             use_repo_context=use_repo_context,
             mode=mode,
             mode_data=mode_data,
+            planning_policy=planning_policy,
         )
         return {
             "subtasks": result.subtasks,
@@ -446,8 +452,9 @@ class PlanningService:
         use_repo_context: bool,
         mode: str = "generic",
         mode_data: Optional[dict] = None,
+        planning_policy: dict[str, Any] | None = None,
     ) -> PlanningStrategyResult:
-        planning_policy = self._resolve_planning_policy()
+        planning_policy = dict(planning_policy or self._resolve_planning_policy())
         decision = get_llm_first_planning_orchestrator_service().decide_strategy_order(
             mode=mode,
             use_template=use_template,
@@ -767,6 +774,7 @@ class PlanningService:
         setattr(planner, "_goal_effective_config", dict(scoped_resolution.config or {}))
         setattr(planner, "_goal_config_source", str(scoped_resolution.source or "global_fallback"))
         scoped_cfg = dict(scoped_resolution.config or {})
+        planning_policy = self._resolve_planning_policy(scoped_cfg)
         scoped_llm_cfg = dict(scoped_cfg.get("llm_config") or {})
         telemetry_run = get_planning_telemetry_service().start_run(
             goal_id=goal_id,
@@ -785,7 +793,7 @@ class PlanningService:
         )
 
         try:
-            inner_timeout = max(30, int(self._resolve_planning_policy().get("timeout_seconds") or 300))
+            inner_timeout = max(30, int(planning_policy.get("timeout_seconds") or 300))
             app_obj = current_app._get_current_object()
 
             def _resolve_with_app_context() -> dict[str, Any]:
@@ -801,6 +809,7 @@ class PlanningService:
                         use_repo_context=use_repo_context,
                         mode=mode,
                         mode_data=mode_data,
+                        planning_policy=planning_policy,
                     )
 
             with ThreadPoolExecutor(max_workers=1) as pool:
@@ -816,7 +825,7 @@ class PlanningService:
                 error_classification="resolve_subtasks_timeout",
                 validation_errors=[f"resolve_subtasks_timeout:{inner_timeout}s"],
             )
-            self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=self._resolve_planning_policy())
+            self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
             return {
                 "subtasks": [],
                 "created_task_ids": [],
@@ -838,11 +847,10 @@ class PlanningService:
                 error_classification=error_classification,
                 validation_errors=[error_message],
             )
-            self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=self._resolve_planning_policy())
+            self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
             return {"subtasks": [], "created_task_ids": [], "error": error_message, "planning_run_id": telemetry_run.id}
 
         subtasks = resolved["subtasks"]
-        planning_policy = self._resolve_planning_policy()
         mode_data_dict = dict(mode_data or {})
         no_task_dependencies = bool(mode_data_dict.get("no_task_dependencies"))
         if (
