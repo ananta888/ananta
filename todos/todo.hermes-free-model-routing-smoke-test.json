@@ -125,7 +125,7 @@
           "status": "todo",
           "summary": "Das neue Hermes-Szenario muss syntaktisch und semantisch valide sein.",
           "files": [
-            "scripts/single_hermes_free_models_scenario.json",
+            "todos/single_hermes_free_models_scenario.json",
             "tests/test_hermes_free_models_scenario.py"
           ],
           "description": "Ein Test lädt das Szenario und prüft Pflichtfelder, Routing, blocked_task_kinds, model_selection_policy und Acceptance-Kriterien.",
