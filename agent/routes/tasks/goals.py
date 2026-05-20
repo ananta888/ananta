@@ -112,14 +112,7 @@ def _is_soft_planning_quality_failure(*, quality_reason: str) -> bool:
         return False
     missing_blob = ",".join(p.removeprefix("missing_categories:") for p in missing_parts)
     missing_entries = [entry.strip() for entry in missing_blob.split(",") if entry.strip()]
-    if not missing_entries:
-        return False
-    tolerated = {"analysis", "review"}
-    for entry in missing_entries:
-        category = entry.split(":", 1)[0].strip()
-        if category not in tolerated:
-            return False
-    return True
+    return bool(missing_entries)
 
 
 def _mark_started_planning_runs_failed(*, goal_id: str, reason: str) -> int:
