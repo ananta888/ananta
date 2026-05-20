@@ -23,14 +23,14 @@
       "title": "Hermes task_kind_models in Adapter-Konfiguration unterstützen",
       "summary": "HermesAdapterConfig hat aktuell default_model, aber keine saubere task_kind -> model Map. Dieser Track ergänzt modellabhängiges Routing pro Aufgabe.",
       "priority": "critical",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "HFM-001",
           "title": "task_kind_models und fallback_free_models in HermesAdapterConfig ergänzen",
           "type": "feature",
           "priority": "critical",
-          "status": "todo",
+          "status": "done",
           "summary": "Hermes braucht eine explizite Konfiguration, welches Modell für welchen Task-Kind genutzt wird.",
           "files": [
             "worker/core/hermes_adapter_config.py"
@@ -57,7 +57,7 @@
           "title": "ModelSelectionService für Hermes einführen",
           "type": "feature",
           "priority": "critical",
-          "status": "todo",
+          "status": "done",
           "summary": "Die Auswahl des passenden Modells soll zentral und testbar sein, nicht verstreut im Adapter.",
           "files": [
             "worker/core/hermes_model_selection.py",
@@ -85,7 +85,7 @@
           "title": "Hermes HTTP Payload verwendet ausgewähltes Modell",
           "type": "feature",
           "priority": "critical",
-          "status": "todo",
+          "status": "done",
           "summary": "Die Modellwahl muss tatsächlich in den Request an Hermes/OpenRouter einfließen.",
           "files": [
             "worker/core/hermes_http_client.py",
@@ -115,14 +115,14 @@
       "title": "Free-Model-Szenario und Smoke-Test",
       "summary": "Das neue Szenario single_hermes_free_models_scenario.json soll offline validiert und optional live gegen einen Provider getestet werden.",
       "priority": "critical",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "HFM-004",
           "title": "Szenario-JSON validieren",
           "type": "test",
           "priority": "critical",
-          "status": "todo",
+          "status": "done",
           "summary": "Das neue Hermes-Szenario muss syntaktisch und semantisch valide sein.",
           "files": [
             "todos/single_hermes_free_models_scenario.json",
@@ -144,7 +144,7 @@
           "title": "Offline-Routing-Test für Hermes-Free-Modelle",
           "type": "test",
           "priority": "critical",
-          "status": "todo",
+          "status": "done",
           "summary": "Ohne API-Key soll geprüft werden, ob die Modell- und Backend-Auswahl korrekt wäre.",
           "files": [
             "tests/test_hermes_free_model_routing.py",
@@ -173,7 +173,7 @@
           "title": "Optionaler Live-Smoke-Test mit Skip ohne API-Key",
           "type": "test",
           "priority": "high",
-          "status": "todo",
+          "status": "done",
           "summary": "Ein echter Provider-Test soll möglich sein, aber CI ohne Key nicht blockieren.",
           "files": [
             "tests/test_hermes_free_models_live_smoke.py"
@@ -202,14 +202,14 @@
       "title": "Hermes bleibt read-only und OpenCode übernimmt Mutation",
       "summary": "Hermes darf planen, reviewen und Patches vorschlagen, aber nicht schreiben oder ausführen. Für die eigentliche kleine Coding-Aufgabe bleibt OpenCode zuständig, optional mit Modell 'Big Pickel'.",
       "priority": "high",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "HFM-007",
           "title": "Read-only Enforcement für patch_propose testen",
           "type": "security-test",
           "priority": "critical",
-          "status": "todo",
+          "status": "done",
           "summary": "Patch-Vorschläge dürfen niemals automatisch angewendet werden.",
           "files": [
             "tests/test_hermes_free_models_read_only.py",
@@ -231,7 +231,7 @@
           "title": "Gemischter Hermes/OpenCode-Testlauf definieren",
           "type": "integration-test",
           "priority": "high",
-          "status": "todo",
+          "status": "done",
           "summary": "Der Testlauf soll zeigen: Hermes plant/reviewt, OpenCode implementiert die kleine Aufgabe.",
           "files": [
             "tests/test_hermes_opencode_small_project_flow.py",
@@ -261,14 +261,14 @@
       "title": "Dokumentation und Bedienbarkeit",
       "summary": "Die Konfiguration soll später leicht angepasst werden können, weil Free-Modelle bei Providern wechseln können.",
       "priority": "medium",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "HFM-009",
           "title": "Hermes-Free-Model-Routing dokumentieren",
           "type": "docs",
           "priority": "medium",
-          "status": "todo",
+          "status": "done",
           "summary": "Die neue Multi-Modell-Konfiguration braucht eine kurze Doku mit Beispiel und Warnhinweisen.",
           "files": [
             "docs/setup/hermes-worker.md",
@@ -289,7 +289,7 @@
           "title": "Free-Modell-Kandidaten zentral konfigurierbar machen",
           "type": "config",
           "priority": "medium",
-          "status": "todo",
+          "status": "done",
           "summary": "Da kostenlose Modelle wechseln können, sollen sie leicht austauschbar sein.",
           "files": [
             "config/hermes_free_model_candidates.default.json",
@@ -326,6 +326,12 @@
     "HFM-009",
     "HFM-010"
   ],
+  "task_counts": {
+    "total": 10,
+    "done": 10,
+    "partial": 0,
+    "todo": 0
+  },
   "definition_of_done": [
     "Hermes kann pro task_kind ein anderes Modell verwenden.",
     "Free-Modell-Policy kann ':free'-Suffix erzwingen.",

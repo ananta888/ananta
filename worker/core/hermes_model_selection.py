@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from pydantic import BaseModel, Field
 
 from worker.core.hermes_adapter_config import HermesAdapterConfig
@@ -46,6 +49,7 @@ class HermesModelSelectionService:
         "patch_apply", "command_execute", "shell_execute", "shell_execution",
         "service_mutation", "config_mutation", "workspace_mutation", "file_mutation",
     })
+    _DEFAULT_CANDIDATE_PATH = Path("config/hermes_free_model_candidates.default.json")
 
     def select_model(
         self,
@@ -112,6 +116,7 @@ class HermesModelSelectionService:
                 policy_decision="selected",
                 read_only_enforced=True,
                 mutation_allowed=False,
+                selected_response_profile=selected_response_profile,
             )
 
         def _is_valid_model(model_id: str, *, treat_unavailable_as_reject: bool = True) -> bool:
@@ -132,13 +137,33 @@ class HermesModelSelectionService:
 
         reason_codes: list[str] = ["READ_ONLY_ENFORCED"]
         rejected_models: list[str] = []
+        selected_response_profile: dict[str, object] | None = None
+        role_candidates = self._load_candidate_roles()
 
         preferred_model = str(context.preferred_model or "").strip()
-        if preferred_model and _is_valid_model(preferred_model):
-            return _accept(preferred_model, "preferred_model", False)
+        if preferred_model:
+            if _is_valid_model(preferred_model):
+                return _accept(preferred_model, "preferred_model", False)
+            reason_codes.append("NO_MODEL_AVAILABLE")
+            return HermesModelSelectionResult(
+                source="rejected",
+                rejected_models=rejected_models,
+                reason_codes=list(dict.fromkeys(reason_codes)),
+                policy_decision="preferred_model_rejected",
+                read_only_enforced=True,
+                mutation_allowed=False,
+            )
 
         if policy.prefer_task_specific_model and task_kind:
             task_model = str(config.task_kind_models.get(task_kind) or "").strip()
+            if task_model.startswith("role:") and policy.allow_candidate_roles:
+                role_name = task_model.split(":", 1)[1].strip()
+                for candidate in role_candidates.get(role_name, []):
+                    model_id = str(candidate.get("model_id") or "").strip()
+                    if _is_valid_model(model_id):
+                        selected_response_profile = candidate.get("response_profile") if isinstance(candidate.get("response_profile"), dict) else None
+                        reason_codes.append("CANDIDATE_ROLE_RESOLVED")
+                        return _accept(model_id, "candidate_role", False)
             if task_model and _is_valid_model(task_model):
                 return _accept(task_model, "task_kind_models", False)
 
@@ -148,9 +173,8 @@ class HermesModelSelectionService:
 
         if policy.allow_fallback_on_unavailable:
             fallback_models = config.fallback_models_for_task_kind(task_kind)
-            if not fallback_models and isinstance(config.fallback_free_models, dict):
-                fallback_models = config.fallback_models_for_task_kind("default")
-            for fallback_model in fallback_models:
+            default_fallback = config.fallback_models_for_task_kind("default") if isinstance(config.fallback_free_models, dict) else []
+            for fallback_model in list(fallback_models) + list(default_fallback):
                 if _is_valid_model(fallback_model):
                     return _accept(fallback_model, "fallback_free_models", True)
 
@@ -163,3 +187,30 @@ class HermesModelSelectionService:
             read_only_enforced=True,
             mutation_allowed=False,
         )
+
+    def _load_candidate_roles(self) -> dict[str, list[dict[str, object]]]:
+        path = self._DEFAULT_CANDIDATE_PATH
+        if not path.exists():
+            return {}
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        roles = payload.get("roles")
+        if not isinstance(roles, dict):
+            return {}
+        normalized: dict[str, list[dict[str, object]]] = {}
+        for role_name, values in roles.items():
+            if not isinstance(values, list):
+                continue
+            entries: list[dict[str, object]] = []
+            for item in values:
+                if not isinstance(item, dict):
+                    continue
+                model_id = str(item.get("model_id") or "").strip()
+                if not model_id:
+                    continue
+                entries.append(item)
+            if entries:
+                normalized[str(role_name)] = entries
+        return normalized

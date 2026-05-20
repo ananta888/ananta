@@ -1,0 +1,42 @@
+{
+  "roles": {
+    "lightweight_planner": [
+      {
+        "model_id": "z-ai/glm-4.5-air:free",
+        "provider": "openrouter",
+        "intended_task_kinds": ["plan_only", "summarize", "research_limited"],
+        "requires_api_key_env": "OPENROUTER_API_KEY",
+        "response_profile": {
+          "preferred_format": "strict_json",
+          "allows_markdown_fences": false,
+          "needs_json_repair": true,
+          "max_repair_attempts": 2,
+          "temperature": 0.1
+        }
+      }
+    ],
+    "coder_reviewer": [
+      {
+        "model_id": "qwen/qwen3-coder:free",
+        "provider": "openrouter",
+        "intended_task_kinds": ["review", "patch_propose"],
+        "requires_api_key_env": "OPENROUTER_API_KEY",
+        "response_profile": {
+          "preferred_format": "strict_json",
+          "allows_markdown_fences": false,
+          "needs_json_repair": true,
+          "max_repair_attempts": 2,
+          "temperature": 0.1
+        }
+      }
+    ],
+    "fallback": [
+      {
+        "model_id": "moonshotai/kimi-k2:free",
+        "provider": "openrouter",
+        "intended_task_kinds": ["plan_only", "summarize", "review", "patch_propose"],
+        "requires_api_key_env": "OPENROUTER_API_KEY"
+      }
+    ]
+  }
+}

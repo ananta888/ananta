@@ -14,6 +14,7 @@ from worker.core.execution_envelope import ArtifactRef, DegradedState, Execution
 from worker.core.hermes_adapter_config import HermesAdapterConfig
 from worker.core.hermes_context_converter import convert_context_blocks_to_prompt
 from worker.core.hermes_http_client import HermesClientConfig, HermesClientError, HermesHttpClient
+from worker.core.hermes_model_selection import HermesModelSelectionService, HermesRoutingContext
 from worker.core.hermes_output_parser import (
     HermesParseResult,
     parse_hermes_json_output,
@@ -51,6 +52,7 @@ class HermesAdapter:
         config: HermesAdapterConfig | None = None,
         client: HermesHttpClient | None = None,
         audit_emitter: AuditEmitter | None = None,
+        model_selection_service: HermesModelSelectionService | None = None,
     ) -> None:
         self.config = config or HermesAdapterConfig()
         self.profile = get_default_hermes_profile()
@@ -62,6 +64,7 @@ class HermesAdapter:
             )
         )
         self.audit_emitter = audit_emitter
+        self.model_selection_service = model_selection_service or HermesModelSelectionService()
         self._last_error_code: str = ""
 
     def health(self) -> dict[str, Any]:
@@ -165,10 +168,15 @@ class HermesAdapter:
         if endpoint_class == "cloud" and _has_sensitive_context(context_blocks):
             return WorkerResult.denied(envelope.task_id, "sensitivity_blocked", trace)
 
-        model_selection = self._select_model(envelope)
-        if model_selection.get("blocked"):
-            trace.append("hermes_model_blocked", reason_code="model_blocked", requested_model=model_selection.get("requested_model"))
-            return WorkerResult.denied(envelope.task_id, "model_blocked", trace)
+        model_selection = self._select_model(envelope=envelope, task_kind=requested_task_kind, mode=mode)
+        if model_selection["blocked"]:
+            trace.append(
+                "hermes_model_rejected",
+                reason_code="model_selection_rejected",
+                model_selection_source=model_selection.get("source"),
+                model_selection_reason_codes=model_selection.get("reason_codes", []),
+            )
+            return WorkerResult.denied(envelope.task_id, "model_selection_rejected", trace)
 
         # Local endpoints can process sensitive context; cloud endpoints require effective_cloud
         allow_sensitive = endpoint_class != "cloud" or effective_cloud
@@ -202,6 +210,9 @@ class HermesAdapter:
             context_truncated=len(converted.truncated),
             requested_model=model_selection["requested_model"],
             effective_model=model_selection["effective_model"],
+            model_selection_source=model_selection.get("source"),
+            fallback_used=model_selection.get("fallback_used", False),
+            model_selection_reason_codes=model_selection.get("reason_codes", []),
             context_hash=context_hash,
             prompt_hash=prompt_hash,
         )
@@ -245,9 +256,10 @@ class HermesAdapter:
                             parse_retry_used=parse_retry_used,
                             requested_model=model_selection["requested_model"],
                             effective_model=model_selection["effective_model"],
+                            model_selection_source=model_selection.get("source"),
                             response_hash=_hash_text(str(payload)),
                         )
-                        return self._success_result(mode, envelope, trace, payload, converted)
+                        return self._success_result(mode, envelope, trace, payload, converted, model_selection=model_selection)
 
                 if self.config.strict_json_required and self.config.parse_retry_enabled and not parse_retry_used:
                     parse_retry_used = True
@@ -275,11 +287,29 @@ class HermesAdapter:
                 self._last_error_code = exc.code
                 return self._failed(envelope, trace, exc.code)
 
-    def _select_model(self, envelope: ExecutionEnvelope) -> dict[str, Any]:
+    def _select_model(self, *, envelope: ExecutionEnvelope, task_kind: str, mode: str) -> dict[str, Any]:
         requested = str(envelope.model_policy.preferred_model or "").strip()
-        effective = requested or self.config.default_model
-        blocked = effective in set(self.config.blocked_models)
-        return {"requested_model": requested or None, "effective_model": effective, "blocked": blocked}
+        result = self.model_selection_service.select_model(
+            config=self.config,
+            context=HermesRoutingContext(
+                task_kind=task_kind,
+                execution_mode=mode,
+                required_capabilities=list(envelope.capability_grant.capabilities),
+                forbidden_capabilities=list(envelope.denied_operations),
+                mutation_allowed=False,
+                preferred_model=requested or None,
+            ),
+        )
+        return {
+            "requested_model": requested or None,
+            "effective_model": result.selected_model,
+            "blocked": result.selected_model is None,
+            "source": result.source,
+            "fallback_used": result.fallback_used,
+            "reason_codes": list(result.reason_codes),
+            "read_only_enforced": result.read_only_enforced,
+            "mutation_allowed": result.mutation_allowed,
+        }
 
     def _parse_model_response(self, payload: dict[str, Any]) -> HermesParseResult:
         content = _extract_text_content(payload)
@@ -292,6 +322,8 @@ class HermesAdapter:
         trace: Any,
         payload: dict[str, Any],
         converted: Any,
+        *,
+        model_selection: dict[str, Any],
     ) -> WorkerResult:
         artifact_id = f"hermes-{mode}-{envelope.task_id}"
         # HF-T015: compute artifact kind before construction — no post-construction mutation
@@ -308,7 +340,11 @@ class HermesAdapter:
             metadata={
                 "source": "hermes",
                 "adapter_version": "v1",
-                "model": envelope.model_policy.preferred_model or self.config.default_model,
+                "model": model_selection.get("effective_model") or self.config.default_model,
+                "model_selection_source": model_selection.get("source"),
+                "fallback_used": bool(model_selection.get("fallback_used")),
+                "model_selection_reason_codes": list(model_selection.get("reason_codes") or []),
+                "read_only_enforced": bool(model_selection.get("read_only_enforced", True)),
                 "content_hash": _hash_text(str(payload)),
                 "context_hash": _hash_text(converted.prompt_text),
                 "requires_approval_for_apply": bool(payload.get("requires_approval_for_apply", mode == "patch_propose")),
@@ -391,6 +427,9 @@ class HermesAdapter:
             "health_state": health.get("status"),
             "endpoint_classification": _classify_endpoint(self.config.base_url),
             "selected_default_model": self.config.default_model,
+            "task_kind_models": dict(self.config.task_kind_models),
+            "fallback_free_models": self.config.fallback_free_models,
+            "model_selection_policy": self.config.model_selection_policy.model_dump(),
             "allowed_task_kinds": list(self.config.allowed_task_kinds),
             "blocked_task_kinds": list(self.config.blocked_task_kinds),
             "allowed_capabilities": list(self.profile.allowed_capabilities),
