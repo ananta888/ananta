@@ -1157,6 +1157,17 @@ def _dispatch_one_task_inner(  # noqa: C901
                 required_context_tokens=required_context_tokens,
                 source=candidate_source,
             )
+            # Mark propose-in-flight to avoid duplicate concurrent dispatches
+            # on the same task while the worker is evaluating the proposal.
+            update_local_task_status(
+                task.id,
+                "proposing",
+                assigned_agent_url=target_worker.url,
+                assigned_agent_token=target_worker.token,
+                event_type="autopilot_propose_started",
+                event_actor="autopilot_tick",
+                force=True,
+            )
             try:
                 _propose_started = time.time()
                 candidate_data = loop._forward_with_retry(
