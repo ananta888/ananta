@@ -201,6 +201,33 @@ def _maybe_recover_planned_goal_without_candidates(*, loop: Any, services: Any, 
     if has_todo:
         return False
 
+    # Don't re-plan when tasks are awaiting human review — they represent a
+    # deliberate pause, not a planning gap.
+    has_review_pending = any(
+        str(getattr(task, "status", "") or "").strip().lower() in {"waiting_for_review", "needs_review"}
+        for task in non_terminal
+    )
+    if has_review_pending:
+        return False
+
+    # When ALL tasks are terminal and none completed, re-planning produces the same
+    # plan against the same context — it won't fix the underlying failure. Fail the
+    # goal immediately rather than burning max_attempts re-plan cycles.
+    if all_tasks and not non_terminal:
+        all_failed = all(
+            str(getattr(t, "status", "") or "").strip().lower() == "failed" for t in all_tasks
+        )
+        if all_failed:
+            try:
+                services.goal_lifecycle_service.transition_goal(
+                    goal,
+                    target_status="failed",
+                    reason="all_tasks_failed_no_recovery",
+                )
+            except Exception:
+                pass
+            return False
+
     now_ts = time.time()
     execution_preferences = dict(getattr(goal, "execution_preferences", None) or {})
     recovery = dict(execution_preferences.get("autopilot_recovery") or {})
