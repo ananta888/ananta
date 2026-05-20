@@ -20,6 +20,8 @@ CORE_COMMANDS = (
     "doctor",
     "web",
     "voice-file",
+    "prompt",
+    "llm-log",
 )
 COMPAT_COMMANDS = ("goal", "goals")
 
@@ -34,7 +36,10 @@ def build_parser() -> argparse.ArgumentParser:
             "  ananta status\n"
             "  ananta update --help\n"
             "  ananta ask \"What should I do next?\"\n"
-            "  ananta review \"Review auth changes\""
+            "  ananta review \"Review auth changes\"\n"
+            "  ananta llm-log tail --limit 10\n"
+            "  ananta prompt inspect --trace-id <id>\n"
+            "  ananta prompt render --mode generic --goal \"Build a CLI tool\""
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -43,7 +48,8 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         help=(
             "Command: init, first-run, status, ask, plan, analyze, review, diagnose, "
-            "patch, repair-admin, new-project, evolve-project, update, tui, doctor, web, voice-file"
+            "patch, repair-admin, new-project, evolve-project, update, tui, doctor, web, "
+            "voice-file, prompt, llm-log"
         ),
     )
     parser.add_argument("args", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
@@ -129,6 +135,36 @@ def _run_voice_file(argv: Sequence[str]) -> int:
     return _invoke(voice_file_main, argv)
 
 
+def _run_prompt(argv: Sequence[str]) -> int:
+    from agent.cli.prompt_inspect import (
+        build_prompt_subparser,
+        run_prompt_command,
+    )
+    sub_parser = argparse.ArgumentParser(prog="ananta prompt")
+    sub_sub = sub_parser.add_subparsers(dest="prompt_cmd")
+    build_prompt_subparser(sub_sub)
+    if not argv or argv[0] in ("-h", "--help"):
+        sub_parser.print_help()
+        return 0
+    parsed = sub_parser.parse_args(argv)
+    return run_prompt_command(parsed)
+
+
+def _run_llm_log(argv: Sequence[str]) -> int:
+    from agent.cli.prompt_inspect import (
+        build_llm_log_subparser,
+        run_llm_log_command,
+    )
+    sub_parser = argparse.ArgumentParser(prog="ananta llm-log")
+    sub_sub = sub_parser.add_subparsers(dest="llm_log_cmd")
+    build_llm_log_subparser(sub_sub)
+    if not argv or argv[0] in ("-h", "--help"):
+        sub_parser.print_help()
+        return 0
+    parsed = sub_parser.parse_args(argv)
+    return run_llm_log_command(parsed)
+
+
 def _run_compat_goals(argv: Sequence[str]) -> int:
     if not argv:
         print("Error: `ananta goal|goals` expects arguments.")
@@ -169,6 +205,10 @@ def main(argv: list[str] | None = None) -> int:
         return _run_voice_file(rest)
     if command in COMPAT_COMMANDS:
         return _run_compat_goals(rest)
+    if command == "prompt":
+        return _run_prompt(rest)
+    if command == "llm-log":
+        return _run_llm_log(rest)
     if command == "help":
         parser.print_help()
         return 0

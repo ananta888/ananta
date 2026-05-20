@@ -18,6 +18,9 @@ class ResolvedPlanningPrompt:
     mode: str
     prompt: str
     checksum: str
+    source_path: str = "config/planning_prompts.default.json"
+    is_inline_fallback: bool = False
+    optimizer_steps: tuple = ()  # tuple of dicts for hashability
 
 
 _DEFAULT_PATH = Path("config/planning_prompts.default.json")
@@ -115,6 +118,7 @@ class PlanningPromptRegistry:
                 mode=mode,
                 prompt=rendered,
                 checksum=self._checksum({"template": template, "lang": lang, "mode": mode}),
+                is_inline_fallback=True,
             )
 
         hints_block = ""
@@ -129,14 +133,25 @@ class PlanningPromptRegistry:
             preferred_output_format=(str(preferred_output_format or "").strip().lower() or "json"),
             domain_hints_block=hints_block,
         )
+        opt_steps: list[dict] = []
         try:
             from agent.services.planning_prompt_optimizer_service import get_planning_prompt_optimizer_service
+            import hashlib as _hl
 
+            _input_hash = _hl.sha256(rendered.encode("utf-8", errors="replace")).hexdigest()
             rendered, _style = get_planning_prompt_optimizer_service().optimize(
                 prompt=rendered,
                 preferred_output_format=preferred_output_format,
                 behavior_profile=behavior_profile,
             )
+            _output_hash = _hl.sha256(rendered.encode("utf-8", errors="replace")).hexdigest()
+            opt_steps.append({
+                "name": "planning_prompt_optimizer",
+                "style": _style,
+                "changed": _input_hash != _output_hash,
+                "input_hash": _input_hash,
+                "output_hash": _output_hash,
+            })
         except Exception:
             pass
         return ResolvedPlanningPrompt(
@@ -146,6 +161,8 @@ class PlanningPromptRegistry:
             mode=str(selected.mode),
             prompt=rendered,
             checksum=str(selected.checksum),
+            is_inline_fallback=False,
+            optimizer_steps=tuple(opt_steps),
         )
 
 

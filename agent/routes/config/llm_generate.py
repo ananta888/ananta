@@ -400,7 +400,9 @@ def llm_generate():
     full_history = [{"role": "system", "content": build_system_instruction(tools_desc=tools_desc, context=data.get("context"), stream=stream)}] + (data.get("history") if isinstance(data.get("history"), list) else [])
 
     def _with_meta(payload: dict) -> dict:
-        return {**payload, "routing": runtime["routing"], "assistant_capabilities": capability_meta}
+        trace_ids = list(getattr(g, "llm_prompt_trace_ids", []) or [])
+        prompt_traces = [{"trace_id": tid} for tid in trace_ids] if trace_ids else []
+        return {**payload, "routing": runtime["routing"], "assistant_capabilities": capability_meta, "prompt_traces": prompt_traces}
 
     if not runtime["provider"]:
         _log("llm_error", error="llm_not_configured", reason="missing_provider")

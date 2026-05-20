@@ -54,6 +54,15 @@ class Settings(BaseSettings):
     shell_path: Optional[str] = Field(default=None, validation_alias="SHELL_PATH")
     shell_pool_size: int = Field(default=5, validation_alias="SHELL_POOL_SIZE")
 
+    # Prompt Trace (PTI-003)
+    prompt_trace_enabled: bool = Field(default=True, validation_alias="PROMPT_TRACE_ENABLED")
+    prompt_trace_store_raw_prompts: bool = Field(default=False, validation_alias="PROMPT_TRACE_STORE_RAW_PROMPTS")
+    prompt_trace_store_raw_responses: bool = Field(default=False, validation_alias="PROMPT_TRACE_STORE_RAW_RESPONSES")
+    prompt_trace_redact_by_default: bool = Field(default=True, validation_alias="PROMPT_TRACE_REDACT_BY_DEFAULT")
+    prompt_trace_retention_days: int = Field(default=30, validation_alias="PROMPT_TRACE_RETENTION_DAYS")
+    prompt_trace_max_raw_chars: int = Field(default=8000, validation_alias="PROMPT_TRACE_MAX_RAW_CHARS")
+    prompt_trace_allowed_raw_access_modes: list = Field(default_factory=list, validation_alias="PROMPT_TRACE_ALLOWED_RAW_ACCESS_MODES")
+
     # Timeouts
     http_timeout: int = Field(default=60, validation_alias="HTTP_TIMEOUT")
     llm_invoke_timeout_seconds: int = Field(default=120, validation_alias="LLM_INVOKE_TIMEOUT_SECONDS")
