@@ -24,7 +24,7 @@ _DEFAULT_VALIDATION_PROFILES: dict[str, dict[str, Any]] = {
             "tests": 1,
             "review": 1,
         },
-        "max_generic_tasks": 0,
+        "max_generic_tasks": 2,
     },
     "generic": {
         "min_total_tasks": 3,
