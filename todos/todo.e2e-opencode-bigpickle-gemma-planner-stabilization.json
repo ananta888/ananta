@@ -1,0 +1,716 @@
+{
+  "schema_version": "todo.v2",
+  "id": "todo.e2e-opencode-bigpickle-gemma-planner-stabilization",
+  "title": "E2E Stabilisierung: Goal mit Gemma 4E4B Planner + OpenCode Big Pickle Worker",
+  "summary": "Ziel ist ein sauberer End-to-End-Testlauf eines Goals: Hub plant lokal über LM Studio mit Gemma 4E4B, Worker führen über OpenCode mit Big Pickle als kostenloses Cloud-Modell aus. In dieser Session wurden bereits drei Blocker gefixt: Stall-Recovery startet keine neuen plan_goal()-Calls mehr bei blocked_by_dependency Tasks, Semicolon-Guardrail ist quote-aware, und goal_cli.py defaultet bei --software nicht mehr hart auf new_software_project. Offen sind noch parallele LMStudio-Anfragen, Hub-Selbstzuweisung bei Worker-Restarts und fehlende aktivierte Worker-Workspace-Isolation bzw. Artifact/Git-Flow-Konfiguration.",
+  "current_status": {
+    "target_flow": "Goal -> Hub Planner Gemma 4E4B via LMStudio lokal -> Tasks -> OpenCode Worker mit Big Pickle Cloud-Modell -> gemeinsamer Goal-Workspace/Artifact-Flow -> Verification -> Goal completed",
+    "already_fixed_this_session": [
+      {
+        "id": "FIXED-001",
+        "title": "Parallele Planning-Calls durch Stall-Recovery reduziert",
+        "file": "agent/routes/tasks/autopilot_tick_engine.py",
+        "summary": "Stall-Recovery feuert nicht mehr erneut plan_goal(), wenn nicht-terminale Tasks im Status blocked_by_dependency existieren. Dadurch werden keine Duplikat-Tasks auf bestehende Dependency-Blocks gelegt. Der Fix ist im aktuellen Code sichtbar: has_blocked führt zu frühem return False."
+      },
+      {
+        "id": "FIXED-002",
+        "title": "Semicolon-Guardrail quote-aware",
+        "file": "shell/security.py",
+        "summary": "Semikolon in python -c \"...; ...\" soll nicht mehr als Shell-Chain-Operator geblockt werden. Gewünschte Semantik: quote-aware _has_unquoted() statt naive substring-Prüfung."
+      },
+      {
+        "id": "FIXED-003",
+        "title": "CLI --software Default generischer",
+        "file": "goal_cli.py",
+        "summary": "--software defaultet nicht mehr hart auf new_software_project, weil Gemma 4E4B dort nur einen dünnen Task erzeugte. Default ist jetzt generic, wodurch ca. 5 brauchbare Tasks entstehen."
+      }
+    ],
+    "open_blockers": [
+      "Parallele LMStudio-Anfragen laufen weiter: Hub plant, Worker alpha/beta senden Preflight-Pings, alte Tasks gecancelter Goals laufen noch mit.",
+      "Hub assigned Tasks an sich selbst über http://ai-agent-hub:5000, sobald Worker kurz nach Restart offline sind und Routing-Fallback greift.",
+      "Worker-Workspace-Isolation ist unklar/inkonsistent: Tasks eines Goals arbeiten in getrennten Verzeichnissen; Git-basierter Flow und Artifact-Flow existieren, sind aber für diesen E2E nicht eindeutig aktiv/konfiguriert."
+    ]
+  },
+  "code_analysis_findings": [
+    {
+      "id": "ANALYSIS-001",
+      "file": "agent/routes/tasks/autopilot_tick_engine.py",
+      "finding": "_maybe_recover_planned_goal_without_candidates() enthält inzwischen eine explizite blocked_by_dependency-Prüfung und gibt dann False zurück.",
+      "impact": "Der gemeldete Replanning-Duplikatpfad ist offenbar bereits in main gefixt und muss jetzt per Regression-Test gesichert werden."
+    },
+    {
+      "id": "ANALYSIS-002",
+      "file": "agent/routes/tasks/autopilot_dispatch_policy.py",
+      "finding": "resolve_target_worker_for_task() nimmt bei fehlendem assigned_agent_url einfach workers[worker_cursor % len(workers)]. Es gibt dort keine explizite Hub-als-Worker-Ausschlusslogik.",
+      "impact": "Wenn der Hub in der workers-Liste auftaucht oder als Fallback synthetisch verfügbar ist, kann er Zielworker werden. Hier braucht es eine harte Policy: Hub darf nur bei explizitem hub_can_be_worker=true und passendem Profil als Worker gewählt werden."
+    },
+    {
+      "id": "ANALYSIS-003",
+      "file": "agent/services/worker_workspace_service.py",
+      "finding": "WorkerWorkspaceService kann bereits workspace_dir, artifacts_dir, rag_helper_dir, artifact_sync, git_context und context_policy auflösen. workspace_dir wird aus worker_execution_context.workspace oder runtime_cfg.workspace_root abgeleitet.",
+      "impact": "Die Grundlage für Isolation und Artifact-Flow existiert. Für E2E fehlt eine klare Goal-scope-Strategie: shared goal workspace vs per-task workspace plus Artifact-Sync."
+    },
+    {
+      "id": "ANALYSIS-004",
+      "file": "agent/services/worker_workspace_service.py",
+      "finding": "_init_git_context() ist bereits vorhanden und schaut auf effective_config.git_workspace.enabled. Branch-Name wird aus goal_id, worker_key und branch_strategy gebildet.",
+      "impact": "Git-basierte Workspace-Isolation existiert, muss aber im E2E-Profil aktiviert und getestet werden."
+    },
+    {
+      "id": "ANALYSIS-005",
+      "file": "agent/services/worker_workspace_service.py",
+      "finding": "artifact_sync ist default enabled=true/sync_to_hub=true und Changed-File-Detection/Baseline-Funktionen existieren.",
+      "impact": "Artifact-first Completion ist technisch vorbereitet, aber der E2E muss sicherstellen, dass Folge-Tasks die Artefakte/Vorarbeiten vorheriger Tasks sehen."
+    },
+    {
+      "id": "ANALYSIS-006",
+      "file": "agent/services/task_scoped_execution_service.py",
+      "finding": "TaskScopedExecutionService importiert WorkerWorkspaceService und baut OpenCode-Kontextdateien wie AGENTS.md, task-brief.md, response-contract.md, tool-definitions.json und research-context. In response-contract.md kann allow_complex_shell die Command-Regel verändern.",
+      "impact": "OpenCode bekommt bereits Workspace-Kontext. Für Big Pickle E2E muss die Response Contract Semantik mit der neuen quote-aware Shell Policy konsistent sein."
+    }
+  ],
+  "tracks": [
+    {
+      "id": "E2E-BP-TRACK-001",
+      "title": "E2E-Profil für Gemma Planner + OpenCode Big Pickle Worker definieren",
+      "summary": "Der Zieltest braucht ein fixes, reproduzierbares Profil: Gemma 4E4B lokal über LMStudio nur für Planning; OpenCode mit Big Pickle für Coding/Execution; keine Hub-Selbstarbeit; klare Workspace-Strategie.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "E2E-BP-001",
+          "title": "Scenario-Datei für Gemma Planner + OpenCode Big Pickle anlegen",
+          "type": "config",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Eine dedizierte Scenario-Datei kapselt alle Einstellungen für den gewünschten E2E-Lauf.",
+          "files": [
+            "scripts/single_opencode_bigpickle_gemma_planner_scenario.json",
+            "tests/test_opencode_bigpickle_gemma_scenario.py"
+          ],
+          "description": "Neues Szenario definiert default_provider=lmstudio, planner_model=Gemma 4E4B, worker backend=opencode, opencode model=Big Pickle, mode=generic, max_concurrency=1 oder kontrolliert, hub_can_be_worker=false und Workspace-Policy.",
+          "implementation_notes": [
+            "Config-Felder: default_provider='lmstudio', default_model='gemma-4e4b' oder konfigurierbarer tatsächlicher LMStudio model id.",
+            "sgpt_routing/task_kind_backend: planning/analysis -> hub/lmstudio, coding/testing/review? -> opencode je nach Ziel.",
+            "opencode model als OPENCODE_TEST_MODEL env override, Default 'Big Pickle'.",
+            "hub_can_be_worker=false hart im Szenario setzen.",
+            "max_concurrency für ersten stabilen Lauf auf 1 setzen, später kontrolliert auf 2 erhöhen.",
+            "mode default generic, nicht new_software_project."
+          ],
+          "acceptance_criteria": [
+            "Szenario-JSON ist valides JSON und lädt ohne Fehler.",
+            "Szenario setzt hub_can_be_worker=false.",
+            "Planner-Runtime ist LMStudio/Gemma 4E4B.",
+            "OpenCode-Testmodell ist Big Pickle oder über OPENCODE_TEST_MODEL überschreibbar.",
+            "Task mode ist generic oder explizit so gesetzt, dass Gemma mehrere Tasks erzeugt.",
+            "Offline-Test validiert Routing ohne echten LMStudio/OpenCode-Aufruf."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "E2E-BP-002",
+          "title": "E2E-Testgoal minimal und eindeutig definieren",
+          "type": "test-design",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Das Goal muss klein genug sein, aber Planning, Coding, Testing und Artifact-Flow wirklich auslösen.",
+          "files": [
+            "scripts/single_opencode_bigpickle_gemma_planner_scenario.json",
+            "tests/e2e/test_opencode_bigpickle_gemma_goal_flow.py"
+          ],
+          "description": "Testgoal erzeugt ein kleines Python-Projekt, z.B. mini_slugify oder hello/greet, mit klaren erwarteten Dateien und Tests. Keine externen Dependencies.",
+          "implementation_notes": [
+            "Goal: Create a tiny Python utility mini_slugify with tests and README.",
+            "Expected files: mini_slugify.py, test_mini_slugify.py, README.md.",
+            "Verification: python -m pytest oder python -c smoke test.",
+            "Semicolon-Testcommand gezielt als mögliche Worker-Command-Form abdecken.",
+            "Keine pip install oder Netzwerkabhängigkeit."
+          ],
+          "acceptance_criteria": [
+            "Goal ist in Scenario-Datei enthalten.",
+            "Goal erzeugt mindestens Coding- und Testing-Tasks im Plan.",
+            "Keine externen Paketinstallationen nötig.",
+            "Expected artifacts sind eindeutig benannt.",
+            "E2E-Test kann offline gemockt und optional live markiert laufen."
+          ],
+          "depends_on": ["E2E-BP-001"]
+        }
+      ]
+    },
+    {
+      "id": "E2E-BP-TRACK-002",
+      "title": "LMStudio Planning Single-Flight und alte Tasks sauber stoppen",
+      "summary": "Aktuell laufen parallele LMStudio-Anfragen: Hub plant, Worker pingen, alte Tasks gecancelter Goals laufen weiter. Für stabilen E2E braucht es Single-Flight pro Goal, keine Worker-Preflight-Pings gegen Planner und Cancellation-Enforcement.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "E2E-BP-003",
+          "title": "PlanningSingleFlightService pro Goal einführen",
+          "type": "bugfix",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Pro Goal darf nur ein plan_goal()-Call aktiv sein.",
+          "files": [
+            "agent/services/planning_singleflight_service.py",
+            "agent/routes/tasks/autopilot_tick_engine.py",
+            "agent/routes/tasks/goals.py"
+          ],
+          "description": "Ein SingleFlight-/Lease-Service verhindert parallele Planning-Calls für dasselbe Goal. Er nutzt goal_id als Key, TTL und idempotente Release-Logik.",
+          "implementation_notes": [
+            "API: acquire(goal_id, reason, ttl_seconds) -> acquired/held_by/age.",
+            "release(goal_id, lease_id).",
+            "Bei bestehendem Lease: Planning skippen und Product/Event/History-Eintrag planning_singleflight_skipped schreiben.",
+            "TTL konservativ, z.B. 300 Sekunden, konfigurierbar.",
+            "Muss process-lokal starten; später DB/Redis-lock möglich.",
+            "Stall-Recovery muss vor plan_goal acquire prüfen."
+          ],
+          "acceptance_criteria": [
+            "Zwei parallele plan_goal()-Versuche für dasselbe Goal führen zu genau einem echten LLM-Planning-Call.",
+            "Zweiter Versuch wird mit reason=planning_singleflight_active übersprungen.",
+            "Lease wird nach Erfolg/Fehler freigegeben.",
+            "Abgelaufener Lease blockiert nicht dauerhaft.",
+            "Test simuliert parallele Threads ohne echten LMStudio-Aufruf."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "E2E-BP-004",
+          "title": "Worker-Preflight-Pings von Planner-Runtime trennen",
+          "type": "bugfix",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Worker alpha/beta dürfen nicht parallel den lokalen LMStudio Planner belasten, wenn sie nur OpenCode ausführen sollen.",
+          "files": [
+            "agent/llm_integration.py",
+            "agent/services/task_scoped_execution_service.py",
+            "agent/services/worker_execution_profile_service.py",
+            "agent/config_defaults.py"
+          ],
+          "description": "Preflight-/health checks für Worker sollen gegen den tatsächlich zuständigen Worker-Backend laufen oder deaktivierbar sein. OpenCode-Worker dürfen nicht unnötig Gemma/LMStudio anpingen.",
+          "implementation_notes": [
+            "Config: worker_preflight.enabled, worker_preflight.llm_runtime_probe_enabled, worker_preflight.provider_scope.",
+            "Für opencode backend: kein LMStudio generate_text ping; höchstens CLI/backend availability check.",
+            "Planner LMStudio ist Hub-only in diesem Szenario.",
+            "Preflight-Ping muss in Trace/Logs klar als preflight markiert sein, falls aktiv.",
+            "Default konservativ: keine LLM-Preflight-Pings für Worker, außer explizit aktiviert."
+          ],
+          "acceptance_criteria": [
+            "Im BigPickle/Gemma-Szenario erzeugen Worker alpha/beta keine LMStudio generate_text Preflight-Calls.",
+            "Hub Planning erzeugt genau einen LMStudio Call pro Planning-Versuch.",
+            "OpenCode Worker Health wird ohne LMStudio-Prompt geprüft.",
+            "Konfiguration kann LLM-Preflight bewusst aktivieren, ist aber default aus.",
+            "Tests prüfen Call-Zähler: worker_preflight verursacht 0 LMStudio LLM calls."
+          ],
+          "depends_on": ["E2E-BP-001", "E2E-BP-003"]
+        },
+        {
+          "id": "E2E-BP-005",
+          "title": "Cancelled Goal Task Execution hart unterbinden",
+          "type": "bugfix",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Alte Tasks aus gecancelten Goals dürfen nicht weiterlaufen oder Worker-Ressourcen belegen.",
+          "files": [
+            "agent/routes/tasks/autopilot_tick_engine.py",
+            "agent/services/task_scoped_execution_service.py",
+            "agent/services/task_execution_service.py",
+            "agent/services/goal_lifecycle_service.py"
+          ],
+          "description": "Vor Dispatch, Proposal und Execution wird der Parent-Goal-Status geprüft. Ist das Goal cancelled/failed/completed, wird der Task nicht mehr ausgeführt und auf cancelled/stale_goal gesetzt.",
+          "implementation_notes": [
+            "Central helper: is_parent_goal_active(task).",
+            "Autopilot candidate filter entfernt Tasks gecancelter Goals.",
+            "TaskScopedExecutionService prüft unmittelbar vor Worker-Aufruf erneut.",
+            "Laufende/assigned Tasks beim Goal-Cancel auf cancellation_requested markieren.",
+            "Worker responses für gecancelte Tasks werden ignoriert oder als stale_worker_result gespeichert."
+          ],
+          "acceptance_criteria": [
+            "Task eines cancelled Goals wird nicht dispatcht.",
+            "Task eines während Proposal gecancelten Goals wird nicht executed.",
+            "Alte Worker-Response nach Cancel ändert Goal/Task nicht zurück auf in_progress/completed.",
+            "Task-History enthält reason parent_goal_cancelled.",
+            "E2E-Setup startet mit sauberem Zustand ohne alte gecancelte Tasks."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "E2E-BP-006",
+          "title": "Clean-E2E-Run Reset Command ergänzen",
+          "type": "cli",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Vor einem Live-E2E-Lauf muss ein sauberer Zustand hergestellt werden können.",
+          "files": [
+            "agent/cli/main.py",
+            "agent/cli/e2e.py",
+            "tests/test_cli_e2e_reset.py"
+          ],
+          "description": "CLI-Befehl markiert alte Test-Goals/Tasks als cancelled, leert nur test-spezifische Worker-Runtime-Artefakte und zeigt aktiven LMStudio/OpenCode-Status.",
+          "implementation_notes": [
+            "Command: ananta e2e reset --scenario opencode-bigpickle-gemma --yes.",
+            "Nur Goals mit Scenario/Test-Label anfassen, niemals allgemeine User-Tasks.",
+            "Optional --dry-run zeigt betroffene Goals/Tasks.",
+            "Data cleanup darf keine globalen Logs löschen.",
+            "Output enthält counts: goals_cancelled, tasks_cancelled, workspaces_archived."
+          ],
+          "acceptance_criteria": [
+            "Dry-run ändert nichts und zeigt betroffene Test-Goals.",
+            "Reset cancelt nur Goals mit passendem scenario_id/e2e_label.",
+            "Nach Reset gibt es keine nicht-terminalen Tasks für alte Scenario-Runs.",
+            "Command hat Safety Prompt oder --yes Pflicht.",
+            "Tests laufen mit temporären Repos/Fakes."
+          ],
+          "depends_on": ["E2E-BP-005"]
+        }
+      ]
+    },
+    {
+      "id": "E2E-BP-TRACK-003",
+      "title": "Hub darf sich nicht selbst als Worker auswählen",
+      "summary": "Wenn Worker kurz offline sind, darf Routing nicht auf http://ai-agent-hub:5000 zurückfallen. Hub-Selbstzuweisung ist im E2E ein harter Fehler, außer explizit hub_can_be_worker=true plus passendes Profil.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "E2E-BP-007",
+          "title": "Dispatch-Policy: Hub-Worker-Kandidaten hart filtern",
+          "type": "bugfix",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "resolve_target_worker_for_task darf den Hub nicht als Worker zurückgeben, wenn hub_can_be_worker=false ist.",
+          "files": [
+            "agent/routes/tasks/autopilot_dispatch_policy.py",
+            "agent/services/autopilot_support_service.py"
+          ],
+          "description": "Worker-Kandidatenliste wird vor resolve_target_worker_for_task normalisiert: Hub-URL, Agent role=hub oder self-url werden entfernt, sofern hub_can_be_worker nicht explizit erlaubt ist.",
+          "implementation_notes": [
+            "Helper: filter_dispatchable_workers(workers, hub_url, self_url, hub_can_be_worker).",
+            "Vergleich normalisiert URLs ohne trailing slash.",
+            "Erkennt http://ai-agent-hub:5000, localhost/self und configured agent_url/hub_url.",
+            "Wenn nach Filter keine Worker übrig sind: no_workers_available, nicht fallback to hub.",
+            "Dispatch debug payload um filtered_hub_worker_count ergänzen."
+          ],
+          "acceptance_criteria": [
+            "Bei hub_can_be_worker=false wird http://ai-agent-hub:5000 aus Worker-Kandidaten entfernt.",
+            "Wenn nur Hub übrig ist, wird kein Task dispatched.",
+            "no_candidate_reason ist no_workers_available oder hub_self_worker_filtered.",
+            "Bei hub_can_be_worker=true und passendem Profil darf Hub optional gewählt werden.",
+            "Tests prüfen URL-Normalisierung mit und ohne trailing slash."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "E2E-BP-008",
+          "title": "Assigned Agent URL gegen aktuelle Online-Worker validieren",
+          "type": "bugfix",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Tasks mit alter assigned_agent_url dürfen nicht an offline Worker oder Hub-Fallback kleben bleiben.",
+          "files": [
+            "agent/routes/tasks/autopilot_dispatch_policy.py",
+            "agent/routes/tasks/autopilot_tick_engine.py"
+          ],
+          "description": "Wenn task.assigned_agent_url gesetzt ist, muss sie gegen online dispatchable workers validiert werden. Offline oder Hub-self URL führt zu reassignment_pending/no_workers_available statt Hub-Fallback.",
+          "implementation_notes": [
+            "resolve_target_worker_for_task erweitert um dispatchable_workers und reject_reason.",
+            "Wenn assigned_agent_url nicht online: return None + reason assigned_worker_offline.",
+            "Wenn assigned_agent_url Hub und Hub verboten: return None + reason assigned_worker_is_hub_forbidden.",
+            "Autopilot kann Task wieder auf queued/retry setzen, nicht an Hub senden.",
+            "History Event worker_assignment_invalid ergänzen."
+          ],
+          "acceptance_criteria": [
+            "Task mit assigned_agent_url=http://ai-agent-hub:5000 wird nicht dispatched, wenn Hub verboten ist.",
+            "Task mit assigned_agent_url zu offline alpha wird nicht an Hub fallbacked.",
+            "History enthält assigned_worker_offline oder assigned_worker_is_hub_forbidden.",
+            "Wenn alpha wieder online ist, kann Task erneut an alpha dispatched werden.",
+            "Keine Self-Assignment in BigPickle/Gemma E2E."
+          ],
+          "depends_on": ["E2E-BP-007"]
+        },
+        {
+          "id": "E2E-BP-009",
+          "title": "Worker Restart Grace Period ergänzen",
+          "type": "feature",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Kurz nach Restart sollen Tasks nicht sofort fälschlich an falsche Ziele fallen.",
+          "files": [
+            "agent/services/autopilot_support_service.py",
+            "agent/routes/tasks/autopilot_tick_engine.py",
+            "agent/config_defaults.py"
+          ],
+          "description": "Wenn Worker gerade offline/online flappen, kann Autopilot eine kurze Grace Period einhalten, bevor Tasks neu zugewiesen werden. Das verhindert Hub-Fallback und unnötige Reassignments direkt nach Restart.",
+          "implementation_notes": [
+            "Config: worker_restart_grace_seconds default 10-30.",
+            "Worker last_seen/last_offline_at/last_status_change_at auswerten, falls vorhanden.",
+            "Wenn keine dispatchable workers, aber recently_seen workers existieren: reason worker_restart_grace_period.",
+            "Autopilot tick verschiebt Dispatch statt fallback.",
+            "Debug payload zeigt grace period."
+          ],
+          "acceptance_criteria": [
+            "Worker kurz offline -> Task wird nicht an Hub zugewiesen.",
+            "Während Grace Period bleibt Task queued/blocked_waiting_for_worker.",
+            "Nach Grace Period und weiterhin keinem Worker: no_workers_available.",
+            "Wenn Worker zurückkommt, wird Task an Worker dispatched.",
+            "Tests simulieren Worker-Restart ohne sleep über fake clock."
+          ],
+          "depends_on": ["E2E-BP-007", "E2E-BP-008"]
+        }
+      ]
+    },
+    {
+      "id": "E2E-BP-TRACK-004",
+      "title": "Worker Workspace Isolation und Artifact/Git Flow aktivieren",
+      "summary": "Der Workspace-Service hat bereits Mechanismen, aber der Ziel-E2E braucht eine klare Strategie. Entweder ein gemeinsamer Goal-Workspace oder per-task Workspaces mit Artifact-Sync und Git/Branch-Merge. Für einen stabilen ersten Lauf wird ein goal-scoped Workspace empfohlen.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "E2E-BP-010",
+          "title": "Goal-scoped Workspace Strategy für E2E konfigurieren",
+          "type": "config",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Alle Tasks desselben E2E-Goals sollen im gleichen kontrollierten Workspace arbeiten oder Artefakte sauber weiterreichen.",
+          "files": [
+            "agent/services/worker_workspace_service.py",
+            "agent/services/task_scoped_execution_service.py",
+            "scripts/single_opencode_bigpickle_gemma_planner_scenario.json"
+          ],
+          "description": "Für den ersten stabilen E2E wird workspace.scope_key auf goal_id gesetzt, z.B. /project-workspaces/e2e-opencode-bigpickle-gemma/<goal_id>. Dadurch sehen Folge-Tasks Dateien vorheriger Tasks direkt. Output-Dir-Lock verhindert parallele Schreibkonflikte.",
+          "implementation_notes": [
+            "worker_execution_context.workspace.scope_key='goal:{goal_id}' oder normalisiert goal id.",
+            "workspace.output_dir optional deterministisch aus scenario_id + goal_id.",
+            "output_dir_locking_enabled=true.",
+            "max_concurrency=1 für ersten E2E, damit gemeinsamer Workspace keine Race Conditions erzeugt.",
+            "Später kann auf per-task workspace + artifact flow gewechselt werden."
+          ],
+          "acceptance_criteria": [
+            "Alle Tasks desselben E2E-Goals erhalten denselben workspace_dir.",
+            "Tasks unterschiedlicher Goals erhalten unterschiedliche workspace_dir.",
+            "Workspace liegt innerhalb erlaubtem workspace_root/project-workspaces.",
+            "OutputDirLock verhindert parallele Schreibausführung im gleichen Workspace.",
+            "Folge-Task sieht Datei aus vorherigem Task."
+          ],
+          "depends_on": ["E2E-BP-001"]
+        },
+        {
+          "id": "E2E-BP-011",
+          "title": "Artifact-first Completion für E2E verifizieren",
+          "type": "test",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Auch wenn ein gemeinsamer Workspace genutzt wird, müssen erzeugte Artefakte korrekt erkannt und ans Goal zurückgebunden werden.",
+          "files": [
+            "agent/services/worker_workspace_service.py",
+            "agent/services/task_runtime_service.py",
+            "tests/test_e2e_workspace_artifact_flow.py"
+          ],
+          "description": "Test prüft detect_changed_files, meaningful file filtering, artifact refs und task/goal metadata nach OpenCode-Ausführung.",
+          "implementation_notes": [
+            "Stub workspace mit vorher/nachher Snapshot.",
+            "Erzeuge mini_slugify.py und test_mini_slugify.py.",
+            "Prüfe artifact_refs in finalize_task_execution_response.",
+            "Nicht-Artefakte wie .ananta/AGENTS.md nicht als Ergebnisartefakte zählen.",
+            "Artifact-Manifest soll relative Pfade enthalten."
+          ],
+          "acceptance_criteria": [
+            "Geänderte Projektdateien werden als meaningful changed files erkannt.",
+            ".ananta/* und rag_helper-Kontextdateien werden nicht als Ergebnisartefakte gezählt.",
+            "Task response enthält artifact refs für erzeugte Dateien.",
+            "Goal kann anhand artifact refs Completion bewerten.",
+            "Tests laufen ohne echten OpenCode."
+          ],
+          "depends_on": ["E2E-BP-010"]
+        },
+        {
+          "id": "E2E-BP-012",
+          "title": "Git Workspace Flow im E2E-Profil optional aktivieren",
+          "type": "feature",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Der bestehende Git-Kontext soll optional genutzt werden, aber den ersten stabilen E2E nicht blockieren.",
+          "files": [
+            "agent/services/worker_workspace_service.py",
+            "agent/services/workspace_git_service.py",
+            "scripts/single_opencode_bigpickle_gemma_planner_scenario.json",
+            "tests/test_e2e_git_workspace_profile.py"
+          ],
+          "description": "Szenario erhält git_workspace.enabled=false für ersten Lauf und optionales Profil git_workspace.enabled=true mit branch_strategy=goal. Tests validieren beide Modi.",
+          "implementation_notes": [
+            "Erster E2E: git_workspace disabled, goal-scoped workspace aktiv.",
+            "Optional E2E-Git-Profil: git_workspace enabled, branch_strategy goal.",
+            "Wenn Git init fehlschlägt, darf non-git E2E nicht fehlschlagen.",
+            "git_context in WorkspaceContext sichtbar machen und diagnostizieren."
+          ],
+          "acceptance_criteria": [
+            "Default E2E läuft ohne Git-Remote.",
+            "Optionales Git-Profil initialisiert git_context.",
+            "branch_strategy=goal erzeugt deterministischen Branch pro Goal.",
+            "Git-Fehler werden diagnostiziert, aber nicht still verschluckt, wenn Git-Profil explizit required ist.",
+            "Tests prüfen enabled=false und enabled=true Verhalten."
+          ],
+          "depends_on": ["E2E-BP-010"]
+        },
+        {
+          "id": "E2E-BP-013",
+          "title": "Workspace Context Manifest im Task/Goal sichtbar machen",
+          "type": "observability",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Beim Debuggen muss klar sein, welcher Task in welchem Workspace gearbeitet hat.",
+          "files": [
+            "agent/services/task_scoped_execution_service.py",
+            "agent/services/worker_workspace_service.py",
+            "agent/routes/tasks/goals.py"
+          ],
+          "description": "Task last_proposal/last_execution und Goal diagnostics zeigen workspace_dir, scope_key, artifact_sync, git_context und context manifest path redacted/normalisiert.",
+          "implementation_notes": [
+            "Keine Host-Secrets in Pfaden; ggf. nur workspace_root-relative Pfade.",
+            "Manifest enthält scenario_id, goal_id, task_id, worker_url, workspace_scope.",
+            "Goal prompt-trace/workspace diagnostics verlinken auf Tasks.",
+            "Bei gemeinsamer Goal-Workspace-Strategie explizit shared_goal_workspace=true."
+          ],
+          "acceptance_criteria": [
+            "Task metadata enthält workspace_dir oder workspace_rel_path.",
+            "Goal diagnostics zeigen alle verwendeten workspaces.",
+            "Bei E2E sind alle Task-workspaces identisch, wenn goal-scoped aktiv ist.",
+            "Artifact sync config ist sichtbar.",
+            "Sensitive absolute Pfade werden optional redacted."
+          ],
+          "depends_on": ["E2E-BP-010", "E2E-BP-011"]
+        }
+      ]
+    },
+    {
+      "id": "E2E-BP-TRACK-005",
+      "title": "Planning-Qualität für Gemma 4E4B im generic Mode absichern",
+      "summary": "CLI-Default auf generic hilft, aber der Planner muss im E2E zuverlässig mehrere ausführbare Tasks erzeugen und keine dünnen 1-Task-Pläne liefern.",
+      "priority": "high",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "E2E-BP-014",
+          "title": "Gemma Generic Planning Contract für E2E definieren",
+          "type": "feature",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Der E2E erwartet mehrere sinnvolle Tasks, nicht einen dünnen Monolith-Task.",
+          "files": [
+            "config/planning_model_profiles.default.json",
+            "config/planning_prompts.default.json",
+            "agent/services/planning_contract.py",
+            "tests/test_gemma_generic_planning_contract.py"
+          ],
+          "description": "Für Gemma 4E4B/generic wird ein Contract gesetzt: mindestens 4 Tasks, davon analysis/setup, coding, testing, review/finalize; klare Dependencies; Tasks müssen ausführbar sein.",
+          "implementation_notes": [
+            "Contract mode generic + task_kind software/e2e.",
+            "Min tasks 4, recommended 5.",
+            "Task payload required: title, description, task_kind, dependencies optional, acceptance criteria optional.",
+            "Prompt für Gemma explizit: create 5 small executable tasks, no monolithic task.",
+            "Repair-Prompt bei too_few_tasks."
+          ],
+          "acceptance_criteria": [
+            "Gemma generic plan mit 1 Task wird abgelehnt oder repariert.",
+            "Plan mit 5 Tasks und Dependencies wird akzeptiert.",
+            "Tasks enthalten mindestens coding und testing.",
+            "blocked_by_dependency Tasks entstehen nur bei realen Dependencies.",
+            "Tests nutzen gemockte Modellantworten."
+          ],
+          "depends_on": ["E2E-BP-001"]
+        },
+        {
+          "id": "E2E-BP-015",
+          "title": "Planning-Dry-Run für Gemma E2E hinzufügen",
+          "type": "test",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Vor dem Live-Lauf soll der finale Planning-Prompt und Contract lokal inspectbar sein.",
+          "files": [
+            "tests/test_gemma_e2e_planning_dry_run.py",
+            "todos/todo.prompt-trace-inspection.json"
+          ],
+          "description": "Test nutzt PromptTrace/Dry-Run-Rendering oder Mock-Registry, um zu prüfen, dass der Gemma-Prompt mode=generic, expected task count und JSON contract enthält.",
+          "implementation_notes": [
+            "Kein LMStudio-Aufruf.",
+            "Rendere Prompt für Scenario-Goal.",
+            "Prüfe preferred_output_format=json.",
+            "Prüfe keine new_software_project Default-Verwechslung.",
+            "PromptTrace optional referenzieren."
+          ],
+          "acceptance_criteria": [
+            "Dry-run Prompt enthält mode=generic oder entsprechende generic template provenance.",
+            "Prompt fordert mehrere Tasks, nicht Single Task.",
+            "Prompt verlangt JSON-only/structured output.",
+            "Dry-run macht keinen Provider-Call.",
+            "Fehlende PromptTrace-Implementierung blockiert Test nicht, solange Rendering prüfbar ist."
+          ],
+          "depends_on": ["E2E-BP-014"]
+        }
+      ]
+    },
+    {
+      "id": "E2E-BP-TRACK-006",
+      "title": "Live-/Offline-E2E-Testlauf und Observability",
+      "summary": "Der Zieltest soll offline als Mock/Dry-Run stabil laufen und optional live mit LMStudio/OpenCode ausgeführt werden. Debug-Ausgaben müssen zeigen, ob Hub, Worker, Planner und Workspace korrekt arbeiten.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "E2E-BP-016",
+          "title": "Offline E2E Mock Test implementieren",
+          "type": "test",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "CI-stabiler Test ohne echte Cloud-/LMStudio-Abhängigkeit.",
+          "files": [
+            "tests/e2e/test_opencode_bigpickle_gemma_goal_flow.py"
+          ],
+          "description": "Mockt Gemma Planning-Antwort mit 5 Tasks und OpenCode Worker-Antworten/Workspace-Änderungen. Prüft Dispatch, keine Hub-Selbstzuweisung, Workspace-Strategie, Artifact-Flow und final completed.",
+          "implementation_notes": [
+            "Fake Planner returns 5 tasks.",
+            "Fake Worker/OpenCode creates expected files in workspace.",
+            "No network, no real provider.",
+            "Assert no worker URL equals hub URL.",
+            "Assert one goal-scoped workspace across tasks.",
+            "Assert final verification success."
+          ],
+          "acceptance_criteria": [
+            "Offline E2E läuft ohne LMStudio, OpenCode oder API-Key.",
+            "Goal endet completed.",
+            "Mindestens coding und testing Task laufen.",
+            "Kein Task wird an http://ai-agent-hub:5000 assigned.",
+            "Alle Tasks verwenden erwartete Workspace-Strategie.",
+            "Artifact refs enthalten mini_slugify.py/test_mini_slugify.py oder entsprechende Testdateien."
+          ],
+          "depends_on": ["E2E-BP-003", "E2E-BP-007", "E2E-BP-010", "E2E-BP-014"]
+        },
+        {
+          "id": "E2E-BP-017",
+          "title": "Optionalen Live E2E Test mit Skip Conditions implementieren",
+          "type": "integration-test",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Der echte Zieltest läuft nur, wenn LMStudio und OpenCode/Big Pickle verfügbar sind.",
+          "files": [
+            "tests/e2e/test_live_opencode_bigpickle_gemma_goal_flow.py"
+          ],
+          "description": "Live-Test prüft Environment: LMStudio reachable, Gemma model available, OpenCode enabled, Big Pickle model configured/API key vorhanden. Fehlt etwas, wird sauber geskippt.",
+          "implementation_notes": [
+            "Env: ANANTA_LIVE_E2E=1, LMSTUDIO_BASE_URL, GEMMA_PLANNER_MODEL, OPENCODE_ENABLED=1, OPENCODE_TEST_MODEL='Big Pickle'.",
+            "Provider availability probes nicht als Planning-Calls zählen.",
+            "Timeouts großzügig, aber begrenzt.",
+            "Nach Test Cleanup über E2E reset.",
+            "Logs/PromptTraces speichern, aber redacted."
+          ],
+          "acceptance_criteria": [
+            "Ohne ANANTA_LIVE_E2E=1 wird Test skipped.",
+            "Ohne LMStudio erreichbar wird skipped mit klarer Reason.",
+            "Ohne OpenCode/Big Pickle wird skipped mit klarer Reason.",
+            "Mit allen Voraussetzungen läuft echter Goal E2E durch.",
+            "Live-Test erzeugt keine Hub-Selbstzuweisung und keine parallelen Planner Calls."
+          ],
+          "depends_on": ["E2E-BP-016"]
+        },
+        {
+          "id": "E2E-BP-018",
+          "title": "E2E Run Diagnostics Report erzeugen",
+          "type": "observability",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Nach jedem E2E-Lauf soll klar sein, welche Calls/Worker/Workspaces genutzt wurden.",
+          "files": [
+            "agent/services/e2e_diagnostics_service.py",
+            "agent/cli/e2e.py",
+            "tests/test_e2e_diagnostics_service.py"
+          ],
+          "description": "Report enthält Goal-ID, Task-IDs, Planner Calls, Worker Assignments, Workspace dirs, artifacts, blocked/skipped reasons, LMStudio call count, OpenCode call count und final status.",
+          "implementation_notes": [
+            "Command: ananta e2e report --goal-id <id> --json/--markdown.",
+            "Nutze PromptTrace, llm_call_profile, task history, worker assignment metadata und workspace manifest.",
+            "Wenn PromptTrace noch nicht implementiert: Fallback auf llm_log/task history.",
+            "Report markiert violations: hub_self_assignment, parallel_planning_calls, stale_cancelled_task_executed, workspace_isolation_mismatch."
+          ],
+          "acceptance_criteria": [
+            "Report zeigt Anzahl Planning Calls.",
+            "Report zeigt alle Worker URLs pro Task.",
+            "Report markiert Hub-Self-Assignment als violation.",
+            "Report zeigt Workspace pro Task und ob shared_goal_workspace erfüllt ist.",
+            "Report gibt JSON und Markdown aus.",
+            "Tests prüfen Report auf gemocktem E2E-Lauf."
+          ],
+          "depends_on": ["E2E-BP-013", "E2E-BP-016"]
+        }
+      ]
+    }
+  ],
+  "recommended_execution_order": [
+    "E2E-BP-001",
+    "E2E-BP-002",
+    "E2E-BP-003",
+    "E2E-BP-005",
+    "E2E-BP-007",
+    "E2E-BP-008",
+    "E2E-BP-009",
+    "E2E-BP-010",
+    "E2E-BP-011",
+    "E2E-BP-014",
+    "E2E-BP-015",
+    "E2E-BP-004",
+    "E2E-BP-006",
+    "E2E-BP-012",
+    "E2E-BP-013",
+    "E2E-BP-016",
+    "E2E-BP-018",
+    "E2E-BP-017"
+  ],
+  "definition_of_done": [
+    "Ein Offline-E2E-Mock-Test läuft ohne echte Provider durch und endet completed.",
+    "Ein optionaler Live-E2E-Test skippt sauber ohne LMStudio/OpenCode/BigPickle Voraussetzungen.",
+    "Gemma 4E4B wird nur als Planner über LMStudio genutzt und erzeugt im generic Mode mehrere ausführbare Tasks.",
+    "OpenCode Big Pickle wird als Worker-Backend für Coding/Testing genutzt.",
+    "Es gibt pro Goal höchstens einen aktiven Planning-Call zur selben Zeit.",
+    "Worker-Preflight erzeugt keine parallelen LMStudio-Planning-/Generate-Calls.",
+    "Tasks gecancelter Goals werden nicht mehr dispatched oder weiter ausgeführt.",
+    "Hub wird nie als Worker ausgewählt, solange hub_can_be_worker=false ist.",
+    "Bei Worker-Restart gibt es keinen Fallback auf http://ai-agent-hub:5000.",
+    "Alle Tasks des E2E-Goals verwenden eine klar definierte Workspace-Strategie.",
+    "Artifact-Flow erkennt erzeugte Dateien und bindet sie an Task/Goal zurück.",
+    "Diagnostics Report zeigt Planner Calls, Worker Assignments, Workspaces und Violations."
+  ],
+  "risks": [
+    {
+      "id": "RISK-001",
+      "title": "SingleFlight blockiert legitimes Replanning dauerhaft",
+      "mitigation": "Leases mit TTL, reason logging und manuellem Reset/diagnostics."
+    },
+    {
+      "id": "RISK-002",
+      "title": "Goal-scoped Workspace kann bei Parallelität Schreibkonflikte erzeugen",
+      "mitigation": "Für ersten E2E max_concurrency=1 und output_dir_locking_enabled=true; später Git/Artifact-Flow ausbauen."
+    },
+    {
+      "id": "RISK-003",
+      "title": "Hub-Self-Filtering entfernt versehentlich legitimen lokalen Worker",
+      "mitigation": "Nur Hub-URL/self-url/role=hub filtern; hub_can_be_worker=true plus Profil als explizite Ausnahme."
+    },
+    {
+      "id": "RISK-004",
+      "title": "Free Cloud-Modell Big Pickle ist nicht immer verfügbar",
+      "mitigation": "Live-Test mit Skip/xfail und OPENCODE_TEST_MODEL Override; Offline-Test bleibt maßgeblich für CI."
+    },
+    {
+      "id": "RISK-005",
+      "title": "Gemma 4E4B liefert trotz generic Mode wieder dünne Pläne",
+      "mitigation": "Planning Contract + Repair-Prompt + Regression mit gemockten dünnen Antworten."
+    }
+  ],
+  "non_goals": [
+    "Kein Erzwingen echter Cloud-Ausführung in normaler CI.",
+    "Kein Hub-as-worker Fallback im E2E-Profil.",
+    "Kein paralleler shared-workspace Schreibbetrieb im ersten stabilen Lauf.",
+    "Kein Löschen allgemeiner Nutzer-Goals beim E2E reset.",
+    "Keine harte Abhängigkeit auf exakte Provider-Verfügbarkeit von Big Pickle außerhalb optionaler Live-Tests."
+  ]
+}
