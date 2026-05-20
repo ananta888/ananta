@@ -398,8 +398,17 @@ def test_provision_goal():
 def create_goal():
     payload: GoalCreateRequest = g.validated_data
     mode_id = str(payload.mode or "generic")
-    mode_data = _goal_service().normalize_mode_data(mode_id, payload.mode_data or {})
+    mode_data = dict(payload.mode_data or {})
     goal_text = str(payload.goal or "").strip()
+
+    # Preserve explicit goal intent for guided modes when mode_data is incomplete.
+    if goal_text:
+        if mode_id == "new_software_project" and not str(mode_data.get("project_idea") or "").strip():
+            mode_data["project_idea"] = goal_text
+        if mode_id == "project_evolution" and not str(mode_data.get("change_goal") or "").strip():
+            mode_data["change_goal"] = goal_text
+
+    mode_data = _goal_service().normalize_mode_data(mode_id, mode_data)
 
     if mode_id != "generic":
         goal_text = _goal_service().build_goal_from_mode(mode_id, mode_data)

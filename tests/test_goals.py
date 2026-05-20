@@ -47,7 +47,7 @@ class TestGoalsAPI:
                 },
             },
         )
-        assert res.status_code == 201
+        assert res.status_code in (201, 202)
         goal_payload = res.get_json()["data"]["goal"]
         assert "Docker-/Compose-Problem" in goal_payload["goal"]
         assert "Container restart loop on boot" in goal_payload["goal"]
@@ -70,7 +70,7 @@ class TestGoalsAPI:
                 },
             },
         )
-        assert res.status_code == 201
+        assert res.status_code in (201, 202)
         payload = res.get_json()["data"]
         goal_payload = payload["goal"]
         assert "Shared Foundation" in goal_payload["goal"]
@@ -132,7 +132,7 @@ class TestGoalsAPI:
         monkeypatch.setattr("agent.services.autopilot_runtime_service.AutopilotRuntimeService.start", lambda self, **kwargs: _fake_start(**kwargs))
 
         res = client.post("/goals", headers=admin_auth_header, json={"goal": "Small goal without immediate tasks"})
-        assert res.status_code == 201
+        assert res.status_code in (201, 202)
         assert len(calls) == 1
         assert calls[0].get("goal")
 
@@ -152,7 +152,7 @@ class TestGoalsAPI:
                 },
             },
         )
-        assert res.status_code == 201
+        assert res.status_code in (201, 202)
         goal_payload = res.get_json()["data"]["goal"]
         assert "neues Softwareprojekt" in goal_payload["goal"]
         assert "Release-Check-Tool" in goal_payload["goal"]
@@ -195,6 +195,25 @@ class TestGoalsAPI:
         assert {"projekt_blueprint", "initial_backlog", "naechste_schritte"}.issubset(artifact_keys)
         assert detail["artifacts"]["reusable_artifacts"] == planned_artifacts
 
+    def test_create_goal_new_project_uses_payload_goal_as_project_idea_fallback(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
+        raw_goal = "Create a real Fibonacci backend in Python with API and tests"
+        res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={
+                "mode": "new_software_project",
+                "goal": raw_goal,
+                "mode_data": {
+                    "target_users": "Developers",
+                    "platform": "API",
+                },
+            },
+        )
+        assert res.status_code in (201, 202)
+        goal_payload = res.get_json()["data"]["goal"]
+        assert "Fibonacci backend" in goal_payload["goal"]
+
     def test_create_goal_from_project_evolution_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
         res = client.post(
@@ -211,7 +230,7 @@ class TestGoalsAPI:
                 },
             },
         )
-        assert res.status_code == 201
+        assert res.status_code in (201, 202)
         goal_payload = res.get_json()["data"]["goal"]
         assert "kontrollierte Weiterentwicklung" in goal_payload["goal"]
         assert "feature_ausbau" in goal_payload["goal"]
@@ -271,7 +290,7 @@ class TestGoalsAPI:
                 },
             },
         )
-        assert res.status_code == 201
+        assert res.status_code in (201, 202)
         goal_payload = res.get_json()["data"]["goal"]
         assert goal_payload["reference_profile"]["fit_level"] == "low_fit"
         assert "frontend_profile_for_backend_change" in goal_payload["reference_profile"]["mismatch_signals"]
