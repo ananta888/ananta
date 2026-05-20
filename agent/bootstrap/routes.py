@@ -30,6 +30,7 @@ from agent.routes.teams import teams_bp
 from agent.routes.webhooks import webhooks_bp
 from agent.routes.debug.prompt_traces import prompt_traces_bp
 from agent.routes.debug.prompt_render import prompt_render_bp
+from agent.routes.debug.backend_observability import backend_observability_bp
 from agent.ws_terminal import register_ws_terminal
 
 
@@ -62,6 +63,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
     app.register_blueprint(prompt_traces_bp)
     app.register_blueprint(prompt_render_bp)
+    app.register_blueprint(backend_observability_bp)
     register_ws_terminal(app)
 
 
