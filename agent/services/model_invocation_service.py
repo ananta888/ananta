@@ -144,7 +144,7 @@ class ModelInvocationService:
         tools: list | None = None,
         response_format: dict | None = None,
         model: str | None = None,
-        timeout: int = 60,
+        timeout: int | None = None,
     ) -> dict:
         """POST chat/completions and return parsed JSON response."""
         provider, url, api_key = cls._provider_info()
@@ -154,6 +154,9 @@ class ModelInvocationService:
         if not effective_model or effective_model == "auto":
             default = s.default_model
             effective_model = default if (default and default != "auto") else "local-model"
+
+        if timeout is None:
+            timeout = int(getattr(s, "llm_invoke_timeout_seconds", None) or 120)
 
         headers = {"Content-Type": "application/json"}
         if api_key:
@@ -166,7 +169,7 @@ class ModelInvocationService:
         if response_format:
             body["response_format"] = response_format
 
-        logger.debug("LLM call provider=%s url=%s model=%s tools=%s", provider, url, effective_model, bool(tools))
+        logger.debug("LLM call provider=%s url=%s model=%s tools=%s timeout=%s", provider, url, effective_model, bool(tools), timeout)
 
         started_at = time.time()
         try:
