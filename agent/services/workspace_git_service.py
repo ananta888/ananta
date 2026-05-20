@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import subprocess
 from dataclasses import dataclass
@@ -44,6 +45,56 @@ def _run_git(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess:
 
 
 class WorkspaceGitService:
+    @staticmethod
+    def init_bare_repo(bare_path: Path) -> None:
+        """Create a bare git repo at bare_path if it does not already exist."""
+        if bare_path.exists():
+            return
+        bare_path.mkdir(parents=True, exist_ok=True)
+        res = subprocess.run(
+            ["git", "init", "--bare", str(bare_path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if res.returncode != 0:
+            raise WorkspaceGitInitError(
+                f"git init --bare failed: {res.stderr}",
+                workspace_dir=bare_path,
+                stderr=res.stderr,
+            )
+        logging.info("Bare git repo created at %s", bare_path)
+
+    def commit_and_push(self, workspace_dir: Path, *, branch: str, message: str) -> bool:
+        """Stage all workspace changes, commit, and push to remote.
+
+        Returns True if changes were pushed, False if nothing to commit.
+        Silently swallows errors so a push failure never aborts task reporting.
+        """
+        workspace_dir = Path(workspace_dir)
+        try:
+            _run_git(["add", "-A"], cwd=workspace_dir)
+            check = _run_git(["diff", "--cached", "--quiet"], cwd=workspace_dir)
+            if check.returncode == 0:
+                return False
+            _run_git(
+                [
+                    "-c", "user.name=ananta-worker",
+                    "-c", "user.email=worker@ananta",
+                    "commit", "-m", message,
+                ],
+                cwd=workspace_dir,
+            )
+            res = _run_git(["push", "origin", branch], cwd=workspace_dir)
+            if res.returncode != 0:
+                logging.warning("git push failed for %s: %s", workspace_dir, res.stderr)
+                return False
+            logging.info("git push ok: %s -> %s", workspace_dir, branch)
+            return True
+        except Exception as exc:
+            logging.warning("commit_and_push error for %s: %s", workspace_dir, exc)
+            return False
+
     def init_workspace(
         self,
         workspace_dir: Path,
@@ -78,6 +129,9 @@ class WorkspaceGitService:
         workspace_dir.mkdir(parents=True, exist_ok=True)
 
         if remote_url:
+            if remote_url.startswith("file://"):
+                bare_path = Path(remote_url[len("file://"):])
+                self.init_bare_repo(bare_path)
             res = _run_git(
                 ["clone", remote_url, str(workspace_dir), "--no-local"],
                 cwd=workspace_dir.parent,
@@ -89,6 +143,7 @@ class WorkspaceGitService:
                     stderr=res.stderr,
                 )
             self._ensure_branch(workspace_dir, branch=branch)
+            self._write_gitignore(workspace_dir)
         else:
             res = _run_git(["init"], cwd=workspace_dir)
             if res.returncode != 0:
@@ -113,6 +168,17 @@ class WorkspaceGitService:
             branch=branch,
             remote_url=remote_url,
             is_clone=is_clone,
+        )
+
+    @staticmethod
+    def _write_gitignore(workspace_dir: Path) -> None:
+        """Write a .gitignore if one doesn't already exist."""
+        gi = workspace_dir / ".gitignore"
+        if gi.exists():
+            return
+        gi.write_text(
+            "__pycache__/\n*.pyc\n*.pyo\n.ananta/\nartifacts/\nrag_helper/\n",
+            encoding="utf-8",
         )
 
     def _ensure_branch(self, workspace_dir: Path, *, branch: str) -> None:

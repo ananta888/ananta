@@ -141,7 +141,10 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
     """Setzt die Planning-Policy für LMStudio (700s) + OpenCode Big-Pickle Worker-Config."""
     base = args.base_url
     token = _login(base, args.user, args.password)
-    policy = {
+    workspace_cfg: dict = {}
+    if args.git_workspace:
+        workspace_cfg["git_workspace"] = {"enabled": True, "branch_strategy": "goal"}
+    policy: dict[str, Any] = {
         "default_provider": "lmstudio",
         "default_model": "google/gemma-4-e4b",
         "lmstudio_url": "http://192.168.178.100:1234/v1",
@@ -174,6 +177,7 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
                 }
             },
         },
+        **({"workspace": workspace_cfg} if workspace_cfg else {}),
     }
     r = requests.post(f"{base}/config", json=policy, headers=_headers(token), timeout=15)
     if not r.ok:
@@ -182,12 +186,17 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
     print("Planning-Policy gesetzt:")
     r2 = requests.get(f"{base}/config", timeout=15)
     if r2.ok:
-        pp = r2.json().get("data", {}).get("planning_policy", {})
+        data = r2.json().get("data", {})
+        pp = data.get("planning_policy", {})
         rp = pp.get("runtime_profiles", {}).get("lmstudio_laptop", {})
+        ws = data.get("workspace", {})
         print(f"  timeout_seconds:         {pp.get('timeout_seconds')}")
         print(f"  selective_repair_rounds: {pp.get('selective_repair_rounds')}")
         print(f"  require_review:          {pp.get('require_review')}")
         print(f"  lmstudio_laptop.timeout: {rp.get('timeout_seconds')}")
+        git_ws = ws.get("git_workspace", {})
+        if git_ws.get("enabled"):
+            print(f"  git_workspace.enabled:   True (branch_strategy={git_ws.get('branch_strategy', 'goal')})")
     return 0
 
 
@@ -211,7 +220,13 @@ def main() -> int:
     st_p.add_argument("goal_id")
 
     sub.add_parser("goals", help="Letzte Goals anzeigen")
-    sub.add_parser("setup-planning", help="Planning-Policy für LMStudio konfigurieren")
+    sp_p = sub.add_parser("setup-planning", help="Planning-Policy für LMStudio konfigurieren")
+    sp_p.add_argument(
+        "--git-workspace",
+        action="store_true",
+        default=False,
+        help="Git-Workspace-Sharing zwischen Tasks eines Goals aktivieren",
+    )
 
     args = p.parse_args()
     if args.cmd == "run":

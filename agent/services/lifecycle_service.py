@@ -81,6 +81,7 @@ class TaskLifecycleService:
         goal_rag_sources: dict = {}
         goal_mode_data: dict = {}
         goal_execution_contract: dict = {}
+        goal_git_workspace_cfg: dict = {}
         if goal_id:
             try:
                 goal = goal_repo.get_by_id(str(goal_id))
@@ -90,6 +91,23 @@ class TaskLifecycleService:
                     goal_rag_sources = dict((goal.execution_preferences or {}).get("rag_sources") or {})
                     goal_mode_data = dict(goal.mode_data or {})
                     goal_execution_contract = dict((goal.execution_preferences or {}).get("goal_execution_contract") or {})
+            except Exception:
+                pass
+            try:
+                from flask import current_app, has_app_context
+                if has_app_context():
+                    agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+                    global_git_ws = dict((agent_cfg.get("workspace") or {}).get("git_workspace") or {})
+                    if global_git_ws.get("enabled"):
+                        bare_url = (
+                            global_git_ws.get("remote_url")
+                            or f"file:///project-workspaces/git-repos/{str(goal_id)[:12]}.git"
+                        )
+                        goal_git_workspace_cfg = {
+                            "enabled": True,
+                            "remote_url": bare_url,
+                            "branch_strategy": global_git_ws.get("branch_strategy", "goal"),
+                        }
             except Exception:
                 pass
         research_context_input = _merge_rag_sources(goal_rag_sources, task_kind)
@@ -118,7 +136,10 @@ class TaskLifecycleService:
                 "preferred_bundle_mode": rationale.get("preferred_bundle_mode"),
             },
             **({"context": {"context_text": goal_context_text}} if goal_context_text else {}),
-            **({"workspace": {"output_dir": output_dir}} if output_dir else {}),
+            **({"workspace": {
+                **({"output_dir": output_dir} if output_dir else {}),
+                **({"git_workspace": goal_git_workspace_cfg} if goal_git_workspace_cfg else {}),
+            }} if (output_dir or goal_git_workspace_cfg) else {}),
             **({"shell_command_mode": shell_command_mode} if shell_command_mode else {}),
             **({"research_context_input": research_context_input} if research_context_input else {}),
             **extra_context,

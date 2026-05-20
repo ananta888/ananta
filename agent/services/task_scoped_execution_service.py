@@ -914,6 +914,17 @@ class TaskScopedExecutionService:
                 after_snapshot_id=after_id,
                 after_snapshot=after_workspace_snapshot,
             )
+            git_ctx = getattr(workspace_ctx, "git_context", None)
+            if git_ctx is not None and getattr(git_ctx, "is_clone", False) and meaningful_changed_files:
+                try:
+                    from agent.services.workspace_git_service import get_workspace_git_service
+                    get_workspace_git_service().commit_and_push(
+                        git_ctx.workspace_dir,
+                        branch=git_ctx.branch,
+                        message=f"task {str(tid)[:12]}: {str(task.get('title') or tid)[:60]}",
+                    )
+                except Exception as _git_push_err:
+                    logging.warning("git commit+push failed for task %s: %s", tid, _git_push_err)
             workspace_artifact_refs = get_worker_workspace_service().sync_changed_files_to_artifacts(
                 task_id=tid,
                 task=task,
