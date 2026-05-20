@@ -262,6 +262,37 @@ class PromptTraceStorage:
     def find_by_task_id(self, task_id: str, limit: int = 100) -> list[PromptTrace]:
         return self.list(limit=limit, task_id=task_id)
 
+    def delete_by_goal_id(self, goal_id: str) -> int:
+        goal = str(goal_id or "").strip()
+        if not goal:
+            return 0
+        path = self._get_path()
+        if not os.path.exists(path):
+            return 0
+        deleted = 0
+        kept_lines: list[str] = []
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                for line in handle:
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    try:
+                        payload = json.loads(stripped)
+                    except json.JSONDecodeError:
+                        kept_lines.append(line)
+                        continue
+                    if str(payload.get("goal_id") or "").strip() == goal:
+                        deleted += 1
+                        continue
+                    kept_lines.append(line)
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.writelines(kept_lines)
+        except Exception as exc:
+            logger.error("Failed to delete prompt traces for goal_id=%s: %s", goal, exc)
+            return 0
+        return deleted
+
 
 # ── Service ───────────────────────────────────────────────────────────────────
 
@@ -486,6 +517,13 @@ class PromptTraceService:
         except Exception as exc:
             logger.error("PromptTraceService.find_by_goal_id failed: %s", exc)
             return []
+
+    def delete_by_goal_id(self, goal_id: str) -> int:
+        try:
+            return int(self._storage.delete_by_goal_id(goal_id))
+        except Exception as exc:
+            logger.error("PromptTraceService.delete_by_goal_id failed: %s", exc)
+            return 0
 
     @property
     def storage(self) -> PromptTraceStorage:
