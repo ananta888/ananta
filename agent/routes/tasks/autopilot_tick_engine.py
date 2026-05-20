@@ -1050,7 +1050,7 @@ def _dispatch_one_task_inner(  # noqa: C901
         propose_inflight_cooldown_s = max(
             10.0,
             float(
-                (loop._config.get("autopilot", {}) or {})
+                ((loop._agent_config() or {}).get("autopilot", {}) or {})
                 .get("strategy", {})
                 .get("propose_inflight_cooldown_seconds", 45.0)
             ),
@@ -1134,6 +1134,12 @@ def _dispatch_one_task_inner(  # noqa: C901
                 )
                 break
             propose_payload: dict[str, Any] = {"task_id": task.id}
+            autopilot_cfg = ((loop._agent_config() or {}).get("autopilot", {}) or {})
+            strategy_mode_override = str(
+                autopilot_cfg.get("strategy_mode_override") or "autopilot_no_human_review"
+            ).strip().lower()
+            if strategy_mode_override:
+                propose_payload["strategy_mode"] = strategy_mode_override
             candidate_model = candidate.get("model")
             candidate_source = str(candidate.get("source") or "strategy")
             candidate_temperature = _normalize_temperature_value(candidate.get("temperature"))
