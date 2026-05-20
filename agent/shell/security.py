@@ -112,6 +112,26 @@ def validate_tokens(command: str, *, blacklist: list[str], is_powershell: bool) 
         return False, f"Befehls-Analyse fehlgeschlagen: {exc}"
 
 
+def _has_unquoted(command: str, char: str) -> bool:
+    """Return True if `char` appears outside of single/double quoted regions."""
+    in_single = False
+    in_double = False
+    i = 0
+    while i < len(command):
+        c = command[i]
+        if c == "\\" and (in_single or in_double):
+            i += 2
+            continue
+        if c == "'" and not in_double:
+            in_single = not in_single
+        elif c == '"' and not in_single:
+            in_double = not in_double
+        elif c == char and not in_single and not in_double:
+            return True
+        i += 1
+    return False
+
+
 def validate_meta_characters(command: str) -> tuple[bool, str]:
     if "`n" in command or "`r" in command:
         return False, "Mehrzeilige Befehle sind aus Sicherheitsgruenden deaktiviert."
@@ -121,7 +141,9 @@ def validate_meta_characters(command: str) -> tuple[bool, str]:
         return False, "Command Substitution $() ist aus Sicherheitsgruenden deaktiviert."
     if re.search(r"\$\w+\$", command) or re.search(r"\}\$\{", command):
         return False, "Variablen-Verkettung ($a$b) ist aus Sicherheitsgr\u00fcnden deaktiviert."
-    if ";" in command:
+    # Only block semicolons that are actual shell command separators (outside quotes).
+    # Semicolons inside quoted strings (e.g. python -c "a; b") are harmless.
+    if _has_unquoted(command, ";"):
         return False, "Semikolons (;) sind als Befehlstrenner deaktiviert."
     # Default path hardening: allow linear command chaining via `&&` so
     # planner/worker outputs can execute without custom exceptions. Riskier
