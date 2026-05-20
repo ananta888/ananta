@@ -70,13 +70,15 @@ class TestWorkspaceIsolationAndArtifactInjection:
         fake_task1.id = "task-1"
         fake_task1.status = "completed"
         fake_task1.assigned_agent_url = "http://worker-alpha:5000"
-        fake_task1.artifact_refs = [
-            {
-                "kind": "workspace_file",
-                "artifact_id": "art-xyz",
-                "workspace_relative_path": "result.py",
-            }
-        ]
+        fake_task1.verification_status = {
+            "execution_artifacts": [
+                {
+                    "kind": "workspace_file",
+                    "artifact_id": "art-xyz",
+                    "workspace_relative_path": "result.py",
+                }
+            ]
+        }
 
         svc = WorkerWorkspaceService()
         with app.app_context():
