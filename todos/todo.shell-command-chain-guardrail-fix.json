@@ -1,0 +1,725 @@
+{
+  "schema_version": "todo.v2",
+  "id": "todo.shell-command-chain-guardrail-fix",
+  "title": "Shell Command Chain Guardrail Fix: semicolon/&&/|| segmentweise und quote-aware analysieren",
+  "summary": "OpenCode und andere Worker können legitime Testbefehle wie `python hello.py; python -c \"from hello import greet; print(greet('World'))\"` erzeugen. Der vorhandene CommandChainParser kann `;`, `&&` und `||` bereits korrekt in Segmente zerlegen und ignoriert Operatoren innerhalb von Quotes. Trotzdem kann ein vorgelagerter Approval-/Risk-/Guardrail-Layer den kompletten Command-String blockieren, bevor die segmentweise Analyse greift. Diese Todo beschreibt die nötigen Codeänderungen, damit Shell-Command-Ketten deterministisch, konfigurierbar und sicher pro Segment geprüft werden.",
+  "created_from": [
+    "User report: OpenCode test task fails because guardrail blocks semicolons in shell commands",
+    "Codeanalyse: agent/services/command_chain_parser.py",
+    "Codeanalyse: agent/services/task_execution_service.py",
+    "Codeanalyse: agent/services/execution_risk_policy_service.py",
+    "Codeanalyse: agent/security_risk.py",
+    "Codeanalyse: agent/services/approval_policy_service.py",
+    "Codeanalyse: agent/tool_guardrails.py",
+    "Tests: tests/test_command_chain_parser.py",
+    "Tests: tests/test_command_chain_execution_policy.py"
+  ],
+  "problem_statement": "Der Parser selbst ist bereits quote-aware und erlaubt `;`, `&&` und `||` als unterstützte Chain-Operatoren. In TaskExecutionService.execute_local_step laufen jedoch ApprovalPolicyService.evaluate() und evaluate_execution_risk() zunächst auf dem kompletten Command-String. Erst später in _execute_shell_command_with_policy() wird segmentiert und jedes Segment einzeln geprüft. Dadurch kann ein naiver Treffer wie Semikolon, rm -rf im späteren Segment, oder ein Semikolon innerhalb `python -c` schon vorher den Gesamtbefehl blockieren. Die Preflight-Guards müssen dieselbe CommandChainParser-Semantik verwenden oder für Chain-Commands in segment-aware Mode wechseln.",
+  "current_code_findings": [
+    {
+      "id": "FINDING-001",
+      "file": "agent/services/command_chain_parser.py",
+      "summary": "CommandChainParser.parse() erkennt `&&`, `||` und `;` als unterstützte Operatoren, trennt außerhalb von Quotes und markiert Pipes, Backticks, heredoc und Substitutionen als unsupported.",
+      "impact": "Parser ist die richtige Quelle für Shell-Operator-Erkennung und sollte von allen Guardrails verwendet werden."
+    },
+    {
+      "id": "FINDING-002",
+      "file": "tests/test_command_chain_parser.py",
+      "summary": "Tests bestätigen bereits, dass `pytest; git status` erlaubt ist und dass `echo \"a && b\" && pytest` nicht falsch innerhalb von Quotes splitet.",
+      "impact": "Das gewünschte Verhalten ist im Parser-Testmodell bereits angelegt."
+    },
+    {
+      "id": "FINDING-003",
+      "file": "agent/services/task_execution_service.py",
+      "summary": "execute_local_step() führt Approval und Risk vor _execute_shell_command_with_policy() auf dem kompletten command aus. Die segmentweise Prüfung findet erst später innerhalb _execute_shell_command_with_policy() statt.",
+      "impact": "Ein legitimer Chain-Command kann bereits vor dem segmentweisen Pfad blockiert werden."
+    },
+    {
+      "id": "FINDING-004",
+      "file": "agent/services/task_execution_service.py",
+      "summary": "_execute_shell_command_with_policy() parst den Command, validiert jedes Segment vor Ausführung, mapped bekannte Commands auf Tools und respektiert `&&`/`||`-Semantik bei der Ausführung.",
+      "impact": "Die korrekte Sicherheitslogik ist größtenteils vorhanden, muss aber früher und konsequenter genutzt werden."
+    },
+    {
+      "id": "FINDING-005",
+      "file": "agent/security_risk.py",
+      "summary": "classify_command_risk() arbeitet aktuell textbasiert auf dem Gesamtcommand und klassifiziert über einfache Token-Suche wie rm -rf, pip install, chmod, cat, grep usw.",
+      "impact": "Textbasierte Gesamtstring-Klassifikation ist für Shell-Ketten und quoted inline code zu grob."
+    },
+    {
+      "id": "FINDING-006",
+      "file": "agent/services/approval_policy_service.py",
+      "summary": "_classify_operation() klassifiziert command_text ebenfalls als Gesamtstring und erkennt Install/Mutation/Systemmutation über Token-Suche.",
+      "impact": "Approval kann den gesamten Chain-Command als mutation/system_mutation sehen, obwohl einzelne Segmente sauber getrennt bewertet werden müssten."
+    },
+    {
+      "id": "FINDING-007",
+      "file": "tests/test_command_chain_execution_policy.py",
+      "summary": "Es gibt bereits Tests, dass ein gefährliches späteres Segment die ganze Kette vor Ausführung blockiert und dass `||`/`&&` korrekt ausgeführt/übersprungen werden.",
+      "impact": "Regression-Tests existieren, müssen aber um quoted semicolon und Preflight-Bypass-Fälle erweitert werden."
+    }
+  ],
+  "target_behavior": [
+    "`;`, `&&` und `||` sind nicht pauschal gefährlich, sondern erlaubte Chain-Operatoren, sofern config/policy dies erlaubt.",
+    "Shell-Operatoren innerhalb Quotes, z.B. in `python -c \"...; ...\"`, werden nicht als Shell-Operatoren bewertet.",
+    "Vor der Ausführung wird die gesamte Chain in Segmente zerlegt und jedes Segment einzeln gegen Approval, Risk, Scope und Tool-Mapping geprüft.",
+    "Wenn ein Segment denied wird, wird kein vorheriges Segment ausgeführt, sofern die Denial-Prüfung vorab erfolgt.",
+    "Pipes, Backticks, heredoc, command substitution und variable expansion bleiben standardmäßig blockiert oder explizit konfigurierbar.",
+    "Die Policy ist konfigurierbar: erlaubte Chain-Operatoren, blockierte Operatoren, Segmentvalidierung, inline code handling.",
+    "OpenCode-Testbefehle wie `python hello.py; python -c \"from hello import greet; print(greet('World'))\"` dürfen nicht wegen des Semikolons blockiert werden."
+  ],
+  "tracks": [
+    {
+      "id": "SCG-TRACK-001",
+      "title": "Zentrale ShellCommandPolicy und Chain-Analyse",
+      "summary": "Die Shell-Policy soll zentral beschreiben, welche Operatoren erlaubt sind und wie Chain-Commands validiert werden. Alle Guardrails verwenden dieselbe Parser-Semantik.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "SCG-001",
+          "title": "ShellCommandPolicy Datenmodell einführen",
+          "type": "schema",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Konfiguration für Shell-Ketten wird explizit modelliert statt verteilt in Codepfaden implizit behandelt.",
+          "files": [
+            "agent/services/shell_command_policy.py",
+            "agent/config_defaults.py"
+          ],
+          "description": "Neue ShellCommandPolicy definiert erlaubte und verbotene Operatoren, Segmentvalidierung, Umgang mit Quotes, inline language code und Pipeline-Mode.",
+          "implementation_notes": [
+            "Felder: enabled, allow_chain_operators, deny_operators, validate_segments_individually, allow_quoted_operators, allow_inline_language_code, allow_complex_shell_mode, default_shell_command_mode.",
+            "Default allow_chain_operators: [';', '&&', '||'].",
+            "Default deny_operators: ['|', '`', '$(', '${', '<<'].",
+            "validate_segments_individually default true.",
+            "allow_quoted_operators default true.",
+            "allow_inline_language_code default: {'python -c': true, 'node -e': true}.",
+            "Config unter agent_config.shell_command_policy ergänzen.",
+            "Rückwärtskompatibilität: wenn Policy fehlt, aktuelles Parserverhalten verwenden."
+          ],
+          "acceptance_criteria": [
+            "Default-Konfiguration erlaubt `;`, `&&` und `||` außerhalb von Quotes.",
+            "Default-Konfiguration blockiert `|`, backticks, `$(`, `${` und heredoc.",
+            "allow_quoted_operators=true verhindert nicht, dass `python -c \"a; b\"` erlaubt ist.",
+            "Policy ist aus agent_cfg robust normalisierbar, auch wenn Felder fehlen.",
+            "Ungültige Operatorwerte werden ignoriert oder mit klarer Validierungsdiagnose abgelehnt.",
+            "Unit-Test validiert Default-Policy und Override-Policy."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "SCG-002",
+          "title": "CommandChainAnalysisResult einführen",
+          "type": "feature",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Parser-Ergebnis und Policy-Entscheidung werden in einer wiederverwendbaren Analyse-Struktur zusammengeführt.",
+          "files": [
+            "agent/services/shell_command_policy.py",
+            "agent/services/command_chain_parser.py"
+          ],
+          "description": "Neuer Service ShellCommandAnalyzer nutzt CommandChainParser und ShellCommandPolicy und liefert einen CommandChainAnalysisResult mit Segmenten, unsupported operators, policy denial reasons und quote-aware diagnostics.",
+          "implementation_notes": [
+            "Result-Felder: original_command, repaired_command, allowed, denied_reason, unsupported_operators, segments, chain_operator_count, contains_chain, contains_quoted_operators, policy_snapshot.",
+            "CommandChainParser bleibt niedrigstufiger Parser; ShellCommandAnalyzer wendet Policy an.",
+            "Segment raw/argv/operator_before/operator_after übernehmen.",
+            "Keine Ausführung, keine Tool-Mapping-Logik in Analyzer.",
+            "Analyzer muss deterministic sein und ohne Flask/App-Kontext laufen."
+          ],
+          "acceptance_criteria": [
+            "Analyzer erlaubt `python hello.py; python -c \"from hello import greet; print(greet('World'))\"` mit zwei Segmenten.",
+            "Analyzer erkennt Semikolon innerhalb `python -c` nicht als Shell-Chain-Split.",
+            "Analyzer blockiert `cat a | grep x` mit unsupported operator `|`.",
+            "Analyzer blockiert trailing operator `pytest &&` mit denied_reason trailing_operator.",
+            "Analyzer gibt chain_operator_count und Segmentliste zurück.",
+            "Tests laufen ohne App-Kontext und ohne Shell."
+          ],
+          "depends_on": ["SCG-001"]
+        },
+        {
+          "id": "SCG-003",
+          "title": "CommandChainParser Tests um OpenCode-Fall erweitern",
+          "type": "test",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Der konkrete gemeldete OpenCode-Testfall wird als Regression-Test fixiert.",
+          "files": [
+            "tests/test_command_chain_parser.py",
+            "tests/test_shell_command_analyzer.py"
+          ],
+          "description": "Tests ergänzen den exakten Command mit `python hello.py; python -c \"from hello import greet; print(greet('World'))\"` und prüfen Segmentierung/Quote-Verhalten.",
+          "test_cases": [
+            "test_parse_opencode_python_semicolon_chain",
+            "test_parse_python_c_quoted_semicolon_literal",
+            "test_analyzer_allows_default_semicolon_chain",
+            "test_analyzer_blocks_pipe_by_default",
+            "test_analyzer_rejects_empty_segment",
+            "test_analyzer_respects_policy_denied_semicolon_override"
+          ],
+          "acceptance_criteria": [
+            "Der OpenCode-Beispielcommand wird in genau zwei Segmente zerlegt.",
+            "Das zweite Segment bleibt `python -c \"from hello import greet; print(greet('World'))\"` und wird nicht weiter am Python-Semikolon gesplittet.",
+            "Policy Override allow_chain_operators ohne `;` blockiert Shell-Semikolon außerhalb von Quotes.",
+            "Quoted `;` bleibt bei allow_quoted_operators=true erlaubt.",
+            "Pipe bleibt standardmäßig blockiert.",
+            "Alle Tests dokumentieren Reason Codes."
+          ],
+          "depends_on": ["SCG-002"]
+        }
+      ]
+    },
+    {
+      "id": "SCG-TRACK-002",
+      "title": "Preflight Approval/Risk Guardrails segment-aware machen",
+      "summary": "Der eigentliche Bugpfad liegt wahrscheinlich darin, dass Approval und Risk im execute_local_step vor der Segmentierung auf dem Gesamtcommand laufen. Diese Preflight-Prüfung muss Chain-aware werden oder bei Chain-Commands an den Segmentpfad delegieren.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "SCG-004",
+          "title": "execute_local_step Preflight für Chain-Commands umbauen",
+          "type": "bugfix",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Approval/Risk darf den Gesamtcommand nicht pauschal blockieren, wenn eine segmentweise Analyse möglich ist.",
+          "files": [
+            "agent/services/task_execution_service.py"
+          ],
+          "description": "execute_local_step analysiert command vor Approval/Risk mit ShellCommandAnalyzer. Wenn command eine erlaubte Chain ist, wird die globale command-basierte Preflight-Approval/Risk-Prüfung entweder übersprungen oder mit command=None durchgeführt und die echte Prüfung ausschließlich segmentweise in _execute_shell_command_with_policy() erledigt.",
+          "implementation_notes": [
+            "Vor approval_decision: command_analysis = ShellCommandAnalyzer().analyze(command, agent_cfg).",
+            "Wenn command_analysis.allowed und command_analysis.contains_chain: approval/risk für full command nicht als blockierend auswerten; stattdessen metadata approval_preflight_deferred_to_segments.",
+            "Wenn command_analysis nicht allowed: früh blockieren mit denied_reason/unsupported_operators.",
+            "Für Single-Segment Commands bleibt bestehendes Verhalten möglich.",
+            "Pipeline Stage command_chain_analysis vor approval_check ergänzen.",
+            "approval_payload für Response weiterhin füllen, aber bei deferred klar markieren."
+          ],
+          "acceptance_criteria": [
+            "`python hello.py; python -c \"from hello import greet; print(greet('World'))\"` wird nicht im execute_local_step Preflight geblockt.",
+            "Nicht erlaubte Operatoren wie pipe werden weiterhin vor Ausführung geblockt.",
+            "Gefährliches Segment `pytest && rm -rf /tmp/x` wird vor Ausführung segmentweise geblockt; `pytest` wird nicht vorher ausgeführt.",
+            "Single-Segment `rm -rf /tmp/x` bleibt blockiert.",
+            "Pipeline enthält Stage command_chain_analysis mit segment_count und denied_reason.",
+            "Bestehende Approval-/Risk-Tests bleiben grün oder werden bewusst angepasst."
+          ],
+          "depends_on": ["SCG-002"]
+        },
+        {
+          "id": "SCG-005",
+          "title": "SegmentPreflightValidator extrahieren",
+          "type": "refactor",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Die segmentweise Validierung in _execute_shell_command_with_policy ist wichtig genug für einen eigenen testbaren Service.",
+          "files": [
+            "agent/services/segment_preflight_validator.py",
+            "agent/services/task_execution_service.py"
+          ],
+          "description": "Die bestehende Schleife in _execute_shell_command_with_policy, die jedes Segment gegen CommandToToolMapper, ApprovalPolicyService, evaluate_execution_risk und Task Scope prüft, wird in SegmentPreflightValidator ausgelagert.",
+          "implementation_notes": [
+            "Validator.validate_segments(segments, task, agent_cfg) -> SegmentPreflightResult.",
+            "Result-Felder: allowed, validations, denied_segment_index, reason_codes, mapped_tools.",
+            "Muss vor Ausführung aller Segmente laufen.",
+            "TaskExecutionService verwendet Validator statt Inline-Code.",
+            "Validator nutzt bestehende Services: CommandToToolMapper, ApprovalPolicyService, evaluate_execution_risk, validate_task_scoped_tool_calls.",
+            "Keine Shell-Ausführung im Validator."
+          ],
+          "acceptance_criteria": [
+            "Validator erlaubt zwei sichere Python-Segmente.",
+            "Validator blockiert zweites Segment `rm -rf /tmp/x` mit denied_segment_index=2.",
+            "Bei denied_segment_index=2 wird kein Segment ausgeführt.",
+            "Validation-Metadata enthält operator_before, command_preview, allowed, reason_codes und mapped_tool.",
+            "TaskExecutionService erzeugt dieselbe Retry-History/Validation-Metadata wie vorher oder kompatiblen Superset.",
+            "Unit-Tests des Validators laufen ohne Shell."
+          ],
+          "depends_on": ["SCG-004"]
+        },
+        {
+          "id": "SCG-006",
+          "title": "execution_risk_policy_service chain-aware machen",
+          "type": "bugfix",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Risk Classification soll optional Segment-Analyse statt Gesamtstring verwenden.",
+          "files": [
+            "agent/services/execution_risk_policy_service.py",
+            "agent/security_risk.py"
+          ],
+          "description": "evaluate_execution_risk akzeptiert optional command_analysis oder parsed_segments. Für Chain-Commands wird das Risiko aus Segmentrisiken aggregiert statt aus Gesamtstring-Token-Suche.",
+          "implementation_notes": [
+            "Signatur erweitern: command_analysis: CommandChainAnalysisResult | None = None.",
+            "Wenn command_analysis mit allowed segments vorhanden: classify jedes Segment separat.",
+            "risk_level = max(segment_risks).",
+            "details.command_segments_risk mit Segmentindex, preview, risk_level.",
+            "Backward-compatible: ohne command_analysis bleibt alte classify_command_risk(command) Logik.",
+            "classify_command_risk_segment kann aus classify_command_risk extrahiert werden."
+          ],
+          "acceptance_criteria": [
+            "Risk für sicheren OpenCode-Python-Chain ist nicht critical.",
+            "Risk für `pytest && rm -rf /tmp/x` ist critical wegen Segment 2.",
+            "Details enthalten command_segments_risk mit zwei Einträgen.",
+            "Quoted Python-Semikolon verursacht kein zusätzliches Segment und kein Critical Risk.",
+            "Ohne command_analysis bleibt altes Verhalten erhalten.",
+            "Tests prüfen Gesamtstring vs segment-aware Verhalten."
+          ],
+          "depends_on": ["SCG-002", "SCG-004"]
+        },
+        {
+          "id": "SCG-007",
+          "title": "approval_policy_service chain-aware machen",
+          "type": "bugfix",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Approval soll Operation-Klasse aus Segmenten bestimmen und nicht aus dem rohen Gesamtstring.",
+          "files": [
+            "agent/services/approval_policy_service.py"
+          ],
+          "description": "ApprovalPolicyService.evaluate() akzeptiert optional command_analysis. Für Chain-Commands wird die Operation-Klasse über alle Segmente aggregiert: read_only < mutation < system_mutation/install_remove/admin_mutation.",
+          "implementation_notes": [
+            "Signatur erweitern: command_analysis=None.",
+            "_classify_operation_segments(segments, cfg) ergänzen.",
+            "Jedes Segment mit bestehender _classify_operation(command=segment.raw) klassifizieren.",
+            "Gesamtklasse ist höchste Klasse nach Rang.",
+            "Details enthalten segment_operation_classes.",
+            "Kein naives Blocken wegen Semikolon im Gesamtstring."
+          ],
+          "acceptance_criteria": [
+            "OpenCode-Python-Chain wird als read_only oder maximal mutation nach definierter Policy klassifiziert, aber nicht wegen Semikolon geblockt.",
+            "`pytest && rm -rf /tmp/x` wird wegen Segment 2 als system_mutation/critical blockierbar.",
+            "Details enthalten segment_operation_classes.",
+            "Single-Segment-Verhalten bleibt kompatibel.",
+            "Approval confirmed Logik bleibt unverändert.",
+            "Tests prüfen safe/balanced/strict Governance mit Chain-Commands."
+          ],
+          "depends_on": ["SCG-002", "SCG-004"]
+        }
+      ]
+    },
+    {
+      "id": "SCG-TRACK-003",
+      "title": "Tool-Call und OpenCode Command-Normalisierung",
+      "summary": "OpenCode kann Commands als Tool-Call oder als command string liefern. Beide Pfade müssen dieselbe segment-aware Shell-Policy nutzen.",
+      "priority": "high",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "SCG-008",
+          "title": "shell_execute/run_command Tool-Calls segment-aware prüfen",
+          "type": "bugfix",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Wenn der Command in einem Tool-Call steckt, darf keine naive Tool-Guardrail am Gesamtstring blockieren.",
+          "files": [
+            "agent/services/task_execution_service.py",
+            "agent/tool_guardrails.py",
+            "agent/services/tool_intent_resolver.py"
+          ],
+          "description": "Für Tool-Calls mit Shell-Command-Argumenten (`command`, `cmd`) wird die CommandChainAnalysis ebenfalls angewendet. Der Tool-Call bleibt ein Tool-Call, aber sein command-Argument wird segmentweise validiert.",
+          "implementation_notes": [
+            "Erkenne canonical tools: shell_execute, run_command, execute_command, bash.",
+            "Wenn args.command vorhanden: ShellCommandAnalyzer.analyze(args.command).",
+            "ToolGuardrailDecision.details um shell_command_analysis ergänzen.",
+            "Bei erlaubter Chain kein Block wegen Semikolon im args.command.",
+            "Bei unsupported operator Block mit reason shell_operator_unsupported:<op>.",
+            "Keine Änderung für nicht-shell Tool-Calls."
+          ],
+          "acceptance_criteria": [
+            "Tool-Call shell_execute mit OpenCode-Python-Chain wird nicht wegen Semikolon geblockt.",
+            "Tool-Call shell_execute mit pipe wird geblockt.",
+            "Tool-Call shell_execute mit `rm -rf` als zweitem Segment wird vor Ausführung geblockt.",
+            "Details enthalten shell_command_analysis.segment_count.",
+            "Nicht-shell Tools behalten bisheriges Guardrail-Verhalten.",
+            "Tests decken run_command und shell_execute Alias ab."
+          ],
+          "depends_on": ["SCG-002", "SCG-005"]
+        },
+        {
+          "id": "SCG-009",
+          "title": "OpenCode-Proposal-Normalisierung dokumentieren und testen",
+          "type": "test",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Der Fehler soll für OpenCode-typische Ausgabeformen reproduzierbar getestet werden.",
+          "files": [
+            "tests/test_opencode_command_chain_guardrails.py",
+            "agent/services/task_execution_service.py"
+          ],
+          "description": "Tests simulieren OpenCode-Ausgaben als command string und als Tool-Call. Beide Pfade müssen denselben OpenCode-Python-Testcommand erlauben und gefährliche Segmente blockieren.",
+          "test_cases": [
+            "test_opencode_command_string_python_semicolon_chain_allowed",
+            "test_opencode_shell_execute_tool_python_semicolon_chain_allowed",
+            "test_opencode_command_string_pipe_blocked",
+            "test_opencode_tool_call_rm_segment_blocked_before_any_execution",
+            "test_opencode_python_c_quoted_semicolon_not_split"
+          ],
+          "acceptance_criteria": [
+            "OpenCode command string Pfad erlaubt den konkreten hello/greet Testcommand.",
+            "OpenCode shell_execute Tool-Call Pfad erlaubt denselben Command.",
+            "Gefährliches späteres Segment blockiert die komplette Chain vor erster Ausführung.",
+            "Pipe bleibt blockiert.",
+            "Test prüft explizit Shell-Execute-Commandliste des StubShell."
+          ],
+          "depends_on": ["SCG-004", "SCG-008"]
+        },
+        {
+          "id": "SCG-010",
+          "title": "CommandToToolMapper bei Segmenten beibehalten und erweitern",
+          "type": "feature",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Segmentweise Ausführung kann sichere Commands auf interne Tools mappen, soll aber nicht durch Gesamtstring-Mapping verwirrt werden.",
+          "files": [
+            "agent/services/command_to_tool_mapper.py",
+            "agent/services/segment_preflight_validator.py",
+            "tests/test_command_to_tool_mapper_chain_segments.py"
+          ],
+          "description": "CommandToToolMapper wird nur auf einzelne Segmente angewendet, niemals auf den kompletten Chain-String. Tests prüfen git status/git diff Mapping in Chains.",
+          "implementation_notes": [
+            "Dokumentieren: Mapper input must be one atomic segment.",
+            "Falls Mapper aktuell ganze Strings akzeptiert, Guard gegen Chain-Operatoren einbauen oder Analyzer vorschalten.",
+            "SegmentPreflightValidator ist der einzige Ort, der Mapper für Chains aufruft.",
+            "Mapping-Reason in validation_meta aufnehmen."
+          ],
+          "acceptance_criteria": [
+            "`pytest && git status` mapped nur Segment 2 auf git_status, falls Mapping existiert.",
+            "Mapper wird nie mit `pytest && git status` als Roh-Gesamtstring aufgerufen.",
+            "validation_meta enthält mapped_tool und mapping_reason.",
+            "Nicht gemappte sichere Commands gehen an Shell-Ausführung.",
+            "Tests beweisen atomare Mapper-Nutzung."
+          ],
+          "depends_on": ["SCG-005"]
+        }
+      ]
+    },
+    {
+      "id": "SCG-TRACK-004",
+      "title": "Konfiguration, Diagnostics und Operator-Erklärbarkeit",
+      "summary": "Wenn ein Command geblockt wird, muss klar sein warum: unsupported operator, Segment denied, Approval, Risk oder Scope. Außerdem sollen Operatoren bewusst konfigurierbar sein.",
+      "priority": "high",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "SCG-011",
+          "title": "shell_command_policy in config_defaults ergänzen",
+          "type": "config",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Die erlaubten Chain-Operatoren werden explizit in der Default-Konfiguration sichtbar.",
+          "files": [
+            "agent/config_defaults.py",
+            "tests/test_config_api.py"
+          ],
+          "description": "config_defaults enthält shell_command_policy mit sicheren Defaults und Kommentaren/Docs über erlaubte und blockierte Operatoren.",
+          "implementation_notes": [
+            "Default policy aus SCG-001 in build_default_agent_config() ergänzen.",
+            "Falls config API allowed keys validiert, shell_command_policy dort ergänzen.",
+            "Config-Diagnostics sollen shell_command_policy redacted/normalisiert anzeigen.",
+            "Keine Secrets betroffen."
+          ],
+          "acceptance_criteria": [
+            "Default config enthält shell_command_policy.",
+            "Config API akzeptiert shell_command_policy Overrides.",
+            "Ungültige Operator-Konfiguration wird klar diagnostiziert.",
+            "Default erlaubt die OpenCode-Python-Chain.",
+            "Tests prüfen Default und Override."
+          ],
+          "depends_on": ["SCG-001"]
+        },
+        {
+          "id": "SCG-012",
+          "title": "Guardrail-Block-History um Chain-Diagnostics erweitern",
+          "type": "observability",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Geblockte Chain-Commands sollen im Task-Verlauf verständlich erklären, welches Segment und welche Policy geblockt hat.",
+          "files": [
+            "agent/services/task_execution_service.py",
+            "agent/services/execution_audit_service.py"
+          ],
+          "description": "_append_guardrail_block_history und Rückgaben von _execute_shell_command_with_policy erhalten command_chain diagnostics: segment_count, denied_segment_index, unsupported_operators, validations, operator list.",
+          "implementation_notes": [
+            "Nicht komplette sensitive Commands raw speichern, sondern command_preview pro Segment.",
+            "Reason Codes stabil halten: shell_operator_unsupported, shell_chain_empty_segment, shell_chain_trailing_operator, shell_segment_denied, approval_blocked, execution_risk_denied.",
+            "Audit Event security_policy_block bekommt command_chain summary.",
+            "Pipeline Stage bekommt gleiche Summary."
+          ],
+          "acceptance_criteria": [
+            "Block wegen Pipe zeigt unsupported_operators=['|'].",
+            "Block wegen Segment 2 zeigt denied_segment_index=2.",
+            "Task history enthält validations pro Segment.",
+            "Audit Event enthält keine unredacted Secrets aus Command.",
+            "OpenCode legitimer Chain-Command erzeugt keine Block-History."
+          ],
+          "depends_on": ["SCG-005", "SCG-011"]
+        },
+        {
+          "id": "SCG-013",
+          "title": "Dry-Run Command Guardrail API/CLI vorbereiten",
+          "type": "feature",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Zum Debuggen soll man einen Command ohne Ausführung gegen die Shell-Policy prüfen können.",
+          "files": [
+            "agent/routes/debug/command_guardrails.py",
+            "agent/cli/main.py",
+            "agent/cli/command_guardrails.py"
+          ],
+          "description": "Neue Debug-Funktion analysiert einen Command und gibt Segmentierung, Policy-Entscheidung, Risk-/Approval-Vorbewertung und erwartete Ausführungssemantik zurück, ohne Shell auszuführen.",
+          "implementation_notes": [
+            "API: POST /debug/command-guardrails/analyze mit command, task_id optional, worker_context optional.",
+            "CLI: ananta command analyze --command 'pytest && git status'.",
+            "Keine Ausführung, keine Tool-Ausführung.",
+            "Nutzt ShellCommandAnalyzer und SegmentPreflightValidator im dry-run Mode.",
+            "Auth/Admin/Debug-Policy beachten."
+          ],
+          "acceptance_criteria": [
+            "Dry-Run für OpenCode-Python-Chain zeigt allowed=true und zwei Segmente.",
+            "Dry-Run für Pipe zeigt allowed=false und unsupported operator.",
+            "Dry-Run für `pytest && rm -rf /tmp/x` zeigt denied_segment_index=2 und führt nichts aus.",
+            "CLI --json gibt parsebares JSON zurück.",
+            "API ist auth-geschützt."
+          ],
+          "depends_on": ["SCG-005", "SCG-012"]
+        }
+      ]
+    },
+    {
+      "id": "SCG-TRACK-005",
+      "title": "Regression-, Integration- und E2E-Tests",
+      "summary": "Der Fix muss mit Tests abgesichert werden, damit legitime Testchains nicht mehr blockieren und gefährliche Segmente trotzdem vorab verhindert werden.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "SCG-014",
+          "title": "TaskExecutionService Regression-Test für OpenCode Python Chain",
+          "type": "test",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Der gemeldete konkrete Fehler wird als Regressionstest im Execution-Service verankert.",
+          "files": [
+            "tests/test_command_chain_execution_policy.py"
+          ],
+          "description": "Test führt _execute_shell_command_with_policy und execute_local_step mit StubShell aus. Der Command `python hello.py; python -c \"from hello import greet; print(greet('World'))\"` muss erlaubt sein und beide Segmente ausführen.",
+          "acceptance_criteria": [
+            "StubShell.commands enthält exakt ['python hello.py', 'python -c \"from hello import greet; print(greet(\'World\'))\"'] oder äquivalent korrekt gequotet.",
+            "Exit-Code ist 0, wenn beide StubShell-Segmente erfolgreich sind.",
+            "Keine ToolGuardrailError wird geworfen.",
+            "Retry-History enthält command_chain_parsed mit segment_count=2.",
+            "Test deckt execute_local_step Preflight ab, nicht nur _execute_shell_command_with_policy."
+          ],
+          "depends_on": ["SCG-004", "SCG-005"]
+        },
+        {
+          "id": "SCG-015",
+          "title": "Gefährliches späteres Segment bleibt blockierend vor Ausführung",
+          "type": "security-test",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Der Fix darf nicht dazu führen, dass das erste sichere Segment schon ausgeführt wird, bevor ein späteres gefährliches Segment erkannt ist.",
+          "files": [
+            "tests/test_command_chain_execution_policy.py",
+            "tests/test_segment_preflight_validator.py"
+          ],
+          "description": "Test stellt sicher, dass `python hello.py; rm -rf /tmp/x` vorab komplett blockiert wird und StubShell.commands leer bleibt.",
+          "acceptance_criteria": [
+            "Command mit gefährlichem Segment 2 wird allowed=false/exit_code=-1.",
+            "StubShell.commands bleibt leer.",
+            "Diagnostics zeigen denied_segment_index=2.",
+            "Reason Code enthält execution_risk_denied:critical oder approval_blocked:critical_risk.",
+            "Audit/History enthalten segment validations."
+          ],
+          "depends_on": ["SCG-005", "SCG-006", "SCG-007"]
+        },
+        {
+          "id": "SCG-016",
+          "title": "Unsupported Shell Operators bleiben blockiert",
+          "type": "security-test",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Pipes, Substitutionen und Backticks dürfen durch den Chain-Fix nicht versehentlich erlaubt werden.",
+          "files": [
+            "tests/test_shell_command_analyzer.py",
+            "tests/test_command_chain_execution_policy.py"
+          ],
+          "description": "Tests prüfen `cat a | grep x`, `echo $(whoami)`, backticks und heredoc. Alle bleiben standardmäßig blocked.",
+          "acceptance_criteria": [
+            "Pipe wird mit shell_operator_unsupported:| geblockt.",
+            "Command substitution `$(` wird geblockt.",
+            "Backticks werden geblockt.",
+            "Heredoc `<<` wird geblockt.",
+            "Keiner dieser Tests führt StubShell aus."
+          ],
+          "depends_on": ["SCG-002", "SCG-004"]
+        },
+        {
+          "id": "SCG-017",
+          "title": "Config-Override Tests für Chain Operators",
+          "type": "test",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Wenn jemand Semikolon oder && bewusst verbieten will, muss das konfigurierbar bleiben.",
+          "files": [
+            "tests/test_shell_command_policy_config.py"
+          ],
+          "description": "Tests prüfen Overrides: semicolon verboten, && verboten, || erlaubt, all chains verboten, pipeline mode explizit erlaubt/disabled.",
+          "acceptance_criteria": [
+            "allow_chain_operators ohne `;` blockiert `pytest; git status`.",
+            "allow_chain_operators=['&&'] erlaubt `pytest && git status`, blockiert `pytest || echo failed`.",
+            "allow_chain_operators=[] blockiert alle Chain-Operatoren außerhalb Quotes.",
+            "Quoted Semikolon in `python -c` bleibt bei allow_quoted_operators=true erlaubt, auch wenn Shell-`;` verboten ist.",
+            "allow_quoted_operators=false kann quoted operator diagnostics erzeugen, ohne naive Stringsuche."
+          ],
+          "depends_on": ["SCG-001", "SCG-002", "SCG-011"]
+        },
+        {
+          "id": "SCG-018",
+          "title": "E2E-Test: OpenCode Mini-Projekt mit Shell Chain Test Command",
+          "type": "e2e-test",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Ein realitätsnaher Flow soll zeigen, dass OpenCode kleine Projekte mit chained test commands abschließen kann.",
+          "files": [
+            "tests/e2e/test_command_chain_execution_full_flow.py",
+            "tests/test_opencode_command_chain_guardrails.py"
+          ],
+          "description": "E2E/Dry-run Flow simuliert OpenCode Proposal für hello/greet oder mini_slugify und lässt Testchain ausführen. Kein echter OpenCode-Prozess nötig; Proposal kann gemockt werden.",
+          "implementation_notes": [
+            "Mock Proposal: command='python hello.py; python -c ...'.",
+            "StubShell oder temp workspace verwenden.",
+            "Optional live marker für echten OpenCode später.",
+            "Prüfen, dass Task status completed statt blocked/failed wird."
+          ],
+          "acceptance_criteria": [
+            "Gemockter OpenCode Flow endet completed.",
+            "Task-History enthält command_chain_parsed.",
+            "Kein guardrail_blocked Event für legitime Semicolon-Chain.",
+            "Gefährliche Variante im gleichen Testmodul endet blocked vor Ausführung.",
+            "Test läuft offline ohne OpenCode-Binary."
+          ],
+          "depends_on": ["SCG-009", "SCG-014", "SCG-015"]
+        }
+      ]
+    },
+    {
+      "id": "SCG-TRACK-006",
+      "title": "Dokumentation und Migration",
+      "summary": "Die neue Semantik muss dokumentiert werden: erlaubte Operatoren, blockierte Operatoren, segmentweise Prüfung und Beispiele für OpenCode/Worker.",
+      "priority": "medium",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "SCG-019",
+          "title": "Shell Command Policy Doku schreiben",
+          "type": "docs",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Operator-Policy und Sicherheitsmodell werden verständlich dokumentiert.",
+          "files": [
+            "docs/security/shell-command-policy.md",
+            "docs/architecture/worker-command-execution.md"
+          ],
+          "description": "Doku erklärt, warum `;`, `&&`, `||` erlaubt sein können, wie segmentweise Vorabprüfung funktioniert und warum Pipes/Substitutionen standardmäßig blockiert sind.",
+          "implementation_notes": [
+            "Beispiele: pytest && git status, pytest || echo failed, python hello.py; python -c ...",
+            "Gegenbeispiele: cat file | grep secret, echo $(cat .env), rm -rf.",
+            "Mermaid-Diagramm: raw command -> transcription repair -> chain analyzer -> segment preflight -> execution semantics.",
+            "Konfigurationsbeispiele für strict/safe/balanced."
+          ],
+          "acceptance_criteria": [
+            "Doku nennt den OpenCode-Python-Chain-Fall explizit.",
+            "Doku listet erlaubte und blockierte Default-Operatoren.",
+            "Doku erklärt quoted operator handling.",
+            "Doku enthält Config-Beispiele.",
+            "Doku enthält mindestens ein Mermaid-Diagramm."
+          ],
+          "depends_on": ["SCG-011", "SCG-013"]
+        },
+        {
+          "id": "SCG-020",
+          "title": "Release-/Migration-Notiz ergänzen",
+          "type": "docs",
+          "priority": "low",
+          "status": "todo",
+          "summary": "Bestehende Nutzer sollen wissen, dass Chain-Operatoren nun explizit konfigurierbar und segmentweise geprüft sind.",
+          "files": [
+            "docs/release/",
+            "README.md"
+          ],
+          "description": "Release-Notiz beschreibt neue shell_command_policy und dass legitime Testchains nicht mehr wegen Semikolon geblockt werden sollten.",
+          "acceptance_criteria": [
+            "Release-Notiz enthält Breaking/Non-breaking Einschätzung.",
+            "Default-Verhalten ist dokumentiert.",
+            "Hinweis auf Override, um Semikolon/&&/|| strenger zu verbieten.",
+            "README oder Security-Doku verlinkt auf shell-command-policy.md."
+          ],
+          "depends_on": ["SCG-019"]
+        }
+      ]
+    }
+  ],
+  "recommended_execution_order": [
+    "SCG-003",
+    "SCG-001",
+    "SCG-002",
+    "SCG-011",
+    "SCG-004",
+    "SCG-005",
+    "SCG-006",
+    "SCG-007",
+    "SCG-014",
+    "SCG-015",
+    "SCG-016",
+    "SCG-017",
+    "SCG-008",
+    "SCG-009",
+    "SCG-010",
+    "SCG-012",
+    "SCG-013",
+    "SCG-018",
+    "SCG-019",
+    "SCG-020"
+  ],
+  "definition_of_done": [
+    "Der konkrete OpenCode-Command `python hello.py; python -c \"from hello import greet; print(greet('World'))\"` wird nicht mehr wegen Semikolon geblockt.",
+    "Shell-Operatoren werden ausschließlich parser-/policy-basiert bewertet, nicht per naiver Gesamtstring-Suche.",
+    "`;`, `&&` und `||` sind default erlaubt und konfigurierbar.",
+    "Pipes, backticks, command substitution, variable expansion und heredoc bleiben default blockiert.",
+    "Approval und Risk können Chain-Commands segment-aware bewerten.",
+    "Gefährliche spätere Segmente blockieren die komplette Chain vor Ausführung irgendeines Segments.",
+    "Tool-Calls mit shell_execute/run_command verwenden dieselbe Chain-Analyse wie command strings.",
+    "Task-History, Pipeline und Audit erklären bei Blocks das konkrete Segment und die Policy-Reasons.",
+    "Regression-Tests decken OpenCode command string, OpenCode tool-call, quoted semicolon und gefährliche Segment-Fälle ab.",
+    "Doku erklärt ShellCommandPolicy und segmentweise Guardrail-Semantik."
+  ],
+  "risks": [
+    {
+      "id": "SCG-RISK-001",
+      "title": "Zu lockere Chain-Erlaubnis könnte gefährliche Kombinationsbefehle ermöglichen",
+      "mitigation": "Alle Segmente werden vorab vollständig validiert; bei einem denied Segment wird kein Segment ausgeführt. Pipes/Substitutionen bleiben default blocked."
+    },
+    {
+      "id": "SCG-RISK-002",
+      "title": "Quoted inline code kann gefährliche Spracheffekte enthalten",
+      "mitigation": "Quoted Operatoren werden nur als Shell-Operatoren ignoriert; das Segment selbst wird weiterhin als Command klassifiziert und ggf. über Risk/Approval bewertet."
+    },
+    {
+      "id": "SCG-RISK-003",
+      "title": "Signaturänderungen in evaluate_execution_risk/ApprovalPolicyService brechen Aufrufer",
+      "mitigation": "Nur optionale Parameter hinzufügen und bestehendes Verhalten ohne command_analysis unverändert lassen."
+    },
+    {
+      "id": "SCG-RISK-004",
+      "title": "Diagnostics könnten sensitive Commandteile enthalten",
+      "mitigation": "Nur command_preview und redaction verwenden; keine vollständigen Secrets in History/Audit speichern."
+    }
+  ],
+  "non_goals": [
+    "Keine generelle Freigabe von Pipes oder komplexer Shell-Syntax.",
+    "Keine automatische Ausführung von gefährlichen späteren Segmenten.",
+    "Keine Abschaltung von Approval/Risk-Policy, sondern segment-aware Anwendung.",
+    "Keine blinde Ausnahme nur für OpenCode; das Verhalten gilt provider-/worker-neutral.",
+    "Keine naive Whitelist für `python -c`, die den restlichen Segment-Risk umgeht."
+  ]
+}
