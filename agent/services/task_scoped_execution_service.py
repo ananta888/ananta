@@ -79,6 +79,37 @@ from agent.utils import _extract_reason, _log_terminal_entry
 _INTERACTIVE_TERMINAL_FINALIZE_COMMAND = "__ANANTA_FINALIZE_INTERACTIVE_OPENCODE__"
 
 
+def _build_workspace_state_sync_record(
+    *,
+    task: dict,
+    materialization_manifest: object,
+    workspace_artifact_refs: list,
+    git_pushed: bool,
+) -> dict:
+    try:
+        from agent.services.workspace_state_sync_policy import WorkspaceStateSyncPolicy
+        policy = WorkspaceStateSyncPolicy.resolve(task)
+        input_artifacts = [
+            {"artifact_id": r.get("artifact_id"), "path": r.get("workspace_relative_path")}
+            for r in (materialization_manifest or [])
+            if isinstance(r, dict)
+        ]
+        output_artifacts = [
+            {"artifact_id": r.get("artifact_id"), "path": r.get("workspace_relative_path")}
+            for r in (workspace_artifact_refs or [])
+            if isinstance(r, dict) and r.get("kind") == "workspace_file"
+        ]
+        return {
+            "sync_mode": policy.sync_mode,
+            "source_of_truth": policy.source_of_truth,
+            "input_artifacts": input_artifacts,
+            "output_artifacts": output_artifacts,
+            "git_pushed": git_pushed,
+        }
+    except Exception:
+        return {"sync_mode": "none", "source_of_truth": "task_local", "input_artifacts": [], "output_artifacts": [], "git_pushed": git_pushed}
+
+
 def build_hermes_context_blocks(
     *,
     task: dict,
