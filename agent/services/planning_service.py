@@ -1132,6 +1132,48 @@ class PlanningService:
         created_ids: list[str] = []
         materialization_error: str | None = None
         if create_tasks:
+            if goal_id:
+                # Idempotency guard: if tasks already exist for this goal, do not materialize
+                # a second task set from a duplicate planning invocation.
+                existing_goal_task_ids = [
+                    str(getattr(task, "id", "") or "")
+                    for task in get_repository_registry().task_repo.get_all()
+                    if str(getattr(task, "goal_id", "") or "").strip() == str(goal_id).strip()
+                ]
+                existing_goal_task_ids = [tid for tid in existing_goal_task_ids if tid]
+                if existing_goal_task_ids:
+                    get_planning_telemetry_service().update_run(
+                        telemetry_run,
+                        validation_success=True,
+                        validation_errors=["materialization_skipped_existing_goal_tasks"],
+                        generated_task_count=len(existing_goal_task_ids),
+                        materialized_task_ids=existing_goal_task_ids,
+                        status="materialized",
+                    )
+                    return {
+                        "subtasks": subtasks,
+                        "created_task_ids": existing_goal_task_ids,
+                        "raw_response": raw_response if not create_tasks else None,
+                        "template_used": template_used,
+                        "planning_origin": planning_origin,
+                        "repair_strategy_used": repair_strategy_used,
+                        "repair_attempt_count": repair_attempt_count,
+                        "parse_mode": parse_mode,
+                        "plan_id": plan.id if plan else None,
+                        "plan_node_ids": [node.id for node in nodes],
+                        "feature_flags": flags,
+                        "plan_limits": limits,
+                        "plan_proposal": proposal_validation.normalized_payload,
+                        "proposal_validation_errors": proposal_validation.errors,
+                        "planning_policy": planning_policy,
+                        "planner_selection": planner_selection,
+                        "goal_config_source": str(getattr(planner, "_goal_config_source", "global_fallback")),
+                        "planning_run_id": telemetry_run.id,
+                        "prompt_version_id": prompt_version_id or None,
+                        "planning_profile": planning_profile or None,
+                        "planning_intent": intent,
+                        "planning_strategy_rationale": str(getattr(planner, "_planning_strategy_rationale", "")) or None,
+                    }
             materialize_nodes = nodes or self._build_nodes(goal_id or "ad-hoc-plan", subtasks, planning_mode)
             created_ids, materialization_error = self._materialize_plan(
                 planner=planner,
