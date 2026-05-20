@@ -13,6 +13,27 @@ class StrategyMode:
 
 
 _MODE_PRESETS: dict[str, StrategyMode] = {
+    "autopilot_no_human_review": StrategyMode(
+        mode_id="autopilot_no_human_review",
+        description="Autopilot mode for unattended runs without terminal human-review escalation.",
+        propose_policy_overrides={
+            "strategy_order": [
+                "tool_calling_llm",
+                "json_schema_llm",
+                "flexible_llm_normalization",
+                "worker_strategy",
+                "advisory_proposal",
+            ],
+            "allow_shell_execution": False,
+            "allow_json_schema_fallback": True,
+            "allow_flexible_normalization": True,
+            "allow_worker_fallback": True,
+            "allow_deterministic_fallback": True,
+            "allow_human_review": False,
+            "requires_executable_step": True,
+            "on_all_strategies_declined": "advisory",
+        },
+    ),
     "opencode_like": StrategyMode(
         mode_id="opencode_like",
         description="Interactive tool-loop oriented strategy mode.",
@@ -125,4 +146,3 @@ class StrategyModeService:
         if mode is None:
             return {}
         return dict(mode.propose_policy_overrides)
-
