@@ -1,0 +1,355 @@
+{
+  "schema_version": "todo.v2",
+  "id": "todo.hermes-free-model-routing-smoke-test",
+  "title": "Hermes Free Model Routing Smoke Test",
+  "summary": "Hermes soll für unterschiedliche ungefährliche/read-only Aufgaben verschiedene kostenlos konfigurierbare Modelle verwenden können. Der Testlauf ist bewusst klein und ähnlich zum OpenCode-New-Software-Project-Smoke-Test, aber Hermes bleibt strikt read-only: planen, zusammenfassen, reviewen und Patch-Vorschläge erzeugen ja; ausführen, Dateien schreiben oder Patches anwenden nein.",
+  "created_from": [
+    "User request: Hermes mit verschiedenen kostenlosen Modellen für verschiedene Aufgaben konfigurieren",
+    "Existing Hermes adapter config in worker/core/hermes_adapter_config.py",
+    "Existing Hermes setup docs in docs/setup/hermes-worker.md",
+    "Existing OpenCode scenario scripts/single_opencode_scenario.json",
+    "New scenario scripts/single_hermes_free_models_scenario.json"
+  ],
+  "design_intent": [
+    "Hermes bleibt governed/read-only und darf keine mutierenden Operationen ausführen.",
+    "Task-Kinds bekommen eigene Modellpräferenzen, z.B. leichtes Modell für plan_only/summarize und Coder-Modell für review/patch_propose.",
+    "Kostenlosigkeit wird nicht hart vorausgesetzt, sondern über ':free'-Modell-IDs plus optionalen Live-Availability-Test geprüft.",
+    "CI darf ohne Provider-Key nicht fehlschlagen; Live-Test wird dann übersprungen.",
+    "OpenCode bleibt für echte Coding-/Ops-/Testing-Aufgaben zuständig, z.B. mit dem Modell 'Big Pickel'."
+  ],
+  "tracks": [
+    {
+      "id": "HFM-TRACK-001",
+      "title": "Hermes task_kind_models in Adapter-Konfiguration unterstützen",
+      "summary": "HermesAdapterConfig hat aktuell default_model, aber keine saubere task_kind -> model Map. Dieser Track ergänzt modellabhängiges Routing pro Aufgabe.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "HFM-001",
+          "title": "task_kind_models und fallback_free_models in HermesAdapterConfig ergänzen",
+          "type": "feature",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Hermes braucht eine explizite Konfiguration, welches Modell für welchen Task-Kind genutzt wird.",
+          "files": [
+            "worker/core/hermes_adapter_config.py"
+          ],
+          "description": "HermesAdapterConfig wird um task_kind_models: dict[str, str], fallback_free_models: list[str] und model_selection_policy ergänzt.",
+          "implementation_notes": [
+            "task_kind_models Default: leeres Dict.",
+            "fallback_free_models Default: leere Liste.",
+            "model_selection_policy Default: prefer_task_specific_model=true, require_free_model_suffix=false, allow_fallback_on_unavailable=true.",
+            "diagnostics_view() muss neue Felder anzeigen, aber keine API Keys.",
+            "Konfiguration darf bestehende Installationen ohne diese Felder nicht brechen."
+          ],
+          "acceptance_criteria": [
+            "HermesAdapterConfig akzeptiert task_kind_models mit plan_only, review, summarize, patch_propose.",
+            "Ohne task_kind_models wird default_model wie bisher verwendet.",
+            "diagnostics_view enthält task_kind_models und fallback_free_models.",
+            "Bestehende Hermes-Konfigurations-Tests laufen unverändert oder mit minimalen Snapshot-Anpassungen grün.",
+            "Ungültige Typen, z.B. task_kind_models als Liste, werden von Pydantic abgelehnt."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "HFM-002",
+          "title": "ModelSelectionService für Hermes einführen",
+          "type": "feature",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Die Auswahl des passenden Modells soll zentral und testbar sein, nicht verstreut im Adapter.",
+          "files": [
+            "worker/core/hermes_model_selection.py",
+            "worker/core/hermes_adapter.py"
+          ],
+          "description": "HermesModelSelectionService wählt anhand von task_kind, task_kind_models, default_model, fallback_free_models und Policy das Modell aus.",
+          "implementation_notes": [
+            "select_model(task_kind, config, unavailable_models=None) -> HermesModelSelectionResult.",
+            "Priorität: task_kind_models[task_kind] > default_model > erster verfügbarer fallback_free_models.",
+            "Wenn require_free_model_suffix=true, muss Modell-ID mit ':free' enden, außer eine explizite allow_non_free_override Policy existiert später.",
+            "Result enthält selected_model, source, fallback_used, rejected_models, reason_codes.",
+            "Keine Provider-Live-Abfrage in diesem Service; Live-Verfügbarkeit separat halten."
+          ],
+          "acceptance_criteria": [
+            "plan_only wählt task_kind_models['plan_only'], wenn vorhanden.",
+            "review wählt task_kind_models['review'], wenn vorhanden.",
+            "Unbekannter task_kind fällt auf default_model zurück.",
+            "Wenn require_free_model_suffix=true und Modell nicht auf ':free' endet, liefert select_model einen Validierungsfehler.",
+            "Wenn task-spezifisches Modell als unavailable markiert ist, wird fallback_free_models verwendet, sofern allow_fallback_on_unavailable=true ist."
+          ],
+          "depends_on": ["HFM-001"]
+        },
+        {
+          "id": "HFM-003",
+          "title": "Hermes HTTP Payload verwendet ausgewähltes Modell",
+          "type": "feature",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Die Modellwahl muss tatsächlich in den Request an Hermes/OpenRouter einfließen.",
+          "files": [
+            "worker/core/hermes_http_client.py",
+            "worker/core/hermes_adapter.py",
+            "worker/core/hermes_proposal_strategy.py"
+          ],
+          "description": "Der Adapter übergibt das durch HermesModelSelectionService bestimmte Modell in den HTTP Request. default_model bleibt Fallback.",
+          "implementation_notes": [
+            "Request-Building darf nicht mehr blind config.default_model verwenden, wenn task_kind_models passt.",
+            "Telemetry/diagnostics: selected_model und model_source in Adapter-Ergebnis aufnehmen.",
+            "Fehler vom Provider wegen unbekanntem/nicht verfügbarem Modell als model_unavailable normalisieren.",
+            "Bei parse retry dasselbe selected_model verwenden, außer explizite Fallback-Policy greift."
+          ],
+          "acceptance_criteria": [
+            "Für task_kind=review enthält der HTTP Payload das konfigurierte Review-Modell.",
+            "Für task_kind=plan_only enthält der Payload das konfigurierte Plan-Modell.",
+            "Wenn kein task_kind_models Eintrag existiert, wird default_model genutzt.",
+            "Adapter-Ergebnis enthält selected_model und model_selection_source.",
+            "model_unavailable kann einen Fallback-Versuch auslösen, wenn Policy dies erlaubt."
+          ],
+          "depends_on": ["HFM-002"]
+        }
+      ]
+    },
+    {
+      "id": "HFM-TRACK-002",
+      "title": "Free-Model-Szenario und Smoke-Test",
+      "summary": "Das neue Szenario single_hermes_free_models_scenario.json soll offline validiert und optional live gegen einen Provider getestet werden.",
+      "priority": "critical",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "HFM-004",
+          "title": "Szenario-JSON validieren",
+          "type": "test",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Das neue Hermes-Szenario muss syntaktisch und semantisch valide sein.",
+          "files": [
+            "scripts/single_hermes_free_models_scenario.json",
+            "tests/test_hermes_free_models_scenario.py"
+          ],
+          "description": "Ein Test lädt das Szenario und prüft Pflichtfelder, Routing, blocked_task_kinds, model_selection_policy und Acceptance-Kriterien.",
+          "acceptance_criteria": [
+            "JSON-Datei ist parsebar.",
+            "Szenario-ID ist hermes_free_models_small_task.",
+            "Hermes Feature Flag und Adapter Feature Flag sind im Szenario beide true.",
+            "blocked_task_kinds enthalten patch_apply und command_execute.",
+            "expected_routing.patch_propose.must_not_apply_patch ist true.",
+            "test_goal beschreibt eine kleine Aufgabe und keine Shell-Ausführung."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "HFM-005",
+          "title": "Offline-Routing-Test für Hermes-Free-Modelle",
+          "type": "test",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Ohne API-Key soll geprüft werden, ob die Modell- und Backend-Auswahl korrekt wäre.",
+          "files": [
+            "tests/test_hermes_free_model_routing.py",
+            "worker/core/hermes_model_selection.py"
+          ],
+          "description": "Der Test simuliert task_kind plan_only, summarize, review und patch_propose und prüft die gewählten Modelle ohne Netzwerkzugriff.",
+          "test_cases": [
+            "test_plan_only_uses_lightweight_free_model",
+            "test_summarize_uses_lightweight_free_model",
+            "test_review_uses_coder_free_model",
+            "test_patch_propose_uses_coder_free_model_but_remains_read_only",
+            "test_non_free_model_rejected_when_free_suffix_required",
+            "test_unknown_task_kind_falls_back_to_default_free_model"
+          ],
+          "acceptance_criteria": [
+            "Offline-Test läuft ohne OPENROUTER_API_KEY.",
+            "Alle Hermes-Modelle im Szenario enden mit ':free', wenn require_free_model_suffix=true ist.",
+            "patch_propose wird als read-only Proposal behandelt.",
+            "coding/ops/testing werden nicht auf Hermes geroutet.",
+            "Der Test schlägt fehl, wenn ein nicht-free Modell versehentlich in task_kind_models eingetragen wird."
+          ],
+          "depends_on": ["HFM-001", "HFM-002", "HFM-004"]
+        },
+        {
+          "id": "HFM-006",
+          "title": "Optionaler Live-Smoke-Test mit Skip ohne API-Key",
+          "type": "test",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Ein echter Provider-Test soll möglich sein, aber CI ohne Key nicht blockieren.",
+          "files": [
+            "tests/test_hermes_free_models_live_smoke.py"
+          ],
+          "description": "Live-Test nutzt OPENROUTER_API_KEY und HERMES_BASE_URL. Wenn der Key fehlt, wird pytest.skip ausgeführt. Der Test sendet die kleine mini_slugify-Planungsaufgabe an Hermes plan_only und optional patch_propose.",
+          "implementation_notes": [
+            "pytest Marker: integration oder live_provider.",
+            "Timeout kurz halten, z.B. 45 Sekunden.",
+            "Nur minimale Kontextdaten senden.",
+            "Keine Secrets, keine Repo-Dateien außer erlaubtem Mini-Kontext.",
+            "Provider-Fehler model_unavailable führt zu skip oder xfail, nicht zu hartem CI-Fail, wenn Free-Modell temporär nicht verfügbar ist."
+          ],
+          "acceptance_criteria": [
+            "Ohne OPENROUTER_API_KEY wird der Test sauber übersprungen.",
+            "Mit OPENROUTER_API_KEY wird ein plan_only Request ausgeführt.",
+            "Antwort muss strict JSON erfüllen oder als parse_error sauber diagnostiziert werden.",
+            "Der Test führt keine Shell-Kommandos aus und schreibt keine Dateien.",
+            "Wenn das konfigurierte Free-Modell nicht verfügbar ist, wird Fallback versucht oder der Test nachvollziehbar xfail/skip gesetzt."
+          ],
+          "depends_on": ["HFM-003", "HFM-005"]
+        }
+      ]
+    },
+    {
+      "id": "HFM-TRACK-003",
+      "title": "Hermes bleibt read-only und OpenCode übernimmt Mutation",
+      "summary": "Hermes darf planen, reviewen und Patches vorschlagen, aber nicht schreiben oder ausführen. Für die eigentliche kleine Coding-Aufgabe bleibt OpenCode zuständig, optional mit Modell 'Big Pickel'.",
+      "priority": "high",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "HFM-007",
+          "title": "Read-only Enforcement für patch_propose testen",
+          "type": "security-test",
+          "priority": "critical",
+          "status": "todo",
+          "summary": "Patch-Vorschläge dürfen niemals automatisch angewendet werden.",
+          "files": [
+            "tests/test_hermes_free_models_read_only.py",
+            "worker/core/hermes_adapter.py",
+            "worker/core/hermes_output_parser.py"
+          ],
+          "description": "Tests stellen sicher, dass patch_propose nur Diff-/Proposal-Artefakte erzeugt und keine Workspace-Mutation auslöst.",
+          "acceptance_criteria": [
+            "patch_propose Ergebnis enthält proposal/diff, aber keinen apply-Schritt.",
+            "Hermes blockiert patch_apply unabhängig vom Modell.",
+            "Hermes blockiert command_execute/shell_execute unabhängig vom Modell.",
+            "Ein vom Modell vorgeschlagener Shell-Befehl wird als Text behandelt, nicht ausgeführt.",
+            "Security-Test prüft keine Dateiänderung im Workspace."
+          ],
+          "depends_on": ["HFM-003"]
+        },
+        {
+          "id": "HFM-008",
+          "title": "Gemischter Hermes/OpenCode-Testlauf definieren",
+          "type": "integration-test",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Der Testlauf soll zeigen: Hermes plant/reviewt, OpenCode implementiert die kleine Aufgabe.",
+          "files": [
+            "tests/test_hermes_opencode_small_project_flow.py",
+            "scripts/single_hermes_free_models_scenario.json",
+            "scripts/single_opencode_scenario.json"
+          ],
+          "description": "Ein optionaler Integrationstest nutzt Hermes für plan_only/review und OpenCode für coding/testing. Die Aufgabe mini_slugify bleibt absichtlich klein.",
+          "implementation_notes": [
+            "Der Test darf offline als dry-run laufen: nur Routing und erwartete Task-Zuweisung prüfen.",
+            "Live-Modus nur mit expliziten Env Vars: OPENROUTER_API_KEY und OPENCODE_ENABLED=true.",
+            "OpenCode-Modellname 'Big Pickel' als konfigurierbare Variable OPENCODE_TEST_MODEL unterstützen.",
+            "Hermes darf keine coding Task übernehmen."
+          ],
+          "acceptance_criteria": [
+            "Dry-run zeigt plan_only -> Hermes, review -> Hermes, coding -> OpenCode, testing -> OpenCode.",
+            "OPENCODE_TEST_MODEL kann auf 'Big Pickel' gesetzt werden.",
+            "Ohne OPENCODE_ENABLED wird Live-Ausführung übersprungen.",
+            "Hermes bekommt keine mutation-capable Task-Kinds.",
+            "Flow erzeugt eine verständliche Diagnose, wenn ein Backend fehlt."
+          ],
+          "depends_on": ["HFM-005", "HFM-007"]
+        }
+      ]
+    },
+    {
+      "id": "HFM-TRACK-004",
+      "title": "Dokumentation und Bedienbarkeit",
+      "summary": "Die Konfiguration soll später leicht angepasst werden können, weil Free-Modelle bei Providern wechseln können.",
+      "priority": "medium",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "HFM-009",
+          "title": "Hermes-Free-Model-Routing dokumentieren",
+          "type": "docs",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Die neue Multi-Modell-Konfiguration braucht eine kurze Doku mit Beispiel und Warnhinweisen.",
+          "files": [
+            "docs/setup/hermes-worker.md",
+            "docs/setup/hermes-free-model-routing.md"
+          ],
+          "description": "Doku erklärt task_kind_models, fallback_free_models, require_free_model_suffix, Live-Test-Skip und die Trennung Hermes read-only vs OpenCode mutation-capable.",
+          "acceptance_criteria": [
+            "Doku enthält ein JSON-Beispiel für task_kind_models.",
+            "Doku erklärt, dass Free-Modell-Verfügbarkeit providerabhängig wechseln kann.",
+            "Doku erklärt, dass Hermes patch_propose nicht patch_apply ist.",
+            "Doku nennt OPENROUTER_API_KEY, HERMES_BASE_URL und OPENCODE_TEST_MODEL als optionale Env Vars.",
+            "Doku enthält einen pytest-Befehl für Offline- und Live-Smoke-Test."
+          ],
+          "depends_on": ["HFM-001", "HFM-006", "HFM-008"]
+        },
+        {
+          "id": "HFM-010",
+          "title": "Free-Modell-Kandidaten zentral konfigurierbar machen",
+          "type": "config",
+          "priority": "medium",
+          "status": "todo",
+          "summary": "Da kostenlose Modelle wechseln können, sollen sie leicht austauschbar sein.",
+          "files": [
+            "config/hermes_free_model_candidates.default.json",
+            "worker/core/hermes_model_selection.py"
+          ],
+          "description": "Eine Default-Datei definiert Kandidaten nach Rolle: lightweight_planner, summarizer, coder_reviewer, fallback. Szenarien referenzieren Rollen statt überall harte Modell-IDs zu duplizieren.",
+          "implementation_notes": [
+            "Erste Kandidaten aus dem Szenario übernehmen.",
+            "Rollen: lightweight_planner, summarizer, coder_reviewer, fallback.",
+            "Jeder Kandidat hat model_id, provider, intended_task_kinds, requires_api_key_env, notes.",
+            "Loader muss fehlende Datei tolerieren und Szenario-Defaults nutzen."
+          ],
+          "acceptance_criteria": [
+            "Default-Kandidaten-Datei ist valides JSON.",
+            "Alle Kandidaten mit free_required=true enden auf ':free'.",
+            "Szenario kann entweder direkte model_id oder candidate_role verwenden.",
+            "Austausch eines Kandidaten erfordert keine Codeänderung.",
+            "Tests prüfen Loader-Fallback bei fehlender Kandidaten-Datei."
+          ],
+          "depends_on": ["HFM-002"]
+        }
+      ]
+    }
+  ],
+  "recommended_execution_order": [
+    "HFM-004",
+    "HFM-001",
+    "HFM-002",
+    "HFM-003",
+    "HFM-005",
+    "HFM-007",
+    "HFM-006",
+    "HFM-008",
+    "HFM-009",
+    "HFM-010"
+  ],
+  "definition_of_done": [
+    "Hermes kann pro task_kind ein anderes Modell verwenden.",
+    "Free-Modell-Policy kann ':free'-Suffix erzwingen.",
+    "Offline-Smoke-Tests prüfen Routing und Modellwahl ohne API-Key.",
+    "Live-Smoke-Test läuft nur optional und skippt sauber ohne Key.",
+    "Hermes bleibt read-only und blockiert patch_apply sowie command_execute weiterhin hart.",
+    "OpenCode bleibt für mutation-capable coding/testing/ops zuständig.",
+    "Das kleine mini_slugify-Testgoal kann als reproduzierbarer Vergleichstest zu OpenCode-New-Software-Project verwendet werden."
+  ],
+  "risks": [
+    {
+      "id": "HFM-RISK-001",
+      "title": "Free-Modelle ändern sich beim Provider",
+      "mitigation": "Keine harte CI-Abhängigkeit auf Live-Verfügbarkeit; Offline-Tests plus optionaler Live-Test mit skip/xfail."
+    },
+    {
+      "id": "HFM-RISK-002",
+      "title": "Hermes übernimmt versehentlich mutierende Tasks",
+      "mitigation": "Read-only Enforcement und Tests für patch_apply/command_execute bleiben mandatory."
+    },
+    {
+      "id": "HFM-RISK-003",
+      "title": "Modellname 'Big Pickel' ist lokal/providerabhängig",
+      "mitigation": "Als OPENCODE_TEST_MODEL konfigurierbar halten, nicht hart in Hermes-Code verdrahten."
+    }
+  ]
+}
