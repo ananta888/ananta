@@ -1,0 +1,143 @@
+{
+  "scenarios": [
+    {
+      "id": "hermes_free_models_small_task",
+      "label": "Hermes Worker + Free Model Routing + Small Task",
+      "summary": "Test scenario for routing different Hermes task kinds to different configurable free-tier models. It is intentionally small and comparable to the OpenCode new-software-project smoke run, but Hermes stays read-only/governed.",
+      "config_profile": "hermes_free_models_preconfigured",
+      "test_goal": {
+        "title": "Create a tiny Python utility plan",
+        "description": "Plan a very small Python utility named mini_slugify that converts a string to a lowercase dash-separated slug. Return only a structured plan and optional patch proposal; do not execute commands and do not apply patches.",
+        "mode_id": "new_software_project",
+        "expected_complexity": "small",
+        "expected_files": [
+          "mini_slugify.py",
+          "test_mini_slugify.py",
+          "README.md"
+        ]
+      },
+      "config_overrides": {
+        "feature_flags": {
+          "enable_hermes_worker_adapter": true
+        },
+        "hermes_worker_adapter": {
+          "enabled": true,
+          "feature_flag_enabled": true,
+          "base_url": "${HERMES_BASE_URL:-https://openrouter.ai/api/v1}",
+          "api_key_env": "OPENROUTER_API_KEY",
+          "cloud_allowed": true,
+          "strict_json_required": true,
+          "timeout_seconds": 45,
+          "max_retries": 1,
+          "max_context_chars": 8000,
+          "default_temperature": 0.1,
+          "max_output_tokens": 2048,
+          "allowed_task_kinds": [
+            "plan_only",
+            "review",
+            "summarize",
+            "patch_propose",
+            "research_limited"
+          ],
+          "blocked_task_kinds": [
+            "patch_apply",
+            "command_execute",
+            "shell_execute",
+            "shell_execution",
+            "service_mutation",
+            "config_mutation"
+          ],
+          "default_model": "z-ai/glm-4.5-air:free",
+          "task_kind_models": {
+            "plan_only": "z-ai/glm-4.5-air:free",
+            "summarize": "z-ai/glm-4.5-air:free",
+            "review": "qwen/qwen3-coder:free",
+            "patch_propose": "qwen/qwen3-coder:free",
+            "research_limited": "z-ai/glm-4.5-air:free"
+          },
+          "fallback_free_models": [
+            "z-ai/glm-4.5-air:free",
+            "qwen/qwen3-coder:free",
+            "moonshotai/kimi-k2:free"
+          ],
+          "model_selection_policy": {
+            "prefer_task_specific_model": true,
+            "require_free_model_suffix": true,
+            "allow_fallback_on_unavailable": true,
+            "live_availability_check": "optional_skip_if_missing_api_key"
+          }
+        },
+        "sgpt_routing": {
+          "task_kind_backend": {
+            "analysis": "hermes",
+            "review": "hermes",
+            "doc": "hermes",
+            "research": "hermes",
+            "coding": "opencode",
+            "ops": "opencode",
+            "testing": "opencode"
+          }
+        },
+        "workspace_context_policy": {
+          "scope_mode": "selective",
+          "max_files": 20,
+          "sensitivity_ceiling": "internal_low",
+          "llm_scope": "external_cloud_allowed",
+          "allowed_paths": [
+            "README.md",
+            "docs/**",
+            "examples/**",
+            "tests/**"
+          ],
+          "denied_paths": [
+            ".env",
+            "**/.env",
+            "**/*secret*",
+            "**/*token*",
+            "**/*credential*"
+          ]
+        }
+      },
+      "expected_routing": {
+        "plan_only": {
+          "backend": "hermes",
+          "model": "z-ai/glm-4.5-air:free",
+          "must_be_read_only": true
+        },
+        "review": {
+          "backend": "hermes",
+          "model": "qwen/qwen3-coder:free",
+          "must_be_read_only": true
+        },
+        "patch_propose": {
+          "backend": "hermes",
+          "model": "qwen/qwen3-coder:free",
+          "must_be_read_only": true,
+          "must_not_apply_patch": true
+        },
+        "coding": {
+          "backend": "opencode",
+          "model": "Big Pickel",
+          "must_be_mutation_capable": true,
+          "requires_normal_ananta_approval_policy": true
+        }
+      },
+      "acceptance_criteria": [
+        "Scenario JSON is valid and loadable by the scenario runner.",
+        "Hermes adapter is enabled only when both feature_flags.enable_hermes_worker_adapter and hermes_worker_adapter.feature_flag_enabled are true.",
+        "All Hermes task-specific model ids either end with ':free' or are rejected by validation when require_free_model_suffix=true.",
+        "plan_only routes to Hermes using the configured lightweight planning model.",
+        "review and patch_propose route to Hermes using the configured coder/reviewer model.",
+        "patch_propose may return a diff proposal but must never apply a patch.",
+        "command_execute, shell_execute, shell_execution and patch_apply remain blocked for Hermes.",
+        "coding/ops/testing stay on OpenCode or native execution path, not Hermes.",
+        "Cloud Hermes receives only context allowed by workspace_context_policy and sensitivity filters.",
+        "Live API test is skipped if OPENROUTER_API_KEY is missing; offline routing tests still run."
+      ],
+      "notes": [
+        "Free model availability can change on providers. This scenario treats the listed models as configurable candidates and requires a live skip/fallback behavior instead of hard-failing CI.",
+        "The scenario is intentionally small: mini_slugify is enough to test routing, JSON output, patch proposal shape and read-only Hermes behavior."
+      ]
+    }
+  ]
+}
