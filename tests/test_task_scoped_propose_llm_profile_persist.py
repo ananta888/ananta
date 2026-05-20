@@ -1,5 +1,7 @@
 from unittest.mock import patch
 
+from flask import g
+
 from worker.core.propose import ExecutableProposal, ProposeStrategyResult
 
 
@@ -231,3 +233,25 @@ def test_propose_passes_effective_config_to_orchestrator(client, app, admin_auth
     assert res.status_code == 200
     assert captured.get("effective_config", {}).get("default_provider") == "ollama"
     assert captured.get("effective_config", {}).get("default_model") == "qwen2.5-coder:7b"
+
+
+def test_propose_sets_and_restores_llm_trace_request_context(client, app, admin_auth_header):
+    from agent.routes.tasks.utils import _update_local_task_status
+
+    tid = "T-PROFILE-CTX"
+    with app.app_context():
+        _update_local_task_status(tid, "assigned", goal_id="g-ctx", description="test")
+
+    captured = {}
+
+    def _capturing_run(_context):
+        captured["during_goal"] = getattr(g, "llm_goal_id", None)
+        captured["during_task"] = getattr(g, "llm_task_id", None)
+        return _mk_result(with_profile=False)
+
+    with patch("worker.core.propose_orchestrator.ProposeStrategyOrchestrator.run", side_effect=_capturing_run):
+        res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "hello"}, headers=admin_auth_header)
+
+    assert res.status_code == 200
+    assert captured["during_goal"] == "g-ctx"
+    assert captured["during_task"] == tid
