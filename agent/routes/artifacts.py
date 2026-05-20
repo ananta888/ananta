@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, g, request
+from pathlib import Path
+
+from flask import Blueprint, current_app, g, request, send_file
 
 from agent.auth import check_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
@@ -239,6 +241,26 @@ def get_artifact_rag_status(artifact_id: str):
             "knowledge_index": knowledge_index.model_dump(),
             "runs": [item.model_dump() for item in runs],
         }
+    )
+
+
+@artifacts_bp.route("/artifacts/<artifact_id>/content", methods=["GET"])
+@check_auth
+def get_artifact_content(artifact_id: str):
+    """Serve raw artifact bytes. Used by workers to materialize predecessor artifacts."""
+    version_repo = _artifact_version_repo()
+    versions = version_repo.get_by_artifact(artifact_id)
+    if not versions:
+        raise NotFoundError()
+    latest = versions[0]
+    storage_path = Path(latest.storage_path)
+    if not storage_path.exists():
+        raise NotFoundError("artifact_file_not_found")
+    return send_file(
+        str(storage_path),
+        mimetype=latest.media_type or "application/octet-stream",
+        as_attachment=True,
+        download_name=latest.original_filename or "artifact.bin",
     )
 
 

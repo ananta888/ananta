@@ -144,6 +144,8 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
     workspace_cfg: dict = {}
     if args.git_workspace:
         workspace_cfg["git_workspace"] = {"enabled": True, "branch_strategy": "goal"}
+    if args.artifact_sync:
+        workspace_cfg["sync_mode"] = "artifact_hub_sync"
     policy: dict[str, Any] = {
         "default_provider": "lmstudio",
         "default_model": "google/gemma-4-e4b",
@@ -197,6 +199,9 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
         git_ws = ws.get("git_workspace", {})
         if git_ws.get("enabled"):
             print(f"  git_workspace.enabled:   True (branch_strategy={git_ws.get('branch_strategy', 'goal')})")
+        sync_mode = ws.get("sync_mode", "")
+        if sync_mode:
+            print(f"  workspace.sync_mode:     {sync_mode}")
     return 0
 
 
@@ -226,6 +231,12 @@ def main() -> int:
         action="store_true",
         default=False,
         help="Git-Workspace-Sharing zwischen Tasks eines Goals aktivieren",
+    )
+    sp_p.add_argument(
+        "--artifact-sync",
+        action="store_true",
+        default=False,
+        help="Artifact-Hub-Sync aktivieren: Worker laden Artefakte zum Hub hoch, Folge-Tasks materialisieren sie",
     )
 
     args = p.parse_args()
