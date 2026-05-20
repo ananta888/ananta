@@ -154,3 +154,136 @@ class TestPromptRender:
         decision = policy.check_raw_access(is_admin=False, is_local=False, raw_available=False)
         assert not decision.allowed
         assert "raw_not_stored" in decision.reason or "disabled" in decision.reason or "denied" in decision.reason
+
+
+class TestPromptDelegationReport:
+    def test_delegation_report_json_happy_path(self):
+        import argparse, io, contextlib
+        from agent.cli.prompt_inspect import cmd_prompt_delegation_report
+
+        class _Resp:
+            def __init__(self, status_code: int):
+                self.status_code = status_code
+
+        goal_detail = {
+            "goal": {"status": "planned"},
+            "tasks": [
+                {
+                    "id": "task-1",
+                    "title": "Implement",
+                    "status": "proposing",
+                    "task_kind": "coding",
+                    "required_capabilities": ["coding"],
+                    "assigned_agent_url": "http://worker-a:5000",
+                    "verification_status": {"execution_scope": {"worker_url": "http://worker-a:5000"}},
+                    "instruction_layers": {
+                        "selected_profile": "big-pickle",
+                        "selected_overlay": "safe-mode",
+                        "template_compatibility": {
+                            "status": "ok",
+                            "role_template_context": {"template_id": "tpl-1", "template_name": "Backend Template"},
+                        },
+                    },
+                }
+            ],
+        }
+        prompt_traces = {
+            "total": 2,
+            "traces": {
+                "generate": [
+                    {
+                        "task_id": "task-1",
+                        "request_kind": "generate",
+                        "provider": "lmstudio",
+                        "model": "google/gemma-4-e4b",
+                        "prompt_hash_sha256": "abc123",
+                        "prompt_preview_redacted": "hello",
+                        "created_at": 100.0,
+                    }
+                ],
+                "repair": [
+                    {
+                        "task_id": "task-1",
+                        "request_kind": "repair",
+                        "provider": "lmstudio",
+                        "model": "google/gemma-4-e4b",
+                        "prompt_hash_sha256": "def456",
+                        "prompt_preview_redacted": "newer",
+                        "created_at": 200.0,
+                    }
+                ],
+            },
+        }
+
+        def _request(method, path, **kwargs):
+            if path.endswith("/detail"):
+                return _Resp(200)
+            if path.endswith("/prompt-traces"):
+                return _Resp(200)
+            return _Resp(404)
+
+        def _api_data(resp):
+            if resp.status_code != 200:
+                return {}
+            # detail request first, traces second in command flow
+            if not getattr(_api_data, "_seen_detail", False):
+                _api_data._seen_detail = True
+                return goal_detail
+            return prompt_traces
+
+        args = argparse.Namespace(goal_id="goal-1", json=True)
+        captured = io.StringIO()
+        with patch("agent.cli_goals._request", side_effect=_request), patch("agent.cli_goals._api_data", side_effect=_api_data):
+            with contextlib.redirect_stdout(captured):
+                code = cmd_prompt_delegation_report(args)
+
+        assert code == 0
+        parsed = json.loads(captured.getvalue())
+        assert parsed["goal_id"] == "goal-1"
+        assert parsed["task_count"] == 1
+        task = parsed["tasks"][0]
+        assert task["task_id"] == "task-1"
+        assert task["instruction_layers"]["template_compatibility"]["role_template_context"]["template_id"] == "tpl-1"
+        assert task["last_prompt_trace"]["request_kind"] == "repair"
+        assert task["last_prompt_trace"]["prompt_hash"] == "def456"
+
+    def test_delegation_report_missing_optional_fields(self):
+        import argparse, io, contextlib
+        from agent.cli.prompt_inspect import cmd_prompt_delegation_report
+
+        class _Resp:
+            def __init__(self, status_code: int):
+                self.status_code = status_code
+
+        goal_detail = {
+            "goal": {"status": "planned"},
+            "tasks": [{"id": "task-2", "title": "Doc", "status": "todo"}],
+        }
+        prompt_traces = {"total": 0, "traces": {}}
+
+        def _request(method, path, **kwargs):
+            if path.endswith("/detail"):
+                return _Resp(200)
+            if path.endswith("/prompt-traces"):
+                return _Resp(200)
+            return _Resp(404)
+
+        def _api_data(resp):
+            if not getattr(_api_data, "_seen_detail", False):
+                _api_data._seen_detail = True
+                return goal_detail
+            return prompt_traces
+
+        args = argparse.Namespace(goal_id="goal-2", json=True)
+        captured = io.StringIO()
+        with patch("agent.cli_goals._request", side_effect=_request), patch("agent.cli_goals._api_data", side_effect=_api_data):
+            with contextlib.redirect_stdout(captured):
+                code = cmd_prompt_delegation_report(args)
+
+        assert code == 0
+        parsed = json.loads(captured.getvalue())
+        assert parsed["task_count"] == 1
+        task = parsed["tasks"][0]
+        assert task["assigned_agent_url"] == ""
+        assert task["instruction_layers"]["selected_profile"] is None
+        assert task["last_prompt_trace"]["request_kind"] == ""
