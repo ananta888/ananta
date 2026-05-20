@@ -827,6 +827,37 @@ def _dispatch_one_task_inner(  # noqa: C901
             delegated_to=target_worker.url,
             reason="round_robin_assignment",
         )
+    else:
+        # Throttle repeated propose attempts for already-assigned tasks.
+        # Without this guard, tight autopilot ticks can flood propose calls,
+        # quickly tripping hard-guard windows without meaningful progress.
+        current_status = _current_task_status(task.id, app=app_ctx)
+        if str(current_status or "").strip().lower() == "assigned":
+            recent_attempts_short = _recent_strategy_attempts(
+                task,
+                now_ts=time.time(),
+                window_seconds=20,
+            )
+            if recent_attempts_short >= 3:
+                defer_until = time.time() + 20
+                update_local_task_status(
+                    task.id,
+                    "assigned",
+                    manual_override_until=defer_until,
+                    event_type="autopilot_strategy_attempt_throttled",
+                    event_actor="autopilot_tick",
+                    force=True,
+                )
+                append_trace_event(
+                    task.id,
+                    "autopilot_strategy_attempt_throttled",
+                    delegated_to=target_worker.url,
+                    recent_attempts=recent_attempts_short,
+                    window_seconds=20,
+                    defer_seconds=20,
+                )
+                result.dispatched = True
+                return result
 
     is_local_fallback = (
         settings.role == "hub"
