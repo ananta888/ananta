@@ -20,6 +20,14 @@ Hermes cannot:
 
 `patch_apply` and `command_execute` remain native Ananta approval-gated paths.
 
+## Free Model Routing
+
+Task-kind specific free-model routing (`task_kind_models`, `fallback_free_models`, `model_selection_policy`) is documented in:
+
+- `docs/setup/hermes-free-model-routing.md`
+
+This keeps Hermes strictly read-only while allowing different planning/review models per task kind.
+
 ## Rollout Gates (Phase 1)
 
 Both switches must be `true` before Hermes executes anything:

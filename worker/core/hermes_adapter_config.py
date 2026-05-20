@@ -10,7 +10,7 @@ class HermesModelSelectionPolicy(BaseModel):
     reject_blocked_models: bool = True
     reject_mutation_tasks_for_hermes: bool = True
     allow_candidate_roles: bool = True
-    allowed_task_kinds_for_hermes: list[str] = Field(default_factory=lambda: ["plan_only", "summarize", "review", "patch_propose", "research_limited"])
+    allowed_task_kinds_for_hermes: list[str] = Field(default_factory=list)
     mutation_task_kinds: list[str] = Field(default_factory=lambda: ["patch_apply", "command_execute", "shell_execute", "shell_execution", "service_mutation", "config_mutation", "workspace_mutation", "file_mutation"])
     blocked_task_kinds: list[str] = Field(default_factory=list)
 

@@ -265,16 +265,16 @@ def test_hermes_health_states_and_redaction() -> None:
 def test_model_selection_rules_and_blocking() -> None:
     adapter = HermesAdapter(config=HermesAdapterConfig(enabled=True, feature_flag_enabled=True, base_url="http://localhost:1", default_model="default", blocked_models=["blocked"]))
     env_override = _env(model_policy={"preferred_model": "override"})
-    sel = adapter._select_model(env_override)
+    sel = adapter._select_model(envelope=env_override, task_kind="plan_only", mode="plan_only")
     assert sel["requested_model"] == "override"
     assert sel["effective_model"] == "override"
 
     env_fallback = _env()
-    sel2 = adapter._select_model(env_fallback)
+    sel2 = adapter._select_model(envelope=env_fallback, task_kind="plan_only", mode="plan_only")
     assert sel2["effective_model"] == "default"
 
     env_blocked = _env(model_policy={"preferred_model": "blocked"})
-    sel3 = adapter._select_model(env_blocked)
+    sel3 = adapter._select_model(envelope=env_blocked, task_kind="plan_only", mode="plan_only")
     assert sel3["blocked"] is True
 
 
