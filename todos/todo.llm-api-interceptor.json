@@ -1,0 +1,863 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "llm-api-interceptor-openai-compatible-proxy",
+  "purpose": "Add an OpenAI-compatible LLM API interceptor/proxy so agents such as OpenCode point only to Ananta while Ananta controls the real upstream API, prompt shaping, policy enforcement, redaction, routing and response validation.",
+  "goal": "Implement a local/server-side Ananta LLM Interceptor that exposes /v1-compatible endpoints, accepts agent requests, applies deterministic policy/redaction/context rules, forwards to configured upstream providers, validates/repairs responses where safe, and returns exactly the API shape expected by the caller.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "architecture": {
+    "short": "Agent -> Ananta LLM Interceptor -> policy/redaction/routing/prompt adaptation -> upstream LLM API -> validation/repair -> Agent",
+    "target_flow": [
+      "OpenCode or another agent is configured with an OpenAI-compatible baseURL pointing to Ananta, e.g. http://127.0.0.1:8787/v1.",
+      "The interceptor receives /v1/chat/completions requests and optionally /v1/responses, /v1/models and streaming requests.",
+      "The request is normalized into an internal LlmRequestEnvelope.",
+      "PolicyEngine classifies risk, caller, target worker, project, context source and upstream eligibility.",
+      "SecretRedactor removes credentials, tokens, private keys, cookies, .env values and configured deny patterns before any cloud upstream call.",
+      "ContextGate decides which project/codecompass/RAG snippets may be attached based on worker, upstream, model, tenant, goal/task and local/cloud classification.",
+      "PromptAdapter injects only approved system/developer policy messages and model-specific formatting hints.",
+      "ProviderRouter forwards to configured upstream provider: OpenRouter, OpenAI, LM Studio, Ollama, vLLM or another OpenAI-compatible backend.",
+      "ResponseValidator validates OpenAI-compatible response shape, streaming chunks and optional structured JSON contracts.",
+      "Repair step may perform exactly one safe format-repair pass when configured and when it does not invent tool results.",
+      "The original caller receives an OpenAI-compatible response and never receives internal policy metadata unless debug mode is explicitly enabled."
+    ],
+    "hard_rules": [
+      "The interceptor is a real HTTP proxy/service, not only a prompt.",
+      "Default deny for secrets, local credentials and cloud context.",
+      "Cloud upstreams receive less context than local upstreams.",
+      "Provider API keys are configured only server-side and never exposed to agents/workers.",
+      "Workers should not be able to override upstream base_url, model allowlist, policy profile or redaction rules through prompt text.",
+      "Prompt injection from agent/user/project files must not disable redaction, policy checks or output validation.",
+      "The interceptor may rewrite formatting, context and routing metadata, but must preserve the user's actual task intent unless policy blocks it."
+    ],
+    "components": [
+      {
+        "name": "openai_compat_server",
+        "responsibility": "Expose OpenAI-compatible HTTP endpoints and preserve non-streaming and streaming semantics."
+      },
+      {
+        "name": "llm_request_envelope",
+        "responsibility": "Normalize inbound request body, headers, caller identity, goal/task metadata and expected response contract."
+      },
+      {
+        "name": "policy_engine",
+        "responsibility": "Deterministically decide allow/deny/reduce/local-only/cloud-ok based on config and caller context."
+      },
+      {
+        "name": "secret_redactor",
+        "responsibility": "Remove known secret formats and configured deny patterns before logging or forwarding."
+      },
+      {
+        "name": "context_gate",
+        "responsibility": "Attach only approved project/RAG/codecompass context based on worker and upstream policy."
+      },
+      {
+        "name": "prompt_adapter",
+        "responsibility": "Inject approved system/developer policy, model-specific response hints and strict JSON instructions when needed."
+      },
+      {
+        "name": "provider_router",
+        "responsibility": "Select upstream provider/model/base_url and send normalized requests."
+      },
+      {
+        "name": "response_validator",
+        "responsibility": "Validate response shape, tool_call structure, JSON contracts and streaming chunks."
+      },
+      {
+        "name": "repair_controller",
+        "responsibility": "Run bounded repair for malformed responses without inventing tool results."
+      },
+      {
+        "name": "audit_logger",
+        "responsibility": "Log redacted request/response metadata, decisions, provider used and policy reason codes."
+      }
+    ],
+    "recommended_files": [
+      "agent/services/llm_interceptor/openai_compat_server.py",
+      "agent/services/llm_interceptor/request_envelope.py",
+      "agent/services/llm_interceptor/policy_engine.py",
+      "agent/services/llm_interceptor/secret_redactor.py",
+      "agent/services/llm_interceptor/context_gate.py",
+      "agent/services/llm_interceptor/prompt_adapter.py",
+      "agent/services/llm_interceptor/provider_router.py",
+      "agent/services/llm_interceptor/response_validator.py",
+      "agent/services/llm_interceptor/repair_controller.py",
+      "agent/services/llm_interceptor/audit_logger.py",
+      "agent/services/llm_interceptor/config_schema.py",
+      "docs/architecture/llm-interceptor.md",
+      "docs/security/llm-interceptor-policy.md",
+      "deploy/examples/opencode.ananta-interceptor.json",
+      "deploy/examples/llm-interceptor.config.example.json",
+      "tests/llm_interceptor/"
+    ]
+  },
+  "config_shape_draft": {
+    "listen": {
+      "host": "127.0.0.1",
+      "port": 8787,
+      "prefix": "/v1"
+    },
+    "upstreams": [
+      {
+        "id": "local-lmstudio",
+        "type": "openai_compatible",
+        "base_url": "http://127.0.0.1:1234/v1",
+        "api_key_env": null,
+        "trust_level": "local"
+      },
+      {
+        "id": "openrouter",
+        "type": "openai_compatible",
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_key_env": "OPENROUTER_API_KEY",
+        "trust_level": "cloud"
+      }
+    ],
+    "routing": {
+      "default_upstream": "local-lmstudio",
+      "default_model": "auto",
+      "rules": [
+        {
+          "when": {
+            "worker": "opencode",
+            "task_kind": "coding",
+            "risk_lte": "medium"
+          },
+          "upstream": "local-lmstudio"
+        },
+        {
+          "when": {
+            "requires_cloud": true,
+            "context_class": "public_or_redacted"
+          },
+          "upstream": "openrouter"
+        }
+      ]
+    },
+    "policy": {
+      "default_action": "deny_if_unclassified",
+      "default_deny_secrets": true,
+      "cloud_context_default": "redacted_minimal",
+      "local_context_default": "allowed_by_context_gate",
+      "allow_worker_override_upstream": false,
+      "allow_prompt_override_policy": false,
+      "max_context_chars_default": 120000
+    },
+    "redaction": {
+      "enabled": true,
+      "block_private_keys": true,
+      "block_env_files": true,
+      "patterns": [
+        "api[_-]?key",
+        "secret",
+        "token",
+        "password",
+        "BEGIN OPENSSH PRIVATE KEY",
+        "BEGIN RSA PRIVATE KEY"
+      ]
+    },
+    "response_validation": {
+      "validate_openai_shape": true,
+      "validate_stream_chunks": true,
+      "structured_json_repair_attempts": 1
+    }
+  },
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Interceptor architecture and config contract",
+      "task_ids": [
+        "LLMI-001",
+        "LLMI-002",
+        "LLMI-003",
+        "LLMI-004"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "OpenAI-compatible HTTP proxy MVP",
+      "task_ids": [
+        "LLMI-005",
+        "LLMI-006",
+        "LLMI-007",
+        "LLMI-008"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Policy, redaction and context gating",
+      "task_ids": [
+        "LLMI-009",
+        "LLMI-010",
+        "LLMI-011",
+        "LLMI-012",
+        "LLMI-013"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Provider routing and model-specific prompt adaptation",
+      "task_ids": [
+        "LLMI-014",
+        "LLMI-015",
+        "LLMI-016",
+        "LLMI-017"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "Response validation, repair and streaming correctness",
+      "task_ids": [
+        "LLMI-018",
+        "LLMI-019",
+        "LLMI-020",
+        "LLMI-021"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M6",
+      "title": "OpenCode integration, tests and documentation",
+      "task_ids": [
+        "LLMI-022",
+        "LLMI-023",
+        "LLMI-024",
+        "LLMI-025",
+        "LLMI-026"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "LLMI-001",
+      "title": "Define LLM Interceptor service boundary",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Define LLM Interceptor service boundary",
+      "files": [
+        "docs/architecture/llm-interceptor.md",
+        "docs/security/llm-interceptor-policy.md"
+      ],
+      "acceptance_criteria": [
+        "Architecture doc shows the exact boundary: agent/client -> interceptor -> upstream provider.",
+        "Docs state that agents never receive upstream API keys.",
+        "Docs explicitly distinguish prompt rewriting from policy enforcement.",
+        "Docs define non-goals: no autonomous bypass, no silent direct provider access, no prompt-controlled policy changes."
+      ]
+    },
+    {
+      "id": "LLMI-002",
+      "title": "Define OpenAI-compatible endpoint surface",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Define OpenAI-compatible endpoint surface",
+      "files": [
+        "docs/architecture/llm-interceptor.md",
+        "agent/services/llm_interceptor/openai_compat_server.py"
+      ],
+      "acceptance_criteria": [
+        "/v1/chat/completions is defined as required MVP endpoint.",
+        "/v1/models is defined as optional but recommended for agent compatibility.",
+        "/v1/responses is documented as later optional compatibility endpoint.",
+        "Streaming and non-streaming behavior are separately specified.",
+        "Unsupported OpenAI parameters are either forwarded safely, ignored with reason, or rejected deterministically."
+      ]
+    },
+    {
+      "id": "LLMI-003",
+      "title": "Create interceptor configuration schema",
+      "type": "config",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Create interceptor configuration schema",
+      "files": [
+        "agent/services/llm_interceptor/config_schema.py",
+        "deploy/examples/llm-interceptor.config.example.json",
+        "tests/llm_interceptor/test_config_schema.py"
+      ],
+      "acceptance_criteria": [
+        "Config schema contains listen host/port/path prefix.",
+        "Config schema supports multiple upstreams with id, type, base_url, api_key_env, trust_level and allowed_models.",
+        "Config schema supports policy profiles for local/cloud upstreams.",
+        "Config schema supports redaction rules and max context limits.",
+        "Invalid config fails fast on startup with clear error messages."
+      ]
+    },
+    {
+      "id": "LLMI-004",
+      "title": "Add ADR for API-key and trust-boundary model",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Add ADR for API-key and trust-boundary model",
+      "files": [
+        "docs/decisions/ADR-llm-interceptor-trust-boundary.md"
+      ],
+      "acceptance_criteria": [
+        "ADR states that upstream provider keys live only in interceptor/hub/server-side config.",
+        "ADR states workers/agents must not be able to read provider credentials.",
+        "ADR defines local vs cloud trust classes.",
+        "ADR documents why cloud upstream context is minimized/redacted by default.",
+        "ADR defines threat model for prompt injection trying to disable policy/redaction."
+      ]
+    },
+    {
+      "id": "LLMI-005",
+      "title": "Implement OpenAI-compatible server skeleton",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Implement OpenAI-compatible server skeleton",
+      "files": [
+        "agent/services/llm_interceptor/openai_compat_server.py",
+        "tests/llm_interceptor/test_openai_compat_server.py"
+      ],
+      "acceptance_criteria": [
+        "Service starts on configured host/port.",
+        "POST /v1/chat/completions accepts valid OpenAI-compatible request bodies.",
+        "Invalid JSON returns deterministic 400 response.",
+        "Missing messages/model is rejected with clear error shape.",
+        "Health endpoint or startup log confirms active upstream configuration without printing secrets."
+      ]
+    },
+    {
+      "id": "LLMI-006",
+      "title": "Implement LlmRequestEnvelope normalization",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Implement LlmRequestEnvelope normalization",
+      "files": [
+        "agent/services/llm_interceptor/request_envelope.py",
+        "tests/llm_interceptor/test_request_envelope.py"
+      ],
+      "acceptance_criteria": [
+        "Inbound request is converted into an internal envelope with messages, model, stream flag, caller metadata, task metadata and expected contract.",
+        "Envelope preserves original request id/correlation id if present.",
+        "Envelope records whether caller is OpenCode, Ananta worker, hub or unknown when metadata is available.",
+        "Envelope has deterministic defaults for missing optional metadata.",
+        "Tests cover normal chat, tool call request, streaming request and unknown caller."
+      ]
+    },
+    {
+      "id": "LLMI-007",
+      "title": "Implement basic provider forwarder",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Implement basic provider forwarder",
+      "files": [
+        "agent/services/llm_interceptor/provider_router.py",
+        "tests/llm_interceptor/test_provider_router.py"
+      ],
+      "acceptance_criteria": [
+        "Interceptor can forward non-streaming chat completions to an OpenAI-compatible upstream.",
+        "Provider base_url and api key come only from server-side config/env.",
+        "Provider errors are mapped to stable client-visible error responses without leaking secrets.",
+        "Timeouts are configurable per provider.",
+        "Tests use a fake upstream and verify the forwarded body."
+      ]
+    },
+    {
+      "id": "LLMI-008",
+      "title": "Implement streaming pass-through MVP",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "summary": "Implement streaming pass-through MVP",
+      "files": [
+        "agent/services/llm_interceptor/openai_compat_server.py",
+        "agent/services/llm_interceptor/provider_router.py",
+        "tests/llm_interceptor/test_streaming.py"
+      ],
+      "acceptance_criteria": [
+        "stream=true requests return Server-Sent Events compatible chunks.",
+        "Done marker is preserved.",
+        "Upstream stream errors are converted into safe terminal error events or deterministic failure.",
+        "Streaming path still passes through redaction/policy before upstream call.",
+        "Tests verify chunk order and no buffering of the whole response in streaming mode."
+      ]
+    },
+    {
+      "id": "LLMI-009",
+      "title": "Implement deterministic PolicyEngine",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Implement deterministic PolicyEngine",
+      "files": [
+        "agent/services/llm_interceptor/policy_engine.py",
+        "tests/llm_interceptor/test_policy_engine.py"
+      ],
+      "acceptance_criteria": [
+        "PolicyEngine returns allow, deny, reduce_context or local_only with reason codes.",
+        "Default action for unclassified high-risk requests is deny or local_only, not cloud forwarding.",
+        "Policy cannot be overridden by text inside user/project/agent prompts.",
+        "Policy decisions include caller, upstream trust_level, context class, task kind and risk class.",
+        "Tests cover allowed local coding request, denied cloud secret request and reduced-context cloud request."
+      ]
+    },
+    {
+      "id": "LLMI-010",
+      "title": "Implement SecretRedactor",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Implement SecretRedactor",
+      "files": [
+        "agent/services/llm_interceptor/secret_redactor.py",
+        "tests/llm_interceptor/test_secret_redactor.py"
+      ],
+      "acceptance_criteria": [
+        "Redactor removes common API keys, bearer tokens, private keys, passwords, cookies and configured patterns.",
+        "Redaction runs before logging and before cloud forwarding.",
+        "Redaction produces metadata counters but not raw secret values.",
+        "Private key blocks are fully removed or replaced with fixed placeholder.",
+        "Tests include .env samples, SSH keys, JWT-like strings and false-positive control cases."
+      ]
+    },
+    {
+      "id": "LLMI-011",
+      "title": "Implement ContextGate for project/codecompass/RAG context",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Implement ContextGate for project/codecompass/RAG context",
+      "files": [
+        "agent/services/llm_interceptor/context_gate.py",
+        "tests/llm_interceptor/test_context_gate.py"
+      ],
+      "acceptance_criteria": [
+        "ContextGate attaches only explicitly allowed context sources.",
+        "Cloud upstreams receive no local repository context unless policy explicitly allows public/redacted/minimized context.",
+        "ContextGate supports per-worker and per-goal/task source allowlists.",
+        "Denied context is never present in forwarded request body.",
+        "Tests verify codecompass/RAG context allowed for local model but blocked or reduced for cloud model."
+      ]
+    },
+    {
+      "id": "LLMI-012",
+      "title": "Add policy profiles for local, cloud and high-risk modes",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Add policy profiles for local, cloud and high-risk modes",
+      "files": [
+        "deploy/examples/llm-interceptor.config.example.json",
+        "docs/security/llm-interceptor-policy.md",
+        "tests/llm_interceptor/test_policy_profiles.py"
+      ],
+      "acceptance_criteria": [
+        "local_dev profile allows wider local model context but still redacts secrets.",
+        "cloud_safe profile defaults to redacted/minimal context.",
+        "high_risk profile blocks tool credentials, secrets and sensitive workspace content.",
+        "Profiles are selected by config/routing metadata, not by prompt text.",
+        "Docs explain recommended defaults."
+      ]
+    },
+    {
+      "id": "LLMI-013",
+      "title": "Add redacted audit logging",
+      "type": "observability",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "summary": "Add redacted audit logging",
+      "files": [
+        "agent/services/llm_interceptor/audit_logger.py",
+        "tests/llm_interceptor/test_audit_logger.py"
+      ],
+      "acceptance_criteria": [
+        "Audit log records request id, caller, selected upstream, model, policy decision, redaction counters and duration.",
+        "Audit log does not store raw prompts by default.",
+        "Debug prompt logging is disabled by default and requires explicit config.",
+        "Any stored prompt snippets are post-redaction.",
+        "Tests assert known secret values never appear in audit output."
+      ]
+    },
+    {
+      "id": "LLMI-014",
+      "title": "Implement ProviderRouter with allowlisted upstreams/models",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Implement ProviderRouter with allowlisted upstreams/models",
+      "files": [
+        "agent/services/llm_interceptor/provider_router.py",
+        "tests/llm_interceptor/test_provider_routing_rules.py"
+      ],
+      "acceptance_criteria": [
+        "Routing supports configured providers: openai_compatible, local_lmstudio, ollama_openai_compat, vllm and openrouter-compatible.",
+        "Only allowlisted upstream/model combinations can be selected.",
+        "Worker-supplied model values are mapped through policy instead of blindly trusted.",
+        "Unknown model returns deterministic error or configured fallback.",
+        "Tests verify worker cannot force a disallowed cloud model."
+      ]
+    },
+    {
+      "id": "LLMI-015",
+      "title": "Implement model-specific PromptAdapter",
+      "type": "prompting",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Implement model-specific PromptAdapter",
+      "files": [
+        "agent/services/llm_interceptor/prompt_adapter.py",
+        "tests/llm_interceptor/test_prompt_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "PromptAdapter can prepend approved system/developer policy messages.",
+        "PromptAdapter can add strict JSON/tool-call formatting hints for models known to drift into Markdown.",
+        "PromptAdapter is selected by model profile and task kind.",
+        "PromptAdapter never removes user intent silently.",
+        "Tests verify JSON-mode request receives deterministic formatting instructions."
+      ]
+    },
+    {
+      "id": "LLMI-016",
+      "title": "Add model behavior profiles",
+      "type": "prompting",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Add model behavior profiles",
+      "files": [
+        "deploy/examples/llm-interceptor.config.example.json",
+        "agent/services/llm_interceptor/model_profiles.py",
+        "tests/llm_interceptor/test_model_profiles.py"
+      ],
+      "acceptance_criteria": [
+        "Profiles capture known response behavior such as strict_json_good, markdown_prone, tool_call_prone or text_only.",
+        "Profiles can define repair eligibility and preferred response_format.",
+        "Profiles can be updated without code changes.",
+        "Docs explain that these are model-specific compatibility hints, not trust decisions.",
+        "Tests verify profile loading and fallback behavior."
+      ]
+    },
+    {
+      "id": "LLMI-017",
+      "title": "Support OpenCode-facing model alias",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Support OpenCode-facing model alias",
+      "files": [
+        "deploy/examples/opencode.ananta-interceptor.json",
+        "docs/integrations/opencode-llm-interceptor.md",
+        "tests/llm_interceptor/test_opencode_compat.py"
+      ],
+      "acceptance_criteria": [
+        "Config exposes a stable model alias such as ananta-interceptor/intercepted-coder or intercepted-coder.",
+        "Alias maps internally to configured upstream/model routing.",
+        "OpenCode config example points baseURL to Ananta interceptor.",
+        "Agent cannot infer or override the real upstream API key.",
+        "Smoke test verifies OpenCode-style request shape is accepted."
+      ]
+    },
+    {
+      "id": "LLMI-018",
+      "title": "Implement OpenAI response shape validation",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Implement OpenAI response shape validation",
+      "files": [
+        "agent/services/llm_interceptor/response_validator.py",
+        "tests/llm_interceptor/test_response_validator.py"
+      ],
+      "acceptance_criteria": [
+        "Non-streaming responses validate id/object/created/model/choices shape enough for agent compatibility.",
+        "Tool calls are validated when present.",
+        "Malformed upstream responses are rejected or repaired according to config.",
+        "Raw upstream malformed JSON is not blindly forwarded to machine clients.",
+        "Tests cover valid response, missing choices, invalid tool_calls and upstream text blob."
+      ]
+    },
+    {
+      "id": "LLMI-019",
+      "title": "Implement bounded structured-response repair",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "summary": "Implement bounded structured-response repair",
+      "files": [
+        "agent/services/llm_interceptor/repair_controller.py",
+        "tests/llm_interceptor/test_repair_controller.py"
+      ],
+      "acceptance_criteria": [
+        "RepairController performs at most one repair pass by default.",
+        "Repair only fixes format/JSON envelope issues and does not invent tool results or file contents.",
+        "Repair prompt includes original malformed output and expected contract.",
+        "Repair can be disabled globally or per model/profile.",
+        "Tests verify repair success, repair disabled and repair failure behavior."
+      ]
+    },
+    {
+      "id": "LLMI-020",
+      "title": "Validate streaming chunks",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Validate streaming chunks",
+      "files": [
+        "agent/services/llm_interceptor/response_validator.py",
+        "tests/llm_interceptor/test_streaming_validation.py"
+      ],
+      "acceptance_criteria": [
+        "Streaming validator checks chunk format without breaking normal SSE flow.",
+        "Invalid chunks are handled deterministically.",
+        "Final usage chunk handling is documented.",
+        "Streaming path does not leak internal policy metadata.",
+        "Tests cover normal OpenAI-compatible stream and broken upstream stream."
+      ]
+    },
+    {
+      "id": "LLMI-021",
+      "title": "Add fail-closed behavior for policy and redaction failures",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Add fail-closed behavior for policy and redaction failures",
+      "files": [
+        "agent/services/llm_interceptor/openai_compat_server.py",
+        "tests/llm_interceptor/test_fail_closed.py"
+      ],
+      "acceptance_criteria": [
+        "If PolicyEngine fails, request is denied unless explicitly configured for local-only fallback.",
+        "If SecretRedactor fails, request is not forwarded to cloud.",
+        "If ContextGate fails, context is not attached.",
+        "Error response contains safe reason code but no raw prompt or secret.",
+        "Tests simulate policy/redaction/context exceptions."
+      ]
+    },
+    {
+      "id": "LLMI-022",
+      "title": "Add OpenCode integration documentation",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Add OpenCode integration documentation",
+      "files": [
+        "docs/integrations/opencode-llm-interceptor.md",
+        "deploy/examples/opencode.ananta-interceptor.json"
+      ],
+      "acceptance_criteria": [
+        "Docs show OpenCode provider config using @ai-sdk/openai-compatible.",
+        "Docs show baseURL http://127.0.0.1:8787/v1 or configured server URL.",
+        "Docs explain that original API/provider is configured only in the interceptor.",
+        "Docs include local LM Studio and OpenRouter examples.",
+        "Docs include troubleshooting for model alias/baseURL issues."
+      ]
+    },
+    {
+      "id": "LLMI-023",
+      "title": "Add end-to-end fake upstream tests",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Add end-to-end fake upstream tests",
+      "files": [
+        "tests/llm_interceptor/test_e2e_fake_upstream.py"
+      ],
+      "acceptance_criteria": [
+        "Test starts interceptor with fake upstream.",
+        "Test sends OpenCode-like chat completion request.",
+        "Test verifies policy/redaction happens before upstream receives body.",
+        "Test verifies response returned to caller is OpenAI-compatible.",
+        "Test includes streaming and non-streaming variants."
+      ]
+    },
+    {
+      "id": "LLMI-024",
+      "title": "Add security regression test corpus",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "summary": "Add security regression test corpus",
+      "files": [
+        "tests/fixtures/llm_interceptor/",
+        "tests/llm_interceptor/test_security_regression_corpus.py"
+      ],
+      "acceptance_criteria": [
+        "Corpus contains secret samples, prompt-injection samples and context-exfiltration attempts.",
+        "Tests verify prompt text cannot disable redaction or policy.",
+        "Tests verify cloud upstream never receives blocked local context.",
+        "Tests verify provider API key is never included in downstream or audit logs.",
+        "Tests verify disallowed model/upstream override is rejected."
+      ]
+    },
+    {
+      "id": "LLMI-025",
+      "title": "Add CLI/server startup command",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Add CLI/server startup command",
+      "files": [
+        "agent/cli.py",
+        "agent/services/llm_interceptor/openai_compat_server.py",
+        "scripts/smoke_llm_interceptor.sh"
+      ],
+      "acceptance_criteria": [
+        "Ananta can start the interceptor via documented CLI or service entrypoint.",
+        "Command validates config before listening.",
+        "Command prints selected bind address and upstream ids but not secrets.",
+        "Command supports dev mode with fake upstream.",
+        "Tests or smoke script verify startup with example config."
+      ]
+    },
+    {
+      "id": "LLMI-026",
+      "title": "Update Ananta worker/agent guidance to prefer interceptor endpoint",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Update Ananta worker/agent guidance to prefer interceptor endpoint",
+      "files": [
+        "docs/architecture/workers.md",
+        "docs/integrations/opencode-llm-interceptor.md",
+        "docs/security/llm-interceptor-policy.md"
+      ],
+      "acceptance_criteria": [
+        "Docs state workers/agents should call Ananta interceptor endpoint instead of direct provider APIs where policy enforcement is required.",
+        "Existing worker/provider docs link to the interceptor config.",
+        "Migration note explains how to replace direct OpenRouter/OpenAI/LM Studio base_url with interceptor baseURL.",
+        "Docs warn that direct provider access bypasses Ananta context and redaction policy.",
+        "Acceptance example shows Agent -> Interceptor -> real upstream configuration."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "LLMI-001",
+    "LLMI-003",
+    "LLMI-005",
+    "LLMI-007",
+    "LLMI-009",
+    "LLMI-010",
+    "LLMI-011",
+    "LLMI-014",
+    "LLMI-018",
+    "LLMI-021",
+    "LLMI-023",
+    "LLMI-024"
+  ],
+  "tasks_status_summary": {
+    "total": 26,
+    "by_status": {
+      "todo": 26,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 18,
+      "P1": 8
+    },
+    "by_risk": {
+      "high": 11,
+      "medium": 9,
+      "critical": 6
+    },
+    "critical_path": {
+      "total": 12,
+      "done": 0,
+      "remaining": 12
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 26,
+    "by_type": {
+      "architecture": 2,
+      "config": 1,
+      "security": 6,
+      "backend": 8,
+      "observability": 1,
+      "prompting": 2,
+      "integration": 4,
+      "testing": 2
+    }
+  },
+  "progress_summary": {
+    "state": "draft_created",
+    "todo_remaining": 26,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "This TODO intentionally treats the interceptor as a security boundary and routing control point, not as a mere prompt trick.",
+    "The first production-safe MVP should support /v1/chat/completions, provider routing, redaction, policy decisions, non-streaming and streaming forwarding, and fake-upstream tests.",
+    "Cloud providers must be treated as lower-trust context sinks unless an explicit policy profile allows redacted/minimal context."
+  ],
+  "global_acceptance_criteria": [
+    "OpenCode can be configured to call only the Ananta interceptor baseURL.",
+    "The real upstream provider and API key are configured only inside the interceptor/server-side config.",
+    "The interceptor exposes at least /v1/chat/completions with OpenAI-compatible request/response behavior.",
+    "Secrets and denied context are redacted before logging and before forwarding.",
+    "Cloud upstream calls are denied, reduced or redacted by default.",
+    "Workers cannot override policy, redaction, upstream allowlist or model allowlist through prompt text.",
+    "Streaming and non-streaming calls both pass through policy and redaction.",
+    "Malformed structured responses are either repaired once or rejected deterministically.",
+    "Audit logging provides redacted traceability without storing raw secrets.",
+    "End-to-end tests prove Agent -> Interceptor -> fake upstream -> Agent works."
+  ]
+}
