@@ -127,6 +127,11 @@ def _maybe_recover_stalled_planning_goal(goal: GoalDB) -> GoalDB:
         if started_runs:
             latest_started = sorted(started_runs, key=lambda x: float(getattr(x, "updated_at", 0.0) or 0.0), reverse=True)[0]
             started_age = now_ts - float(getattr(latest_started, "updated_at", 0.0) or 0.0)
+            # If planning is actively running, never start recovery planning from
+            # read-path polling endpoints (e.g. /goals/<id>/detail). This avoids
+            # duplicate planning calls and duplicate task materialization.
+            if started_age <= 180:
+                return goal
             if started_age > 180:
                 _mark_started_planning_runs_failed(
                     goal_id=goal_id,
@@ -694,24 +699,26 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             app=current_app._get_current_object(),
             timeout_s=max(60, planning_timeout_s + 30),
         )
+
+        app_obj = current_app._get_current_object()
+
+        def _run_plan_goal_with_app_context():
+            with app_obj.app_context():
+                return auto_planner.plan_goal(
+                    goal=str(context.get("goal_text") or goal_record.goal or ""),
+                    context=context.get("mode_context"),
+                    team_id=effective.get("routing", {}).get("team_id"),
+                    create_tasks=bool(effective.get("planning", {}).get("create_tasks", True)),
+                    use_template=bool(effective.get("planning", {}).get("use_template", True)),
+                    use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
+                    goal_id=goal_record.id,
+                    goal_trace_id=goal_record.trace_id,
+                    mode=goal_record.mode,
+                    mode_data=goal_record.mode_data,
+                )
+
+        lock_acquired = False
         try:
-            app_obj = current_app._get_current_object()
-
-            def _run_plan_goal_with_app_context():
-                with app_obj.app_context():
-                    return auto_planner.plan_goal(
-                        goal=str(context.get("goal_text") or goal_record.goal or ""),
-                        context=context.get("mode_context"),
-                        team_id=effective.get("routing", {}).get("team_id"),
-                        create_tasks=bool(effective.get("planning", {}).get("create_tasks", True)),
-                        use_template=bool(effective.get("planning", {}).get("use_template", True)),
-                        use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
-                        goal_id=goal_record.id,
-                        goal_trace_id=goal_record.trace_id,
-                        mode=goal_record.mode,
-                        mode_data=goal_record.mode_data,
-                    )
-
             lock_acquired = _GOAL_PLANNING_LOCK.acquire(timeout=planning_timeout_s)
             if not lock_acquired:
                 _services().goal_lifecycle_service.transition_goal(
@@ -734,93 +741,92 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                     plan_id=None,
                 )
                 return
-            try:
-                current_app.logger.warning(
-                    "goal_planning_invoke_start goal_id=%s timeout_s=%s mode=%s",
-                    goal_record.id,
-                    planning_timeout_s,
-                    str(goal_record.mode or "generic"),
-                )
-                with ThreadPoolExecutor(max_workers=1) as pool:
-                    future = pool.submit(_run_plan_goal_with_app_context)
-                    result = future.result(timeout=planning_timeout_s)
-                current_app.logger.warning(
-                    "goal_planning_invoke_done goal_id=%s created=%s error=%s",
-                    goal_record.id,
-                    len(list(result.get("created_task_ids") or [])) if isinstance(result, dict) else -1,
-                    (result.get("error") if isinstance(result, dict) else "invalid_result"),
-                )
-            finally:
-                _GOAL_PLANNING_LOCK.release()
+            current_app.logger.warning(
+                "goal_planning_invoke_start goal_id=%s timeout_s=%s mode=%s",
+                goal_record.id,
+                planning_timeout_s,
+                str(goal_record.mode or "generic"),
+            )
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(_run_plan_goal_with_app_context)
+                result = future.result(timeout=planning_timeout_s)
+            current_app.logger.warning(
+                "goal_planning_invoke_done goal_id=%s created=%s error=%s",
+                goal_record.id,
+                len(list(result.get("created_task_ids") or [])) if isinstance(result, dict) else -1,
+                (result.get("error") if isinstance(result, dict) else "invalid_result"),
+            )
         except FutureTimeoutError:
-        _mark_started_planning_runs_failed(
-            goal_id=goal_record.id,
-            reason=f"planning_background_timeout:{planning_timeout_s}s",
-        )
-        _services().goal_lifecycle_service.transition_goal(
-            goal_record,
-            target_status="failed",
-            reason="planning_background_timeout",
-            readiness=readiness,
-        )
-        record_product_event(
-            "goal_planning_failed",
-            actor="auto_planner",
-            details={
-                "reason": "planning_background_timeout",
-                "timeout_seconds": planning_timeout_s,
-                "source": goal_record.source,
-                "mode": goal_record.mode,
-            },
-            goal_id=goal_record.id,
-            trace_id=goal_record.trace_id,
-            plan_id=None,
-        )
+            _mark_started_planning_runs_failed(
+                goal_id=goal_record.id,
+                reason=f"planning_background_timeout:{planning_timeout_s}s",
+            )
+            _services().goal_lifecycle_service.transition_goal(
+                goal_record,
+                target_status="failed",
+                reason="planning_background_timeout",
+                readiness=readiness,
+            )
+            record_product_event(
+                "goal_planning_failed",
+                actor="auto_planner",
+                details={
+                    "reason": "planning_background_timeout",
+                    "timeout_seconds": planning_timeout_s,
+                    "source": goal_record.source,
+                    "mode": goal_record.mode,
+                },
+                goal_id=goal_record.id,
+                trace_id=goal_record.trace_id,
+                plan_id=None,
+            )
             return
         except Exception as exc:
-        current_app.logger.exception("background_goal_planning_failed goal_id=%s", goal_record.id)
-        _mark_started_planning_runs_failed(
-            goal_id=goal_record.id,
-            reason=f"planning_background_exception:{type(exc).__name__}",
-        )
-        _services().goal_lifecycle_service.transition_goal(
-            goal_record,
-            target_status="failed",
-            reason=f"planning_background_exception:{type(exc).__name__}",
-            readiness=readiness,
-        )
-        record_product_event(
-            "goal_planning_failed",
-            actor="auto_planner",
-            details={
-                "reason": f"planning_background_exception:{type(exc).__name__}",
-                "error": str(exc)[:240],
-                "source": goal_record.source,
-                "mode": goal_record.mode,
-            },
-            goal_id=goal_record.id,
-            trace_id=goal_record.trace_id,
-            plan_id=None,
-        )
+            current_app.logger.exception("background_goal_planning_failed goal_id=%s", goal_record.id)
+            _mark_started_planning_runs_failed(
+                goal_id=goal_record.id,
+                reason=f"planning_background_exception:{type(exc).__name__}",
+            )
+            _services().goal_lifecycle_service.transition_goal(
+                goal_record,
+                target_status="failed",
+                reason=f"planning_background_exception:{type(exc).__name__}",
+                readiness=readiness,
+            )
+            record_product_event(
+                "goal_planning_failed",
+                actor="auto_planner",
+                details={
+                    "reason": f"planning_background_exception:{type(exc).__name__}",
+                    "error": str(exc)[:240],
+                    "source": goal_record.source,
+                    "mode": goal_record.mode,
+                },
+                goal_id=goal_record.id,
+                trace_id=goal_record.trace_id,
+                plan_id=None,
+            )
             return
+        finally:
+            if lock_acquired:
+                _GOAL_PLANNING_LOCK.release()
 
         current_app.logger.debug(f"plan result: {result}")
-
         if result.get("error"):
-        _services().goal_lifecycle_service.transition_goal(
-            goal_record,
-            target_status="failed",
-            reason=str(result.get("error") or "planning_failed"),
-            readiness=readiness,
-        )
-        record_product_event(
-            "goal_planning_failed",
-            actor="auto_planner",
-            details={"reason": str(result.get("error") or "planning_failed"), "source": goal_record.source, "mode": goal_record.mode},
-            goal_id=goal_record.id,
-            trace_id=goal_record.trace_id,
-            plan_id=result.get("plan_id"),
-        )
+            _services().goal_lifecycle_service.transition_goal(
+                goal_record,
+                target_status="failed",
+                reason=str(result.get("error") or "planning_failed"),
+                readiness=readiness,
+            )
+            record_product_event(
+                "goal_planning_failed",
+                actor="auto_planner",
+                details={"reason": str(result.get("error") or "planning_failed"), "source": goal_record.source, "mode": goal_record.mode},
+                goal_id=goal_record.id,
+                trace_id=goal_record.trace_id,
+                plan_id=result.get("plan_id"),
+            )
             return
 
         created_task_ids = list(result.get("created_task_ids") or [])
@@ -832,24 +838,24 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             and str(context.get("mode_id") or "generic") == "generic"
             and software_goal
         ):
-        retry_mode = "new_software_project"
-        retry_mode_data = dict(goal_record.mode_data or {})
-        retry_mode_data.setdefault("project_idea", str(context.get("goal_text") or ""))
-        retry_result = auto_planner.plan_goal(
-            goal=str(context.get("goal_text") or goal_record.goal or ""),
-            context=context.get("mode_context"),
-            team_id=effective.get("routing", {}).get("team_id"),
-            create_tasks=True,
-            use_template=bool(effective.get("planning", {}).get("use_template", True)),
-            use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
-            goal_id=goal_record.id,
-            goal_trace_id=goal_record.trace_id,
-            mode=retry_mode,
-            mode_data=retry_mode_data,
-        )
-        if not retry_result.get("error"):
-            result = retry_result
-            created_task_ids = list(result.get("created_task_ids") or [])
+            retry_mode = "new_software_project"
+            retry_mode_data = dict(goal_record.mode_data or {})
+            retry_mode_data.setdefault("project_idea", str(context.get("goal_text") or ""))
+            retry_result = auto_planner.plan_goal(
+                goal=str(context.get("goal_text") or goal_record.goal or ""),
+                context=context.get("mode_context"),
+                team_id=effective.get("routing", {}).get("team_id"),
+                create_tasks=True,
+                use_template=bool(effective.get("planning", {}).get("use_template", True)),
+                use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
+                goal_id=goal_record.id,
+                goal_trace_id=goal_record.trace_id,
+                mode=retry_mode,
+                mode_data=retry_mode_data,
+            )
+            if not retry_result.get("error"):
+                result = retry_result
+                created_task_ids = list(result.get("created_task_ids") or [])
 
         if (
             create_tasks_enabled
@@ -857,103 +863,96 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             and str(context.get("mode_id") or "generic") == "generic"
             and software_goal
         ):
-        quality_ok, quality_reason = _plan_quality_from_task_ids(
-            task_ids=created_task_ids,
-            mode="new_software_project",
-            planning_policy=(effective.get("planning_policy") if isinstance(effective.get("planning_policy"), dict) else _live_planning_policy),
-            team_id=str(effective.get("routing", {}).get("team_id") or "") or None,
-        )
-    else:
-        quality_ok, quality_reason = True, "not_software_goal_or_disabled"
-        # Avoid duplicate task materialization from retry-planning after tasks
-        # were already created. Keep first plan and fail quality explicitly.
+            quality_ok, quality_reason = _plan_quality_from_task_ids(
+                task_ids=created_task_ids,
+                mode="new_software_project",
+                planning_policy=(effective.get("planning_policy") if isinstance(effective.get("planning_policy"), dict) else _live_planning_policy),
+                team_id=str(effective.get("routing", {}).get("team_id") or "") or None,
+            )
+        else:
+            quality_ok, quality_reason = True, "not_software_goal_or_disabled"
 
         if create_tasks_enabled and not created_task_ids:
-        _services().goal_lifecycle_service.transition_goal(
-            goal_record,
-            target_status="failed",
-            reason="planning_no_tasks_created",
-            readiness=readiness,
-        )
-        record_product_event(
-            "goal_planning_failed",
-            actor="auto_planner",
-            details={"reason": "planning_no_tasks_created", "source": goal_record.source, "mode": goal_record.mode},
-            goal_id=goal_record.id,
-            trace_id=goal_record.trace_id,
-            plan_id=result.get("plan_id"),
-        )
+            _services().goal_lifecycle_service.transition_goal(
+                goal_record,
+                target_status="failed",
+                reason="planning_no_tasks_created",
+                readiness=readiness,
+            )
+            record_product_event(
+                "goal_planning_failed",
+                actor="auto_planner",
+                details={"reason": "planning_no_tasks_created", "source": goal_record.source, "mode": goal_record.mode},
+                goal_id=goal_record.id,
+                trace_id=goal_record.trace_id,
+                plan_id=result.get("plan_id"),
+            )
             return
 
-        if (
-            create_tasks_enabled
-            and software_goal
-            and not quality_ok
-        ):
-        _services().goal_lifecycle_service.transition_goal(
-            goal_record,
-            target_status="failed",
-            reason="planning_insufficient_task_detail",
-            readiness=readiness,
-        )
-        record_product_event(
-            "goal_planning_failed",
-            actor="auto_planner",
-            details={
-                "reason": "planning_insufficient_task_detail",
-                "quality_reason": quality_reason,
-                "task_count": len(created_task_ids),
-                "source": goal_record.source,
-                "mode": goal_record.mode,
-            },
-            goal_id=goal_record.id,
-            trace_id=goal_record.trace_id,
-            plan_id=result.get("plan_id"),
-        )
+        if create_tasks_enabled and software_goal and not quality_ok:
+            _services().goal_lifecycle_service.transition_goal(
+                goal_record,
+                target_status="failed",
+                reason="planning_insufficient_task_detail",
+                readiness=readiness,
+            )
+            record_product_event(
+                "goal_planning_failed",
+                actor="auto_planner",
+                details={
+                    "reason": "planning_insufficient_task_detail",
+                    "quality_reason": quality_reason,
+                    "task_count": len(created_task_ids),
+                    "source": goal_record.source,
+                    "mode": goal_record.mode,
+                },
+                goal_id=goal_record.id,
+                trace_id=goal_record.trace_id,
+                plan_id=result.get("plan_id"),
+            )
             return
 
         _services().goal_lifecycle_service.transition_goal(
-        goal_record,
-        target_status="planned",
-        reason="planning_completed",
-        readiness=readiness,
-    )
-
+            goal_record,
+            target_status="planned",
+            reason="planning_completed",
+            readiness=readiness,
+        )
         try:
-        _services().autopilot_runtime_service.start(
-            goal=goal_record.id,
-            team_id=effective.get("routing", {}).get("team_id"),
-            interval_seconds=1,
-            max_concurrency=1,
-            security_level="balanced",
-        )
-        from agent.routes.tasks.autopilot import autonomous_loop
-        autonomous_loop.wake()
+            _services().autopilot_runtime_service.start(
+                goal=goal_record.id,
+                team_id=effective.get("routing", {}).get("team_id"),
+                interval_seconds=1,
+                max_concurrency=1,
+                security_level="balanced",
+            )
+            from agent.routes.tasks.autopilot import autonomous_loop
+            autonomous_loop.wake()
         except Exception:
             pass
 
         log_audit(
-        "goal_created",
-        {
-            "goal_id": goal_record.id,
-            "trace_id": goal_record.trace_id,
-            "source": goal_record.source,
-            "task_count": len(created_task_ids),
-            "workflow_overrides": overrides,
-            "readiness_happy_path": readiness["happy_path_ready"],
-        },
-    )
+            "goal_created",
+            {
+                "goal_id": goal_record.id,
+                "trace_id": goal_record.trace_id,
+                "source": goal_record.source,
+                "task_count": len(created_task_ids),
+                "workflow_overrides": overrides,
+                "readiness_happy_path": readiness["happy_path_ready"],
+            },
+        )
         record_product_event(
-        "goal_planning_succeeded",
-        actor="auto_planner",
-        details={
-            "source": goal_record.source,
-            "mode": goal_record.mode,
-            "created_task_count": len(created_task_ids),
-            "has_plan": bool(result.get("plan_id")),
-        },
-        goal_id=goal_record.id,
-        trace_id=goal_record.trace_id,
+            "goal_planning_succeeded",
+            actor="auto_planner",
+            details={
+                "source": goal_record.source,
+                "mode": goal_record.mode,
+                "created_task_count": len(created_task_ids),
+                "has_plan": bool(result.get("plan_id")),
+            },
+            goal_id=goal_record.id,
+            trace_id=goal_record.trace_id,
             plan_id=result.get("plan_id"),
         )
     finally:
