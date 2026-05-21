@@ -3,8 +3,13 @@
     {
       "id": "opencode_preconfigured",
       "label": "OpenCode Worker + Preconfigured (Hub-Config)",
-      "config_profile": "opencode_preconfigured",
+      "config_profile": "opencode_preconfigured_e2e",
       "config_overrides": {
+        "autopilot_task_propose_hard_guard_status": "failed",
+        "propose_policy": {
+          "allow_human_review": false,
+          "on_all_strategies_declined": "failed"
+        },
         "sgpt_routing": {
           "task_kind_backend": {
             "coding": "opencode",
@@ -16,6 +21,11 @@
         }
       },
       "config_patch": {
+        "autopilot_task_propose_hard_guard_status": "failed",
+        "propose_policy": {
+          "allow_human_review": false,
+          "on_all_strategies_declined": "failed"
+        },
         "sgpt_routing": {
           "task_kind_backend": {
             "coding": "opencode",
