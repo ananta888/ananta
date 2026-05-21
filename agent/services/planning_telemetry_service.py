@@ -5,6 +5,7 @@ import time
 from typing import Any
 
 from agent.db_models import PlanningRunDB
+from agent.services.planning_output_shape_classifier import classify_output_shape
 from agent.services.repository_registry import get_repository_registry
 
 
@@ -30,13 +31,31 @@ class PlanningTelemetryService:
     def _safe_mode_data(run) -> dict[str, Any]:
         return dict(getattr(run, "mode_data", {}) or {})
 
+    @staticmethod
+    def _resolve_output_shape(*, raw_output_preview: str | None, mode_output_shape: str | None) -> tuple[str | None, str | None]:
+        raw_shape = None
+        if raw_output_preview and str(raw_output_preview).strip():
+            raw_shape = str(classify_output_shape(raw_output_preview).get("primary_shape") or "").strip() or None
+        normalized_mode_output_shape = str(mode_output_shape or "").strip() or None
+        if raw_shape and raw_shape not in {"freeform_prose"}:
+            return raw_shape, normalized_mode_output_shape
+        if normalized_mode_output_shape:
+            return normalized_mode_output_shape, normalized_mode_output_shape
+        return raw_shape, normalized_mode_output_shape
+
     def build_learning_record(self, run) -> dict[str, Any]:
         mode_data = self._safe_mode_data(run)
-        output_shape = str(mode_data.get("__output_shape__") or "").strip() or None
+        raw_output_preview = str(getattr(run, "raw_output_preview", None) or "").strip() or None
+        mode_output_shape = str(mode_data.get("__output_shape__") or "").strip() or None
+        observed_output_shape, normalized_mode_output_shape = self._resolve_output_shape(
+            raw_output_preview=raw_output_preview,
+            mode_output_shape=mode_output_shape,
+        )
         parser_trace = mode_data.get("__parser_trace__") if isinstance(mode_data.get("__parser_trace__"), dict) else {}
         truncation_flag = bool(
             mode_data.get("__truncated__")
-            or (output_shape == "partial_json")
+            or (normalized_mode_output_shape == "partial_json")
+            or (observed_output_shape == "partial_json")
             or any(str(code).strip().lower() == "truncate" for code in list(getattr(run, "parse_warnings", []) or []))
         )
         return {
@@ -52,7 +71,9 @@ class PlanningTelemetryService:
             "prompt_language": getattr(run, "prompt_language", None),
             "parse_mode": getattr(run, "parse_mode", None),
             "parse_confidence": getattr(run, "parse_confidence", None),
-            "output_shape": output_shape,
+            "output_shape": observed_output_shape,
+            "observed_output_shape": observed_output_shape,
+            "mode_output_shape": normalized_mode_output_shape,
             "repair_strategy_used": getattr(run, "repair_strategy_used", None),
             "repair_attempt_count": int(getattr(run, "repair_attempt_count", 0) or 0),
             "validation_success": bool(getattr(run, "validation_success", False)),

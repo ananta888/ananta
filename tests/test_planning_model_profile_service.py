@@ -94,6 +94,7 @@ def test_learning_state_defaults_to_stable_and_can_be_updated(monkeypatch):
         state="candidate",
         source="test",
         observed_output_format="json_in_markdown_fence",
+        observed_output_shape="json_in_markdown_fence",
         observed_model_family="gemma",
         prompt_version_id="prompt-v2",
         sample_size=7,
@@ -102,4 +103,5 @@ def test_learning_state_defaults_to_stable_and_can_be_updated(monkeypatch):
 
     assert updated.learning_state["state"] == "candidate"
     assert updated.learning_state["observed_output_format"] == "json_in_markdown_fence"
+    assert updated.learning_state["observed_output_shape"] == "json_in_markdown_fence"
     assert updated.learning_state["sample_size"] == 7

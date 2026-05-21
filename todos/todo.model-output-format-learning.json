@@ -94,14 +94,14 @@
       "title": "Output-Form messen und klassifizieren",
       "summary": "Die Lernphase beginnt mit einer robusten Klassifikation der tatsaechlichen Modellantworten. Wichtig sind JSON, JSON in Markdown-Fences, Markdown-Listen, YAML-like und partial/truncated Antworten.",
       "priority": "P0",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "OML-001",
           "title": "Output-Shape pro Call speichern",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Jeder Planning-Call braucht ein normalisiertes Output-Shape-Signal.",
           "files": [
             "agent/services/planning_telemetry_service.py",
@@ -130,7 +130,7 @@
           "title": "Formatpraeferenz pro Modellfamilie aggregieren",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Aus den Traces soll eine bevorzugte Antwortform pro Modellfamilie abgeleitet werden.",
           "files": [
             "agent/services/model_response_behavior_aggregation_service.py",
@@ -163,14 +163,14 @@
       "title": "Prompt- und Repair-Verhalten adaptiv machen",
       "summary": "Wenn das Modell bevorzugte Formen zeigt, muessen Prompt-Registry, Evolver und Repair-Strategien diese Vorlieben ohne Schema-Zwang aufnehmen.",
       "priority": "P0",
-      "status": "todo",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "OML-003",
           "title": "Prompt-Style aus Output ableiten",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Das Modellprofil soll einen abgeleiteten Prompt-Stil speichern koennen.",
           "files": [
             "agent/services/model_response_behavior_profile_service.py",
