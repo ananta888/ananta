@@ -564,12 +564,15 @@ class PlanningLearningLoopService:
                     continue
 
             if active_candidate is not None:
+                _existing_ls = normalize_learning_state(getattr(profile, "learning_state", None), default_state="stable")
+                _shape_from_group = str((worst_group.get("preferred_output_shape") or {}).get("value") or "")
+                _preserved_shape = _shape_from_group or str(_existing_ls.get("observed_output_shape") or "")
                 self._set_profile_learning_state(
                     profile=profile,
                     state="candidate",
                     source="planning_learning_loop",
-                    observed_output_format=str((worst_group.get("preferred_output_shape") or {}).get("value") or ""),
-                    observed_output_shape=str((worst_group.get("preferred_output_shape") or {}).get("value") or ""),
+                    observed_output_format=_preserved_shape,
+                    observed_output_shape=_preserved_shape,
                     observed_model_family=str(profile.model_family or profile.model_name_pattern or ""),
                     prompt_version_id=str((active_candidate.candidate_payload or {}).get("new_prompt_version_id") or active_prompt_version_id or ""),
                     sample_size=int(worst_group.get("run_count") or 0),
