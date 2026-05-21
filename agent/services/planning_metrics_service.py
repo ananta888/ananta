@@ -4,6 +4,7 @@ from collections import defaultdict
 from typing import Any
 
 from agent.services.repository_registry import get_repository_registry
+from agent.services.planning_telemetry_service import get_planning_telemetry_service
 
 
 class PlanningMetricsService:
@@ -47,6 +48,7 @@ class PlanningMetricsService:
             filtered.append(row)
 
         filtered.sort(key=lambda row: float(getattr(row, "created_at", 0.0) or 0.0))
+        telemetry = get_planning_telemetry_service()
         groups: dict[str, dict[str, Any]] = defaultdict(lambda: {
             "run_count": 0,
             "parse_success_count": 0,
@@ -59,26 +61,27 @@ class PlanningMetricsService:
             "recent_quality_samples": [],
         })
         for row in filtered:
+            learning_record = telemetry.build_learning_record(row)
             if group_by_profile:
                 key = f"{row.model_provider or 'unknown'}::{row.model_name or 'unknown'}::{row.planning_profile or 'unknown'}"
             else:
                 key = f"{row.model_provider or 'unknown'}::{row.model_name or 'unknown'}"
             item = groups[key]
             item["run_count"] += 1
-            item["parse_success_count"] += 1 if str(row.parse_mode or "") not in {"", "parse_failed"} else 0
+            item["parse_success_count"] += 1 if str(learning_record.get("parse_mode") or "") not in {"", "parse_failed"} else 0
             item["repair_count"] += 1 if bool(row.repair_needed) else 0
-            item["validation_success_count"] += 1 if bool(row.validation_success) else 0
-            item["materialization_success_count"] += 1 if int(row.generated_task_count or 0) > 0 else 0
-            item["avg_generated_tasks"] += float(row.generated_task_count or 0)
-            shape = str((row.mode_data or {}).get("__output_shape__") or "unknown")
+            item["validation_success_count"] += 1 if bool(learning_record.get("validation_success")) else 0
+            item["materialization_success_count"] += 1 if int(learning_record.get("generated_task_count") or 0) > 0 else 0
+            item["avg_generated_tasks"] += float(learning_record.get("generated_task_count") or 0)
+            shape = str(learning_record.get("output_shape") or "unknown")
             item["output_shape_distribution"][shape] += 1
-            for code in list(row.parse_warnings or []):
+            for code in list(learning_record.get("parse_warnings") or []):
                 item["format_error_distribution"][str(code)] += 1
             quality = self._quality_score(
-                parse_success_rate=1.0 if str(row.parse_mode or "") not in {"", "parse_failed"} else 0.0,
+                parse_success_rate=1.0 if str(learning_record.get("parse_mode") or "") not in {"", "parse_failed"} else 0.0,
                 repair_rate=1.0 if bool(row.repair_needed) else 0.0,
-                validation_success_rate=1.0 if bool(row.validation_success) else 0.0,
-                materialization_success_rate=1.0 if int(row.generated_task_count or 0) > 0 else 0.0,
+                validation_success_rate=1.0 if bool(learning_record.get("validation_success")) else 0.0,
+                materialization_success_rate=1.0 if int(learning_record.get("generated_task_count") or 0) > 0 else 0.0,
             )
             item["recent_quality_samples"].append(quality)
 

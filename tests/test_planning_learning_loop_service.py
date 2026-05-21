@@ -213,6 +213,113 @@ def test_learning_loop_creates_candidate_for_degrading_profile(monkeypatch):
     assert candidate.candidate_payload["new_prompt_version_id"] == "new-version-id"
 
 
+def test_learning_loop_never_directly_activates_profile_on_candidate_creation(monkeypatch):
+    import agent.services.planning_learning_loop_service as mod
+
+    active_version = PlanningPromptVersionDB(
+        version="v1",
+        language="de",
+        mode="new_software_project",
+        output_contract={},
+        system_rules=[],
+        user_prompt_template="base",
+        repair_prompt_template="repair",
+        checksum="chk-1",
+        enabled=True,
+    )
+    runs = [
+        _make_run(id=f"run-{idx}", planning_profile="lmstudio_laptop", prompt_version_id=str(active_version.id), parse_mode="parse_failed", repair_needed=True, validation_success=False, generated_task_count=0)
+        for idx in range(1, 9)
+    ]
+    reg = _Registry(
+        runs=runs,
+        profiles=[
+            SimpleNamespace(
+                profile_name="lmstudio_laptop",
+                provider="lmstudio",
+                model_name_pattern="gemma",
+                model_family="gemma",
+                preferred_prompt_version_id=str(active_version.id),
+                enabled=True,
+            )
+        ],
+        versions=[active_version],
+    )
+    monkeypatch.setattr(mod, "get_repository_registry", lambda: reg)
+    monkeypatch.setattr(
+        mod,
+        "get_planning_metrics_service",
+        lambda: SimpleNamespace(
+            summarize=lambda **_: {
+                "run_count": 8,
+                "groups": [
+                    {
+                        "group": "lmstudio::gemma::lmstudio_laptop",
+                        "model_key": "lmstudio::gemma",
+                        "run_count": 8,
+                        "parse_success_rate": 0.0,
+                        "repair_rate": 1.0,
+                        "validation_success_rate": 0.0,
+                        "materialization_success_rate": 0.0,
+                        "quality_score": 0.0,
+                        "trend_direction": "degrading",
+                        "sample_size_is_small": False,
+                        "avg_generated_tasks": 0.0,
+                        "output_shape_distribution": {"parse_failed": 1.0},
+                        "format_error_distribution": {"truncate": 1.0},
+                        "response_behavior_profile": "lmstudio_laptop",
+                    }
+                ],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "get_planning_prompt_evolver_service",
+        lambda: SimpleNamespace(
+            evolve_from_run=lambda **_: {
+                "evolved": True,
+                "new_prompt_version_id": "new-version-id",
+                "new_prompt_version": "v1.evo.1",
+                "profile_updated": False,
+                "activated_profile": False,
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "get_model_response_behavior_aggregation_service",
+        lambda: SimpleNamespace(aggregate=lambda **_: {"observed_run_count": 8, "primary_output_shape_distribution": {"parse_failed": 1.0}}),
+    )
+    monkeypatch.setattr(mod, "get_planning_review_queue_service", lambda: SimpleNamespace(evaluate_run_for_review=lambda run: []))
+
+    result = PlanningLearningLoopService().run_once(
+        planning_policy={
+            "learning_loop": {
+                "enabled": True,
+                "min_runs": 5,
+                "min_failures": 1,
+                "min_parse_success_rate": 0.9,
+                "min_validation_success_rate": 0.9,
+                "min_materialization_success_rate": 0.9,
+                "max_repair_rate": 0.2,
+                "candidate_activation_threshold": 0.95,
+                "rollback_threshold": 0.6,
+                "freeze_minutes": 1,
+                "canary_window_runs": 3,
+                "auto_activate": True,
+                "require_review_before_activate": False,
+            }
+        }
+    )
+
+    assert result["candidates_created"] == 1
+    candidate = reg.planning_template_candidate_repo.items[0]
+    assert candidate.status == "canary"
+    assert candidate.candidate_payload["candidate_state"] == "canary"
+    assert reg.planning_model_profile_repo.saved == []
+
+
 def test_learning_loop_rolls_back_regressed_canary(monkeypatch):
     import agent.services.planning_learning_loop_service as mod
 
@@ -332,6 +439,7 @@ def test_learning_loop_rolls_back_regressed_canary(monkeypatch):
 
 def test_learning_snapshot_includes_profiles_candidates_and_freeze(monkeypatch):
     import agent.services.planning_learning_loop_service as mod
+    import time
 
     previous_version = PlanningPromptVersionDB(
         version="v1",
@@ -349,13 +457,13 @@ def test_learning_snapshot_includes_profiles_candidates_and_freeze(monkeypatch):
         goal_type="software_project",
         mode="new_software_project",
         candidate_payload={
-            "profile_name": "lmstudio_laptop",
-            "current_prompt_version_id": str(previous_version.id),
-            "new_prompt_version_id": "next-version",
-            "canary_window_runs": 3,
-            "created_at": 100.0,
-            "candidate_state": "canary",
-        },
+                "profile_name": "lmstudio_laptop",
+                "current_prompt_version_id": str(previous_version.id),
+                "new_prompt_version_id": "next-version",
+                "canary_window_runs": 3,
+                "created_at": time.time(),
+                "candidate_state": "canary",
+            },
         confidence="medium",
         status="canary",
     )
