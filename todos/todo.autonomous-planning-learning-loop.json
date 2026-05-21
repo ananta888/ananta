@@ -18,6 +18,11 @@
     "Autonome Nachschärfung darf nie direkt auf Basis eines einzelnen Runs oder Fehlers blind aktiv werden.",
     "Kontext, Daten und Metriken muessen innerhalb des Hub-Worker-Systems beobachtbar bleiben."
   ],
+  "progress_notes": [
+    "Umgesetzt: neue planning_policy.learning_loop Konfiguration, Hub-Background-Loop, Candidate-/Rollback-Logik, Trendmetriken und Tests fuer den Kernpfad.",
+    "Teilweise umgesetzt: Prompt-Evolver kann Kandidaten erzeugen und Profile gategesteuert umschalten, aber Diagnostics/CLI und einige Beobachtungsansichten fehlen noch.",
+    "Offen: Output-Shape-Classifier, vollständige Diagnostics-Ansichten, canary-bezogene Berichtsfunktionen und E2E-Abdeckung."
+  ],
   "core_principles": [
     {
       "id": "AOL-PRINCIPLE-001",
@@ -112,14 +117,14 @@
       "title": "Observability und Lerndaten fuers Modellverhalten",
       "summary": "Zuerst muessen die Signale sauber genug sein, damit das System spaeter auf echten Mustern lernen kann. Dieser Track erweitert Metriken, Trace-Daten und Auswertungen um Output-Shape, Parse-Mode, Repair-Strategie, Modellfamilie und Stabilitaetsindikatoren.",
       "priority": "P0",
-      "status": "todo",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "AOL-001",
           "title": "Planning-Lerndaten vereinheitlichen",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "in_progress",
           "summary": "Alle relevanten Planning- und Response-Signale werden in einem gemeinsamen Lern-Datensatz zusammengefasst.",
           "files": [
             "agent/services/planning_metrics_service.py",
@@ -148,7 +153,7 @@
           "title": "Output-Shape und Parser-Erfolg messen",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "in_progress",
           "summary": "Das System soll erkennen, ob ein Modell natuerlich JSON, Markdown-Bullets, Markdown-Fences, eingebettetes JSON oder freie Prosa liefert.",
           "files": [
             "agent/services/planning_output_shape_classifier.py",
@@ -180,7 +185,7 @@
           "title": "Trend- und Stabilitaetsmetriken aufbauen",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Neben rohen Erfolgszahlen braucht das System Trends, damit es echte Stabilitaet von Ausreissern unterscheiden kann.",
           "files": [
             "agent/services/planning_metrics_service.py",
@@ -215,14 +220,14 @@
       "title": "Automatische Evolutions- und Trigger-Schleife",
       "summary": "Auf Basis der Lerndaten entscheidet der Hub, ob ein Prompt oder ein Profil nachgeschaerft wird. Dieser Track kapselt Trigger, Schwellenwerte, Nachschärfekandidaten und die eigentliche Evolutionslogik.",
       "priority": "P0",
-      "status": "todo",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "AOL-004",
           "title": "Evolve-Trigger mit Schwellenwerten definieren",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Es muss klar geregelt sein, wann eine Auto-Evolution ueberhaupt in Betracht kommt.",
           "files": [
             "agent/services/planning_prompt_evolver_service.py",
@@ -253,7 +258,7 @@
           "title": "Prompt-Evolver fuer Modellfamilien und Output-Stile",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "in_progress",
           "summary": "Prompt-Evolution soll nicht nur generisch sein, sondern fuer Modellfamilien und Output-Stile separate Kandidaten erzeugen.",
           "files": [
             "agent/services/planning_prompt_evolver_service.py",
@@ -285,7 +290,7 @@
           "title": "Profil-Update nur nach Canary und Vergleich",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "in_progress",
           "summary": "Eine neue Prompt-Version darf erst Default werden, wenn sie gegen den bisherigen Stand im Canary-Vergleich besser ist.",
           "files": [
             "agent/services/planning_prompt_evolver_service.py",
@@ -320,14 +325,14 @@
       "title": "Sichere Rollouts, Freeze und Rollback",
       "summary": "Automatische Nachschärfung braucht Schutzmechanismen gegen Instabilitaet. Dieser Track baut die Sicherheits- und Rückfallmechanik um die Evolutionsschleife.",
       "priority": "P0",
-      "status": "todo",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "AOL-007",
           "title": "Auto-Rollback bei Regression ausloesen",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "in_progress",
           "summary": "Wenn die neue Version schlechter performt, soll das System automatisch auf die vorherige stabile Version zurueckschalten.",
           "files": [
             "agent/services/planning_prompt_evolver_service.py",
@@ -358,7 +363,7 @@
           "title": "Freeze- und Hysterese-Regeln durchsetzen",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "in_progress",
           "summary": "Nach jeder Evolution braucht das System Ruhe, damit es nicht zwischen Versionen hin- und herspringt.",
           "files": [
             "agent/services/planning_prompt_evolver_service.py",
@@ -427,17 +432,19 @@
       "title": "Autonome Hub-Steuerung und Schutz vor Fehloptimierung",
       "summary": "Die Lernschleife soll im Hub als Hintergrundprozess eingebunden werden, aber mit klaren Grenzen. Dieser Track sorgt dafuer, dass automatische Optimierung nicht in Endlosschleifen, falsche Selbstverbesserung oder unkontrollierte Default-Änderungen endet.",
       "priority": "P0",
-      "status": "todo",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "AOL-010",
           "title": "Hub-Hintergrundjob fuer Lernschleife einbauen",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Die Auswertung und Optimierung soll regelmaessig im Hub laufen, ohne manuelle Ausloesung.",
           "files": [
-            "agent/services/background/planning_learning_loop.py",
+            "agent/services/background/planning_learning.py",
+            "agent/services/planning_learning_loop_service.py",
+            "agent/lifecycle.py",
             "agent/routes/tasks/goals.py",
             "agent/routes/tasks/autopilot_tick_engine.py"
           ],
@@ -467,7 +474,7 @@
           "title": "No-blind-default-change Guard",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "in_progress",
           "summary": "Der Hub darf neue Versionen erst nach stabiler Evidenz als Default aktivieren.",
           "files": [
             "agent/services/planning_prompt_evolver_service.py",

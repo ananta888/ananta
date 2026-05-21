@@ -104,6 +104,15 @@ class PlanningEvaluationRepository:
 
 
 class PlanningTemplateCandidateRepository:
+    def get_recent(self, limit: int = 100) -> list[PlanningTemplateCandidateDB]:
+        with Session(engine) as session:
+            statement = (
+                select(PlanningTemplateCandidateDB)
+                .order_by(PlanningTemplateCandidateDB.created_at.desc())
+                .limit(max(1, min(int(limit), 1000)))
+            )
+            return session.exec(statement).all()
+
     def save(self, candidate: PlanningTemplateCandidateDB) -> PlanningTemplateCandidateDB:
         with Session(engine) as session:
             merged = session.merge(candidate)
@@ -114,6 +123,15 @@ class PlanningTemplateCandidateRepository:
 
 
 class PlanningPatternClusterRepository:
+    def get_recent(self, limit: int = 100) -> list[PlanningPatternClusterDB]:
+        with Session(engine) as session:
+            statement = (
+                select(PlanningPatternClusterDB)
+                .order_by(PlanningPatternClusterDB.created_at.desc())
+                .limit(max(1, min(int(limit), 1000)))
+            )
+            return session.exec(statement).all()
+
     def save(self, cluster: PlanningPatternClusterDB) -> PlanningPatternClusterDB:
         with Session(engine) as session:
             merged = session.merge(cluster)
@@ -124,6 +142,15 @@ class PlanningPatternClusterRepository:
 
 
 class PlanningReviewItemRepository:
+    def get_recent(self, limit: int = 100) -> list[PlanningReviewItemDB]:
+        with Session(engine) as session:
+            statement = (
+                select(PlanningReviewItemDB)
+                .order_by(PlanningReviewItemDB.created_at.desc())
+                .limit(max(1, min(int(limit), 1000)))
+            )
+            return session.exec(statement).all()
+
     def get_open(self, limit: int = 200) -> list[PlanningReviewItemDB]:
         with Session(engine) as session:
             statement = (

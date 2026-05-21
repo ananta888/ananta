@@ -5,7 +5,7 @@ import threading
 
 from agent.config import settings
 
-BACKGROUND_SERVICE_NAMES = ("registration", "llm_monitoring", "monitoring", "housekeeping", "scheduler")
+BACKGROUND_SERVICE_NAMES = ("registration", "llm_monitoring", "monitoring", "planning_learning", "housekeeping", "scheduler")
 
 
 class BackgroundServiceManager:
@@ -34,6 +34,8 @@ class BackgroundServiceManager:
         if not settings.disable_llm_check:
             self._start_service("llm_monitoring", self._start_llm_monitoring)
         self._start_service("monitoring", self._start_monitoring)
+        if self._planning_learning_enabled():
+            self._start_service("planning_learning", self._start_planning_learning)
         self._start_service("housekeeping", self._start_housekeeping)
         self._start_service("scheduler", self._start_scheduler)
         self._capture_active_threads()
@@ -111,6 +113,11 @@ class BackgroundServiceManager:
         from agent.services.background.housekeeping import start_housekeeping_thread
         start_housekeeping_thread(self.app)
 
+    def _start_planning_learning(self):
+        from agent.services.background.planning_learning import start_planning_learning_thread
+
+        start_planning_learning_thread(self.app)
+
     def _start_scheduler(self):
         from agent.services.scheduler_service import get_scheduler_service
 
@@ -120,3 +127,10 @@ class BackgroundServiceManager:
         from agent.services.scheduler_service import get_scheduler_service
 
         get_scheduler_service().stop()
+
+    def _planning_learning_enabled(self) -> bool:
+        app_config = getattr(self.app, "config", {}) or {}
+        agent_cfg = app_config.get("AGENT_CONFIG") or {}
+        planning_policy = agent_cfg.get("planning_policy") if isinstance(agent_cfg.get("planning_policy"), dict) else {}
+        learning_loop = planning_policy.get("learning_loop") if isinstance(planning_policy.get("learning_loop"), dict) else {}
+        return bool(learning_loop.get("enabled", False))

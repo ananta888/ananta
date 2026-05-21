@@ -11,6 +11,42 @@ _SOFTWARE_HINTS = ("software", "project", "java", "angular", "frontend", "backen
 _ALLOWED_OUTPUT_FORMATS = {"json", "markdown", "yaml"}
 
 
+def _normalize_learning_loop_config(value: dict | None) -> dict[str, Any]:
+    payload = dict(value or {})
+
+    def _bounded_int(raw: Any, *, default: int, minimum: int, maximum: int) -> int:
+        try:
+            parsed = int(raw)
+        except (TypeError, ValueError):
+            parsed = default
+        return max(minimum, min(maximum, parsed))
+
+    def _bounded_float(raw: Any, *, default: float, minimum: float, maximum: float) -> float:
+        try:
+            parsed = float(raw)
+        except (TypeError, ValueError):
+            parsed = default
+        return max(minimum, min(maximum, parsed))
+
+    return {
+        "enabled": bool(payload.get("enabled", False)),
+        "interval_seconds": _bounded_int(payload.get("interval_seconds"), default=900, minimum=30, maximum=86400),
+        "lookback_runs": _bounded_int(payload.get("lookback_runs"), default=120, minimum=10, maximum=1000),
+        "min_runs": _bounded_int(payload.get("min_runs"), default=8, minimum=1, maximum=200),
+        "min_failures": _bounded_int(payload.get("min_failures"), default=3, minimum=1, maximum=200),
+        "min_parse_success_rate": _bounded_float(payload.get("min_parse_success_rate"), default=0.7, minimum=0.0, maximum=1.0),
+        "min_validation_success_rate": _bounded_float(payload.get("min_validation_success_rate"), default=0.7, minimum=0.0, maximum=1.0),
+        "min_materialization_success_rate": _bounded_float(payload.get("min_materialization_success_rate"), default=0.6, minimum=0.0, maximum=1.0),
+        "max_repair_rate": _bounded_float(payload.get("max_repair_rate"), default=0.4, minimum=0.0, maximum=1.0),
+        "candidate_activation_threshold": _bounded_float(payload.get("candidate_activation_threshold"), default=0.75, minimum=0.0, maximum=1.0),
+        "rollback_threshold": _bounded_float(payload.get("rollback_threshold"), default=0.55, minimum=0.0, maximum=1.0),
+        "freeze_minutes": _bounded_int(payload.get("freeze_minutes"), default=120, minimum=1, maximum=10080),
+        "canary_window_runs": _bounded_int(payload.get("canary_window_runs"), default=10, minimum=1, maximum=200),
+        "auto_activate": bool(payload.get("auto_activate", False)),
+        "require_review_before_activate": bool(payload.get("require_review_before_activate", True)),
+    }
+
+
 def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
     payload = dict(value or {})
 
@@ -70,6 +106,7 @@ def normalize_planning_policy_config(value: dict | None) -> dict[str, Any]:
         "validation_profiles": dict(payload.get("validation_profiles") or {}) if isinstance(payload.get("validation_profiles"), dict) else {},
         "team_overrides": dict(payload.get("team_overrides") or {}) if isinstance(payload.get("team_overrides"), dict) else {},
         "planner_prompt_evolution": dict(payload.get("planner_prompt_evolution") or {}) if isinstance(payload.get("planner_prompt_evolution"), dict) else {},
+        "learning_loop": _normalize_learning_loop_config(payload.get("learning_loop") if isinstance(payload.get("learning_loop"), dict) else {}),
         "default_runtime_profile": str(payload.get("default_runtime_profile") or "").strip() or None,
         "runtime_profiles": runtime_profiles,
     }

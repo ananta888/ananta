@@ -28,19 +28,21 @@ def test_start_background_services_respects_disabled(monkeypatch):
 
 
 def test_start_background_services_runs_expected_calls(monkeypatch):
-    calls = {"registration": 0, "llm": 0, "monitoring": 0, "housekeeping": 0, "scheduler": 0}
+    calls = {"registration": 0, "llm": 0, "monitoring": 0, "planning_learning": 0, "housekeeping": 0, "scheduler": 0}
 
     monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_is_testing", lambda self: False)
     monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_should_skip_for_reloader", lambda self: False)
     monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_registration", lambda self: calls.__setitem__("registration", 1))
     monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_llm_monitoring", lambda self: calls.__setitem__("llm", 1))
     monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_monitoring", lambda self: calls.__setitem__("monitoring", 1))
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_planning_learning_enabled", lambda self: True)
+    monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_planning_learning", lambda self: calls.__setitem__("planning_learning", 1))
     monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_housekeeping", lambda self: calls.__setitem__("housekeeping", 1))
     monkeypatch.setattr(lifecycle.BackgroundServiceManager, "_start_scheduler", lambda self: calls.__setitem__("scheduler", 1))
     monkeypatch.setattr(lifecycle.settings, "disable_llm_check", False)
 
     lifecycle.BackgroundServiceManager(object()).start_all()
-    assert calls == {"registration": 1, "llm": 1, "monitoring": 1, "housekeeping": 1, "scheduler": 1}
+    assert calls == {"registration": 1, "llm": 1, "monitoring": 1, "planning_learning": 1, "housekeeping": 1, "scheduler": 1}
 
 
 def test_get_llm_target_prefers_runtime_default_provider_from_app_config(app):
