@@ -518,6 +518,13 @@ class PromptTraceService:
             logger.error("PromptTraceService.find_by_goal_id failed: %s", exc)
             return []
 
+    def find_by_task_id(self, task_id: str, limit: int = 100) -> list[PromptTrace]:
+        try:
+            return self._storage.find_by_task_id(task_id, limit=limit)
+        except Exception as exc:
+            logger.error("PromptTraceService.find_by_task_id failed: %s", exc)
+            return []
+
     def delete_by_goal_id(self, goal_id: str) -> int:
         try:
             return int(self._storage.delete_by_goal_id(goal_id))
