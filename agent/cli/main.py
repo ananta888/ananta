@@ -173,6 +173,8 @@ def _run_prompt(argv: Sequence[str]) -> int:
     ti_p = sub_sub.add_parser("task-inspect", help="Alias for task-report")
     ti_p.add_argument("--task-id", dest="task_id", required=True)
     ti_p.add_argument("--json", action="store_true")
+    lr_p = sub_sub.add_parser("learning-report", help="Show planning learning loop snapshot")
+    lr_p.add_argument("--json", action="store_true")
 
     if not argv or argv[0] in ("-h", "--help"):
         sub_parser.print_help()

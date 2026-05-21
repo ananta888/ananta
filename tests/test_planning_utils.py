@@ -79,6 +79,12 @@ def test_parse_diagnostics_parse_failed() -> None:
     assert diag["parse_mode"] == "parse_failed"
 
 
+def test_parse_diagnostics_detects_partial_json_shape() -> None:
+    _tasks, diag = parse_subtasks_with_diagnostics('[{"title":"Task 1","description":"Implement')
+    assert diag["output_shape"] == "partial_json"
+    assert "partial_json" in diag["detected_shapes"]
+
+
 def test_parse_followup_analysis_returns_parse_error_for_invalid_json() -> None:
     parsed = parse_followup_analysis("not-json")
     assert parsed["parse_error"] is True

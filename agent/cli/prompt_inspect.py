@@ -639,6 +639,97 @@ def cmd_prompt_task_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _extract_learning_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {}
+    llm_cfg = payload.get("llm_configuration") if isinstance(payload.get("llm_configuration"), dict) else {}
+    if isinstance(llm_cfg, dict) and isinstance(llm_cfg.get("planning_learning"), dict):
+        return dict(llm_cfg.get("planning_learning") or {})
+    settings = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
+    summary = settings.get("summary") if isinstance(settings.get("summary"), dict) else {}
+    if isinstance(summary, dict) and isinstance(summary.get("planning_learning"), dict):
+        return dict(summary.get("planning_learning") or {})
+    return {}
+
+
+def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
+    try:
+        from agent.cli_goals import _request, _api_data
+    except Exception as exc:
+        print(f"Error: learning report helper unavailable: {exc}", file=sys.stderr)
+        return 1
+
+    dashboard_res = _request("GET", "/dashboard/read-model", params={"benchmark_task_kind": "analysis", "include_task_snapshot": 0}, timeout=30)
+    dashboard_payload = _api_data(dashboard_res) if dashboard_res.status_code == 200 else {}
+    if not isinstance(dashboard_payload, dict):
+        dashboard_payload = {}
+
+    snapshot = _extract_learning_snapshot(dashboard_payload)
+    source = "dashboard_read_model"
+    if not snapshot:
+        assistant_res = _request("GET", "/assistant/read-model", timeout=30)
+        assistant_payload = _api_data(assistant_res) if assistant_res.status_code == 200 else {}
+        if isinstance(assistant_payload, dict):
+            snapshot = _extract_learning_snapshot(assistant_payload)
+            source = "assistant_read_model"
+
+    if not snapshot:
+        print("Error: planning learning snapshot not available", file=sys.stderr)
+        return 1
+
+    result = {
+        "source": source,
+        "enabled": bool(snapshot.get("enabled", False)),
+        "policy": dict(snapshot.get("policy") or {}),
+        "candidate_count": int(snapshot.get("candidate_count") or 0),
+        "review_item_count": int(snapshot.get("review_item_count") or 0),
+        "profiles": list(snapshot.get("profiles") or []),
+    }
+
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print("=== Planning Learning Report ===")
+    print(f"Source:        {result['source']}")
+    print(f"Enabled:       {result['enabled']}")
+    print(f"Candidates:    {result['candidate_count']}")
+    print(f"Review Items:  {result['review_item_count']}")
+    policy = result["policy"]
+    if policy:
+        print(f"Lookback Runs: {policy.get('lookback_runs', '-')}")
+        print(f"Freeze Mins:   {policy.get('freeze_minutes', '-')}")
+        print(f"Auto Activate: {policy.get('auto_activate', '-')}")
+
+    profiles = result["profiles"]
+    print("\n--- Profiles ---")
+    if not profiles:
+        print("(none)")
+        return 0
+
+    rows = []
+    for profile in profiles:
+        candidate = dict(profile.get("current_candidate") or {})
+        freeze = dict(profile.get("freeze") or {})
+        metrics = dict(profile.get("metrics") or {})
+        rows.append(
+            {
+                "profile": str(profile.get("profile_name") or "")[:18],
+                "enabled": str(bool(profile.get("enabled"))),
+                "provider": str(profile.get("provider") or "")[:10],
+                "model": str(profile.get("model_family") or profile.get("model_name_pattern") or "")[:18],
+                "prompt": str(profile.get("active_prompt_version_id") or "")[:16],
+                "quality": str(profile.get("current_quality_score") or "")[:8],
+                "trend": str(profile.get("trend_direction") or "")[:10],
+                "candidate": str(candidate.get("status") or "")[:10],
+                "freeze": str(bool(freeze.get("active"))),
+                "samples": str(metrics.get("run_count") or 0),
+            }
+        )
+    _print_table(rows, ["profile", "enabled", "provider", "model", "prompt", "quality", "trend", "candidate", "freeze", "samples"])
+    return 0
+
+
 def _last_trace_by_task_id(traces_grouped: dict[str, Any]) -> dict[str, dict[str, Any]]:
     last: dict[str, dict[str, Any]] = {}
     for kind, items in (traces_grouped or {}).items():
@@ -842,6 +933,8 @@ def build_prompt_subparser(subparsers) -> None:
     ti_p = prompt_sub.add_parser("task-inspect", help="Alias for task-report")
     ti_p.add_argument("--task-id", dest="task_id", required=True, help="Task ID")
     ti_p.add_argument("--json", action="store_true", help="JSON output")
+    lr_p = prompt_sub.add_parser("learning-report", help="Show planning learning loop snapshot")
+    lr_p.add_argument("--json", action="store_true", help="JSON output")
 
 
 def build_llm_log_subparser(subparsers) -> None:
@@ -873,8 +966,10 @@ def run_prompt_command(args: argparse.Namespace) -> int:
         return cmd_prompt_task_report(args)
     elif cmd == "task-inspect":
         return cmd_prompt_task_report(args)
+    elif cmd == "learning-report":
+        return cmd_prompt_learning_report(args)
     else:
-        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report,task-report,task-inspect} --help")
+        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report,task-report,task-inspect,learning-report} --help")
         return 2
 
 

@@ -483,3 +483,104 @@ class TestPromptTaskReport:
         assert report_code == 0
         assert inspect_code == 0
         assert json.loads(captured_report.getvalue()) == json.loads(captured_inspect.getvalue())
+
+
+class TestPromptLearningReport:
+    def test_learning_report_json_happy_path(self):
+        import argparse
+        import contextlib
+        import io
+        from agent.cli.prompt_inspect import cmd_prompt_learning_report
+
+        class _Resp:
+            def __init__(self, status_code: int, payload: dict | None = None):
+                self.status_code = status_code
+                self._payload = payload or {}
+
+        dashboard_payload = {
+            "llm_configuration": {
+                "planning_learning": {
+                    "enabled": True,
+                    "policy": {"lookback_runs": 24, "freeze_minutes": 60},
+                    "candidate_count": 2,
+                    "review_item_count": 1,
+                    "profiles": [
+                        {
+                            "profile_name": "lmstudio_laptop",
+                            "enabled": True,
+                            "provider": "lmstudio",
+                            "model_family": "gemma",
+                            "model_name_pattern": "gemma-4e4b",
+                            "active_prompt_version_id": "v2",
+                            "current_quality_score": 0.25,
+                            "trend_direction": "degrading",
+                            "current_candidate": {"status": "proposed"},
+                            "freeze": {"active": True},
+                            "metrics": {"run_count": 12},
+                        }
+                    ],
+                }
+            }
+        }
+
+        def _request(method, path, **kwargs):
+            if path == "/dashboard/read-model":
+                return _Resp(200, dashboard_payload)
+            return _Resp(404)
+
+        def _api_data(resp):
+            return getattr(resp, "_payload", {})
+
+        args = argparse.Namespace(json=True)
+        captured = io.StringIO()
+        with patch("agent.cli_goals._request", side_effect=_request), patch("agent.cli_goals._api_data", side_effect=_api_data):
+            with contextlib.redirect_stdout(captured):
+                code = cmd_prompt_learning_report(args)
+
+        assert code == 0
+        parsed = json.loads(captured.getvalue())
+        assert parsed["enabled"] is True
+        assert parsed["candidate_count"] == 2
+        assert parsed["profiles"][0]["profile_name"] == "lmstudio_laptop"
+
+    def test_learning_report_missing_optional_fields(self):
+        import argparse
+        import contextlib
+        import io
+        from agent.cli.prompt_inspect import cmd_prompt_learning_report
+
+        class _Resp:
+            def __init__(self, status_code: int, payload: dict | None = None):
+                self.status_code = status_code
+                self._payload = payload or {}
+
+        dashboard_payload = {
+            "llm_configuration": {
+                "planning_learning": {
+                    "enabled": False,
+                    "policy": {},
+                    "candidate_count": 0,
+                    "review_item_count": 0,
+                    "profiles": [{}],
+                }
+            }
+        }
+
+        def _request(method, path, **kwargs):
+            if path == "/dashboard/read-model":
+                return _Resp(200, dashboard_payload)
+            return _Resp(404)
+
+        def _api_data(resp):
+            return getattr(resp, "_payload", {})
+
+        args = argparse.Namespace(json=True)
+        captured = io.StringIO()
+        with patch("agent.cli_goals._request", side_effect=_request), patch("agent.cli_goals._api_data", side_effect=_api_data):
+            with contextlib.redirect_stdout(captured):
+                code = cmd_prompt_learning_report(args)
+
+        assert code == 0
+        parsed = json.loads(captured.getvalue())
+        assert parsed["enabled"] is False
+        assert parsed["profiles"][0].get("profile_name", "") == ""

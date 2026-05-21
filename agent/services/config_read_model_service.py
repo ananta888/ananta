@@ -167,6 +167,7 @@ class ConfigReadModelService:
         hub_copilot_summary_builder,
         context_policy_summary_builder,
         artifact_flow_summary_builder,
+        planning_learning_summary_builder=None,
     ) -> dict:
         repos = get_repository_registry()
         teams = [team.model_dump() for team in repos.team_repo.get_all()]
@@ -217,6 +218,7 @@ class ConfigReadModelService:
         codex_runtime = resolve_codex_runtime_config()
         routing_decision_service = get_routing_decision_service()
         routing_fallback_policy = routing_decision_service.resolve_fallback_policy(cfg)
+        planning_learning_summary = planning_learning_summary_builder(cfg) if callable(planning_learning_summary_builder) else {}
         effective_runtime = {
             "provider": (recommended_runtime or {}).get("provider") or configured_runtime["provider"],
             "model": (recommended_runtime or {}).get("model") or configured_runtime["model"],
@@ -314,6 +316,7 @@ class ConfigReadModelService:
                 "hub_copilot": hub_copilot_summary_builder(cfg),
                 "context_bundle_policy": context_policy_summary_builder(cfg),
                 "artifact_flow": artifact_flow_summary_builder(cfg),
+                "planning_learning": planning_learning_summary,
                 "opencode_runtime": {
                     "tool_mode": str((((cfg or {}).get("opencode_runtime") or {}).get("tool_mode") or "full")).strip().lower()
                     if isinstance((cfg or {}).get("opencode_runtime"), dict)

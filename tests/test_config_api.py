@@ -896,6 +896,8 @@ def test_config_read_models_expose_effective_policy_profile(client, admin_token)
     dashboard_profile = llm_configuration.get("effective_policy_profile") or {}
     assert dashboard_profile.get("governance_mode", {}).get("effective") in {"safe", "balanced", "strict"}
     assert "summary" in dashboard_profile
+    learning = llm_configuration.get("planning_learning") or {}
+    assert learning.get("snapshot") is not None
 
 
 def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token):
@@ -905,6 +907,8 @@ def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token
     summary = (((res.json.get("data") or {}).get("settings") or {}).get("summary") or {})
     llm = summary.get("llm") or {}
     assert "artifact_flow" in llm
+    planning_learning = llm.get("planning_learning") or {}
+    assert planning_learning.get("snapshot") is not None
     governance = summary.get("governance") or {}
     review_policy = governance.get("review_policy") or {}
     risk_policy = governance.get("execution_risk_policy") or {}

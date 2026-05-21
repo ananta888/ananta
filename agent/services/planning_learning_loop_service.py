@@ -112,6 +112,78 @@ class PlanningLearningLoopService:
             limit=200,
         )
 
+    def build_snapshot(self, *, planning_policy: dict[str, Any] | None = None) -> dict[str, Any]:
+        policy = dict(planning_policy or {})
+        learning = self._learning_policy(policy)
+        repos = get_repository_registry()
+        profiles = list(repos.planning_model_profile_repo.get_enabled())
+        candidates = list(repos.planning_template_candidate_repo.get_recent(limit=100))
+        reviews = list(repos.planning_review_item_repo.get_open(limit=200))
+
+        profile_rows: list[dict[str, Any]] = []
+        for profile in profiles:
+            profile_name = str(profile.profile_name or "").strip()
+            prompt_version_id = self._extract_prompt_version_id(profile)
+            groups = self._find_profile_groups(
+                profile_name=profile_name,
+                lookback_runs=int(learning.get("lookback_runs") or 120),
+                prompt_version=prompt_version_id,
+            ) if profile_name else []
+            current_group = groups[0] if groups else {}
+            current_candidate = next(
+                (
+                    cand
+                    for cand in candidates
+                    if str((cand.candidate_payload or {}).get("profile_name") or "").strip() == profile_name
+                ),
+                None,
+            )
+            current_quality = self._quality_score(current_group) if current_group else 0.0
+            freeze_minutes = int(learning.get("freeze_minutes") or 120)
+            freeze_active = False
+            candidate_age_seconds = None
+            if current_candidate is not None:
+                created_at = float((current_candidate.candidate_payload or {}).get("created_at") or current_candidate.created_at or 0.0)
+                if created_at:
+                    candidate_age_seconds = max(0.0, time.time() - created_at)
+                    freeze_active = candidate_age_seconds < freeze_minutes * 60
+
+            profile_rows.append(
+                {
+                    "profile_name": profile_name,
+                    "provider": str(profile.provider or ""),
+                    "model_name_pattern": str(profile.model_name_pattern or ""),
+                    "model_family": str(profile.model_family or ""),
+                    "enabled": bool(profile.enabled),
+                    "active_prompt_version_id": prompt_version_id,
+                    "current_quality_score": current_quality,
+                    "trend_direction": str(current_group.get("trend_direction") or ""),
+                    "sample_size_is_small": bool(current_group.get("sample_size_is_small")),
+                    "current_candidate": {
+                        "id": str(getattr(current_candidate, "id", "") or ""),
+                        "status": str(getattr(current_candidate, "status", "") or ""),
+                        "prompt_version_id": str((getattr(current_candidate, "candidate_payload", {}) or {}).get("new_prompt_version_id") or ""),
+                        "current_prompt_version_id": str((getattr(current_candidate, "candidate_payload", {}) or {}).get("current_prompt_version_id") or ""),
+                        "candidate_state": str((getattr(current_candidate, "candidate_payload", {}) or {}).get("candidate_state") or ""),
+                        "candidate_age_seconds": candidate_age_seconds,
+                    } if current_candidate is not None else None,
+                    "freeze": {
+                        "enabled": bool(learning.get("enabled", False)),
+                        "active": freeze_active,
+                        "freeze_minutes": freeze_minutes,
+                    },
+                    "metrics": current_group,
+                }
+            )
+
+        return {
+            "enabled": bool(learning.get("enabled", False)),
+            "policy": learning,
+            "profiles": profile_rows,
+            "candidate_count": len(candidates),
+            "review_item_count": len(reviews),
+        }
+
     def _create_candidate(
         self,
         *,
