@@ -19,6 +19,19 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
         },
     ),
+    "opencode_preconfigured_e2e": ConfigProfile(
+        id="opencode_preconfigured_e2e",
+        description="OpenCode worker profile for fully automated E2E runs (no human review terminal state)",
+        overrides={
+            "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
+            # E2E must not stall in waiting_for_review.
+            "autopilot_task_propose_hard_guard_status": "failed",
+            "propose_policy": {
+                "allow_human_review": False,
+                "on_all_strategies_declined": "failed",
+            },
+        },
+    ),
     "opencode_ollama_local": ConfigProfile(
         id="opencode_ollama_local",
         description="OpenCode worker using local Ollama model",
