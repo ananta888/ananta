@@ -548,7 +548,7 @@ def build_default_agent_config() -> dict:
             "selective_repair_rounds": 2,
             "validation_profiles": {
                 "new_software_project": {
-                    "min_total_tasks": 5,
+                    "min_total_tasks": 4,
                     "required_categories": {
                         "analysis": 1,
                         "infrastructure": 1,
