@@ -2851,8 +2851,21 @@ class TaskScopedExecutionService:
     def _require_task(self, tid: str) -> dict:
         task = get_local_task_status(tid)
         if not task:
+            task = self._maybe_sync_task_from_hub(tid)
+        if not task:
             raise TaskNotFoundError()
         return task
+
+    def _maybe_sync_task_from_hub(self, tid: str) -> dict | None:
+        try:
+            agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if current_app else {}
+        except Exception:
+            agent_cfg = {}
+        fp = dict((agent_cfg.get("execution_fallback_policy") or {}))
+        if not bool(fp.get("worker_task_sync_from_hub_enabled", True)):
+            return None
+        from agent.services.task_runtime_service import sync_task_from_hub
+        return sync_task_from_hub(tid)
 
     def _resolve_cli_backend(
         self,
