@@ -573,7 +573,7 @@ def build_default_agent_config() -> dict:
                 "interval_seconds": 300,
                 "lookback_runs": 120,
                 "min_runs": 3,
-                "min_failures": 2,
+                "min_failures": 1,
                 "min_parse_success_rate": 0.7,
                 "min_validation_success_rate": 0.7,
                 "min_materialization_success_rate": 0.6,
