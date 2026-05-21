@@ -10,6 +10,17 @@ from agent.services.repository_registry import get_repository_registry
 
 class PlanningTelemetryService:
     @staticmethod
+    def _infer_model_family(model_name: str | None) -> str | None:
+        normalized = str(model_name or "").strip().lower()
+        if "gemma" in normalized:
+            return "gemma"
+        if "qwen" in normalized:
+            return "qwen"
+        if "llama" in normalized:
+            return "llama"
+        return None
+
+    @staticmethod
     def _hash(value: str | None) -> str | None:
         if not value:
             return None
@@ -35,6 +46,7 @@ class PlanningTelemetryService:
             "mode": getattr(run, "mode", None),
             "model_provider": getattr(run, "model_provider", None),
             "model_name": getattr(run, "model_name", None),
+            "model_family": self._infer_model_family(getattr(run, "model_name", None)),
             "planning_profile": getattr(run, "planning_profile", None),
             "prompt_version_id": getattr(run, "prompt_version_id", None),
             "prompt_language": getattr(run, "prompt_language", None),

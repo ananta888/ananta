@@ -94,14 +94,14 @@
       "title": "Beobachtung und Klassifikation des realen Modelloutputs",
       "summary": "Zuerst muss Ananta verstehen, wie das Modell tatsaechlich antwortet. JSON, Markdown, YAML, eingebettetes JSON und truncation-empfindliche Formen werden als Lernsignale erfasst.",
       "priority": "P0",
-      "status": "todo",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "PML-001",
           "title": "Output-Form pro Planning-Call persistent erfassen",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Jeder Planning-Call soll seine beobachtete Output-Form als Signal speichern.",
           "files": [
             "agent/services/planning_telemetry_service.py",
@@ -131,7 +131,7 @@
           "title": "Modellfamilie und Stilmerkmale aus Traces aggregieren",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Ananta soll nicht nur einzelne Calls sehen, sondern modellfamilienbezogene Tendenzen ueber mehrere Runs hinweg aggregieren.",
           "files": [
             "agent/services/model_response_behavior_aggregation_service.py",
@@ -164,7 +164,7 @@
       "title": "Lernzustand und Prompt-/Profil-Orchestrierung",
       "summary": "Sobald die Signale bekannt sind, braucht Ananta einen expliziten Lernzustand pro Modell oder Modellfamilie, um zu entscheiden, ob noch gelernt, schon stabilisiert oder bereits aktiviert wird.",
       "priority": "P0",
-      "status": "todo",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "PML-003",
