@@ -166,7 +166,7 @@ class PlanningPromptEvolverService:
         if profile_name and bool(activate_profile):
             for p in repos.planning_model_profile_repo.get_enabled():
                 if str(p.profile_name or "").strip().lower() == profile_name:
-                    p.preferred_prompt_version_id = str(evolved.version)
+                    p.preferred_prompt_version_id = str(evolved.id)
                     repos.planning_model_profile_repo.save(p)
                     profile_updated = True
                     break
