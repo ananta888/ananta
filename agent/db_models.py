@@ -473,6 +473,7 @@ class PlanningModelProfileDB(SQLModel, table=True):
     output_contract_strictness: str = "repair_required"
     supports_json_mode: bool = False
     requires_english_prompt: bool = False
+    learning_state: dict = Field(default={}, sa_column=Column(JSON))
     notes: Optional[str] = None
     enabled: bool = True
     created_at: float = Field(default_factory=time.time)

@@ -37,6 +37,7 @@ def _profile(**kwargs):
         "output_contract_strictness": "repair_required",
         "supports_json_mode": False,
         "requires_english_prompt": True,
+        "learning_state": {},
         "notes": None,
     }
     base.update(kwargs)
@@ -76,3 +77,29 @@ def test_preferred_output_format_is_extracted_from_notes(monkeypatch):
     service = svc.PlanningModelProfileService()
     resolved = service.resolve_profile(provider="lmstudio", model_name="google/gemma-4-e4b")
     assert resolved["preferred_output_format"] == "json"
+
+
+def test_learning_state_defaults_to_stable_and_can_be_updated(monkeypatch):
+    items = [_profile(id="1", provider="lmstudio", model_name_pattern="*gemma*", profile_name="small_local")]
+    repo = _Registry(items)
+    monkeypatch.setattr(svc, "get_repository_registry", lambda: repo)
+    service = svc.PlanningModelProfileService()
+
+    resolved = service.resolve_profile(provider="lmstudio", model_name="google/gemma-4-e4b")
+    assert resolved["learning_state"]["state"] == "stable"
+
+    profile = items[0]
+    updated = service.update_learning_state(
+        profile,
+        state="candidate",
+        source="test",
+        observed_output_format="json_in_markdown_fence",
+        observed_model_family="gemma",
+        prompt_version_id="prompt-v2",
+        sample_size=7,
+        reason_codes=["parse_failed"],
+    )
+
+    assert updated.learning_state["state"] == "candidate"
+    assert updated.learning_state["observed_output_format"] == "json_in_markdown_fence"
+    assert updated.learning_state["sample_size"] == 7
