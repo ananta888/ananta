@@ -431,6 +431,13 @@ class PlanningService:
     ) -> str:
         missing = ", ".join(missing_categories) if missing_categories else "none"
         generic = ", ".join(str(i) for i in generic_task_indices[:12]) if generic_task_indices else "none"
+        missing_lines = "\n".join(
+            f"- category={str(cat).strip().lower()}: mindestens 1 konkrete Aufgabe"
+            for cat in list(missing_categories or [])
+            if str(cat).strip()
+        )
+        if not missing_lines:
+            missing_lines = "- none"
         return (
             "Repair only missing or weak parts of the plan. Do not rewrite everything.\n"
             f"GOAL: {goal}\n"
@@ -438,6 +445,14 @@ class PlanningService:
             f"MISSING_CATEGORIES: {missing}\n"
             f"GENERIC_TASK_INDEXES: {generic}\n"
             "Return only additional or replacement tasks needed to close gaps.\n"
+            "WICHTIG:\n"
+            "1) Liefere NUR JSON-Array.\n"
+            "2) Jede Aufgabe MUSS diese Felder haben: title, description, task_kind, priority.\n"
+            "3) task_kind MUSS einer von {analysis, infrastructure, implementation, tests, review} sein.\n"
+            "4) Jede description MUSS einen konkreten Output nennen (Dateipfad, Endpoint, Command oder Artifact).\n"
+            "5) Keine generischen Sammel-Tasks.\n"
+            "6) Decke zwingend diese fehlenden Kategorien ab:\n"
+            f"{missing_lines}\n"
             f"Preferred output format: {preferred_output_format}.\n"
             "Keep fields short and concrete."
         )
@@ -928,6 +943,20 @@ class PlanningService:
             repair_subtasks = parse_subtasks_from_llm_response(repair_resp, default_priority=planner.default_priority)
             if not repair_subtasks:
                 break
+            missing_category_names = {
+                str(item).split(":", 1)[0].strip().lower()
+                for item in list(quality.missing_categories or [])
+                if str(item).strip()
+            }
+            if missing_category_names:
+                qs = get_planning_quality_service()
+                focused_subtasks = []
+                for candidate in list(repair_subtasks or []):
+                    cat = str(qs._classify_task_category(candidate)).strip().lower()
+                    if cat in missing_category_names:
+                        focused_subtasks.append(candidate)
+                if focused_subtasks:
+                    repair_subtasks = focused_subtasks
             # Selective merge: keep original and append only non-duplicate candidates.
             seen = {
                 (str(t.get("title") or "").strip().lower(), str(t.get("description") or "").strip().lower())
