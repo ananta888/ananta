@@ -163,7 +163,7 @@
       "title": "Prompt- und Repair-Verhalten adaptiv machen",
       "summary": "Wenn das Modell bevorzugte Formen zeigt, muessen Prompt-Registry, Evolver und Repair-Strategien diese Vorlieben ohne Schema-Zwang aufnehmen.",
       "priority": "P0",
-      "status": "in_progress",
+      "status": "done",
       "tasks": [
         {
           "id": "OML-003",
@@ -203,7 +203,7 @@
           "title": "Repair-Strategie pro Format abstimmen",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Repair soll kuerzer, formatnahe und modellfamilienbezogen werden.",
           "files": [
             "agent/services/planning_strategies.py",
@@ -238,14 +238,14 @@
       "title": "Lernzustand, Canary und Observability",
       "summary": "Die Lernphase muss als eigenstaendige, sichtbare Hub-Funktion auftreten: Kandidaten, Aktivierung, Rollback, Diagnose und CLI-Ausgabe sollen den bevorzugten Modellstil auf einen Blick zeigen.",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "OML-005",
           "title": "Lernzustand pro Profil anzeigen",
           "type": "feature",
           "priority": "P1",
-          "status": "todo",
+          "status": "done",
           "summary": "Der Hub und die CLI sollen Lernstatus und bevorzugte Output-Form sichtbar machen.",
           "files": [
             "agent/routes/config/read_models.py",
@@ -279,7 +279,7 @@
           "title": "Canary-Praeferenz und Rollback steuern",
           "type": "feature",
           "priority": "P1",
-          "status": "todo",
+          "status": "done",
           "summary": "Nur stabile Stilpfade sollen nach Evidenz aktiviert und bei Regression wieder zurueckgerollt werden.",
           "files": [
             "agent/services/planning_learning_loop_service.py",

@@ -687,6 +687,36 @@ def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
         "profiles": list(snapshot.get("profiles") or []),
     }
 
+    normalized_profiles: list[dict[str, Any]] = []
+    for profile in result["profiles"]:
+        if not isinstance(profile, dict):
+            continue
+        profile_copy = dict(profile)
+        learning_state = dict(profile_copy.get("learning_state") or {})
+        profile_copy.setdefault(
+            "observed_output_shape",
+            str(
+                profile_copy.get("observed_output_shape")
+                or learning_state.get("observed_output_shape")
+                or learning_state.get("observed_output_format")
+                or ""
+            ),
+        )
+        profile_copy.setdefault(
+            "observed_output_format",
+            str(profile_copy.get("observed_output_format") or learning_state.get("observed_output_format") or ""),
+        )
+        profile_copy.setdefault(
+            "preferred_output_format",
+            str(
+                profile_copy.get("preferred_output_format")
+                or (result.get("overview") or {}).get("preferred_output_format", {}).get("value")
+                or "",
+            ),
+        )
+        normalized_profiles.append(profile_copy)
+    result["profiles"] = normalized_profiles
+
     if getattr(args, "json", False):
         print(json.dumps(result, indent=2))
         return 0
@@ -701,6 +731,11 @@ def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
         print(f"Stable:        {overview.get('stable_profile_count', 0)}")
         print(f"Candidate:     {overview.get('candidate_profile_count', 0)}")
         print(f"Degraded:      {overview.get('degraded_profile_count', 0)}")
+        preferred_shape = dict(overview.get("preferred_output_shape") or {})
+        preferred_format = dict(overview.get("preferred_output_format") or {})
+        if preferred_shape.get("value") or preferred_format.get("value"):
+            print(f"Preferred Shp: {preferred_shape.get('value') or '-'} ({preferred_shape.get('state') or 'unknown'})")
+            print(f"Preferred Fmt: {preferred_format.get('value') or '-'} ({preferred_format.get('state') or 'unknown'})")
     policy = result["policy"]
     if policy:
         print(f"Lookback Runs: {policy.get('lookback_runs', '-')}")
@@ -725,7 +760,9 @@ def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
                 "provider": str(profile.get("provider") or "")[:10],
                 "model": str(profile.get("model_family") or profile.get("model_name_pattern") or "")[:18],
                 "state": str((profile.get("learning_state") or {}).get("state") or "")[:10],
-                "obs": str((profile.get("learning_state") or {}).get("observed_output_format") or "")[:16],
+                "obs_shape": str((profile.get("learning_state") or {}).get("observed_output_shape") or (profile.get("learning_state") or {}).get("observed_output_format") or "")[:16],
+                "obs_fmt": str((profile.get("learning_state") or {}).get("observed_output_format") or "")[:12],
+                "pref_fmt": str(profile.get("preferred_output_format") or (overview.get("preferred_output_format") or {}).get("value") or "")[:12],
                 "prompt": str(profile.get("active_prompt_version_id") or "")[:16],
                 "quality": str(profile.get("current_quality_score") or "")[:8],
                 "trend": str(profile.get("trend_direction") or "")[:10],
@@ -734,7 +771,7 @@ def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
                 "samples": str(metrics.get("run_count") or 0),
             }
         )
-    _print_table(rows, ["profile", "enabled", "provider", "model", "state", "obs", "prompt", "quality", "trend", "candidate", "freeze", "samples"])
+    _print_table(rows, ["profile", "enabled", "provider", "model", "state", "obs_shape", "obs_fmt", "pref_fmt", "prompt", "quality", "trend", "candidate", "freeze", "samples"])
     return 0
 
 
