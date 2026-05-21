@@ -25,10 +25,6 @@
       "Planning-Learning-Loop existiert bereits als Basis, ist aber noch nicht als explizite Modell-Kennenlernphase orchestriert."
     ],
     "missing_or_incomplete": [
-      "Expliziter Lernzustand pro Modellfamilie oder Profil fehlt noch.",
-      "Canary-/Stabilisierungsschwellen fuer das Modell-Onboarding fehlen noch als eigene Orchestrierung.",
-      "Aktivierung/Deaktivierung der bevorzugten Output-Form ist noch nicht als eigene Phase modelliert.",
-      "Ein klarer Report, ob ein Modell eher JSON, JSON-in-Markdown, Markdown oder YAML bevorzugt, ist noch nicht als Kernkonzept sichtbar."
     ]
   },
   "core_principles": [
@@ -94,7 +90,7 @@
       "title": "Beobachtung und Klassifikation des realen Modelloutputs",
       "summary": "Zuerst muss Ananta verstehen, wie das Modell tatsaechlich antwortet. JSON, Markdown, YAML, eingebettetes JSON und truncation-empfindliche Formen werden als Lernsignale erfasst.",
       "priority": "P0",
-      "status": "in_progress",
+      "status": "done",
       "tasks": [
         {
           "id": "PML-001",
@@ -164,7 +160,7 @@
       "title": "Lernzustand und Prompt-/Profil-Orchestrierung",
       "summary": "Sobald die Signale bekannt sind, braucht Ananta einen expliziten Lernzustand pro Modell oder Modellfamilie, um zu entscheiden, ob noch gelernt, schon stabilisiert oder bereits aktiviert wird.",
       "priority": "P0",
-      "status": "in_progress",
+      "status": "done",
       "tasks": [
         {
           "id": "PML-003",
@@ -204,7 +200,7 @@
           "title": "Adaptive Repair- und Prompt-Regeln aus Output-Stil ableiten",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Repair und Prompt-Regeln sollen sich an der natuerlichen Modellantwort orientieren, statt das Modell zu verbiegen.",
           "files": [
             "agent/services/planning_prompt_evolver_service.py",
@@ -247,7 +243,7 @@
           "title": "Kandidat-zu-Stable Freigabe mit Schwellenwerten",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Nur signifikant bessere Lernkandidaten duerfen aktiv werden.",
           "files": [
             "agent/services/planning_learning_loop_service.py",
@@ -279,7 +275,7 @@
           "title": "Rollback bei schlechterer Modell- oder Prompt-Qualitaet",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Eine Regression der Lernphase muss automatisch erkannt und rueckgaengig gemacht werden koennen.",
           "files": [
             "agent/services/planning_learning_loop_service.py",
@@ -311,7 +307,7 @@
           "title": "Kennenlernphase im Hub observierbar machen",
           "type": "feature",
           "priority": "P1",
-          "status": "todo",
+          "status": "done",
           "summary": "Die Lernphase muss im Hub und in der CLI als eigener Zustand sichtbar sein.",
           "files": [
             "agent/routes/config/read_models.py",
