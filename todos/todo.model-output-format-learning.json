@@ -1,0 +1,312 @@
+{
+  "schema_version": "todo.v2",
+  "id": "todo.model-output-format-learning",
+  "title": "Modell-Output-Format-Lernphase fuer adaptive Planning- und Repair-Profile",
+  "summary": "Diese Todo beschreibt die erste Lernphase fuer konkrete Modellantworten im Planning. Ananta soll nicht auf JSON-only festgenagelt werden, sondern pro Modellfamilie lernen, ob das Modell stabiler in plain JSON, JSON in Markdown-Fences, Markdown-Listen, YAML-artigen Formen oder gemischten Strukturformaten antwortet. Ziel ist eine robuste Lern- und Auswahlschleife im Hub, die Output-Formen als Signale sammelt, interpretiert und erst nach Evidenz das Prompt-, Repair- und Parsing-Verhalten anpasst.",
+  "created_from": [
+    "User requirement: Das System soll herausfinden, worin das jeweilige Modell gut ist",
+    "Beobachtung: LMStudio/Gemma liefert teils Thinking-Text, teils JSON-in-Markdown, teils abgeschnittene JSON-Antworten",
+    "Analyse vorhandener Planning-Trace-, Learning-Loop- und Prompt-Evolver-Hooks",
+    "Wunsch nach adaptiver Modellbehandlung statt JSON-Zwang"
+  ],
+  "global_goals": [
+    "Ananta soll pro Modellfamilie die natuerliche Output-Form erfassen und als Lernsignal speichern.",
+    "Prompt- und Repair-Strategien sollen output-shape-aware werden, ohne das Modell mit einem starren Format zu brechen.",
+    "JSON-only darf eine moegliche Zielstrategie sein, aber nur wenn das Modell dort stabil ist.",
+    "Die Entscheidung fuer ein bevorzugtes Format muss observierbar, rollback-faehig und im Hub gesteuert sein.",
+    "Die Lernphase muss klare Diagnosen liefern, damit Markdown, JSON, YAML oder gemischte Formen bewusst verwendet werden koennen."
+  ],
+  "current_status": {
+    "existing_building_blocks": [
+      "Planning telemetry kann output_shape, parse_mode und truncation_signale bereits erfassen.",
+      "Model response aggregation kann Modellfamilien und Stilmerkmale zusammenfassen.",
+      "Planning model profiles tragen bereits learning_state und preferred_output_format.",
+      "Planning learning loop kann Kandidaten, Aktivierung und Rollback bereits orchestrieren."
+    ],
+    "missing_or_incomplete": [
+      "Explizite Kennzeichnung bevorzugter Modellantwortformen pro Profil fehlt als sichtbar konsolidierter Lernwert.",
+      "Prompt-Optimierung und Repair-Strategie sind noch nicht konsequent output-shape-aware aufeinander abgestimmt.",
+      "Ein stabiler Vergleich zwischen JSON, Markdown-Fences, YAML-like und hybridem Output fehlt als Kernmetriksatz.",
+      "Observability zeigt noch nicht direkt, warum ein Modell fuer einen bestimmten Stil bevorzugt wird.",
+      "Eine kleine, modellfamilienbezogene Lernphase mit Canary und Rollback ist noch nicht als eigene Analyse-Routine dokumentiert."
+    ]
+  },
+  "core_principles": [
+    {
+      "id": "OML-001",
+      "title": "Output form is a signal",
+      "description": "Markdown-Fences, YAML-like Antworten, Listensyntax und eingebettetes JSON sind Beobachtungsdaten, keine bloeßen Fehler."
+    },
+    {
+      "id": "OML-002",
+      "title": "Learn before normalizing",
+      "description": "Ananta soll zuerst beobachten, dann normalisieren und erst danach ein bevorzugtes Format stabilisieren."
+    },
+    {
+      "id": "OML-003",
+      "title": "Profile first, prompt second",
+      "description": "Das Modellprofil bestimmt den passenden Reparatur- und Parsing-Rahmen, nicht umgekehrt."
+    },
+    {
+      "id": "OML-004",
+      "title": "Rollback over format lock-in",
+      "description": "Ein falscher Stilpfad darf nicht dauerhaft als Default aktiv bleiben."
+    },
+    {
+      "id": "OML-005",
+      "title": "Hub-owned learning",
+      "description": "Der Hub lernt und entscheidet, Worker liefern nur beobachtete Signale und Antworten."
+    }
+  ],
+  "risk_register": [
+    {
+      "id": "OML-RISK-001",
+      "title": "Falsche Formatpraefenz aus Einzelfall abgeleitet",
+      "severity": "high",
+      "description": "Ein einzelner erfolgreicher oder fehlgeschlagener Call kann eine irrefuhrende Formatpraferenz suggerieren.",
+      "mitigation": "Mindeststichprobe, Zeitfenster und Trendbewertung pro Modellfamilie verwenden."
+    },
+    {
+      "id": "OML-RISK-002",
+      "title": "JSON wird zu frueh bevorzugt",
+      "severity": "medium",
+      "description": "Das System koennte ein Modell in ein hartes JSON-Schema pressen, obwohl Markdown-Fences stabiler waeren.",
+      "mitigation": "Bevorzugte Ausgabeform erst nach Erfolgsmetriken festlegen."
+    },
+    {
+      "id": "OML-RISK-003",
+      "title": "Repair-Loop verstaerkt Truncation",
+      "severity": "high",
+      "description": "Zu lange Repair-Prompts koennen genau die Modelle verschlechtern, die kurze, strukturierte Antworten brauchen.",
+      "mitigation": "Style- und Latenzsignale in die Repair-Auswahl aufnehmen."
+    },
+    {
+      "id": "OML-RISK-004",
+      "title": "Observability zeigt nur Rohwerte",
+      "severity": "medium",
+      "description": "Ohne kompakte Darstellung sind Modellpraeferenzen in der Diagnose nicht schnell genug erkennbar.",
+      "mitigation": "Aggregierte Lern- und Stilansichten im Readmodel und CLI anzeigen."
+    }
+  ],
+  "tracks": [
+    {
+      "id": "OML-TRACK-001",
+      "title": "Output-Form messen und klassifizieren",
+      "summary": "Die Lernphase beginnt mit einer robusten Klassifikation der tatsaechlichen Modellantworten. Wichtig sind JSON, JSON in Markdown-Fences, Markdown-Listen, YAML-like und partial/truncated Antworten.",
+      "priority": "P0",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "OML-001",
+          "title": "Output-Shape pro Call speichern",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Jeder Planning-Call braucht ein normalisiertes Output-Shape-Signal.",
+          "files": [
+            "agent/services/planning_telemetry_service.py",
+            "agent/services/planning_output_shape_classifier.py",
+            "tests/test_planning_output_shape_classifier.py",
+            "tests/test_planning_telemetry_service.py"
+          ],
+          "description": "Erweitere die Planning-Telemetrie so, dass pro Call output_shape, parse_mode, truncation_flag, format_error_codes und model_family normalisiert gespeichert werden.",
+          "implementation_notes": [
+            "Shapes mindestens: strict_json_array, strict_json_object, json_in_markdown_fence, markdown_bullets, numbered_steps, yaml_like, freeform_prose, partial_json.",
+            "Output-Form und Parser-Erfolg getrennt speichern.",
+            "Rohdaten nicht duplizieren; nur normalisierte Lernsignale persistieren.",
+            "Die Klassifikation muss auch abgeschnittene Antworten erkennen."
+          ],
+          "acceptance_criteria": [
+            "Jeder Planning-Call hat ein normalisiertes output_shape-Feld.",
+            "Markdown-Fence-JSON wird als eigene Form erkannt.",
+            "Truncated JSON wird nicht mit frei geschriebenem Prosa verwechselt.",
+            "Die Telemetrie bleibt abwaertskompatibel und robust gegen fehlende Felder.",
+            "Offline-Tests decken JSON, Markdown und YAML-artige Antworten ab."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "OML-002",
+          "title": "Formatpraeferenz pro Modellfamilie aggregieren",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Aus den Traces soll eine bevorzugte Antwortform pro Modellfamilie abgeleitet werden.",
+          "files": [
+            "agent/services/model_response_behavior_aggregation_service.py",
+            "agent/services/planning_metrics_service.py",
+            "agent/routes/config/read_models.py",
+            "tests/test_model_response_behavior_aggregation_service.py"
+          ],
+          "description": "Baue eine Aggregation, die pro provider, model_name, profile_name und model_family bevorzugte Output-Formen, Repair-Rate, Parse-Rate und Truncation-Neigung zusammenfasst.",
+          "implementation_notes": [
+            "Trend- und Rolling-Window-Auswertung pro Modellfamilie.",
+            "Bevorzugte Output-Form aus Mehrheits- oder Stabilitaetswerten ableiten.",
+            "Unsichere Resultate als candidate und nicht als stable markieren.",
+            "Diese Daten im Config-/Observability-Readmodel sichtbar machen."
+          ],
+          "acceptance_criteria": [
+            "Pro Modellfamilie kann eine bevorzugte Output-Form abgeleitet werden.",
+            "Repair-Rate und Parse-Rate sind pro Familie vergleichbar.",
+            "Unsichere Stichproben werden als candidate markiert.",
+            "Die Aggregation ist ueber die Diagnoseansicht sichtbar.",
+            "Tests pruefen mindestens zwei unterschiedliche Output-Stile."
+          ],
+          "depends_on": [
+            "OML-001"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "OML-TRACK-002",
+      "title": "Prompt- und Repair-Verhalten adaptiv machen",
+      "summary": "Wenn das Modell bevorzugte Formen zeigt, muessen Prompt-Registry, Evolver und Repair-Strategien diese Vorlieben ohne Schema-Zwang aufnehmen.",
+      "priority": "P0",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "OML-003",
+          "title": "Prompt-Style aus Output ableiten",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Das Modellprofil soll einen abgeleiteten Prompt-Stil speichern koennen.",
+          "files": [
+            "agent/services/model_response_behavior_profile_service.py",
+            "agent/services/planning_prompt_optimizer_service.py",
+            "agent/services/planning_prompt_registry.py",
+            "tests/test_model_response_behavior_profile_service.py",
+            "tests/test_planning_prompt_optimizer_service.py"
+          ],
+          "description": "Erweitere das Modellprofil um preferred_output_format, preferred_prompt_style und observed_output_shape und leite daraus eine passende Prompt-/Repair-Strategie ab.",
+          "implementation_notes": [
+            "json_in_markdown_fence kann als legitime Lernpraferenz behandelt werden.",
+            "Markdown- und YAML-Formen sollen nicht automatisch als Fehler gelten.",
+            "Kurze, modellfreundliche Repair-Hinweise fuer kleine Modelle priorisieren.",
+            "Die Prompt-Registry soll Varianten pro Modellfamilie aufloesen koennen."
+          ],
+          "acceptance_criteria": [
+            "Ein Modellprofil kann einen abgeleiteten Prompt-Stil speichern.",
+            "Der Optimizer passt Repair-Hinweise an beobachtete Output-Formen an.",
+            "Markdown- und YAML-artige Antworten koennen in der Lernphase normalisiert werden.",
+            "Prompt- und Profilversionen bleiben rollback-faehig.",
+            "Tests decken JSON, Markdown-Fence und YAML-like Adaptation ab."
+          ],
+          "depends_on": [
+            "OML-001",
+            "OML-002"
+          ]
+        },
+        {
+          "id": "OML-004",
+          "title": "Repair-Strategie pro Format abstimmen",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Repair soll kuerzer, formatnahe und modellfamilienbezogen werden.",
+          "files": [
+            "agent/services/planning_strategies.py",
+            "agent/services/planning_format_error_analyzer.py",
+            "agent/services/planning_prompt_evolver_service.py",
+            "tests/test_planning_strategies.py",
+            "tests/test_planning_prompt_evolver_service.py"
+          ],
+          "description": "Passe die Repair- und Evolver-Logik so an, dass sie bei json_in_markdown_fence, markdown_bullets und yaml_like unterschiedliche, kurze Repair-Pfade waehlt.",
+          "implementation_notes": [
+            "Repair-Prompts muessen deutlich kuerzer sein als die Initialprompts.",
+            "Truncation-Salvage und Stil-Repair sollen getrennte Pfade bekommen.",
+            "Die Auswahl der Strategie soll anhand von output_shape und model_family erfolgen.",
+            "Markdown-Fences dürfen fuer Modelle mit dieser Praferenz bewusst akzeptiert werden."
+          ],
+          "acceptance_criteria": [
+            "Repair-Auswahl nutzt output_shape und model_family als Entscheidungssignale.",
+            "Markdown-Fence-JSON kann als erfolgreicher Zwischenpfad bewertet werden.",
+            "Truncation-Salvage verwendet kuerzere, kompaktere Prompts.",
+            "Die Strategie ist in Tests fuer mindestens drei Output-Stile abgedeckt.",
+            "Ein Model-Style-Wechsel ist ohne Core-Refactor moeglich."
+          ],
+          "depends_on": [
+            "OML-001",
+            "OML-002"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "OML-TRACK-003",
+      "title": "Lernzustand, Canary und Observability",
+      "summary": "Die Lernphase muss als eigenstaendige, sichtbare Hub-Funktion auftreten: Kandidaten, Aktivierung, Rollback, Diagnose und CLI-Ausgabe sollen den bevorzugten Modellstil auf einen Blick zeigen.",
+      "priority": "P1",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "OML-005",
+          "title": "Lernzustand pro Profil anzeigen",
+          "type": "feature",
+          "priority": "P1",
+          "status": "todo",
+          "summary": "Der Hub und die CLI sollen Lernstatus und bevorzugte Output-Form sichtbar machen.",
+          "files": [
+            "agent/routes/config/read_models.py",
+            "agent/routes/config/shared.py",
+            "agent/cli/prompt_inspect.py",
+            "tests/test_cli_prompt_inspect.py",
+            "tests/test_config_api.py"
+          ],
+          "description": "Erweitere Readmodel und CLI so, dass Lernzustand, bevorzugte Output-Form, observed_output_shape und letzte Traces pro Modellprofil sichtbar sind.",
+          "implementation_notes": [
+            "Keine Secrets oder raw tokens anzeigen.",
+            "CLI soll pro Modellfamilie den Lernzustand kompakt zeigen.",
+            "Die Diagnose muss learned, candidate und stable unterscheiden.",
+            "Die letzten Prompt-Traces sollen direkt zuordenbar bleiben."
+          ],
+          "acceptance_criteria": [
+            "CLI und Readmodel zeigen den Lernzustand pro Modellprofil.",
+            "Bevorzugte Output-Form und aktuelle Beobachtungsform sind sichtbar.",
+            "Letzte Traces koennen mit Lernstatus korreliert werden.",
+            "Keine Geheimnisse werden in der Ansicht ausgegeben.",
+            "Tests pruefen JSON- und Tabellenansicht."
+          ],
+          "depends_on": [
+            "OML-002",
+            "OML-003",
+            "OML-004"
+          ]
+        },
+        {
+          "id": "OML-006",
+          "title": "Canary-Praeferenz und Rollback steuern",
+          "type": "feature",
+          "priority": "P1",
+          "status": "todo",
+          "summary": "Nur stabile Stilpfade sollen nach Evidenz aktiviert und bei Regression wieder zurueckgerollt werden.",
+          "files": [
+            "agent/services/planning_learning_loop_service.py",
+            "agent/services/planning_model_profile_service.py",
+            "agent/services/planning_prompt_evolver_service.py",
+            "tests/test_planning_learning_loop_service.py"
+          ],
+          "description": "Erweitere den Learning-Loop um Stil- und Format-Schwellwerte, Canary-Aktivierung und Rollback-Hysterese fuer bevorzugte Output-Formen.",
+          "implementation_notes": [
+            "Keine Aktivierung ohne Mindeststichprobe und Stabilitaetsfenster.",
+            "Rollback darf nicht durch einen einzelnen Ausreisser ausgeloest werden.",
+            "Canary- und Stable-Zustaende muessen getrennt bleiben.",
+            "Rollbacks sollen den vorherigen bevorzugten Stil wiederherstellen."
+          ],
+          "acceptance_criteria": [
+            "Ein Modellstil wird erst nach Evidenz von candidate zu stable aktiviert.",
+            "Eine messbare Regression fuehrt zu einem klaren rollback state.",
+            "Ein einzelner schlechter Run reicht nicht fuer Rollback.",
+            "Rollback-Grund und Schwellwert sind in der Diagnose sichtbar.",
+            "Tests pruefen candidate, stable und rollback."
+          ],
+          "depends_on": [
+            "OML-003",
+            "OML-004"
+          ]
+        }
+      ]
+    }
+  ]
+}
