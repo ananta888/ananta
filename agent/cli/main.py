@@ -48,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         help=(
             "Command: init, first-run, status, ask, plan, analyze, review, diagnose, "
-            "patch, repair-admin, new-project, evolve-project, update, tui, doctor, web, "
+            "patch, repair-admin, new-project, evolve-project, update, tui, doctor, web, task, "
             "voice-file, prompt, llm-log"
         ),
     )
@@ -170,6 +170,9 @@ def _run_prompt(argv: Sequence[str]) -> int:
     tr_p = sub_sub.add_parser("task-report", help="Show compact prompt/response view for a task")
     tr_p.add_argument("--task-id", dest="task_id", required=True)
     tr_p.add_argument("--json", action="store_true")
+    ti_p = sub_sub.add_parser("task-inspect", help="Alias for task-report")
+    ti_p.add_argument("--task-id", dest="task_id", required=True)
+    ti_p.add_argument("--json", action="store_true")
 
     if not argv or argv[0] in ("-h", "--help"):
         sub_parser.print_help()
@@ -179,6 +182,29 @@ def _run_prompt(argv: Sequence[str]) -> int:
     except SystemExit as exc:
         return int(exc.code) if exc.code is not None else 2
     return run_prompt_command(parsed)
+
+
+def _run_task(argv: Sequence[str]) -> int:
+    from agent.cli.prompt_inspect import run_prompt_command
+    sub_parser = argparse.ArgumentParser(prog="ananta task")
+    sub_sub = sub_parser.add_subparsers(dest="task_cmd")
+
+    inspect_p = sub_sub.add_parser("inspect", help="Inspect a task's prompt traces and latest response")
+    inspect_p.add_argument("--task-id", dest="task_id", required=True)
+    inspect_p.add_argument("--json", action="store_true")
+
+    if not argv or argv[0] in ("-h", "--help"):
+        sub_parser.print_help()
+        return 0
+    try:
+        parsed = sub_parser.parse_args(argv)
+    except SystemExit as exc:
+        return int(exc.code) if exc.code is not None else 2
+
+    if getattr(parsed, "task_cmd", None) == "inspect":
+        parsed.prompt_cmd = "task-inspect"
+        return run_prompt_command(parsed)
+    return 2
 
 
 def _run_llm_log(argv: Sequence[str]) -> int:
@@ -248,6 +274,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_web(rest)
     if command == "voice-file":
         return _run_voice_file(rest)
+    if command == "task":
+        return _run_task(rest)
     if command in COMPAT_COMMANDS:
         return _run_compat_goals(rest)
     if command == "prompt":

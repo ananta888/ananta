@@ -839,6 +839,9 @@ def build_prompt_subparser(subparsers) -> None:
     tr_p = prompt_sub.add_parser("task-report", help="Show compact prompt/response view for a task")
     tr_p.add_argument("--task-id", dest="task_id", required=True, help="Task ID")
     tr_p.add_argument("--json", action="store_true", help="JSON output")
+    ti_p = prompt_sub.add_parser("task-inspect", help="Alias for task-report")
+    ti_p.add_argument("--task-id", dest="task_id", required=True, help="Task ID")
+    ti_p.add_argument("--json", action="store_true", help="JSON output")
 
 
 def build_llm_log_subparser(subparsers) -> None:
@@ -868,8 +871,10 @@ def run_prompt_command(args: argparse.Namespace) -> int:
         return cmd_prompt_delegation_report(args)
     elif cmd == "task-report":
         return cmd_prompt_task_report(args)
+    elif cmd == "task-inspect":
+        return cmd_prompt_task_report(args)
     else:
-        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report,task-report} --help")
+        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report,task-report,task-inspect} --help")
         return 2
 
 
