@@ -539,7 +539,7 @@ def build_default_agent_config() -> dict:
             "allow_remote_planners": False,
             "max_nodes": 8,
             "max_depth": 8,
-            "timeout_seconds": 300,
+            "timeout_seconds": 600,
             "max_output_tokens": 512,
             "segmented_planning_enabled": True,
             "segment_context_chars": 2400,
@@ -588,7 +588,7 @@ def build_default_agent_config() -> dict:
             "default_runtime_profile": "lmstudio_laptop",
             "runtime_profiles": {
                 "lmstudio_laptop": {
-                    "timeout_seconds": 180,
+                    "timeout_seconds": 480,
                     "max_output_tokens": 900,
                     "retry_attempts": 1,
                     "retry_backoff_seconds": 1.0,

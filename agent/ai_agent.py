@@ -138,4 +138,5 @@ if __name__ == "__main__":
         sys.exit(0)
 
     app = create_app()
-    app.run(host="0.0.0.0", port=settings.port, threaded=True)
+    _debug = os.environ.get("FLASK_DEBUG", "0").strip() not in ("0", "false", "")
+    app.run(host="0.0.0.0", port=settings.port, threaded=True, debug=_debug, use_reloader=_debug)
