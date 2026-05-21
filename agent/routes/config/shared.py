@@ -344,6 +344,7 @@ def planning_policy_settings_summary(cfg: dict) -> dict:
             "max_nodes": "planning_policy.max_nodes",
             "max_depth": "planning_policy.max_depth",
             "timeout_seconds": "planning_policy.timeout_seconds",
+            "learning_loop": "planning_policy.learning_loop",
         },
     }
 

@@ -53,7 +53,14 @@ class PlanningPromptEvolverService:
             return template
         return f"{template}\n\nAdaptive reinforcement rules:\n{block}\n"
 
-    def evolve_from_run(self, *, run, planning_policy: dict[str, Any] | None) -> dict[str, Any]:
+    def evolve_from_run(
+        self,
+        *,
+        run,
+        planning_policy: dict[str, Any] | None,
+        activate_profile: bool = True,
+        enabled: bool | None = None,
+    ) -> dict[str, Any]:
         policy = dict(planning_policy or {})
         should, reasons = self._should_evolve(run=run, policy=policy)
         if not should:
@@ -92,7 +99,7 @@ class PlanningPromptEvolverService:
             "system_rules": list(base.system_rules or []),
             "user_prompt_template": mutated_user,
             "repair_prompt_template": mutated_repair,
-            "enabled": True,
+            "enabled": bool(activate_profile if enabled is None else enabled),
         }
         checksum = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")).hexdigest()
         payload["checksum"] = checksum
@@ -106,11 +113,13 @@ class PlanningPromptEvolverService:
             evolved = repos.planning_prompt_version_repo.save(PlanningPromptVersionDB(**payload))
 
         profile_name = str(getattr(run, "planning_profile", "") or "").strip().lower()
-        if profile_name:
+        profile_updated = False
+        if profile_name and bool(activate_profile):
             for p in repos.planning_model_profile_repo.get_enabled():
                 if str(p.profile_name or "").strip().lower() == profile_name:
                     p.preferred_prompt_version_id = str(evolved.version)
                     repos.planning_model_profile_repo.save(p)
+                    profile_updated = True
                     break
 
         return {
@@ -119,6 +128,8 @@ class PlanningPromptEvolverService:
             "new_prompt_version": str(evolved.version),
             "reasons": reasons,
             "target_model_family": payload.get("target_model_family"),
+            "profile_updated": profile_updated,
+            "activated_profile": bool(activate_profile),
         }
 
 

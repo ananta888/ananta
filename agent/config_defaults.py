@@ -568,6 +568,23 @@ def build_default_agent_config() -> dict:
                 "enabled": True,
                 "min_repair_attempts": 2,
             },
+            "learning_loop": {
+                "enabled": False,
+                "interval_seconds": 900,
+                "lookback_runs": 120,
+                "min_runs": 8,
+                "min_failures": 3,
+                "min_parse_success_rate": 0.7,
+                "min_validation_success_rate": 0.7,
+                "min_materialization_success_rate": 0.6,
+                "max_repair_rate": 0.4,
+                "candidate_activation_threshold": 0.75,
+                "rollback_threshold": 0.55,
+                "freeze_minutes": 120,
+                "canary_window_runs": 10,
+                "auto_activate": False,
+                "require_review_before_activate": True,
+            },
             "default_runtime_profile": "lmstudio_laptop",
             "runtime_profiles": {
                 "lmstudio_laptop": {

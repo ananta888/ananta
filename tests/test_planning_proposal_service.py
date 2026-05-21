@@ -14,6 +14,8 @@ def test_normalize_planning_policy_config_applies_bounds_and_defaults() -> None:
     assert policy["max_depth"] == 1
     assert policy["timeout_seconds"] == 5
     assert "planning-agent" in policy["allowed_planner_roles"]
+    assert policy["learning_loop"]["enabled"] is False
+    assert policy["learning_loop"]["interval_seconds"] >= 30
 
 
 def test_select_planning_agent_candidate_prefers_allowed_local_roles() -> None:

@@ -7,7 +7,15 @@ from agent.services.repository_registry import get_repository_registry
 
 
 class ModelResponseBehaviorAggregationService:
-    def aggregate(self, *, provider: str | None = None, model_name: str | None = None, limit: int = 500) -> dict[str, Any]:
+    def aggregate(
+        self,
+        *,
+        provider: str | None = None,
+        model_name: str | None = None,
+        behavior_profile_name: str | None = None,
+        prompt_version: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
         runs = get_repository_registry().planning_run_repo.get_recent(limit=limit)
         shape = Counter()
         parse = Counter()
@@ -17,6 +25,10 @@ class ModelResponseBehaviorAggregationService:
             if provider and str(r.model_provider or "") != str(provider):
                 continue
             if model_name and str(r.model_name or "") != str(model_name):
+                continue
+            if behavior_profile_name and str(r.planning_profile or "") != str(behavior_profile_name):
+                continue
+            if prompt_version and str(r.prompt_version_id or "") != str(prompt_version):
                 continue
             total += 1
             shp = str((r.mode_data or {}).get("__output_shape__") or "unknown")
