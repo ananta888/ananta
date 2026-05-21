@@ -1299,6 +1299,7 @@ def _dispatch_one_task_inner(  # noqa: C901
                 return result
             cooldown_seconds = int(strategy_cfg["cooldown_seconds"])
             now_ts = time.time()
+            total_attempt_count = int(strategy_state.get("attempt_count") or 0) + len(strategy_failures)
             failed_models = list(strategy_state.get("failed_models") or [])
             failed_temperatures = list(strategy_state.get("failed_temperatures") or [])
             failed_sources = list(strategy_state.get("failed_sources") or [])
@@ -1312,10 +1313,31 @@ def _dispatch_one_task_inner(  # noqa: C901
                 source = str(item.get("source") or "").strip()
                 if source and source not in failed_sources:
                     failed_sources.append(source)
+            invalid_proposal_only = bool(strategy_failures) and all(
+                str(item.get("failure_type") or "").strip().lower() == "invalid_proposal"
+                for item in strategy_failures
+            )
+            invalid_terminal_threshold = max(
+                1,
+                min(
+                    int((loop._agent_config() or {}).get("autopilot_strategy_invalid_proposal_terminal_attempts") or 12),
+                    500,
+                ),
+            )
+            invalid_proposal_terminal = invalid_proposal_only and total_attempt_count >= invalid_terminal_threshold
+            reason_code = (
+                "autopilot_strategy_invalid_proposal_terminal"
+                if invalid_proposal_terminal
+                else (
+                    "proposal_budget_exhausted"
+                    if any(str(item.get("failure_type") or "") == "proposal_budget_exhausted" for item in strategy_failures)
+                    else "autopilot_strategy_exhausted"
+                )
+            )
             verification_status = {
                 **dict(getattr(task, "verification_status", None) or {}),
                 "autopilot_strategy": {
-                    "attempt_count": int(strategy_state.get("attempt_count") or 0) + len(strategy_failures),
+                    "attempt_count": total_attempt_count,
                     "failed_models": failed_models,
                     "failed_temperatures": failed_temperatures,
                     "failed_sources": failed_sources,
@@ -1323,16 +1345,17 @@ def _dispatch_one_task_inner(  # noqa: C901
                     "last_failures": strategy_failures[-5:],
                     "last_failed_at": now_ts,
                     "next_retry_after": (now_ts + cooldown_seconds) if cooldown_seconds > 0 else now_ts,
-                    "reason_code": (
-                        "proposal_budget_exhausted"
-                        if any(str(item.get("failure_type") or "") == "proposal_budget_exhausted" for item in strategy_failures)
-                        else "autopilot_strategy_exhausted"
-                    ),
+                    "reason_code": reason_code,
                 },
             }
-            retry_status = "needs_review" if any(
-                str(item.get("failure_type") or "") == "proposal_budget_exhausted" for item in strategy_failures
-            ) else "todo"
+            retry_status = (
+                "needs_review"
+                if (
+                    invalid_proposal_terminal
+                    or any(str(item.get("failure_type") or "") == "proposal_budget_exhausted" for item in strategy_failures)
+                )
+                else "todo"
+            )
             retry_snapshot = _ensure_llm_profile_snapshot(
                 snapshot={"strategy_failures": strategy_failures[-5:]},
                 strategy_id=None,
@@ -1356,7 +1379,14 @@ def _dispatch_one_task_inner(  # noqa: C901
                 force=True,
                 event_type="autopilot_strategy_retry_scheduled",
                 event_actor="autopilot_tick",
-                event_details={"retry_status": retry_status, "cooldown_seconds": cooldown_seconds},
+                event_details={
+                    "retry_status": retry_status,
+                    "cooldown_seconds": cooldown_seconds,
+                    "attempt_count": total_attempt_count,
+                    "invalid_proposal_only": invalid_proposal_only,
+                    "invalid_proposal_terminal": invalid_proposal_terminal,
+                    "invalid_proposal_terminal_attempts": invalid_terminal_threshold,
+                },
             )
             append_trace_event(
                 task.id,

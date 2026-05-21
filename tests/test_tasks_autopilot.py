@@ -937,6 +937,47 @@ def test_autopilot_strategy_exhaustion_returns_task_to_hub_queue(app, monkeypatc
     assert any((entry.get("event_type") == "autopilot_strategy_exhausted") for entry in (updated.history or []))
 
 
+def test_autopilot_invalid_proposal_terminalizes_after_threshold(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "adaptive_model_routing_enabled": False,
+        "task_kind_model_overrides": {"analysis": "model-a"},
+        "autopilot_strategy_fallback_models": ["model-b"],
+        "autopilot_strategy_max_attempts": 2,
+        "autopilot_strategy_retry_delay_seconds": 15,
+        "autopilot_strategy_invalid_proposal_terminal_attempts": 3,
+        "quality_gates": {"enabled": False, "autopilot_enforce": False},
+    }
+    task_repo.save(
+        TaskDB(
+            id="strategy-invalid-terminal-1",
+            title="Invalid Proposal Terminal",
+            status="todo",
+            task_kind="analysis",
+            verification_status={"autopilot_strategy": {"attempt_count": 2}},
+        )
+    )
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-invalid-terminal:5001", name="worker-invalid-terminal", role="worker", token="tok", status="online")
+    )
+
+    def _always_invalid(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            return {"status": "success", "data": {"reason": "still invalid", "raw": "{}"}}
+        raise AssertionError("execute must not be called when strategy selection is exhausted")
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _always_invalid)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+        updated = task_repo.get_by_id("strategy-invalid-terminal-1")
+    assert res["reason"] == "ok"
+    assert updated is not None
+    assert updated.status == "needs_review"
+    strategy_state = dict((updated.verification_status or {}).get("autopilot_strategy") or {})
+    assert strategy_state.get("reason_code") == "autopilot_strategy_invalid_proposal_terminal"
+
+
 def test_autopilot_retries_proposal_with_temperature_profile(app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     app.config["AGENT_CONFIG"] = {
