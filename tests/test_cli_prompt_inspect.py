@@ -287,3 +287,129 @@ class TestPromptDelegationReport:
         assert task["assigned_agent_url"] == ""
         assert task["instruction_layers"]["selected_profile"] is None
         assert task["last_prompt_trace"]["request_kind"] == ""
+
+
+class TestPromptTaskReport:
+    def test_task_report_json_happy_path(self, tmp_path):
+        import argparse
+        import contextlib
+        import io
+        from agent.cli.prompt_inspect import cmd_prompt_task_report
+        from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
+        storage = PromptTraceStorage(data_dir=str(tmp_path))
+        svc = PromptTraceService(storage=storage)
+
+        trace = svc.create_trace(
+            request_id="req-1",
+            task_id="task-1",
+            goal_id="goal-1",
+            provider="lmstudio",
+            model="google/gemma-4-e4b",
+            request_kind="planning",
+            prompt="Build a Fibonacci backend",
+        )
+        svc.store(svc.finalize_trace(trace, success=True, response_text='{"tasks":[{"title":"Setup"}]}'))
+
+        llm_log_path = tmp_path / "llm_log.jsonl"
+        llm_log_path.write_text(
+            json.dumps(
+                {
+                    "timestamp": 200.0,
+                    "event": "llm_call_end",
+                    "request_id": "req-1",
+                    "provider": "lmstudio",
+                    "model": "google/gemma-4-e4b",
+                    "success": True,
+                    "response": '{"tasks":[{"title":"Setup"}]}',
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        task_detail = {
+            "id": "task-1",
+            "title": "Plan Fibonacci backend",
+            "status": "planning",
+            "task_kind": "planning",
+            "assigned_agent_url": "http://worker-a:5000",
+            "required_capabilities": ["planning"],
+            "instruction_layers": {
+                "selected_profile": "big-pickle",
+                "selected_overlay": "default",
+                "template_compatibility": {"status": "ok"},
+            },
+        }
+
+        class _Resp:
+            def __init__(self, status_code: int, payload: dict | None = None):
+                self.status_code = status_code
+                self._payload = payload or {}
+
+        def _request(method, path, **kwargs):
+            if path == "/tasks/task-1":
+                return _Resp(200, task_detail)
+            return _Resp(404)
+
+        def _api_data(resp):
+            return getattr(resp, "_payload", {})
+
+        args = argparse.Namespace(task_id="task-1", json=True)
+        captured = io.StringIO()
+        with patch("agent.cli_goals._request", side_effect=_request), \
+            patch("agent.cli_goals._api_data", side_effect=_api_data), \
+            patch("agent.services.prompt_trace_service.get_prompt_trace_service", return_value=svc), \
+            patch("agent.utils.get_data_dir", return_value=str(tmp_path)):
+            with contextlib.redirect_stdout(captured):
+                code = cmd_prompt_task_report(args)
+
+        assert code == 0
+        parsed = json.loads(captured.getvalue())
+        assert parsed["task"]["task_id"] == "task-1"
+        assert parsed["trace_count"] == 1
+        trace_row = parsed["traces"][0]
+        assert trace_row["request_kind"] == "planning"
+        assert trace_row["response_preview"].startswith('{"tasks"')
+        assert trace_row["prompt_preview_redacted"].startswith("Build a Fibonacci backend")
+
+    def test_task_report_missing_optional_fields(self, tmp_path):
+        import argparse
+        import contextlib
+        import io
+        from agent.cli.prompt_inspect import cmd_prompt_task_report
+        from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
+        storage = PromptTraceStorage(data_dir=str(tmp_path))
+        svc = PromptTraceService(storage=storage)
+
+        trace = svc.create_trace(task_id="task-2", request_id="req-2", prompt="Doc this")
+        svc.store(svc.finalize_trace(trace, success=True, response_text="Done"))
+
+        class _Resp:
+            def __init__(self, status_code: int, payload: dict | None = None):
+                self.status_code = status_code
+                self._payload = payload or {}
+
+        def _request(method, path, **kwargs):
+            if path == "/tasks/task-2":
+                return _Resp(200, {"id": "task-2", "title": "Doc", "status": "todo"})
+            return _Resp(404)
+
+        def _api_data(resp):
+            return getattr(resp, "_payload", {})
+
+        args = argparse.Namespace(task_id="task-2", json=True)
+        captured = io.StringIO()
+        with patch("agent.cli_goals._request", side_effect=_request), \
+            patch("agent.cli_goals._api_data", side_effect=_api_data), \
+            patch("agent.services.prompt_trace_service.get_prompt_trace_service", return_value=svc), \
+            patch("agent.utils.get_data_dir", return_value=str(tmp_path)):
+            with contextlib.redirect_stdout(captured):
+                code = cmd_prompt_task_report(args)
+
+        assert code == 0
+        parsed = json.loads(captured.getvalue())
+        assert parsed["task"]["task_id"] == "task-2"
+        assert parsed["traces"][0]["provider"] == ""
+        assert parsed["traces"][0]["response_preview"] == "Done"
