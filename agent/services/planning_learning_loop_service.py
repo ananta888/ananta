@@ -470,8 +470,10 @@ class PlanningLearningLoopService:
 
         new_version_id = str(payload.get("new_prompt_version_id") or "").strip()
         if new_version_id and new_version_id != str(profile.preferred_prompt_version_id or "").strip():
-            profile.preferred_prompt_version_id = new_version_id
-            repos.planning_model_profile_repo.save(profile)
+            _new_pv = repos.planning_prompt_version_repo.get_by_id(new_version_id)
+            if _new_pv and bool(_new_pv.enabled):
+                profile.preferred_prompt_version_id = new_version_id
+                repos.planning_model_profile_repo.save(profile)
         active_candidate.status = "activated"
         active_candidate.candidate_payload = {**payload, "activated_at": time.time(), "candidate_state": "activated", "current_quality_score": quality}
         repos.planning_template_candidate_repo.save(active_candidate)
