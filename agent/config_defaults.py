@@ -578,7 +578,7 @@ def build_default_agent_config() -> dict:
                 "min_validation_success_rate": 0.7,
                 "min_materialization_success_rate": 0.6,
                 "max_repair_rate": 0.4,
-                "candidate_activation_threshold": 0.75,
+                "candidate_activation_threshold": 0.92,
                 "rollback_threshold": 0.55,
                 "freeze_minutes": 30,
                 "canary_window_runs": 5,
