@@ -9,6 +9,7 @@ from typing import Any
 from agent.db_models import PlanningTemplateCandidateDB
 from agent.services.model_response_behavior_aggregation_service import get_model_response_behavior_aggregation_service
 from agent.services.planning_metrics_service import get_planning_metrics_service
+from agent.services.planning_model_profile_service import get_planning_model_profile_service, normalize_learning_state
 from agent.services.planning_prompt_evolver_service import get_planning_prompt_evolver_service
 from agent.services.planning_review_queue_service import get_planning_review_queue_service
 from agent.services.repository_registry import get_repository_registry
@@ -201,6 +202,7 @@ class PlanningLearningLoopService:
                     "model_family": str(profile.model_family or ""),
                     "enabled": bool(profile.enabled),
                     "active_prompt_version_id": prompt_version_id,
+                    "learning_state": normalize_learning_state(getattr(profile, "learning_state", None), default_state="stable"),
                     "current_quality_score": current_quality,
                     "trend_direction": str(current_group.get("trend_direction") or ""),
                     "sample_size_is_small": bool(current_group.get("sample_size_is_small")),
@@ -230,6 +232,64 @@ class PlanningLearningLoopService:
             "review_item_count": len(reviews),
             "behavior_aggregation": behavior_aggregation,
         }
+
+    @staticmethod
+    def _learning_state_payload(
+        *,
+        state: str,
+        source: str,
+        observed_output_format: str | None = None,
+        observed_model_family: str | None = None,
+        prompt_version_id: str | None = None,
+        sample_size: int | None = None,
+        reason_codes: list[str] | None = None,
+    ) -> dict[str, Any]:
+        return normalize_learning_state(
+            {
+                "state": state,
+                "source": source,
+                "observed_output_format": observed_output_format,
+                "observed_model_family": observed_model_family,
+                "prompt_version_id": prompt_version_id,
+                "sample_size": sample_size,
+                "reason_codes": reason_codes or [],
+                "updated_at": time.time(),
+            },
+            default_state="stable",
+        )
+
+    def _set_profile_learning_state(
+        self,
+        *,
+        profile,
+        state: str,
+        source: str,
+        observed_output_format: str | None = None,
+        observed_model_family: str | None = None,
+        prompt_version_id: str | None = None,
+        sample_size: int | None = None,
+        reason_codes: list[str] | None = None,
+    ) -> dict[str, Any]:
+        learning_state = self._learning_state_payload(
+            state=state,
+            source=source,
+            observed_output_format=observed_output_format,
+            observed_model_family=observed_model_family,
+            prompt_version_id=prompt_version_id,
+            sample_size=sample_size,
+            reason_codes=reason_codes,
+        )
+        get_planning_model_profile_service().update_learning_state(
+            profile,
+            state=state,
+            source=source,
+            observed_output_format=observed_output_format,
+            observed_model_family=observed_model_family,
+            prompt_version_id=prompt_version_id,
+            sample_size=sample_size,
+            reason_codes=reason_codes or [],
+        )
+        return learning_state
 
     def _create_candidate(
         self,
@@ -283,6 +343,16 @@ class PlanningLearningLoopService:
                 status="canary" if auto_activate_requested else "proposed",
             )
         )
+        self._set_profile_learning_state(
+            profile=profile,
+            state="candidate",
+            source="planning_learning_loop",
+            observed_output_format=str((trigger_run.mode_data or {}).get("__output_shape__") or ""),
+            observed_model_family=str(profile.model_family or profile.model_name_pattern or ""),
+            prompt_version_id=str(evolved["new_prompt_version_id"]),
+            sample_size=int(group.get("run_count") or 0),
+            reason_codes=list(reason_codes),
+        )
         return {
             "created": True,
             "candidate_id": str(candidate.id),
@@ -326,6 +396,16 @@ class PlanningLearningLoopService:
         repos.planning_prompt_version_repo.save(previous_version)
         profile.preferred_prompt_version_id = previous_prompt_version_id
         repos.planning_model_profile_repo.save(profile)
+        self._set_profile_learning_state(
+            profile=profile,
+            state="degraded",
+            source="planning_learning_loop",
+            observed_output_format=str((current_group.get("preferred_output_shape") or {}).get("value") or ""),
+            observed_model_family=str(profile.model_family or profile.model_name_pattern or ""),
+            prompt_version_id=previous_prompt_version_id,
+            sample_size=int(current_group.get("run_count") or 0),
+            reason_codes=["rollback", "quality_below_threshold"],
+        )
         active_candidate.status = "rolled_back"
         active_candidate.candidate_payload = {**payload, "rolled_back_at": time.time(), "candidate_state": "rolled_back", "current_quality_score": quality}
         repos.planning_template_candidate_repo.save(active_candidate)
@@ -355,6 +435,16 @@ class PlanningLearningLoopService:
         active_candidate.status = "activated"
         active_candidate.candidate_payload = {**payload, "activated_at": time.time(), "candidate_state": "activated", "current_quality_score": quality}
         repos.planning_template_candidate_repo.save(active_candidate)
+        self._set_profile_learning_state(
+            profile=profile,
+            state="stable",
+            source="planning_learning_loop",
+            observed_output_format=str((current_group.get("preferred_output_shape") or {}).get("value") or ""),
+            observed_model_family=str(profile.model_family or profile.model_name_pattern or ""),
+            prompt_version_id=str(profile.preferred_prompt_version_id or ""),
+            sample_size=int(current_group.get("run_count") or 0),
+            reason_codes=["canary_activated"],
+        )
         return True, {
             "activated_prompt_version_id": str(profile.preferred_prompt_version_id or ""),
             "quality_score": quality,
@@ -482,6 +572,16 @@ class PlanningLearningLoopService:
                 continue
 
             if float(worst_group.get("quality_score") or 0.0) >= float(learning.get("candidate_activation_threshold") or 0.75):
+                self._set_profile_learning_state(
+                    profile=profile,
+                    state="stable",
+                    source="planning_learning_loop",
+                    observed_output_format=str((worst_group.get("preferred_output_shape") or {}).get("value") or ""),
+                    observed_model_family=str(profile.model_family or profile.model_name_pattern or ""),
+                    prompt_version_id=active_prompt_version_id,
+                    sample_size=int(worst_group.get("run_count") or 0),
+                    reason_codes=["quality_above_threshold"],
+                )
                 decision.details.append({"profile_name": profile_name, "action": "skip", "reason": "quality_above_threshold"})
                 continue
 

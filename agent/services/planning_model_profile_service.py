@@ -4,6 +4,7 @@ import fnmatch
 import json
 from pathlib import Path
 from typing import Any
+import time
 
 from agent.db_models import PlanningModelProfileDB
 from agent.services.repository_registry import get_repository_registry
@@ -50,6 +51,63 @@ def _extract_preferred_output_format(notes: Any) -> str:
     return "json"
 
 
+def _normalize_learning_state(value: Any, *, default_state: str = "stable") -> dict[str, Any]:
+    state = str(default_state or "stable").strip().lower() or "stable"
+    observed_output_format = None
+    observed_model_family = None
+    prompt_version_id = None
+    sample_size = None
+    reason_codes: list[str] = []
+    source = "default"
+    updated_at = time.time()
+
+    if isinstance(value, str):
+        candidate_state = value.strip().lower()
+        if candidate_state:
+            state = candidate_state
+    elif isinstance(value, dict):
+        source = str(value.get("source") or source).strip() or source
+        candidate_state = str(value.get("state") or "").strip().lower()
+        if candidate_state:
+            state = candidate_state
+        observed_output_format = str(value.get("observed_output_format") or "").strip() or None
+        observed_model_family = str(value.get("observed_model_family") or "").strip() or None
+        prompt_version_id = str(value.get("prompt_version_id") or "").strip() or None
+        try:
+            sample_size = int(value.get("sample_size")) if value.get("sample_size") is not None else None
+        except (TypeError, ValueError):
+            sample_size = None
+        reason_codes = [str(item or "").strip() for item in list(value.get("reason_codes") or []) if str(item or "").strip()]
+        try:
+            updated_at = float(value.get("updated_at") or updated_at)
+        except (TypeError, ValueError):
+            updated_at = time.time()
+
+    if state not in {"learning", "candidate", "stable", "degraded"}:
+        state = default_state if default_state in {"learning", "candidate", "stable", "degraded"} else "stable"
+
+    payload = {
+        "state": state,
+        "source": source,
+        "updated_at": updated_at,
+    }
+    if observed_output_format:
+        payload["observed_output_format"] = observed_output_format
+    if observed_model_family:
+        payload["observed_model_family"] = observed_model_family
+    if prompt_version_id:
+        payload["prompt_version_id"] = prompt_version_id
+    if sample_size is not None:
+        payload["sample_size"] = max(0, int(sample_size))
+    if reason_codes:
+        payload["reason_codes"] = reason_codes
+    return payload
+
+
+def normalize_learning_state(value: Any, *, default_state: str = "stable") -> dict[str, Any]:
+    return _normalize_learning_state(value, default_state=default_state)
+
+
 class PlanningModelProfileService:
     def _load_defaults(self) -> list[dict[str, Any]]:
         if not _DEFAULT_PATH.exists():
@@ -87,6 +145,11 @@ class PlanningModelProfileService:
                 existing_profile.output_contract_strictness = str(item.get("output_contract_strictness") or "repair_required")
                 existing_profile.supports_json_mode = bool(item.get("supports_json_mode", False))
                 existing_profile.requires_english_prompt = bool(item.get("requires_english_prompt", False))
+                current_learning_state = getattr(existing_profile, "learning_state", None)
+                if isinstance(item.get("learning_state"), (dict, str)):
+                    existing_profile.learning_state = _normalize_learning_state(item.get("learning_state"), default_state="stable")
+                elif not current_learning_state:
+                    existing_profile.learning_state = _normalize_learning_state(None, default_state="stable")
                 existing_profile.notes = _normalize_notes(item.get("notes"))
                 existing_profile.enabled = bool(item.get("enabled", True))
                 repo.save(existing_profile)
@@ -106,9 +169,40 @@ class PlanningModelProfileService:
                     output_contract_strictness=str(item.get("output_contract_strictness") or "repair_required"),
                     supports_json_mode=bool(item.get("supports_json_mode", False)),
                     requires_english_prompt=bool(item.get("requires_english_prompt", False)),
+                    learning_state=_normalize_learning_state(item.get("learning_state"), default_state="stable"),
                     notes=_normalize_notes(item.get("notes")),
                     enabled=bool(item.get("enabled", True)),
                 ))
+
+    def update_learning_state(
+        self,
+        profile: PlanningModelProfileDB,
+        *,
+        state: str,
+        source: str = "planning_model_profile_service",
+        observed_output_format: str | None = None,
+        observed_model_family: str | None = None,
+        prompt_version_id: str | None = None,
+        sample_size: int | None = None,
+        reason_codes: list[str] | None = None,
+    ) -> PlanningModelProfileDB:
+        normalized = _normalize_learning_state(
+            {
+                "state": state,
+                "source": source,
+                "observed_output_format": observed_output_format,
+                "observed_model_family": observed_model_family,
+                "prompt_version_id": prompt_version_id,
+                "sample_size": sample_size,
+                "reason_codes": reason_codes or [],
+                "updated_at": time.time(),
+            },
+            default_state="stable",
+        )
+        profile.learning_state = normalized
+        if hasattr(profile, "__table__"):
+            return get_repository_registry().planning_model_profile_repo.save(profile)
+        return profile
 
     def resolve_profile(self, *, provider: str | None, model_name: str | None, explicit_profile: str | None = None) -> dict[str, Any]:
         self.ensure_default_profiles()
@@ -157,6 +251,7 @@ class PlanningModelProfileService:
             "supports_json_mode": False,
             "requires_english_prompt": False,
             "preferred_output_format": "json",
+            "learning_state": _normalize_learning_state(None, default_state="stable"),
         }
 
     @staticmethod
@@ -179,6 +274,7 @@ class PlanningModelProfileService:
             "supports_json_mode": bool(profile.supports_json_mode),
             "requires_english_prompt": bool(profile.requires_english_prompt),
             "preferred_output_format": _extract_preferred_output_format(notes),
+            "learning_state": _normalize_learning_state(getattr(profile, "learning_state", None), default_state="stable"),
             "notes": profile.notes,
         }
 

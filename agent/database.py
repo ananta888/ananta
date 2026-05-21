@@ -229,6 +229,7 @@ def _ensure_schema_compat() -> None:
         "validated_at": "REAL",
         "last_seen": "REAL NOT NULL DEFAULT 0",
         "status": "TEXT NOT NULL DEFAULT 'online'",
+        "learning_state": "TEXT NOT NULL DEFAULT '{}'",
     }
 
     missing_columns: list[str] = []

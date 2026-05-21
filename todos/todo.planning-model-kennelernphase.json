@@ -171,7 +171,7 @@
           "title": "Expliziten Lernzustand pro Modellprofil einführen",
           "type": "feature",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Jedes Modellprofil bekommt einen Lernstatus wie learning, candidate, stable oder degraded.",
           "files": [
             "agent/services/planning_model_profile_service.py",
