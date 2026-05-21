@@ -109,8 +109,22 @@ class PlanningPromptRegistry:
                         break
         if selected is None:
             # absolute fallback to in-memory template
-            template = "ZIEL:\n{goal}\n\nKONTEXT:\n{context}\n"
-            rendered = template.format(goal=goal, context=context or "")
+            template = (
+                "You are a planning assistant. Produce a valid JSON array of concrete tasks.\n\n"
+                "ZIEL:\n{goal}\n\n"
+                "CONTEXT:\n{context}\n\n"
+                "Rules:\n"
+                "- Return only JSON, no markdown fences.\n"
+                "- Prefer 5 to 8 tasks for software goals.\n"
+                "- Include setup, implementation, execution, verification, and summary when relevant.\n"
+                "- Each task needs title, description, priority, depends_on.\n"
+                "- Preferred output format: {preferred_output_format}.\n"
+            )
+            rendered = template.format(
+                goal=goal,
+                context=context or "",
+                preferred_output_format=str(preferred_output_format or "json").strip().lower() or "json",
+            )
             return ResolvedPlanningPrompt(
                 prompt_version_id="inline-fallback",
                 version="inline-fallback",

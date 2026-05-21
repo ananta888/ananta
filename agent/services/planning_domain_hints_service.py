@@ -13,9 +13,11 @@ class PlanningDomainHintsService:
         if goal_type == "software_project":
             hints.extend(
                 [
-                    "Include at least one API/interface task when relevant.",
-                    "Include tests for valid and invalid cases.",
-                    "Include explicit run/build command and verification command tasks.",
+                    "Use the fixed phases: setup, implementation, execution, verification, summary.",
+                    "Include at least one task for each of: analysis, infrastructure, implementation, tests, review.",
+                    "Include at least one concrete API/interface task when the goal mentions backend, service, or API work.",
+                    "Include tests for valid and invalid cases and name the concrete test file or command.",
+                    "Include explicit run/build command and verification command tasks with file, endpoint, or artifact output.",
                 ]
             )
         elif goal_type == "operations":

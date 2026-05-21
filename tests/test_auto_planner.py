@@ -132,8 +132,12 @@ class TestAutoPlannerPrompts:
             result = planner.plan_goal("Erstelle eine neue Todo-App", create_tasks=False, use_template=True, use_repo_context=False)
 
         assert result.get("error") is None
-        assert len(result.get("subtasks") or []) >= 2
-        assert result.get("template_used") is True
+        subtasks = result.get("subtasks") or []
+        assert len(subtasks) >= 5
+        assert any(
+            "test" in f"{item.get('title') or ''} {item.get('description') or ''}".lower()
+            for item in subtasks
+        )
 
     def test_match_goal_template_returns_execution_focused_template_for_coding_goal(self):
         result = match_goal_template(

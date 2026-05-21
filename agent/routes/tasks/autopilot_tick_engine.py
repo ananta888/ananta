@@ -56,6 +56,20 @@ def _current_task_status(task_id: str, *, app: Any) -> str:
 def _is_terminal_status(status: str) -> bool:
     return status in {"completed", "failed", "cancelled"}
 
+
+def _should_terminalize_no_executable_strategy(strategy_failures: list[dict[str, Any]]) -> bool:
+    """Return True when the strategy chain has already proven it cannot yield an executable step.
+
+    These failures are not likely to be fixed by the next tick with the same task context,
+    so the task should move to a terminal review state instead of re-entering todo.
+    """
+    failure_types = {
+        str(item.get("failure_type") or "").strip().lower()
+        for item in list(strategy_failures or [])
+        if isinstance(item, dict)
+    }
+    return bool(failure_types & {"invalid_proposal", "no_executable_step", "proposal_budget_exhausted"})
+
 def _recent_strategy_attempts(task: Any, *, now_ts: float, window_seconds: int) -> int:
     if window_seconds <= 0:
         return 0
@@ -1297,7 +1311,6 @@ def _dispatch_one_task_inner(  # noqa: C901
                 result.failed = latest_status != "completed"
                 result.failure_type = None if result.completed else latest_status
                 return result
-            cooldown_seconds = int(strategy_cfg["cooldown_seconds"])
             now_ts = time.time()
             total_attempt_count = int(strategy_state.get("attempt_count") or 0) + len(strategy_failures)
             failed_models = list(strategy_state.get("failed_models") or [])
@@ -1313,26 +1326,12 @@ def _dispatch_one_task_inner(  # noqa: C901
                 source = str(item.get("source") or "").strip()
                 if source and source not in failed_sources:
                     failed_sources.append(source)
-            invalid_proposal_only = bool(strategy_failures) and all(
-                str(item.get("failure_type") or "").strip().lower() == "invalid_proposal"
-                for item in strategy_failures
-            )
-            invalid_terminal_threshold = max(
-                1,
-                min(
-                    int((loop._agent_config() or {}).get("autopilot_strategy_invalid_proposal_terminal_attempts") or 12),
-                    500,
-                ),
-            )
-            invalid_proposal_terminal = invalid_proposal_only and total_attempt_count >= invalid_terminal_threshold
+            terminalize_no_exec = _should_terminalize_no_executable_strategy(strategy_failures)
+            cooldown_seconds = 0
             reason_code = (
                 "autopilot_strategy_invalid_proposal_terminal"
-                if invalid_proposal_terminal
-                else (
-                    "proposal_budget_exhausted"
-                    if any(str(item.get("failure_type") or "") == "proposal_budget_exhausted" for item in strategy_failures)
-                    else "autopilot_strategy_exhausted"
-                )
+                if terminalize_no_exec
+                else "autopilot_strategy_exhausted"
             )
             verification_status = {
                 **dict(getattr(task, "verification_status", None) or {}),
@@ -1348,14 +1347,7 @@ def _dispatch_one_task_inner(  # noqa: C901
                     "reason_code": reason_code,
                 },
             }
-            retry_status = (
-                "needs_review"
-                if (
-                    invalid_proposal_terminal
-                    or any(str(item.get("failure_type") or "") == "proposal_budget_exhausted" for item in strategy_failures)
-                )
-                else "todo"
-            )
+            retry_status = "needs_review"
             retry_snapshot = _ensure_llm_profile_snapshot(
                 snapshot={"strategy_failures": strategy_failures[-5:]},
                 strategy_id=None,
@@ -1383,9 +1375,7 @@ def _dispatch_one_task_inner(  # noqa: C901
                     "retry_status": retry_status,
                     "cooldown_seconds": cooldown_seconds,
                     "attempt_count": total_attempt_count,
-                    "invalid_proposal_only": invalid_proposal_only,
-                    "invalid_proposal_terminal": invalid_proposal_terminal,
-                    "invalid_proposal_terminal_attempts": invalid_terminal_threshold,
+                    "terminalize_no_exec": terminalize_no_exec,
                 },
             )
             append_trace_event(
@@ -1492,11 +1482,13 @@ def _dispatch_one_task_inner(  # noqa: C901
             result.failed = latest_status != "completed"
             result.failure_type = None if result.completed else latest_status
             return result
+        terminal_status = "needs_review"
         update_local_task_status(
             task.id,
-            "failed",
+            terminal_status,
             error="autopilot_no_executable_step",
             last_proposal=_merged_last_proposal_snapshot(task_id=task.id, snapshot=proposal_snapshot, app=app_ctx),
+            force=True,
         )
         append_trace_event(
             task.id,
