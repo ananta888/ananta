@@ -2412,6 +2412,19 @@ class TaskScopedExecutionService:
                 and ("401" in str(response.get("message") or "").lower() or "unauthorized" in str(response.get("message") or "").lower())
             ):
                 response = forwarder(worker_url, endpoint, payload, token=None)
+            # Worker returned 404: task not in worker DB (split-DB dev setup).
+            # Fall back to local hub execution instead of propagating the error.
+            if (
+                isinstance(response, dict)
+                and str(response.get("status") or "").strip().lower() == "error"
+                and int(response.get("http_status") or 0) == 404
+            ):
+                current_app.logger.warning(
+                    "Worker %s returned 404 for %s — falling back to local hub execution",
+                    worker_url,
+                    endpoint,
+                )
+                return None
             response = unwrap_api_envelope(response)
             if not isinstance(response, dict) or not response:
                 raise RuntimeError(f"worker_empty_payload:{worker_url}:{endpoint}")
