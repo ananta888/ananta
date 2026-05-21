@@ -54,6 +54,7 @@ def _extract_preferred_output_format(notes: Any) -> str:
 def _normalize_learning_state(value: Any, *, default_state: str = "stable") -> dict[str, Any]:
     state = str(default_state or "stable").strip().lower() or "stable"
     observed_output_format = None
+    observed_output_shape = None
     observed_model_family = None
     prompt_version_id = None
     sample_size = None
@@ -70,7 +71,10 @@ def _normalize_learning_state(value: Any, *, default_state: str = "stable") -> d
         candidate_state = str(value.get("state") or "").strip().lower()
         if candidate_state:
             state = candidate_state
+        observed_output_shape = str(value.get("observed_output_shape") or "").strip() or None
         observed_output_format = str(value.get("observed_output_format") or "").strip() or None
+        if not observed_output_shape and observed_output_format:
+            observed_output_shape = observed_output_format
         observed_model_family = str(value.get("observed_model_family") or "").strip() or None
         prompt_version_id = str(value.get("prompt_version_id") or "").strip() or None
         try:
@@ -93,6 +97,8 @@ def _normalize_learning_state(value: Any, *, default_state: str = "stable") -> d
     }
     if observed_output_format:
         payload["observed_output_format"] = observed_output_format
+    if observed_output_shape:
+        payload["observed_output_shape"] = observed_output_shape
     if observed_model_family:
         payload["observed_model_family"] = observed_model_family
     if prompt_version_id:
@@ -181,16 +187,20 @@ class PlanningModelProfileService:
         state: str,
         source: str = "planning_model_profile_service",
         observed_output_format: str | None = None,
+        observed_output_shape: str | None = None,
         observed_model_family: str | None = None,
         prompt_version_id: str | None = None,
         sample_size: int | None = None,
         reason_codes: list[str] | None = None,
     ) -> PlanningModelProfileDB:
+        observed_shape = str(observed_output_shape or observed_output_format or "").strip() or None
+        observed_format = str(observed_output_format or observed_output_shape or "").strip() or None
         normalized = _normalize_learning_state(
             {
                 "state": state,
                 "source": source,
-                "observed_output_format": observed_output_format,
+                "observed_output_format": observed_format,
+                "observed_output_shape": observed_shape,
                 "observed_model_family": observed_model_family,
                 "prompt_version_id": prompt_version_id,
                 "sample_size": sample_size,

@@ -16,7 +16,12 @@ class PlanningPromptOptimizerService:
         text = str(prompt or "")
         output_format = str(preferred_output_format or "").strip().lower()
         learning_state = dict(profile.get("learning_state") or {})
-        observed_shape = str(profile.get("observed_output_shape") or learning_state.get("observed_output_format") or "").strip().lower()
+        observed_shape = str(
+            profile.get("observed_output_shape")
+            or learning_state.get("observed_output_shape")
+            or learning_state.get("observed_output_format")
+            or ""
+        ).strip().lower()
 
         extra_rules: list[str] = []
         if observed_shape in {"json_in_markdown_fence", "markdown_bullets", "numbered_steps", "yaml_like"}:

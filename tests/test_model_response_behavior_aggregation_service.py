@@ -74,16 +74,20 @@ def test_behavior_aggregation_reports_family_styles_and_stability(monkeypatch):
     assert result["model_family_distribution"] == {"gemma": 0.7143, "qwen": 0.2857}
     assert result["preferred_output_shape"]["value"] == "json_in_markdown_fence"
     assert result["preferred_output_shape"]["state"] == "candidate"
+    assert result["preferred_output_format"]["value"] == "json"
     assert result["preferred_model_family"]["value"] == "gemma"
+    assert result["primary_output_format_distribution"] == {"json": 0.7143, "markdown": 0.2857}
 
     gemma = next(row for row in result["family_behavior_profiles"] if row["model_family"] == "gemma")
     assert gemma["run_count"] == 5
     assert gemma["preferred_output_shape"]["value"] == "json_in_markdown_fence"
     assert gemma["preferred_output_shape"]["state"] == "stable"
+    assert gemma["preferred_output_format"]["value"] == "json"
     assert gemma["behavior_state"] == "stable"
 
     qwen = next(row for row in result["family_behavior_profiles"] if row["model_family"] == "qwen")
     assert qwen["run_count"] == 2
     assert qwen["preferred_output_shape"]["value"] == "markdown_bullets"
     assert qwen["preferred_output_shape"]["state"] == "candidate"
+    assert qwen["preferred_output_format"]["value"] == "markdown"
     assert qwen["behavior_state"] == "candidate"

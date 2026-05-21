@@ -30,3 +30,16 @@ def test_learning_phase_observed_json_in_markdown_fence_is_respected():
     )
     assert "learning phase" in prompt.lower()
     assert "markdown fences" in prompt.lower()
+
+
+def test_learning_phase_observed_shape_from_learning_state_is_respected():
+    svc = PlanningPromptOptimizerService()
+    prompt, style = svc.optimize(
+        prompt="Return planning tasks as JSON.",
+        behavior_profile={
+            "preferred_prompt_style": "stepwise_then_json",
+            "learning_state": {"state": "candidate", "observed_output_shape": "markdown_bullets"},
+        },
+    )
+    assert "markdown lists are acceptable" in prompt.lower()
+    assert style == "stepwise_then_json"

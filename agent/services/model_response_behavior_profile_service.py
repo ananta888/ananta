@@ -9,7 +9,13 @@ class ModelResponseBehaviorProfileService:
     @staticmethod
     def _derive_preferred_prompt_style(*, learning_state: dict[str, Any], base: dict[str, Any]) -> str:
         state = str((learning_state or {}).get("state") or "").strip().lower()
-        observed_shape = str((learning_state or {}).get("observed_output_format") or "").strip().lower()
+        observed_shape = str(
+            (learning_state or {}).get("observed_output_shape")
+            or (learning_state or {}).get("observed_output_format")
+            or base.get("observed_output_shape")
+            or base.get("observed_output_format")
+            or ""
+        ).strip().lower()
         preferred_format = str(base.get("preferred_output_format") or "").strip().lower()
 
         if observed_shape in {"json_in_markdown_fence", "markdown_bullets", "numbered_steps"}:
@@ -28,7 +34,13 @@ class ModelResponseBehaviorProfileService:
         preferred_output_format = str(base.get("preferred_output_format") or "json").strip().lower() or "json"
         preferred_prompt_style = self._derive_preferred_prompt_style(learning_state=learning_state, base=base)
         markdown_handling = "allow_and_strip" if preferred_output_format == "markdown" or preferred_prompt_style in {"markdown_friendly", "stepwise_then_json"} else "forbid"
-        observed_output_shape = str(learning_state.get("observed_output_format") or "").strip().lower() or None
+        observed_output_shape = str(
+            learning_state.get("observed_output_shape")
+            or learning_state.get("observed_output_format")
+            or base.get("observed_output_shape")
+            or base.get("observed_output_format")
+            or ""
+        ).strip().lower() or None
         return {
             "provider": str(provider or ""),
             "model_name_pattern": base.get("model_name_pattern"),
