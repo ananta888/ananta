@@ -17,3 +17,16 @@ def test_markdown_prone_profile_uses_no_fence_contract():
         behavior_profile={"preferred_prompt_style": "no_markdown_explicit", "markdown_handling": "forbid"},
     )
     assert "Do not use markdown fences" in prompt
+
+
+def test_learning_phase_observed_json_in_markdown_fence_is_respected():
+    svc = PlanningPromptOptimizerService()
+    prompt, style = svc.optimize(
+        prompt="Return planning tasks as JSON.",
+        behavior_profile={
+            "preferred_prompt_style": "example_driven_json",
+            "learning_state": {"state": "candidate", "observed_output_format": "json_in_markdown_fence"},
+        },
+    )
+    assert "learning phase" in prompt.lower()
+    assert "markdown fences" in prompt.lower()

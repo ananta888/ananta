@@ -61,3 +61,23 @@ def test_new_project_prompt_accepts_markdown_friendly_guidance(monkeypatch):
     registry = reg.PlanningPromptRegistry()
     resolved = registry.resolve(goal="Build API", context="ctx", mode="new_software_project", language="en", model_family=None)
     assert "Markdown fences are acceptable" in resolved.prompt
+
+
+def test_prompt_registry_adapts_to_learning_state_and_behavior_profile(monkeypatch):
+    items = [_version(user_prompt_template="Plan project for {goal}. Context: {context}")]
+    monkeypatch.setattr(reg, "get_repository_registry", lambda: _Registry(items))
+    registry = reg.PlanningPromptRegistry()
+    resolved = registry.resolve(
+        goal="Build API",
+        context="ctx",
+        mode="new_software_project",
+        language="en",
+        model_family=None,
+        preferred_output_format="json",
+        behavior_profile={
+            "preferred_prompt_style": "example_driven_json",
+            "learning_state": {"state": "candidate", "observed_output_format": "json_in_markdown_fence"},
+        },
+    )
+    assert "learning phase" in resolved.prompt.lower()
+    assert "markdown fences" in resolved.prompt.lower()

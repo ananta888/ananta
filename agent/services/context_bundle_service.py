@@ -11,10 +11,18 @@ _CONTEXT_BUNDLE_DEFAULTS: dict = {
     "compact_max_chunks": 5,
     "standard_max_chunks": 12,
     "compact_budget_tokens": 4096,
-    "standard_budget_tokens": 12288,
+    "standard_budget_tokens": 32000,
     "full_budget_tokens": 32768,
     "include_context_text": True,
 }
+
+
+def _normalize_positive_int(value, *, default: int) -> int:
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        normalized = int(default)
+    return max(1, normalized)
 
 
 def normalize_context_bundle_policy_config(cfg: dict | None) -> dict:
@@ -24,6 +32,8 @@ def normalize_context_bundle_policy_config(cfg: dict | None) -> dict:
     for key in _CONTEXT_BUNDLE_DEFAULTS:
         if key in raw and raw[key] is not None:
             result[key] = raw[key]
+    result["compact_max_chunks"] = _normalize_positive_int(result.get("compact_max_chunks"), default=_CONTEXT_BUNDLE_DEFAULTS["compact_max_chunks"])
+    result["standard_max_chunks"] = _normalize_positive_int(result.get("standard_max_chunks"), default=_CONTEXT_BUNDLE_DEFAULTS["standard_max_chunks"])
     return result
 
 
