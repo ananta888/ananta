@@ -161,6 +161,75 @@ def get_local_task_status(tid: str) -> dict[str, Any] | None:
     return task.model_dump() if task else None
 
 
+# Fields synced from hub to worker — excludes FK-constrained columns
+# (assigned_agent_url, team_id, assigned_role_id) and execution-state fields.
+_TASK_SYNC_FIELDS: frozenset[str] = frozenset({
+    "title", "description", "priority", "task_kind",
+    "goal_id", "goal_trace_id", "plan_id", "plan_node_id",
+    "retrieval_intent", "required_context_scope", "preferred_bundle_mode",
+    "required_capabilities", "worker_execution_context",
+    "verification_spec", "status_reason_details", "depends_on",
+    "parent_task_id", "source_task_id", "derivation_reason", "derivation_depth",
+})
+
+_hub_sync_client = None
+
+
+def _get_hub_sync_client():
+    global _hub_sync_client
+    if _hub_sync_client is None:
+        from agent.common.http import HttpClient
+        _hub_sync_client = HttpClient(timeout=10, retries=1)
+    return _hub_sync_client
+
+
+def sync_task_from_hub(tid: str) -> dict[str, Any] | None:
+    """Pull a task from the hub and create a local worker copy.
+
+    Only runs on workers (non-hub role). Fetches the minimal task fields
+    needed for execution. Skips FK-constrained and execution-state fields.
+    Controlled by execution_fallback_policy.worker_task_sync_from_hub_enabled.
+    """
+    from agent.config import settings
+    role = str(getattr(settings, "role", "") or "").strip().lower()
+    if role == "hub":
+        return None
+    hub_url = str(getattr(settings, "hub_url", "") or "").strip().rstrip("/")
+    if not hub_url:
+        return None
+    try:
+        resp = _get_hub_sync_client().get(
+            f"{hub_url}/tasks/{tid}",
+            timeout=10,
+            return_response=True,
+            silent=True,
+        )
+        if resp is None or getattr(resp, "status_code", 500) != 200:
+            return None
+        body = resp.json()
+        task_data = body.get("data") or body
+        if not isinstance(task_data, dict) or not task_data.get("id"):
+            return None
+        kwargs = {
+            k: task_data[k]
+            for k in _TASK_SYNC_FIELDS
+            if k in task_data and task_data[k] is not None
+        }
+        update_local_task_status(
+            tid,
+            "todo",
+            force=True,
+            event_type="hub_task_synced",
+            event_actor="worker_sync",
+            **kwargs,
+        )
+        logging.info("Synced task %s from hub %s", tid, hub_url)
+        return get_local_task_status(tid)
+    except Exception as exc:
+        logging.warning("Failed to sync task %s from hub %s: %s", tid, hub_url, exc)
+        return None
+
+
 def notify_task_update(tid: str) -> None:
     with _subscribers_lock:
         for subscriber_tid, queue in _task_subscribers:
