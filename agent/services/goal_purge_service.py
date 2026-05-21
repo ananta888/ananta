@@ -26,6 +26,7 @@ from agent.db_models import (
     WorkerResultDB,
 )
 from agent.services.prompt_trace_service import get_prompt_trace_service
+from agent.services.task_admin_service import get_task_admin_service
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,7 @@ class GoalPurgeResult:
     goal_id: str
     deleted: dict[str, int]
     prompt_traces_deleted: int
+    task_cancel_summary: dict[str, int]
 
     @property
     def deleted_total(self) -> int:
@@ -43,12 +45,23 @@ class GoalPurgeResult:
             "goal_id": self.goal_id,
             "deleted": dict(self.deleted),
             "prompt_traces_deleted": int(self.prompt_traces_deleted or 0),
+            "task_cancel_summary": dict(self.task_cancel_summary or {}),
             "deleted_total": int(self.deleted_total),
         }
 
 
 class GoalPurgeService:
     """Delete all persisted entities associated with a goal ID."""
+
+    @staticmethod
+    def _collect_ids(rows: list) -> list[str]:
+        ids: list[str] = []
+        for row in rows:
+            value = row[0] if isinstance(row, (tuple, list)) else row
+            sid = str(value or "").strip()
+            if sid:
+                ids.append(sid)
+        return ids
 
     @staticmethod
     def _safe_delete(session: Session, stmt) -> int:
@@ -72,30 +85,32 @@ class GoalPurgeService:
                 return None
 
             trace_id = str(getattr(goal, "trace_id", "") or "").strip()
-            task_ids = [
-                row[0]
-                for row in session.exec(select(TaskDB.id).where(TaskDB.goal_id == goal_id_norm)).all()
-                if row and row[0]
-            ]
-            plan_ids = [
-                row[0]
-                for row in session.exec(select(PlanDB.id).where(PlanDB.goal_id == goal_id_norm)).all()
-                if row and row[0]
-            ]
-            planning_run_ids = [
-                row[0]
-                for row in session.exec(select(PlanningRunDB.id).where(PlanningRunDB.goal_id == goal_id_norm)).all()
-                if row and row[0]
-            ]
-            worker_job_ids = [
-                row[0]
-                for row in session.exec(
+            task_ids = self._collect_ids(session.exec(select(TaskDB.id).where(TaskDB.goal_id == goal_id_norm)).all())
+            cancel_attempted = 0
+            cancel_ok = 0
+            cancel_failed = 0
+            for task_id in task_ids:
+                cancel_attempted += 1
+                ok, _msg, _data = get_task_admin_service().intervene_task(
+                    task_id=str(task_id),
+                    action="cancel",
+                    actor="goal_purge",
+                )
+                if ok:
+                    cancel_ok += 1
+                else:
+                    cancel_failed += 1
+            plan_ids = self._collect_ids(session.exec(select(PlanDB.id).where(PlanDB.goal_id == goal_id_norm)).all())
+            planning_run_ids = self._collect_ids(
+                session.exec(select(PlanningRunDB.id).where(PlanningRunDB.goal_id == goal_id_norm)).all()
+            )
+            worker_job_ids = self._collect_ids(
+                session.exec(
                     select(WorkerJobDB.id).where(
                         WorkerJobDB.parent_task_id.in_(task_ids) if task_ids else False
                     )
                 ).all()
-                if row and row[0]
-            ]
+            )
 
             if worker_job_ids:
                 deleted_counts["worker_results_by_worker_job"] = self._safe_delete(
@@ -187,6 +202,11 @@ class GoalPurgeService:
             goal_id=goal_id_norm,
             deleted=deleted_counts,
             prompt_traces_deleted=prompt_traces_deleted,
+            task_cancel_summary={
+                "attempted": int(cancel_attempted),
+                "succeeded": int(cancel_ok),
+                "failed": int(cancel_failed),
+            },
         )
 
 
