@@ -117,6 +117,7 @@ class PlanningPromptRegistry:
                 "- Return only JSON, no markdown fences.\n"
                 "- Prefer 5 to 8 tasks for software goals.\n"
                 "- Include setup, implementation, execution, verification, and summary when relevant.\n"
+                "- The last two tasks should be testing and review if possible.\n"
                 "- Each task needs title, description, priority, depends_on.\n"
                 "- Preferred output format: {preferred_output_format}.\n"
             )

@@ -429,11 +429,14 @@ class PlanningService:
         generic_task_indices: list[int],
         preferred_output_format: str,
     ) -> str:
-        missing = ", ".join(missing_categories) if missing_categories else "none"
+        effective_missing = list(missing_categories or [])
+        if mode == "new_software_project" and not effective_missing:
+            effective_missing = ["analysis", "infrastructure", "implementation", "tests", "review"]
+        missing = ", ".join(effective_missing) if effective_missing else "none"
         generic = ", ".join(str(i) for i in generic_task_indices[:12]) if generic_task_indices else "none"
         missing_lines = "\n".join(
             f"- category={str(cat).strip().lower()}: mindestens 1 konkrete Aufgabe"
-            for cat in list(missing_categories or [])
+            for cat in effective_missing
             if str(cat).strip()
         )
         if not missing_lines:

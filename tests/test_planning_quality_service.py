@@ -54,3 +54,40 @@ def test_generic_mode_accepts_german_implementation_signals() -> None:
     )
     assert quality.ok is True
     assert quality.reason == "ok"
+
+
+def test_new_software_project_recognizes_verification_and_review_synonyms() -> None:
+    quality = get_planning_quality_service().evaluate(
+        subtasks=[
+            {
+                "title": "Analyse",
+                "description": "Requirements and API scope analysis for the project.",
+                "task_kind": "analysis",
+            },
+            {
+                "title": "Infra",
+                "description": "Set up workspace files and docker compose configuration.",
+                "task_kind": "ops",
+            },
+            {
+                "title": "Implement API",
+                "description": "Create the Fibonacci endpoint in app.py.",
+                "task_kind": "coding",
+            },
+            {
+                "title": "Verification",
+                "description": "Run pytest and validate the API behavior.",
+                "task_kind": "",
+            },
+            {
+                "title": "Handoff",
+                "description": "Document README, changelog, and final handoff notes.",
+                "task_kind": "",
+            },
+        ],
+        mode="new_software_project",
+        planning_policy={},
+        team_id=None,
+    )
+    assert quality.ok is True
+    assert quality.reason == "ok"
