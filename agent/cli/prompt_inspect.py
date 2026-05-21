@@ -50,6 +50,47 @@ def _format_ts(ts: float | None) -> str:
     return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _load_llm_log_entries(limit: int = 2000) -> list[dict[str, Any]]:
+    try:
+        from agent.utils import get_data_dir
+        log_path = os.path.join(get_data_dir(), "llm_log.jsonl")
+        if not os.path.exists(log_path):
+            return []
+        rows: list[dict[str, Any]] = []
+        with open(log_path, encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rows.append(json.loads(line))
+                except Exception:
+                    continue
+        if limit > 0:
+            rows = rows[-limit:]
+        return rows
+    except Exception:
+        return []
+
+
+def _latest_llm_response_by_request_id(limit: int = 2000) -> dict[str, dict[str, Any]]:
+    latest: dict[str, dict[str, Any]] = {}
+    for entry in _load_llm_log_entries(limit=limit):
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("event") or "") != "llm_call_end":
+            continue
+        request_id = str(entry.get("request_id") or "").strip()
+        if not request_id:
+            continue
+        current = latest.get(request_id)
+        current_ts = float((current or {}).get("timestamp") or 0.0)
+        entry_ts = float(entry.get("timestamp") or 0.0)
+        if current is None or entry_ts >= current_ts:
+            latest[request_id] = dict(entry)
+    return latest
+
+
 # ── llm-log tail ─────────────────────────────────────────────────────────────
 
 def cmd_llm_log_tail(args: argparse.Namespace) -> int:
@@ -480,6 +521,124 @@ def cmd_prompt_goal_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prompt_task_report(args: argparse.Namespace) -> int:
+    task_id = str(getattr(args, "task_id", "") or "").strip()
+    if not task_id:
+        print("Error: --task-id is required", file=sys.stderr)
+        return 2
+
+    try:
+        from agent.cli_goals import _request, _api_data
+    except Exception as exc:
+        print(f"Error: task report helper unavailable: {exc}", file=sys.stderr)
+        return 1
+
+    task_res = _request("GET", f"/tasks/{task_id}", timeout=30)
+    task_detail = {}
+    if task_res.status_code == 200:
+        task_detail = _api_data(task_res) or {}
+        if not isinstance(task_detail, dict):
+            task_detail = {}
+    else:
+        traces_probe = _get_trace_svc().find_by_task_id(task_id)
+        if task_res.status_code == 404 and not traces_probe:
+            print(f"Error: invalid task id or not found: {task_id}", file=sys.stderr)
+            return 1
+        if task_res.status_code not in (200, 404):
+            print(f"Warning: task detail request failed ({task_res.status_code}); continuing with traces only", file=sys.stderr)
+
+    svc = _get_trace_svc()
+    traces = list(svc.find_by_task_id(task_id))
+    if not traces:
+        trace_res = _request("GET", "/debug/llm-requests", params={"task_id": task_id, "limit": 200}, timeout=30)
+        trace_payload = _api_data(trace_res) if trace_res.status_code == 200 else {}
+        if isinstance(trace_payload, dict):
+            traces = []
+            for item in trace_payload.get("traces") or []:
+                if isinstance(item, dict) and str(item.get("task_id") or "").strip() == task_id:
+                    traces.append(item)
+
+    response_by_request_id = _latest_llm_response_by_request_id()
+    trace_rows: list[dict[str, Any]] = []
+    for trace in sorted(
+        traces,
+        key=lambda t: float(getattr(t, "created_at", t.get("created_at") if isinstance(t, dict) else 0.0) or 0.0),
+    ):
+        if hasattr(trace, "to_dict"):
+            trace_dict = trace.to_dict()
+        else:
+            trace_dict = dict(trace or {})
+        request_id = str(trace_dict.get("request_id") or "").strip()
+        response_entry = response_by_request_id.get(request_id) if request_id else {}
+        response_text = str((response_entry or {}).get("response") or "")
+        trace_rows.append(
+            {
+                "trace_id": str(trace_dict.get("trace_id") or "")[:16],
+                "request_id": request_id[:16],
+                "request_kind": str(trace_dict.get("request_kind") or ""),
+                "provider": str(trace_dict.get("provider") or ""),
+                "model": str(trace_dict.get("model") or ""),
+                "success": str(trace_dict.get("success")),
+                "created_at": _format_ts(trace_dict.get("created_at")),
+                "prompt_preview_redacted": str(trace_dict.get("final_prompt_redacted") or trace_dict.get("prompt_preview_redacted") or "")[:120].replace("\n", " "),
+                "response_preview": response_text[:160].replace("\n", " "),
+                "response_hash": str(trace_dict.get("response_hash_sha256") or ""),
+            }
+        )
+
+    instruction_layers = dict(task_detail.get("instruction_layers") or {}) if isinstance(task_detail, dict) else {}
+    task_row = {
+        "task_id": task_id,
+        "title": str(task_detail.get("title") or ""),
+        "status": str(task_detail.get("status") or ""),
+        "task_kind": str(task_detail.get("task_kind") or ""),
+        "assigned_agent_url": str(task_detail.get("assigned_agent_url") or ""),
+        "required_capabilities": list(task_detail.get("required_capabilities") or []),
+        "instruction_layers": {
+            "selected_profile": instruction_layers.get("selected_profile"),
+            "selected_overlay": instruction_layers.get("selected_overlay"),
+            "template_compatibility": instruction_layers.get("template_compatibility"),
+        },
+    }
+    result = {
+        "task": task_row,
+        "trace_count": len(trace_rows),
+        "traces": trace_rows,
+    }
+
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print(f"=== Task Report: {task_id} ===")
+    print(f"Title:         {task_row['title'] or '-'}")
+    print(f"Status:        {task_row['status'] or '-'}")
+    print(f"Task Kind:     {task_row['task_kind'] or '-'}")
+    print(f"Agent:         {task_row['assigned_agent_url'] or '-'}")
+    print(f"Traces:        {result['trace_count']}")
+    if task_row["required_capabilities"]:
+        print(f"Capabilities:  {', '.join(str(x) for x in task_row['required_capabilities'])}")
+    if task_row["instruction_layers"]:
+        print(f"Profile:       {task_row['instruction_layers'].get('selected_profile') or '-'}")
+        print(f"Overlay:       {task_row['instruction_layers'].get('selected_overlay') or '-'}")
+
+    if not trace_rows:
+        print("\n(no prompt traces found)")
+        return 0
+
+    print("\n--- Prompt Traces ---")
+    _print_table(
+        trace_rows,
+        ["created_at", "request_kind", "provider", "model", "success", "trace_id", "request_id", "response_hash"],
+    )
+    print("\n--- Prompt / Response Preview ---")
+    for row in trace_rows:
+        print(f"- {row['trace_id']} kind={row['request_kind'] or '-'} provider={row['provider'] or '-'} model={row['model'] or '-'}")
+        print(f"  prompt={row['prompt_preview_redacted'] or '-'}")
+        print(f"  response={row['response_preview'] or '-'}")
+    return 0
+
+
 def _last_trace_by_task_id(traces_grouped: dict[str, Any]) -> dict[str, dict[str, Any]]:
     last: dict[str, dict[str, Any]] = {}
     for kind, items in (traces_grouped or {}).items():
@@ -677,6 +836,9 @@ def build_prompt_subparser(subparsers) -> None:
     dr_p = prompt_sub.add_parser("delegation-report", help="Show compact task delegation/template view for a goal")
     dr_p.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
     dr_p.add_argument("--json", action="store_true", help="JSON output")
+    tr_p = prompt_sub.add_parser("task-report", help="Show compact prompt/response view for a task")
+    tr_p.add_argument("--task-id", dest="task_id", required=True, help="Task ID")
+    tr_p.add_argument("--json", action="store_true", help="JSON output")
 
 
 def build_llm_log_subparser(subparsers) -> None:
@@ -704,8 +866,10 @@ def run_prompt_command(args: argparse.Namespace) -> int:
         return cmd_prompt_goal_report(args)
     elif cmd == "delegation-report":
         return cmd_prompt_delegation_report(args)
+    elif cmd == "task-report":
+        return cmd_prompt_task_report(args)
     else:
-        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report} --help")
+        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report,task-report} --help")
         return 2
 
 
