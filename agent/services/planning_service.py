@@ -988,12 +988,17 @@ class PlanningService:
         if selective_repair_applied:
             selective_repair_codes.append(f"selective_repair_rounds:{selective_repair_applied}")
 
-        # Last-resort: if only missing_categories remain (plan otherwise good), do one
-        # ultra-targeted ask per missing category instead of failing the whole plan.
+        # Last-resort: targeted ask per missing category instead of failing the whole plan.
+        # Also triggers when too_few_tasks + missing_categories together: if adding one task
+        # per missing category would close both the count gap and the category gap, proceed.
+        _task_gap = max(0, quality.details.get("min_total", 0) - len(subtasks)) if not quality.ok else 0
         _only_missing_cats = (
             not quality.ok
             and quality.missing_categories
-            and not any(r.startswith("too_few_tasks:") for r in (quality.reason or "").split("|"))
+            and (
+                not any(r.startswith("too_few_tasks:") for r in (quality.reason or "").split("|"))
+                or len(quality.missing_categories) >= _task_gap
+            )
         )
         if _only_missing_cats:
             _TASK_KIND_FOR_CAT = {
