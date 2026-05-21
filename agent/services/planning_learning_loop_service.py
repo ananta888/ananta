@@ -510,6 +510,14 @@ class PlanningLearningLoopService:
                 lookback_runs=int(learning.get("lookback_runs") or 120),
                 prompt_version=active_prompt_version_id,
             )
+            if not groups and active_prompt_version_id:
+                # Fallback: version string vs UUID mismatch between profile and runs.
+                # For qualification, include all runs for this profile regardless of prompt version.
+                groups = self._find_profile_groups(
+                    profile_name=profile_name,
+                    lookback_runs=int(learning.get("lookback_runs") or 120),
+                    prompt_version=None,
+                )
             if not groups:
                 decision.details.append({"profile_name": profile_name, "reason": "no_recent_runs"})
                 continue
