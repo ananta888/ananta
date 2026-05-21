@@ -1118,16 +1118,25 @@ class PlanningService:
         telemetry_run.planning_profile = planning_profile or telemetry_run.planning_profile
         context = resolved["context"]
         template_used = resolved["template_used"]
+        # Count selective repair rounds toward repair_attempt_count so the learning loop
+        # sees the repair signal even when the LLM strategy itself reported 0 retries.
+        _selective_round_count = sum(
+            1 for c in selective_repair_codes if c.startswith("selective_repair_rounds:")
+        )
+        _last_resort_count = sum(
+            1 for c in selective_repair_codes if c.startswith("last_resort_ask:")
+        )
+        effective_repair_count = repair_attempt_count + _selective_round_count + _last_resort_count
         get_planning_telemetry_service().update_run(
             telemetry_run,
             mode_data_patch={"__output_shape__": output_shape, "__parser_trace__": parser_trace},
             raw_output=str(raw_response or ""),
             parse_mode=str(parse_mode or ""),
             parse_confidence=str(parse_confidence or "low"),
-            repair_needed=bool(repair_attempt_count),
+            repair_needed=bool(effective_repair_count),
             repair_success=bool(subtasks),
             repair_strategy_used=str(repair_strategy_used or ""),
-            repair_attempt_count=repair_attempt_count,
+            repair_attempt_count=effective_repair_count,
             parse_warnings=format_error_codes,
             status="resolved",
         )
