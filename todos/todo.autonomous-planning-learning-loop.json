@@ -1,0 +1,542 @@
+{
+  "schema_version": "todo.v2",
+  "id": "todo.autonomous-planning-learning-loop",
+  "title": "Autonome Optimierungs- und Nachschärfeschleife fuer Planning-Modelle und Prompts",
+  "summary": "Diese Todo beschreibt eine im Ananta-System selbst laufende Lern- und Optimierungsschleife, die Modellverhalten, Prompt-Qualitaet, Parsing-Erfolg und Planvalidierung auswertet, daraus kontrolliert Kandidaten erzeugt und nur bei messbarem Gewinn automatisch nachschärft. Ziel ist kein manuelles Nachjustieren durch den Assistenten, sondern eine hub-gesteuerte, evidenzbasierte und rollback-faehige Verbesserungsschleife fuer kleine lokale Modelle, LMStudio, OpenCode und spaeter weitere Provider.",
+  "created_from": [
+    "Analyse vorhandener PlanningPromptEvolverService- und PlanningMetricsService-Haken",
+    "Analyse von ModelResponseBehaviorAggregationService und PlanningPromptRegistry",
+    "Analyse der neuen Prompt-/Parser-Inspektionspfade und Planning-Trace-Metadaten",
+    "User requirement: Optimierung soll autonom im Ananta-System laufen und nicht ueber den Assistenten",
+    "Beobachtete Probleme mit Truncation, Prose-Outputs, Repair-Loops und modellabhängigem Output-Stil"
+  ],
+  "global_goals": [
+    "Ananta soll Prompt- und Modellverhalten aus echten Runs selbst messen, bewerten und verbessern koennen.",
+    "Nachschärfung soll erst nach ausreichender Evidenz und nur innerhalb einer kontrollierten Hub-Schleife erfolgen.",
+    "Modelle sollen nicht nur nach JSON-only beurteilt werden, sondern nach ihrem realen, bevorzugten Output-Stil, inklusive Markdown- oder eingebettetem JSON-Verhalten.",
+    "Jede Optimierung muss Canary, Regressionserkennung und Rollback haben.",
+    "Autonome Nachschärfung darf nie direkt auf Basis eines einzelnen Runs oder Fehlers blind aktiv werden.",
+    "Kontext, Daten und Metriken muessen innerhalb des Hub-Worker-Systems beobachtbar bleiben."
+  ],
+  "core_principles": [
+    {
+      "id": "AOL-PRINCIPLE-001",
+      "title": "Evidence before adaptation",
+      "description": "Eine Optimierung darf nur dann erzeugt oder aktiviert werden, wenn genug Run-Daten, Vergleichswerte und ein stabiler Fehler- oder Erfolgs-Trend vorliegen."
+    },
+    {
+      "id": "AOL-PRINCIPLE-002",
+      "title": "Format-adaptive validation",
+      "description": "Das System soll den vom Modell bevorzugten Output-Stil validieren und normalisieren koennen, statt alle Modelle in ein einziges starres Ausgabeformat zu pressen."
+    },
+    {
+      "id": "AOL-PRINCIPLE-003",
+      "title": "Hub-controlled automation",
+      "description": "Die Lern- und Nachschärfeschleife muss im Hub als eigene Steuerlogik laufen. Worker liefern Signale, der Hub entscheidet."
+    },
+    {
+      "id": "AOL-PRINCIPLE-004",
+      "title": "Safe canary and rollback",
+      "description": "Neue Prompt-Versionen, Profilanpassungen und Repair-Strategien duerfen nur gestaffelt ausgerollt werden und muessen automatisch rollback-faehig sein."
+    },
+    {
+      "id": "AOL-PRINCIPLE-005",
+      "title": "No blind self-modification",
+      "description": "Das System darf nicht ohne Gate direkt den Default-Prompt oder die Default-Profile umschreiben, wenn die neuen Werte noch nicht gegen bestehende Metriken validiert wurden."
+    }
+  ],
+  "affected_files_observed": [
+    "agent/services/planning_prompt_evolver_service.py",
+    "agent/services/planning_metrics_service.py",
+    "agent/services/model_response_behavior_aggregation_service.py",
+    "agent/services/planning_model_profile_service.py",
+    "agent/services/planning_prompt_registry.py",
+    "agent/services/planning_strategies.py",
+    "agent/services/planning_utils.py",
+    "agent/services/planning_review_queue_service.py",
+    "agent/services/planning_evaluation_service.py",
+    "agent/services/planning_telemetry_service.py",
+    "agent/routes/tasks/goals.py",
+    "agent/routes/tasks/auto_planner.py",
+    "agent/routes/tasks/autopilot_tick_engine.py",
+    "agent/config_defaults.py",
+    "tests/test_planning_prompt_evolver_service.py",
+    "tests/test_planning_metrics_service.py",
+    "tests/test_model_response_behavior_aggregation_service.py",
+    "tests/test_planning_prompt_registry.py",
+    "tests/test_planning_strategies.py",
+    "tests/test_auto_planner.py",
+    "tests/test_goal_planning_contract_integration.py",
+    "tests/test_planning_review_queue_service.py"
+  ],
+  "risk_register": [
+    {
+      "id": "AOL-RISK-001",
+      "title": "Overfitting auf einen einzelnen fehlerhaften Run",
+      "severity": "critical",
+      "description": "Ein einzelner schlechter Run kann ein Modell oder Prompt ungeeignet aussehen lassen, obwohl nur ein transienter Timeout, Truncation oder ein Kontextproblem vorlag.",
+      "mitigation": "Mindeststichprobe, Zeitfenster, Hysterese und Mehrheits-/Trendentscheidung verwenden."
+    },
+    {
+      "id": "AOL-RISK-002",
+      "title": "Autonome Optimierung verschlechtert die Stabilitaet",
+      "severity": "high",
+      "description": "Wenn die Lernschleife zu aggressiv ist, springt das System zwischen Prompt-Versionen oder Profilen hin und her.",
+      "mitigation": "Canary-Gates, Freeze-Perioden und automatische Regressionserkennung einbauen."
+    },
+    {
+      "id": "AOL-RISK-003",
+      "title": "Format-Vielfalt wird faelschlich als Fehler bewertet",
+      "severity": "high",
+      "description": "Markdown, eingebettetes JSON oder YAML-artige Antworten koennen fuer bestimmte Modelle natuerlich sein und duerfen nicht pauschal als Problem gelten, wenn der Parser sie robust normalisiert.",
+      "mitigation": "Output-Shape-Aggregation, parserbasiertes Success-Signal und modellfamilienbezogene Profile verwenden."
+    },
+    {
+      "id": "AOL-RISK-004",
+      "title": "Automatische Nachschärfung ohne Rollback",
+      "severity": "critical",
+      "description": "Wenn neue Prompt-Versionen sofort Default werden, kann eine schlechte Evolution alle folgenden Runs verschlechtern.",
+      "mitigation": "Kandidat, Canary, Analyse und Rollback als verpflichtende Schritte."
+    },
+    {
+      "id": "AOL-RISK-005",
+      "title": "Metriken sind zu grob oder unvollstaendig",
+      "severity": "medium",
+      "description": "Wenn nur Success/Failure betrachtet wird, geht die Ursache fuer Truncation, Prose, Markdown-Fence oder Repair-Läufe verloren.",
+      "mitigation": "Mehrdimensionale Metriken speichern: parse_mode, output_shape, repair_strategy, validation_result, task_count, truncation_flag."
+    }
+  ],
+  "tracks": [
+    {
+      "id": "AOL-TRACK-001",
+      "title": "Observability und Lerndaten fuers Modellverhalten",
+      "summary": "Zuerst muessen die Signale sauber genug sein, damit das System spaeter auf echten Mustern lernen kann. Dieser Track erweitert Metriken, Trace-Daten und Auswertungen um Output-Shape, Parse-Mode, Repair-Strategie, Modellfamilie und Stabilitaetsindikatoren.",
+      "priority": "P0",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "AOL-001",
+          "title": "Planning-Lerndaten vereinheitlichen",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Alle relevanten Planning- und Response-Signale werden in einem gemeinsamen Lern-Datensatz zusammengefasst.",
+          "files": [
+            "agent/services/planning_metrics_service.py",
+            "agent/services/model_response_behavior_aggregation_service.py",
+            "agent/services/planning_evaluation_service.py",
+            "agent/services/planning_telemetry_service.py"
+          ],
+          "description": "Ein einheitliches Learning-Event-Modell speichert model_provider, model_name, profile_name, prompt_version_id, parse_mode, output_shape, repair_strategy, repair_count, validation_success, materialization_success, task_count, truncation_flag und goal/mode.",
+          "implementation_notes": [
+            "Datenmodell muss aggregierbar sein, aber auch pro Run die Ursache sichtbar machen.",
+            "parse_mode und output_shape nicht nur als freie Texte, sondern als normalisierte Kategorien speichern.",
+            "truncation_flag aus Parser-Diagnostik oder Response-Analyse ableiten.",
+            "Materialization muss vom reinen Text-Erfolg getrennt werden."
+          ],
+          "acceptance_criteria": [
+            "Ein einzelner Planning-Run kann als Lerndatensatz mit allen obigen Feldern persistiert werden.",
+            "parse_mode und output_shape sind in Aggregationen separat filterbar.",
+            "repair_strategy und repair_count sind pro Run auswertbar.",
+            "truncation_flag ist in der Telemetrie sichtbar, ohne Rohdaten zu duplizieren.",
+            "Die bisherigen Metrikfunktionen bleiben abwaertskompatibel."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "AOL-002",
+          "title": "Output-Shape und Parser-Erfolg messen",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Das System soll erkennen, ob ein Modell natuerlich JSON, Markdown-Bullets, Markdown-Fences, eingebettetes JSON oder freie Prosa liefert.",
+          "files": [
+            "agent/services/planning_output_shape_classifier.py",
+            "agent/services/planning_utils.py",
+            "agent/services/planning_parser_chain.py",
+            "tests/test_planning_utils.py",
+            "tests/test_planning_output_shape_classifier.py"
+          ],
+          "description": "Erweitere die Output-Shape-Klassifikation und Parser-Diagnostik so, dass der bevorzugte Modellstil beobachtet und spaeter fuer Validierung und Repair genutzt werden kann.",
+          "implementation_notes": [
+            "Shapes mindestens: strict_json_array, strict_json_object, json_in_markdown_fence, markdown_bullets, numbered_steps, yaml_like, freeform_prose, partial_json.",
+            "Parser-Diagnose soll nicht nur parse_failed liefern, sondern Ursache und Shape kodieren.",
+            "Markdown-Fence- oder embedded-JSON-Erfolg soll nicht pauschal als Fehler gelten.",
+            "Parser-Chain soll den Output-Stil an die Strategie melden."
+          ],
+          "acceptance_criteria": [
+            "Das System unterscheidet JSON-Array, Markdown-Fence-JSON, Markdown-Bullets und freie Prosa.",
+            "Ein erfolgreich normalisiertes Markdown-Fence-JSON wird nicht als parse_failed klassifiziert.",
+            "Parser-Diagnostik liefert stabile format_error_codes und output_shape-Werte.",
+            "Truncated JSON wird als eigenes Muster erkannt und nicht mit freier Prosa verwechselt.",
+            "Alle Shape-Kategorien sind in Unit-Tests abgedeckt."
+          ],
+          "depends_on": [
+            "AOL-001"
+          ]
+        },
+        {
+          "id": "AOL-003",
+          "title": "Trend- und Stabilitaetsmetriken aufbauen",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Neben rohen Erfolgszahlen braucht das System Trends, damit es echte Stabilitaet von Ausreissern unterscheiden kann.",
+          "files": [
+            "agent/services/planning_metrics_service.py",
+            "agent/services/model_response_behavior_aggregation_service.py",
+            "agent/services/planning_evaluation_service.py",
+            "tests/test_planning_metrics_service.py",
+            "tests/test_model_response_behavior_aggregation_service.py"
+          ],
+          "description": "Erweitere die Metriken um Trendanalysen, stabile Fehlerbilder, Rolling-Windows und Modell-/Profil-Vergleiche.",
+          "implementation_notes": [
+            "Rolling windows pro model_provider/model_name/profile_name.",
+            "Stabilitaetsindikatoren fuer parse_success_rate, validation_success_rate und repair_rate.",
+            "Trendrichtung (improving, stable, degrading) pro Modellprofil speichern.",
+            "Wertemaße muessen auf kleinen Stichproben als unsicher markiert werden."
+          ],
+          "acceptance_criteria": [
+            "Die Metrik-Aggregation kann trend_direction pro Modellprofil ausgeben.",
+            "Sehr kleine Stichproben werden als unsicher markiert und nicht fuer automatische Evolution freigegeben.",
+            "parse_success_rate, repair_rate und validation_success_rate sind historisch auswertbar.",
+            "Daten fuer zwei verschiedene Modelle/Profile koennen direkt verglichen werden.",
+            "Auswertungen laufen offline ohne Providerzugriff."
+          ],
+          "depends_on": [
+            "AOL-001",
+            "AOL-002"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "AOL-TRACK-002",
+      "title": "Automatische Evolutions- und Trigger-Schleife",
+      "summary": "Auf Basis der Lerndaten entscheidet der Hub, ob ein Prompt oder ein Profil nachgeschaerft wird. Dieser Track kapselt Trigger, Schwellenwerte, Nachschärfekandidaten und die eigentliche Evolutionslogik.",
+      "priority": "P0",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "AOL-004",
+          "title": "Evolve-Trigger mit Schwellenwerten definieren",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Es muss klar geregelt sein, wann eine Auto-Evolution ueberhaupt in Betracht kommt.",
+          "files": [
+            "agent/services/planning_prompt_evolver_service.py",
+            "agent/config_defaults.py",
+            "agent/services/planning_evaluation_service.py"
+          ],
+          "description": "Implementiere Trigger-Regeln fuer Mindeststichprobe, Mindestlaufzeit, Mindestzahl an Fehlertypen, Regressionsschwellen und Freeze-Perioden.",
+          "implementation_notes": [
+            "Trigger nur bei ausreichender Evidenz: z.B. min_runs, min_failures, min_model_variance.",
+            "Freeze-Period nach jeder Evolution verhindern Ping-Pong-Verhalten.",
+            "Low-confidence Runs duerfen Trigger beeinflussen, aber nicht allein ausloesen.",
+            "Mode-/Profil-spezifische Schwellenwerte ermoeglichen."
+          ],
+          "acceptance_criteria": [
+            "Eine einzelne Fehlantwort loest keine Evolution aus.",
+            "Ohne Mindeststichprobe bleibt evolve=false mit begruendetem Reason-Code.",
+            "Freeze-Period verhindert sofortiges erneutes Evolvieren.",
+            "Schwellenwerte sind konfigurierbar und in Tests sichtbar.",
+            "Die Entscheidung ist rein datengetrieben und nachvollziehbar."
+          ],
+          "depends_on": [
+            "AOL-001",
+            "AOL-003"
+          ]
+        },
+        {
+          "id": "AOL-005",
+          "title": "Prompt-Evolver fuer Modellfamilien und Output-Stile",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Prompt-Evolution soll nicht nur generisch sein, sondern fuer Modellfamilien und Output-Stile separate Kandidaten erzeugen.",
+          "files": [
+            "agent/services/planning_prompt_evolver_service.py",
+            "agent/services/planning_prompt_registry.py",
+            "config/planning_prompts.default.json",
+            "tests/test_planning_prompt_evolver_service.py"
+          ],
+          "description": "Erzeuge evolve-fähige Kandidaten fuer Gemma, Qwen, Llama oder weitere Familien, wobei Prompts je nach beobachtetem Output-Shape angepasst werden koennen.",
+          "implementation_notes": [
+            "Model family detection nutzen, aber nicht blind auf Providernamen reduzieren.",
+            "Output-Shape als Evolutionssignal verwenden: z.B. markdown-freundlich oder json-freundlich.",
+            "Repair-Template und User-Prompt getrennt evolvieren.",
+            "Versionierte Kandidaten muessen im Registry-Store bleiben, bis sie aktiv werden."
+          ],
+          "acceptance_criteria": [
+            "Mindestens zwei Modellfamilien koennen getrennte Prompt-Kandidaten erhalten.",
+            "Der Evolver kann einen Prompt auf Basis von output_shape und parse_mode mutieren.",
+            "Neue Prompt-Versionen werden versioniert gespeichert und nicht direkt ueberschrieben.",
+            "Ein Kandidat bleibt inaktiv, bis ein Gate ihn freigibt.",
+            "Regressionstests verhindern, dass der Evolver blanke Prosa-Prompts erzeugt."
+          ],
+          "depends_on": [
+            "AOL-002",
+            "AOL-004"
+          ]
+        },
+        {
+          "id": "AOL-006",
+          "title": "Profil-Update nur nach Canary und Vergleich",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Eine neue Prompt-Version darf erst Default werden, wenn sie gegen den bisherigen Stand im Canary-Vergleich besser ist.",
+          "files": [
+            "agent/services/planning_prompt_evolver_service.py",
+            "agent/services/planning_model_profile_service.py",
+            "agent/services/planning_metrics_service.py",
+            "tests/test_planning_prompt_evolver_service.py",
+            "tests/test_planning_model_profile_service.py"
+          ],
+          "description": "Fuehre eine Canary- und Vergleichslogik ein, die einen Kandidaten nur dann auf preferred_prompt_version_id oder Profile-Default setzt, wenn er den aktuellen Stand signifikant schlaegt.",
+          "implementation_notes": [
+            "Vergleichsmetriken: parse_success_rate, validation_success_rate, repair_rate, truncation_rate, avg_generated_tasks.",
+            "Canary-Group kann pro Profil oder pro Modellfamilie definiert werden.",
+            "Bei Regression muss automatisch auf die letzte stabile Version zurueckgerollt werden.",
+            "Auswertung pro Zeitfenster und Mindestanzahl von Runs."
+          ],
+          "acceptance_criteria": [
+            "Ein Kandidat wird nur bei messbarem Gewinn aktiv gesetzt.",
+            "Bei Regression wird die letzte stabile Prompt-Version wiederhergestellt.",
+            "Canary- und Default-Gruppen sind getrennt auswertbar.",
+            "Alle Umschaltentscheidungen sind in Logs und Metriken nachvollziehbar.",
+            "Ohne Canary-Freigabe bleibt das Default-Profil unveraendert."
+          ],
+          "depends_on": [
+            "AOL-004",
+            "AOL-005"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "AOL-TRACK-003",
+      "title": "Sichere Rollouts, Freeze und Rollback",
+      "summary": "Automatische Nachschärfung braucht Schutzmechanismen gegen Instabilitaet. Dieser Track baut die Sicherheits- und Rückfallmechanik um die Evolutionsschleife.",
+      "priority": "P0",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "AOL-007",
+          "title": "Auto-Rollback bei Regression ausloesen",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Wenn die neue Version schlechter performt, soll das System automatisch auf die vorherige stabile Version zurueckschalten.",
+          "files": [
+            "agent/services/planning_prompt_evolver_service.py",
+            "agent/services/planning_metrics_service.py",
+            "agent/services/planning_review_queue_service.py",
+            "tests/test_planning_prompt_evolver_service.py"
+          ],
+          "description": "Rollbacks werden durch definierte Regression-Schwellen ausgelöst, nicht manuell. Der vorherige stabile Stand bleibt immer als Fallback verfügbar.",
+          "implementation_notes": [
+            "Regression kann durch sinkende parse_success_rate oder validation_success_rate definiert werden.",
+            "Rollback muss idempotent sein.",
+            "Rollback-Entscheidung und Ursache muessen gespeichert werden.",
+            "Aktive Kandidaten und Rollback-Kandidaten getrennt kennzeichnen."
+          ],
+          "acceptance_criteria": [
+            "Bei Regression innerhalb des Canary-Fensters wird automatisch zur letzten stabilen Version zurückgerollt.",
+            "Rollback erzeugt einen auditierbaren Event oder Logeintrag.",
+            "Bereits gerollbackte Versionen werden nicht sofort wieder aktiviert.",
+            "Rollback ist fuer mindestens zwei aufeinanderfolgende Fehlsignale testbar.",
+            "Keine manuelle Intervention ist zum Revert noetig."
+          ],
+          "depends_on": [
+            "AOL-006"
+          ]
+        },
+        {
+          "id": "AOL-008",
+          "title": "Freeze- und Hysterese-Regeln durchsetzen",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Nach jeder Evolution braucht das System Ruhe, damit es nicht zwischen Versionen hin- und herspringt.",
+          "files": [
+            "agent/services/planning_prompt_evolver_service.py",
+            "agent/config_defaults.py",
+            "tests/test_planning_prompt_evolver_service.py"
+          ],
+          "description": "Implementiere Freeze-Period, Mindestabstand zwischen Evolutionsversuchen und Hysterese-Regeln pro Modellprofil.",
+          "implementation_notes": [
+            "Freeze kann zeitbasiert oder run-basiert sein.",
+            "Waehrend Freeze sind weder neue Kandidaten noch Rollback-Ausnahmen erlaubt, ausser bei kritischen Sicherheitsregeln.",
+            "Hysterese schwächt Entscheidungen, wenn nur leichte Schwankungen vorliegen.",
+            "Freeze-Zustand muss im Diagnostics View sichtbar sein."
+          ],
+          "acceptance_criteria": [
+            "Direkt nach einer Evolution ist keine erneute Evolution moeglich.",
+            "Freeze-Zustand ist fuer das Modellprofil abfragbar.",
+            "Hysterese verhindert Wechsel bei minimalen Metrikschwankungen.",
+            "Tests decken zeit- und run-basierte Freeze-Szenarien ab.",
+            "Freeze beeinflusst keine bestehenden Produktionsrouten negativ."
+          ],
+          "depends_on": [
+            "AOL-004",
+            "AOL-005",
+            "AOL-006"
+          ]
+        },
+        {
+          "id": "AOL-009",
+          "title": "Diagnostics und CLI fuer Lernzustand",
+          "type": "feature",
+          "priority": "high",
+          "status": "todo",
+          "summary": "Der aktuelle Lernzustand muss fuer Menschen und Automatisierung sichtbar sein, ohne rohe Secrets preiszugeben.",
+          "files": [
+            "agent/routes/debug/diagnostics.py",
+            "agent/cli/main.py",
+            "agent/cli/prompt_inspect.py",
+            "tests/test_cli_prompt_inspect.py",
+            "tests/test_diagnostics_api.py"
+          ],
+          "description": "Erweitere Diagnostics und CLI um Metriken, aktuelle Prompt-Versionen, Kandidatenstatus, Freeze, Rollback-Zustand und Modellfamilien-Profile.",
+          "implementation_notes": [
+            "CLI kann Lernzustand pro Modellprofil und pro Prompt-Version anzeigen.",
+            "Diagnostics zeigt parse_mode, output_shape, repair_rate, canary_status und freeze_status.",
+            "Raw-Prompts oder Secrets bleiben redacted.",
+            "Soll sowohl auf Goal-Ebene als auch auf Profil-Ebene abfragbar sein."
+          ],
+          "acceptance_criteria": [
+            "Ein Admin kann den aktuellen Lernzustand pro Modellprofil abfragen.",
+            "Diagnostics zeigt aktive, Kandidaten- und rollback-faehige Prompt-Versionen.",
+            "Keine API-Keys oder Authorization-Header erscheinen in der Ausgabe.",
+            "CLI und API liefern konsistente Lernmetadaten.",
+            "Tests pruefen mindestens einen positiven und einen redacted Fall."
+          ],
+          "depends_on": [
+            "AOL-001",
+            "AOL-003",
+            "AOL-007",
+            "AOL-008"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "AOL-TRACK-004",
+      "title": "Autonome Hub-Steuerung und Schutz vor Fehloptimierung",
+      "summary": "Die Lernschleife soll im Hub als Hintergrundprozess eingebunden werden, aber mit klaren Grenzen. Dieser Track sorgt dafuer, dass automatische Optimierung nicht in Endlosschleifen, falsche Selbstverbesserung oder unkontrollierte Default-Änderungen endet.",
+      "priority": "P0",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "AOL-010",
+          "title": "Hub-Hintergrundjob fuer Lernschleife einbauen",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Die Auswertung und Optimierung soll regelmaessig im Hub laufen, ohne manuelle Ausloesung.",
+          "files": [
+            "agent/services/background/planning_learning_loop.py",
+            "agent/routes/tasks/goals.py",
+            "agent/routes/tasks/autopilot_tick_engine.py"
+          ],
+          "description": "Ein Hub-seitiger Background Job sammelt Metriken, prueft Trigger, erzeugt Kandidaten, startet Canary-Tests und schreibt Ergebnisse in den Audit- und Event-Store.",
+          "implementation_notes": [
+            "Job muss konfigurierbar periodisch laufen.",
+            "Job darf nie Worker-Orchestrierung aus dem Hub heraus verletzen.",
+            "Keine direkte Prompt-Änderung ohne Gates.",
+            "Fehler im Job duerfen die Hub-Runtime nicht blockieren."
+          ],
+          "acceptance_criteria": [
+            "Die Lernschleife kann periodisch im Hub gestartet werden.",
+            "Der Job liest Metriken, startet aber keine direkte Default-Änderung ohne Gate.",
+            "Fehler des Jobs bleiben isoliert und blockieren keine Goals.",
+            "Der Job ist per Config abschaltbar.",
+            "Testbare Hooks fuer Fake-Metriken und Fake-Repo vorhanden."
+          ],
+          "depends_on": [
+            "AOL-001",
+            "AOL-003",
+            "AOL-006",
+            "AOL-007"
+          ]
+        },
+        {
+          "id": "AOL-011",
+          "title": "No-blind-default-change Guard",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Der Hub darf neue Versionen erst nach stabiler Evidenz als Default aktivieren.",
+          "files": [
+            "agent/services/planning_prompt_evolver_service.py",
+            "agent/services/planning_model_profile_service.py",
+            "agent/services/planning_review_queue_service.py",
+            "tests/test_planning_prompt_evolver_service.py"
+          ],
+          "description": "Baue einen Guard ein, der verhindert, dass Kandidaten ohne ausreichende Metrikbestätigung automatisch auf preferred_prompt_version_id oder Profil-Default gesetzt werden.",
+          "implementation_notes": [
+            "Guard prueft Mindeststichprobe, Trendrichtung, Regression und Freeze.",
+            "Ohne Erfolg darf nur ein Kandidat erstellt, aber nicht aktiviert werden.",
+            "Guard muss in Review- oder Approval-Queue sichtbar sein.",
+            "Automatische Aktivierung nur bei klarer Ueberlegenheit."
+          ],
+          "acceptance_criteria": [
+            "Neue Kandidaten bleiben Kandidaten, solange Gate nicht gruen ist.",
+            "Default-Version aendert sich nie aufgrund eines einzelnen Fehlruns.",
+            "Eine Aktivierung ohne Mindestdaten ist technisch blockiert.",
+            "Guard-Zustand ist in Diagnostics sichtbar.",
+            "Tests decken Ablehnung und Freigabe ab."
+          ],
+          "depends_on": [
+            "AOL-004",
+            "AOL-005",
+            "AOL-006",
+            "AOL-008"
+          ]
+        },
+        {
+          "id": "AOL-012",
+          "title": "End-to-End Lernschleifen-Tests",
+          "type": "test",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Die komplette Lernschleife braucht Tests von Datenerfassung ueber Candidate-Erzeugung bis Rollback.",
+          "files": [
+            "tests/e2e/test_planning_learning_loop.py",
+            "tests/test_planning_prompt_evolver_service.py",
+            "tests/test_planning_metrics_service.py",
+            "tests/test_model_response_behavior_aggregation_service.py"
+          ],
+          "description": "E2E- und Integrationstests simulieren mehrere Runs mit unterschiedlichen Output-Shapes, prüfen Trigger, Canary, Regression und Rollback und stellen sicher, dass keine Secrets oder Raw-Prompts ungewollt auslaufen.",
+          "implementation_notes": [
+            "Mindestens ein Test muss einen kleinen lokalen Modellcluster simulieren.",
+            "Mindestens ein Test muss markdown-freundlichen Output, ein anderer truncierten JSON-Output verwenden.",
+            "Mindestens ein Test muss beweisen, dass ein einzelner Fehlrun keine Evolution ausloest.",
+            "Mindestens ein Test muss zeigen, dass nach Regression auf den letzten stabilen Stand zurueckgerollt wird."
+          ],
+          "acceptance_criteria": [
+            "Die komplette Lernschleife ist offline testbar.",
+            "Ein Test deckt Trigger -> Candidate -> Canary -> Activation ab.",
+            "Ein Test deckt Regression -> Rollback ab.",
+            "Ein Test deckt Freeze-Period und No-blind-default-change ab.",
+            "Tests pruefen, dass redaction und Secret-Schutz erhalten bleiben."
+          ],
+          "depends_on": [
+            "AOL-001",
+            "AOL-002",
+            "AOL-003",
+            "AOL-004",
+            "AOL-005",
+            "AOL-006",
+            "AOL-007",
+            "AOL-008",
+            "AOL-010",
+            "AOL-011"
+          ]
+        }
+      ]
+    }
+  ]
+}
