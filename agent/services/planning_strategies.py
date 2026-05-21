@@ -230,6 +230,33 @@ class LLMPlanningStrategy:
         return compact
 
     @staticmethod
+    def _compact_repair_output(previous_output: str, *, limit: int) -> str:
+        text = str(previous_output or "").strip()
+        if len(text) <= limit:
+            return text
+        head = max(200, limit // 2)
+        tail = max(120, limit - head - 40)
+        return f"{text[:head]}\n...[truncated]...\n{text[-tail:]}"
+
+    @staticmethod
+    def _looks_truncated_response(raw_response: str, parse_diag: dict[str, Any] | None = None) -> bool:
+        diag = dict(parse_diag or {})
+        warnings = {str(item or "").strip().lower() for item in list(diag.get("warnings") or [])}
+        if {"truncated_json_recovered", "truncated_json_key_value_recovered"} & warnings:
+            return True
+        text = str(raw_response or "").strip()
+        if not text:
+            return False
+        if len(text) > 24 and text[-1] in {",", ":", "\\", "'", '"', "[", "{"}:
+            return True
+        if text.count("{") > text.count("}") or text.count("[") > text.count("]"):
+            return True
+        format_error_codes = {str(item or "").strip().lower() for item in list(diag.get("format_error_codes") or [])}
+        if {"unterminated_string", "unexpected_eof", "truncated"} & format_error_codes:
+            return True
+        return False
+
+    @staticmethod
     def _split_context_into_segments(context: str | None, *, segment_chars: int, max_segments: int) -> list[str]:
         text = str(context or "").strip()
         if not text:
@@ -356,13 +383,13 @@ class LLMPlanningStrategy:
             "4. Jede description muss einen konkreten Output nennen (Dateipfad, Endpoint, Command oder Artifact).\n"
             "5. priority nur: High, Medium, Low.\n"
             "6. depends_on als Liste von Schrittnummern als Strings (z.B. [\"1\"]).\n"
-            "7. Keine Erklaerungen, keine Markdown-Fences.\n\n"
+            "7. Keine Erklaerungen, keine Markdown-Fences, kein Chain-of-thought.\n\n"
             "AUSGABEFORMAT (nur JSON-Array):\n"
             "[\n"
             '  {"title":"...","description":"...","priority":"High|Medium|Low","depends_on":[]}\n'
             "]\n\n"
             "VORHERIGER FEHLERHAFTER OUTPUT:\n"
-            f"{(previous_output or '').strip()[:3000]}"
+            f"{LLMPlanningStrategy._compact_repair_output(previous_output, limit=1400)}"
         )
         if context:
             prompt = f"{prompt}\n\nKONTEXT:\n{context}"
@@ -383,7 +410,7 @@ class LLMPlanningStrategy:
             f"ZIEL:\n{goal}\n\n"
         )
         if mode_data:
-            prompt = f"{prompt}STEUERUNGSDATEN:\n{json.dumps(mode_data, indent=2)}\n\n"
+            prompt = f"{prompt}STEUERUNGSDATEN:\n{json.dumps(LLMPlanningStrategy._compact_mode_data_for_prompt(mode_data, max_chars=1200), ensure_ascii=False, indent=2)}\n\n"
         prompt = (
             f"{prompt}"
             "MUSS-KRITERIEN:\n"
@@ -395,13 +422,45 @@ class LLMPlanningStrategy:
             "6. Jede Teilaufgabe muss title, description, priority enthalten.\n"
             "7. priority nur: High, Medium, Low.\n"
             "8. depends_on als Liste von Schrittnummern als Strings (z.B. [\"1\"]).\n"
-            "9. Keine Erklaerungen, keine Markdown-Fences.\n\n"
+            "9. Keine Erklaerungen, keine Markdown-Fences, kein Chain-of-thought.\n\n"
             "AUSGABEFORMAT (nur JSON-Array):\n"
             "[\n"
             '  {"title":"...","description":"...","priority":"High|Medium|Low","depends_on":[]}\n'
             "]\n\n"
             "VORHERIGER OUTPUT:\n"
-            f"{(previous_output or '').strip()[:3000]}"
+            f"{LLMPlanningStrategy._compact_repair_output(previous_output, limit=1200)}"
+        )
+        if context:
+            prompt = f"{prompt}\n\nKONTEXT:\n{context}"
+        return prompt
+
+    @staticmethod
+    def _build_new_project_truncation_repair_prompt(
+        *,
+        goal: str,
+        context: str | None,
+        max_subtasks: int,
+        previous_output: str,
+        mode_data: Optional[dict] = None,
+    ) -> str:
+        prompt = (
+            "Der vorherige Plan fuer new_software_project wurde abgeschnitten.\n"
+            "Gib jetzt eine komplette, kurze und strikt gueltige JSON-Array-Version aus.\n\n"
+            f"ZIEL:\n{goal}\n\n"
+        )
+        if mode_data:
+            compact_mode_data = LLMPlanningStrategy._compact_mode_data_for_prompt(mode_data, max_chars=800)
+            prompt = f"{prompt}STEUERUNGSDATEN:\n{json.dumps(compact_mode_data, ensure_ascii=False, indent=2)}\n\n"
+        prompt = (
+            f"{prompt}"
+            "ANWEISUNG:\n"
+            f"- Liefere mindestens 5 und hoechstens {max_subtasks} Teilaufgaben.\n"
+            "- Repariere nur den fehlenden oder abgeschnittenen Teil, aber gib am Ende ein vollstaendiges JSON-Array aus.\n"
+            "- Kein Denken, keine Erklaerung, keine Markdown-Fences, keine Rueckfragen.\n"
+            "- Nutze konkrete Tasks fuer setup, implementation, execution, verification und summary.\n\n"
+            "VORHERIGER TEIL-OUTPUT:\n"
+            f"{LLMPlanningStrategy._compact_repair_output(previous_output, limit=800)}\n\n"
+            "AUSGABEFORMAT: Nur ein JSON-Array."
         )
         if context:
             prompt = f"{prompt}\n\nKONTEXT:\n{context}"
@@ -478,7 +537,10 @@ class LLMPlanningStrategy:
                 resolved_context = resolved_context[:limit]
 
         if mode != "generic" and mode_data:
-            compact_mode_data = self._compact_mode_data_for_prompt(mode_data, max_chars=4000)
+            compact_mode_data = self._compact_mode_data_for_prompt(
+                mode_data,
+                max_chars=1600 if mode == "new_software_project" else 4000,
+            )
             mode_label = f"Mode: {mode}" if planning_policy.get("prompt_language", "de") == "en" else f"Modus: {mode}"
             mode_context = (
                 f"{(resolved_context or '').strip()}\n\n"
@@ -527,6 +589,7 @@ class LLMPlanningStrategy:
             preferred_output_format=preferred_output_format,
             domain_hints=domain_hints,
             behavior_profile=behavior_profile,
+            model_prompt_suffix=profile.get("prompt_suffix"),
         )
         prompt = str(resolved_prompt.prompt or "")
         if not prompt:
@@ -622,6 +685,7 @@ class LLMPlanningStrategy:
             output_shape = ""
             format_error_codes = []
             parser_trace = []
+        is_truncated_response = self._looks_truncated_response(raw_response, parse_diag if callable(parse_subtasks_with_diagnostics) else None)
         fast_fail_empty = bool(planning_policy.get("fast_fail_on_empty_response", mode == "new_software_project"))
         if not subtasks and not (fast_fail_empty and not str(raw_response or "").strip()):
             for idx, strategy in enumerate(repair_strategies):
@@ -695,16 +759,27 @@ class LLMPlanningStrategy:
                         break
                     if str(repaired_response or "").strip():
                         raw_response = repaired_response
+                if not subtasks:
+                    is_truncated_response = self._looks_truncated_response(raw_response, parse_diag if callable(parse_subtasks_with_diagnostics) else None)
         if mode == "new_software_project" and not subtasks:
-            # Last LLM-only repair attempt with stricter execution-focused framing.
-            repair_prompt = self._build_new_project_execution_repair_prompt(
-                goal=goal,
-                context=resolved_context,
-                max_subtasks=planner.max_subtasks_per_goal,
-                previous_output=raw_response,
-                mode_data=mode_data,
+            repair_prompt = (
+                self._build_new_project_truncation_repair_prompt(
+                    goal=goal,
+                    context=resolved_context,
+                    max_subtasks=planner.max_subtasks_per_goal,
+                    previous_output=raw_response,
+                    mode_data=mode_data,
+                )
+                if is_truncated_response
+                else self._build_new_project_execution_repair_prompt(
+                    goal=goal,
+                    context=resolved_context,
+                    max_subtasks=planner.max_subtasks_per_goal,
+                    previous_output=raw_response,
+                    mode_data=mode_data,
+                )
             )
-            repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config, temperature=0.1)
+            repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config, temperature=0.05 if is_truncated_response else 0.1)
             repaired_subtasks = parse_subtasks_from_llm_response(
                 repaired_response,
                 default_priority=planner.default_priority,

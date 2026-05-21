@@ -96,8 +96,10 @@ class _LLMPlannerStub:
 
     def __post_init__(self) -> None:
         self.calls = 0
+        self.prompts: list[str] = []
 
-    def _call_llm_with_retry(self, prompt: str, llm_config: dict) -> str:  # noqa: ARG002
+    def _call_llm_with_retry(self, prompt: str, llm_config: dict, *, temperature=None) -> str:  # noqa: ARG002
+        self.prompts.append(prompt)
         idx = min(self.calls, len(self.responses) - 1)
         self.calls += 1
         return self.responses[idx]
@@ -114,8 +116,22 @@ def test_llm_planning_strategy_repair_for_new_project_enforces_execution_coverag
                 {"title": "Blueprint", "description": "Architektur skizzieren", "priority": "High"},
             ]
         return [
-            {"title": "Projektdateien erstellen", "description": "README und src/tests anlegen", "priority": "High"},
-            {"title": "Tests ausführen", "description": "pytest run und Ergebnis dokumentieren", "priority": "High"},
+            {
+                "title": "Projektdateien erstellen",
+                "description": "README und src/tests anlegen in src/app.py und tests/test_app.py",
+                "priority": "High",
+                "task_kind": "coding",
+                "expected_artifacts": [{"kind": "workspace_change", "required": True}],
+                "verification_spec": {"tests": True},
+            },
+            {
+                "title": "Tests ausführen",
+                "description": "pytest run und Ergebnis dokumentieren",
+                "priority": "High",
+                "task_kind": "testing",
+                "expected_artifacts": [{"kind": "test_report", "required": True}],
+                "verification_spec": {"tests": True},
+            },
         ]
 
     monkeypatch.setattr("agent.services.planning_strategies.parse_subtasks_from_llm_response", _parse)
@@ -142,8 +158,22 @@ def test_llm_planning_strategy_new_project_third_attempt_when_empty(app, monkeyp
         if raw in {"first", "repair"}:
             return []
         return [
-            {"title": "Projektdateien erstellen", "description": "README und src/tests anlegen", "priority": "High"},
-            {"title": "Tests ausführen", "description": "pytest run und Ergebnis dokumentieren", "priority": "High"},
+            {
+                "title": "Projektdateien erstellen",
+                "description": "README und src/tests anlegen in src/app.py und tests/test_app.py",
+                "priority": "High",
+                "task_kind": "coding",
+                "expected_artifacts": [{"kind": "workspace_change", "required": True}],
+                "verification_spec": {"tests": True},
+            },
+            {
+                "title": "Tests ausführen",
+                "description": "pytest run und Ergebnis dokumentieren",
+                "priority": "High",
+                "task_kind": "testing",
+                "expected_artifacts": [{"kind": "test_report", "required": True}],
+                "verification_spec": {"tests": True},
+            },
         ]
 
     monkeypatch.setattr("agent.services.planning_strategies.parse_subtasks_from_llm_response", _parse)
@@ -158,3 +188,146 @@ def test_llm_planning_strategy_new_project_third_attempt_when_empty(app, monkeyp
     assert result is not None
     assert planner.calls == 3
     assert len(result.subtasks) >= 2
+
+
+def test_llm_planning_strategy_new_project_prompt_forces_json_only(app, monkeypatch) -> None:
+    strategy = LLMPlanningStrategy(use_repo_context=False)
+    planner = _LLMPlannerStub(
+        responses=[
+            '[{"title":"Task 1","description":"Desc","priority":"High","depends_on":[]}]',
+        ]
+    )
+
+    def _parse(raw: str, default_priority: str = "Medium"):  # noqa: ARG001
+        return (
+            [
+                {
+                    "title": "Implement API endpoint",
+                    "description": "implement file src/app.py endpoint for fibonacci",
+                    "priority": "High",
+                    "depends_on": [],
+                    "task_kind": "coding",
+                    "expected_artifacts": [{"kind": "workspace_change", "required": True}],
+                    "verification_spec": {"tests": True},
+                }
+            ],
+            {
+                "parse_mode": "strict_json",
+                "confidence": "high",
+                "warnings": [],
+                "output_shape": "json_array",
+                "detected_shapes": ["json_array"],
+                "format_error_codes": [],
+                "parser_trace": [],
+            },
+        )
+
+    monkeypatch.setattr("agent.services.planning_strategies.parse_subtasks_with_diagnostics", _parse)
+    with app.app_context():
+        result = strategy.execute(
+            planner,
+            goal="Build a new software project",
+            context=None,
+            mode="new_software_project",
+            mode_data={"project_idea": "demo"},
+        )
+
+    assert result is not None
+    assert planner.calls == 1
+    prompt = planner.prompts[0]
+    assert "Kein Denken" in prompt
+    assert "Chain-of-thought" in prompt
+    assert "Beginne sofort mit '['" in prompt
+
+
+def test_new_project_execution_repair_prompt_compacts_previous_output() -> None:
+    strategy = LLMPlanningStrategy(use_repo_context=False)
+    long_previous = '{"title":"' + ("x" * 3000) + '"}'
+    prompt = strategy._build_new_project_execution_repair_prompt(
+        goal="Build a new software project",
+        context="ctx",
+        max_subtasks=8,
+        previous_output=long_previous,
+        mode_data={"huge": "y" * 5000},
+    )
+
+    assert "[truncated]" in prompt
+    assert "Chain-of-thought" in prompt
+    assert len(prompt) < 6000
+
+
+def test_llm_planning_strategy_uses_truncation_repair_prompt(app, monkeypatch) -> None:
+    strategy = LLMPlanningStrategy(use_repo_context=False)
+    planner = _LLMPlannerStub(
+        responses=[
+            "plain analysis text",
+            '{"title":"Task 1","description":"Desc","priority":"High",',
+            '[{"title":"Task 1","description":"Desc","priority":"High","depends_on":[]}]',
+        ]
+    )
+
+    def _parse(raw: str, default_priority: str = "Medium"):  # noqa: ARG001
+        if raw == "plain analysis text":
+            return [], {
+                "parse_mode": "parse_failed",
+                "confidence": "low",
+                "warnings": [],
+                "output_shape": "",
+                "detected_shapes": [],
+                "format_error_codes": [],
+                "parser_trace": [],
+            }
+        if raw.startswith('{"title":"Task 1"'):
+            return [], {
+                "parse_mode": "parse_failed",
+                "confidence": "low",
+                "warnings": ["truncated_json_recovered"],
+                "output_shape": "json_object",
+                "detected_shapes": ["json_object"],
+                "format_error_codes": ["unterminated_string"],
+                "parser_trace": [],
+            }
+        return (
+            [
+                {
+                    "title": "Implement API endpoint",
+                    "description": "implement file src/app.py endpoint for fibonacci",
+                    "priority": "High",
+                    "depends_on": [],
+                    "task_kind": "coding",
+                    "expected_artifacts": [{"kind": "workspace_change", "required": True}],
+                    "verification_spec": {"tests": True},
+                }
+            ],
+            {
+                "parse_mode": "strict_json",
+                "confidence": "high",
+                "warnings": [],
+                "output_shape": "json_array",
+                "detected_shapes": ["json_array"],
+                "format_error_codes": [],
+                "parser_trace": [],
+            },
+        )
+
+    monkeypatch.setattr("agent.services.planning_strategies.parse_subtasks_with_diagnostics", _parse)
+
+    class _DisabledHub:
+        def resolve_copilot_config(self):
+            return {"enabled": False, "supports_planning": False, "active": False}
+
+    monkeypatch.setattr("agent.services.planning_strategies.get_hub_llm_service", lambda: _DisabledHub())
+
+    with app.app_context():
+        result = strategy.execute(
+            planner,
+            goal="Build a new software project",
+            context=None,
+            mode="new_software_project",
+            mode_data={"project_idea": "demo"},
+        )
+
+    assert result is not None
+    assert planner.calls == 3
+    assert any("abgeschnitten" in prompt.lower() for prompt in planner.prompts[1:])
+    assert any("vollstaendiges json-array" in prompt.lower() for prompt in planner.prompts[1:])

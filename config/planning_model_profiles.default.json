@@ -13,7 +13,10 @@
       "preferred_prompt_version_id": "v4-new-software-project-en",
       "output_contract_strictness": "repair_required",
       "requires_english_prompt": true,
-      "notes": "preferred_output_format=json",
+      "notes": {
+        "preferred_output_format": "json",
+        "prompt_suffix": "For small local models: keep the output extremely short, use only concrete tasks, avoid prose, avoid reasoning, avoid markdown fences, and prefer 5 to 8 tasks only."
+      },
       "enabled": true
     },
     {
@@ -29,7 +32,10 @@
       "preferred_prompt_version_id": "v4-new-software-project-en",
       "output_contract_strictness": "repair_required",
       "requires_english_prompt": true,
-      "notes": "preferred_output_format=json",
+      "notes": {
+        "preferred_output_format": "json",
+        "prompt_suffix": "For small local models: keep the output extremely short, use only concrete tasks, avoid prose, avoid reasoning, avoid markdown fences, and prefer 5 to 8 tasks only."
+      },
       "enabled": true
     },
     {

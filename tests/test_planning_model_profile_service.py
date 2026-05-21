@@ -60,3 +60,20 @@ def test_provider_default_profile_fallback(monkeypatch):
     service = svc.PlanningModelProfileService()
     resolved = service.resolve_profile(provider="ollama", model_name="unknown:model")
     assert resolved["profile_name"] == "medium_local"
+
+
+def test_prompt_suffix_is_extracted_from_notes(monkeypatch):
+    items = [
+        _profile(
+            id="1",
+            provider="lmstudio",
+            model_name_pattern="*gemma*",
+            profile_name="small_local",
+            notes={"preferred_output_format": "json", "prompt_suffix": "Use short JSON only."},
+        )
+    ]
+    monkeypatch.setattr(svc, "get_repository_registry", lambda: _Registry(items))
+    service = svc.PlanningModelProfileService()
+    resolved = service.resolve_profile(provider="lmstudio", model_name="google/gemma-4-e4b")
+    assert resolved["preferred_output_format"] == "json"
+    assert resolved["prompt_suffix"] == "Use short JSON only."

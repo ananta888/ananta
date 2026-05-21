@@ -70,6 +70,7 @@ class PlanningPromptRegistry:
         preferred_output_format: str | None = None,
         domain_hints: list[str] | None = None,
         behavior_profile: dict[str, Any] | None = None,
+        model_prompt_suffix: str | None = None,
     ) -> ResolvedPlanningPrompt:
         self.ensure_default_versions()
         candidates = get_repository_registry().planning_prompt_version_repo.get_enabled()
@@ -148,6 +149,9 @@ class PlanningPromptRegistry:
             preferred_output_format=(str(preferred_output_format or "").strip().lower() or "json"),
             domain_hints_block=hints_block,
         )
+        prompt_suffix = str(model_prompt_suffix or "").strip()
+        if prompt_suffix:
+            rendered = f"{rendered}\n\n{prompt_suffix}"
         opt_steps: list[dict] = []
         try:
             from agent.services.planning_prompt_optimizer_service import get_planning_prompt_optimizer_service

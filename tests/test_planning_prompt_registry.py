@@ -33,6 +33,7 @@ def _version(**kwargs):
         "repair_prompt_template": "repair {goal}",
         "checksum": "abc",
         "enabled": True,
+        "prompt_suffix": None,
     }
     base.update(kwargs)
     return SimpleNamespace(**base)
@@ -52,3 +53,18 @@ def test_new_project_prompt_contains_structured_contract(monkeypatch):
     registry = reg.PlanningPromptRegistry()
     resolved = registry.resolve(goal="Build API", context="ctx", mode="new_software_project", language="en", model_family=None)
     assert "artifacts" in resolved.prompt.lower() or "verification" in resolved.prompt.lower()
+
+
+def test_prompt_suffix_is_appended_for_profile(monkeypatch):
+    items = [_version(prompt_suffix="Use short JSON only.")]
+    monkeypatch.setattr(reg, "get_repository_registry", lambda: _Registry(items))
+    registry = reg.PlanningPromptRegistry()
+    resolved = registry.resolve(
+        goal="Build API",
+        context="ctx",
+        mode="new_software_project",
+        language="en",
+        model_family=None,
+        model_prompt_suffix="Use short JSON only.",
+    )
+    assert "Use short JSON only." in resolved.prompt
