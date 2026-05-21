@@ -504,6 +504,7 @@ class TestPromptLearningReport:
                     "policy": {"lookback_runs": 24, "freeze_minutes": 60},
                     "candidate_count": 2,
                     "review_item_count": 1,
+                    "overview": {"state_counts": {"stable": 1, "candidate": 1}},
                     "profiles": [
                         {
                             "profile_name": "lmstudio_laptop",
@@ -511,6 +512,7 @@ class TestPromptLearningReport:
                             "provider": "lmstudio",
                             "model_family": "gemma",
                             "model_name_pattern": "gemma-4e4b",
+                            "learning_state": {"state": "candidate", "observed_output_format": "json_in_markdown_fence"},
                             "active_prompt_version_id": "v2",
                             "current_quality_score": 0.25,
                             "trend_direction": "degrading",
@@ -542,6 +544,7 @@ class TestPromptLearningReport:
         assert parsed["enabled"] is True
         assert parsed["candidate_count"] == 2
         assert parsed["profiles"][0]["profile_name"] == "lmstudio_laptop"
+        assert parsed["profiles"][0]["learning_state"]["state"] == "candidate"
 
     def test_learning_report_missing_optional_fields(self):
         import argparse
@@ -561,6 +564,7 @@ class TestPromptLearningReport:
                     "policy": {},
                     "candidate_count": 0,
                     "review_item_count": 0,
+                    "overview": {},
                     "profiles": [{}],
                 }
             }

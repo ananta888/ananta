@@ -116,6 +116,7 @@ class PlanningLearningLoopService:
     def _activation_guard(self, *, learning: dict[str, Any], current_candidate, current_group: dict[str, Any]) -> dict[str, Any]:
         freeze_minutes = int(learning.get("freeze_minutes") or 120)
         threshold = float(learning.get("candidate_activation_threshold") or 0.75)
+        rollback_min_runs = int(learning.get("rollback_min_runs") or max(3, int(learning.get("canary_window_runs") or 10)))
         payload = dict((getattr(current_candidate, "candidate_payload", {}) or {}))
         candidate_age_seconds = None
         if current_candidate is not None:
@@ -145,6 +146,7 @@ class PlanningLearningLoopService:
             "reason_codes": reason_codes,
             "freeze_active": freeze_active,
             "freeze_minutes": freeze_minutes,
+            "rollback_min_runs": rollback_min_runs,
             "candidate_age_seconds": candidate_age_seconds,
             "quality_score": quality,
         }
@@ -218,6 +220,12 @@ class PlanningLearningLoopService:
                         "enabled": bool(learning.get("enabled", False)),
                         "active": bool(activation_guard.get("freeze_active")),
                         "freeze_minutes": int(activation_guard.get("freeze_minutes") or 120),
+                    },
+                    "activation_policy": {
+                        "candidate_activation_threshold": float(learning.get("candidate_activation_threshold") or 0.75),
+                        "rollback_threshold": float(learning.get("rollback_threshold") or 0.55),
+                        "canary_window_runs": int(learning.get("canary_window_runs") or 10),
+                        "rollback_min_runs": int(activation_guard.get("rollback_min_runs") or 3),
                     },
                     "guard": activation_guard,
                     "metrics": current_group,
@@ -380,6 +388,14 @@ class PlanningLearningLoopService:
         quality = self._quality_score(current_group)
         if quality >= float(learning.get("rollback_threshold") or 0.55):
             return False, {"reason": "rollback_not_needed", "quality_score": quality}
+        rollback_min_runs = int(learning.get("rollback_min_runs") or max(3, int(learning.get("canary_window_runs") or 10)))
+        if int(current_group.get("run_count") or 0) < rollback_min_runs:
+            return False, {
+                "reason": "rollback_window_not_met",
+                "required": rollback_min_runs,
+                "current": int(current_group.get("run_count") or 0),
+                "quality_score": quality,
+            }
 
         previous_version = repos.planning_prompt_version_repo.get_by_id(previous_prompt_version_id)
         if previous_version is None:
@@ -526,6 +542,16 @@ class PlanningLearningLoopService:
                     continue
 
             if active_candidate is not None:
+                self._set_profile_learning_state(
+                    profile=profile,
+                    state="candidate",
+                    source="planning_learning_loop",
+                    observed_output_format=str((worst_group.get("preferred_output_shape") or {}).get("value") or ""),
+                    observed_model_family=str(profile.model_family or profile.model_name_pattern or ""),
+                    prompt_version_id=str((active_candidate.candidate_payload or {}).get("new_prompt_version_id") or active_prompt_version_id or ""),
+                    sample_size=int(worst_group.get("run_count") or 0),
+                    reason_codes=["candidate_pending"],
+                )
                 decision.details.append(
                     {
                         "profile_name": profile_name,

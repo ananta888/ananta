@@ -362,11 +362,32 @@ def planning_learning_settings_summary(cfg: dict) -> dict:
             "profiles": [],
             "candidate_count": 0,
             "review_item_count": 0,
+            "behavior_aggregation": {},
         }
+    profiles = list(snapshot.get("profiles") or [])
+    state_counts: dict[str, int] = {}
+    preferred_formats: dict[str, int] = {}
+    for profile in profiles:
+        learning_state = dict(profile.get("learning_state") or {})
+        state = str(learning_state.get("state") or "unknown").strip().lower() or "unknown"
+        state_counts[state] = state_counts.get(state, 0) + 1
+        output_shape = str(
+            learning_state.get("observed_output_format")
+            or (snapshot.get("behavior_aggregation") or {}).get("preferred_output_shape", {}).get("value")
+            or "unknown"
+        ).strip().lower() or "unknown"
+        preferred_formats[output_shape] = preferred_formats.get(output_shape, 0) + 1
     return {
         "requested": planning_policy.get("learning_loop") or {},
         "effective": planning_policy.get("learning_loop") or {},
         "snapshot": snapshot,
+        "overview": {
+            "state_counts": state_counts,
+            "preferred_output_formats": preferred_formats,
+            "stable_profile_count": state_counts.get("stable", 0),
+            "candidate_profile_count": state_counts.get("candidate", 0),
+            "degraded_profile_count": state_counts.get("degraded", 0),
+        },
         "source": {
             "learning_loop": "planning_policy.learning_loop",
         },

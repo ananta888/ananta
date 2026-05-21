@@ -683,6 +683,7 @@ def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
         "policy": dict(snapshot.get("policy") or {}),
         "candidate_count": int(snapshot.get("candidate_count") or 0),
         "review_item_count": int(snapshot.get("review_item_count") or 0),
+        "overview": dict(snapshot.get("overview") or {}),
         "profiles": list(snapshot.get("profiles") or []),
     }
 
@@ -695,6 +696,11 @@ def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
     print(f"Enabled:       {result['enabled']}")
     print(f"Candidates:    {result['candidate_count']}")
     print(f"Review Items:  {result['review_item_count']}")
+    overview = result.get("overview") or {}
+    if overview:
+        print(f"Stable:        {overview.get('stable_profile_count', 0)}")
+        print(f"Candidate:     {overview.get('candidate_profile_count', 0)}")
+        print(f"Degraded:      {overview.get('degraded_profile_count', 0)}")
     policy = result["policy"]
     if policy:
         print(f"Lookback Runs: {policy.get('lookback_runs', '-')}")
@@ -718,6 +724,8 @@ def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
                 "enabled": str(bool(profile.get("enabled"))),
                 "provider": str(profile.get("provider") or "")[:10],
                 "model": str(profile.get("model_family") or profile.get("model_name_pattern") or "")[:18],
+                "state": str((profile.get("learning_state") or {}).get("state") or "")[:10],
+                "obs": str((profile.get("learning_state") or {}).get("observed_output_format") or "")[:16],
                 "prompt": str(profile.get("active_prompt_version_id") or "")[:16],
                 "quality": str(profile.get("current_quality_score") or "")[:8],
                 "trend": str(profile.get("trend_direction") or "")[:10],
@@ -726,7 +734,7 @@ def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
                 "samples": str(metrics.get("run_count") or 0),
             }
         )
-    _print_table(rows, ["profile", "enabled", "provider", "model", "prompt", "quality", "trend", "candidate", "freeze", "samples"])
+    _print_table(rows, ["profile", "enabled", "provider", "model", "state", "obs", "prompt", "quality", "trend", "candidate", "freeze", "samples"])
     return 0
 
 
