@@ -451,7 +451,12 @@ class PlanningService:
             "WICHTIG:\n"
             "1) Liefere NUR JSON-Array.\n"
             "2) Jede Aufgabe MUSS diese Felder haben: title, description, task_kind, priority.\n"
-            "3) task_kind MUSS einer von {analysis, infrastructure, implementation, tests, review} sein.\n"
+            "3) task_kind-Mapping (GENAU diese Werte verwenden):\n"
+            "   analysis → task_kind='analysis'\n"
+            "   infrastructure → task_kind='ops'  (Docker, CI/CD, Env-Setup, Dockerfile, Pipeline)\n"
+            "   implementation → task_kind='coding'\n"
+            "   tests → task_kind='testing'\n"
+            "   review → task_kind='review'\n"
             "4) Jede description MUSS einen konkreten Output nennen (Dateipfad, Endpoint, Command oder Artifact).\n"
             "5) Keine generischen Sammel-Tasks.\n"
             "6) Decke zwingend diese fehlenden Kategorien ab:\n"
@@ -982,6 +987,68 @@ class PlanningService:
         selective_repair_codes: list[str] = []
         if selective_repair_applied:
             selective_repair_codes.append(f"selective_repair_rounds:{selective_repair_applied}")
+
+        # Last-resort: if only missing_categories remain (plan otherwise good), do one
+        # ultra-targeted ask per missing category instead of failing the whole plan.
+        _only_missing_cats = (
+            not quality.ok
+            and quality.missing_categories
+            and not any(r.startswith("too_few_tasks:") for r in (quality.reason or "").split("|"))
+        )
+        if _only_missing_cats:
+            _TASK_KIND_FOR_CAT = {
+                "infrastructure": "ops",
+                "implementation": "coding",
+                "tests": "testing",
+                "analysis": "analysis",
+                "review": "review",
+            }
+            for _missing_entry in list(quality.missing_categories or []):
+                _cat = str(_missing_entry).split(":", 1)[0].strip().lower()
+                _tk = _TASK_KIND_FOR_CAT.get(_cat, _cat)
+                _targeted_prompt = (
+                    f"The plan is missing exactly 1 task for category '{_cat}'.\n"
+                    f"GOAL: {goal}\n"
+                    f"Return a JSON array with EXACTLY 1 task. Use task_kind='{_tk}'.\n"
+                    f"Category '{_cat}' examples: "
+                    + {
+                        "infrastructure": "Dockerfile, docker-compose.yml, CI/CD pipeline, environment setup",
+                        "implementation": "core service code, API endpoint, business logic module",
+                        "tests": "unit tests, integration tests, test fixtures",
+                        "analysis": "requirements analysis, architecture decision, spike",
+                        "review": "code review checklist, documentation, changelog",
+                    }.get(_cat, _cat)
+                    + f"\nExample: "
+                    + '["'
+                    + '{"title": "Setup Docker environment", "description": "Create Dockerfile and docker-compose.yml", '
+                    + f'"task_kind": "{_tk}", "priority": "medium"'
+                    + '}"]'
+                    + "\nReturn ONLY the JSON array. No explanation."
+                )
+                try:
+                    _resp = planner._call_llm_with_retry(_targeted_prompt, scoped_llm_cfg, temperature=0.1)
+                    _new = parse_subtasks_from_llm_response(_resp, default_priority=planner.default_priority)
+                    qs = get_planning_quality_service()
+                    _seen = {
+                        (str(t.get("title") or "").strip().lower(), str(t.get("description") or "").strip().lower())
+                        for t in subtasks
+                    }
+                    for _c in (_new or []):
+                        if qs._classify_task_category(_c).strip().lower() == _cat:
+                            _k = (str(_c.get("title") or "").strip().lower(), str(_c.get("description") or "").strip().lower())
+                            if _k not in _seen:
+                                subtasks.append(dict(_c))
+                                _seen.add(_k)
+                                selective_repair_codes.append(f"last_resort_ask:{_cat}")
+                except Exception:
+                    pass
+            quality = get_planning_quality_service().evaluate(
+                subtasks=subtasks,
+                mode=mode,
+                planning_policy=planning_policy,
+                team_id=team_id,
+            )
+
         if not quality.ok:
             telemetry_run = get_planning_telemetry_service().update_run(
                 telemetry_run,

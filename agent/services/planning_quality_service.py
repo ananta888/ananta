@@ -82,13 +82,13 @@ class PlanningQualityService:
         explicit = str(task.get("task_kind") or "").strip().lower()
         if explicit in {"analysis", "research", "planning"}:
             return "analysis"
-        if explicit in {"ops"}:
+        if explicit in {"ops", "infrastructure", "infra", "devops"}:
             return "infrastructure"
-        if explicit in {"coding"}:
+        if explicit in {"coding", "implementation", "code", "develop"}:
             return "implementation"
-        if explicit in {"testing"}:
+        if explicit in {"testing", "tests", "test"}:
             return "tests"
-        if explicit in {"review", "doc"}:
+        if explicit in {"review", "doc", "documentation"}:
             return "review"
 
         text = f"{task.get('title') or ''} {task.get('description') or ''}".lower()
