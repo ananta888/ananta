@@ -14,6 +14,40 @@ _GENERIC_TITLE_MARKERS = {
     "misc",
 }
 
+_TEST_TEXT_MARKERS = {
+    "test",
+    "tests",
+    "testing",
+    "pytest",
+    "unittest",
+    "integration test",
+    "smoke test",
+    "regression test",
+    "validation",
+    "validate",
+    "verify",
+    "verification",
+    "qa",
+    "quality assurance",
+    "assert",
+    "coverage",
+}
+
+_REVIEW_TEXT_MARKERS = {
+    "review",
+    "documentation",
+    "doc",
+    "docs",
+    "readme",
+    "changelog",
+    "handoff",
+    "summary",
+    "final check",
+    "sign off",
+    "sign-off",
+    "release notes",
+}
+
 _DEFAULT_VALIDATION_PROFILES: dict[str, dict[str, Any]] = {
     "new_software_project": {
         "min_total_tasks": 5,
@@ -65,6 +99,8 @@ class PlanningQualityService:
             return "infrastructure"
         if any(k in padded_text for k in [" github actions ", " continuous integration ", " ci/cd ", " ci-cd "]):
             return "infrastructure"
+        if any(k in text for k in _TEST_TEXT_MARKERS):
+            return "tests"
         if any(
             k in text
             for k in [
@@ -82,8 +118,8 @@ class PlanningQualityService:
             ]
         ):
             return "implementation"
-        if any(k in text for k in ["test", "verify", "assert", "validation", "check"]):
-            return "tests"
+        if any(k in text for k in _REVIEW_TEXT_MARKERS):
+            return "review"
         return "review"
 
     def _is_generic_task(self, task: dict[str, Any]) -> bool:

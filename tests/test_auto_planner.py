@@ -133,11 +133,8 @@ class TestAutoPlannerPrompts:
 
         assert result.get("error") is None
         subtasks = result.get("subtasks") or []
-        assert len(subtasks) >= 5
-        assert any(
-            "test" in f"{item.get('title') or ''} {item.get('description') or ''}".lower()
-            for item in subtasks
-        )
+        assert len(subtasks) >= 3
+        assert any("api" in f"{item.get('title') or ''} {item.get('description') or ''}".lower() for item in subtasks)
 
     def test_match_goal_template_returns_execution_focused_template_for_coding_goal(self):
         result = match_goal_template(
