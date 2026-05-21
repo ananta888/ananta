@@ -25,6 +25,23 @@ class TestPromptHelp:
         code = main(["prompt", "nonexistent-subcommand"])
         assert code != 0
 
+    def test_task_inspect_top_level_dispatch(self):
+        from agent.cli.main import main
+
+        seen = {}
+
+        def _run_prompt_command(args):
+            seen["prompt_cmd"] = getattr(args, "prompt_cmd", None)
+            seen["task_id"] = getattr(args, "task_id", None)
+            return 0
+
+        with patch("agent.cli.prompt_inspect.run_prompt_command", side_effect=_run_prompt_command):
+            code = main(["task", "inspect", "--task-id", "task-123"])
+
+        assert code == 0
+        assert seen["prompt_cmd"] == "task-inspect"
+        assert seen["task_id"] == "task-123"
+
 
 class TestLLMLogTail:
     def test_tail_no_log_file_exits_zero(self, tmp_path):
@@ -386,6 +403,22 @@ class TestPromptTaskReport:
         trace = svc.create_trace(task_id="task-2", request_id="req-2", prompt="Doc this")
         svc.store(svc.finalize_trace(trace, success=True, response_text="Done"))
 
+        (tmp_path / "llm_log.jsonl").write_text(
+            json.dumps(
+                {
+                    "timestamp": 300.0,
+                    "event": "llm_call_end",
+                    "request_id": "req-2",
+                    "provider": "lmstudio",
+                    "model": "gemma",
+                    "success": True,
+                    "response": "Done",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
         class _Resp:
             def __init__(self, status_code: int, payload: dict | None = None):
                 self.status_code = status_code
@@ -413,3 +446,40 @@ class TestPromptTaskReport:
         assert parsed["task"]["task_id"] == "task-2"
         assert parsed["traces"][0]["provider"] == ""
         assert parsed["traces"][0]["response_preview"] == "Done"
+
+    def test_task_inspect_alias_matches_task_report(self, tmp_path):
+        import argparse
+        import contextlib
+        import io
+        from agent.cli.prompt_inspect import cmd_prompt_task_report, run_prompt_command
+
+        class _Resp:
+            def __init__(self, status_code: int, payload: dict | None = None):
+                self.status_code = status_code
+                self._payload = payload or {}
+
+        task_detail = {"id": "task-3", "title": "Alias", "status": "todo"}
+
+        def _request(method, path, **kwargs):
+            if path == "/tasks/task-3":
+                return _Resp(200, task_detail)
+            return _Resp(404)
+
+        def _api_data(resp):
+            return getattr(resp, "_payload", {})
+
+        args = argparse.Namespace(task_id="task-3", json=True)
+        captured_inspect = io.StringIO()
+        captured_report = io.StringIO()
+        with patch("agent.cli_goals._request", side_effect=_request), \
+            patch("agent.cli_goals._api_data", side_effect=_api_data), \
+            patch("agent.utils.get_data_dir", return_value=str(tmp_path)):
+            with contextlib.redirect_stdout(captured_report):
+                report_code = cmd_prompt_task_report(args)
+            args.prompt_cmd = "task-inspect"
+            with contextlib.redirect_stdout(captured_inspect):
+                inspect_code = run_prompt_command(args)
+
+        assert report_code == 0
+        assert inspect_code == 0
+        assert json.loads(captured_report.getvalue()) == json.loads(captured_inspect.getvalue())
