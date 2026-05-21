@@ -15,6 +15,45 @@ class PlanningTelemetryService:
             return None
         return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
 
+    @staticmethod
+    def _safe_mode_data(run) -> dict[str, Any]:
+        return dict(getattr(run, "mode_data", {}) or {})
+
+    def build_learning_record(self, run) -> dict[str, Any]:
+        mode_data = self._safe_mode_data(run)
+        output_shape = str(mode_data.get("__output_shape__") or "").strip() or None
+        parser_trace = mode_data.get("__parser_trace__") if isinstance(mode_data.get("__parser_trace__"), dict) else {}
+        truncation_flag = bool(
+            mode_data.get("__truncated__")
+            or (output_shape == "partial_json")
+            or any(str(code).strip().lower() == "truncate" for code in list(getattr(run, "parse_warnings", []) or []))
+        )
+        return {
+            "goal_id": getattr(run, "goal_id", None),
+            "trace_id": getattr(run, "trace_id", None),
+            "task_id": getattr(run, "task_id", None),
+            "mode": getattr(run, "mode", None),
+            "model_provider": getattr(run, "model_provider", None),
+            "model_name": getattr(run, "model_name", None),
+            "planning_profile": getattr(run, "planning_profile", None),
+            "prompt_version_id": getattr(run, "prompt_version_id", None),
+            "prompt_language": getattr(run, "prompt_language", None),
+            "parse_mode": getattr(run, "parse_mode", None),
+            "parse_confidence": getattr(run, "parse_confidence", None),
+            "output_shape": output_shape,
+            "repair_strategy_used": getattr(run, "repair_strategy_used", None),
+            "repair_attempt_count": int(getattr(run, "repair_attempt_count", 0) or 0),
+            "validation_success": bool(getattr(run, "validation_success", False)),
+            "generated_task_count": int(getattr(run, "generated_task_count", 0) or 0),
+            "expected_artifacts_count": int(getattr(run, "expected_artifacts_count", 0) or 0),
+            "verification_spec_count": int(getattr(run, "verification_spec_count", 0) or 0),
+            "dependency_mode_distribution": dict(getattr(run, "dependency_mode_distribution", {}) or {}),
+            "materialized_task_count": len(list(getattr(run, "materialized_task_ids", []) or [])),
+            "truncation_flag": truncation_flag,
+            "parse_warnings": list(getattr(run, "parse_warnings", []) or []),
+            "parser_trace": parser_trace,
+        }
+
     def start_run(
         self,
         *,

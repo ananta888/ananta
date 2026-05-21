@@ -20,11 +20,17 @@ class PlanningPromptEvolverService:
             return "llama"
         return None
 
-    def _should_evolve(self, *, run, policy: dict[str, Any]) -> tuple[bool, list[str]]:
+    def _should_evolve(self, *, run, policy: dict[str, Any], output_shape: str | None = None, parse_mode: str | None = None) -> tuple[bool, list[str]]:
         rules = dict(policy.get("planner_prompt_evolution") or {}) if isinstance(policy, dict) else {}
         if not bool(rules.get("enabled", True)):
             return False, ["disabled"]
         reasons: list[str] = []
+        normalized_parse_mode = str(parse_mode or getattr(run, "parse_mode", "") or "").strip().lower()
+        normalized_output_shape = str(output_shape or "").strip().lower()
+        if normalized_parse_mode in {"parse_failed", "partial_json_objects", "bullet_fallback"}:
+            reasons.append(f"parse_mode:{normalized_parse_mode}")
+        if normalized_output_shape in {"partial_json", "markdown_bullets", "json_in_markdown_fence", "yaml_like"}:
+            reasons.append(f"output_shape:{normalized_output_shape}")
         if str(run.parse_confidence or "").strip().lower() in {"low", ""}:
             reasons.append("low_parse_confidence")
         if int(run.repair_attempt_count or 0) >= int(rules.get("min_repair_attempts", 2)):
@@ -35,7 +41,7 @@ class PlanningPromptEvolverService:
             reasons.append("error_classification")
         return bool(reasons), reasons
 
-    def _mutate_template(self, template: str, *, reasons: list[str], output_format: str) -> str:
+    def _mutate_template(self, template: str, *, reasons: list[str], output_format: str, output_shape: str | None = None, parse_mode: str | None = None, model_family: str | None = None) -> str:
         patch_rules: list[str] = []
         if "low_parse_confidence" in reasons:
             patch_rules.append("Use compact fields and avoid extra prose.")
@@ -46,6 +52,20 @@ class PlanningPromptEvolverService:
             patch_rules.append("Ensure category coverage expected by validator profile.")
         if "error_classification" in reasons:
             patch_rules.append("Avoid ambiguous or generic tasks; include concrete artifact/command in each actionable item.")
+        shape = str(output_shape or "").strip().lower()
+        parse = str(parse_mode or "").strip().lower()
+        family = str(model_family or "").strip().lower()
+        if shape in {"json_in_markdown_fence", "partial_json"}:
+            patch_rules.append("The model may naturally wrap JSON in markdown fences; accept and normalize that style.")
+            patch_rules.append("If truncation happens, keep the same structure but shorten field values and descriptions.")
+        if shape in {"markdown_bullets", "numbered_steps"}:
+            patch_rules.append("The model may prefer markdown lists; keep the list style and map each item to a task object during normalization.")
+        if shape == "yaml_like":
+            patch_rules.append("The model may prefer YAML; keep keys short and unambiguous for later normalization.")
+        if parse in {"parse_failed", "partial_json_objects", "bullet_fallback"}:
+            patch_rules.append("Repair using the observed output style instead of forcing a new style.")
+        if family:
+            patch_rules.append(f"Model family hint: {family}. Keep prompts concise and family-aware.")
 
         patch_rules.append(f"Preferred output format: {output_format}.")
         block = "\n".join(f"- {r}" for r in patch_rules)
@@ -60,9 +80,12 @@ class PlanningPromptEvolverService:
         planning_policy: dict[str, Any] | None,
         activate_profile: bool = True,
         enabled: bool | None = None,
+        output_shape: str | None = None,
+        parse_mode: str | None = None,
+        model_family: str | None = None,
     ) -> dict[str, Any]:
         policy = dict(planning_policy or {})
-        should, reasons = self._should_evolve(run=run, policy=policy)
+        should, reasons = self._should_evolve(run=run, policy=policy, output_shape=output_shape, parse_mode=parse_mode)
         if not should:
             return {"evolved": False, "reason": "no_trigger"}
 
@@ -87,16 +110,42 @@ class PlanningPromptEvolverService:
         output_format = str(
             (policy.get("preferred_output_format") or "json")
         ).strip().lower() or "json"
-        mutated_user = self._mutate_template(str(base.user_prompt_template or ""), reasons=reasons, output_format=output_format)
-        mutated_repair = self._mutate_template(str(base.repair_prompt_template or ""), reasons=reasons, output_format=output_format)
+        mutated_user = self._mutate_template(
+            str(base.user_prompt_template or ""),
+            reasons=reasons,
+            output_format=output_format,
+            output_shape=output_shape,
+            parse_mode=parse_mode,
+            model_family=model_family or self._infer_model_family(getattr(run, "model_name", None)),
+        )
+        mutated_repair = self._mutate_template(
+            str(base.repair_prompt_template or ""),
+            reasons=reasons,
+            output_format=output_format,
+            output_shape=output_shape,
+            parse_mode=parse_mode,
+            model_family=model_family or self._infer_model_family(getattr(run, "model_name", None)),
+        )
+
+        output_contract = dict(base.output_contract or {})
+        output_contract.update(
+            {
+                "observed_parse_mode": str(parse_mode or getattr(run, "parse_mode", "") or ""),
+                "observed_output_shape": str(output_shape or (getattr(run, "mode_data", {}) or {}).get("__output_shape__") or ""),
+                "observed_model_family": model_family or self._infer_model_family(getattr(run, "model_name", None)) or base.target_model_family,
+            }
+        )
+        system_rules = list(base.system_rules or [])
+        if reasons:
+            system_rules = [*system_rules, *[f"evolution_signal:{reason}" for reason in reasons if reason]]
 
         payload = {
             "version": f"{str(base.version)}.evo.{int(time.time())}",
             "language": str(base.language or "en"),
             "mode": str(base.mode or "generic"),
             "target_model_family": self._infer_model_family(getattr(run, "model_name", None)) or base.target_model_family,
-            "output_contract": dict(base.output_contract or {}),
-            "system_rules": list(base.system_rules or []),
+            "output_contract": output_contract,
+            "system_rules": system_rules,
             "user_prompt_template": mutated_user,
             "repair_prompt_template": mutated_repair,
             "enabled": bool(activate_profile if enabled is None else enabled),

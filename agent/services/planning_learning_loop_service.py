@@ -112,6 +112,42 @@ class PlanningLearningLoopService:
             limit=200,
         )
 
+    def _activation_guard(self, *, learning: dict[str, Any], current_candidate, current_group: dict[str, Any]) -> dict[str, Any]:
+        freeze_minutes = int(learning.get("freeze_minutes") or 120)
+        threshold = float(learning.get("candidate_activation_threshold") or 0.75)
+        payload = dict((getattr(current_candidate, "candidate_payload", {}) or {}))
+        candidate_age_seconds = None
+        if current_candidate is not None:
+            created_at = float(payload.get("created_at") or getattr(current_candidate, "created_at", 0.0) or 0.0)
+            if created_at:
+                candidate_age_seconds = max(0.0, time.time() - created_at)
+        freeze_active = bool(candidate_age_seconds is not None and candidate_age_seconds < freeze_minutes * 60)
+        quality = self._quality_score(current_group)
+        can_activate = bool(
+            current_candidate is not None
+            and str(getattr(current_candidate, "status", "") or "").strip().lower() == "canary"
+            and not freeze_active
+            and int(current_group.get("run_count") or 0) >= int(payload.get("canary_window_runs") or learning.get("canary_window_runs") or 10)
+            and quality >= threshold
+        )
+        reason_codes: list[str] = []
+        if current_candidate is None:
+            reason_codes.append("no_candidate")
+        if freeze_active:
+            reason_codes.append("freeze_active")
+        if int(current_group.get("run_count") or 0) < int(payload.get("canary_window_runs") or learning.get("canary_window_runs") or 10):
+            reason_codes.append("canary_window_not_met")
+        if quality < threshold:
+            reason_codes.append("quality_below_threshold")
+        return {
+            "can_activate": can_activate,
+            "reason_codes": reason_codes,
+            "freeze_active": freeze_active,
+            "freeze_minutes": freeze_minutes,
+            "candidate_age_seconds": candidate_age_seconds,
+            "quality_score": quality,
+        }
+
     def build_snapshot(self, *, planning_policy: dict[str, Any] | None = None) -> dict[str, Any]:
         policy = dict(planning_policy or {})
         learning = self._learning_policy(policy)
@@ -139,14 +175,7 @@ class PlanningLearningLoopService:
                 None,
             )
             current_quality = self._quality_score(current_group) if current_group else 0.0
-            freeze_minutes = int(learning.get("freeze_minutes") or 120)
-            freeze_active = False
-            candidate_age_seconds = None
-            if current_candidate is not None:
-                created_at = float((current_candidate.candidate_payload or {}).get("created_at") or current_candidate.created_at or 0.0)
-                if created_at:
-                    candidate_age_seconds = max(0.0, time.time() - created_at)
-                    freeze_active = candidate_age_seconds < freeze_minutes * 60
+            activation_guard = self._activation_guard(learning=learning, current_candidate=current_candidate, current_group=current_group)
 
             profile_rows.append(
                 {
@@ -165,13 +194,14 @@ class PlanningLearningLoopService:
                         "prompt_version_id": str((getattr(current_candidate, "candidate_payload", {}) or {}).get("new_prompt_version_id") or ""),
                         "current_prompt_version_id": str((getattr(current_candidate, "candidate_payload", {}) or {}).get("current_prompt_version_id") or ""),
                         "candidate_state": str((getattr(current_candidate, "candidate_payload", {}) or {}).get("candidate_state") or ""),
-                        "candidate_age_seconds": candidate_age_seconds,
+                        "candidate_age_seconds": activation_guard.get("candidate_age_seconds"),
                     } if current_candidate is not None else None,
                     "freeze": {
                         "enabled": bool(learning.get("enabled", False)),
-                        "active": freeze_active,
-                        "freeze_minutes": freeze_minutes,
+                        "active": bool(activation_guard.get("freeze_active")),
+                        "freeze_minutes": int(activation_guard.get("freeze_minutes") or 120),
                     },
+                    "guard": activation_guard,
                     "metrics": current_group,
                 }
             )
@@ -196,19 +226,18 @@ class PlanningLearningLoopService:
         repos = get_repository_registry()
         prompt_evolver = get_planning_prompt_evolver_service()
         previous_prompt_version_id = self._extract_prompt_version_id(profile)
-        activated = bool(learning.get("auto_activate", False))
+        auto_activate_requested = bool(learning.get("auto_activate", False))
         evolved = prompt_evolver.evolve_from_run(
             run=trigger_run,
             planning_policy={"planner_prompt_evolution": dict(learning or {}), "preferred_output_format": "json"},
-            activate_profile=activated,
-            enabled=activated,
+            activate_profile=False,
+            enabled=False,
+            output_shape=str((trigger_run.mode_data or {}).get("__output_shape__") or ""),
+            parse_mode=str(getattr(trigger_run, "parse_mode", "") or ""),
+            model_family=str(profile.model_family or profile.model_name_pattern or ""),
         )
         if not evolved.get("evolved"):
             return {"created": False, "reason": evolved.get("reason", "evolution_skipped")}
-
-        if activated:
-            profile.preferred_prompt_version_id = str(evolved["new_prompt_version_id"])
-            repos.planning_model_profile_repo.save(profile)
 
         candidate_payload = {
             "profile_name": str(profile.profile_name or ""),
@@ -224,7 +253,8 @@ class PlanningLearningLoopService:
             "canary_window_runs": int(learning.get("canary_window_runs") or 10),
             "freeze_minutes": int(learning.get("freeze_minutes") or 120),
             "created_at": time.time(),
-            "candidate_state": "canary" if activated else "proposed",
+            "candidate_state": "canary" if auto_activate_requested else "proposed",
+            "auto_activate_requested": auto_activate_requested,
         }
         candidate = repos.planning_template_candidate_repo.save(
             PlanningTemplateCandidateDB(
@@ -233,17 +263,17 @@ class PlanningLearningLoopService:
                 mode=str(trigger_run.mode or "generic"),
                 candidate_payload=candidate_payload,
                 confidence="high" if float(group.get("quality_score") or 0.0) < 0.5 else "medium",
-                status="canary" if activated else "proposed",
+                status="canary" if auto_activate_requested else "proposed",
             )
         )
         return {
             "created": True,
             "candidate_id": str(candidate.id),
-            "activated": activated,
+            "activated": False,
             "profile_name": str(profile.profile_name or ""),
             "new_prompt_version_id": str(evolved["new_prompt_version_id"]),
             "new_prompt_version": str(evolved["new_prompt_version"]),
-            "status": "canary" if activated else "proposed",
+            "status": "canary" if auto_activate_requested else "proposed",
         }
 
     def _maybe_rollback_candidate(

@@ -4,6 +4,7 @@ from collections import Counter
 from typing import Any
 
 from agent.services.repository_registry import get_repository_registry
+from agent.services.planning_telemetry_service import get_planning_telemetry_service
 
 
 class ModelResponseBehaviorAggregationService:
@@ -17,6 +18,7 @@ class ModelResponseBehaviorAggregationService:
         limit: int = 500,
     ) -> dict[str, Any]:
         runs = get_repository_registry().planning_run_repo.get_recent(limit=limit)
+        telemetry = get_planning_telemetry_service()
         shape = Counter()
         parse = Counter()
         repair = Counter()
@@ -31,9 +33,10 @@ class ModelResponseBehaviorAggregationService:
             if prompt_version and str(r.prompt_version_id or "") != str(prompt_version):
                 continue
             total += 1
-            shp = str((r.mode_data or {}).get("__output_shape__") or "unknown")
+            learning_record = telemetry.build_learning_record(r)
+            shp = str(learning_record.get("output_shape") or "unknown")
             shape[shp] += 1
-            parse[str(r.parse_mode or "unknown")] += 1
+            parse[str(learning_record.get("parse_mode") or "unknown")] += 1
             repair["repair_needed" if r.repair_needed else "no_repair"] += 1
 
         def dist(counter: Counter) -> dict[str, float]:
