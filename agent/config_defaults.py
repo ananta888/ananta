@@ -540,7 +540,7 @@ def build_default_agent_config() -> dict:
             "max_nodes": 8,
             "max_depth": 8,
             "timeout_seconds": 600,
-            "max_output_tokens": 512,
+            "max_output_tokens": 900,
             "segmented_planning_enabled": True,
             "segment_context_chars": 2400,
             "max_segments": 3,
