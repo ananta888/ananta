@@ -88,3 +88,23 @@ def test_unknown_command_returns_non_zero_and_help(capsys) -> None:
     assert rc == 2
     assert "Unknown command" in captured.out
     assert "usage:" in captured.out
+
+
+def test_goal_command_maps_goal_id_to_goal_detail(monkeypatch) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(cli_main, "run_cli_goals", lambda argv: calls.append(list(argv)) or 0)
+
+    rc = cli_main.main(["goal", "--goal-id", "goal-123"])
+
+    assert rc == 0
+    assert calls == [["--goal-detail", "goal-123"]]
+
+
+def test_goal_command_keeps_goal_purge_unchanged(monkeypatch) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(cli_main, "run_cli_goals", lambda argv: calls.append(list(argv)) or 0)
+
+    rc = cli_main.main(["goal", "--goal-purge", "goal-123", "--yes"])
+
+    assert rc == 0
+    assert calls == [["--goal-purge", "goal-123", "--yes"]]
