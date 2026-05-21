@@ -55,16 +55,9 @@ def test_new_project_prompt_contains_structured_contract(monkeypatch):
     assert "artifacts" in resolved.prompt.lower() or "verification" in resolved.prompt.lower()
 
 
-def test_prompt_suffix_is_appended_for_profile(monkeypatch):
-    items = [_version(prompt_suffix="Use short JSON only.")]
+def test_new_project_prompt_accepts_markdown_friendly_guidance(monkeypatch):
+    items = [_version(user_prompt_template="Plan project for {goal}. Markdown fences are acceptable if they help. Context: {context}")]
     monkeypatch.setattr(reg, "get_repository_registry", lambda: _Registry(items))
     registry = reg.PlanningPromptRegistry()
-    resolved = registry.resolve(
-        goal="Build API",
-        context="ctx",
-        mode="new_software_project",
-        language="en",
-        model_family=None,
-        model_prompt_suffix="Use short JSON only.",
-    )
-    assert "Use short JSON only." in resolved.prompt
+    resolved = registry.resolve(goal="Build API", context="ctx", mode="new_software_project", language="en", model_family=None)
+    assert "Markdown fences are acceptable" in resolved.prompt

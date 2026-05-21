@@ -50,24 +50,6 @@ def _extract_preferred_output_format(notes: Any) -> str:
     return "json"
 
 
-def _extract_prompt_suffix(notes: Any) -> str | None:
-    if isinstance(notes, str):
-        text = notes.strip()
-        if not text:
-            return None
-        try:
-            parsed = json.loads(text)
-            if isinstance(parsed, dict):
-                suffix = str(parsed.get("prompt_suffix") or "").strip()
-                return suffix or None
-        except Exception:
-            return None
-    elif isinstance(notes, dict):
-        suffix = str(notes.get("prompt_suffix") or "").strip()
-        return suffix or None
-    return None
-
-
 class PlanningModelProfileService:
     def _load_defaults(self) -> list[dict[str, Any]]:
         if not _DEFAULT_PATH.exists():
@@ -197,7 +179,6 @@ class PlanningModelProfileService:
             "supports_json_mode": bool(profile.supports_json_mode),
             "requires_english_prompt": bool(profile.requires_english_prompt),
             "preferred_output_format": _extract_preferred_output_format(notes),
-            "prompt_suffix": _extract_prompt_suffix(notes),
             "notes": profile.notes,
         }
 

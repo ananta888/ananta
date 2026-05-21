@@ -190,7 +190,7 @@ def test_llm_planning_strategy_new_project_third_attempt_when_empty(app, monkeyp
     assert len(result.subtasks) >= 2
 
 
-def test_llm_planning_strategy_new_project_prompt_forces_json_only(app, monkeypatch) -> None:
+def test_llm_planning_strategy_new_project_prompt_allows_model_native_structure(app, monkeypatch) -> None:
     strategy = LLMPlanningStrategy(use_repo_context=False)
     planner = _LLMPlannerStub(
         responses=[
@@ -235,9 +235,8 @@ def test_llm_planning_strategy_new_project_prompt_forces_json_only(app, monkeypa
     assert result is not None
     assert planner.calls == 1
     prompt = planner.prompts[0]
-    assert "Kein Denken" in prompt
-    assert "Chain-of-thought" in prompt
-    assert "Beginne sofort mit '['" in prompt
+    assert "Markdown fences are acceptable" in prompt
+    assert "structured task list" in prompt.lower()
 
 
 def test_new_project_execution_repair_prompt_compacts_previous_output() -> None:
@@ -252,7 +251,7 @@ def test_new_project_execution_repair_prompt_compacts_previous_output() -> None:
     )
 
     assert "[truncated]" in prompt
-    assert "Chain-of-thought" in prompt
+    assert "Prefer JSON" in prompt or "structured and parseable" in prompt
     assert len(prompt) < 6000
 
 
@@ -330,4 +329,4 @@ def test_llm_planning_strategy_uses_truncation_repair_prompt(app, monkeypatch) -
     assert result is not None
     assert planner.calls == 3
     assert any("abgeschnitten" in prompt.lower() for prompt in planner.prompts[1:])
-    assert any("vollstaendiges json-array" in prompt.lower() for prompt in planner.prompts[1:])
+    assert any("prefer json" in prompt.lower() or "structured and parseable" in prompt.lower() for prompt in planner.prompts[1:])

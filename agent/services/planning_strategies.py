@@ -257,6 +257,26 @@ class LLMPlanningStrategy:
         return False
 
     @staticmethod
+    def _format_adaptive_repair_guidance(*, output_shape: str | None, preferred_output_format: str) -> str:
+        shape = str(output_shape or "").strip().lower()
+        preferred = str(preferred_output_format or "json").strip().lower() or "json"
+        if shape in {"json_in_markdown_fence", "json_extracted"}:
+            return (
+                "The previous answer already used markdown-wrapped JSON or embedded JSON. "
+                "Preserve that style if it helps, but make the JSON block complete and parseable."
+            )
+        if shape in {"markdown_bullets", "numbered_steps"}:
+            return (
+                "The previous answer used markdown bullets or numbered steps. "
+                "You may keep that style if it is easier, but make each task fully structured and concrete."
+            )
+        if shape in {"strict_json_array", "strict_json_object"}:
+            return "Keep the JSON structure, but repair completeness and missing fields."
+        return (
+            f"Prefer {preferred.upper()} if that is your natural format, but keep the response structured and parseable."
+        )
+
+    @staticmethod
     def _split_context_into_segments(context: str | None, *, segment_chars: int, max_segments: int) -> list[str]:
         text = str(context or "").strip()
         if not text:
@@ -365,10 +385,12 @@ class LLMPlanningStrategy:
         previous_output: str,
         mode: str = "generic",
         mode_data: Optional[dict] = None,
+        output_shape: str | None = None,
+        preferred_output_format: str = "json",
     ) -> str:
         prompt = (
             "Der vorherige Planungs-Output war unstrukturiert oder leer.\n"
-            "Erzeuge jetzt einen reparierten Plan als strikt valides JSON.\n\n"
+            "Erzeuge jetzt einen reparierten Plan in einer strukturierten, gut parsebaren Form.\n\n"
             f"ZIEL:\n{goal}\n\n"
         )
         if mode != "generic" and mode_data:
@@ -383,7 +405,8 @@ class LLMPlanningStrategy:
             "4. Jede description muss einen konkreten Output nennen (Dateipfad, Endpoint, Command oder Artifact).\n"
             "5. priority nur: High, Medium, Low.\n"
             "6. depends_on als Liste von Schrittnummern als Strings (z.B. [\"1\"]).\n"
-            "7. Keine Erklaerungen, keine Markdown-Fences, kein Chain-of-thought.\n\n"
+            "7. Keine Erklaerungen oder Meta-Kommentare.\n\n"
+            f"FORMAT-HINWEIS: {LLMPlanningStrategy._format_adaptive_repair_guidance(output_shape=output_shape, preferred_output_format=preferred_output_format)}\n\n"
             "AUSGABEFORMAT (nur JSON-Array):\n"
             "[\n"
             '  {"title":"...","description":"...","priority":"High|Medium|Low","depends_on":[]}\n'
@@ -403,10 +426,12 @@ class LLMPlanningStrategy:
         max_subtasks: int,
         previous_output: str,
         mode_data: Optional[dict] = None,
+        output_shape: str | None = None,
+        preferred_output_format: str = "json",
     ) -> str:
         prompt = (
             "Der vorherige Plan fuer new_software_project enthaelt keinen klaren Execution-Pfad.\n"
-            "Erzeuge jetzt einen reparierten Plan als strikt valides JSON.\n\n"
+            "Erzeuge jetzt einen reparierten Plan in einer strukturierten, gut parsebaren Form.\n\n"
             f"ZIEL:\n{goal}\n\n"
         )
         if mode_data:
@@ -422,7 +447,8 @@ class LLMPlanningStrategy:
             "6. Jede Teilaufgabe muss title, description, priority enthalten.\n"
             "7. priority nur: High, Medium, Low.\n"
             "8. depends_on als Liste von Schrittnummern als Strings (z.B. [\"1\"]).\n"
-            "9. Keine Erklaerungen, keine Markdown-Fences, kein Chain-of-thought.\n\n"
+            "9. Keine Erklaerungen oder Meta-Kommentare.\n\n"
+            f"FORMAT-HINWEIS: {LLMPlanningStrategy._format_adaptive_repair_guidance(output_shape=output_shape, preferred_output_format=preferred_output_format)}\n\n"
             "AUSGABEFORMAT (nur JSON-Array):\n"
             "[\n"
             '  {"title":"...","description":"...","priority":"High|Medium|Low","depends_on":[]}\n'
@@ -442,10 +468,12 @@ class LLMPlanningStrategy:
         max_subtasks: int,
         previous_output: str,
         mode_data: Optional[dict] = None,
+        output_shape: str | None = None,
+        preferred_output_format: str = "json",
     ) -> str:
         prompt = (
             "Der vorherige Plan fuer new_software_project wurde abgeschnitten.\n"
-            "Gib jetzt eine komplette, kurze und strikt gueltige JSON-Array-Version aus.\n\n"
+            "Gib jetzt eine komplette, kurze und strukturiert parsebare Version aus.\n\n"
             f"ZIEL:\n{goal}\n\n"
         )
         if mode_data:
@@ -455,9 +483,10 @@ class LLMPlanningStrategy:
             f"{prompt}"
             "ANWEISUNG:\n"
             f"- Liefere mindestens 5 und hoechstens {max_subtasks} Teilaufgaben.\n"
-            "- Repariere nur den fehlenden oder abgeschnittenen Teil, aber gib am Ende ein vollstaendiges JSON-Array aus.\n"
-            "- Kein Denken, keine Erklaerung, keine Markdown-Fences, keine Rueckfragen.\n"
+            "- Repariere nur den fehlenden oder abgeschnittenen Teil und respektiere den Stil des bisherigen Outputs.\n"
+            "- Keine Erklaerungen oder Rueckfragen.\n"
             "- Nutze konkrete Tasks fuer setup, implementation, execution, verification und summary.\n\n"
+            f"FORMAT-HINWEIS: {LLMPlanningStrategy._format_adaptive_repair_guidance(output_shape=output_shape, preferred_output_format=preferred_output_format)}\n\n"
             "VORHERIGER TEIL-OUTPUT:\n"
             f"{LLMPlanningStrategy._compact_repair_output(previous_output, limit=800)}\n\n"
             "AUSGABEFORMAT: Nur ein JSON-Array."
@@ -589,7 +618,6 @@ class LLMPlanningStrategy:
             preferred_output_format=preferred_output_format,
             domain_hints=domain_hints,
             behavior_profile=behavior_profile,
-            model_prompt_suffix=profile.get("prompt_suffix"),
         )
         prompt = str(resolved_prompt.prompt or "")
         if not prompt:
@@ -700,6 +728,8 @@ class LLMPlanningStrategy:
                         max_subtasks=planner.max_subtasks_per_goal,
                         previous_output=raw_response,
                         mode_data=mode_data,
+                        output_shape=output_shape,
+                        preferred_output_format=preferred_output_format,
                     )
                 else:
                     repair_prompt = self._build_planning_repair_prompt(
@@ -709,6 +739,8 @@ class LLMPlanningStrategy:
                         previous_output=raw_response,
                         mode=mode,
                         mode_data=mode_data,
+                        output_shape=output_shape,
+                        preferred_output_format=preferred_output_format,
                     )
                 if strategy_name == "hub_copilot":
                     try:
@@ -769,6 +801,8 @@ class LLMPlanningStrategy:
                     max_subtasks=planner.max_subtasks_per_goal,
                     previous_output=raw_response,
                     mode_data=mode_data,
+                    output_shape=output_shape,
+                    preferred_output_format=preferred_output_format,
                 )
                 if is_truncated_response
                 else self._build_new_project_execution_repair_prompt(
@@ -777,6 +811,8 @@ class LLMPlanningStrategy:
                     max_subtasks=planner.max_subtasks_per_goal,
                     previous_output=raw_response,
                     mode_data=mode_data,
+                    output_shape=output_shape,
+                    preferred_output_format=preferred_output_format,
                 )
             )
             repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config, temperature=0.05 if is_truncated_response else 0.1)
@@ -797,6 +833,8 @@ class LLMPlanningStrategy:
                 max_subtasks=planner.max_subtasks_per_goal,
                 previous_output=raw_response,
                 mode_data=mode_data,
+                output_shape=output_shape,
+                preferred_output_format=preferred_output_format,
             )
             repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config, temperature=0.1)
             repaired_subtasks = parse_subtasks_from_llm_response(
