@@ -91,6 +91,10 @@ class TestGoalsAPI:
             "agent.services.goal_purge_service.get_prompt_trace_service",
             lambda: SimpleNamespace(delete_by_goal_id=lambda _gid: 0),
         )
+        monkeypatch.setattr(
+            "agent.services.goal_purge_service.get_task_admin_service",
+            lambda: SimpleNamespace(intervene_task=lambda **_kwargs: (True, "ok", {})),
+        )
 
         res = client.delete(f"/goals/{goal.id}/purge", headers=admin_auth_header)
         assert res.status_code == 200
@@ -98,8 +102,44 @@ class TestGoalsAPI:
         assert payload["goal_id"] == goal.id
         assert int(payload["deleted"].get("goal") or 0) == 1
         assert int(payload["deleted"].get("tasks") or 0) >= 1
+        assert int((payload.get("task_cancel_summary") or {}).get("attempted") or 0) >= 1
         assert goal_repo.get_by_id(goal.id) is None
         assert task_repo.get_by_id("purge-task-1") is None
+
+    def test_goal_purge_cancels_all_tasks_before_delete(self, client, admin_auth_header, monkeypatch):
+        goal = goal_repo.save(
+            GoalDB(
+                goal="purge cancel all",
+                summary="purge cancel all",
+                status="running",
+                source="test",
+                requested_by="admin",
+            )
+        )
+        task_repo.save(TaskDB(id="purge-task-a", title="a", status="running", goal_id=goal.id, goal_trace_id=goal.trace_id))
+        task_repo.save(TaskDB(id="purge-task-b", title="b", status="todo", goal_id=goal.id, goal_trace_id=goal.trace_id))
+
+        cancelled: list[str] = []
+
+        def _intervene_task(**kwargs):
+            cancelled.append(str(kwargs.get("task_id") or ""))
+            return True, "ok", {}
+
+        monkeypatch.setattr(
+            "agent.services.goal_purge_service.get_task_admin_service",
+            lambda: SimpleNamespace(intervene_task=_intervene_task),
+        )
+        monkeypatch.setattr(
+            "agent.services.goal_purge_service.get_prompt_trace_service",
+            lambda: SimpleNamespace(delete_by_goal_id=lambda _gid: 0),
+        )
+
+        res = client.delete(f"/goals/{goal.id}/purge", headers=admin_auth_header)
+        assert res.status_code == 200
+        payload = res.get_json()["data"]
+        assert set(cancelled) == {"purge-task-a", "purge-task-b"}
+        assert int(payload["task_cancel_summary"]["attempted"]) == 2
+        assert int(payload["task_cancel_summary"]["succeeded"]) == 2
 
     def test_goal_purge_returns_not_found_for_unknown_goal(self, client, admin_auth_header):
         res = client.delete("/goals/not-a-goal/purge", headers=admin_auth_header)

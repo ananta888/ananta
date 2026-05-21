@@ -3,6 +3,8 @@ from __future__ import annotations
 import time
 from typing import Any
 
+import requests
+
 from agent.common.audit import log_audit
 from agent.db_models import ArchivedTaskDB, TaskDB
 from agent.services.repository_registry import get_repository_registry
@@ -226,6 +228,28 @@ class TaskAdminService:
                 errors.append({"id": tid, "error": str(exc)})
         return matched, archived_ids, deleted_ids, errors
 
+    def _forward_cancel_to_worker(self, *, task: TaskDB) -> dict[str, Any]:
+        worker_url = str(getattr(task, "assigned_agent_url", "") or "").strip()
+        if not worker_url:
+            return {"attempted": False, "status": "skipped", "reason": "no_assigned_agent_url"}
+        try:
+            base = worker_url.rstrip("/")
+            resp = requests.post(f"{base}/tasks/{task.id}/cancel", timeout=8)
+            ok = int(resp.status_code) < 400
+            return {
+                "attempted": True,
+                "status": "ok" if ok else "error",
+                "http_status": int(resp.status_code),
+                "worker_url": worker_url,
+            }
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "attempted": True,
+                "status": "error",
+                "worker_url": worker_url,
+                "error": str(exc)[:200],
+            }
+
     def intervene_task(self, *, task_id: str, action: str, actor: str) -> tuple[bool, str, dict]:
         task = get_repository_registry().task_repo.get_by_id(task_id)
         if not task:
@@ -240,20 +264,40 @@ class TaskAdminService:
         update_kwargs: dict = {}
         if action == "retry":
             update_kwargs["last_exit_code"] = None
+        worker_cancel_forward = None
+        if action == "cancel":
+            worker_cancel_forward = self._forward_cancel_to_worker(task=task)
         update_local_task_status(
             task_id,
             new_status,
             event_type="task_intervention",
             event_actor=actor,
-            event_details={"action": action, "previous_status": current, "new_status": new_status},
+            event_details={
+                "action": action,
+                "previous_status": current,
+                "new_status": new_status,
+                **({"worker_cancel_forward": worker_cancel_forward} if isinstance(worker_cancel_forward, dict) else {}),
+            },
             manual_override_until=time.time() + 600,
             **update_kwargs,
         )
         log_audit(
             "task_intervention",
-            {"task_id": task_id, "action": action, "actor": actor, "previous_status": current, "new_status": new_status},
+            {
+                "task_id": task_id,
+                "action": action,
+                "actor": actor,
+                "previous_status": current,
+                "new_status": new_status,
+                **({"worker_cancel_forward": worker_cancel_forward} if isinstance(worker_cancel_forward, dict) else {}),
+            },
         )
-        return True, "ok", {"id": task_id, "action": action, "status": new_status}
+        return True, "ok", {
+            "id": task_id,
+            "action": action,
+            "status": new_status,
+            **({"worker_cancel_forward": worker_cancel_forward} if isinstance(worker_cancel_forward, dict) else {}),
+        }
 
 
 task_admin_service = TaskAdminService()

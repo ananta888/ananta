@@ -1347,7 +1347,16 @@ def _dispatch_one_task_inner(  # noqa: C901
                     "reason_code": reason_code,
                 },
             }
-            retry_status = "needs_review"
+            agent_cfg = loop._agent_config() or {}
+            propose_policy_cfg = dict((agent_cfg.get("propose_policy") or {}))
+            allow_human_review = bool(propose_policy_cfg.get("allow_human_review", True))
+            on_declined = str(propose_policy_cfg.get("on_all_strategies_declined") or "needs_review").strip().lower()
+            if on_declined == "failed":
+                retry_status = "failed"
+            elif on_declined == "advisory":
+                retry_status = "todo"
+            else:
+                retry_status = "waiting_for_review" if allow_human_review else "failed"
             retry_snapshot = _ensure_llm_profile_snapshot(
                 snapshot={"strategy_failures": strategy_failures[-5:]},
                 strategy_id=None,
@@ -1376,6 +1385,8 @@ def _dispatch_one_task_inner(  # noqa: C901
                     "cooldown_seconds": cooldown_seconds,
                     "attempt_count": total_attempt_count,
                     "terminalize_no_exec": terminalize_no_exec,
+                    "allow_human_review": allow_human_review,
+                    "on_all_strategies_declined": on_declined,
                 },
             )
             append_trace_event(

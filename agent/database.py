@@ -216,34 +216,44 @@ def _ensure_schema_compat() -> None:
     if "agents" not in set(inspector.get_table_names()):
         return
 
-    existing_columns = {column["name"] for column in inspector.get_columns("agents")}
-    compatibility_columns = {
-        "name": "TEXT NOT NULL DEFAULT ''",
-        "role": "TEXT NOT NULL DEFAULT 'worker'",
-        "token": "TEXT",
-        "worker_roles": "TEXT NOT NULL DEFAULT '[]'",
-        "capabilities": "TEXT NOT NULL DEFAULT '[]'",
-        "execution_limits": "TEXT NOT NULL DEFAULT '{}'",
-        "registration_validated": "INTEGER NOT NULL DEFAULT 1",
-        "validation_errors": "TEXT NOT NULL DEFAULT '[]'",
-        "validated_at": "REAL",
-        "last_seen": "REAL NOT NULL DEFAULT 0",
-        "status": "TEXT NOT NULL DEFAULT 'online'",
-        "learning_state": "TEXT NOT NULL DEFAULT '{}'",
+    compatibility_by_table = {
+        "agents": {
+            "name": "TEXT NOT NULL DEFAULT ''",
+            "role": "TEXT NOT NULL DEFAULT 'worker'",
+            "token": "TEXT",
+            "worker_roles": "TEXT NOT NULL DEFAULT '[]'",
+            "capabilities": "TEXT NOT NULL DEFAULT '[]'",
+            "execution_limits": "TEXT NOT NULL DEFAULT '{}'",
+            "registration_validated": "INTEGER NOT NULL DEFAULT 1",
+            "validation_errors": "TEXT NOT NULL DEFAULT '[]'",
+            "validated_at": "REAL",
+            "last_seen": "REAL NOT NULL DEFAULT 0",
+            "status": "TEXT NOT NULL DEFAULT 'online'",
+            "learning_state": "TEXT NOT NULL DEFAULT '{}'",
+        },
+        "planning_model_profiles": {
+            "learning_state": "TEXT NOT NULL DEFAULT '{}'",
+        },
     }
 
-    missing_columns: list[str] = []
+    table_names = set(inspector.get_table_names())
     with engine.begin() as connection:
-        for column_name, sql_type in compatibility_columns.items():
-            if column_name in existing_columns:
+        for table_name, compatibility_columns in compatibility_by_table.items():
+            if table_name not in table_names:
                 continue
-            missing_columns.append(column_name)
-            connection.execute(text(f"ALTER TABLE agents ADD COLUMN {column_name} {sql_type}"))
-    if missing_columns:
-        logging.warning(
-            "DB schema missing agents columns %s; applying compatibility migration.",
-            ", ".join(sorted(missing_columns)),
-        )
+            existing_columns = {column["name"] for column in inspector.get_columns(table_name)}
+            missing_columns: list[str] = []
+            for column_name, sql_type in compatibility_columns.items():
+                if column_name in existing_columns:
+                    continue
+                missing_columns.append(column_name)
+                connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {sql_type}"))
+            if missing_columns:
+                logging.warning(
+                    "DB schema missing %s columns %s; applying compatibility migration.",
+                    table_name,
+                    ", ".join(sorted(missing_columns)),
+                )
     return
 
 
