@@ -20,8 +20,8 @@
   ],
   "progress_notes": [
     "Umgesetzt: neue planning_policy.learning_loop Konfiguration, Hub-Background-Loop, Candidate-/Rollback-Logik, Trendmetriken und Tests fuer den Kernpfad.",
-    "Teilweise umgesetzt: Prompt-Evolver kann Kandidaten erzeugen und Profile gategesteuert umschalten, aber Diagnostics/CLI und einige Beobachtungsansichten fehlen noch.",
-    "Offen: Output-Shape-Classifier, vollständige Diagnostics-Ansichten, canary-bezogene Berichtsfunktionen und E2E-Abdeckung."
+    "Umgesetzt in dieser Runde: Output-Shape/Parser-Diagnostik, Planning-Learning-CLI-Report, Config-/Dashboard-Readmodel und E2E-Flow fuer die Lernschleife.",
+    "Offen bleiben nur noch die verbleibenden in-progress Kernpunkte fuer Evolver-/Canary-/Rollback-Feinschliff, falls sich bei der weiteren Validierung noch Lücken zeigen."
   ],
   "core_principles": [
     {
@@ -153,7 +153,7 @@
           "title": "Output-Shape und Parser-Erfolg messen",
           "type": "feature",
           "priority": "P0",
-          "status": "in_progress",
+          "status": "done",
           "summary": "Das System soll erkennen, ob ein Modell natuerlich JSON, Markdown-Bullets, Markdown-Fences, eingebettetes JSON oder freie Prosa liefert.",
           "files": [
             "agent/services/planning_output_shape_classifier.py",
@@ -395,7 +395,7 @@
           "title": "Diagnostics und CLI fuer Lernzustand",
           "type": "feature",
           "priority": "high",
-          "status": "todo",
+          "status": "done",
           "summary": "Der aktuelle Lernzustand muss fuer Menschen und Automatisierung sichtbar sein, ohne rohe Secrets preiszugeben.",
           "files": [
             "agent/routes/debug/diagnostics.py",
@@ -508,7 +508,7 @@
           "title": "End-to-End Lernschleifen-Tests",
           "type": "test",
           "priority": "P0",
-          "status": "todo",
+          "status": "done",
           "summary": "Die komplette Lernschleife braucht Tests von Datenerfassung ueber Candidate-Erzeugung bis Rollback.",
           "files": [
             "tests/e2e/test_planning_learning_loop.py",
