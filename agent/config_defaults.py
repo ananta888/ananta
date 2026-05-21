@@ -155,6 +155,7 @@ def build_default_agent_config() -> dict:
             "allow_hub_worker_fallback": True,
             "escalate_on_fallback_block": True,
             "fallback_block_status": "blocked",
+            "worker_404_hub_fallback_enabled": True,
         },
         "routing_fallback_policy": {
             "enabled": True,
