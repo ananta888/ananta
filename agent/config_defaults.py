@@ -556,7 +556,7 @@ def build_default_agent_config() -> dict:
                         "tests": 1,
                         "review": 1,
                     },
-                    "max_generic_tasks": 2,
+                    "max_generic_tasks": 4,
                 },
                 "generic": {
                     "min_total_tasks": 3,
