@@ -195,6 +195,7 @@ class PlanningLearningLoopService:
             )
             current_quality = self._quality_score(current_group) if current_group else 0.0
             activation_guard = self._activation_guard(learning=learning, current_candidate=current_candidate, current_group=current_group)
+            profile_learning_state = normalize_learning_state(getattr(profile, "learning_state", None), default_state="stable")
 
             profile_rows.append(
                 {
@@ -204,7 +205,10 @@ class PlanningLearningLoopService:
                     "model_family": str(profile.model_family or ""),
                     "enabled": bool(profile.enabled),
                     "active_prompt_version_id": prompt_version_id,
-                    "learning_state": normalize_learning_state(getattr(profile, "learning_state", None), default_state="stable"),
+                    "learning_state": profile_learning_state,
+                    "observed_output_shape": str(profile_learning_state.get("observed_output_shape") or profile_learning_state.get("observed_output_format") or ""),
+                    "observed_output_format": str(profile_learning_state.get("observed_output_format") or ""),
+                    "preferred_output_format": str((behavior_aggregation.get("preferred_output_format") or {}).get("value") or ""),
                     "current_quality_score": current_quality,
                     "trend_direction": str(current_group.get("trend_direction") or ""),
                     "sample_size_is_small": bool(current_group.get("sample_size_is_small")),
@@ -247,16 +251,20 @@ class PlanningLearningLoopService:
         state: str,
         source: str,
         observed_output_format: str | None = None,
+        observed_output_shape: str | None = None,
         observed_model_family: str | None = None,
         prompt_version_id: str | None = None,
         sample_size: int | None = None,
         reason_codes: list[str] | None = None,
     ) -> dict[str, Any]:
+        observed_shape = str(observed_output_shape or observed_output_format or "").strip() or None
+        observed_format = str(observed_output_format or observed_output_shape or "").strip() or None
         return normalize_learning_state(
             {
                 "state": state,
                 "source": source,
-                "observed_output_format": observed_output_format,
+                "observed_output_format": observed_format,
+                "observed_output_shape": observed_shape,
                 "observed_model_family": observed_model_family,
                 "prompt_version_id": prompt_version_id,
                 "sample_size": sample_size,
@@ -273,6 +281,7 @@ class PlanningLearningLoopService:
         state: str,
         source: str,
         observed_output_format: str | None = None,
+        observed_output_shape: str | None = None,
         observed_model_family: str | None = None,
         prompt_version_id: str | None = None,
         sample_size: int | None = None,
@@ -282,6 +291,7 @@ class PlanningLearningLoopService:
             state=state,
             source=source,
             observed_output_format=observed_output_format,
+            observed_output_shape=observed_output_shape,
             observed_model_family=observed_model_family,
             prompt_version_id=prompt_version_id,
             sample_size=sample_size,
@@ -292,6 +302,7 @@ class PlanningLearningLoopService:
             state=state,
             source=source,
             observed_output_format=observed_output_format,
+            observed_output_shape=observed_output_shape,
             observed_model_family=observed_model_family,
             prompt_version_id=prompt_version_id,
             sample_size=sample_size,
@@ -356,6 +367,7 @@ class PlanningLearningLoopService:
             state="candidate",
             source="planning_learning_loop",
             observed_output_format=str((trigger_run.mode_data or {}).get("__output_shape__") or ""),
+            observed_output_shape=str((trigger_run.mode_data or {}).get("__output_shape__") or ""),
             observed_model_family=str(profile.model_family or profile.model_name_pattern or ""),
             prompt_version_id=str(evolved["new_prompt_version_id"]),
             sample_size=int(group.get("run_count") or 0),
@@ -417,6 +429,7 @@ class PlanningLearningLoopService:
             state="degraded",
             source="planning_learning_loop",
             observed_output_format=str((current_group.get("preferred_output_shape") or {}).get("value") or ""),
+            observed_output_shape=str((current_group.get("preferred_output_shape") or {}).get("value") or ""),
             observed_model_family=str(profile.model_family or profile.model_name_pattern or ""),
             prompt_version_id=previous_prompt_version_id,
             sample_size=int(current_group.get("run_count") or 0),
@@ -456,6 +469,7 @@ class PlanningLearningLoopService:
             state="stable",
             source="planning_learning_loop",
             observed_output_format=str((current_group.get("preferred_output_shape") or {}).get("value") or ""),
+            observed_output_shape=str((current_group.get("preferred_output_shape") or {}).get("value") or ""),
             observed_model_family=str(profile.model_family or profile.model_name_pattern or ""),
             prompt_version_id=str(profile.preferred_prompt_version_id or ""),
             sample_size=int(current_group.get("run_count") or 0),
@@ -547,6 +561,7 @@ class PlanningLearningLoopService:
                     state="candidate",
                     source="planning_learning_loop",
                     observed_output_format=str((worst_group.get("preferred_output_shape") or {}).get("value") or ""),
+                    observed_output_shape=str((worst_group.get("preferred_output_shape") or {}).get("value") or ""),
                     observed_model_family=str(profile.model_family or profile.model_name_pattern or ""),
                     prompt_version_id=str((active_candidate.candidate_payload or {}).get("new_prompt_version_id") or active_prompt_version_id or ""),
                     sample_size=int(worst_group.get("run_count") or 0),
@@ -603,6 +618,7 @@ class PlanningLearningLoopService:
                     state="stable",
                     source="planning_learning_loop",
                     observed_output_format=str((worst_group.get("preferred_output_shape") or {}).get("value") or ""),
+                    observed_output_shape=str((worst_group.get("preferred_output_shape") or {}).get("value") or ""),
                     observed_model_family=str(profile.model_family or profile.model_name_pattern or ""),
                     prompt_version_id=active_prompt_version_id,
                     sample_size=int(worst_group.get("run_count") or 0),

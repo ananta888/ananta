@@ -372,7 +372,8 @@ def planning_learning_settings_summary(cfg: dict) -> dict:
         state = str(learning_state.get("state") or "unknown").strip().lower() or "unknown"
         state_counts[state] = state_counts.get(state, 0) + 1
         output_shape = str(
-            learning_state.get("observed_output_format")
+            learning_state.get("observed_output_shape")
+            or learning_state.get("observed_output_format")
             or (snapshot.get("behavior_aggregation") or {}).get("preferred_output_shape", {}).get("value")
             or "unknown"
         ).strip().lower() or "unknown"
@@ -387,6 +388,8 @@ def planning_learning_settings_summary(cfg: dict) -> dict:
             "stable_profile_count": state_counts.get("stable", 0),
             "candidate_profile_count": state_counts.get("candidate", 0),
             "degraded_profile_count": state_counts.get("degraded", 0),
+            "preferred_output_shape": dict((snapshot.get("behavior_aggregation") or {}).get("preferred_output_shape") or {}),
+            "preferred_output_format": dict((snapshot.get("behavior_aggregation") or {}).get("preferred_output_format") or {}),
         },
         "source": {
             "learning_loop": "planning_policy.learning_loop",

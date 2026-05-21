@@ -504,7 +504,11 @@ class TestPromptLearningReport:
                     "policy": {"lookback_runs": 24, "freeze_minutes": 60},
                     "candidate_count": 2,
                     "review_item_count": 1,
-                    "overview": {"state_counts": {"stable": 1, "candidate": 1}},
+                    "overview": {
+                        "state_counts": {"stable": 1, "candidate": 1},
+                        "preferred_output_shape": {"value": "json_in_markdown_fence", "state": "stable"},
+                        "preferred_output_format": {"value": "json", "state": "stable"},
+                    },
                     "profiles": [
                         {
                             "profile_name": "lmstudio_laptop",
@@ -512,7 +516,11 @@ class TestPromptLearningReport:
                             "provider": "lmstudio",
                             "model_family": "gemma",
                             "model_name_pattern": "gemma-4e4b",
-                            "learning_state": {"state": "candidate", "observed_output_format": "json_in_markdown_fence"},
+                            "learning_state": {
+                                "state": "candidate",
+                                "observed_output_format": "json_in_markdown_fence",
+                                "observed_output_shape": "json_in_markdown_fence",
+                            },
                             "active_prompt_version_id": "v2",
                             "current_quality_score": 0.25,
                             "trend_direction": "degrading",
@@ -543,8 +551,13 @@ class TestPromptLearningReport:
         parsed = json.loads(captured.getvalue())
         assert parsed["enabled"] is True
         assert parsed["candidate_count"] == 2
+        assert parsed["overview"]["preferred_output_shape"]["value"] == "json_in_markdown_fence"
+        assert parsed["overview"]["preferred_output_format"]["value"] == "json"
         assert parsed["profiles"][0]["profile_name"] == "lmstudio_laptop"
         assert parsed["profiles"][0]["learning_state"]["state"] == "candidate"
+        assert parsed["profiles"][0]["learning_state"]["observed_output_shape"] == "json_in_markdown_fence"
+        assert parsed["profiles"][0]["observed_output_shape"] == "json_in_markdown_fence"
+        assert parsed["profiles"][0]["preferred_output_format"] == "json"
 
     def test_learning_report_missing_optional_fields(self):
         import argparse

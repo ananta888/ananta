@@ -260,6 +260,10 @@ class LLMPlanningStrategy:
     def _format_adaptive_repair_guidance(*, output_shape: str | None, preferred_output_format: str) -> str:
         shape = str(output_shape or "").strip().lower()
         preferred = str(preferred_output_format or "json").strip().lower() or "json"
+        if shape == "partial_json":
+            return (
+                "The previous answer was truncated. Return a shorter, complete plan with fewer words per task and no extra commentary."
+            )
         if shape in {"json_in_markdown_fence", "json_extracted"}:
             return (
                 "The previous answer already used markdown-wrapped JSON or embedded JSON. "
@@ -272,6 +276,15 @@ class LLMPlanningStrategy:
             )
         if shape in {"strict_json_array", "strict_json_object"}:
             return "Keep the JSON structure, but repair completeness and missing fields."
+        if preferred == "markdown":
+            return (
+                "The model may prefer markdown. A concise markdown list is acceptable during repair, "
+                "as long as each task stays concrete and can be normalized back into structured tasks."
+            )
+        if preferred == "yaml":
+            return (
+                "The model may prefer YAML. Keep keys short and avoid nested prose so the output can be normalized reliably."
+            )
         return (
             f"Prefer {preferred.upper()} if that is your natural format, but keep the response structured and parseable."
         )
