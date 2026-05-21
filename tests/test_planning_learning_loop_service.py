@@ -328,3 +328,88 @@ def test_learning_loop_rolls_back_regressed_canary(monkeypatch):
     assert reg.planning_model_profile_repo.saved[-1].preferred_prompt_version_id == str(previous_version.id)
     assert reg.planning_template_candidate_repo.items[0].status == "rolled_back"
     assert reg.planning_prompt_version_repo.versions[str(canary_version.id)].enabled is False
+
+
+def test_learning_snapshot_includes_profiles_candidates_and_freeze(monkeypatch):
+    import agent.services.planning_learning_loop_service as mod
+
+    previous_version = PlanningPromptVersionDB(
+        version="v1",
+        language="de",
+        mode="new_software_project",
+        output_contract={},
+        system_rules=[],
+        user_prompt_template="base",
+        repair_prompt_template="repair",
+        checksum="chk-1",
+        enabled=True,
+    )
+    candidate = PlanningTemplateCandidateDB(
+        source_run_id="run-1",
+        goal_type="software_project",
+        mode="new_software_project",
+        candidate_payload={
+            "profile_name": "lmstudio_laptop",
+            "current_prompt_version_id": str(previous_version.id),
+            "new_prompt_version_id": "next-version",
+            "canary_window_runs": 3,
+            "created_at": 100.0,
+            "candidate_state": "canary",
+        },
+        confidence="medium",
+        status="canary",
+    )
+    reg = _Registry(
+        runs=[_make_run(id="run-1", planning_profile="lmstudio_laptop", prompt_version_id=str(previous_version.id), parse_mode="strict_json", repair_needed=False, validation_success=True, generated_task_count=2)],
+        profiles=[
+            SimpleNamespace(
+                profile_name="lmstudio_laptop",
+                provider="lmstudio",
+                model_name_pattern="gemma",
+                model_family="gemma",
+                preferred_prompt_version_id=str(previous_version.id),
+                enabled=True,
+            )
+        ],
+        versions=[previous_version],
+        candidates=[candidate],
+    )
+    monkeypatch.setattr(mod, "get_repository_registry", lambda: reg)
+    monkeypatch.setattr(
+        mod,
+        "get_planning_metrics_service",
+        lambda: SimpleNamespace(
+            summarize=lambda **_: {
+                "run_count": 1,
+                "groups": [
+                    {
+                        "group": "lmstudio::gemma::lmstudio_laptop",
+                        "model_key": "lmstudio::gemma",
+                        "run_count": 1,
+                        "parse_success_rate": 1.0,
+                        "repair_rate": 0.0,
+                        "validation_success_rate": 1.0,
+                        "materialization_success_rate": 1.0,
+                        "quality_score": 0.75,
+                        "trend_direction": "stable",
+                        "sample_size_is_small": True,
+                        "avg_generated_tasks": 2.0,
+                        "output_shape_distribution": {"strict_json": 1.0},
+                        "format_error_distribution": {},
+                        "response_behavior_profile": "lmstudio_laptop",
+                    }
+                ],
+            }
+        ),
+    )
+
+    snapshot = mod.get_planning_learning_loop_service().build_snapshot(
+        planning_policy={"learning_loop": {"enabled": True, "freeze_minutes": 10, "lookback_runs": 20}}
+    )
+
+    assert snapshot["enabled"] is True
+    assert snapshot["candidate_count"] == 1
+    assert snapshot["review_item_count"] == 0
+    assert snapshot["profiles"][0]["profile_name"] == "lmstudio_laptop"
+    assert snapshot["profiles"][0]["current_candidate"]["status"] == "canary"
+    assert snapshot["profiles"][0]["freeze"]["active"] is True

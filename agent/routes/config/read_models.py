@@ -138,6 +138,7 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
             "opencode_runtime": shared.opencode_runtime_settings_summary(cfg),
             "worker_runtime": shared.worker_runtime_settings_summary(cfg),
             "planning_policy": shared.planning_policy_settings_summary(cfg),
+            "planning_learning": shared.planning_learning_settings_summary(cfg),
             "role_model_overrides": shared.normalize_model_override_map(cfg.get("role_model_overrides")),
             "template_model_overrides": shared.normalize_model_override_map(cfg.get("template_model_overrides")),
             "task_kind_model_overrides": shared.normalize_model_override_map(cfg.get("task_kind_model_overrides")),
@@ -239,6 +240,7 @@ def dashboard_read_model():
             hub_copilot_summary_builder=shared.hub_copilot_settings_summary,
             context_policy_summary_builder=shared.context_bundle_policy_settings_summary,
             artifact_flow_summary_builder=shared.artifact_flow_settings_summary,
+            planning_learning_summary_builder=shared.planning_learning_settings_summary,
         )
     )
 

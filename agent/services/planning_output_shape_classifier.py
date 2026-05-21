@@ -27,6 +27,10 @@ def classify_output_shape(raw_text: str) -> dict[str, Any]:
         detected.append("xml_like")
     if re.search(r"(?m)^\s*[a-zA-Z_]+:\s+", text):
         detected.append("yaml_like")
+    if (text.startswith("[") or text.startswith("{")) and not (text.endswith("]") or text.endswith("}")):
+        detected.append("partial_json")
+    if "..." in text and (text.startswith("[") or text.startswith("{")):
+        detected.append("partial_json")
     if not detected:
         detected.append("freeform_prose")
 
@@ -35,6 +39,8 @@ def classify_output_shape(raw_text: str) -> dict[str, Any]:
         primary = "json_in_markdown_fence"
     if "mermaid_graph" in detected:
         primary = "mermaid_graph"
+    if "partial_json" in detected and primary in {"strict_json_array", "strict_json_object", "freeform_prose"}:
+        primary = "partial_json"
 
     return {
         "primary_shape": primary,

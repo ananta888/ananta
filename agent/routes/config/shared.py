@@ -349,6 +349,30 @@ def planning_policy_settings_summary(cfg: dict) -> dict:
     }
 
 
+def planning_learning_settings_summary(cfg: dict) -> dict:
+    planning_policy = normalize_planning_policy_config((cfg or {}).get("planning_policy") if isinstance(cfg, dict) else {})
+    try:
+        from agent.services.planning_learning_loop_service import get_planning_learning_loop_service
+
+        snapshot = get_planning_learning_loop_service().build_snapshot(planning_policy={"learning_loop": planning_policy.get("learning_loop") or {}})
+    except Exception:
+        snapshot = {
+            "enabled": bool((planning_policy.get("learning_loop") or {}).get("enabled", False)),
+            "policy": planning_policy.get("learning_loop") or {},
+            "profiles": [],
+            "candidate_count": 0,
+            "review_item_count": 0,
+        }
+    return {
+        "requested": planning_policy.get("learning_loop") or {},
+        "effective": planning_policy.get("learning_loop") or {},
+        "snapshot": snapshot,
+        "source": {
+            "learning_loop": "planning_policy.learning_loop",
+        },
+    }
+
+
 def parse_bool_query_flag(value: str | None) -> bool:
     normalized = str(value or "").strip().lower()
     return normalized in {"1", "true", "yes", "y", "on"}
