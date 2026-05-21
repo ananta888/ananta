@@ -206,9 +206,15 @@ def _run_compat_goals(argv: Sequence[str]) -> int:
         print("Error: `ananta goal|goals` expects arguments.")
         print("Use `ananta status`, `ananta ask ...`, or `ananta --help`.")
         return 2
+    # Compatibility bridge: some users call `ananta goal --goal-id <id>` to inspect
+    # details. The canonical flag in `cli_goals` is `--goal-detail <id>`.
+    normalized = list(argv)
+    if "--goal-id" in normalized and "--goal-detail" not in normalized and "--goal-purge" not in normalized:
+        idx = normalized.index("--goal-id")
+        normalized[idx] = "--goal-detail"
     if argv[0] in GOAL_ALIAS_COMMANDS:
         return run_goal_alias(argv[0], argv[1:])
-    return run_cli_goals(argv)
+    return run_cli_goals(normalized)
 
 
 def main(argv: list[str] | None = None) -> int:
