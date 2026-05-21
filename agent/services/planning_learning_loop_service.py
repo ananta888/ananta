@@ -362,6 +362,13 @@ class PlanningLearningLoopService:
                 status="canary" if auto_activate_requested else "proposed",
             )
         )
+        # Deploy canary: update profile to use the evolved prompt so planning runs
+        # actually test it during the canary window.
+        if auto_activate_requested:
+            new_version_id = str(evolved.get("new_prompt_version_id") or "").strip()
+            if new_version_id:
+                profile.preferred_prompt_version_id = new_version_id
+                repos.planning_model_profile_repo.save(profile)
         self._set_profile_learning_state(
             profile=profile,
             state="candidate",
@@ -461,6 +468,10 @@ class PlanningLearningLoopService:
         if quality < float(learning.get("candidate_activation_threshold") or 0.75):
             return False, {"reason": "quality_below_activation_threshold", "quality_score": quality}
 
+        new_version_id = str(payload.get("new_prompt_version_id") or "").strip()
+        if new_version_id and new_version_id != str(profile.preferred_prompt_version_id or "").strip():
+            profile.preferred_prompt_version_id = new_version_id
+            repos.planning_model_profile_repo.save(profile)
         active_candidate.status = "activated"
         active_candidate.candidate_payload = {**payload, "activated_at": time.time(), "candidate_state": "activated", "current_quality_score": quality}
         repos.planning_template_candidate_repo.save(active_candidate)
