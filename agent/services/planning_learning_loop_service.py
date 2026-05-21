@@ -155,6 +155,22 @@ class PlanningLearningLoopService:
         profiles = list(repos.planning_model_profile_repo.get_enabled())
         candidates = list(repos.planning_template_candidate_repo.get_recent(limit=100))
         reviews = list(repos.planning_review_item_repo.get_open(limit=200))
+        try:
+            behavior_aggregation = get_model_response_behavior_aggregation_service().aggregate(
+                limit=int(learning.get("lookback_runs") or 120),
+            )
+        except Exception:
+            behavior_aggregation = {
+                "observed_run_count": 0,
+                "primary_output_shape_distribution": {},
+                "parse_mode_distribution": {},
+                "repair_success_distribution": {},
+                "model_family_distribution": {},
+                "preferred_output_shape": {"value": None, "share": 0.0, "state": "unknown"},
+                "preferred_parse_mode": {"value": None, "share": 0.0, "state": "unknown"},
+                "preferred_model_family": {"value": None, "share": 0.0, "state": "unknown"},
+                "family_behavior_profiles": [],
+            }
 
         profile_rows: list[dict[str, Any]] = []
         for profile in profiles:
@@ -212,6 +228,7 @@ class PlanningLearningLoopService:
             "profiles": profile_rows,
             "candidate_count": len(candidates),
             "review_item_count": len(reviews),
+            "behavior_aggregation": behavior_aggregation,
         }
 
     def _create_candidate(

@@ -439,6 +439,7 @@ def test_learning_loop_rolls_back_regressed_canary(monkeypatch):
 
 def test_learning_snapshot_includes_profiles_candidates_and_freeze(monkeypatch):
     import agent.services.planning_learning_loop_service as mod
+    import agent.services.model_response_behavior_aggregation_service as behavior_mod
     import time
 
     previous_version = PlanningPromptVersionDB(
@@ -483,6 +484,7 @@ def test_learning_snapshot_includes_profiles_candidates_and_freeze(monkeypatch):
         candidates=[candidate],
     )
     monkeypatch.setattr(mod, "get_repository_registry", lambda: reg)
+    monkeypatch.setattr(behavior_mod, "get_repository_registry", lambda: reg)
     monkeypatch.setattr(
         mod,
         "get_planning_metrics_service",
@@ -518,6 +520,7 @@ def test_learning_snapshot_includes_profiles_candidates_and_freeze(monkeypatch):
     assert snapshot["enabled"] is True
     assert snapshot["candidate_count"] == 1
     assert snapshot["review_item_count"] == 0
+    assert snapshot["behavior_aggregation"]["observed_run_count"] == 1
     assert snapshot["profiles"][0]["profile_name"] == "lmstudio_laptop"
     assert snapshot["profiles"][0]["current_candidate"]["status"] == "canary"
     assert snapshot["profiles"][0]["freeze"]["active"] is True

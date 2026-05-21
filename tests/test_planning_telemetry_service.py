@@ -35,6 +35,7 @@ def test_build_learning_record_unifies_planning_signals():
     assert record["goal_id"] == "goal-1"
     assert record["planning_profile"] == "lmstudio_laptop"
     assert record["parse_mode"] == "parse_failed"
+    assert record["model_family"] == "gemma"
     assert record["output_shape"] == "partial_json"
     assert record["truncation_flag"] is True
     assert record["materialized_task_count"] == 2
