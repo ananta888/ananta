@@ -1,0 +1,345 @@
+{
+  "schema_version": "todo.v2",
+  "id": "todo.planning-model-kennelernphase",
+  "title": "Planning-Modell-Kennenlernphase fuer modelladaptive Ausgabe- und Repair-Profile",
+  "summary": "Diese Todo beschreibt eine explizite Kennenlernphase fuer Planning-Modelle, in der Ananta das reale Output-Verhalten eines Modells oder einer Modellfamilie beobachtet, daraus bevorzugte Antwortformen ableitet und erst nach ausreichender Evidenz ein stabiles Prompt-/Profilverhalten aktiviert. Ziel ist nicht, Modelle in ein starres JSON-Schema zu pressen, sondern das System modelladaptiv zu machen: JSON, Markdown, eingebettetes JSON, YAML-artige Antworten und truncation-empfindliche Muster sollen als Lernsignale dienen, nicht als reine Fehlerquelle.",
+  "created_from": [
+    "User requirement: Planning soll sich flexibel an das konkrete Modell anpassen",
+    "Analyse der vorhandenen PlanningPromptEvolverService- und PlanningModelProfileService-Hooks",
+    "Analyse der Planning-Trace- und Output-Shape-Diagnostik",
+    "Beobachtung, dass Gemma-/LMStudio-Modelle oft mit Markdown oder eingebettetem JSON natuerlicher antworten",
+    "Wunsch nach einer ersten Lernphase vor automatischer Nachschaerfung"
+  ],
+  "global_goals": [
+    "Ananta soll pro Planning-Modell oder Modellfamilie lernen, welche Output-Form natuerlich und robust parsebar ist.",
+    "Prompt- und Repair-Verhalten sollen sich an das Modell anpassen, statt das Modell mit einem einzigen starren Format zu vergewaltigen.",
+    "Die Lernphase muss beobachtbar, abbrechbar und rollback-faehig bleiben.",
+    "Default-Verhalten darf erst nach ausreichend Evidenz auf ein neues Modellprofil umschalten.",
+    "Die Logik muss im Hub gesteuert werden und darf keine unkontrollierte Selbstmodifikation ausloesen."
+  ],
+  "current_status": {
+    "existing_building_blocks": [
+      "PlanningPromptEvolverService reagiert bereits auf parse_mode, output_shape, repair_count und model_family.",
+      "PlanningModelProfileService kann preferred_output_format, supports_json_mode und repair_attempts pro Profil halten.",
+      "Planning output classification und Trace-Metadaten sind bereits erweitert.",
+      "Planning-Learning-Loop existiert bereits als Basis, ist aber noch nicht als explizite Modell-Kennenlernphase orchestriert."
+    ],
+    "missing_or_incomplete": [
+      "Expliziter Lernzustand pro Modellfamilie oder Profil fehlt noch.",
+      "Canary-/Stabilisierungsschwellen fuer das Modell-Onboarding fehlen noch als eigene Orchestrierung.",
+      "Aktivierung/Deaktivierung der bevorzugten Output-Form ist noch nicht als eigene Phase modelliert.",
+      "Ein klarer Report, ob ein Modell eher JSON, JSON-in-Markdown, Markdown oder YAML bevorzugt, ist noch nicht als Kernkonzept sichtbar."
+    ]
+  },
+  "core_principles": [
+    {
+      "id": "PML-001",
+      "title": "Model first, not format first",
+      "description": "Das System soll das natuerliche Output-Verhalten eines Modells beobachten und erst dann eine passende Validierungs- und Repair-Strategie ableiten."
+    },
+    {
+      "id": "PML-002",
+      "title": "Learning before activation",
+      "description": "Ein neues Modell- oder Profilverhalten darf erst nach ausreichender Lernphase und stabilen Metriken aktiviert werden."
+    },
+    {
+      "id": "PML-003",
+      "title": "Hub-owned adaptation",
+      "description": "Der Hub beobachtet, entscheidet, aktiviert und rollt zurueck. Worker liefern nur Signale und Ergebnisse."
+    },
+    {
+      "id": "PML-004",
+      "title": "Format diversity is a signal",
+      "description": "Markdown-Fences, eingebettetes JSON, YAML-artige Antworten oder Listen sind keine automatisch schlechten Outputs, sondern moegliche Modellvorlieben."
+    },
+    {
+      "id": "PML-005",
+      "title": "Rollback over hard commitment",
+      "description": "Jede Aktivierung muss ruecknehmbar sein. Ein schlechter Lernpfad darf nicht den Default dauerhaft verschlechtern."
+    }
+  ],
+  "risk_register": [
+    {
+      "id": "PML-RISK-001",
+      "title": "Ueberanpassung an einen einzelnen Run",
+      "severity": "high",
+      "description": "Ein einzelner erfolgreicher oder fehlgeschlagener Planning-Run kann ein falsches Modellverhalten suggerieren.",
+      "mitigation": "Minimale Stichprobe, Zeitfenster, Hysterese und Rollup-Trends verwenden."
+    },
+    {
+      "id": "PML-RISK-002",
+      "title": "Markdown wird fälschlich als schlechter Output behandelt",
+      "severity": "medium",
+      "description": "Manche Modelle liefern JSON in Markdown-Fences oder bevorzugen Listen. Das ist nicht automatisch ein Fehler.",
+      "mitigation": "Output-Shape-Klassifikation und modellfamilienbezogene Reparaturregeln verwenden."
+    },
+    {
+      "id": "PML-RISK-003",
+      "title": "Prompt-Evolver verschlechtert Default-Prompts",
+      "severity": "critical",
+      "description": "Wenn Lernkandidaten zu schnell als Default aktiv werden, kann das System regressieren.",
+      "mitigation": "Canary, Freeze-Perioden, Aktivierungsschwellen und Auto-Rollback verpflichtend machen."
+    },
+    {
+      "id": "PML-RISK-004",
+      "title": "Zu viele parallele Lernpfade verwirren die Diagnose",
+      "severity": "medium",
+      "description": "Mehrere Profile oder Modelle koennen gleichzeitig lernen und die Ursache von Verbesserungen verschleiern.",
+      "mitigation": "Pro Modellfamilie klar getrennte Kandidaten- und Aktivierungszustände pflegen."
+    }
+  ],
+  "tracks": [
+    {
+      "id": "PML-TRACK-001",
+      "title": "Beobachtung und Klassifikation des realen Modelloutputs",
+      "summary": "Zuerst muss Ananta verstehen, wie das Modell tatsaechlich antwortet. JSON, Markdown, YAML, eingebettetes JSON und truncation-empfindliche Formen werden als Lernsignale erfasst.",
+      "priority": "P0",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "PML-001",
+          "title": "Output-Form pro Planning-Call persistent erfassen",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Jeder Planning-Call soll seine beobachtete Output-Form als Signal speichern.",
+          "files": [
+            "agent/services/planning_telemetry_service.py",
+            "agent/services/planning_output_shape_classifier.py",
+            "agent/services/planning_metrics_service.py",
+            "tests/test_planning_output_shape_classifier.py",
+            "tests/test_planning_telemetry_service.py"
+          ],
+          "description": "Erweitere die Lerntelemetrie so, dass pro Call output_shape, parse_mode, parse_confidence, truncation_flag und format_error_codes normalisiert gespeichert werden.",
+          "implementation_notes": [
+            "Shapes mindestens: strict_json_array, strict_json_object, json_in_markdown_fence, markdown_bullets, numbered_steps, yaml_like, freeform_prose, partial_json.",
+            "Output-Form und Parser-Erfolg getrennt speichern.",
+            "Rohdaten nicht duplizieren; nur normalisierte Lernsignale persistieren.",
+            "Modellfamilie und Provider als Kontext mitgeben."
+          ],
+          "acceptance_criteria": [
+            "Jeder Planning-Call hat ein normalisiertes output_shape-Feld.",
+            "Markdown-Fence-JSON wird als eigene Form erkennbar gespeichert.",
+            "Truncated JSON wird nicht mit freeform prose verwechselt.",
+            "Die Lerntelemetrie bleibt abwaertskompatibel und robust gegen fehlende Felder.",
+            "Offline-Tests decken mindestens JSON, Markdown und YAML-artige Antworten ab."
+          ],
+          "depends_on": []
+        },
+        {
+          "id": "PML-002",
+          "title": "Modellfamilie und Stilmerkmale aus Traces aggregieren",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Ananta soll nicht nur einzelne Calls sehen, sondern modellfamilienbezogene Tendenzen ueber mehrere Runs hinweg aggregieren.",
+          "files": [
+            "agent/services/model_response_behavior_aggregation_service.py",
+            "agent/services/planning_metrics_service.py",
+            "agent/routes/config/read_models.py",
+            "tests/test_model_response_behavior_aggregation_service.py"
+          ],
+          "description": "Baue eine Aggregation, die pro model_provider, model_name, profile_name und model_family erkannte Stilmerkmale zusammenfasst: bevorzugte Output-Form, Reparaturquote, Validierungsquote und Truncation-Neigung.",
+          "implementation_notes": [
+            "Trend- und Rolling-Window-Auswertung pro Modellfamilie.",
+            "Berechne bevorzugte Output-Form aus Mehrheits- oder Stabilitaetswerten.",
+            "Kennzeichne unsichere Resultate klar als candidate statt stable.",
+            "Expose diese Daten im Config-/Observability-Readmodel."
+          ],
+          "acceptance_criteria": [
+            "Pro Modellfamilie kann eine bevorzugte Output-Form abgeleitet werden.",
+            "Repair-Rate und Parse-Rate sind pro Familie vergleichbar.",
+            "Unsichere Stichproben werden als candidate markiert und nicht als stabil.",
+            "Die Aggregation ist ueber die bestehende Diagnoseansicht sichtbar.",
+            "Tests pruefen mindestens zwei unterschiedliche Output-Stile."
+          ],
+          "depends_on": [
+            "PML-001"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PML-TRACK-002",
+      "title": "Lernzustand und Prompt-/Profil-Orchestrierung",
+      "summary": "Sobald die Signale bekannt sind, braucht Ananta einen expliziten Lernzustand pro Modell oder Modellfamilie, um zu entscheiden, ob noch gelernt, schon stabilisiert oder bereits aktiviert wird.",
+      "priority": "P0",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "PML-003",
+          "title": "Expliziten Lernzustand pro Modellprofil einführen",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Jedes Modellprofil bekommt einen Lernstatus wie learning, candidate, stable oder degraded.",
+          "files": [
+            "agent/services/planning_model_profile_service.py",
+            "agent/services/planning_learning_state_service.py",
+            "agent/routes/config/shared.py",
+            "agent/routes/config/read_models.py",
+            "tests/test_planning_model_profile_service.py"
+          ],
+          "description": "Erweitere Modellprofile so, dass sie einen expliziten Lernzustand, eine Beobachtungsphase und einen Aktivierungsstatus fuer bevorzugte Output-Formen halten koennen.",
+          "implementation_notes": [
+            "Lernzustand darf nicht nur implizit aus Metriken geraten werden.",
+            "Aktiver Zustand und Kandidat-Zustand muessen getrennt sein.",
+            "Profile sollten eine bevorzugte output form und eine beobachtete output form speichern koennen.",
+            "Freeze-/Cooldown-Zeiten pro Profil sind sinnvoll."
+          ],
+          "acceptance_criteria": [
+            "Jedes Modellprofil kann einen Lernzustand speichern und ausliefern.",
+            "Ein Profil kann candidate sein, ohne aktiv zu werden.",
+            "Ein degraded Profil ist in der Diagnostik sichtbar.",
+            "Der Standardpfad bleibt stabil, wenn kein Lernzustand gesetzt ist.",
+            "Tests pruefen Transitionen zwischen learning, candidate und stable."
+          ],
+          "depends_on": [
+            "PML-001",
+            "PML-002"
+          ]
+        },
+        {
+          "id": "PML-004",
+          "title": "Adaptive Repair- und Prompt-Regeln aus Output-Stil ableiten",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Repair und Prompt-Regeln sollen sich an der natuerlichen Modellantwort orientieren, statt das Modell zu verbiegen.",
+          "files": [
+            "agent/services/planning_prompt_evolver_service.py",
+            "agent/services/planning_strategies.py",
+            "agent/services/planning_prompt_registry.py",
+            "config/planning_prompts.default.json",
+            "config/planning_model_profiles.default.json",
+            "tests/test_planning_prompt_evolver_service.py"
+          ],
+          "description": "Passe den Prompt-Evolver so an, dass er Output-Form, Parse-Modus und Modellfamilie fuer die erste Lernphase gezielt beruecksichtigt und Repair-Hinweise modellfreundlich formt.",
+          "implementation_notes": [
+            "Markdown-Fences oder eingebettetes JSON sollen in einer Lernphase als legitime Stilvarianten behandelt werden.",
+            "Repair-Text soll den beobachteten Stil respektieren und nicht blind durch JSON-only ersetzen.",
+            "Kurze, modellfreundliche Felder sind fuer kleine Modelle zu bevorzugen.",
+            "Die Prompt-Registry soll Prompt-Versionen nach Familien- und Stilmerkmalen aufloesen koennen."
+          ],
+          "acceptance_criteria": [
+            "Der Evolver kann beobachtete Output-Stile in die naechste Prompt-Version einarbeiten.",
+            "Repair-Hinweise sind modellfamilien- und output-shape-aware.",
+            "Markdown- und YAML-artige Outputs koennen in der Lernphase normalisiert werden, ohne sie als Fehler zu erzwingen.",
+            "Prompt- und Profilversionen bleiben versioniert und rollback-faehig.",
+            "Tests decken JSON, Markdown-Fence und YAML-like Adaptation ab."
+          ],
+          "depends_on": [
+            "PML-001",
+            "PML-002"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PML-TRACK-003",
+      "title": "Canary, Aktivierung und Rollback der Lernphase",
+      "summary": "Eine Modell-Kennenlernphase ist nur dann sicher, wenn Kandidaten schrittweise aktiviert, gemessen und bei Regression automatisch zurueckgerollt werden.",
+      "priority": "P0",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "PML-005",
+          "title": "Kandidat-zu-Stable Freigabe mit Schwellenwerten",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Nur signifikant bessere Lernkandidaten duerfen aktiv werden.",
+          "files": [
+            "agent/services/planning_learning_loop_service.py",
+            "agent/services/planning_prompt_evolver_service.py",
+            "agent/config_defaults.py",
+            "tests/test_planning_learning_loop_service.py"
+          ],
+          "description": "Definiere Schwellenwerte fuer Mindestanzahl von Runs, Parse-Rate, Validation-Rate und Repair-Rate, bevor ein Kandidat als stable aktiviert wird.",
+          "implementation_notes": [
+            "Schwellen muessen pro Profil konfigurierbar sein.",
+            "Canary-Fenster und Freeze-Perioden verwenden.",
+            "Auto-Aktivierung ist optional und standardmaessig konservativ.",
+            "Eine candidate activation darf nie ohne Evidenz passieren."
+          ],
+          "acceptance_criteria": [
+            "Ein Kandidat wird erst nach ausreichend Runs und Trendstabilitaet aktiv.",
+            "Zu kleine Stichproben bleiben candidate.",
+            "Rollback-Schwellen sind konfigurierbar und wirksam.",
+            "Die Aktivierungsentscheidung ist im Readmodel sichtbar.",
+            "Tests simulieren candidate, stable und rollback."
+          ],
+          "depends_on": [
+            "PML-003",
+            "PML-004"
+          ]
+        },
+        {
+          "id": "PML-006",
+          "title": "Rollback bei schlechterer Modell- oder Prompt-Qualitaet",
+          "type": "feature",
+          "priority": "P0",
+          "status": "todo",
+          "summary": "Eine Regression der Lernphase muss automatisch erkannt und rueckgaengig gemacht werden koennen.",
+          "files": [
+            "agent/services/planning_learning_loop_service.py",
+            "agent/services/planning_metrics_service.py",
+            "agent/services/planning_prompt_registry.py",
+            "tests/test_planning_learning_loop_service.py",
+            "tests/test_planning_metrics_service.py"
+          ],
+          "description": "Implementiere einen Rollback-Pfad, der nach Aktivierung eine Verschlechterung von Parse-Rate, Validation-Rate oder Materialisierung erkennt und wieder auf die vorherige stabile Version zurueckschaltet.",
+          "implementation_notes": [
+            "Rollback sollte getrennt von Aktivierung protokolliert werden.",
+            "Hysterese verhindert Flip-Flop zwischen zwei Versionen.",
+            "Rollback darf nicht durch einen einzelnen Ausreisser ausgelöst werden.",
+            "Die vorherige stabile Version muss erhalten bleiben."
+          ],
+          "acceptance_criteria": [
+            "Eine messbare Regression fuehrt zu einem klaren rollback state.",
+            "Die vorherige stabile Prompt-/Profilversion wird wiederhergestellt.",
+            "Ein einzelner schlechter Run reicht nicht fuer Rollback.",
+            "Rollback-Grund und Schwellwert sind in der Diagnose sichtbar.",
+            "Tests pruefen mindestens eine Regression und die Rueckschaltung."
+          ],
+          "depends_on": [
+            "PML-005"
+          ]
+        },
+        {
+          "id": "PML-007",
+          "title": "Kennenlernphase im Hub observierbar machen",
+          "type": "feature",
+          "priority": "P1",
+          "status": "todo",
+          "summary": "Die Lernphase muss im Hub und in der CLI als eigener Zustand sichtbar sein.",
+          "files": [
+            "agent/routes/config/read_models.py",
+            "agent/routes/config/shared.py",
+            "agent/cli/prompt_inspect.py",
+            "tests/test_cli_prompt_inspect.py"
+          ],
+          "description": "Erweitere die Readmodel- und CLI-Ansichten so, dass Status, bevorzugte Output-Form, Lernzustand, Canary-Fenster und letzte Modellbeobachtungen auf einen Blick sichtbar sind.",
+          "implementation_notes": [
+            "Keine Secrets oder raw tokens anzeigen.",
+            "CLI soll pro Modellfamilie den Lernzustand kompakt zeigen.",
+            "Die Diagnose muss zwischen learned, candidate und stable unterscheiden.",
+            "Die letzten Prompt-Traces sollen direkt zuordenbar bleiben."
+          ],
+          "acceptance_criteria": [
+            "CLI und Readmodel zeigen den Lernzustand pro Modellprofil.",
+            "Bevorzugte Output-Form und aktuelle Beobachtungsform sind sichtbar.",
+            "Letzte Traces koennen mit Lernstatus korreliert werden.",
+            "Keine Geheimnisse werden in der Ansicht ausgegeben.",
+            "Tests pruefen sowohl JSON- als auch Tabellenansicht."
+          ],
+          "depends_on": [
+            "PML-003",
+            "PML-005",
+            "PML-006"
+          ]
+        }
+      ]
+    }
+  ]
+}
