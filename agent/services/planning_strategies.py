@@ -14,6 +14,7 @@ from agent.services.model_response_behavior_profile_service import get_model_res
 from agent.services.planning_domain_hints_service import get_planning_domain_hints_service
 from agent.services.planning_prompt_registry import get_planning_prompt_registry
 from agent.services.planning_template_catalog import get_planning_template_catalog
+from agent.services.planning_utils import match_goal_template
 from agent.services.planning_utils import (
     build_planning_prompt_en,
     parse_subtasks_from_llm_response,
@@ -119,6 +120,24 @@ class TemplatePlanningStrategy:
                     planning_mode="template",
                     planning_origin="template",
                 )
+
+        fallback_template = match_goal_template(goal)
+        if fallback_template:
+            fallback_subtasks = self._catalog_subtasks_with_metadata(
+                {
+                    "id": "goal-template-fallback",
+                    "title": str(goal or "").strip() or "goal-template-fallback",
+                    "subtasks": list(fallback_template),
+                }
+            )
+            return PlanningStrategyResult(
+                subtasks=fallback_subtasks[: planner.max_subtasks_per_goal],
+                raw_response=None,
+                context=context,
+                template_used=True,
+                planning_mode="template",
+                planning_origin="template",
+            )
 
         execution_focused_subtasks = match_execution_focused_goal_template(goal)
         if execution_focused_subtasks:
@@ -331,11 +350,13 @@ class LLMPlanningStrategy:
         prompt = (
             f"{prompt}"
             "ANFORDERUNGEN:\n"
-            f"1. Liefere mindestens 3 und hoechstens {max_subtasks} Teilaufgaben\n"
-            "2. Jede Teilaufgabe muss title, description, priority enthalten\n"
-            "3. priority nur: High, Medium, Low\n"
-            "4. depends_on als Liste von Schrittnummern als Strings (z.B. [\"1\"])\n"
-            "5. Keine Erklaerungen, keine Markdown-Fences\n\n"
+            f"1. Liefere mindestens 5 und hoechstens {max_subtasks} Teilaufgaben.\n"
+            "2. Jede Teilaufgabe muss title, description, priority enthalten.\n"
+            "3. Fuelle die Pflichtphasen setup, implementation, execution, verification und summary ab, wenn es sich um ein neues Softwareprojekt handelt.\n"
+            "4. Jede description muss einen konkreten Output nennen (Dateipfad, Endpoint, Command oder Artifact).\n"
+            "5. priority nur: High, Medium, Low.\n"
+            "6. depends_on als Liste von Schrittnummern als Strings (z.B. [\"1\"]).\n"
+            "7. Keine Erklaerungen, keine Markdown-Fences.\n\n"
             "AUSGABEFORMAT (nur JSON-Array):\n"
             "[\n"
             '  {"title":"...","description":"...","priority":"High|Medium|Low","depends_on":[]}\n'
@@ -366,13 +387,15 @@ class LLMPlanningStrategy:
         prompt = (
             f"{prompt}"
             "MUSS-KRITERIEN:\n"
-            f"1. Liefere mindestens 3 und hoechstens {max_subtasks} Teilaufgaben\n"
-            "2. Enthalte mindestens eine konkrete Datei-/Projektstruktur-Aufgabe (Dateien oder Ordner anlegen/aktualisieren)\n"
-            "3. Enthalte mindestens eine konkrete Verifikations-Aufgabe (Test/Check/Run/Verify inkl. Ergebnisnachweis)\n"
-            "4. Jede Teilaufgabe muss title, description, priority enthalten\n"
-            "5. priority nur: High, Medium, Low\n"
-            "6. depends_on als Liste von Schrittnummern als Strings (z.B. [\"1\"])\n"
-            "7. Keine Erklaerungen, keine Markdown-Fences\n\n"
+            f"1. Liefere mindestens 5 und hoechstens {max_subtasks} Teilaufgaben.\n"
+            "2. Enthalte mindestens eine konkrete Datei-/Projektstruktur-Aufgabe (Dateien oder Ordner anlegen/aktualisieren).\n"
+            "3. Enthalte mindestens eine konkrete Verifikations-Aufgabe (Test/Check/Run/Verify inkl. Ergebnisnachweis).\n"
+            "4. Enthalte mindestens eine konkrete Ausfuehrungs-Aufgabe mit Run- oder Build-Command.\n"
+            "5. Fuelle die Pflichtphasen setup, implementation, execution, verification und summary ab.\n"
+            "6. Jede Teilaufgabe muss title, description, priority enthalten.\n"
+            "7. priority nur: High, Medium, Low.\n"
+            "8. depends_on als Liste von Schrittnummern als Strings (z.B. [\"1\"]).\n"
+            "9. Keine Erklaerungen, keine Markdown-Fences.\n\n"
             "AUSGABEFORMAT (nur JSON-Array):\n"
             "[\n"
             '  {"title":"...","description":"...","priority":"High|Medium|Low","depends_on":[]}\n'

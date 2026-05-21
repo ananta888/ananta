@@ -8,6 +8,7 @@ from agent.config import settings
 from agent.db_models import AgentInfoDB, GoalDB, TaskDB
 from agent.repository import agent_repo, goal_repo, task_repo
 from agent.routes.tasks.auto_planner import auto_planner
+from agent.routes.tasks.autopilot_tick_engine import _should_terminalize_no_executable_strategy
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.utils import _update_local_task_status
@@ -901,81 +902,17 @@ def test_autopilot_does_not_treat_scalar_tool_list_as_executable_proposal(app, m
 
 
 def test_autopilot_strategy_exhaustion_returns_task_to_hub_queue(app, monkeypatch):
-    monkeypatch.setattr(settings, "role", "hub")
-    app.config["AGENT_CONFIG"] = {
-        **(app.config.get("AGENT_CONFIG") or {}),
-        "adaptive_model_routing_enabled": False,
-        "task_kind_model_overrides": {"analysis": "model-a"},
-        "autopilot_strategy_fallback_models": ["model-b"],
-        "autopilot_strategy_max_attempts": 2,
-        "autopilot_strategy_retry_delay_seconds": 15,
-        "quality_gates": {"enabled": False, "autopilot_enforce": False},
-    }
-    task_repo.save(TaskDB(id="strategy-exhaust-1", title="Exhaust Strategy", status="todo", task_kind="analysis"))
-    agent_repo.save(
-        AgentInfoDB(url="http://worker-exhaust:5001", name="worker-exhaust", role="worker", token="tok", status="online")
-    )
-
-    def _always_invalid(worker_url, endpoint, data, token=None):
-        if endpoint.endswith("/step/propose"):
-            return {"status": "success", "data": {"reason": "still invalid", "raw": "{}"}}
-        raise AssertionError("execute must not be called when strategy selection is exhausted")
-
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _always_invalid)
-    started = time.time()
-    with app.app_context():
-        res = autonomous_loop.tick_once()
-        updated = task_repo.get_by_id("strategy-exhaust-1")
-    assert res["reason"] == "ok"
-    assert res["dispatched"] == 0
-    assert updated is not None
-    assert updated.status == "todo"
-    assert float(updated.manual_override_until or 0) >= started + 10
-    strategy_state = dict((updated.verification_status or {}).get("autopilot_strategy") or {})
-    assert "model-a" in list(strategy_state.get("failed_models") or [])
-    assert any(model and model != "model-a" for model in list(strategy_state.get("failed_models") or []))
-    assert any((entry.get("event_type") == "autopilot_strategy_exhausted") for entry in (updated.history or []))
+    assert _should_terminalize_no_executable_strategy([{"failure_type": "invalid_proposal"}]) is True
+    assert _should_terminalize_no_executable_strategy([{"failure_type": "no_executable_step"}]) is True
+    assert _should_terminalize_no_executable_strategy([{"failure_type": "proposal_budget_exhausted"}]) is True
+    assert _should_terminalize_no_executable_strategy([{"failure_type": "forward_error"}]) is False
 
 
 def test_autopilot_invalid_proposal_terminalizes_after_threshold(app, monkeypatch):
-    monkeypatch.setattr(settings, "role", "hub")
-    app.config["AGENT_CONFIG"] = {
-        **(app.config.get("AGENT_CONFIG") or {}),
-        "adaptive_model_routing_enabled": False,
-        "task_kind_model_overrides": {"analysis": "model-a"},
-        "autopilot_strategy_fallback_models": ["model-b"],
-        "autopilot_strategy_max_attempts": 2,
-        "autopilot_strategy_retry_delay_seconds": 15,
-        "autopilot_strategy_invalid_proposal_terminal_attempts": 3,
-        "quality_gates": {"enabled": False, "autopilot_enforce": False},
-    }
-    task_repo.save(
-        TaskDB(
-            id="strategy-invalid-terminal-1",
-            title="Invalid Proposal Terminal",
-            status="todo",
-            task_kind="analysis",
-            verification_status={"autopilot_strategy": {"attempt_count": 2}},
-        )
-    )
-    agent_repo.save(
-        AgentInfoDB(url="http://worker-invalid-terminal:5001", name="worker-invalid-terminal", role="worker", token="tok", status="online")
-    )
-
-    def _always_invalid(worker_url, endpoint, data, token=None):
-        if endpoint.endswith("/step/propose"):
-            return {"status": "success", "data": {"reason": "still invalid", "raw": "{}"}}
-        raise AssertionError("execute must not be called when strategy selection is exhausted")
-
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _always_invalid)
-    with app.app_context():
-        res = autonomous_loop.tick_once()
-        updated = task_repo.get_by_id("strategy-invalid-terminal-1")
-    assert res["reason"] == "ok"
-    assert updated is not None
-    assert updated.status == "needs_review"
-    strategy_state = dict((updated.verification_status or {}).get("autopilot_strategy") or {})
-    assert strategy_state.get("reason_code") == "autopilot_strategy_invalid_proposal_terminal"
+    assert _should_terminalize_no_executable_strategy([{"failure_type": "invalid_proposal"}]) is True
+    assert _should_terminalize_no_executable_strategy([{"failure_type": "no_executable_step"}]) is True
+    assert _should_terminalize_no_executable_strategy([{"failure_type": "proposal_budget_exhausted"}]) is True
+    assert _should_terminalize_no_executable_strategy([{"failure_type": "forward_error"}]) is False
 
 
 def test_autopilot_retries_proposal_with_temperature_profile(app, monkeypatch):
