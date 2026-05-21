@@ -147,7 +147,8 @@ class PlanningModelProfileService:
                 existing_profile.temperature = float(item.get("temperature") or 0.2)
                 existing_profile.repair_attempts = int(item["repair_attempts"] if item.get("repair_attempts") is not None else 2)
                 existing_profile.repair_strategies = list(item.get("repair_strategies") or [])
-                existing_profile.preferred_prompt_version_id = item.get("preferred_prompt_version_id")
+                if existing_profile.preferred_prompt_version_id is None:
+                    existing_profile.preferred_prompt_version_id = item.get("preferred_prompt_version_id")
                 existing_profile.output_contract_strictness = str(item.get("output_contract_strictness") or "repair_required")
                 existing_profile.supports_json_mode = bool(item.get("supports_json_mode", False))
                 existing_profile.requires_english_prompt = bool(item.get("requires_english_prompt", False))
