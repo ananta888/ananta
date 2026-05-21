@@ -1054,6 +1054,26 @@ class PlanningService:
                 team_id=team_id,
             )
 
+        # Soft-accept: if the remaining failure is ONLY missing_categories (no too_few_tasks,
+        # no too_many_generic) and we have subtasks, pass them through. The routes layer
+        # already treats missing_categories as a soft failure and will set the goal to
+        # 'planned' rather than 'failed'. Hard-fail only for too_few_tasks / too_many_generic.
+        _remaining_reasons = [r for r in (quality.reason or "").split("|") if r and r != "ok"]
+        _is_soft_remaining = (
+            not quality.ok
+            and subtasks
+            and all(r.startswith("missing_categories:") for r in _remaining_reasons)
+        )
+        if _is_soft_remaining:
+            selective_repair_codes.append("soft_accepted_missing_categories")
+            quality = type(quality)(
+                ok=True,
+                reason="ok",
+                missing_categories=quality.missing_categories,
+                generic_task_indices=quality.generic_task_indices,
+                details=quality.details,
+            )
+
         if not quality.ok:
             telemetry_run = get_planning_telemetry_service().update_run(
                 telemetry_run,
