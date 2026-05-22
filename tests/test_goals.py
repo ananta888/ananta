@@ -285,6 +285,7 @@ class TestGoalsAPI:
 
     def test_create_goal_from_admin_repair_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
+        _bypass_quality(monkeypatch)
         res = client.post(
             "/goals",
             headers=admin_auth_header,
@@ -309,7 +310,8 @@ class TestGoalsAPI:
         assert workflow["verification"]["review_required"] is True
 
         assert workflow["policy"]["runtime_execution"] == "bounded_preview_only"
-        persisted_goal = goal_repo.get_by_id(goal_payload["id"])
+        goal_id = goal_payload["id"]
+        persisted_goal = goal_repo.get_by_id(goal_id)
         assert persisted_goal is not None
         assert persisted_goal.mode == "admin_repair"
         assert persisted_goal.mode_data["repair_plan"]["dry_run_default"] is True
@@ -344,7 +346,8 @@ class TestGoalsAPI:
         assert "requires_approval" in first_step
         assert "evidence_sources" in first_step
         assert "expected_verification" in first_step
-        tasks = task_repo.get_by_goal_id(goal_payload["id"])
+        _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=15.0)
+        tasks = task_repo.get_by_goal_id(goal_id)
         assert "Dry-run-first bounded repair plan erzeugen" in {task.title for task in tasks}
 
     def test_create_goal_starts_autopilot_even_without_created_tasks(self, client, admin_auth_header, monkeypatch):
@@ -360,8 +363,11 @@ class TestGoalsAPI:
         monkeypatch.setattr("agent.routes.tasks.auto_planner.auto_planner.plan_goal", _fake_plan_goal)
         monkeypatch.setattr("agent.services.autopilot_runtime_service.AutopilotRuntimeService.start", lambda self, **kwargs: _fake_start(**kwargs))
 
-        res = client.post("/goals", headers=admin_auth_header, json={"goal": "Small goal without immediate tasks"})
+        # create_tasks=False so 0 tasks returned by fake planner is acceptable and goal reaches planned
+        res = client.post("/goals", headers=admin_auth_header, json={"goal": "Small goal without immediate tasks", "create_tasks": False})
         assert res.status_code in (201, 202)
+        goal_id = res.get_json()["data"]["goal"]["id"]
+        _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=5.0)
         assert len(calls) == 1
         assert calls[0].get("goal")
 
@@ -387,12 +393,13 @@ class TestGoalsAPI:
         assert "Release-Check-Tool" in goal_payload["goal"]
         assert "Maintainer" in goal_payload["goal"]
         assert "Nicht-Ziele" in goal_payload["goal"]
-        assert len(res.get_json()["data"]["created_task_ids"]) >= 5
         workflow = res.get_json()["data"]["workflow"]["effective"]
         assert workflow["planning"]["use_repo_context"] is False
         assert workflow["verification"]["review_required"] is True
         assert workflow["policy"]["write_access"] == "confirmation_required"
-        persisted_goal = goal_repo.get_by_id(goal_payload["id"])
+        goal_id = goal_payload["id"]
+        assert _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=15.0) == "planned"
+        persisted_goal = goal_repo.get_by_id(goal_id)
         assert persisted_goal is not None
         assert "Keine unkontrollierte Vollautomatik" in persisted_goal.constraints[0]
         assert any("Referenzprofile dienen nur als Guidance" in item for item in persisted_goal.constraints)
@@ -409,16 +416,19 @@ class TestGoalsAPI:
         assert reference_plan["skeleton_guidance"]["guidance_lines"]
 
         assert goal_payload["reference_profile"]["profile_id"] == selected_profile["profile_id"]
-        assert goal_payload["reference_profile"]["audit_marker"]["task_or_goal_id"] == goal_payload["id"]
+        assert goal_payload["reference_profile"]["audit_marker"]["task_or_goal_id"] == goal_id
         assert any(log.action == "reference_profile_used" for log in audit_repo.get_all(limit=40))
-        tasks = task_repo.get_by_goal_id(goal_payload["id"])
+        tasks = task_repo.get_by_goal_id(goal_id)
         titles = {task.title for task in tasks}
+        assert len(tasks) >= 5
         assert "Projekt-Blueprint erstellen" in titles
         assert "Initiales Task-Backlog erzeugen" in titles
-        nodes = plan_node_repo.get_by_plan_id(res.get_json()["data"]["plan_id"])
+        detail = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header).get_json()["data"]
+        plan_id = detail["trace"]["plan_id"]
+        assert plan_id
+        nodes = plan_node_repo.get_by_plan_id(plan_id)
         assert any((node.rationale or {}).get("artifact") == "projekt_blueprint" for node in nodes)
         assert any("Review" in ((node.rationale or {}).get("review_focus") or "") for node in nodes)
-        detail = client.get(f"/goals/{goal_payload['id']}/detail", headers=admin_auth_header).get_json()["data"]
         planned_artifacts = detail["artifacts"]["planned_artifacts"]
         artifact_keys = {item["artifact"] for item in planned_artifacts}
         assert {"projekt_blueprint", "initial_backlog", "naechste_schritte"}.issubset(artifact_keys)
@@ -465,7 +475,6 @@ class TestGoalsAPI:
         assert "feature_ausbau" in goal_payload["goal"]
         assert "frontend-angular" in goal_payload["goal"]
         assert "Keine Worker-zu-Worker-Orchestrierung" in goal_payload["goal"]
-        assert len(res.get_json()["data"]["created_task_ids"]) >= 5
         workflow = res.get_json()["data"]["workflow"]["effective"]
         assert workflow["planning"]["use_repo_context"] is True
         assert workflow["verification"]["mode"] == "risk_and_regression_review"
@@ -475,7 +484,9 @@ class TestGoalsAPI:
             "ref.angular.ananta_frontend",
             "ref.java.keycloak",
         }
-        persisted_goal = goal_repo.get_by_id(goal_payload["id"])
+        goal_id = goal_payload["id"]
+        assert _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=15.0) == "planned"
+        persisted_goal = goal_repo.get_by_id(goal_id)
         assert persisted_goal is not None
         assert "MODUSKONTEXT: Existierendes Softwareprojekt weiterentwickeln" in persisted_goal.context
         assert "Referenzprofil-Empfehlung" in persisted_goal.context
@@ -488,14 +499,17 @@ class TestGoalsAPI:
         assert reference_plan["selection"]["selected_profile"]["profile_id"] == goal_payload["reference_profile"]["profile_id"]
         assert reference_plan["evolution_hints"]["actionable_hints"]
         assert reference_plan["mismatch_diagnostics"]["fit_level"] in {"high_fit", "partial_fit", "low_fit"}
-        tasks = task_repo.get_by_goal_id(goal_payload["id"])
+        tasks = task_repo.get_by_goal_id(goal_id)
+        assert len(tasks) >= 5
         descriptions = "\n".join(task.description or "" for task in tasks)
         assert "Risiko-, Diff- und Testsicht erstellen" in {task.title for task in tasks}
         assert "kleine, sequenzierte Tasks" in descriptions
-        nodes = plan_node_repo.get_by_plan_id(res.get_json()["data"]["plan_id"])
+        detail = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header).get_json()["data"]
+        plan_id = detail["trace"]["plan_id"]
+        assert plan_id
+        nodes = plan_node_repo.get_by_plan_id(plan_id)
         assert any((node.rationale or {}).get("artifact") == "risiko_test_review_plan" for node in nodes)
         assert any((node.rationale or {}).get("test_focus") for node in nodes)
-        detail = client.get(f"/goals/{goal_payload['id']}/detail", headers=admin_auth_header).get_json()["data"]
         planned_artifacts = detail["artifacts"]["planned_artifacts"]
         assert any(item["artifact"] == "risiko_test_review_plan" and item["test_focus"] for item in planned_artifacts)
         assert any(item["artifact"] == "aenderungsplan" for item in planned_artifacts)
@@ -537,31 +551,34 @@ class TestGoalsAPI:
                 },
             },
         )
-        assert res.status_code == 201
+        assert res.status_code in (201, 202)
         workflow = res.get_json()["data"]["workflow"]["effective"]
         assert workflow["policy"]["security_level"] == "strict_review"
 
     def test_create_goal_simple_flow_persists_goal_and_task_links(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
+        _bypass_quality(monkeypatch)
         res = client.post("/goals", headers=admin_auth_header, json={"goal": "Implement login feature"})
-        assert res.status_code == 201
-        payload = res.get_json()["data"]
-        goal = payload["goal"]
+        assert res.status_code in (201, 202)
+        provenance = res.get_json()["data"]["workflow"]["provenance"]
+        assert provenance["planning.create_tasks"] == "default"
+        goal_id = res.get_json()["data"]["goal"]["id"]
+        assert _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=10.0) == "planned"
 
-        assert goal["status"] == "planned"
-        assert payload["created_task_ids"]
-        assert payload["plan_id"]
-        assert payload["plan_node_ids"]
-        assert payload["workflow"]["provenance"]["planning.create_tasks"] == "default"
+        detail = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header).get_json()["data"]
+        plan_id = detail["trace"]["plan_id"]
+        assert plan_id
+        assert detail["trace"]["task_ids"]
+        assert detail["plan"]["nodes"]
 
-        persisted_goal = goal_repo.get_by_id(goal["id"])
+        persisted_goal = goal_repo.get_by_id(goal_id)
         assert persisted_goal is not None
         assert persisted_goal.trace_id
 
-        linked_tasks = task_repo.get_by_goal_id(goal["id"])
+        linked_tasks = task_repo.get_by_goal_id(goal_id)
         assert linked_tasks
         assert all(task.goal_trace_id == persisted_goal.trace_id for task in linked_tasks)
-        assert all(task.plan_id == payload["plan_id"] for task in linked_tasks)
+        assert all(task.plan_id == plan_id for task in linked_tasks)
 
     def test_create_goal_advanced_overrides_preserve_provenance(self, client, admin_auth_header):
         res = client.post(
@@ -579,16 +596,17 @@ class TestGoalsAPI:
                 "workflow": {"policy": {"security_level": "strict"}},
             },
         )
-        assert res.status_code == 201
-        payload = res.get_json()["data"]
-        goal = payload["goal"]
-        workflow = payload["workflow"]
+        assert res.status_code in (201, 202)
+        goal = res.get_json()["data"]["goal"]
+        workflow = res.get_json()["data"]["workflow"]
 
-        assert payload["created_task_ids"] == []
         assert workflow["effective"]["routing"]["team_id"] == "team-advanced"
         assert workflow["provenance"]["planning.create_tasks"] == "override"
         assert workflow["provenance"]["planning.use_repo_context"] == "override"
         assert workflow["provenance"]["policy.security_level"] == "override"
+
+        # create_tasks=False → no tasks created regardless of planning outcome
+        assert task_repo.get_by_goal_id(goal["id"]) == []
 
         persisted_goal = goal_repo.get_by_id(goal["id"])
         assert persisted_goal.constraints == ["No breaking API changes"]
@@ -597,8 +615,10 @@ class TestGoalsAPI:
 
     def test_get_goal_returns_task_count(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
+        _bypass_quality(monkeypatch)
         create_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Create feature backlog"})
         goal_id = create_res.get_json()["data"]["goal"]["id"]
+        _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=10.0)
 
         res = client.get(f"/goals/{goal_id}", headers=admin_auth_header)
         assert res.status_code == 200
@@ -640,28 +660,31 @@ class TestGoalsAPI:
                 "instruction_overlay_id": overlay_id,
             },
         )
-        assert create_res.status_code == 201
+        assert create_res.status_code in (201, 202)
         layers = create_res.get_json()["data"]["goal"]["instruction_layers"]
         assert layers["owner_username"] == "testuser"
         assert layers["profile_id"] == profile_id
         assert layers["overlay_id"] == overlay_id
 
-    def test_goal_plan_inspection_and_patch(self, client, admin_auth_header):
+    def test_goal_plan_inspection_and_patch(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
+        _bypass_quality(monkeypatch)
         create_res = client.post(
             "/goals",
             headers=admin_auth_header,
             json={"goal": "Implement reporting feature", "create_tasks": False},
         )
-        goal_payload = create_res.get_json()["data"]
-        goal_id = goal_payload["goal"]["id"]
-        plan_id = goal_payload["plan_id"]
-        node_id = goal_payload["plan_node_ids"][0]
+        assert create_res.status_code in (201, 202)
+        goal_id = create_res.get_json()["data"]["goal"]["id"]
+        _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=10.0)
 
         get_res = client.get(f"/goals/{goal_id}/plan", headers=admin_auth_header)
         assert get_res.status_code == 200
         plan_payload = get_res.get_json()["data"]
-        assert plan_payload["plan"]["id"] == plan_id
+        plan_id = plan_payload["plan"]["id"]
+        assert plan_id
         assert plan_payload["nodes"]
+        node_id = plan_payload["nodes"][0]["id"]
 
         patch_res = client.patch(
             f"/goals/{goal_id}/plan/nodes/{node_id}",
@@ -715,9 +738,12 @@ class TestGoalsAPI:
 
     def test_goal_detail_exposes_artifact_first_summary(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
+        _bypass_quality(monkeypatch)
         create_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Deliver release"})
+        assert create_res.status_code in (201, 202)
         goal_id = create_res.get_json()["data"]["goal"]["id"]
-        task_id = create_res.get_json()["data"]["created_task_ids"][0]
+        assert _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=10.0) == "planned"
+        task_id = task_repo.get_by_goal_id(goal_id)[0].id
 
         client.post(
             "/tasks/orchestration/complete",
@@ -732,13 +758,10 @@ class TestGoalsAPI:
         assert payload["artifacts"]["headline_artifact"]["preview"] == "Release notes ready"
 
     def test_goal_detail_exposes_aggregated_cost_summary(self, client, admin_auth_header):
-        create_res = client.post(
-            "/goals/test/provision",
-            headers=admin_auth_header,
-            json={"goal": "Track release cost"},
+        goal = goal_repo.save(
+            GoalDB(goal="Track release cost", summary="Track release cost", status="planned", source="test", requested_by="admin")
         )
-        assert create_res.status_code == 200
-        goal_id = create_res.get_json()["data"]["id"]
+        goal_id = goal.id
 
         from agent.routes.tasks.utils import _update_local_task_status
 
@@ -800,6 +823,7 @@ class TestGoalsAPI:
         self, client, app, admin_auth_header, monkeypatch
     ):
         _mock_goal_planning_llm(monkeypatch)
+        _bypass_quality(monkeypatch)
 
         create_res = client.post(
             "/goals",
@@ -812,10 +836,10 @@ class TestGoalsAPI:
                 "create_tasks": True,
             },
         )
-        assert create_res.status_code == 201, create_res.get_json()
-        payload = create_res.get_json()["data"]
-        goal_id = payload["goal"]["id"]
-        created_ids = payload["created_task_ids"]
+        assert create_res.status_code in (201, 202), create_res.get_json()
+        goal_id = create_res.get_json()["data"]["goal"]["id"]
+        assert _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=10.0) == "planned"
+        created_ids = [t.id for t in task_repo.get_by_goal_id(goal_id)]
         assert len(created_ids) == 1
 
         monkeypatch.setattr(settings, "role", "hub")
@@ -865,15 +889,17 @@ class TestGoalsAPI:
 
     def test_goal_first_run_happy_path_uses_default_configuration(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
+        _bypass_quality(monkeypatch)
         monkeypatch.setattr(settings, "hub_can_be_worker", True)
         monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
         res = client.post("/goals", headers=admin_auth_header, json={"goal": "Bootstrap first run"})
-        assert res.status_code == 201
+        assert res.status_code in (201, 202)
         payload = res.get_json()["data"]
         assert payload["workflow"]["provenance"]["planning.create_tasks"] == "default"
         assert payload["workflow"]["effective"]["routing"]["mode"] == "active_team_or_hub_default"
         assert payload["readiness"]["happy_path_ready"] is True
         goal_id = payload["goal"]["id"]
+        assert _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=10.0) == "planned"
 
         detail_res = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
         assert detail_res.status_code == 200
@@ -903,7 +929,7 @@ class TestGoalsAPI:
         _mock_goal_planning_llm(monkeypatch)
         monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
         base_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Base"})
-        assert base_res.status_code == 201
+        assert base_res.status_code in (201, 202)
 
         token = jwt.encode(
             {
@@ -934,12 +960,13 @@ def test_goal_detail_shows_planning_recovery_when_present(client, admin_auth_hea
         lambda **kwargs: '[{"title":"Plan","description":"Do it","priority":"Medium"}]',
     )
     monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+    _bypass_quality(monkeypatch)
     res = client.post(
         "/goals",
         headers=admin_auth_header,
         json={"goal": "Recovery visibility test"},
     )
-    assert res.status_code == 201
+    assert res.status_code in (201, 202)
     goal_id = res.get_json()["data"]["goal"]["id"]
 
     # Manually inject planning_recovery into execution_preferences
@@ -968,12 +995,13 @@ def test_goal_detail_planning_recovery_none_when_no_recovery_occurred(client, ad
         lambda **kwargs: '[{"title":"Plan","description":"Do it","priority":"Medium"}]',
     )
     monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+    _bypass_quality(monkeypatch)
     res = client.post(
         "/goals",
         headers=admin_auth_header,
         json={"goal": "No recovery goal"},
     )
-    assert res.status_code == 201
+    assert res.status_code in (201, 202)
     goal_id = res.get_json()["data"]["goal"]["id"]
 
     res2 = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
