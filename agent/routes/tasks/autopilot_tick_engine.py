@@ -1939,8 +1939,17 @@ def execute_autopilot_tick(
         _task_allow_human_review = bool((_task_agent_cfg.get("propose_policy") or {}).get("allow_human_review", True))
         _t_verification = dict(getattr(_t, "verification_status", None) or {})
         _t_recovery = dict(_t_verification.get("autopilot_recovery") or {})
-        _tooling_retries = int(_t_recovery.get("tooling_retries") or 0)
-        _max_tooling_retries = max(0, int((_task_agent_cfg.get("propose_policy") or {}).get("autonomous_repair_attempts", _TOOLING_RECOVERY_MAX)))
+        try:
+            _tooling_retries = max(0, int(_t_recovery.get("tooling_retries") or 0))
+        except (TypeError, ValueError):
+            _tooling_retries = 0
+        _attempts_raw = (_task_agent_cfg.get("propose_policy") or {}).get(
+            "autonomous_repair_attempts", _TOOLING_RECOVERY_MAX
+        )
+        try:
+            _max_tooling_retries = max(0, int(_attempts_raw))
+        except (TypeError, ValueError):
+            _max_tooling_retries = _TOOLING_RECOVERY_MAX
         _can_retry = _task_allow_human_review or _tooling_retries < _max_tooling_retries
         if _can_retry and not _task_allow_human_review:
             _t_recovery["tooling_retries"] = _tooling_retries + 1

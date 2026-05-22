@@ -222,19 +222,42 @@ class LMStudioStrategy(LLMStrategy):
 
         session, reg_key = create_and_register_session()
         resp = None
+        error_code = None
         try:
             headers: dict = {}
             if idempotency_key:
                 headers["Idempotency-Key"] = idempotency_key
             resp = session.post(url, json=payload, headers=headers, timeout=timeout)
         except _requests.exceptions.ConnectionError:
-            logging.warning("LMStudio request aborted (connection closed/cancelled) for url=%s", url)
+            error_code = "connection_aborted_or_closed"
+            logging.warning(
+                "LMStudio request failed code=%s url=%s reg_key=%s has_idempotency=%s",
+                error_code,
+                url,
+                reg_key,
+                bool(idempotency_key),
+            )
             return None
         except _requests.exceptions.Timeout:
-            logging.warning("LMStudio response is None (timeout/connection error) for url=%s", url)
+            error_code = "timeout"
+            logging.warning(
+                "LMStudio request failed code=%s url=%s reg_key=%s has_idempotency=%s",
+                error_code,
+                url,
+                reg_key,
+                bool(idempotency_key),
+            )
             return None
         except _requests.exceptions.RequestException as exc:
-            logging.warning("LMStudio request error for url=%s: %s", url, exc)
+            error_code = "request_exception"
+            logging.warning(
+                "LMStudio request failed code=%s url=%s reg_key=%s has_idempotency=%s error=%s",
+                error_code,
+                url,
+                reg_key,
+                bool(idempotency_key),
+                exc,
+            )
             return None
         finally:
             release_session(reg_key, session)
@@ -255,7 +278,13 @@ class LMStudioStrategy(LLMStrategy):
             logging.warning("LMStudio HTTP %s: %.200s", resp.status_code, resp.text)
             logging.debug(f"LMStudioStrategy: Error response from LM Studio: {resp.text!r}")
             return None
-        logging.warning("LMStudio response is None (timeout/connection error) for url=%s", url)
+        logging.warning(
+            "LMStudio response empty code=%s url=%s reg_key=%s has_idempotency=%s",
+            error_code or "empty_response",
+            url,
+            reg_key,
+            bool(idempotency_key),
+        )
         return None
 
     def _list_lmstudio_candidates(self, base_url, timeout):
