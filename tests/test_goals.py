@@ -18,6 +18,13 @@ def _mock_goal_planning_llm(monkeypatch):
     monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
 
 
+def _bypass_quality(monkeypatch):
+    monkeypatch.setattr(
+        "agent.routes.tasks.goals._plan_quality_from_task_ids",
+        lambda **_: (True, "ok"),
+    )
+
+
 def _wait_goal_status(client, headers, goal_id: str, *, timeout_s: float = 5.0) -> str:
     deadline = time.time() + timeout_s
     status = "unknown"
