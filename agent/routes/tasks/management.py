@@ -9,6 +9,7 @@ from agent.routes.tasks.status import normalize_task_status
 from agent.services.commit_metadata_inferrer import get_commit_metadata_inferrer
 from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.governance_read_model_service import get_governance_read_model_service
+from agent.services.request_cancellation_service import get_request_cancellation_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.utils import rate_limit, validate_request
@@ -602,6 +603,17 @@ def retry_task(tid):
         code = 404 if msg == "not_found" else 400
         return api_response(status="error", message=msg, data=data or None, code=code)
     return api_response(data=data)
+
+
+@management_bp.route("/tasks/<tid>/kill-requests", methods=["POST"])
+@admin_required
+def kill_task_requests(tid):
+    """Abort in-flight provider requests for one task across hub and workers."""
+    task_id = str(tid or "").strip()
+    if not task_id:
+        return api_response(status="error", message="task_id required", code=400)
+    result = get_request_cancellation_service().cancel_task_requests(task_id=task_id, include_workers=True)
+    return api_response(data=result)
 
 
 @management_bp.route("/tasks/<tid>/subtask-callback", methods=["POST"])
