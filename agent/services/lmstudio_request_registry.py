@@ -80,6 +80,21 @@ def create_and_register_session():
     return session, key
 
 
+def register_existing_session(session) -> Optional[str]:
+    """Register an existing requests.Session under the current thread context."""
+    goal_id, task_id = _get_current_context()
+    key = goal_id or task_id
+    if not (goal_id or task_id):
+        return key
+    ref: weakref.ref = weakref.ref(session)
+    with _lock:
+        if goal_id:
+            _goal_sessions.setdefault(goal_id, []).append(ref)
+        if task_id:
+            _task_sessions.setdefault(task_id, []).append(ref)
+    return key
+
+
 def release_session(key: Optional[str], session) -> None:
     """Remove a completed session from the registry."""
     if not key:

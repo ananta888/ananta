@@ -32,6 +32,7 @@ def create_session(retries: int = 3, backoff_factor: float = 0.3, status_forceli
 class HttpClient:
     def __init__(self, timeout: int = 30, retries: int = 3):
         self.timeout = timeout
+        self.retries = retries
         self.session = create_session(retries=retries)
 
     def head(self, url: str, timeout: Optional[int] = None) -> Any:
@@ -112,16 +113,35 @@ class HttpClient:
         return_response: bool = False,
         idempotency_key: Optional[str] = None,
     ) -> Any:
+        tracked_key = None
+        tracked_session = None
         try:
             headers = (headers or {}).copy()
             if idempotency_key:
                 headers["Idempotency-Key"] = idempotency_key
 
             effective_timeout = timeout if timeout is not None and timeout > 0 else self.timeout
+            request_session = self.session
+            try:
+                # Register per-request sessions so task-/goal-level cancellation can abort
+                # all provider HTTP calls (e.g. Ollama via standard strategy).
+                from agent.services.lmstudio_request_registry import _get_current_context, register_existing_session
+
+                goal_id, task_id = _get_current_context()
+                if goal_id or task_id:
+                    tracked_session = create_session(retries=self.retries)
+                    tracked_key = register_existing_session(tracked_session)
+                    request_session = tracked_session
+            except Exception:
+                # Tracking is best-effort and must never break normal HTTP behavior.
+                tracked_key = None
+                tracked_session = None
+                request_session = self.session
+
             if form:
-                r = self.session.post(url, data=data or {}, headers=headers, timeout=effective_timeout)
+                r = request_session.post(url, data=data or {}, headers=headers, timeout=effective_timeout)
             else:
-                r = self.session.post(url, json=data or {}, headers=headers, timeout=effective_timeout)
+                r = request_session.post(url, json=data or {}, headers=headers, timeout=effective_timeout)
             if return_response:
                 return r
             r.raise_for_status()
@@ -177,6 +197,14 @@ class HttpClient:
                 if not silent:
                     logging.error(f"HTTP POST Fehler: {url} - {e}")
             return None
+        finally:
+            if tracked_session is not None:
+                try:
+                    from agent.services.lmstudio_request_registry import release_session
+
+                    release_session(tracked_key, tracked_session)
+                except Exception:
+                    pass
 
 
 # Singleton-Instanz mit Standardwerten
