@@ -819,6 +819,10 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             .get("parallel_goal_planning_max_concurrency")
         )
         planning_timeout_s = int(max(30, _pp_timeout if _pp_timeout is not None else 300))
+        # Keep the outer background wait slightly above the inner planner timeout
+        # so planning_service can return structured timeout diagnostics first
+        # (resolve_subtasks_timeout) instead of being masked as a background timeout.
+        outer_planning_timeout_s = planning_timeout_s + 45
         planning_parallel_slots = _normalize_planning_slot_capacity(_pp_parallel)
         app_obj = current_app._get_current_object()
 
@@ -871,9 +875,10 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                 readiness=readiness,
             )
             current_app.logger.warning(
-                "goal_planning_invoke_start goal_id=%s timeout_s=%s mode=%s slot_capacity=%s",
+                "goal_planning_invoke_start goal_id=%s timeout_s=%s outer_timeout_s=%s mode=%s slot_capacity=%s",
                 goal_record.id,
                 planning_timeout_s,
+                outer_planning_timeout_s,
                 str(goal_record.mode or "generic"),
                 planning_slot_capacity,
             )
@@ -885,7 +890,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             pool = ThreadPoolExecutor(max_workers=1)
             try:
                 future = pool.submit(_run_plan_goal_with_app_context)
-                result = future.result(timeout=planning_timeout_s)
+                result = future.result(timeout=outer_planning_timeout_s)
             finally:
                 pool.shutdown(wait=False, cancel_futures=True)
             current_app.logger.warning(
