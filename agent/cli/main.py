@@ -199,6 +199,12 @@ def _run_prompt(argv: Sequence[str]) -> int:
     ge_p = sub_sub.add_parser("goal-execmap", help="Group tasks by inferred executor")
     ge_p.add_argument("--goal-id", dest="goal_id", required=True)
     ge_p.add_argument("--json", action="store_true")
+    ap_p = sub_sub.add_parser("artifact-provenance", help="Show artifact provenance matrix for a goal")
+    ap_p.add_argument("--goal-id", dest="goal_id", required=True)
+    ap_p.add_argument("--json", action="store_true")
+    ap_alias = sub_sub.add_parser("goal-artifact-matrix", help="Alias for artifact-provenance")
+    ap_alias.add_argument("--goal-id", dest="goal_id", required=True)
+    ap_alias.add_argument("--json", action="store_true")
 
     if not argv or argv[0] in ("-h", "--help"):
         sub_parser.print_help()
