@@ -1,6 +1,6 @@
 """add planning_lease_expires_at to goals (PRI-004)
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: d7e8f9a0b1c3
 Revises: d7e8f9a0b1c2
 Create Date: 2026-05-22 00:00:00.000000
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
-revision: str = "a1b2c3d4e5f6"
+revision: str = "d7e8f9a0b1c3"
 down_revision: Union[str, Sequence[str], None] = "d7e8f9a0b1c2"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
