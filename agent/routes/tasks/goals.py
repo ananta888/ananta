@@ -1198,7 +1198,7 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             quality_ok, quality_reason = _plan_quality_from_task_ids(
                 task_ids=created_task_ids,
                 mode="new_software_project",
-                planning_policy=(effective.get("planning_policy") if isinstance(effective.get("planning_policy"), dict) else _live_planning_policy),
+                planning_policy=_resolved_pp,
                 team_id=str(effective.get("routing", {}).get("team_id") or "") or None,
             )
         else:
