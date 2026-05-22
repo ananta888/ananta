@@ -1001,7 +1001,14 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     tool_mode = _normalize_opencode_tool_mode(opencode_runtime_cfg.get("tool_mode"))
     execution_mode = _normalize_opencode_execution_mode(opencode_runtime_cfg.get("execution_mode"))
     forced_target_provider = str(opencode_runtime_cfg.get("target_provider") or "").strip().lower() or None
-    if forced_target_provider not in {"ollama", "lmstudio"}:
+    # "native" or any OpenCode built-in provider name → let OpenCode use its own auth (e.g. Big Pickle).
+    # "ollama" / "lmstudio" → inject a local OpenAI-compatible provider config.
+    # anything else → discard (unknown provider).
+    _native_passthrough = {"opencode", "anthropic", "openai", "gemini", "groq", "openrouter", "bedrock", "azure", "vertexai", "copilot", "native"}
+    if forced_target_provider in _native_passthrough:
+        # Signal native mode: OpenCode will use its own stored credentials.
+        forced_target_provider = "__native__"
+    elif forced_target_provider not in {"ollama", "lmstudio"}:
         forced_target_provider = None
     configured_default_model = (
         str(agent_cfg.get("opencode_default_model") or "").strip()
@@ -1050,7 +1057,23 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     target_kind = None
     local_target = None
 
-    if target_provider == "ollama":
+    if target_provider == "__native__":
+        # Native OpenCode mode: no provider config injected.
+        # OpenCode uses its own stored credentials (e.g. Big Pickle).
+        return {
+            "model": None,
+            "target_provider": None,
+            "target_model": None,
+            "base_url": None,
+            "base_url_source": None,
+            "target_kind": "native_opencode",
+            "target_provider_type": None,
+            "tool_mode": tool_mode,
+            "execution_mode": execution_mode,
+            "provider_config": None,
+            "diagnostics": [],
+        }
+    elif target_provider == "ollama":
         if tool_mode != "toolless":
             tool_mode = "toolless"
         base_url = _normalize_ollama_openai_base_url(provider_urls.get("ollama") or getattr(settings, "ollama_url", None))
