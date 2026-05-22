@@ -38,6 +38,18 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
                 "segment_context_chars": 6000,
                 "max_output_tokens": 1500,
                 "max_segments": 2,
+                # E2E ramp-up: keep quality checks active but reduce false-negative
+                # planning hard-fails for smaller/local models in autonomous runs.
+                "validation_profiles": {
+                    "new_software_project": {
+                        "min_total_tasks": 2,
+                        "required_categories": {
+                            "infrastructure": 1,
+                            "tests": 1,
+                        },
+                        "max_generic_tasks": 6,
+                    }
+                },
             },
         },
     ),
