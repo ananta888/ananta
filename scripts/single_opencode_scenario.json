@@ -13,6 +13,18 @@
             "ops": "opencode",
             "research": "opencode"
           }
+        },
+        "planning_policy": {
+          "validation_profiles": {
+            "new_software_project": {
+              "min_total_tasks": 2,
+              "required_categories": {
+                "infrastructure": 1,
+                "tests": 1
+              },
+              "max_generic_tasks": 6
+            }
+          }
         }
       },
       "config_patch": {
@@ -31,6 +43,18 @@
         "git_workspace": {
           "enabled": true,
           "branch_strategy": "goal"
+        },
+        "planning_policy": {
+          "validation_profiles": {
+            "new_software_project": {
+              "min_total_tasks": 2,
+              "required_categories": {
+                "infrastructure": 1,
+                "tests": 1
+              },
+              "max_generic_tasks": 6
+            }
+          }
         }
       }
     }
