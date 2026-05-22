@@ -465,15 +465,28 @@ def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict |
 
 # Circuit Breaker Status
 CIRCUIT_BREAKER = {"failures": defaultdict(int), "last_failure": defaultdict(float), "open": defaultdict(bool)}
-CB_THRESHOLD = 5
-CB_RECOVERY_TIME = 60  # Sekunden
+# Defaults used when no Flask app config is available (e.g. tests, CLI).
+_CB_DEFAULT_THRESHOLD = 5
+_CB_DEFAULT_RECOVERY_TIME = 60
+
+
+def _cb_config() -> tuple[int, int]:
+    """Return (threshold, recovery_seconds) from live app config when available."""
+    try:
+        from flask import current_app
+        cfg = (current_app.config.get("AGENT_CONFIG") or {}).get("llm_config") or {}
+        threshold = int(cfg.get("circuit_breaker_threshold") or _CB_DEFAULT_THRESHOLD)
+        recovery = int(cfg.get("circuit_breaker_open_seconds") or _CB_DEFAULT_RECOVERY_TIME)
+        return max(1, threshold), max(5, recovery)
+    except RuntimeError:
+        return _CB_DEFAULT_THRESHOLD, _CB_DEFAULT_RECOVERY_TIME
 
 
 def _check_circuit_breaker(provider: str) -> bool:
-    """Prüft ob der Circuit Breaker für einen Provider offen ist."""
+    _, recovery_time = _cb_config()
     if CIRCUIT_BREAKER["open"][provider]:
-        if time.time() - CIRCUIT_BREAKER["last_failure"][provider] > CB_RECOVERY_TIME:
-            logging.info(f"Circuit Breaker für {provider} wechselt in Halboffen-Zustand.")
+        if time.time() - CIRCUIT_BREAKER["last_failure"][provider] > recovery_time:
+            logging.info("circuit_breaker provider=%s state=half_open", provider)
             CIRCUIT_BREAKER["open"][provider] = False
             CIRCUIT_BREAKER["failures"][provider] = 0
             return True
@@ -481,22 +494,40 @@ def _check_circuit_breaker(provider: str) -> bool:
     return True
 
 
-def _report_llm_failure(provider: str):
-    """Registriert einen Fehler für den Circuit Breaker."""
+def _report_llm_failure(provider: str) -> None:
+    threshold, _ = _cb_config()
     CIRCUIT_BREAKER["failures"][provider] += 1
     CIRCUIT_BREAKER["last_failure"][provider] = time.time()
-    if CIRCUIT_BREAKER["failures"][provider] >= CB_THRESHOLD:
+    if CIRCUIT_BREAKER["failures"][provider] >= threshold:
         if not CIRCUIT_BREAKER["open"][provider]:
             logging.error(
-                f"CIRCUIT BREAKER GEÖFFNET für Provider {provider}. Pausiere Aufrufe für {CB_RECOVERY_TIME}s."
+                "circuit_breaker_open provider=%s failures=%s",
+                provider,
+                CIRCUIT_BREAKER["failures"][provider],
             )
             CIRCUIT_BREAKER["open"][provider] = True
 
 
-def _report_llm_success(provider: str):
-    """Registriert einen Erfolg für den Circuit Breaker."""
+def _report_llm_success(provider: str) -> None:
     CIRCUIT_BREAKER["failures"][provider] = 0
     CIRCUIT_BREAKER["open"][provider] = False
+
+
+def get_circuit_breaker_state(provider: str) -> dict:
+    """Return observable circuit breaker state for a provider (for health/diagnostics)."""
+    threshold, recovery_time = _cb_config()
+    is_open = bool(CIRCUIT_BREAKER["open"][provider])
+    last_failure = float(CIRCUIT_BREAKER["last_failure"][provider] or 0)
+    failures = int(CIRCUIT_BREAKER["failures"][provider] or 0)
+    age_s = round(time.time() - last_failure, 1) if last_failure else None
+    return {
+        "provider": provider,
+        "state": "open" if is_open else "closed",
+        "failures": failures,
+        "threshold": threshold,
+        "recovery_seconds": recovery_time,
+        "last_failure_age_seconds": age_s,
+    }
 
 
 def _build_chat_messages(prompt: str, history: list | None) -> list:

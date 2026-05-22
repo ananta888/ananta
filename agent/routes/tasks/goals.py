@@ -24,6 +24,13 @@ from agent.services.planning_quality_service import get_planning_quality_service
 from agent.services.planning_telemetry_service import get_planning_telemetry_service
 from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
 from agent.utils import validate_request
+from agent.planning_reason_codes import (
+    PLANNING_SLOT_TIMEOUT,
+    PLANNING_BACKGROUND_TIMEOUT,
+    PLANNING_BACKGROUND_EXCEPTION,
+    PLANNING_DEADLINE_GUARD_TIMEOUT,
+    PLANNING_STALE_RECOVERED,
+)
 
 goals_bp = Blueprint("tasks_goals", __name__)
 _GOAL_ACTIVE_PLANNING_LOCK = threading.Lock()
@@ -396,14 +403,18 @@ def goal_governance_summary(goal_id: str):
 @check_auth
 def purge_goal(goal_id: str):
     goal = _repos().goal_repo.get_by_id(goal_id)
-    if not goal or not _can_access_goal(goal):
+    if not goal:
+        # Idempotent: already purged is not an error for the caller.
+        return api_response(data={"goal_id": goal_id, "already_deleted": True, "deleted_total": 0})
+    if not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
     include_prompt_traces = str(request.args.get("include_prompt_traces", "1")).strip().lower() not in {"0", "false", "no"}
     result = get_goal_purge_service().purge_goal(goal_id, include_prompt_traces=include_prompt_traces)
     if result is None:
-        return api_response(status="error", message="not_found", code=404)
+        # Race: goal disappeared between the check and the purge — treat as already deleted.
+        return api_response(data={"goal_id": goal_id, "already_deleted": True, "deleted_total": 0})
     log_audit(
         "goal_purged",
         {
@@ -414,6 +425,68 @@ def purge_goal(goal_id: str):
         },
     )
     return api_response(data=result.to_dict())
+
+
+@goals_bp.route("/goals/planning/health", methods=["GET"])
+@check_auth
+def planning_health():
+    """PRI-012: Planning health summary — slot state, stale counts, circuit breaker state."""
+    if not _is_admin_request():
+        return api_response(status="error", message="forbidden", code=403)
+
+    from sqlmodel import Session, select, func
+    from agent.database import engine
+    from agent.db_models import GoalDB as _GoalDB
+    from agent.llm_integration import get_circuit_breaker_state
+
+    now = time.time()
+    stale_count = 0
+    queued_count = 0
+    running_count = 0
+
+    try:
+        with Session(engine) as session:
+            for status_val, count in session.exec(
+                select(_GoalDB.status, func.count(_GoalDB.id))
+                .where(_GoalDB.status.in_(["planning_queued", "planning_running"]))
+                .group_by(_GoalDB.status)
+            ).all():
+                if status_val == "planning_queued":
+                    queued_count = int(count)
+                elif status_val == "planning_running":
+                    running_count = int(count)
+            stale_count = session.exec(
+                select(func.count(_GoalDB.id)).where(
+                    _GoalDB.status.in_(["planning_running", "planning_queued"]),
+                    _GoalDB.planning_lease_expires_at != None,  # noqa: E711
+                    _GoalDB.planning_lease_expires_at < now,
+                )
+            ).one()
+    except Exception as exc:
+        return api_response(status="error", message=f"db_query_failed:{type(exc).__name__}", code=500)
+
+    with _PLANNING_SLOTS_LOCK:
+        slot_capacity = int(_PLANNING_SLOTS_CAPACITY or 0)
+        slots_available = _PLANNING_SLOTS._value if _PLANNING_SLOTS is not None else slot_capacity  # type: ignore[attr-defined]
+
+    agent_cfg = current_app.config.get("AGENT_CONFIG") or {}
+    lmstudio_cfg = (agent_cfg.get("llm_config") or {})
+    provider = str(lmstudio_cfg.get("provider") or agent_cfg.get("default_provider") or "unknown")
+
+    return api_response(data={
+        "planning_slots": {
+            "capacity": slot_capacity,
+            "available": int(slots_available),
+            "in_use": max(0, slot_capacity - int(slots_available)),
+        },
+        "goals": {
+            "queued": queued_count,
+            "running": running_count,
+            "stale_expired_lease": int(stale_count),
+        },
+        "circuit_breaker": get_circuit_breaker_state(provider),
+        "timestamp": now,
+    })
 
 
 @goals_bp.route("/goals/test/provision", methods=["POST"])
@@ -602,6 +675,9 @@ def create_goal():
             "updated_at": time.time(),
         }
 
+    # PRI-006: cancel stale planning_running/queued goals before starting a new one.
+    _cancel_stale_planning_goals(actor=_current_username())
+
     goal_record = GoalDB(
         goal=goal_text,
         summary=goal_text[:200],
@@ -700,6 +776,36 @@ def create_goal():
     )
 
 
+def _cancel_stale_planning_goals(actor: str = "preflight") -> int:
+    """Mark planning_running/queued goals with an expired lease as failed (PRI-006)."""
+    try:
+        from sqlalchemy import text
+        from agent.database import engine
+        now = time.time()
+        with engine.connect() as conn:
+            result = conn.execute(
+                text(
+                    "UPDATE goals SET status = 'failed', planning_lease_expires_at = NULL, updated_at = :now"
+                    " WHERE status IN ('planning_running', 'planning_queued')"
+                    " AND planning_lease_expires_at IS NOT NULL"
+                    " AND planning_lease_expires_at < :now"
+                ),
+                {"now": now},
+            )
+            conn.commit()
+            cancelled = int(result.rowcount or 0)
+        if cancelled:
+            try:
+                current_app.logger.warning(
+                    "planning_preflight_stale_cancelled count=%s actor=%s", cancelled, actor
+                )
+            except Exception:
+                pass
+        return cancelled
+    except Exception:
+        return 0
+
+
 def _run_goal_planning_background(*, goal_id: str, context: dict[str, Any], app: Any) -> None:
     with app.app_context():
         _run_goal_planning_background_impl(goal_id=goal_id, context=context)
@@ -738,6 +844,54 @@ def _release_planning_slot() -> None:
         semaphore.release()
 
 
+_PLANNING_LEASE_TTL_S = 90  # seconds per heartbeat interval
+
+
+def _set_planning_lease(goal_id: str, ttl_s: int = _PLANNING_LEASE_TTL_S) -> None:
+    """Write/renew planning_lease_expires_at using a direct UPDATE to avoid session conflicts."""
+    try:
+        from sqlalchemy import text
+        from agent.database import engine
+        expires_at = time.time() + ttl_s
+        now = time.time()
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "UPDATE goals SET planning_lease_expires_at = :exp, updated_at = :now"
+                    " WHERE id = :gid AND status = 'planning_running'"
+                ),
+                {"exp": expires_at, "now": now, "gid": goal_id},
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+
+def _clear_planning_lease(goal_id: str) -> None:
+    try:
+        from sqlalchemy import text
+        from agent.database import engine
+        with engine.connect() as conn:
+            conn.execute(
+                text("UPDATE goals SET planning_lease_expires_at = NULL, updated_at = :now WHERE id = :gid"),
+                {"now": time.time(), "gid": goal_id},
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+
+def _start_planning_heartbeat(*, goal_id: str, stop_event: threading.Event, interval_s: int = _PLANNING_LEASE_TTL_S // 2) -> threading.Thread:
+    """Periodically renew the planning lease while planning_running."""
+    def _beat() -> None:
+        while not stop_event.wait(timeout=max(5, interval_s)):
+            _set_planning_lease(goal_id, ttl_s=_PLANNING_LEASE_TTL_S)
+
+    thread = threading.Thread(target=_beat, daemon=True, name=f"planning-heartbeat-{goal_id[:8]}")
+    thread.start()
+    return thread
+
+
 def _start_planning_deadline_guard(*, goal_id: str, app: Any, timeout_s: int) -> None:
     def _guard() -> None:
         try:
@@ -757,12 +911,12 @@ def _start_planning_deadline_guard(*, goal_id: str, app: Any, timeout_s: int) ->
                 return
             _mark_started_planning_runs_failed(
                 goal_id=goal_id,
-                reason="planning_deadline_guard_timeout",
+                reason=PLANNING_DEADLINE_GUARD_TIMEOUT,
             )
             _services().goal_lifecycle_service.transition_goal(
                 goal,
                 target_status="failed",
-                reason="planning_deadline_guard_timeout",
+                reason=PLANNING_DEADLINE_GUARD_TIMEOUT,
                 readiness=dict(getattr(goal, "readiness", None) or {}),
             )
             try:
@@ -772,7 +926,7 @@ def _start_planning_deadline_guard(*, goal_id: str, app: Any, timeout_s: int) ->
             record_product_event(
                 "goal_planning_failed",
                 actor="auto_planner",
-                details={"reason": "planning_deadline_guard_timeout", "timeout_seconds": int(timeout_s)},
+                details={"reason": PLANNING_DEADLINE_GUARD_TIMEOUT, "timeout_seconds": int(timeout_s)},
                 goal_id=goal_id,
                 trace_id=str(getattr(goal, "trace_id", "") or ""),
                 plan_id=None,
@@ -810,19 +964,18 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             if isinstance(goal_scoped_cfg, dict)
             else None
         )
-        _pp_timeout = (
-            (goal_scoped_planning_policy or effective.get("planning_policy") or _live_planning_policy)
-            .get("timeout_seconds")
-        )
-        _pp_parallel = (
-            (goal_scoped_planning_policy or effective.get("planning_policy") or _live_planning_policy)
-            .get("parallel_goal_planning_max_concurrency")
-        )
-        planning_timeout_s = int(max(30, _pp_timeout if _pp_timeout is not None else 300))
+        _resolved_pp = goal_scoped_planning_policy or effective.get("planning_policy") or _live_planning_policy
+        _pp_timeout = _resolved_pp.get("timeout_seconds")
+        _pp_queue_wait = _resolved_pp.get("queue_wait_timeout_seconds")
+        _pp_parallel = _resolved_pp.get("parallel_goal_planning_max_concurrency")
+        # PRI-005: execute timeout (LLM call) and queue-wait timeout are now separate.
+        # queue_wait_timeout_seconds defaults to execute timeout when not set.
+        planning_execute_timeout_s = int(max(30, _pp_timeout if _pp_timeout is not None else 300))
+        planning_queue_wait_timeout_s = int(max(10, _pp_queue_wait if _pp_queue_wait is not None else planning_execute_timeout_s))
         # Keep the outer background wait slightly above the inner planner timeout
         # so planning_service can return structured timeout diagnostics first
         # (resolve_subtasks_timeout) instead of being masked as a background timeout.
-        outer_planning_timeout_s = planning_timeout_s + 45
+        outer_planning_timeout_s = planning_execute_timeout_s + 45
         planning_parallel_slots = _normalize_planning_slot_capacity(_pp_parallel)
         app_obj = current_app._get_current_object()
 
@@ -842,24 +995,27 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                 )
 
         slot_acquired = False
+        _queue_wait_started_at = time.monotonic()
         try:
             slot_acquired, planning_slot_capacity = _acquire_planning_slot(
-                timeout_s=planning_timeout_s,
+                timeout_s=planning_queue_wait_timeout_s,
                 capacity=planning_parallel_slots,
             )
+            queue_wait_elapsed_s = round(time.monotonic() - _queue_wait_started_at, 2)
             if not slot_acquired:
                 _services().goal_lifecycle_service.transition_goal(
                     goal_record,
                     target_status="failed",
-                    reason="planning_slot_timeout",
+                    reason=PLANNING_SLOT_TIMEOUT,
                     readiness=readiness,
                 )
                 record_product_event(
                     "goal_planning_failed",
                     actor="auto_planner",
                     details={
-                        "reason": "planning_slot_timeout",
-                        "timeout_seconds": planning_timeout_s,
+                        "reason": PLANNING_SLOT_TIMEOUT,
+                        "queue_wait_timeout_seconds": planning_queue_wait_timeout_s,
+                        "queue_wait_elapsed_seconds": queue_wait_elapsed_s,
                         "source": goal_record.source,
                         "mode": goal_record.mode,
                     },
@@ -874,24 +1030,31 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                 reason="planning_background_started",
                 readiness=readiness,
             )
+            # PRI-004: set initial lease and start heartbeat thread.
+            _set_planning_lease(goal_record.id)
+            _heartbeat_stop = threading.Event()
+            _start_planning_heartbeat(goal_id=goal_record.id, stop_event=_heartbeat_stop)
             current_app.logger.warning(
-                "goal_planning_invoke_start goal_id=%s timeout_s=%s outer_timeout_s=%s mode=%s slot_capacity=%s",
+                "goal_planning_invoke_start goal_id=%s execute_timeout_s=%s outer_timeout_s=%s queue_wait_s=%s mode=%s slot_capacity=%s",
                 goal_record.id,
-                planning_timeout_s,
+                planning_execute_timeout_s,
                 outer_planning_timeout_s,
+                queue_wait_elapsed_s,
                 str(goal_record.mode or "generic"),
                 planning_slot_capacity,
             )
             _start_planning_deadline_guard(
                 goal_id=goal_record.id,
                 app=current_app._get_current_object(),
-                timeout_s=max(60, planning_timeout_s + 30),
+                timeout_s=max(60, planning_execute_timeout_s + 30),
             )
             pool = ThreadPoolExecutor(max_workers=1)
             try:
                 future = pool.submit(_run_plan_goal_with_app_context)
                 result = future.result(timeout=outer_planning_timeout_s)
             finally:
+                _heartbeat_stop.set()
+                _clear_planning_lease(goal_record.id)
                 pool.shutdown(wait=False, cancel_futures=True)
             current_app.logger.warning(
                 "goal_planning_invoke_done goal_id=%s created=%s error=%s",
@@ -902,20 +1065,20 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         except FutureTimeoutError:
             _mark_started_planning_runs_failed(
                 goal_id=goal_record.id,
-                reason=f"planning_background_timeout:{planning_timeout_s}s",
+                reason=f"{PLANNING_BACKGROUND_TIMEOUT}:{planning_execute_timeout_s}s",
             )
             _services().goal_lifecycle_service.transition_goal(
                 goal_record,
                 target_status="failed",
-                reason="planning_background_timeout",
+                reason=PLANNING_BACKGROUND_TIMEOUT,
                 readiness=readiness,
             )
             record_product_event(
                 "goal_planning_failed",
                 actor="auto_planner",
                 details={
-                    "reason": "planning_background_timeout",
-                    "timeout_seconds": planning_timeout_s,
+                    "reason": PLANNING_BACKGROUND_TIMEOUT,
+                    "execute_timeout_seconds": planning_execute_timeout_s,
                     "source": goal_record.source,
                     "mode": goal_record.mode,
                 },
