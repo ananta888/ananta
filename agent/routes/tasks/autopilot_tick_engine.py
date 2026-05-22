@@ -70,6 +70,17 @@ def _should_terminalize_no_executable_strategy(strategy_failures: list[dict[str,
     }
     return bool(failure_types & {"invalid_proposal", "no_executable_step", "proposal_budget_exhausted"})
 
+
+def _resolve_non_executable_terminal_status(*, agent_cfg: dict[str, Any]) -> str:
+    propose_policy_cfg = dict((agent_cfg.get("propose_policy") or {}))
+    allow_human_review = bool(propose_policy_cfg.get("allow_human_review", True))
+    on_declined = str(propose_policy_cfg.get("on_all_strategies_declined") or "needs_review").strip().lower()
+    if on_declined == "failed":
+        return "failed"
+    if on_declined == "advisory":
+        return "todo"
+    return "needs_review" if allow_human_review else "failed"
+
 def _recent_strategy_attempts(task: Any, *, now_ts: float, window_seconds: int) -> int:
     if window_seconds <= 0:
         return 0
@@ -1493,7 +1504,7 @@ def _dispatch_one_task_inner(  # noqa: C901
             result.failed = latest_status != "completed"
             result.failure_type = None if result.completed else latest_status
             return result
-        terminal_status = "needs_review"
+        terminal_status = _resolve_non_executable_terminal_status(agent_cfg=(loop._agent_config() or {}))
         update_local_task_status(
             task.id,
             terminal_status,
