@@ -542,6 +542,9 @@ def build_default_agent_config() -> dict:
             "max_nodes": 8,
             "max_depth": 8,
             "timeout_seconds": 600,
+            # Number of goals that may execute planning concurrently.
+            # Keep default serial for backward compatibility.
+            "parallel_goal_planning_max_concurrency": 1,
             "max_output_tokens": 900,
             "segmented_planning_enabled": True,
             "segment_context_chars": 2400,

@@ -67,6 +67,55 @@ def test_soft_planning_quality_failure_allows_generic_task_overflow() -> None:
     ) is True
 
 
+def test_planning_slot_capacity_reads_config(app) -> None:
+    from agent.routes.tasks.goals import _planning_slot_capacity_from_config
+
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "planning_policy": {"parallel_goal_planning_max_concurrency": 3},
+    }
+    with app.app_context():
+        assert _planning_slot_capacity_from_config() == 3
+
+
+def test_planning_slots_respect_capacity_one(app) -> None:
+    from agent.routes.tasks.goals import _acquire_planning_slot, _release_planning_slot
+
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "planning_policy": {"parallel_goal_planning_max_concurrency": 1},
+    }
+    with app.app_context():
+        first, cap = _acquire_planning_slot(timeout_s=1)
+        second, _ = _acquire_planning_slot(timeout_s=1)
+        try:
+            assert first is True
+            assert cap == 1
+            assert second is False
+        finally:
+            if first:
+                _release_planning_slot()
+
+
+def test_planning_slots_use_explicit_capacity_override() -> None:
+    from agent.routes.tasks.goals import _acquire_planning_slot, _release_planning_slot
+
+    first = second = third = False
+    try:
+        first, cap = _acquire_planning_slot(timeout_s=1, capacity=2)
+        second, _ = _acquire_planning_slot(timeout_s=1, capacity=2)
+        third, _ = _acquire_planning_slot(timeout_s=1, capacity=2)
+        assert first is True
+        assert second is True
+        assert third is False
+        assert cap == 2
+    finally:
+        if second:
+            _release_planning_slot()
+        if first:
+            _release_planning_slot()
+
+
 class TestGoalsAPI:
     def test_goal_purge_deletes_goal_and_tasks(self, client, admin_auth_header, monkeypatch):
         goal = goal_repo.save(
