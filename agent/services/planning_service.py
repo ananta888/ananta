@@ -835,11 +835,16 @@ class PlanningService:
                         planning_policy=planning_policy,
                     )
 
-            with ThreadPoolExecutor(max_workers=1) as pool:
+            pool = ThreadPoolExecutor(max_workers=1)
+            try:
                 future = pool.submit(
                     _resolve_with_app_context,
                 )
                 resolved = future.result(timeout=inner_timeout)
+            finally:
+                # Do not block indefinitely on executor shutdown when planning
+                # worker is stuck (e.g. provider hangs despite request timeout).
+                pool.shutdown(wait=False, cancel_futures=True)
         except FutureTimeoutError:
             planner._stats["errors"] += 1
             telemetry_run = get_planning_telemetry_service().update_run(
