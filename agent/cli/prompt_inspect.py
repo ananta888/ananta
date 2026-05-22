@@ -102,6 +102,74 @@ def _is_propose_like_request_kind(kind: str) -> bool:
     }
 
 
+def _infer_task_executor(task: dict[str, Any], task_detail: dict[str, Any], last_trace: dict[str, Any]) -> str:
+    provider = str(last_trace.get("provider") or "").strip().lower()
+    model = str(last_trace.get("model") or "").strip().lower()
+    if provider:
+        if "opencode" in provider:
+            return "opencode"
+        if provider in {"lmstudio", "ollama", "openai", "anthropic"}:
+            return provider
+    if "opencode" in model:
+        return "opencode"
+    history = list(task_detail.get("history") or task.get("history") or [])
+    for item in reversed(history):
+        if not isinstance(item, dict):
+            continue
+        command = str(item.get("command") or "")
+        actor = str(item.get("actor") or "")
+        reason_codes = [str(code).lower() for code in list(item.get("reason_codes") or [])]
+        if "opencode" in command.lower() or "opencode" in actor.lower():
+            return "opencode"
+        if "artifact_manifest_verified" in reason_codes:
+            return "deterministic(policy)"
+    if str(task.get("status") or "").lower() == "completed":
+        return "deterministic/unknown"
+    return "unknown"
+
+
+def _extract_last_event(task: dict[str, Any], task_detail: dict[str, Any]) -> tuple[str, str]:
+    history = list(task_detail.get("history") or task.get("history") or [])
+    if not history:
+        return "-", "-"
+    last = history[-1] if isinstance(history[-1], dict) else {}
+    event = str(last.get("event") or last.get("action") or last.get("step") or "-")
+    reason_codes = [str(code) for code in list(last.get("reason_codes") or [])]
+    reason = ",".join(reason_codes[:3]) if reason_codes else str(last.get("reason") or last.get("message") or "-")
+    return event, (reason or "-")
+
+
+def _collect_goal_runtime_view(
+    goal_id: str,
+) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, list[dict[str, Any]]], dict[str, Any]]:
+    from agent.cli_goals import _request, _api_data
+
+    goal_res = _request("GET", f"/goals/{goal_id}/detail", timeout=30)
+    if goal_res.status_code != 200:
+        raise RuntimeError(f"goal detail request failed ({goal_res.status_code})")
+    goal_detail = _api_data(goal_res) or {}
+    if not isinstance(goal_detail, dict):
+        goal_detail = {}
+
+    trace_res = _request("GET", f"/goals/{goal_id}/prompt-traces", params={"limit": 400}, timeout=30)
+    trace_payload = _api_data(trace_res) if trace_res.status_code == 200 else {}
+    if not isinstance(trace_payload, dict):
+        trace_payload = {}
+    traces_grouped = dict(trace_payload.get("traces") or {})
+
+    tasks = [t for t in list(goal_detail.get("tasks") or []) if isinstance(t, dict)]
+    task_details: dict[str, Any] = {}
+    for task in tasks:
+        tid = str(task.get("id") or "").strip()
+        if not tid:
+            continue
+        t_res = _request("GET", f"/tasks/{tid}", timeout=20)
+        if t_res.status_code == 200:
+            task_details[tid] = _api_data(t_res) or {}
+
+    return goal_detail, tasks, traces_grouped, task_details
+
+
 # ── llm-log tail ─────────────────────────────────────────────────────────────
 
 def cmd_llm_log_tail(args: argparse.Namespace) -> int:
@@ -1161,6 +1229,214 @@ def cmd_prompt_delegation_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prompt_goal_flows(args: argparse.Namespace) -> int:
+    goal_id = str(getattr(args, "goal_id", "") or "").strip()
+    if not goal_id:
+        print("Error: --goal-id is required", file=sys.stderr)
+        return 2
+    try:
+        goal_detail, tasks, traces_grouped, task_details = _collect_goal_runtime_view(goal_id)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    artifacts = list(((goal_detail.get("artifacts") or {}).get("artifacts") or []))
+    artifacts_by_task: dict[str, int] = {}
+    for item in artifacts:
+        if not isinstance(item, dict):
+            continue
+        tid = str(item.get("task_id") or "").strip()
+        if tid:
+            artifacts_by_task[tid] = artifacts_by_task.get(tid, 0) + 1
+    last_trace_by_task = _last_trace_by_task_id(traces_grouped)
+
+    rows: list[dict[str, str]] = []
+    for task in tasks:
+        tid = str(task.get("id") or "")
+        detail = dict(task_details.get(tid) or {})
+        trace = dict(last_trace_by_task.get(tid) or {})
+        executor = _infer_task_executor(task, detail, trace)
+        event, reason = _extract_last_event(task, detail)
+        propose_traces = 0
+        for _kind, items in traces_grouped.items():
+            for item in list(items or []):
+                if not isinstance(item, dict):
+                    continue
+                if str(item.get("task_id") or "").strip() != tid:
+                    continue
+                if _is_propose_like_request_kind(str(item.get("request_kind") or "")):
+                    propose_traces += 1
+        rows.append(
+            {
+                "task_id": tid[:14],
+                "status": str(task.get("status") or "")[:12],
+                "executor": executor[:24],
+                "propose": str(propose_traces),
+                "artifacts": str(artifacts_by_task.get(tid, 0)),
+                "event": event[:24],
+                "reason": reason[:38],
+            }
+        )
+
+    if getattr(args, "json", False):
+        print(
+            json.dumps(
+                {
+                    "goal_id": goal_id,
+                    "goal_status": str((goal_detail.get("goal") or {}).get("status") or ""),
+                    "task_count": len(tasks),
+                    "rows": rows,
+                },
+                indent=2,
+            )
+        )
+        return 0
+
+    print(f"=== Goal Flows: {goal_id} ===")
+    print(f"Status: {str((goal_detail.get('goal') or {}).get('status') or '-')}")
+    print(f"Tasks:  {len(tasks)}")
+    if not rows:
+        print("(none)")
+        return 0
+    print()
+    _print_table(rows, ["task_id", "status", "executor", "propose", "artifacts", "event", "reason"])
+    return 0
+
+
+def cmd_prompt_task_why(args: argparse.Namespace) -> int:
+    task_id = str(getattr(args, "task_id", "") or "").strip()
+    if not task_id:
+        print("Error: --task-id is required", file=sys.stderr)
+        return 2
+    try:
+        from agent.cli_goals import _request, _api_data
+    except Exception as exc:
+        print(f"Error: task why helper unavailable: {exc}", file=sys.stderr)
+        return 1
+    res = _request("GET", f"/tasks/{task_id}", timeout=30)
+    if res.status_code != 200:
+        print(f"Error: task request failed ({res.status_code})", file=sys.stderr)
+        return 1
+    task = _api_data(res) or {}
+    if not isinstance(task, dict):
+        task = {}
+    history = [item for item in list(task.get("history") or []) if isinstance(item, dict)]
+    last = history[-1] if history else {}
+    reason_codes = [str(code) for code in list(last.get("reason_codes") or [])]
+    result = {
+        "task_id": task_id,
+        "status": str(task.get("status") or ""),
+        "last_event": str(last.get("event") or last.get("action") or last.get("step") or ""),
+        "reason_codes": reason_codes,
+        "reason": str(last.get("reason") or last.get("message") or ""),
+        "actor": str(last.get("actor") or ""),
+        "command": str(last.get("command") or ""),
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2))
+        return 0
+    print(f"=== Task Why: {task_id} ===")
+    print(f"Status:      {result['status'] or '-'}")
+    print(f"Last Event:  {result['last_event'] or '-'}")
+    print(f"Actor:       {result['actor'] or '-'}")
+    print(f"ReasonCodes: {', '.join(result['reason_codes']) if result['reason_codes'] else '-'}")
+    print(f"Reason:      {result['reason'] or '-'}")
+    if result["command"]:
+        print(f"Command:     {result['command'][:220]}")
+    return 0
+
+
+def cmd_prompt_goal_stuck(args: argparse.Namespace) -> int:
+    goal_id = str(getattr(args, "goal_id", "") or "").strip()
+    if not goal_id:
+        print("Error: --goal-id is required", file=sys.stderr)
+        return 2
+    min_minutes = max(1, int(getattr(args, "minutes", 10) or 10))
+    now = time.time()
+    try:
+        goal_detail, tasks, traces_grouped, task_details = _collect_goal_runtime_view(goal_id)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    last_trace_by_task = _last_trace_by_task_id(traces_grouped)
+    rows: list[dict[str, str]] = []
+    for task in tasks:
+        status = str(task.get("status") or "").lower()
+        if status not in {"proposing", "assigned", "in_progress"}:
+            continue
+        tid = str(task.get("id") or "")
+        detail = dict(task_details.get(tid) or {})
+        updated_at = float(detail.get("updated_at") or task.get("updated_at") or task.get("created_at") or 0.0)
+        age_min = int((now - updated_at) / 60) if updated_at > 0 else -1
+        if age_min >= 0 and age_min < min_minutes:
+            continue
+        trace = dict(last_trace_by_task.get(tid) or {})
+        event, reason = _extract_last_event(task, detail)
+        rows.append(
+            {
+                "task_id": tid[:14],
+                "status": status[:12],
+                "age_min": str(age_min if age_min >= 0 else "?"),
+                "executor": _infer_task_executor(task, detail, trace)[:22],
+                "trace": str(trace.get("request_kind") or "-")[:12],
+                "event": event[:20],
+                "reason": reason[:36],
+            }
+        )
+    if getattr(args, "json", False):
+        print(json.dumps({"goal_id": goal_id, "min_minutes": min_minutes, "rows": rows}, indent=2))
+        return 0
+    print(f"=== Goal Stuck: {goal_id} (>{min_minutes}m) ===")
+    if not rows:
+        print("No stuck tasks found.")
+        return 0
+    _print_table(rows, ["task_id", "status", "age_min", "executor", "trace", "event", "reason"])
+    return 0
+
+
+def cmd_prompt_goal_execmap(args: argparse.Namespace) -> int:
+    goal_id = str(getattr(args, "goal_id", "") or "").strip()
+    if not goal_id:
+        print("Error: --goal-id is required", file=sys.stderr)
+        return 2
+    try:
+        goal_detail, tasks, traces_grouped, task_details = _collect_goal_runtime_view(goal_id)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    last_trace_by_task = _last_trace_by_task_id(traces_grouped)
+    buckets: dict[str, int] = {}
+    for task in tasks:
+        tid = str(task.get("id") or "")
+        detail = dict(task_details.get(tid) or {})
+        trace = dict(last_trace_by_task.get(tid) or {})
+        executor = _infer_task_executor(task, detail, trace)
+        buckets[executor] = buckets.get(executor, 0) + 1
+    rows = [{"executor": key, "tasks": str(val)} for key, val in sorted(buckets.items(), key=lambda item: (-item[1], item[0]))]
+    if getattr(args, "json", False):
+        print(
+            json.dumps(
+                {
+                    "goal_id": goal_id,
+                    "goal_status": str((goal_detail.get("goal") or {}).get("status") or ""),
+                    "task_count": len(tasks),
+                    "executors": rows,
+                },
+                indent=2,
+            )
+        )
+        return 0
+    print(f"=== Goal Execmap: {goal_id} ===")
+    print(f"Status: {str((goal_detail.get('goal') or {}).get('status') or '-')}")
+    print(f"Tasks:  {len(tasks)}")
+    if not rows:
+        print("(none)")
+        return 0
+    print()
+    _print_table(rows, ["executor", "tasks"])
+    return 0
+
+
 # ── Subparser builder ─────────────────────────────────────────────────────────
 
 def build_prompt_subparser(subparsers) -> None:
@@ -1216,6 +1492,19 @@ def build_prompt_subparser(subparsers) -> None:
     pp_p.add_argument("--provider", default="", help="Filter by provider (e.g. lmstudio)")
     pp_p.add_argument("--model", default="", help="Filter by model/family/name pattern substring")
     pp_p.add_argument("--json", action="store_true", help="JSON output")
+    gf_p = prompt_sub.add_parser("goal-flows", help="Compact per-task flow view with executor/propose/artifacts")
+    gf_p.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
+    gf_p.add_argument("--json", action="store_true", help="JSON output")
+    tw_p = prompt_sub.add_parser("task-why", help="Show latest completion/transition reason for a task")
+    tw_p.add_argument("--task-id", dest="task_id", required=True, help="Task ID")
+    tw_p.add_argument("--json", action="store_true", help="JSON output")
+    gs_p = prompt_sub.add_parser("goal-stuck", help="Show tasks that appear stuck in proposing/assigned/in_progress")
+    gs_p.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
+    gs_p.add_argument("--minutes", type=int, default=10, help="Minimum age in minutes (default: 10)")
+    gs_p.add_argument("--json", action="store_true", help="JSON output")
+    ge_p = prompt_sub.add_parser("goal-execmap", help="Group tasks by inferred executor")
+    ge_p.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
+    ge_p.add_argument("--json", action="store_true", help="JSON output")
 
 
 def build_llm_log_subparser(subparsers) -> None:
@@ -1255,8 +1544,16 @@ def run_prompt_command(args: argparse.Namespace) -> int:
         return cmd_prompt_learning_status(args)
     elif cmd == "planner-profiles":
         return cmd_prompt_planner_profiles(args)
+    elif cmd == "goal-flows":
+        return cmd_prompt_goal_flows(args)
+    elif cmd == "task-why":
+        return cmd_prompt_task_why(args)
+    elif cmd == "goal-stuck":
+        return cmd_prompt_goal_stuck(args)
+    elif cmd == "goal-execmap":
+        return cmd_prompt_goal_execmap(args)
     else:
-        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report,task-report,task-traces,task-inspect,learning-report,learning-status,planner-profiles} --help")
+        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report,task-report,task-traces,task-inspect,learning-report,learning-status,planner-profiles,goal-flows,task-why,goal-stuck,goal-execmap} --help")
         return 2
 
 
