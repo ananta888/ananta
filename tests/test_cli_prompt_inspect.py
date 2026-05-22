@@ -601,3 +601,92 @@ class TestPromptLearningReport:
         parsed = json.loads(captured.getvalue())
         assert parsed["enabled"] is False
         assert parsed["profiles"][0].get("profile_name", "") == ""
+
+
+class TestPromptTaskTraces:
+    def test_task_traces_json_happy_path(self, tmp_path):
+        import argparse
+        import contextlib
+        import io
+        from agent.cli.prompt_inspect import cmd_prompt_task_traces
+        from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
+        storage = PromptTraceStorage(data_dir=str(tmp_path))
+        svc = PromptTraceService(storage=storage)
+
+        t_generate = svc.create_trace(
+            request_id="req-gen-1",
+            task_id="task-tt-1",
+            goal_id="goal-tt-1",
+            provider="lmstudio",
+            model="google/gemma-4-e4b",
+            request_kind="generate",
+            prompt="Generate next step",
+        )
+        t_execute = svc.create_trace(
+            request_id="req-exec-1",
+            task_id="task-tt-1",
+            goal_id="goal-tt-1",
+            provider="lmstudio",
+            model="google/gemma-4-e4b",
+            request_kind="execute",
+            prompt="Execute command",
+        )
+        svc.store(svc.finalize_trace(t_generate, success=True))
+        svc.store(svc.finalize_trace(t_execute, success=True))
+
+        args = argparse.Namespace(task_id="task-tt-1", goal_id="", propose_only=False, json=True)
+        captured = io.StringIO()
+        with patch("agent.services.prompt_trace_service.get_prompt_trace_service", return_value=svc):
+            with contextlib.redirect_stdout(captured):
+                code = cmd_prompt_task_traces(args)
+
+        assert code == 0
+        parsed = json.loads(captured.getvalue())
+        assert parsed["task_id"] == "task-tt-1"
+        assert parsed["trace_count"] == 2
+        kinds = [str(item.get("request_kind") or "") for item in parsed["traces"]]
+        assert "generate" in kinds
+        assert "execute" in kinds
+
+    def test_task_traces_propose_only_filters_execute(self, tmp_path):
+        import argparse
+        import contextlib
+        import io
+        from agent.cli.prompt_inspect import cmd_prompt_task_traces
+        from agent.services.prompt_trace_service import PromptTraceService, PromptTraceStorage
+
+        storage = PromptTraceStorage(data_dir=str(tmp_path))
+        svc = PromptTraceService(storage=storage)
+
+        t_generate = svc.create_trace(
+            request_id="req-gen-2",
+            task_id="task-tt-2",
+            goal_id="goal-tt-2",
+            provider="lmstudio",
+            model="gemma",
+            request_kind="generate",
+            prompt="Generate plan",
+        )
+        t_execute = svc.create_trace(
+            request_id="req-exec-2",
+            task_id="task-tt-2",
+            goal_id="goal-tt-2",
+            provider="lmstudio",
+            model="gemma",
+            request_kind="execute",
+            prompt="Execute command",
+        )
+        svc.store(svc.finalize_trace(t_generate, success=True))
+        svc.store(svc.finalize_trace(t_execute, success=True))
+
+        args = argparse.Namespace(task_id="task-tt-2", goal_id="", propose_only=True, json=True)
+        captured = io.StringIO()
+        with patch("agent.services.prompt_trace_service.get_prompt_trace_service", return_value=svc):
+            with contextlib.redirect_stdout(captured):
+                code = cmd_prompt_task_traces(args)
+
+        assert code == 0
+        parsed = json.loads(captured.getvalue())
+        assert parsed["trace_count"] == 1
+        assert parsed["traces"][0]["request_kind"] == "generate"

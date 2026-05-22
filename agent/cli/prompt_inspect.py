@@ -91,6 +91,17 @@ def _latest_llm_response_by_request_id(limit: int = 2000) -> dict[str, dict[str,
     return latest
 
 
+def _is_propose_like_request_kind(kind: str) -> bool:
+    normalized = str(kind or "").strip().lower()
+    return normalized in {
+        "propose",
+        "task_propose",
+        "generate",
+        "repair",
+        "proposal",
+    }
+
+
 # ── llm-log tail ─────────────────────────────────────────────────────────────
 
 def cmd_llm_log_tail(args: argparse.Namespace) -> int:
@@ -639,6 +650,106 @@ def cmd_prompt_task_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prompt_task_traces(args: argparse.Namespace) -> int:
+    task_id = str(getattr(args, "task_id", "") or "").strip()
+    goal_id = str(getattr(args, "goal_id", "") or "").strip()
+    if not task_id:
+        print("Error: --task-id is required", file=sys.stderr)
+        return 2
+
+    propose_only = bool(getattr(args, "propose_only", False))
+    svc = _get_trace_svc()
+    traces: list[dict[str, Any]] = []
+
+    # Primary source: local prompt trace storage filtered by task_id.
+    for item in svc.find_by_task_id(task_id):
+        traces.append(item.to_dict() if hasattr(item, "to_dict") else dict(item or {}))
+
+    # Optional source: goal-scoped endpoint when goal_id is provided.
+    if goal_id:
+        goal_trace_res = _api_request("GET", f"/goals/{goal_id}/prompt-traces", params={"limit": 400}, timeout=30)
+        if goal_trace_res is not None and goal_trace_res.status_code == 200:
+            payload = _api_data(goal_trace_res)
+            grouped = dict(payload.get("traces") or {}) if isinstance(payload, dict) else {}
+            for _kind, items in grouped.items():
+                for item in list(items or []):
+                    if not isinstance(item, dict):
+                        continue
+                    if str(item.get("task_id") or "").strip() != task_id:
+                        continue
+                    traces.append(dict(item))
+
+    # Fallback source: debug endpoint directly filtered by task.
+    if not traces:
+        debug_res = _api_request("GET", "/debug/llm-requests", params={"task_id": task_id, "limit": 400}, timeout=30)
+        if debug_res is not None and debug_res.status_code == 200:
+            payload = _api_data(debug_res)
+            for item in list((payload.get("traces") if isinstance(payload, dict) else []) or []):
+                if not isinstance(item, dict):
+                    continue
+                if str(item.get("task_id") or "").strip() == task_id:
+                    traces.append(dict(item))
+
+    # Deduplicate by trace_id/request_id while preserving newest created_at.
+    dedup: dict[str, dict[str, Any]] = {}
+    for row in traces:
+        trace_key = str(row.get("trace_id") or row.get("request_id") or "").strip()
+        if not trace_key:
+            continue
+        existing = dedup.get(trace_key)
+        row_ts = float(row.get("created_at") or 0.0)
+        existing_ts = float((existing or {}).get("created_at") or 0.0)
+        if existing is None or row_ts >= existing_ts:
+            dedup[trace_key] = row
+    trace_rows = list(dedup.values())
+
+    if propose_only:
+        trace_rows = [row for row in trace_rows if _is_propose_like_request_kind(row.get("request_kind"))]
+
+    trace_rows.sort(key=lambda row: float(row.get("created_at") or 0.0))
+
+    if getattr(args, "json", False):
+        print(
+            json.dumps(
+                {
+                    "task_id": task_id,
+                    "goal_id": goal_id or None,
+                    "propose_only": propose_only,
+                    "trace_count": len(trace_rows),
+                    "traces": trace_rows,
+                },
+                indent=2,
+            )
+        )
+        return 0
+
+    print(f"=== Task Traces: {task_id} ===")
+    if goal_id:
+        print(f"Goal:          {goal_id}")
+    print(f"Propose only:  {propose_only}")
+    print(f"Trace count:   {len(trace_rows)}")
+    if not trace_rows:
+        print("\n(no traces found)")
+        return 0
+
+    rows: list[dict[str, Any]] = []
+    for row in trace_rows:
+        rows.append(
+            {
+                "created_at": _format_ts(row.get("created_at")),
+                "request_kind": str(row.get("request_kind") or ""),
+                "provider": str(row.get("provider") or ""),
+                "model": str(row.get("model") or "")[:24],
+                "ok": str(row.get("success")),
+                "trace_id": str(row.get("trace_id") or "")[:16],
+                "request_id": str(row.get("request_id") or "")[:16],
+            }
+        )
+    print()
+    _print_table(rows, ["created_at", "request_kind", "provider", "model", "ok", "trace_id", "request_id"])
+    return 0
+
+
 def _extract_learning_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(payload, dict):
         return {}
@@ -1089,6 +1200,11 @@ def build_prompt_subparser(subparsers) -> None:
     tr_p = prompt_sub.add_parser("task-report", help="Show compact prompt/response view for a task")
     tr_p.add_argument("--task-id", dest="task_id", required=True, help="Task ID")
     tr_p.add_argument("--json", action="store_true", help="JSON output")
+    tt_p = prompt_sub.add_parser("task-traces", help="Show all prompt traces for a task (optionally propose-only)")
+    tt_p.add_argument("--task-id", dest="task_id", required=True, help="Task ID")
+    tt_p.add_argument("--goal-id", dest="goal_id", default="", help="Optional goal ID to resolve traces via goal endpoint")
+    tt_p.add_argument("--propose-only", dest="propose_only", action="store_true", help="Show only propose-like traces")
+    tt_p.add_argument("--json", action="store_true", help="JSON output")
     ti_p = prompt_sub.add_parser("task-inspect", help="Alias for task-report")
     ti_p.add_argument("--task-id", dest="task_id", required=True, help="Task ID")
     ti_p.add_argument("--json", action="store_true", help="JSON output")
@@ -1129,6 +1245,8 @@ def run_prompt_command(args: argparse.Namespace) -> int:
         return cmd_prompt_delegation_report(args)
     elif cmd == "task-report":
         return cmd_prompt_task_report(args)
+    elif cmd == "task-traces":
+        return cmd_prompt_task_traces(args)
     elif cmd == "task-inspect":
         return cmd_prompt_task_report(args)
     elif cmd == "learning-report":
@@ -1138,7 +1256,7 @@ def run_prompt_command(args: argparse.Namespace) -> int:
     elif cmd == "planner-profiles":
         return cmd_prompt_planner_profiles(args)
     else:
-        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report,task-report,task-inspect,learning-report,learning-status,planner-profiles} --help")
+        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report,task-report,task-traces,task-inspect,learning-report,learning-status,planner-profiles} --help")
         return 2
 
 
