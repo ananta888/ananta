@@ -82,6 +82,8 @@ class TaskLifecycleService:
         goal_mode_data: dict = {}
         goal_execution_contract: dict = {}
         goal_git_workspace_cfg: dict = {}
+        goal_scope_key: str | None = None
+        goal_workspace_sync_mode: str | None = None
         if goal_id:
             try:
                 goal = goal_repo.get_by_id(str(goal_id))
@@ -91,6 +93,17 @@ class TaskLifecycleService:
                     goal_rag_sources = dict((goal.execution_preferences or {}).get("rag_sources") or {})
                     goal_mode_data = dict(goal.mode_data or {})
                     goal_execution_contract = dict((goal.execution_preferences or {}).get("goal_execution_contract") or {})
+                    _snap_cfg = dict(((goal.execution_preferences or {}).get("config_snapshot") or {}).get("config") or {})
+                    _wr_cfg = dict((_snap_cfg.get("worker_runtime") or {}))
+                    _reuse_mode = str(_wr_cfg.get("workspace_reuse_mode") or "").strip().lower()
+                    if _reuse_mode == "goal_worker":
+                        import re as _re
+                        _raw_gid = str(goal_id).strip().lower()
+                        _safe_gid = _re.sub(r"[^a-z0-9._-]+", "-", _raw_gid).strip("-.")
+                        goal_scope_key = _safe_gid or None
+                    _sync_mode = str(_wr_cfg.get("workspace_sync_mode") or "").strip().lower()
+                    if _sync_mode:
+                        goal_workspace_sync_mode = _sync_mode
             except Exception:
                 pass
             try:
@@ -139,7 +152,9 @@ class TaskLifecycleService:
             **({"workspace": {
                 **({"output_dir": output_dir} if output_dir else {}),
                 **({"git_workspace": goal_git_workspace_cfg} if goal_git_workspace_cfg else {}),
-            }} if (output_dir or goal_git_workspace_cfg) else {}),
+                **({"scope_key": goal_scope_key} if goal_scope_key else {}),
+                **({"sync_mode": goal_workspace_sync_mode} if goal_workspace_sync_mode else {}),
+            }} if (output_dir or goal_git_workspace_cfg or goal_scope_key or goal_workspace_sync_mode) else {}),
             **({"shell_command_mode": shell_command_mode} if shell_command_mode else {}),
             **({"research_context_input": research_context_input} if research_context_input else {}),
             **extra_context,
