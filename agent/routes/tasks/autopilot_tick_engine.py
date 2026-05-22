@@ -1378,10 +1378,32 @@ def _dispatch_one_task_inner(  # noqa: C901
                 if terminalize_no_exec
                 else "autopilot_strategy_exhausted"
             )
+            existing_strategy_state = dict(strategy_state or {})
+            repair_rounds = int(existing_strategy_state.get("repair_rounds") or 0)
+            agent_cfg = _effective_agent_cfg_for_task(loop=loop, task=task)
+            propose_policy_cfg = dict((agent_cfg.get("propose_policy") or {}))
+            allow_human_review = bool(propose_policy_cfg.get("allow_human_review", True))
+            on_declined = str(propose_policy_cfg.get("on_all_strategies_declined") or "needs_review").strip().lower()
+            repair_budget, repair_delay_seconds = _resolve_autonomous_repair_budget(agent_cfg=agent_cfg)
+            schedule_repair_retry = (
+                terminalize_no_exec
+                and not allow_human_review
+                and repair_rounds < repair_budget
+            )
+            if schedule_repair_retry:
+                retry_status = "todo"
+                cooldown_seconds = repair_delay_seconds
+            elif on_declined == "failed":
+                retry_status = "failed"
+            elif on_declined == "advisory":
+                retry_status = "todo"
+            else:
+                retry_status = "waiting_for_review" if allow_human_review else "failed"
             verification_status = {
                 **dict(getattr(task, "verification_status", None) or {}),
                 "autopilot_strategy": {
                     "attempt_count": total_attempt_count,
+                    "repair_rounds": repair_rounds + (1 if schedule_repair_retry else 0),
                     "failed_models": failed_models,
                     "failed_temperatures": failed_temperatures,
                     "failed_sources": failed_sources,
@@ -1392,16 +1414,6 @@ def _dispatch_one_task_inner(  # noqa: C901
                     "reason_code": reason_code,
                 },
             }
-            agent_cfg = loop._agent_config() or {}
-            propose_policy_cfg = dict((agent_cfg.get("propose_policy") or {}))
-            allow_human_review = bool(propose_policy_cfg.get("allow_human_review", True))
-            on_declined = str(propose_policy_cfg.get("on_all_strategies_declined") or "needs_review").strip().lower()
-            if on_declined == "failed":
-                retry_status = "failed"
-            elif on_declined == "advisory":
-                retry_status = "todo"
-            else:
-                retry_status = "waiting_for_review" if allow_human_review else "failed"
             retry_snapshot = _ensure_llm_profile_snapshot(
                 snapshot={"strategy_failures": strategy_failures[-5:]},
                 strategy_id=None,
@@ -1430,6 +1442,9 @@ def _dispatch_one_task_inner(  # noqa: C901
                     "cooldown_seconds": cooldown_seconds,
                     "attempt_count": total_attempt_count,
                     "terminalize_no_exec": terminalize_no_exec,
+                    "schedule_repair_retry": schedule_repair_retry,
+                    "repair_rounds": repair_rounds + (1 if schedule_repair_retry else 0),
+                    "repair_budget": repair_budget,
                     "allow_human_review": allow_human_review,
                     "on_all_strategies_declined": on_declined,
                 },
@@ -1538,7 +1553,9 @@ def _dispatch_one_task_inner(  # noqa: C901
             result.failed = latest_status != "completed"
             result.failure_type = None if result.completed else latest_status
             return result
-        terminal_status = _resolve_non_executable_terminal_status(agent_cfg=(loop._agent_config() or {}))
+        terminal_status = _resolve_non_executable_terminal_status(
+            agent_cfg=_effective_agent_cfg_for_task(loop=loop, task=task)
+        )
         update_local_task_status(
             task.id,
             terminal_status,
