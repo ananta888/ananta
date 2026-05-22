@@ -22,8 +22,10 @@ from typing import Optional
 
 _lock = threading.Lock()
 
-# goal_id (or task_id fallback) → list of weakref(session)
+# goal_id -> list of weakref(session)
 _goal_sessions: dict[str, list[weakref.ref]] = {}
+# task_id -> list of weakref(session)
+_task_sessions: dict[str, list[weakref.ref]] = {}
 
 # thread_ident → (goal_id, task_id)
 _thread_context: dict[int, tuple[Optional[str], Optional[str]]] = {}
@@ -50,28 +52,31 @@ def clear_thread_context() -> None:
         _thread_context.pop(tid, None)
 
 
-def _get_current_key() -> Optional[str]:
+def _get_current_context() -> tuple[Optional[str], Optional[str]]:
     tid = threading.current_thread().ident
     with _lock:
         ctx = _thread_context.get(tid)
     if not ctx:
-        return None
-    goal_id, task_id = ctx
-    return goal_id or task_id
+        return None, None
+    return ctx
 
 
 def create_and_register_session():
     """Create a fresh requests.Session and register it under the current thread's goal.
 
-    Returns (session, key) where key is None if no thread context is set.
+    Returns (session, key) where key is goal_id or task_id fallback, and may be None.
     """
     import requests
     session = requests.Session()
-    key = _get_current_key()
-    if key:
+    goal_id, task_id = _get_current_context()
+    key = goal_id or task_id
+    if goal_id or task_id:
         ref: weakref.ref = weakref.ref(session)
         with _lock:
-            _goal_sessions.setdefault(key, []).append(ref)
+            if goal_id:
+                _goal_sessions.setdefault(goal_id, []).append(ref)
+            if task_id:
+                _task_sessions.setdefault(task_id, []).append(ref)
     return session, key
 
 
@@ -80,11 +85,12 @@ def release_session(key: Optional[str], session) -> None:
     if not key:
         return
     with _lock:
-        refs = _goal_sessions.get(key)
-        if refs is not None:
-            _goal_sessions[key] = [r for r in refs if r() is not None and r() is not session]
-            if not _goal_sessions[key]:
-                _goal_sessions.pop(key, None)
+        for session_map in (_goal_sessions, _task_sessions):
+            for map_key in list(session_map.keys()):
+                refs = session_map.get(map_key) or []
+                session_map[map_key] = [r for r in refs if r() is not None and r() is not session]
+                if not session_map[map_key]:
+                    session_map.pop(map_key, None)
 
 
 def cancel_goal(goal_id: str) -> int:
@@ -100,11 +106,26 @@ def cancel_goal(goal_id: str) -> int:
     return count
 
 
+def cancel_task(task_id: str) -> int:
+    """Close all in-flight LM Studio sessions for a task. Returns number closed."""
+    key = str(task_id or "").strip()
+    if not key:
+        return 0
+    with _lock:
+        refs = _task_sessions.pop(key, [])
+    count = _close_refs(refs)
+    if count:
+        log.info("LMStudio registry: cancelled %d in-flight request(s) for task=%s", count, key)
+    return count
+
+
 def cancel_all() -> int:
     """Close all tracked in-flight sessions. Returns total count closed."""
     with _lock:
         all_refs = [r for refs in _goal_sessions.values() for r in refs]
         _goal_sessions.clear()
+        all_refs.extend([r for refs in _task_sessions.values() for r in refs])
+        _task_sessions.clear()
     count = _close_refs(all_refs)
     if count:
         log.info("LMStudio registry: cancelled all %d in-flight request(s)", count)
@@ -115,6 +136,12 @@ def active_counts() -> dict[str, int]:
     """Returns {goal_id: session_count} for currently tracked sessions."""
     with _lock:
         return {k: sum(1 for r in refs if r() is not None) for k, refs in _goal_sessions.items()}
+
+
+def active_task_counts() -> dict[str, int]:
+    """Returns {task_id: session_count} for currently tracked sessions."""
+    with _lock:
+        return {k: sum(1 for r in refs if r() is not None) for k, refs in _task_sessions.items()}
 
 
 def _close_refs(refs: list[weakref.ref]) -> int:

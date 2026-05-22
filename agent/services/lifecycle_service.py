@@ -7,6 +7,7 @@ from agent.db_models import GoalDB
 from agent.repository import goal_repo, task_repo
 from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
+from agent.services.request_cancellation_service import get_request_cancellation_service
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import update_local_task_status
 
@@ -272,10 +273,9 @@ class GoalLifecycleService:
                     event_actor="goal_lifecycle_service",
                     event_details={"goal_id": goal_id, "target_status": normalized_target},
                 )
-            if normalized_target == "failed":
+            if normalized_target in {"failed", "cancelled"}:
                 try:
-                    from agent.services.lmstudio_request_registry import cancel_goal
-                    cancel_goal(goal_id)
+                    get_request_cancellation_service().cancel_goal_requests(goal_id=goal_id, include_workers=True)
                 except Exception:
                     pass
         return goal_repo.save(goal)

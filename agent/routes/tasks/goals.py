@@ -16,6 +16,7 @@ from agent.services.goal_purge_service import get_goal_purge_service
 from agent.services.goal_config_resolver_service import ALLOWED_GOAL_CONFIG_KEYS, get_goal_config_resolver_service
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.config_profile_service import get_config_profile_service
+from agent.services.request_cancellation_service import get_request_cancellation_service
 from agent.services.product_event_service import record_product_event
 from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.repository_registry import get_repository_registry
@@ -430,27 +431,24 @@ def purge_goal(goal_id: str):
 @goals_bp.route("/goals/<goal_id>/kill-requests", methods=["POST"])
 @check_auth
 def kill_goal_requests(goal_id: str):
-    """Abort all in-flight LM Studio HTTP requests for a goal without cancelling the goal itself."""
+    """Abort all in-flight provider requests for a goal without cancelling the goal itself."""
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
     goal_id_norm = str(goal_id or "").strip()
     if not goal_id_norm:
         return api_response(status="error", message="goal_id required", code=400)
-    from agent.services.lmstudio_request_registry import cancel_goal, active_counts
-    killed = cancel_goal(goal_id_norm)
-    remaining = active_counts()
-    return api_response(data={"goal_id": goal_id_norm, "sessions_killed": killed, "active_counts": remaining})
+    result = get_request_cancellation_service().cancel_goal_requests(goal_id=goal_id_norm, include_workers=True)
+    return api_response(data=result)
 
 
 @goals_bp.route("/goals/kill-all-requests", methods=["POST"])
 @check_auth
 def kill_all_requests():
-    """Abort all in-flight LM Studio HTTP requests across all goals."""
+    """Abort all in-flight provider requests across all goals."""
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
-    from agent.services.lmstudio_request_registry import cancel_all, active_counts
-    killed = cancel_all()
-    return api_response(data={"sessions_killed": killed, "active_counts": active_counts()})
+    result = get_request_cancellation_service().cancel_all_requests(include_workers=True)
+    return api_response(data=result)
 
 
 @goals_bp.route("/goals/planning/health", methods=["GET"])
