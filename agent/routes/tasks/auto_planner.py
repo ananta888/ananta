@@ -284,14 +284,18 @@ class AutoPlanner:
                     except (TypeError, ValueError):
                         llm_temperature = None
                 llm_timeout = self.llm_timeout
+                timeout_cap: int | None = None
                 raw_timeout = llm_config.get("timeout")
                 if raw_timeout is not None:
                     try:
-                        llm_timeout = max(self.llm_timeout, max(5, int(raw_timeout)))
+                        timeout_cap = max(5, int(raw_timeout))
+                        llm_timeout = max(self.llm_timeout, timeout_cap)
                     except (TypeError, ValueError):
                         llm_timeout = self.llm_timeout
                 llm_timeout = max(llm_timeout, int(runtime_profile.get("timeout_seconds") or llm_timeout))
                 llm_timeout = max(llm_timeout, int(calibrated.get("timeout_seconds") or llm_timeout))
+                if timeout_cap is not None:
+                    llm_timeout = min(llm_timeout, timeout_cap)
                 llm_kwargs = {
                     "prompt": prompt,
                     "provider": llm_config.get("provider"),
