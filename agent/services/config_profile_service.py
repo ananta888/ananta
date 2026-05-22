@@ -29,6 +29,8 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             "propose_policy": {
                 "allow_human_review": False,
                 "on_all_strategies_declined": "failed",
+                "autonomous_repair_attempts": 3,
+                "autonomous_repair_delay_seconds": 10,
             },
             # Keep planner runs bounded for local LMStudio E2E stability.
             "planning_policy": {

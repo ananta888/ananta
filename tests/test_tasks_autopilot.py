@@ -8,7 +8,11 @@ from agent.config import settings
 from agent.db_models import AgentInfoDB, GoalDB, TaskDB
 from agent.repository import agent_repo, goal_repo, task_repo
 from agent.routes.tasks.auto_planner import auto_planner
-from agent.routes.tasks.autopilot_tick_engine import _should_terminalize_no_executable_strategy
+from agent.routes.tasks.autopilot_tick_engine import (
+    _effective_agent_cfg_for_task,
+    _resolve_autonomous_repair_budget,
+    _should_terminalize_no_executable_strategy,
+)
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.utils import _update_local_task_status
@@ -57,6 +61,58 @@ def test_autopilot_start_status_stop(client, app, monkeypatch):
         assert stop_res.json["data"]["running"] is False
     finally:
         autonomous_loop.stop(persist=False)
+
+
+def test_autopilot_effective_cfg_uses_goal_scoped_snapshot_over_global(app):
+    global_cfg = {
+        "propose_policy": {
+            "allow_human_review": True,
+            "on_all_strategies_declined": "needs_review",
+        }
+    }
+    app.config["AGENT_CONFIG"] = global_cfg
+    goal_repo.save(
+        GoalDB(
+            id="goal-policy-snapshot-1",
+            goal="snapshot policy",
+            summary="s",
+            status="planning",
+            execution_preferences={
+                "config_snapshot": {
+                    "config": {
+                        "propose_policy": {
+                            "allow_human_review": False,
+                            "on_all_strategies_declined": "failed",
+                            "autonomous_repair_attempts": 3,
+                        }
+                    }
+                }
+            },
+        )
+    )
+    task = TaskDB(id="goal-policy-task-1", title="t", status="todo", goal_id="goal-policy-snapshot-1")
+    task_repo.save(task)
+
+    class _Loop:
+        def _agent_config(self):
+            return global_cfg
+
+    with app.app_context():
+        cfg = _effective_agent_cfg_for_task(loop=_Loop(), task=task)
+    assert (cfg.get("propose_policy") or {}).get("allow_human_review") is False
+    assert (cfg.get("propose_policy") or {}).get("on_all_strategies_declined") == "failed"
+
+
+def test_autopilot_repair_budget_reads_propose_policy_fields():
+    cfg = {
+        "propose_policy": {
+            "autonomous_repair_attempts": 3,
+            "autonomous_repair_delay_seconds": 11,
+        }
+    }
+    attempts, delay = _resolve_autonomous_repair_budget(agent_cfg=cfg)
+    assert attempts == 3
+    assert delay == 11
 
 
 def test_parallel_autopilot_ticks_do_not_duplicate_dispatch(app, monkeypatch):
