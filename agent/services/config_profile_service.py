@@ -30,6 +30,10 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
                 "allow_human_review": False,
                 "on_all_strategies_declined": "failed",
             },
+            # Keep planner runs bounded for local LMStudio E2E stability.
+            "planning_policy": {
+                "timeout_seconds": 180,
+            },
         },
     ),
     "opencode_ollama_local": ConfigProfile(
