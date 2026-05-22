@@ -17,6 +17,8 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
         description="OpenCode worker with preconfigured default model (fully autonomous, no human review)",
         overrides={
             "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
+            # Use OpenCode's native credentials (Big Pickle) — don't inject LMStudio provider.
+            "opencode_runtime": {"target_provider": "opencode"},
             # Autonomous execution — no waiting_for_review gate.
             "autopilot_task_propose_hard_guard_status": "failed",
             "propose_policy": {
