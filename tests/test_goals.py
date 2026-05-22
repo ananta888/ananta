@@ -19,9 +19,16 @@ def _mock_goal_planning_llm(monkeypatch):
 
 
 def _bypass_quality(monkeypatch):
+    from types import SimpleNamespace
     monkeypatch.setattr(
         "agent.routes.tasks.goals._plan_quality_from_task_ids",
         lambda **_: (True, "ok"),
+    )
+    # Also bypass the planning service's internal quality gate so a 1-task LLM mock
+    # doesn't fail the min_total_tasks validation inside auto_planner.plan_goal.
+    monkeypatch.setattr(
+        "agent.services.planning_quality_service.PlanningQualityService.evaluate",
+        lambda self, **_: SimpleNamespace(ok=True, reason="ok", missing_categories=[], generic_task_indices=[], details={}),
     )
 
 
