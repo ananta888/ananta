@@ -58,6 +58,13 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             },
             # Used by adaptive propose timeout resolver as floor when benchmark data is missing.
             "task_propose_timeout_seconds": 420,
+            # Shared workspace per goal so all tasks see each other's files (Option A).
+            # Artifact hub sync uploads every workspace_file to the hub so cross-worker
+            # tasks can materialise predecessor outputs (Option B).
+            "worker_runtime": {
+                "workspace_reuse_mode": "goal_worker",
+                "workspace_sync_mode": "artifact_hub_sync",
+            },
         },
     ),
     "opencode_preconfigured_e2e": ConfigProfile(
