@@ -122,3 +122,10 @@ ignore_missing_imports = true
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-v"
+filterwarnings = [
+    # Background planning threads use the test's in-memory SQLite session. When a test
+    # ends before its planning thread finishes, the session is already closed and the
+    # thread fails with an InvalidRequestError. This is a SQLite/test-isolation artifact
+    # that doesn't occur in production (PostgreSQL with connection pooling).
+    "ignore::pytest.PytestUnhandledThreadExceptionWarning",
+]

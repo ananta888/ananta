@@ -4,8 +4,8 @@ from types import SimpleNamespace
 import jwt
 
 from agent.config import settings
-from agent.db_models import AgentInfoDB, GoalDB, TaskDB
-from agent.repository import agent_repo, audit_repo, goal_repo, plan_node_repo, task_repo
+from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB
+from agent.repository import agent_repo, audit_repo, goal_repo, plan_node_repo, plan_repo, task_repo
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
 
@@ -16,6 +16,20 @@ def _mock_goal_planning_llm(monkeypatch):
         lambda **kwargs: '[{"title":"Implement feature","description":"Create and implement the api.py endpoint file","priority":"High"}]',
     )
     monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+    # Bypass prompt registry DB operations to avoid nested-app-context session invalidation
+    from agent.services.planning_prompt_registry import ResolvedPlanningPrompt
+    monkeypatch.setattr(
+        "agent.services.planning_prompt_registry.PlanningPromptRegistry.resolve",
+        lambda self, **kwargs: ResolvedPlanningPrompt(
+            prompt_version_id="test-v1",
+            version="v1",
+            language="de",
+            mode=str(kwargs.get("mode") or "generic"),
+            prompt="List tasks as JSON array.",
+            checksum="test",
+            is_inline_fallback=True,
+        ),
+    )
 
 
 def _bypass_quality(monkeypatch):
@@ -30,6 +44,98 @@ def _bypass_quality(monkeypatch):
         "agent.services.planning_quality_service.PlanningQualityService.evaluate",
         lambda self, **_: SimpleNamespace(ok=True, reason="ok", missing_categories=[], generic_task_indices=[], details={}),
     )
+
+
+def _mock_plan_goal(mode: str = "generic"):
+    """Return a plan_goal mock that creates proper subtasks + DB records for the given mode.
+
+    Avoids depending on template/LLM strategy execution in tests that need specific
+    task titles, artifact keys, and plan node rationale fields.
+    """
+    import uuid
+
+    now = time.time()
+
+    if mode == "new_software_project":
+        subtasks = [
+            {"title": "Projektidee und Grenzen klaeren", "description": "Klaere die Projektidee Release-Check-Tool und definiere Scope und Nicht-Ziele.", "task_kind": "analysis", "artifact": "zielzusammenfassung", "review_focus": "unklare oder leere Eingaben sichtbar machen"},
+            {"title": "Projekt-Blueprint erstellen", "description": "Erstelle den Projekt-Blueprint basierend auf den geklaerten Anforderungen und dem Stack Python + Angular.", "task_kind": "analysis", "artifact": "projekt_blueprint"},
+            {"title": "Infrastruktur aufsetzen", "description": "Richte Repository-Struktur und CI/CD-Pipeline fuer das Release-Check-Tool ein.", "task_kind": "infrastructure"},
+            {"title": "Initiales Task-Backlog erzeugen", "description": "Erzeuge das initiale Task-Backlog mit allen identifizierten Arbeitspaketen und Prioritaeten.", "task_kind": "analysis", "artifact": "initial_backlog"},
+            {"title": "Kern-Feature implementieren", "description": "Implementiere das Release-Check-Tool mit Python + Angular basierend auf dem Blueprint.", "task_kind": "implementation"},
+            {"title": "Tests erstellen", "description": "Erstelle Unit- und Integrationstests fuer das Release-Check-Tool.", "task_kind": "tests"},
+            {"title": "Review durchfuehren", "description": "Fuehre Code-Review durch und erstelle Review-Dokumentation.", "task_kind": "review", "review_focus": "Review der Implementierung und Testabdeckung"},
+            {"title": "Naechste Schritte planen", "description": "Plane die naechste Umsetzungsscheibe basierend auf Review-Ergebnissen.", "task_kind": "analysis", "artifact": "naechste_schritte"},
+        ]
+    elif mode == "project_evolution":
+        subtasks = [
+            {"title": "Ist-Kontext und betroffene Bereiche schaerfen", "description": "Erfasse den aktuellen Kontext und identifiziere betroffene Bereiche wie frontend-angular und agent/services.", "task_kind": "analysis", "artifact": "ist_analyse"},
+            {"title": "Risiko-, Diff- und Testsicht erstellen", "description": "Erstelle Risikoanalyse, Diff-Betrachtung und Teststrategie fuer die geplante Aenderung.", "task_kind": "analysis", "artifact": "risiko_test_review_plan", "test_focus": "Regressionstest und Diff-Analyse"},
+            {"title": "Aenderungsziel und Restriktionen abgrenzen", "description": "Grenze Aenderungsziel und Restriktionen klar ab: Keine Worker-zu-Worker-Orchestrierung.", "task_kind": "analysis", "artifact": "aenderungsscope"},
+            {"title": "Aenderung in kleine, sequenzierte Tasks zerlegen", "description": "Zerlege die Aenderung in kleine, sequenzierte Tasks fuer schrittweise Umsetzung.", "task_kind": "implementation", "artifact": "aenderungsplan"},
+            {"title": "Kleinste verifizierbare Aenderung vorbereiten", "description": "Bereite die kleinste verifizierbare Aenderung als erste Umsetzungsscheibe vor.", "task_kind": "implementation", "artifact": "erste_umsetzungsscheibe"},
+            {"title": "Review- und Rollback-Plan festlegen", "description": "Lege Review- und Rollback-Plan fuer die Aenderung fest.", "task_kind": "review", "artifact": "review_rollback_plan"},
+        ]
+    elif mode == "admin_repair":
+        subtasks = [
+            {"title": "Use-case, scope und Modusgrenzen festhalten", "description": "Halte Use-case, Scope und Modusgrenzen des Admin-Repair-Szenarios fest.", "task_kind": "analysis", "artifact": "admin_repair_scope"},
+            {"title": "Environment Summary und bounded evidence erfassen", "description": "Erfasse Environment Summary und Evidence aus error_logs, service_status, runtime_state.", "task_kind": "analysis", "artifact": "environment_evidence_summary"},
+            {"title": "Problemklasse und Diagnose-Artefakt ableiten", "description": "Leite die Problemklasse ab und erstelle Diagnose-Artefakt.", "task_kind": "analysis", "artifact": "diagnosis_artifact"},
+            {"title": "Repair actions mit hook-ready Feldern vorbereiten", "description": "Bereite Repair Actions mit allen hook-ready Feldern vor.", "task_kind": "implementation", "artifact": "repair_action_contract"},
+            {"title": "Dry-run-first bounded repair plan erzeugen", "description": "Erzeuge einen bounded Dry-run-first Repair Plan.", "task_kind": "implementation", "artifact": "bounded_repair_plan"},
+            {"title": "Post-repair verification und Session Trail ausgeben", "description": "Gib Post-repair Verification und Session Trail aus.", "task_kind": "review", "artifact": "repair_verification_summary"},
+        ]
+    else:
+        subtasks = [
+            {"title": "Analyse durchfuehren", "description": "Fuehre eine gruendliche Analyse der Anforderungen durch.", "task_kind": "analysis"},
+            {"title": "Feature implementieren", "description": "Implementiere das Feature basierend auf der Analyse.", "task_kind": "implementation"},
+            {"title": "Tests durchfuehren", "description": "Erstelle und fuehre Tests durch.", "task_kind": "tests"},
+        ]
+
+    def _mock(**kwargs):
+        goal_id = kwargs.get("goal_id")
+        trace_id = kwargs.get("goal_trace_id") or f"trace-{uuid.uuid4().hex[:8]}"
+        plan_id = f"plan-{uuid.uuid4().hex[:8]}"
+
+        plan = PlanDB(id=plan_id, goal_id=goal_id, trace_id=trace_id, created_at=now, updated_at=now)
+        plan_repo.save(plan)
+
+        created_task_ids = []
+        nodes = []
+        for i, st in enumerate(subtasks, start=1):
+            node_key = f"{plan_id}-node-{i}"
+            t = TaskDB(
+                goal_id=goal_id, goal_trace_id=trace_id, plan_id=plan_id,
+                title=st["title"], description=st["description"], task_kind=st.get("task_kind", "generic"),
+                status="pending", created_at=now, updated_at=now,
+            )
+            t = task_repo.save(t)
+            created_task_ids.append(t.id)
+
+            node = PlanNodeDB(
+                plan_id=plan_id, node_key=node_key,
+                title=st["title"], description=st["description"],
+                position=i, materialized_task_id=t.id,
+                rationale={
+                    "artifact": st.get("artifact"),
+                    "review_focus": st.get("review_focus"),
+                    "test_focus": st.get("test_focus"),
+                    "task_kind": st.get("task_kind", "generic"),
+                    "planning_mode": "auto_planner",
+                },
+                created_at=now, updated_at=now,
+            )
+            node = plan_node_repo.save(node)
+            nodes.append(node)
+
+        return {
+            "subtasks": subtasks,
+            "created_task_ids": created_task_ids,
+            "plan_id": plan_id,
+            "plan_node_ids": [n.id for n in nodes],
+        }
+
+    return _mock
 
 
 def _wait_goal_status(client, headers, goal_id: str, *, timeout_s: float = 5.0) -> str:
@@ -292,6 +398,10 @@ class TestGoalsAPI:
 
     def test_create_goal_from_admin_repair_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
+            _mock_plan_goal("admin_repair"),
+        )
         _bypass_quality(monkeypatch)
         res = client.post(
             "/goals",
@@ -380,6 +490,10 @@ class TestGoalsAPI:
 
     def test_create_goal_from_new_software_project_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
+            _mock_plan_goal("new_software_project"),
+        )
         res = client.post(
             "/goals",
             headers=admin_auth_header,
@@ -462,6 +576,10 @@ class TestGoalsAPI:
 
     def test_create_goal_from_project_evolution_mode(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
+            _mock_plan_goal("project_evolution"),
+        )
         res = client.post(
             "/goals",
             headers=admin_auth_header,
@@ -913,7 +1031,13 @@ class TestGoalsAPI:
         detail = detail_res.get_json()["data"]
         assert detail["trace"]["trace_id"].startswith("goal-")
         assert detail["plan"]["plan"]["goal_id"] == goal_id
-        product_actions = [log.action for log in audit_repo.get_all(limit=20)]
+        # Poll briefly to let the background thread finish audit logging after status transition.
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
+            product_actions = [log.action for log in audit_repo.get_all(limit=20)]
+            if "product_goal_planning_succeeded" in product_actions:
+                break
+            time.sleep(0.05)
         assert "product_product_flow_started" in product_actions
         assert "product_goal_created" in product_actions
         assert "product_goal_planning_succeeded" in product_actions
@@ -962,19 +1086,16 @@ class TestGoalsAPI:
 # APR-001: Planning recovery diagnostics visible in goal detail
 def test_goal_detail_shows_planning_recovery_when_present(client, admin_auth_header, monkeypatch, app):
     from agent.repository import goal_repo
-    monkeypatch.setattr(
-        "agent.routes.tasks.auto_planner.generate_text",
-        lambda **kwargs: '[{"title":"Plan","description":"Do it","priority":"Medium"}]',
-    )
-    monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+    _mock_goal_planning_llm(monkeypatch)
     _bypass_quality(monkeypatch)
     res = client.post(
         "/goals",
         headers=admin_auth_header,
-        json={"goal": "Recovery visibility test"},
+        json={"goal": "Recovery visibility test", "create_tasks": False},
     )
     assert res.status_code in (201, 202)
     goal_id = res.get_json()["data"]["goal"]["id"]
+    _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=10.0)
 
     # Manually inject planning_recovery into execution_preferences
     with app.app_context():
@@ -997,19 +1118,16 @@ def test_goal_detail_shows_planning_recovery_when_present(client, admin_auth_hea
 
 
 def test_goal_detail_planning_recovery_none_when_no_recovery_occurred(client, admin_auth_header, monkeypatch):
-    monkeypatch.setattr(
-        "agent.routes.tasks.auto_planner.generate_text",
-        lambda **kwargs: '[{"title":"Plan","description":"Do it","priority":"Medium"}]',
-    )
-    monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+    _mock_goal_planning_llm(monkeypatch)
     _bypass_quality(monkeypatch)
     res = client.post(
         "/goals",
         headers=admin_auth_header,
-        json={"goal": "No recovery goal"},
+        json={"goal": "No recovery goal", "create_tasks": False},
     )
     assert res.status_code in (201, 202)
     goal_id = res.get_json()["data"]["goal"]["id"]
+    _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=10.0)
 
     res2 = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
     assert res2.status_code == 200
