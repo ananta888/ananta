@@ -175,6 +175,12 @@ def _run_prompt(argv: Sequence[str]) -> int:
     ti_p.add_argument("--json", action="store_true")
     lr_p = sub_sub.add_parser("learning-report", help="Show planning learning loop snapshot")
     lr_p.add_argument("--json", action="store_true")
+    ls_p = sub_sub.add_parser("learning-status", help="Show compact planning learning status")
+    ls_p.add_argument("--json", action="store_true")
+    pp_p = sub_sub.add_parser("planner-profiles", help="Show planning model profiles")
+    pp_p.add_argument("--provider", default="")
+    pp_p.add_argument("--model", default="")
+    pp_p.add_argument("--json", action="store_true")
 
     if not argv or argv[0] in ("-h", "--help"):
         sub_parser.print_help()

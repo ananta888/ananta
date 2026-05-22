@@ -775,6 +775,120 @@ def cmd_prompt_learning_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_learning_snapshot_payload() -> dict[str, Any]:
+    try:
+        from agent.cli_goals import _request, _api_data
+    except Exception:
+        return {}
+    dashboard_res = _request("GET", "/dashboard/read-model", params={"benchmark_task_kind": "analysis", "include_task_snapshot": 0}, timeout=30)
+    dashboard_payload = _api_data(dashboard_res) if dashboard_res.status_code == 200 else {}
+    if not isinstance(dashboard_payload, dict):
+        dashboard_payload = {}
+    snapshot = _extract_learning_snapshot(dashboard_payload)
+    source = "dashboard_read_model"
+    if not snapshot:
+        assistant_res = _request("GET", "/assistant/read-model", timeout=30)
+        assistant_payload = _api_data(assistant_res) if assistant_res.status_code == 200 else {}
+        if isinstance(assistant_payload, dict):
+            snapshot = _extract_learning_snapshot(assistant_payload)
+            source = "assistant_read_model"
+    if not snapshot:
+        return {}
+    return {
+        "source": source,
+        "enabled": bool(snapshot.get("enabled", False)),
+        "policy": dict(snapshot.get("policy") or {}),
+        "candidate_count": int(snapshot.get("candidate_count") or 0),
+        "review_item_count": int(snapshot.get("review_item_count") or 0),
+        "overview": dict(snapshot.get("overview") or {}),
+        "profiles": list(snapshot.get("profiles") or []),
+    }
+
+
+def cmd_prompt_learning_status(args: argparse.Namespace) -> int:
+    payload = _load_learning_snapshot_payload()
+    if not payload:
+        print("Error: planning learning snapshot not available", file=sys.stderr)
+        return 1
+    result = {
+        "source": payload.get("source"),
+        "enabled": bool(payload.get("enabled", False)),
+        "policy": dict(payload.get("policy") or {}),
+        "candidate_count": int(payload.get("candidate_count") or 0),
+        "review_item_count": int(payload.get("review_item_count") or 0),
+        "overview": dict(payload.get("overview") or {}),
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2))
+        return 0
+    print("=== Planning Learning Status ===")
+    print(f"Source:        {result['source']}")
+    print(f"Enabled:       {result['enabled']}")
+    print(f"Candidates:    {result['candidate_count']}")
+    print(f"Review Items:  {result['review_item_count']}")
+    policy = result.get("policy") or {}
+    print(f"Interval Sec:  {policy.get('interval_seconds', '-')}")
+    print(f"Lookback Runs: {policy.get('lookback_runs', '-')}")
+    print(f"Auto Activate: {policy.get('auto_activate', '-')}")
+    print(f"Freeze Mins:   {policy.get('freeze_minutes', '-')}")
+    return 0
+
+
+def cmd_prompt_planner_profiles(args: argparse.Namespace) -> int:
+    payload = _load_learning_snapshot_payload()
+    if not payload:
+        print("Error: planning learning snapshot not available", file=sys.stderr)
+        return 1
+    provider_filter = str(getattr(args, "provider", "") or "").strip().lower()
+    model_filter = str(getattr(args, "model", "") or "").strip().lower()
+    profiles = [p for p in list(payload.get("profiles") or []) if isinstance(p, dict)]
+
+    def _matches(profile: dict[str, Any]) -> bool:
+        if provider_filter and str(profile.get("provider") or "").strip().lower() != provider_filter:
+            return False
+        model_blob = " ".join(
+            [
+                str(profile.get("model_family") or ""),
+                str(profile.get("model_name_pattern") or ""),
+                str(profile.get("profile_name") or ""),
+            ]
+        ).lower()
+        if model_filter and model_filter not in model_blob:
+            return False
+        return True
+
+    filtered = [p for p in profiles if _matches(p)]
+    if getattr(args, "json", False):
+        print(json.dumps({"source": payload.get("source"), "count": len(filtered), "profiles": filtered}, indent=2))
+        return 0
+
+    print("=== Planner Profiles ===")
+    print(f"Source: {payload.get('source')}")
+    print(f"Count:  {len(filtered)}")
+    if not filtered:
+        print("(none)")
+        return 0
+    rows = []
+    for profile in filtered:
+        learning_state = dict(profile.get("learning_state") or {})
+        rows.append(
+            {
+                "profile": str(profile.get("profile_name") or "")[:22],
+                "provider": str(profile.get("provider") or "")[:10],
+                "model": str(profile.get("model_family") or profile.get("model_name_pattern") or "")[:22],
+                "lang": str(profile.get("prompt_language") or "")[:4],
+                "max_out": str(profile.get("max_output_tokens") or ""),
+                "temp": str(profile.get("temperature") or ""),
+                "repairs": str(profile.get("repair_attempts") or ""),
+                "strict": str(profile.get("output_contract_strictness") or "")[:16],
+                "state": str(learning_state.get("state") or "")[:10],
+                "pref_prompt": str(profile.get("active_prompt_version_id") or profile.get("preferred_prompt_version_id") or "")[:18],
+            }
+        )
+    _print_table(rows, ["profile", "provider", "model", "lang", "max_out", "temp", "repairs", "strict", "state", "pref_prompt"])
+    return 0
+
+
 def _last_trace_by_task_id(traces_grouped: dict[str, Any]) -> dict[str, dict[str, Any]]:
     last: dict[str, dict[str, Any]] = {}
     for kind, items in (traces_grouped or {}).items():
@@ -980,6 +1094,12 @@ def build_prompt_subparser(subparsers) -> None:
     ti_p.add_argument("--json", action="store_true", help="JSON output")
     lr_p = prompt_sub.add_parser("learning-report", help="Show planning learning loop snapshot")
     lr_p.add_argument("--json", action="store_true", help="JSON output")
+    ls_p = prompt_sub.add_parser("learning-status", help="Show compact planning learning status")
+    ls_p.add_argument("--json", action="store_true", help="JSON output")
+    pp_p = prompt_sub.add_parser("planner-profiles", help="Show planning model profiles")
+    pp_p.add_argument("--provider", default="", help="Filter by provider (e.g. lmstudio)")
+    pp_p.add_argument("--model", default="", help="Filter by model/family/name pattern substring")
+    pp_p.add_argument("--json", action="store_true", help="JSON output")
 
 
 def build_llm_log_subparser(subparsers) -> None:
@@ -1013,8 +1133,12 @@ def run_prompt_command(args: argparse.Namespace) -> int:
         return cmd_prompt_task_report(args)
     elif cmd == "learning-report":
         return cmd_prompt_learning_report(args)
+    elif cmd == "learning-status":
+        return cmd_prompt_learning_status(args)
+    elif cmd == "planner-profiles":
+        return cmd_prompt_planner_profiles(args)
     else:
-        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report,task-report,task-inspect,learning-report} --help")
+        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report,task-report,task-inspect,learning-report,learning-status,planner-profiles} --help")
         return 2
 
 
