@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, field
 
 from sqlalchemy.exc import ProgrammingError
 from sqlmodel import Session, delete, select
@@ -29,12 +30,14 @@ from agent.services.prompt_trace_service import get_prompt_trace_service
 from agent.services.task_admin_service import get_task_admin_service
 
 
-@dataclass(frozen=True)
+@dataclass
 class GoalPurgeResult:
     goal_id: str
     deleted: dict[str, int]
     prompt_traces_deleted: int
     task_cancel_summary: dict[str, int]
+    # PRI-008: worker forward failures are surfaced explicitly.
+    worker_cancel_failures: list[dict] = field(default_factory=list)
 
     @property
     def deleted_total(self) -> int:
@@ -46,6 +49,7 @@ class GoalPurgeResult:
             "deleted": dict(self.deleted),
             "prompt_traces_deleted": int(self.prompt_traces_deleted or 0),
             "task_cancel_summary": dict(self.task_cancel_summary or {}),
+            "worker_cancel_failures": list(self.worker_cancel_failures or []),
             "deleted_total": int(self.deleted_total),
         }
 
@@ -89,15 +93,27 @@ class GoalPurgeService:
             cancel_attempted = 0
             cancel_ok = 0
             cancel_failed = 0
+            worker_cancel_failures: list[dict] = []
             for task_id in task_ids:
                 cancel_attempted += 1
-                ok, _msg, _data = get_task_admin_service().intervene_task(
+                ok, _msg, data = get_task_admin_service().intervene_task(
                     task_id=str(task_id),
                     action="cancel",
                     actor="goal_purge",
                 )
                 if ok:
                     cancel_ok += 1
+                    # PRI-008: check worker forward result even on ok transitions.
+                    fwd = data.get("worker_cancel_forward") if isinstance(data, dict) else None
+                    if isinstance(fwd, dict) and fwd.get("attempted") and fwd.get("status") != "ok":
+                        worker_cancel_failures.append({"task_id": str(task_id), **fwd})
+                        logging.warning(
+                            "goal_purge_worker_cancel_failed goal_id=%s task_id=%s worker_url=%s error=%s",
+                            goal_id_norm,
+                            task_id,
+                            fwd.get("worker_url"),
+                            fwd.get("error"),
+                        )
                 else:
                     cancel_failed += 1
             plan_ids = self._collect_ids(session.exec(select(PlanDB.id).where(PlanDB.goal_id == goal_id_norm)).all())
@@ -207,6 +223,7 @@ class GoalPurgeService:
                 "succeeded": int(cancel_ok),
                 "failed": int(cancel_failed),
             },
+            worker_cancel_failures=worker_cancel_failures,
         )
 
 

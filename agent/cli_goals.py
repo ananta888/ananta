@@ -966,6 +966,87 @@ def purge_goal(goal_id: str, *, include_prompt_traces: bool = True) -> int:
     return 0
 
 
+def planning_stuck() -> int:
+    """PRI-013: List goals with expired planning lease (stuck in planning_running/queued)."""
+    response = _request("GET", "/goals/planning/health", timeout=15)
+    if response.status_code == 403:
+        print("Error: --planning-stuck requires admin credentials")
+        return 2
+    if response.status_code != 200:
+        _print_error(response)
+        return 1
+    data = _api_data(response) or {}
+    goals = data.get("goals") or {}
+    slots = data.get("planning_slots") or {}
+    cb = data.get("circuit_breaker") or {}
+    print("=== Planning Health ===")
+    print(f"  Slots: capacity={slots.get('capacity')} in_use={slots.get('in_use')} available={slots.get('available')}")
+    print(f"  Goals queued: {goals.get('queued')}  running: {goals.get('running')}  stale_expired_lease: {goals.get('stale_expired_lease')}")
+    print(f"  Circuit breaker [{cb.get('provider')}]: state={cb.get('state')} failures={cb.get('failures')}/{cb.get('threshold')}")
+    stale = int(goals.get("stale_expired_lease") or 0)
+    if stale:
+        print(f"\n  WARNING: {stale} goal(s) have an expired planning lease — run --recover-stale to clean up.")
+    return 0
+
+
+def recover_stale(*, dry_run: bool = True) -> int:
+    """PRI-013: Cancel stale planning goals with expired lease."""
+    # Re-uses the preflight logic exposed via the health endpoint + a dedicated recover route.
+    # For now: call the health endpoint to report, then DELETE stale goals directly.
+    response = _request("GET", "/goals/planning/health", timeout=15)
+    if response.status_code == 403:
+        print("Error: --recover-stale requires admin credentials")
+        return 2
+    if response.status_code != 200:
+        _print_error(response)
+        return 1
+    data = _api_data(response) or {}
+    stale = int((data.get("goals") or {}).get("stale_expired_lease") or 0)
+    if stale == 0:
+        print("No stale planning goals found.")
+        return 0
+    if dry_run:
+        print(f"[DRY RUN] Would cancel {stale} stale planning goal(s). Use --recover-stale --yes to execute.")
+        return 0
+    # POST to trigger server-side recovery.
+    rec_response = _request("POST", "/goals/planning/recover-stale", timeout=30)
+    if rec_response.status_code == 404:
+        # Endpoint not yet available — inform operator.
+        print(f"Server-side recover endpoint not available. Use --goal-purge or direct DB cleanup for {stale} stale goal(s).")
+        return 1
+    if rec_response.status_code != 200:
+        _print_error(rec_response)
+        return 1
+    rec_data = _api_data(rec_response) or {}
+    print(f"Cancelled {rec_data.get('cancelled', stale)} stale planning goal(s).")
+    return 0
+
+
+def cancel_tree(goal_id: str) -> int:
+    """PRI-013: Cancel all tasks for a goal and mark it failed via purge or lifecycle transition."""
+    goal_id_norm = str(goal_id or "").strip()
+    if not goal_id_norm:
+        print("Error: --cancel-tree requires a goal ID")
+        return 2
+    # Use the lifecycle cancel endpoint if available, else fall back to purge.
+    cancel_response = _request("POST", f"/goals/{goal_id_norm}/cancel", timeout=30)
+    if cancel_response.status_code == 404:
+        print(f"No dedicated cancel endpoint — using purge for goal {goal_id_norm}")
+        return purge_goal(goal_id_norm)
+    if cancel_response.status_code != 200:
+        _print_error(cancel_response)
+        return 1
+    data = _api_data(cancel_response) or {}
+    _print_terminal("Goal cancelled: {}", goal_id_norm)
+    print(f"  Tasks cancelled: {data.get('tasks_cancelled', '?')}")
+    worker_failures = data.get("worker_cancel_failures") or []
+    if worker_failures:
+        print(f"  WARNING: {len(worker_failures)} worker(s) did not ack cancel:")
+        for f in worker_failures[:5]:
+            print(f"    task={f.get('task_id')} url={f.get('worker_url')} error={f.get('error')}")
+    return 0
+
+
 def list_modes():
     response = _request("GET", "/goals/modes", timeout=10)
     if response.status_code != 200:
@@ -1143,6 +1224,10 @@ Examples:
         metavar="MODE",
         help="Planning strategy: llm (default), template, auto. Overrides server-side default.",
     )
+    # PRI-013: planning diagnostics
+    parser.add_argument("--planning-stuck", action="store_true", help="List goals stuck in planning_running/queued with expired lease")
+    parser.add_argument("--recover-stale", action="store_true", help="Cancel stale planning goals with expired lease (use --yes to execute, default: dry-run)")
+    parser.add_argument("--cancel-tree", metavar="GOAL_ID", help="Cancel all tasks for a goal and mark it failed (admin, requires --yes)")
 
     args = parser.parse_args(argv)
 
@@ -1172,7 +1257,16 @@ Examples:
         _print_terminal("governance_mode: {}", governance)
         return
 
-    if args.status:
+    if args.planning_stuck:
+        sys.exit(planning_stuck())
+    elif args.recover_stale:
+        sys.exit(recover_stale(dry_run=not args.yes))
+    elif args.cancel_tree:
+        if not args.yes:
+            print("Error: --cancel-tree is destructive and requires --yes")
+            sys.exit(2)
+        sys.exit(cancel_tree(args.cancel_tree))
+    elif args.status:
         show_status()
     elif args.goals:
         list_goals(limit=args.limit)

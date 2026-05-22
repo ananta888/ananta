@@ -190,10 +190,13 @@ class TestGoalsAPI:
         assert int(payload["task_cancel_summary"]["attempted"]) == 2
         assert int(payload["task_cancel_summary"]["succeeded"]) == 2
 
-    def test_goal_purge_returns_not_found_for_unknown_goal(self, client, admin_auth_header):
+    def test_goal_purge_returns_already_deleted_for_unknown_goal(self, client, admin_auth_header):
+        # Purge is idempotent: an already-deleted (or never-existing) goal returns 200.
         res = client.delete("/goals/not-a-goal/purge", headers=admin_auth_header)
-        assert res.status_code == 404
-        assert res.get_json()["message"] == "not_found"
+        assert res.status_code == 200
+        data = res.get_json()["data"]
+        assert data["already_deleted"] is True
+        assert data["goal_id"] == "not-a-goal"
 
     def test_generic_software_goal_soft_quality_miss_does_not_fail(self, client, admin_auth_header, monkeypatch):
         monkeypatch.setattr(

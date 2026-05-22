@@ -542,6 +542,11 @@ def build_default_agent_config() -> dict:
             "max_nodes": 8,
             "max_depth": 8,
             "timeout_seconds": 600,
+            # Separate slot-queue wait from planner execution time (PRI-005).
+            # queue_wait_timeout_seconds: max time a goal waits to acquire a planning slot.
+            # timeout_seconds: max time the actual planner LLM call may run once the slot is held.
+            # Default: queue wait equals planner timeout for backward compatibility.
+            "queue_wait_timeout_seconds": None,
             # Number of goals that may execute planning concurrently.
             # Keep default serial for backward compatibility.
             "parallel_goal_planning_max_concurrency": 1,

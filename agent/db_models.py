@@ -353,6 +353,9 @@ class GoalDB(SQLModel, table=True):
     readiness: dict = Field(default={}, sa_column=Column(JSON))
     mode: str = Field(default="generic", index=True)
     mode_data: dict = Field(default={}, sa_column=Column(JSON))
+    # PRI-004: planning lease TTL — set when goal enters planning_running,
+    # renewed by heartbeat thread, used by stale-recovery to detect hangs.
+    planning_lease_expires_at: Optional[float] = Field(default=None, index=True)
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
 
