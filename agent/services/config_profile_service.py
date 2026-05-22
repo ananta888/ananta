@@ -30,9 +30,10 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             "planning_policy": {
                 "timeout_seconds": 900,
                 "parallel_goal_planning_max_concurrency": 1,
-                "segmented_planning_enabled": True,
-                "segment_context_chars": 1800,
-                "max_segments": 2,
+                # Use a single segment to avoid duplicate tasks from multi-segment planning.
+                "segmented_planning_enabled": False,
+                "segment_context_chars": 4000,
+                "max_segments": 1,
                 "max_output_tokens": 1600,
                 "preferred_output_format": "json",
                 "selective_repair_rounds": 1,
@@ -43,9 +44,9 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
                         "max_output_tokens": 1600,
                         "retry_attempts": 1,
                         "retry_backoff_seconds": 1.0,
-                        "segmented_planning_enabled": True,
-                        "segment_context_chars": 1400,
-                        "max_segments": 2,
+                        "segmented_planning_enabled": False,
+                        "segment_context_chars": 4000,
+                        "max_segments": 1,
                         "preferred_output_format": "json",
                     }
                 },
