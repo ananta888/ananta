@@ -104,7 +104,9 @@ def _mock_plan_goal(mode: str = "generic"):
         nodes = []
         for i, st in enumerate(subtasks, start=1):
             node_key = f"{plan_id}-node-{i}"
+            task_id = f"task-{uuid.uuid4().hex[:12]}"
             t = TaskDB(
+                id=task_id,
                 goal_id=goal_id, goal_trace_id=trace_id, plan_id=plan_id,
                 title=st["title"], description=st["description"], task_kind=st.get("task_kind", "generic"),
                 status="pending", created_at=now, updated_at=now,
