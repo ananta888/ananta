@@ -2570,7 +2570,10 @@ class TaskScopedExecutionService:
         execution_provenance = (
             response.get("execution_provenance") if isinstance(response.get("execution_provenance"), dict) else None
         )
-        artifacts = list(response.get("artifacts") or []) if isinstance(response.get("artifacts"), list) else None
+        artifacts = self._normalize_forwarded_artifacts(
+            task_id=tid,
+            artifacts=list(response.get("artifacts") or []) if isinstance(response.get("artifacts"), list) else None,
+        )
         review = response.get("review") if isinstance(response.get("review"), dict) else None
         if execution_scope:
             verification_status["execution_scope"] = dict(execution_scope)
@@ -2606,6 +2609,31 @@ class TaskScopedExecutionService:
             last_exit_code=response.get("exit_code"),
             verification_status=verification_status,
         )
+
+    @staticmethod
+    def _normalize_forwarded_artifacts(*, task_id: str, artifacts: list[dict] | None) -> list[dict] | None:
+        if artifacts is None:
+            return None
+        normalized: list[dict] = []
+        for idx, item in enumerate(artifacts, start=1):
+            if not isinstance(item, dict):
+                continue
+            row = dict(item)
+            artifact_id = str(row.get("artifact_id") or row.get("id") or "").strip()
+            kind = str(row.get("kind") or "").strip()
+            path = str(row.get("path") or row.get("name") or row.get("filename") or row.get("title") or "").strip()
+            if not artifact_id:
+                artifact_id = f"{task_id}-artifact-{idx:03d}"
+            if not kind:
+                kind = "task_output"
+            row["artifact_id"] = artifact_id
+            row.setdefault("id", artifact_id)
+            row["kind"] = kind
+            if path:
+                row["path"] = path
+            row.setdefault("task_id", task_id)
+            normalized.append(row)
+        return normalized
 
     # ── HF-T019: Hermes propose path ─────────────────────────────────────────
 
