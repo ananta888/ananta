@@ -36,6 +36,7 @@ from agent.metrics import (
     WORKER_PROPOSE_DURATION_SECONDS,
     WORKSPACE_WRITE_CONFLICT_COUNT,
 )
+from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 
 
 @dataclass
@@ -80,6 +81,39 @@ def _resolve_non_executable_terminal_status(*, agent_cfg: dict[str, Any]) -> str
     if on_declined == "advisory":
         return "todo"
     return "needs_review" if allow_human_review else "failed"
+
+
+def _effective_agent_cfg_for_task(*, loop: Any, task: Any) -> dict[str, Any]:
+    base_cfg = dict(loop._agent_config() or {})
+    goal_id = str(getattr(task, "goal_id", "") or "").strip()
+    if not goal_id:
+        return base_cfg
+    try:
+        scoped = get_goal_config_runtime_service().get_effective_config(
+            goal_id=goal_id,
+            task_id=str(getattr(task, "id", "") or "").strip() or None,
+        )
+        scoped_cfg = dict(scoped.config or {})
+        if scoped_cfg:
+            return scoped_cfg
+    except Exception:
+        logging.debug("autopilot_goal_scoped_config_resolution_failed", exc_info=True)
+    return base_cfg
+
+
+def _resolve_autonomous_repair_budget(*, agent_cfg: dict[str, Any]) -> tuple[int, int]:
+    propose_policy = dict((agent_cfg or {}).get("propose_policy") or {})
+    attempts = propose_policy.get("autonomous_repair_attempts", propose_policy.get("max_repair_attempts", 2))
+    delay = propose_policy.get("autonomous_repair_delay_seconds", 8)
+    try:
+        attempts_i = max(0, min(int(attempts), 5))
+    except (TypeError, ValueError):
+        attempts_i = 2
+    try:
+        delay_i = max(0, min(int(delay), 120))
+    except (TypeError, ValueError):
+        delay_i = 8
+    return attempts_i, delay_i
 
 def _recent_strategy_attempts(task: Any, *, now_ts: float, window_seconds: int) -> int:
     if window_seconds <= 0:
