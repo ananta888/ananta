@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 from agent.services.model_invocation_service import ModelInvocationService
-from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
+from agent.services.propose_runtime_policy import (
+    _calibrated_timeout_from_benchmarks,
+    resolve_propose_llm_timeout_seconds,
+)
 
 
 def test_normalize_openai_tools_converts_flat_registry_shape() -> None:
@@ -77,3 +81,59 @@ def test_resolve_propose_llm_timeout_seconds_uses_effective_config() -> None:
     timeout = resolve_propose_llm_timeout_seconds(effective_config=cfg, task_kind="coding")
     assert timeout == 420
 
+
+def test_calibrated_timeout_from_benchmarks_uses_p95_with_buffer(tmp_path) -> None:
+    data_dir = str(tmp_path)
+    payload = {
+        "models": {
+            "lmstudio:auto": {
+                "provider": "lmstudio",
+                "model": "auto",
+                "task_kinds": {
+                    "coding": {
+                        "samples": [
+                            {"latency_ms": 10000},
+                            {"latency_ms": 12000},
+                            {"latency_ms": 18000},
+                            {"latency_ms": 25000},
+                            {"latency_ms": 30000},
+                        ]
+                    }
+                },
+            }
+        }
+    }
+    with open(tmp_path / "llm_model_benchmarks.json", "w", encoding="utf-8") as fh:
+        json.dump(payload, fh)
+    timeout = _calibrated_timeout_from_benchmarks(
+        data_dir=data_dir,
+        provider="lmstudio",
+        model="auto",
+        task_kind="coding",
+        floor_seconds=60,
+        ceiling_seconds=1200,
+    )
+    assert timeout is not None
+    assert timeout >= 83  # 30s p95 * 2.5 + 8s
+
+
+def test_resolve_propose_timeout_prefers_calibrated_when_higher(tmp_path, monkeypatch) -> None:
+    payload = {
+        "models": {
+            "lmstudio:auto": {
+                "provider": "lmstudio",
+                "model": "auto",
+                "task_kinds": {"coding": {"samples": [{"latency_ms": 60000}, {"latency_ms": 58000}, {"latency_ms": 62000}]}}
+            }
+        }
+    }
+    with open(tmp_path / "llm_model_benchmarks.json", "w", encoding="utf-8") as fh:
+        json.dump(payload, fh)
+    monkeypatch.setattr("agent.services.propose_runtime_policy._resolve_data_dir", lambda: str(tmp_path))
+    cfg = {
+        "default_provider": "lmstudio",
+        "default_model": "auto",
+        "task_propose_timeout_seconds": 120,
+    }
+    timeout = resolve_propose_llm_timeout_seconds(effective_config=cfg, task_kind="coding")
+    assert timeout > 120
