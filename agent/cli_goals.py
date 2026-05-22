@@ -1078,6 +1078,37 @@ def cancel_tree(goal_id: str) -> int:
     return 0
 
 
+def kill_requests(goal_id: str) -> int:
+    """Abort all in-flight LM Studio requests for a goal (without cancelling the goal)."""
+    goal_id_norm = str(goal_id or "").strip()
+    if not goal_id_norm:
+        print("Error: --kill-requests requires a goal ID")
+        return 2
+    response = _request("POST", f"/goals/{goal_id_norm}/kill-requests", timeout=15)
+    if response.status_code != 200:
+        _print_error(response)
+        return 1
+    data = _api_data(response) or {}
+    killed = data.get("sessions_killed", 0)
+    _print_terminal("Killed {} in-flight LM Studio request(s) for goal {}", killed, goal_id_norm)
+    remaining = data.get("active_counts") or {}
+    if remaining:
+        print(f"  Active requests remaining: {remaining}")
+    return 0
+
+
+def kill_all_requests() -> int:
+    """Abort all in-flight LM Studio requests across all goals."""
+    response = _request("POST", "/goals/kill-all-requests", timeout=15)
+    if response.status_code != 200:
+        _print_error(response)
+        return 1
+    data = _api_data(response) or {}
+    killed = data.get("sessions_killed", 0)
+    _print_terminal("Killed {} in-flight LM Studio request(s) across all goals", killed)
+    return 0
+
+
 def list_modes():
     response = _request("GET", "/goals/modes", timeout=10)
     if response.status_code != 200:
@@ -1260,6 +1291,8 @@ Examples:
     parser.add_argument("--planning-stuck", action="store_true", help="List goals stuck in planning_running/queued with expired lease")
     parser.add_argument("--recover-stale", action="store_true", help="Cancel stale planning goals with expired lease (use --yes to execute, default: dry-run)")
     parser.add_argument("--cancel-tree", metavar="GOAL_ID", help="Cancel all tasks for a goal and mark it failed (admin, requires --yes)")
+    parser.add_argument("--kill-requests", metavar="GOAL_ID", help="Abort all in-flight LM Studio requests for a goal (admin)")
+    parser.add_argument("--kill-all-requests", action="store_true", help="Abort all in-flight LM Studio requests across all goals (admin)")
 
     args = parser.parse_args(argv)
 
@@ -1298,6 +1331,10 @@ Examples:
             print("Error: --cancel-tree is destructive and requires --yes")
             sys.exit(2)
         sys.exit(cancel_tree(args.cancel_tree))
+    elif args.kill_requests:
+        sys.exit(kill_requests(args.kill_requests))
+    elif args.kill_all_requests:
+        sys.exit(kill_all_requests())
     elif args.status:
         show_status()
     elif args.goals:

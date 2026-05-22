@@ -779,23 +779,30 @@ def _dispatch_one_task(  # noqa: C901
     thr-009: All logging uses _task_log(task.id) so mixed output stays attributable.
     thr-010: target_worker/was_assigned are pre-assigned by the caller (no cursor race).
     """
-    # thr-008: each thread needs its own app context; parent's context is not inherited.
-    _ctx = app.app_context() if app is not None else contextlib.nullcontext()
-    with _ctx:
-        return _dispatch_one_task_inner(
-            task=task,
-            target_worker=target_worker,
-            was_assigned=was_assigned,
-            loop=loop,
-            services=services,
-            policy=policy,
-            fallback_policy=fallback_policy,
-            runtime_caps=runtime_caps,
-            queue_positions=queue_positions,
-            local_worker_url=local_worker_url,
-            append_trace_event=append_trace_event,
-            update_local_task_status=update_local_task_status,
-        )
+    from agent.services.lmstudio_request_registry import set_thread_context, clear_thread_context
+    _goal_id = str(getattr(task, "goal_id", "") or "").strip() or None
+    _task_id = str(getattr(task, "id", "") or "").strip() or None
+    set_thread_context(_goal_id, _task_id)
+    try:
+        # thr-008: each thread needs its own app context; parent's context is not inherited.
+        _ctx = app.app_context() if app is not None else contextlib.nullcontext()
+        with _ctx:
+            return _dispatch_one_task_inner(
+                task=task,
+                target_worker=target_worker,
+                was_assigned=was_assigned,
+                loop=loop,
+                services=services,
+                policy=policy,
+                fallback_policy=fallback_policy,
+                runtime_caps=runtime_caps,
+                queue_positions=queue_positions,
+                local_worker_url=local_worker_url,
+                append_trace_event=append_trace_event,
+                update_local_task_status=update_local_task_status,
+            )
+    finally:
+        clear_thread_context()
 
 
 def _dispatch_one_task_inner(  # noqa: C901
