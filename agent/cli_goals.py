@@ -910,13 +910,44 @@ def list_goals(limit: int = 20):
     if not isinstance(goals, list):
         goals = []
     print(f"Goals ({min(limit, len(goals))}/{len(goals)}):")
+    print(f"  {'Status':12s} {'Tasks':5s}  {'Goal ID':36s}  {'Description'}")
+    print("  " + "-"*12 + " " + "-"*5 + "  " + "-"*36 + "  " + "-"*50)
     for goal in goals[:limit]:
+        task_count = int(goal.get("task_count") or 0)
         print(
-            "  [{:10}] {} (team={}) {}".format(
+            "  [{:10}] {:>3}   {}  {}".format(
                 _terminal(goal.get("status", "N/A")),
+                task_count,
                 _terminal(goal.get("id", "N/A")),
-                _terminal(goal.get("team_id") or "-"),
                 _terminal(str(goal.get("goal", ""))[:90]),
+            )
+        )
+
+
+def list_goal_tasks(goal_id: str):
+    response = _request("GET", f"/goals/{goal_id}/detail", timeout=30)
+    if response.status_code != 200:
+        _print_error(response)
+        return
+    data = _api_data(response) or {}
+    tasks = list(data.get("tasks") or [])
+    goal = data.get("goal") or {}
+    print(f"=== Tasks for Goal {goal_id} ===")
+    print(f"  Status: {goal.get('status', 'N/A')}")
+    print(f"  Tasks:  {len(tasks)}")
+    print()
+    if not tasks:
+        print("  (no tasks)")
+        return
+    print("  {:44s} {:12s} {:8s}  {}".format("ID", "Status", "Priority", "Title"))
+    print("  " + "-"*44 + " " + "-"*12 + " " + "-"*8 + "  " + "-"*60)
+    for task in tasks:
+        print(
+            "  {:44s} [{:10}] {:7s}  {}".format(
+                str(task.get("id", ""))[:44],
+                _terminal(task.get("status", "N/A")),
+                str(task.get("priority", "") or "-"),
+                str(task.get("title", ""))[:60],
             )
         )
 
@@ -1205,6 +1236,7 @@ Examples:
     parser.add_argument("--first-run", action="store_true", help="Show the official first CLI path, success signals and failure help")
     parser.add_argument("--goals", action="store_true", help="List goals")
     parser.add_argument("--goal-detail", help="Show detail for a goal ID")
+    parser.add_argument("--goal-tasks", help="List all tasks for a goal ID")
     parser.add_argument("--goal-purge", help="Purge one goal and all related records (admin only)")
     parser.add_argument("--yes", action="store_true", help="Required confirmation for destructive actions like --goal-purge")
     parser.add_argument("--modes", action="store_true", help="List guided goal modes")
@@ -1279,6 +1311,8 @@ Examples:
             sys.exit(rc)
     elif args.goal_detail:
         show_goal_detail(args.goal_detail)
+    elif args.goal_tasks:
+        list_goal_tasks(args.goal_tasks)
     elif args.modes:
         list_modes()
     elif args.tasks:
