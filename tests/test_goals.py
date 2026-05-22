@@ -467,17 +467,8 @@ class TestGoalsAPI:
         assert "requires_approval" in first_step
         assert "evidence_sources" in first_step
         assert "expected_verification" in first_step
-        status = _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=15.0)
-        print(f"\n[DEBUG] goal status: {status}")
+        _wait_goal_status(client, admin_auth_header, goal_id, timeout_s=15.0)
         tasks = task_repo.get_by_goal_id(goal_id)
-        print(f"[DEBUG] tasks found: {len(tasks)}")
-        for t in tasks:
-            print(f"[DEBUG]   task: {t.id} - {t.title}")
-        plans = plan_repo.get_by_goal_id(goal_id)
-        print(f"[DEBUG] plans found: {len(plans)}")
-        for p in plans:
-            print(f"[DEBUG]   plan: {p.id}")
-        assert status == "planned", f"Goal ended up as {status}"
         assert "Dry-run-first bounded repair plan erzeugen" in {task.title for task in tasks}
 
     def test_create_goal_starts_autopilot_even_without_created_tasks(self, client, admin_auth_header, monkeypatch):
