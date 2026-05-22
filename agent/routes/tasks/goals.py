@@ -441,6 +441,16 @@ def kill_goal_requests(goal_id: str):
     return api_response(data=result)
 
 
+@goals_bp.route("/internal/goals/<goal_id>/kill-requests", methods=["POST"])
+@check_auth
+def kill_goal_requests_internal(goal_id: str):
+    goal_id_norm = str(goal_id or "").strip()
+    if not goal_id_norm:
+        return api_response(status="error", message="goal_id required", code=400)
+    result = get_request_cancellation_service().cancel_goal_requests(goal_id=goal_id_norm, include_workers=False)
+    return api_response(data=result)
+
+
 @goals_bp.route("/goals/kill-all-requests", methods=["POST"])
 @check_auth
 def kill_all_requests():
@@ -448,6 +458,13 @@ def kill_all_requests():
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
     result = get_request_cancellation_service().cancel_all_requests(include_workers=True)
+    return api_response(data=result)
+
+
+@goals_bp.route("/internal/goals/kill-all-requests", methods=["POST"])
+@check_auth
+def kill_all_requests_internal():
+    result = get_request_cancellation_service().cancel_all_requests(include_workers=False)
     return api_response(data=result)
 
 

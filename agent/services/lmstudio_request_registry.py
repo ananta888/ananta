@@ -26,6 +26,8 @@ _lock = threading.Lock()
 _goal_sessions: dict[str, list[weakref.ref]] = {}
 # task_id -> list of weakref(session)
 _task_sessions: dict[str, list[weakref.ref]] = {}
+_cancelled_goals: set[str] = set()
+_cancelled_tasks: set[str] = set()
 
 # thread_ident → (goal_id, task_id)
 _thread_context: dict[int, tuple[Optional[str], Optional[str]]] = {}
@@ -39,6 +41,11 @@ def set_thread_context(goal_id: Optional[str], task_id: Optional[str]) -> None:
     gid = str(goal_id or "").strip() or None
     tid2 = str(task_id or "").strip() or None
     with _lock:
+        # Fresh task execution should not inherit stale cancellation marks.
+        if gid:
+            _cancelled_goals.discard(gid)
+        if tid2:
+            _cancelled_tasks.discard(tid2)
         if gid or tid2:
             _thread_context[tid] = (gid, tid2)
         else:
@@ -114,6 +121,7 @@ def cancel_goal(goal_id: str) -> int:
     if not key:
         return 0
     with _lock:
+        _cancelled_goals.add(key)
         refs = _goal_sessions.pop(key, [])
     count = _close_refs(refs)
     if count:
@@ -127,6 +135,7 @@ def cancel_task(task_id: str) -> int:
     if not key:
         return 0
     with _lock:
+        _cancelled_tasks.add(key)
         refs = _task_sessions.pop(key, [])
     count = _close_refs(refs)
     if count:
@@ -137,6 +146,8 @@ def cancel_task(task_id: str) -> int:
 def cancel_all() -> int:
     """Close all tracked in-flight sessions. Returns total count closed."""
     with _lock:
+        _cancelled_goals.update(_goal_sessions.keys())
+        _cancelled_tasks.update(_task_sessions.keys())
         all_refs = [r for refs in _goal_sessions.values() for r in refs]
         _goal_sessions.clear()
         all_refs.extend([r for refs in _task_sessions.values() for r in refs])
@@ -157,6 +168,13 @@ def active_task_counts() -> dict[str, int]:
     """Returns {task_id: session_count} for currently tracked sessions."""
     with _lock:
         return {k: sum(1 for r in refs if r() is not None) for k, refs in _task_sessions.items()}
+
+
+def is_cancelled(goal_id: Optional[str], task_id: Optional[str]) -> bool:
+    gid = str(goal_id or "").strip()
+    tid = str(task_id or "").strip()
+    with _lock:
+        return (bool(gid) and gid in _cancelled_goals) or (bool(tid) and tid in _cancelled_tasks)
 
 
 def _close_refs(refs: list[weakref.ref]) -> int:

@@ -91,7 +91,7 @@ class RequestCancellationService:
         local_killed = local_cancel_goal(goal_id_norm)
         fanout_results: list[dict[str, Any]] = []
         if include_workers and self._is_hub():
-            fanout_results = self._fanout(f"/goals/{goal_id_norm}/kill-requests")
+            fanout_results = self._fanout(f"/internal/goals/{goal_id_norm}/kill-requests")
         return {
             "goal_id": goal_id_norm,
             "sessions_killed_local": int(local_killed),
@@ -105,7 +105,7 @@ class RequestCancellationService:
         local_killed = local_cancel_task(task_id_norm)
         fanout_results: list[dict[str, Any]] = []
         if include_workers and self._is_hub():
-            fanout_results = self._fanout(f"/tasks/{task_id_norm}/kill-requests")
+            fanout_results = self._fanout(f"/internal/tasks/{task_id_norm}/kill-requests")
         return {
             "task_id": task_id_norm,
             "sessions_killed_local": int(local_killed),
@@ -118,7 +118,7 @@ class RequestCancellationService:
         local_killed = local_cancel_all()
         fanout_results: list[dict[str, Any]] = []
         if include_workers and self._is_hub():
-            fanout_results = self._fanout("/goals/kill-all-requests")
+            fanout_results = self._fanout("/internal/goals/kill-all-requests")
         return {
             "sessions_killed_local": int(local_killed),
             "fanout": fanout_results,
