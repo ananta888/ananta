@@ -26,9 +26,11 @@ from agent.services.goal_planning_intent_service import get_goal_planning_intent
 from agent.utils import validate_request
 
 goals_bp = Blueprint("tasks_goals", __name__)
-_GOAL_PLANNING_LOCK = threading.Lock()
 _GOAL_ACTIVE_PLANNING_LOCK = threading.Lock()
 _GOAL_ACTIVE_PLANNING_IDS: set[str] = set()
+_PLANNING_SLOTS_LOCK = threading.Lock()
+_PLANNING_SLOTS: threading.Semaphore | None = None
+_PLANNING_SLOTS_CAPACITY: int = 0
 
 
 def _services():
@@ -703,6 +705,39 @@ def _run_goal_planning_background(*, goal_id: str, context: dict[str, Any], app:
         _run_goal_planning_background_impl(goal_id=goal_id, context=context)
 
 
+def _normalize_planning_slot_capacity(raw: Any) -> int:
+    try:
+        cap = int(raw if raw is not None else 1)
+    except (TypeError, ValueError):
+        cap = 1
+    return max(1, min(cap, 32))
+
+
+def _planning_slot_capacity_from_config() -> int:
+    cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {})
+    planning_policy = cfg.get("planning_policy") if isinstance(cfg.get("planning_policy"), dict) else {}
+    return _normalize_planning_slot_capacity(planning_policy.get("parallel_goal_planning_max_concurrency", 1))
+
+
+def _acquire_planning_slot(*, timeout_s: int, capacity: int | None = None) -> tuple[bool, int]:
+    global _PLANNING_SLOTS, _PLANNING_SLOTS_CAPACITY
+    normalized_capacity = _normalize_planning_slot_capacity(capacity) if capacity is not None else _planning_slot_capacity_from_config()
+    with _PLANNING_SLOTS_LOCK:
+        if _PLANNING_SLOTS is None or _PLANNING_SLOTS_CAPACITY != normalized_capacity:
+            _PLANNING_SLOTS = threading.Semaphore(normalized_capacity)
+            _PLANNING_SLOTS_CAPACITY = normalized_capacity
+        semaphore = _PLANNING_SLOTS
+    acquired = bool(semaphore.acquire(timeout=max(1, int(timeout_s))))
+    return acquired, normalized_capacity
+
+
+def _release_planning_slot() -> None:
+    with _PLANNING_SLOTS_LOCK:
+        semaphore = _PLANNING_SLOTS
+    if semaphore is not None:
+        semaphore.release()
+
+
 def _start_planning_deadline_guard(*, goal_id: str, app: Any, timeout_s: int) -> None:
     def _guard() -> None:
         try:
@@ -718,7 +753,7 @@ def _start_planning_deadline_guard(*, goal_id: str, app: Any, timeout_s: int) ->
             # Guard applies only while planning is still in progress. Once the
             # goal leaves planning states, this watchdog must no longer force
             # a terminal failure.
-            if status not in {"planning", "planning_queued", "planning_running"}:
+            if status != "planning_running":
                 return
             _mark_started_planning_runs_failed(
                 goal_id=goal_id,
@@ -761,12 +796,6 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         if not goal_record:
             return
         readiness = dict(context.get("readiness") or {})
-        goal_record = _services().goal_lifecycle_service.transition_goal(
-            goal_record,
-            target_status="planning_running",
-            reason="planning_background_started",
-            readiness=readiness,
-        )
         from agent.routes.tasks.auto_planner import auto_planner
         effective = dict(context.get("effective") or {})
         overrides = dict(getattr(goal_record, "workflow_overrides", None) or {})
@@ -785,13 +814,12 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             (goal_scoped_planning_policy or effective.get("planning_policy") or _live_planning_policy)
             .get("timeout_seconds")
         )
-        planning_timeout_s = int(max(30, _pp_timeout if _pp_timeout is not None else 300))
-        _start_planning_deadline_guard(
-            goal_id=goal_record.id,
-            app=current_app._get_current_object(),
-            timeout_s=max(60, planning_timeout_s + 30),
+        _pp_parallel = (
+            (goal_scoped_planning_policy or effective.get("planning_policy") or _live_planning_policy)
+            .get("parallel_goal_planning_max_concurrency")
         )
-
+        planning_timeout_s = int(max(30, _pp_timeout if _pp_timeout is not None else 300))
+        planning_parallel_slots = _normalize_planning_slot_capacity(_pp_parallel)
         app_obj = current_app._get_current_object()
 
         def _run_plan_goal_with_app_context():
@@ -809,21 +837,24 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                     mode_data=goal_record.mode_data,
                 )
 
-        lock_acquired = False
+        slot_acquired = False
         try:
-            lock_acquired = _GOAL_PLANNING_LOCK.acquire(timeout=planning_timeout_s)
-            if not lock_acquired:
+            slot_acquired, planning_slot_capacity = _acquire_planning_slot(
+                timeout_s=planning_timeout_s,
+                capacity=planning_parallel_slots,
+            )
+            if not slot_acquired:
                 _services().goal_lifecycle_service.transition_goal(
                     goal_record,
                     target_status="failed",
-                    reason="planning_lock_timeout",
+                    reason="planning_slot_timeout",
                     readiness=readiness,
                 )
                 record_product_event(
                     "goal_planning_failed",
                     actor="auto_planner",
                     details={
-                        "reason": "planning_lock_timeout",
+                        "reason": "planning_slot_timeout",
                         "timeout_seconds": planning_timeout_s,
                         "source": goal_record.source,
                         "mode": goal_record.mode,
@@ -833,11 +864,23 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                     plan_id=None,
                 )
                 return
+            goal_record = _services().goal_lifecycle_service.transition_goal(
+                goal_record,
+                target_status="planning_running",
+                reason="planning_background_started",
+                readiness=readiness,
+            )
             current_app.logger.warning(
-                "goal_planning_invoke_start goal_id=%s timeout_s=%s mode=%s",
+                "goal_planning_invoke_start goal_id=%s timeout_s=%s mode=%s slot_capacity=%s",
                 goal_record.id,
                 planning_timeout_s,
                 str(goal_record.mode or "generic"),
+                planning_slot_capacity,
+            )
+            _start_planning_deadline_guard(
+                goal_id=goal_record.id,
+                app=current_app._get_current_object(),
+                timeout_s=max(60, planning_timeout_s + 30),
             )
             pool = ThreadPoolExecutor(max_workers=1)
             try:
@@ -903,8 +946,8 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             )
             return
         finally:
-            if lock_acquired:
-                _GOAL_PLANNING_LOCK.release()
+            if slot_acquired:
+                _release_planning_slot()
 
         current_app.logger.debug(f"plan result: {result}")
         if result.get("error"):
