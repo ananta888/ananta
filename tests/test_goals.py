@@ -13,7 +13,7 @@ from agent.routes.tasks.utils import _get_local_task_status
 def _mock_goal_planning_llm(monkeypatch):
     monkeypatch.setattr(
         "agent.routes.tasks.auto_planner.generate_text",
-        lambda **kwargs: '[{"title":"Plan release","description":"Prepare release artifacts","priority":"High"}]',
+        lambda **kwargs: '[{"title":"Implement feature","description":"Create and implement the api.py endpoint file","priority":"High"}]',
     )
     monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
 
