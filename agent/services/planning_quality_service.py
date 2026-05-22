@@ -142,14 +142,18 @@ class PlanningQualityService:
         team_id: str | None = None,
     ) -> PlanningQualityResult:
         policy = dict(planning_policy or {})
-        validation_profiles = policy.get("validation_profiles") if isinstance(policy.get("validation_profiles"), dict) else {}
-        if not validation_profiles:
+        has_explicit_vp = "validation_profiles" in policy
+        validation_profiles_val = policy.get("validation_profiles")
+        validation_profiles = dict(validation_profiles_val) if isinstance(validation_profiles_val, dict) else {}
+        if not has_explicit_vp and not validation_profiles:
             validation_profiles = dict(_DEFAULT_VALIDATION_PROFILES)
-        profile = validation_profiles.get(str(mode or "generic")) if isinstance(validation_profiles.get(str(mode or "generic")), dict) else {}
-        if not profile and str(mode or "").strip().lower() == "new_software_project":
-            profile = dict(_DEFAULT_VALIDATION_PROFILES.get("new_software_project") or {})
-        if not profile:
-            profile = dict(_DEFAULT_VALIDATION_PROFILES.get("generic") or {})
+        profile_val = validation_profiles.get(str(mode or "generic"))
+        profile = dict(profile_val) if isinstance(profile_val, dict) else {}
+        if not profile and not has_explicit_vp:
+            if str(mode or "").strip().lower() == "new_software_project":
+                profile = dict(_DEFAULT_VALIDATION_PROFILES.get("new_software_project") or {})
+            if not profile:
+                profile = dict(_DEFAULT_VALIDATION_PROFILES.get("generic") or {})
 
         team_overrides = policy.get("team_overrides") if isinstance(policy.get("team_overrides"), dict) else {}
         if team_id and isinstance(team_overrides.get(str(team_id)), dict):
@@ -158,7 +162,8 @@ class PlanningQualityService:
 
         min_total = max(1, int(profile.get("min_total_tasks") or 1))
         req_categories = profile.get("required_categories") if isinstance(profile.get("required_categories"), dict) else {}
-        max_generic = max(0, int(profile.get("max_generic_tasks") or 0))
+        max_generic_raw = profile.get("max_generic_tasks")
+        max_generic: int | None = None if max_generic_raw is None else max(0, int(max_generic_raw))
 
         counts: dict[str, int] = {}
         generic_idxs: list[int] = []
@@ -180,7 +185,7 @@ class PlanningQualityService:
             reasons.append(f"too_few_tasks:{len(list(subtasks or []))}/{min_total}")
         if missing:
             reasons.append("missing_categories:" + ",".join(missing))
-        if len(generic_idxs) > max_generic:
+        if max_generic is not None and len(generic_idxs) > max_generic:
             reasons.append(f"too_many_generic_tasks:{len(generic_idxs)}/{max_generic}")
 
         ok = not reasons
@@ -189,7 +194,7 @@ class PlanningQualityService:
             reason="ok" if ok else "|".join(reasons),
             missing_categories=missing,
             generic_task_indices=generic_idxs,
-            details={"counts": counts, "min_total": min_total, "required_categories": req_categories, "max_generic_tasks": max_generic},
+            details={"counts": counts, "min_total": min_total, "required_categories": req_categories, "max_generic_tasks": max_generic, "validation_disabled": has_explicit_vp and not profile},
         )
 
 

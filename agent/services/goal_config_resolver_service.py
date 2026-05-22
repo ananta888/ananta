@@ -27,6 +27,9 @@ ALLOWED_GOAL_CONFIG_KEYS: frozenset[str] = frozenset({
     "git_workspace",
     "workspace_context_policy",
     "llm_tool_guardrails",
+    "propose_policy",
+    "autopilot_task_propose_hard_guard_status",
+    "task_propose_timeout_seconds",
 })
 
 # Backward-compatible alias — internal code should migrate to ALLOWED_GOAL_CONFIG_KEYS.
