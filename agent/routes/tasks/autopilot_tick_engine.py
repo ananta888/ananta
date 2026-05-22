@@ -1916,6 +1916,8 @@ def execute_autopilot_tick(
 
     # Auto-recover waiting_for_review tasks caused by recoverable runtime/tooling issues.
     # These are machine-retryable artifacts and should not deadlock the chain.
+    # In fully autonomous runs (allow_human_review=False) use "failed" instead of "todo"
+    # to prevent infinite retry cycles when the same tooling issue repeats.
     for _t in all_tasks:
         if str(getattr(_t, "status", "") or "").lower() != "waiting_for_review":
             continue
@@ -1932,17 +1934,23 @@ def execute_autopilot_tick(
         )
         if not recoverable_waiting_review:
             continue
+        _task_agent_cfg = _effective_agent_cfg_for_task(loop=loop, task=_t)
+        _task_allow_human_review = bool((_task_agent_cfg.get("propose_policy") or {}).get("allow_human_review", True))
+        _recovery_status = "todo" if _task_allow_human_review else "failed"
+        _recovery_event = "recover_waiting_review_retryable_failure" if _task_allow_human_review else "waiting_for_review_auto_failed_no_human_review"
         update_local_task_status(
             _t.id,
-            "todo",
-            event_type="recover_waiting_review_retryable_failure",
+            _recovery_status,
+            error=None if _task_allow_human_review else "autonomous_run_no_human_review_auto_failed",
+            event_type=_recovery_event,
             event_actor="autopilot_tick",
             force=True,
         )
         append_trace_event(
             _t.id,
-            "recover_waiting_review_retryable_failure",
-            reason="auto_retry_recoverable_waiting_review_failure",
+            _recovery_event,
+            reason="auto_retry_recoverable_waiting_review_failure" if _task_allow_human_review else "autonomous_run_waiting_for_review_terminated",
+            allow_human_review=_task_allow_human_review,
         )
 
     # Guardrail: in fully autonomous runs, stale waiting_for_review tasks must
