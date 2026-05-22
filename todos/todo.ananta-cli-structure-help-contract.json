@@ -1,0 +1,727 @@
+{
+  "schema": "ananta.todo.v1",
+  "id": "todo.cli-command-structure-and-help-contract",
+  "title": "Ananta CLI strukturieren, Subcommands konsolidieren und Help-Vertrag einführen",
+  "status": "proposed",
+  "priority": "high",
+  "created_context": {
+    "summary": "Der aktuelle Ananta-CLI-Bereich wirkt unübersichtlich: einzelne CLI-Module existieren bereits unter agent/cli/, während viele ausführbare Prüf-, Smoke-, Benchmark- und Workflow-Skripte lose unter scripts/ liegen. Ziel ist eine stabile, nachvollziehbare, dokumentierte und testbare CLI-Struktur.",
+    "known_current_files": [
+      "agent/cli/init_wizard.py",
+      "agent/cli/doctor.py",
+      "scripts/goal_cli.py",
+      "scripts/check_pipeline.py",
+      "scripts/release_gate.py",
+      "scripts/validate_cross_track_dependencies.py",
+      "scripts/benchmark_concurrency.py",
+      "scripts/first_goal_acceptance_runner.py",
+      "scripts/audit_client_surface_entrypoints.py"
+    ],
+    "main_problem": "Befehle, Entwickler-Skripte, CI-Checks und User-Kommandos sind nicht klar genug als stabile CLI-Domänen modelliert."
+  },
+  "goals": [
+    "Ein klarer Top-Level-Befehl `ananta` mit konsistenten Command-Gruppen.",
+    "Jede Command-Gruppe und jedes Leaf-Command muss `--help` besitzen.",
+    "User-facing Kommandos und Dev-/CI-Kommandos müssen sauber getrennt sein.",
+    "Alle stabilen CLI-Kommandos müssen automatisiert getestet werden.",
+    "Bestehende Skripte sollen nicht blind gelöscht, sondern geordnet migriert oder bewusst als interne Skripte markiert werden."
+  ],
+  "non_goals": [
+    "Keine vollständige fachliche Neuentwicklung von Hub, Worker, RAG oder Repair-Logik.",
+    "Keine Entfernung bestehender Skripte ohne Kompatibilitätsstrategie.",
+    "Keine heuristische Auto-Erweiterung der CLI ohne dokumentierte Taxonomie."
+  ],
+  "global_cli_contract": {
+    "command_style": {
+      "top_level": "ananta",
+      "group_pattern": "ananta <domain>",
+      "leaf_pattern": "ananta <domain> <action>",
+      "recommended_actions": [
+        "list",
+        "show",
+        "inspect",
+        "create",
+        "run",
+        "validate",
+        "test",
+        "start",
+        "stop",
+        "status",
+        "logs",
+        "export"
+      ]
+    },
+    "required_common_options": [
+      {
+        "name": "--help",
+        "scope": "every command and subcommand",
+        "required": true
+      },
+      {
+        "name": "--json",
+        "scope": "all commands with structured output",
+        "required": true
+      },
+      {
+        "name": "--verbose",
+        "scope": "commands where diagnostics are useful",
+        "required": true
+      },
+      {
+        "name": "--quiet",
+        "scope": "commands used in scripts or CI",
+        "required": true
+      }
+    ],
+    "exit_code_contract": {
+      "0": "success",
+      "1": "runtime failure",
+      "2": "invalid arguments or CLI usage error",
+      "3": "validation failed",
+      "4": "external dependency unavailable",
+      "5": "security or policy violation",
+      "10": "internal bug"
+    },
+    "help_contract": {
+      "mandatory": true,
+      "rules": [
+        "Every top-level command supports --help.",
+        "Every command group supports --help and lists all direct subcommands.",
+        "Every leaf command supports --help and documents purpose, options, defaults, examples and exit codes.",
+        "Help output must not require config.json.",
+        "Help output must not require a running hub.",
+        "Help output must not require Docker.",
+        "Help output must not require network access.",
+        "Automated tests must execute --help for every registered command path.",
+        "A command is not stable until its help output is tested."
+      ]
+    }
+  },
+  "target_command_tree": {
+    "ananta": {
+      "description": "Main CLI entrypoint.",
+      "subcommands": {
+        "init": "Initialize local Ananta runtime/profile/config basics.",
+        "doctor": "Run local environment and setup checks.",
+        "config": {
+          "show": "Show effective config.",
+          "validate": "Validate config file/schema.",
+          "apply-profile": "Apply generated runtime profile patch.",
+          "export": "Export normalized config."
+        },
+        "runtime": {
+          "list": "List available runtime profiles.",
+          "inspect": "Inspect one runtime profile.",
+          "recommend": "Recommend runtime profile for environment."
+        },
+        "llm": {
+          "list": "List configured LLM backends/models.",
+          "test": "Test one backend/model endpoint.",
+          "benchmark": "Run small deterministic benchmark."
+        },
+        "hub": {
+          "start": "Start hub runtime.",
+          "status": "Show hub status.",
+          "stop": "Stop hub runtime."
+        },
+        "worker": {
+          "list": "List workers.",
+          "register": "Register a worker.",
+          "start": "Start a worker.",
+          "status": "Show worker status.",
+          "logs": "Show worker logs."
+        },
+        "task": {
+          "create": "Create a task.",
+          "list": "List tasks.",
+          "inspect": "Inspect one task.",
+          "run": "Run one task.",
+          "cancel": "Cancel a task."
+        },
+        "project": {
+          "init": "Initialize project metadata.",
+          "scan": "Scan project structure.",
+          "context": "Build/show project context."
+        },
+        "rag": {
+          "index": "Build/update index.",
+          "query": "Query index.",
+          "explain": "Explain why context was selected.",
+          "policy-check": "Check context policy boundaries."
+        },
+        "repair": {
+          "analyze": "Run deterministic analysis.",
+          "propose": "Propose repair plan.",
+          "run": "Execute repair procedure.",
+          "verify": "Verify repair result."
+        },
+        "dev": {
+          "smoke": "Run smoke checks.",
+          "e2e": "Run e2e checks.",
+          "release-gate": "Run release gate.",
+          "benchmark": "Run dev benchmarks.",
+          "audit": "Run audits."
+        }
+      }
+    }
+  },
+  "tracks": [
+    {
+      "id": "track-01-cli-inventory",
+      "title": "Bestehende CLI- und Script-Einstiegspunkte inventarisieren",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "cli-inventory-001",
+          "title": "Alle ausführbaren Einstiegspunkte sammeln",
+          "files": [
+            "agent/cli/",
+            "scripts/",
+            "pyproject.toml",
+            "setup.cfg",
+            "setup.py",
+            "README.md",
+            "docs/"
+          ],
+          "description": "Alle Python-Dateien, Shell-Aufrufe, README-Beispiele und Packaging-Einträge sammeln, die aktuell als CLI oder pseudo-CLI genutzt werden.",
+          "acceptance_criteria": [
+            "Es existiert eine Datei docs/cli_inventory.md.",
+            "Jeder gefundene Einstiegspunkt ist mit Pfad, aktuellem Zweck und vermutetem Zielkommando dokumentiert.",
+            "Für jedes Script ist markiert: public CLI, dev CLI, CI-only, internal helper oder deprecated.",
+            "Keine bekannte script/*.py-Datei bleibt unklassifiziert."
+          ]
+        },
+        {
+          "id": "cli-inventory-002",
+          "title": "Bestehende User-Kommandos von Dev-/CI-Skripten trennen",
+          "description": "Klassifizieren, welche Befehle für normale Nutzer sichtbar sein sollen und welche nur unter `ananta dev ...` oder CI laufen.",
+          "acceptance_criteria": [
+            "User-facing Befehle sind eindeutig markiert.",
+            "Dev-/CI-Kommandos sind eindeutig markiert.",
+            "Unsichere Fälle sind als needs-decision dokumentiert.",
+            "Es gibt keine gemischte Kategorie ohne Begründung."
+          ]
+        },
+        {
+          "id": "cli-inventory-003",
+          "title": "Aktuelle Help-Ausgaben erfassen",
+          "description": "Für vorhandene CLI-Module die aktuelle `--help` Ausgabe erfassen, soweit vorhanden.",
+          "acceptance_criteria": [
+            "`ananta init --help` oder das äquivalente aktuelle Init-Help ist dokumentiert.",
+            "`ananta doctor --help` oder das äquivalente aktuelle Doctor-Help ist dokumentiert.",
+            "Fehlende Help-Ausgaben werden als Gap dokumentiert.",
+            "Die Ergebnisse stehen in docs/cli_help_current_state.md."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "track-02-command-taxonomy",
+      "title": "Verbindliche CLI-Taxonomie definieren",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "cli-taxonomy-001",
+          "title": "Top-Level Command-Gruppen finalisieren",
+          "description": "Die Zielstruktur für `ananta init`, `doctor`, `config`, `runtime`, `llm`, `hub`, `worker`, `task`, `project`, `rag`, `repair`, `dev` festlegen.",
+          "acceptance_criteria": [
+            "docs/cli_taxonomy.md enthält den finalen Command-Tree.",
+            "Jede Command-Gruppe hat einen klaren fachlichen Zweck.",
+            "Jede Command-Gruppe enthält nur Befehle aus derselben Domäne.",
+            "Dev-/CI-Kommandos liegen ausschließlich unter `ananta dev ...`."
+          ]
+        },
+        {
+          "id": "cli-taxonomy-002",
+          "title": "Namensregeln für Actions definieren",
+          "description": "Standardisierte Verben wie list, show, inspect, create, run, validate, start, stop, status, logs definieren.",
+          "acceptance_criteria": [
+            "docs/cli_taxonomy.md enthält erlaubte Standard-Actions.",
+            "Synonyme wie get/show/print sind entschieden und vereinheitlicht.",
+            "`inspect` ist für Detailansicht einzelner Objekte reserviert.",
+            "`list` ist für Sammlungen reserviert.",
+            "`run` ist für explizite Ausführung reserviert."
+          ]
+        },
+        {
+          "id": "cli-taxonomy-003",
+          "title": "Deprecated- und Alias-Strategie definieren",
+          "description": "Bestehende Befehle/Skripte dürfen nicht abrupt brechen. Für alte Pfade werden Warnungen oder Aliase geplant.",
+          "acceptance_criteria": [
+            "Es gibt eine dokumentierte Deprecation-Policy.",
+            "Alte öffentliche Befehle bekommen mindestens eine Übergangsphase.",
+            "Deprecated-Aufrufe zeigen den neuen Befehl an.",
+            "CI-only Skripte werden nicht unnötig als public CLI stabilisiert."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "track-03-central-entrypoint",
+      "title": "Zentralen CLI-Entrypoint bauen",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "cli-entrypoint-001",
+          "title": "Zentrales Modul `agent/cli/main.py` einführen",
+          "description": "Ein zentraler Parser/Router soll alle stabilen Commands registrieren.",
+          "files_to_create": [
+            "agent/cli/main.py"
+          ],
+          "acceptance_criteria": [
+            "`agent/cli/main.py` enthält den zentralen `main(argv=None) -> int` Entrypoint.",
+            "Alle Command-Gruppen werden zentral registriert.",
+            "Der Entrypoint enthält selbst möglichst wenig Fachlogik.",
+            "Fachlogik bleibt in separaten Command-Modulen."
+          ]
+        },
+        {
+          "id": "cli-entrypoint-002",
+          "title": "Command-Module strukturieren",
+          "files_to_create": [
+            "agent/cli/commands/__init__.py",
+            "agent/cli/commands/init.py",
+            "agent/cli/commands/doctor.py",
+            "agent/cli/commands/config.py",
+            "agent/cli/commands/runtime.py",
+            "agent/cli/commands/llm.py",
+            "agent/cli/commands/hub.py",
+            "agent/cli/commands/worker.py",
+            "agent/cli/commands/task.py",
+            "agent/cli/commands/project.py",
+            "agent/cli/commands/rag.py",
+            "agent/cli/commands/repair.py",
+            "agent/cli/commands/dev.py"
+          ],
+          "acceptance_criteria": [
+            "Jede Command-Gruppe hat ein eigenes Modul.",
+            "Jedes Modul stellt eine Funktion zur Parser-Registrierung bereit.",
+            "Es gibt keine zyklischen Imports zwischen Command-Modulen.",
+            "Bestehende Logik aus init_wizard.py und doctor.py wird nicht dupliziert, sondern sauber referenziert oder migriert."
+          ]
+        },
+        {
+          "id": "cli-entrypoint-003",
+          "title": "Packaging-Eintrag für `ananta` prüfen/einführen",
+          "description": "Sicherstellen, dass `ananta` als installierbarer CLI-Befehl verfügbar ist.",
+          "files_to_check": [
+            "pyproject.toml",
+            "setup.cfg",
+            "setup.py"
+          ],
+          "acceptance_criteria": [
+            "Nach Installation ist `ananta --help` ausführbar.",
+            "Der Packaging-Eintrag zeigt auf `agent.cli.main:main` oder den finalen offiziellen Entrypoint.",
+            "Der CLI-Entrypoint ist in README oder docs dokumentiert.",
+            "Tests nutzen denselben Entrypoint wie Nutzer."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "track-04-help-contract",
+      "title": "Help-Vertrag für jede CLI-Ebene implementieren",
+      "priority": "critical",
+      "tasks": [
+        {
+          "id": "cli-help-001",
+          "title": "Globalen Help-Standard definieren",
+          "description": "Festlegen, welche Informationen jede Help-Ausgabe enthalten muss.",
+          "acceptance_criteria": [
+            "docs/cli_help_contract.md existiert.",
+            "Der Help-Standard beschreibt Usage, Purpose, Commands, Options, Examples und Exit Codes.",
+            "Der Help-Standard unterscheidet Command-Gruppen und Leaf-Commands.",
+            "Der Help-Standard ist Teil der CLI-Akzeptanzkriterien."
+          ]
+        },
+        {
+          "id": "cli-help-002",
+          "title": "`ananta --help` implementieren/testen",
+          "acceptance_criteria": [
+            "`ananta --help` zeigt alle stabilen Top-Level-Gruppen.",
+            "`ananta --help` erklärt kurz den Zweck von Ananta.",
+            "`ananta --help` zeigt keine internen/experimentellen Kommandos außerhalb von `dev`.",
+            "`ananta --help` endet mit Exit Code 0."
+          ]
+        },
+        {
+          "id": "cli-help-003",
+          "title": "Help für alle Command-Gruppen implementieren",
+          "command_examples": [
+            "ananta config --help",
+            "ananta runtime --help",
+            "ananta llm --help",
+            "ananta hub --help",
+            "ananta worker --help",
+            "ananta task --help",
+            "ananta project --help",
+            "ananta rag --help",
+            "ananta repair --help",
+            "ananta dev --help"
+          ],
+          "acceptance_criteria": [
+            "Jede Command-Gruppe zeigt ihre direkten Subcommands.",
+            "Jede Command-Gruppe beschreibt ihren fachlichen Zweck.",
+            "Jede Command-Gruppe zeigt gemeinsame Optionen.",
+            "Jede Command-Gruppe liefert Exit Code 0 bei --help.",
+            "Keine Command-Gruppe führt bei --help Fachlogik aus."
+          ]
+        },
+        {
+          "id": "cli-help-004",
+          "title": "Help für alle Leaf-Commands implementieren",
+          "description": "Jeder konkrete ausführbare Befehl muss eigene Hilfe besitzen.",
+          "acceptance_criteria": [
+            "Jedes Leaf-Command zeigt Usage.",
+            "Jedes Leaf-Command beschreibt Purpose.",
+            "Jedes Leaf-Command dokumentiert alle Optionen.",
+            "Jedes Leaf-Command dokumentiert Default-Werte.",
+            "Jedes Leaf-Command enthält mindestens ein Beispiel, sofern sinnvoll.",
+            "Jedes Leaf-Command dokumentiert relevante Exit Codes.",
+            "Jedes Leaf-Command liefert Exit Code 0 bei --help."
+          ]
+        },
+        {
+          "id": "cli-help-005",
+          "title": "Help darf keine Runtime-Abhängigkeiten haben",
+          "acceptance_criteria": [
+            "`--help` funktioniert ohne config.json.",
+            "`--help` funktioniert ohne laufenden Hub.",
+            "`--help` funktioniert ohne laufenden Worker.",
+            "`--help` funktioniert ohne Docker.",
+            "`--help` funktioniert ohne Netzwerk.",
+            "`--help` funktioniert in leerem temporären Verzeichnis."
+          ]
+        },
+        {
+          "id": "cli-help-006",
+          "title": "Automatische Help-Coverage-Tests bauen",
+          "files_to_create": [
+            "tests/cli/test_help_contract.py"
+          ],
+          "acceptance_criteria": [
+            "Ein Test sammelt alle registrierten Command-Pfade.",
+            "Für jeden Command-Pfad wird `--help` ausgeführt.",
+            "Jede Help-Ausgabe muss Exit Code 0 liefern.",
+            "Jede Help-Ausgabe muss nicht-leer sein.",
+            "Leaf-Commands müssen Usage und Options enthalten.",
+            "Command-Gruppen müssen Commands/Subcommands enthalten.",
+            "Der Test schlägt fehl, wenn ein neues Command ohne Help registriert wird."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "track-05-command-migration",
+      "title": "Bestehende Skripte in CLI-Gruppen migrieren",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "cli-migration-001",
+          "title": "`agent/cli/doctor.py` in neue Struktur übernehmen",
+          "source_files": [
+            "agent/cli/doctor.py"
+          ],
+          "target_command": "ananta doctor",
+          "acceptance_criteria": [
+            "`ananta doctor` nutzt die bestehende Check-Logik weiter.",
+            "`ananta doctor --json` bleibt verfügbar.",
+            "`ananta doctor --help` erfüllt den Help-Vertrag.",
+            "Bestehende Tests für doctor bleiben grün oder werden sauber angepasst."
+          ]
+        },
+        {
+          "id": "cli-migration-002",
+          "title": "`agent/cli/init_wizard.py` als `ananta init` konsolidieren",
+          "source_files": [
+            "agent/cli/init_wizard.py"
+          ],
+          "target_command": "ananta init",
+          "acceptance_criteria": [
+            "`ananta init --help` zeigt alle Optionen verständlich.",
+            "Interactive und `--yes` Modus bleiben erhalten.",
+            "Runtime-Mode, LLM-Backend, Hardware-Profil und Deployment-Profil bleiben testbar.",
+            "Zu breite Teilfunktionen werden perspektivisch nach config/runtime/llm ausgelagert, ohne Verhalten zu brechen."
+          ]
+        },
+        {
+          "id": "cli-migration-003",
+          "title": "`scripts/goal_cli.py` fachlich einordnen",
+          "source_files": [
+            "scripts/goal_cli.py"
+          ],
+          "candidate_targets": [
+            "ananta task create",
+            "ananta task run",
+            "ananta project init"
+          ],
+          "acceptance_criteria": [
+            "Die aktuelle Funktion von goal_cli.py ist dokumentiert.",
+            "Es ist entschieden, ob daraus task/create, task/run oder project/init wird.",
+            "Falls migriert: altes Script zeigt Deprecation-Hinweis mit neuem Befehl.",
+            "Falls nicht migriert: Script ist als internal/dev/ci-only markiert."
+          ]
+        },
+        {
+          "id": "cli-migration-004",
+          "title": "Pipeline-/Release-Skripte unter `ananta dev ...` bündeln",
+          "source_files": [
+            "scripts/check_pipeline.py",
+            "scripts/release_gate.py",
+            "scripts/validate_cross_track_dependencies.py"
+          ],
+          "target_commands": [
+            "ananta dev pipeline-check",
+            "ananta dev release-gate",
+            "ananta dev validate-cross-track-dependencies"
+          ],
+          "acceptance_criteria": [
+            "Dev-/CI-Befehle liegen nicht im normalen User-Bereich.",
+            "Jeder migrierte Dev-Befehl besitzt --help.",
+            "CI kann neue Befehle nutzen.",
+            "Alte Skriptpfade bleiben übergangsweise lauffähig oder zeigen klare Deprecation."
+          ]
+        },
+        {
+          "id": "cli-migration-005",
+          "title": "Smoke- und Benchmark-Skripte gruppieren",
+          "source_files": [
+            "scripts/benchmark_concurrency.py",
+            "scripts/run_blender_smoke_checks.py",
+            "scripts/run_freecad_smoke_checks.py",
+            "scripts/run_real_worker_runtime_evidence.py",
+            "scripts/run_live_click_dual_benchmark.py"
+          ],
+          "target_commands": [
+            "ananta dev benchmark concurrency",
+            "ananta dev smoke blender",
+            "ananta dev smoke freecad",
+            "ananta dev evidence real-worker-runtime",
+            "ananta dev benchmark live-click-dual"
+          ],
+          "acceptance_criteria": [
+            "Jedes relevante Skript ist entweder migriert oder bewusst als intern markiert.",
+            "Smoke-Kommandos sind unter `ananta dev smoke ...` gruppiert.",
+            "Benchmark-Kommandos sind unter `ananta dev benchmark ...` gruppiert.",
+            "Jedes neue Kommando hat --help und mindestens einen Smoke-Test."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "track-06-output-and-json-contract",
+      "title": "Einheitlichen Output- und JSON-Vertrag einführen",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "cli-output-001",
+          "title": "Text-Output-Standard definieren",
+          "acceptance_criteria": [
+            "Normale Textausgabe ist kurz, klar und scriptfreundlich.",
+            "Fehler gehen nach stderr.",
+            "Erfolgsausgaben sind nicht unnötig laut.",
+            "`--quiet` unterdrückt nicht-kritische Ausgaben.",
+            "`--verbose` zeigt zusätzliche Diagnoseinformationen."
+          ]
+        },
+        {
+          "id": "cli-output-002",
+          "title": "JSON-Output-Schema definieren",
+          "acceptance_criteria": [
+            "JSON-Ausgaben enthalten mindestens status, command, result oder error.",
+            "Fehler-JSON enthält code, message und optional details.",
+            "`--json` gibt valides JSON ohne Markdown aus.",
+            "JSON-Ausgabe ist stabil genug für CI und UI."
+          ]
+        },
+        {
+          "id": "cli-output-003",
+          "title": "Exit-Code-Vertrag technisch testen",
+          "acceptance_criteria": [
+            "Ungültige Argumente liefern Exit Code 2.",
+            "Validierungsfehler liefern Exit Code 3.",
+            "Externe fehlende Abhängigkeiten liefern Exit Code 4.",
+            "Policy-/Security-Blockaden liefern Exit Code 5.",
+            "Help liefert immer Exit Code 0."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "track-07-docs",
+      "title": "CLI-Dokumentation und Beispiele aufräumen",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "cli-docs-001",
+          "title": "CLI-Übersicht schreiben",
+          "files_to_create": [
+            "docs/cli.md"
+          ],
+          "acceptance_criteria": [
+            "docs/cli.md erklärt die Top-Level-Struktur.",
+            "Für jede Command-Gruppe gibt es einen kurzen Abschnitt.",
+            "Dev-/CI-Kommandos sind klar getrennt.",
+            "Die Dokumentation verweist auf `--help` als Quelle für Details."
+          ]
+        },
+        {
+          "id": "cli-docs-002",
+          "title": "Quickstart aktualisieren",
+          "acceptance_criteria": [
+            "README oder Quickstart nutzt die neue CLI-Struktur.",
+            "Veraltete Beispiele werden ersetzt oder als deprecated markiert.",
+            "Minimaler Einstieg ist klar: init, doctor, task/project Beispiel.",
+            "Keine losen scripts/*.py werden als bevorzugter Einstieg dokumentiert."
+          ]
+        },
+        {
+          "id": "cli-docs-003",
+          "title": "Command-Beispiele dokumentieren",
+          "acceptance_criteria": [
+            "Für init gibt es Beispiele für local-dev, sandbox und strict.",
+            "Für doctor gibt es Text- und JSON-Beispiele.",
+            "Für task gibt es create/list/inspect/run Beispiele.",
+            "Für dev gibt es CI-orientierte Beispiele."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "track-08-tests-and-ci",
+      "title": "CLI-Tests und CI-Absicherung",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "cli-tests-001",
+          "title": "CLI-Test-Harness bauen",
+          "files_to_create": [
+            "tests/cli/conftest.py",
+            "tests/cli/test_cli_entrypoint.py"
+          ],
+          "acceptance_criteria": [
+            "Tests können CLI-Kommandos ohne echten subprocess ausführen, soweit sinnvoll.",
+            "Für subprocess-nahe Tests gibt es kleine Integrationstests.",
+            "Tests isolieren cwd, env und temporäre Dateien.",
+            "Tests benötigen keinen laufenden Hub."
+          ]
+        },
+        {
+          "id": "cli-tests-002",
+          "title": "Smoke-Test für Top-Level-Kommandos",
+          "acceptance_criteria": [
+            "`ananta --help` wird getestet.",
+            "`ananta init --help` wird getestet.",
+            "`ananta doctor --help` wird getestet.",
+            "Jede stabile Command-Gruppe wird mindestens mit --help getestet.",
+            "CI führt diese Tests automatisch aus."
+          ]
+        },
+        {
+          "id": "cli-tests-003",
+          "title": "Snapshot-Tests für Help optional einführen",
+          "description": "Help-Ausgaben können teilweise snapshot-getestet werden, ohne jede Formatänderung unnötig schwer zu machen.",
+          "acceptance_criteria": [
+            "Wichtige Help-Ausgaben werden gegen stabile Kerninhalte getestet.",
+            "Snapshots prüfen nicht fragile Whitespace-Details, außer bewusst gewünscht.",
+            "Neue Commands müssen in der Help-Coverage auftauchen.",
+            "Fehlende Purpose-/Options-/Examples-Blöcke schlagen fehl."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "track-09-security-and-policy",
+      "title": "Sicherheits- und Policy-Aspekte der CLI absichern",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "cli-security-001",
+          "title": "Gefährliche Kommandos explizit markieren",
+          "description": "Kommandos, die Dateien ändern, Worker starten, externe Endpunkte testen oder Policies beeinflussen, müssen klar dokumentiert sein.",
+          "acceptance_criteria": [
+            "Mutierende Kommandos sind in Help und Docs klar als mutierend erkennbar.",
+            "Dry-run ist vorhanden, wo sinnvoll.",
+            "Keine mutierende Aktion passiert durch reines `--help`.",
+            "Keine mutierende Aktion passiert implizit durch Gruppen-Help."
+          ]
+        },
+        {
+          "id": "cli-security-002",
+          "title": "Default-Deny bei Policy-/RAG-Kommandos sicherstellen",
+          "acceptance_criteria": [
+            "`ananta rag policy-check` ist explizit lesend/prüfend.",
+            "Policy-verändernde Kommandos benötigen klare Bestätigung oder config-gesteuerte Freigabe.",
+            "Cloud-/Remote-Kontextzugriffe sind in Help und Output sichtbar.",
+            "CLI-Kommandos dürfen keine Secrets in normaler Ausgabe drucken."
+          ]
+        },
+        {
+          "id": "cli-security-003",
+          "title": "Secrets und Tokens in CLI-Ausgaben maskieren",
+          "acceptance_criteria": [
+            "API Keys, Tokens und Authorization Header werden maskiert.",
+            "`--verbose` darf Secrets nicht unmaskiert ausgeben.",
+            "`--json` darf Secrets nicht unmaskiert ausgeben.",
+            "Tests prüfen mindestens typische Secret-Felder."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "track-10-backward-compatibility",
+      "title": "Rückwärtskompatibilität und Übergang",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "cli-compat-001",
+          "title": "Alte Skriptpfade als Wrapper erhalten",
+          "description": "Für aktuell genutzte Skripte sollen Wrapper oder klare Deprecation-Meldungen existieren.",
+          "acceptance_criteria": [
+            "Wichtige alte Skriptaufrufe brechen nicht sofort.",
+            "Wrapper rufen die neue CLI intern auf oder zeigen den neuen Befehl.",
+            "Deprecation-Meldungen sind eindeutig.",
+            "Es gibt eine geplante Frist oder Version für Entfernung."
+          ]
+        },
+        {
+          "id": "cli-compat-002",
+          "title": "Migrationsdokument schreiben",
+          "files_to_create": [
+            "docs/cli_migration.md"
+          ],
+          "acceptance_criteria": [
+            "Alte Aufrufe sind neuen Kommandos zugeordnet.",
+            "CI-Migration ist dokumentiert.",
+            "User-Migration ist dokumentiert.",
+            "Bekannte Breaking Changes sind klar benannt."
+          ]
+        }
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "`ananta --help` funktioniert.",
+    "Jede stabile Command-Gruppe unterstützt `--help`.",
+    "Jedes stabile Leaf-Command unterstützt `--help`.",
+    "Help-Ausgaben funktionieren ohne Runtime-Abhängigkeiten.",
+    "CLI-Kommandos sind in fachliche Gruppen sortiert.",
+    "Dev-/CI-Kommandos sind unter `ananta dev ...` gebündelt.",
+    "Bestehende wichtige Skripte sind migriert, gewrappt oder dokumentiert deprecated.",
+    "Automatische Tests prüfen Help-Coverage, Exit Codes und JSON-Ausgaben.",
+    "README/docs zeigen die neue CLI-Struktur.",
+    "Keine neue CLI-Funktion darf ohne Help und Test als stabil gelten."
+  ],
+  "suggested_first_implementation_order": [
+    "track-01-cli-inventory",
+    "track-02-command-taxonomy",
+    "track-04-help-contract",
+    "track-03-central-entrypoint",
+    "track-05-command-migration",
+    "track-08-tests-and-ci",
+    "track-06-output-and-json-contract",
+    "track-07-docs",
+    "track-09-security-and-policy",
+    "track-10-backward-compatibility"
+  ]
+}

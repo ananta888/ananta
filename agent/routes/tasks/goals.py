@@ -14,6 +14,7 @@ from agent.models import GoalCreateRequest, GoalPlanNodePatchRequest, GoalProvis
 from agent.services.goal_execution_contract_service import get_goal_execution_contract_service
 from agent.services.goal_purge_service import get_goal_purge_service
 from agent.services.goal_config_resolver_service import ALLOWED_GOAL_CONFIG_KEYS, get_goal_config_resolver_service
+from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.config_profile_service import get_config_profile_service
 from agent.services.product_event_service import record_product_event
 from agent.services.instruction_layer_service import get_instruction_layer_service
@@ -771,7 +772,19 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
         overrides = dict(getattr(goal_record, "workflow_overrides", None) or {})
 
         _live_planning_policy = (current_app.config.get("AGENT_CONFIG") or {}).get("planning_policy") or {}
-        _pp_timeout = (effective.get("planning_policy") or _live_planning_policy).get("timeout_seconds")
+        goal_scoped_cfg = get_goal_config_runtime_service().get_effective_config(
+            goal_id=goal_record.id,
+            task_id=None,
+        ).config
+        goal_scoped_planning_policy = (
+            (goal_scoped_cfg or {}).get("planning_policy")
+            if isinstance(goal_scoped_cfg, dict)
+            else None
+        )
+        _pp_timeout = (
+            (goal_scoped_planning_policy or effective.get("planning_policy") or _live_planning_policy)
+            .get("timeout_seconds")
+        )
         planning_timeout_s = int(max(30, _pp_timeout if _pp_timeout is not None else 300))
         _start_planning_deadline_guard(
             goal_id=goal_record.id,
@@ -826,9 +839,12 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                 planning_timeout_s,
                 str(goal_record.mode or "generic"),
             )
-            with ThreadPoolExecutor(max_workers=1) as pool:
+            pool = ThreadPoolExecutor(max_workers=1)
+            try:
                 future = pool.submit(_run_plan_goal_with_app_context)
                 result = future.result(timeout=planning_timeout_s)
+            finally:
+                pool.shutdown(wait=False, cancel_futures=True)
             current_app.logger.warning(
                 "goal_planning_invoke_done goal_id=%s created=%s error=%s",
                 goal_record.id,

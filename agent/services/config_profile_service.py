@@ -32,7 +32,10 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             },
             # Keep planner runs bounded for local LMStudio E2E stability.
             "planning_policy": {
-                "timeout_seconds": 180,
+                "timeout_seconds": 420,
+                "segment_context_chars": 6000,
+                "max_output_tokens": 1500,
+                "max_segments": 2,
             },
         },
     ),
