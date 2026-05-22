@@ -3,7 +3,6 @@ from typing import Any, Optional
 
 from agent.config import settings
 from agent.llm_strategies.base import LLMStrategy
-from agent.utils import _http_post
 
 
 class LMStudioStrategy(LLMStrategy):
@@ -218,9 +217,32 @@ class LMStudioStrategy(LLMStrategy):
         return {"text": result_text, "usage": usage}
 
     def _post_lmstudio(self, url, payload, timeout, idempotency_key=None):
-        resp = _http_post(
-            url, payload, timeout=timeout, return_response=True, silent=True, idempotency_key=idempotency_key
-        )
+        import requests as _requests
+        from agent.services.lmstudio_request_registry import create_and_register_session, release_session
+
+        session, reg_key = create_and_register_session()
+        resp = None
+        try:
+            headers: dict = {}
+            if idempotency_key:
+                headers["Idempotency-Key"] = idempotency_key
+            resp = session.post(url, json=payload, headers=headers, timeout=timeout)
+        except _requests.exceptions.ConnectionError:
+            logging.warning("LMStudio request aborted (connection closed/cancelled) for url=%s", url)
+            return None
+        except _requests.exceptions.Timeout:
+            logging.warning("LMStudio response is None (timeout/connection error) for url=%s", url)
+            return None
+        except _requests.exceptions.RequestException as exc:
+            logging.warning("LMStudio request error for url=%s: %s", url, exc)
+            return None
+        finally:
+            release_session(reg_key, session)
+            try:
+                session.close()
+            except Exception:
+                pass
+
         if resp is not None and hasattr(resp, "status_code"):
             if resp.status_code < 400:
                 try:
@@ -233,8 +255,7 @@ class LMStudioStrategy(LLMStrategy):
             logging.warning("LMStudio HTTP %s: %.200s", resp.status_code, resp.text)
             logging.debug(f"LMStudioStrategy: Error response from LM Studio: {resp.text!r}")
             return None
-        if resp is None:
-            logging.warning("LMStudio response is None (timeout/connection error) for url=%s", url)
+        logging.warning("LMStudio response is None (timeout/connection error) for url=%s", url)
         return None
 
     def _list_lmstudio_candidates(self, base_url, timeout):

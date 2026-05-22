@@ -427,6 +427,32 @@ def purge_goal(goal_id: str):
     return api_response(data=result.to_dict())
 
 
+@goals_bp.route("/goals/<goal_id>/kill-requests", methods=["POST"])
+@check_auth
+def kill_goal_requests(goal_id: str):
+    """Abort all in-flight LM Studio HTTP requests for a goal without cancelling the goal itself."""
+    if not _is_admin_request():
+        return api_response(status="error", message="forbidden", code=403)
+    goal_id_norm = str(goal_id or "").strip()
+    if not goal_id_norm:
+        return api_response(status="error", message="goal_id required", code=400)
+    from agent.services.lmstudio_request_registry import cancel_goal, active_counts
+    killed = cancel_goal(goal_id_norm)
+    remaining = active_counts()
+    return api_response(data={"goal_id": goal_id_norm, "sessions_killed": killed, "active_counts": remaining})
+
+
+@goals_bp.route("/goals/kill-all-requests", methods=["POST"])
+@check_auth
+def kill_all_requests():
+    """Abort all in-flight LM Studio HTTP requests across all goals."""
+    if not _is_admin_request():
+        return api_response(status="error", message="forbidden", code=403)
+    from agent.services.lmstudio_request_registry import cancel_all, active_counts
+    killed = cancel_all()
+    return api_response(data={"sessions_killed": killed, "active_counts": active_counts()})
+
+
 @goals_bp.route("/goals/planning/health", methods=["GET"])
 @check_auth
 def planning_health():

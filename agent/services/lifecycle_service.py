@@ -257,6 +257,12 @@ class GoalLifecycleService:
                     event_actor="goal_lifecycle_service",
                     event_details={"goal_id": goal_id, "target_status": normalized_target},
                 )
+            if normalized_target == "failed":
+                try:
+                    from agent.services.lmstudio_request_registry import cancel_goal
+                    cancel_goal(goal_id)
+                except Exception:
+                    pass
         return goal_repo.save(goal)
 
 
