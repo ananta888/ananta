@@ -39,6 +39,16 @@ _NON_SECRET_KEY_EXCEPTIONS: frozenset[str] = frozenset({
     "chars_per_token_estimate",
 })
 
+# These nested config paths are treated as atomic replacements rather than deep-merged.
+# When a profile or goal override sets one of these keys, the entire dict replaces the
+# base config value — partial merging would produce confusing hybrid routing tables.
+_REPLACE_NOT_MERGE_PATHS: frozenset[str] = frozenset({
+    "sgpt_routing.task_kind_backend",
+    "sgpt_routing.research_capability_backend",
+    "sgpt_routing.backend_parallel_limits",
+    "planning_policy.validation_profiles",
+})
+
 
 @dataclass(frozen=True)
 class GoalConfigResolution:
@@ -143,7 +153,7 @@ class GoalConfigResolverService:
     def _apply_with_provenance(self, target: dict[str, Any], patch: dict[str, Any], source: str, provenance: dict[str, Any], prefix: str = "") -> None:
         for key, value in patch.items():
             path = f"{prefix}.{key}" if prefix else str(key)
-            if isinstance(value, dict) and isinstance(target.get(key), dict):
+            if path not in _REPLACE_NOT_MERGE_PATHS and isinstance(value, dict) and isinstance(target.get(key), dict):
                 self._apply_with_provenance(target[key], value, source, provenance, prefix=path)
                 continue
             target[key] = copy.deepcopy(value)
