@@ -78,7 +78,7 @@ class WorkerWorkspaceService:
         except Exception:
             return False
 
-    def _resolve_workspace_dir(self, *, output_dir: str | None, workspace_root: str, agent_name: str, scope_key: str) -> Path:
+    def _resolve_workspace_dir(self, *, output_dir: str | None, workspace_root: str, agent_name: str, scope_key: str, explicit_scope_key: bool = False) -> Path:
         workspace_root_path = Path(os.path.abspath(str(Path(workspace_root).expanduser())))
         if output_dir:
             requested = self._normalize_requested_output_dir(
@@ -106,6 +106,10 @@ class WorkerWorkspaceService:
                     raise ValueError("workspace_output_dir_outside_workspace_root")
                 requested = remapped
             return requested
+        # When scope_key is explicitly set (goal_worker mode), omit agent_name so all
+        # workers sharing the same bind-mounted workspace root use the same directory.
+        if explicit_scope_key:
+            return (workspace_root_path / scope_key).resolve()
         return (workspace_root_path / agent_name / scope_key).resolve()
 
     @staticmethod
@@ -231,7 +235,9 @@ class WorkerWorkspaceService:
             workspace_cfg.get("worker_job_id") or (task or {}).get("current_worker_job_id"),
             fallback="local",
         )
-        scope_key = _safe_segment(workspace_cfg.get("scope_key"), fallback=f"{task_id}-{worker_job_id}")
+        explicit_scope_key_str = str(workspace_cfg.get("scope_key") or "").strip()
+        scope_key = _safe_segment(explicit_scope_key_str, fallback=f"{task_id}-{worker_job_id}")
+        explicit_scope_key = bool(explicit_scope_key_str)
         effective_runtime_cfg = dict(((task or {}).get("effective_config") or {}).get("worker_runtime") or {})
         workspace_reuse_mode = str(
             workspace_cfg.get("workspace_reuse_mode")
@@ -243,6 +249,7 @@ class WorkerWorkspaceService:
             goal_id_raw = _safe_segment((task or {}).get("goal_id"), fallback="")
             if goal_id_raw:
                 scope_key = goal_id_raw
+                explicit_scope_key = True
 
         output_dir = str(workspace_cfg.get("output_dir") or "").strip()
         workspace_dir = self._resolve_workspace_dir(
@@ -250,6 +257,7 @@ class WorkerWorkspaceService:
             workspace_root=workspace_root,
             agent_name=agent_name,
             scope_key=scope_key,
+            explicit_scope_key=explicit_scope_key,
         )
         artifacts_dir = workspace_dir / "artifacts"
         rag_helper_dir = workspace_dir / "rag_helper"
