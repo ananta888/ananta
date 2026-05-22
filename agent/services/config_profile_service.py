@@ -17,6 +17,33 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
         description="OpenCode worker with preconfigured default model",
         overrides={
             "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
+            # Priority profile for Big Pickle + LMStudio planning in autonomous runs.
+            # Allow small parallelism across goals while keeping stronger planner/propose budgets.
+            "planning_policy": {
+                "timeout_seconds": 720,
+                "parallel_goal_planning_max_concurrency": 2,
+                "segmented_planning_enabled": True,
+                "segment_context_chars": 1800,
+                "max_segments": 3,
+                "max_output_tokens": 1400,
+                "preferred_output_format": "json",
+                "selective_repair_rounds": 2,
+                "default_runtime_profile": "lmstudio_laptop",
+                "runtime_profiles": {
+                    "lmstudio_laptop": {
+                        "timeout_seconds": 540,
+                        "max_output_tokens": 1100,
+                        "retry_attempts": 1,
+                        "retry_backoff_seconds": 1.0,
+                        "segmented_planning_enabled": True,
+                        "segment_context_chars": 1400,
+                        "max_segments": 2,
+                        "preferred_output_format": "json",
+                    }
+                },
+            },
+            # Used by adaptive propose timeout resolver as floor when benchmark data is missing.
+            "task_propose_timeout_seconds": 420,
         },
     ),
     "opencode_preconfigured_e2e": ConfigProfile(
@@ -93,6 +120,31 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             "llm_config": {"base_url": "http://192.168.178.100:1234/v1", "planner_output_format": "json"},
             "opencode_runtime": {"target_provider": "lmstudio"},
             "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
+            # Conservative local-laptop profile: avoid contention and keep strict serial planning.
+            "planning_policy": {
+                "timeout_seconds": 720,
+                "parallel_goal_planning_max_concurrency": 1,
+                "segmented_planning_enabled": True,
+                "segment_context_chars": 1400,
+                "max_segments": 2,
+                "max_output_tokens": 1100,
+                "preferred_output_format": "json",
+                "selective_repair_rounds": 2,
+                "default_runtime_profile": "lmstudio_laptop",
+                "runtime_profiles": {
+                    "lmstudio_laptop": {
+                        "timeout_seconds": 540,
+                        "max_output_tokens": 1000,
+                        "retry_attempts": 1,
+                        "retry_backoff_seconds": 1.0,
+                        "segmented_planning_enabled": True,
+                        "segment_context_chars": 1300,
+                        "max_segments": 2,
+                        "preferred_output_format": "json",
+                    }
+                },
+            },
+            "task_propose_timeout_seconds": 420,
         },
     ),
     "hermes_free_models_preconfigured": ConfigProfile(
