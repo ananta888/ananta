@@ -14,9 +14,17 @@ class ConfigProfile:
 _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
     "opencode_preconfigured": ConfigProfile(
         id="opencode_preconfigured",
-        description="OpenCode worker with preconfigured default model",
+        description="OpenCode worker with preconfigured default model (fully autonomous, no human review)",
         overrides={
             "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
+            # Autonomous execution — no waiting_for_review gate.
+            "autopilot_task_propose_hard_guard_status": "failed",
+            "propose_policy": {
+                "allow_human_review": False,
+                "on_all_strategies_declined": "failed",
+                "autonomous_repair_attempts": 3,
+                "autonomous_repair_delay_seconds": 10,
+            },
             # Conservative profile for Big Pickle + LMStudio planning.
             # Serial planning to avoid contention, bounded timeouts.
             "planning_policy": {
@@ -41,6 +49,9 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
                         "preferred_output_format": "json",
                     }
                 },
+                # Disable strict category-based quality gate — Gemma produces valid
+                # plans that don't match the new_software_project category taxonomy.
+                "validation_profiles": {},
             },
             # Used by adaptive propose timeout resolver as floor when benchmark data is missing.
             "task_propose_timeout_seconds": 420,

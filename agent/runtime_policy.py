@@ -66,7 +66,7 @@ def resolve_cli_backend(
             return configured_research_backend, f"research_backend_policy:research->{configured_research_backend}", routing_cfg
 
     kind_map = routing_cfg.get("task_kind_backend") or {}
-    mapped = str(kind_map.get(task_kind) or "").strip().lower()
+    mapped = str(kind_map.get(task_kind) or kind_map.get("*") or "").strip().lower()
     if mapped in supported_backends:
         return mapped, f"task_kind_policy:{task_kind}->{mapped}", routing_cfg
 
