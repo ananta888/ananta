@@ -1,356 +1,385 @@
-• {
-"id": "todo.planning-run-isolation-and-stale-recovery.json",
-"title": "Planning-Run Isolation, Stale-Recovery und LMStudio-Blockade-Vermeidung",
-"version": "1.0.0",
-"status": "open",
-"priority": "high",
-"created_at": "2026-05-22",
-"owner": "hub-runtime",
-"context": {
-"problem_statement": "Alte oder haengende planning_running/planning_queued Goals blockieren neue Runs und koennen LMStudio
-unnoetig belasten.",
-"scope": [
-"Hub Planning Queue/Slots",
-"Goal/Task Cancel-Pfade",
-"Worker-Abbruch-Signalisierung",
-"LMStudio Runtime Protection",
-"Observability und CLI-Diagnostik"
-],
-"out_of_scope": [
-"Architekturwechsel weg von Hub-Worker",
-"Grosses Re-Design der Datenbank"
-]
-},
-"global_acceptance_criteria": [
-"Neue Goals werden nicht mehr dauerhaft durch stale planning runs blockiert.",
-"Queue-Wartezeit und LLM-Ausfuehrungs-Timeout sind getrennt messbar und konfigurierbar.",
-"Purge/Cancel beendet aktiv laufende Worker-Auftraege pro Goal/Task deterministisch.",
-"LMStudio wird durch Circuit-Breaker/Concurrency-Guards vor Request-Sturm geschuetzt.",
-"Alle neuen Sicherheits- und Recovery-Pfade sind testbar und mit Telemetrie sichtbar."
-],
-"tasks": [
 {
-"id": "PRI-001",
-"title": "Ist-Zustand inventarisieren: Planning States, Run-Alter, Queue-Verhalten",
-"type": "analysis",
-"priority": "high",
-"depends_on": [],
-"deliverables": [
-"Dokumentierte State-Matrix fuer Goal/Planning-Run/Task",
-"Liste aller derzeitigen Terminal- und Non-Terminal-States",
-"Definition 'stale' (z. B. kein Heartbeat > X Sekunden)"
-],
-"acceptance_criteria": [
-"Matrix deckt planning_queued, planning_running, planned, failed, cancelled, waiting_for_review ab.",
-"Stale-Regel ist explizit und als Konfigurationsparameter dokumentiert."
-]
-},
-{
-"id": "PRI-002",
-"title": "Konfigurationsmodell erweitern: Planning Slot/Lease/Circuit Parameter",
-"type": "design",
-"priority": "high",
-"depends_on": ["PRI-001"],
-"deliverables": [
-"Additive Config-Felder mit Defaults",
-"Dokumentierte Backward-Kompatibilitaet"
-],
-"acceptance_criteria": [
-"Keine bestehenden Config-Pfade brechen.",
-"Defaults erhalten bisheriges Verhalten, aber mit aktivierbarer Recovery."
-]
-},
-{
-"id": "PRI-003",
-"title": "Per-Runtime globale Planning-Concurrency einfuehren",
-"type": "implementation",
-"priority": "high",
-"depends_on": ["PRI-002"],
-"deliverables": [
-"Concurrency-Limit pro Runtime-Profil (z. B. lmstudio=1)",
-"Slot-Acquire mit fairness-freundlicher Queue"
-],
-"acceptance_criteria": [
-"Bei 2 parallelen LMStudio-Goals wird nur 1 Planning-Call gleichzeitig ausgefuehrt.",
-"Zweites Goal bleibt queued, blockiert aber nicht dauerhaft."
-]
-},
-{
-"id": "PRI-004",
-"title": "Lease/Heartbeat fuer planning_running implementieren",
-"type": "implementation",
-"priority": "high",
-"depends_on": ["PRI-003"],
-"deliverables": [
-"Lease-Start beim Planning-Beginn",
-"Regelmaessiger Heartbeat waehrend Planning",
-"Lease-Expiry-Handling"
-],
-"acceptance_criteria": [
-"Ohne Heartbeat verfällt Lease nach TTL.",
-"Abgelaufene Runs werden automatisch in terminalen Zustand ueberfuehrt."
-]
-},
-{
-"id": "PRI-005",
-"title": "Deadline-Guards sauber trennen: Queue-Wait vs Execute-Timeout",
-"type": "implementation",
-"priority": "high",
-"depends_on": ["PRI-003", "PRI-004"],
-"deliverables": [
-"Eigener queue_wait_timeout",
-"Eigener planner_execute_timeout"
-],
-"acceptance_criteria": [
-"Queue-Wartezeit triggert nicht planner_execute_timeout.",
-"Logs/Telemetry zeigen beide Zeiten separat."
-]
-},
-{
-"id": "PRI-006",
-"title": "Preflight-Recovery vor Goal-Start",
-"type": "implementation",
-"priority": "medium",
-"depends_on": ["PRI-004"],
-"deliverables": [
-"Automatischer stale-run scan vor neuem Goal",
-"Optionale Auto-Recovery (mark_failed_stale/cancel_stale)"
-],
-"acceptance_criteria": [
-"Neue Goal-Erstellung erkennt stale planning runs und bereinigt sie gemaess Policy.",
-"Recovery ist auditierbar (Events/Logs)."
-]
-},
-{
-"id": "PRI-007",
-"title": "Goal-Purge und Goal-Cancel idempotent haerten",
-"type": "implementation",
-"priority": "high",
-"depends_on": ["PRI-001"],
-"deliverables": [
-"Deterministischer Cancel-Ablauf pro Goal",
-"Mehrfachaufruf von purge/cancel bleibt sicher"
-],
-"acceptance_criteria": [
-"Zweiter Purge-Aufruf auf bereits geloeschtes Goal liefert kontrollierte Antwort.",
-"Keine dangling tasks/runs nach erfolgreichem Purge."
-]
-},
-{
-"id": "PRI-008",
-"title": "Worker-Abbruchsignal pro Task/Goal verbindlich machen",
-"type": "implementation",
-"priority": "high",
-"depends_on": ["PRI-007"],
-"deliverables": [
-"Cancel-Signal an alle betroffenen Worker-Endpoints",
-"Ack/Timeout/Retry-Strategie"
-],
-"acceptance_criteria": [
-"Bei Goal-Cancel werden alle offenen Task-Auftraege aktiv gestoppt.",
-"Nicht erreichbare Worker erzeugen klare Fehlerereignisse, kein stilles Haengen."
-]
-},
-{
-"id": "PRI-009",
-"title": "LMStudio Circuit Breaker einfuehren",
-"type": "implementation",
-"priority": "high",
-"depends_on": ["PRI-003"],
-"deliverables": [
-"Failure window + threshold",
-"Open/Half-Open/Closed state",
-"Backoff fuer neue Requests"
-],
-"acceptance_criteria": [
-"Bei wiederholten Timeout/5xx wird Circuit geoeffnet und Requests werden kurzfristig gebremst.",
-"Half-open testet kontrolliert und schliesst bei Erfolg."
-]
-},
-{
-"id": "PRI-010",
-"title": "Rate-Limit und Backpressure fuer Planning/Propose Calls",
-"type": "implementation",
-"priority": "medium",
-"depends_on": ["PRI-009"],
-"deliverables": [
-"Per-provider request budget",
-"Queue-backpressure statt request-storm"
-],
-"acceptance_criteria": [
-"LMStudio-Requestrate bleibt innerhalb definierter Obergrenze.",
-"Bei Lastspitzen werden Calls queued oder sauber rejected mit reason code."
-]
-},
-{
-"id": "PRI-011",
-"title": "Reason-Codes standardisieren (Stale, Timeout, Slot, Circuit, Cancel)",
-"type": "implementation",
-"priority": "medium",
-"depends_on": ["PRI-005", "PRI-009"],
-"deliverables": [
-"Maschinenlesbare reason_codes",
-"Mapping in API/CLI/Logs"
-],
-"acceptance_criteria": [
-"Jeder Auto-Abbruchpfad liefert eindeutigen reason_code.",
-"CLI kann nach reason_code filtern."
-]
-},
-{
-"id": "PRI-012",
-"title": "Observability erweitern: Metriken und Health-Signale",
-"type": "implementation",
-"priority": "high",
-"depends_on": ["PRI-004", "PRI-005", "PRI-009"],
-"deliverables": [
-"Metriken: planning_running_age, queue_wait_seconds, stale_runs_count, circuit_state, provider_error_rate",
-"Health summary endpoint/diagnostics"
-],
-"acceptance_criteria": [
-"Metriken sind pro Runtime/Profil aufschluesselbar.",
-"Health zeigt klar, ob Blockade durch stale runs, slots oder provider ausgeloest wird."
-]
-},
-{
-"id": "PRI-013",
-"title": "CLI Diagnose-Befehle fuer Recovery/Isolation",
-"type": "implementation",
-"priority": "medium",
-"depends_on": ["PRI-011", "PRI-012"],
-"deliverables": [
-"ananta goal --planning-stuck",
-"ananta goal --recover-stale",
-"ananta goal --cancel-tree <goal_id>"
-],
-"acceptance_criteria": [
-"CLI listet stale planning runs inkl. Alter, Slot, Provider und reason_hint.",
-"Recover/Cleanup kann dry-run und execute."
-]
-},
-{
-"id": "PRI-014",
-"title": "Tests: Unit fuer Slot/Lease/Circuit/Reason-Codes",
-"type": "test",
-"priority": "high",
-"depends_on": ["PRI-003", "PRI-004", "PRI-009", "PRI-011"],
-"deliverables": [
-"Granulare Unit-Tests mit deterministischen Fixtures"
-],
-"acceptance_criteria": [
-"Tests decken Happy Path + Failure Path + Edge Cases ab.",
-"Keine Abhaengigkeit von externem LMStudio fuer Unit-Tests."
-]
-},
-{
-"id": "PRI-015",
-"title": "Tests: Integrationsfaelle mit parallelen Goals",
-"type": "test",
-"priority": "high",
-"depends_on": ["PRI-003", "PRI-005", "PRI-007", "PRI-008"],
-"deliverables": [
-"2-3 Goals parallel starten",
-"Verifikation: keine dauerhafte Blockade"
-],
-"acceptance_criteria": [
-"Mindestens ein Goal wird durchgefuehrt, waehrend andere queued warten.",
-"Nach Cancel/Purge existieren keine laufenden orphan tasks."
-]
-},
-{
-"id": "PRI-016",
-"title": "Tests: Optionaler Live-Smoke gegen LMStudio",
-"type": "test",
-"priority": "medium",
-"depends_on": ["PRI-009", "PRI-010", "PRI-012"],
-"deliverables": [
-"Feature-flag-gesteuerter Live-Test",
-"Skip/xfail bei fehlender LMStudio-Instanz"
-],
-"acceptance_criteria": [
-"Bei Provider-Ausfall greift Circuit/Backpressure wie spezifiziert.",
-"Test verursacht keinen dauerhaften stuck state."
-]
-},
-{
-"id": "PRI-017",
-"title": "Dokumentation: Betriebshandbuch fuer Parallel Goals",
-"type": "documentation",
-"priority": "high",
-"depends_on": ["PRI-012", "PRI-013"],
-"deliverables": [
-"Runbook fuer Start/Stop/Recovery",
-"Empfohlene Profilwerte pro Runtime (lmstudio_laptop, ollama_rtx3080)"
-],
-"acceptance_criteria": [
-"Dokumentation enthaelt konkrete Schwellenwerte und Troubleshooting-Entscheidungsbaum.",
-"Clear Do/Don't fuer autonome Testlaeufe vs Produktion."
-]
-},
-{
-"id": "PRI-018",
-"title": "Rollout-Plan: schrittweise Aktivierung per Feature Flags",
-"type": "release",
-"priority": "medium",
-"depends_on": ["PRI-014", "PRI-015", "PRI-017"],
-"deliverables": [
-"Canary-Plan",
-"Rollback-Plan",
-"Migrationshinweise fuer bestehende Profile"
-],
-"acceptance_criteria": [
-"Rollout kann ohne Downtime und ohne API-Breaking-Changes erfolgen.",
-"Rollback deaktiviert neue Recovery-Logik kontrolliert."
-]
-}
-],
-"milestones": [
-{
-"id": "M1",
-"title": "Blockade-Schutz Basis",
-"tasks": ["PRI-001", "PRI-002", "PRI-003", "PRI-005"],
-"done_when": "Parallel-Goals blockieren sich nicht mehr ueber globalen Planner-Lock."
-},
-{
-"id": "M2",
-"title": "Stale-Recovery + sichere Abbrueche",
-"tasks": ["PRI-004", "PRI-006", "PRI-007", "PRI-008"],
-"done_when": "Haengende Runs werden automatisch oder manuell deterministisch bereinigt."
-},
-{
-"id": "M3",
-"title": "Provider-Schutz LMStudio",
-"tasks": ["PRI-009", "PRI-010", "PRI-012"],
-"done_when": "Request-Stuerme werden verhindert und Zustand ist observierbar."
-},
-{
-"id": "M4",
-"title": "Qualitaet + Rollout",
-"tasks": ["PRI-011", "PRI-013", "PRI-014", "PRI-015", "PRI-016", "PRI-017", "PRI-018"],
-"done_when": "Tests, CLI-Diagnose, Doku und sicherer Rollout sind abgeschlossen."
-}
-],
-"risk_register": [
-{
-"id": "R-01",
-"risk": "False positives bei stale-detection",
-"mitigation": "Heartbeat-Interval + TTL konservativ starten, per Profil tunen, Audit-Events pruefen."
-},
-{
-"id": "R-02",
-"risk": "Zu harte Circuit-Breaker-Einstellungen reduzieren Durchsatz",
-"mitigation": "Canary-Rollout, per-runtime Konfiguration, automatische Half-Open-Tests."
-},
-{
-"id": "R-03",
-"risk": "Cancel-Signale erreichen Worker nicht",
-"mitigation": "Ack/Retry/Timeout + sichtbare reason_codes + manuelle recovery CLI."
-}
-],
-"definition_of_done": [
-"Alle Tasks in M1-M4 abgeschlossen oder bewusst mit Grund verschoben.",
-"Alle global acceptance criteria erfuellt.",
-"Relevante Unit/Integrationstests gruen; Live-Smoke optional sauber skip/xfail-faehig.",
-"Runbook und Profil-Empfehlungen fuer Parallelbetrieb verfuegbar."
-]
+  "id": "todo.planning-run-isolation-and-stale-recovery.json",
+  "title": "Planning-Run Isolation, Stale-Recovery und LMStudio-Blockade-Vermeidung",
+  "version": "1.1.0",
+  "status": "in_progress",
+  "priority": "high",
+  "created_at": "2026-05-22",
+  "owner": "hub-runtime",
+  "context": {
+    "problem_statement": "Alte oder haengende planning_running/planning_queued Goals blockieren neue Runs und koennen LMStudio unnoetig belasten.",
+    "scope": [
+      "Hub Planning Queue/Slots",
+      "Goal/Task Cancel-Pfade",
+      "Worker-Abbruch-Signalisierung",
+      "LMStudio Runtime Protection",
+      "Observability und CLI-Diagnostik"
+    ],
+    "out_of_scope": [
+      "Architekturwechsel weg von Hub-Worker",
+      "Grosses Re-Design der Datenbank"
+    ]
+  },
+  "global_acceptance_criteria": [
+    "Neue Goals werden nicht mehr dauerhaft durch stale planning runs blockiert.",
+    "Queue-Wartezeit und LLM-Ausfuehrungs-Timeout sind getrennt messbar und konfigurierbar.",
+    "Purge/Cancel beendet aktiv laufende Worker-Auftraege pro Goal/Task deterministisch.",
+    "LMStudio wird durch Circuit-Breaker/Concurrency-Guards vor Request-Sturm geschuetzt.",
+    "Alle neuen Sicherheits- und Recovery-Pfade sind testbar und mit Telemetrie sichtbar."
+  ],
+  "tasks": [
+    {
+      "id": "PRI-001",
+      "title": "Ist-Zustand inventarisieren: Planning States, Run-Alter, Queue-Verhalten",
+      "type": "analysis",
+      "priority": "high",
+      "status": "done",
+      "depends_on": [],
+      "deliverables": [
+        "Dokumentierte State-Matrix fuer Goal/Planning-Run/Task",
+        "Liste aller derzeitigen Terminal- und Non-Terminal-States",
+        "Definition 'stale' (z. B. kein Heartbeat > X Sekunden)"
+      ],
+      "acceptance_criteria": [
+        "Matrix deckt planning_queued, planning_running, planned, failed, cancelled, waiting_for_review ab.",
+        "Stale-Regel ist explizit und als Konfigurationsparameter dokumentiert."
+      ]
+    },
+    {
+      "id": "PRI-002",
+      "title": "Konfigurationsmodell erweitern: Planning Slot/Lease/Circuit Parameter",
+      "type": "design",
+      "priority": "high",
+      "status": "done",
+      "depends_on": ["PRI-001"],
+      "deliverables": [
+        "Additive Config-Felder mit Defaults",
+        "Dokumentierte Backward-Kompatibilitaet"
+      ],
+      "acceptance_criteria": [
+        "Keine bestehenden Config-Pfade brechen.",
+        "Defaults erhalten bisheriges Verhalten, aber mit aktivierbarer Recovery."
+      ],
+      "notes": "config_profile_service.py erweitert: planning_policy, runtime_profiles, validation_profiles fuer lmstudio_laptop und local-laptop Profile."
+    },
+    {
+      "id": "PRI-003",
+      "title": "Per-Runtime globale Planning-Concurrency einfuehren",
+      "type": "implementation",
+      "priority": "high",
+      "status": "done",
+      "depends_on": ["PRI-002"],
+      "deliverables": [
+        "Concurrency-Limit pro Runtime-Profil (z. B. lmstudio=1)",
+        "Slot-Acquire mit fairness-freundlicher Queue"
+      ],
+      "acceptance_criteria": [
+        "Bei 2 parallelen LMStudio-Goals wird nur 1 Planning-Call gleichzeitig ausgefuehrt.",
+        "Zweites Goal bleibt queued, blockiert aber nicht dauerhaft."
+      ],
+      "notes": "Implementiert in goals.py: _PLANNING_SLOTS Semaphore, _acquire_planning_slot(), _release_planning_slot(). Globaler Lock _GOAL_PLANNING_LOCK ersetzt."
+    },
+    {
+      "id": "PRI-004",
+      "title": "Lease/Heartbeat fuer planning_running implementieren",
+      "type": "implementation",
+      "priority": "high",
+      "status": "open",
+      "depends_on": ["PRI-003"],
+      "deliverables": [
+        "Lease-Start beim Planning-Beginn",
+        "Regelmaessiger Heartbeat waehrend Planning",
+        "Lease-Expiry-Handling"
+      ],
+      "acceptance_criteria": [
+        "Ohne Heartbeat verfaellt Lease nach TTL.",
+        "Abgelaufene Runs werden automatisch in terminalen Zustand ueberfuehrt."
+      ],
+      "notes": "worker_slot_lease.py und cleanup_stale_leases() existieren fuer Task-Ausfuehrung, aber NICHT fuer planning_running Goals. Infrastruktur kann wiederverwendet werden."
+    },
+    {
+      "id": "PRI-005",
+      "title": "Deadline-Guards sauber trennen: Queue-Wait vs Execute-Timeout",
+      "type": "implementation",
+      "priority": "high",
+      "status": "in_progress",
+      "depends_on": ["PRI-003", "PRI-004"],
+      "deliverables": [
+        "Eigener queue_wait_timeout",
+        "Eigener planner_execute_timeout"
+      ],
+      "acceptance_criteria": [
+        "Queue-Wartezeit triggert nicht planner_execute_timeout.",
+        "Logs/Telemetry zeigen beide Zeiten separat."
+      ],
+      "notes": "Teilweise erledigt: Deadline-Guard startet erst nach Slot-Acquire und planning_running-Transition (goals.py). Aber queue_wait_timeout und planner_execute_timeout sind noch ein gemeinsamer planning_timeout_s — separate Config-Felder und separate Telemetrie fehlen noch."
+    },
+    {
+      "id": "PRI-006",
+      "title": "Preflight-Recovery vor Goal-Start",
+      "type": "implementation",
+      "priority": "medium",
+      "status": "in_progress",
+      "depends_on": ["PRI-004"],
+      "deliverables": [
+        "Automatischer stale-run scan vor neuem Goal",
+        "Optionale Auto-Recovery (mark_failed_stale/cancel_stale)"
+      ],
+      "acceptance_criteria": [
+        "Neue Goal-Erstellung erkennt stale planning runs und bereinigt sie gemaess Policy.",
+        "Recovery ist auditierbar (Events/Logs)."
+      ],
+      "notes": "scripts/cleanup_stale_goals.py existiert mit cancel_stale_planned_goals() inkl. dry_run. Noch nicht als automatischer Preflight in den Goal-Create-Flow integriert."
+    },
+    {
+      "id": "PRI-007",
+      "title": "Goal-Purge und Goal-Cancel idempotent haerten",
+      "type": "implementation",
+      "priority": "high",
+      "status": "open",
+      "depends_on": ["PRI-001"],
+      "deliverables": [
+        "Deterministischer Cancel-Ablauf pro Goal",
+        "Mehrfachaufruf von purge/cancel bleibt sicher"
+      ],
+      "acceptance_criteria": [
+        "Zweiter Purge-Aufruf auf bereits geloeschtes Goal liefert kontrollierte Antwort.",
+        "Keine dangling tasks/runs nach erfolgreichem Purge."
+      ]
+    },
+    {
+      "id": "PRI-008",
+      "title": "Worker-Abbruchsignal pro Task/Goal verbindlich machen",
+      "type": "implementation",
+      "priority": "high",
+      "status": "open",
+      "depends_on": ["PRI-007"],
+      "deliverables": [
+        "Cancel-Signal an alle betroffenen Worker-Endpoints",
+        "Ack/Timeout/Retry-Strategie"
+      ],
+      "acceptance_criteria": [
+        "Bei Goal-Cancel werden alle offenen Task-Auftraege aktiv gestoppt.",
+        "Nicht erreichbare Worker erzeugen klare Fehlerereignisse, kein stilles Haengen."
+      ]
+    },
+    {
+      "id": "PRI-009",
+      "title": "LMStudio Circuit Breaker einfuehren",
+      "type": "implementation",
+      "priority": "high",
+      "status": "in_progress",
+      "depends_on": ["PRI-003"],
+      "deliverables": [
+        "Failure window + threshold",
+        "Open/Half-Open/Closed state",
+        "Backoff fuer neue Requests"
+      ],
+      "acceptance_criteria": [
+        "Bei wiederholten Timeout/5xx wird Circuit geoeffnet und Requests werden kurzfristig gebremst.",
+        "Half-open testet kontrolliert und schliesst bei Erfolg."
+      ],
+      "notes": "_check_circuit_breaker() in llm_integration.py vorhanden, circuit_breaker_threshold und circuit_breaker_open_seconds in config_defaults. Ob der Circuit Breaker explizit auf LMStudio-Planning-Calls wirkt, muss verifiziert werden."
+    },
+    {
+      "id": "PRI-010",
+      "title": "Rate-Limit und Backpressure fuer Planning/Propose Calls",
+      "type": "implementation",
+      "priority": "medium",
+      "status": "open",
+      "depends_on": ["PRI-009"],
+      "deliverables": [
+        "Per-provider request budget",
+        "Queue-backpressure statt request-storm"
+      ],
+      "acceptance_criteria": [
+        "LMStudio-Requestrate bleibt innerhalb definierter Obergrenze.",
+        "Bei Lastspitzen werden Calls queued oder sauber rejected mit reason code."
+      ]
+    },
+    {
+      "id": "PRI-011",
+      "title": "Reason-Codes standardisieren (Stale, Timeout, Slot, Circuit, Cancel)",
+      "type": "implementation",
+      "priority": "medium",
+      "status": "in_progress",
+      "depends_on": ["PRI-005", "PRI-009"],
+      "deliverables": [
+        "Maschinenlesbare reason_codes",
+        "Mapping in API/CLI/Logs"
+      ],
+      "acceptance_criteria": [
+        "Jeder Auto-Abbruchpfad liefert eindeutigen reason_code.",
+        "CLI kann nach reason_code filtern."
+      ],
+      "notes": "planning_slot_timeout, planning_deadline_guard_timeout, stale_released, stale_policy_decision vorhanden. Kein einheitliches Enum oder zentrales Mapping."
+    },
+    {
+      "id": "PRI-012",
+      "title": "Observability erweitern: Metriken und Health-Signale",
+      "type": "implementation",
+      "priority": "high",
+      "status": "open",
+      "depends_on": ["PRI-004", "PRI-005", "PRI-009"],
+      "deliverables": [
+        "Metriken: planning_running_age, queue_wait_seconds, stale_runs_count, circuit_state, provider_error_rate",
+        "Health summary endpoint/diagnostics"
+      ],
+      "acceptance_criteria": [
+        "Metriken sind pro Runtime/Profil aufschluesselbar.",
+        "Health zeigt klar, ob Blockade durch stale runs, slots oder provider ausgeloest wird."
+      ]
+    },
+    {
+      "id": "PRI-013",
+      "title": "CLI Diagnose-Befehle fuer Recovery/Isolation",
+      "type": "implementation",
+      "priority": "medium",
+      "status": "open",
+      "depends_on": ["PRI-011", "PRI-012"],
+      "deliverables": [
+        "ananta goal --planning-stuck",
+        "ananta goal --recover-stale",
+        "ananta goal --cancel-tree <goal_id>"
+      ],
+      "acceptance_criteria": [
+        "CLI listet stale planning runs inkl. Alter, Slot, Provider und reason_hint.",
+        "Recover/Cleanup kann dry-run und execute."
+      ]
+    },
+    {
+      "id": "PRI-014",
+      "title": "Tests: Unit fuer Slot/Lease/Circuit/Reason-Codes",
+      "type": "test",
+      "priority": "high",
+      "status": "in_progress",
+      "depends_on": ["PRI-003", "PRI-004", "PRI-009", "PRI-011"],
+      "deliverables": [
+        "Granulare Unit-Tests mit deterministischen Fixtures"
+      ],
+      "acceptance_criteria": [
+        "Tests decken Happy Path + Failure Path + Edge Cases ab.",
+        "Keine Abhaengigkeit von externem LMStudio fuer Unit-Tests."
+      ],
+      "notes": "Slot-Tests in tests/test_goals.py vorhanden (commit 87fd3d63). Lease- und Circuit-Breaker-Tests fehlen noch."
+    },
+    {
+      "id": "PRI-015",
+      "title": "Tests: Integrationsfaelle mit parallelen Goals",
+      "type": "test",
+      "priority": "high",
+      "status": "open",
+      "depends_on": ["PRI-003", "PRI-005", "PRI-007", "PRI-008"],
+      "deliverables": [
+        "2-3 Goals parallel starten",
+        "Verifikation: keine dauerhafte Blockade"
+      ],
+      "acceptance_criteria": [
+        "Mindestens ein Goal wird durchgefuehrt, waehrend andere queued warten.",
+        "Nach Cancel/Purge existieren keine laufenden orphan tasks."
+      ]
+    },
+    {
+      "id": "PRI-016",
+      "title": "Tests: Optionaler Live-Smoke gegen LMStudio",
+      "type": "test",
+      "priority": "medium",
+      "status": "open",
+      "depends_on": ["PRI-009", "PRI-010", "PRI-012"],
+      "deliverables": [
+        "Feature-flag-gesteuerter Live-Test",
+        "Skip/xfail bei fehlender LMStudio-Instanz"
+      ],
+      "acceptance_criteria": [
+        "Bei Provider-Ausfall greift Circuit/Backpressure wie spezifiziert.",
+        "Test verursacht keinen dauerhaften stuck state."
+      ]
+    },
+    {
+      "id": "PRI-017",
+      "title": "Dokumentation: Betriebshandbuch fuer Parallel Goals",
+      "type": "documentation",
+      "priority": "high",
+      "status": "open",
+      "depends_on": ["PRI-012", "PRI-013"],
+      "deliverables": [
+        "Runbook fuer Start/Stop/Recovery",
+        "Empfohlene Profilwerte pro Runtime (lmstudio_laptop, ollama_rtx3080)"
+      ],
+      "acceptance_criteria": [
+        "Dokumentation enthaelt konkrete Schwellenwerte und Troubleshooting-Entscheidungsbaum.",
+        "Clear Do/Don't fuer autonome Testlaeufe vs Produktion."
+      ]
+    },
+    {
+      "id": "PRI-018",
+      "title": "Rollout-Plan: schrittweise Aktivierung per Feature Flags",
+      "type": "release",
+      "priority": "medium",
+      "status": "open",
+      "depends_on": ["PRI-014", "PRI-015", "PRI-017"],
+      "deliverables": [
+        "Canary-Plan",
+        "Rollback-Plan",
+        "Migrationshinweise fuer bestehende Profile"
+      ],
+      "acceptance_criteria": [
+        "Rollout kann ohne Downtime und ohne API-Breaking-Changes erfolgen.",
+        "Rollback deaktiviert neue Recovery-Logik kontrolliert."
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Blockade-Schutz Basis",
+      "tasks": ["PRI-001", "PRI-002", "PRI-003"],
+      "status": "done",
+      "done_when": "Parallel-Goals blockieren sich nicht mehr ueber globalen Planner-Lock. Semaphore-basierte Slot-Verwaltung aktiv."
+    },
+    {
+      "id": "M2",
+      "title": "Stale-Recovery + sichere Abbrueche",
+      "tasks": ["PRI-004", "PRI-005", "PRI-006", "PRI-007", "PRI-008"],
+      "status": "in_progress",
+      "done_when": "Haengende Runs werden automatisch oder manuell deterministisch bereinigt. Queue-Wait und Execute-Timeout sind getrennt messbar."
+    },
+    {
+      "id": "M3",
+      "title": "Provider-Schutz LMStudio",
+      "tasks": ["PRI-009", "PRI-010", "PRI-012"],
+      "status": "in_progress",
+      "done_when": "Request-Stuerme werden verhindert und Zustand ist observierbar."
+    },
+    {
+      "id": "M4",
+      "title": "Qualitaet + Rollout",
+      "tasks": ["PRI-011", "PRI-013", "PRI-014", "PRI-015", "PRI-016", "PRI-017", "PRI-018"],
+      "status": "in_progress",
+      "done_when": "Tests, CLI-Diagnose, Doku und sicherer Rollout sind abgeschlossen."
+    }
+  ],
+  "risk_register": [
+    {
+      "id": "R-01",
+      "risk": "False positives bei stale-detection",
+      "mitigation": "Heartbeat-Interval + TTL konservativ starten, per Profil tunen, Audit-Events pruefen."
+    },
+    {
+      "id": "R-02",
+      "risk": "Zu harte Circuit-Breaker-Einstellungen reduzieren Durchsatz",
+      "mitigation": "Canary-Rollout, per-runtime Konfiguration, automatische Half-Open-Tests."
+    },
+    {
+      "id": "R-03",
+      "risk": "Cancel-Signale erreichen Worker nicht",
+      "mitigation": "Ack/Retry/Timeout + sichtbare reason_codes + manuelle recovery CLI."
+    }
+  ],
+  "definition_of_done": [
+    "Alle Tasks in M1-M4 abgeschlossen oder bewusst mit Grund verschoben.",
+    "Alle global acceptance criteria erfuellt.",
+    "Relevante Unit/Integrationstests gruen; Live-Smoke optional sauber skip/xfail-faehig.",
+    "Runbook und Profil-Empfehlungen fuer Parallelbetrieb verfuegbar."
+  ]
 }
