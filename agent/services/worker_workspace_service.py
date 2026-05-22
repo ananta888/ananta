@@ -232,6 +232,17 @@ class WorkerWorkspaceService:
             fallback="local",
         )
         scope_key = _safe_segment(workspace_cfg.get("scope_key"), fallback=f"{task_id}-{worker_job_id}")
+        effective_runtime_cfg = dict(((task or {}).get("effective_config") or {}).get("worker_runtime") or {})
+        workspace_reuse_mode = str(
+            workspace_cfg.get("workspace_reuse_mode")
+            or runtime_cfg.get("workspace_reuse_mode")
+            or effective_runtime_cfg.get("workspace_reuse_mode")
+            or ""
+        ).strip().lower()
+        if workspace_reuse_mode == "goal_worker":
+            goal_id_raw = _safe_segment((task or {}).get("goal_id"), fallback="")
+            if goal_id_raw:
+                scope_key = goal_id_raw
 
         output_dir = str(workspace_cfg.get("output_dir") or "").strip()
         workspace_dir = self._resolve_workspace_dir(
@@ -304,9 +315,12 @@ class WorkerWorkspaceService:
         """
         try:
             execution_context = dict((task or {}).get("worker_execution_context") or {})
+            effective_config = dict((task or {}).get("effective_config") or {})
+            runtime_sync_mode = str((effective_config.get("worker_runtime") or {}).get("workspace_sync_mode") or "").strip().lower()
             sync_mode = str(
                 (execution_context.get("workspace") or {}).get("sync_mode")
                 or (current_app.config.get("AGENT_CONFIG", {}) or {}).get("workspace", {}).get("sync_mode")
+                or runtime_sync_mode
                 or ""
             ).strip().lower()
             if sync_mode != "artifact_hub_sync":
