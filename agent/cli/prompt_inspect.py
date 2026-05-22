@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 
@@ -168,6 +169,43 @@ def _collect_goal_runtime_view(
             task_details[tid] = _api_data(t_res) or {}
 
     return goal_detail, tasks, traces_grouped, task_details
+
+
+def _collect_runtime_artifacts(tasks: list[dict[str, Any]], task_details: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for task in tasks:
+        tid = str((task or {}).get("id") or "").strip()
+        if not tid:
+            continue
+        detail = dict(task_details.get(tid) or {})
+        verification = detail.get("verification_status") or {}
+        if not isinstance(verification, dict):
+            verification = {}
+        execution_artifacts = verification.get("execution_artifacts")
+        if not isinstance(execution_artifacts, list):
+            continue
+        for idx, item in enumerate(execution_artifacts, start=1):
+            if not isinstance(item, dict):
+                continue
+            artifact_id = str(item.get("artifact_id") or item.get("id") or "").strip() or f"{tid}-artifact-{idx:03d}"
+            kind = str(item.get("kind") or "").strip() or "task_output"
+            path = str(
+                item.get("path")
+                or item.get("name")
+                or item.get("filename")
+                or item.get("title")
+                or item.get("workspace_relative_path")
+                or ""
+            ).strip()
+            row = dict(item)
+            row["artifact_id"] = artifact_id
+            row.setdefault("id", artifact_id)
+            row["kind"] = kind
+            if path:
+                row["path"] = path
+            row.setdefault("task_id", tid)
+            rows.append(row)
+    return rows
 
 
 # ── llm-log tail ─────────────────────────────────────────────────────────────
@@ -511,9 +549,16 @@ def cmd_prompt_goal_report(args: argparse.Namespace) -> int:
         trace_payload = {}
 
     goal_payload = goal_detail.get("goal") or {}
-    tasks = list(goal_detail.get("tasks") or [])
-    artifacts_summary = goal_detail.get("artifacts") or {}
-    artifacts = list(artifacts_summary.get("artifacts") or [])
+    tasks = [t for t in list(goal_detail.get("tasks") or []) if isinstance(t, dict)]
+    task_details: dict[str, Any] = {}
+    for task in tasks:
+        tid = str(task.get("id") or "").strip()
+        if not tid:
+            continue
+        t_res = _request("GET", f"/tasks/{tid}", timeout=20)
+        if t_res.status_code == 200:
+            task_details[tid] = _api_data(t_res) or {}
+    artifacts = _collect_runtime_artifacts(tasks, task_details)
     traces_grouped = dict(trace_payload.get("traces") or {})
 
     result = {
@@ -1448,12 +1493,7 @@ def cmd_prompt_artifact_provenance(args: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    artifacts_payload = goal_detail.get("artifacts") or {}
-    artifacts: list[dict[str, Any]] = []
-    if isinstance(artifacts_payload, dict):
-        artifacts = [a for a in list(artifacts_payload.get("artifacts") or []) if isinstance(a, dict)]
-    elif isinstance(artifacts_payload, list):
-        artifacts = [a for a in artifacts_payload if isinstance(a, dict)]
+    artifacts = _collect_runtime_artifacts(tasks, task_details)
 
     # goal-level traces overview (compact)
     trace_rows: list[dict[str, Any]] = []
@@ -1524,8 +1564,41 @@ def cmd_prompt_artifact_provenance(args: argparse.Namespace) -> int:
         "matrix": rows,
     }
 
+    out_path_raw = str(getattr(args, "out", "") or "").strip()
+    out_written: str | None = None
+    if out_path_raw:
+        out_path = Path(out_path_raw).expanduser()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        out_written = str(out_path)
+
+        if bool(getattr(args, "with_md", False)):
+            md_path = out_path.with_suffix(".md")
+            lines = [
+                "# Artifact Provenance Matrix",
+                "",
+                f"- goal_id: `{goal_id}`",
+                f"- goal_status: `{payload['goal_status'] or '-'}`",
+                f"- generated_at: `{_format_ts(float(payload.get('generated_at') or 0.0))}`",
+                f"- tasks: `{payload['task_count']}` | artifacts: `{payload['artifact_count']}` | prompt_traces: `{payload['prompt_trace_count']}`",
+                "",
+                "## Artifact Matrix",
+                "",
+                "| # | artifact_id | kind | task_id | task_status | task_kind | execution_mode | worker_url | workspace_id |",
+                "|---:|---|---|---|---|---|---|---|---|",
+            ]
+            for row in rows:
+                lines.append(
+                    f"| {row.get('row') or ''} | {row.get('artifact_id') or ''} | {row.get('artifact_kind') or ''} | "
+                    f"{row.get('task_id') or ''} | {row.get('task_status') or ''} | {row.get('task_kind') or ''} | "
+                    f"{row.get('execution_mode') or ''} | {row.get('worker_url') or ''} | {row.get('workspace_id') or ''} |"
+                )
+            md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
     if getattr(args, "json", False):
         print(json.dumps(payload, indent=2))
+        if out_written:
+            print(json.dumps({"written": out_written}))
         return 0
 
     print(f"=== Artifact Provenance: {goal_id} ===")
@@ -1552,6 +1625,10 @@ def cmd_prompt_artifact_provenance(args: argparse.Namespace) -> int:
             }
         )
     _print_table(table_rows, ["#", "artifact_id", "kind", "task_id", "status", "mode", "worker", "workspace"])
+    if out_written:
+        print(f"\nSaved JSON: {out_written}")
+        if bool(getattr(args, "with_md", False)):
+            print(f"Saved Markdown: {str(Path(out_written).with_suffix('.md'))}")
     return 0
 
 
@@ -1626,9 +1703,13 @@ def build_prompt_subparser(subparsers) -> None:
     ap_p = prompt_sub.add_parser("artifact-provenance", help="Show artifact provenance matrix for a goal")
     ap_p.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
     ap_p.add_argument("--json", action="store_true", help="JSON output")
+    ap_p.add_argument("--out", default="", help="Write JSON output to this path")
+    ap_p.add_argument("--with-md", dest="with_md", action="store_true", help="Also write a Markdown table next to --out")
     ap_alias = prompt_sub.add_parser("goal-artifact-matrix", help="Alias for artifact-provenance")
     ap_alias.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
     ap_alias.add_argument("--json", action="store_true", help="JSON output")
+    ap_alias.add_argument("--out", default="", help="Write JSON output to this path")
+    ap_alias.add_argument("--with-md", dest="with_md", action="store_true", help="Also write a Markdown table next to --out")
 
 
 def build_llm_log_subparser(subparsers) -> None:
