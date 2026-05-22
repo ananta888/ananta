@@ -616,6 +616,17 @@ def kill_task_requests(tid):
     return api_response(data=result)
 
 
+@management_bp.route("/internal/tasks/<tid>/kill-requests", methods=["POST"])
+@check_auth
+def kill_task_requests_internal(tid):
+    """Internal fanout endpoint: abort in-flight provider requests for one task locally."""
+    task_id = str(tid or "").strip()
+    if not task_id:
+        return api_response(status="error", message="task_id required", code=400)
+    result = get_request_cancellation_service().cancel_task_requests(task_id=task_id, include_workers=False)
+    return api_response(data=result)
+
+
 @management_bp.route("/tasks/<tid>/subtask-callback", methods=["POST"])
 @check_auth
 def subtask_callback(tid):

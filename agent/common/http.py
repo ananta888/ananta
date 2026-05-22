@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import Any, Optional
 
 import requests
@@ -134,6 +135,46 @@ class HttpClient:
                     tracked_session = requests.Session()
                     tracked_key = register_existing_session(tracked_session)
                     request_session = tracked_session
+                    request_box: dict[str, Any] = {"done": False, "response": None, "error": None}
+
+                    def _do_request() -> None:
+                        try:
+                            if form:
+                                request_box["response"] = request_session.post(
+                                    url, data=data or {}, headers=headers, timeout=effective_timeout
+                                )
+                            else:
+                                request_box["response"] = request_session.post(
+                                    url, json=data or {}, headers=headers, timeout=effective_timeout
+                                )
+                        except Exception as exc:
+                            request_box["error"] = exc
+                        finally:
+                            request_box["done"] = True
+
+                    req_thread = threading.Thread(target=_do_request, daemon=True)
+                    req_thread.start()
+                    from agent.services.lmstudio_request_registry import is_cancelled
+
+                    while not request_box["done"]:
+                        if is_cancelled(goal_id, task_id):
+                            try:
+                                request_session.close()
+                            except Exception:
+                                pass
+                            return None
+                        req_thread.join(timeout=0.2)
+
+                    if request_box["error"] is not None:
+                        raise request_box["error"]
+                    r = request_box["response"]
+                    if return_response:
+                        return r
+                    r.raise_for_status()
+                    try:
+                        return r.json()
+                    except ValueError:
+                        return r.text
             except Exception:
                 # Tracking is best-effort and must never break normal HTTP behavior.
                 tracked_key = None
