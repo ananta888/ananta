@@ -20,7 +20,7 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             # Conservative profile for Big Pickle + LMStudio planning.
             # Serial planning to avoid contention, bounded timeouts.
             "planning_policy": {
-                "timeout_seconds": 480,
+                "timeout_seconds": 900,
                 "parallel_goal_planning_max_concurrency": 1,
                 "segmented_planning_enabled": True,
                 "segment_context_chars": 1800,
@@ -31,8 +31,8 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
                 "default_runtime_profile": "lmstudio_laptop",
                 "runtime_profiles": {
                     "lmstudio_laptop": {
-                        "timeout_seconds": 420,
-                        "max_output_tokens": 1000,
+                        "timeout_seconds": 700,
+                        "max_output_tokens": 1600,
                         "retry_attempts": 1,
                         "retry_backoff_seconds": 1.0,
                         "segmented_planning_enabled": True,
@@ -61,11 +61,24 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             },
             # Keep planner runs bounded for local LMStudio E2E stability.
             "planning_policy": {
-                "timeout_seconds": 420,
+                "timeout_seconds": 540,
                 "parallel_goal_planning_max_concurrency": 1,
                 "segment_context_chars": 6000,
-                "max_output_tokens": 1200,
+                "max_output_tokens": 1600,
                 "max_segments": 2,
+                "default_runtime_profile": "lmstudio_laptop",
+                "runtime_profiles": {
+                    "lmstudio_laptop": {
+                        "timeout_seconds": 700,
+                        "max_output_tokens": 1600,
+                        "retry_attempts": 1,
+                        "retry_backoff_seconds": 1.0,
+                        "segmented_planning_enabled": True,
+                        "segment_context_chars": 5000,
+                        "max_segments": 2,
+                        "preferred_output_format": "json",
+                    }
+                },
                 # E2E ramp-up: keep quality checks active but reduce false-negative
                 # planning hard-fails for smaller/local models in autonomous runs.
                 "validation_profiles": {
