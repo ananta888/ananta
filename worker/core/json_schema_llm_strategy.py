@@ -6,6 +6,7 @@ import json
 from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 from worker.core.propose import ProposeStrategyResult, ExecutableProposal
 from agent.services.model_invocation_service import ModelInvocationService, LLMUnavailableError
+from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
 from agent.services.prompt_context_bundle_service import get_prompt_context_bundle_service
 
 _MOCK_ONLY_PROVIDERS = {"mock"}
@@ -62,11 +63,16 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
         )
 
         try:
+            timeout_seconds = resolve_propose_llm_timeout_seconds(
+                effective_config=context.effective_config,
+                task_kind=str((context.task or {}).get("task_kind") or "").strip().lower() or None,
+            )
             llm_result = ModelInvocationService.invoke_with_json_schema_result(
                 prompt=prompt,
                 json_schema=self.JSON_SCHEMA,
                 model=None,
                 system_prompt=_SCHEMA_SYSTEM_PROMPT,
+                timeout=timeout_seconds,
             )
         except LLMUnavailableError as exc:
             return ProposeStrategyResult.declined(

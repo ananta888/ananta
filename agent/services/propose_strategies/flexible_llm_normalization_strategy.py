@@ -7,6 +7,7 @@ from worker.core.propose_orchestrator import ProposeContext, ProposeStrategy
 from worker.core.propose import ProposeStrategyResult
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from agent.services.model_invocation_service import ModelInvocationService, LLMUnavailableError
+from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
 
 _JSON_SYSTEM_PROMPT = (
     "You are a software engineering assistant. "
@@ -49,9 +50,14 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
         llm_profile: list[dict] = []
         try:
+            timeout_seconds = resolve_propose_llm_timeout_seconds(
+                effective_config=context.effective_config,
+                task_kind=str((context.task or {}).get("task_kind") or "").strip().lower() or None,
+            )
             llm_result = ModelInvocationService.invoke_result(
                 prompt=context.base_prompt,
                 system_prompt=_JSON_SYSTEM_PROMPT,
+                timeout=timeout_seconds,
             )
             raw = str(llm_result.get("content") or "")
             llm_profile = [

@@ -9,6 +9,7 @@ from agent.services.model_invocation_service import ModelInvocationService, LLMU
 from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from agent.services.context_bundle_service import ContextBundler
 from agent.services.prompt_context_bundle_service import get_prompt_context_bundle_service
+from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
 
 _MOCK_ONLY_PROVIDERS = {"mock"}
 
@@ -85,11 +86,16 @@ class ToolCallingLLMStrategy(ProposeStrategy):
                 allowed_tool_names.add(fn_name)
 
         try:
+            timeout_seconds = resolve_propose_llm_timeout_seconds(
+                effective_config=context.effective_config,
+                task_kind=str((context.task or {}).get("task_kind") or "").strip().lower() or None,
+            )
             llm_response = ModelInvocationService.invoke_with_tools(
                 prompt=context.base_prompt,
                 tools=tools,
                 model=None,
                 system_prompt=_build_system_prompt(context),
+                timeout=timeout_seconds,
             )
         except LLMUnavailableError as exc:
             return ProposeStrategyResult.declined(

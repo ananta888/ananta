@@ -136,6 +136,44 @@ class ModelInvocationService:
             base = base + "/chat/completions"
         return provider, base, None
 
+    @staticmethod
+    def _normalize_openai_tools(tools: list | None) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for item in list(tools or []):
+            if not isinstance(item, dict):
+                continue
+            item_type = str(item.get("type") or "").strip().lower()
+            if item_type == "function" and isinstance(item.get("function"), dict):
+                normalized.append(item)
+                continue
+            name = str(item.get("name") or "").strip()
+            if not name:
+                fn = item.get("function") if isinstance(item.get("function"), dict) else {}
+                name = str(fn.get("name") or "").strip()
+            if not name:
+                continue
+            description = str(item.get("description") or "").strip()
+            if not description:
+                fn = item.get("function") if isinstance(item.get("function"), dict) else {}
+                description = str(fn.get("description") or "").strip()
+            parameters = item.get("parameters")
+            if not isinstance(parameters, dict):
+                fn = item.get("function") if isinstance(item.get("function"), dict) else {}
+                parameters = fn.get("parameters")
+            if not isinstance(parameters, dict):
+                parameters = {"type": "object", "properties": {}}
+            normalized.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": description,
+                        "parameters": parameters,
+                    },
+                }
+            )
+        return normalized
+
     @classmethod
     def _make_chat_call(
         cls,
@@ -164,7 +202,7 @@ class ModelInvocationService:
 
         body: dict[str, Any] = {"model": effective_model, "messages": messages}
         if tools:
-            body["tools"] = tools
+            body["tools"] = cls._normalize_openai_tools(tools)
             body["tool_choice"] = "auto"
         if response_format:
             body["response_format"] = response_format
@@ -255,7 +293,12 @@ class ModelInvocationService:
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
 
-        response = cls._make_chat_call(messages, tools=tools, model=model)
+        response = cls._make_chat_call(
+            messages,
+            tools=tools,
+            model=model,
+            timeout=kwargs.get("timeout"),
+        )
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") or {}
 
@@ -306,7 +349,12 @@ class ModelInvocationService:
         messages = [{"role": "user", "content": prompt}]
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
-        response = cls._make_chat_call(messages, response_format={"type": "json_object"}, model=model)
+        response = cls._make_chat_call(
+            messages,
+            response_format={"type": "json_object"},
+            model=model,
+            timeout=kwargs.get("timeout"),
+        )
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") if isinstance(choice, dict) else {}
         metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
@@ -336,7 +384,7 @@ class ModelInvocationService:
         messages = [{"role": "user", "content": prompt}]
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
-        response = cls._make_chat_call(messages, model=model)
+        response = cls._make_chat_call(messages, model=model, timeout=kwargs.get("timeout"))
         choice = (response.get("choices") or [{}])[0]
         msg = choice.get("message") if isinstance(choice, dict) else {}
         metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
