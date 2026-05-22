@@ -1437,6 +1437,124 @@ def cmd_prompt_goal_execmap(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prompt_artifact_provenance(args: argparse.Namespace) -> int:
+    goal_id = str(getattr(args, "goal_id", "") or "").strip()
+    if not goal_id:
+        print("Error: --goal-id is required", file=sys.stderr)
+        return 2
+    try:
+        goal_detail, tasks, traces_grouped, task_details = _collect_goal_runtime_view(goal_id)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    artifacts_payload = goal_detail.get("artifacts") or {}
+    artifacts: list[dict[str, Any]] = []
+    if isinstance(artifacts_payload, dict):
+        artifacts = [a for a in list(artifacts_payload.get("artifacts") or []) if isinstance(a, dict)]
+    elif isinstance(artifacts_payload, list):
+        artifacts = [a for a in artifacts_payload if isinstance(a, dict)]
+
+    # goal-level traces overview (compact)
+    trace_rows: list[dict[str, Any]] = []
+    for kind, items in sorted(traces_grouped.items()):
+        for item in list(items or []):
+            if not isinstance(item, dict):
+                continue
+            trace_rows.append(
+                {
+                    "trace_id": str(item.get("trace_id") or ""),
+                    "kind": kind,
+                    "provider": str(item.get("provider") or ""),
+                    "model": str(item.get("model") or ""),
+                    "ok": item.get("success"),
+                    "created_at": item.get("created_at"),
+                }
+            )
+
+    rows: list[dict[str, Any]] = []
+    for idx, artifact in enumerate(artifacts, start=1):
+        task_id = str(artifact.get("task_id") or "").strip()
+        task = dict(task_details.get(task_id) or {})
+        verification = task.get("verification_status") or {}
+        if not isinstance(verification, dict):
+            verification = {}
+        scope = verification.get("execution_scope") or {}
+        if not isinstance(scope, dict):
+            scope = {}
+        provenance = verification.get("execution_provenance") or {}
+        if not isinstance(provenance, dict):
+            provenance = {}
+        llm_diag = verification.get("llm_diagnostics") or {}
+        if not isinstance(llm_diag, dict):
+            llm_diag = {}
+
+        rows.append(
+            {
+                "row": idx,
+                "artifact_id": str(artifact.get("id") or artifact.get("artifact_id") or ""),
+                "artifact_kind": str(artifact.get("kind") or ""),
+                "artifact_path": str(artifact.get("path") or artifact.get("name") or ""),
+                "task_id": task_id,
+                "task_status": str(task.get("status") or ""),
+                "task_kind": str(task.get("task_kind") or ""),
+                "task_title": str(task.get("title") or ""),
+                "execution_mode": str(provenance.get("execution_mode") or ""),
+                "worker_url": str(scope.get("worker_url") or ""),
+                "workspace_id": str(scope.get("workspace_id") or ""),
+                "lease_id": str(scope.get("lease_id") or ""),
+                "executor_container": str(scope.get("executor_container") or ""),
+                "llm_inference_provider": str(llm_diag.get("inference_provider") or ""),
+                "llm_inference_model": str(llm_diag.get("inference_model") or ""),
+                "llm_propose_backend": str(llm_diag.get("propose_backend") or ""),
+                "llm_propose_model": str(llm_diag.get("propose_model") or ""),
+                "current_worker_job_id": str(task.get("current_worker_job_id") or ""),
+            }
+        )
+
+    payload = {
+        "schema": "artifact_provenance_matrix.v1",
+        "generated_at": time.time(),
+        "goal_id": goal_id,
+        "goal_status": str((goal_detail.get("goal") or {}).get("status") or ""),
+        "task_count": len(tasks),
+        "artifact_count": len(artifacts),
+        "prompt_trace_count": len(trace_rows),
+        "prompt_traces": trace_rows,
+        "matrix": rows,
+    }
+
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    print(f"=== Artifact Provenance: {goal_id} ===")
+    print(f"Status:         {payload['goal_status'] or '-'}")
+    print(f"Tasks:          {payload['task_count']}")
+    print(f"Artifacts:      {payload['artifact_count']}")
+    print(f"Prompt Traces:  {payload['prompt_trace_count']}")
+    if not rows:
+        print("(no artifacts)")
+        return 0
+    print()
+    table_rows = []
+    for row in rows:
+        table_rows.append(
+            {
+                "#": str(row.get("row") or ""),
+                "artifact_id": str(row.get("artifact_id") or "")[:16],
+                "kind": str(row.get("artifact_kind") or "")[:12],
+                "task_id": str(row.get("task_id") or "")[:14],
+                "status": str(row.get("task_status") or "")[:12],
+                "mode": str(row.get("execution_mode") or "")[:20],
+                "worker": str(row.get("worker_url") or "")[:34],
+                "workspace": str(row.get("workspace_id") or "")[:18],
+            }
+        )
+    _print_table(table_rows, ["#", "artifact_id", "kind", "task_id", "status", "mode", "worker", "workspace"])
+    return 0
+
+
 # ── Subparser builder ─────────────────────────────────────────────────────────
 
 def build_prompt_subparser(subparsers) -> None:
@@ -1505,6 +1623,12 @@ def build_prompt_subparser(subparsers) -> None:
     ge_p = prompt_sub.add_parser("goal-execmap", help="Group tasks by inferred executor")
     ge_p.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
     ge_p.add_argument("--json", action="store_true", help="JSON output")
+    ap_p = prompt_sub.add_parser("artifact-provenance", help="Show artifact provenance matrix for a goal")
+    ap_p.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
+    ap_p.add_argument("--json", action="store_true", help="JSON output")
+    ap_alias = prompt_sub.add_parser("goal-artifact-matrix", help="Alias for artifact-provenance")
+    ap_alias.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
+    ap_alias.add_argument("--json", action="store_true", help="JSON output")
 
 
 def build_llm_log_subparser(subparsers) -> None:
@@ -1552,8 +1676,17 @@ def run_prompt_command(args: argparse.Namespace) -> int:
         return cmd_prompt_goal_stuck(args)
     elif cmd == "goal-execmap":
         return cmd_prompt_goal_execmap(args)
+    elif cmd == "artifact-provenance":
+        return cmd_prompt_artifact_provenance(args)
+    elif cmd == "goal-artifact-matrix":
+        return cmd_prompt_artifact_provenance(args)
     else:
-        print("Usage: ananta prompt {inspect,render,goal-traces,goal-report,delegation-report,task-report,task-traces,task-inspect,learning-report,learning-status,planner-profiles,goal-flows,task-why,goal-stuck,goal-execmap} --help")
+        print(
+            "Usage: ananta prompt "
+            "{inspect,render,goal-traces,goal-report,delegation-report,task-report,task-traces,task-inspect,"
+            "learning-report,learning-status,planner-profiles,goal-flows,task-why,goal-stuck,goal-execmap,"
+            "artifact-provenance,goal-artifact-matrix} --help"
+        )
         return 2
 
 
