@@ -17,22 +17,22 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
         description="OpenCode worker with preconfigured default model",
         overrides={
             "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
-            # Priority profile for Big Pickle + LMStudio planning in autonomous runs.
-            # Allow small parallelism across goals while keeping stronger planner/propose budgets.
+            # Conservative profile for Big Pickle + LMStudio planning.
+            # Serial planning to avoid contention, bounded timeouts.
             "planning_policy": {
-                "timeout_seconds": 720,
-                "parallel_goal_planning_max_concurrency": 2,
+                "timeout_seconds": 480,
+                "parallel_goal_planning_max_concurrency": 1,
                 "segmented_planning_enabled": True,
                 "segment_context_chars": 1800,
-                "max_segments": 3,
-                "max_output_tokens": 1400,
+                "max_segments": 2,
+                "max_output_tokens": 1600,
                 "preferred_output_format": "json",
-                "selective_repair_rounds": 2,
+                "selective_repair_rounds": 1,
                 "default_runtime_profile": "lmstudio_laptop",
                 "runtime_profiles": {
                     "lmstudio_laptop": {
-                        "timeout_seconds": 540,
-                        "max_output_tokens": 1100,
+                        "timeout_seconds": 420,
+                        "max_output_tokens": 1000,
                         "retry_attempts": 1,
                         "retry_backoff_seconds": 1.0,
                         "segmented_planning_enabled": True,
@@ -62,8 +62,9 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             # Keep planner runs bounded for local LMStudio E2E stability.
             "planning_policy": {
                 "timeout_seconds": 420,
+                "parallel_goal_planning_max_concurrency": 1,
                 "segment_context_chars": 6000,
-                "max_output_tokens": 1500,
+                "max_output_tokens": 1200,
                 "max_segments": 2,
                 # E2E ramp-up: keep quality checks active but reduce false-negative
                 # planning hard-fails for smaller/local models in autonomous runs.
