@@ -129,7 +129,9 @@ class HttpClient:
 
                 goal_id, task_id = _get_current_context()
                 if goal_id or task_id:
-                    tracked_session = create_session(retries=self.retries)
+                    # Use a plain session for tracked in-flight calls so close() can
+                    # interrupt blocked requests similarly to the LMStudio path.
+                    tracked_session = requests.Session()
                     tracked_key = register_existing_session(tracked_session)
                     request_session = tracked_session
             except Exception:
