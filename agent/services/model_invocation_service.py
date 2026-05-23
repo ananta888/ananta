@@ -190,8 +190,7 @@ class ModelInvocationService:
 
         effective_model = model
         if not effective_model or effective_model == "auto":
-            default = s.default_model
-            effective_model = default if (default and default != "auto") else "local-model"
+            effective_model = s.default_model
 
         if timeout is None:
             timeout = int(getattr(s, "llm_invoke_timeout_seconds", None) or 120)
