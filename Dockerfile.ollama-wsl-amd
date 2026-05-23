@@ -66,7 +66,7 @@ RUN printf '%s\n' \
         > /etc/apt/sources.list.d/kisak-turtle.sources \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        mesa-vulkan-drivers=25.3.6~kisak1~n \
+        mesa-vulkan-drivers \
     && test -f /usr/share/vulkan/icd.d/dzn_icd.json \
     && test -f /usr/lib/x86_64-linux-gnu/libvulkan_dzn.so \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
