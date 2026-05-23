@@ -208,6 +208,36 @@ def _collect_runtime_artifacts(tasks: list[dict[str, Any]], task_details: dict[s
     return rows
 
 
+def _worker_debug_request(
+    worker_url: str,
+    path: str,
+    *,
+    token: str | None = None,
+    params: dict | None = None,
+    timeout: int = 20,
+) -> tuple[int, dict[str, Any]]:
+    try:
+        import requests
+    except Exception:
+        return 0, {"error": "requests_unavailable"}
+    base = str(worker_url or "").strip().rstrip("/")
+    if not base:
+        return 0, {"error": "missing_worker_url"}
+    endpoint = path if str(path).startswith("/") else f"/{path}"
+    url = f"{base}{endpoint}"
+    headers: dict[str, str] = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    try:
+        res = requests.get(url, params=params or {}, headers=headers, timeout=timeout)
+        payload = res.json() if res.content else {}
+        if not isinstance(payload, dict):
+            payload = {"raw": payload}
+        return int(res.status_code), payload
+    except Exception as exc:
+        return 0, {"error": str(exc)}
+
+
 # ── llm-log tail ─────────────────────────────────────────────────────────────
 
 def cmd_llm_log_tail(args: argparse.Namespace) -> int:
@@ -1632,6 +1662,154 @@ def cmd_prompt_artifact_provenance(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prompt_goal_worker_traces(args: argparse.Namespace) -> int:
+    goal_id = str(getattr(args, "goal_id", "") or "").strip()
+    if not goal_id:
+        print("Error: --goal-id is required", file=sys.stderr)
+        return 2
+    propose_only = bool(getattr(args, "propose_only", False))
+    include_full = bool(getattr(args, "full", False))
+    limit = int(getattr(args, "limit", 80) or 80)
+    try:
+        goal_detail, tasks, _traces_grouped, task_details = _collect_goal_runtime_view(goal_id)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    workers: dict[str, dict[str, Any]] = {}
+    rows: list[dict[str, Any]] = []
+    for task in tasks:
+        tid = str(task.get("id") or "").strip()
+        if not tid:
+            continue
+        detail = dict(task_details.get(tid) or {})
+        worker_url = str(detail.get("assigned_agent_url") or task.get("assigned_agent_url") or "").strip()
+        worker_token = str(detail.get("assigned_agent_token") or "").strip() or None
+        if not worker_url:
+            continue
+        if worker_url not in workers:
+            workers[worker_url] = {"ok": 0, "fail": 0}
+        status, payload = _worker_debug_request(
+            worker_url,
+            "/debug/llm-requests",
+            token=worker_token,
+            params={"task_id": tid, "limit": limit},
+            timeout=25,
+        )
+        if status != 200:
+            workers[worker_url]["fail"] += 1
+            rows.append(
+                {
+                    "task_id": tid,
+                    "task_status": str(task.get("status") or ""),
+                    "worker_url": worker_url,
+                    "error": str((payload or {}).get("message") or (payload or {}).get("error") or f"http_{status}"),
+                    "traces": [],
+                }
+            )
+            continue
+        workers[worker_url]["ok"] += 1
+        traces = list((payload.get("traces") if isinstance(payload, dict) else []) or [])
+        trace_rows: list[dict[str, Any]] = []
+        for item in traces:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("task_id") or "").strip() != tid:
+                continue
+            if propose_only and not _is_propose_like_request_kind(str(item.get("request_kind") or "")):
+                continue
+            row = {
+                "trace_id": str(item.get("trace_id") or ""),
+                "request_id": str(item.get("request_id") or ""),
+                "request_kind": str(item.get("request_kind") or ""),
+                "provider": str(item.get("provider") or ""),
+                "model": str(item.get("model") or ""),
+                "success": item.get("success"),
+                "latency_ms": item.get("latency_ms"),
+                "created_at": item.get("created_at"),
+                "prompt_preview_redacted": str(item.get("prompt_preview_redacted") or ""),
+                "prompt_hash_sha256": str(item.get("prompt_hash_sha256") or ""),
+                "response_hash_sha256": str(item.get("response_hash_sha256") or ""),
+            }
+            if include_full and row["trace_id"]:
+                d_status, d_payload = _worker_debug_request(
+                    worker_url,
+                    f"/debug/llm-requests/{row['trace_id']}",
+                    token=worker_token,
+                    timeout=25,
+                )
+                if d_status == 200 and isinstance(d_payload, dict):
+                    detail_payload = dict((d_payload.get("data") if isinstance(d_payload.get("data"), dict) else d_payload))
+                    row["detail"] = {
+                        "final_prompt_redacted": detail_payload.get("final_prompt_redacted"),
+                        "messages_redacted": detail_payload.get("messages_redacted"),
+                        "error_type": detail_payload.get("error_type"),
+                        "error_message": detail_payload.get("error_message"),
+                        "usage": detail_payload.get("usage"),
+                    }
+            trace_rows.append(row)
+
+        trace_rows.sort(key=lambda item: float(item.get("created_at") or 0.0))
+        rows.append(
+            {
+                "task_id": tid,
+                "task_status": str(task.get("status") or ""),
+                "task_title": str(task.get("title") or ""),
+                "worker_url": worker_url,
+                "error": None,
+                "traces": trace_rows,
+            }
+        )
+
+    total_traces = sum(len(item.get("traces") or []) for item in rows)
+    payload = {
+        "goal_id": goal_id,
+        "goal_status": str((goal_detail.get("goal") or {}).get("status") or ""),
+        "propose_only": propose_only,
+        "full": include_full,
+        "worker_count": len(workers),
+        "workers": [{"worker_url": url, **stats} for url, stats in sorted(workers.items())],
+        "task_count": len(tasks),
+        "task_rows": rows,
+        "trace_count": total_traces,
+    }
+
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    print(f"=== Goal Worker Traces: {goal_id} ===")
+    print(f"Status:         {payload['goal_status'] or '-'}")
+    print(f"Tasks:          {payload['task_count']}")
+    print(f"Workers:        {payload['worker_count']}")
+    print(f"Trace Count:    {payload['trace_count']}")
+    print(f"Propose Only:   {propose_only}")
+    print(f"Full Detail:    {include_full}")
+    print()
+    table_rows: list[dict[str, Any]] = []
+    for item in rows:
+        table_rows.append(
+            {
+                "task_id": str(item.get("task_id") or "")[:14],
+                "status": str(item.get("task_status") or "")[:12],
+                "worker": str(item.get("worker_url") or "")[:34],
+                "traces": str(len(item.get("traces") or [])),
+                "error": str(item.get("error") or "")[:36],
+            }
+        )
+    _print_table(table_rows, ["task_id", "status", "worker", "traces", "error"])
+    print("\n--- Trace Preview ---")
+    for item in rows:
+        tid = str(item.get("task_id") or "")
+        for tr in list(item.get("traces") or [])[:5]:
+            print(
+                f"- {tid} {str(tr.get('trace_id') or '')[:16]} kind={tr.get('request_kind') or '-'} "
+                f"provider={tr.get('provider') or '-'} model={str(tr.get('model') or '')[:20]} ok={tr.get('success')}"
+            )
+            print(f"  prompt={str(tr.get('prompt_preview_redacted') or '-')[:180]}")
+    return 0
+
+
 # ── Subparser builder ─────────────────────────────────────────────────────────
 
 def build_prompt_subparser(subparsers) -> None:
@@ -1710,6 +1888,12 @@ def build_prompt_subparser(subparsers) -> None:
     ap_alias.add_argument("--json", action="store_true", help="JSON output")
     ap_alias.add_argument("--out", default="", help="Write JSON output to this path")
     ap_alias.add_argument("--with-md", dest="with_md", action="store_true", help="Also write a Markdown table next to --out")
+    gwt_p = prompt_sub.add_parser("goal-worker-traces", help="Fetch worker-side prompt traces for all tasks in a goal")
+    gwt_p.add_argument("--goal-id", dest="goal_id", required=True, help="Goal ID")
+    gwt_p.add_argument("--propose-only", dest="propose_only", action="store_true", help="Show only propose-like traces")
+    gwt_p.add_argument("--full", action="store_true", help="Also fetch per-trace detail from workers")
+    gwt_p.add_argument("--limit", type=int, default=80, help="Per-task trace fetch limit (default: 80)")
+    gwt_p.add_argument("--json", action="store_true", help="JSON output")
 
 
 def build_llm_log_subparser(subparsers) -> None:
@@ -1761,12 +1945,14 @@ def run_prompt_command(args: argparse.Namespace) -> int:
         return cmd_prompt_artifact_provenance(args)
     elif cmd == "goal-artifact-matrix":
         return cmd_prompt_artifact_provenance(args)
+    elif cmd == "goal-worker-traces":
+        return cmd_prompt_goal_worker_traces(args)
     else:
         print(
             "Usage: ananta prompt "
             "{inspect,render,goal-traces,goal-report,delegation-report,task-report,task-traces,task-inspect,"
             "learning-report,learning-status,planner-profiles,goal-flows,task-why,goal-stuck,goal-execmap,"
-            "artifact-provenance,goal-artifact-matrix} --help"
+            "artifact-provenance,goal-artifact-matrix,goal-worker-traces} --help"
         )
         return 2
 
