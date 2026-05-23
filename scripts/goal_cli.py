@@ -186,7 +186,7 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
                 "planner_llm_retry_attempts": 0,
             },
         },
-        "autopilot_task_propose_hard_guard_status": "needs_review",
+        "autopilot_task_propose_hard_guard_status": "todo",
     }
     r = requests.post(f"{base}/config", json=policy, headers=_headers(token), timeout=15)
     if not r.ok:
