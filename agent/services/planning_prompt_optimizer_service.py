@@ -24,7 +24,7 @@ class PlanningPromptOptimizerService:
         ).strip().lower()
 
         extra_rules: list[str] = []
-        if observed_shape in {"json_in_markdown_fence", "markdown_bullets", "numbered_steps", "yaml_like"}:
+        if observed_shape in {"json_in_markdown_fence", "markdown_bullets", "numbered_steps", "yaml_like", "partial_json"}:
             extra_rules.append("Adapt to the model's observed output style during the learning phase instead of forcing a rigid one.")
             if observed_shape == "json_in_markdown_fence":
                 extra_rules.append("JSON wrapped in markdown fences is acceptable if the JSON remains complete and parseable.")
@@ -32,6 +32,8 @@ class PlanningPromptOptimizerService:
                 extra_rules.append("Markdown lists are acceptable; keep each item concrete and normalizable.")
             elif observed_shape == "yaml_like":
                 extra_rules.append("YAML-like key/value output is acceptable if it stays short and unambiguous.")
+            elif observed_shape == "partial_json":
+                extra_rules.append("Partial or truncated JSON is acceptable; produce valid JSON objects one at a time, each on its own line.")
         if str(learning_state.get("state") or "").strip().lower() in {"learning", "candidate"}:
             extra_rules.append("Treat the current model output style as a learning signal and prefer the least disruptive repair path.")
         if style in {"no_markdown_explicit", "json_schema_first"} or str(profile.get("markdown_handling") or "") == "forbid":
@@ -47,7 +49,7 @@ class PlanningPromptOptimizerService:
         elif output_format == "markdown":
             extra_rules.append("Output markdown bullet list only. One actionable task per bullet.")
         elif output_format == "json":
-            if observed_shape in {"json_in_markdown_fence", "markdown_bullets", "numbered_steps", "yaml_like"}:
+            if observed_shape in {"json_in_markdown_fence", "markdown_bullets", "numbered_steps", "yaml_like", "partial_json"}:
                 extra_rules.append("Return a structured task list in the format that works best for this model. Ensure the output is parseable into concrete tasks.")
             else:
                 extra_rules.append("Output strict JSON only. No markdown fences, no prose.")
