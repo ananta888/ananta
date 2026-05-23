@@ -209,6 +209,12 @@ def _run_prompt(argv: Sequence[str]) -> int:
     ap_alias.add_argument("--json", action="store_true")
     ap_alias.add_argument("--out", default="")
     ap_alias.add_argument("--with-md", dest="with_md", action="store_true")
+    gwt_p = sub_sub.add_parser("goal-worker-traces", help="Fetch worker-side prompt traces for all tasks in a goal")
+    gwt_p.add_argument("--goal-id", dest="goal_id", required=True)
+    gwt_p.add_argument("--propose-only", dest="propose_only", action="store_true")
+    gwt_p.add_argument("--full", action="store_true")
+    gwt_p.add_argument("--limit", type=int, default=80)
+    gwt_p.add_argument("--json", action="store_true")
 
     if not argv or argv[0] in ("-h", "--help"):
         sub_parser.print_help()
