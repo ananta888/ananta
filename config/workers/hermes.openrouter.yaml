@@ -1,0 +1,127 @@
+# Hermes worker configuration for Ananta
+# Goal: cheap, stable cloud-only setup without OpenRouter :free models.
+#
+# Required environment variables:
+#   OPENROUTER_API_KEY=<your-openrouter-key>
+#
+# Notes:
+# - Free OpenRouter models are intentionally not used as primary/auxiliary backends.
+# - Agentic Hermes runs create many small requests; :free models hit rate limits quickly.
+# - Retries are kept low so failures fall through instead of hammering one backend.
+
+worker:
+  type: hermes
+  name: hermes-openrouter-cheap
+  enabled: true
+
+provider:
+  name: openrouter
+  base_url: https://openrouter.ai/api/v1
+  api_key_env: OPENROUTER_API_KEY
+
+models:
+  primary:
+    provider: openrouter
+    model: google/gemini-2.5-flash
+    purpose: general_agentic_work
+
+  coding_fallback:
+    provider: openrouter
+    model: deepseek/deepseek-v4-flash
+    purpose: coding_and_repo_analysis
+
+  cheap_fallback:
+    provider: openrouter
+    model: google/gemini-2.5-flash-lite
+    purpose: cheap_summary_or_retry
+
+runtime:
+  api_max_retries: 1
+  parallel_requests: 1
+  request_timeout_seconds: 180
+  stream: true
+
+  # Important for Hermes / tool workflows:
+  prefer_tool_calls: true
+  require_structured_outputs: true
+  reject_markdown_wrapped_json: true
+
+auxiliary:
+  approval:
+    provider: openrouter
+    model: google/gemini-2.5-flash-lite
+    timeout_seconds: 30
+
+  compression:
+    provider: openrouter
+    model: google/gemini-2.5-flash-lite
+    timeout_seconds: 120
+
+  curator:
+    provider: openrouter
+    model: google/gemini-2.5-flash
+    timeout_seconds: 180
+
+  mcp:
+    provider: openrouter
+    model: google/gemini-2.5-flash-lite
+    timeout_seconds: 45
+
+  skills_hub:
+    provider: openrouter
+    model: google/gemini-2.5-flash-lite
+    timeout_seconds: 45
+
+  title_generation:
+    provider: openrouter
+    model: google/gemini-2.5-flash-lite
+    timeout_seconds: 30
+
+  triage_specifier:
+    provider: openrouter
+    model: google/gemini-2.5-flash
+    timeout_seconds: 120
+
+  web_extract:
+    provider: openrouter
+    model: google/gemini-2.5-flash-lite
+    timeout_seconds: 120
+
+fallback_policy:
+  on_status:
+    - 404
+    - 408
+    - 409
+    - 429
+    - 500
+    - 502
+    - 503
+    - 504
+  order:
+    - google/gemini-2.5-flash
+    - deepseek/deepseek-v4-flash
+    - google/gemini-2.5-flash-lite
+  max_total_attempts: 3
+  backoff:
+    initial_seconds: 1
+    max_seconds: 8
+    jitter: true
+
+safety:
+  default_deny_tools: true
+  require_explicit_tool_allowlist: true
+  block_secret_exfiltration: true
+  redact_environment_variables: true
+
+context:
+  max_input_tokens: 120000
+  summarize_commit_ranges: true
+  summarize_large_diffs: true
+  include_git_status: true
+  include_recent_commits: 20
+
+logging:
+  log_model_selection: true
+  log_fallbacks: true
+  log_rate_limits: true
+  redact_api_keys: true
