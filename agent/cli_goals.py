@@ -771,13 +771,16 @@ def submit_goal(
         payload["use_template"] = use_template
 
     response = _request("POST", "/goals", body=payload, timeout=60)
-    if response.status_code == 201:
+    if response.status_code in {201, 202}:
         data = _api_data(response)
         goal_payload = data.get("goal", {})
         created_task_ids = data.get("created_task_ids", [])
+        accepted_async = response.status_code == 202
         _print_terminal("Goal submitted: {}", goal_payload.get("goal", goal))
         _print_terminal("Goal ID: {}", goal_payload.get("id", "N/A"))
         _print_terminal("Status: {}", goal_payload.get("status", "N/A"))
+        if accepted_async:
+            _print_terminal("Dispatch: accepted (async planning)")
         print(f"Tasks created: {len(created_task_ids)}")
         for task_id in created_task_ids:
             _print_terminal("  - {}", task_id)
@@ -790,6 +793,8 @@ def submit_goal(
         goal_id = goal_payload.get("id")
         if goal_id:
             _print_terminal("Next step: ananta goal --goal-detail {}", goal_id)
+            if accepted_async:
+                _print_terminal("Next step: ananta goal --goal-tasks {}", goal_id)
         print("Success signal: Goal ID, status and task count are visible.")
         return created_task_ids
     _print_error(response)
