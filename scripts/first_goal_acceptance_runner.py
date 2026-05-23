@@ -153,7 +153,12 @@ class AcceptanceRunner:
         return data if isinstance(data, list) else []
 
     def _get_goal_detail(self, goal_id: str) -> dict[str, Any]:
-        return dict(self._get_json_with_retry(f"{self.base_url}/goals/{goal_id}/detail").get("data") or {})
+        # Hub is single-threaded Flask; during LM Studio inference (up to 700s) it cannot
+        # respond to other requests. Use a long timeout with many retries so the poll loop
+        # survives a full planning call without crashing.
+        return dict(self._get_json_with_retry(
+            f"{self.base_url}/goals/{goal_id}/detail", timeout=120, retries=8
+        ).get("data") or {})
 
     def _default_worker_registration_payloads(self) -> list[dict[str, Any]]:
         raw = str(os.getenv("ACCEPTANCE_WORKERS_JSON") or "").strip()
@@ -199,7 +204,9 @@ class AcceptanceRunner:
         raise RuntimeError(f"worker_preflight_failed: fewer than {min_workers} reachable workers via hub")
 
     def _get_task(self, task_id: str) -> dict[str, Any]:
-        return dict(self._get_json_with_retry(f"{self.base_url}/tasks/{task_id}").get("data") or {})
+        return dict(self._get_json_with_retry(
+            f"{self.base_url}/tasks/{task_id}", timeout=120, retries=8
+        ).get("data") or {})
 
     def _get_goal_plan(self, goal_id: str) -> dict[str, Any]:
         try:
