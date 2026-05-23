@@ -25,8 +25,21 @@ require_openai_key_if_needed() {
   fi
 }
 
+ensure_pytest_available() {
+  if command -v pytest >/dev/null 2>&1; then
+    return
+  fi
+  log "pytest not found; installing via pip"
+  python -m pip install --no-cache-dir pytest >/dev/null
+  if ! command -v pytest >/dev/null 2>&1; then
+    error_exit "pytest installation failed"
+  fi
+  log "pytest installed"
+}
+
 run_hub() {
   require_openai_key_if_needed
+  ensure_pytest_available
   export ROLE=hub
   export PORT="${PORT:-5000}"
   log "Starting hub on port ${PORT}"
@@ -37,6 +50,7 @@ run_hub() {
 
 run_worker() {
   require_openai_key_if_needed
+  ensure_pytest_available
   export ROLE=worker
   export PORT="${PORT:-5000}"
   log "Starting worker '${AGENT_NAME:-worker}' on port ${PORT}"
