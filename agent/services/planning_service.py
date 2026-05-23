@@ -299,36 +299,21 @@ class PlanningService:
 
     @staticmethod
     def _update_profile_learning_state(*, telemetry_run) -> None:
-        import sys as _sys
-        _sys.stderr.write("PLS_ENTERED: telemetry_run.id=%s\n" % str(getattr(telemetry_run, 'id', 'N/A')))
-        _sys.stderr.flush()
         try:
             from agent.services.planning_telemetry_service import get_planning_telemetry_service
             record = get_planning_telemetry_service().build_learning_record(telemetry_run)
             observed_shape = str(record.get("observed_output_shape") or "").strip() or None
-            _sys.stderr.write("PLS: observed_shape=%s record.keys=%s\n" % (observed_shape, list(record.keys())))
-            _sys.stderr.flush()
             if not observed_shape:
-                _sys.stderr.write("PLS: no observed_shape, returning early\n")
-                _sys.stderr.flush()
                 return
             provider = str(record.get("model_provider") or "").strip() or None
             model_name = str(record.get("model_name") or "").strip() or None
-            _sys.stderr.write("PLS: provider=%s model_name=%s\n" % (provider, model_name))
-            _sys.stderr.flush()
             if not provider or not model_name:
-                _sys.stderr.write("PLS: missing provider or model_name, returning early\n")
-                _sys.stderr.flush()
                 return
             model_family = str(record.get("model_family") or "").strip() or None
             profile_svc = get_planning_model_profile_service()
             profile = profile_svc.resolve_profile(provider=provider, model_name=model_name)
             profile_id = profile.get("id")
-            _sys.stderr.write("PLS: resolved profile_id=%s profile=%s\n" % (profile_id, profile.get("profile_name")))
-            _sys.stderr.flush()
             if not profile_id:
-                _sys.stderr.write("PLS: no profile_id, returning early\n")
-                _sys.stderr.flush()
                 return
             db_profile = None
             for _p in get_repository_registry().planning_model_profile_repo.get_enabled():
@@ -336,19 +321,11 @@ class PlanningService:
                     db_profile = _p
                     break
             if db_profile is None:
-                _sys.stderr.write("PLS: db_profile is None, returning early\n")
-                _sys.stderr.flush()
                 return
             current_state = dict(db_profile.learning_state or {})
             current_shape = str(current_state.get("observed_output_shape") or "").strip()
-            _sys.stderr.write("PLS: current_shape=%s observed_shape=%s\n" % (current_shape, observed_shape))
-            _sys.stderr.flush()
             if current_shape == observed_shape:
-                _sys.stderr.write("PLS: shapes match, returning early (no update needed)\n")
-                _sys.stderr.flush()
                 return
-            _sys.stderr.write("PLS: about to call update_learning_state with shape=%s family=%s\n" % (observed_shape, model_family))
-            _sys.stderr.flush()
             profile_svc.update_learning_state(
                 db_profile,
                 state=str(current_state.get("state") or "stable"),
@@ -357,12 +334,8 @@ class PlanningService:
                 observed_model_family=model_family,
                 sample_size=(int(current_state.get("sample_size") or 0) + 1) if current_state.get("sample_size") else 1,
             )
-            _sys.stderr.write("PLS: update_learning_state called successfully\n")
-            _sys.stderr.flush()
         except Exception as exc:
-            import traceback as _tb
-            _sys.stderr.write("PLS_EXCEPTION: %s\n%s\n" % (exc, ''.join(_tb.format_exception(type(exc), exc, exc.__traceback__))))
-            _sys.stderr.flush()
+            logger.warning("_update_profile_learning_state failed: %s", exc, exc_info=True)
 
     def _resolve_planning_policy(self, scoped_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
         if isinstance(scoped_cfg, dict):
