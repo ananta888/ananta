@@ -1,0 +1,186 @@
+# Ananta three-worker comparison run
+#
+# Goal:
+# - Planning is always local via LM Studio or Ollama.
+# - Execution/review candidates are compared as three worker tracks:
+#   1. Hermes worker using config/workers/hermes.openrouter.yaml
+#   2. OpenCode worker using local LM Studio/Ollama
+#   3. Ananta native worker using local LM Studio/Ollama
+#
+# Required for local planning:
+#   PLANNING_PROVIDER=lmstudio|ollama
+#
+# LM Studio defaults:
+#   LMSTUDIO_URL=http://localhost:1234/v1
+#   LMSTUDIO_MODEL=qwen2.5-coder-7b-instruct
+#
+# Ollama defaults:
+#   OLLAMA_URL=http://localhost:11434/v1
+#   OLLAMA_MODEL=qwen2.5-coder:7b
+#
+# Required only for Hermes/OpenRouter track:
+#   OPENROUTER_API_KEY=<secret>
+
+run:
+  id: three-worker-local-planning
+  name: Three Worker Local Planning Run
+  mode: comparison
+  description: >-
+    Compare Hermes, OpenCode, and Ananta native worker execution while keeping
+    planning/model-selection local through LM Studio or Ollama.
+
+planning:
+  force_local: true
+  provider_env: PLANNING_PROVIDER
+  default_provider: lmstudio
+  allowed_providers:
+    - lmstudio
+    - ollama
+  lmstudio:
+    provider: lmstudio
+    base_url_env: LMSTUDIO_URL
+    default_base_url: http://localhost:1234/v1
+    model_env: LMSTUDIO_MODEL
+    default_model: qwen2.5-coder-7b-instruct
+    api_key_env: LMSTUDIO_API_KEY
+    default_api_key: sk-lmstudio-ananta
+  ollama:
+    provider: ollama
+    base_url_env: OLLAMA_URL
+    default_base_url: http://localhost:11434/v1
+    model_env: OLLAMA_MODEL
+    default_model: qwen2.5-coder:7b
+    api_key_env: OLLAMA_API_KEY
+    default_api_key: ollama
+  constraints:
+    cloud_allowed: false
+    strict_json_required: true
+    temperature: 0.1
+    max_retries: 1
+    timeout_seconds: 180
+
+tracks:
+  - id: hermes
+    label: Hermes worker via OpenRouter
+    enabled: true
+    worker_type: hermes
+    planning_provider: local
+    execution_provider: openrouter
+    config_ref: config/workers/hermes.openrouter.yaml
+    requested_backend: hermes
+    mode: plan_review_patch_propose_only
+    capabilities:
+      - planning
+      - review
+      - summarize
+      - patch_propose
+      - research_limited
+    denied_operations:
+      - command_execute
+      - shell_execute
+      - shell_execution
+      - patch_apply
+      - file_mutation
+      - service_mutation
+      - config_mutation
+    cloud_policy:
+      cloud_allowed: true
+      block_secret_context: true
+      block_customer_confidential_context: true
+
+  - id: opencode-local
+    label: OpenCode worker via local LM Studio/Ollama
+    enabled: true
+    worker_type: opencode
+    planning_provider: local
+    execution_provider: local
+    requested_backend: opencode
+    model_source: planning
+    capabilities:
+      - planning
+      - coding
+      - testing
+      - review
+      - patch_propose
+    execution_policy:
+      require_approval_for_mutation: true
+      allow_shell_execute: true
+      allow_file_mutation: true
+      default_timeout_seconds: 420
+
+  - id: ananta-worker-local
+    label: Ananta native worker via local LM Studio/Ollama
+    enabled: true
+    worker_type: ananta-worker
+    planning_provider: local
+    execution_provider: local
+    requested_backend: ananta-worker
+    model_source: planning
+    capabilities:
+      - planning
+      - coding
+      - testing
+      - review
+      - patch_propose
+    execution_policy:
+      require_approval_for_mutation: true
+      allow_shell_execute: true
+      allow_file_mutation: true
+      default_timeout_seconds: 420
+
+comparison:
+  run_order:
+    - hermes
+    - opencode-local
+    - ananta-worker-local
+  parallel: false
+  collect:
+    - proposal
+    - command
+    - tool_calls
+    - artifacts
+    - changed_files
+    - tests
+    - execution_trace
+    - llm_call_profile
+    - policy_decision
+  scoring:
+    deterministic_only: true
+    criteria:
+      - structured_output_valid
+      - no_policy_violation
+      - useful_plan
+      - minimal_mutation_scope
+      - tests_green
+      - artifacts_created
+      - cost_estimate
+      - latency_ms
+
+routing_expectations:
+  planning:
+    must_use_track: planning
+    must_use_provider_in:
+      - lmstudio
+      - ollama
+    must_not_use:
+      - openrouter
+      - openai
+      - anthropic
+      - google-cloud
+  hermes:
+    must_use_config_ref: config/workers/hermes.openrouter.yaml
+    must_not_execute_mutations: true
+  opencode-local:
+    must_use_planning_model: true
+  ananta-worker-local:
+    must_use_planning_model: true
+
+acceptance_criteria:
+  - Planning provider is resolved from PLANNING_PROVIDER and must be lmstudio or ollama.
+  - If planning would route to cloud, the run is denied before any worker starts.
+  - Hermes track loads config/workers/hermes.openrouter.yaml and remains read-only.
+  - OpenCode track uses the same local planning model/provider for propose/model calls.
+  - Ananta worker track uses the same local planning model/provider for propose/model calls.
+  - All three tracks emit comparable artifacts and llm_call_profile entries.
+  - Mutation-capable tracks require approval before shell/file changes.
+  - Secret/customer-confidential context is never sent to Hermes/OpenRouter.
