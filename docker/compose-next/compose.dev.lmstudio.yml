@@ -1,0 +1,118 @@
+services:
+  ai-agent-hub:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-hub-base
+    command: sh -c "alembic upgrade head && exec python -m agent.ai_agent"
+    environment:
+      FLASK_DEBUG: 1
+      DEFAULT_PROVIDER: lmstudio
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.178.100:1234/v1}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - ../../:/app:rw
+      - ../../project-workspaces:/project-workspaces:rw
+      - hub-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ai-agent-alpha:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-worker-base
+    command: sh -c "alembic upgrade head && exec python -m agent.ai_agent"
+    environment:
+      FLASK_DEBUG: 1
+      DEFAULT_PROVIDER: lmstudio
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.178.100:1234/v1}
+      AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
+      AGENT_URL: http://ai-agent-alpha:5000
+      HUB_URL: http://ai-agent-hub:5000
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - ../../:/app:rw
+      - ../../project-workspaces:/project-workspaces:rw
+      - alpha-data:/app/data
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  ai-agent-beta:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-worker-base
+    command: sh -c "alembic upgrade head && exec python -m agent.ai_agent"
+    environment:
+      FLASK_DEBUG: 1
+      DEFAULT_PROVIDER: lmstudio
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.178.100:1234/v1}
+      AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
+      AGENT_URL: http://ai-agent-beta:5000
+      HUB_URL: http://ai-agent-hub:5000
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - ../../:/app:rw
+      - ../../project-workspaces:/project-workspaces:rw
+      - beta-data:/app/data
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  angular-frontend:
+    extends:
+      file: compose.base.yml
+      service: angular-frontend-base
+    volumes:
+      - ../../:/app:rw
+      - frontend-node-modules:/app/frontend-angular/node_modules
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ananta}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}"
+      POSTGRES_DB: ${POSTGRES_DB:-ananta}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ananta}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  redis:
+    image: redis:7.4.8-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+volumes:
+  hub-data:
+  alpha-data:
+  beta-data:
+  postgres-data:
+  redis-data:
+  frontend-node-modules:
