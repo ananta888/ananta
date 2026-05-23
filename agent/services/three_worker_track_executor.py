@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 from worker.core.context_resolver import ContextBlock, ContextSensitivity
 from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope, ModelPolicy
@@ -32,6 +35,16 @@ class ThreeWorkerTrackExecutor:
             **self.agent_cfg,
             "worker": {"type": "hermes"},
         })
+        cfg_ref = self._load_config_ref_overrides(str(track.get("config_ref") or "").strip())
+        if cfg_ref:
+            cfg = build_hermes_adapter_config_from_agent_config({
+                **self.agent_cfg,
+                "worker": {"type": "hermes"},
+                "hermes_worker_adapter": {
+                    **cfg.model_dump(),
+                    **cfg_ref,
+                },
+            })
         adapter = HermesAdapter(config=cfg)
         prompt = str(context.get("prompt") or "").strip()
         envelope = ExecutionEnvelope(
@@ -52,7 +65,7 @@ class ThreeWorkerTrackExecutor:
                     source_type="three_worker_prompt",
                     origin_id="cli_prompt",
                     provenance="three_worker_track_executor",
-                    sensitivity=ContextSensitivity.internal,
+                    sensitivity=ContextSensitivity.project_internal,
                     content=prompt,
                     priority=0,
                 )
@@ -83,6 +96,48 @@ class ThreeWorkerTrackExecutor:
             "planning_model": planning.get("model"),
             "execution_provider": track.get("execution_provider"),
             "next_integration_point": "TaskScopedExecutionService.propose_task_step / execute_task_step",
+        }
+
+    def _load_config_ref_overrides(self, config_ref: str) -> dict[str, Any]:
+        if not config_ref:
+            return {}
+        path = Path(config_ref)
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        if not path.exists():
+            return {}
+        with path.open("r", encoding="utf-8") as fh:
+            raw = yaml.safe_load(fh) or {}
+        if not isinstance(raw, dict):
+            return {}
+
+        provider = raw.get("provider") if isinstance(raw.get("provider"), dict) else {}
+        models = raw.get("models") if isinstance(raw.get("models"), dict) else {}
+        runtime = raw.get("runtime") if isinstance(raw.get("runtime"), dict) else {}
+        fallback = raw.get("fallback_policy") if isinstance(raw.get("fallback_policy"), dict) else {}
+
+        primary = models.get("primary") if isinstance(models.get("primary"), dict) else {}
+        coding = models.get("coding_fallback") if isinstance(models.get("coding_fallback"), dict) else {}
+        cheap = models.get("cheap_fallback") if isinstance(models.get("cheap_fallback"), dict) else {}
+
+        task_kind_models = {
+            "plan_only": str(primary.get("model") or "").strip(),
+            "review": str(coding.get("model") or "").strip(),
+            "analysis": str(coding.get("model") or "").strip(),
+            "summarize": str(cheap.get("model") or "").strip(),
+            "patch_propose": str(coding.get("model") or "").strip(),
+            "research_limited": str(primary.get("model") or "").strip(),
+        }
+        task_kind_models = {k: v for k, v in task_kind_models.items() if v}
+
+        return {
+            "base_url": str(provider.get("base_url") or "").strip() or None,
+            "api_key_env": str(provider.get("api_key_env") or "").strip() or None,
+            "default_model": str(primary.get("model") or "").strip() or None,
+            "timeout_seconds": runtime.get("request_timeout_seconds"),
+            "max_retries": runtime.get("api_max_retries"),
+            "task_kind_models": task_kind_models or None,
+            "fallback_free_models": fallback.get("order"),
         }
 
 
