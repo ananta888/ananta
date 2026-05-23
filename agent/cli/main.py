@@ -94,7 +94,9 @@ def _run_ananta_run(argv: Sequence[str]) -> int:
     three.add_argument("--prompt", required=True)
     three.add_argument("--config", default=None)
     three.add_argument("--json", action="store_true")
-    three.add_argument("--dry-run", action="store_true", default=True)
+    mode_group = three.add_mutually_exclusive_group()
+    mode_group.add_argument("--dry-run", action="store_true", help="Use deterministic dry-run executor (default)")
+    mode_group.add_argument("--execute", action="store_true", help="Execute Hermes track and return handoff metadata for other tracks")
 
     if not argv or argv[0] in {"-h", "--help"}:
         parser.print_help()
@@ -108,10 +110,16 @@ def _run_ananta_run(argv: Sequence[str]) -> int:
         return 2
 
     from agent.services.three_worker_comparison_runner import get_three_worker_comparison_runner
+    from agent.services.three_worker_track_executor import get_three_worker_track_executor
+
+    use_execute = bool(parsed.execute)
+    track_executor = get_three_worker_track_executor() if use_execute else None
 
     result = get_three_worker_comparison_runner().run(
         prompt=parsed.prompt,
         config_path=parsed.config,
+        env=dict(os.environ),
+        track_executor=track_executor,
     ).as_dict()
     if parsed.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
