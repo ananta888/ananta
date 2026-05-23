@@ -330,8 +330,11 @@ class PlanningService:
                 _sys.stderr.write("PLS: no profile_id, returning early\n")
                 _sys.stderr.flush()
                 return
-            repo = get_repository_registry().planning_model_profile_repo
-            db_profile = repo.get_by_id(profile_id)
+            db_profile = None
+            for _p in get_repository_registry().planning_model_profile_repo.get_enabled():
+                if str(getattr(_p, 'id', '') or '') == str(profile_id or ''):
+                    db_profile = _p
+                    break
             if db_profile is None:
                 _sys.stderr.write("PLS: db_profile is None, returning early\n")
                 _sys.stderr.flush()
@@ -357,7 +360,9 @@ class PlanningService:
             _sys.stderr.write("PLS: update_learning_state called successfully\n")
             _sys.stderr.flush()
         except Exception as exc:
-            logger.warning("_update_profile_learning_state failed: %s", exc, exc_info=True)
+            import traceback as _tb
+            _sys.stderr.write("PLS_EXCEPTION: %s\n%s\n" % (exc, ''.join(_tb.format_exception(type(exc), exc, exc.__traceback__))))
+            _sys.stderr.flush()
 
     def _resolve_planning_policy(self, scoped_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
         if isinstance(scoped_cfg, dict):
