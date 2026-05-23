@@ -46,3 +46,52 @@ tracks:
     assert data["planning"]["provider"] == "ollama"
     assert data["summary"]["track_count"] == 3
     assert data["tracks"][0]["result"]["requested_backend"] == "hermes"
+
+
+def test_three_worker_runner_pending_is_partial(tmp_path) -> None:
+    cfg_file = tmp_path / "run.yaml"
+    cfg_file.write_text(
+        """
+run:
+  id: demo
+planning:
+  force_local: true
+  default_provider: lmstudio
+  lmstudio:
+    default_base_url: http://localhost:1234/v1
+    default_model: qwen2.5-coder-7b-instruct
+tracks:
+  - id: hermes
+    enabled: true
+    planning_provider: local
+    requested_backend: hermes
+    worker_type: hermes
+    config_ref: config/workers/hermes.openrouter.yaml
+  - id: opencode-local
+    enabled: true
+    planning_provider: local
+    execution_provider: local
+    requested_backend: opencode
+    worker_type: opencode
+  - id: ananta-worker-local
+    enabled: true
+    planning_provider: local
+    execution_provider: local
+    requested_backend: ananta-worker
+    worker_type: ananta-worker
+""",
+        encoding="utf-8",
+    )
+    runner = ThreeWorkerComparisonRunner(config_service=ThreeWorkerRunConfigService(repo_root=tmp_path))
+
+    def _executor(track, _context):
+        if track.get("id") == "hermes":
+            return {"status": "ok"}
+        return {"status": "handoff_required"}
+
+    result = runner.run(prompt="analyze commits", config_path=str(cfg_file), env={}, track_executor=_executor)
+    data = result.as_dict()
+
+    assert data["status"] == "partial"
+    assert data["summary"]["failed_count"] == 0
+    assert data["summary"]["pending_count"] == 2

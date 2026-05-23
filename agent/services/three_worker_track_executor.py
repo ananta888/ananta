@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import copy
+import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import yaml
 
@@ -19,15 +21,21 @@ class ThreeWorkerTrackExecutor:
     existing task/propose runtime layer; they are not faked as successful work.
     """
 
-    def __init__(self, *, agent_cfg: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        agent_cfg: dict[str, Any] | None = None,
+        task_scoped_runner: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None,
+    ) -> None:
         self.agent_cfg = dict(agent_cfg or {})
+        self.task_scoped_runner = task_scoped_runner
 
     def __call__(self, track: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
         backend = str(track.get("requested_backend") or track.get("worker_type") or "").strip().lower()
         if backend == "hermes":
             return self._execute_hermes(track, context)
         if backend in {"opencode", "ananta-worker"}:
-            return self._build_runtime_handoff(track, context)
+            return self._execute_task_scoped_track(track, context)
         return {"status": "failed", "reason": f"unsupported_track_backend:{backend or '<empty>'}"}
 
     def _execute_hermes(self, track: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
@@ -84,19 +92,114 @@ class ThreeWorkerTrackExecutor:
             "config": cfg.diagnostics_view(),
         }
 
-    def _build_runtime_handoff(self, track: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    def _execute_task_scoped_track(self, track: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+        if self.task_scoped_runner is not None:
+            return self.task_scoped_runner(track, context)
+        return self._run_task_scoped_track(track, context)
+
+    def _run_task_scoped_track(self, track: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+        from agent.ai_agent import create_app
+        from agent.common.sgpt import run_llm_cli_command
+        from agent.models import TaskStepExecuteRequest, TaskStepProposeRequest
+        from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
+        from agent.services.task_scoped_execution_service import get_task_scoped_execution_service
+        from agent.tools import registry as tool_registry
+
+        app = create_app()
         planning = dict(context.get("planning") or {})
-        return {
-            "status": "handoff_required",
-            "reason": "track_requires_existing_task_runtime_execution",
-            "track_id": track.get("id"),
-            "requested_backend": track.get("requested_backend"),
-            "worker_type": track.get("worker_type"),
-            "planning_provider": planning.get("provider"),
-            "planning_model": planning.get("model"),
-            "execution_provider": track.get("execution_provider"),
-            "next_integration_point": "TaskScopedExecutionService.propose_task_step / execute_task_step",
-        }
+        backend = str(track.get("requested_backend") or track.get("worker_type") or "").strip().lower()
+        prompt = str(context.get("prompt") or "").strip() or "Analyze input and propose next steps."
+        run_id = str(context.get("run_id") or "run")
+        track_id = str(track.get("id") or backend or "track")
+        task_id = f"three-worker-{run_id}-{track_id}-{int(time.time() * 1000)}"
+        task_kind = "analysis"
+
+        with app.app_context():
+            update_local_task_status(
+                task_id,
+                "todo",
+                force=True,
+                title=f"Three worker track {track_id}",
+                description=prompt,
+                task_kind=task_kind,
+                goal_id=f"three-worker:{run_id}",
+                required_capabilities=["planning", "coding", "review", "patch_propose"],
+                source_task_id=f"three-worker:{run_id}",
+                derivation_reason="three_worker_track_executor",
+                derivation_depth=0,
+            )
+
+            cfg = app.config.get("AGENT_CONFIG", {}) or {}
+            old_cfg = copy.deepcopy(cfg)
+            try:
+                if planning.get("provider"):
+                    cfg["default_provider"] = planning.get("provider")
+                if planning.get("model"):
+                    cfg["default_model"] = planning.get("model")
+                sgpt_routing = cfg.get("sgpt_routing") if isinstance(cfg.get("sgpt_routing"), dict) else {}
+                backend_map = sgpt_routing.get("task_kind_backend") if isinstance(sgpt_routing.get("task_kind_backend"), dict) else {}
+                backend_map = dict(backend_map)
+                backend_map[task_kind] = backend
+                sgpt_routing = dict(sgpt_routing)
+                sgpt_routing["task_kind_backend"] = backend_map
+                cfg["sgpt_routing"] = sgpt_routing
+                app.config["AGENT_CONFIG"] = cfg
+
+                scoped = get_task_scoped_execution_service()
+                propose_request = TaskStepProposeRequest(
+                    task_id=task_id,
+                    prompt=prompt,
+                    provider=planning.get("provider"),
+                    model=planning.get("model"),
+                )
+                propose_out = scoped.propose_task_step(
+                    task_id,
+                    propose_request,
+                    cli_runner=run_llm_cli_command,
+                    forwarder=lambda *_args, **_kwargs: None,
+                    tool_definitions_resolver=tool_registry.get_tool_definitions,
+                )
+                if propose_out.status != "success":
+                    return {
+                        "status": "failed",
+                        "reason": f"task_scoped_propose_{propose_out.status}",
+                        "track_id": track.get("id"),
+                        "requested_backend": track.get("requested_backend"),
+                        "worker_type": track.get("worker_type"),
+                        "planning_provider": planning.get("provider"),
+                        "planning_model": planning.get("model"),
+                        "execution_provider": track.get("execution_provider"),
+                        "task_id": task_id,
+                        "propose": propose_out.data,
+                    }
+
+                execute_request = TaskStepExecuteRequest(task_id=task_id, task_kind=task_kind, timeout=180, retries=0)
+                execute_out = scoped.execute_task_step(
+                    task_id,
+                    execute_request,
+                    forwarder=lambda *_args, **_kwargs: None,
+                    cli_runner=run_llm_cli_command,
+                    tool_definitions_resolver=tool_registry.get_tool_definitions,
+                )
+                task = get_local_task_status(task_id) or {}
+                final_status = str((execute_out.data or {}).get("status") or task.get("status") or "").strip().lower()
+                normalized = "ok" if final_status == "completed" else "failed"
+                return {
+                    "status": normalized,
+                    "reason": "task_scoped_execution_finished",
+                    "track_id": track.get("id"),
+                    "requested_backend": track.get("requested_backend"),
+                    "worker_type": track.get("worker_type"),
+                    "planning_provider": planning.get("provider"),
+                    "planning_model": planning.get("model"),
+                    "execution_provider": track.get("execution_provider"),
+                    "task_id": task_id,
+                    "propose": propose_out.data,
+                    "execute": execute_out.data,
+                    "task_status": final_status,
+                }
+            finally:
+                app.config["AGENT_CONFIG"] = old_cfg
 
     def _load_config_ref_overrides(self, config_ref: str) -> dict[str, Any]:
         if not config_ref:
