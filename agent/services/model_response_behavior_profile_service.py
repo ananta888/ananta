@@ -22,6 +22,8 @@ class ModelResponseBehaviorProfileService:
             return "stepwise_then_json" if observed_shape != "json_in_markdown_fence" else "example_driven_json"
         if observed_shape in {"yaml_like"}:
             return "yaml_first"
+        if observed_shape in {"partial_json"}:
+            return "stepwise_then_json"
         if preferred_format == "markdown":
             return "markdown_friendly"
         if state in {"candidate", "learning"}:
