@@ -243,157 +243,161 @@ class ModelInvocationService:
             trace_svc = None
 
         started_at = time.time()
-        lock_ctx: threading.Lock | None = _LMSTUDIO_INFERENCE_LOCK if provider in ("lmstudio", "lm_studio") else None
-        if lock_ctx is not None:
-            if not lock_ctx.acquire(blocking=False):
+        _lmstudio_lock = _LMSTUDIO_INFERENCE_LOCK if provider in ("lmstudio", "lm_studio") else None
+        if _lmstudio_lock is not None:
+            if not _lmstudio_lock.acquire(blocking=False):
                 logger.debug("LM Studio busy — waiting for inference lock (provider=%s)", provider)
-                lock_ctx.acquire()
+                _lmstudio_lock.acquire()
         try:
-            resp = requests.post(url, json=body, headers=headers, timeout=timeout)
-        except requests.exceptions.ConnectionError as exc:
-            if prompt_trace is not None and trace_svc is not None:
-                try:
-                    finalized = trace_svc.finalize_trace(
-                        prompt_trace,
-                        success=False,
-                        error_type="connection_error",
-                        error_message=f"{exc}",
-                    )
-                    trace_svc.store(finalized)
-                except Exception:
-                    pass
-            cls._raise_llm_error(
-                message=f"llm_connection_failed: {exc}",
-                name="chat_completions",
-                backend="llm_api",
-                provider=provider,
-                model=effective_model,
-                started_at=started_at,
-                error_type="connection_error",
-            )
-        except requests.exceptions.Timeout as exc:
-            if prompt_trace is not None and trace_svc is not None:
-                try:
-                    finalized = trace_svc.finalize_trace(
-                        prompt_trace,
-                        success=False,
-                        error_type="timeout",
-                        error_message=f"{exc}",
-                    )
-                    trace_svc.store(finalized)
-                except Exception:
-                    pass
-            cls._raise_llm_error(
-                message=f"llm_timeout: {exc}",
-                name="chat_completions",
-                backend="llm_api",
-                provider=provider,
-                model=effective_model,
-                started_at=started_at,
-                error_type="timeout",
-            )
+            try:
+                resp = requests.post(url, json=body, headers=headers, timeout=timeout)
+            except requests.exceptions.ConnectionError as exc:
+                if prompt_trace is not None and trace_svc is not None:
+                    try:
+                        finalized = trace_svc.finalize_trace(
+                            prompt_trace,
+                            success=False,
+                            error_type="connection_error",
+                            error_message=f"{exc}",
+                        )
+                        trace_svc.store(finalized)
+                    except Exception:
+                        pass
+                cls._raise_llm_error(
+                    message=f"llm_connection_failed: {exc}",
+                    name="chat_completions",
+                    backend="llm_api",
+                    provider=provider,
+                    model=effective_model,
+                    started_at=started_at,
+                    error_type="connection_error",
+                )
+            except requests.exceptions.Timeout as exc:
+                if prompt_trace is not None and trace_svc is not None:
+                    try:
+                        finalized = trace_svc.finalize_trace(
+                            prompt_trace,
+                            success=False,
+                            error_type="timeout",
+                            error_message=f"{exc}",
+                        )
+                        trace_svc.store(finalized)
+                    except Exception:
+                        pass
+                cls._raise_llm_error(
+                    message=f"llm_timeout: {exc}",
+                    name="chat_completions",
+                    backend="llm_api",
+                    provider=provider,
+                    model=effective_model,
+                    started_at=started_at,
+                    error_type="timeout",
+                )
 
-        if resp.status_code >= 500:
-            if prompt_trace is not None and trace_svc is not None:
-                try:
-                    finalized = trace_svc.finalize_trace(
-                        prompt_trace,
-                        success=False,
-                        error_type="server_error",
-                        error_message=f"HTTP {resp.status_code}",
-                    )
-                    trace_svc.store(finalized)
-                except Exception:
-                    pass
-            cls._raise_llm_error(
-                message=f"llm_server_error: HTTP {resp.status_code}",
-                name="chat_completions",
-                backend="llm_api",
-                provider=provider,
-                model=effective_model,
-                started_at=started_at,
-                error_type="server_error",
-            )
-        if resp.status_code >= 400:
-            if prompt_trace is not None and trace_svc is not None:
-                try:
-                    finalized = trace_svc.finalize_trace(
-                        prompt_trace,
-                        success=False,
-                        error_type="client_error",
-                        error_message=f"HTTP {resp.status_code} {resp.text[:200]}",
-                    )
-                    trace_svc.store(finalized)
-                except Exception:
-                    pass
-            cls._raise_llm_error(
-                message=f"llm_client_error: HTTP {resp.status_code} {resp.text[:200]}",
-                name="chat_completions",
-                backend="llm_api",
-                provider=provider,
-                model=effective_model,
-                started_at=started_at,
-                error_type="client_error",
-            )
+            if resp.status_code >= 500:
+                if prompt_trace is not None and trace_svc is not None:
+                    try:
+                        finalized = trace_svc.finalize_trace(
+                            prompt_trace,
+                            success=False,
+                            error_type="server_error",
+                            error_message=f"HTTP {resp.status_code}",
+                        )
+                        trace_svc.store(finalized)
+                    except Exception:
+                        pass
+                cls._raise_llm_error(
+                    message=f"llm_server_error: HTTP {resp.status_code}",
+                    name="chat_completions",
+                    backend="llm_api",
+                    provider=provider,
+                    model=effective_model,
+                    started_at=started_at,
+                    error_type="server_error",
+                )
+            if resp.status_code >= 400:
+                if prompt_trace is not None and trace_svc is not None:
+                    try:
+                        finalized = trace_svc.finalize_trace(
+                            prompt_trace,
+                            success=False,
+                            error_type="client_error",
+                            error_message=f"HTTP {resp.status_code} {resp.text[:200]}",
+                        )
+                        trace_svc.store(finalized)
+                    except Exception:
+                        pass
+                cls._raise_llm_error(
+                    message=f"llm_client_error: HTTP {resp.status_code} {resp.text[:200]}",
+                    name="chat_completions",
+                    backend="llm_api",
+                    provider=provider,
+                    model=effective_model,
+                    started_at=started_at,
+                    error_type="client_error",
+                )
 
-        try:
-            payload = resp.json()
-            ended_at = time.time()
-            usage = payload.get("usage") if isinstance(payload, dict) else {}
-            if prompt_trace is not None and trace_svc is not None:
-                try:
-                    msg_content = ""
-                    if isinstance(payload, dict):
-                        first = ((payload.get("choices") or [{}])[0] or {})
-                        msg = first.get("message") if isinstance(first, dict) else {}
-                        msg_content = str((msg or {}).get("content") or "")
-                    finalized = trace_svc.finalize_trace(
-                        prompt_trace,
-                        success=True,
-                        response_text=msg_content or None,
-                        usage=usage if isinstance(usage, dict) else None,
-                    )
-                    trace_svc.store(finalized)
-                except Exception:
-                    pass
-            profile = cls._build_llm_call_profile_entry(
-                name="chat_completions",
-                backend="llm_api",
-                provider=provider,
-                model=effective_model,
-                success=True,
-                started_at=started_at,
-                ended_at=ended_at,
-                usage=usage if isinstance(usage, dict) else None,
-            )
-            if isinstance(payload, dict):
-                meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
-                if prompt_trace is not None:
-                    meta["prompt_trace_id"] = str(getattr(prompt_trace, "trace_id", "") or "")
-                meta["llm_call_profile"] = list(meta.get("llm_call_profile") or []) + [profile]
-                payload["metadata"] = meta
-            return payload
-        except Exception as exc:
-            if prompt_trace is not None and trace_svc is not None:
-                try:
-                    finalized = trace_svc.finalize_trace(
-                        prompt_trace,
-                        success=False,
-                        error_type="invalid_json_response",
-                        error_message=f"{exc}",
-                    )
-                    trace_svc.store(finalized)
-                except Exception:
-                    pass
-            cls._raise_llm_error(
-                message=f"llm_invalid_json_response: {exc}",
-                name="chat_completions",
-                backend="llm_api",
-                provider=provider,
-                model=effective_model,
-                started_at=started_at,
-                error_type="invalid_json_response",
-            )
+            try:
+                payload = resp.json()
+                ended_at = time.time()
+                usage = payload.get("usage") if isinstance(payload, dict) else {}
+                if prompt_trace is not None and trace_svc is not None:
+                    try:
+                        msg_content = ""
+                        if isinstance(payload, dict):
+                            first = ((payload.get("choices") or [{}])[0] or {})
+                            msg = first.get("message") if isinstance(first, dict) else {}
+                            msg_content = str((msg or {}).get("content") or "")
+                        finalized = trace_svc.finalize_trace(
+                            prompt_trace,
+                            success=True,
+                            response_text=msg_content or None,
+                            usage=usage if isinstance(usage, dict) else None,
+                        )
+                        trace_svc.store(finalized)
+                    except Exception:
+                        pass
+                profile = cls._build_llm_call_profile_entry(
+                    name="chat_completions",
+                    backend="llm_api",
+                    provider=provider,
+                    model=effective_model,
+                    success=True,
+                    started_at=started_at,
+                    ended_at=ended_at,
+                    usage=usage if isinstance(usage, dict) else None,
+                )
+                if isinstance(payload, dict):
+                    meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+                    if prompt_trace is not None:
+                        meta["prompt_trace_id"] = str(getattr(prompt_trace, "trace_id", "") or "")
+                    meta["llm_call_profile"] = list(meta.get("llm_call_profile") or []) + [profile]
+                    payload["metadata"] = meta
+                return payload
+            except Exception as exc:
+                if prompt_trace is not None and trace_svc is not None:
+                    try:
+                        finalized = trace_svc.finalize_trace(
+                            prompt_trace,
+                            success=False,
+                            error_type="invalid_json_response",
+                            error_message=f"{exc}",
+                        )
+                        trace_svc.store(finalized)
+                    except Exception:
+                        pass
+                cls._raise_llm_error(
+                    message=f"llm_invalid_json_response: {exc}",
+                    name="chat_completions",
+                    backend="llm_api",
+                    provider=provider,
+                    model=effective_model,
+                    started_at=started_at,
+                    error_type="invalid_json_response",
+                )
+        finally:
+            if _lmstudio_lock is not None:
+                _lmstudio_lock.release()
 
     @classmethod
     def invoke_with_tools(
