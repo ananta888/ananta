@@ -47,8 +47,24 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
             result.proposal.metadata["llm_call_profile"] = profile
         return result
 
+    @staticmethod
+    def _with_llm_trace_link(
+        result: ProposeStrategyResult, llm_metadata: dict | None,
+    ) -> ProposeStrategyResult:
+        metadata = dict(llm_metadata or {})
+        prompt_trace_id = str(metadata.get("prompt_trace_id") or "").strip()
+        if not prompt_trace_id:
+            return result
+        result.metadata = dict(result.metadata or {})
+        result.metadata["prompt_trace_id"] = prompt_trace_id
+        if result.proposal is not None:
+            result.proposal.metadata = dict(result.proposal.metadata or {})
+            result.proposal.metadata["prompt_trace_id"] = prompt_trace_id
+        return result
+
     def run(self, context: ProposeContext) -> ProposeStrategyResult:
         llm_profile: list[dict] = []
+        llm_metadata: dict = {}
         try:
             timeout_seconds = resolve_propose_llm_timeout_seconds(
                 effective_config=context.effective_config,
@@ -60,9 +76,10 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
                 timeout=timeout_seconds,
             )
             raw = str(llm_result.get("content") or "")
+            llm_metadata = dict(llm_result.get("metadata") or {}) if isinstance(llm_result.get("metadata"), dict) else {}
             llm_profile = [
                 entry
-                for entry in list(((llm_result.get("metadata") or {}).get("llm_call_profile") or []))
+                for entry in list((llm_metadata.get("llm_call_profile") or []))
                 if isinstance(entry, dict)
             ]
         except LLMUnavailableError as exc:
@@ -78,9 +95,11 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
             ), llm_profile)
 
         if not raw or not raw.strip():
-            return self._with_llm_profile(ProposeStrategyResult.declined(
+            result = ProposeStrategyResult.declined(
                 "flexible_llm_normalization", reason="llm_returned_empty_response",
-            ), llm_profile)
+            )
+            result = self._with_llm_profile(result, llm_profile)
+            return self._with_llm_trace_link(result, llm_metadata)
 
         # Determine shell execution policy from context
         allow_shell = False
@@ -88,4 +107,5 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
             allow_shell = context.policy.allow_shell_execution
 
         normalized = self._normalizer.normalize(raw, context, allow_shell_execution=allow_shell)
-        return self._with_llm_profile(normalized, llm_profile)
+        normalized = self._with_llm_profile(normalized, llm_profile)
+        return self._with_llm_trace_link(normalized, llm_metadata)
