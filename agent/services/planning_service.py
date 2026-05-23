@@ -23,6 +23,7 @@ from agent.services.planning_telemetry_service import get_planning_telemetry_ser
 from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
 from agent.services.planning_quality_service import get_planning_quality_service
 from agent.services.planning_prompt_evolver_service import get_planning_prompt_evolver_service
+from agent.services.planning_model_profile_service import get_planning_model_profile_service
 from agent.services.llm_first_planning_orchestrator_service import get_llm_first_planning_orchestrator_service
 from agent.services.planning_template_mining_service import get_planning_template_mining_service
 from agent.services.planning_review_queue_service import get_planning_review_queue_service
@@ -290,6 +291,43 @@ class PlanningService:
             get_planning_prompt_evolver_service().evolve_from_run(
                 run=telemetry_run,
                 planning_policy=planning_policy,
+            )
+        except Exception:
+            pass
+
+    @staticmethod
+    def _update_profile_learning_state(*, telemetry_run) -> None:
+        try:
+            from agent.services.planning_telemetry_service import get_planning_telemetry_service
+            record = get_planning_telemetry_service().build_learning_record(telemetry_run)
+            observed_shape = str(record.get("observed_output_shape") or "").strip() or None
+            if not observed_shape:
+                return
+            provider = str(record.get("model_provider") or "").strip() or None
+            model_name = str(record.get("model_name") or "").strip() or None
+            if not provider or not model_name:
+                return
+            model_family = str(record.get("model_family") or "").strip() or None
+            profile_svc = get_planning_model_profile_service()
+            profile = profile_svc.resolve_profile(provider=provider, model_name=model_name)
+            profile_id = profile.get("id")
+            if not profile_id:
+                return
+            repo = get_repository_registry().planning_model_profile_repo
+            db_profile = repo.get_by_id(profile_id)
+            if db_profile is None:
+                return
+            current_state = dict(db_profile.learning_state or {})
+            current_shape = str(current_state.get("observed_output_shape") or "").strip()
+            if current_shape == observed_shape:
+                return
+            profile_svc.update_learning_state(
+                db_profile,
+                state=str(current_state.get("state") or "stable"),
+                source="planning_service_post_run",
+                observed_output_shape=observed_shape,
+                observed_model_family=model_family,
+                sample_size=(int(current_state.get("sample_size") or 0) + 1) if current_state.get("sample_size") else 1,
             )
         except Exception:
             pass
@@ -854,6 +892,7 @@ class PlanningService:
                 validation_errors=[f"resolve_subtasks_timeout:{inner_timeout}s"],
             )
             self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
+            self._update_profile_learning_state(telemetry_run=telemetry_run)
             return {
                 "subtasks": [],
                 "created_task_ids": [],
@@ -876,6 +915,7 @@ class PlanningService:
                 validation_errors=[error_message],
             )
             self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
+            self._update_profile_learning_state(telemetry_run=telemetry_run)
             return {"subtasks": [], "created_task_ids": [], "error": error_message, "planning_run_id": telemetry_run.id}
 
         subtasks = resolved["subtasks"]
@@ -1088,6 +1128,7 @@ class PlanningService:
                 status="failed",
             )
             self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
+            self._update_profile_learning_state(telemetry_run=telemetry_run)
             return {
                 "subtasks": [],
                 "created_task_ids": [],
@@ -1209,6 +1250,7 @@ class PlanningService:
                     status="failed",
                 )
                 self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
+                self._update_profile_learning_state(telemetry_run=telemetry_run)
                 return {
                     "subtasks": [],
                     "created_task_ids": [],
@@ -1261,6 +1303,7 @@ class PlanningService:
                 status="failed",
             )
             self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
+            self._update_profile_learning_state(telemetry_run=telemetry_run)
             return {
                 "subtasks": [],
                 "created_task_ids": [],
@@ -1408,6 +1451,7 @@ class PlanningService:
         except Exception:
             pass
         self._maybe_evolve_prompt(telemetry_run=telemetry_run, planning_policy=planning_policy)
+        self._update_profile_learning_state(telemetry_run=telemetry_run)
         get_planning_evaluation_service().evaluate(
             planning_run_id=str(telemetry_run.id),
             goal_id=goal_id,
