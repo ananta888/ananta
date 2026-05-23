@@ -691,6 +691,7 @@ class TaskExecutionService:
         comparisons: dict | None = None,
         research_artifact: dict | None = None,
         research_context: dict | None = None,
+        forwarded_request: dict | None = None,
         history_event: dict | None = None,
     ) -> dict:
         proposal = {
@@ -711,6 +712,8 @@ class TaskExecutionService:
             proposal["research_artifact"] = research_artifact
         if research_context:
             proposal["research_context"] = research_context
+        if forwarded_request:
+            proposal["forwarded_request"] = dict(forwarded_request)
         if command and command != str(raw or "").strip():
             proposal["command"] = command
         if tool_calls:

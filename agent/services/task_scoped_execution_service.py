@@ -570,7 +570,11 @@ class TaskScopedExecutionService:
             endpoint=f"/tasks/{tid}/step/propose",
             payload=request_data.model_dump(),
             forwarder=forwarder,
-            on_success=self._persist_forwarded_proposal,
+            on_success=lambda response, loaded_task: self._persist_forwarded_proposal(
+                response,
+                loaded_task,
+                request_payload=request_data.model_dump(),
+            ),
         )
         if forwarded is not None:
             return forwarded
@@ -2452,9 +2456,22 @@ class TaskScopedExecutionService:
             current_app.logger.error("Forwarding an %s fehlgeschlagen: %s", worker_url, exc)
             raise WorkerForwardingError(details={"details": str(exc), "worker_url": worker_url})
 
-    def _persist_forwarded_proposal(self, response: dict, task: dict) -> None:
+    def _persist_forwarded_proposal(self, response: dict, task: dict, request_payload: dict | None = None) -> None:
         if not isinstance(response, dict):
             return
+        request_payload = dict(request_payload or {})
+        prompt_text = str(request_payload.get("prompt") or "").strip()
+        forwarded_request = {
+            "prompt_preview": prompt_text[:240],
+            "prompt_hash_sha256": hashlib.sha256(prompt_text.encode("utf-8")).hexdigest() if prompt_text else None,
+            "provider": str(request_payload.get("provider") or "").strip() or None,
+            "providers": list(request_payload.get("providers") or []) if isinstance(request_payload.get("providers"), list) else None,
+            "model": str(request_payload.get("model") or "").strip() or None,
+            "temperature": request_payload.get("temperature"),
+            "strategy_mode": str(request_payload.get("strategy_mode") or "").strip() or None,
+            "request_task_id": str(request_payload.get("task_id") or "").strip() or None,
+            "captured_at": time.time(),
+        }
         has_proposal_payload = any(
             key in response
             for key in (
@@ -2550,11 +2567,13 @@ class TaskScopedExecutionService:
             comparisons=response.get("comparisons") if isinstance(response.get("comparisons"), dict) else None,
             research_artifact=response.get("research_artifact") if isinstance(response.get("research_artifact"), dict) else None,
             research_context=response.get("research_context") if isinstance(response.get("research_context"), dict) else None,
+            forwarded_request=forwarded_request,
             history_event={
                 "event_type": "proposal_result",
                 "reason": str(response.get("reason") or ""),
                 "backend": response.get("backend"),
                 "routing_reason": ((response.get("routing") or {}).get("reason")) if isinstance(response.get("routing"), dict) else None,
+                "forwarded_request": forwarded_request,
                 "forwarded": True,
                 "timestamp": time.time(),
             },
