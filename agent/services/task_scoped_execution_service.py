@@ -2491,6 +2491,21 @@ class TaskScopedExecutionService:
         )
         if not has_proposal_payload:
             return
+        response_trace = response.get("trace") if isinstance(response.get("trace"), dict) else None
+        if not response_trace:
+            metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
+            wrapped = response.get("proposal") if isinstance(response.get("proposal"), dict) else {}
+            wrapped_meta = wrapped.get("metadata") if isinstance(wrapped.get("metadata"), dict) else {}
+            prompt_trace_id = (
+                str(metadata.get("prompt_trace_id") or "").strip()
+                or str(wrapped_meta.get("prompt_trace_id") or "").strip()
+            )
+            if prompt_trace_id:
+                response_trace = {
+                    "trace_id": prompt_trace_id,
+                    "source": "model_invocation_service",
+                    "request_kind": "propose",
+                }
         cli_result = response.get("cli_result") if isinstance(response.get("cli_result"), dict) else None
         if not isinstance(cli_result, dict):
             response_meta = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
@@ -2559,7 +2574,7 @@ class TaskScopedExecutionService:
             routing=response.get("routing") if isinstance(response.get("routing"), dict) else None,
             cli_result=cli_result,
             worker_context=response.get("worker_context") if isinstance(response.get("worker_context"), dict) else None,
-            trace=response.get("trace") if isinstance(response.get("trace"), dict) else None,
+            trace=response_trace,
             review=response.get("review") if isinstance(response.get("review"), dict) else None,
             pipeline=response.get("pipeline") if isinstance(response.get("pipeline"), dict) else None,
             command=(str(response.get("command") or "").strip() or None),

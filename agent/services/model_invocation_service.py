@@ -243,12 +243,13 @@ class ModelInvocationService:
         except requests.exceptions.ConnectionError as exc:
             if prompt_trace is not None and trace_svc is not None:
                 try:
-                    trace_svc.finalize_trace(
+                    finalized = trace_svc.finalize_trace(
                         prompt_trace,
                         success=False,
                         error_type="connection_error",
                         error_message=f"{exc}",
                     )
+                    trace_svc.store(finalized)
                 except Exception:
                     pass
             cls._raise_llm_error(
@@ -263,12 +264,13 @@ class ModelInvocationService:
         except requests.exceptions.Timeout as exc:
             if prompt_trace is not None and trace_svc is not None:
                 try:
-                    trace_svc.finalize_trace(
+                    finalized = trace_svc.finalize_trace(
                         prompt_trace,
                         success=False,
                         error_type="timeout",
                         error_message=f"{exc}",
                     )
+                    trace_svc.store(finalized)
                 except Exception:
                     pass
             cls._raise_llm_error(
@@ -284,12 +286,13 @@ class ModelInvocationService:
         if resp.status_code >= 500:
             if prompt_trace is not None and trace_svc is not None:
                 try:
-                    trace_svc.finalize_trace(
+                    finalized = trace_svc.finalize_trace(
                         prompt_trace,
                         success=False,
                         error_type="server_error",
                         error_message=f"HTTP {resp.status_code}",
                     )
+                    trace_svc.store(finalized)
                 except Exception:
                     pass
             cls._raise_llm_error(
@@ -304,12 +307,13 @@ class ModelInvocationService:
         if resp.status_code >= 400:
             if prompt_trace is not None and trace_svc is not None:
                 try:
-                    trace_svc.finalize_trace(
+                    finalized = trace_svc.finalize_trace(
                         prompt_trace,
                         success=False,
                         error_type="client_error",
                         error_message=f"HTTP {resp.status_code} {resp.text[:200]}",
                     )
+                    trace_svc.store(finalized)
                 except Exception:
                     pass
             cls._raise_llm_error(
@@ -333,12 +337,13 @@ class ModelInvocationService:
                         first = ((payload.get("choices") or [{}])[0] or {})
                         msg = first.get("message") if isinstance(first, dict) else {}
                         msg_content = str((msg or {}).get("content") or "")
-                    trace_svc.finalize_trace(
+                    finalized = trace_svc.finalize_trace(
                         prompt_trace,
                         success=True,
                         response_text=msg_content or None,
                         usage=usage if isinstance(usage, dict) else None,
                     )
+                    trace_svc.store(finalized)
                 except Exception:
                     pass
             profile = cls._build_llm_call_profile_entry(
@@ -353,18 +358,21 @@ class ModelInvocationService:
             )
             if isinstance(payload, dict):
                 meta = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+                if prompt_trace is not None:
+                    meta["prompt_trace_id"] = str(getattr(prompt_trace, "trace_id", "") or "")
                 meta["llm_call_profile"] = list(meta.get("llm_call_profile") or []) + [profile]
                 payload["metadata"] = meta
             return payload
         except Exception as exc:
             if prompt_trace is not None and trace_svc is not None:
                 try:
-                    trace_svc.finalize_trace(
+                    finalized = trace_svc.finalize_trace(
                         prompt_trace,
                         success=False,
                         error_type="invalid_json_response",
                         error_message=f"{exc}",
                     )
+                    trace_svc.store(finalized)
                 except Exception:
                     pass
             cls._raise_llm_error(

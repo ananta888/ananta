@@ -858,11 +858,34 @@ class TaskExecutionTrackingService:
             "updated_at": time.time(),
         }
         selected_strategy = str(((proposal.get("routing") or {}).get("propose_strategy_meta") or {}).get("selected_strategy") or "").strip()
+        trace_meta = dict(proposal.get("trace") or {}) if isinstance(proposal.get("trace"), dict) else {}
+        trace_id = str(trace_meta.get("trace_id") or "").strip() or None
+        flow_reason = str(proposal.get("reason") or "").strip()
+        get_execution_audit_service().emit(
+            operation_type="proposal_trace_tracking",
+            outcome="recorded" if trace_id else "missing_trace_link",
+            trace_id=trace_id,
+            goal_id=(task or {}).get("goal_id"),
+            task_id=tid,
+            actor_role="hub",
+            details={
+                "selected_strategy": selected_strategy or None,
+                "backend": str(proposal.get("backend") or "").strip() or None,
+                "model": str(proposal.get("model") or "").strip() or None,
+                "has_cli_profile": bool(
+                    isinstance(proposal.get("cli_result"), dict)
+                    and isinstance((proposal.get("cli_result") or {}).get("llm_call_profile"), list)
+                    and len(list((proposal.get("cli_result") or {}).get("llm_call_profile") or [])) > 0
+                ),
+                "has_forwarded_request": bool(isinstance(proposal.get("forwarded_request"), dict)),
+                "reason_preview": flow_reason[:160] if flow_reason else None,
+            },
+        )
         if selected_strategy:
             get_execution_audit_service().emit(
                 operation_type="llm_strategy_selection",
                 outcome="selected",
-                trace_id=((proposal.get("trace") or {}).get("trace_id")),
+                trace_id=trace_id,
                 goal_id=(task or {}).get("goal_id"),
                 task_id=tid,
                 actor_role="hub",
