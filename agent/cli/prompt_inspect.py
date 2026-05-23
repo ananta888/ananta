@@ -1767,6 +1767,35 @@ def cmd_prompt_goal_worker_traces(args: argparse.Namespace) -> int:
                     }
             trace_rows.append(row)
 
+        if not trace_rows:
+            lp = dict(detail.get("last_proposal") or {})
+            lp_trace = dict(lp.get("trace") or {}) if isinstance(lp.get("trace"), dict) else {}
+            lp_trace_id = str(lp_trace.get("trace_id") or "").strip()
+            if lp_trace_id:
+                d_status, d_payload = _worker_debug_request(
+                    worker_url,
+                    f"/debug/llm-requests/{lp_trace_id}",
+                    token=worker_token,
+                    timeout=25,
+                )
+                if d_status == 200 and isinstance(d_payload, dict):
+                    detail_payload = dict((d_payload.get("data") if isinstance(d_payload.get("data"), dict) else d_payload))
+                    trace_rows.append(
+                        {
+                            "trace_id": lp_trace_id,
+                            "request_id": str(detail_payload.get("request_id") or ""),
+                            "request_kind": str(detail_payload.get("request_kind") or "propose"),
+                            "provider": str(detail_payload.get("provider") or ""),
+                            "model": str(detail_payload.get("model") or ""),
+                            "success": detail_payload.get("success"),
+                            "latency_ms": detail_payload.get("latency_ms"),
+                            "created_at": detail_payload.get("created_at"),
+                            "prompt_preview_redacted": str(detail_payload.get("final_prompt_redacted") or ""),
+                            "prompt_hash_sha256": str(detail_payload.get("prompt_hash_sha256") or ""),
+                            "response_hash_sha256": str(detail_payload.get("response_hash_sha256") or ""),
+                        }
+                    )
+
         trace_rows.sort(key=lambda item: float(item.get("created_at") or 0.0))
         if not trace_rows:
             last_proposal = dict(detail.get("last_proposal") or {})
