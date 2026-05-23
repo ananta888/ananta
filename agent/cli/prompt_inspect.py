@@ -759,6 +759,18 @@ def cmd_prompt_task_report(args: argparse.Namespace) -> int:
         "trace_count": len(trace_rows),
         "traces": trace_rows,
     }
+    if not trace_rows:
+        last_proposal = dict(task_detail.get("last_proposal") or {}) if isinstance(task_detail, dict) else {}
+        fwd = dict(last_proposal.get("forwarded_request") or {}) if isinstance(last_proposal.get("forwarded_request"), dict) else {}
+        if fwd:
+            result["forwarded_request"] = {
+                "prompt_preview": str(fwd.get("prompt_preview") or ""),
+                "prompt_hash_sha256": str(fwd.get("prompt_hash_sha256") or ""),
+                "provider": str(fwd.get("provider") or ""),
+                "model": str(fwd.get("model") or ""),
+                "strategy_mode": str(fwd.get("strategy_mode") or ""),
+                "captured_at": fwd.get("captured_at"),
+            }
 
     if getattr(args, "json", False):
         print(json.dumps(result, indent=2))
@@ -778,6 +790,12 @@ def cmd_prompt_task_report(args: argparse.Namespace) -> int:
 
     if not trace_rows:
         print("\n(no prompt traces found)")
+        forwarded_request = dict(result.get("forwarded_request") or {})
+        if forwarded_request:
+            print("\n--- Forwarded Request (Hub Capture) ---")
+            print(f"provider={forwarded_request.get('provider') or '-'} model={forwarded_request.get('model') or '-'} strategy={forwarded_request.get('strategy_mode') or '-'}")
+            print(f"hash={forwarded_request.get('prompt_hash_sha256') or '-'}")
+            print(f"prompt={forwarded_request.get('prompt_preview') or '-'}")
         return 0
 
     print("\n--- Prompt Traces ---")
@@ -1750,6 +1768,25 @@ def cmd_prompt_goal_worker_traces(args: argparse.Namespace) -> int:
             trace_rows.append(row)
 
         trace_rows.sort(key=lambda item: float(item.get("created_at") or 0.0))
+        if not trace_rows:
+            last_proposal = dict(detail.get("last_proposal") or {})
+            fwd = dict(last_proposal.get("forwarded_request") or {}) if isinstance(last_proposal.get("forwarded_request"), dict) else {}
+            if fwd:
+                trace_rows.append(
+                    {
+                        "trace_id": "",
+                        "request_id": "",
+                        "request_kind": "forwarded_request_capture",
+                        "provider": str(fwd.get("provider") or ""),
+                        "model": str(fwd.get("model") or ""),
+                        "success": None,
+                        "latency_ms": None,
+                        "created_at": float(fwd.get("captured_at") or 0.0),
+                        "prompt_preview_redacted": str(fwd.get("prompt_preview") or ""),
+                        "prompt_hash_sha256": str(fwd.get("prompt_hash_sha256") or ""),
+                        "response_hash_sha256": "",
+                    }
+                )
         rows.append(
             {
                 "task_id": tid,

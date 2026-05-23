@@ -209,10 +209,48 @@ class ModelInvocationService:
 
         logger.debug("LLM call provider=%s url=%s model=%s tools=%s timeout=%s", provider, url, effective_model, bool(tools), timeout)
 
+        prompt_trace = None
+        trace_svc = None
+        try:
+            from flask import g, has_app_context
+            if has_app_context():
+                from agent.services.prompt_trace_service import get_prompt_trace_service
+
+                trace_goal_id = str(getattr(g, "llm_goal_id", "") or "").strip() or None
+                trace_task_id = str(getattr(g, "llm_task_id", "") or "").strip() or None
+                trace_svc = get_prompt_trace_service()
+                prompt_trace = trace_svc.create_trace(
+                    goal_id=trace_goal_id,
+                    task_id=trace_task_id,
+                    source_component="model_invocation_service",
+                    provider=provider,
+                    transport_provider=provider,
+                    model=effective_model,
+                    endpoint_kind="chat_completions",
+                    request_kind="propose",
+                    messages=[m for m in list(messages or []) if isinstance(m, dict)],
+                    tools=cls._normalize_openai_tools(tools),
+                    llm_scope="task",
+                    sensitivity_level="internal",
+                )
+        except Exception:
+            prompt_trace = None
+            trace_svc = None
+
         started_at = time.time()
         try:
             resp = requests.post(url, json=body, headers=headers, timeout=timeout)
         except requests.exceptions.ConnectionError as exc:
+            if prompt_trace is not None and trace_svc is not None:
+                try:
+                    trace_svc.finalize_trace(
+                        prompt_trace,
+                        success=False,
+                        error_type="connection_error",
+                        error_message=f"{exc}",
+                    )
+                except Exception:
+                    pass
             cls._raise_llm_error(
                 message=f"llm_connection_failed: {exc}",
                 name="chat_completions",
@@ -223,6 +261,16 @@ class ModelInvocationService:
                 error_type="connection_error",
             )
         except requests.exceptions.Timeout as exc:
+            if prompt_trace is not None and trace_svc is not None:
+                try:
+                    trace_svc.finalize_trace(
+                        prompt_trace,
+                        success=False,
+                        error_type="timeout",
+                        error_message=f"{exc}",
+                    )
+                except Exception:
+                    pass
             cls._raise_llm_error(
                 message=f"llm_timeout: {exc}",
                 name="chat_completions",
@@ -234,6 +282,16 @@ class ModelInvocationService:
             )
 
         if resp.status_code >= 500:
+            if prompt_trace is not None and trace_svc is not None:
+                try:
+                    trace_svc.finalize_trace(
+                        prompt_trace,
+                        success=False,
+                        error_type="server_error",
+                        error_message=f"HTTP {resp.status_code}",
+                    )
+                except Exception:
+                    pass
             cls._raise_llm_error(
                 message=f"llm_server_error: HTTP {resp.status_code}",
                 name="chat_completions",
@@ -244,6 +302,16 @@ class ModelInvocationService:
                 error_type="server_error",
             )
         if resp.status_code >= 400:
+            if prompt_trace is not None and trace_svc is not None:
+                try:
+                    trace_svc.finalize_trace(
+                        prompt_trace,
+                        success=False,
+                        error_type="client_error",
+                        error_message=f"HTTP {resp.status_code} {resp.text[:200]}",
+                    )
+                except Exception:
+                    pass
             cls._raise_llm_error(
                 message=f"llm_client_error: HTTP {resp.status_code} {resp.text[:200]}",
                 name="chat_completions",
@@ -258,6 +326,21 @@ class ModelInvocationService:
             payload = resp.json()
             ended_at = time.time()
             usage = payload.get("usage") if isinstance(payload, dict) else {}
+            if prompt_trace is not None and trace_svc is not None:
+                try:
+                    msg_content = ""
+                    if isinstance(payload, dict):
+                        first = ((payload.get("choices") or [{}])[0] or {})
+                        msg = first.get("message") if isinstance(first, dict) else {}
+                        msg_content = str((msg or {}).get("content") or "")
+                    trace_svc.finalize_trace(
+                        prompt_trace,
+                        success=True,
+                        response_text=msg_content or None,
+                        usage=usage if isinstance(usage, dict) else None,
+                    )
+                except Exception:
+                    pass
             profile = cls._build_llm_call_profile_entry(
                 name="chat_completions",
                 backend="llm_api",
@@ -274,6 +357,16 @@ class ModelInvocationService:
                 payload["metadata"] = meta
             return payload
         except Exception as exc:
+            if prompt_trace is not None and trace_svc is not None:
+                try:
+                    trace_svc.finalize_trace(
+                        prompt_trace,
+                        success=False,
+                        error_type="invalid_json_response",
+                        error_message=f"{exc}",
+                    )
+                except Exception:
+                    pass
             cls._raise_llm_error(
                 message=f"llm_invalid_json_response: {exc}",
                 name="chat_completions",
