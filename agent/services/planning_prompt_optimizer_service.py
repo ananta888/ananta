@@ -47,7 +47,10 @@ class PlanningPromptOptimizerService:
         elif output_format == "markdown":
             extra_rules.append("Output markdown bullet list only. One actionable task per bullet.")
         elif output_format == "json":
-            extra_rules.append("Output strict JSON only. No markdown fences, no prose.")
+            if observed_shape in {"json_in_markdown_fence", "markdown_bullets", "numbered_steps", "yaml_like"}:
+                extra_rules.append("Return a structured task list in the format that works best for this model. Ensure the output is parseable into concrete tasks.")
+            else:
+                extra_rules.append("Output strict JSON only. No markdown fences, no prose.")
 
         if not extra_rules:
             return text, style
