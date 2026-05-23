@@ -193,6 +193,7 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
             },
         },
         "autopilot_task_propose_hard_guard_status": "todo",
+        "strategy_mode": "autopilot_no_human_review",
     }
     r = requests.post(f"{base}/config", json=policy, headers=_headers(token), timeout=15)
     if not r.ok:
