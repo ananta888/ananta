@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from collections.abc import Sequence
 
@@ -15,6 +16,7 @@ CORE_COMMANDS = (
     "first-run",
     "status",
     "update",
+    "run",
     *GOAL_ALIAS_COMMANDS,
     "tui",
     "doctor",
@@ -34,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Examples:\n"
             "  ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default\n"
             "  ananta status\n"
+            "  ananta run three-worker --prompt \"Analyze the last commits\" --dry-run\n"
             "  ananta update --help\n"
             "  ananta ask \"What should I do next?\"\n"
             "  ananta review \"Review auth changes\"\n"
@@ -48,7 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         help=(
             "Command: init, first-run, status, ask, plan, analyze, review, diagnose, "
-            "patch, repair-admin, new-project, evolve-project, update, tui, doctor, web, task, "
+            "patch, repair-admin, new-project, evolve-project, update, run, tui, doctor, web, task, "
             "voice-file, prompt, llm-log"
         ),
     )
@@ -82,6 +85,44 @@ def _run_doctor(argv: Sequence[str]) -> int:
 
 def _run_update(argv: Sequence[str]) -> int:
     return _invoke(update_main, argv)
+
+
+def _run_ananta_run(argv: Sequence[str]) -> int:
+    parser = argparse.ArgumentParser(prog="ananta run")
+    sub = parser.add_subparsers(dest="run_cmd")
+    three = sub.add_parser("three-worker", help="Run the Hermes/OpenCode/Ananta-worker comparison with local planning")
+    three.add_argument("--prompt", required=True)
+    three.add_argument("--config", default=None)
+    three.add_argument("--json", action="store_true")
+    three.add_argument("--dry-run", action="store_true", default=True)
+
+    if not argv or argv[0] in {"-h", "--help"}:
+        parser.print_help()
+        return 0
+    try:
+        parsed = parser.parse_args(argv)
+    except SystemExit as exc:
+        return int(exc.code) if exc.code is not None else 2
+    if parsed.run_cmd != "three-worker":
+        parser.print_help()
+        return 2
+
+    from agent.services.three_worker_comparison_runner import get_three_worker_comparison_runner
+
+    result = get_three_worker_comparison_runner().run(
+        prompt=parsed.prompt,
+        config_path=parsed.config,
+    ).as_dict()
+    if parsed.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print(f"Run: {result['run_id']}")
+        print(f"Status: {result['status']}")
+        planning = result.get("planning") or {}
+        print(f"Planning: {planning.get('provider')} / {planning.get('model')}")
+        for track in result.get("tracks") or []:
+            print(f"- {track.get('track_id')}: {track.get('status')} ({track.get('requested_backend')})")
+    return 0 if result.get("status") == "ok" else 1
 
 
 def _run_tui(argv: Sequence[str]) -> int:
@@ -140,7 +181,6 @@ def _run_prompt(argv: Sequence[str]) -> int:
     sub_parser = argparse.ArgumentParser(prog="ananta prompt")
     sub_sub = sub_parser.add_subparsers(dest="prompt_cmd")
 
-    # Add subcommands directly (not wrapped in extra "prompt" layer)
     inspect_p = sub_sub.add_parser("inspect", help="Show a specific prompt trace")
     inspect_p.add_argument("--trace-id", dest="trace_id", required=True)
     inspect_p.add_argument("--json", action="store_true")
@@ -163,7 +203,6 @@ def _run_prompt(argv: Sequence[str]) -> int:
 
     gr_p = sub_sub.add_parser("goal-report", help="Show tasks + prompt traces + artifacts for a goal")
     gr_p.add_argument("--goal-id", dest="goal_id", required=True)
-    gr_p.add_argument("--json", action="store_true")
     dr_p = sub_sub.add_parser("delegation-report", help="Show compact task delegation/template view for a goal")
     dr_p.add_argument("--goal-id", dest="goal_id", required=True)
     dr_p.add_argument("--json", action="store_true")
@@ -277,8 +316,6 @@ def _run_compat_goals(argv: Sequence[str]) -> int:
         print("Error: `ananta goal|goals` expects arguments.")
         print("Use `ananta status`, `ananta ask ...`, or `ananta --help`.")
         return 2
-    # Compatibility bridge: some users call `ananta goal --goal-id <id>` to inspect
-    # details. The canonical flag in `cli_goals` is `--goal-detail <id>`.
     normalized = list(argv)
     if "--goal-id" in normalized and "--goal-detail" not in normalized and "--goal-purge" not in normalized:
         idx = normalized.index("--goal-id")
@@ -306,6 +343,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_cli_goals(["--first-run", *rest])
     if command == "update":
         return _run_update(rest)
+    if command == "run":
+        return _run_ananta_run(rest)
     if command in GOAL_ALIAS_COMMANDS or command == "repair-script":
         return run_goal_alias(command, rest)
     if command == "doctor":
