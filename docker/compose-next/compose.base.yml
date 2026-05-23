@@ -1,0 +1,92 @@
+services:
+  ai-agent-hub-base:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.quickstart-no-ollama
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
+    restart: unless-stopped
+    working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: python -m agent.ai_agent
+    environment:
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+      FLASK_DEBUG: 0
+      INITIAL_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
+      INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434/api/generate}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:7b}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
+      HTTP_TIMEOUT: ${HTTP_TIMEOUT:-180}
+      COMMAND_TIMEOUT: ${COMMAND_TIMEOUT:-180}
+      ANANTA_RUNTIME_PROFILE: ${ANANTA_RUNTIME_PROFILE:-compose-safe}
+      SECRET_KEY: ${SECRET_KEY:-ananta-dev-shared-secret-change-me}
+      ROLE: hub
+      AGENT_NAME: ${ANANTA_HUB_ID:-ananta-hub}
+      AGENT_URL: http://ai-agent-hub:5000
+      AUTH_TEST_ENDPOINTS_ENABLED: ${AUTH_TEST_ENDPOINTS_ENABLED:-0}
+      HUB_CAN_BE_WORKER: ${HUB_CAN_BE_WORKER:-0}
+      ANANTA_WORKSPACE_ROOT: /project-workspaces
+    ports:
+      - "${HUB_PORT:-5000}:5000"
+    volumes:
+      - ../../project-workspaces:/project-workspaces:rw
+      - hub-data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5000/health?basic=1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  ai-agent-worker-base:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.quickstart-no-ollama
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
+    restart: unless-stopped
+    working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: python -m agent.ai_agent
+    environment:
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+      FLASK_DEBUG: 0
+      INITIAL_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
+      INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434/api/generate}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:7b}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
+      HTTP_TIMEOUT: ${HTTP_TIMEOUT:-180}
+      COMMAND_TIMEOUT: ${COMMAND_TIMEOUT:-180}
+      ANANTA_RUNTIME_PROFILE: ${ANANTA_RUNTIME_PROFILE:-compose-safe}
+      SECRET_KEY: ${SECRET_KEY:-ananta-dev-shared-secret-change-me}
+      ROLE: worker
+      ANANTA_WORKSPACE_ROOT: /project-workspaces
+    volumes:
+      - ../../project-workspaces:/project-workspaces:rw
+
+  angular-frontend-base:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.quickstart-no-ollama
+    image: ${ANANTA_QUICKSTART_IMAGE:-ananta-quickstart-no-ollama:local}
+    restart: unless-stopped
+    working_dir: /app/frontend-angular
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: npx ng serve --host 0.0.0.0 --port 4200 --poll 2000 --disable-host-check
+    environment:
+      E2E_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
+      E2E_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    ports:
+      - "${FRONTEND_PORT:-4200}:4200"
