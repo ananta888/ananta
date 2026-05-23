@@ -5,6 +5,8 @@ services:
       service: ai-agent-hub-base
     command: sh -c "alembic upgrade head && exec python -m agent.ai_agent"
     environment:
+      ANANTA_QUICKSTART_MODE: role
+      ANANTA_QUICKSTART_ROLE: hub
       FLASK_DEBUG: 1
       DEFAULT_PROVIDER: lmstudio
       LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.178.100:1234/v1}
@@ -26,6 +28,8 @@ services:
       service: ai-agent-worker-base
     command: sh -c "alembic upgrade head && exec python -m agent.ai_agent"
     environment:
+      ANANTA_QUICKSTART_MODE: role
+      ANANTA_QUICKSTART_ROLE: worker
       FLASK_DEBUG: 1
       DEFAULT_PROVIDER: lmstudio
       LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.178.100:1234/v1}
@@ -50,6 +54,8 @@ services:
       service: ai-agent-worker-base
     command: sh -c "alembic upgrade head && exec python -m agent.ai_agent"
     environment:
+      ANANTA_QUICKSTART_MODE: role
+      ANANTA_QUICKSTART_ROLE: worker
       FLASK_DEBUG: 1
       DEFAULT_PROVIDER: lmstudio
       LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.178.100:1234/v1}
@@ -75,6 +81,9 @@ services:
     volumes:
       - ../../:/app:rw
       - frontend-node-modules:/app/frontend-angular/node_modules
+    environment:
+      ANANTA_QUICKSTART_MODE: role
+      ANANTA_QUICKSTART_ROLE: frontend
     depends_on:
       ai-agent-hub:
         condition: service_healthy
