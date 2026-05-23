@@ -3,12 +3,18 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from typing import Any
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+# LM Studio handles one inference at a time. Concurrent requests return empty content
+# because the second request is queued/dropped. This lock serializes all LM Studio calls
+# across threads (Flask runs with threaded=True, so planning and propose can overlap).
+_LMSTUDIO_INFERENCE_LOCK = threading.Lock()
 
 
 class LLMUnavailableError(Exception):
@@ -237,6 +243,11 @@ class ModelInvocationService:
             trace_svc = None
 
         started_at = time.time()
+        lock_ctx: threading.Lock | None = _LMSTUDIO_INFERENCE_LOCK if provider in ("lmstudio", "lm_studio") else None
+        if lock_ctx is not None:
+            if not lock_ctx.acquire(blocking=False):
+                logger.debug("LM Studio busy — waiting for inference lock (provider=%s)", provider)
+                lock_ctx.acquire()
         try:
             resp = requests.post(url, json=body, headers=headers, timeout=timeout)
         except requests.exceptions.ConnectionError as exc:
