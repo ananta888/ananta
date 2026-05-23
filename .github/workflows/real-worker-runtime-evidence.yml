@@ -26,7 +26,7 @@ jobs:
       CONTROLLER_URL: http://mock-controller
       AGENT_NAME: evidence-preindex
       INITIAL_ADMIN_USER: admin
-      INITIAL_ADMIN_PASSWORD: admin
+      INITIAL_ADMIN_PASSWORD: test123
       OPENCODE_DISABLE_AUTOUPDATE: "1"
       OPENCODE_DISABLE_PRUNE: "1"
     steps:

@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       POSTGRES_PASSWORD: test-postgres-password
-      INITIAL_ADMIN_PASSWORD: test-admin-password
+      INITIAL_ADMIN_PASSWORD: test123
       SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
       AGENT_TOKEN_HUB: hub-token
       AGENT_TOKEN_ALPHA: alpha-token
