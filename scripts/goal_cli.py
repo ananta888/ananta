@@ -150,6 +150,12 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
         "default_provider": "lmstudio",
         "default_model": "google/gemma-4-e4b",
         "lmstudio_url": "http://192.168.178.100:1234/v1",
+        "llm_config": {
+            "provider": "lmstudio",
+            "model": "google/gemma-4-e4b",
+            "base_url": "http://192.168.178.100:1234/v1",
+            "lmstudio_api_mode": "chat",
+        },
         "planning_policy": {
             "delegated_planning_enabled": False,
             "allowed_planner_roles": ["planning-agent", "planner"],

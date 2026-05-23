@@ -49,7 +49,7 @@ class WorkerStrategy(ProposeStrategy):
             service = WorkerRuntimeSelectionService()
             decision = service.select(request)
 
-            if decision.status != SelectionDecisionStatus.selected:
+            if decision.decision_status != SelectionDecisionStatus.selected:
                 return ProposeStrategyResult.declined(
                     "worker_strategy",
                     reason=str(decision.reason) if hasattr(decision, "reason") else "no_worker_selected",
