@@ -1,0 +1,52 @@
+services:
+  ai-agent-hub:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-hub-base
+    environment:
+      DATABASE_URL: ${HUB_DATABASE_URL:-sqlite:////app/data/ananta-hub.db}
+
+  ai-agent-alpha:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-worker-base
+    environment:
+      AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
+      AGENT_URL: http://ai-agent-alpha:5000
+      HUB_URL: http://ai-agent-hub:5000
+      DATABASE_URL: ${ALPHA_DATABASE_URL:-sqlite:////app/data/ananta-alpha.db}
+    volumes:
+      - ../../project-workspaces:/project-workspaces:rw
+      - alpha-data:/app/data
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+
+  ai-agent-beta:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-worker-base
+    environment:
+      AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
+      AGENT_URL: http://ai-agent-beta:5000
+      HUB_URL: http://ai-agent-hub:5000
+      DATABASE_URL: ${BETA_DATABASE_URL:-sqlite:////app/data/ananta-beta.db}
+    volumes:
+      - ../../project-workspaces:/project-workspaces:rw
+      - beta-data:/app/data
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+
+  angular-frontend:
+    extends:
+      file: compose.base.yml
+      service: angular-frontend-base
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+
+volumes:
+  hub-data:
+  alpha-data:
+  beta-data:

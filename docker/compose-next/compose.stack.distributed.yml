@@ -1,0 +1,158 @@
+services:
+  ai-agent-hub:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-hub-base
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ai-agent-alpha:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-worker-base
+    environment:
+      AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
+      AGENT_URL: http://ai-agent-alpha:5000
+      HUB_URL: http://ai-agent-hub:5000
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - ../../project-workspaces:/project-workspaces:rw
+      - alpha-data:/app/data
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  ai-agent-beta:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-worker-base
+    environment:
+      AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
+      AGENT_URL: http://ai-agent-beta:5000
+      HUB_URL: http://ai-agent-hub:5000
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - ../../project-workspaces:/project-workspaces:rw
+      - beta-data:/app/data
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  ai-agent-gamma:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-worker-base
+    environment:
+      AGENT_NAME: ${ANANTA_WORKER_GAMMA_ID:-ananta-worker-3}
+      AGENT_URL: http://ai-agent-gamma:5000
+      HUB_URL: http://ai-agent-hub:5000
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - ../../project-workspaces:/project-workspaces:rw
+      - gamma-data:/app/data
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  ai-agent-delta:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-worker-base
+    environment:
+      AGENT_NAME: ${ANANTA_WORKER_DELTA_ID:-ananta-worker-4}
+      AGENT_URL: http://ai-agent-delta:5000
+      HUB_URL: http://ai-agent-hub:5000
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - ../../project-workspaces:/project-workspaces:rw
+      - delta-data:/app/data
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  angular-frontend:
+    extends:
+      file: compose.base.yml
+      service: angular-frontend-base
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ananta}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}"
+      POSTGRES_DB: ${POSTGRES_DB:-ananta}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ananta}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  redis:
+    image: redis:7.4.8-alpine@sha256:7aec734b2bb298a1d769fd8729f13b8514a41bf90fcdd1f38ec52267fbaa8ee6
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  ollama:
+    image: ollama/ollama:0.20.7@sha256:487324a9312240e3e122446f351b1f1e3f68d884ef854c246db2e08792440d94
+    restart: unless-stopped
+    profiles: ["ollama"]
+    ports:
+      - "11434:11434"
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-2}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
+    volumes:
+      - ../../.ollama:/root/.ollama
+      - /mnt/c/Users/Public/lm-models:/models:ro
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+volumes:
+  hub-data:
+  alpha-data:
+  beta-data:
+  gamma-data:
+  delta-data:
+  postgres-data:
+  redis-data:
