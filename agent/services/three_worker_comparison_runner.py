@@ -10,6 +10,7 @@ from agent.services.three_worker_run_config_service import (
 )
 
 TrackExecutor = Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]
+_SUCCESS_STATUSES = {"ok", "success", "dry_run", "handoff_required", "pending_integration"}
 
 
 @dataclass(frozen=True)
@@ -87,16 +88,19 @@ class ThreeWorkerComparisonRunner:
                     "duration_ms": int((time.time() - track_started) * 1000),
                     "error": str(exc),
                 })
-        failed = [item for item in results if item.get("status") not in {"ok", "success", "dry_run"}]
+        failed = [item for item in results if item.get("status") not in _SUCCESS_STATUSES]
+        pending = [item for item in results if item.get("status") in {"handoff_required", "pending_integration"}]
         summary = {
             "track_count": len(results),
             "failed_count": len(failed),
+            "pending_count": len(pending),
             "provider_entries": list(plan["provider_entries"]),
             "duration_ms": int((time.time() - started) * 1000),
             "local_planning_enforced": True,
         }
+        overall_status = "failed" if failed else ("partial" if pending else "ok")
         return ThreeWorkerComparisonResult(
-            status="failed" if failed else "ok",
+            status=overall_status,
             run_id=plan["run_id"],
             planning=plan["planning"],
             tracks=results,

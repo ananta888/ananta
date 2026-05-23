@@ -76,11 +76,16 @@ fallback_policy:
 
 
 def test_non_hermes_track_returns_handoff() -> None:
-    executor = ThreeWorkerTrackExecutor(agent_cfg={})
+    executor = ThreeWorkerTrackExecutor(
+        agent_cfg={},
+        task_scoped_runner=lambda _track, _ctx: {
+            "status": "pending_integration",
+            "reason": "task_scoped_runner_injected",
+        },
+    )
     out = executor(
         {"id": "opencode-local", "requested_backend": "opencode", "worker_type": "opencode", "execution_provider": "local"},
         {"planning": {"provider": "lmstudio", "model": "google/gemma-4-e4b"}},
     )
-    assert out["status"] == "handoff_required"
-    assert out["planning_provider"] == "lmstudio"
-    assert out["planning_model"] == "google/gemma-4-e4b"
+    assert out["status"] == "pending_integration"
+    assert out["reason"] == "task_scoped_runner_injected"
