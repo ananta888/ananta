@@ -20,7 +20,12 @@ def _cfg() -> LlmInterceptorConfig:
                     "allowed_models": ["intercepted-coder"],
                 }
             ],
-            "routing": {"default_upstream": "local-lmstudio", "default_model": "intercepted-coder", "rules": []},
+            "routing": {
+                "default_upstream": "local-lmstudio",
+                "default_model": "intercepted-coder",
+                "model_aliases": {"ananta-interceptor/intercepted-coder": "intercepted-coder"},
+                "rules": [],
+            },
         }
     )
 
@@ -95,3 +100,32 @@ def test_streaming_passthrough_returns_sse():
     assert resp.mimetype == "text/event-stream"
     body = resp.get_data(as_text=True)
     assert "data: [DONE]" in body
+
+
+def test_streaming_invalid_chunk_gets_safe_terminal_error():
+    server = OpenAICompatInterceptorServer(_cfg())
+    app = server.create_app()
+    server._router.forward_chat_stream = lambda **_kwargs: iter(["{\"bad\":1}\n\n"])
+    client = app.test_client()
+    resp = client.post(
+        "/v1/chat/completions",
+        json={"model": "intercepted-coder", "messages": [{"role": "user", "content": "hello"}], "stream": True},
+    )
+    body = resp.get_data(as_text=True)
+    assert "invalid_stream_chunk" in body
+    assert "data: [DONE]" in body
+
+
+def test_non_stream_invalid_upstream_response_repaired_once():
+    server = OpenAICompatInterceptorServer(_cfg())
+    app = server.create_app()
+    server._router.forward_chat = lambda **_kwargs: {"text": "hello from malformed"}
+    client = app.test_client()
+    resp = client.post(
+        "/v1/chat/completions",
+        json={"model": "intercepted-coder", "messages": [{"role": "user", "content": "hello"}]},
+    )
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["object"] == "chat.completion"
+    assert body["choices"][0]["message"]["content"] == "hello from malformed"

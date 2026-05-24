@@ -39,7 +39,8 @@ class ProviderRouter:
             "context_class": str(task.get("context_class") or "").lower(),
         }
         chosen_upstream_id = self.cfg.routing.default_upstream
-        chosen_model = str(payload.get("model") or self.cfg.routing.default_model).strip()
+        requested_model = str(payload.get("model") or self.cfg.routing.default_model).strip()
+        chosen_model = str(self.cfg.routing.model_aliases.get(requested_model) or requested_model)
         for rule in self.cfg.routing.rules:
             if self._matches_when(rule.when, route_meta):
                 chosen_upstream_id = rule.upstream

@@ -1,0 +1,7 @@
+{
+  "provider": "@ai-sdk/openai-compatible",
+  "baseURL": "http://127.0.0.1:8787/v1",
+  "model": "intercepted-coder",
+  "notes": "OpenCode talks only to Ananta interceptor. Real upstream is configured server-side."
+}
+
