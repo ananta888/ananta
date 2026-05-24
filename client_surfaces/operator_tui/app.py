@@ -111,21 +111,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             animation_backend=backend,
             animation_capability=cap if backend is not None else None,
         )
-        backend: BuiltinBackend | None = None
-        if not args.no_3d and cap.enabled and (explicit_3d or args.splash_frame):
-            backend = BuiltinBackend()
-            cap = AnimationCapability(
-                enabled=True, reason_code="ok",
-                terminal_width=args.width, terminal_height=args.height,
-                color_mode=cap.color_mode, preset_name=args.splash_frame.split(":")[0] if args.splash_frame and ":" in args.splash_frame else cap.preset_name,
-                max_fps=cap.max_fps, duration_ms=cap.duration_ms,
-            )
-
-        splash = SplashMachine(
-            fullscreen_seconds=args.splash_seconds,
-            animation_backend=backend,
-            animation_capability=cap,
-        )
 
     if args.measure_first_paint:
         measurement = measure(
