@@ -278,3 +278,46 @@ Wofuer Evolver nicht gedacht ist:
 - nicht als unsichtbarer Autopilot fuer direkte Aenderungen
 - nicht als Ersatz fuer Research, wenn erst Quellen, Vergleich oder Bericht fehlen
 - nicht fuer Apply ohne explizite Review-/Approval-Gates
+
+## Flow J: Ananta Strategie-Game als Entwicklungs-Szenario
+
+Standardfall:
+- Ein grosses, unhandliches Software-/Game-Projekt soll mit Ananta selbst entwickelt werden.
+- Der Hub reduziert den vorhandenen Masterplan zuerst auf einen testbaren Brutal-MVP.
+- Worker erzeugen nur kleine Artefakte: Scope-Entscheidung, Kurzregel, Testkarte, Playtest-Protokoll, Game-Core-Modell und Testplan.
+- UI, E-Ink, Hardware, Online-Multiplayer und zusaetzliche Spielmechaniken bleiben zuerst geparkt.
+
+Referenz:
+- Szenario: `docs/examples/ananta-strategy-game-development-scenario.md`
+- TODO-Spur: `todos/todo.ananta-strategy-game-development-scenario.json`
+
+Realpfad UI:
+1. Dashboard -> `Assistent`.
+2. Modus `Existierendes Projekt weiterentwickeln` oder `Neues Softwareprojekt anlegen` waehlen.
+3. Zieltext aus dem Szenario verwenden.
+4. Erfolgssignal: Der Hub erzeugt keine monolithische "baue das ganze Spiel"-Aufgabe, sondern einen kleinen, reviewbaren First-Step-Plan.
+
+CLI:
+
+```bash
+ananta new-project "Entwickle das Ananta Strategie-Game als kontrolliertes Beispielprojekt: zuerst Brutal-MVP, 19-Hex-Papierkarte, 2-Seiten-Kurzregel, Playtest-Protokoll, danach minimaler TypeScript-Game-Core. Keine UI, kein E-Ink, keine Hardware im ersten Lauf."
+```
+
+API:
+
+```http
+POST /goals
+{"mode":"new_software_project","mode_data":{"project_idea":"Ananta Strategie-Game als kontrolliertes Entwicklungsbeispiel fuer Ananta","target_users":"Maintainer und Reviewer von Ananta","platform":"erst Papier-Playtest, danach TypeScript Game-Core","preferred_stack":"TypeScript ohne UI-Abhaengigkeit im Core","non_goals":"Keine UI, kein E-Ink, keine Hardware, kein Online-Multiplayer, keine zusaetzlichen Spielmechaniken im ersten Lauf"},"create_tasks":true}
+```
+
+Erwartetes Ergebnis:
+- Scope-Reduktion vom grossen Masterplan auf First-Step Brutal-MVP
+- geplante Artefakte fuer Kurzregel, 19-Hex-Karte, Playtest-Protokoll und Game-Core-Modell
+- kleine Tasks statt monolithischem Auftrag
+- sichtbare Review-Gates vor Umsetzung
+
+Review-Check:
+- Der grosse Masterplan bleibt Backlog/Referenz.
+- Die aktive TODO-Spur ist der First-Step bzw. diese Szenario-TODO.
+- Worker duerfen keine geparkten Features wie Trade, Durg, E-Ink oder Hardware aktivieren.
+- Verification prueft Artefakte und Testbarkeit, nicht nur Textmenge.
