@@ -167,7 +167,7 @@
     },
     {
       "id": "graph-003",
-      "status": "todo",
+      "status": "done",
       "title": "Create GraphViewerComponent as main shell",
       "type": "implementation",
       "files": [
@@ -186,7 +186,7 @@
     },
     {
       "id": "graph-004",
-      "status": "todo",
+      "status": "done",
       "title": "Create simple graph view",
       "type": "implementation",
       "files": [
@@ -209,7 +209,7 @@
     },
     {
       "id": "graph-005",
-      "status": "todo",
+      "status": "done",
       "title": "Create 2D graph renderer",
       "type": "implementation",
       "files": [
@@ -266,7 +266,7 @@
     },
     {
       "id": "graph-007",
-      "status": "todo",
+      "status": "done",
       "title": "Create graph toolbar",
       "type": "implementation",
       "files": [
@@ -285,7 +285,7 @@
     },
     {
       "id": "graph-008",
-      "status": "todo",
+      "status": "done",
       "title": "Create graph detail panel",
       "type": "implementation",
       "files": [
@@ -327,7 +327,7 @@
     },
     {
       "id": "graph-010",
-      "status": "todo",
+      "status": "done",
       "title": "Add mock graph data for development",
       "type": "test-fixture",
       "files": [
@@ -350,7 +350,7 @@
     },
     {
       "id": "graph-011",
-      "status": "todo",
+      "status": "done",
       "title": "Add tests",
       "type": "testing",
       "files": [
