@@ -612,6 +612,16 @@ class TaskScopedExecutionService:
             project_config=cfg,
             admin_overrides=propose_policy_override
         )
+        system_prompt = self._get_system_prompt_for_task(tid)
+        assembled_instruction = get_instruction_layer_service().assemble_for_task(
+            task=task,
+            base_prompt=base_prompt,
+            system_prompt=system_prompt,
+            emit_audit=False,
+        )
+        instruction_stack_payload = dict(assembled_instruction.get("instruction_stack") or {})
+        instruction_diagnostics = dict(assembled_instruction.get("diagnostics") or {})
+        rendered_system_prompt = str(assembled_instruction.get("rendered_system_prompt") or "").strip() or None
 
         strategies = build_strategy_registry()
 
@@ -626,6 +636,9 @@ class TaskScopedExecutionService:
             tool_definitions_resolver=tool_definitions_resolver,
             policy=policy,
             effective_config=cfg or None,
+            instruction_stack=instruction_stack_payload or None,
+            rendered_system_prompt=rendered_system_prompt,
+            instruction_diagnostics=instruction_diagnostics or None,
         )
         had_llm_goal_id = False
         had_llm_task_id = False
@@ -675,6 +688,12 @@ class TaskScopedExecutionService:
                 "model": cfg.get("default_model"),
                 "backend": _runtime_backend,
                 "source": scoped_resolution.source,
+            },
+            "instruction_stack": {
+                "present": bool(instruction_stack_payload),
+                "checksum": str(instruction_stack_payload.get("checksum") or "").strip() or None,
+                "applied_layers_count": len(list(instruction_diagnostics.get("applied_layers") or [])),
+                "suppressed_layers_count": len(list(instruction_diagnostics.get("suppressed_layers") or [])),
             },
         }
         proposal_meta = dict(getattr(result.proposal, "metadata", None) or {}) if result.proposal is not None else {}
