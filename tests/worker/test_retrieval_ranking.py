@@ -21,6 +21,7 @@ def test_hybrid_retrieval_merges_channels_with_rationale() -> None:
     assert payload["schema"] == "retrieval_selection.v1"
     assert payload["query_original"] == "fix auth bug"
     assert payload["query_rewritten"]
+    assert payload["selected"][0]["record_id"]
     assert payload["selected"][0]["rationale"]["profile"] == "balanced"
 
 
@@ -40,4 +41,3 @@ def test_optional_reranker_can_reorder_candidates() -> None:
     )
     assert len(payload["selected"]) == 2
     assert payload["selected"][0]["path"] == "src/a.py"
-

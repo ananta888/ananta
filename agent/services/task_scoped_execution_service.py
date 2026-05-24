@@ -1141,6 +1141,29 @@ class TaskScopedExecutionService:
             )
             combined_artifact_refs = [*list(workspace_artifact_refs or []), *list(native_artifact_refs or [])]
             execution_duration_ms = int((time.time() - exec_started_at) * 1000)
+            tool_run_refs: list[dict] = []
+            try:
+                from agent.services.tool_run_catalog_service import get_tool_run_catalog_service
+
+                run_entry = get_tool_run_catalog_service().build_run_entry(
+                    task_id=str(tid),
+                    index=1,
+                    tool_name="shell",
+                    command=str(command or ""),
+                    exit_code=int(execution_run.exit_code),
+                    stdout=str(execution_run.output or ""),
+                    stderr="",
+                    artifact_paths=[
+                        str(item.get("path") or item.get("artifact_path") or "")
+                        for item in list(combined_artifact_refs or [])
+                        if isinstance(item, dict)
+                    ],
+                    started_at=exec_started_at,
+                    ended_at=time.time(),
+                )
+                tool_run_refs = [run_entry]
+            except Exception:
+                tool_run_refs = []
             proposal_meta = task.get("last_proposal", {}) or {}
             trace = build_trace_record(
                 task_id=tid,
@@ -1199,6 +1222,7 @@ class TaskScopedExecutionService:
                     "loop_detection": execution_run.loop_detection,
                     "approval_decision": execution_run.approval_decision,
                     "execution_repair": execution_repair_meta,
+                    "tool_run_refs": tool_run_refs,
                     "runtime_command_rewrite": runtime_command_rewrite,
                     "flow_metrics": self._build_flow_metrics_payload(
                         run_id=str((((task.get("last_proposal") or {}).get("trace") or {}).get("trace_id") or "")),
