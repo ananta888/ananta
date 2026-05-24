@@ -142,7 +142,9 @@ class ProposePolicy:
         if strategy_id == STRATEGY_WORKER:
             return self.allow_worker_fallback
         if strategy_id == STRATEGY_DETERMINISTIC_HANDLER:
-            return self.allow_deterministic_fallback
+            # Explicit strategy_order entry wins over fallback toggle:
+            # if callers intentionally list deterministic_handler, run it.
+            return self.allow_deterministic_fallback or strategy_id in set(self.strategy_order)
         if strategy_id == STRATEGY_HUMAN_REVIEW:
             return self.allow_human_review
         return True

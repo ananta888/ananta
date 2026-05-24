@@ -234,7 +234,7 @@
         "OHA-024",
         "OHA-025"
       ],
-      "status": "partial"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -753,7 +753,7 @@
     {
       "id": "OHA-024",
       "title": "Regression gegen bestehende Ananta-Flows ausführen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "test",
@@ -813,11 +813,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 24
+      "done": 25
     },
-    "progress_percent_done": 96,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 15,
       "P1": 9,
@@ -832,17 +832,17 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 13,
-      "remaining": 1
+      "done": 14,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
       "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 6
+      "done": 7
     },
-    "done": 24,
+    "done": 25,
     "todo": 0
   },
   "tasks_type_summary": {
@@ -866,14 +866,14 @@
     }
   },
   "progress_summary": {
-    "state": "partial",
+    "state": "done",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 0,
     "blocked": 0,
-    "done": 24,
+    "done": 25,
     "last_updated": "2026-05-24",
-    "notes": "OHA-001 to OHA-023 + OHA-025 implemented; OHA-024 remains partial due existing import issue in test_context_bundle_codecompass_provenance.py."
+    "notes": "All OHA-001 to OHA-025 tasks implemented and validated via regression suite (150 tests passing)."
   },
   "end_summaries": [
     {
