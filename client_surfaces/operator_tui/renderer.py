@@ -37,13 +37,13 @@ def render_operator_shell(
 
     splash_line_count = len(splash_lines)
     if splash_line_count > 0 and splash_state not in ("disabled", "skipped"):
-        header_line = ""
+        persistent_header: list[str] = []
         rule_line = _rule(width)
         body_offset = splash_line_count
     else:
-        header_line = _clip(f"Ananta Operator TUI | {get_section(state.section_id).title} | mode={state.mode.value}", width)
+        persistent_header = _render_persistent_header(state, width)
         rule_line = _rule(width)
-        body_offset = 2
+        body_offset = len(persistent_header) + 1  # +1 for the rule
 
     left_width = 22
     detail_width = 34
@@ -52,8 +52,8 @@ def render_operator_shell(
 
     lines: list[str] = []
     lines.extend(splash_lines)
-    if header_line:
-        lines.append(header_line)
+    if persistent_header:
+        lines.extend(persistent_header)
         lines.append(rule_line)
     elif not splash_lines:
         lines.append(rule_line)
@@ -82,6 +82,21 @@ def render_operator_shell(
     if state.show_help or section.id == "help":
         lines.extend(_help_overlay(state, width))
     return "\n".join(_clip(line, width) for line in lines)
+
+
+def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
+    """Compact logo + live status shown permanently once splash is done."""
+    from agent.cli.logo_layout import render_compact_header
+    from agent.cli.status_snapshot import collect_status
+
+    no_color = state.terminal_graphics.get("no_color", False) if state.terminal_graphics else False
+    snapshot = collect_status(
+        mode=state.mode.value,
+        endpoint=state.endpoint,
+        auth_state=state.auth_state,
+        section=state.section_id,
+    )
+    return render_compact_header(snapshot, terminal_width=width, color=not no_color)
 
 
 def _render_splash_header(splash: SplashMachine, state: OperatorState, width: int) -> list[str]:

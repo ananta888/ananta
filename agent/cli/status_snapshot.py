@@ -23,6 +23,7 @@ class StatusSnapshot:
     repo_root: str = ""
     git_branch: str = ""
     git_dirty: bool = False
+    git_user: str = ""
     endpoint: str = ""
     auth_state: str = ""
     section: str = ""
@@ -44,7 +45,7 @@ def collect_status(
     uptime_seconds: float = 0.0,
 ) -> StatusSnapshot:
     cwd = _safe_cwd()
-    repo_root, git_branch, git_dirty = _git_info(cwd)
+    repo_root, git_branch, git_dirty, git_user = _git_info(cwd)
     return StatusSnapshot(
         tasks_queued=tasks_queued,
         tasks_running=tasks_running,
@@ -58,6 +59,7 @@ def collect_status(
         repo_root=repo_root,
         git_branch=git_branch,
         git_dirty=git_dirty,
+        git_user=git_user,
         endpoint=endpoint,
         auth_state=auth_state,
         section=section,
@@ -71,9 +73,9 @@ def _safe_cwd() -> str:
         return ""
 
 
-def _git_info(cwd: str) -> tuple[str, str, bool]:
+def _git_info(cwd: str) -> tuple[str, str, bool, str]:
     if not cwd:
-        return "", "", False
+        return "", "", False, ""
     try:
         import subprocess
         root = subprocess.run(
@@ -81,18 +83,22 @@ def _git_info(cwd: str) -> tuple[str, str, bool]:
             capture_output=True, text=True, timeout=2, cwd=cwd,
         ).stdout.strip()
         if not root:
-            return "", "", False
+            return "", "", False, ""
         branch = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             capture_output=True, text=True, timeout=2, cwd=cwd,
         ).stdout.strip()
-        status = subprocess.run(
+        dirty = subprocess.run(
             ["git", "status", "--porcelain"],
             capture_output=True, text=True, timeout=2, cwd=cwd,
         ).stdout.strip()
-        return root, branch, bool(status)
+        user = subprocess.run(
+            ["git", "config", "user.name"],
+            capture_output=True, text=True, timeout=2, cwd=cwd,
+        ).stdout.strip()
+        return root, branch, bool(dirty), user
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        return "", "", False
+        return "", "", False, ""
 
 
 def _shorten_path(path: str, max_len: int = 32) -> str:
@@ -144,61 +150,70 @@ def format_status_lines(
     color: bool = True,
     width: int = 80,
 ) -> list[str]:
-    uptime_str = _format_duration(snapshot.uptime_seconds)
+    dim   = "\x1b[2m"    if color else ""
+    bold  = "\x1b[1m"    if color else ""
+    green = "\x1b[32m"   if color else ""
+    red   = "\x1b[31m"   if color else ""
+    rst   = "\x1b[0m"    if color else ""
 
-    label_style = "\x1b[1m" if color else ""
-    reset_style = "\x1b[0m" if color else ""
-    dim_style = "\x1b[2m" if color else ""
+    max_val = max(10, width - 12)
 
-    def kv(label: str, value: str) -> str:
-        return f"{dim_style}{label}:{reset_style} {label_style}{value}{reset_style}"
+    def kv(label: str, value: str, val_style: str = "") -> str:
+        return f"{dim}{label:<9}{rst}{val_style}{value}{rst}"
 
+    # \u2500\u2500 cwd \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     cwd_display = _repo_relative_path(snapshot.cwd, snapshot.repo_root)
     if not cwd_display:
-        cwd_display = snapshot.cwd
-    if not cwd_display:
-        cwd_display = "?"
-
-    git_info = ""
-    if snapshot.git_branch:
-        dirty_mark = " \u2717" if snapshot.git_dirty else ""
-        git_info = f"{snapshot.git_branch}{dirty_mark}"
-
-    endpoint_display = snapshot.endpoint or "?"
-    if endpoint_display and endpoint_display != "?":
-        endpoint_display = endpoint_display.replace("http://", "").replace("https://", "")
-
-    if width < 50:
-        lines = [
-            kv("cwd", _shorten_path(cwd_display, 24)),
-            kv("up", uptime_str),
-        ]
-        if git_info:
-            lines.append(kv("git", git_info))
-        lines.extend([
-            kv("wrk", str(snapshot.workers_connected)),
-            kv("q", str(snapshot.tasks_queued)),
-            kv("run", str(snapshot.tasks_running)),
-            kv("ok", str(snapshot.tasks_completed)),
-            kv("ko", str(snapshot.tasks_failed)),
-            kv("mode", snapshot.mode),
-        ])
+        cwd_display = _shorten_path(snapshot.cwd or "?", max_val)
     else:
-        lines = [
-            kv("Cwd", _shorten_path(cwd_display, 28)),
-        ]
-        if git_info:
-            lines.append(kv("Git", git_info))
-        lines.extend([
-            kv("Endpoint", endpoint_display),
-            kv("Auth", snapshot.auth_state),
-            kv("Section", snapshot.section),
-            kv("Uptime", uptime_str),
-            kv("Workers", str(snapshot.workers_connected)),
-        ])
+        cwd_display = _shorten_path(cwd_display, max_val)
+
+    # Show repo name prominently if inside a git repo
+    repo_name = ""
+    if snapshot.repo_root:
+        repo_name = Path(snapshot.repo_root).name
+
+    # \u2500\u2500 git \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    branch_str = snapshot.git_branch or ""
+    dirty_mark = f" {red}\u2717{rst}" if snapshot.git_dirty else (f" {green}\u2713{rst}" if branch_str else "")
+    git_line   = ""
+    if branch_str:
+        git_line = f"{bold}{branch_str}{rst}{dirty_mark}"
+    if snapshot.git_user and branch_str:
+        git_line = f"{snapshot.git_user}  {bold}{branch_str}{rst}{dirty_mark}"
+    elif snapshot.git_user:
+        git_line = snapshot.git_user
+
+    # \u2500\u2500 endpoint / connections \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    ep = (snapshot.endpoint or "").replace("http://", "").replace("https://", "")
+    ep = _shorten_path(ep or "\u2013", max_val)
+
+    auth_ok = snapshot.auth_state in ("token", "session_env")
+    auth_str = f"{green}{snapshot.auth_state}{rst}" if auth_ok else f"{red}{snapshot.auth_state or '?'}{rst}"
+    if color:
+        conn_dot = f"{green}\u25cf{rst}" if auth_ok else f"{red}\u25cf{rst}"
+    else:
+        conn_dot = "*" if auth_ok else "x"
+
+    workers = snapshot.workers_connected
+    wrk_str = f"{workers} worker{'s' if workers != 1 else ''}" if workers else "no workers"
+
+    lines: list[str] = []
+
+    if repo_name:
+        lines.append(kv("repo", f"{bold}{repo_name}{rst}"))
+    lines.append(kv("cwd", cwd_display))
+    if git_line:
+        lines.append(kv("git", git_line))
+    lines.append(kv("hub", f"{conn_dot} {ep}"))
+    lines.append(kv("auth", auth_str))
+    lines.append(kv("section", snapshot.section or "\u2013"))
+    lines.append(kv("mode", snapshot.mode or "\u2013"))
+    if workers:
+        lines.append(kv("workers", wrk_str))
 
     if snapshot.goal_active:
-        lines.append(kv("Goal", snapshot.goal_active[:28]))
+        lines.append(kv("goal", _shorten_path(snapshot.goal_active, max_val)))
 
     return lines[:COMPACT_HEADER_LINES]
 

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
 import re
+import sys
+import tempfile
 from typing import Sequence
 
 from agent.cli.logo_assets import load_logo, strip_ansi_from_logo
@@ -9,7 +12,94 @@ from agent.cli.status_snapshot import StatusSnapshot, format_status_compact_righ
 COMPACT_HEADER_LINES = 8
 _MIN_TERMINAL_WIDTH_FOR_LOGO = 60
 _MIN_TERMINAL_WIDTH_FOR_STATUS = 40
-_MIN_TERMINAL_WIDTH_FOR_BOTH = 90
+_MIN_TERMINAL_WIDTH_FOR_BOTH = 80
+
+# width of the small logo rendered for the persistent TUI header
+_SMALL_LOGO_COLS = 22
+_LOGO_FG = "\x1b[38;2;4;62;98m"   # #043E62 – dark blue
+_ANSI_RST = "\x1b[0m"
+
+_small_logo_cache: list[str] | None = None
+
+
+def _load_small_logo() -> list[str]:
+    """Return compact ASCII logo (22 cols, ~8 lines, dark-blue colored)."""
+    global _small_logo_cache
+    if _small_logo_cache is not None:
+        return _small_logo_cache
+
+    lines = _render_small_logo()
+    if not lines:
+        lines = _fallback_small_logo()
+
+    # strip blank-only lines top and bottom, then pad to COMPACT_HEADER_LINES
+    content = [l for l in lines if l.strip()]
+    while len(content) < COMPACT_HEADER_LINES:
+        content.append("")
+    content = content[:COMPACT_HEADER_LINES]
+
+    _small_logo_cache = content
+    return content
+
+
+def _render_small_logo() -> list[str]:
+    """Render ananta.svg at 22 cols using render_terminal_logo; color in dark blue."""
+    script_dir = os.path.join(os.path.dirname(__file__), "..", "..", "scripts")
+    script_dir = os.path.abspath(script_dir)
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+    try:
+        from render_terminal_logo import (
+            ASCII_PALETTES, RenderConfig, load_image,
+            render_ascii, svg_to_png,
+        )
+    except ImportError:
+        return []
+
+    svg_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "ananta.svg")
+    )
+    if not os.path.isfile(svg_path):
+        return []
+
+    cfg = RenderConfig()
+    chars = ASCII_PALETTES["clean"]
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            png = f.name
+        try:
+            svg_to_png(svg_path, png, width=800)
+            img = load_image(png, _SMALL_LOGO_COLS, cfg)
+            art = render_ascii(img, chars, cfg)
+        finally:
+            try:
+                os.unlink(png)
+            except OSError:
+                pass
+    except Exception:
+        return []
+
+    raw_lines = art.split("\n")
+    # color each non-blank line
+    colored = []
+    for line in raw_lines:
+        if line.strip():
+            colored.append(f"{_LOGO_FG}{line}{_ANSI_RST}")
+        else:
+            colored.append(line)
+    return colored
+
+
+def _fallback_small_logo() -> list[str]:
+    """Minimal text fallback when SVG rendering is unavailable."""
+    art = [
+        "   /\\    ",
+        "  /  \\   ",
+        " / /\\ \\  ",
+        "/______\\ ",
+        " ananta  ",
+    ]
+    return [f"{_LOGO_FG}{l}{_ANSI_RST}" for l in art]
 
 
 def _visible_length(text: str) -> int:
@@ -52,51 +142,42 @@ def render_compact_header(
     prefer_ascii: bool = False,
 ) -> list[str]:
     if terminal_width is None:
-        import os
         try:
             terminal_width = os.get_terminal_size().columns
         except OSError:
             terminal_width = 80
 
-    if terminal_width < _MIN_TERMINAL_WIDTH_FOR_LOGO:
-        return _render_status_only(snapshot, terminal_width=terminal_width, color=color)
+    use_color = bool(color) if color is not None else True
 
-    raw_logo = load_logo(
-        width=terminal_width,
-        color=color,
-        prefer_ascii=prefer_ascii,
-        max_lines=COMPACT_HEADER_LINES,
-    )
-    logo_lines = raw_logo.split("\n") if raw_logo else []
+    if terminal_width < _MIN_TERMINAL_WIDTH_FOR_STATUS:
+        return [""] * COMPACT_HEADER_LINES
 
-    while len(logo_lines) < COMPACT_HEADER_LINES:
-        logo_lines.append("")
+    # ── small logo (22 cols, full shape, dark blue) ───────────────────────────
+    logo_lines: list[str]
+    if terminal_width >= _MIN_TERMINAL_WIDTH_FOR_LOGO:
+        logo_lines = _load_small_logo()
+    else:
+        logo_lines = [""] * COMPACT_HEADER_LINES
 
-    if snapshot is None or terminal_width < _MIN_TERMINAL_WIDTH_FOR_BOTH:
+    logo_visual_w = _SMALL_LOGO_COLS if any(l.strip() for l in logo_lines) else 0
+    sep = " │ " if logo_visual_w else ""
+    right_width = terminal_width - logo_visual_w - len(sep)
+
+    if snapshot is None or terminal_width < _MIN_TERMINAL_WIDTH_FOR_BOTH or right_width < 20:
         return logo_lines[:COMPACT_HEADER_LINES]
 
-    logo_width = _max_line_width(logo_lines)
-    right_width = terminal_width - logo_width - 2
-    if right_width < 20:
-        return logo_lines[:COMPACT_HEADER_LINES]
-
-    status_lines = format_status_compact_right(
-        snapshot,
-        color=bool(color),
-        right_width=right_width,
-    )
-
+    # ── status lines (right of logo) ──────────────────────────────────────────
+    from agent.cli.status_snapshot import format_status_lines
+    status_lines = format_status_lines(snapshot, color=use_color, width=right_width)
     while len(status_lines) < COMPACT_HEADER_LINES:
         status_lines.append("")
 
     result = []
     for i in range(COMPACT_HEADER_LINES):
-        logo_part = logo_lines[i] if i < len(logo_lines) else ""
+        logo_part   = logo_lines[i]   if i < len(logo_lines)   else ""
         status_part = status_lines[i] if i < len(status_lines) else ""
-        padded_logo = _pad_to(logo_part, logo_width)
-        separator = "  " if _visible_length(logo_part) > 0 else ""
-        line = padded_logo + separator + status_part
-        result.append(line)
+        padded = _pad_to(logo_part, logo_visual_w)
+        result.append(padded + sep + status_part)
 
     return result
 
