@@ -15,7 +15,7 @@
     "Vim is the default fallback editor, not the only supported editor.",
     "Editor choice must be configurable per file type and scope.",
     "The Ananta TUI should be able to use the editor/tool as its central main panel.",
-    "TUI tool execution must reuse TerminalSessionService and TerminalPolicyService from the terminal-session architecture.",
+    "TUI tool execution must reuse LiveTerminalSessionService (agent/services/live_terminal_session_service.py) and terminal_bridge (agent/services/terminal_bridge.py) from the existing terminal architecture.",
     "Editor commands must be resolved deterministically from config, not hallucinated by an LLM.",
     "Opening a file must validate workspace scope, file path and permission before starting the tool."
   ],
@@ -255,7 +255,7 @@
         "summary": "Thin orchestration layer that launches editor/tool commands inside controlled terminal sessions.",
         "responsibilities": [
           "Validate target, workspace and tool policy",
-          "Request or reuse TerminalSessionService session",
+          "Request or reuse LiveTerminalSessionService session via ManagedLiveTerminalSession.run_foreground_command(argv)",
           "Launch resolved editor/tool command",
           "Track session metadata as embedded_editor or embedded_tool"
         ]
@@ -266,7 +266,19 @@
       "embedded_editor",
       "embedded_tool"
     ],
+    "existing_infrastructure": {
+      "terminal_session_impl": "agent/services/live_terminal_session_service.py — LiveTerminalSessionService + ManagedLiveTerminalSession",
+      "terminal_process_bridge": "agent/services/terminal_bridge.py — low-level pty/pipe process management",
+      "tui_utilities": "agent/tui_contract.py — TuiKey, TuiOption, TuiPromptState, sanitize_terminal_text (already usable)",
+      "repair_tui": "agent/repair_tui.py — repair-workflow TUI only, unrelated to embedded editor feature",
+      "editor_tui_surface_contracts": "agent/services/editor_tui_surface_foundation_service.py — shared surface boundary model (nvim_plugin/tui/browser), not an editor launcher"
+    },
     "api_extensions": {
+      "existing_docs": {
+        "docs/cli/commands.md": "already exists — extend with editor/tool commands",
+        "docs/security/terminal-sessions.md": "new file needed",
+        "docs/configuration/tui-tools.md": "new file needed"
+      },
       "rest_endpoints": [
         "GET /tui/tools",
         "GET /tui/editors/resolve?path=<workspace-relative-path>",
@@ -361,16 +373,21 @@
     {
       "id": "E004-embedded-tool-session-service",
       "title": "Launch editors and TUI tools inside controlled terminal sessions",
-      "summary": "Add a service that uses TerminalSessionService to launch selected editors/tools as first-class session types.",
+      "summary": "Add a service that uses LiveTerminalSessionService to launch selected editors/tools as first-class session types.",
       "files": [
         "agent/services/embedded_tool_session_service.py",
-        "agent/services/terminal_session_service.py",
-        "agent/services/tmux_backend.py",
+        "agent/services/live_terminal_session_service.py",
+        "agent/services/terminal_bridge.py",
         "tests/test_embedded_tool_session_service.py"
+      ],
+      "notes": [
+        "live_terminal_session_service.py and terminal_bridge.py already exist — build on top, do not replace.",
+        "ManagedLiveTerminalSession.run_foreground_command(argv) is the correct launch path for editor processes.",
+        "No terminal_session_service.py, terminal_policy_service.py or tmux_backend.py exist in the codebase."
       ],
       "details": [
         "Add session_type embedded_editor and embedded_tool.",
-        "Create or reuse terminal session for editor/tool launch.",
+        "Create or reuse LiveTerminalSessionService session for editor/tool launch.",
         "Store launched tool id and file path in session metadata.",
         "Enforce target-specific policy before launch.",
         "Support Hub, Worker and Hub-as-Worker target types with separate permissions."
@@ -389,11 +406,16 @@
       "title": "Use Vim/other TUI tools as selectable main window inside Ananta TUI",
       "summary": "Allow the Ananta TUI main pane to switch into an embedded editor or embedded tool view.",
       "files": [
-        "agent/repair_tui.py",
+        "agent/tui_main_pane.py",
         "agent/tui_contract.py",
         "agent/cli_goals.py",
         "tests/test_tui_main_pane_modes.py",
         "docs/cli/commands.md"
+      ],
+      "notes": [
+        "repair_tui.py exists but is unrelated: it is a repair-workflow TUI (approve/run shell commands). Do NOT modify it for this feature.",
+        "tui_contract.py already exists with TuiKey, TuiOption, TuiPromptState, TuiPromptResult and sanitize_terminal_text. Extend, do not rewrite.",
+        "New file tui_main_pane.py should implement TuiMainPaneController for mode switching."
       ],
       "details": [
         "Add main pane modes dashboard, terminal_session, embedded_editor and embedded_tool.",
