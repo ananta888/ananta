@@ -4,6 +4,8 @@ import argparse
 import os
 from collections.abc import Sequence
 
+from agent.cli.splash import SplashMachine
+
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry, merge_panel_state, merge_section_result
 from client_surfaces.operator_tui.capabilities import graphics_decision
 from client_surfaces.operator_tui.commands import execute_command
@@ -28,6 +30,8 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--render-once", action="store_true")
     parser.add_argument("--width", type=int, default=120)
     parser.add_argument("--height", type=int, default=32)
+    parser.add_argument("--skip-splash", action="store_true", help="Skip the startup splash animation")
+    parser.add_argument("--splash-seconds", type=float, default=2.0, help="Duration of fullscreen splash")
     return parser.parse_args(argv)
 
 
@@ -76,11 +80,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     for command in args.command:
         result = execute_command(command, state)
         state = load_active_section(result.state.with_updates(status_message=result.message), registry)
+
+    splash: SplashMachine | None = None
+    if args.skip_splash:
+        splash = None
+    else:
+        splash = SplashMachine(fullscreen_seconds=args.splash_seconds)
+
     if args.measure_first_paint:
         measurement = measure(
             "first_paint",
             budget.first_paint_ms,
-            lambda: render_operator_shell(state, width=args.width, height=args.height),
+            lambda: render_operator_shell(state, width=args.width, height=args.height, splash=splash),
         )
         state = state.with_updates(
             status_message=(
@@ -91,6 +102,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.render_once and not args.command and not args.measure_first_paint and os.isatty(0):
         from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
 
-        return InteractiveOperatorTui(state, registry).run()
-    print(render_operator_shell(state, width=args.width, height=args.height))
+        return InteractiveOperatorTui(state, registry, splash=splash).run()
+    if splash is not None:
+        splash.tick()
+    print(render_operator_shell(state, width=args.width, height=args.height, splash=splash))
     return 0

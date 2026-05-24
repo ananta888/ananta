@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from textwrap import shorten
+from typing import TYPE_CHECKING
 
 from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
 from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
@@ -10,23 +11,54 @@ from client_surfaces.operator_tui.read_models import build_goal_rows, build_insp
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
 from client_surfaces.operator_tui.theme import DEFAULT_THEME, state_label, state_prefix
 
+if TYPE_CHECKING:
+    from agent.cli.splash import SplashMachine, SplashState
 
-def render_operator_shell(state: OperatorState, *, width: int = 120, height: int = 32) -> str:
+
+def render_operator_shell(
+    state: OperatorState,
+    *,
+    width: int = 120,
+    height: int = 32,
+    splash: SplashMachine | None = None,
+) -> str:
     width = max(72, int(width))
     height = max(18, int(height))
+
+    if splash is not None:
+        splash_lines = _render_splash_header(splash, state, width=width)
+        splash_state = splash.context.state.value if splash else ""
+    else:
+        splash_lines = []
+        splash_state = ""
+
+    splash_line_count = len(splash_lines)
+    if splash_line_count > 0 and splash_state not in ("disabled", "skipped"):
+        header_line = ""
+        rule_line = _rule(width)
+        body_offset = splash_line_count
+    else:
+        header_line = _clip(f"Ananta Operator TUI | {get_section(state.section_id).title} | mode={state.mode.value}", width)
+        rule_line = _rule(width)
+        body_offset = 2
+
     left_width = 22
     detail_width = 34
     middle_width = width - left_width - detail_width - 6
     section = get_section(state.section_id)
 
     lines: list[str] = []
-    lines.append(_clip(f"Ananta Operator TUI | {section.title} | mode={state.mode.value}", width))
-    lines.append(_rule(width))
+    lines.extend(splash_lines)
+    if header_line:
+        lines.append(header_line)
+        lines.append(rule_line)
+    elif not splash_lines:
+        lines.append(rule_line)
 
     nav_lines = _navigation_lines(state)
     content_lines = _content_lines(state, middle_width)
     detail_lines = _detail_lines(state, detail_width)
-    body_height = height - 7
+    body_height = height - 5 - body_offset
     for index in range(body_height):
         lines.append(
             " ".join(
@@ -41,12 +73,29 @@ def render_operator_shell(state: OperatorState, *, width: int = 120, height: int
         )
 
     lines.append(_rule(width))
-    lines.append(_status_line(state, width))
+    lines.append(_status_line(state, width, splash_state=splash_state))
     lines.append(_command_line(state, width))
     lines.append(_hints_line(state, width))
     if state.show_help or section.id == "help":
         lines.extend(_help_overlay(state, width))
     return "\n".join(_clip(line, width) for line in lines)
+
+
+def _render_splash_header(splash: SplashMachine, state: OperatorState, width: int) -> list[str]:
+    from agent.cli.splash import SplashState
+    from agent.cli.status_snapshot import StatusSnapshot
+
+    ctx = splash.context
+    if ctx.state in (SplashState.DISABLED, SplashState.SKIPPED):
+        return []
+
+    snapshot = StatusSnapshot(
+        mode=state.mode.value,
+    )
+
+    color = not state.terminal_graphics.get("no_color", False) if state.terminal_graphics else True
+
+    return splash.render(snapshot, width=width, color=color)
 
 
 def _navigation_lines(state: OperatorState) -> list[str]:
@@ -266,12 +315,17 @@ def _cell(lines: list[str], index: int, width: int) -> str:
     return _clip(value, width).ljust(width)
 
 
-def _status_line(state: OperatorState, width: int) -> str:
-    value = (
-        f"endpoint={state.endpoint} auth={state.auth_state} focus={state.focus.value} "
-        f"mode={state.mode.value} status={state.status_message}"
-    )
-    return _clip(value, width)
+def _status_line(state: OperatorState, width: int, splash_state: str = "") -> str:
+    parts = [
+        f"endpoint={state.endpoint}",
+        f"auth={state.auth_state}",
+        f"focus={state.focus.value}",
+        f"mode={state.mode.value}",
+        f"status={state.status_message}",
+    ]
+    if splash_state:
+        parts.append(f"splash={splash_state}")
+    return _clip(" ".join(parts), width)
 
 
 def _command_line(state: OperatorState, width: int) -> str:
