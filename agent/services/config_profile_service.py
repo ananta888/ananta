@@ -163,14 +163,14 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
                 "segmented_planning_enabled": True,
                 "segment_context_chars": 1400,
                 "max_segments": 2,
-                "max_output_tokens": 1100,
+                "max_output_tokens": 1600,
                 "preferred_output_format": "json",
                 "selective_repair_rounds": 2,
                 "default_runtime_profile": "lmstudio_laptop",
                 "runtime_profiles": {
                     "lmstudio_laptop": {
-                        "timeout_seconds": 540,
-                        "max_output_tokens": 1000,
+                        "timeout_seconds": 300,
+                        "max_output_tokens": 1600,
                         "retry_attempts": 1,
                         "retry_backoff_seconds": 1.0,
                         "segmented_planning_enabled": True,
