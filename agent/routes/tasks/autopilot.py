@@ -26,6 +26,7 @@ from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_stat
 from agent.services.service_registry import get_core_services
 from agent.services.repository_registry import get_repository_registry
 from agent.services.provider_observer_service import get_provider_observer_service
+from agent.services.worker_policy_service import get_worker_policy_service
 
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
 
@@ -452,11 +453,18 @@ class AutonomousLoopManager:
         """
         from agent.routes.tasks.autopilot_dispatch_policy import resolve_target_worker_for_task
         with self._routing_lock:
+            worker_policy_cfg = dict((self._agent_config() or {}).get("autopilot_worker_policy") or {})
+            filtered_workers, rejected_workers = get_worker_policy_service().filter_candidates(
+                task=task,
+                workers=workers,
+                policy_cfg=worker_policy_cfg,
+            )
+            setattr(task, "_worker_policy_rejections", rejected_workers)
             setattr(task, "_hub_can_be_worker", bool(settings.hub_can_be_worker))
             setattr(task, "_local_worker_url", (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/"))
             target_worker, self._worker_cursor, was_assigned, reason_code = resolve_target_worker_for_task(
                 task=task,
-                workers=workers,
+                workers=filtered_workers,
                 worker_cursor=self._worker_cursor,
             )
         return target_worker, was_assigned, reason_code
