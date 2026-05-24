@@ -40,6 +40,16 @@ class _Registry:
     def __init__(self, versions, profiles):
         self.planning_prompt_version_repo = _PromptRepo(versions)
         self.planning_model_profile_repo = _ProfileRepo(profiles)
+        self.planning_review_item_repo = _ReviewRepo()
+
+
+class _ReviewRepo:
+    def __init__(self):
+        self.items = []
+
+    def save(self, item):
+        self.items.append(item)
+        return item
 
 
 def _base_prompt() -> PlanningPromptVersionDB:
@@ -151,3 +161,101 @@ def test_evolver_dedupes_when_template_already_contains_adaptive_rules(monkeypat
     saved = reg.planning_prompt_version_repo.saved[0]
     assert saved.user_prompt_template.count("Adaptive reinforcement rules:") <= 1
 
+
+def test_evolver_prefers_markdown_when_json_not_accepted(monkeypatch):
+    import agent.services.planning_prompt_evolver_service as mod
+
+    base = _base_prompt()
+    reg = _Registry([base], [SimpleNamespace(profile_name="p1", preferred_prompt_version_id=None)])
+    monkeypatch.setattr(mod, "get_repository_registry", lambda: reg)
+    run = SimpleNamespace(
+        id="run-1",
+        prompt_version_id=str(base.id),
+        mode="generic",
+        model_provider="lmstudio",
+        model_name="gemma-2",
+        parse_confidence="low",
+        repair_attempt_count=2,
+        validation_success=False,
+        error_classification="x",
+        planning_profile="p1",
+        parse_mode="parse_failed",
+        mode_data={"__output_shape__": "markdown_bullets", "constraint_loss": 1.0},
+    )
+    result = PlanningPromptEvolverService().evolve_from_run(
+        run=run,
+        planning_policy={
+            "preferred_output_format": "json",
+            "accepted_output_formats": ["markdown_sections", "natural_language"],
+            "planner_prompt_evolution": {"enabled": True, "min_repair_attempts": 1, "auto_enable": False},
+        },
+        activate_profile=False,
+        enabled=False,
+    )
+    assert result["evolved"] is True
+    assert result["preferred_output_format"] == "markdown"
+
+
+def test_evolver_rate_limit_creates_review_required(monkeypatch):
+    import agent.services.planning_prompt_evolver_service as mod
+    import time
+
+    base = _base_prompt()
+    now = time.time()
+    evo_1 = PlanningPromptVersionDB(
+        version="v1.evo.1",
+        language="de",
+        mode="generic",
+        target_model_family="gemma",
+        output_contract={"expected": "json"},
+        system_rules=["be concise"],
+        user_prompt_template="Evo 1",
+        repair_prompt_template="Repair 1",
+        checksum="chk-1",
+        enabled=True,
+        updated_at=now,
+    )
+    evo_2 = PlanningPromptVersionDB(
+        version="v1.evo.2",
+        language="de",
+        mode="generic",
+        target_model_family="gemma",
+        output_contract={"expected": "json"},
+        system_rules=["be concise"],
+        user_prompt_template="Evo 2",
+        repair_prompt_template="Repair 2",
+        checksum="chk-2",
+        enabled=True,
+        updated_at=now,
+    )
+    reg = _Registry([base, evo_1, evo_2], [SimpleNamespace(profile_name="p1", preferred_prompt_version_id=None)])
+    monkeypatch.setattr(mod, "get_repository_registry", lambda: reg)
+    run = SimpleNamespace(
+        id="run-2",
+        prompt_version_id=str(base.id),
+        mode="generic",
+        model_provider="ollama",
+        model_name="gemma-2",
+        parse_confidence="low",
+        repair_attempt_count=3,
+        validation_success=False,
+        error_classification="x",
+        planning_profile="p1",
+        parse_mode="parse_failed",
+        mode_data={"__output_shape__": "partial_json"},
+    )
+    result = PlanningPromptEvolverService().evolve_from_run(
+        run=run,
+        planning_policy={
+            "planner_prompt_evolution": {
+                "enabled": True,
+                "min_repair_attempts": 1,
+                "max_auto_evolutions_per_window": 2,
+                "review_window_seconds": 3600,
+            }
+        },
+        activate_profile=False,
+    )
+    assert result["evolved"] is False
+    assert result["reason"] == "review_required"
+    assert "evolution_rate_limited" in (result.get("reason_codes") or [])

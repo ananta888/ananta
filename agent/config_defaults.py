@@ -588,6 +588,8 @@ def build_default_agent_config() -> dict:
                 "min_repair_attempts": 2,
                 "auto_enable": False,
                 "max_prompt_chars": 12000,
+                "max_auto_evolutions_per_window": 3,
+                "review_window_seconds": 3600,
             },
             "learning_loop": {
                 "enabled": True,

@@ -107,5 +107,12 @@ class FlexibleLLMNormalizationStrategy(ProposeStrategy):
             allow_shell = context.policy.allow_shell_execution
 
         normalized = self._normalizer.normalize(raw, context, allow_shell_execution=allow_shell)
+        normalized.metadata = dict(normalized.metadata or {})
+        normalized.metadata.setdefault("prompt_context_bundle", {})
+        pcb = dict(normalized.metadata.get("prompt_context_bundle") or {})
+        stack = context.instruction_stack if isinstance(context.instruction_stack, dict) else {}
+        pcb.setdefault("instruction_stack_present", bool(stack))
+        pcb.setdefault("instruction_stack_checksum", stack.get("checksum"))
+        normalized.metadata["prompt_context_bundle"] = pcb
         normalized = self._with_llm_profile(normalized, llm_profile)
         return self._with_llm_trace_link(normalized, llm_metadata)

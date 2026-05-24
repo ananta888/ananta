@@ -76,10 +76,10 @@
     {"id": "M1", "title": "Begriffstrennung und Modell schärfen", "task_ids": ["TTA-001", "TTA-002", "TTA-003"], "status": "done"},
     {"id": "M2", "title": "InstructionStackArtifact einführen", "task_ids": ["TTA-004", "TTA-005", "TTA-006", "TTA-007"], "status": "done"},
     {"id": "M3", "title": "ProposeContext und PromptContextBundle integrieren", "task_ids": ["TTA-008", "TTA-009", "TTA-010"], "status": "done"},
-    {"id": "M4", "title": "Strategie-Prompts vereinheitlichen", "task_ids": ["TTA-011", "TTA-012", "TTA-013"], "status": "in_progress"},
-    {"id": "M5", "title": "Policy-, Overlay- und Kompatibilitätsregeln härten", "task_ids": ["TTA-014", "TTA-015", "TTA-016"], "status": "in_progress"},
-    {"id": "M6", "title": "Tests, Telemetry und Dokumentation", "task_ids": ["TTA-017", "TTA-018", "TTA-019", "TTA-020"], "status": "in_progress"},
-    {"id": "M7", "title": "Prompt Evolver Grenzen und Anti-Zyklen", "task_ids": ["TTA-021", "TTA-022", "TTA-023", "TTA-024", "TTA-025"], "status": "in_progress"}
+    {"id": "M4", "title": "Strategie-Prompts vereinheitlichen", "task_ids": ["TTA-011", "TTA-012", "TTA-013"], "status": "done"},
+    {"id": "M5", "title": "Policy-, Overlay- und Kompatibilitätsregeln härten", "task_ids": ["TTA-014", "TTA-015", "TTA-016"], "status": "done"},
+    {"id": "M6", "title": "Tests, Telemetry und Dokumentation", "task_ids": ["TTA-017", "TTA-018", "TTA-019", "TTA-020"], "status": "done"},
+    {"id": "M7", "title": "Prompt Evolver Grenzen und Anti-Zyklen", "task_ids": ["TTA-021", "TTA-022", "TTA-023", "TTA-024", "TTA-025"], "status": "done"}
   ],
   "tasks": [
     {
@@ -206,7 +206,7 @@
     {
       "id": "TTA-012",
       "title": "Andere ProposeStrategies auf Instruction Stack prüfen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "prompting",
@@ -228,7 +228,7 @@
     {
       "id": "TTA-014",
       "title": "Overlay/Profile-Policy gegen Prompt-Eskalation erweitern",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -250,7 +250,7 @@
     {
       "id": "TTA-016",
       "title": "Blueprint Role Defaults bis Worker Contract nachvollziehbar halten",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "traceability",
@@ -272,7 +272,7 @@
     {
       "id": "TTA-018",
       "title": "Security-Regression für Overlay-Eskalation",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "test",
@@ -283,7 +283,7 @@
     {
       "id": "TTA-019",
       "title": "Backward-Compatibility-Tests für Tasks ohne Instruction Stack",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "test",
@@ -329,7 +329,7 @@
     {
       "id": "TTA-023",
       "title": "Prompt-Evolution gegen Endloswachstum und Fehler-Recycling absichern",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "stability",
@@ -341,7 +341,7 @@
     {
       "id": "TTA-024",
       "title": "Evolver mit modelladaptiven Output-Format-Profilen verbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -353,7 +353,7 @@
     {
       "id": "TTA-025",
       "title": "Evolved Prompt Versions erst proposed/reviewable statt direkt enabled machen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "governance",
@@ -366,18 +366,18 @@
   "critical_path_tasks": ["TTA-001", "TTA-004", "TTA-005", "TTA-006", "TTA-008", "TTA-009", "TTA-011", "TTA-014", "TTA-016", "TTA-017", "TTA-018", "TTA-019", "TTA-021", "TTA-022", "TTA-023", "TTA-025"],
   "tasks_status_summary": {
     "total": 25,
-    "by_status": {"todo": 1, "in_progress": 0, "partial": 7, "blocked": 0, "done": 17},
-    "progress_percent_done": 68,
+    "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 25},
+    "progress_percent_done": 100,
     "by_priority": {"P0": 16, "P1": 7, "P2": 2, "P3": 0},
     "by_risk": {"low": 3, "medium": 5, "high": 8, "critical": 9},
-    "critical_path": {"total": 16, "done": 10, "remaining": 6},
-    "milestones": {"total": 7, "todo": 0, "in_progress": 4, "blocked": 0, "done": 3}
+    "critical_path": {"total": 16, "done": 16, "remaining": 0},
+    "milestones": {"total": 7, "todo": 0, "in_progress": 0, "blocked": 0, "done": 7}
   },
   "tasks_type_summary": {
     "total": 25,
     "by_type": {"docs": 4, "data_model": 1, "service": 1, "integration": 5, "persistence": 1, "observability": 1, "prompting": 2, "architecture": 2, "security": 2, "validation": 1, "traceability": 1, "test": 3, "stability": 1, "governance": 1}
   },
-  "progress_summary": {"state": "phase_5_and_phase_6_partially_completed", "todo_remaining": 1, "in_progress": 0, "partial": 7, "blocked": 0, "done": 17},
+  "progress_summary": {"state": "all_tasks_completed", "todo_remaining": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 25},
   "definition_of_done": [
     "InstructionStackArtifact existiert und ist deterministisch hashbar.",
     "Role Template Prompt fließt als blueprint_template Layer in den Stack ein.",
