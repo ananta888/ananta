@@ -1,7 +1,7 @@
 {
   "id": "todo.tmux-oidc-terminal-sessions",
   "title": "Controlled tmux terminal sessions for Ananta CLI/TUI, Hub, Workers and HTTPS/OIDC gateway",
-  "status": "draft",
+  "status": "in_progress",
   "created_for": "Ananta terminal integration planning",
   "summary": {
     "short": "Add tmux-backed terminal sessions to Ananta in a controlled, policy-driven way, with local CLI/TUI support and optional HTTPS/WSS access secured through OIDC and the existing authorization model.",
@@ -317,7 +317,8 @@
         "GET /terminal/targets returns target_type=hub_as_worker separately when HUB_CAN_BE_WORKER=true.",
         "A user with only terminal.worker.list does not see Hub terminal attach/write capability.",
         "Tests cover Hub-only, Worker-only, Hub-as-Worker and mixed deployments."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "T002-terminal-session-persistence",
@@ -342,7 +343,8 @@
         "Session status transitions are tested for created, running, attached, detached, killed and expired.",
         "Terminal events are append-only through repository APIs.",
         "Repository tests pass on the configured test database."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "T003-tmux-backend",
@@ -368,7 +370,8 @@
         "Input is sent only to the expected tmux session and pane.",
         "Killing a session affects only the expected tmux session.",
         "Tests cover missing tmux binary with a clear error message."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "T004-terminal-policy-service",
@@ -395,7 +398,8 @@
         "Hub-as-Worker terminal creation requires terminal.hub_as_worker.create.",
         "Every denied decision includes a stable reason code.",
         "Every allowed decision includes policy version and matched rule id."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "T005-terminal-rest-api",
@@ -422,7 +426,8 @@
         "POST /terminal/sessions refuses Hub target without terminal.hub.create.",
         "POST /terminal/sessions/{id}/input refuses write input for read-only sessions.",
         "DELETE /terminal/sessions/{id} emits an audit event."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "T006-cli-tmux-commands",
@@ -450,7 +455,8 @@
         "CLI refuses ambiguous target selection instead of guessing.",
         "CLI shows authorization failures without leaking tokens or stack traces.",
         "CLI documentation includes local and remote examples."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "T007-tui-terminal-view",
@@ -477,7 +483,8 @@
         "Read-only sessions cannot send input from TUI.",
         "TUI handles lost Hub connection gracefully.",
         "TUI does not render unsafe control sequences without sanitization."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "T008-https-websocket-gateway",
@@ -507,7 +514,8 @@
         "User cannot connect to another user's session by guessing session_id.",
         "Browser terminal works over HTTPS/WSS only in production profile.",
         "Gateway disconnect event is audit logged."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "T009-oidc-auth-provider",
@@ -537,7 +545,8 @@
         "Invalid issuer, audience or signature is rejected.",
         "Local login can be disabled by configuration in production profile.",
         "OIDC-authenticated user is subject to the same TerminalPolicyService decisions as local users."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "T010-session-timeouts-and-cleanup",
@@ -562,7 +571,8 @@
         "Expired session cannot receive input.",
         "Cleanup emits terminal_session_expired audit event.",
         "Cleanup does not kill unrelated tmux sessions."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "T011-recording-and-redaction",
@@ -588,7 +598,8 @@
         "Secret-like values are redacted in recorded output where detectable.",
         "Raw Bearer tokens are never stored in audit events.",
         "Recording policy is visible in session metadata."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "T012-container-and-compose-support",
@@ -615,7 +626,8 @@
         "No default compose file exposes a raw terminal port.",
         "No default compose file mounts / or /var/run/docker.sock for terminal use.",
         "Documentation shows safe local-dev setup."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "T013-frontend-terminal-ui",
@@ -644,7 +656,8 @@
         "Unauthorized target actions are disabled or return clear 403 message.",
         "WSS connection uses scoped attach token, not long-lived raw JWT in URL where avoidable.",
         "UI survives gateway disconnect with clear status."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "T014-documentation-and-threat-model",
@@ -672,7 +685,8 @@
         "Docs include local CLI/TUI examples.",
         "Docs include production OIDC examples.",
         "Docs explain that admin does not automatically bypass terminal policy."
-      ]
+      ],
+      "status": "open"
     }
   ],
   "global_acceptance_criteria": [
@@ -743,5 +757,30 @@
     "attach_token_ttl_seconds": 60,
     "local_password_login_enabled_in_production": false,
     "raw_tmux_socket_exposure": false
+  },
+  "progress_summary": {
+    "updated_at": "2026-05-24",
+    "completed": [
+      "T001-terminal-target-inventory",
+      "T002-terminal-session-persistence",
+      "T003-tmux-backend",
+      "T004-terminal-policy-service"
+    ],
+    "open": [
+      "T005-terminal-rest-api",
+      "T006-cli-tmux-commands",
+      "T007-tui-terminal-view",
+      "T008-https-websocket-gateway",
+      "T009-oidc-auth-provider",
+      "T010-session-timeouts-and-cleanup",
+      "T011-recording-and-redaction",
+      "T012-container-and-compose-support",
+      "T013-frontend-terminal-ui",
+      "T014-documentation-and-threat-model"
+    ],
+    "notes": [
+      "Implemented T001-T004 with terminal target inventory endpoint, terminal session/event persistence, safe tmux backend, and terminal policy service with deterministic reason codes.",
+      "Added focused tests for policy, tmux backend, repository lifecycle, and target listing permissions."
+    ]
   }
 }

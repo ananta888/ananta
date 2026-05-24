@@ -33,6 +33,7 @@ from agent.routes.debug.prompt_traces import prompt_traces_bp
 from agent.routes.debug.prompt_render import prompt_render_bp
 from agent.routes.debug.backend_observability import backend_observability_bp
 from agent.routes.debug.command_guardrails import command_guardrails_bp
+from agent.routes.terminal import terminal_bp
 from agent.ws_terminal import register_ws_terminal
 
 
@@ -68,6 +69,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(prompt_render_bp)
     app.register_blueprint(backend_observability_bp)
     app.register_blueprint(command_guardrails_bp)
+    app.register_blueprint(terminal_bp)
     register_ws_terminal(app)
 
 

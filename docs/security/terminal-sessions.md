@@ -116,3 +116,19 @@ explicit operator review.
 
 - `docs/configuration/tui-tools.md` — Editor resolution and tool config
 - `docs/cli/commands.md` — CLI reference for `ananta tui` and `ananta tmux`
+
+---
+
+## Tmux session controls
+
+Terminal sessions are managed by a controlled tmux backend:
+
+- Session names are normalized to safe internal IDs.
+- tmux commands are executed with argument arrays only (`shell=True` is not used).
+- User-supplied unsafe session names are rejected.
+- Missing tmux binary returns deterministic backend error `tmux_binary_missing`.
+
+Related implementation:
+- `agent/services/tmux_backend.py`
+- `agent/services/terminal_session_service.py`
+- `agent/services/terminal_policy_service.py`

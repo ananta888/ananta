@@ -245,3 +245,14 @@ def hash_password(password: str) -> str:
     """Einfacher Hash für Tests/Entwicklung (SHA-256)."""
     import hashlib
     return hashlib.sha256(password.encode()).hexdigest()
+
+
+def get_request_auth_context() -> dict:
+    """Returns normalized auth context for policy services."""
+    user_payload = dict(getattr(g, "user", {}) or {})
+    auth_payload = dict(getattr(g, "auth_payload", {}) or {})
+    if user_payload:
+        return user_payload
+    if auth_payload:
+        return auth_payload
+    return {}
