@@ -24,8 +24,8 @@ frame sequence within the existing `prompt_toolkit`-based Operator TUI.
 - **Full 3D mesh rendering** — no triangle rasterisation, texture mapping, or lighting model.
 - **Real-time interaction** during animation — keyboard skips the splash, it does not steer it.
 - **Audio / video output** — the splash is ASCII text only.
-- **Migration to Textual** — see library evaluation below.
-- **Sixel / Kitty / iTerm2 image protocols** — evaluated as future optional backends only.
+- **Migration to Textual** — rejected as splash-only backend (see spike docs).
+- **Sixel / Kitty / iTerm2 image protocols** — evaluated as optional future backends (see spike docs).
 
 ---
 
@@ -73,28 +73,24 @@ SplashMachine (agent/cli/splash.py)
 ```
 
 The `BuiltinBackend` implements the `LogoAnimationBackend` protocol so that future
-backends (Textual, asciimatics, chafa) can be swapped in without changing the
-splash lifecycle.
+backends can be swapped in without changing the splash lifecycle.
 
 ---
 
-## Library Evaluation
+## Library Evaluation — Final Decision Record
 
-| Library | Deps | Terminal Fit | Recommendation |
-|---|---|---|---|
-| Custom ASCII/ANSI renderer | None (built-in) | Exact | **MVP path** — zero new deps, full control |
-| prompt_toolkit (existing) | Already used | Animation via `TextArea.text` + `invalidate()` | Use as render target, not render engine |
-| Textual | Heavy (new framework) | Good animation model, but full TUI migration | Spike later; not for MVP |
-| asciimatics | Medium | Terminal animation primitives exist | Spike later; input model differs from prompt_toolkit |
-| chafa / Sixel / Kitty | chafa binary / terminal-specific | Rich image rendering | Spike later; optional high-fidelity backend |
-| pygame / moderngl / pyglet | Very heavy | Leaves the terminal | **Rejected** for Operator TUI MVP |
+| Library | Recommended | Reasoning |
+|---|---|---|
+| Custom ASCII/ANSI renderer | **MVP (implemented)** | Zero deps, full control, 62 test cases passing |
+| Textual | **Rejected** | Full TUI framework, would need to run alongside prompt_toolkit — too heavy for splash-only; revisit only if whole TUI migrates |
+| asciimatics | **Rejected** | Screen ownership conflicts with prompt_toolkit; no geometry/3D primitives; same projection math needed as BuiltinBackend |
+| chafa / Sixel / Kitty | **Rejected for default** | Subprocess per frame too slow for 24 fps; keep as optional `--3d-backend chafa` for future high-fidelity path |
+| pygame / moderngl / pyglet / OpenGL | **Rejected** | Leave the terminal; not suitable for a TUI startup splash; CI/SSH incompatible |
 
-### Current Recommendation
-
-**Custom ASCII/ANSI pseudo-3D renderer first.** No new mandatory dependencies.
-Falls back cleanly to existing 2D assets. After the MVP is stable, optional spikes
-into Textual / asciimatics / chafa can be evaluated independently under
-`experiments/`.
+Detailed spike evaluations are under `experiments/`:
+- `experiments/operator_tui_textual_3d_spike/README.md`
+- `experiments/operator_tui_asciimatics_spike/README.md`
+- `experiments/operator_tui_chafa_spike/README.md`
 
 ---
 
@@ -107,7 +103,7 @@ into Textual / asciimatics / chafa can be evaluated independently under
 | `--3d-fps` | `ANANTA_TUI_3D_FPS` | `24` | Target frame rate |
 | `--3d-duration-ms` | `ANANTA_TUI_3D_DURATION_MS` | `2000` | Duration of fullscreen animation (ms) |
 | `--render-once` | — | `False` | Print one frame and exit (CI/preview) |
-| `--splash-frame` | — | `3d:last` | Which frame to render (`3d:0`, `3d:mid`, `3d:last`) |
+| `--splash-frame` | — | `3d:last` | Which frame to render (`3d:0`, `3d:mid`, `3d:last`, `compact`) |
 | `--width` / `--height` | — | `120` / `32` | Viewport size for render-once |
 | `NO_COLOR` | `NO_COLOR` | — | Disable ANSI color (geometry preserved) |
 
