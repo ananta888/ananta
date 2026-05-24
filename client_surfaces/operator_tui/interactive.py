@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shutil
 from typing import TYPE_CHECKING
 
@@ -8,6 +9,8 @@ from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.widgets import TextArea
+
+_ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import load_active_section
@@ -207,4 +210,5 @@ class InteractiveOperatorTui:
         if self._splash is not None:
             self._splash.tick()
         size = shutil.get_terminal_size((120, 32))
-        return render_operator_shell(self.state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash)
+        raw = render_operator_shell(self.state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash)
+        return _ANSI_RE.sub("", raw)
