@@ -254,6 +254,20 @@ export class TerminalService {
     return `${baseUrl}|${mode}|${forwardParam || ''}`;
   }
 
+  connectWithAttachToken(baseUrl: string, attachToken: string): Promise<void> {
+    const url = new URL(baseUrl);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    url.pathname = '/ws/terminal/session';
+    url.search = '';
+    url.searchParams.set('attach_token', attachToken);
+    return this.tryConnectOnce(url.toString(), ++this.connectAttemptId).then(result => {
+      if (!result.connected) {
+        this.stateSubject.next('error');
+        this.eventsSubject.next({ type: 'error', data: { message: result.errorMessage || 'attach_connect_failed' } });
+      }
+    });
+  }
+
   private toWsUrl(baseUrl: string, mode: TerminalMode, token?: string, forwardParam?: string): string {
     const url = new URL(baseUrl);
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
