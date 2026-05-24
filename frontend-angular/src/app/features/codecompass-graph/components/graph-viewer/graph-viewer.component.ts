@@ -10,6 +10,7 @@ import { GraphToolbarComponent } from '../graph-toolbar/graph-toolbar.component'
 import { GraphDetailPanelComponent } from '../graph-detail-panel/graph-detail-panel.component';
 import { SimpleGraphViewComponent } from '../simple-graph-view/simple-graph-view.component';
 import { Graph2dViewComponent } from '../graph-2d-view/graph-2d-view.component';
+import { Graph3dViewComponent } from '../graph-3d-view/graph-3d-view.component';
 
 @Component({
   standalone: true,
@@ -21,6 +22,7 @@ import { Graph2dViewComponent } from '../graph-2d-view/graph-2d-view.component';
     GraphDetailPanelComponent,
     SimpleGraphViewComponent,
     Graph2dViewComponent,
+    Graph3dViewComponent,
   ],
   template: `
     <div class="gv-shell">
@@ -54,9 +56,13 @@ import { Graph2dViewComponent } from '../graph-2d-view/graph-2d-view.component';
               />
             }
             @case ('3d') {
-              <div class="coming-soon">
-                3D renderer not yet available. Install <code>3d-force-graph</code> and implement Graph3dViewComponent.
-              </div>
+              <app-graph-3d-view
+                [graph]="filteredGraph()"
+                [selectedNode]="state.selectedNode()"
+                [selectedEdge]="state.selectedEdge()"
+                (nodeSelected)="state.selectNode($event)"
+                (edgeSelected)="state.selectEdge($event)"
+              />
             }
           }
         </div>
@@ -88,8 +94,6 @@ import { Graph2dViewComponent } from '../graph-2d-view/graph-2d-view.component';
     .gv-detail { width: 320px; border-left: 1px solid #e2e8f0; overflow-y: auto; background: #fafafa; }
     .gv-warnings { padding: .5rem .75rem; background: #fef9c3; border-top: 1px solid #fde68a; }
     .warning-msg { margin: 0; font-size: .8rem; color: #92400e; }
-    .coming-soon { padding: 1.5rem; color: #888; font-style: italic; }
-    .coming-soon code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-style: normal; }
   `],
 })
 export class GraphViewerComponent implements OnChanges {

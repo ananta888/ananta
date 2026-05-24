@@ -1,11 +1,11 @@
 {
   "id": "todo.graph-ui",
   "title": "Add generic CodeCompass graph visualization component with simple, 2D and 3D views",
-  "status": "in_progress",
+  "status": "done",
   "progress": {
-    "completed": ["graph-000", "graph-001", "graph-002", "graph-003", "graph-004", "graph-005", "graph-007", "graph-008", "graph-009", "graph-010", "graph-011", "graph-012"],
-    "remaining": ["graph-006"],
-    "tests_passing": { "backend": 15, "frontend": 40 },
+    "completed": ["graph-000", "graph-001", "graph-002", "graph-003", "graph-004", "graph-005", "graph-006", "graph-007", "graph-008", "graph-009", "graph-010", "graph-011", "graph-012"],
+    "remaining": [],
+    "tests_passing": { "backend": 15, "frontend": 46 },
     "last_updated": "2026-05-24"
   },
   "goal": "Create a reusable Angular graph viewer for CodeCompass-generated graphs. The viewer must support three UI/UX variants: simple textual/tree view, graphical 2D graph view, and graphical 3D graph view. The implementation must stay generic, renderer-independent and easily extensible.",
@@ -238,7 +238,7 @@
     },
     {
       "id": "graph-006",
-      "status": "todo",
+      "status": "done",
       "title": "Create 3D graph renderer",
       "type": "implementation",
       "files": [
