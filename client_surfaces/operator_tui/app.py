@@ -153,16 +153,15 @@ def _handle_render_once(args: argparse.Namespace, splash: SplashMachine | None) 
         return
 
     if frame.startswith("3d:"):
-        if args.no_3d:
+        if args.no_3d or os.environ.get("ANANTA_TUI_3D") == "0" or os.environ.get("ANANTA_TUI_SPLASH") == "0":
             print("")
             return
         cap = detect_3d_capability(
             terminal_width=width,
             terminal_height=height,
+            is_tty=True,
+            no_color=bool(os.environ.get("NO_COLOR")),
         )
-        if not cap.enabled:
-            print("")
-            return
         backend = BuiltinBackend()
         t_seconds = args.splash_seconds or 2.0
         if frame == "3d:0":
