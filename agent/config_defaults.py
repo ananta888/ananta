@@ -586,6 +586,8 @@ def build_default_agent_config() -> dict:
             "planner_prompt_evolution": {
                 "enabled": True,
                 "min_repair_attempts": 2,
+                "auto_enable": False,
+                "max_prompt_chars": 12000,
             },
             "learning_loop": {
                 "enabled": True,

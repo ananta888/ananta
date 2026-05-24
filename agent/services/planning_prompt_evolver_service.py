@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from agent.db_models import PlanningPromptVersionDB
+from agent.services.planning_prompt_evolution_guard_service import get_planning_prompt_evolution_guard_service
 from agent.services.repository_registry import get_repository_registry
 
 # Boundary note:
@@ -89,6 +90,7 @@ class PlanningPromptEvolverService:
         model_family: str | None = None,
     ) -> dict[str, Any]:
         policy = dict(planning_policy or {})
+        rules = dict(policy.get("planner_prompt_evolution") or {}) if isinstance(policy, dict) else {}
         should, reasons = self._should_evolve(run=run, policy=policy, output_shape=output_shape, parse_mode=parse_mode)
         if not should:
             return {"evolved": False, "reason": "no_trigger"}
@@ -111,9 +113,8 @@ class PlanningPromptEvolverService:
         if base is None:
             return {"evolved": False, "reason": "base_prompt_missing"}
 
-        output_format = str(
-            (policy.get("preferred_output_format") or "json")
-        ).strip().lower() or "json"
+        output_format = str((policy.get("preferred_output_format") or "json")).strip().lower() or "json"
+        max_prompt_chars = int(rules.get("max_prompt_chars", 12000) or 12000)
         mutated_user = self._mutate_template(
             str(base.user_prompt_template or ""),
             reasons=reasons,
@@ -130,6 +131,8 @@ class PlanningPromptEvolverService:
             parse_mode=parse_mode,
             model_family=model_family or self._infer_model_family(getattr(run, "model_name", None)),
         )
+        mutated_user = str(mutated_user or "")[:max_prompt_chars]
+        mutated_repair = str(mutated_repair or "")[:max_prompt_chars]
 
         output_contract = dict(base.output_contract or {})
         output_contract.update(
@@ -152,10 +155,15 @@ class PlanningPromptEvolverService:
             "system_rules": system_rules,
             "user_prompt_template": mutated_user,
             "repair_prompt_template": mutated_repair,
-            "enabled": bool(activate_profile if enabled is None else enabled),
+            "enabled": bool((rules.get("auto_enable", False) if enabled is None else enabled)),
         }
         checksum = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")).hexdigest()
         payload["checksum"] = checksum
+        if str(base.checksum or "") == checksum:
+            return {"evolved": False, "reason": "no_material_change"}
+        ok, violations = get_planning_prompt_evolution_guard_service().validate_mutation(payload=payload)
+        if not ok:
+            return {"evolved": False, "reason": "evolver_scope_violation", "reason_codes": violations}
 
         # avoid duplicate by checksum
         for candidate in repos.planning_prompt_version_repo.get_enabled():
@@ -167,7 +175,7 @@ class PlanningPromptEvolverService:
 
         profile_name = str(getattr(run, "planning_profile", "") or "").strip().lower()
         profile_updated = False
-        if profile_name and bool(activate_profile):
+        if profile_name and bool(activate_profile) and bool(getattr(evolved, "enabled", False)):
             for p in repos.planning_model_profile_repo.get_enabled():
                 if str(p.profile_name or "").strip().lower() == profile_name:
                     p.preferred_prompt_version_id = str(evolved.id)
@@ -183,6 +191,7 @@ class PlanningPromptEvolverService:
             "target_model_family": payload.get("target_model_family"),
             "profile_updated": profile_updated,
             "activated_profile": bool(activate_profile),
+            "enabled": bool(getattr(evolved, "enabled", False)),
         }
 
 
