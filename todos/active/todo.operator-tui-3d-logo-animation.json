@@ -1,0 +1,743 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Peter Stuiber / ananta",
+  "track": "todo.operator-tui-3d-logo-animation",
+  "title": "Operator TUI 3D Ananta logo animation and renderer abstraction",
+  "purpose": "Extend the Operator TUI splash/header concept with a lightweight 3D animation path for the Ananta symbol: rotating/zooming/perspective logo animation at startup, graceful fallback to 2D ASCII/ANSI assets, and optional future use of open-source TUI/terminal graphics libraries.",
+  "context": {
+    "user_goal": "Eine weitere TODO JSON, welche 3D-Animation mit reinbringt und möglichst gute Möglichkeiten bzw. existierende Open-Source-Libraries berücksichtigt.",
+    "current_project_state": [
+      "Operator TUI currently uses prompt_toolkit full-screen TextArea rendering via client_surfaces/operator_tui/interactive.py.",
+      "Rendering is currently string-based through client_surfaces/operator_tui/renderer.py and render_operator_shell().",
+      "A previous TODO exists for fullscreen logo splash -> compact 8-line status header.",
+      "scripts/render_terminal_logo.py can already generate ANSI halfblock, mono, plain ASCII, ASCII-color and edge-aware ASCII logo assets from ananta.svg.",
+      "pyproject.toml already depends on prompt_toolkit and Pillow, but not on Textual/asciimatics/chafa."
+    ],
+    "library_assessment": [
+      {
+        "name": "Existing prompt_toolkit renderer",
+        "type": "current dependency",
+        "fit": "best first step",
+        "reason": "Already used by Operator TUI; can animate by replacing TextArea text and invalidating the app. No new dependency needed.",
+        "recommended_role": "MVP implementation path for deterministic pseudo-3D ASCII/ANSI animation."
+      },
+      {
+        "name": "Custom ASCII/ANSI 3D projection",
+        "type": "own lightweight renderer",
+        "fit": "best for Ananta logo effect",
+        "reason": "A small deterministic math renderer can rotate points/segments/faces and map them to ASCII/ANSI without pulling in heavy graphics stacks.",
+        "recommended_role": "Core engine for wireframe/mesh/ribbon/snake-around-A animation."
+      },
+      {
+        "name": "Textual",
+        "type": "optional future TUI framework",
+        "fit": "good future option",
+        "reason": "Textual has its own animation model and widgets/layout system, but migrating from current prompt_toolkit TUI is a bigger architectural step.",
+        "recommended_role": "Optional future renderer backend, not required for the first 3D animation implementation."
+      },
+      {
+        "name": "asciimatics",
+        "type": "terminal animation library",
+        "fit": "prototype/evaluation",
+        "reason": "Designed for terminal animations and effects; useful to evaluate, but would duplicate parts of existing Operator TUI rendering/input stack.",
+        "recommended_role": "Spike only unless it clearly beats custom renderer."
+      },
+      {
+        "name": "chafa / Sixel / Kitty image protocols",
+        "type": "terminal graphics/image rendering",
+        "fit": "optional rich terminal path",
+        "reason": "Can render real images/frames in supporting terminals. Good for high-fidelity logo animation, but support varies and fallback is mandatory.",
+        "recommended_role": "Optional high-fidelity terminal graphics backend after ASCII/ANSI path works."
+      },
+      {
+        "name": "pygame / moderngl / pyglet / OpenGL",
+        "type": "real graphics libraries",
+        "fit": "not recommended for terminal TUI MVP",
+        "reason": "They leave the terminal/TUI model and increase dependency/runtime complexity.",
+        "recommended_role": "Do not use for Operator TUI startup animation."
+      }
+    ],
+    "design_decision": "Implement the first version as deterministic pseudo-3D ASCII/ANSI animation inside the existing prompt_toolkit Operator TUI. Keep Textual/asciimatics/chafa as explicitly evaluated optional backends, not as required dependencies."
+  },
+  "priority_scale": ["critical", "high", "medium", "low"],
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "3D renderer architecture and library decision",
+      "status": "todo",
+      "task_ids": [
+        "TUI-3D-001",
+        "TUI-3D-002",
+        "TUI-3D-003",
+        "TUI-3D-004"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Ananta pseudo-3D logo model",
+      "status": "todo",
+      "task_ids": [
+        "TUI-3D-005",
+        "TUI-3D-006",
+        "TUI-3D-007",
+        "TUI-3D-008"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Frame generation, projection and ASCII/ANSI shading",
+      "status": "todo",
+      "task_ids": [
+        "TUI-3D-009",
+        "TUI-3D-010",
+        "TUI-3D-011",
+        "TUI-3D-012",
+        "TUI-3D-013"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Operator TUI startup integration",
+      "status": "todo",
+      "task_ids": [
+        "TUI-3D-014",
+        "TUI-3D-015",
+        "TUI-3D-016",
+        "TUI-3D-017",
+        "TUI-3D-018"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Optional open-source backend spikes",
+      "status": "todo",
+      "task_ids": [
+        "TUI-3D-019",
+        "TUI-3D-020",
+        "TUI-3D-021",
+        "TUI-3D-022"
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "Tests, documentation and rollout",
+      "status": "todo",
+      "task_ids": [
+        "TUI-3D-023",
+        "TUI-3D-024",
+        "TUI-3D-025",
+        "TUI-3D-026",
+        "TUI-3D-027"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "TUI-3D-001",
+      "title": "Define 3D animation scope and non-goals",
+      "status": "todo",
+      "priority": "critical",
+      "type": "design",
+      "files": [
+        "docs/development/operator-tui-3d-animation.md",
+        "client_surfaces/operator_tui/animation3d/__init__.py"
+      ],
+      "summary": "Clarify that the MVP is pseudo-3D terminal animation, not a full graphics engine.",
+      "acceptance_criteria": [
+        "Document states MVP uses deterministic pseudo-3D ASCII/ANSI rendering inside the existing TUI.",
+        "Document explicitly excludes pygame/OpenGL/browser canvas from the first Operator TUI implementation.",
+        "Document defines target effects: rotate, zoom, depth, snake ribbon movement, A wireframe stabilization.",
+        "Document defines fallback chain: 3D ASCII-color -> 2D ASCII-color -> mono compact header -> legacy renderer.",
+        "No new mandatory dependency is introduced by this task."
+      ]
+    },
+    {
+      "id": "TUI-3D-002",
+      "title": "Create renderer backend interface for logo animation",
+      "status": "todo",
+      "priority": "critical",
+      "type": "architecture",
+      "files": [
+        "client_surfaces/operator_tui/animation3d/backends.py",
+        "tests/test_operator_tui_3d_backends.py"
+      ],
+      "summary": "Abstract the animation backend so custom ASCII and optional library-backed renderers can coexist.",
+      "acceptance_criteria": [
+        "A LogoAnimationBackend protocol/interface exists with methods like capabilities(), frame_at(t, width, height, options).",
+        "Frame output is a plain string plus metadata such as visible_width, visible_height, ansi_used and fallback_reason.",
+        "Backend interface is deterministic and does not read wall-clock time internally.",
+        "Backend errors are converted into fallback metadata rather than crashing the TUI.",
+        "Tests verify a fake backend can be used without prompt_toolkit."
+      ]
+    },
+    {
+      "id": "TUI-3D-003",
+      "title": "Add animation capability detection",
+      "status": "todo",
+      "priority": "high",
+      "type": "feature",
+      "files": [
+        "client_surfaces/operator_tui/animation3d/capabilities.py",
+        "client_surfaces/operator_tui/capabilities.py",
+        "tests/test_operator_tui_3d_capabilities.py"
+      ],
+      "summary": "Decide at runtime which animation mode is safe for terminal, CI and user preferences.",
+      "depends_on": ["TUI-3D-002"],
+      "acceptance_criteria": [
+        "Capability detection considers TTY, NO_COLOR, ANANTA_TUI_3D, ANANTA_TUI_SPLASH, terminal width/height and reduced-motion setting.",
+        "CI/non-TTY defaults to disabled or render-once-safe mode.",
+        "Color capability supports ansi_truecolor, ansi_256, mono and plain_ascii modes.",
+        "Capability result includes reason codes such as no_tty, too_small, no_color, disabled_by_env.",
+        "Tests cover at least five capability scenarios."
+      ]
+    },
+    {
+      "id": "TUI-3D-004",
+      "title": "Evaluate open-source library options with documented recommendation",
+      "status": "todo",
+      "priority": "medium",
+      "type": "research",
+      "files": [
+        "docs/development/operator-tui-3d-animation.md"
+      ],
+      "summary": "Document why the first implementation should stay custom/prompt_toolkit and what to evaluate later.",
+      "acceptance_criteria": [
+        "Docs include a comparison table for prompt_toolkit/custom renderer, Textual, asciimatics, chafa/Sixel/Kitty and OpenGL-style libraries.",
+        "Docs state current recommendation: custom ASCII/ANSI 3D renderer first, optional Textual/asciimatics/chafa spikes later.",
+        "Docs list pros/cons: dependency weight, compatibility, testability, interactive integration and fallback story.",
+        "Docs mention that Textual has built-in animation concepts but migration is larger than this MVP.",
+        "Docs mention chafa/Sixel/Kitty as optional richer terminal graphics paths requiring capability detection."
+      ]
+    },
+    {
+      "id": "TUI-3D-005",
+      "title": "Create lightweight 3D geometry model for Ananta A symbol",
+      "status": "todo",
+      "priority": "critical",
+      "type": "feature",
+      "files": [
+        "client_surfaces/operator_tui/animation3d/geometry.py",
+        "tests/test_operator_tui_3d_geometry.py"
+      ],
+      "summary": "Represent the A as deterministic 3D points/segments/faces suitable for terminal projection.",
+      "depends_on": ["TUI-3D-002"],
+      "acceptance_criteria": [
+        "Geometry model contains vertices and line segments for a stylized A shape.",
+        "Geometry has normalized coordinates centered around origin.",
+        "Model can be scaled without losing proportions.",
+        "Model includes stable IDs for parts: left_leg, right_leg, crossbar, inner_cutout.",
+        "Tests verify vertex/segment count and bounding box."
+      ]
+    },
+    {
+      "id": "TUI-3D-006",
+      "title": "Create lightweight 3D snake/ribbon model around A",
+      "status": "todo",
+      "priority": "critical",
+      "type": "feature",
+      "files": [
+        "client_surfaces/operator_tui/animation3d/geometry.py",
+        "tests/test_operator_tui_3d_snake_geometry.py"
+      ],
+      "summary": "Represent the snake as a curve/ribbon around the A with visible head and depth movement.",
+      "depends_on": ["TUI-3D-005"],
+      "acceptance_criteria": [
+        "Snake path is represented as a sequence of 3D control points or sampled points.",
+        "Snake model includes head, body and tail metadata.",
+        "Snake visibly wraps around or passes behind/in front of the A in z-depth ordering.",
+        "Model supports phase offset for animated slither/rotation.",
+        "Tests verify head/tail position and z-depth changes over phase."
+      ]
+    },
+    {
+      "id": "TUI-3D-007",
+      "title": "Support SVG-derived fallback frame alignment",
+      "status": "todo",
+      "priority": "high",
+      "type": "compatibility",
+      "files": [
+        "client_surfaces/operator_tui/animation3d/svg_reference.py",
+        "scripts/render_terminal_logo.py",
+        "tests/test_operator_tui_3d_svg_reference.py"
+      ],
+      "summary": "Keep the 3D approximation visually connected to the real ananta.svg logo.",
+      "depends_on": ["TUI-3D-005", "TUI-3D-006"],
+      "acceptance_criteria": [
+        "Docs or metadata define how the pseudo-3D model relates to ananta.svg parts.",
+        "Optional reference overlay mode can render a static SVG-derived ASCII frame for comparison.",
+        "No freehand rejected ASCII draft is used as geometry source.",
+        "Tests verify fallback static frame can be loaded without ANSI when NO_COLOR is set.",
+        "Manual review checklist includes A visibility, snake visibility and relationship to SVG."
+      ]
+    },
+    {
+      "id": "TUI-3D-008",
+      "title": "Add configurable animation presets",
+      "status": "todo",
+      "priority": "medium",
+      "type": "feature",
+      "files": [
+        "client_surfaces/operator_tui/animation3d/presets.py",
+        "tests/test_operator_tui_3d_presets.py"
+      ],
+      "summary": "Allow different startup styles without changing renderer internals.",
+      "depends_on": ["TUI-3D-005", "TUI-3D-006"],
+      "acceptance_criteria": [
+        "At least three presets exist: rotate_in, snake_orbit, depth_pulse.",
+        "Preset exposes duration_ms, fps, rotation axes, scale curve and color mode.",
+        "Preset values are deterministic and serializable.",
+        "Invalid preset falls back to safe default with reason code.",
+        "Tests verify preset names and basic parameter ranges."
+      ]
+    },
+    {
+      "id": "TUI-3D-009",
+      "title": "Implement 3D projection and viewport mapping",
+      "status": "todo",
+      "priority": "critical",
+      "type": "renderer",
+      "files": [
+        "client_surfaces/operator_tui/animation3d/projection.py",
+        "tests/test_operator_tui_3d_projection.py"
+      ],
+      "summary": "Convert 3D points into terminal character coordinates with perspective/orthographic modes.",
+      "depends_on": ["TUI-3D-005", "TUI-3D-006"],
+      "acceptance_criteria": [
+        "Projection supports orthographic and perspective modes.",
+        "Projection accounts for terminal character aspect ratio.",
+        "Projected points fit inside requested width/height or return clipping metadata.",
+        "Projection handles rotation around x/y/z axes.",
+        "Tests verify deterministic coordinates for known points."
+      ]
+    },
+    {
+      "id": "TUI-3D-010",
+      "title": "Implement z-buffer/depth ordering for ASCII cells",
+      "status": "todo",
+      "priority": "high",
+      "type": "renderer",
+      "files": [
+        "client_surfaces/operator_tui/animation3d/rasterizer.py",
+        "tests/test_operator_tui_3d_zbuffer.py"
+      ],
+      "summary": "Ensure snake can pass in front of/behind the A convincingly.",
+      "depends_on": ["TUI-3D-009"],
+      "acceptance_criteria": [
+        "Renderer tracks depth per terminal cell.",
+        "Closer snake segment overwrites A segment when z-depth requires it.",
+        "Farther snake segment is hidden behind A segment where they overlap.",
+        "Depth ordering is deterministic for equal-depth ties.",
+        "Tests cover front/behind overlap."
+      ]
+    },
+    {
+      "id": "TUI-3D-011",
+      "title": "Implement ASCII character shading and edge selection for 3D frames",
+      "status": "todo",
+      "priority": "high",
+      "type": "renderer",
+      "files": [
+        "client_surfaces/operator_tui/animation3d/shading.py",
+        "tests/test_operator_tui_3d_shading.py"
+      ],
+      "summary": "Map depth, surface brightness and edge direction to suitable ASCII characters.",
+      "depends_on": ["TUI-3D-009", "TUI-3D-010"],
+      "acceptance_criteria": [
+        "Shading uses configurable palettes for dense, light, edge and organic/snake characters.",
+        "Edge direction can select /, \\, |, -, _, ~ where useful.",
+        "Depth can influence brightness/character density.",
+        "Snake body uses more organic characters by preset, e.g. s, S, o, a, c, ~ when appropriate.",
+        "Tests verify ASCII-only output contains no Unicode and uses multiple character classes."
+      ]
+    },
+    {
+      "id": "TUI-3D-012",
+      "title": "Implement ANSI color shading for 3D ASCII frames",
+      "status": "todo",
+      "priority": "high",
+      "type": "renderer",
+      "files": [
+        "client_surfaces/operator_tui/animation3d/color.py",
+        "tests/test_operator_tui_3d_color.py"
+      ],
+      "summary": "Color A and snake separately while keeping visible characters ASCII.",
+      "depends_on": ["TUI-3D-011"],
+      "acceptance_criteria": [
+        "ANSI-color mode uses ASCII characters plus ANSI TrueColor/256-color, no Unicode block characters.",
+        "A and snake can have separate configurable color palettes derived from existing logo colors.",
+        "NO_COLOR produces identical geometry with no ANSI escapes.",
+        "Output resets ANSI at line end and before spaces after colored runs.",
+        "Tests verify color/no-color behavior and absence of raw terminal-control leaks beyond ANSI SGR."
+      ]
+    },
+    {
+      "id": "TUI-3D-013",
+      "title": "Implement frame cache and performance budget",
+      "status": "todo",
+      "priority": "medium",
+      "type": "performance",
+      "files": [
+        "client_surfaces/operator_tui/animation3d/cache.py",
+        "client_surfaces/operator_tui/performance.py",
+        "tests/test_operator_tui_3d_frame_cache.py"
+      ],
+      "summary": "Avoid expensive frame regeneration in the interactive redraw loop.",
+      "depends_on": ["TUI-3D-009", "TUI-3D-010", "TUI-3D-011", "TUI-3D-012"],
+      "acceptance_criteria": [
+        "Frame cache keys include width, height, preset, color mode, frame index and reduced-motion mode.",
+        "Cache has bounded max entries or total bytes.",
+        "Renderer can precompute N startup frames for a preset.",
+        "Performance budget defines max startup precompute time and max frame render time.",
+        "Tests verify cache hit/miss behavior and deterministic output."
+      ]
+    },
+    {
+      "id": "TUI-3D-014",
+      "title": "Integrate 3D frames into existing splash lifecycle",
+      "status": "todo",
+      "priority": "critical",
+      "type": "integration",
+      "files": [
+        "client_surfaces/operator_tui/splash.py",
+        "client_surfaces/operator_tui/interactive.py",
+        "client_surfaces/operator_tui/animation3d/backends.py"
+      ],
+      "summary": "Use 3D animation as the startup splash source when supported.",
+      "depends_on": ["TUI-3D-002", "TUI-3D-003", "TUI-3D-013"],
+      "acceptance_criteria": [
+        "Splash lifecycle can request 3D frame by elapsed time/frame index.",
+        "If 3D backend is disabled/unavailable, existing 2D splash is used.",
+        "If frame generation fails, normal shell with compact header still starts.",
+        "Interactive keybindings still skip splash immediately.",
+        "No real sleep is required in unit tests."
+      ]
+    },
+    {
+      "id": "TUI-3D-015",
+      "title": "Add shrink-to-corner 3D transition into compact 8-line logo header",
+      "status": "todo",
+      "priority": "high",
+      "type": "animation",
+      "files": [
+        "client_surfaces/operator_tui/splash.py",
+        "client_surfaces/operator_tui/animation3d/presets.py",
+        "client_surfaces/operator_tui/renderer.py",
+        "tests/test_operator_tui_3d_shrink_transition.py"
+      ],
+      "summary": "Animate from fullscreen 3D logo into the 8-line pinned header from the previous splash TODO.",
+      "depends_on": ["TUI-3D-014"],
+      "acceptance_criteria": [
+        "Transition frames reduce logo size and move target origin toward top-left.",
+        "Final frame matches or hands off to compact 8-line header renderer.",
+        "Transition respects reduced-motion mode by jumping directly to compact header.",
+        "Transition does not overlap final status header text.",
+        "Tests verify first/middle/final frame categories."
+      ]
+    },
+    {
+      "id": "TUI-3D-016",
+      "title": "Add CLI/env configuration for 3D animation",
+      "status": "todo",
+      "priority": "high",
+      "type": "configuration",
+      "files": [
+        "client_surfaces/operator_tui/app.py",
+        "client_surfaces/operator_tui/animation3d/presets.py",
+        "docs/cli/commands.md"
+      ],
+      "summary": "Allow users and CI to enable/disable/tune 3D animation safely.",
+      "depends_on": ["TUI-3D-003", "TUI-3D-008", "TUI-3D-014"],
+      "acceptance_criteria": [
+        "CLI supports --no-3d, --3d-preset <name>, --3d-fps <n>, --3d-duration-ms <n>.",
+        "Env vars ANANTA_TUI_3D, ANANTA_TUI_3D_PRESET, ANANTA_TUI_3D_FPS and ANANTA_TUI_3D_DURATION_MS are supported.",
+        "Invalid values fall back to safe defaults with reason code.",
+        "NO_COLOR keeps geometry but disables ANSI color.",
+        "CI/non-TTY defaults to no animation unless render-once preview explicitly requests it."
+      ]
+    },
+    {
+      "id": "TUI-3D-017",
+      "title": "Add render-once preview modes for 3D frames",
+      "status": "todo",
+      "priority": "high",
+      "type": "testability",
+      "files": [
+        "client_surfaces/operator_tui/app.py",
+        "client_surfaces/operator_tui/splash.py",
+        "tests/test_operator_tui_3d_render_once.py"
+      ],
+      "summary": "Allow deterministic preview of 3D animation frames without full-screen interactive mode.",
+      "depends_on": ["TUI-3D-014", "TUI-3D-016"],
+      "acceptance_criteria": [
+        "`ananta tui --render-once --splash-frame 3d:0` prints first 3D frame.",
+        "`ananta tui --render-once --splash-frame 3d:mid` prints a middle frame.",
+        "`ananta tui --render-once --splash-frame 3d:last` prints final frame.",
+        "Preview respects --width, --height, --no-3d and NO_COLOR.",
+        "Preview works in non-TTY test environment."
+      ]
+    },
+    {
+      "id": "TUI-3D-018",
+      "title": "Integrate status header after 3D animation handoff",
+      "status": "todo",
+      "priority": "high",
+      "type": "integration",
+      "files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/status_snapshot.py",
+        "client_surfaces/operator_tui/splash.py"
+      ],
+      "summary": "Ensure 3D startup effect ends in the compact header with useful status lines.",
+      "depends_on": ["TUI-3D-015"],
+      "acceptance_criteria": [
+        "After animation, compact 8-line logo remains top-left.",
+        "Status area next to logo includes cwd/repo path, endpoint, auth, section, mode, focus and status message.",
+        "Animation metadata/fallback reason can be shown in a status line when debug mode is enabled.",
+        "No splash artifacts remain in body area after final render.",
+        "Tests verify final shell includes both header logo and status lines."
+      ]
+    },
+    {
+      "id": "TUI-3D-019",
+      "title": "Spike Textual as optional animation backend",
+      "status": "todo",
+      "priority": "low",
+      "type": "spike",
+      "files": [
+        "experiments/operator_tui_textual_3d_spike/README.md",
+        "docs/development/operator-tui-3d-animation.md"
+      ],
+      "summary": "Evaluate Textual animation capabilities without migrating production TUI.",
+      "acceptance_criteria": [
+        "Spike is isolated under experiments/ and not imported by production code.",
+        "README documents setup, animation feasibility and migration cost.",
+        "Comparison covers Textual animation, layout, testing and dependency impact.",
+        "No Textual dependency is added to main pyproject unless separately approved.",
+        "Recommendation is recorded: adopt later, reject, or keep as optional."
+      ]
+    },
+    {
+      "id": "TUI-3D-020",
+      "title": "Spike asciimatics for terminal effects",
+      "status": "todo",
+      "priority": "low",
+      "type": "spike",
+      "files": [
+        "experiments/operator_tui_asciimatics_spike/README.md",
+        "docs/development/operator-tui-3d-animation.md"
+      ],
+      "summary": "Evaluate whether asciimatics provides better terminal animation primitives than custom renderer.",
+      "acceptance_criteria": [
+        "Spike stays isolated and optional.",
+        "README documents whether asciimatics can render the startup effect cleanly inside or around existing TUI.",
+        "Dependency size and input/event integration are evaluated.",
+        "Fallback strategy is documented.",
+        "No mandatory dependency is added without follow-up decision."
+      ]
+    },
+    {
+      "id": "TUI-3D-021",
+      "title": "Spike chafa/Sixel/Kitty rich terminal graphics backend",
+      "status": "todo",
+      "priority": "low",
+      "type": "spike",
+      "files": [
+        "experiments/operator_tui_chafa_spike/README.md",
+        "client_surfaces/operator_tui/animation3d/capabilities.py"
+      ],
+      "summary": "Evaluate real image-frame rendering for terminals that support richer graphics protocols.",
+      "acceptance_criteria": [
+        "Spike can render at least one generated PNG frame in a terminal using chafa or terminal image protocol when available.",
+        "Capability detection determines when this backend is unavailable and falls back to ASCII/ANSI.",
+        "No runtime failure occurs when chafa/kitty/sixel support is missing.",
+        "Security note confirms no shell injection via file paths or terminal control sequences.",
+        "Recommendation documents whether to keep this as optional future backend."
+      ]
+    },
+    {
+      "id": "TUI-3D-022",
+      "title": "Reject heavy GUI/OpenGL dependency path for Operator TUI MVP",
+      "status": "todo",
+      "priority": "medium",
+      "type": "decision-record",
+      "files": [
+        "docs/development/operator-tui-3d-animation.md"
+      ],
+      "summary": "Avoid accidental drift into GUI/game-engine dependencies for a terminal startup effect.",
+      "acceptance_criteria": [
+        "Docs explicitly state pygame/moderngl/pyglet/OpenGL are out of scope for Operator TUI MVP.",
+        "Reasoning includes terminal compatibility, CI testability, packaging weight and remote SSH behavior.",
+        "Future GUI/desktop visualizer is allowed only as a separate project/feature track.",
+        "No GUI dependency is added to mandatory project dependencies by this track.",
+        "Decision can be revisited only with a separate TODO/ADR."
+      ]
+    },
+    {
+      "id": "TUI-3D-023",
+      "title": "Add unit tests for 3D renderer math and ASCII safety",
+      "status": "todo",
+      "priority": "critical",
+      "type": "test",
+      "files": [
+        "tests/test_operator_tui_3d_geometry.py",
+        "tests/test_operator_tui_3d_projection.py",
+        "tests/test_operator_tui_3d_shading.py",
+        "tests/test_operator_tui_3d_color.py"
+      ],
+      "summary": "Verify renderer logic independent of interactive terminal.",
+      "depends_on": ["TUI-3D-005", "TUI-3D-006", "TUI-3D-009", "TUI-3D-011", "TUI-3D-012"],
+      "acceptance_criteria": [
+        "Tests cover rotation/projection for known points.",
+        "Plain ASCII frames contain only 7-bit visible characters plus newline.",
+        "ANSI-color frames contain ANSI SGR escapes but no Unicode block characters.",
+        "NO_COLOR path produces no escape sequences.",
+        "Edge/depth tests verify /, \\, |, - are used in appropriate cases."
+      ]
+    },
+    {
+      "id": "TUI-3D-024",
+      "title": "Add lifecycle and CLI preview tests for 3D animation",
+      "status": "todo",
+      "priority": "high",
+      "type": "test",
+      "files": [
+        "tests/test_operator_tui_3d_lifecycle.py",
+        "tests/test_operator_tui_3d_render_once.py",
+        "tests/test_operator_tui_3d_cli_flags.py"
+      ],
+      "summary": "Prove 3D animation integrates with TUI startup safely.",
+      "depends_on": ["TUI-3D-014", "TUI-3D-016", "TUI-3D-017"],
+      "acceptance_criteria": [
+        "Render-once first/mid/last 3D frames exit 0.",
+        "--no-3d disables 3D and falls back to 2D splash or compact header.",
+        "ANANTA_TUI_3D=0 disables 3D in tests.",
+        "Reduced-motion mode skips animation and renders final header.",
+        "Tests do not require a real TTY or wall-clock sleep."
+      ]
+    },
+    {
+      "id": "TUI-3D-025",
+      "title": "Add performance and degradation tests",
+      "status": "todo",
+      "priority": "medium",
+      "type": "test",
+      "files": [
+        "tests/test_operator_tui_3d_performance.py",
+        "client_surfaces/operator_tui/performance.py"
+      ],
+      "summary": "Keep animation fast and safe on weak terminals/SSH.",
+      "depends_on": ["TUI-3D-013", "TUI-3D-014"],
+      "acceptance_criteria": [
+        "Frame precompute can be limited to a configurable frame count.",
+        "Performance test verifies frame generation stays under a loose deterministic budget on CI-sized frames.",
+        "Tiny terminal sizes degrade to static compact header.",
+        "Very wide sizes do not allocate unbounded memory.",
+        "Failure path records fallback_reason rather than crashing."
+      ]
+    },
+    {
+      "id": "TUI-3D-026",
+      "title": "Document 3D animation usage and preview commands",
+      "status": "todo",
+      "priority": "medium",
+      "type": "docs",
+      "files": [
+        "docs/development/operator-tui-3d-animation.md",
+        "docs/cli/commands.md",
+        "README.md"
+      ],
+      "summary": "Explain how to use, disable, preview and tune the 3D effect.",
+      "depends_on": ["TUI-3D-016", "TUI-3D-017", "TUI-3D-021", "TUI-3D-022"],
+      "acceptance_criteria": [
+        "Docs include commands for previewing 3D frames at different sizes.",
+        "Docs list flags/env vars: --no-3d, --3d-preset, --3d-fps, --3d-duration-ms, ANANTA_TUI_3D, NO_COLOR.",
+        "Docs describe fallback chain and terminal compatibility.",
+        "Docs include library evaluation summary and recommendation.",
+        "README mention stays short and does not embed huge animation frames."
+      ]
+    },
+    {
+      "id": "TUI-3D-027",
+      "title": "Run final acceptance and update/archive TODO",
+      "status": "todo",
+      "priority": "medium",
+      "type": "qa",
+      "files": [
+        "todos/active/todo.operator-tui-3d-logo-animation.json",
+        "todos/archiv/"
+      ],
+      "summary": "Close the track only after implementation, tests and manual visual review pass.",
+      "depends_on": ["TUI-3D-023", "TUI-3D-024", "TUI-3D-025", "TUI-3D-026"],
+      "acceptance_criteria": [
+        "Run targeted 3D renderer/lifecycle/CLI tests.",
+        "Run existing operator TUI smoke tests.",
+        "Manually preview at 90x24, 120x32 and 180x48.",
+        "Manual review confirms A, snake and 3D motion are recognizable without hurting usability.",
+        "When complete, mark tasks done and move TODO to todos/archiv or leave only remaining open tasks active."
+      ]
+    }
+  ],
+  "recommended_execution_order": [
+    "TUI-3D-001",
+    "TUI-3D-002",
+    "TUI-3D-003",
+    "TUI-3D-004",
+    "TUI-3D-005",
+    "TUI-3D-006",
+    "TUI-3D-007",
+    "TUI-3D-008",
+    "TUI-3D-009",
+    "TUI-3D-010",
+    "TUI-3D-011",
+    "TUI-3D-012",
+    "TUI-3D-013",
+    "TUI-3D-014",
+    "TUI-3D-015",
+    "TUI-3D-016",
+    "TUI-3D-017",
+    "TUI-3D-018",
+    "TUI-3D-023",
+    "TUI-3D-024",
+    "TUI-3D-025",
+    "TUI-3D-026",
+    "TUI-3D-027",
+    "TUI-3D-019",
+    "TUI-3D-020",
+    "TUI-3D-021",
+    "TUI-3D-022"
+  ],
+  "manual_acceptance_preview_commands": [
+    "ananta tui --render-once --splash-frame 3d:0 --width 120 --height 32",
+    "ananta tui --render-once --splash-frame 3d:mid --width 120 --height 32",
+    "ananta tui --render-once --splash-frame 3d:last --width 120 --height 32",
+    "NO_COLOR=1 ananta tui --render-once --splash-frame 3d:mid --width 120 --height 32",
+    "ANANTA_TUI_3D=0 ananta tui --render-once --splash-frame compact --width 120 --height 32"
+  ],
+  "status_summary": {
+    "total_tasks": 27,
+    "todo": 27,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0,
+    "critical_tasks": [
+      "TUI-3D-001",
+      "TUI-3D-002",
+      "TUI-3D-005",
+      "TUI-3D-006",
+      "TUI-3D-009",
+      "TUI-3D-014",
+      "TUI-3D-023"
+    ]
+  },
+  "definition_of_done": [
+    "Operator TUI can display a deterministic pseudo-3D Ananta logo animation at startup when enabled.",
+    "Animation uses ASCII/ANSI terminal rendering and falls back cleanly to 2D splash/compact header/legacy shell.",
+    "A and snake are recognizable in the animation, including visible depth/front-behind behavior.",
+    "The animation is configurable and disabled by default in non-TTY/CI/reduced-motion contexts.",
+    "Render-once preview commands exist for first/mid/final frames.",
+    "No heavy GUI/OpenGL dependency is added to mandatory dependencies.",
+    "Tests cover geometry, projection, shading, color/no-color, lifecycle, CLI flags and fallback paths."
+  ]
+}
