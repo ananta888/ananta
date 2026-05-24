@@ -32,6 +32,8 @@ class ProposeContext:
     instruction_stack: dict[str, Any] | None = None
     rendered_system_prompt: str | None = None
     instruction_diagnostics: dict[str, Any] | None = None
+    planning_context_compaction: dict[str, Any] | None = None
+    planning_context_compaction_meta: dict[str, Any] | None = None
 
 
 class ProposeStrategy(ABC):

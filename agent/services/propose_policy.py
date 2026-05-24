@@ -73,12 +73,34 @@ class ProposePolicy:
     requires_executable_step: bool = True
     on_parse_error: str = "next_strategy"
     on_all_strategies_declined: str = "needs_review"
+    context_compaction_enabled: bool = True
+    context_compaction_required: bool = False
+    context_compactor_timeout_seconds: int = 45
+    context_compactor_max_output_chars: int = 12000
+    context_compactor_retry_attempts: int = 1
+    context_compactor_fail_open: bool = False
+    context_compactor_profile: str = "default"
+    context_compactor_preserve_keywords: list[str] = field(
+        default_factory=lambda: ["security", "policy", "verification", "review", "constraints"]
+    )
     admin_overrides: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self._validate()
 
     def _validate(self) -> None:
+        self.context_compactor_timeout_seconds = max(30, min(120, int(self.context_compactor_timeout_seconds or 45)))
+        self.context_compactor_max_output_chars = max(1000, min(50000, int(self.context_compactor_max_output_chars or 12000)))
+        self.context_compactor_retry_attempts = max(0, min(3, int(self.context_compactor_retry_attempts or 0)))
+        self.context_compactor_profile = str(self.context_compactor_profile or "default").strip().lower() or "default"
+        normalized_preserve = [str(item).strip().lower() for item in list(self.context_compactor_preserve_keywords or []) if str(item).strip()]
+        self.context_compactor_preserve_keywords = list(dict.fromkeys(normalized_preserve)) or [
+            "security",
+            "policy",
+            "verification",
+            "review",
+            "constraints",
+        ]
         if not self.allow_legacy_sgpt and STRATEGY_LEGACY_SGPT in self.strategy_order:
             if not self.admin_overrides.get(_ADMIN_OVERRIDE_KEY):
                 raise ValueError(
@@ -144,6 +166,14 @@ class ProposePolicy:
             "requires_executable_step": self.requires_executable_step,
             "on_parse_error": self.on_parse_error,
             "on_all_strategies_declined": self.on_all_strategies_declined,
+            "context_compaction_enabled": self.context_compaction_enabled,
+            "context_compaction_required": self.context_compaction_required,
+            "context_compactor_timeout_seconds": self.context_compactor_timeout_seconds,
+            "context_compactor_max_output_chars": self.context_compactor_max_output_chars,
+            "context_compactor_retry_attempts": self.context_compactor_retry_attempts,
+            "context_compactor_fail_open": self.context_compactor_fail_open,
+            "context_compactor_profile": self.context_compactor_profile,
+            "context_compactor_preserve_keywords": list(self.context_compactor_preserve_keywords),
         }
 
 
@@ -223,6 +253,10 @@ def build_policy_from_dict(raw: dict[str, Any], *, admin_overrides: dict[str, An
         "allow_worker_fallback", "allow_deterministic_fallback", "allow_human_review",
         "max_strategy_attempts", "max_repair_attempts",
         "requires_executable_step", "on_parse_error", "on_all_strategies_declined",
+        "context_compaction_enabled", "context_compaction_required",
+        "context_compactor_timeout_seconds", "context_compactor_max_output_chars",
+        "context_compactor_retry_attempts", "context_compactor_fail_open",
+        "context_compactor_profile", "context_compactor_preserve_keywords",
     ):
         if key in raw:
             kwargs[key] = raw[key]

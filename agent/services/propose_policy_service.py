@@ -71,6 +71,10 @@ class ProposePolicyService:
             project_config=project_config,
             task_override=task_override,
         )
+        merged = self.apply_context_compactor_runtime_profile(
+            merged=merged,
+            project_config=project_config,
+        )
 
         policy = build_policy_from_dict(merged, admin_overrides=admin_overrides)
         setattr(policy, "effective_strategy_mode", str(merged.get("effective_strategy_mode") or "").strip() or None)
@@ -100,6 +104,20 @@ class ProposePolicyService:
             "requires_executable_step": True,
             "on_parse_error": "next_strategy",
             "on_all_strategies_declined": "needs_review",
+            "context_compaction_enabled": True,
+            "context_compaction_required": False,
+            "context_compactor_timeout_seconds": 45,
+            "context_compactor_max_output_chars": 12000,
+            "context_compactor_retry_attempts": 1,
+            "context_compactor_fail_open": False,
+            "context_compactor_profile": "default",
+            "context_compactor_preserve_keywords": [
+                "security",
+                "policy",
+                "verification",
+                "review",
+                "constraints",
+            ],
         }
 
     @staticmethod
@@ -138,6 +156,32 @@ class ProposePolicyService:
         result["strategy_order"] = normalized
         result["allow_json_schema_fallback"] = False
         result["allow_flexible_normalization"] = True
+        return result
+
+    @staticmethod
+    def apply_context_compactor_runtime_profile(
+        merged: dict[str, Any],
+        *,
+        project_config: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        result = dict(merged or {})
+        effective_cfg = dict(project_config or {})
+        profile = str(result.get("context_compactor_profile") or "default").strip().lower() or "default"
+        runtime_profile = str(effective_cfg.get("runtime_profile") or "").strip().lower()
+        if profile == "default" and runtime_profile:
+            if "lmstudio" in runtime_profile:
+                profile = "lmstudio_laptop"
+            elif "ollama" in runtime_profile:
+                profile = "ollama_rtx3080"
+        if profile == "lmstudio_laptop":
+            result["context_compactor_timeout_seconds"] = min(int(result.get("context_compactor_timeout_seconds") or 45), 40)
+            result["context_compactor_max_output_chars"] = min(int(result.get("context_compactor_max_output_chars") or 12000), 8000)
+            result["context_compactor_retry_attempts"] = min(int(result.get("context_compactor_retry_attempts") or 1), 1)
+        elif profile == "ollama_rtx3080":
+            result["context_compactor_timeout_seconds"] = min(120, max(45, int(result.get("context_compactor_timeout_seconds") or 60)))
+            result["context_compactor_max_output_chars"] = min(24000, max(10000, int(result.get("context_compactor_max_output_chars") or 16000)))
+            result["context_compactor_retry_attempts"] = min(3, max(1, int(result.get("context_compactor_retry_attempts") or 2)))
+        result["context_compactor_profile"] = profile
         return result
 
 
