@@ -55,7 +55,7 @@ docker compose \
   --profile oidc up -d
 ```
 
-This starts Keycloak `26.6.2` and wires Ananta hub OIDC settings to the existing implementation.
+This starts Keycloak `26.6.1` and wires Ananta hub OIDC settings to the existing implementation.
 
 ## OpenSSH hardening references
 
