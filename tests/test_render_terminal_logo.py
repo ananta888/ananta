@@ -7,6 +7,8 @@ from scripts.render_terminal_logo import (
     RenderConfig,
     pixel_density,
     render_ascii,
+    render_ascii_color,
+    _compute_edge_map,
 )
 
 
@@ -283,3 +285,137 @@ def test_ascii_custom_chars_stays_ascii():
     for ch in result:
         if ch != "\n":
             assert ord(ch) < 128
+
+
+# --- colored ASCII tests ---
+
+def _diagonal_edge_img(w: int, h: int):
+    """Image with a diagonal black/white edge to trigger edge chars."""
+    from PIL import Image
+    img = Image.new("RGBA", (w, h))
+    px = []
+    for y in range(h):
+        for x in range(w):
+            if x > y:
+                px.append((0, 0, 0, 255))
+            else:
+                px.append((255, 255, 255, 255))
+    img.putdata(px)
+    return img
+
+
+def test_ascii_color_contains_ansi():
+    w, h = 10, 10
+    px = [(64, 64, 64, 255)] * (w * h)
+    from PIL import Image
+    img = Image.new("RGBA", (w, h))
+    img.putdata(px)
+    result = render_ascii_color(img, ASCII_PALETTES["clean"], cfg=RenderConfig())
+    assert "\x1b[" in result
+
+
+def test_ascii_color_no_block_chars():
+    w, h = 10, 10
+    px = [(64, 64, 64, 255)] * (w * h)
+    from PIL import Image
+    img = Image.new("RGBA", (w, h))
+    img.putdata(px)
+    result = render_ascii_color(img, ASCII_PALETTES["clean"], cfg=RenderConfig())
+    blocked = {"▀", "▄", "█", "▌", "▐"}
+    for ch in result:
+        if ch != "\n":
+            assert ch not in blocked, f"Block char found: {ch!r}"
+
+
+def test_ascii_color_chars_are_ascii():
+    w, h = 10, 10
+    px = [(64, 64, 64, 255)] * (w * h)
+    from PIL import Image
+    img = Image.new("RGBA", (w, h))
+    img.putdata(px)
+    result = render_ascii_color(img, ASCII_PALETTES["clean"], cfg=RenderConfig())
+    for ch in result:
+        if ch != "\n":
+            assert ord(ch) < 128
+
+
+def test_ascii_color_foreground_mode_runs():
+    w, h = 8, 8
+    px = [(128, 64, 32, 255)] * (w * h)
+    from PIL import Image
+    img = Image.new("RGBA", (w, h))
+    img.putdata(px)
+    result = render_ascii_color(img, ASCII_PALETTES["detailed"], cfg=RenderConfig(), color_mode="foreground")
+    assert len(result) > 0
+
+
+def test_ascii_color_background_mode_runs():
+    w, h = 8, 8
+    px = [(128, 64, 32, 255)] * (w * h)
+    from PIL import Image
+    img = Image.new("RGBA", (w, h))
+    img.putdata(px)
+    result = render_ascii_color(img, ASCII_PALETTES["detailed"], cfg=RenderConfig(), color_mode="background")
+    assert len(result) > 0
+
+
+def test_ascii_color_both_mode_runs():
+    w, h = 8, 8
+    px = [(128, 64, 32, 255)] * (w * h)
+    from PIL import Image
+    img = Image.new("RGBA", (w, h))
+    img.putdata(px)
+    result = render_ascii_color(img, ASCII_PALETTES["detailed"], cfg=RenderConfig(), color_mode="both")
+    assert len(result) > 0
+
+
+def test_ascii_color_white_bg_is_space():
+    w, h = 5, 5
+    px = [(255, 255, 255, 255)] * (w * h)
+    from PIL import Image
+    img = Image.new("RGBA", (w, h))
+    img.putdata(px)
+    result = render_ascii_color(img, ASCII_PALETTES["clean"], cfg=RenderConfig())
+    lines = result.split("\n")
+    for line in lines:
+        assert all(ch == " " for ch in line)
+
+
+def test_edge_map_contains_edge_chars():
+    w, h = 20, 20
+    img = _diagonal_edge_img(w, h)
+    from PIL import Image
+    px = list(img.get_flattened_data())
+    edge_map = _compute_edge_map(px, w, h, RenderConfig())
+    edge_chars = {ech for row in edge_map for _, ech in row}
+    has_edge = edge_chars & {"/", "\\", "|", "-"}
+    assert has_edge, f"No edge chars found, got: {edge_chars}"
+
+
+def test_ascii_color_edge_aware_uses_shape_chars():
+    w, h = 20, 20
+    img = _diagonal_edge_img(w, h)
+    result = render_ascii_color(
+        img, ASCII_PALETTES["clean"],
+        cfg=RenderConfig(),
+        edge_aware=True,
+        shape_weight=0.5,
+    )
+    edge_chars = {"/", "\\", "|", "-"}
+    found = {c for c in result if c in edge_chars}
+    assert found, f"No edge chars in output, all visible: {set(c for c in result if c != ' ' and c != chr(10))}"
+
+
+def test_ascii_edge_aware_uses_shape_chars_without_color():
+    w, h = 20, 20
+    img = _diagonal_edge_img(w, h)
+    result = render_ascii(
+        img, ASCII_PALETTES["clean"],
+        cfg=RenderConfig(),
+        edge_aware=True,
+        shape_weight=0.5,
+    )
+    edge_chars = {"/", "\\", "|", "-"}
+    found = {c for c in result if c in edge_chars}
+    assert found, f"No edge chars in output"
+    assert "\x1b" not in result
