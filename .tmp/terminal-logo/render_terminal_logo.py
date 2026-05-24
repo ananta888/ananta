@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Render ananta.svg as high-quality ANSI terminal art.
+Final improved ANSI terminal logo renderer for ananta.svg.
 
-Produces:
-  - ANSI TrueColor half-block with optimized codes
-  - ANSI TrueColor half-block with grouped pixels (compact)
-  - Monochrome fallback
+Renders SVG -> PNG -> ANSI TrueColor half-block art with:
+- Smooth white-background removal (luma-based with falloff)
+- No color quantization (true colors from SVG)
+- Smart run-length encoding with color tolerance
+- Widths: 120 (large), 90 (medium), monochrome fallback
 """
 
 from PIL import Image
@@ -16,21 +17,40 @@ PNG_PATH = ".tmp/ananta-rendered.png"
 OUT_DIR = ".tmp/terminal-logo"
 os.makedirs(OUT_DIR, exist_ok=True)
 
-WHITE_THRESHOLD = 230
-ALPHA_THRESHOLD = 200
+WHITE_LUMA = 240
+FALLOFF = 10
+COLOR_TOLERANCE = 25  # max squared distance for color grouping
 
 
-def is_white_or_transparent(r, g, b, a=255):
-    return a < ALPHA_THRESHOLD or (r > WHITE_THRESHOLD and g > WHITE_THRESHOLD and b > WHITE_THRESHOLD)
+def luma(r, g, b):
+    return 0.299 * r + 0.587 * g + 0.114 * b
 
 
-def load_image(width, height_ratio=0.45):
+def pixel_alpha(r, g, b, a=255):
+    if a < 200:
+        return 0.0
+    lum = luma(r, g, b)
+    if lum >= WHITE_LUMA:
+        return 0.0
+    if lum >= WHITE_LUMA - FALLOFF:
+        return (WHITE_LUMA - lum) / FALLOFF
+    return 1.0
+
+
+def is_transparent(r, g, b, a=255):
+    return pixel_alpha(r, g, b, a) < 0.3
+
+
+def col_dist(a, b):
+    return (a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2
+
+
+def load_image(width, height_ratio=0.48):
     img = Image.open(PNG_PATH).convert("RGBA")
     aspect = img.height / img.width
     new_w = width
     new_h = max(1, int(new_w * aspect * height_ratio))
-    img = img.resize((new_w, new_h), Image.LANCZOS)
-    return img
+    return img.resize((new_w, new_h), Image.LANCZOS)
 
 
 def ansi_fg(r, g, b):
@@ -45,173 +65,146 @@ def ansi_reset():
     return "\x1b[0m"
 
 
-def render_optimized(img):
-    """Render with ANSI optimization: group same-color runs."""
-    pixels = list(img.getdata())
+def render_ansi(img):
+    """Render to ANSI TrueColor half-block art with tolerance-based run grouping."""
+    px = list(img.getdata())
     w, h = img.size
+
+    def g(x, y):
+        return px[y * w + x]
+
     lines = []
     for y in range(0, h - 1, 2):
-        line_parts = []
+        parts = []
         last_fg = None
         last_bg = None
         x = 0
         while x < w:
-            top = pixels[y * w + x]
-            bot = pixels[(y + 1) * w + x]
-            top_trans = is_white_or_transparent(*top)
-            bot_trans = is_white_or_transparent(*bot)
+            tr, tg, tb, ta = g(x, y)
+            br, bg, bb, ba = g(x, y + 1)
+            ta2 = pixel_alpha(tr, tg, tb, ta)
+            ba2 = pixel_alpha(br, bg, bb, ba)
+            tt = ta2 < 0.3
+            bt = ba2 < 0.3
 
-            if top_trans and bot_trans:
+            if tt and bt:
                 if last_fg is not None or last_bg is not None:
-                    line_parts.append(ansi_reset())
+                    parts.append(ansi_reset())
                     last_fg = None
                     last_bg = None
-                line_parts.append(" ")
+                parts.append(" ")
                 x += 1
                 continue
 
-            tr, tg, tb, ta = top
-            br, bg, bb, ba = bot
-
-            if top_trans and not bot_trans:
+            if tt and not bt:
                 ch = "▄"
-                fg_key = (br, bg, bb)
+                fg = (br, bg, bb)
                 bg_key = None
-            elif not top_trans and bot_trans:
+            elif not tt and bt:
                 ch = "▀"
-                fg_key = (tr, tg, tb)
+                fg = (tr, tg, tb)
                 bg_key = None
             else:
                 ch = "▀"
-                fg_key = (tr, tg, tb)
+                fg = (tr, tg, tb)
                 bg_key = (br, bg, bb)
 
-            # Find run of same pixels
+            # Find run of similar colors
             run = 1
             while x + run < w:
-                nt = pixels[y * w + x + run]
-                nb = pixels[(y + 1) * w + x + run]
-                nt_t = is_white_or_transparent(*nt)
-                nb_t = is_white_or_transparent(*nb)
-                if nt_t and nb_t:
+                ntr, ntg, ntb, nta = g(x + run, y)
+                nbr, nbg, nbb, nba = g(x + run, y + 1)
+                nta2 = pixel_alpha(ntr, ntg, ntb, nta)
+                nba2 = pixel_alpha(nbr, nbg, nbb, nba)
+                ntt = nta2 < 0.3
+                nbt = nba2 < 0.3
+                if ntt and nbt:
                     break
-                if not nt_t and not nb_t:
-                    if (nt[0], nt[1], nt[2]) == fg_key and (nb[0], nb[1], nb[2]) == bg_key:
+                if ntt and not nbt:
+                    if col_dist((nbr, nbg, nbb), fg) <= COLOR_TOLERANCE and bg_key is None:
                         run += 1
                         continue
-                if nt_t and not nb_t:
-                    if (nb[0], nb[1], nb[2]) == fg_key:
+                elif not ntt and nbt:
+                    if col_dist((ntr, ntg, ntb), fg) <= COLOR_TOLERANCE and bg_key is None:
                         run += 1
                         continue
-                if not nt_t and nb_t:
-                    if (nt[0], nt[1], nt[2]) == fg_key:
+                else:
+                    if (col_dist((ntr, ntg, ntb), fg) <= COLOR_TOLERANCE and
+                            col_dist((nbr, nbg, nbb), bg_key) <= COLOR_TOLERANCE):
                         run += 1
                         continue
                 break
 
-            if fg_key != last_fg or bg_key != last_bg:
+            if fg != last_fg or bg_key != last_bg:
                 if last_fg is not None or last_bg is not None:
-                    line_parts.append(ansi_reset())
+                    parts.append(ansi_reset())
                 if bg_key:
-                    line_parts.append(ansi_bg(*bg_key))
-                line_parts.append(ansi_fg(*fg_key))
-                last_fg = fg_key
+                    parts.append(ansi_bg(*bg_key))
+                parts.append(ansi_fg(*fg))
+                last_fg = fg
                 last_bg = bg_key
 
-            line_parts.append(ch * run)
+            parts.append(ch * run)
             x += run
 
         if last_fg is not None or last_bg is not None:
-            line_parts.append(ansi_reset())
-        lines.append("".join(line_parts))
+            parts.append(ansi_reset())
+        lines.append("".join(parts))
     return "\n".join(lines)
 
 
-def render_simple_halfblock(img):
-    """Simple half-block without optimization (per-pixel codes)."""
-    pixels = list(img.getdata())
+def render_mono(img):
+    """Monochrome half-block fallback."""
+    px = list(img.getdata())
     w, h = img.size
     lines = []
     for y in range(0, h - 1, 2):
         line = ""
         for x in range(w):
-            top = pixels[y * w + x]
-            bot = pixels[(y + 1) * w + x]
-            top_trans = is_white_or_transparent(*top)
-            bot_trans = is_white_or_transparent(*bot)
-            if top_trans and bot_trans:
+            t = px[y * w + x]
+            b = px[(y + 1) * w + x]
+            tt = pixel_alpha(*t) < 0.3
+            bt = pixel_alpha(*b) < 0.3
+            if tt and bt:
                 line += " "
-                continue
-            tr, tg, tb, ta = top
-            br, bg, bb, ba = bot
-
-            if top_trans and not bot_trans:
-                line += ansi_fg(br, bg, bb) + "▄"
-            elif not top_trans and bot_trans:
-                line += ansi_fg(tr, tg, tb) + "▀"
-            else:
-                line += ansi_bg(br, bg, bb) + ansi_fg(tr, tg, tb) + "▀"
-        if not all(is_white_or_transparent(*pixels[y * w + x]) and
-                    is_white_or_transparent(*pixels[(y + 1) * w + x])
-                    for x in range(w)):
-            line += ansi_reset()
-        lines.append(line)
-    return "\n".join(lines)
-
-
-def render_monochrome(img):
-    """Monochrome fallback using ▀▄ chars."""
-    pixels = list(img.getdata())
-    w, h = img.size
-    lines = []
-    for y in range(0, h - 1, 2):
-        line = ""
-        for x in range(w):
-            top = pixels[y * w + x]
-            bot = pixels[(y + 1) * w + x]
-            top_trans = is_white_or_transparent(*top)
-            bot_trans = is_white_or_transparent(*bot)
-            if top_trans and bot_trans:
-                line += " "
-            elif top_trans and not bot_trans:
+            elif tt and not bt:
                 line += "▄"
-            elif not top_trans and bot_trans:
+            elif not tt and bt:
                 line += "▀"
             else:
-                tb = top[0] * 0.299 + top[1] * 0.587 + top[2] * 0.114
-                bb = bot[0] * 0.299 + bot[1] * 0.587 + bot[2] * 0.114
-                line += "▀" if tb > bb else "▄"
+                line += "▀" if luma(*t[:3]) > luma(*b[:3]) else "▄"
         lines.append(line)
     return "\n".join(lines)
 
 
-def save_output(content, filename):
-    path = os.path.join(OUT_DIR, filename)
+def save(content, name):
+    path = os.path.join(OUT_DIR, name)
     with open(path, "w") as f:
         f.write(content)
-    print(f"  Saved: {path}")
+    print(f"  -> {path}")
 
 
 def main():
-    widths = [80, 100, 120]
-
-    for w in widths:
+    configs = [
+        (120, "ansi_halfblock_120"),
+        (90,  "ansi_halfblock_90"),
+    ]
+    for w, label in configs:
         print(f"\n{'='*70}")
-        print(f"  WIDTH = {w}")
+        print(f"  {label}  (width={w})")
         print(f"{'='*70}")
-
-        # --- ANSI Optimized ---
-        print(f"\n--- ANSI Color Half-Block ({w}) ---")
-        img = load_image(w, height_ratio=0.45)
-        art = render_optimized(img)
-        save_output(art, f"ansi_color_{w}.txt")
+        img = load_image(w)
+        art = render_ansi(img)
+        save(art, f"{label}.txt")
         print(art)
 
-        # --- Monochrome ---
-        print(f"\n--- Monochrome Fallback ({w}) ---")
-        art_m = render_monochrome(img)
-        save_output(art_m, f"mono_{w}.txt")
-        print(art_m)
+    print(f"\n{'='*70}")
+    print(f"  mono_fallback_90 (width=90)")
+    print(f"{'='*70}")
+    img_m = load_image(90)
+    art_m = render_mono(img_m)
+    save(art_m, "mono_fallback_90.txt")
+    print(art_m)
 
 
 if __name__ == "__main__":
