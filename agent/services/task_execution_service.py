@@ -57,6 +57,7 @@ from agent.shell import get_shell
 from agent.tool_guardrails import ToolGuardrailDecision, estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 from agent.tools import registry as tool_registry
 from agent.utils import _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry
+from agent.services.tool_output_compaction_service import ToolOutputCompactionService, _build_from_config as _build_compaction_svc
 
 
 @dataclass(frozen=True)
@@ -74,6 +75,15 @@ class LocalExecutionResult:
 
 class TaskExecutionService:
     """Encapsulates direct proposal/execution route behavior away from Flask handlers."""
+
+    def __init__(self) -> None:
+        self._compaction_svc: ToolOutputCompactionService | None = None
+
+    def _get_compaction_svc(self, guard_cfg: dict) -> ToolOutputCompactionService:
+        if self._compaction_svc is None:
+            cfg = guard_cfg.get("tool_output_compaction") if isinstance(guard_cfg, dict) else None
+            self._compaction_svc = _build_compaction_svc(cfg)
+        return self._compaction_svc
 
     def resolve_policy(
         self,
@@ -630,7 +640,25 @@ class TaskExecutionService:
                     result_text += f"\nError: {tool_result.error}"
                     if not self._is_non_fatal_tool_error(tool_name=name, error_text=tool_result.error):
                         overall_exit_code = 1
-                output_parts.append(result_text)
+                # OHA-006: compact tool output before storing in output_parts
+                _compaction = self._get_compaction_svc(guard_cfg).compact(
+                    tool_name=str(name or "tool"),
+                    output=result_text,
+                    task_kind=str(effective_task.get("task_kind") or ""),
+                )
+                if _compaction.compaction_ratio < 1.0:
+                    # OHA-007: emit audit event for compaction telemetry
+                    log_audit("tool_output_compacted", {
+                        "tool": name,
+                        "task_id": tid,
+                        "input_chars": _compaction.input_chars,
+                        "output_chars": _compaction.output_chars,
+                        "compaction_ratio": _compaction.compaction_ratio,
+                        "applied_rule_ids": _compaction.applied_rule_ids,
+                        "preserved_signal_count": len(_compaction.preserved_signals),
+                        "original_ref": _compaction.original_ref,
+                    })
+                output_parts.append(_compaction.compacted_text)
                 loop_signals.append(
                     loop_service.build_signal(
                         task_id=tid,
@@ -659,7 +687,26 @@ class TaskExecutionService:
                 task=effective_task,
                 agent_cfg=guard_cfg,
             )
-            output_parts.append(command_output)
+            # OHA-006: compact shell output before storing in output_parts
+            _shell_compaction = self._get_compaction_svc(guard_cfg).compact(
+                tool_name="shell_execute",
+                output=command_output,
+                command=command,
+                task_kind=str(effective_task.get("task_kind") or ""),
+            )
+            if _shell_compaction.compaction_ratio < 1.0:
+                # OHA-007: emit audit event for shell compaction telemetry
+                log_audit("tool_output_compacted", {
+                    "tool": "shell_execute",
+                    "task_id": tid,
+                    "input_chars": _shell_compaction.input_chars,
+                    "output_chars": _shell_compaction.output_chars,
+                    "compaction_ratio": _shell_compaction.compaction_ratio,
+                    "applied_rule_ids": _shell_compaction.applied_rule_ids,
+                    "preserved_signal_count": len(_shell_compaction.preserved_signals),
+                    "original_ref": _shell_compaction.original_ref,
+                })
+            output_parts.append(_shell_compaction.compacted_text)
             if command_exit_code != 0:
                 overall_exit_code = command_exit_code
             if pipeline is not None:
