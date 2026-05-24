@@ -779,8 +779,8 @@
       "T014-documentation-and-threat-model"
     ],
     "notes": [
-      "Implemented T001-T004 with terminal target inventory endpoint, terminal session/event persistence, safe tmux backend, and terminal policy service with deterministic reason codes.",
-      "Added focused tests for policy, tmux backend, repository lifecycle, and target listing permissions."
+      "T001-T004 completed (targets, persistence, tmux backend, terminal policy).",
+      "T005-T014 remain open."
     ]
   }
 }
