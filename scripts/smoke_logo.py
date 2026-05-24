@@ -142,32 +142,129 @@ def show_3d(
 
 # ── recording ─────────────────────────────────────────────────────────────────
 
-def _save_cast(frames: list[str], fps: int, path: str, title: str) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    sz = shutil.get_terminal_size((120, 32))
-    header = {
-        "version": 2,
-        "width": sz.columns,
-        "height": sz.lines,
-        "title": title,
-        "env": {"TERM": "xterm-256color"},
-    }
-    lines = [json.dumps(header, ensure_ascii=False)]
-    interval = 1.0 / fps
-    for i, frame in enumerate(frames):
-        lines.append(json.dumps([round(i * interval, 4), "o", f"\x1b[H{frame}"]))
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines) + "\n")
-    print(f"[smoke_logo] saved {len(frames)} frames → {path}", file=sys.stderr)
+_MOCK_PANEL_STATES = None   # populated lazily inside _render_tui_snapshot
+_MOCK_PAYLOADS: dict = {
+    "dashboard": {
+        "agents": {"online": 7, "total": 8},
+        "llm_providers": {"claude-sonnet-4-6": "ok", "codex-2": "ok", "whisper-v3": "ok"},
+        "queue": {"depth": 3},
+        "goal_summary": "2 running · 5 done · 0 failed",
+        "task_summary": "3 active · 12 completed",
+    },
+    "goals": {
+        "items": [
+            {"id": "g-001", "status": "running", "title": "WebSocket live updates"},
+            {"id": "g-002", "status": "running", "title": "Voice command recognition"},
+            {"id": "g-003", "status": "done",    "title": "Refactor auth middleware"},
+            {"id": "g-004", "status": "done",    "title": "Multi-agent orchestrator"},
+            {"id": "g-005", "status": "done",    "title": "SVG logo 3D renderer"},
+            {"id": "g-006", "status": "blocked", "title": "External API rate limit fix"},
+        ],
+    },
+    "tasks": {
+        "items": [
+            {"id": "t-0a1", "status": "running", "agent": "claude", "title": "Auth flow unit tests"},
+            {"id": "t-0a2", "status": "running", "agent": "claude", "title": "Generate OpenAPI spec"},
+            {"id": "t-0a3", "status": "running", "agent": "codex",  "title": "Refactor connection pool"},
+            {"id": "t-0a4", "status": "done",    "agent": "claude", "title": "Fix ANSI rendering bug"},
+            {"id": "t-0a5", "status": "done",    "agent": "claude", "title": "Add 3D SVG logo animation"},
+            {"id": "t-0a6", "status": "done",    "agent": "codex",  "title": "Deploy landing page"},
+        ],
+        "timeline": [
+            {"id": "t-0a4", "summary": "ANSI strip fix committed"},
+            {"id": "t-0a5", "summary": "SVG logo animates in 3D"},
+            {"id": "t-0a6", "summary": "www.ananta.de is live"},
+        ],
+    },
+    "system": {
+        "agents": {"online": 7, "total": 8},
+        "llm_providers": {
+            "claude-sonnet-4-6": "ok  284ms",
+            "codex-2":           "ok  110ms",
+            "whisper-v3":        "ok  450ms",
+        },
+        "queue": {"depth": 3, "counts": {"pending": 3, "retry": 0}},
+        "contracts": ["hub v2.1.4", "codex v1.0.3", "voice v0.4.1", "web v3.2.0"],
+    },
+}
+
+
+def _render_tui_snapshot(section_id: str, width: int, height: int) -> str:
+    """Render a single TUI frame with rich mock data."""
+    from client_surfaces.operator_tui.models import (
+        FocusPane, OperatorMode, OperatorState, PanelState,
+    )
+    from client_surfaces.operator_tui.renderer import render_operator_shell
+
+    panel_states = {k: PanelState.HEALTHY for k in _MOCK_PAYLOADS}
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        auth_state="token",
+        mode=OperatorMode.NORMAL,
+        focus=FocusPane.CONTENT,
+        section_id=section_id,
+        status_message="ready",
+        panel_states=panel_states,
+        section_payloads=_MOCK_PAYLOADS,
+    )
+    return render_operator_shell(state, width=width, height=height)
 
 
 def record(preset: str = "rotate_in", fps: int = 24, duration_ms: int = 2000) -> None:
-    sz = shutil.get_terminal_size((120, 32))
-    frames = _render_frames(preset, sz.columns, sz.lines, fps, duration_ms)
-    _save_cast(
-        frames, fps,
-        os.path.join(_CAST_DIR, "operator_tui_splash.cast"),
-        f"Ananta 3D Logo – {preset}",
+    """Record operator_tui_splash.cast: 3D logo animation → TUI dashboard overview."""
+    w, h = 120, 32   # fixed so the cast is browser-portable
+
+    events: list[tuple[float, str]] = []   # (timestamp_s, raw_data)
+    interval = 1.0 / fps
+    t = 0.0
+
+    # ── Phase 1: 3D logo animation ────────────────────────────────────────────
+    logo_frames = _render_frames(preset, w, h, fps, duration_ms)
+    for frame in logo_frames:
+        events.append((t, f"\x1b[H{frame}"))
+        t += interval
+
+    # ── Phase 2: hold on last logo frame (0.5 s) ─────────────────────────────
+    if logo_frames:
+        for _ in range(max(1, fps // 2)):
+            events.append((t, f"\x1b[H{logo_frames[-1]}"))
+            t += interval
+
+    # ── Phase 3: TUI sections ─────────────────────────────────────────────────
+    section_specs = [
+        ("dashboard", 1.5),
+        ("goals",     1.0),
+        ("tasks",     1.0),
+        ("system",    0.8),
+    ]
+    for section_id, dur in section_specs:
+        text = _render_tui_snapshot(section_id, w, h)
+        count = max(1, int(fps * dur))
+        for i in range(count):
+            prefix = "\x1b[2J\x1b[H" if i == 0 else "\x1b[H"
+            events.append((t, f"{prefix}{text}"))
+            t += interval
+
+    # ── Save ──────────────────────────────────────────────────────────────────
+    path = os.path.join(_CAST_DIR, "operator_tui_splash.cast")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    header = {
+        "version": 2,
+        "width": w,
+        "height": h,
+        "title": f"Ananta – {preset} → TUI",
+        "env": {"TERM": "xterm-256color"},
+    }
+    json_lines = [json.dumps(header, ensure_ascii=False)]
+    for ts, data in events:
+        json_lines.append(json.dumps([round(ts, 4), "o", data], ensure_ascii=False))
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(json_lines) + "\n")
+    print(
+        f"[smoke_logo] saved {len(events)} events → {path}\n"
+        f"[smoke_logo]   logo={len(logo_frames)}  hold={fps // 2}"
+        f"  tui_sections={len(section_specs)}  total_s={t:.1f}",
+        file=sys.stderr,
     )
 
 
