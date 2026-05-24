@@ -58,6 +58,8 @@ from agent.repositories import (
     PlanningTemplateCandidateRepository,
     PlanningPatternClusterRepository,
     PlanningReviewItemRepository,
+    TerminalSessionRepository,
+    TerminalEventRepository,
 )
 
 # Singletons für Repositories
@@ -114,6 +116,8 @@ planning_evaluation_repo = PlanningEvaluationRepository()
 planning_template_candidate_repo = PlanningTemplateCandidateRepository()
 planning_pattern_cluster_repo = PlanningPatternClusterRepository()
 planning_review_item_repo = PlanningReviewItemRepository()
+terminal_session_repo = TerminalSessionRepository()
+terminal_event_repo = TerminalEventRepository()
 
 __all__ = [
     "ActionPackRepository",
@@ -169,6 +173,8 @@ __all__ = [
     "PlanningTemplateCandidateRepository",
     "PlanningPatternClusterRepository",
     "PlanningReviewItemRepository",
+    "TerminalSessionRepository",
+    "TerminalEventRepository",
     "action_pack_repo",
     "agent_repo",
     "artifact_repo",
@@ -222,4 +228,6 @@ __all__ = [
     "planning_template_candidate_repo",
     "planning_pattern_cluster_repo",
     "planning_review_item_repo",
+    "terminal_session_repo",
+    "terminal_event_repo",
 ]

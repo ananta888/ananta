@@ -254,6 +254,51 @@ class ContextAccessPolicyDB(SQLModel, table=True):
     updated_at: float = Field(default_factory=time.time)
 
 
+class TerminalSessionDB(SQLModel, table=True):
+    __tablename__ = "terminal_sessions"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+    expires_at: Optional[float] = None
+    idle_expires_at: Optional[float] = None
+    created_by_user_id: str = Field(index=True)
+    created_by_username: str = Field(index=True)
+    auth_source: str = "user_jwt"
+    target_type: str = Field(index=True)
+    target_id: str = Field(index=True)
+    target_display_name: Optional[str] = None
+    workspace_path: Optional[str] = None
+    goal_id: Optional[str] = Field(default=None, index=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    tmux_session_name: Optional[str] = Field(default=None, index=True)
+    status: str = "created"
+    read_only: bool = False
+    recording_enabled: bool = False
+    last_attach_at: Optional[float] = None
+    last_input_at: Optional[float] = None
+    last_output_at: Optional[float] = None
+    policy_decision_id: str = Field(index=True)
+    risk_class: str = "terminal_read"
+    metadata_json: dict = Field(default={}, sa_column=Column(JSON))
+
+
+class TerminalEventDB(SQLModel, table=True):
+    __tablename__ = "terminal_events"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    timestamp: float = Field(default_factory=time.time, index=True)
+    session_id: str = Field(index=True)
+    user_id: str = Field(index=True)
+    event_type: str = Field(index=True)
+    target_type: str = Field(index=True)
+    target_id: str = Field(index=True)
+    operation: str
+    allowed: bool
+    reason_code: str
+    summary: Optional[str] = None
+    redaction_applied: bool = False
+    metadata_json: dict = Field(default={}, sa_column=Column(JSON))
+
+
 class KnowledgeCollectionDB(SQLModel, table=True):
     __tablename__ = "knowledge_collections"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)

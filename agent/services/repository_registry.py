@@ -57,6 +57,8 @@ from agent.repository import (
     verification_record_repo,
     worker_job_repo,
     worker_result_repo,
+    terminal_session_repo,
+    terminal_event_repo,
 )
 
 
@@ -114,6 +116,8 @@ class RepositoryRegistry:
     planning_template_candidate_repo: object
     planning_pattern_cluster_repo: object
     planning_review_item_repo: object
+    terminal_session_repo: object
+    terminal_event_repo: object
 
 
 def build_repository_registry() -> RepositoryRegistry:
@@ -170,6 +174,8 @@ def build_repository_registry() -> RepositoryRegistry:
         planning_template_candidate_repo=planning_template_candidate_repo,
         planning_pattern_cluster_repo=planning_pattern_cluster_repo,
         planning_review_item_repo=planning_review_item_repo,
+        terminal_session_repo=terminal_session_repo,
+        terminal_event_repo=terminal_event_repo,
     )
 
 

@@ -88,6 +88,11 @@ class Settings(BaseSettings):
     feature_history_enabled: bool = Field(default=True, validation_alias="FEATURE_HISTORY_ENABLED")
     feature_load_balancing_enabled: bool = Field(default=True, validation_alias="FEATURE_LOAD_BALANCING_ENABLED")
     feature_robust_http_enabled: bool = Field(default=True, validation_alias="FEATURE_ROBUST_HTTP_ENABLED")
+    terminal_feature_enabled: bool = Field(default=False, validation_alias="TERMINAL_FEATURE_ENABLED")
+    terminal_hub_target_enabled: bool = Field(default=False, validation_alias="TERMINAL_HUB_TARGET_ENABLED")
+    terminal_hub_as_worker_target_enabled: bool = Field(default=False, validation_alias="TERMINAL_HUB_AS_WORKER_TARGET_ENABLED")
+    terminal_worker_target_enabled: bool = Field(default=True, validation_alias="TERMINAL_WORKER_TARGET_ENABLED")
+    terminal_policy_version: str = Field(default="terminal-policy.v1", validation_alias="TERMINAL_POLICY_VERSION")
     goal_workflow_enabled: bool = Field(default=True, validation_alias="GOAL_WORKFLOW_ENABLED")
     persisted_plans_enabled: bool = Field(default=True, validation_alias="PERSISTED_PLANS_ENABLED")
 
