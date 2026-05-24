@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 
 from client_surfaces.operator_tui.animation3d.geometry import build_a_letter, build_snake_ribbon
 from client_surfaces.operator_tui.animation3d.models import (
@@ -75,8 +76,21 @@ _SNAKE_CHARS = "sSoOcC~"
 
 
 class BuiltinBackend:
-    def __init__(self) -> None:
-        self._a_model = build_a_letter()
+    def __init__(self, svg_path: str | None = None) -> None:
+        # Try to build geometry from the actual SVG logo first.
+        # Falls back to the hardcoded A shape if cairosvg/PIL are unavailable
+        # or the SVG cannot be found.
+        svg_model = None
+        if svg_path is None:
+            from client_surfaces.operator_tui.animation3d.svg_geometry import _find_svg
+            svg_path = _find_svg(os.path.dirname(os.path.abspath(__file__)))
+        if svg_path:
+            try:
+                from client_surfaces.operator_tui.animation3d.svg_geometry import build_geometry_from_svg
+                svg_model = build_geometry_from_svg(svg_path)
+            except Exception:
+                pass
+        self._a_model = svg_model or build_a_letter()
         self._snake_model = build_snake_ribbon()
         self._all_models: dict[str, GeometryModel] = {
             "A": self._a_model,
