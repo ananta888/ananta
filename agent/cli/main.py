@@ -27,33 +27,63 @@ CORE_COMMANDS = (
 )
 COMPAT_COMMANDS = ("goal", "goals")
 
+# New domain groups registered under agent/cli/commands/
+DOMAIN_COMMANDS = (
+    "config",
+    "runtime",
+    "llm",
+    "hub",
+    "worker",
+    "task",
+    "project",
+    "rag",
+    "repair",
+    "dev",
+)
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ananta",
-        description="Unified CLI entrypoint for common Ananta workflows.",
+        description=(
+            "Ananta — unified CLI for autonomous multi-agent workflows.\n\n"
+            "User commands:\n"
+            "  init, first-run, doctor, status, update\n"
+            "  goal <action>    — create, list, inspect, status + shortcut aliases\n"
+            "  task <action>    — inspect, list\n"
+            "  prompt <action>  — inspect traces, render prompts, view reports\n"
+            "  config <action>  — show, validate, setup-planning, apply-profile\n"
+            "  llm <action>     — list, log\n"
+            "  hub <action>     — status\n"
+            "  worker <action>  — list, status\n"
+            "  runtime <action> — list, inspect, recommend\n"
+            "\n"
+            "Developer/CI commands (not for end-users):\n"
+            "  dev <action>     — acceptance, check, audit, validate, smoke, benchmark, e2e\n"
+            "\n"
+            "Shortcut aliases (map to 'ananta goal create'):\n"
+            "  ask, plan, analyze, review, diagnose, patch, repair-admin, new-project, evolve-project\n"
+        ),
         epilog=(
             "Examples:\n"
-            "  ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default\n"
-            "  ananta status\n"
-            "  ananta run three-worker --prompt \"Analyze the last commits\" --dry-run\n"
-            "  ananta update --help\n"
+            "  ananta init --yes --runtime-mode local-dev --llm-backend ollama\n"
+            "  ananta goal create \"Build a Fibonacci API\" --profile opencode_preconfigured\n"
+            "  ananta goal list\n"
+            "  ananta goal status <goal-id>\n"
+            "  ananta config show\n"
+            "  ananta config setup-planning\n"
+            "  ananta llm log tail --limit 10\n"
+            "  ananta prompt goal-traces --goal-id <id>\n"
+            "  ananta dev acceptance --scenario-file scenario_lmstudio.json --sla-seconds 900\n"
+            "  ananta dev check cycles\n"
             "  ananta ask \"What should I do next?\"\n"
-            "  ananta review \"Review auth changes\"\n"
-            "  ananta llm-log tail --limit 10\n"
-            "  ananta prompt inspect --trace-id <id>\n"
-            "  ananta prompt render --mode generic --goal \"Build a CLI tool\""
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
         "command",
         nargs="?",
-        help=(
-            "Command: init, first-run, status, ask, plan, analyze, review, diagnose, "
-            "patch, repair-admin, new-project, evolve-project, update, run, tui, doctor, web, task, "
-            "voice-file, prompt, llm-log"
-        ),
+        help="Top-level command or domain group (see above).",
     )
     parser.add_argument("args", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
     return parser
@@ -185,144 +215,24 @@ def _run_voice_file(argv: Sequence[str]) -> int:
 
 
 def _run_prompt(argv: Sequence[str]) -> int:
-    from agent.cli.prompt_inspect import run_prompt_command
-    sub_parser = argparse.ArgumentParser(prog="ananta prompt")
-    sub_sub = sub_parser.add_subparsers(dest="prompt_cmd")
-
-    inspect_p = sub_sub.add_parser("inspect", help="Show a specific prompt trace")
-    inspect_p.add_argument("--trace-id", dest="trace_id", required=True)
-    inspect_p.add_argument("--json", action="store_true")
-    inspect_p.add_argument("--raw", action="store_true")
-    inspect_p.add_argument("--full", action="store_true")
-
-    render_p = sub_sub.add_parser("render", help="Render a planning prompt without calling a provider")
-    render_p.add_argument("--mode", default="generic")
-    render_p.add_argument("--goal", default="Test goal")
-    render_p.add_argument("--language", default="de")
-    render_p.add_argument("--model-family", dest="model_family")
-    render_p.add_argument("--context-file", dest="context_file")
-    render_p.add_argument("--preferred-output-format", dest="preferred_output_format", default="json")
-    render_p.add_argument("--save-trace", dest="save_trace", action="store_true")
-    render_p.add_argument("--json", action="store_true")
-
-    gt_p = sub_sub.add_parser("goal-traces", help="Show all traces for a goal")
-    gt_p.add_argument("--goal-id", dest="goal_id", required=True)
-    gt_p.add_argument("--json", action="store_true")
-
-    gr_p = sub_sub.add_parser("goal-report", help="Show tasks + prompt traces + artifacts for a goal")
-    gr_p.add_argument("--goal-id", dest="goal_id", required=True)
-    dr_p = sub_sub.add_parser("delegation-report", help="Show compact task delegation/template view for a goal")
-    dr_p.add_argument("--goal-id", dest="goal_id", required=True)
-    dr_p.add_argument("--json", action="store_true")
-    tr_p = sub_sub.add_parser("task-report", help="Show compact prompt/response view for a task")
-    tr_p.add_argument("--task-id", dest="task_id", required=True)
-    tr_p.add_argument("--json", action="store_true")
-    tt_p = sub_sub.add_parser("task-traces", help="Show all prompt traces for a task")
-    tt_p.add_argument("--task-id", dest="task_id", required=True)
-    tt_p.add_argument("--goal-id", dest="goal_id", default="")
-    tt_p.add_argument("--propose-only", dest="propose_only", action="store_true")
-    tt_p.add_argument("--json", action="store_true")
-    ti_p = sub_sub.add_parser("task-inspect", help="Alias for task-report")
-    ti_p.add_argument("--task-id", dest="task_id", required=True)
-    ti_p.add_argument("--json", action="store_true")
-    lr_p = sub_sub.add_parser("learning-report", help="Show planning learning loop snapshot")
-    lr_p.add_argument("--json", action="store_true")
-    ls_p = sub_sub.add_parser("learning-status", help="Show compact planning learning status")
-    ls_p.add_argument("--json", action="store_true")
-    pp_p = sub_sub.add_parser("planner-profiles", help="Show planning model profiles")
-    pp_p.add_argument("--provider", default="")
-    pp_p.add_argument("--model", default="")
-    pp_p.add_argument("--json", action="store_true")
-    gf_p = sub_sub.add_parser("goal-flows", help="Compact per-task flow view with executor/propose/artifacts")
-    gf_p.add_argument("--goal-id", dest="goal_id", required=True)
-    gf_p.add_argument("--json", action="store_true")
-    tw_p = sub_sub.add_parser("task-why", help="Show latest completion/transition reason for a task")
-    tw_p.add_argument("--task-id", dest="task_id", required=True)
-    tw_p.add_argument("--json", action="store_true")
-    gs_p = sub_sub.add_parser("goal-stuck", help="Show tasks likely stuck in proposing/assigned/in_progress")
-    gs_p.add_argument("--goal-id", dest="goal_id", required=True)
-    gs_p.add_argument("--minutes", type=int, default=10)
-    gs_p.add_argument("--json", action="store_true")
-    ge_p = sub_sub.add_parser("goal-execmap", help="Group tasks by inferred executor")
-    ge_p.add_argument("--goal-id", dest="goal_id", required=True)
-    ge_p.add_argument("--json", action="store_true")
-    ap_p = sub_sub.add_parser("artifact-provenance", help="Show artifact provenance matrix for a goal")
-    ap_p.add_argument("--goal-id", dest="goal_id", required=True)
-    ap_p.add_argument("--json", action="store_true")
-    ap_p.add_argument("--out", default="")
-    ap_p.add_argument("--with-md", dest="with_md", action="store_true")
-    ap_alias = sub_sub.add_parser("goal-artifact-matrix", help="Alias for artifact-provenance")
-    ap_alias.add_argument("--goal-id", dest="goal_id", required=True)
-    ap_alias.add_argument("--json", action="store_true")
-    ap_alias.add_argument("--out", default="")
-    ap_alias.add_argument("--with-md", dest="with_md", action="store_true")
-    gwt_p = sub_sub.add_parser("goal-worker-traces", help="Fetch worker-side prompt traces for all tasks in a goal")
-    gwt_p.add_argument("--goal-id", dest="goal_id", required=True)
-    gwt_p.add_argument("--propose-only", dest="propose_only", action="store_true")
-    gwt_p.add_argument("--full", action="store_true")
-    gwt_p.add_argument("--limit", type=int, default=80)
-    gwt_p.add_argument("--json", action="store_true")
-
-    if not argv or argv[0] in ("-h", "--help"):
-        sub_parser.print_help()
-        return 0
-    try:
-        parsed = sub_parser.parse_args(argv)
-    except SystemExit as exc:
-        return int(exc.code) if exc.code is not None else 2
-    return run_prompt_command(parsed)
+    from agent.cli.commands.prompt import dispatch
+    return dispatch(argv)
 
 
 def _run_task(argv: Sequence[str]) -> int:
-    from agent.cli.prompt_inspect import run_prompt_command
-    sub_parser = argparse.ArgumentParser(prog="ananta task")
-    sub_sub = sub_parser.add_subparsers(dest="task_cmd")
-
-    inspect_p = sub_sub.add_parser("inspect", help="Inspect a task's prompt traces and latest response")
-    inspect_p.add_argument("--task-id", dest="task_id", required=True)
-    inspect_p.add_argument("--json", action="store_true")
-
-    if not argv or argv[0] in ("-h", "--help"):
-        sub_parser.print_help()
-        return 0
-    try:
-        parsed = sub_parser.parse_args(argv)
-    except SystemExit as exc:
-        return int(exc.code) if exc.code is not None else 2
-
-    if getattr(parsed, "task_cmd", None) == "inspect":
-        parsed.prompt_cmd = "task-inspect"
-        return run_prompt_command(parsed)
-    return 2
+    from agent.cli.commands.task import dispatch
+    return dispatch(argv)
 
 
 def _run_llm_log(argv: Sequence[str]) -> int:
-    from agent.cli.prompt_inspect import run_llm_log_command
-    sub_parser = argparse.ArgumentParser(prog="ananta llm-log")
-    sub_sub = sub_parser.add_subparsers(dest="llm_log_cmd")
-
-    tail_p = sub_sub.add_parser("tail", help="Show recent LLM requests")
-    tail_p.add_argument("--limit", type=int, default=20)
-    tail_p.add_argument("--provider")
-    tail_p.add_argument("--model")
-    tail_p.add_argument("--goal-id", dest="goal_id")
-    tail_p.add_argument("--task-id", dest="task_id")
-    tail_p.add_argument("--json", action="store_true")
-
-    if not argv or argv[0] in ("-h", "--help"):
-        sub_parser.print_help()
-        return 0
-    try:
-        parsed = sub_parser.parse_args(argv)
-    except SystemExit as exc:
-        return int(exc.code) if exc.code is not None else 2
-    return run_llm_log_command(parsed)
+    from agent.cli.commands.llm import dispatch_llm_log
+    return dispatch_llm_log(argv)
 
 
 def _run_compat_goals(argv: Sequence[str]) -> int:
     if not argv:
         print("Error: `ananta goal|goals` expects arguments.")
-        print("Use `ananta status`, `ananta ask ...`, or `ananta --help`.")
+        print("Use `ananta goal list`, `ananta goal create ...`, or `ananta --help`.")
         return 2
     normalized = list(argv)
     if "--goal-id" in normalized and "--goal-detail" not in normalized and "--goal-purge" not in normalized:
@@ -331,6 +241,20 @@ def _run_compat_goals(argv: Sequence[str]) -> int:
     if argv[0] in GOAL_ALIAS_COMMANDS:
         return run_goal_alias(argv[0], argv[1:])
     return run_cli_goals(normalized)
+
+
+def _run_domain(command: str, argv: Sequence[str]) -> int:
+    """Dispatch to a domain command module in agent/cli/commands/."""
+    try:
+        from agent.cli.commands import DOMAIN_MODULES
+        mod = DOMAIN_MODULES.get(command)
+        if mod is None:
+            return None  # type: ignore[return-value]
+        return mod.dispatch(list(argv))
+    except Exception as exc:
+        import sys
+        print(f"Error: Domain command '{command}' failed to load: {exc}", file=sys.stderr)
+        return 10
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -343,6 +267,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 0
 
+    # Existing flat commands (backward-compat, highest priority)
     if command == "init":
         return _run_init(rest)
     if command == "status":
@@ -363,17 +288,23 @@ def main(argv: list[str] | None = None) -> int:
         return _run_web(rest)
     if command == "voice-file":
         return _run_voice_file(rest)
+    if command == "prompt":
+        return _run_prompt(rest)
     if command == "task":
         return _run_task(rest)
     if command in COMPAT_COMMANDS:
         return _run_compat_goals(rest)
-    if command == "prompt":
-        return _run_prompt(rest)
     if command == "llm-log":
         return _run_llm_log(rest)
     if command == "help":
         parser.print_help()
         return 0
+
+    # Domain commands (new hierarchy)
+    if command in DOMAIN_COMMANDS or command == "goal":
+        result = _run_domain(command, rest)
+        if result is not None:
+            return result
 
     print(f"Error: Unknown command '{command}'")
     parser.print_help()
