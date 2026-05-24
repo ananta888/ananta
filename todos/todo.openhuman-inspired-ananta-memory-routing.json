@@ -181,7 +181,7 @@
         "OHA-006",
         "OHA-007"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -193,7 +193,7 @@
         "OHA-011",
         "OHA-012"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -203,7 +203,7 @@
         "OHA-014",
         "OHA-015"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M5",
@@ -497,7 +497,7 @@
     {
       "id": "OHA-012",
       "title": "ResultMemory als MemoryTree-Quelle anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "integration",
@@ -517,7 +517,7 @@
     {
       "id": "OHA-013",
       "title": "Context Policy um MemoryTree-Scopes und Worker-Destination erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -537,7 +537,7 @@
     {
       "id": "OHA-014",
       "title": "ContextBundler auf MemoryTreeViews erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -557,7 +557,7 @@
     {
       "id": "OHA-015",
       "title": "Cloud-Leak Regression-Suite für Kontextzugriff bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "test",
@@ -811,13 +811,13 @@
   "tasks_status_summary": {
     "total": 25,
     "by_status": {
-      "todo": 20,
+      "todo": 10,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 5
+      "done": 15
     },
-    "progress_percent_done": 20,
+    "progress_percent_done": 60,
     "by_priority": {
       "P0": 15,
       "P1": 9,
@@ -826,24 +826,24 @@
     },
     "by_risk": {
       "low": 1,
-      "medium": 10,
-      "high": 9,
+      "medium": 9,
+      "high": 10,
       "critical": 5
     },
     "critical_path": {
       "total": 14,
-      "done": 2,
-      "remaining": 12
+      "done": 11,
+      "remaining": 3
     },
     "milestones": {
       "total": 7,
-      "todo": 6,
+      "todo": 3,
       "in_progress": 0,
       "blocked": 0,
-      "done": 1
+      "done": 4
     },
-    "done": 11,
-    "todo": 14
+    "done": 15,
+    "todo": 10
   },
   "tasks_type_summary": {
     "total": 25,
@@ -867,13 +867,13 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 20,
+    "todo_remaining": 10,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 5,
+    "done": 15,
     "last_updated": "2026-05-24",
-    "notes": "OHA-001 to OHA-005 complete: baseline docs, registry slots, config flags, ToolOutputCompactionService + rule loader (31 tests passing)"
+    "notes": "OHA-001 to OHA-015 complete: compaction + MemoryTree services integrated with context policy/cloud-leak regression tests."
   },
   "end_summaries": [
     {
