@@ -335,6 +335,26 @@ class ConfigReadModelService:
                     if isinstance((cfg or {}).get("worker_runtime"), dict)
                     else None,
                 },
+                "propose_policy": {
+                    "context_compaction_enabled": bool(
+                        (((cfg or {}).get("propose_policy") or {}).get("context_compaction_enabled", True)
+                        if isinstance((cfg or {}).get("propose_policy"), dict)
+                        else True
+                    ),
+                    "context_compaction_required": bool(
+                        (((cfg or {}).get("propose_policy") or {}).get("context_compaction_required", False)
+                        if isinstance((cfg or {}).get("propose_policy"), dict)
+                        else False
+                    ),
+                    "context_compactor_fail_open": bool(
+                        (((cfg or {}).get("propose_policy") or {}).get("context_compactor_fail_open", False)
+                        if isinstance((cfg or {}).get("propose_policy"), dict)
+                        else False
+                    ),
+                    "context_compactor_profile": str(((((cfg or {}).get("propose_policy") or {}).get("context_compactor_profile") or "default"))).strip().lower()
+                    if isinstance((cfg or {}).get("propose_policy"), dict)
+                    else "default",
+                },
                 "research_backend": {
                     "provider": research_backend_cfg.get("provider"),
                     "display_name": research_backend_cfg.get("display_name"),

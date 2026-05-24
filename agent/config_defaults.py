@@ -442,6 +442,22 @@ def build_default_agent_config() -> dict:
                 "task_kinds": [],
             },
         },
+        "propose_policy": {
+            "context_compaction_enabled": True,
+            "context_compaction_required": False,
+            "context_compactor_fail_open": False,
+            "context_compactor_profile": "default",
+            "context_compactor_timeout_seconds": 45,
+            "context_compactor_max_output_chars": 12000,
+            "context_compactor_retry_attempts": 1,
+            "context_compactor_preserve_keywords": [
+                "security",
+                "policy",
+                "verification",
+                "review",
+                "constraints",
+            ],
+        },
         "git_workspace": {
             "enabled": False,
             "remote_url": None,

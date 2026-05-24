@@ -135,7 +135,7 @@
         "PCC-018",
         "PCC-020"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M7",
@@ -144,7 +144,7 @@
         "PCC-019",
         "PCC-020"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -666,7 +666,7 @@
     {
       "id": "PCC-020",
       "title": "Rollout-Guardrails und Kill-Switch ergänzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "config",
@@ -687,7 +687,7 @@
         "Task-kind Overrides (z.B. research/doc) sind nachweisbar wirksam.",
         "Rollout-Parameter erscheinen in Diagnostics/Read-Model."
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: Rollout-Guardrails über context_compaction_enabled/required/fail_open vorhanden; dedizierter globaler Kill-Switch im Read-Model/Config-Endpoint noch offen."
+      "code_state_after_review": "DONE_IN_CODE: globaler Compactor-Kill-Switch (propose_policy.context_compaction_enabled) ist im Assistant-/Dashboard-Read-Model sichtbar, über /config editierbar und per API-Test abgesichert."
     }
   ],
   "critical_path_tasks": [
@@ -711,11 +711,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 19
+      "done": 20
     },
-    "progress_percent_done": 95,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 14,
       "P1": 5,
@@ -736,9 +736,9 @@
     "milestones": {
       "total": 7,
       "todo": 0,
-      "in_progress": 2,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 5
+      "done": 7
     }
   },
   "tasks_type_summary": {
@@ -755,12 +755,12 @@
     }
   },
   "progress_summary": {
-    "state": "implementation_wave_continued",
+    "state": "all_tasks_completed",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 0,
     "blocked": 0,
-    "done": 19
+    "done": 20
   },
   "active_fallback_policy": {
     "default": "fail-closed",
