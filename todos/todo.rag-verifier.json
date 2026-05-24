@@ -346,11 +346,11 @@
       "type": "api",
       "priority": "medium",
       "files_to_create": [
-        "agent/routes/source_verification.py",
+        "agent/routes/tasks/source_verification.py",
         "tests/test_source_verification_routes.py"
       ],
       "files_to_update": [
-        "agent/ai_agent.py"
+        "agent/routes/tasks/__init__.py"
       ],
       "description": "Expose source catalog and verification result for a task.",
       "endpoints": [
@@ -372,8 +372,11 @@
       "type": "frontend",
       "priority": "medium",
       "files_to_update": [
-        "frontend-angular/src/app/components/tasks.component.ts",
-        "frontend-angular/src/app/services/api.service.ts"
+        "frontend-angular/src/app/components/task-detail.component.ts",
+        "frontend-angular/src/app/components/task-detail.component.spec.ts",
+        "frontend-angular/src/app/services/hub-api.service.ts",
+        "frontend-angular/src/app/services/hub-tasks-api.client.ts",
+        "frontend-angular/src/app/features/tasks/task-management.facade.ts"
       ],
       "description": "Show citation verification status in the task UI.",
       "acceptance_criteria": [
@@ -521,9 +524,9 @@
       "type": "security",
       "priority": "high",
       "files_to_update": [
+        "agent/services/citation_verification_service.py",
         "agent/services/context_delivery_service.py",
         "agent/services/context_file_selector.py",
-        "agent/services/citation_verification_service.py",
         "tests/test_context_delivery_service.py"
       ],
       "description": "Ensure citations cannot reveal sources that were not allowed for the worker/LLM scope.",
@@ -617,7 +620,8 @@
     "partial": [],
     "open": [],
     "notes": [
-      "All SGA blocks are implemented, including frontend source-verification UI, deterministic Bitcoin fixture/tests, E2E citation evidence flow, negative citation tests, cloud-scope policy coverage, and architecture docs."
+      "Task file mappings were aligned with actual implementation paths (tasks source-verification route and Angular task-detail stack).",
+      "Deterministic Bitcoin fixture, grounded-answer verifier, negative citation tests, cloud-scope policy tests and architecture docs are implemented."
     ]
   }
 }
