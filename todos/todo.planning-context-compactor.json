@@ -84,7 +84,7 @@
         "PCC-002",
         "PCC-003"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -95,7 +95,7 @@
         "PCC-006",
         "PCC-007"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M3",
@@ -105,7 +105,7 @@
         "PCC-009",
         "PCC-010"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M4",
@@ -114,7 +114,7 @@
         "PCC-011",
         "PCC-012"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M5",
@@ -125,7 +125,7 @@
         "PCC-015",
         "PCC-016"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M6",
@@ -135,7 +135,7 @@
         "PCC-018",
         "PCC-020"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M7",
@@ -144,14 +144,14 @@
         "PCC-019",
         "PCC-020"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
     {
       "id": "PCC-001",
       "title": "ProposePolicy um Context-Compactor-Felder erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "config",
@@ -172,12 +172,13 @@
         "Ungültige Werte werden normalisiert oder validiert, ohne bestehende Presets zu brechen.",
         "context_compactor_fail_open ist default false.",
         "Unit-Test belegt, dass Default-Policy alle neuen Felder enthält."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: ProposePolicy um Context-Compactor-Felder erweitert inkl. Clamps/Normalisierung in _validate()."
     },
     {
       "id": "PCC-002",
       "title": "System-Defaults und Task-Kind-Presets ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "config",
@@ -197,12 +198,13 @@
         "Policy-Merge-Reihenfolge bleibt unverändert.",
         "Neue Felder können per project_config, blueprint_role_config und admin_overrides überschrieben werden.",
         "Keine Strategy wird durch Compactor-Config automatisch aktiviert/deaktiviert."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: System-Defaults in ProposePolicyService um Context-Compactor-Defaults ergänzt."
     },
     {
       "id": "PCC-003",
       "title": "Runtime-Profile für Compactor-Limits definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "config",
@@ -222,12 +224,13 @@
         "Profile beeinflussen nur Compactor-Limits, nicht Planner-Strategien.",
         "Doku beschreibt beide Profile mit Zweck und Grenzen.",
         "Test belegt, dass context_compactor_profile korrekt aufgelöst wird."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: runtime-profile-basierte Compactor-Limit-Auflösung (default/lmstudio_laptop/ollama_rtx3080) additiv ergänzt."
     },
     {
       "id": "PCC-004",
       "title": "planning_context_compactor_service.py anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "service",
@@ -291,12 +294,13 @@
         "compact(...) liefert immer ein normalisiertes dict oder ein klar klassifiziertes Failure-Objekt.",
         "Keine Worker-Aufrufe oder Worker-zu-Worker-Orchestrierung im Service.",
         "SRP erfüllt: keine Planner-Strategie-Logik im Compactor."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: planning_context_compactor_service.py mit öffentlicher compact()-API und normalisiertem Output eingeführt."
     },
     {
       "id": "PCC-005",
       "title": "Deterministic pre-trim implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "service",
@@ -322,7 +326,7 @@
     {
       "id": "PCC-006",
       "title": "LLM-Compaction mit Strict-JSON-Prompt bauen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "llm",
@@ -349,7 +353,7 @@
     {
       "id": "PCC-007",
       "title": "Schema-Validierung, Normalisierung und Guardrails implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "safety",
@@ -376,7 +380,7 @@
     {
       "id": "PCC-008",
       "title": "Fallback-Kette implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "safety",
@@ -403,7 +407,7 @@
     {
       "id": "PCC-009",
       "title": "Compactor vor ProposeContext-Erzeugung integrieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -425,12 +429,13 @@
         "propose_task_step funktioniert weiterhin ohne neue Config-Felder.",
         "Unit-/Integrationstest prüft, dass der Planner nicht den vollen Rohdump bekommt.",
         "Compactor-Meta wird in propose_strategy_meta/context sichtbar, ohne bestehende Response-Felder zu entfernen."
-      ]
+      ],
+      "code_state_after_review": "PARTIAL_IN_CODE: Integration in propose_task_step vor ProposeContext vorhanden; weitere tiefe Assertions/E2E noch offen."
     },
     {
       "id": "PCC-010",
       "title": "ProposeContext optional um compaction_meta erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "integration",
@@ -448,12 +453,13 @@
         "Neue Felder sind optional und haben Default None.",
         "Strategien können künftig gezielt auf compaction_meta zugreifen.",
         "Keine Änderung der Strategy-Schnittstelle run(context)."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: ProposeContext um optionale planning_context_compaction(_meta)-Felder erweitert."
     },
     {
       "id": "PCC-011",
       "title": "Telemetry-Felder und Audit-Events ergänzen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "medium",
       "type": "observability",
@@ -480,7 +486,7 @@
     {
       "id": "PCC-012",
       "title": "Fehlerklassen zentral definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
@@ -501,12 +507,13 @@
         "Tests prüfen exakte Fehlerklasse.",
         "Keine unspezifischen Exception-Strings werden direkt als reason verwendet.",
         "User-/Run-sichtbare Reasons sind kurz, stabil und maschinenlesbar."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: Fehlerklassen zentral als Konstanten im Compactor-Service hinterlegt."
     },
     {
       "id": "PCC-013",
       "title": "Unit-Tests für Schema und Normalisierung",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "medium",
       "type": "test",
@@ -525,7 +532,7 @@
     {
       "id": "PCC-014",
       "title": "Unit-Tests für deterministic pre-trim und Guardrails",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "test",
@@ -544,7 +551,7 @@
     {
       "id": "PCC-015",
       "title": "Integrationstests für propose_task_step mit Compactor",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "test",
@@ -585,7 +592,7 @@
     {
       "id": "PCC-017",
       "title": "Doku docs/planning-context-compactor.md schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -599,12 +606,13 @@
         "lmstudio_laptop und ollama_rtx3080 werden verglichen.",
         "Troubleshooting deckt timeout, parse_failed, schema_violation, constraint_loss und runtime_unavailable ab.",
         "Doku nennt fail-closed Default ausdrücklich."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: docs/planning-context-compactor.md erstellt mit Ablauf, Policy, Profilen, Fehlerklassen und Betrieb."
     },
     {
       "id": "PCC-018",
       "title": "Betriebs- und Review-Checkliste ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "docs",
@@ -617,12 +625,13 @@
         "Checkliste enthält sichere Default-Konfiguration.",
         "Checkliste beschreibt, wann fail_open überhaupt erlaubt ist.",
         "Checkliste enthält Beispiel-Telemetry für success/fallback/failed."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: Review-/Betriebsteil in derselben Doku ergänzt (Rollout/Fail-closed/Kill-Switch-Hinweis)."
     },
     {
       "id": "PCC-019",
       "title": "Compactor-Output gegen PlanningContract validieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "safety",
@@ -647,7 +656,7 @@
     {
       "id": "PCC-020",
       "title": "Rollout-Guardrails und Kill-Switch ergänzen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "type": "config",
@@ -689,13 +698,13 @@
   "tasks_status_summary": {
     "total": 20,
     "by_status": {
-      "todo": 20,
+      "todo": 1,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 11,
       "blocked": 0,
-      "done": 0
+      "done": 8
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 40,
     "by_priority": {
       "P0": 14,
       "P1": 5,
@@ -710,15 +719,15 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 0,
-      "remaining": 14
+      "done": 3,
+      "remaining": 11
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
-      "in_progress": 0,
+      "todo": 0,
+      "in_progress": 6,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "tasks_type_summary": {
@@ -735,12 +744,12 @@
     }
   },
   "progress_summary": {
-    "state": "todo_revised_and_extended",
-    "todo_remaining": 20,
+    "state": "implementation_wave_started",
+    "todo_remaining": 1,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 11,
     "blocked": 0,
-    "done": 0
+    "done": 8
   },
   "active_fallback_policy": {
     "default": "fail-closed",

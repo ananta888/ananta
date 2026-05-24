@@ -62,6 +62,7 @@ from agent.services.task_execution_service import LocalExecutionResult
 from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
 from agent.services.task_handler_registry import get_task_handler_registry
 from agent.services.execution_improvement_loop_service import get_execution_improvement_loop_service
+from agent.services.planning_context_compactor_service import get_planning_context_compactor_service
 from agent.services.worker_execution_profile_service import (
     normalize_worker_execution_profile,
     resolve_worker_execution_profile,
@@ -615,6 +616,42 @@ class TaskScopedExecutionService:
             project_config=cfg,
             admin_overrides=propose_policy_override
         )
+        compaction_payload = None
+        compaction_meta = None
+        if bool(getattr(policy, "context_compaction_enabled", True)):
+            mode_data = {}
+            if isinstance(task.get("mode_data"), dict):
+                mode_data = {**mode_data, **dict(task.get("mode_data") or {})}
+            if isinstance((task.get("worker_execution_context") or {}).get("mode_data"), dict):
+                mode_data = {**mode_data, **dict((task.get("worker_execution_context") or {}).get("mode_data") or {})}
+            llm_cfg = dict(cfg.get("llm_config") or {})
+            planning_policy = dict(cfg.get("planning_policy") or {})
+            compacted = get_planning_context_compactor_service().compact(
+                goal_text=str(base_prompt or ""),
+                context_text=str((research_context_summary or {}).get("prompt_section") or ""),
+                mode=str(task_kind or "generic"),
+                mode_data=mode_data,
+                planning_policy=planning_policy,
+                llm_config=llm_cfg,
+                policy=policy,
+            )
+            compaction_payload = dict(compacted.payload or {})
+            compaction_meta = dict(compacted.meta or {})
+            if (
+                str(compaction_meta.get("status") or "").strip().lower() == "failed"
+                and bool(getattr(policy, "context_compaction_required", False))
+                and not bool(getattr(policy, "context_compactor_fail_open", False))
+            ):
+                return TaskScopedRouteResponse(
+                    status="error",
+                    message="planning_context_compaction_failed",
+                    data={
+                        "task_id": tid,
+                        "status": "failed",
+                        "context_compaction": compaction_meta,
+                    },
+                    code=422,
+                )
         system_prompt = self._get_system_prompt_for_task(tid)
         assembled_instruction = get_instruction_layer_service().assemble_for_task(
             task=task,
@@ -642,6 +679,8 @@ class TaskScopedExecutionService:
             instruction_stack=instruction_stack_payload or None,
             rendered_system_prompt=rendered_system_prompt,
             instruction_diagnostics=instruction_diagnostics or None,
+            planning_context_compaction=compaction_payload,
+            planning_context_compaction_meta=compaction_meta,
         )
         had_llm_goal_id = False
         had_llm_task_id = False
@@ -697,6 +736,14 @@ class TaskScopedExecutionService:
                 "checksum": str(instruction_stack_payload.get("checksum") or "").strip() or None,
                 "applied_layers_count": len(list(instruction_diagnostics.get("applied_layers") or [])),
                 "suppressed_layers_count": len(list(instruction_diagnostics.get("suppressed_layers") or [])),
+            },
+            "planning_context_compaction": {
+                "used": bool(compaction_meta is not None),
+                "status": (compaction_meta or {}).get("status"),
+                "reduction_ratio": (compaction_meta or {}).get("reduction_ratio"),
+                "error_classification": (compaction_meta or {}).get("error_classification"),
+                "input_chars": (compaction_meta or {}).get("input_chars"),
+                "output_chars": (compaction_meta or {}).get("output_chars"),
             },
         }
         proposal_meta = dict(getattr(result.proposal, "metadata", None) or {}) if result.proposal is not None else {}
