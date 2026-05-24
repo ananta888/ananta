@@ -1,5 +1,5 @@
 {
-  "$schema": "todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "id": "todo.ssh-oidc-certificate-terminal-access",
   "title": "Native SSH access with OIDC-backed short-lived SSH certificates for Ananta terminal targets",
   "status": "done",
