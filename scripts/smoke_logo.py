@@ -144,162 +144,246 @@ def show_3d(
 
 # ── splash animation ─────────────────────────────────────────────────────────
 
-_BLUE  = '\x1b[38;2;4;62;98m'    # #043E62 – SVG dark blue
-_GREEN = '\x1b[38;2;71;166;56m'  # #47A638 – SVG green
+_GREEN   = '\x1b[38;2;71;166;56m'   # #47A638 – SVG green
 _RESET_C = '\x1b[0m'
 _SNAKE_CHARS = '~sSoOcC'
 
-# A shape  –  '█' filled, ' ' transparent  (46 wide × 14 tall)
-_A_LARGE = [
-    "                     ████                     ",
-    "                   ████████                   ",
-    "                  ██      ██                  ",
-    "                 ██        ██                 ",
-    "                ██          ██                ",
-    "               ██            ██               ",
-    "              ████████████████████            ",
-    "             ██                  ██           ",
-    "            ██                    ██          ",
-    "           ██                      ██         ",
-    "          ██                        ██        ",
-    "         ████                      ████       ",
-    "        ██  ██                    ██  ██      ",
-    "       ██    ██                  ██    ██     ",
-]
 
-def _scale_art(art: list[str], rs: int, cs: int) -> list[str]:
-    return [''.join(ch for i, ch in enumerate(row) if i % cs == 0)
-            for r, row in enumerate(art) if r % rs == 0]
+def _render_svg_ascii(logo_width: int, color: bool = True) -> list[str]:
+    """Render ananta.svg as colored (or plain) ASCII art; returns lines."""
+    import sys as _sys
+    import tempfile as _tmp
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    _sys.path.insert(0, script_dir)
+    try:
+        from render_terminal_logo import (
+            ASCII_PALETTES, RenderConfig, load_image,
+            render_ascii, render_ascii_color, svg_to_png,
+        )
+    except ImportError:
+        return []
 
-_A_MED   = _scale_art(_A_LARGE, 2, 2)   # ~23 wide × 7 tall
-_A_SMALL = _scale_art(_A_LARGE, 3, 3)   # ~15 wide × 5 tall
+    svg_path = os.path.abspath(os.path.join(script_dir, '..', 'ananta.svg'))
+    if not os.path.isfile(svg_path):
+        return []
 
+    cfg = RenderConfig()
+    chars = ASCII_PALETTES['clean']
 
-def _make_canvas(w: int, h: int) -> list[list[tuple[str, str | None]]]:
-    return [[ (' ', None) ] * w for _ in range(h)]
+    with _tmp.NamedTemporaryFile(suffix='.png', delete=False) as f:
+        png = f.name
+    try:
+        svg_to_png(svg_path, png, width=800)
+        img = load_image(png, logo_width, cfg)
+        if color:
+            art = render_ascii_color(img, chars)
+        else:
+            art = render_ascii(img, chars, cfg)
+    finally:
+        try:
+            os.unlink(png)
+        except OSError:
+            pass
 
-
-def _draw_art(
-    canvas: list[list[tuple[str, str | None]]],
-    art: list[str],
-    row_off: int,
-    col_off: int,
-    color: str,
-) -> None:
-    h, w = len(canvas), len(canvas[0])
-    for r, line in enumerate(art):
-        cr = r + row_off
-        if cr < 0 or cr >= h:
-            continue
-        for c, ch in enumerate(line):
-            cc = c + col_off
-            if 0 <= cc < w and ch != ' ':
-                canvas[cr][cc] = (ch, color)
-
-
-def _render_canvas(canvas: list[list[tuple[str, str | None]]]) -> str:
-    lines = []
-    for row in canvas:
-        parts: list[str] = []
-        cur: str | None = None
-        for ch, color in row:
-            if color != cur:
-                if cur is not None:
-                    parts.append(_RESET_C)
-                if color is not None:
-                    parts.append(color)
-                cur = color
-            parts.append(ch)
-        if cur is not None:
-            parts.append(_RESET_C)
-        lines.append(''.join(parts))
-    return '\n'.join(lines)
+    return art.split('\n')
 
 
 def _orbit_path(top: int, bottom: int, left: int, right: int) -> list[tuple[int, int]]:
     p: list[tuple[int, int]] = []
-    for c in range(left, right + 1):     p.append((top, c))      # → top
-    for r in range(top + 1, bottom + 1): p.append((r, right))    # ↓ right
-    for c in range(right - 1, left - 1, -1): p.append((bottom, c))  # ← bottom
-    for r in range(bottom - 1, top, -1):     p.append((r, left))     # ↑ left
+    for c in range(left, right + 1):          p.append((top, c))
+    for r in range(top + 1, bottom + 1):      p.append((r, right))
+    for c in range(right - 1, left - 1, -1):  p.append((bottom, c))
+    for r in range(bottom - 1, top, -1):       p.append((r, left))
     return p
 
 
-def _build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
-    """Return animation frames: A appears → snake wraps → shrinks to corner."""
-    art_w = max(len(row) for row in _A_LARGE)
-    art_h = len(_A_LARGE)
-    col0  = (w - art_w) // 2
-    row0  = (h - art_h) // 2
+def _insert_snake_on_row(
+    base: str,
+    snake_cols: dict[int, str],
+    logo_col_start: int,
+    canvas_w: int,
+) -> str:
+    """
+    Insert green snake chars at `snake_cols` positions into a canvas row.
+    `base` is the pre-rendered logo line (possibly ANSI-colored) starting at col 0.
+    Snake chars are only placed in empty regions (before logo_col_start or after logo end).
+    """
+    if not snake_cols:
+        return base.ljust(canvas_w)
 
-    # Snake orbit rectangle (snug around the A)
+    # Positions left of the logo and right of the logo
+    left_snakes  = {c: ch for c, ch in snake_cols.items() if c < logo_col_start}
+    right_snakes = {c: ch for c, ch in snake_cols.items() if c >= logo_col_start + 70}
+
+    if not left_snakes and not right_snakes:
+        return base.ljust(canvas_w)
+
+    # Left region (cols 0..logo_col_start-1): pure spaces + snake chars
+    left_part = list(' ' * logo_col_start)
+    for c, ch in left_snakes.items():
+        if 0 <= c < logo_col_start:
+            left_part[c] = ch
+
+    def _colorize_region(chars_list: list[str], snake_set: dict[int, str], col_offset: int) -> str:
+        out, in_g = '', False
+        for i, ch in enumerate(chars_list):
+            col = i + col_offset
+            if col in snake_set:
+                if not in_g:
+                    out += _GREEN
+                    in_g = True
+                out += ch
+            else:
+                if in_g:
+                    out += _RESET_C
+                    in_g = False
+                out += ch
+        if in_g:
+            out += _RESET_C
+        return out
+
+    left_str = _colorize_region(left_part, left_snakes, 0)
+
+    # Logo region (already ANSI-colored): pass through unchanged
+    logo_start = logo_col_start
+    # Strip the plain leading pad from base (base = ' '*logo_col_start + logo_line)
+    logo_str = base[logo_col_start:] if len(base) > logo_col_start else ''
+
+    # Right region (cols logo_end..canvas_w-1): pure spaces + snake chars
+    logo_end = logo_col_start + 70
+    right_len = canvas_w - logo_end
+    right_part = list(' ' * right_len)
+    for c, ch in right_snakes.items():
+        idx = c - logo_end
+        if 0 <= idx < right_len:
+            right_part[idx] = ch
+
+    right_str = _colorize_region(right_part, {c - logo_end: ch for c, ch in right_snakes.items()
+                                               if 0 <= c - logo_end < right_len}, 0)
+
+    return left_str + logo_str + right_str
+
+
+def _frame_from_logo(
+    logo_lines: list[str],
+    logo_col: int,
+    canvas_w: int,
+    canvas_h: int,
+    n_logo_rows: int,
+    snake_map: dict[tuple[int, int], str],
+) -> str:
+    """Build one complete frame string."""
+    rows_out: list[str] = []
+    logo_h = min(n_logo_rows, len(logo_lines))
+
+    for row in range(canvas_h):
+        if row < logo_h:
+            base = ' ' * logo_col + logo_lines[row]
+        else:
+            base = ''
+
+        row_snakes = {c: ch for (r, c), ch in snake_map.items() if r == row}
+
+        if not row_snakes:
+            rows_out.append(base.ljust(canvas_w) if base else ' ' * canvas_w)
+        elif row >= logo_h:
+            # Empty row: just place snake chars
+            line = list(' ' * canvas_w)
+            parts, in_g = '', False
+            for ci in range(canvas_w):
+                if ci in row_snakes:
+                    if not in_g:
+                        parts += _GREEN; in_g = True
+                    parts += row_snakes[ci]
+                else:
+                    if in_g:
+                        parts += _RESET_C; in_g = False
+                    parts += line[ci]
+            if in_g:
+                parts += _RESET_C
+            rows_out.append(parts)
+        else:
+            rows_out.append(_insert_snake_on_row(base, row_snakes, logo_col, canvas_w))
+
+    return '\n'.join(rows_out)
+
+
+def _build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
+    """
+    Animation: SVG logo reveals → snake wraps around it → shrinks to corner.
+    Uses the real ananta.svg rendered as colored ASCII at 70 columns.
+    Falls back gracefully if rendering libraries are unavailable.
+    """
+    # ── render logo at three sizes ────────────────────────────────────────────
+    logo_lg = _render_svg_ascii(70, color=True)   # fits 32-row canvas
+    logo_sm = _render_svg_ascii(35, color=False)  # for shrink phase
+
+    if not logo_lg:
+        print('[smoke_logo] SVG render unavailable, skipping splash frames',
+              file=sys.stderr)
+        return []
+
+    # Center logo horizontally
+    logo_w = 70
+    col0 = (w - logo_w) // 2   # left padding (cols 0..col0-1 are empty)
+
+    # Detect content bounds (non-blank rows/cols) for tight snake orbit
+    strip = _ANSI_RE
+    content_rows = [i for i, ln in enumerate(logo_lg) if strip.sub('', ln).strip()]
+    if not content_rows:
+        content_rows = list(range(len(logo_lg)))
+    ct, cb = content_rows[0], content_rows[-1]
+
+    # Orbit path slightly outside the content bounding box
+    # Left/right borders are in the empty padding cols around the logo
     pad_r, pad_c = 2, 3
-    path = _orbit_path(
-        max(0, row0 - pad_r),
-        min(h - 1, row0 + art_h + pad_r),
-        max(0, col0 - pad_c),
-        min(w - 1, col0 + art_w + pad_c),
-    )
+    orbit_top    = max(0,     ct - pad_r)
+    orbit_bottom = min(h - 1, cb + pad_r)
+    orbit_left   = max(0,     col0 - pad_c)
+    orbit_right  = min(w - 1, col0 + logo_w + pad_c)
+    path = _orbit_path(orbit_top, orbit_bottom, orbit_left, orbit_right)
     plen = len(path)
 
     frames: list[str] = []
 
-    # ── phase 1: A reveals line-by-line (0.5 s) ──────────────────────────────
-    reveal_frames = max(1, fps // 2)
-    for fi in range(reveal_frames):
-        n_rows = int((fi + 1) / reveal_frames * art_h)
-        c = _make_canvas(w, h)
-        _draw_art(c, _A_LARGE[:n_rows], row0, col0, _BLUE)
-        frames.append(_render_canvas(c))
+    # ── phase 1: logo reveals line-by-line (0.5 s) ───────────────────────────
+    for fi in range(max(1, fps // 2)):
+        n = int((fi + 1) / max(1, fps // 2) * len(logo_lg))
+        frames.append(_frame_from_logo(logo_lg, col0, w, h, n, {}))
 
-    # ── phase 2: snake grows along orbit (1.5 s) ─────────────────────────────
-    grow_frames = int(fps * 1.5)
-    for fi in range(grow_frames):
-        n_snake = int((fi + 1) / grow_frames * plen)
-        c = _make_canvas(w, h)
-        _draw_art(c, _A_LARGE, row0, col0, _BLUE)
-        for k in range(n_snake):
-            r, col = path[k]
-            c[r][col] = (_SNAKE_CHARS[(k + fi) % len(_SNAKE_CHARS)], _GREEN)
-        frames.append(_render_canvas(c))
+    # ── phase 2: snake grows around logo (1.5 s) ─────────────────────────────
+    grow = int(fps * 1.5)
+    for fi in range(grow):
+        n_s = int((fi + 1) / grow * plen)
+        snake_map = {path[k]: _SNAKE_CHARS[(k + fi) % len(_SNAKE_CHARS)]
+                     for k in range(n_s)}
+        frames.append(_frame_from_logo(logo_lg, col0, w, h, len(logo_lg), snake_map))
 
-    # ── phase 3: full orbit for 1 s ──────────────────────────────────────────
-    orbit_frames = fps
-    for fi in range(orbit_frames):
-        offset = fi * 2
-        c = _make_canvas(w, h)
-        _draw_art(c, _A_LARGE, row0, col0, _BLUE)
-        for k in range(plen):
-            r, col = path[(offset + k) % plen]
-            c[r][col] = (_SNAKE_CHARS[(k + offset) % len(_SNAKE_CHARS)], _GREEN)
-        frames.append(_render_canvas(c))
+    # ── phase 3: full snake orbits slowly (1 s) ──────────────────────────────
+    for fi in range(fps):
+        off = fi * 2
+        snake_map = {path[(off + k) % plen]: _SNAKE_CHARS[(k + off) % len(_SNAKE_CHARS)]
+                     for k in range(plen)}
+        frames.append(_frame_from_logo(logo_lg, col0, w, h, len(logo_lg), snake_map))
 
     # ── phase 4: shrink toward top-left (1 s) ────────────────────────────────
-    shrink_frames = fps
-    last_offset = orbit_frames * 2
-    for fi in range(shrink_frames):
-        t = fi / shrink_frames   # 0 → 1
-        # target: small A at top-left corner (row 1, col 2)
-        cr = int(row0 * (1 - t) + 1 * t)
-        cc = int(col0 * (1 - t) + 2 * t)
+    last_off = fps * 2
+    shrink = fps
+    col_sm = (w - 35) // 2
 
-        if t < 0.35:
-            art = _A_LARGE
-        elif t < 0.70:
-            art = _A_MED
+    for fi in range(shrink):
+        t = fi / shrink
+        if t < 0.5:
+            art, a_col = logo_lg, col0
         else:
-            art = _A_SMALL
+            art, a_col = (logo_sm if logo_sm else logo_lg), (col_sm if logo_sm else col0)
 
-        c = _make_canvas(w, h)
-        _draw_art(c, art, cr, cc, _BLUE)
-
-        # Snake shrinks too
-        snake_visible = int(plen * max(0, 1 - t * 1.5))
-        for k in range(snake_visible):
-            r, col = path[(last_offset + k) % plen]
-            c[r][col] = (_SNAKE_CHARS[(k + last_offset) % len(_SNAKE_CHARS)], _GREEN)
-
-        frames.append(_render_canvas(c))
+        # Interpolate position toward top-left
+        target_col = max(0, a_col - int(a_col * t * 2))
+        snake_visible = int(plen * max(0.0, 1.0 - t * 2))
+        snake_map = {path[(last_off + k) % plen]: _SNAKE_CHARS[(k + last_off) % len(_SNAKE_CHARS)]
+                     for k in range(snake_visible)}
+        frames.append(_frame_from_logo(art, target_col, w, h, len(art), snake_map))
 
     return frames
 
