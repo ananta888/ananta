@@ -140,7 +140,7 @@
     {
       "id": "CONS-001",
       "title": "PlanningContract als harte, strukturierte Planprüfung einführen",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "type": "feature",
@@ -152,7 +152,7 @@
         "agent/routes/tasks/goals.py",
         "tests/test_planning_contract.py"
       ],
-      "code_state_after_review": "NOT_FOUND_IN_CODE: Suche nach PlanningContract/PlanValidationResult liefert nur die alte TODO.",
+      "code_state_after_review": "DONE_IN_CODE: planning_contract.py und planning_validation_service.py eingefuehrt; goals.py validiert geplante Tasks gegen Contract und liefert fehlende task_kinds als deterministische Fehlercodes.",
       "source_origin": [
         "todo.latest-commits-improvements.json"
       ],
@@ -168,7 +168,7 @@
     {
       "id": "CONS-002",
       "title": "PlanValidationResult mit stabilen Fehlercodes ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "type": "feature",
@@ -178,7 +178,7 @@
         "agent/services/planning_validation_service.py",
         "agent/services/planning_contract.py"
       ],
-      "code_state_after_review": "NOT_FOUND_IN_CODE: Kein eigener PlanValidationResult gefunden.",
+      "code_state_after_review": "DONE_IN_CODE: PlanValidationResult ist als stabiles Datamodell in planning_validation_service.py vorhanden und liefert deterministische error_codes plus human_summary.",
       "source_origin": [
         "todo.latest-commits-improvements.json"
       ],
@@ -195,7 +195,7 @@
     {
       "id": "CONS-003",
       "title": "Planning-Repair an Contract-Fehler koppeln",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "type": "feature",
@@ -206,7 +206,7 @@
         "agent/routes/tasks/goals.py",
         "config/planning_prompts.default.json"
       ],
-      "code_state_after_review": "OPEN_DEPENDS_ON_MISSING_CONTRACT: Ohne CONS-001/002 nicht sinnvoll ausführbar.",
+      "code_state_after_review": "DONE_IN_CODE: Repair-Kontext wird in goals.py mit missing_task_kinds/error_codes als planning_repair_context eingepasst und in planning_service.py fuer selektive Repair-Prompts genutzt; Re-Validation bleibt auf demselben Contract-Gate.",
       "source_origin": [
         "todo.latest-commits-improvements.json"
       ],
@@ -280,7 +280,7 @@
     {
       "id": "CONS-006",
       "title": "Worker-Preflight von Planner-Runtime trennen",
-      "status": "todo",
+      "status": "partial",
       "priority": "critical",
       "risk": "medium",
       "type": "bugfix",
@@ -292,7 +292,7 @@
         "agent/config_defaults.py",
         "tests/test_worker_preflight_runtime_scope.py"
       ],
-      "code_state_after_review": "OPEN: Konkreter Preflight-Gegencheck nicht als eigener Service gefunden; aus E2E-Blocker übernommen.",
+      "code_state_after_review": "PARTIAL_IN_CODE: CLI-Preflight unterstuetzt runtime_scope=worker und ueberspringt dann LMStudio/Ollama-Probes (probe_skipped=true); dedizierte End-to-End-Verdrahtung aller Worker-Preflight-Caller bleibt offen.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -886,13 +886,13 @@
   "tasks_status_summary": {
     "total": 25,
     "by_status": {
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 7,
+      "partial": 8,
       "blocked": 0,
-      "done": 14
+      "done": 17
     },
-    "progress_percent_done": 56,
+    "progress_percent_done": 68,
     "by_priority": {
       "critical": 10,
       "high": 8,
@@ -905,8 +905,8 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 6,
-      "remaining": 7
+      "done": 9,
+      "remaining": 4
     },
     "milestones": {
       "total": 5,
@@ -932,11 +932,11 @@
   },
   "progress_summary": {
     "state": "high-throughput-implementation-wave",
-    "todo_remaining": 4,
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 7,
+    "partial": 8,
     "blocked": 0,
-    "done": 14
+    "done": 17
   },
   "execution_stage_summary": {
     "first_implementation_order": [

@@ -471,6 +471,8 @@ class PlanningService:
         missing_categories: list[str],
         generic_task_indices: list[int],
         preferred_output_format: str,
+        required_task_kinds: list[str] | None = None,
+        error_codes: list[str] | None = None,
     ) -> str:
         effective_missing = list(missing_categories or [])
         if mode == "new_software_project" and not effective_missing:
@@ -484,12 +486,19 @@ class PlanningService:
         )
         if not missing_lines:
             missing_lines = "- none"
+        required_lines = "\n".join(
+            f"- task_kind={str(kind).strip().lower()}"
+            for kind in list(required_task_kinds or [])
+            if str(kind).strip()
+        ) or "- none"
+        repair_error_codes = ", ".join(str(code).strip() for code in list(error_codes or []) if str(code).strip()) or "none"
         return (
             "Repair only missing or weak parts of the plan. Do not rewrite everything.\n"
             f"GOAL: {goal}\n"
             f"MODE: {mode}\n"
             f"MISSING_CATEGORIES: {missing}\n"
             f"GENERIC_TASK_INDEXES: {generic}\n"
+            f"CONTRACT_ERROR_CODES: {repair_error_codes}\n"
             "Return only additional or replacement tasks needed to close gaps.\n"
             "WICHTIG:\n"
             "1) Liefere NUR JSON-Array.\n"
@@ -504,6 +513,8 @@ class PlanningService:
             "5) Keine generischen Sammel-Tasks.\n"
             "6) Decke zwingend diese fehlenden Kategorien ab:\n"
             f"{missing_lines}\n"
+            "7) Decke diese fehlenden task_kind-Werte direkt ab:\n"
+            f"{required_lines}\n"
             f"Preferred output format: {preferred_output_format}.\n"
             "Keep fields short and concrete."
         )
@@ -962,6 +973,17 @@ class PlanningService:
             planning_policy=planning_policy,
             team_id=team_id,
         )
+        repair_context = dict(mode_data_dict.get("planning_repair_context") or {})
+        required_task_kinds = [
+            str(item).strip().lower()
+            for item in list(repair_context.get("missing_task_kinds") or [])
+            if str(item).strip()
+        ]
+        repair_error_codes = [
+            str(item).strip()
+            for item in list(repair_context.get("error_codes") or [])
+            if str(item).strip()
+        ]
         _sr = planning_policy.get("selective_repair_rounds")
         selective_rounds = max(0, min(int(_sr if _sr is not None else 2), 4))
         selective_repair_applied = 0
@@ -974,6 +996,8 @@ class PlanningService:
                 missing_categories=quality.missing_categories,
                 generic_task_indices=quality.generic_task_indices,
                 preferred_output_format=preferred_output_format,
+                required_task_kinds=required_task_kinds,
+                error_codes=repair_error_codes,
             )
             had_llm_goal_id = hasattr(g, "llm_goal_id")
             had_llm_task_id = hasattr(g, "llm_task_id")
