@@ -1,0 +1,67 @@
+# Ananta hardened sshd_config — managed terminal accounts only
+# Place at: /etc/ssh/sshd_config.d/ananta-terminal.conf
+# Requires: OpenSSH >= 8.0, step-ca SSH CA public key at /etc/ssh/ananta_ca.pub
+#
+# SECURITY NOTES:
+#   - TrustedUserCAKeys validates short-lived SSH certificates issued by Ananta's SSH CA.
+#   - ForceCommand prevents direct shell access for managed terminal users.
+#   - AuthorizedPrincipalsFile restricts which certificate principals are accepted per user.
+#   - Password authentication is disabled for the ananta-worker and ananta-hub accounts.
+#   - AllowUsers restricts SSH access to known managed accounts only.
+#
+# Do NOT copy this file verbatim without reviewing all paths and settings for your deployment.
+
+# ── CA trust ─────────────────────────────────────────────────────────────────
+# Trust only the Ananta SSH CA for certificate-based login.
+TrustedUserCAKeys /etc/ssh/ananta_ca.pub
+
+# ── Managed terminal accounts ─────────────────────────────────────────────────
+# Only these users may log in via the SSH certificate path.
+AllowUsers ananta-worker ananta-hub ananta-hub-as-worker
+
+# ── Principal mapping ─────────────────────────────────────────────────────────
+# Each managed user has a strict allow-list of valid certificate principals.
+# AuthorizedPrincipalsFile maps Linux user -> allowed principals (one per line).
+# See ananta-authorized-principals.example for the file format.
+AuthorizedPrincipalsFile /etc/ssh/ananta_principals/%u
+
+# ── ForceCommand — Ananta terminal wrapper ────────────────────────────────────
+# Managed terminal accounts always enter the Ananta SSH terminal wrapper.
+# The wrapper calls TerminalPolicyService before starting any tmux session.
+# Direct shell mode is denied for managed accounts.
+Match User ananta-worker
+    ForceCommand /usr/local/bin/ananta-ssh-terminal-wrapper
+    PasswordAuthentication no
+    PubkeyAuthentication yes
+    X11Forwarding no
+    AllowAgentForwarding no
+    AllowTcpForwarding no
+    PermitTunnel no
+
+Match User ananta-hub
+    ForceCommand /usr/local/bin/ananta-ssh-terminal-wrapper
+    PasswordAuthentication no
+    PubkeyAuthentication yes
+    X11Forwarding no
+    AllowAgentForwarding no
+    AllowTcpForwarding no
+    PermitTunnel no
+
+Match User ananta-hub-as-worker
+    ForceCommand /usr/local/bin/ananta-ssh-terminal-wrapper
+    PasswordAuthentication no
+    PubkeyAuthentication yes
+    X11Forwarding no
+    AllowAgentForwarding no
+    AllowTcpForwarding no
+    PermitTunnel no
+
+# ── Global fallback security settings ─────────────────────────────────────────
+# These apply outside of the Match blocks.
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+PermitRootLogin no
+MaxAuthTries 3
+LoginGraceTime 30
+ClientAliveInterval 60
+ClientAliveCountMax 3

@@ -102,6 +102,17 @@ class Settings(BaseSettings):
     terminal_oidc_issuer: str = Field(default="", validation_alias="TERMINAL_OIDC_ISSUER")
     terminal_oidc_audience: str = Field(default="", validation_alias="TERMINAL_OIDC_AUDIENCE")
     terminal_oidc_client_id: str = Field(default="", validation_alias="TERMINAL_OIDC_CLIENT_ID")
+    # Native SSH with OIDC-backed short-lived certificates
+    native_ssh_enabled: bool = Field(default=False, validation_alias="NATIVE_SSH_ENABLED")
+    ssh_ca_backend: str = Field(default="none", validation_alias="SSH_CA_BACKEND")
+    ssh_ca_step_ca_url: str = Field(default="", validation_alias="SSH_CA_STEP_CA_URL")
+    ssh_ca_step_ca_provisioner: str = Field(default="ananta-oidc", validation_alias="SSH_CA_STEP_CA_PROVISIONER")
+    ssh_ca_step_ca_ca_fingerprint: str = Field(default="", validation_alias="SSH_CA_STEP_CA_CA_FINGERPRINT")
+    ssh_certificate_validity_seconds_worker: int = Field(default=3600, validation_alias="SSH_CERTIFICATE_VALIDITY_SECONDS_WORKER")
+    ssh_certificate_validity_seconds_hub: int = Field(default=900, validation_alias="SSH_CERTIFICATE_VALIDITY_SECONDS_HUB")
+    ssh_broad_principals_allowed: bool = Field(default=False, validation_alias="SSH_BROAD_PRINCIPALS_ALLOWED")
+    ssh_terminal_wrapper_required: bool = Field(default=True, validation_alias="SSH_TERMINAL_WRAPPER_REQUIRED")
+    ssh_audit_enabled: bool = Field(default=True, validation_alias="SSH_AUDIT_ENABLED")
     goal_workflow_enabled: bool = Field(default=True, validation_alias="GOAL_WORKFLOW_ENABLED")
     persisted_plans_enabled: bool = Field(default=True, validation_alias="PERSISTED_PLANS_ENABLED")
 
