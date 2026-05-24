@@ -41,12 +41,12 @@ def test_format_status_lines_count():
     )
     lines = format_status_lines(snap, color=False)
     assert len(lines) <= COMPACT_HEADER_LINES
-    assert any("Cwd" in l for l in lines)
-    assert any("Endpoint" in l for l in lines)
-    assert any("Auth" in l for l in lines)
-    assert any("Section" in l for l in lines)
-    assert any("Uptime" in l for l in lines)
-    assert any("Workers" in l for l in lines)
+    assert any("cwd" in l for l in lines)
+    assert any("hub" in l for l in lines)
+    assert any("auth" in l for l in lines)
+    assert any("section" in l for l in lines)
+    assert any("mode" in l for l in lines)
+    assert any("workers" in l for l in lines)
 
 
 def test_format_status_lines_with_git():
@@ -57,7 +57,7 @@ def test_format_status_lines_with_git():
         repo_root="/repo",
     )
     lines = format_status_lines(snap, color=False)
-    assert any("Git" in l for l in lines)
+    assert any("git" in l for l in lines)
     assert any("main" in l for l in lines)
 
 
@@ -70,7 +70,7 @@ def test_format_status_lines_narrow():
     )
     lines = format_status_lines(snap, color=False, width=40)
     assert any("cwd" in l for l in lines)
-    assert any("up" in l for l in lines)
+    assert any("mode" in l for l in lines)
 
 
 def test_format_status_lines_with_goal():
@@ -79,7 +79,7 @@ def test_format_status_lines_with_goal():
         cwd="/home/user",
     )
     lines = format_status_lines(snap, color=False)
-    assert any("Goal" in l for l in lines)
+    assert any("goal" in l for l in lines)
 
 
 def test_format_status_compact_right_padding():
