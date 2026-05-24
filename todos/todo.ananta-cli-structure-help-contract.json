@@ -2,22 +2,144 @@
   "schema": "ananta.todo.v1",
   "id": "todo.cli-command-structure-and-help-contract",
   "title": "Ananta CLI strukturieren, Subcommands konsolidieren und Help-Vertrag einführen",
-  "status": "proposed",
+  "status": "in_progress",
   "priority": "high",
+  "summary": "agent/cli/main.py existiert bereits und ist über pyproject.toml als `ananta`-Entrypoint registriert. Die vorhandenen Commands (ask, plan, review, status, init, doctor, run, update, tui, web, voice-file, prompt, llm-log) folgen einem Flat-Command-Muster, nicht der geplanten Domain-Hierarchie. commands/-Unterstruktur, tests/cli/ und vollständige Help-Coverage fehlen noch. Mehr als 60 scripts/ existieren, davon sind weniger als 10% im Todo erfasst.",
   "created_context": {
     "summary": "Der aktuelle Ananta-CLI-Bereich wirkt unübersichtlich: einzelne CLI-Module existieren bereits unter agent/cli/, während viele ausführbare Prüf-, Smoke-, Benchmark- und Workflow-Skripte lose unter scripts/ liegen. Ziel ist eine stabile, nachvollziehbare, dokumentierte und testbare CLI-Struktur.",
-    "known_current_files": [
-      "agent/cli/init_wizard.py",
-      "agent/cli/doctor.py",
-      "scripts/goal_cli.py",
-      "scripts/check_pipeline.py",
-      "scripts/release_gate.py",
-      "scripts/validate_cross_track_dependencies.py",
-      "scripts/benchmark_concurrency.py",
-      "scripts/first_goal_acceptance_runner.py",
-      "scripts/audit_client_surface_entrypoints.py"
-    ],
+    "known_current_files": {
+      "agent_cli": [
+        "agent/cli/__init__.py",
+        "agent/cli/main.py",
+        "agent/cli/init_wizard.py",
+        "agent/cli/doctor.py",
+        "agent/cli/update.py",
+        "agent/cli/voice_file.py",
+        "agent/cli/prompt_inspect.py",
+        "agent/cli/goal_aliases.py",
+        "agent/cli/deployment_profile_writer.py"
+      ],
+      "scripts_user_facing": [
+        "scripts/goal_cli.py"
+      ],
+      "scripts_acceptance_and_e2e": [
+        "scripts/first_goal_acceptance_runner.py",
+        "scripts/run_e2e_dogfood_checks.py",
+        "scripts/run_real_worker_runtime_evidence.py",
+        "scripts/run_full_local_test_suite.py",
+        "scripts/run_client_surface_test_gate.py",
+        "scripts/run_tdd_blueprint_smoke.py",
+        "scripts/run_worker_checks.py",
+        "scripts/run_core_evidence_flow.py",
+        "scripts/eclipse_ui_golden_path_runner.py",
+        "scripts/run_eclipse_ui_golden_path.py"
+      ],
+      "scripts_smoke": [
+        "scripts/smoke_client_golden_paths.py",
+        "scripts/smoke_eclipse_runtime_bootstrap.py",
+        "scripts/smoke_eclipse_runtime_headless.py",
+        "scripts/smoke_nvim_runtime.py",
+        "scripts/smoke_tui_runtime.py",
+        "scripts/run_blender_smoke_checks.py",
+        "scripts/run_blender_install_smoke.py",
+        "scripts/run_blender_background_e2e.py",
+        "scripts/run_freecad_smoke_checks.py",
+        "scripts/run_freecad_install_smoke.py"
+      ],
+      "scripts_benchmark": [
+        "scripts/benchmark_concurrency.py",
+        "scripts/retrieval_benchmark.py",
+        "scripts/bench_models_live.py",
+        "scripts/run_live_click_dual_benchmark.py",
+        "scripts/firefox_live_click_demo.py",
+        "scripts/firefox_live_click_extended.py",
+        "scripts/firefox_live_click_opencode_tui.py",
+        "scripts/firefox_live_click_terminal_focus.py"
+      ],
+      "scripts_release_and_ci": [
+        "scripts/check_pipeline.py",
+        "scripts/release_gate.py",
+        "scripts/run_release_gate.py",
+        "scripts/validate_cross_track_dependencies.py",
+        "scripts/validate_todo_consistency.py",
+        "scripts/run_security_invariant_checks.py",
+        "scripts/generate_release_sbom.py",
+        "scripts/generate_quality_artifacts.py"
+      ],
+      "scripts_check_and_audit": [
+        "scripts/audit_client_surface_entrypoints.py",
+        "scripts/audit_domain_integrations.py",
+        "scripts/audit_runtime.py",
+        "scripts/check_core_provider_boundaries.py",
+        "scripts/check_cycles.py",
+        "scripts/check_dead_code.py",
+        "scripts/check_docs_present.py",
+        "scripts/check_duplicates.py",
+        "scripts/check_hotspot_guardrails.py",
+        "scripts/check_hub_storage.py",
+        "scripts/check_imports.py",
+        "scripts/check_planning_contract.py",
+        "scripts/check_policy_and_routing.py",
+        "scripts/check_service_boundaries.py",
+        "scripts/analyze_import_times.py"
+      ],
+      "scripts_build_and_package": [
+        "scripts/build_blender_addon_package.py",
+        "scripts/build_eclipse_runtime_plugin.py",
+        "scripts/build_eclipse_update_site.py",
+        "scripts/build_freecad_workbench_package.py"
+      ],
+      "scripts_dev_and_demo": [
+        "scripts/demo_plan.py",
+        "scripts/evidence_hub_server.py",
+        "scripts/evidence_worker_daemon.py",
+        "scripts/evidence_worker_runtime.py",
+        "scripts/goal_latency_diagnostics.py",
+        "scripts/test_env_cleanup.py",
+        "scripts/test_env_cleanup_unit.py"
+      ],
+      "docs_cli_existing": [
+        "docs/cli/commands.md",
+        "docs/cli/developer_entrypoints.md",
+        "docs/golden-path-cli.md",
+        "docs/local-llm-cli-strategy.md"
+      ],
+      "packaging": [
+        "pyproject.toml"
+      ]
+    },
     "main_problem": "Befehle, Entwickler-Skripte, CI-Checks und User-Kommandos sind nicht klar genug als stabile CLI-Domänen modelliert."
+  },
+  "current_implementation_state": {
+    "summary": "Stand: main.py und Packaging sind fertig. Die bestehenden Commands folgen einem Flat-Muster ohne Domain-Hierarchie. commands/-Unterstruktur, tests/cli/, vollständige Help-Coverage und Docs fehlen.",
+    "done": [
+      "agent/cli/main.py existiert mit build_parser() und zentralem main()-Entrypoint.",
+      "pyproject.toml hat [project.scripts] ananta = 'agent.cli.main:main'.",
+      "agent/cli/doctor.py mit --json Support vorhanden.",
+      "agent/cli/init_wizard.py mit interaktivem und --yes Modus vorhanden.",
+      "agent/cli/update.py, voice_file.py, prompt_inspect.py, goal_aliases.py vorhanden.",
+      "docs/cli/ Verzeichnis existiert mit commands.md und developer_entrypoints.md.",
+      "CORE_COMMANDS und COMPAT_COMMANDS in main.py registriert."
+    ],
+    "in_progress": [],
+    "not_started": [
+      "agent/cli/commands/ Unterstruktur (jede Domain als eigenes Modul).",
+      "Hierarchische Domain-Commands (ananta config show, ananta worker list etc.).",
+      "tests/cli/ mit Help-Coverage-Tests.",
+      "docs/cli/cli_inventory.md, cli_taxonomy.md, cli_help_contract.md, cli_migration.md.",
+      "Dry-run und Security-Markierungen für mutierende Commands.",
+      "Exit-Code-Vertrag technisch durchgesetzt.",
+      "Migration von scripts/ in ananta dev ... Gruppe."
+    ],
+    "discrepancies_found": [
+      "track-03/cli-entrypoint-001 sagt 'create agent/cli/main.py' — Datei existiert bereits, Task-Beschreibung ist veraltet.",
+      "created_context.known_current_files war unvollständig: update.py, voice_file.py, prompt_inspect.py, goal_aliases.py, deployment_profile_writer.py fehlten.",
+      "Das target_command_tree enthält keine goal-/alias-Commands (ask, plan, review, new-project, evolve-project, patch, repair-admin, diagnose) die in main.py bereits aktiv sind.",
+      "track-07/cli-docs-001 sagt 'erstelle docs/cli.md' — existiert bereits als Verzeichnis docs/cli/ mit Inhalt.",
+      "scripts/ hat 60+ Dateien, todo listete nur ~9 davon. Mehr als 50 Skripte sind nicht klassifiziert.",
+      "goal_cli.py setup-planning Subcommand fehlt in cli-migration-003 Candidates.",
+      "scripts/first_goal_acceptance_runner.py ist kein Migrations-Kandidat im Todo obwohl aktiv genutzt."
+    ]
   },
   "goals": [
     "Ein klarer Top-Level-Befehl `ananta` mit konsistenten Command-Gruppen.",
@@ -49,7 +171,8 @@
         "status",
         "logs",
         "export"
-      ]
+      ],
+      "note": "Bestehende Flat-Commands (ask, plan, review, diagnose, patch, new-project, evolve-project, repair-admin) sind Alias-Shortcuts auf goal-Domänen-Aktionen und bleiben als Convenience-Layer erhalten."
     },
     "required_common_options": [
       {
@@ -102,12 +225,16 @@
       "description": "Main CLI entrypoint.",
       "subcommands": {
         "init": "Initialize local Ananta runtime/profile/config basics.",
+        "first-run": "Interactive first-run setup wizard.",
         "doctor": "Run local environment and setup checks.",
+        "status": "Show hub and agent status.",
+        "update": "Update Ananta CLI or hub components.",
         "config": {
           "show": "Show effective config.",
           "validate": "Validate config file/schema.",
           "apply-profile": "Apply generated runtime profile patch.",
-          "export": "Export normalized config."
+          "export": "Export normalized config.",
+          "setup-planning": "Apply LLM planning policy (replaces scripts/goal_cli.py setup-planning)."
         },
         "runtime": {
           "list": "List available runtime profiles.",
@@ -117,12 +244,14 @@
         "llm": {
           "list": "List configured LLM backends/models.",
           "test": "Test one backend/model endpoint.",
-          "benchmark": "Run small deterministic benchmark."
+          "benchmark": "Run small deterministic benchmark.",
+          "log": "Show LLM invocation log (replaces ananta llm-log)."
         },
         "hub": {
           "start": "Start hub runtime.",
           "status": "Show hub status.",
-          "stop": "Stop hub runtime."
+          "stop": "Stop hub runtime.",
+          "logs": "Stream hub logs."
         },
         "worker": {
           "list": "List workers.",
@@ -130,6 +259,21 @@
           "start": "Start a worker.",
           "status": "Show worker status.",
           "logs": "Show worker logs."
+        },
+        "goal": {
+          "summary": "User-facing goal operations. Die bestehenden Shortcut-Aliases (ask, plan, review, new-project etc.) bleiben als Convenience-Commands auf dieser Domain.",
+          "create": "Create a new goal.",
+          "list": "List recent goals.",
+          "inspect": "Inspect one goal.",
+          "status": "Show goal status.",
+          "ask": "Shortcut: create a question/analysis goal.",
+          "plan": "Shortcut: create a planning goal.",
+          "review": "Shortcut: create a review goal.",
+          "diagnose": "Shortcut: create a diagnostics goal.",
+          "patch": "Shortcut: create a patch/fix goal.",
+          "repair-admin": "Shortcut: create an admin repair goal.",
+          "new-project": "Shortcut: create a new-software-project goal.",
+          "evolve-project": "Shortcut: create a project evolution goal."
         },
         "task": {
           "create": "Create a task.",
@@ -155,12 +299,59 @@
           "run": "Execute repair procedure.",
           "verify": "Verify repair result."
         },
+        "prompt": {
+          "inspect": "Inspect a prompt trace by ID.",
+          "render": "Render a prompt template for review."
+        },
         "dev": {
-          "smoke": "Run smoke checks.",
-          "e2e": "Run e2e checks.",
-          "release-gate": "Run release gate.",
-          "benchmark": "Run dev benchmarks.",
-          "audit": "Run audits."
+          "summary": "Dev-/CI-only Kommandos. Nicht für normale Nutzer sichtbar in --help des Top-Level.",
+          "smoke": {
+            "blender": "Run Blender smoke checks.",
+            "freecad": "Run FreeCAD smoke checks.",
+            "nvim": "Run Neovim runtime smoke checks.",
+            "tui": "Run TUI runtime smoke checks.",
+            "eclipse": "Run Eclipse runtime smoke checks.",
+            "client": "Run client golden path smoke checks."
+          },
+          "e2e": "Run e2e checks (replaces scripts/run_e2e_dogfood_checks.py).",
+          "acceptance": "Run first-goal acceptance test (replaces scripts/first_goal_acceptance_runner.py).",
+          "release-gate": "Run release gate (replaces scripts/release_gate.py + run_release_gate.py).",
+          "benchmark": {
+            "concurrency": "Run concurrency benchmark.",
+            "retrieval": "Run retrieval benchmark.",
+            "models": "Run live model benchmark.",
+            "live-click": "Run live-click dual benchmark."
+          },
+          "audit": {
+            "client-surface": "Audit client surface entrypoints.",
+            "domain-integrations": "Audit domain integrations.",
+            "runtime": "Audit runtime configuration."
+          },
+          "check": {
+            "pipeline": "Run pipeline checks.",
+            "cycles": "Check for import cycles.",
+            "dead-code": "Check for dead code.",
+            "docs": "Check docs coverage.",
+            "duplicates": "Check for duplicates.",
+            "imports": "Check import hygiene.",
+            "planning-contract": "Check planning contract.",
+            "policy-and-routing": "Check policy and routing boundaries.",
+            "service-boundaries": "Check service boundary violations.",
+            "provider-boundaries": "Check core provider boundaries.",
+            "hotspot-guardrails": "Check hotspot guardrails.",
+            "security-invariants": "Run security invariant checks.",
+            "hub-storage": "Check hub storage state."
+          },
+          "validate": {
+            "cross-track-deps": "Validate cross-track dependencies.",
+            "todo-consistency": "Validate todo file consistency."
+          },
+          "evidence": {
+            "real-worker-runtime": "Run real worker runtime evidence.",
+            "core-flow": "Run core evidence flow."
+          },
+          "pipeline-check": "Run pipeline checks (compat alias for check pipeline).",
+          "latency-diagnostics": "Run goal latency diagnostics."
         }
       }
     }
@@ -170,10 +361,14 @@
       "id": "track-01-cli-inventory",
       "title": "Bestehende CLI- und Script-Einstiegspunkte inventarisieren",
       "priority": "high",
+      "status": "partially_done",
+      "status_summary": "Die tatsächlichen Dateien wurden in diesem Todo unter current_implementation_state.discrepancies_found erfasst. Ein formales docs/cli_inventory.md existiert noch nicht. Der Ist-Zustand ist jetzt in diesem Dokument selbst dokumentiert.",
       "tasks": [
         {
           "id": "cli-inventory-001",
           "title": "Alle ausführbaren Einstiegspunkte sammeln",
+          "status": "partially_done",
+          "status_note": "60+ Skripte in scripts/ identifiziert und in known_current_files kategorisiert. Formale docs/cli_inventory.md fehlt noch.",
           "files": [
             "agent/cli/",
             "scripts/",
@@ -194,6 +389,7 @@
         {
           "id": "cli-inventory-002",
           "title": "Bestehende User-Kommandos von Dev-/CI-Skripten trennen",
+          "status": "not_started",
           "description": "Klassifizieren, welche Befehle für normale Nutzer sichtbar sein sollen und welche nur unter `ananta dev ...` oder CI laufen.",
           "acceptance_criteria": [
             "User-facing Befehle sind eindeutig markiert.",
@@ -205,6 +401,7 @@
         {
           "id": "cli-inventory-003",
           "title": "Aktuelle Help-Ausgaben erfassen",
+          "status": "not_started",
           "description": "Für vorhandene CLI-Module die aktuelle `--help` Ausgabe erfassen, soweit vorhanden.",
           "acceptance_criteria": [
             "`ananta init --help` oder das äquivalente aktuelle Init-Help ist dokumentiert.",
@@ -219,21 +416,27 @@
       "id": "track-02-command-taxonomy",
       "title": "Verbindliche CLI-Taxonomie definieren",
       "priority": "high",
+      "status": "not_started",
+      "status_summary": "Taxonomie ist in diesem Todo als target_command_tree definiert aber noch nicht als docs/cli_taxonomy.md formalisiert.",
       "tasks": [
         {
           "id": "cli-taxonomy-001",
           "title": "Top-Level Command-Gruppen finalisieren",
-          "description": "Die Zielstruktur für `ananta init`, `doctor`, `config`, `runtime`, `llm`, `hub`, `worker`, `task`, `project`, `rag`, `repair`, `dev` festlegen.",
+          "status": "not_started",
+          "status_note": "target_command_tree in diesem Todo ist der Entwurf, muss als docs/cli_taxonomy.md geschrieben werden.",
+          "description": "Die Zielstruktur für `ananta init`, `first-run`, `doctor`, `status`, `update`, `config`, `runtime`, `llm`, `hub`, `worker`, `goal`, `task`, `project`, `rag`, `repair`, `prompt`, `dev` festlegen.",
           "acceptance_criteria": [
             "docs/cli_taxonomy.md enthält den finalen Command-Tree.",
             "Jede Command-Gruppe hat einen klaren fachlichen Zweck.",
             "Jede Command-Gruppe enthält nur Befehle aus derselben Domäne.",
-            "Dev-/CI-Kommandos liegen ausschließlich unter `ananta dev ...`."
+            "Dev-/CI-Kommandos liegen ausschließlich unter `ananta dev ...`.",
+            "Bestehende Flat-Aliases (ask, plan, review etc.) sind als goal-Domain-Shortcuts dokumentiert."
           ]
         },
         {
           "id": "cli-taxonomy-002",
           "title": "Namensregeln für Actions definieren",
+          "status": "not_started",
           "description": "Standardisierte Verben wie list, show, inspect, create, run, validate, start, stop, status, logs definieren.",
           "acceptance_criteria": [
             "docs/cli_taxonomy.md enthält erlaubte Standard-Actions.",
@@ -246,6 +449,7 @@
         {
           "id": "cli-taxonomy-003",
           "title": "Deprecated- und Alias-Strategie definieren",
+          "status": "not_started",
           "description": "Bestehende Befehle/Skripte dürfen nicht abrupt brechen. Für alte Pfade werden Warnungen oder Aliase geplant.",
           "acceptance_criteria": [
             "Es gibt eine dokumentierte Deprecation-Policy.",
@@ -258,60 +462,71 @@
     },
     {
       "id": "track-03-central-entrypoint",
-      "title": "Zentralen CLI-Entrypoint bauen",
+      "title": "Zentralen CLI-Entrypoint ausbauen",
       "priority": "high",
+      "status": "partially_done",
+      "status_summary": "agent/cli/main.py und pyproject.toml-Eintrag existieren bereits. main.py verwendet aber ein Flat-Command-Dispatch-Muster, keine Domain-Hierarchie. commands/ Unterstruktur und Domain-Registrierung fehlen.",
       "tasks": [
         {
           "id": "cli-entrypoint-001",
-          "title": "Zentrales Modul `agent/cli/main.py` einführen",
-          "description": "Ein zentraler Parser/Router soll alle stabilen Commands registrieren.",
-          "files_to_create": [
+          "title": "Zentrales Modul `agent/cli/main.py` auf Domain-Hierarchie umstellen",
+          "status": "partially_done",
+          "status_note": "main.py existiert bereits. Enthält CORE_COMMANDS-Liste und Flat-Dispatch. Muss auf hierarchisches Subparser-Muster umgestellt werden ohne bestehende Commands zu brechen.",
+          "description": "main.py auf argparse-Subparser-Hierarchie umstellen. Bestehende Flat-Commands als Shortcuts oder unter goal/ erhalten.",
+          "files_to_modify": [
             "agent/cli/main.py"
           ],
           "acceptance_criteria": [
-            "`agent/cli/main.py` enthält den zentralen `main(argv=None) -> int` Entrypoint.",
-            "Alle Command-Gruppen werden zentral registriert.",
+            "`agent/cli/main.py` enthält weiterhin den zentralen `main(argv=None) -> int` Entrypoint.",
+            "Alle Command-Gruppen werden über add_subparsers() registriert.",
+            "Flat-Commands (ask, plan, review etc.) bleiben als Shortcuts erhalten.",
             "Der Entrypoint enthält selbst möglichst wenig Fachlogik.",
             "Fachlogik bleibt in separaten Command-Modulen."
           ]
         },
         {
           "id": "cli-entrypoint-002",
-          "title": "Command-Module strukturieren",
+          "title": "Command-Module unter agent/cli/commands/ strukturieren",
+          "status": "not_started",
           "files_to_create": [
             "agent/cli/commands/__init__.py",
-            "agent/cli/commands/init.py",
-            "agent/cli/commands/doctor.py",
             "agent/cli/commands/config.py",
             "agent/cli/commands/runtime.py",
             "agent/cli/commands/llm.py",
             "agent/cli/commands/hub.py",
             "agent/cli/commands/worker.py",
+            "agent/cli/commands/goal.py",
             "agent/cli/commands/task.py",
             "agent/cli/commands/project.py",
             "agent/cli/commands/rag.py",
             "agent/cli/commands/repair.py",
             "agent/cli/commands/dev.py"
           ],
+          "files_to_migrate": [
+            "agent/cli/init_wizard.py → agent/cli/commands/init.py (oder Wrapper)",
+            "agent/cli/doctor.py → agent/cli/commands/doctor.py (oder Wrapper)",
+            "agent/cli/update.py → agent/cli/commands/update.py (oder Wrapper)",
+            "agent/cli/prompt_inspect.py → agent/cli/commands/prompt.py (oder Wrapper)"
+          ],
           "acceptance_criteria": [
             "Jede Command-Gruppe hat ein eigenes Modul.",
-            "Jedes Modul stellt eine Funktion zur Parser-Registrierung bereit.",
+            "Jedes Modul stellt eine register(subparsers) Funktion bereit.",
             "Es gibt keine zyklischen Imports zwischen Command-Modulen.",
-            "Bestehende Logik aus init_wizard.py und doctor.py wird nicht dupliziert, sondern sauber referenziert oder migriert."
+            "Bestehende Logik aus init_wizard.py, doctor.py, update.py, prompt_inspect.py wird nicht dupliziert.",
+            "goal_aliases.py bleibt als Shortcut-Layer erhalten."
           ]
         },
         {
           "id": "cli-entrypoint-003",
-          "title": "Packaging-Eintrag für `ananta` prüfen/einführen",
-          "description": "Sicherstellen, dass `ananta` als installierbarer CLI-Befehl verfügbar ist.",
+          "title": "Packaging-Eintrag für `ananta` verifizieren",
+          "status": "done",
+          "status_note": "pyproject.toml enthält bereits [project.scripts] ananta = 'agent.cli.main:main'. Kein weiterer Handlungsbedarf außer Verifikation nach Umstellung.",
           "files_to_check": [
-            "pyproject.toml",
-            "setup.cfg",
-            "setup.py"
+            "pyproject.toml"
           ],
           "acceptance_criteria": [
             "Nach Installation ist `ananta --help` ausführbar.",
-            "Der Packaging-Eintrag zeigt auf `agent.cli.main:main` oder den finalen offiziellen Entrypoint.",
+            "Der Packaging-Eintrag zeigt auf `agent.cli.main:main`.",
             "Der CLI-Entrypoint ist in README oder docs dokumentiert.",
             "Tests nutzen denselben Entrypoint wie Nutzer."
           ]
@@ -322,10 +537,13 @@
       "id": "track-04-help-contract",
       "title": "Help-Vertrag für jede CLI-Ebene implementieren",
       "priority": "critical",
+      "status": "not_started",
+      "status_summary": "Kein formaler Help-Standard dokumentiert, keine tests/cli/-Dateien vorhanden. --help funktioniert für vorhandene Commands (doctor, init) da argparse genutzt wird, ist aber nicht systematisch getestet.",
       "tasks": [
         {
           "id": "cli-help-001",
           "title": "Globalen Help-Standard definieren",
+          "status": "not_started",
           "description": "Festlegen, welche Informationen jede Help-Ausgabe enthalten muss.",
           "acceptance_criteria": [
             "docs/cli_help_contract.md existiert.",
@@ -337,6 +555,8 @@
         {
           "id": "cli-help-002",
           "title": "`ananta --help` implementieren/testen",
+          "status": "partially_done",
+          "status_note": "`ananta --help` funktioniert bereits über argparse, zeigt aber Flat-Commands, keine Domain-Gruppen.",
           "acceptance_criteria": [
             "`ananta --help` zeigt alle stabilen Top-Level-Gruppen.",
             "`ananta --help` erklärt kurz den Zweck von Ananta.",
@@ -347,16 +567,19 @@
         {
           "id": "cli-help-003",
           "title": "Help für alle Command-Gruppen implementieren",
+          "status": "not_started",
           "command_examples": [
             "ananta config --help",
             "ananta runtime --help",
             "ananta llm --help",
             "ananta hub --help",
             "ananta worker --help",
+            "ananta goal --help",
             "ananta task --help",
             "ananta project --help",
             "ananta rag --help",
             "ananta repair --help",
+            "ananta prompt --help",
             "ananta dev --help"
           ],
           "acceptance_criteria": [
@@ -370,6 +593,7 @@
         {
           "id": "cli-help-004",
           "title": "Help für alle Leaf-Commands implementieren",
+          "status": "not_started",
           "description": "Jeder konkrete ausführbare Befehl muss eigene Hilfe besitzen.",
           "acceptance_criteria": [
             "Jedes Leaf-Command zeigt Usage.",
@@ -384,6 +608,8 @@
         {
           "id": "cli-help-005",
           "title": "Help darf keine Runtime-Abhängigkeiten haben",
+          "status": "partially_done",
+          "status_note": "doctor.py und init_wizard.py können ohne Hub laufen. Systematisch ungetestet.",
           "acceptance_criteria": [
             "`--help` funktioniert ohne config.json.",
             "`--help` funktioniert ohne laufenden Hub.",
@@ -396,7 +622,9 @@
         {
           "id": "cli-help-006",
           "title": "Automatische Help-Coverage-Tests bauen",
+          "status": "not_started",
           "files_to_create": [
+            "tests/cli/conftest.py",
             "tests/cli/test_help_contract.py"
           ],
           "acceptance_criteria": [
@@ -415,10 +643,13 @@
       "id": "track-05-command-migration",
       "title": "Bestehende Skripte in CLI-Gruppen migrieren",
       "priority": "high",
+      "status": "not_started",
+      "status_summary": "Kein Skript wurde bisher formell migriert. goal_cli.py ist der primäre User-Workflow-Einstiegspunkt und sollte unter ananta config setup-planning / ananta goal list/status integriert werden. first_goal_acceptance_runner.py ist de-facto der primäre E2E-Test-Runner.",
       "tasks": [
         {
           "id": "cli-migration-001",
           "title": "`agent/cli/doctor.py` in neue Struktur übernehmen",
+          "status": "not_started",
           "source_files": [
             "agent/cli/doctor.py"
           ],
@@ -433,6 +664,7 @@
         {
           "id": "cli-migration-002",
           "title": "`agent/cli/init_wizard.py` als `ananta init` konsolidieren",
+          "status": "not_started",
           "source_files": [
             "agent/cli/init_wizard.py"
           ],
@@ -447,17 +679,25 @@
         {
           "id": "cli-migration-003",
           "title": "`scripts/goal_cli.py` fachlich einordnen",
+          "status": "not_started",
           "source_files": [
             "scripts/goal_cli.py"
           ],
+          "current_subcommands": [
+            "run → ananta goal create oder ananta goal run",
+            "status → ananta goal status",
+            "goals → ananta goal list",
+            "setup-planning → ananta config setup-planning (oder ananta llm setup-planning)"
+          ],
           "candidate_targets": [
-            "ananta task create",
-            "ananta task run",
-            "ananta project init"
+            "ananta goal create (run)",
+            "ananta goal list (goals)",
+            "ananta goal status (status)",
+            "ananta config setup-planning (setup-planning)"
           ],
           "acceptance_criteria": [
             "Die aktuelle Funktion von goal_cli.py ist dokumentiert.",
-            "Es ist entschieden, ob daraus task/create, task/run oder project/init wird.",
+            "Alle 4 Subcommands (run, status, goals, setup-planning) haben ein Migrationsziel.",
             "Falls migriert: altes Script zeigt Deprecation-Hinweis mit neuem Befehl.",
             "Falls nicht migriert: Script ist als internal/dev/ci-only markiert."
           ]
@@ -465,15 +705,21 @@
         {
           "id": "cli-migration-004",
           "title": "Pipeline-/Release-Skripte unter `ananta dev ...` bündeln",
+          "status": "not_started",
           "source_files": [
             "scripts/check_pipeline.py",
             "scripts/release_gate.py",
-            "scripts/validate_cross_track_dependencies.py"
+            "scripts/run_release_gate.py",
+            "scripts/validate_cross_track_dependencies.py",
+            "scripts/validate_todo_consistency.py",
+            "scripts/run_security_invariant_checks.py"
           ],
           "target_commands": [
-            "ananta dev pipeline-check",
+            "ananta dev check pipeline",
             "ananta dev release-gate",
-            "ananta dev validate-cross-track-dependencies"
+            "ananta dev validate cross-track-deps",
+            "ananta dev validate todo-consistency",
+            "ananta dev check security-invariants"
           ],
           "acceptance_criteria": [
             "Dev-/CI-Befehle liegen nicht im normalen User-Bereich.",
@@ -485,25 +731,83 @@
         {
           "id": "cli-migration-005",
           "title": "Smoke- und Benchmark-Skripte gruppieren",
+          "status": "not_started",
           "source_files": [
             "scripts/benchmark_concurrency.py",
+            "scripts/retrieval_benchmark.py",
+            "scripts/bench_models_live.py",
+            "scripts/run_live_click_dual_benchmark.py",
             "scripts/run_blender_smoke_checks.py",
+            "scripts/run_blender_install_smoke.py",
             "scripts/run_freecad_smoke_checks.py",
-            "scripts/run_real_worker_runtime_evidence.py",
-            "scripts/run_live_click_dual_benchmark.py"
+            "scripts/run_freecad_install_smoke.py",
+            "scripts/smoke_client_golden_paths.py",
+            "scripts/smoke_eclipse_runtime_bootstrap.py",
+            "scripts/smoke_eclipse_runtime_headless.py",
+            "scripts/smoke_nvim_runtime.py",
+            "scripts/smoke_tui_runtime.py"
           ],
           "target_commands": [
             "ananta dev benchmark concurrency",
+            "ananta dev benchmark retrieval",
+            "ananta dev benchmark models",
+            "ananta dev benchmark live-click",
             "ananta dev smoke blender",
             "ananta dev smoke freecad",
-            "ananta dev evidence real-worker-runtime",
-            "ananta dev benchmark live-click-dual"
+            "ananta dev smoke client",
+            "ananta dev smoke eclipse",
+            "ananta dev smoke nvim",
+            "ananta dev smoke tui"
           ],
           "acceptance_criteria": [
             "Jedes relevante Skript ist entweder migriert oder bewusst als intern markiert.",
             "Smoke-Kommandos sind unter `ananta dev smoke ...` gruppiert.",
             "Benchmark-Kommandos sind unter `ananta dev benchmark ...` gruppiert.",
             "Jedes neue Kommando hat --help und mindestens einen Smoke-Test."
+          ]
+        },
+        {
+          "id": "cli-migration-006",
+          "title": "`scripts/first_goal_acceptance_runner.py` als `ananta dev acceptance` einbinden",
+          "status": "not_started",
+          "source_files": [
+            "scripts/first_goal_acceptance_runner.py"
+          ],
+          "target_command": "ananta dev acceptance",
+          "current_usage": "python3 scripts/first_goal_acceptance_runner.py --scenario-file scenario_lmstudio.json --sla-seconds 900 --password test123",
+          "note": "Primärer E2E-Akzeptanztest-Runner. Wird aktiv in CI-ähnlichen Läufen genutzt. Kein Migrationsziel war im ursprünglichen Todo definiert.",
+          "acceptance_criteria": [
+            "`ananta dev acceptance --help` zeigt alle Optionen.",
+            "`ananta dev acceptance --scenario-file ... --sla-seconds ... --password ...` funktioniert äquivalent.",
+            "Altes Skript bleibt als Compat-Wrapper erhalten.",
+            "CI nutzt `ananta dev acceptance` als kanonischen Befehl."
+          ]
+        },
+        {
+          "id": "cli-migration-007",
+          "title": "Check- und Audit-Skripte unter `ananta dev check/audit` bündeln",
+          "status": "not_started",
+          "source_files": [
+            "scripts/audit_client_surface_entrypoints.py",
+            "scripts/audit_domain_integrations.py",
+            "scripts/audit_runtime.py",
+            "scripts/check_core_provider_boundaries.py",
+            "scripts/check_cycles.py",
+            "scripts/check_dead_code.py",
+            "scripts/check_docs_present.py",
+            "scripts/check_duplicates.py",
+            "scripts/check_hotspot_guardrails.py",
+            "scripts/check_hub_storage.py",
+            "scripts/check_imports.py",
+            "scripts/check_planning_contract.py",
+            "scripts/check_policy_and_routing.py",
+            "scripts/check_service_boundaries.py"
+          ],
+          "target_group": "ananta dev check / ananta dev audit",
+          "acceptance_criteria": [
+            "Alle check_*.py Skripte haben ein definiertes Migrationsziel.",
+            "Alle audit_*.py Skripte haben ein definiertes Migrationsziel.",
+            "Dev/CI-Pipeline nutzt ananta dev check ... als kanonische Kommandos."
           ]
         }
       ]
@@ -512,10 +816,13 @@
       "id": "track-06-output-and-json-contract",
       "title": "Einheitlichen Output- und JSON-Vertrag einführen",
       "priority": "medium",
+      "status": "not_started",
+      "status_summary": "doctor.py hat --json Support, aber kein einheitlicher Output-Standard ist definiert. Exit-Codes sind in diesem Dokument spezifiziert aber nicht technisch durchgesetzt.",
       "tasks": [
         {
           "id": "cli-output-001",
           "title": "Text-Output-Standard definieren",
+          "status": "not_started",
           "acceptance_criteria": [
             "Normale Textausgabe ist kurz, klar und scriptfreundlich.",
             "Fehler gehen nach stderr.",
@@ -527,6 +834,7 @@
         {
           "id": "cli-output-002",
           "title": "JSON-Output-Schema definieren",
+          "status": "not_started",
           "acceptance_criteria": [
             "JSON-Ausgaben enthalten mindestens status, command, result oder error.",
             "Fehler-JSON enthält code, message und optional details.",
@@ -537,6 +845,7 @@
         {
           "id": "cli-output-003",
           "title": "Exit-Code-Vertrag technisch testen",
+          "status": "not_started",
           "acceptance_criteria": [
             "Ungültige Argumente liefern Exit Code 2.",
             "Validierungsfehler liefern Exit Code 3.",
@@ -551,15 +860,25 @@
       "id": "track-07-docs",
       "title": "CLI-Dokumentation und Beispiele aufräumen",
       "priority": "medium",
+      "status": "partially_done",
+      "status_summary": "docs/cli/ Verzeichnis existiert mit commands.md (User-Pfad) und developer_entrypoints.md. Inhalt ist aktuell (Stand Flat-Commands), wird nach Domain-Hierarchie-Migration zu aktualisieren sein. docs/cli_inventory.md, cli_taxonomy.md, cli_help_contract.md, cli_migration.md fehlen noch.",
       "tasks": [
         {
           "id": "cli-docs-001",
-          "title": "CLI-Übersicht schreiben",
+          "title": "CLI-Übersicht erweitern/aktualisieren",
+          "status": "partially_done",
+          "status_note": "docs/cli/commands.md existiert. Zeigt aktuell Flat-Command-Struktur. Nach Domain-Hierarchie-Migration zu aktualisieren.",
+          "files_to_update": [
+            "docs/cli/commands.md"
+          ],
           "files_to_create": [
-            "docs/cli.md"
+            "docs/cli/cli_inventory.md",
+            "docs/cli/cli_taxonomy.md",
+            "docs/cli/cli_help_contract.md",
+            "docs/cli/cli_migration.md"
           ],
           "acceptance_criteria": [
-            "docs/cli.md erklärt die Top-Level-Struktur.",
+            "docs/cli/commands.md zeigt die aktuelle Domain-Hierarchie.",
             "Für jede Command-Gruppe gibt es einen kurzen Abschnitt.",
             "Dev-/CI-Kommandos sind klar getrennt.",
             "Die Dokumentation verweist auf `--help` als Quelle für Details."
@@ -568,21 +887,26 @@
         {
           "id": "cli-docs-002",
           "title": "Quickstart aktualisieren",
+          "status": "partially_done",
+          "status_note": "docs/cli/commands.md und developer_entrypoints.md zeigen bereits `ananta`-Commands als Standard. Veraltete scripts/ werden nicht als bevorzugter Einstieg gezeigt.",
           "acceptance_criteria": [
             "README oder Quickstart nutzt die neue CLI-Struktur.",
             "Veraltete Beispiele werden ersetzt oder als deprecated markiert.",
-            "Minimaler Einstieg ist klar: init, doctor, task/project Beispiel.",
+            "Minimaler Einstieg ist klar: init, doctor, goal/task Beispiel.",
             "Keine losen scripts/*.py werden als bevorzugter Einstieg dokumentiert."
           ]
         },
         {
           "id": "cli-docs-003",
           "title": "Command-Beispiele dokumentieren",
+          "status": "partially_done",
+          "status_note": "commands.md enthält Beispiele für ask, plan, review, new-project etc. Domain-spezifische Beispiele fehlen.",
           "acceptance_criteria": [
             "Für init gibt es Beispiele für local-dev, sandbox und strict.",
             "Für doctor gibt es Text- und JSON-Beispiele.",
-            "Für task gibt es create/list/inspect/run Beispiele.",
-            "Für dev gibt es CI-orientierte Beispiele."
+            "Für goal/task gibt es create/list/inspect/run Beispiele.",
+            "Für dev gibt es CI-orientierte Beispiele.",
+            "Für ananta dev acceptance gibt es ein vollständiges Beispiel."
           ]
         }
       ]
@@ -591,10 +915,13 @@
       "id": "track-08-tests-and-ci",
       "title": "CLI-Tests und CI-Absicherung",
       "priority": "high",
+      "status": "not_started",
+      "status_summary": "Kein tests/cli/ Verzeichnis vorhanden. Keine Help-Coverage-Tests. CI nutzt Skripte direkt, nicht über ananta-Kommandos.",
       "tasks": [
         {
           "id": "cli-tests-001",
           "title": "CLI-Test-Harness bauen",
+          "status": "not_started",
           "files_to_create": [
             "tests/cli/conftest.py",
             "tests/cli/test_cli_entrypoint.py"
@@ -609,6 +936,7 @@
         {
           "id": "cli-tests-002",
           "title": "Smoke-Test für Top-Level-Kommandos",
+          "status": "not_started",
           "acceptance_criteria": [
             "`ananta --help` wird getestet.",
             "`ananta init --help` wird getestet.",
@@ -620,6 +948,7 @@
         {
           "id": "cli-tests-003",
           "title": "Snapshot-Tests für Help optional einführen",
+          "status": "not_started",
           "description": "Help-Ausgaben können teilweise snapshot-getestet werden, ohne jede Formatänderung unnötig schwer zu machen.",
           "acceptance_criteria": [
             "Wichtige Help-Ausgaben werden gegen stabile Kerninhalte getestet.",
@@ -634,10 +963,13 @@
       "id": "track-09-security-and-policy",
       "title": "Sicherheits- und Policy-Aspekte der CLI absichern",
       "priority": "high",
+      "status": "not_started",
+      "status_summary": "Keine Dry-run-Flags, keine Secret-Maskierung, keine expliziten Mutations-Markierungen implementiert.",
       "tasks": [
         {
           "id": "cli-security-001",
           "title": "Gefährliche Kommandos explizit markieren",
+          "status": "not_started",
           "description": "Kommandos, die Dateien ändern, Worker starten, externe Endpunkte testen oder Policies beeinflussen, müssen klar dokumentiert sein.",
           "acceptance_criteria": [
             "Mutierende Kommandos sind in Help und Docs klar als mutierend erkennbar.",
@@ -649,6 +981,7 @@
         {
           "id": "cli-security-002",
           "title": "Default-Deny bei Policy-/RAG-Kommandos sicherstellen",
+          "status": "not_started",
           "acceptance_criteria": [
             "`ananta rag policy-check` ist explizit lesend/prüfend.",
             "Policy-verändernde Kommandos benötigen klare Bestätigung oder config-gesteuerte Freigabe.",
@@ -659,6 +992,7 @@
         {
           "id": "cli-security-003",
           "title": "Secrets und Tokens in CLI-Ausgaben maskieren",
+          "status": "not_started",
           "acceptance_criteria": [
             "API Keys, Tokens und Authorization Header werden maskiert.",
             "`--verbose` darf Secrets nicht unmaskiert ausgeben.",
@@ -672,10 +1006,13 @@
       "id": "track-10-backward-compatibility",
       "title": "Rückwärtskompatibilität und Übergang",
       "priority": "medium",
+      "status": "not_started",
+      "status_summary": "Keine Deprecation-Warnungen implementiert. Bestehende scripts/*.py laufen weiterhin direkt. goal_aliases.py sorgt für Backward-Compat der Flat-Commands.",
       "tasks": [
         {
           "id": "cli-compat-001",
           "title": "Alte Skriptpfade als Wrapper erhalten",
+          "status": "not_started",
           "description": "Für aktuell genutzte Skripte sollen Wrapper oder klare Deprecation-Meldungen existieren.",
           "acceptance_criteria": [
             "Wichtige alte Skriptaufrufe brechen nicht sofort.",
@@ -687,21 +1024,24 @@
         {
           "id": "cli-compat-002",
           "title": "Migrationsdokument schreiben",
+          "status": "not_started",
           "files_to_create": [
-            "docs/cli_migration.md"
+            "docs/cli/cli_migration.md"
           ],
           "acceptance_criteria": [
             "Alte Aufrufe sind neuen Kommandos zugeordnet.",
             "CI-Migration ist dokumentiert.",
             "User-Migration ist dokumentiert.",
-            "Bekannte Breaking Changes sind klar benannt."
+            "Bekannte Breaking Changes sind klar benannt.",
+            "scripts/first_goal_acceptance_runner.py → ananta dev acceptance ist dokumentiert.",
+            "scripts/goal_cli.py setup-planning → ananta config setup-planning ist dokumentiert."
           ]
         }
       ]
     }
   ],
   "definition_of_done": [
-    "`ananta --help` funktioniert.",
+    "`ananta --help` funktioniert mit Domain-Hierarchie.",
     "Jede stabile Command-Gruppe unterstützt `--help`.",
     "Jedes stabile Leaf-Command unterstützt `--help`.",
     "Help-Ausgaben funktionieren ohne Runtime-Abhängigkeiten.",
@@ -709,16 +1049,21 @@
     "Dev-/CI-Kommandos sind unter `ananta dev ...` gebündelt.",
     "Bestehende wichtige Skripte sind migriert, gewrappt oder dokumentiert deprecated.",
     "Automatische Tests prüfen Help-Coverage, Exit Codes und JSON-Ausgaben.",
-    "README/docs zeigen die neue CLI-Struktur.",
-    "Keine neue CLI-Funktion darf ohne Help und Test als stabil gelten."
+    "docs/cli/ zeigt die aktuelle CLI-Struktur vollständig.",
+    "Keine neue CLI-Funktion darf ohne Help und Test als stabil gelten.",
+    "scripts/first_goal_acceptance_runner.py ist unter ananta dev acceptance erreichbar.",
+    "scripts/goal_cli.py setup-planning ist unter ananta config setup-planning erreichbar."
   ],
   "suggested_first_implementation_order": [
-    "track-01-cli-inventory",
-    "track-02-command-taxonomy",
-    "track-04-help-contract",
-    "track-03-central-entrypoint",
-    "track-05-command-migration",
+    "track-01-cli-inventory (cli-inventory-001: docs/cli_inventory.md schreiben)",
+    "track-02-command-taxonomy (cli-taxonomy-001: docs/cli_taxonomy.md aus diesem Todo ableiten)",
+    "track-04-help-contract (cli-help-001: docs/cli_help_contract.md schreiben)",
+    "track-03-central-entrypoint (cli-entrypoint-002: commands/ Struktur aufbauen)",
+    "track-03-central-entrypoint (cli-entrypoint-001: main.py auf Subparser umstellen)",
+    "track-05-command-migration (cli-migration-003: goal_cli.py, cli-migration-006: first_goal_acceptance_runner.py)",
+    "track-04-help-contract (cli-help-006: test_help_contract.py bauen)",
     "track-08-tests-and-ci",
+    "track-05-command-migration (restliche Migrationen)",
     "track-06-output-and-json-contract",
     "track-07-docs",
     "track-09-security-and-policy",
