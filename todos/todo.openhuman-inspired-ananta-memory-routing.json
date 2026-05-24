@@ -362,7 +362,7 @@
     {
       "id": "OHA-006",
       "title": "ToolOutputCompaction in task_execution_service einhängen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "integration",
@@ -381,7 +381,7 @@
     {
       "id": "OHA-007",
       "title": "Compaction-Telemetry und Auditing ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
@@ -401,7 +401,7 @@
     {
       "id": "OHA-008",
       "title": "MemoryTreeStore Datenmodell definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "data_model",
@@ -429,7 +429,7 @@
     {
       "id": "OHA-009",
       "title": "CodeCompass/KnowledgeIndex Outputs in Memory Tree ingestieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -450,7 +450,7 @@
     {
       "id": "OHA-010",
       "title": "Source-/Topic-/Global-Tree-Building implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "service",
@@ -477,7 +477,7 @@
     {
       "id": "OHA-011",
       "title": "MemoryTreeRetrievalService bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "retrieval",
@@ -841,7 +841,9 @@
       "in_progress": 0,
       "blocked": 0,
       "done": 1
-    }
+    },
+    "done": 11,
+    "todo": 14
   },
   "tasks_type_summary": {
     "total": 25,
