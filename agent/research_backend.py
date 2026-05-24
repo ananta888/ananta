@@ -15,6 +15,11 @@ from typing import Any
 from flask import current_app, has_app_context
 
 from agent.config import settings
+from agent.common.audit import log_audit
+from agent.services.browser_artifact_service import get_browser_artifact_service
+from agent.services.browser_recovery_service import get_browser_recovery_service
+from agent.services.browser_task_contract import BrowserTaskContract
+from agent.services.browser_use_adapter import get_browser_use_execution_adapter
 
 DEERFLOW_INSTALL_HINT = (
     "Clone deer-flow and configure research_backend.command plus research_backend.working_dir, "
@@ -48,9 +53,26 @@ RESEARCH_BACKEND_SPECS: dict[str, dict[str, Any]] = {
         "verify_command": "configure research_backend.command",
         "job_prefix": "ar",
     },
+    "browser_use": {
+        "display_name": "browser_use",
+        "default_mode": "native",
+        "default_command": "",
+        "default_result_format": "json",
+        "default_enabled": False,
+        "supports_model": False,
+        "install_hint": "Enable browser_use in research_backend.providers.browser_use with allowed domains and action limits.",
+        "verify_command": "configure research_backend.providers.browser_use",
+        "job_prefix": "bu",
+    },
 }
 RESEARCH_BACKEND_PROVIDERS: tuple[str, ...] = tuple(RESEARCH_BACKEND_SPECS.keys())
 _RESEARCH_JOBS: dict[str, dict[str, dict[str, Any]]] = {provider: {} for provider in RESEARCH_BACKEND_PROVIDERS}
+_BROWSER_OBSERVABILITY = {
+    "calls": 0,
+    "actions": 0,
+    "last_failure_class": None,
+    "last_latency_ms": 0,
+}
 
 
 def _get_agent_config() -> dict:
@@ -181,7 +203,19 @@ def get_research_backend_preflight(*, agent_cfg: dict[str, Any] | None = None) -
             "install_hint": cfg["install_hint"],
             "verify_command": cfg["verify_command"],
         }
+        if provider == "browser_use":
+            entries[provider]["observability"] = dict(_BROWSER_OBSERVABILITY)
     return entries
+
+
+def get_browser_backend_diagnostics() -> dict[str, Any]:
+    return {
+        "provider": "browser_use",
+        "calls": int(_BROWSER_OBSERVABILITY.get("calls", 0)),
+        "actions": int(_BROWSER_OBSERVABILITY.get("actions", 0)),
+        "last_failure_class": _BROWSER_OBSERVABILITY.get("last_failure_class"),
+        "last_latency_ms": int(_BROWSER_OBSERVABILITY.get("last_latency_ms", 0)),
+    }
 
 
 def _build_command_args(
@@ -302,8 +336,84 @@ def _execute_research_backend_cli(
     research_context: dict[str, Any] | None = None,
 ) -> tuple[int, str, str]:
     cfg = resolve_research_backend_config(provider_override=provider)
+    if cfg["provider"] == "browser_use":
+        browser_cfg = dict((research_context or {}).get("browser_config") or {})
+        if "enabled" in browser_cfg:
+            cfg["enabled"] = bool(browser_cfg.get("enabled"))
     if not cfg["enabled"]:
         return -1, "", f"{cfg['display_name']} research backend is disabled"
+    if cfg["mode"] == "native" and cfg["provider"] == "browser_use":
+        started = time.time()
+        ctx = dict(research_context or {})
+        browser_cfg = dict(ctx.get("browser_config") or {})
+        contract = BrowserTaskContract.from_payload(
+            {
+                "allowed_domains": browser_cfg.get("allowed_domains") or [],
+                "max_actions": browser_cfg.get("max_actions") or 10,
+                "timeout_seconds": browser_cfg.get("timeout_seconds") or int(timeout or cfg["timeout_seconds"]),
+                "download_policy": browser_cfg.get("download_policy") or "deny",
+                "auth_policy": browser_cfg.get("auth_policy") or "none",
+                "screenshot_policy": browser_cfg.get("screenshot_policy") or "none",
+                "download_allowlist": browser_cfg.get("download_allowlist") or [],
+                "output_dir": browser_cfg.get("output_dir"),
+            }
+        )
+        adapter = get_browser_use_execution_adapter()
+        preflight = adapter.preflight(browser_cfg)
+        log_audit("browser_route_selected", {"provider": "browser_use", "ready": preflight.ready})
+        log_audit("browser_policy_checked", {"provider": "browser_use", "phase": "preflight", "ready": preflight.ready})
+        if not preflight.ready:
+            _BROWSER_OBSERVABILITY["calls"] += 1
+            _BROWSER_OBSERVABILITY["last_failure_class"] = "backend_unavailable"
+            log_audit("browser_policy_blocked", {"provider": "browser_use", "reason": preflight.reason})
+            return -1, "", preflight.reason
+
+        start_url = str(ctx.get("start_url") or "").strip()
+        actions = list(ctx.get("actions") or [])
+        if not start_url:
+            return -1, "", "browser_use_start_url_missing"
+
+        result = adapter.execute(start_url=start_url, actions=actions, contract=contract)
+        latency_ms = int((time.time() - started) * 1000)
+        _BROWSER_OBSERVABILITY["calls"] += 1
+        _BROWSER_OBSERVABILITY["actions"] += int(result.actions_executed)
+        _BROWSER_OBSERVABILITY["last_latency_ms"] = latency_ms
+        _BROWSER_OBSERVABILITY["last_failure_class"] = result.failure_class
+        log_audit(
+            "browser_action_executed",
+            {
+                "provider": "browser_use",
+                "status": result.status,
+                "failure_class": result.failure_class,
+                "actions_executed": result.actions_executed,
+                "latency_ms": latency_ms,
+            },
+        )
+
+        artifact_payload = {
+            "extracted_data": dict(result.extracted_data or {}),
+            "page_evidence": [{"url": start_url, "action_count": result.actions_executed}],
+            "sources": [{"url": start_url, "kind": "web"}],
+            "trace": list(result.trace or []),
+        }
+        check = get_browser_artifact_service().validate_schema(artifact_payload)
+        if not check.valid:
+            log_audit("browser_policy_blocked", {"provider": "browser_use", "reason": check.reason})
+            return -1, "", check.reason
+
+        if result.status == "success":
+            log_audit("browser_artifact_verified", {"provider": "browser_use", "status": "passed"})
+            return 0, json.dumps(artifact_payload, ensure_ascii=False), ""
+
+        recovery = get_browser_recovery_service().decide(
+            failure_class=str(result.failure_class or "transient_navigation"),
+            attempt=1,
+            max_repair_attempts=int(browser_cfg.get("max_repair_attempts") or 1),
+            fallback_allowed=bool(browser_cfg.get("fallback_allowed", True)),
+        )
+        if recovery.action in {"needs_review", "fail"}:
+            log_audit("browser_fallback_used", {"provider": "browser_use", "reason": recovery.reason, "action": recovery.action})
+        return -1, "", f"browser_use_{result.failure_class or 'failed'}:{recovery.action}:{recovery.reason}"
     if cfg["mode"] == "sandbox":
         return _execute_research_backend_sandbox(
             prompt=prompt,
