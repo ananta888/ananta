@@ -125,7 +125,7 @@
     "agent/services/hint_routing_service.py",
     "agent/services/memory_vault_export_service.py",
     "agent/common/utils/tool_output_compaction_utils.py",
-    "configs/tool_output_compaction_rules/builtin.json",
+    "config/tool_output_compaction_rules/builtin.json",
     "docs/openhuman-inspired-memory-routing.md",
     "tests/test_memory_tree_store_service.py",
     "tests/test_tool_output_compaction_service.py",
@@ -242,7 +242,7 @@
       "priority": "P0",
       "risk": "high",
       "type": "config",
-      "files": ["agent/services/tool_output_compaction_rule_loader.py", "configs/tool_output_compaction_rules/builtin.json"],
+      "files": ["agent/services/tool_output_compaction_rule_loader.py", "config/tool_output_compaction_rules/builtin.json"],
       "description": "Builtin-, User- und Projektregeln analog TokenJuice, aber sicherheitsorientiert für Ananta.",
       "implementation_notes": [
         "Merge-Reihenfolge: builtin -> user_global -> project_local -> task_override.",
