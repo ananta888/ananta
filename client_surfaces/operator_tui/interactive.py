@@ -45,10 +45,11 @@ class InteractiveOperatorTui:
         )
 
     def run(self) -> int:
-        if self._splash is not None:
-            self._app.create_background_task(self._splash_loop())
-        self._app.run()
+        self._app.run(pre_run=self._on_app_start if self._splash is not None else None)
         return 0
+
+    def _on_app_start(self) -> None:
+        self._app.create_background_task(self._splash_loop())
 
     async def _splash_loop(self) -> None:
         while self._splash is not None:
