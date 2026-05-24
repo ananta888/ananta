@@ -14,8 +14,8 @@ class AnimationPreset:
     snake_phase_offset: float = 1.0
     scale_curve: Callable[[float], float] = field(default=lambda t: 1.0)
     color_mode: str = "truecolor"
-    a_color: str = "0,180,80"
-    snake_color: str = "200,120,40"
+    a_color: str = "4,62,98"        # SVG dark blue  #043E62
+    snake_color: str = "71,166,56"  # SVG green       #47A638
 
     def scale_at(self, t: float) -> float:
         return self.scale_curve(t)
@@ -41,8 +41,8 @@ builtin_presets: dict[str, AnimationPreset] = {
         rotation_speed=0.8,
         snake_phase_offset=1.5,
         scale_curve=_linear_scale,
-        a_color="0,180,80",
-        snake_color="200,120,40",
+        a_color="4,62,98",
+        snake_color="71,166,56",
     ),
     "snake_orbit": AnimationPreset(
         name="snake_orbit",
@@ -51,8 +51,8 @@ builtin_presets: dict[str, AnimationPreset] = {
         rotation_speed=0.5,
         snake_phase_offset=2.0,
         scale_curve=_snake_orbit_scale,
-        a_color="0,160,100",
-        snake_color="220,100,30",
+        a_color="4,62,98",
+        snake_color="71,166,56",
     ),
     "depth_pulse": AnimationPreset(
         name="depth_pulse",
@@ -61,7 +61,7 @@ builtin_presets: dict[str, AnimationPreset] = {
         rotation_speed=0.4,
         snake_phase_offset=1.5,
         scale_curve=_pulse_scale,
-        a_color="30,180,120",
-        snake_color="200,80,60",
+        a_color="4,62,98",
+        snake_color="71,166,56",
     ),
 }

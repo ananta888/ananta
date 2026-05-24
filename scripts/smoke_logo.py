@@ -1,49 +1,79 @@
 #!/usr/bin/env python3
 """
-Smoke test for the animated 3D ASCII logo.
+Visual smoke test for the Ananta logo – 2D then 3D.
 
-Renders all animation frames in-process and either plays them live
-or saves them as an asciinema v2 cast file.
-
-Usage
+Modes
 -----
-Live animation (requires real terminal):
-    .venv/bin/python scripts/smoke_logo.py
+2D (ANSI halfblock from SVG-generated assets):
+    .venv/bin/python scripts/smoke_logo.py --2d
 
-Different preset:
-    .venv/bin/python scripts/smoke_logo.py --preset snake_orbit
-    .venv/bin/python scripts/smoke_logo.py --preset depth_pulse
+3D (animated wireframe built from SVG silhouette):
+    .venv/bin/python scripts/smoke_logo.py --3d
+    .venv/bin/python scripts/smoke_logo.py --3d --preset snake_orbit
+    .venv/bin/python scripts/smoke_logo.py --3d --preset depth_pulse
 
-Record to cast file (ANSI colours preserved):
+Both modes in sequence:
+    .venv/bin/python scripts/smoke_logo.py           (default)
+
+Record to cast file (tests/output/):
     .venv/bin/python scripts/smoke_logo.py --record
-    python scripts/play_cast.py tests/output/operator_tui_splash.cast
 
-Headless check (e.g. in CI or pytest):
+Headless check (CI):
     .venv/bin/python scripts/smoke_logo.py --check
-    echo $?   # 0 = OK
+    echo $?    # 0 = ok
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 import time
-from pathlib import Path
 
-_CAST_FILE = Path(__file__).parent.parent / "tests" / "output" / "operator_tui_splash.cast"
+_ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
+_CAST_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "output")
 
 
-# ── capability / backend setup ───────────────────────────────────────────────
+# ── 2D ───────────────────────────────────────────────────────────────────────
 
-def _make_cap(preset: str, width: int, height: int, fps: int, duration_ms: int):
+def show_2d(width: int = 0) -> str:
+    """
+    Print the SVG-derived ANSI halfblock logo and return the raw string.
+    Uses the pre-rendered asset in agent/cli/assets/ansi_halfblock_*.txt
+    which was generated from ananta.svg by render_terminal_logo.py.
+    """
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+    from agent.cli.logo_assets import load_logo
+
+    w = width or shutil.get_terminal_size((120, 32)).columns
+    logo = load_logo(width=w, color=True)
+    if not logo:
+        print("[smoke_logo] 2D: no asset found", file=sys.stderr)
+        return ""
+    sys.stdout.write(logo + "\n")
+    sys.stdout.flush()
+    return logo
+
+
+# ── 3D ───────────────────────────────────────────────────────────────────────
+
+def _render_frames(
+    preset: str,
+    width: int,
+    height: int,
+    fps: int,
+    duration_ms: int,
+) -> list[str]:
+    """Render all animation frames; return list of raw strings (ANSI included)."""
+    from client_surfaces.operator_tui.animation3d.backends import BuiltinBackend
     from client_surfaces.operator_tui.animation3d.capabilities import detect_3d_capability
-    return detect_3d_capability(
+
+    cap = detect_3d_capability(
         terminal_width=width,
         terminal_height=height,
-        is_tty=True,            # force-enable even in headless contexts
-        no_color=bool(os.environ.get("NO_COLOR")),
+        is_tty=True,
         env={
             "ANANTA_TUI_3D": "1",
             "ANANTA_TUI_3D_PRESET": preset,
@@ -52,21 +82,17 @@ def _make_cap(preset: str, width: int, height: int, fps: int, duration_ms: int):
         },
     )
 
-
-def _render_frames(preset: str, width: int, height: int, fps: int, duration_ms: int) -> list[str]:
-    """Render all animation frames, return list of raw strings (ANSI included)."""
-    from client_surfaces.operator_tui.animation3d.backends import BuiltinBackend
-
-    cap = _make_cap(preset, width, height, fps, duration_ms)
-    if not cap.enabled:
-        print(f"[smoke_logo] 3D disabled: {cap.reason_code}", file=sys.stderr)
-        return []
-
     backend = BuiltinBackend()
+    source = "svg" if backend._a_model.label == "ananta_svg" else "hardcoded-A"
+    print(f"[smoke_logo] 3D geometry source: {source}  "
+          f"verts={len(backend._a_model.vertices)}  "
+          f"edges={len(backend._a_model.edges)}",
+          file=sys.stderr)
+
     total = max(1, int(cap.max_fps * cap.duration_ms / 1000))
     frames: list[str] = []
     for i in range(total):
-        t = i / cap.max_fps
+        t = i / max(1, cap.max_fps)
         result = backend.frame_at(
             t=t,
             width=width,
@@ -82,94 +108,140 @@ def _render_frames(preset: str, width: int, height: int, fps: int, duration_ms: 
     return frames
 
 
-# ── output modes ─────────────────────────────────────────────────────────────
+def show_3d(
+    preset: str = "rotate_in",
+    fps: int = 24,
+    duration_ms: int = 2000,
+    width: int = 0,
+    height: int = 0,
+    repeat: int = 1,
+) -> list[str]:
+    """Play the 3D animation live in the terminal."""
+    sz = shutil.get_terminal_size((120, 32))
+    w = width or sz.columns
+    h = height or sz.lines
 
-def play_live(frames: list[str], fps: int, repeat: int = 1) -> None:
-    """Play frames directly in the terminal."""
+    frames = _render_frames(preset, w, h, fps, duration_ms)
+    if not frames:
+        print("[smoke_logo] 3D: no frames rendered", file=sys.stderr)
+        return frames
+
     interval = 1.0 / fps
     sys.stdout.write("\x1b[?25l")   # hide cursor
     try:
         for _ in range(repeat):
             for frame in frames:
-                sys.stdout.write(f"\x1b[H{frame}")   # cursor home + frame
+                sys.stdout.write(f"\x1b[H{frame}")
                 sys.stdout.flush()
                 time.sleep(interval)
     finally:
-        sys.stdout.write("\x1b[?25h\x1b[2J\x1b[H")  # show cursor + clear
+        sys.stdout.write("\x1b[?25h")   # restore cursor
         sys.stdout.flush()
+    return frames
 
 
-def save_cast(frames: list[str], fps: int, path: Path, preset: str) -> None:
-    """Write asciinema v2 cast file with ANSI colours preserved."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    interval = 1.0 / fps
+# ── recording ─────────────────────────────────────────────────────────────────
+
+def _save_cast(frames: list[str], fps: int, path: str, title: str) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    sz = shutil.get_terminal_size((120, 32))
     header = {
         "version": 2,
-        "width": shutil.get_terminal_size((120, 32)).columns,
-        "height": shutil.get_terminal_size((120, 32)).lines,
-        "title": f"Ananta 3D Logo – {preset}",
+        "width": sz.columns,
+        "height": sz.lines,
+        "title": title,
         "env": {"TERM": "xterm-256color"},
     }
     lines = [json.dumps(header, ensure_ascii=False)]
+    interval = 1.0 / fps
     for i, frame in enumerate(frames):
-        t = round(i * interval, 4)
-        lines.append(json.dumps([t, "o", f"\x1b[H{frame}"]))
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        lines.append(json.dumps([round(i * interval, 4), "o", f"\x1b[H{frame}"]))
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
     print(f"[smoke_logo] saved {len(frames)} frames → {path}", file=sys.stderr)
 
 
-def check_headless(frames: list[str]) -> bool:
-    """Return True if frames look reasonable (non-empty, contain logo drawing chars)."""
+def record(preset: str = "rotate_in", fps: int = 24, duration_ms: int = 2000) -> None:
+    sz = shutil.get_terminal_size((120, 32))
+    frames = _render_frames(preset, sz.columns, sz.lines, fps, duration_ms)
+    _save_cast(
+        frames, fps,
+        os.path.join(_CAST_DIR, "operator_tui_splash.cast"),
+        f"Ananta 3D Logo – {preset}",
+    )
+
+
+# ── check (CI / headless) ─────────────────────────────────────────────────────
+
+def check() -> bool:
+    """Return True if both 2D and 3D render successfully."""
+    # 2D check
+    logo = show_2d(width=90)
+    has_2d = bool(logo and len(logo.strip()) > 10)
+
+    # 3D check
+    frames = _render_frames("rotate_in", 120, 32, 24, 2000)
     if not frames:
+        print("[smoke_logo] check: 3D produced no frames", file=sys.stderr)
         return False
-    import re
-    _strip = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
-    mid  = _strip.sub("", frames[len(frames) // 2])
-    last = _strip.sub("", frames[-1])
-    # 3D renderer uses /, \, |, - and snake chars s S o O c C ~
+
+    mid = _ANSI_RE.sub("", frames[len(frames) // 2])
     logo_chars = set(r"/\|-sSOoCc~")
-    has_content    = len(mid.strip()) > 0
-    has_logo_chars = bool(logo_chars & set(mid))
-    # animation should produce different frames (not all identical)
-    frames_differ  = _strip.sub("", frames[0]) != last
-    return has_content and has_logo_chars and frames_differ
+    has_3d = bool(mid.strip()) and bool(logo_chars & set(mid))
+    frames_differ = _ANSI_RE.sub("", frames[0]) != _ANSI_RE.sub("", frames[-1])
+
+    ok = has_2d and has_3d and frames_differ
+    print(f"[smoke_logo] check: 2d={has_2d}  3d={has_3d}  animated={frames_differ}  → {'ok' if ok else 'FAIL'}",
+          file=sys.stderr)
+    return ok
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(description=__doc__,
+                                  formatter_class=argparse.RawDescriptionHelpFormatter)
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--2d",      dest="mode_2d",   action="store_true", help="2D only")
+    mode.add_argument("--3d",      dest="mode_3d",   action="store_true", help="3D only")
+    mode.add_argument("--record",  dest="mode_rec",  action="store_true", help="record 3D to cast")
+    mode.add_argument("--check",   dest="mode_check",action="store_true", help="headless CI check")
+
     ap.add_argument("--preset",      default="rotate_in",
                     choices=["rotate_in", "snake_orbit", "depth_pulse"])
     ap.add_argument("--fps",         type=int, default=24)
     ap.add_argument("--duration-ms", type=int, default=2000)
-    ap.add_argument("--width",       type=int, default=0,   help="0 = auto-detect")
-    ap.add_argument("--height",      type=int, default=0,   help="0 = auto-detect")
-    ap.add_argument("--repeat",      type=int, default=1,   help="loop count for live mode")
-    ap.add_argument("--record",      action="store_true",   help="save cast file instead of live play")
-    ap.add_argument("--check",       action="store_true",   help="headless check, exit 0/1")
-    ap.add_argument("--output",      default=str(_CAST_FILE))
+    ap.add_argument("--repeat",      type=int, default=1)
+    ap.add_argument("--width",       type=int, default=0)
+    ap.add_argument("--height",      type=int, default=0)
     args = ap.parse_args(argv)
 
-    w = args.width  or shutil.get_terminal_size((120, 32)).columns
-    h = args.height or shutil.get_terminal_size((120, 32)).lines
+    if args.mode_check:
+        return 0 if check() else 1
 
-    frames = _render_frames(args.preset, w, h, args.fps, args.duration_ms)
-
-    if args.check:
-        ok = check_headless(frames)
-        print(f"[smoke_logo] check={'ok' if ok else 'FAIL'}  frames={len(frames)}")
-        return 0 if ok else 1
-
-    if args.record:
-        save_cast(frames, args.fps, Path(args.output), args.preset)
+    if args.mode_rec:
+        record(args.preset, args.fps, args.duration_ms)
         return 0
 
-    if not frames:
-        print("[smoke_logo] no frames rendered – check terminal size / env vars", file=sys.stderr)
-        return 1
+    if args.mode_2d:
+        show_2d(args.width)
+        return 0
 
-    play_live(frames, args.fps, repeat=args.repeat)
+    if args.mode_3d:
+        show_3d(args.preset, args.fps, args.duration_ms,
+                args.width, args.height, args.repeat)
+        return 0
+
+    # default: 2D then 3D
+    print("\n── 2D ANSI halfblock (from SVG assets) ──", file=sys.stderr)
+    show_2d(args.width)
+    time.sleep(1.5)
+
+    print("\n── 3D wireframe (built from SVG silhouette) ──", file=sys.stderr)
+    sys.stdout.write("\x1b[2J\x1b[H")
+    sys.stdout.flush()
+    show_3d(args.preset, args.fps, args.duration_ms,
+            args.width, args.height, args.repeat)
     return 0
 
 
