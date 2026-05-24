@@ -40,6 +40,7 @@ from .organization import (
 )
 from .tasks import ArchivedTaskRepository, TaskRepository
 from .worker_slot_lease import WorkerSlotLeaseRepository
+from .terminal import TerminalSessionRepository, TerminalEventRepository
 from .planning_learning import (
     PlanningEvaluationRepository,
     PlanningModelProfileRepository,
@@ -104,4 +105,6 @@ __all__ = [
     "PlanningTemplateCandidateRepository",
     "PlanningPatternClusterRepository",
     "PlanningReviewItemRepository",
+    "TerminalSessionRepository",
+    "TerminalEventRepository",
 ]
