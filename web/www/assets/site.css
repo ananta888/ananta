@@ -1,126 +1,212 @@
 :root {
   color-scheme: dark;
-  --bg: #070a12;
-  --panel: #101827;
-  --text: #e7edf7;
-  --muted: #9da9bb;
+  --bg: #050812;
+  --panel: rgba(14, 22, 36, 0.82);
+  --panel-strong: rgba(15, 24, 40, 0.94);
+  --text: #eaf2ff;
+  --muted: #9dadc2;
   --accent: #70e1c8;
   --accent-2: #8ab4ff;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background:
-    radial-gradient(circle at 20% 20%, rgba(112, 225, 200, 0.18), transparent 30rem),
-    radial-gradient(circle at 80% 10%, rgba(138, 180, 255, 0.16), transparent 28rem),
-    var(--bg);
+    radial-gradient(circle at 12% 12%, rgba(112, 225, 200, 0.18), transparent 28rem),
+    radial-gradient(circle at 84% 4%, rgba(138, 180, 255, 0.18), transparent 30rem),
+    linear-gradient(180deg, #050812, #080c15 60%, #03050a);
   color: var(--text);
 }
 
 .page {
-  width: min(1120px, calc(100% - 32px));
+  width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 72px 0;
+  padding: 42px 0 64px;
 }
 
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.brand {
+  color: var(--accent);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.nav a,
+.actions a { color: inherit; text-decoration: none; }
+
 .hero {
-  padding: 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.96fr) minmax(380px, 1.04fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.copy,
+.terminal-card,
+.info-card {
   border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 32px;
-  background: rgba(16, 24, 39, 0.76);
+  border-radius: 30px;
+  background: var(--panel);
   box-shadow: 0 24px 90px rgba(0, 0, 0, 0.38);
 }
 
+.copy { padding: clamp(32px, 6vw, 62px); }
+
 .eyebrow {
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   color: var(--accent);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 h1 {
   margin: 0;
-  font-size: clamp(3.2rem, 12vw, 8rem);
-  line-height: 0.9;
+  font-size: clamp(3.4rem, 10vw, 7.6rem);
+  line-height: 0.86;
 }
 
 .claim {
-  max-width: 780px;
-  margin: 28px 0 0;
-  font-size: clamp(1.45rem, 3vw, 2.5rem);
-  line-height: 1.12;
+  max-width: 680px;
+  margin: 30px 0 0;
+  font-size: clamp(1.28rem, 2.6vw, 2.2rem);
+  line-height: 1.15;
 }
 
 .intro {
-  max-width: 760px;
+  max-width: 700px;
   color: var(--muted);
-  font-size: 1.12rem;
-  line-height: 1.65;
+  font-size: 1.08rem;
+  line-height: 1.66;
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
-  margin-top: 32px;
+  margin-top: 30px;
 }
 
 .actions a {
-  color: var(--bg);
-  background: var(--accent);
-  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   padding: 12px 18px;
   border-radius: 999px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
-.actions a + a {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.1);
+.actions a:first-child { color: #03110e; background: var(--accent); }
+.actions a:last-child { color: var(--text); background: rgba(255, 255, 255, 0.10); }
+
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
 }
+
+.status-strip span {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.86rem;
+}
+
+.terminal-card { overflow: hidden; background: var(--panel-strong); }
+
+.terminal-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.dots { display: flex; gap: 7px; }
+.dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.terminal-stage {
+  position: relative;
+  min-height: 520px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.terminal-output {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: clamp(5px, 0.72vw, 9px);
+  line-height: 1.05;
+  white-space: pre;
+  color: var(--accent);
+  transform-origin: center;
+  filter: drop-shadow(0 0 12px rgba(112, 225, 200, 0.22));
+}
+
+.terminal-caption {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 18px;
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(5, 8, 18, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.terminal-caption strong { color: var(--text); }
+.terminal-caption span { color: var(--muted); font-size: 0.92rem; }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
-  margin-top: 18px;
+  margin-top: 24px;
 }
 
-.grid article {
-  padding: 28px;
-  border-radius: 24px;
-  background: rgba(16, 24, 39, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.info-card { padding: 26px; }
+.info-card h2 { margin: 0 0 12px; font-size: 1.18rem; }
+.info-card p { margin: 0; color: var(--muted); line-height: 1.56; }
+
+@media (max-width: 920px) {
+  .hero,
+  .grid { grid-template-columns: 1fr; }
+  .terminal-stage { min-height: 430px; }
 }
 
-.grid h2 {
-  margin: 0 0 12px;
-}
-
-.grid p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-@media (max-width: 760px) {
-  .page {
-    padding: 24px 0;
-  }
-
-  .hero {
-    padding: 32px 24px;
-  }
-
-  .grid {
-    grid-template-columns: 1fr;
-  }
+@media (max-width: 560px) {
+  .page { width: min(100% - 20px, 1180px); padding-top: 22px; }
+  .copy { padding: 26px 20px; }
+  .terminal-stage { min-height: 330px; padding: 14px; }
+  .terminal-output { font-size: 4.5px; }
 }
