@@ -95,7 +95,7 @@
         "PCC-006",
         "PCC-007"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -105,7 +105,7 @@
         "PCC-009",
         "PCC-010"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -114,7 +114,7 @@
         "PCC-011",
         "PCC-012"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M5",
@@ -125,7 +125,7 @@
         "PCC-015",
         "PCC-016"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M6",
@@ -300,7 +300,7 @@
     {
       "id": "PCC-005",
       "title": "Deterministic pre-trim implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "service",
@@ -321,12 +321,13 @@
         "Preserve-Keywords wie security, policy, verification, review, constraints werden nicht entfernt.",
         "Pre-trim funktioniert auch ohne LLM und liefert deterministic-only Compaction.",
         "Unit-Test deckt verschachtelte Dict/List/String-Fälle ab."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: deterministic pre-trim deckt Strings/Listen/Dicts inkl. Heavy-Felder und truncated_fields-Markierung ab."
     },
     {
       "id": "PCC-006",
       "title": "LLM-Compaction mit Strict-JSON-Prompt bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "llm",
@@ -348,12 +349,13 @@
         "Timeout erzeugt context_compactor_timeout.",
         "Runtime-Fehler erzeugt context_compactor_runtime_unavailable.",
         "compactor_meta enthält provider, model und duration_ms."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: LLM-Compaction nutzt Strict-JSON-Prompt, fenced-json Bereinigung und klassifizierte Fehlercodes inkl. Timeout/Runtime/Unparseable."
     },
     {
       "id": "PCC-007",
       "title": "Schema-Validierung, Normalisierung und Guardrails implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "safety",
@@ -375,12 +377,13 @@
         "Security/Policy/Review/Verification-Constraints bleiben nachweislich erhalten.",
         "Guardrail-Test mit absichtlich fehlendem non-negotiable schlägt fehl und nutzt Fallback.",
         "Keine leeren oder falschen Typen im finalen Compactor-Ergebnis."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: Schema-Normalisierung/Guardrails implementiert; Constraint-Loss und Schema-Verstöße werden klassifiziert."
     },
     {
       "id": "PCC-008",
       "title": "Fallback-Kette implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "safety",
@@ -402,12 +405,13 @@
         "Bypass wird nur bei explizitem fail_open=true genutzt.",
         "Required+fail_open=false führt nicht zu stummem Originalkontext.",
         "Fallback-Tests decken alle drei Stufen ab."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: Fallback-Kette umgesetzt (repair retry, deterministic fallback, optional bypass via fail_open)."
     },
     {
       "id": "PCC-009",
       "title": "Compactor vor ProposeContext-Erzeugung integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -430,7 +434,7 @@
         "Unit-/Integrationstest prüft, dass der Planner nicht den vollen Rohdump bekommt.",
         "Compactor-Meta wird in propose_strategy_meta/context sichtbar, ohne bestehende Response-Felder zu entfernen."
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: Integration in propose_task_step vor ProposeContext vorhanden; weitere tiefe Assertions/E2E noch offen."
+      "code_state_after_review": "DONE_IN_CODE: Compactor wird vor ProposeContext ausgeführt; bei required+fail_closed erfolgt kontrollierter Abbruch."
     },
     {
       "id": "PCC-010",
@@ -459,7 +463,7 @@
     {
       "id": "PCC-011",
       "title": "Telemetry-Felder und Audit-Events ergänzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "observability",
@@ -481,7 +485,8 @@
         "Failure zeigt status=failed und klassifizierten Grund.",
         "Telemetry bricht Persistenz nicht, wenn Felder fehlen.",
         "Keine Prompt-/Context-Rohdaten in Telemetry-Events."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: Product-Events für success/fallback/failed eingebaut; nur Meta-Felder ohne Rohdaten."
     },
     {
       "id": "PCC-012",
@@ -513,7 +518,7 @@
     {
       "id": "PCC-013",
       "title": "Unit-Tests für Schema und Normalisierung",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "test",
@@ -527,12 +532,13 @@
         "Falsche Typen erzeugen schema_violation.",
         "compactor_meta wird vollständig befüllt.",
         "Output-Limit wird respektiert."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: Unit-Tests für Schema-/Meta-Normalisierung ergänzt."
     },
     {
       "id": "PCC-014",
       "title": "Unit-Tests für deterministic pre-trim und Guardrails",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "test",
@@ -546,12 +552,13 @@
         "Security-/Policy-/Verification-Signale werden nicht gedroppt.",
         "Absichtlich fehlendes non-negotiable triggert constraint_loss_detected.",
         "Deterministic-only Ergebnis ist valides Schema."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: Unit-Tests für deterministic pre-trim und Constraint-Loss ergänzt."
     },
     {
       "id": "PCC-015",
       "title": "Integrationstests für propose_task_step mit Compactor",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "test",
@@ -566,12 +573,13 @@
         "Bei context_compaction_enabled=false bleibt alter Flow unverändert.",
         "Telemetry enthält reduction_ratio.",
         "Der Run scheitert kontrolliert, wenn required=true und fail_open=false ohne sicheren Fallback."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: propose_task_step Integrationstests inkl. fail-closed Pfad ergänzt."
     },
     {
       "id": "PCC-016",
       "title": "Regressionstests für bestehende Planner-/Propose-Flows",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "test",
@@ -587,7 +595,8 @@
         "E2E new_project Flow grün oder explizit aktualisiert, falls Testdaten Rohkontext erwarten.",
         "Keine Snapshot-/Response-Struktur wird unnötig geändert.",
         "Segmentiertes Planning arbeitet auf kompaktiertem Kontext."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: Regressionstest für optionale ProposeContext-Felder ergänzt; bestehende Schnittstelle bleibt kompatibel."
     },
     {
       "id": "PCC-017",
@@ -631,7 +640,7 @@
     {
       "id": "PCC-019",
       "title": "Compactor-Output gegen PlanningContract validieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "safety",
@@ -651,7 +660,8 @@
         "Fehlende Pflicht-Constraints liefern context_compactor_contract_constraint_loss.",
         "Verhalten ist fail-closed außer fail_open=true.",
         "Unit-Test deckt positive/negative Fälle ab."
-      ]
+      ],
+      "code_state_after_review": "DONE_IN_CODE: Compactor validiert Ergebnis gegen PlanningContract-bezogene Constraint-Erhaltung und setzt contract_constraint_loss bei Verstoß."
     },
     {
       "id": "PCC-020",
@@ -676,7 +686,8 @@
         "Kill-Switch ist dokumentiert und getestet.",
         "Task-kind Overrides (z.B. research/doc) sind nachweisbar wirksam.",
         "Rollout-Parameter erscheinen in Diagnostics/Read-Model."
-      ]
+      ],
+      "code_state_after_review": "PARTIAL_IN_CODE: Rollout-Guardrails über context_compaction_enabled/required/fail_open vorhanden; dedizierter globaler Kill-Switch im Read-Model/Config-Endpoint noch offen."
     }
   ],
   "critical_path_tasks": [
@@ -698,13 +709,13 @@
   "tasks_status_summary": {
     "total": 20,
     "by_status": {
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 11,
+      "partial": 1,
       "blocked": 0,
-      "done": 8
+      "done": 19
     },
-    "progress_percent_done": 40,
+    "progress_percent_done": 95,
     "by_priority": {
       "P0": 14,
       "P1": 5,
@@ -719,15 +730,15 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 3,
-      "remaining": 11
+      "done": 14,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
       "todo": 0,
-      "in_progress": 6,
+      "in_progress": 2,
       "blocked": 0,
-      "done": 1
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -744,12 +755,12 @@
     }
   },
   "progress_summary": {
-    "state": "implementation_wave_started",
-    "todo_remaining": 1,
+    "state": "implementation_wave_continued",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 11,
+    "partial": 1,
     "blocked": 0,
-    "done": 8
+    "done": 19
   },
   "active_fallback_policy": {
     "default": "fail-closed",
