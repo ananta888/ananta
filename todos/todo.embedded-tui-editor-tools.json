@@ -532,12 +532,24 @@
     },
     {
       "id": "E006-cli-open-and-tool-commands",
+      "status": "done",
       "title": "Add CLI commands for editor and embedded TUI tool launch",
       "summary": "Expose editor/tool launch functionality through CLI shortcuts for direct workflows.",
       "files": [
-        "agent/cli_goals.py",
-        "docs/cli/commands.md",
+        "agent/cli/commands/tui_editor.py",
+        "agent/cli/commands/tmux.py",
+        "agent/cli/main.py",
         "tests/test_cli_tui_tool_commands.py"
+      ],
+      "implemented": {
+        "agent/cli/commands/tui_editor.py": "dispatch() with mutually-exclusive --open/--tool argparse group. _open_file() validates workspace, resolves editor, builds argv via EditorResolver. _launch_tool() looks up registry profile, substitutes {workspace}. _default_exec() uses os.execvp(). _exec_fn injectable for testing.",
+        "agent/cli/commands/tmux.py": "ananta tmux with edit/tool subcommands. Reuses _open_file() and _launch_tool() from tui_editor. _default_exec() identical pattern. Separate dispatch() entry point.",
+        "agent/cli/main.py": "Added 'tmux' to CORE_COMMANDS, _run_tmux() function, dispatch to tmux.dispatch. Modified _run_tui() to intercept --open/--tool before routing to operator TUI.",
+        "tests/test_cli_tui_tool_commands.py": "22 tests: tui --open default/nvim/readonly, workspace rejection, path traversal, relative path, --tool known/unknown, mutual exclusion, tmux edit/tool, main.py integration tests for both commands."
+      },
+      "deviations": [
+        "agent/cli_goals.py not modified — CLI commands placed in agent/cli/commands/tui_editor.py and agent/cli/commands/tmux.py following existing domain-command pattern.",
+        "docs/cli/commands.md update deferred to E008."
       ],
       "details": [
         "Add ananta tui --open <file>.",
@@ -558,6 +570,7 @@
     },
     {
       "id": "E007-frontend-configuration-ui",
+      "status": "todo",
       "title": "Add optional UI for editor/tool configuration",
       "summary": "Expose default editor and filetype mappings in the Angular frontend where appropriate.",
       "files": [
@@ -583,6 +596,7 @@
     },
     {
       "id": "E008-documentation",
+      "status": "todo",
       "title": "Document embedded TUI tools and editor routing",
       "summary": "Add documentation for default editor behavior, filetype mapping, safe custom tools and examples.",
       "files": [
@@ -689,8 +703,16 @@
   "open_questions": [
     "Should the default be classic Vim or Neovim when both are installed?",
     "Should Ananta provide a built-in minimal editor fallback if Vim is missing?",
-    "Should filetype editor mappings be project-committed, user-local or both?",
-    "Should model/agent-generated file-open suggestions be allowed to trigger editor launch automatically, or always require user confirmation?",
+    {
+      "question": "Should filetype editor mappings be project-committed, user-local or both?",
+      "resolved": true,
+      "answer": "Both. TuiToolRegistry supports 3-layer merge: global → user ~/.config/ananta/tui-tools.json → project .ananta/tui-tools.json. Both scopes are active simultaneously with project taking highest priority."
+    },
+    {
+      "question": "Should model/agent-generated file-open suggestions be allowed to trigger editor launch automatically, or always require user confirmation?",
+      "resolved": true,
+      "answer": "Always require user confirmation. EmbeddedToolSessionService enforces TuiToolPolicy — no auto-launch from untrusted model output. This is listed as a hard_deny in the security model."
+    },
     "Should remote production sessions force read-only mode for some file classes such as secrets, env files and deployment configs?"
   ]
 }
