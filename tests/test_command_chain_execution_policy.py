@@ -207,3 +207,47 @@ def test_backtick_is_blocked():
     assert code == -1
     assert shell.commands == []
 
+
+def test_pipeline_mode_requires_policy_allow_complex_shell_mode():
+    svc = TaskExecutionService()
+    shell = _StubShell()
+    with (
+        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
+    ):
+        result = svc.execute_local_step(
+            tid="SCG-CPLX-1",
+            task={"worker_execution_context": {"shell_command_mode": "pipeline"}},
+            command="cat a | grep x",
+            tool_calls=None,
+            execution_policy=_policy(),
+            guard_cfg={
+                "execution_risk_policy": {"enabled": True, "task_scoped_only": False},
+                "shell_command_policy": {"allow_complex_shell_mode": False},
+            },
+        )
+    assert result.exit_code == -1
+    assert shell.commands == []
+
+
+def test_pipeline_mode_allows_complex_shell_when_policy_enabled():
+    svc = TaskExecutionService()
+    shell = _StubShell()
+    shell.outputs = {"cat a | grep x": ("ok", 0)}
+    with (
+        patch("agent.services.task_execution_service.get_shell", return_value=shell),
+        patch("agent.services.task_execution_service.evaluate_execution_risk", side_effect=_allow_risk),
+    ):
+        result = svc.execute_local_step(
+            tid="SCG-CPLX-2",
+            task={"worker_execution_context": {"shell_command_mode": "pipeline"}},
+            command="cat a | grep x",
+            tool_calls=None,
+            execution_policy=_policy(),
+            guard_cfg={
+                "execution_risk_policy": {"enabled": True, "task_scoped_only": False},
+                "shell_command_policy": {"allow_complex_shell_mode": True},
+            },
+        )
+    assert result.exit_code == 0
+    assert shell.commands == ["cat a | grep x"]
