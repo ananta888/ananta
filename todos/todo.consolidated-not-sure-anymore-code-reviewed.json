@@ -42,6 +42,18 @@
     {
       "finding": "Raw Prompt Access Policy war in alter PTI-Datei als completed markiert, aber prompt_trace_access_policy wurde nicht gefunden; daher neuer Korrektur-Task.",
       "evidence": "Code-Suche nach prompt_trace_access_policy/raw_access"
+    },
+    {
+      "finding": "Raw Prompt Access Policy ist im Code vorhanden (PromptTraceAccessPolicy + Debug-Route + Audit-Event), daher ist der frühere NOT_FOUND-Befund veraltet.",
+      "evidence": "agent/services/prompt_trace_access_policy.py, agent/routes/debug/prompt_traces.py"
+    },
+    {
+      "finding": "Der alte Ordner todos/not-sure-anymore existiert nicht mehr; Archivzustand wurde bereits bereinigt.",
+      "evidence": "Filesystem-Stand: todos/not-sure-anymore fehlt, todos/archiv vorhanden"
+    },
+    {
+      "finding": "Planning-Deadline-Guard ist bereits als Funktionspfad in goals.py vorhanden; es fehlt primär die Extraktion in einen dedizierten Service.",
+      "evidence": "agent/routes/tasks/goals.py:_start_planning_deadline_guard"
     }
   ],
   "status_scale": [
@@ -72,7 +84,7 @@
         "CONS-003",
         "CONS-004"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M2",
@@ -87,7 +99,7 @@
         "CONS-011",
         "CONS-012"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M3",
@@ -98,7 +110,7 @@
         "CONS-015",
         "CONS-016"
       ],
-      "status": "partial"
+      "status": "in_progress"
     },
     {
       "id": "M4",
@@ -110,7 +122,7 @@
         "CONS-020",
         "CONS-021"
       ],
-      "status": "partial"
+      "status": "in_progress"
     },
     {
       "id": "M5",
@@ -121,7 +133,7 @@
         "CONS-024",
         "CONS-025"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -212,7 +224,7 @@
     {
       "id": "CONS-004",
       "title": "Planning Deadline Guard in PlanningTimeoutService kapseln",
-      "status": "todo",
+      "status": "partial",
       "priority": "high",
       "risk": "medium",
       "type": "refactor",
@@ -224,7 +236,7 @@
         "agent/services/goal_lifecycle_service.py",
         "tests/test_planning_timeout_service.py"
       ],
-      "code_state_after_review": "NOT_FOUND_IN_CODE: Suche nach PlanningTimeoutService/planning_deadline_guard_timeout findet nur alte TODO.",
+      "code_state_after_review": "PARTIAL_IN_CODE: _start_planning_deadline_guard existiert in agent/routes/tasks/goals.py und nutzt goal_lifecycle_service.transition_goal; dedizierter PlanningTimeoutService fehlt weiterhin.",
       "source_origin": [
         "todo.latest-commits-improvements.json"
       ],
@@ -297,7 +309,7 @@
     {
       "id": "CONS-007",
       "title": "Cancelled/terminale Goals vor Dispatch, Proposal und Execution hart blockieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "critical",
       "risk": "high",
       "type": "bugfix",
@@ -310,7 +322,7 @@
         "agent/services/goal_lifecycle_service.py",
         "tests/test_cancelled_goal_task_execution_guard.py"
       ],
-      "code_state_after_review": "OPEN: Kein zentraler Parent-Goal-Active-Guard im Codeabgleich bestätigt.",
+      "code_state_after_review": "PARTIAL_IN_CODE: Terminal-Goal-Guards existieren in autopilot_tick_engine vor Dispatch; zentraler Guard über alle späten Worker-Result-Pfade bleibt zu verifizieren.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -511,7 +523,7 @@
         "agent/services/task_runtime_service.py",
         "tests/test_e2e_workspace_artifact_flow.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: WorkerWorkspaceService enthält ignored workspace segments, non-artifact paths und Snapshot-/Diff-Helfer.",
+      "code_state_after_review": "PARTIAL_IN_CODE: tests/test_e2e_workspace_artifact_flow.py und workspace artifact sync sind vorhanden; End-to-End-Abdeckung inkl. Goal-Completion-Entscheid bleibt offen.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -558,7 +570,7 @@
     {
       "id": "CONS-016",
       "title": "Workspace Context Manifest in Task/Goal-Diagnostics sichtbar machen",
-      "status": "todo",
+      "status": "partial",
       "priority": "medium",
       "risk": "low",
       "type": "observability",
@@ -570,7 +582,7 @@
         "agent/routes/tasks/goals.py",
         "tests/test_workspace_context_manifest.py"
       ],
-      "code_state_after_review": "OPEN: Im Abgleich nicht als dedizierte Diagnostics-/Manifest-Funktion bestätigt.",
+      "code_state_after_review": "PARTIAL_IN_CODE: Task-/Execution-Metadata enthält workspace_dir/artifacts_dir/rag_helper_dir; explizites Goal-weites Workspace-Manifest fehlt noch als dedizierter Report.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -628,7 +640,7 @@
       "files": [
         "agent/routes/config/llm_generate.py",
         "agent/tool_capabilities.py",
-        "agent/tools/registry.py",
+        "agent/tools.py",
         "agent/services/context_delivery_service.py",
         "tests/test_prompt_trace_context_tool_provenance.py"
       ],
@@ -650,7 +662,7 @@
     {
       "id": "CONS-019",
       "title": "PromptTrace Sensitivity und LLM-Scope Policy integrieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "critical",
       "risk": "high",
       "type": "security",
@@ -663,7 +675,7 @@
         "agent/services/context_delivery_service.py",
         "tests/test_prompt_trace_sensitivity_scope.py"
       ],
-      "code_state_after_review": "OPEN: PromptTrace enthält llm_scope/sensitivity_level-Felder, aber Policy-Integration ist nicht belegt.",
+      "code_state_after_review": "PARTIAL_IN_CODE: llm_scope/sensitivity-Kontexte sind in context_delivery/context_file_selector/rag_policy und PromptTrace-Feldern vorhanden; vollständige Policy-gebundene Trace-Assertions fehlen noch.",
       "source_origin": [
         "todo.prompt-trace-inspection.json",
         "single_hermes_free_models_scenario.json"
@@ -683,7 +695,7 @@
     {
       "id": "CONS-020",
       "title": "Raw Prompt Access Policy wirklich implementieren oder alte completed-Markierung korrigieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "critical",
       "risk": "high",
       "type": "security",
@@ -694,7 +706,7 @@
         "agent/routes/debug/prompt_traces.py",
         "tests/test_prompt_trace_raw_access_policy.py"
       ],
-      "code_state_after_review": "MISMATCH: Alte TODO sagt completed; Code-Suche findet nur die alte TODO, keine prompt_trace_access_policy Implementierung.",
+      "code_state_after_review": "PARTIAL_IN_CODE: prompt_trace_access_policy.py, Debug-Route-Integration und Audit-Event prompt_trace_raw_access existieren; Grant-/Denied-Matrix muss noch vollständig testbar abgesichert werden.",
       "source_origin": [
         "todo.prompt-trace-inspection.json"
       ],
@@ -722,7 +734,7 @@
         "agent/routes/debug/prompt_traces.py",
         "agent/cli/main.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: Tests test_prompt_trace_api.py und test_cli_prompt_inspect.py existieren; vollständige Endpunktabdeckung muss geprüft werden.",
+      "code_state_after_review": "PARTIAL_IN_CODE: tests/test_prompt_trace_api.py und tests/test_cli_prompt_inspect.py existieren; vollständige Gleichheit API/CLI für Raw-Policy bleibt Restarbeit.",
       "source_origin": [
         "todo.prompt-trace-inspection.json"
       ],
@@ -747,10 +759,11 @@
       "milestone": "M5",
       "summary": "single_hermes_free_models_scenario.json ist fachlich nützlich, aber keine Track-TODO. Es soll als Scenario-Datei validiert werden.",
       "files": [
+        "todos/single_hermes_free_models_scenario.json",
         "scripts/scenarios/hermes_free_models_small_task.json",
         "tests/test_hermes_free_models_scenario.py"
       ],
-      "code_state_after_review": "MISMATCH: Datei ist Scenario-JSON ohne todo.track.schema-Struktur und liegt in todos/not-sure-anymore.",
+      "code_state_after_review": "OPEN_MISSING_SOURCE: tests referenzieren todos/single_hermes_free_models_scenario.json, Datei fehlt aktuell; Zielszenario unter scripts/scenarios/ ist ebenfalls noch nicht vorhanden.",
       "source_origin": [
         "single_hermes_free_models_scenario.json"
       ],
@@ -766,7 +779,7 @@
     {
       "id": "CONS-023",
       "title": "Hermes read-only Routing als Regressionstest ergänzen",
-      "status": "todo",
+      "status": "partial",
       "priority": "medium",
       "risk": "medium",
       "type": "test",
@@ -777,7 +790,7 @@
         "agent/services/config_profile_service.py",
         "agent/services/task_scoped_execution_service.py"
       ],
-      "code_state_after_review": "PARTIAL: config_profile_service.py referenziert hermes_worker_adapter laut Suche; dedizierter Routing-Test fehlt im Abgleich.",
+      "code_state_after_review": "PARTIAL_IN_CODE: Hermes-Routing-/Read-only-Regressionen existieren (z. B. tests/test_hermes_free_model_routing.py); dedizierter konsolidierter Read-only-Routing-Test als Einzelvertrag fehlt.",
       "source_origin": [
         "single_hermes_free_models_scenario.json",
         "todo.latest-commits-improvements.json"
@@ -797,7 +810,7 @@
     {
       "id": "CONS-024",
       "title": "E2E Scenario für lokalen Planner + OpenCode Worker bereinigen",
-      "status": "todo",
+      "status": "partial",
       "priority": "critical",
       "risk": "medium",
       "type": "config",
@@ -807,7 +820,7 @@
         "scripts/scenarios/opencode_local_planner_e2e.json",
         "tests/e2e/test_opencode_local_planner_goal_flow.py"
       ],
-      "code_state_after_review": "OPEN: Alte Datei ist scenario-spezifisch und liegt in not-sure-anymore; neue konsolidierte Scenario-Datei fehlt.",
+      "code_state_after_review": "PARTIAL_IN_CODE: scripts/single_opencode_scenario.json existiert als Vorläufer; konsolidiertes Szenario opencode_local_planner_e2e.json samt passendem e2e-Test fehlt.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -828,17 +841,17 @@
     {
       "id": "CONS-025",
       "title": "Alte not-sure-anymore TODOs nach Migration archivieren oder ersetzen",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "low",
       "type": "cleanup",
       "milestone": "M5",
       "summary": "Nach Erstellung und Validierung der neuen konsolidierten TODO sollen die alten Dateien nicht weiter als konkurrierende Aufträge herumliegen.",
       "files": [
-        "todos/not-sure-anymore/*.json",
-        "todos/archiv/README.md"
+        "todos/archiv/",
+        "todos/todo.consolidated-not-sure-anymore-code-reviewed.json"
       ],
-      "code_state_after_review": "OPEN: Alte Dateien existieren weiter.",
+      "code_state_after_review": "DONE_IN_CODE: Verzeichnis todos/not-sure-anymore ist entfernt; Altdateien wurden unter todos/archiv konsolidiert. Optional: README-Index ergänzen.",
       "source_origin": [
         "all four source files"
       ],
@@ -873,13 +886,13 @@
   "tasks_status_summary": {
     "total": 25,
     "by_status": {
-      "todo": 19,
+      "todo": 11,
       "in_progress": 0,
-      "partial": 6,
+      "partial": 13,
       "blocked": 0,
-      "done": 0
+      "done": 1
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 4,
     "by_priority": {
       "critical": 10,
       "high": 8,
@@ -897,11 +910,11 @@
     },
     "milestones": {
       "total": 5,
-      "todo": 3,
-      "in_progress": 0,
+      "todo": 0,
+      "in_progress": 5,
       "blocked": 0,
       "done": 0,
-      "partial": 2
+      "partial": 0
     }
   },
   "tasks_type_summary": {
@@ -918,12 +931,12 @@
     }
   },
   "progress_summary": {
-    "state": "code-reviewed-consolidated-open",
-    "todo_remaining": 19,
+    "state": "code-reviewed-reconciled",
+    "todo_remaining": 11,
     "in_progress": 0,
-    "partial": 6,
+    "partial": 13,
     "blocked": 0,
-    "done": 0
+    "done": 1
   },
   "execution_stage_summary": {
     "first_implementation_order": [
