@@ -4,6 +4,9 @@ from typing import Any
 
 from agent.services.repository_registry import get_repository_registry
 
+# Role/Team template resolution is execution-context enrichment only.
+# It does not create planning subtasks and must not mutate planning templates.
+
 
 def _read_value(item: Any, key: str) -> Any:
     if isinstance(item, dict):
@@ -21,6 +24,7 @@ def resolve_task_role_template(task: Any, repos: Any = None) -> dict[str, str | 
     role_name = ""
     template_id = ""
     template_name = ""
+    template_prompt = ""
     team_name = ""
 
     members = []
@@ -70,12 +74,14 @@ def resolve_task_role_template(task: Any, repos: Any = None) -> dict[str, str | 
             template = None
         if template is not None:
             template_name = str(getattr(template, "name", "") or "").strip()
+            template_prompt = str(getattr(template, "prompt_template", "") or "").strip()
 
     return {
         "role_id": role_id or None,
         "role_name": role_name or None,
         "template_id": template_id or None,
         "template_name": template_name or None,
+        "template_prompt": template_prompt or None,
         "team_id": team_id or None,
         "team_name": team_name or None,
     }
