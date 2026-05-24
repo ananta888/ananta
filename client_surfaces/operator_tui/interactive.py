@@ -57,7 +57,9 @@ class InteractiveOperatorTui:
             from agent.cli.splash import SplashState
             if ctx.state in (SplashState.DISABLED, SplashState.SKIPPED, SplashState.COMPACT_HEADER):
                 break
-            self._set_state(self.state)
+            self._splash.tick()
+            self._output.text = self._render()
+            self._app.invalidate()
             await asyncio.sleep(0.1)
 
     def _build_keybindings(self) -> KeyBindings:
