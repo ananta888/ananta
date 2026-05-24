@@ -262,6 +262,7 @@ Kernaussage:
 - CLI Quickstart: `docs/setup/quickstart.md`
 - CLI Befehlsuebersicht (Nutzerpfad): `docs/cli/commands.md`
 - Developer-Fallback Entry Points: `docs/cli/developer_entrypoints.md`
+- Terminal Banner (ANSI Logo): `docs/development/terminal-logo.md` — zeigt das SVG-basierte Logo auf `ananta status` und der Willkommensseite; steuerbar via `ANANTA_NO_BANNER` und `NO_COLOR`.
 
 ## Einfache CLI- und API-Beispiele
 

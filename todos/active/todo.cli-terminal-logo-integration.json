@@ -30,26 +30,26 @@
       "id": "M1",
       "title": "Clean up temporary committed artifacts",
       "task_ids": ["CLI-LOGO-001", "CLI-LOGO-002"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
       "title": "Create maintained banner implementation",
       "task_ids": ["CLI-LOGO-003", "CLI-LOGO-004", "CLI-LOGO-005"],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M3",
       "title": "Integrate into CLI/TUI safely",
       "task_ids": ["CLI-LOGO-006", "CLI-LOGO-007", "CLI-LOGO-008"],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "CLI-LOGO-001",
       "title": "Remove committed .tmp terminal-logo artifacts from final repo state",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "type": "cleanup",
       "files": [
@@ -68,7 +68,7 @@
     {
       "id": "CLI-LOGO-002",
       "title": "Add or verify .gitignore rules for temporary logo output",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "type": "guardrail",
       "files": [
@@ -85,7 +85,7 @@
     {
       "id": "CLI-LOGO-003",
       "title": "Move terminal logo generator to maintained scripts path",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "type": "refactor",
       "files": [
@@ -105,7 +105,7 @@
     {
       "id": "CLI-LOGO-004",
       "title": "Create stable CLI banner module with ANSI and mono fallback",
-      "status": "todo",
+      "status": "done",
       "priority": "critical",
       "type": "feature",
       "files": [
@@ -127,7 +127,7 @@
     {
       "id": "CLI-LOGO-005",
       "title": "Preserve SVG-derived visual identity in generated assets",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "type": "quality",
       "files": [
@@ -149,7 +149,7 @@
     {
       "id": "CLI-LOGO-006",
       "title": "Integrate banner into CLI welcome/help path behind config flag",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "type": "feature",
       "files": [
@@ -170,7 +170,7 @@
     {
       "id": "CLI-LOGO-007",
       "title": "Add tests for banner selection and ANSI safety",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "type": "test",
       "files": [
@@ -190,7 +190,7 @@
     {
       "id": "CLI-LOGO-008",
       "title": "Document terminal logo generation and usage",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "type": "docs",
       "files": [
@@ -220,9 +220,9 @@
   ],
   "tasks_status_summary": {
     "total": 8,
-    "todo": 8,
+    "todo": 0,
     "partial": 0,
-    "done": 0,
+    "done": 8,
     "critical_path": [
       "CLI-LOGO-001",
       "CLI-LOGO-003",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 
@@ -51,8 +52,7 @@ def get_banner(
     if style != "auto" and style not in ("large", "medium", "mono"):
         style = "auto"
 
-    no_color = os.getenv("NO_COLOR") or os.getenv("ANANTA_NO_BANNER")
-    if no_color:
+    if os.getenv("ANANTA_NO_BANNER"):
         return ""
 
     if width is None:
@@ -62,7 +62,13 @@ def get_banner(
             width = 80
 
     if color is None:
-        color = not bool(os.getenv("NO_COLOR"))
+        if os.getenv("NO_COLOR"):
+            color = False
+        else:
+            try:
+                color = sys.stdout.isatty()
+            except OSError:
+                color = False
 
     if not color:
         return _MONO_90

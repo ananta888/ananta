@@ -280,6 +280,8 @@ def main(argv: list[str] | None = None) -> int:
     command = parsed.command
     rest = list(parsed.args)
     if not command:
+        from agent.cli.banner import print_banner
+        print_banner()
         parser.print_help()
         return 0
 
@@ -287,6 +289,8 @@ def main(argv: list[str] | None = None) -> int:
     if command == "init":
         return _run_init(rest)
     if command == "status":
+        from agent.cli.banner import print_banner
+        print_banner()
         return run_cli_goals(["--status", *rest])
     if command == "first-run":
         return run_cli_goals(["--first-run", *rest])
