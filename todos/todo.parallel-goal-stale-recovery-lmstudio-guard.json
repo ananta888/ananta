@@ -84,7 +84,7 @@
       "title": "Lease/Heartbeat fuer planning_running implementieren",
       "type": "implementation",
       "priority": "high",
-      "status": "open",
+      "status": "done",
       "depends_on": ["PRI-003"],
       "deliverables": [
         "Lease-Start beim Planning-Beginn",
@@ -95,14 +95,14 @@
         "Ohne Heartbeat verfaellt Lease nach TTL.",
         "Abgelaufene Runs werden automatisch in terminalen Zustand ueberfuehrt."
       ],
-      "notes": "worker_slot_lease.py und cleanup_stale_leases() existieren fuer Task-Ausfuehrung, aber NICHT fuer planning_running Goals. Infrastruktur kann wiederverwendet werden."
+      "notes": "Vollstaendig implementiert in agent/routes/tasks/goals.py: _set_planning_lease() (Z. 891), _clear_planning_lease() (Z. 911), _start_planning_heartbeat() (Z. 925) als eigener Thread. Lease wird beim Planning-Start gesetzt (Z. 1075), Heartbeat laeuft waehrend der Ausfuehrung (Z. 1077), Lease wird im finally-Block geloescht (Z. 1098). Deadline-Guard prueft planning_lease_expires_at (Z. 502-503) und markiert abgelaufene Runs als failed (Z. 829-832). planning_lease_expires_at ist DB-Feld in GoalDB."
     },
     {
       "id": "PRI-005",
       "title": "Deadline-Guards sauber trennen: Queue-Wait vs Execute-Timeout",
       "type": "implementation",
       "priority": "high",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["PRI-003", "PRI-004"],
       "deliverables": [
         "Eigener queue_wait_timeout",
@@ -112,14 +112,14 @@
         "Queue-Wartezeit triggert nicht planner_execute_timeout.",
         "Logs/Telemetry zeigen beide Zeiten separat."
       ],
-      "notes": "Teilweise erledigt: Deadline-Guard startet erst nach Slot-Acquire und planning_running-Transition (goals.py). Aber queue_wait_timeout und planner_execute_timeout sind noch ein gemeinsamer planning_timeout_s — separate Config-Felder und separate Telemetrie fehlen noch."
+      "notes": "Vollstaendig implementiert in agent/routes/tasks/goals.py Z. 1010-1058: planning_queue_wait_timeout_s und planning_execute_timeout_s sind separate Variablen. queue_wait_timeout_seconds aus planning_policy, Fallback auf planning_execute_timeout_s. _acquire_planning_slot() nutzt planning_queue_wait_timeout_s (Z. 1042). Telemetrie logt beide separat: queue_wait_timeout_seconds (Z. 1058) und execute_timeout_seconds (Z. 1122)."
     },
     {
       "id": "PRI-006",
       "title": "Preflight-Recovery vor Goal-Start",
       "type": "implementation",
       "priority": "medium",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["PRI-004"],
       "deliverables": [
         "Automatischer stale-run scan vor neuem Goal",
@@ -129,14 +129,14 @@
         "Neue Goal-Erstellung erkennt stale planning runs und bereinigt sie gemaess Policy.",
         "Recovery ist auditierbar (Events/Logs)."
       ],
-      "notes": "scripts/cleanup_stale_goals.py existiert mit cancel_stale_planned_goals() inkl. dry_run. Noch nicht als automatischer Preflight in den Goal-Create-Flow integriert."
+      "notes": "Vollstaendig integriert: _cancel_stale_planning_goals() (Z. 820 goals.py) wird beim Goal-Create als Preflight aufgerufen (Z. 720). Prueft planning_running/queued Goals mit abgelaufener planning_lease_expires_at und markiert sie cancelled mit reason PLANNING_PREFLIGHT_STALE_CANCELLED. Logt jeden Abbruch-Event."
     },
     {
       "id": "PRI-007",
       "title": "Goal-Purge und Goal-Cancel idempotent haerten",
       "type": "implementation",
       "priority": "high",
-      "status": "open",
+      "status": "partially_done",
       "depends_on": ["PRI-001"],
       "deliverables": [
         "Deterministischer Cancel-Ablauf pro Goal",
@@ -145,14 +145,15 @@
       "acceptance_criteria": [
         "Zweiter Purge-Aufruf auf bereits geloeschtes Goal liefert kontrollierte Antwort.",
         "Keine dangling tasks/runs nach erfolgreichem Purge."
-      ]
+      ],
+      "notes": "Teilweise: agent/services/goal_purge_service.py verwaltet worker_cancel_failures (Z. 40, 96-109, 226) und hat explizite Idempotenz-Behandlung fuer bereits-gecancelte Tasks. Offen: kein gezielter Test fuer Doppel-Purge-Szenario; dangling-task-Check nach Purge nicht explizit verifiziert."
     },
     {
       "id": "PRI-008",
       "title": "Worker-Abbruchsignal pro Task/Goal verbindlich machen",
       "type": "implementation",
       "priority": "high",
-      "status": "open",
+      "status": "partially_done",
       "depends_on": ["PRI-007"],
       "deliverables": [
         "Cancel-Signal an alle betroffenen Worker-Endpoints",
@@ -161,14 +162,15 @@
       "acceptance_criteria": [
         "Bei Goal-Cancel werden alle offenen Task-Auftraege aktiv gestoppt.",
         "Nicht erreichbare Worker erzeugen klare Fehlerereignisse, kein stilles Haengen."
-      ]
+      ],
+      "notes": "Infrastruktur vorhanden: agent/services/request_cancellation_service.py mit cancel_goal_requests(), cancel_task_requests(), cancel_all_requests() (Z. 89-117). worker_cancel_failures in goal_purge_service.py werden gesammelt und im Result gemeldet. Reason codes WORKER_CANCEL_ACK_TIMEOUT und WORKER_CANCEL_UNREACHABLE in planning_reason_codes.py definiert. Offen: aktive Retry-Logik fuer nicht erreichbare Worker fehlt noch; Ack-Timeout wird als Fehler geloggt aber nicht automatisch erneut versucht."
     },
     {
       "id": "PRI-009",
       "title": "LMStudio Circuit Breaker einfuehren",
       "type": "implementation",
       "priority": "high",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["PRI-003"],
       "deliverables": [
         "Failure window + threshold",
@@ -179,7 +181,7 @@
         "Bei wiederholten Timeout/5xx wird Circuit geoeffnet und Requests werden kurzfristig gebremst.",
         "Half-open testet kontrolliert und schliesst bei Erfolg."
       ],
-      "notes": "_check_circuit_breaker() in llm_integration.py vorhanden, circuit_breaker_threshold und circuit_breaker_open_seconds in config_defaults. Ob der Circuit Breaker explizit auf LMStudio-Planning-Calls wirkt, muss verifiziert werden."
+      "notes": "Vollstaendig implementiert: _check_circuit_breaker() (Z. 485), _report_llm_failure() (Z. 497), _report_llm_success() (Z. 511), get_circuit_breaker_state() (Z. 516) in agent/llm_integration.py. Circuit Breaker wird in _call_llm() (Z. 1127) gecheckt, das alle LLM-Calls inkl. Planning durchlaeuft. Open/Half-Open/Closed-Logik via Zeitfenster-Recovery. Config: circuit_breaker_threshold, circuit_breaker_open_seconds."
     },
     {
       "id": "PRI-010",
@@ -202,7 +204,7 @@
       "title": "Reason-Codes standardisieren (Stale, Timeout, Slot, Circuit, Cancel)",
       "type": "implementation",
       "priority": "medium",
-      "status": "in_progress",
+      "status": "mostly_done",
       "depends_on": ["PRI-005", "PRI-009"],
       "deliverables": [
         "Maschinenlesbare reason_codes",
@@ -212,14 +214,14 @@
         "Jeder Auto-Abbruchpfad liefert eindeutigen reason_code.",
         "CLI kann nach reason_code filtern."
       ],
-      "notes": "planning_slot_timeout, planning_deadline_guard_timeout, stale_released, stale_policy_decision vorhanden. Kein einheitliches Enum oder zentrales Mapping."
+      "notes": "Weitgehend implementiert: agent/planning_reason_codes.py ist vollstaendiges Modul mit 11 Konstanten (PLANNING_SLOT_TIMEOUT, PLANNING_BACKGROUND_TIMEOUT, PLANNING_DEADLINE_GUARD_TIMEOUT, PLANNING_BACKGROUND_EXCEPTION, PLANNING_STALE_RECOVERED, PLANNING_PREFLIGHT_STALE_CANCELLED, PLANNING_GOAL_CANCELLED, WORKER_CANCEL_ACK_TIMEOUT, WORKER_CANCEL_UNREACHABLE, CIRCUIT_BREAKER_OPEN, RATE_LIMIT_REJECTED) plus TERMINAL_REASON_CODES frozenset. Alle Planning-Abbruchpfade in goals.py verwenden diese Konstanten. Offen: kein Python-Enum (nur Modul-Konstanten), CLI-Filter nach reason_code fehlt noch (→ PRI-013)."
     },
     {
       "id": "PRI-012",
       "title": "Observability erweitern: Metriken und Health-Signale",
       "type": "implementation",
       "priority": "high",
-      "status": "open",
+      "status": "partially_done",
       "depends_on": ["PRI-004", "PRI-005", "PRI-009"],
       "deliverables": [
         "Metriken: planning_running_age, queue_wait_seconds, stale_runs_count, circuit_state, provider_error_rate",
@@ -228,24 +230,26 @@
       "acceptance_criteria": [
         "Metriken sind pro Runtime/Profil aufschluesselbar.",
         "Health zeigt klar, ob Blockade durch stale runs, slots oder provider ausgeloest wird."
-      ]
+      ],
+      "notes": "Basisinfrastruktur vorhanden: GET /goals/planning/health Endpoint in agent/routes/tasks/goals.py Z. 471, get_circuit_breaker_state() in llm_integration.py (Z. 516). Telemetrie logt queue_wait_timeout_seconds und execute_timeout_seconds pro Planning-Run. Offen: aggregierte Metriken (planning_running_age, stale_runs_count, provider_error_rate) per Profil fehlen; kein dedizierter Metriken-Aggregator oder Dashboard-Export."
     },
     {
       "id": "PRI-013",
       "title": "CLI Diagnose-Befehle fuer Recovery/Isolation",
       "type": "implementation",
       "priority": "medium",
-      "status": "open",
+      "status": "partially_done",
       "depends_on": ["PRI-011", "PRI-012"],
       "deliverables": [
-        "ananta goal --planning-stuck",
-        "ananta goal --recover-stale",
-        "ananta goal --cancel-tree <goal_id>"
+        "ananta goal planning-stuck (neue Domain-CLI)",
+        "ananta goal recover-stale (neue Domain-CLI)",
+        "ananta goal cancel-tree <goal_id> (neue Domain-CLI)"
       ],
       "acceptance_criteria": [
         "CLI listet stale planning runs inkl. Alter, Slot, Provider und reason_hint.",
         "Recover/Cleanup kann dry-run und execute."
-      ]
+      ],
+      "notes": "In altem Flat-CLI implementiert: agent/cli_goals.py planning_stuck() (Z. 1005), recover_stale() (Z. 1028), cancel_tree() (Z. 1061) mit --planning-stuck, --recover-stale, --cancel-tree Flags (Z. 1298-1338). Dry-run unterstuetzt. Offen: Noch nicht als ananta goal <subcommand> in der neuen Domain-CLI (agent/cli/commands/goal.py) verfuegbar. Migration von --flag zu Subcommand-Stil: ananta goal planning-stuck | ananta goal recover-stale | ananta goal cancel-tree <id>."
     },
     {
       "id": "PRI-014",
@@ -341,22 +345,25 @@
       "id": "M2",
       "title": "Stale-Recovery + sichere Abbrueche",
       "tasks": ["PRI-004", "PRI-005", "PRI-006", "PRI-007", "PRI-008"],
-      "status": "in_progress",
-      "done_when": "Haengende Runs werden automatisch oder manuell deterministisch bereinigt. Queue-Wait und Execute-Timeout sind getrennt messbar."
+      "status": "mostly_done",
+      "done_when": "Haengende Runs werden automatisch oder manuell deterministisch bereinigt. Queue-Wait und Execute-Timeout sind getrennt messbar.",
+      "notes": "PRI-004/005/006 done. PRI-007/008 partially_done (Idempotenz und Retry-Strategie fuer unreachbare Worker fehlen noch)."
     },
     {
       "id": "M3",
       "title": "Provider-Schutz LMStudio",
       "tasks": ["PRI-009", "PRI-010", "PRI-012"],
       "status": "in_progress",
-      "done_when": "Request-Stuerme werden verhindert und Zustand ist observierbar."
+      "done_when": "Request-Stuerme werden verhindert und Zustand ist observierbar.",
+      "notes": "PRI-009 done. PRI-012 partially_done. PRI-010 (Rate-Limit/Backpressure) noch open."
     },
     {
       "id": "M4",
       "title": "Qualitaet + Rollout",
       "tasks": ["PRI-011", "PRI-013", "PRI-014", "PRI-015", "PRI-016", "PRI-017", "PRI-018"],
       "status": "in_progress",
-      "done_when": "Tests, CLI-Diagnose, Doku und sicherer Rollout sind abgeschlossen."
+      "done_when": "Tests, CLI-Diagnose, Doku und sicherer Rollout sind abgeschlossen.",
+      "notes": "PRI-011 mostly_done. PRI-013 partially_done (in alter CLI, Migration zur Domain-CLI offen). PRI-014/015/016/017/018 noch open/in_progress."
     }
   ],
   "risk_register": [
