@@ -124,6 +124,27 @@ def _cmd_connect(args: argparse.Namespace, base_url: str, token: str | None) -> 
         )
 
     client = AnantaApiClient(base_url=base_url, token=token)
+    if not target_id:
+        try:
+            resp = client.get("/terminal/targets")
+            targets_payload = resp.json()
+            candidates = [
+                t for t in (targets_payload.get("targets") or [])
+                if t.get("target_type") == target_type and ((t.get("capabilities") or {}).get("create") is True)
+            ]
+            if len(candidates) > 1:
+                print(
+                    f"[ananta ssh] ambiguous target selection for target_type={target_type}. "
+                    "Use --target-id explicitly.",
+                    file=sys.stderr,
+                )
+                return 1
+            if len(candidates) == 1:
+                target_id = str(candidates[0].get("target_id") or target_type)
+        except Exception as exc:
+            print(f"[ananta ssh] target resolution failed: {exc}", file=sys.stderr)
+            return 1
+
     try:
         resp = client.post("/terminal/sessions", {
             "target_type": target_type,

@@ -35,3 +35,21 @@ def test_wrapper_denies_direct_shell_for_managed_target(monkeypatch):
 
     code = wrapper.run(ctx=ctx)
     assert code == 1
+
+
+def test_wrapper_worker_principal_cannot_access_hub():
+    wrapper = stw.AnantaSshTerminalWrapper()
+    ctx = WrapperContext(
+        user_id="u1",
+        principal="ananta-worker-u1",
+        target_type="hub",
+        target_id="hub",
+        workspace_path=None,
+        goal_id=None,
+        task_id=None,
+        operation="create",
+        session_id=None,
+    )
+    decision = wrapper._evaluate_policy(ctx, wrapper._build_user_ctx_from_principal(ctx))
+    assert decision.allowed is False
+    assert decision.reason_code == "ssh_wrapper_worker_principal_cannot_access_hub"
