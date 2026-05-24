@@ -3,10 +3,14 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from flask import Blueprint, Flask, jsonify, request
+from flask import Blueprint, Flask, Response, jsonify, request, stream_with_context
 from werkzeug.exceptions import BadRequest
 
 from agent.services.llm_interceptor.config_schema import LlmInterceptorConfig
+from agent.services.llm_interceptor.policy_engine import PolicyEngine
+from agent.services.llm_interceptor.provider_router import ProviderRouter
+from agent.services.llm_interceptor.request_envelope import build_request_envelope
+from agent.services.llm_interceptor.secret_redactor import SecretRedactor
 
 
 def _error_response(message: str, *, code: str, status: int = 400):
@@ -25,6 +29,9 @@ class OpenAICompatInterceptorServer:
 
     def __init__(self, cfg: LlmInterceptorConfig) -> None:
         self.cfg = cfg
+        self._router = ProviderRouter(cfg)
+        self._policy = PolicyEngine(cfg.policy.model_dump())
+        self._redactor = SecretRedactor(cfg.redaction.model_dump())
 
     def _models_payload(self) -> dict[str, Any]:
         items: list[dict[str, Any]] = []
@@ -71,24 +78,26 @@ class OpenAICompatInterceptorServer:
                 return _error_response("model_required", code="model_required", status=400)
             if not isinstance(messages, list) or not messages:
                 return _error_response("messages_required", code="messages_required", status=400)
+            envelope = build_request_envelope(payload=payload, headers=dict(request.headers))
+            upstream = self._router.resolve_upstream(model=model)
+            decision = self._policy.evaluate(envelope=envelope.as_dict(), upstream_trust_level=upstream.trust_level)
+            if decision.action in {"deny", "local_only"} and upstream.trust_level == "cloud":
+                return _error_response("policy_denied", code="policy_denied", status=403)
 
-            # MVP skeleton: shape-compatible deterministic response.
-            created = int(time.time())
-            content = "interceptor_mvp_ack"
-            return {
-                "id": f"chatcmpl-interceptor-{created}",
-                "object": "chat.completion",
-                "created": created,
-                "model": model,
-                "choices": [
-                    {
-                        "index": 0,
-                        "finish_reason": "stop",
-                        "message": {"role": "assistant", "content": content},
-                    }
-                ],
-                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            }
+            redacted_messages, _meta = self._redactor.redact_messages(messages)
+            forwarded = dict(payload)
+            forwarded["messages"] = redacted_messages
+
+            if bool(payload.get("stream", False)):
+                try:
+                    stream_iter = self._router.forward_chat_stream(payload=forwarded)
+                except ValueError as exc:
+                    return _error_response(str(exc), code="upstream_error", status=502)
+                return Response(stream_with_context(stream_iter), mimetype="text/event-stream")
+            try:
+                return self._router.forward_chat(payload=forwarded)
+            except ValueError as exc:
+                return _error_response(str(exc), code="upstream_error", status=502)
 
         return bp
 
@@ -119,4 +128,3 @@ class OpenAICompatInterceptorServer:
 
 def create_interceptor_app(cfg: LlmInterceptorConfig) -> Flask:
     return OpenAICompatInterceptorServer(cfg).create_app()
-

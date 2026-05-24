@@ -57,7 +57,16 @@ def test_chat_completions_rejects_missing_messages_or_model():
 
 
 def test_chat_completions_accepts_valid_body_and_returns_openai_shape():
-    app = OpenAICompatInterceptorServer(_cfg()).create_app()
+    server = OpenAICompatInterceptorServer(_cfg())
+    app = server.create_app()
+    server._router.forward_chat = lambda **_kwargs: {
+        "id": "chatcmpl-1",
+        "object": "chat.completion",
+        "created": 1,
+        "model": "intercepted-coder",
+        "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": "ok"}}],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+    }
     client = app.test_client()
     resp = client.post(
         "/v1/chat/completions",
@@ -72,3 +81,17 @@ def test_chat_completions_accepts_valid_body_and_returns_openai_shape():
     assert isinstance(body.get("choices"), list)
     assert body["choices"][0]["message"]["role"] == "assistant"
 
+
+def test_streaming_passthrough_returns_sse():
+    server = OpenAICompatInterceptorServer(_cfg())
+    app = server.create_app()
+    server._router.forward_chat_stream = lambda **_kwargs: iter(["data: {\"id\":\"1\"}\n\n", "data: [DONE]\n\n"])
+    client = app.test_client()
+    resp = client.post(
+        "/v1/chat/completions",
+        json={"model": "intercepted-coder", "messages": [{"role": "user", "content": "hello"}], "stream": True},
+    )
+    assert resp.status_code == 200
+    assert resp.mimetype == "text/event-stream"
+    body = resp.get_data(as_text=True)
+    assert "data: [DONE]" in body
