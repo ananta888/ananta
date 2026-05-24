@@ -1,0 +1,970 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Peter Stuiber / ananta",
+  "track": "todo.consolidated-not-sure-anymore-code-reviewed",
+  "purpose": "Konsolidierte, code-abgeglichene Nachfolge-TODO aus todos/not-sure-anymore. Entfernt erledigte/duplizierte Punkte, markiert vorhandene Implementierungen als partial und ergänzt fehlende harte Stabilitäts-, Security- und E2E-Tasks.",
+  "goal": "Ananta soll deterministischer planen, sicherer routen, E2E stabil mit lokalem Planner und OpenCode/Hermes-Worker laufen, Workspaces/Artifacts sauber behandeln und LLM-Prompts prüfbar aber sicher inspectbar machen.",
+  "created_from": [
+    "todos/not-sure-anymore/single_hermes_free_models_scenario.json",
+    "todos/not-sure-anymore/todo.latest-commits-improvements.json",
+    "todos/not-sure-anymore/todo.prompt-trace-inspection.json",
+    "todos/not-sure-anymore/todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+  ],
+  "code_review_basis": [
+    {
+      "finding": "todo.track.schema.json erlaubt track-basierte Aufgaben mit version/owner/track/milestones/tasks/tasks_status_summary.",
+      "evidence": "todos/todo.track.schema.json"
+    },
+    {
+      "finding": "PromptTrace-Grundmodell, JSONL-Storage und Service existieren bereits; daher wurden PTI-001/002-artige Grundtasks entfernt und nur Restarbeiten übernommen.",
+      "evidence": "agent/services/prompt_trace_service.py"
+    },
+    {
+      "finding": "PromptTrace API/CLI Tests existieren bereits; API/CLI wird als partial/verifizieren statt neu bauen markiert.",
+      "evidence": "tests/test_prompt_trace_api.py, tests/test_cli_prompt_inspect.py"
+    },
+    {
+      "finding": "PlanningContract/PlanValidationResult wurden im Code nicht gefunden; diese Tasks bleiben offen und kritisch.",
+      "evidence": "Code-Suche nach PlanningContract/PlanValidationResult"
+    },
+    {
+      "finding": "resolve_target_worker_for_task enthält aktuell Round-Robin auf workers[worker_cursor % len(workers)] ohne Hub/Self-Filter; Hub-Selbstzuweisung bleibt kritisch offen.",
+      "evidence": "agent/routes/tasks/autopilot_dispatch_policy.py"
+    },
+    {
+      "finding": "WorkerWorkspaceService besitzt Workspace-Auflösung, explicit scope_key und workspace_reuse_mode=goal_worker; E2E-Workspace ist daher partial/config/test statt komplett neu.",
+      "evidence": "agent/services/worker_workspace_service.py"
+    },
+    {
+      "finding": "PlanningSingleFlightService, WorkerPolicyService und PlanningTimeoutService wurden nicht als konkrete Services gefunden.",
+      "evidence": "Code-Suche nach planning_singleflight, worker_policy_service, planning_timeout_service"
+    },
+    {
+      "finding": "Raw Prompt Access Policy war in alter PTI-Datei als completed markiert, aber prompt_trace_access_policy wurde nicht gefunden; daher neuer Korrektur-Task.",
+      "evidence": "Code-Suche nach prompt_trace_access_policy/raw_access"
+    }
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Deterministische Planning- und Lifecycle-Basis",
+      "task_ids": [
+        "CONS-001",
+        "CONS-002",
+        "CONS-003",
+        "CONS-004"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "E2E-Stabilität, Worker-Dispatch und Hub/Worker-Sicherheit",
+      "task_ids": [
+        "CONS-005",
+        "CONS-006",
+        "CONS-007",
+        "CONS-008",
+        "CONS-009",
+        "CONS-010",
+        "CONS-011",
+        "CONS-012"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Workspace-, Artifact- und Git-Flow absichern",
+      "task_ids": [
+        "CONS-013",
+        "CONS-014",
+        "CONS-015",
+        "CONS-016"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M4",
+      "title": "PromptTrace-Restarbeiten und Security-Policy",
+      "task_ids": [
+        "CONS-017",
+        "CONS-018",
+        "CONS-019",
+        "CONS-020",
+        "CONS-021"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M5",
+      "title": "Szenarien bereinigen und alte not-sure-anymore-Dateien migrieren",
+      "task_ids": [
+        "CONS-022",
+        "CONS-023",
+        "CONS-024",
+        "CONS-025"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CONS-001",
+      "title": "PlanningContract als harte, strukturierte Planprüfung einführen",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "type": "feature",
+      "milestone": "M1",
+      "summary": "Die alte markerbasierte Planqualität wird durch einen expliziten Contract ersetzt. Im aktuellen Code wurde kein PlanningContract-Service gefunden; die Aufgabe bleibt offen.",
+      "files": [
+        "agent/services/planning_contract.py",
+        "agent/services/planning_validation_service.py",
+        "agent/routes/tasks/goals.py",
+        "tests/test_planning_contract.py"
+      ],
+      "code_state_after_review": "NOT_FOUND_IN_CODE: Suche nach PlanningContract/PlanValidationResult liefert nur die alte TODO.",
+      "source_origin": [
+        "todo.latest-commits-improvements.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "PlanningContract-Modell existiert mit stabilen Feldern für required_task_kinds, required_artifacts, required_commands und required_verification_steps.",
+        "Software-Default-Contract verlangt mindestens analysis, coding, testing und review oder eine bewusst dokumentierte Profil-Variante.",
+        "Leerer Plan liefert no_tasks; Plan ohne coding/testing liefert missing_required_task_kind.",
+        "Alte Keyword-/Markerprüfung ist höchstens Fallback und nicht mehr primäre Entscheidungsgrundlage.",
+        "Tests laufen offline ohne DB und ohne LLM."
+      ]
+    },
+    {
+      "id": "CONS-002",
+      "title": "PlanValidationResult mit stabilen Fehlercodes ergänzen",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "type": "feature",
+      "milestone": "M1",
+      "summary": "Planning-Fehler müssen maschinenlesbar werden, damit Repair, UI und Logs nicht auf Freitext angewiesen sind.",
+      "files": [
+        "agent/services/planning_validation_service.py",
+        "agent/services/planning_contract.py"
+      ],
+      "code_state_after_review": "NOT_FOUND_IN_CODE: Kein eigener PlanValidationResult gefunden.",
+      "source_origin": [
+        "todo.latest-commits-improvements.json"
+      ],
+      "depends_on": [
+        "CONS-001"
+      ],
+      "acceptance_criteria": [
+        "Result enthält ok, error_codes, warnings, missing_task_kinds, contract_id, task_count und human_summary.",
+        "Fehlercodes sind deterministisch und stabil: no_tasks, too_few_tasks, missing_required_task_kind, missing_required_artifact, invalid_task_payload.",
+        "Product Events und Repair-Kontext verwenden error_codes statt unstrukturierter Logtexte.",
+        "Mindestens fünf Fehlerfälle sind per Unit-Test abgedeckt."
+      ]
+    },
+    {
+      "id": "CONS-003",
+      "title": "Planning-Repair an Contract-Fehler koppeln",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "type": "feature",
+      "milestone": "M1",
+      "summary": "Repair-Prompts sollen exakt die fehlenden Contract-Teile verlangen, nicht allgemein nachbessern.",
+      "files": [
+        "agent/services/plan_goal_service.py",
+        "agent/routes/tasks/goals.py",
+        "config/planning_prompts.default.json"
+      ],
+      "code_state_after_review": "OPEN_DEPENDS_ON_MISSING_CONTRACT: Ohne CONS-001/002 nicht sinnvoll ausführbar.",
+      "source_origin": [
+        "todo.latest-commits-improvements.json"
+      ],
+      "depends_on": [
+        "CONS-001",
+        "CONS-002"
+      ],
+      "acceptance_criteria": [
+        "Repair-Kontext enthält fehlende task_kinds und Artefakte maschinenlesbar.",
+        "Nach Repair wird erneut gegen denselben Contract validiert.",
+        "Nach ausgeschöpften Repair-Versuchen wird ein failed/blocked Status mit error_codes geschrieben.",
+        "JSON-only Vorgaben bleiben bei JSON-Profilen erhalten."
+      ]
+    },
+    {
+      "id": "CONS-004",
+      "title": "Planning Deadline Guard in PlanningTimeoutService kapseln",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "type": "refactor",
+      "milestone": "M1",
+      "summary": "Die Deadline-/Timeout-Logik soll zentral testbar werden und Statuswechsel nur über den Lifecycle-Service auslösen.",
+      "files": [
+        "agent/services/planning_timeout_service.py",
+        "agent/routes/tasks/goals.py",
+        "agent/services/goal_lifecycle_service.py",
+        "tests/test_planning_timeout_service.py"
+      ],
+      "code_state_after_review": "NOT_FOUND_IN_CODE: Suche nach PlanningTimeoutService/planning_deadline_guard_timeout findet nur alte TODO.",
+      "source_origin": [
+        "todo.latest-commits-improvements.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "PlanningTimeoutService besitzt start_deadline_guard(goal_id, timeout_s, trace_id).",
+        "Statuswechsel erfolgen ausschließlich über goal_lifecycle_service.transition_goal.",
+        "Bereits terminale Goals werden nicht verändert.",
+        "Zwei parallele Guards erzeugen maximal einen Timeout-Übergang.",
+        "Service ist mit Fake-Repos ohne echten Thread-Sleep testbar."
+      ]
+    },
+    {
+      "id": "CONS-005",
+      "title": "PlanningSingleFlightService pro Goal einführen",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "type": "bugfix",
+      "milestone": "M2",
+      "summary": "Pro Goal darf nur ein plan_goal()-Lauf aktiv sein, damit LM Studio/Gemma nicht parallel doppelt plant.",
+      "files": [
+        "agent/services/planning_singleflight_service.py",
+        "agent/routes/tasks/autopilot_tick_engine.py",
+        "agent/routes/tasks/goals.py",
+        "tests/test_planning_singleflight_service.py"
+      ],
+      "code_state_after_review": "NOT_FOUND_IN_CODE: Suche nach PlanningSingleFlight/SingleFlight findet nur alte TODO.",
+      "source_origin": [
+        "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Zwei parallele plan_goal()-Versuche für dasselbe Goal erzeugen genau einen echten Planning-Aufruf.",
+        "Zweiter Versuch wird mit planning_singleflight_active übersprungen.",
+        "Lease besitzt TTL und wird bei Erfolg/Fehler freigegeben.",
+        "Abgelaufene Leases blockieren nicht dauerhaft.",
+        "Tests simulieren parallele Threads ohne echten LMStudio-Aufruf."
+      ]
+    },
+    {
+      "id": "CONS-006",
+      "title": "Worker-Preflight von Planner-Runtime trennen",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "type": "bugfix",
+      "milestone": "M2",
+      "summary": "OpenCode-Worker dürfen nicht den lokalen LMStudio-Planner mit Preflight-LLM-Calls belasten.",
+      "files": [
+        "agent/llm_integration.py",
+        "agent/services/task_scoped_execution_service.py",
+        "agent/config_defaults.py",
+        "tests/test_worker_preflight_runtime_scope.py"
+      ],
+      "code_state_after_review": "OPEN: Konkreter Preflight-Gegencheck nicht als eigener Service gefunden; aus E2E-Blocker übernommen.",
+      "source_origin": [
+        "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+      ],
+      "depends_on": [
+        "CONS-005"
+      ],
+      "acceptance_criteria": [
+        "Default: Worker-Preflight erzeugt keine LMStudio generate_text Calls.",
+        "OpenCode-Backend prüft höchstens CLI/Backend-Verfügbarkeit, nicht Planner-Modell.",
+        "Preflight-Calls sind im PromptTrace/Log eindeutig als preflight markiert, falls aktiviert.",
+        "BigPickle/Gemma-Szenario zeigt 0 Worker-Preflight-LLM-Calls gegen LMStudio."
+      ]
+    },
+    {
+      "id": "CONS-007",
+      "title": "Cancelled/terminale Goals vor Dispatch, Proposal und Execution hart blockieren",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "type": "bugfix",
+      "milestone": "M2",
+      "summary": "Tasks aus gecancelten, failed oder completed Goals dürfen nicht weiterlaufen und keine Worker-Ergebnisse zurückschreiben.",
+      "files": [
+        "agent/routes/tasks/autopilot_tick_engine.py",
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/task_execution_service.py",
+        "agent/services/goal_lifecycle_service.py",
+        "tests/test_cancelled_goal_task_execution_guard.py"
+      ],
+      "code_state_after_review": "OPEN: Kein zentraler Parent-Goal-Active-Guard im Codeabgleich bestätigt.",
+      "source_origin": [
+        "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Autopilot filtert Tasks terminaler Parent-Goals aus.",
+        "TaskScopedExecutionService prüft unmittelbar vor Worker-Aufruf erneut.",
+        "Späte Worker-Responses für gecancelte Tasks ändern Goal/Task nicht zurück auf active/completed.",
+        "Task-History enthält parent_goal_cancelled oder stale_goal_result.",
+        "Regressionstest deckt Cancel während Proposal/Execution ab."
+      ]
+    },
+    {
+      "id": "CONS-008",
+      "title": "Hub-Selbstzuweisung in Dispatch-Policy hart verhindern",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "type": "bugfix",
+      "milestone": "M2",
+      "summary": "resolve_target_worker_for_task wählt aktuell bei fehlender assigned_agent_url per Round-Robin aus workers; ein expliziter Hub-Self-Filter fehlt.",
+      "files": [
+        "agent/routes/tasks/autopilot_dispatch_policy.py",
+        "agent/services/autopilot_support_service.py",
+        "tests/test_autopilot_dispatch_hub_self_filter.py"
+      ],
+      "code_state_after_review": "CONFIRMED_OPEN: autopilot_dispatch_policy.resolve_target_worker_for_task nutzt workers[worker_cursor % len(workers)] ohne Hub/Self-Filter.",
+      "source_origin": [
+        "todo.latest-commits-improvements.json",
+        "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Bei hub_can_be_worker=false werden Hub-URL, Self-URL und role=hub aus Kandidaten entfernt.",
+        "Wenn nur Hub übrig ist, wird kein Task dispatched.",
+        "no_candidate_reason ist hub_self_worker_filtered oder no_workers_available.",
+        "Bei hub_can_be_worker=true plus passendem Profil darf Hub bewusst gewählt werden.",
+        "Tests prüfen URL-Normalisierung mit und ohne trailing slash."
+      ]
+    },
+    {
+      "id": "CONS-009",
+      "title": "assigned_agent_url gegen online dispatchable Worker validieren",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "type": "bugfix",
+      "milestone": "M2",
+      "summary": "Tasks dürfen nicht an alte/offline assigned_agent_url kleben oder bei ungültiger Zuweisung auf den Hub fallen.",
+      "files": [
+        "agent/routes/tasks/autopilot_dispatch_policy.py",
+        "agent/routes/tasks/autopilot_tick_engine.py",
+        "tests/test_assigned_worker_validation.py"
+      ],
+      "code_state_after_review": "CONFIRMED_OPEN: resolve_target_worker_for_task sucht assigned_agent_url nur in workers und fällt danach ohne Grundcode auf Round-Robin zurück.",
+      "source_origin": [
+        "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+      ],
+      "depends_on": [
+        "CONS-008"
+      ],
+      "acceptance_criteria": [
+        "Offline assigned_agent_url führt zu assigned_worker_offline, nicht zu Hub-Fallback.",
+        "Verbotene Hub assigned_agent_url führt zu assigned_worker_is_hub_forbidden.",
+        "Task bleibt queued/blocked_waiting_for_worker oder wird kontrolliert neu zugewiesen.",
+        "History enthält maschinenlesbaren Grund.",
+        "Wenn der Worker wieder online ist, kann Dispatch erneut stattfinden."
+      ]
+    },
+    {
+      "id": "CONS-010",
+      "title": "WorkerPolicyService für Fähigkeiten, Risiko und LLM-Scope einführen",
+      "status": "todo",
+      "priority": "high",
+      "risk": "high",
+      "type": "feature",
+      "milestone": "M2",
+      "summary": "Worker-Auswahl soll nicht nur Verfügbarkeit prüfen, sondern task_kind, capabilities, risk_profile und cloud/local Scope.",
+      "files": [
+        "agent/services/worker_policy_service.py",
+        "agent/services/autopilot_support_service.py",
+        "agent/config_defaults.py",
+        "tests/test_worker_policy_service.py"
+      ],
+      "code_state_after_review": "NOT_FOUND_IN_CODE: Suche nach worker_policy_service/missing_capability findet nur alte TODO.",
+      "source_origin": [
+        "todo.latest-commits-improvements.json"
+      ],
+      "depends_on": [
+        "CONS-008"
+      ],
+      "acceptance_criteria": [
+        "Worker ohne coding capability wird für coding Tasks nicht ausgewählt.",
+        "Cloud-Worker wird für local_only Goals nicht ausgewählt.",
+        "Ablehnungsgründe sind maschinenlesbar: missing_capability, llm_scope_denied, risk_profile_denied.",
+        "hub_can_be_worker=true reicht nicht, wenn WorkerPolicy den Hub ablehnt.",
+        "Default bleibt rückwärtskompatibel für einfache lokale Worker."
+      ]
+    },
+    {
+      "id": "CONS-011",
+      "title": "Worker Restart Grace Period ergänzen",
+      "status": "todo",
+      "priority": "high",
+      "risk": "medium",
+      "type": "feature",
+      "milestone": "M2",
+      "summary": "Direkt nach Worker-Restarts sollen Tasks nicht fälschlich an Hub/Fallback-Ziele gehen.",
+      "files": [
+        "agent/services/autopilot_support_service.py",
+        "agent/routes/tasks/autopilot_tick_engine.py",
+        "agent/config_defaults.py",
+        "tests/test_worker_restart_grace_period.py"
+      ],
+      "code_state_after_review": "OPEN: Kein Grace-Period-Mechanismus im Suchabgleich gefunden.",
+      "source_origin": [
+        "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+      ],
+      "depends_on": [
+        "CONS-008",
+        "CONS-009"
+      ],
+      "acceptance_criteria": [
+        "Kurz offline gegangene Worker erzeugen worker_restart_grace_period statt Fallback.",
+        "Während Grace Period bleibt Task queued/blocked_waiting_for_worker.",
+        "Nach Grace Period und weiterhin keinem Worker: no_workers_available.",
+        "Fake-clock Tests vermeiden echte sleeps.",
+        "Debug payload zeigt Grace-Entscheidung."
+      ]
+    },
+    {
+      "id": "CONS-012",
+      "title": "worker_selection_decision Product Event schreiben",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "type": "observability",
+      "milestone": "M2",
+      "summary": "Worker-Auswahl und Ablehnung müssen auditierbar werden.",
+      "files": [
+        "agent/services/autopilot_support_service.py",
+        "agent/services/task_scoped_execution_service.py",
+        "tests/test_worker_selection_decision_event.py"
+      ],
+      "code_state_after_review": "NOT_FOUND_IN_CODE: Suche nach worker_selection_decision ergab keine Implementierung.",
+      "source_origin": [
+        "todo.latest-commits-improvements.json"
+      ],
+      "depends_on": [
+        "CONS-010"
+      ],
+      "acceptance_criteria": [
+        "Jede automatische Worker-Auswahl erzeugt worker_selection_decision.",
+        "Event enthält selected_worker, candidate_count, rejected_candidates und rejection_reasons.",
+        "Keine Tokens/API-Keys/Auth-Header in Events.",
+        "No-worker-Fall enthält candidate_count=0.",
+        "Redaction sensibler Felder ist getestet."
+      ]
+    },
+    {
+      "id": "CONS-013",
+      "title": "Goal-scoped Workspace-Profil für E2E aktivieren und testen",
+      "status": "partial",
+      "priority": "critical",
+      "risk": "medium",
+      "type": "config",
+      "milestone": "M3",
+      "summary": "WorkerWorkspaceService unterstützt bereits scope_key und workspace_reuse_mode=goal_worker. Die E2E-Konfiguration und Tests müssen das gezielt nutzen.",
+      "files": [
+        "agent/services/worker_workspace_service.py",
+        "scripts/single_opencode_bigpickle_gemma_planner_scenario.json",
+        "tests/test_e2e_goal_scoped_workspace.py"
+      ],
+      "code_state_after_review": "PARTIAL_IN_CODE: WorkerWorkspaceService besitzt scope_key, workspace_reuse_mode=goal_worker und Workspace-Root-Policy.",
+      "source_origin": [
+        "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Alle Tasks desselben E2E-Goals erhalten denselben workspace_dir.",
+        "Tasks unterschiedlicher Goals erhalten unterschiedliche workspace_dir.",
+        "Workspace liegt innerhalb workspace_root/project-workspaces oder wird sicher remapped.",
+        "OutputDirLock verhindert parallele Schreibkonflikte im gleichen Workspace.",
+        "Folge-Task sieht Datei aus vorherigem Task."
+      ]
+    },
+    {
+      "id": "CONS-014",
+      "title": "Artifact-first Completion im E2E verifizieren",
+      "status": "partial",
+      "priority": "high",
+      "risk": "medium",
+      "type": "test",
+      "milestone": "M3",
+      "summary": "WorkerWorkspaceService hat Changed-File/Artifact-Grundlagen; der E2E muss beweisen, dass erzeugte Dateien als Ergebnisartefakte zählen.",
+      "files": [
+        "agent/services/worker_workspace_service.py",
+        "agent/services/task_runtime_service.py",
+        "tests/test_e2e_workspace_artifact_flow.py"
+      ],
+      "code_state_after_review": "PARTIAL_IN_CODE: WorkerWorkspaceService enthält ignored workspace segments, non-artifact paths und Snapshot-/Diff-Helfer.",
+      "source_origin": [
+        "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+      ],
+      "depends_on": [
+        "CONS-013"
+      ],
+      "acceptance_criteria": [
+        "Geänderte Projektdateien werden als meaningful changed files erkannt.",
+        ".ananta/* und rag_helper-Kontextdateien zählen nicht als Ergebnisartefakte.",
+        "Task response enthält artifact refs für erzeugte Dateien.",
+        "Goal Completion kann artifact refs nutzen.",
+        "Test läuft ohne echten OpenCode."
+      ]
+    },
+    {
+      "id": "CONS-015",
+      "title": "Optionales Git-Workspace-Profil für E2E absichern",
+      "status": "partial",
+      "priority": "medium",
+      "risk": "medium",
+      "type": "feature",
+      "milestone": "M3",
+      "summary": "Git-Kontext scheint im Workspace-Service vorbereitet zu sein; für diesen E2E soll Git optional bleiben und den ersten Lauf nicht blockieren.",
+      "files": [
+        "agent/services/worker_workspace_service.py",
+        "agent/services/workspace_git_service.py",
+        "tests/test_e2e_git_workspace_profile.py"
+      ],
+      "code_state_after_review": "PARTIAL_IN_CODE: WorkerWorkspaceContext enthält git_context; alte TODO nennt _init_git_context, aber konkrete Aktivierung im E2E-Profil fehlt.",
+      "source_origin": [
+        "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+      ],
+      "depends_on": [
+        "CONS-013"
+      ],
+      "acceptance_criteria": [
+        "Default-E2E läuft ohne Git-Remote.",
+        "Optionales Git-Profil initialisiert git_context.",
+        "branch_strategy=goal erzeugt deterministischen Branch pro Goal.",
+        "Explizit required Git-Profil diagnostiziert Fehler statt still zu schlucken.",
+        "Tests decken enabled=false und enabled=true ab."
+      ]
+    },
+    {
+      "id": "CONS-016",
+      "title": "Workspace Context Manifest in Task/Goal-Diagnostics sichtbar machen",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "type": "observability",
+      "milestone": "M3",
+      "summary": "Debugging braucht klare Sicht, welcher Task in welchem Workspace mit welcher Artifact/Git-Konfiguration lief.",
+      "files": [
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/worker_workspace_service.py",
+        "agent/routes/tasks/goals.py",
+        "tests/test_workspace_context_manifest.py"
+      ],
+      "code_state_after_review": "OPEN: Im Abgleich nicht als dedizierte Diagnostics-/Manifest-Funktion bestätigt.",
+      "source_origin": [
+        "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+      ],
+      "depends_on": [
+        "CONS-013",
+        "CONS-014"
+      ],
+      "acceptance_criteria": [
+        "Task metadata enthält workspace_rel_path oder redacted workspace_dir.",
+        "Goal diagnostics zeigen alle verwendeten Workspaces.",
+        "shared_goal_workspace=true ist sichtbar, wenn goal-scoped aktiv ist.",
+        "Artifact sync und git_context werden angezeigt.",
+        "Absolute sensible Hostpfade werden redacted oder relativiert."
+      ]
+    },
+    {
+      "id": "CONS-017",
+      "title": "PromptTrace-Restarbeiten: Worker-/Backend-Adapter anbinden",
+      "status": "partial",
+      "priority": "high",
+      "risk": "medium",
+      "type": "feature",
+      "milestone": "M4",
+      "summary": "PromptTrace-Grundmodell, Storage und Service existieren. Offen bleibt die einheitliche Anbindung von Hermes/OpenCode/Worker-Adaptern.",
+      "files": [
+        "worker/core/hermes_adapter.py",
+        "worker/core/hermes_http_client.py",
+        "worker/core/hermes_proposal_strategy.py",
+        "agent/services/task_scoped_execution_service.py",
+        "agent/services/tool_routing_service.py",
+        "tests/test_worker_prompt_trace_integration.py"
+      ],
+      "code_state_after_review": "PARTIAL_IN_CODE: prompt_trace_service.py implementiert Datenmodell/Storage/Service; Adapter-Anbindung ist nicht nachgewiesen.",
+      "source_origin": [
+        "todo.prompt-trace-inspection.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Hermes plan_only Call erzeugt PromptTrace mit selected_model und read_only=true.",
+        "Hermes patch_propose Trace enthält blockierte Mutation-Capabilities.",
+        "OpenCode Task erzeugt mindestens Trace-Placeholder oder echten PromptTrace.",
+        "Task Metadata referenziert prompt_trace_ids.",
+        "Nicht inspectbare Worker werden klar als external_worker_uninspectable markiert."
+      ]
+    },
+    {
+      "id": "CONS-018",
+      "title": "PromptTrace Context-/Tool-Provenance vervollständigen",
+      "status": "partial",
+      "priority": "high",
+      "risk": "medium",
+      "type": "feature",
+      "milestone": "M4",
+      "summary": "PromptTrace besitzt Felder für context_sources, selected_tools und tool_definitions_hash. Jetzt muss deren Befüllung in den echten Call-Pfaden abgesichert werden.",
+      "files": [
+        "agent/routes/config/llm_generate.py",
+        "agent/tool_capabilities.py",
+        "agent/tools/registry.py",
+        "agent/services/context_delivery_service.py",
+        "tests/test_prompt_trace_context_tool_provenance.py"
+      ],
+      "code_state_after_review": "PARTIAL_IN_CODE: PromptTraceService kann tools hashen und context_sources speichern; echte Pfadabdeckung muss getestet/ergänzt werden.",
+      "source_origin": [
+        "todo.prompt-trace-inspection.json"
+      ],
+      "depends_on": [
+        "CONS-017"
+      ],
+      "acceptance_criteria": [
+        "Trace für /llm/generate enthält tool_names und tool_definitions_hash.",
+        "Trace enthält history_count/history_hash oder vergleichbare Context-Metadaten.",
+        "Trace enthält context_sources mit included/excluded Status.",
+        "Sensitive Context-Blöcke werden gemäß Policy redacted oder ausgeschlossen.",
+        "Tool-Definition-Änderung ändert den Hash im Test."
+      ]
+    },
+    {
+      "id": "CONS-019",
+      "title": "PromptTrace Sensitivity und LLM-Scope Policy integrieren",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "type": "security",
+      "milestone": "M4",
+      "summary": "Cloud-/Local-Scope muss im Trace sichtbar und für Context-Weitergabe wirksam werden.",
+      "files": [
+        "agent/services/rag_policy_service.py",
+        "agent/services/context_file_selector.py",
+        "agent/services/prompt_trace_service.py",
+        "agent/services/context_delivery_service.py",
+        "tests/test_prompt_trace_sensitivity_scope.py"
+      ],
+      "code_state_after_review": "OPEN: PromptTrace enthält llm_scope/sensitivity_level-Felder, aber Policy-Integration ist nicht belegt.",
+      "source_origin": [
+        "todo.prompt-trace-inspection.json",
+        "single_hermes_free_models_scenario.json"
+      ],
+      "depends_on": [
+        "CONS-018",
+        "CONS-010"
+      ],
+      "acceptance_criteria": [
+        "Cloud-Trace zeigt llm_scope=external_cloud_allowed.",
+        "Secret/confidential Context erscheint nur als excluded mit reason=sensitivity_blocked.",
+        "Local-only Trace kann höhere Sensitivity referenzieren, Anzeige bleibt redacted.",
+        "Trace enthält sensitivity_ceiling der angewendeten Policy.",
+        "Tests vergleichen local_only und external_cloud_allowed."
+      ]
+    },
+    {
+      "id": "CONS-020",
+      "title": "Raw Prompt Access Policy wirklich implementieren oder alte completed-Markierung korrigieren",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "high",
+      "type": "security",
+      "milestone": "M4",
+      "summary": "Die alte PTI-Datei markiert Raw Access Policy als completed, aber Suche nach prompt_trace_access_policy/raw_access fand keine echte Implementierung.",
+      "files": [
+        "agent/services/prompt_trace_access_policy.py",
+        "agent/routes/debug/prompt_traces.py",
+        "tests/test_prompt_trace_raw_access_policy.py"
+      ],
+      "code_state_after_review": "MISMATCH: Alte TODO sagt completed; Code-Suche findet nur die alte TODO, keine prompt_trace_access_policy Implementierung.",
+      "source_origin": [
+        "todo.prompt-trace-inspection.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Default API liefert nur redacted Prompt.",
+        "Raw ist nur möglich, wenn Raw-Speicherung aktiv und Admin/Local-Debug-Policy erlaubt ist.",
+        "Jeder Raw-Zugriff schreibt Audit Event prompt_trace_raw_access.",
+        "Remote non-admin bekommt niemals raw.",
+        "Wenn raw nicht gespeichert wurde: raw_available=false statt Fehler."
+      ]
+    },
+    {
+      "id": "CONS-021",
+      "title": "PromptTrace API/CLI gegen tatsächliche Implementierung verifizieren",
+      "status": "partial",
+      "priority": "medium",
+      "risk": "medium",
+      "type": "test",
+      "milestone": "M4",
+      "summary": "API- und CLI-Tests existieren bereits. Die konsolidierte TODO soll nur noch Lücken prüfen, nicht alles neu bauen.",
+      "files": [
+        "tests/test_prompt_trace_api.py",
+        "tests/test_cli_prompt_inspect.py",
+        "agent/routes/debug/prompt_traces.py",
+        "agent/cli/main.py"
+      ],
+      "code_state_after_review": "PARTIAL_IN_CODE: Tests test_prompt_trace_api.py und test_cli_prompt_inspect.py existieren; vollständige Endpunktabdeckung muss geprüft werden.",
+      "source_origin": [
+        "todo.prompt-trace-inspection.json"
+      ],
+      "depends_on": [
+        "CONS-020"
+      ],
+      "acceptance_criteria": [
+        "GET/list/detail API für PromptTraces ist testabgedeckt.",
+        "CLI kann Traces listen und einzelne Traces inspecten.",
+        "Raw/Redacted-Policy wird in API und CLI gleich angewendet.",
+        "Dry-run Rendering kontaktiert keinen Provider.",
+        "Tests prüfen, dass inspectbarer Prompt-Hash zum gesendeten Prompt passt."
+      ]
+    },
+    {
+      "id": "CONS-022",
+      "title": "Hermes Free-Model Szenario aus TODO-Ordner in Scenario-Struktur überführen",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "type": "config",
+      "milestone": "M5",
+      "summary": "single_hermes_free_models_scenario.json ist fachlich nützlich, aber keine Track-TODO. Es soll als Scenario-Datei validiert werden.",
+      "files": [
+        "scripts/scenarios/hermes_free_models_small_task.json",
+        "tests/test_hermes_free_models_scenario.py"
+      ],
+      "code_state_after_review": "MISMATCH: Datei ist Scenario-JSON ohne todo.track.schema-Struktur und liegt in todos/not-sure-anymore.",
+      "source_origin": [
+        "single_hermes_free_models_scenario.json"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Scenario liegt nicht mehr unter todos/not-sure-anymore.",
+        "Scenario-JSON lädt gegen ein Scenario-Schema oder dedizierten Test.",
+        "Free-Model-IDs sind konfigurierbar und live optional skipbar.",
+        "Alle Hermes-Modelle müssen bei require_free_model_suffix=true auf :free enden.",
+        "Hermes bleibt read-only; patch_apply/shell_execute/service_mutation sind blockiert."
+      ]
+    },
+    {
+      "id": "CONS-023",
+      "title": "Hermes read-only Routing als Regressionstest ergänzen",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "medium",
+      "type": "test",
+      "milestone": "M5",
+      "summary": "Das Hermes-Szenario soll beweisen, dass plan_only/review/patch_propose bei Hermes read-only bleiben und coding/ops/testing nicht dorthin gehen.",
+      "files": [
+        "tests/test_hermes_read_only_routing.py",
+        "agent/services/config_profile_service.py",
+        "agent/services/task_scoped_execution_service.py"
+      ],
+      "code_state_after_review": "PARTIAL: config_profile_service.py referenziert hermes_worker_adapter laut Suche; dedizierter Routing-Test fehlt im Abgleich.",
+      "source_origin": [
+        "single_hermes_free_models_scenario.json",
+        "todo.latest-commits-improvements.json"
+      ],
+      "depends_on": [
+        "CONS-022",
+        "CONS-010"
+      ],
+      "acceptance_criteria": [
+        "plan_only routet auf Hermes read-only.",
+        "review/patch_propose routen auf Hermes, dürfen aber keine Patches anwenden.",
+        "command_execute/shell_execute/patch_apply bleiben für Hermes blockiert.",
+        "coding/ops/testing bleiben auf OpenCode/native Worker.",
+        "Live Provider-Test wird ohne API-Key skipped; Offline-Routing-Test läuft immer."
+      ]
+    },
+    {
+      "id": "CONS-024",
+      "title": "E2E Scenario für lokalen Planner + OpenCode Worker bereinigen",
+      "status": "todo",
+      "priority": "critical",
+      "risk": "medium",
+      "type": "config",
+      "milestone": "M5",
+      "summary": "Aus der BigPickle/Gemma-TODO soll ein providerneutraler E2E-Lauf entstehen: lokaler Planner, externer/konfigurierbarer OpenCode Worker, kleine mini_slugify-Aufgabe.",
+      "files": [
+        "scripts/scenarios/opencode_local_planner_e2e.json",
+        "tests/e2e/test_opencode_local_planner_goal_flow.py"
+      ],
+      "code_state_after_review": "OPEN: Alte Datei ist scenario-spezifisch und liegt in not-sure-anymore; neue konsolidierte Scenario-Datei fehlt.",
+      "source_origin": [
+        "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
+      ],
+      "depends_on": [
+        "CONS-005",
+        "CONS-006",
+        "CONS-008",
+        "CONS-013"
+      ],
+      "acceptance_criteria": [
+        "Planner-Modell ist per Env/Config überschreibbar, nicht hart auf Gemma fixiert.",
+        "OpenCode-Modell ist per Env/Config überschreibbar, nicht hart auf Big Pickle fixiert.",
+        "mini_slugify Goal erzeugt erwartete Dateien und Tests.",
+        "Offline-Test validiert Routing ohne echte Provider.",
+        "Optionaler Live-Test hat klare skip-Bedingungen."
+      ]
+    },
+    {
+      "id": "CONS-025",
+      "title": "Alte not-sure-anymore TODOs nach Migration archivieren oder ersetzen",
+      "status": "todo",
+      "priority": "medium",
+      "risk": "low",
+      "type": "cleanup",
+      "milestone": "M5",
+      "summary": "Nach Erstellung und Validierung der neuen konsolidierten TODO sollen die alten Dateien nicht weiter als konkurrierende Aufträge herumliegen.",
+      "files": [
+        "todos/not-sure-anymore/*.json",
+        "todos/archiv/README.md"
+      ],
+      "code_state_after_review": "OPEN: Alte Dateien existieren weiter.",
+      "source_origin": [
+        "all four source files"
+      ],
+      "depends_on": [
+        "CONS-022",
+        "CONS-024"
+      ],
+      "acceptance_criteria": [
+        "Alte Dateien sind entweder nach todos/archiv verschoben oder mit migrated_to auf die neue Datei markiert.",
+        "Keine doppelte aktive TODO beschreibt dieselben Tasks.",
+        "README/Index erklärt, welche Quelle wohin migriert wurde.",
+        "Schema-Validierung läuft für die neue Datei.",
+        "Alte completed-Markierungen werden nicht mehr als aktive Arbeit interpretiert."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "CONS-001",
+    "CONS-002",
+    "CONS-005",
+    "CONS-006",
+    "CONS-007",
+    "CONS-008",
+    "CONS-009",
+    "CONS-010",
+    "CONS-013",
+    "CONS-017",
+    "CONS-019",
+    "CONS-020",
+    "CONS-024"
+  ],
+  "tasks_status_summary": {
+    "total": 25,
+    "by_status": {
+      "todo": 19,
+      "in_progress": 0,
+      "partial": 6,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "critical": 10,
+      "high": 8,
+      "medium": 7
+    },
+    "by_risk": {
+      "high": 7,
+      "medium": 15,
+      "low": 3
+    },
+    "critical_path": {
+      "total": 13,
+      "done": 0,
+      "remaining": 13
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 3,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0,
+      "partial": 2
+    }
+  },
+  "tasks_type_summary": {
+    "total": 25,
+    "by_type": {
+      "feature": 8,
+      "refactor": 1,
+      "bugfix": 5,
+      "observability": 2,
+      "config": 3,
+      "test": 3,
+      "security": 2,
+      "cleanup": 1
+    }
+  },
+  "progress_summary": {
+    "state": "code-reviewed-consolidated-open",
+    "todo_remaining": 19,
+    "in_progress": 0,
+    "partial": 6,
+    "blocked": 0,
+    "done": 0
+  },
+  "execution_stage_summary": {
+    "first_implementation_order": [
+      "CONS-001",
+      "CONS-002",
+      "CONS-005",
+      "CONS-006",
+      "CONS-007",
+      "CONS-008",
+      "CONS-009",
+      "CONS-010",
+      "CONS-013",
+      "CONS-017",
+      "CONS-019",
+      "CONS-020",
+      "CONS-024"
+    ],
+    "do_not_start_first": [
+      "CONS-022",
+      "CONS-023",
+      "CONS-025"
+    ],
+    "reason": "Erst harte Planungs-/Dispatch-/Security-Guards, dann Szenario-Aufräumen."
+  },
+  "summary_notes": [
+    "Diese Datei ersetzt nicht automatisch die alten Dateien, sondern dient als geprüfte aktive Nachfolge-TODO.",
+    "Tasks mit code_state_after_review=PARTIAL_IN_CODE dürfen nicht blind neu implementiert werden; dort zuerst bestehende Funktion erweitern/testen.",
+    "Tasks mit MISMATCH korrigieren falsche completed-Annahmen aus alten TODOs.",
+    "Provider-/Modellnamen wie Gemma, Big Pickle oder OpenRouter-Free-Modelle sind bewusst konfigurierbar zu halten."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "removed_or_downgraded_items",
+      "title": "Entfernte oder heruntergestufte Punkte aus den Quell-TODOs",
+      "items": [
+        "PromptTrace Datenmodell und JSONL-Storage wurden nicht erneut als offene Tasks übernommen, weil prompt_trace_service.py existiert.",
+        "PromptTrace API/CLI wurde nicht als Neubau übernommen, sondern als Verifikations-/Policy-Lücke.",
+        "WorkspaceService-Grundfunktionen wurden nicht neu gefordert, sondern nur E2E-Konfiguration, Artifact-Test und Diagnostics.",
+        "single_hermes_free_models_scenario.json wurde als Scenario-Migration behandelt, nicht als normale Track-TODO.",
+        "Konkrete Provider-/Modellnamen wurden nicht als feste technische Voraussetzung übernommen."
+      ]
+    }
+  ]
+}
