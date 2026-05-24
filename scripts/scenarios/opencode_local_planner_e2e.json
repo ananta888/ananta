@@ -1,0 +1,28 @@
+{
+  "version": "scenario.v1",
+  "id": "opencode_local_planner_e2e",
+  "goal": {
+    "title": "mini_slugify local planner flow",
+    "prompt": "Create a tiny mini_slugify module with tests and run pytest.",
+    "expected_outputs": [
+      "mini_slugify.py",
+      "test_mini_slugify.py"
+    ]
+  },
+  "routing": {
+    "planner_runtime": {
+      "provider": "${PLANNER_PROVIDER:-lmstudio}",
+      "model": "${PLANNER_MODEL:-google/gemma-3-12b}"
+    },
+    "worker_runtime": {
+      "backend": "opencode",
+      "model": "${OPENCODE_MODEL:-Big Pickel}",
+      "read_only": false
+    }
+  },
+  "execution": {
+    "offline_validation_only": true,
+    "live_test_optional": true,
+    "skip_without_provider": true
+  }
+}
