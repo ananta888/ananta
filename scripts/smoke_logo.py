@@ -142,6 +142,168 @@ def show_3d(
 
 # ── recording ─────────────────────────────────────────────────────────────────
 
+# ── splash animation ─────────────────────────────────────────────────────────
+
+_BLUE  = '\x1b[38;2;4;62;98m'    # #043E62 – SVG dark blue
+_GREEN = '\x1b[38;2;71;166;56m'  # #47A638 – SVG green
+_RESET_C = '\x1b[0m'
+_SNAKE_CHARS = '~sSoOcC'
+
+# A shape  –  '█' filled, ' ' transparent  (46 wide × 14 tall)
+_A_LARGE = [
+    "                     ████                     ",
+    "                   ████████                   ",
+    "                  ██      ██                  ",
+    "                 ██        ██                 ",
+    "                ██          ██                ",
+    "               ██            ██               ",
+    "              ████████████████████            ",
+    "             ██                  ██           ",
+    "            ██                    ██          ",
+    "           ██                      ██         ",
+    "          ██                        ██        ",
+    "         ████                      ████       ",
+    "        ██  ██                    ██  ██      ",
+    "       ██    ██                  ██    ██     ",
+]
+
+def _scale_art(art: list[str], rs: int, cs: int) -> list[str]:
+    return [''.join(ch for i, ch in enumerate(row) if i % cs == 0)
+            for r, row in enumerate(art) if r % rs == 0]
+
+_A_MED   = _scale_art(_A_LARGE, 2, 2)   # ~23 wide × 7 tall
+_A_SMALL = _scale_art(_A_LARGE, 3, 3)   # ~15 wide × 5 tall
+
+
+def _make_canvas(w: int, h: int) -> list[list[tuple[str, str | None]]]:
+    return [[ (' ', None) ] * w for _ in range(h)]
+
+
+def _draw_art(
+    canvas: list[list[tuple[str, str | None]]],
+    art: list[str],
+    row_off: int,
+    col_off: int,
+    color: str,
+) -> None:
+    h, w = len(canvas), len(canvas[0])
+    for r, line in enumerate(art):
+        cr = r + row_off
+        if cr < 0 or cr >= h:
+            continue
+        for c, ch in enumerate(line):
+            cc = c + col_off
+            if 0 <= cc < w and ch != ' ':
+                canvas[cr][cc] = (ch, color)
+
+
+def _render_canvas(canvas: list[list[tuple[str, str | None]]]) -> str:
+    lines = []
+    for row in canvas:
+        parts: list[str] = []
+        cur: str | None = None
+        for ch, color in row:
+            if color != cur:
+                if cur is not None:
+                    parts.append(_RESET_C)
+                if color is not None:
+                    parts.append(color)
+                cur = color
+            parts.append(ch)
+        if cur is not None:
+            parts.append(_RESET_C)
+        lines.append(''.join(parts))
+    return '\n'.join(lines)
+
+
+def _orbit_path(top: int, bottom: int, left: int, right: int) -> list[tuple[int, int]]:
+    p: list[tuple[int, int]] = []
+    for c in range(left, right + 1):     p.append((top, c))      # → top
+    for r in range(top + 1, bottom + 1): p.append((r, right))    # ↓ right
+    for c in range(right - 1, left - 1, -1): p.append((bottom, c))  # ← bottom
+    for r in range(bottom - 1, top, -1):     p.append((r, left))     # ↑ left
+    return p
+
+
+def _build_splash_frames(w: int = 120, h: int = 32, fps: int = 24) -> list[str]:
+    """Return animation frames: A appears → snake wraps → shrinks to corner."""
+    art_w = max(len(row) for row in _A_LARGE)
+    art_h = len(_A_LARGE)
+    col0  = (w - art_w) // 2
+    row0  = (h - art_h) // 2
+
+    # Snake orbit rectangle (snug around the A)
+    pad_r, pad_c = 2, 3
+    path = _orbit_path(
+        max(0, row0 - pad_r),
+        min(h - 1, row0 + art_h + pad_r),
+        max(0, col0 - pad_c),
+        min(w - 1, col0 + art_w + pad_c),
+    )
+    plen = len(path)
+
+    frames: list[str] = []
+
+    # ── phase 1: A reveals line-by-line (0.5 s) ──────────────────────────────
+    reveal_frames = max(1, fps // 2)
+    for fi in range(reveal_frames):
+        n_rows = int((fi + 1) / reveal_frames * art_h)
+        c = _make_canvas(w, h)
+        _draw_art(c, _A_LARGE[:n_rows], row0, col0, _BLUE)
+        frames.append(_render_canvas(c))
+
+    # ── phase 2: snake grows along orbit (1.5 s) ─────────────────────────────
+    grow_frames = int(fps * 1.5)
+    for fi in range(grow_frames):
+        n_snake = int((fi + 1) / grow_frames * plen)
+        c = _make_canvas(w, h)
+        _draw_art(c, _A_LARGE, row0, col0, _BLUE)
+        for k in range(n_snake):
+            r, col = path[k]
+            c[r][col] = (_SNAKE_CHARS[(k + fi) % len(_SNAKE_CHARS)], _GREEN)
+        frames.append(_render_canvas(c))
+
+    # ── phase 3: full orbit for 1 s ──────────────────────────────────────────
+    orbit_frames = fps
+    for fi in range(orbit_frames):
+        offset = fi * 2
+        c = _make_canvas(w, h)
+        _draw_art(c, _A_LARGE, row0, col0, _BLUE)
+        for k in range(plen):
+            r, col = path[(offset + k) % plen]
+            c[r][col] = (_SNAKE_CHARS[(k + offset) % len(_SNAKE_CHARS)], _GREEN)
+        frames.append(_render_canvas(c))
+
+    # ── phase 4: shrink toward top-left (1 s) ────────────────────────────────
+    shrink_frames = fps
+    last_offset = orbit_frames * 2
+    for fi in range(shrink_frames):
+        t = fi / shrink_frames   # 0 → 1
+        # target: small A at top-left corner (row 1, col 2)
+        cr = int(row0 * (1 - t) + 1 * t)
+        cc = int(col0 * (1 - t) + 2 * t)
+
+        if t < 0.35:
+            art = _A_LARGE
+        elif t < 0.70:
+            art = _A_MED
+        else:
+            art = _A_SMALL
+
+        c = _make_canvas(w, h)
+        _draw_art(c, art, cr, cc, _BLUE)
+
+        # Snake shrinks too
+        snake_visible = int(plen * max(0, 1 - t * 1.5))
+        for k in range(snake_visible):
+            r, col = path[(last_offset + k) % plen]
+            c[r][col] = (_SNAKE_CHARS[(k + last_offset) % len(_SNAKE_CHARS)], _GREEN)
+
+        frames.append(_render_canvas(c))
+
+    return frames
+
+
 _MOCK_PANEL_STATES = None   # populated lazily inside _render_tui_snapshot
 _MOCK_PAYLOADS: dict = {
     "dashboard": {
@@ -210,27 +372,21 @@ def _render_tui_snapshot(section_id: str, width: int, height: int) -> str:
     return render_operator_shell(state, width=width, height=height)
 
 
-def record(preset: str = "rotate_in", fps: int = 24, duration_ms: int = 2000) -> None:
-    """Record operator_tui_splash.cast: 3D logo animation → TUI dashboard overview."""
-    w, h = 120, 32   # fixed so the cast is browser-portable
+def record(fps: int = 24, **_: object) -> None:
+    """Record operator_tui_splash.cast: logo animation → TUI dashboard overview."""
+    w, h = 120, 32
 
-    events: list[tuple[float, str]] = []   # (timestamp_s, raw_data)
+    events: list[tuple[float, str]] = []
     interval = 1.0 / fps
     t = 0.0
 
-    # ── Phase 1: 3D logo animation ────────────────────────────────────────────
-    logo_frames = _render_frames(preset, w, h, fps, duration_ms)
-    for frame in logo_frames:
-        events.append((t, f"\x1b[H{frame}"))
+    # ── Phase 1: logo splash (A appears + snake wraps + shrinks) ─────────────
+    splash_frames = _build_splash_frames(w, h, fps)
+    for frame in splash_frames:
+        events.append((t, f"\x1b[2J\x1b[H{frame}"))
         t += interval
 
-    # ── Phase 2: hold on last logo frame (0.5 s) ─────────────────────────────
-    if logo_frames:
-        for _ in range(max(1, fps // 2)):
-            events.append((t, f"\x1b[H{logo_frames[-1]}"))
-            t += interval
-
-    # ── Phase 3: TUI sections ─────────────────────────────────────────────────
+    # ── Phase 2: TUI sections ─────────────────────────────────────────────────
     section_specs = [
         ("dashboard", 1.5),
         ("goals",     1.0),
@@ -249,10 +405,8 @@ def record(preset: str = "rotate_in", fps: int = 24, duration_ms: int = 2000) ->
     path = os.path.join(_CAST_DIR, "operator_tui_splash.cast")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     header = {
-        "version": 2,
-        "width": w,
-        "height": h,
-        "title": f"Ananta – {preset} → TUI",
+        "version": 2, "width": w, "height": h,
+        "title": "Ananta – snake wraps A → TUI",
         "env": {"TERM": "xterm-256color"},
     }
     json_lines = [json.dumps(header, ensure_ascii=False)]
@@ -262,8 +416,8 @@ def record(preset: str = "rotate_in", fps: int = 24, duration_ms: int = 2000) ->
         f.write("\n".join(json_lines) + "\n")
     print(
         f"[smoke_logo] saved {len(events)} events → {path}\n"
-        f"[smoke_logo]   logo={len(logo_frames)}  hold={fps // 2}"
-        f"  tui_sections={len(section_specs)}  total_s={t:.1f}",
+        f"[smoke_logo]   splash={len(splash_frames)}  tui_sections={len(section_specs)}"
+        f"  total_s={t:.1f}",
         file=sys.stderr,
     )
 
@@ -317,7 +471,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if check() else 1
 
     if args.mode_rec:
-        record(args.preset, args.fps, args.duration_ms)
+        record(fps=args.fps)
         return 0
 
     if args.mode_2d:
