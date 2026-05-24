@@ -95,14 +95,31 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         from client_surfaces.operator_tui.animation3d.backends import BuiltinBackend
         from client_surfaces.operator_tui.animation3d.capabilities import detect_3d_capability
+        from client_surfaces.operator_tui.animation3d.models import AnimationCapability
 
         cap = detect_3d_capability(
             terminal_width=args.width,
             terminal_height=args.height,
         )
         backend: BuiltinBackend | None = None
-        if not args.no_3d and cap.enabled:
+        env_3d = os.environ.get("ANANTA_TUI_3D", "").strip()
+        opt_in_3d = env_3d in ("1", "yes", "on") or not args.no_3d and cap.enabled and os.environ.get("ANANTA_TUI_3D_PRESET")
+        if opt_in_3d and cap.enabled:
             backend = BuiltinBackend()
+        splash = SplashMachine(
+            fullscreen_seconds=args.splash_seconds,
+            animation_backend=backend,
+            animation_capability=cap if backend is not None else None,
+        )
+        backend: BuiltinBackend | None = None
+        if not args.no_3d and cap.enabled and (explicit_3d or args.splash_frame):
+            backend = BuiltinBackend()
+            cap = AnimationCapability(
+                enabled=True, reason_code="ok",
+                terminal_width=args.width, terminal_height=args.height,
+                color_mode=cap.color_mode, preset_name=args.splash_frame.split(":")[0] if args.splash_frame and ":" in args.splash_frame else cap.preset_name,
+                max_fps=cap.max_fps, duration_ms=cap.duration_ms,
+            )
 
         splash = SplashMachine(
             fullscreen_seconds=args.splash_seconds,

@@ -64,12 +64,12 @@ _VALID_TRANSITIONS: dict[SplashState, set[SplashState]] = {
 }
 
 
-def _height_for_width(width: int) -> int:
+def _height_for_width(width: int, min_height: int = 18) -> int:
     if width >= 160:
-        return 48
+        return min(48, min_height)
     if width >= 110:
-        return 32
-    return 24
+        return min(28, min_height)
+    return min(20, min_height)
 
 
 class SplashTransitionError(ValueError):
