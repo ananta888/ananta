@@ -3,8 +3,9 @@
   "title": "Add generic CodeCompass graph visualization component with simple, 2D and 3D views",
   "status": "todo",
   "progress": {
-    "completed": [],
-    "remaining": ["graph-000", "graph-001", "graph-002", "graph-003", "graph-004", "graph-005", "graph-006", "graph-007", "graph-008", "graph-009", "graph-010", "graph-011", "graph-012"],
+    "completed": ["graph-000", "graph-001", "graph-002", "graph-009"],
+    "remaining": ["graph-003", "graph-004", "graph-005", "graph-006", "graph-007", "graph-008", "graph-010", "graph-011", "graph-012"],
+    "tests_passing": 15,
     "last_updated": "2026-05-24"
   },
   "goal": "Create a reusable Angular graph viewer for CodeCompass-generated graphs. The viewer must support three UI/UX variants: simple textual/tree view, graphical 2D graph view, and graphical 3D graph view. The implementation must stay generic, renderer-independent and easily extensible.",
@@ -80,7 +81,12 @@
   "tasks": [
     {
       "id": "graph-000",
-      "status": "todo",
+      "status": "done",
+      "implemented": {
+        "agent/routes/codecompass_graph.py": "Flask Blueprint with GET /api/codecompass/graph, GET /api/codecompass/graph/node/<id>, GET /api/codecompass/graph/expand. Resolves index_path via KnowledgeIndexDB.output_dir/cc_graph_index.json. Serializes to domain_graph_artifact.v1. Expand uses expand_codecompass_graph() from codecompass_graph_expansion.py.",
+        "agent/bootstrap/routes.py": "codecompass_graph_bp registered.",
+        "tests/test_codecompass_graph_api.py": "15 tests: get graph nodes/edges/metadata, degraded when missing, 400/404 error cases, expand traversal, invalid profile/missing seed, unauthenticated 401."
+      },
       "title": "Add backend REST endpoints for CodeCompass graph",
       "type": "backend",
       "files": [
@@ -103,7 +109,12 @@
     },
     {
       "id": "graph-001",
-      "status": "todo",
+      "status": "done",
+      "implemented": {
+        "frontend-angular/src/app/features/codecompass-graph/models/graph.model.ts": "GraphNode (id, kind, label, file, content, recordId, metadata), GraphEdge (id, source, target, edgeType, confidence, metadata), GenericGraphModel, GraphMetadata. Union types GraphNodeKind and GraphEdgeType with all real backend values.",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-view-mode.ts": "GraphViewMode union, GRAPH_VIEW_MODES array, GRAPH_VIEW_MODE_LABELS display map.",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-filter.model.ts": "GraphFilter interface, EMPTY_FILTER, ALL_NODE_KINDS and ALL_EDGE_TYPES constants."
+      },
       "title": "Create generic graph model",
       "type": "implementation",
       "files": [
@@ -129,7 +140,10 @@
     },
     {
       "id": "graph-002",
-      "status": "todo",
+      "status": "done",
+      "implemented": {
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.ts": "GraphAdapterService.fromDomainArtifact(raw): maps domain_graph_artifact.v1 → GenericGraphModel. Unknown node_type→'unknown', unknown relation→'related'. All attributes preserved in metadata. Edge id derived from source|target|relation."
+      },
       "title": "Create GraphAdapterService",
       "type": "implementation",
       "files": [
@@ -294,7 +308,10 @@
     },
     {
       "id": "graph-009",
-      "status": "todo",
+      "status": "done",
+      "implemented": {
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-state.service.ts": "GraphStateService with Angular signals: viewMode, selectedNode, selectedEdge, filter, graph. Computed filteredNodes (kind+search filter) and filteredEdges (edge type filter + visible node constraint). setGraph() resets selection. selectNode/selectEdge clear each other."
+      },
       "title": "Add graph state service",
       "type": "implementation",
       "files": [
