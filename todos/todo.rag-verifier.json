@@ -1,7 +1,7 @@
 {
   "id": "todo.source-grounded-llm-answer-verification",
   "title": "Source-grounded LLM answers with deterministic citation verification",
-  "status": "planned",
+  "status": "in_progress",
   "priority": "high",
   "scope": "ananta hub-worker orchestration, RAG provenance, tool-run evidence, answer verification",
   "context_analysis": {
@@ -134,7 +134,8 @@
         "Schema rejects duplicate source_id values.",
         "Schema rejects source IDs that do not match the allowed pattern.",
         "Unit test covers valid catalog and invalid duplicate source_id."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "SGA-002",
@@ -161,7 +162,8 @@
         "The service preserves path, record_id, manifest_hash and channel/engine metadata.",
         "The service does not create sources for records outside selected/provenance input.",
         "Unit tests assert deterministic ordering independent of input ordering."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "SGA-003",
@@ -181,7 +183,8 @@
         "If line metadata exists in source metadata, it is propagated into provenance.",
         "If line metadata does not exist, the field is null, not invented.",
         "Existing retrieval tests still pass."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "SGA-004",
@@ -216,7 +219,8 @@
         "Schema rejects citation_refs that are not strings.",
         "Schema rejects arbitrary extra top-level fields unless explicitly allowed.",
         "Unit tests cover valid source_fact, valid tool_result and invalid uncited source_fact."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "SGA-005",
@@ -243,7 +247,8 @@
         "Answer with tool_result claim but no RUN_* citation returns status failed_missing_tool_run.",
         "Unverified claims are preserved but marked and counted.",
         "Verification result includes verified_claim_count, unverified_claim_count and failed_claims[]."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "SGA-006",
@@ -276,7 +281,8 @@
         "Large stdout can be truncated for display but full hash remains stable.",
         "Tool run belongs to exactly one task_id.",
         "Citation verifier accepts RUN_* for tool_result claims."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "SGA-007",
@@ -302,7 +308,8 @@
         "Prompt explicitly forbids invented file names, line ranges and source IDs.",
         "Existing propose path still supports command/tool_calls.",
         "Test verifies prompt contains citation contract when source catalog is present."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "SGA-008",
@@ -330,7 +337,8 @@
         "Failed citation verification does not silently mark task as completed.",
         "Existing task_flow_metrics are preserved.",
         "Read-model exposes citation verification summary."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "SGA-009",
@@ -355,7 +363,8 @@
         "Endpoint does not expose source content for sources blocked by policy.",
         "Endpoint returns 404 for unknown task.",
         "Route tests cover successful and missing task cases."
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "SGA-010",
@@ -373,7 +382,8 @@
         "Unknown or failed citations are highlighted.",
         "Blocked source content is not displayed, only metadata and reason.",
         "Angular tests or component-level tests cover verified and failed states."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "SGA-011",
@@ -400,7 +410,8 @@
         "The script states clearly that it is a toy/demo and not real Bitcoin mining.",
         "The expected hash is verified by test, not by LLM text.",
         "Fixture contains README text that can be indexed as SRC_* source."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "SGA-012",
@@ -448,7 +459,8 @@
         "Test fails if RUN_0001 does not exist in ToolRunCatalog.",
         "Test fails if answer claims a nonce/hash not present in tool stdout/result artifact.",
         "Test passes when SRC_0001 explains the algorithm and RUN_0001 contains matching nonce/hash evidence."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "SGA-013",
@@ -475,7 +487,8 @@
         "Evidence summary contains citation_verification_status=verified.",
         "E2E test fails if answer contains uncited factual claim.",
         "E2E test fails if answer cites invented SRC_9999."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "SGA-014",
@@ -499,7 +512,8 @@
         "Failure reason is deterministic and machine-readable.",
         "No negative test relies on LLM judgement.",
         "Tests are stable without network access."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "SGA-015",
@@ -519,7 +533,8 @@
         "API source inspection hides content for blocked sources.",
         "Existing local_only behavior remains unchanged.",
         "Tests cover external_cloud_allowed with allow_full_context_for_cloud=false."
-      ]
+      ],
+      "status": "open"
     },
     {
       "id": "SGA-016",
@@ -548,7 +563,8 @@
         "Docs explain difference between SRC_* and RUN_*.",
         "Docs mention retrieval_trace_id/context_hash/manifest_hash.",
         "AGENTS.md states that source IDs must not be invented."
-      ]
+      ],
+      "status": "open"
     }
   ],
   "bitcoin_test_example": {
@@ -577,5 +593,34 @@
     "Bitcoin mining demo produces deterministic tool-run evidence.",
     "E2E evidence flow proves verified answer with SRC_* and RUN_* refs.",
     "Docs explain the mechanism clearly."
-  ]
+  ],
+  "progress_summary": {
+    "updated_at": "2026-05-24",
+    "completed": [
+      "SGA-001",
+      "SGA-002",
+      "SGA-003",
+      "SGA-004",
+      "SGA-005",
+      "SGA-006",
+      "SGA-007",
+      "SGA-008",
+      "SGA-009"
+    ],
+    "partial": [],
+    "open": [
+      "SGA-010",
+      "SGA-011",
+      "SGA-012",
+      "SGA-013",
+      "SGA-014",
+      "SGA-015",
+      "SGA-016"
+    ],
+    "notes": [
+      "Core source-catalog, answer-schema, verifier, tool-run evidence and API inspection endpoints implemented.",
+      "Focused unit tests for implemented blocks are green.",
+      "One legacy endpoint compatibility test remains unstable in current environment and is tracked outside this TODO status summary."
+    ]
+  }
 }
