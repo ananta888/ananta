@@ -10,6 +10,30 @@ from agent.cli.logo_assets import load_logo
 from agent.cli.logo_layout import COMPACT_HEADER_LINES, render_compact_header
 from agent.cli.status_snapshot import StatusSnapshot
 
+try:
+    from client_surfaces.operator_tui.animation3d.backends import BuiltinBackend
+    from client_surfaces.operator_tui.animation3d.capabilities import detect_3d_capability
+    from client_surfaces.operator_tui.animation3d.models import AnimationCapability, LogoAnimationBackend
+
+    _3D_AVAILABLE = True
+except ImportError:
+    _3D_AVAILABLE = False
+    AnimationCapability = object  # type: ignore[assignment, misc]
+    BuiltinBackend = object  # type: ignore[assignment, misc]
+    LogoAnimationBackend = object  # type: ignore[assignment, misc]
+
+    def detect_3d_capability(*args: object, **kwargs: object) -> object:  # type: ignore[misc]
+        class _Fake:
+            enabled = False
+            reason_code = "import_error"
+            color_mode = ""
+            preset_name = ""
+            duration_ms = 0
+            max_fps = 0
+            terminal_width = 0
+            terminal_height = 0
+        return _Fake()
+
 
 class SplashState(str, Enum):
     DISABLED = "disabled"
@@ -40,6 +64,14 @@ _VALID_TRANSITIONS: dict[SplashState, set[SplashState]] = {
 }
 
 
+def _height_for_width(width: int) -> int:
+    if width >= 160:
+        return 48
+    if width >= 110:
+        return 32
+    return 24
+
+
 class SplashTransitionError(ValueError):
     pass
 
@@ -63,10 +95,14 @@ class SplashMachine:
         fullscreen_seconds: float = 2.0,
         transition_seconds: float = 0.5,
         clock: Callable[[], float] | None = None,
+        animation_backend: LogoAnimationBackend | None = None,
+        animation_capability: AnimationCapability | None = None,
     ) -> None:
         self._fullscreen_seconds = fullscreen_seconds
         self._transition_seconds = transition_seconds
         self._clock = clock or time.time
+        self._3d_backend: LogoAnimationBackend | None = animation_backend
+        self._3d_capability: object | None = animation_capability
 
         if os.getenv("ANANTA_TUI_SPLASH", "").strip() == "0":
             initial = SplashState.DISABLED
@@ -159,14 +195,36 @@ class SplashMachine:
         if ctx.state in (SplashState.DISABLED, SplashState.SKIPPED):
             return []
 
+        _width = width or 80
+        _color = color if color is not None else True
+
         if ctx.state == SplashState.FULLSCREEN:
-            raw = load_logo(width=width, color=color)
+            if self._3d_backend is not None and getattr(self._3d_capability, "enabled", False):
+                elapsed = ctx.elapsed(self._now())
+                cap = self._3d_capability
+                preset = getattr(cap, "preset_name", "rotate_in")
+                color_mode = getattr(cap, "color_mode", "truecolor")
+                no_color = color_mode in ("mono", "plain_ascii")
+                result = self._3d_backend.frame_at(
+                    t=elapsed,
+                    width=_width,
+                    height=_height_for_width(_width),
+                    options={
+                        "preset": preset,
+                        "color_mode": color_mode,
+                        "no_color": no_color,
+                        "no_ansi": color_mode == "plain_ascii",
+                    },
+                )
+                if result.text and result.fallback_reason is None:
+                    return result.text.split("\n")
+            raw = load_logo(width=_width, color=_color)
             if not raw:
                 return []
             return raw.split("\n")
 
         if ctx.state == SplashState.TRANSITION:
-            raw = load_logo(width=width, color=color)
+            raw = load_logo(width=_width, color=_color)
             if not raw:
                 return []
             all_lines = raw.split("\n")
@@ -177,4 +235,4 @@ class SplashMachine:
             current_count = max(target, min(total, current_count))
             return all_lines[:current_count]
 
-        return render_compact_header(snapshot, terminal_width=width, color=color)
+        return render_compact_header(snapshot, terminal_width=_width, color=_color)

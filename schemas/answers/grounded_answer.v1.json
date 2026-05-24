@@ -61,6 +61,18 @@
               "partially_verified",
               "unverified"
             ]
+          },
+          "expected_evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "nonce": {
+                "type": "integer"
+              },
+              "hash": {
+                "type": "string"
+              }
+            }
           }
         },
         "allOf": [
@@ -101,4 +113,3 @@
     }
   }
 }
-

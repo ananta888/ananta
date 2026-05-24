@@ -9,6 +9,8 @@ export class HubTasksApiClient {
 
   listTasks(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/tasks`, baseUrl, token, true); }
   getTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get(`${baseUrl}/tasks/${id}`, baseUrl, token, true); }
+  getTaskSources(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get(`${baseUrl}/tasks/${id}/sources`, baseUrl, token, true); }
+  getTaskAnswerVerification(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get(`${baseUrl}/tasks/${id}/answer-verification`, baseUrl, token, true); }
   createTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks`, body, baseUrl, token); }
   patchTask(baseUrl: string, id: string, patch: any, token?: string): Observable<any> { return this.core.patch(`${baseUrl}/tasks/${id}`, patch, baseUrl, token); }
   assign(baseUrl: string, id: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks/${id}/assign`, body, baseUrl, token); }

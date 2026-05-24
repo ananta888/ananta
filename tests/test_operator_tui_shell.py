@@ -203,7 +203,7 @@ def test_operator_tui_rollout_controls_are_explicit() -> None:
 
 
 def test_ananta_tui_default_uses_operator_render_once(capsys) -> None:
-    exit_code = _run_tui(["--render-once", "--section", "tasks", "--width", "90", "--height", "20"])
+    exit_code = _run_tui(["--render-once", "--skip-splash", "--section", "tasks", "--width", "90", "--height", "20"])
 
     captured = capsys.readouterr()
     assert exit_code == 0

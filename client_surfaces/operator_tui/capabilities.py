@@ -31,9 +31,21 @@ def detect_terminal_graphics(env: dict[str, str] | None = None) -> tuple[Termina
 def graphics_decision(env: dict[str, str] | None = None) -> dict[str, object]:
     capabilities = detect_terminal_graphics(env)
     supported = [item.protocol for item in capabilities if item.supported]
-    return {
+    result: dict[str, object] = {
         "supported": bool(supported),
         "protocols": supported,
         "fallback": "text_diagram",
         "capabilities": [item.__dict__ for item in capabilities],
     }
+    try:
+        from client_surfaces.operator_tui.animation3d.capabilities import detect_3d_capability as _d3d
+        cap = _d3d(env)
+        result["animation_3d"] = {
+            "enabled": cap.enabled,
+            "reason": cap.reason_code,
+            "preset": cap.preset_name,
+            "color_mode": cap.color_mode,
+        }
+    except ImportError:
+        result["animation_3d"] = {"enabled": False, "reason": "import_error"}
+    return result
