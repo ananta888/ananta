@@ -35,21 +35,43 @@ def _apply_perspective(v: Vertex, d: float) -> tuple[float, float, float]:
     return (v.x * factor, v.y * factor, v.z)
 
 
-def _depth_shade(z: float, min_z: float, max_z: float) -> float:
-    span = max_z - min_z
-    if span < 1e-9:
-        return 0.5
-    return (z - min_z) / span
+def _bresenham_line(
+    x0: float, y0: float, z0: float,
+    x1: float, y1: float, z1: float,
+) -> list[tuple[int, int, float]]:
+    ix0, iy0 = int(round(x0)), int(round(y0))
+    ix1, iy1 = int(round(x1)), int(round(y1))
+    dx = abs(ix1 - ix0)
+    dy = -abs(iy1 - iy0)
+    sx = 1 if ix0 < ix1 else -1
+    sy = 1 if iy0 < iy1 else -1
+    err = dx + dy
+
+    x, y = ix0, iy0
+    total_len = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2) or 1.0
+    dist_to_point = 0.0
+    total_dist = math.sqrt((ix1 - ix0) ** 2 + (iy1 - iy0) ** 2)
+    points: list[tuple[int, int, float]] = []
+
+    while True:
+        frac = dist_to_point / total_dist if total_dist > 0 else 0.0
+        z = z0 + (z1 - z0) * frac
+        points.append((x, y, z))
+        if x == ix1 and y == iy1:
+            break
+        e2 = 2 * err
+        if e2 >= dy:
+            err += dy
+            x += sx
+        if e2 <= dx:
+            err += dx
+            y += sy
+        dist_to_point = math.sqrt((x - ix0) ** 2 + (y - iy0) ** 2)
+
+    return points
 
 
-_DENSITY_CHARS = " .:oO8#@"
-_SNAKE_CHARS = " .:sSoO8@"
-_EDGE_CHARS: dict[str, str] = {
-    "h": "-",
-    "v": "|",
-    "f": "/",
-    "b": "\\",
-}
+_SNAKE_CHARS = "sSoOcC~"
 
 
 class BuiltinBackend:
@@ -94,8 +116,8 @@ class BuiltinBackend:
                 fallback_reason="too_small",
             )
 
-        angle_y = preset.rotation_speed * t * math.pi * 2.0
-        angle_x = preset.rotation_speed * t * math.pi * 0.3
+        angle_y = math.pi * 0.4 + preset.rotation_speed * t * math.pi * 2.0
+        angle_x = math.pi * 0.15 + preset.rotation_speed * t * math.pi * 0.3
         angle_z = preset.rotation_speed * t * math.pi * 0.1
 
         scale_factor = preset.scale_at(t)
@@ -181,11 +203,26 @@ class BuiltinBackend:
             for _ in range(height)
         ]
 
+        a_edge_angle = 0.0
         for edge in a_edges:
-            self._draw_edge(grid, edge, width, height, "A")
+            dx = edge["ex"] - edge["sx"]
+            dy = edge["ey"] - edge["sy"]
+            a_edge_angle = math.atan2(dy, dx) if (dx != 0 or dy != 0) else 0.0
+            self._draw_edge_bresenham(grid, edge, "A", a_edge_angle)
 
         for edge in snake_edges:
-            self._draw_edge(grid, edge, width, height, "snake")
+            dx = edge["ex"] - edge["sx"]
+            dy = edge["ey"] - edge["sy"]
+            angle = math.atan2(dy, dx) if (dx != 0 or dy != 0) else 0.0
+            self._draw_edge_bresenham(grid, edge, "snake", angle)
+
+        filled_cells = sum(
+            1 for y in range(height) for x in range(width)
+            if grid[y][x]["z"] >= -1e8
+        )
+
+        if filled_cells < 4:
+            return "\n".join(" " * width for _ in range(height))
 
         lines: list[str] = []
         for y in range(height):
@@ -204,7 +241,7 @@ class BuiltinBackend:
                 seg = cell["part"]
 
                 if not no_ansi and not no_color:
-                    color = snake_color if seg.startswith("snake") else a_color
+                    color = snake_color if "snake" in seg else a_color
                     esc = self._ansi_color_escape(color)
                     if seg != last_seg:
                         if last_seg is not None:
@@ -223,63 +260,55 @@ class BuiltinBackend:
             lines.append("".join(line_parts))
         return "\n".join(lines)
 
-    def _draw_edge(
+    def _draw_edge_bresenham(
         self,
         grid: list[list[dict]],
         edge: dict,
-        width: int,
-        height: int,
         part_prefix: str,
+        angle: float,
     ) -> None:
         sx, sy, sz = edge["sx"], edge["sy"], edge["sz"]
         ex, ey, ez = edge["ex"], edge["ey"], edge["ez"]
         part_id = edge["part_id"]
         seg = f"{part_prefix}:{part_id}"
+        h = len(grid)
+        w = len(grid[0])
 
-        dx, dy = ex - sx, ey - sy
-        steps = max(1, int(math.sqrt(dx * dx + dy * dy) * 2.0))
-
-        for i in range(steps + 1):
-            frac = i / steps
-            px = sx + dx * frac
-            py = sy + dy * frac
-            pz = sz + (ez - sz) * frac
-
-            ix = round(px)
-            iy = round(py)
-            if 0 <= ix < width and 0 <= iy < height:
-                cell = grid[iy][ix]
-                if pz > cell["z"]:
-                    angle = math.atan2(dy, dx) if steps > 0 else 0.0
-                    grid[iy][ix] = {"z": pz, "part": seg, "edge_angle": angle}
+        points = _bresenham_line(sx, sy, sz, ex, ey, ez)
+        for ix, iy, z in points:
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    nx, ny = ix + dx, iy + dy
+                    if 0 <= nx < w and 0 <= ny < h:
+                        cell = grid[ny][nx]
+                        if z > cell["z"]:
+                            grid[ny][nx] = {"z": z, "part": seg, "edge_angle": angle}
 
     def _pick_char(self, cell: dict) -> str:
         angle = cell["edge_angle"]
         part = cell["part"]
 
-        if part.startswith("snake"):
-            palette = _SNAKE_CHARS
-            n = len(palette) - 1
+        if "snake" in part:
+            n = len(_SNAKE_CHARS) - 1
             idx = min(n, max(0, int((angle / math.pi + 0.5) * n)))
-            return palette[idx]
-        else:
-            norm = (angle + math.pi) % (math.pi * 2)
-            if norm < math.pi / 8 or norm >= 15 * math.pi / 8:
-                return "-"
-            elif norm < 3 * math.pi / 8:
-                return "/"
-            elif norm < 5 * math.pi / 8:
-                return "|"
-            elif norm < 7 * math.pi / 8:
-                return "\\"
-            elif norm < 9 * math.pi / 8:
-                return "-"
-            elif norm < 11 * math.pi / 8:
-                return "/"
-            elif norm < 13 * math.pi / 8:
-                return "|"
-            else:
-                return "\\"
+            return _SNAKE_CHARS[idx]
+
+        norm = (angle + math.pi) % (math.pi * 2)
+        if norm < math.pi / 8 or norm >= 15 * math.pi / 8:
+            return "-"
+        if norm < 3 * math.pi / 8:
+            return "/"
+        if norm < 5 * math.pi / 8:
+            return "|"
+        if norm < 7 * math.pi / 8:
+            return "\\"
+        if norm < 9 * math.pi / 8:
+            return "-"
+        if norm < 11 * math.pi / 8:
+            return "/"
+        if norm < 13 * math.pi / 8:
+            return "|"
+        return "\\"
 
     def _ansi_color_escape(self, color_spec: str) -> str:
         if not color_spec:

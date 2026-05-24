@@ -22,15 +22,15 @@ class AnimationPreset:
 
 
 def _linear_scale(t: float) -> float:
-    return 0.7 + t * 0.3
+    return 1.8 + t * 0.8
 
 
 def _pulse_scale(t: float) -> float:
-    return 0.8 + 0.2 * math.sin(t * math.pi * 2.0)
+    return 1.8 + 0.6 * math.sin(t * math.pi * 2.0)
 
 
 def _snake_orbit_scale(t: float) -> float:
-    return 0.8 + 0.1 * math.sin(t * math.pi * 0.5)
+    return 1.8 + 0.4 * math.sin(t * math.pi * 0.5)
 
 
 builtin_presets: dict[str, AnimationPreset] = {
@@ -38,8 +38,8 @@ builtin_presets: dict[str, AnimationPreset] = {
         name="rotate_in",
         duration_ms=2000,
         fps=24,
-        rotation_speed=0.5,
-        snake_phase_offset=1.0,
+        rotation_speed=0.8,
+        snake_phase_offset=1.5,
         scale_curve=_linear_scale,
         a_color="0,180,80",
         snake_color="200,120,40",
@@ -48,7 +48,7 @@ builtin_presets: dict[str, AnimationPreset] = {
         name="snake_orbit",
         duration_ms=2500,
         fps=20,
-        rotation_speed=0.3,
+        rotation_speed=0.5,
         snake_phase_offset=2.0,
         scale_curve=_snake_orbit_scale,
         a_color="0,160,100",
@@ -58,7 +58,7 @@ builtin_presets: dict[str, AnimationPreset] = {
         name="depth_pulse",
         duration_ms=3000,
         fps=15,
-        rotation_speed=0.2,
+        rotation_speed=0.4,
         snake_phase_offset=1.5,
         scale_curve=_pulse_scale,
         a_color="30,180,120",

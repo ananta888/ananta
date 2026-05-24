@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 from typing import TYPE_CHECKING
 
+import asyncio
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
@@ -44,8 +45,19 @@ class InteractiveOperatorTui:
         )
 
     def run(self) -> int:
+        if self._splash is not None:
+            self._app.create_background_task(self._splash_loop())
         self._app.run()
         return 0
+
+    async def _splash_loop(self) -> None:
+        while self._splash is not None:
+            ctx = self._splash.context
+            from agent.cli.splash import SplashState
+            if ctx.state in (SplashState.DISABLED, SplashState.SKIPPED, SplashState.COMPACT_HEADER):
+                break
+            self._set_state(self.state)
+            await asyncio.sleep(0.1)
 
     def _build_keybindings(self) -> KeyBindings:
         bindings = KeyBindings()
