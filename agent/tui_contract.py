@@ -1,11 +1,45 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import Literal
 
 
 TuiKey = Literal["up", "down", "enter", "escape"]
+
+
+class ShellMode(str, Enum):
+    DASHBOARD = "dashboard"
+    TERMINAL_SESSION = "terminal_session"
+    EMBEDDED_EDITOR = "embedded_editor"
+    EMBEDDED_TOOL = "embedded_tool"
+
+
+@dataclass(frozen=True)
+class TuiPaneState:
+    mode: ShellMode = ShellMode.DASHBOARD
+    session_id: str = ""
+    tool_id: str = ""
+    file_path: str = ""
+    read_only: bool = False
+    target_type: str = ""  # "worker" | "hub" | "hub_as_worker"
+    entered_at: float = field(default_factory=time.time)
+
+    def is_embedded(self) -> bool:
+        return self.mode in (ShellMode.EMBEDDED_EDITOR, ShellMode.EMBEDDED_TOOL)
+
+    def to_dict(self) -> dict:
+        return {
+            "mode": self.mode.value,
+            "session_id": self.session_id,
+            "tool_id": self.tool_id,
+            "file_path": self.file_path,
+            "read_only": self.read_only,
+            "target_type": self.target_type,
+            "entered_at": self.entered_at,
+        }
 
 _ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07]*(?:\x07|\x1b\\)")
 _CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
