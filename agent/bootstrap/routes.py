@@ -4,6 +4,7 @@ from flask import Flask
 
 from agent.bootstrap.route_aliases import register_route_aliases
 from agent.routes.artifacts import artifacts_bp
+from agent.routes.codecompass_graph import codecompass_graph_bp
 from agent.routes.auth import auth_bp
 from agent.routes.config import register_config_blueprints
 from agent.routes.context_policy import context_policy_bp
@@ -48,6 +49,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(tasks_bp)
     register_tasks_blueprints(app)
     app.register_blueprint(artifacts_bp)
+    app.register_blueprint(codecompass_graph_bp)
     app.register_blueprint(knowledge_bp)
     app.register_blueprint(openai_compat_bp)
     app.register_blueprint(voice_bp)
