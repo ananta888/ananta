@@ -12,6 +12,7 @@ SECTIONS: tuple[Section, ...] = (
     Section("config", "Config", True, ("config", "providers"), "redacted_panel", 2.0, 30.0),
     Section("system", "System", True, ("basic_health", "contracts", "agents"), "degraded_panel", 1.0, 5.0),
     Section("audit", "Audit", True, ("audit_logs",), "policy_degraded_panel", 2.0, 20.0),
+    Section("terminal", "Terminal", True, ("targets", "sessions"), "degraded_panel", 2.0, 10.0),
     Section("help", "Help", True, ("keymap", "commands"), "local_only", 0.2, 60.0),
 )
 
@@ -36,6 +37,7 @@ def normalize_section_id(value: str) -> str:
         "goal": "goals",
         "artifact": "artifacts",
         "sys": "system",
+        "term": "terminal",
         "commands": "help",
         "?": "help",
     }
