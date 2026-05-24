@@ -263,6 +263,13 @@ class ConfigReadModelService:
         research_backend_review = review_policy(cfg, research_backend_cfg.get("provider"), "research")
         exposure_policy = get_exposure_policy_service().normalize_exposure_policy((cfg or {}).get("exposure_policy"))
         cli_session_mode = (cfg or {}).get("cli_session_mode") if isinstance((cfg or {}).get("cli_session_mode"), dict) else {}
+        propose_policy_cfg = (cfg or {}).get("propose_policy") if isinstance((cfg or {}).get("propose_policy"), dict) else {}
+        propose_policy_summary = {
+            "context_compaction_enabled": bool(propose_policy_cfg.get("context_compaction_enabled", True)),
+            "context_compaction_required": bool(propose_policy_cfg.get("context_compaction_required", False)),
+            "context_compactor_fail_open": bool(propose_policy_cfg.get("context_compactor_fail_open", False)),
+            "context_compactor_profile": str(propose_policy_cfg.get("context_compactor_profile") or "default").strip().lower() or "default",
+        }
         task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0, "blocked": 0}
         recent_timeline = []
         if include_task_snapshot:
@@ -335,26 +342,7 @@ class ConfigReadModelService:
                     if isinstance((cfg or {}).get("worker_runtime"), dict)
                     else None,
                 },
-                "propose_policy": {
-                    "context_compaction_enabled": bool(
-                        (((cfg or {}).get("propose_policy") or {}).get("context_compaction_enabled", True)
-                        if isinstance((cfg or {}).get("propose_policy"), dict)
-                        else True
-                    ),
-                    "context_compaction_required": bool(
-                        (((cfg or {}).get("propose_policy") or {}).get("context_compaction_required", False)
-                        if isinstance((cfg or {}).get("propose_policy"), dict)
-                        else False
-                    ),
-                    "context_compactor_fail_open": bool(
-                        (((cfg or {}).get("propose_policy") or {}).get("context_compactor_fail_open", False)
-                        if isinstance((cfg or {}).get("propose_policy"), dict)
-                        else False
-                    ),
-                    "context_compactor_profile": str(((((cfg or {}).get("propose_policy") or {}).get("context_compactor_profile") or "default"))).strip().lower()
-                    if isinstance((cfg or {}).get("propose_policy"), dict)
-                    else "default",
-                },
+                "propose_policy": propose_policy_summary,
                 "research_backend": {
                     "provider": research_backend_cfg.get("provider"),
                     "display_name": research_backend_cfg.get("display_name"),
