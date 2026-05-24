@@ -25,7 +25,7 @@ CORE_COMMANDS = (
     "prompt",
     "llm-log",
 )
-COMPAT_COMMANDS = ("goal", "goals")
+COMPAT_COMMANDS = ("goals",)  # "goal" is now handled by the domain CLI
 
 # New domain groups registered under agent/cli/commands/
 DOMAIN_COMMANDS = (

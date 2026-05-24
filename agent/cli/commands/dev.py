@@ -11,6 +11,7 @@ from typing import Any
 SUBCOMMANDS = [
     "acceptance", "e2e", "release-gate", "latency-diagnostics",
     "smoke", "benchmark", "audit", "check", "validate", "evidence",
+    "command",
 ]
 
 _SCRIPTS_DIR = Path(__file__).parent.parent.parent.parent / "scripts"
@@ -208,6 +209,15 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:  # noqa: C901
     )
     ev_p.add_argument("args", nargs=argparse.REMAINDER)
 
+    cmd_p = sub.add_parser("command", help="Shell command guardrail utilities.")
+    cmd_sub = cmd_p.add_subparsers(dest="command_action")
+    analyze_p = cmd_sub.add_parser(
+        "analyze",
+        help="Dry-run: analyse a shell command chain without executing it.",
+    )
+    analyze_p.add_argument("--command", required=True, help="The shell command to analyse.")
+    analyze_p.add_argument("--json", action="store_true", help="Print result as JSON.")
+
 
 def dispatch(argv: Sequence[str]) -> int:
     parser = _build_parser()
@@ -241,6 +251,8 @@ def dispatch(argv: Sequence[str]) -> int:
         return _run_script(_BENCHMARK_SCRIPTS[parsed.benchmark_name], list(parsed.args or []))
     if cmd == "evidence":
         return _run_script(_EVIDENCE_SCRIPTS[parsed.evidence_name], list(parsed.args or []))
+    if cmd == "command":
+        return _cmd_command(parsed)
     parser.print_help()
     return 0
 
@@ -255,6 +267,44 @@ def register(subparsers: Any) -> None:
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _cmd_command(parsed) -> int:
+    action = getattr(parsed, "command_action", None) or ""
+    if action == "analyze":
+        return _cmd_command_analyze(parsed)
+    print("Usage: ananta dev command analyze --command '<cmd>'")
+    return 0
+
+
+def _cmd_command_analyze(parsed) -> int:
+    import json as _json
+    from agent.services.shell_command_policy import ShellCommandAnalyzer
+
+    cmd = str(getattr(parsed, "command", "") or "").strip()
+    if not cmd:
+        print("Error: --command is required", file=sys.stderr)
+        return 2
+    analysis = ShellCommandAnalyzer().analyze(cmd)
+    result = analysis.as_dict()
+    result["segments"] = [
+        {"index": seg.index, "raw": seg.raw[:200], "operator_before": seg.operator_before}
+        for seg in (analysis.segments or [])
+    ]
+    if getattr(parsed, "json", False):
+        print(_json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print(f"Command:  {cmd[:120]}")
+        print(f"Allowed:  {result['allowed']}")
+        if result.get("denied_reason"):
+            print(f"Denied:   {result['denied_reason']} ({', '.join(result.get('unsupported_operators') or [])})")
+        print(f"Segments: {result['segment_count']}")
+        for seg in result.get("segments") or []:
+            op = f"[{seg['operator_before']}] " if seg.get("operator_before") else ""
+            print(f"  {seg['index']}: {op}{seg['raw'][:100]}")
+        if result.get("contains_quoted_operators"):
+            print("Note: quoted operators detected (correct, not split)")
+    return 0 if analysis.allowed else 1
+
 
 def _run_script(script_name: str, extra_args: list[str]) -> int:
     script = _SCRIPTS_DIR / script_name
