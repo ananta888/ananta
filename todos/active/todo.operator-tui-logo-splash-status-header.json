@@ -1,0 +1,627 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Peter Stuiber / ananta",
+  "track": "todo.operator-tui-logo-splash-status-header",
+  "title": "Operator TUI fullscreen logo splash with compact 8-line status header",
+  "purpose": "Implement a polished startup effect for the Operator TUI: show the Ananta symbol fullscreen at startup, then shrink/pin it to the top-left as an 8-line compact logo with useful runtime status information next to it.",
+  "context": {
+    "user_goal": "Beim Start der TUI soll das Ananta-Symbol anfangs die ganze Seite einnehmen und danach oben links sehr klein weiter angezeigt werden, über 8 Zeilen. Daneben sollen sinnige Statusinformationen stehen, z. B. aktuelles Verzeichnis der TUI und weitere Statusmeldungen.",
+    "current_code_state": [
+      "agent/cli/main.py routes `ananta tui` to client_surfaces.operator_tui.app.main unless --legacy/--fixture is used.",
+      "client_surfaces/operator_tui/app.py builds OperatorState and calls InteractiveOperatorTui for real interactive terminal sessions.",
+      "client_surfaces/operator_tui/interactive.py uses prompt_toolkit TextArea full_screen=True and re-renders via render_operator_shell().",
+      "client_surfaces/operator_tui/renderer.py currently renders a static text shell with title, rule, three columns, status line, command line and hints.",
+      "agent/cli/banner.py and agent/cli/assets already provide generated Ananta terminal logo assets; scripts/render_terminal_logo.py can generate ANSI, mono, plain ASCII and ANSI-colored ASCII logo variants."
+    ],
+    "design_principles": [
+      "No hand-drawn fallback logo revival. Use SVG-derived generated assets.",
+      "Effect must be optional and must not break non-interactive render-once/smoke tests.",
+      "Never emit ANSI escape codes into JSON/script output paths.",
+      "Use deterministic time/frame behavior testable without real sleeps.",
+      "Keep the old renderer path available as a fallback."
+    ]
+  },
+  "code_review_basis": [
+    {
+      "finding": "`ananta tui` uses `_run_tui()` and imports `client_surfaces.operator_tui.app.main` for the default Operator TUI path.",
+      "evidence": "agent/cli/main.py"
+    },
+    {
+      "finding": "Operator TUI currently supports `--render-once`, `--width`, `--height`, `--smoke`, and interactive full-screen mode.",
+      "evidence": "client_surfaces/operator_tui/app.py"
+    },
+    {
+      "finding": "Interactive mode currently has one TextArea and redraws full string output from `render_operator_shell()`.",
+      "evidence": "client_surfaces/operator_tui/interactive.py"
+    },
+    {
+      "finding": "Current shell renderer has no logo header/splash stage; it starts directly with title/rule and body columns.",
+      "evidence": "client_surfaces/operator_tui/renderer.py"
+    },
+    {
+      "finding": "Logo generation now supports ASCII-color and edge-aware ASCII assets; suitable for splash and compact logo variants.",
+      "evidence": "scripts/render_terminal_logo.py, agent/cli/assets/ascii_color_180.txt"
+    }
+  ],
+  "priority_scale": ["critical", "high", "medium", "low"],
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Logo asset strategy for splash and compact header",
+      "status": "todo",
+      "task_ids": [
+        "TUI-SPLASH-001",
+        "TUI-SPLASH-002",
+        "TUI-SPLASH-003",
+        "TUI-SPLASH-004"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Status header model and renderer",
+      "status": "todo",
+      "task_ids": [
+        "TUI-SPLASH-005",
+        "TUI-SPLASH-006",
+        "TUI-SPLASH-007",
+        "TUI-SPLASH-008"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Startup animation/effect lifecycle",
+      "status": "todo",
+      "task_ids": [
+        "TUI-SPLASH-009",
+        "TUI-SPLASH-010",
+        "TUI-SPLASH-011",
+        "TUI-SPLASH-012",
+        "TUI-SPLASH-013"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Operator TUI integration and configuration",
+      "status": "todo",
+      "task_ids": [
+        "TUI-SPLASH-014",
+        "TUI-SPLASH-015",
+        "TUI-SPLASH-016",
+        "TUI-SPLASH-017"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Tests, docs and acceptance smoke",
+      "status": "todo",
+      "task_ids": [
+        "TUI-SPLASH-018",
+        "TUI-SPLASH-019",
+        "TUI-SPLASH-020",
+        "TUI-SPLASH-021",
+        "TUI-SPLASH-022"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "TUI-SPLASH-001",
+      "title": "Define TUI logo asset variants and selection rules",
+      "status": "todo",
+      "priority": "critical",
+      "type": "design",
+      "files": [
+        "client_surfaces/operator_tui/logo_assets.py",
+        "agent/cli/assets/ascii_color_180.txt",
+        "agent/cli/assets/ansi_halfblock_120.txt",
+        "agent/cli/assets/ascii_fallback_90.txt"
+      ],
+      "summary": "Create a deterministic asset selection layer for fullscreen splash, compact 8-line logo, plain ASCII fallback and no-color fallback.",
+      "acceptance_criteria": [
+        "A module exists that can load logo assets without importing the CLI main module.",
+        "Asset lookup supports at least: splash_large, splash_medium, compact_8, compact_8_mono, compact_8_plain_ascii.",
+        "Missing asset files degrade gracefully to a built-in compact ASCII fallback, not to a crash.",
+        "Asset selection considers terminal width, color support and NO_COLOR.",
+        "The implementation does not resurrect the rejected hand-drawn logo drafts."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-002",
+      "title": "Generate compact 8-line Ananta logo asset from SVG-derived source",
+      "status": "todo",
+      "priority": "critical",
+      "type": "asset-generation",
+      "files": [
+        "scripts/render_terminal_logo.py",
+        "agent/cli/assets/ananta_tui_compact_8_ascii_color.txt",
+        "agent/cli/assets/ananta_tui_compact_8_ascii.txt",
+        "agent/cli/assets/ananta_tui_compact_8_mono.txt"
+      ],
+      "summary": "The pinned header logo must be exactly 8 display lines high and derived from ananta.svg.",
+      "depends_on": ["TUI-SPLASH-001"],
+      "acceptance_criteria": [
+        "A generated compact asset exists with exactly 8 non-empty display lines after stripping ANSI escapes.",
+        "The compact asset uses ASCII characters for shape; ANSI color is allowed only in the color variant.",
+        "A no-ANSI fallback exists and contains only 7-bit ASCII or explicitly approved mono fallback characters, depending on selected fallback mode.",
+        "The generator command used to create the asset is documented in the file header or docs.",
+        "Manual visual review confirms the compact logo still resembles the Ananta symbol enough for a header."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-003",
+      "title": "Generate fullscreen splash logo variants for different terminal sizes",
+      "status": "todo",
+      "priority": "high",
+      "type": "asset-generation",
+      "files": [
+        "agent/cli/assets/ananta_tui_splash_120_ascii_color.txt",
+        "agent/cli/assets/ananta_tui_splash_100_ascii_color.txt",
+        "agent/cli/assets/ananta_tui_splash_80_ascii.txt"
+      ],
+      "summary": "Create large startup assets that can fill most of the terminal screen without clipping.",
+      "depends_on": ["TUI-SPLASH-001"],
+      "acceptance_criteria": [
+        "At least three splash sizes exist or can be generated deterministically: wide, medium, narrow.",
+        "Splash renderer can center the selected asset vertically and horizontally.",
+        "Assets do not contain unbounded trailing whitespace that breaks width calculations.",
+        "Color variant uses ANSI TrueColor on ASCII characters; fallback variant has no ANSI escapes.",
+        "No generated file under .tmp is tracked."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-004",
+      "title": "Implement display-width safe logo measurement helpers",
+      "status": "todo",
+      "priority": "high",
+      "type": "utility",
+      "files": [
+        "client_surfaces/operator_tui/logo_layout.py",
+        "tests/test_operator_tui_logo_layout.py"
+      ],
+      "summary": "ANSI-colored assets need correct visible-width measurement and clipping/padding without counting escape sequences.",
+      "depends_on": ["TUI-SPLASH-001"],
+      "acceptance_criteria": [
+        "Helper strips ANSI escape sequences for visible length calculation.",
+        "Helper can pad, clip and center ANSI strings without corrupting escape sequences.",
+        "Helper treats unknown wide Unicode conservatively or avoids Unicode for ASCII logo modes.",
+        "Tests cover plain ASCII, ANSI-colored ASCII and empty lines.",
+        "No renderer uses len(raw_ansi_string) for layout decisions where visible width matters."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-005",
+      "title": "Create OperatorTuiStatusSnapshot model",
+      "status": "todo",
+      "priority": "critical",
+      "type": "feature",
+      "files": [
+        "client_surfaces/operator_tui/status_snapshot.py",
+        "client_surfaces/operator_tui/models.py",
+        "tests/test_operator_tui_status_snapshot.py"
+      ],
+      "summary": "Build a small deterministic status model for the pinned header next to the 8-line logo.",
+      "acceptance_criteria": [
+        "Status snapshot includes cwd, repo root if detectable, relative project path, base endpoint, auth_state, active section, focus pane, mode and current status_message.",
+        "Snapshot includes terminal size and graphics mode decision.",
+        "Snapshot includes git branch and dirty state when available without slow shell calls in render hot path.",
+        "Snapshot collection handles missing git, missing repo and permission errors gracefully.",
+        "Sensitive env values such as tokens/passwords are never included."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-006",
+      "title": "Add runtime service status lines for useful TUI diagnostics",
+      "status": "todo",
+      "priority": "high",
+      "type": "feature",
+      "files": [
+        "client_surfaces/operator_tui/status_snapshot.py",
+        "client_surfaces/operator_tui/adapters.py",
+        "tests/test_operator_tui_status_lines.py"
+      ],
+      "summary": "Expose meaningful status data next to the logo without overloading the header.",
+      "depends_on": ["TUI-SPLASH-005"],
+      "acceptance_criteria": [
+        "Header status lines can include: cwd, repo, branch, endpoint, auth, section, mode, focus, queue depth, active goals, online agents and last refresh time.",
+        "If adapter data is unavailable, the line shows unknown/degraded rather than crashing.",
+        "At most 8 status lines are emitted for the 8-line compact header by default.",
+        "Long paths are shortened in the middle or made relative to repo root.",
+        "Status line content is deterministic enough for snapshot tests when time is injected/frozen."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-007",
+      "title": "Render compact logo plus status block as top header",
+      "status": "todo",
+      "priority": "critical",
+      "type": "renderer",
+      "files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/logo_layout.py",
+        "client_surfaces/operator_tui/status_snapshot.py",
+        "tests/test_operator_tui_compact_header.py"
+      ],
+      "summary": "Replace/augment the current one-line title with an 8-line header: logo left, status right.",
+      "depends_on": ["TUI-SPLASH-002", "TUI-SPLASH-004", "TUI-SPLASH-005", "TUI-SPLASH-006"],
+      "acceptance_criteria": [
+        "render_operator_shell can render an 8-line compact header when enabled.",
+        "The compact Ananta logo appears in the top-left area over exactly 8 visible lines.",
+        "Status text appears to the right of the logo and does not overlap it.",
+        "The body column layout starts below the header and remains visible.",
+        "At narrow widths the renderer degrades to a 1-line title/status header or mono compact header."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-008",
+      "title": "Keep current bottom status/command/hints lines compatible with new header",
+      "status": "todo",
+      "priority": "medium",
+      "type": "renderer",
+      "files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "tests/test_operator_tui_renderer_layout_budget.py"
+      ],
+      "summary": "Adding an 8-line header must not break command input, hints and status footer.",
+      "depends_on": ["TUI-SPLASH-007"],
+      "acceptance_criteria": [
+        "Footer status line still shows endpoint/auth/focus/mode/status or an equivalent compact form.",
+        "Command line remains visible in command mode.",
+        "Hints line remains visible unless terminal height is too small.",
+        "Body height calculation subtracts compact header height correctly.",
+        "Minimum supported terminal height remains safe with no negative ranges."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-009",
+      "title": "Define splash lifecycle states and config",
+      "status": "todo",
+      "priority": "critical",
+      "type": "architecture",
+      "files": [
+        "client_surfaces/operator_tui/splash.py",
+        "client_surfaces/operator_tui/models.py",
+        "tests/test_operator_tui_splash_lifecycle.py"
+      ],
+      "summary": "Create explicit state for startup effect instead of ad-hoc sleeps or implicit rendering hacks.",
+      "acceptance_criteria": [
+        "Splash lifecycle supports states: disabled, fullscreen, transition, compact_header, skipped.",
+        "Lifecycle accepts injected monotonic clock for tests.",
+        "Config includes enabled, duration_ms, transition_frames, skip_on_keypress and reduced_motion.",
+        "Default is enabled only for interactive TTY mode, disabled for render-once/smoke/CI unless explicitly forced.",
+        "No real sleeps are used in unit tests."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-010",
+      "title": "Implement fullscreen splash renderer",
+      "status": "todo",
+      "priority": "high",
+      "type": "renderer",
+      "files": [
+        "client_surfaces/operator_tui/splash.py",
+        "client_surfaces/operator_tui/logo_layout.py",
+        "tests/test_operator_tui_fullscreen_splash.py"
+      ],
+      "summary": "Render the Ananta logo centered and scaled/selected to occupy most of the terminal page at startup.",
+      "depends_on": ["TUI-SPLASH-003", "TUI-SPLASH-004", "TUI-SPLASH-009"],
+      "acceptance_criteria": [
+        "Fullscreen splash selects the largest asset that fits width and height.",
+        "Splash is centered horizontally and vertically within available terminal size.",
+        "Splash includes a minimal loading/status text such as 'starting operator tui...' without hiding the logo.",
+        "If no asset fits, it falls back to compact header immediately.",
+        "Snapshot tests cover 80x24, 120x32 and 180x48 terminals."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-011",
+      "title": "Implement shrink transition frames from fullscreen to compact header",
+      "status": "todo",
+      "priority": "high",
+      "type": "animation",
+      "files": [
+        "client_surfaces/operator_tui/splash.py",
+        "client_surfaces/operator_tui/interactive.py",
+        "tests/test_operator_tui_splash_transition.py"
+      ],
+      "summary": "Create the visible effect that the fullscreen logo reduces into the 8-line top-left header.",
+      "depends_on": ["TUI-SPLASH-010", "TUI-SPLASH-007"],
+      "acceptance_criteria": [
+        "Transition consists of deterministic frames selected by elapsed time or frame index.",
+        "No frame exceeds terminal width/height.",
+        "Transition can be disabled with reduced motion / env flag.",
+        "If terminal is too small, transition is skipped and compact header is shown.",
+        "Tests verify first frame is splash-like, final frame is compact-header-like."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-012",
+      "title": "Allow startup effect to be skipped by keypress or config",
+      "status": "todo",
+      "priority": "medium",
+      "type": "interaction",
+      "files": [
+        "client_surfaces/operator_tui/interactive.py",
+        "client_surfaces/operator_tui/splash.py",
+        "tests/test_operator_tui_splash_skip.py"
+      ],
+      "summary": "User must never be trapped watching an animation.",
+      "depends_on": ["TUI-SPLASH-009", "TUI-SPLASH-011"],
+      "acceptance_criteria": [
+        "Pressing any normal navigation key during splash skips to compact header/main shell.",
+        "Command mode is not entered accidentally by the skip key.",
+        "ANANTA_TUI_SPLASH=0 disables the splash effect.",
+        "NO_COLOR and reduced-motion settings are respected.",
+        "Skip behavior is tested without real prompt_toolkit interactive UI."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-013",
+      "title": "Add refresh cadence for splash/status header without flicker",
+      "status": "todo",
+      "priority": "medium",
+      "type": "performance",
+      "files": [
+        "client_surfaces/operator_tui/interactive.py",
+        "client_surfaces/operator_tui/status_snapshot.py",
+        "tests/test_operator_tui_header_refresh.py"
+      ],
+      "summary": "Header status should update when state changes or on refresh, not spam redraw loops.",
+      "depends_on": ["TUI-SPLASH-005", "TUI-SPLASH-007"],
+      "acceptance_criteria": [
+        "Header is re-rendered on section switch, refresh, command execution and terminal resize.",
+        "No tight timer loop is introduced for static status.",
+        "Optional last-refresh timestamp is updated on :refresh.",
+        "Interactive TextArea update remains a single full-text replacement unless a richer layout is introduced deliberately.",
+        "First-paint measurement remains within existing budget or reports a controlled degraded status."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-014",
+      "title": "Add CLI flags and env vars for TUI splash/header behavior",
+      "status": "todo",
+      "priority": "high",
+      "type": "configuration",
+      "files": [
+        "client_surfaces/operator_tui/app.py",
+        "client_surfaces/operator_tui/splash.py",
+        "docs/cli/commands.md"
+      ],
+      "summary": "Expose safe controls for users and CI.",
+      "depends_on": ["TUI-SPLASH-009"],
+      "acceptance_criteria": [
+        "`ananta tui --no-splash` disables fullscreen splash but keeps compact header unless disabled separately.",
+        "`ananta tui --no-logo-header` disables compact logo header and uses legacy title line.",
+        "`ananta tui --splash-duration-ms <n>` controls startup duration with sane min/max bounds.",
+        "Env vars ANANTA_TUI_SPLASH, ANANTA_TUI_LOGO_HEADER and ANANTA_TUI_SPLASH_DURATION_MS are supported.",
+        "CLI help documents these flags."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-015",
+      "title": "Integrate splash lifecycle into InteractiveOperatorTui startup",
+      "status": "todo",
+      "priority": "critical",
+      "type": "integration",
+      "files": [
+        "client_surfaces/operator_tui/interactive.py",
+        "client_surfaces/operator_tui/app.py",
+        "client_surfaces/operator_tui/splash.py"
+      ],
+      "summary": "The real interactive TUI should start with fullscreen logo and end in normal shell with compact header.",
+      "depends_on": ["TUI-SPLASH-009", "TUI-SPLASH-010", "TUI-SPLASH-011", "TUI-SPLASH-014"],
+      "acceptance_criteria": [
+        "Interactive startup initially renders fullscreen splash when enabled.",
+        "After configured duration/transition, normal operator shell with compact 8-line header is rendered.",
+        "Existing keybindings still work after transition.",
+        "Non-interactive `--render-once` does not animate unless explicitly requested by a test-only flag.",
+        "Errors during splash rendering fall back to normal shell with status_message explaining the fallback."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-016",
+      "title": "Add render-once modes for deterministic preview and tests",
+      "status": "todo",
+      "priority": "high",
+      "type": "testability",
+      "files": [
+        "client_surfaces/operator_tui/app.py",
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/splash.py"
+      ],
+      "summary": "Allow developers to inspect splash/header states without launching full interactive TUI.",
+      "depends_on": ["TUI-SPLASH-010", "TUI-SPLASH-011", "TUI-SPLASH-007"],
+      "acceptance_criteria": [
+        "`ananta tui --render-once --splash-frame fullscreen` prints fullscreen splash preview.",
+        "`ananta tui --render-once --splash-frame compact` prints normal shell with compact header.",
+        "`ananta tui --render-once --splash-frame transition:<n>` prints a deterministic transition frame if implemented.",
+        "Render-once previews respect --width and --height.",
+        "These preview flags do not require prompt_toolkit full-screen mode."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-017",
+      "title": "Preserve legacy renderer mode as safety fallback",
+      "status": "todo",
+      "priority": "medium",
+      "type": "compatibility",
+      "files": [
+        "client_surfaces/operator_tui/renderer.py",
+        "client_surfaces/operator_tui/app.py",
+        "tests/test_operator_tui_legacy_renderer_compat.py"
+      ],
+      "summary": "Do not break existing smoke tests or users who prefer the old compact renderer.",
+      "depends_on": ["TUI-SPLASH-007", "TUI-SPLASH-014"],
+      "acceptance_criteria": [
+        "Legacy renderer output can still be selected via flag/env/config.",
+        "Existing operator TUI smoke tests remain green or are updated with explicit expected output mode.",
+        "The old one-line title path does not import logo asset code unless needed.",
+        "If terminal width/height is below minimum, legacy compact rendering is automatically used.",
+        "Fallback decision is visible in status_message or debug output."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-018",
+      "title": "Add unit tests for logo/status header rendering",
+      "status": "todo",
+      "priority": "critical",
+      "type": "test",
+      "files": [
+        "tests/test_operator_tui_compact_header.py",
+        "tests/test_operator_tui_logo_layout.py",
+        "tests/test_operator_tui_status_snapshot.py"
+      ],
+      "summary": "Verify core header behavior without full interactive terminal.",
+      "depends_on": ["TUI-SPLASH-004", "TUI-SPLASH-005", "TUI-SPLASH-007"],
+      "acceptance_criteria": [
+        "Compact header test verifies exactly 8 visible logo lines in normal terminal size.",
+        "Status header contains cwd or repo-relative path.",
+        "Status header contains endpoint, auth, section, mode and focus.",
+        "ANSI escape sequences do not break visible width assertions.",
+        "Narrow terminal tests verify graceful degradation."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-019",
+      "title": "Add unit tests for splash lifecycle and transition",
+      "status": "todo",
+      "priority": "high",
+      "type": "test",
+      "files": [
+        "tests/test_operator_tui_splash_lifecycle.py",
+        "tests/test_operator_tui_fullscreen_splash.py",
+        "tests/test_operator_tui_splash_transition.py"
+      ],
+      "summary": "Ensure splash effect is deterministic and safe.",
+      "depends_on": ["TUI-SPLASH-009", "TUI-SPLASH-010", "TUI-SPLASH-011"],
+      "acceptance_criteria": [
+        "Lifecycle tests use fake clock/frame index and no sleeps.",
+        "Fullscreen splash frame contains logo content and not the normal three-column shell body.",
+        "Final frame contains compact header plus normal shell body.",
+        "Reduced-motion mode skips transition deterministically.",
+        "Terminal-too-small case skips splash without crashing."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-020",
+      "title": "Add interactive smoke/preview tests for CLI entrypoint",
+      "status": "todo",
+      "priority": "high",
+      "type": "test",
+      "files": [
+        "tests/test_operator_tui_cli_splash_flags.py",
+        "tests/test_cli_tui_entrypoint.py"
+      ],
+      "summary": "Validate `ananta tui` flags and render-once previews from the real CLI path.",
+      "depends_on": ["TUI-SPLASH-014", "TUI-SPLASH-016"],
+      "acceptance_criteria": [
+        "`ananta tui --render-once --splash-frame fullscreen --width 120 --height 32` exits 0 and prints splash preview.",
+        "`ananta tui --render-once --splash-frame compact` exits 0 and prints compact header/status.",
+        "`ananta tui --no-splash --render-once` uses compact header without fullscreen preview.",
+        "`ANANTA_TUI_SPLASH=0` disables splash in CLI test.",
+        "Tests do not require a real TTY."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-021",
+      "title": "Document TUI splash/header behavior and tuning",
+      "status": "todo",
+      "priority": "medium",
+      "type": "docs",
+      "files": [
+        "docs/cli/commands.md",
+        "docs/development/terminal-logo.md",
+        "README.md"
+      ],
+      "summary": "Explain the new effect, how to disable it and how logo assets are generated.",
+      "depends_on": ["TUI-SPLASH-014", "TUI-SPLASH-016"],
+      "acceptance_criteria": [
+        "Docs mention startup fullscreen logo and compact 8-line header.",
+        "Docs list CLI flags and env vars for disabling/tuning the effect.",
+        "Docs show preview commands for fullscreen and compact render-once modes.",
+        "Docs explain that assets are SVG-derived via scripts/render_terminal_logo.py.",
+        "README mention stays short and does not embed huge generated logo text."
+      ]
+    },
+    {
+      "id": "TUI-SPLASH-022",
+      "title": "Run acceptance commands and archive/update TODO status",
+      "status": "todo",
+      "priority": "medium",
+      "type": "qa",
+      "files": [
+        "todos/active/todo.operator-tui-logo-splash-status-header.json",
+        "todos/archiv/"
+      ],
+      "summary": "Verify implementation and close/move TODO only when all acceptance criteria are met.",
+      "depends_on": [
+        "TUI-SPLASH-018",
+        "TUI-SPLASH-019",
+        "TUI-SPLASH-020",
+        "TUI-SPLASH-021"
+      ],
+      "acceptance_criteria": [
+        "Run targeted unit tests for logo layout, status header, splash lifecycle and CLI flags.",
+        "Run existing operator TUI smoke tests.",
+        "Run manual preview for fullscreen and compact frames at 120x32 and 180x48.",
+        "Record test result summary in commit message or TODO status update.",
+        "When done, mark all tasks done and move this TODO to todos/archiv or keep active with only remaining tasks."
+      ]
+    }
+  ],
+  "recommended_execution_order": [
+    "TUI-SPLASH-001",
+    "TUI-SPLASH-002",
+    "TUI-SPLASH-003",
+    "TUI-SPLASH-004",
+    "TUI-SPLASH-005",
+    "TUI-SPLASH-006",
+    "TUI-SPLASH-007",
+    "TUI-SPLASH-008",
+    "TUI-SPLASH-009",
+    "TUI-SPLASH-010",
+    "TUI-SPLASH-011",
+    "TUI-SPLASH-012",
+    "TUI-SPLASH-014",
+    "TUI-SPLASH-015",
+    "TUI-SPLASH-016",
+    "TUI-SPLASH-017",
+    "TUI-SPLASH-018",
+    "TUI-SPLASH-019",
+    "TUI-SPLASH-020",
+    "TUI-SPLASH-021",
+    "TUI-SPLASH-022"
+  ],
+  "manual_acceptance_preview_commands": [
+    "ananta tui --render-once --splash-frame fullscreen --width 120 --height 32",
+    "ananta tui --render-once --splash-frame compact --width 120 --height 32",
+    "ANANTA_TUI_SPLASH=0 ananta tui --render-once --width 120 --height 32",
+    "NO_COLOR=1 ananta tui --render-once --splash-frame compact --width 120 --height 32"
+  ],
+  "status_summary": {
+    "total_tasks": 22,
+    "todo": 22,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0,
+    "critical_tasks": [
+      "TUI-SPLASH-001",
+      "TUI-SPLASH-002",
+      "TUI-SPLASH-005",
+      "TUI-SPLASH-007",
+      "TUI-SPLASH-009",
+      "TUI-SPLASH-015",
+      "TUI-SPLASH-018"
+    ]
+  },
+  "definition_of_done": [
+    "Interactive `ananta tui` starts with fullscreen Ananta logo when enabled.",
+    "After startup/transition, the logo is pinned top-left as exactly 8 visible lines.",
+    "Status information next to the logo includes at minimum cwd/repo path, endpoint, auth state, section, mode, focus and status message.",
+    "Effect is disabled/skipped for CI, render-once default or small terminals unless explicitly previewed.",
+    "User can disable splash and/or logo header via CLI/env.",
+    "Existing TUI navigation and command mode continue to work.",
+    "All targeted tests and existing TUI smoke tests pass."
+  ]
+}
