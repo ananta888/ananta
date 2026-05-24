@@ -262,12 +262,148 @@ class _WebSocketInputPump:
         self._closed.set()
 
 
+def _attach_token_ws_session(ws: Any, token: str, app: Any) -> None:
+    """Handle WSS connection authenticated via a short-lived attach token."""
+    from agent.db_models import TerminalEventDB
+    from agent.services.repository_registry import get_repository_registry
+    from agent.services.terminal_session_service import get_terminal_session_service
+    from agent.services.tmux_backend import TmuxBackendError, get_tmux_session_backend
+    from agent.services.terminal_recording_service import redact_secrets
+
+    svc = get_terminal_session_service()
+    resolved = svc.resolve_attach_token(token)
+    if resolved is None:
+        _send_event(ws, "error", {"message": "unauthorized", "details": "invalid_or_expired_attach_token"})
+        return
+
+    session_id, user_id = resolved
+    registry = get_repository_registry()
+    entry = registry.terminal_session_repo.get_by_id(session_id)
+    if entry is None or entry.status not in {"running", "detached"}:
+        _send_event(ws, "error", {"message": "terminal_session_not_active"})
+        return
+
+    tmux_name = str(entry.tmux_session_name or "")
+    read_only = bool(entry.read_only)
+    backend = get_tmux_session_backend()
+
+    registry.terminal_event_repo.append(
+        TerminalEventDB(
+            session_id=session_id,
+            user_id=user_id,
+            event_type="session_attached",
+            target_type=entry.target_type,
+            target_id=entry.target_id,
+            operation="attach",
+            allowed=True,
+            reason_code="terminal_gateway_attach",
+            summary="WSS attach via token",
+        )
+    )
+    registry.terminal_session_repo.transition_status(session_id, "attached")
+
+    _send_event(
+        ws,
+        "ready",
+        {
+            "session_id": session_id,
+            "target_type": entry.target_type,
+            "target_id": entry.target_id,
+            "read_only": read_only,
+            "tmux_session": tmux_name,
+        },
+    )
+
+    started_at = time.monotonic()
+    last_activity = started_at
+    data_dir = app.config.get("DATA_DIR", settings.data_dir)
+    max_lifetime = int(settings.terminal_max_lifetime_seconds or 14400)
+    idle_timeout = int(settings.terminal_idle_timeout_seconds or 900)
+
+    def _handle_input(incoming: Any) -> None:
+        nonlocal last_activity
+        if read_only:
+            return
+        text = _extract_terminal_input(incoming)
+        if not text:
+            return
+        try:
+            backend.send_input(session_name=tmux_name, text=text)
+            last_activity = time.monotonic()
+        except TmuxBackendError as exc:
+            LOGGER.debug("tmux send_input failed for %s: %s", session_id, exc)
+
+    pump = _WebSocketInputPump(ws, _handle_input)
+    pump.start()
+    try:
+        while True:
+            time.sleep(_TERMINAL_IO_TIMEOUT_SECONDS)
+            now = time.monotonic()
+            if max_lifetime > 0 and now - started_at >= max_lifetime:
+                _send_event(ws, "error", {"message": "terminal_session_closed", "details": "terminal_max_lifetime_exceeded"})
+                break
+            if idle_timeout > 0 and now - last_activity >= idle_timeout:
+                _send_event(ws, "error", {"message": "terminal_session_closed", "details": "terminal_idle_timeout_exceeded"})
+                break
+            try:
+                raw = backend.capture_output(session_name=tmux_name, lines=50)
+            except TmuxBackendError:
+                _send_event(ws, "error", {"message": "terminal_session_closed", "details": "tmux_gone"})
+                break
+            if raw.strip():
+                chunk = redact_secrets(raw)
+                _send_event(ws, "output", {"chunk": chunk})
+                last_activity = now
+            if pump.closed:
+                break
+    except Exception as exc:
+        LOGGER.exception("attach-token WSS session %s error: %s", session_id, exc)
+    finally:
+        pump.close()
+        registry.terminal_session_repo.transition_status(session_id, "detached")
+        registry.terminal_event_repo.append(
+            TerminalEventDB(
+                session_id=session_id,
+                user_id=user_id,
+                event_type="gateway_disconnected",
+                target_type=entry.target_type,
+                target_id=entry.target_id,
+                operation="attach",
+                allowed=True,
+                reason_code="terminal_gateway_disconnect",
+                summary="WSS gateway disconnected",
+            )
+        )
+        _append_terminal_log(
+            data_dir,
+            {
+                "timestamp": time.time(),
+                "timestamp_iso": _utc_now_iso(),
+                "session_id": session_id,
+                "event": "gateway_disconnected",
+                "user_id": user_id,
+                "target_type": entry.target_type,
+            },
+        )
+
+
 def register_ws_terminal(app: Any) -> None:
     if Sock is None:
         LOGGER.warning("flask-sock not installed, /ws/terminal endpoint disabled")
         return
 
     sock = Sock(app)
+
+    @sock.route("/ws/terminal/session")
+    def ws_terminal_session(ws: Any):
+        """Attach-token-authenticated WSS endpoint for tmux-backed sessions."""
+        environ = getattr(ws, "environ", {}) or {}
+        query = parse_qs(environ.get("QUERY_STRING", ""))
+        attach_token = (query.get("attach_token") or [None])[0]
+        if not attach_token:
+            _send_event(ws, "error", {"message": "unauthorized", "details": "attach_token_required"})
+            return
+        _attach_token_ws_session(ws, attach_token, app)
 
     @sock.route("/ws/terminal")
     def ws_terminal(ws: Any):
