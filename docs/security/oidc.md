@@ -49,6 +49,24 @@ Unknown groups grant **no** permissions.
 3. Create groups: `ananta-admin`, `ananta-user`, `ananta-viewer`
 4. Add users to groups
 
+### Local current Keycloak via compose overlay
+
+Use the optional overlay `docker-compose.oidc-keycloak.yml` to run a local Keycloak for OIDC:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.oidc-keycloak.yml --profile oidc up -d
+```
+
+Default issuer used by this overlay:
+
+```env
+TERMINAL_OIDC_ISSUER=http://localhost:8081/realms/ananta
+TERMINAL_OIDC_CLIENT_ID=ananta-hub
+TERMINAL_OIDC_AUDIENCE=ananta-hub
+```
+
+The implementation path remains unchanged and uses `GET /auth/oidc/login` and `GET /auth/oidc/callback` in `agent/routes/auth_oidc.py`.
+
 ## Local dev fallback
 
 When `TERMINAL_OIDC_ENABLED=false` (default), standard username/password login via `POST /login` remains active.

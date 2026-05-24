@@ -1,0 +1,33 @@
+{
+  "realm": "ananta",
+  "enabled": true,
+  "clients": [
+    {
+      "clientId": "ananta-hub",
+      "name": "ananta-hub",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5000/auth/oidc/callback",
+        "http://127.0.0.1:5000/auth/oidc/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:5000",
+        "http://127.0.0.1:5000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    }
+  ],
+  "groups": [
+    {"name": "ananta-admin"},
+    {"name": "ananta-user"},
+    {"name": "ananta-viewer"},
+    {"name": "ananta-terminal-hub"},
+    {"name": "ananta-terminal-worker"}
+  ]
+}

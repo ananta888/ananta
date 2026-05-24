@@ -2,10 +2,9 @@
   "$schema": "todo.track.schema.json",
   "id": "todo.ssh-oidc-certificate-terminal-access",
   "title": "Native SSH access with OIDC-backed short-lived SSH certificates for Ananta terminal targets",
-  "status": "draft",
+  "status": "done",
   "extends": [
-    "todo.tmux-oidc-terminal-sessions.json",
-    "todos/todo.tmux-oidc-terminal-sessions.json"
+    "todos/archiv/todo.tmux-oidc-terminal-sessions.json"
   ],
   "summary": {
     "short": "Add a native SSH access path where OIDC authenticates the user and a trusted SSH CA issues short-lived SSH user certificates. SSH then enters an Ananta-controlled terminal wrapper which can start or attach to tmux sessions only after policy approval.",
@@ -272,5 +271,14 @@
     "Should native SSH ever allow unmanaged direct shell mode, or always force Ananta terminal wrapper for managed targets?",
     "Should Hub SSH terminal access require interactive approval in addition to explicit policy permission?",
     "Should SSH certificates be scoped to one target/session, or may they be scoped to a short-lived set of allowed targets?"
-  ]
+  ],
+  "implementation_status": {
+    "completed_at": "2026-05-25",
+    "notes": [
+      "Native SSH OIDC/certificate services and CLI were added under agent/services and agent/cli/commands.",
+      "OpenSSH hardened example and principals example are available under deploy/examples.",
+      "Dedicated docs for SSH terminal access and ADR decision were added.",
+      "A dedicated Keycloak compose overlay (docker-compose.oidc-keycloak.yml) now provides a current Keycloak runtime and wires the existing OIDC implementation."
+    ]
+  }
 }
