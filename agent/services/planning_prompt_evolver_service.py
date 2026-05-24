@@ -5,7 +5,9 @@ import json
 import time
 from typing import Any
 
+from agent.db_models import PlanningReviewItemDB
 from agent.db_models import PlanningPromptVersionDB
+from agent.services.model_output_format_profile_service import get_model_output_format_profile_service
 from agent.services.planning_prompt_evolution_guard_service import get_planning_prompt_evolution_guard_service
 from agent.services.repository_registry import get_repository_registry
 
@@ -72,11 +74,56 @@ class PlanningPromptEvolverService:
         if family:
             patch_rules.append(f"Model family hint: {family}. Keep prompts concise and family-aware.")
 
+        if output_format == "markdown":
+            patch_rules.append("Use markdown sections with explicit bullet task mappings for robust normalization.")
+        elif output_format == "yaml":
+            patch_rules.append("Use concise YAML-like key/value task blocks with stable field names.")
+        else:
+            patch_rules.append("Keep strict JSON shape and minimize optional fields.")
         patch_rules.append(f"Preferred output format: {output_format}.")
         block = "\n".join(f"- {r}" for r in patch_rules)
         if "Adaptive reinforcement rules:" in template:
             return template
         return f"{template}\n\nAdaptive reinforcement rules:\n{block}\n"
+
+    @staticmethod
+    def _review_window_exceeded(*, repo, mode: str, model_family: str | None, now_ts: float, window_seconds: int, max_auto_evolutions: int) -> bool:
+        if max_auto_evolutions <= 0:
+            return False
+        recent = [
+            item
+            for item in list(repo.get_enabled() or [])
+            if ".evo." in str(item.version or "")
+            and str(item.mode or "").strip() == str(mode or "").strip()
+            and (
+                not model_family
+                or str(item.target_model_family or "").strip().lower() == str(model_family).strip().lower()
+            )
+            and float(getattr(item, "updated_at", 0.0) or 0.0) >= float(now_ts - window_seconds)
+        ]
+        return len(recent) >= max_auto_evolutions
+
+    @staticmethod
+    def _create_review_item(
+        *,
+        run,
+        review_type: str,
+        reason_codes: list[str],
+        payload: dict[str, Any],
+    ) -> str | None:
+        try:
+            repos = get_repository_registry()
+            item = repos.planning_review_item_repo.save(
+                PlanningReviewItemDB(
+                    planning_run_id=str(getattr(run, "id", "") or "planning-evolver"),
+                    review_type=review_type,
+                    reason_codes=list(reason_codes or []),
+                    payload=dict(payload or {}),
+                )
+            )
+            return str(getattr(item, "id", "") or "") or None
+        except Exception:
+            return None
 
     def evolve_from_run(
         self,
@@ -113,15 +160,34 @@ class PlanningPromptEvolverService:
         if base is None:
             return {"evolved": False, "reason": "base_prompt_missing"}
 
-        output_format = str((policy.get("preferred_output_format") or "json")).strip().lower() or "json"
+        provider = str(getattr(run, "model_provider", "") or "").strip().lower() or None
+        model_name = str(getattr(run, "model_name", "") or "").strip() or None
+        mode = str(getattr(run, "mode", "") or "generic").strip() or "generic"
+        observed_model_family = model_family or self._infer_model_family(model_name) or self._infer_model_family(getattr(run, "model_name", None))
+        telemetry = {
+            "parse_success": 1.0 if bool(getattr(run, "parse_confidence", "")) and str(getattr(run, "parse_confidence", "")).strip().lower() != "low" else 0.0,
+            "repair_attempts": int(getattr(run, "repair_attempt_count", 0) or 0),
+            "schema_violation": 0.0 if bool(getattr(run, "validation_success", False)) else 1.0,
+            "constraint_loss": float(((getattr(run, "mode_data", {}) or {}).get("constraint_loss") or 0.0)),
+        }
+        output_format_profile = get_model_output_format_profile_service().resolve(
+            planning_policy=policy,
+            provider=provider,
+            model_name=model_name,
+            runtime_profile_name=str(policy.get("default_runtime_profile") or "").strip() or None,
+            run_telemetry=telemetry,
+        )
+        output_format = str(output_format_profile.get("preferred_output_format") or "json").strip().lower() or "json"
         max_prompt_chars = int(rules.get("max_prompt_chars", 12000) or 12000)
+        if output_format == "json" and "json" not in list(output_format_profile.get("accepted_output_formats") or []) and output_format_profile.get("accepted_output_formats"):
+            output_format = "markdown"
         mutated_user = self._mutate_template(
             str(base.user_prompt_template or ""),
             reasons=reasons,
             output_format=output_format,
             output_shape=output_shape,
             parse_mode=parse_mode,
-            model_family=model_family or self._infer_model_family(getattr(run, "model_name", None)),
+            model_family=observed_model_family,
         )
         mutated_repair = self._mutate_template(
             str(base.repair_prompt_template or ""),
@@ -129,7 +195,7 @@ class PlanningPromptEvolverService:
             output_format=output_format,
             output_shape=output_shape,
             parse_mode=parse_mode,
-            model_family=model_family or self._infer_model_family(getattr(run, "model_name", None)),
+            model_family=observed_model_family,
         )
         mutated_user = str(mutated_user or "")[:max_prompt_chars]
         mutated_repair = str(mutated_repair or "")[:max_prompt_chars]
@@ -139,7 +205,7 @@ class PlanningPromptEvolverService:
             {
                 "observed_parse_mode": str(parse_mode or getattr(run, "parse_mode", "") or ""),
                 "observed_output_shape": str(output_shape or (getattr(run, "mode_data", {}) or {}).get("__output_shape__") or ""),
-                "observed_model_family": model_family or self._infer_model_family(getattr(run, "model_name", None)) or base.target_model_family,
+                "observed_model_family": observed_model_family or base.target_model_family,
             }
         )
         system_rules = list(base.system_rules or [])
@@ -150,7 +216,7 @@ class PlanningPromptEvolverService:
             "version": f"{str(base.version)}.evo.{int(time.time())}",
             "language": str(base.language or "en"),
             "mode": str(base.mode or "generic"),
-            "target_model_family": self._infer_model_family(getattr(run, "model_name", None)) or base.target_model_family,
+            "target_model_family": observed_model_family or base.target_model_family,
             "output_contract": output_contract,
             "system_rules": system_rules,
             "user_prompt_template": mutated_user,
@@ -164,6 +230,36 @@ class PlanningPromptEvolverService:
         ok, violations = get_planning_prompt_evolution_guard_service().validate_mutation(payload=payload)
         if not ok:
             return {"evolved": False, "reason": "evolver_scope_violation", "reason_codes": violations}
+
+        now_ts = time.time()
+        review_window_seconds = int(rules.get("review_window_seconds", 3600) or 3600)
+        max_auto_evolutions = int(rules.get("max_auto_evolutions_per_window", 3) or 3)
+        if self._review_window_exceeded(
+            repo=repos.planning_prompt_version_repo,
+            mode=mode,
+            model_family=observed_model_family,
+            now_ts=now_ts,
+            window_seconds=review_window_seconds,
+            max_auto_evolutions=max_auto_evolutions,
+        ):
+            review_item_id = self._create_review_item(
+                run=run,
+                review_type="prompt_evolution_rate_limited",
+                reason_codes=["review_required", "evolution_rate_limited"],
+                payload={
+                    "mode": mode,
+                    "model_family": observed_model_family,
+                    "base_prompt_version_id": str(base.id),
+                    "base_checksum": str(base.checksum or ""),
+                    "evolved_checksum": checksum,
+                },
+            )
+            return {
+                "evolved": False,
+                "reason": "review_required",
+                "reason_codes": ["review_required", "evolution_rate_limited"],
+                "review_item_id": review_item_id,
+            }
 
         # avoid duplicate by checksum
         for candidate in repos.planning_prompt_version_repo.get_enabled():
@@ -182,6 +278,23 @@ class PlanningPromptEvolverService:
                     repos.planning_model_profile_repo.save(p)
                     profile_updated = True
                     break
+        review_item_id = None
+        if not bool(getattr(evolved, "enabled", False)):
+            review_item_id = self._create_review_item(
+                run=run,
+                review_type="prompt_evolution_proposed",
+                reason_codes=["proposed", "requires_review"],
+                payload={
+                    "mode": mode,
+                    "model_family": observed_model_family,
+                    "base_prompt_version_id": str(base.id),
+                    "evolved_prompt_version_id": str(evolved.id),
+                    "base_checksum": str(base.checksum or ""),
+                    "evolved_checksum": str(getattr(evolved, "checksum", "") or ""),
+                    "reasons": list(reasons),
+                    "format_profile": dict(output_format_profile or {}),
+                },
+            )
 
         return {
             "evolved": True,
@@ -192,6 +305,9 @@ class PlanningPromptEvolverService:
             "profile_updated": profile_updated,
             "activated_profile": bool(activate_profile),
             "enabled": bool(getattr(evolved, "enabled", False)),
+            "review_item_id": review_item_id,
+            "preferred_output_format": output_format,
+            "output_format_profile": dict(output_format_profile or {}),
         }
 
 

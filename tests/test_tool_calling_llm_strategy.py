@@ -164,6 +164,27 @@ class TestToolCallingLLMStrategy:
         assert result.status == STATUS_DECLINED
         assert result.reason == "tool_calls_invalid_or_missing_names"
 
+    def test_executable_without_instruction_stack_still_builds_prompt(self, context_with_tools, monkeypatch):
+        monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
+        context_with_tools.rendered_system_prompt = None
+        context_with_tools.instruction_stack = None
+        context_with_tools.instruction_diagnostics = None
+        mock_llm = Mock(return_value={
+            "tool_calls": [{"name": "write_file", "args": {"path": "main.py", "content": "print(1)"}}],
+            "finish_reason": "tool_calls",
+            "provider": "ollama",
+            "model": "qwen2.5",
+            "metadata": {"llm_call_profile": [{"source": "model_invocation_service", "estimated": False}]},
+        })
+        monkeypatch.setattr(
+            "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
+            mock_llm,
+        )
+        result = ToolCallingLLMStrategy().run(context_with_tools)
+        assert result.status == STATUS_EXECUTABLE
+        call_kwargs = mock_llm.call_args.kwargs
+        assert "Prompt context bundle:" in call_kwargs["system_prompt"]
+
     def test_content_fallback_inline_shell_denied_by_policy(self, context_with_tools, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")
         context_with_tools.policy.allow_shell_execution = False
