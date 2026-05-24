@@ -37,6 +37,9 @@ class TestToolCallingLLMStrategy:
         ctx.base_prompt = "test"
         ctx.policy = Mock(allow_shell_execution=False)
         ctx.effective_config = None
+        ctx.rendered_system_prompt = "POLICY BLOCK\nUse German."
+        ctx.instruction_stack = {"checksum": "stack-xyz"}
+        ctx.instruction_diagnostics = {"applied_layers": [{"layer": "governance"}]}
         return ctx
 
     def test_declined_no_tools(self, context_no_tools, monkeypatch):
@@ -126,6 +129,8 @@ class TestToolCallingLLMStrategy:
         assert result.proposal.metadata["llm_call_profile"][0]["estimated"] is False
         call_kwargs = mock_llm.call_args.kwargs
         assert "Prompt context bundle:" in call_kwargs["system_prompt"]
+        assert call_kwargs["system_prompt"].count("POLICY BLOCK") == 1
+        assert result.proposal.metadata["prompt_context_bundle"]["instruction_stack_checksum"] == "stack-xyz"
 
     def test_failed_llm_call_exception(self, context_with_tools, monkeypatch):
         monkeypatch.setattr("agent.config.settings.default_provider", "lmstudio")

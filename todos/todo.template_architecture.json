@@ -73,11 +73,11 @@
     "agent/services/task_template_resolution.py"
   ],
   "milestones": [
-    {"id": "M1", "title": "Begriffstrennung und Modell schärfen", "task_ids": ["TTA-001", "TTA-002", "TTA-003"], "status": "todo"},
-    {"id": "M2", "title": "InstructionStackArtifact einführen", "task_ids": ["TTA-004", "TTA-005", "TTA-006", "TTA-007"], "status": "todo"},
-    {"id": "M3", "title": "ProposeContext und PromptContextBundle integrieren", "task_ids": ["TTA-008", "TTA-009", "TTA-010"], "status": "todo"},
-    {"id": "M4", "title": "Strategie-Prompts vereinheitlichen", "task_ids": ["TTA-011", "TTA-012", "TTA-013"], "status": "todo"},
-    {"id": "M5", "title": "Policy-, Overlay- und Kompatibilitätsregeln härten", "task_ids": ["TTA-014", "TTA-015", "TTA-016"], "status": "todo"},
+    {"id": "M1", "title": "Begriffstrennung und Modell schärfen", "task_ids": ["TTA-001", "TTA-002", "TTA-003"], "status": "done"},
+    {"id": "M2", "title": "InstructionStackArtifact einführen", "task_ids": ["TTA-004", "TTA-005", "TTA-006", "TTA-007"], "status": "in_progress"},
+    {"id": "M3", "title": "ProposeContext und PromptContextBundle integrieren", "task_ids": ["TTA-008", "TTA-009", "TTA-010"], "status": "done"},
+    {"id": "M4", "title": "Strategie-Prompts vereinheitlichen", "task_ids": ["TTA-011", "TTA-012", "TTA-013"], "status": "in_progress"},
+    {"id": "M5", "title": "Policy-, Overlay- und Kompatibilitätsregeln härten", "task_ids": ["TTA-014", "TTA-015", "TTA-016"], "status": "in_progress"},
     {"id": "M6", "title": "Tests, Telemetry und Dokumentation", "task_ids": ["TTA-017", "TTA-018", "TTA-019", "TTA-020"], "status": "todo"},
     {"id": "M7", "title": "Prompt Evolver Grenzen und Anti-Zyklen", "task_ids": ["TTA-021", "TTA-022", "TTA-023", "TTA-024", "TTA-025"], "status": "todo"}
   ],
@@ -85,7 +85,7 @@
     {
       "id": "TTA-001",
       "title": "Terminologie für Template-Arten verbindlich dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "docs",
@@ -96,7 +96,7 @@
     {
       "id": "TTA-002",
       "title": "Bestehenden Goal-to-Worker-Prompt-Flow als Regression-Diagramm sichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -107,7 +107,7 @@
     {
       "id": "TTA-003",
       "title": "Code-Kommentare für Template-Grenzen ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "docs",
@@ -118,7 +118,7 @@
     {
       "id": "TTA-004",
       "title": "InstructionStackArtifact Datenmodell definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "data_model",
@@ -129,7 +129,7 @@
     {
       "id": "TTA-005",
       "title": "InstructionLayerService auf Artifact-Ausgabe erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "service",
@@ -140,7 +140,7 @@
     {
       "id": "TTA-006",
       "title": "Role Template Prompt in Instruction Stack integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -151,7 +151,7 @@
     {
       "id": "TTA-007",
       "title": "Instruction Stack optional in Task speichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "persistence",
@@ -162,7 +162,7 @@
     {
       "id": "TTA-008",
       "title": "ProposeContext um Instruction Stack erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "integration",
@@ -173,7 +173,7 @@
     {
       "id": "TTA-009",
       "title": "PromptContextBundle mit InstructionStack-Meta anreichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -184,7 +184,7 @@
     {
       "id": "TTA-010",
       "title": "Instruction Stack in Task-Propose-Telemetry sichtbar machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
@@ -195,7 +195,7 @@
     {
       "id": "TTA-011",
       "title": "ToolCallingLLMStrategy Systemprompt mit Instruction Stack verbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "prompting",
@@ -206,7 +206,7 @@
     {
       "id": "TTA-012",
       "title": "Andere ProposeStrategies auf Instruction Stack prüfen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "prompting",
@@ -366,18 +366,18 @@
   "critical_path_tasks": ["TTA-001", "TTA-004", "TTA-005", "TTA-006", "TTA-008", "TTA-009", "TTA-011", "TTA-014", "TTA-016", "TTA-017", "TTA-018", "TTA-019", "TTA-021", "TTA-022", "TTA-023", "TTA-025"],
   "tasks_status_summary": {
     "total": 25,
-    "by_status": {"todo": 25, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0,
+    "by_status": {"todo": 14, "in_progress": 0, "partial": 1, "blocked": 0, "done": 10},
+    "progress_percent_done": 40,
     "by_priority": {"P0": 16, "P1": 7, "P2": 2, "P3": 0},
     "by_risk": {"low": 3, "medium": 5, "high": 8, "critical": 9},
-    "critical_path": {"total": 16, "done": 0, "remaining": 16},
-    "milestones": {"total": 7, "todo": 7, "in_progress": 0, "blocked": 0, "done": 0}
+    "critical_path": {"total": 16, "done": 7, "remaining": 9},
+    "milestones": {"total": 7, "todo": 2, "in_progress": 3, "blocked": 0, "done": 2}
   },
   "tasks_type_summary": {
     "total": 25,
     "by_type": {"docs": 4, "data_model": 1, "service": 1, "integration": 5, "persistence": 1, "observability": 1, "prompting": 2, "architecture": 2, "security": 2, "validation": 1, "traceability": 1, "test": 3, "stability": 1, "governance": 1}
   },
-  "progress_summary": {"state": "todo_created_with_prompt_evolver_boundary", "todo_remaining": 25, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "progress_summary": {"state": "phase_1_and_phase_2_completed", "todo_remaining": 14, "in_progress": 0, "partial": 1, "blocked": 0, "done": 10},
   "definition_of_done": [
     "InstructionStackArtifact existiert und ist deterministisch hashbar.",
     "Role Template Prompt fließt als blueprint_template Layer in den Stack ein.",

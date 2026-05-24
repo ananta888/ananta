@@ -89,6 +89,8 @@ class PromptContextBundleService:
         worker_context = dict(task.get("worker_execution_context") or {})
         instruction_layers = dict(worker_context.get("instruction_layers") or {})
         instruction_context = dict(worker_context.get("instruction_context") or {})
+        instruction_stack = dict(getattr(context, "instruction_stack", None) or {})
+        instruction_diagnostics = dict(getattr(context, "instruction_diagnostics", None) or {})
         policy = getattr(context, "policy", None)
         return PromptContextBundle(
             schema="prompt_context_bundle.v1",
@@ -109,6 +111,16 @@ class PromptContextBundleService:
                 "budget": bundle_budget,
                 "instruction_layers_present": bool(instruction_layers),
                 "instruction_layers": redact(instruction_layers),
+                "instruction_stack_present": bool(instruction_stack),
+                "instruction_stack_checksum": str(instruction_stack.get("checksum") or "").strip() or None,
+                "instruction_stack_summary": {
+                    "applied_layers": [str((item or {}).get("layer") or "") for item in list(instruction_stack.get("applied_layers") or [])],
+                    "suppressed_layers": [str((item or {}).get("layer") or "") for item in list(instruction_stack.get("suppressed_layers") or [])],
+                    "role_template_context": redact(dict(instruction_stack.get("role_template_context") or {})),
+                }
+                if instruction_stack
+                else None,
+                "instruction_diagnostics": redact(instruction_diagnostics) if instruction_diagnostics else None,
                 "instruction_selection": {
                     "owner_username": str(instruction_context.get("owner_username") or ""),
                     "profile_id": str(instruction_context.get("profile_id") or ""),

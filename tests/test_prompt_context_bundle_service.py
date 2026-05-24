@@ -26,11 +26,21 @@ def test_prompt_context_bundle_includes_contract_and_instruction_metadata() -> N
         },
         research_context={"chunks": [{"source_id": "s1", "content": "hello world", "metadata": {"sensitivity": "public"}}]},
         policy=SimpleNamespace(allow_shell_execution=False, requires_executable_step=True),
+        instruction_stack={
+            "checksum": "abc123",
+            "applied_layers": [{"layer": "governance"}, {"layer": "blueprint_template"}],
+            "suppressed_layers": [{"layer": "task_overlay"}],
+            "role_template_context": {"template_id": "tpl-1", "template_name": "Backend Template"},
+        },
+        instruction_diagnostics={"applied_layers": [{"layer": "governance"}]},
     )
     bundle = svc.build_for_propose_context(context).to_dict()
     assert bundle["contract_summary"]["expected_artifacts_count"] == 1
     assert bundle["context_summary"]["instruction_layers_present"] is True
     assert bundle["context_summary"]["instruction_selection"]["profile_id"] == "p1"
+    assert bundle["context_summary"]["instruction_stack_present"] is True
+    assert bundle["context_summary"]["instruction_stack_checksum"] == "abc123"
+    assert "governance" in (bundle["context_summary"]["instruction_stack_summary"]["applied_layers"] or [])
 
 
 def test_prompt_context_bundle_filters_sensitive_chunks() -> None:
@@ -52,4 +62,3 @@ def test_prompt_context_bundle_filters_sensitive_chunks() -> None:
     assert budget["input_count"] == 2
     assert budget["denied_count"] == 1
     assert budget["selected_count"] == 1
-

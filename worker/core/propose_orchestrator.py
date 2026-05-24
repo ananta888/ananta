@@ -29,6 +29,9 @@ class ProposeContext:
     tool_definitions_resolver: 'Callable' = None
     policy: ProposePolicy | None = None  # T003: strategies may read policy
     effective_config: dict[str, Any] | None = None  # CPR-003: goal-scoped config passed through
+    instruction_stack: dict[str, Any] | None = None
+    rendered_system_prompt: str | None = None
+    instruction_diagnostics: dict[str, Any] | None = None
 
 
 class ProposeStrategy(ABC):

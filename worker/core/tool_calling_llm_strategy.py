@@ -23,6 +23,11 @@ def _build_system_prompt(context: ProposeContext) -> str:
         f"Task: {context.task_id}",
         f"Task kind: {task.get('task_kind') or 'unknown'}",
     ]
+    rendered_stack_prompt = str(getattr(context, "rendered_system_prompt", None) or "").strip()
+    if rendered_stack_prompt:
+        parts.append("")
+        parts.append("Validated instruction stack prompt:")
+        parts.append(rendered_stack_prompt)
     if task_desc and len(task_desc) > 20:
         parts.append("")
         parts.append("Task description:")
@@ -204,6 +209,8 @@ class ToolCallingLLMStrategy(ProposeStrategy):
                     "task_kind": pcb.get("task_kind"),
                     "selected_chunks": ((pcb.get("context_summary") or {}).get("budget") or {}).get("selected_count"),
                     "instruction_layers_present": bool((pcb.get("context_summary") or {}).get("instruction_layers_present")),
+                    "instruction_stack_present": bool((pcb.get("context_summary") or {}).get("instruction_stack_present")),
+                    "instruction_stack_checksum": (pcb.get("context_summary") or {}).get("instruction_stack_checksum"),
                 },
             },
         )
