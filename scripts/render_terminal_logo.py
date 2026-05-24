@@ -23,6 +23,11 @@ WHITE_LUMA = 240
 FALLOFF = 10
 COLOR_TOLERANCE = 25
 
+ASCII_PALETTES = {
+    "clean": " .,:;irsXA253hMHGS#9B&@",
+    "detailed": " .'`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$",
+}
+
 
 def luma(r, g, b):
     return 0.299 * r + 0.587 * g + 0.114 * b
@@ -201,6 +206,52 @@ def render_mono(img):
     return "\n".join(lines)
 
 
+def _floyd_steinberg_diffuse(lum_map, w, h, num_chars):
+    for y in range(h):
+        for x in range(w):
+            old = lum_map[y][x]
+            quantized = round(old * (num_chars - 1)) / (num_chars - 1)
+            err = old - quantized
+            lum_map[y][x] = quantized
+            if x + 1 < w:
+                lum_map[y][x + 1] += err * 7 / 16
+            if y + 1 < h:
+                if x > 0:
+                    lum_map[y + 1][x - 1] += err * 3 / 16
+                lum_map[y + 1][x] += err * 5 / 16
+                if x + 1 < w:
+                    lum_map[y + 1][x + 1] += err * 1 / 16
+
+
+def render_ascii(img, chars: str, dither: bool = False) -> str:
+    px = list(img.getdata())
+    w, h = img.size
+    num_chars = len(chars)
+
+    lum_map = [[0.0] * w for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[y * w + x]
+            pa = pixel_alpha(r, g, b, a)
+            if pa < 0.3:
+                lum_map[y][x] = 0.0
+            else:
+                lum_map[y][x] = 1.0 - (luma(r, g, b) / 255.0)
+
+    if dither:
+        _floyd_steinberg_diffuse(lum_map, w, h, num_chars)
+
+    lines = []
+    for y in range(h):
+        line = ""
+        for x in range(w):
+            level = max(0.0, min(1.0, lum_map[y][x]))
+            idx = min(int(level * (num_chars - 1)), num_chars - 1)
+            line += chars[idx]
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Render ananta.svg to ANSI terminal art.")
     parser.add_argument("--svg", default="ananta.svg", help="Path to source SVG (default: ananta.svg)")
@@ -208,6 +259,10 @@ def main() -> None:
     parser.add_argument("--width", type=int, nargs="+", default=[90], help="Output widths (default: 90)")
     parser.add_argument("--mono-only", action="store_true", help="Only generate monochrome fallback")
     parser.add_argument("--color-only", action="store_true", help="Only generate ANSI color output")
+    parser.add_argument("--ascii-only", action="store_true", help="Only generate ASCII fallback")
+    parser.add_argument("--ascii-palette", choices=list(ASCII_PALETTES.keys()), default="clean")
+    parser.add_argument("--ascii-chars", default=None)
+    parser.add_argument("--ascii-dither", action="store_true")
     args = parser.parse_args()
 
     svg_path = os.path.abspath(args.svg)
@@ -227,6 +282,16 @@ def main() -> None:
 
         for w in args.width:
             img = load_image(png_path, w)
+
+            if args.ascii_only:
+                chars = args.ascii_chars or ASCII_PALETTES[args.ascii_palette]
+                art = render_ascii(img, chars, dither=args.ascii_dither)
+                dest = os.path.join(out_dir, f"ascii_fallback_{w}.txt")
+                with open(dest, "w") as f:
+                    f.write(art)
+                print(f"  -> {dest}")
+                continue
+
             if not args.mono_only:
                 art = render_ansi(img)
                 dest = os.path.join(out_dir, f"ansi_halfblock_{w}.txt")
