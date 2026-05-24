@@ -48,12 +48,44 @@ Requirements: `Pillow` + one of `cairosvg`, `rsvg-convert`, or `inkscape`.
 | Width < 80 | Monochrome fallback. |
 | Missing asset file | Graceful fallback to monochrome. |
 
-## Integration
+## Integration: CLI/Banner
 
 Banner is shown in two places in `agent/cli/main.py`:
 
 - `ananta` (no arguments) — before help text
 - `ananta status` — before delegating to the goal status command
+
+## Integration: Operator TUI Splash
+
+The Operator TUI (`ananta tui`) uses an additional asset loader at
+`agent/cli/logo_assets.py` to display the logo as a fullscreen startup
+splash and a compact 8-line status header.
+
+- `agent/cli/logo_assets.py` — loads and selects assets by width/color
+- `agent/cli/logo_layout.py` — compact header layout (logo-left, status-right)
+- `agent/cli/status_snapshot.py` — status model with cwd, git, endpoint, tasks
+- `agent/cli/splash.py` — splash lifecycle machine (fullscreen → transition → compact_header)
+
+The splash uses the same asset files from `agent/cli/assets/`, trimmed to
+8 lines (`max_lines=8`) for the compact header. No separate compact asset
+files are needed.
+
+Lifecycle states: `disabled → fullscreen → transition → compact_header`
+
+| CLI Flag | Default | Description |
+|----------|---------|-------------|
+| `--skip-splash` | off | Skip fullscreen splash, show compact header immediately |
+| `--splash-seconds` | `2.0` | Duration of fullscreen phase |
+
+| Env Var | Effect |
+|---------|--------|
+| `ANANTA_TUI_SPLASH=0` | Disable splash entirely |
+| `NO_COLOR=1` | Disable ANSI color in splash/header |
+
+Preview without interactive TUI:
+```bash
+python -m client_surfaces.operator_tui.app --render-once --width 120 --height 32
+```
 
 ## Maintenance
 
@@ -63,6 +95,9 @@ Regenerate assets when `ananta.svg` changes:
 python scripts/render_terminal_logo.py --width 120 --output-dir agent/cli/assets
 python scripts/render_terminal_logo.py --width 90 --output-dir agent/cli/assets
 python scripts/render_terminal_logo.py --width 90 --mono-only --output-dir agent/cli/assets
+python scripts/render_terminal_logo.py --width 180 --ascii-color --ascii-palette detailed --output-dir agent/cli/assets
+python scripts/render_terminal_logo.py --width 160 --ascii-only --output-dir agent/cli/assets
+python scripts/render_terminal_logo.py --width 180 --ascii-only --output-dir agent/cli/assets
 ```
 
 Then update the embedded `_MONO_90` string in `agent/cli/banner.py` if the mono

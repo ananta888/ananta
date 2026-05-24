@@ -15,7 +15,7 @@ from client_surfaces.operator_tui.models import FocusPane, OperatorMode, Operato
 from client_surfaces.operator_tui.renderer import render_operator_shell
 
 if TYPE_CHECKING:
-    from agent.cli.splash import SplashMachine
+    from agent.cli.splash import SplashMachine, SplashState
 
 
 class InteractiveOperatorTui:
@@ -179,6 +179,11 @@ class InteractiveOperatorTui:
         self._set_state(self.state.with_updates(focus=panes[(index + delta) % len(panes)]))
 
     def _set_state(self, state: OperatorState) -> None:
+        if self._splash is not None:
+            from agent.cli.splash import SplashState
+            ctx = self._splash.context
+            if ctx.state in (SplashState.FULLSCREEN, SplashState.TRANSITION):
+                self._splash.transition_to(SplashState.COMPACT_HEADER)
         self.state = state
         self._output.text = self._render()
         self._app.invalidate()
