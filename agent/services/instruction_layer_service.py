@@ -91,6 +91,7 @@ _LAYER_INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
     "research": ("research", "analysis", "investigate", "explore", "compare"),
     "implementation": ("implement", "coding", "build", "ship", "develop"),
 }
+_TEMPLATE_COMPAT_ENFORCEMENT_VALUES = {"mark", "suppress_on_block"}
 
 
 class InstructionLayerService:
@@ -528,6 +529,13 @@ class InstructionLayerService:
         owner_username = self._resolve_owner_username(task_payload, goal_payload)
         task_context = dict((task_payload.get("worker_execution_context") or {}).get("instruction_context") or {})
         goal_context = dict((goal_payload or {}).get("execution_preferences", {}).get("instruction_context", {}) or {})
+        compatibility_enforcement = str(
+            task_context.get("template_compatibility_enforcement")
+            or goal_context.get("template_compatibility_enforcement")
+            or "mark"
+        ).strip().lower()
+        if compatibility_enforcement not in _TEMPLATE_COMPAT_ENFORCEMENT_VALUES:
+            compatibility_enforcement = "mark"
         explicit_profile_id = str(
             task_context.get("profile_id")
             or goal_context.get("profile_id")
@@ -636,27 +644,63 @@ class InstructionLayerService:
                     }
                 )
 
-        rendered_sections: list[str] = []
-        if system_prompt:
-            rendered_sections.append(system_prompt)
-        if role_template_prompt:
-            rendered_sections.append(f"[ROLE TEMPLATE]\n{role_template_prompt}")
-        if profile and profile_validation.get("ok"):
-            rendered_sections.append(f"[USER PROFILE]\n{str(profile.prompt_content or '').strip()}")
-        if overlay and overlay_validation.get("ok"):
-            rendered_sections.append(f"[TASK OVERLAY]\n{str(overlay.prompt_content or '').strip()}")
-        rendered_system_prompt = "\n\n".join(section for section in rendered_sections if section).strip() or None
-        if emit_audit and overlay and overlay_validation.get("ok"):
-            overlay = self._consume_one_shot_overlay_if_needed(
-                overlay,
-                task_id=str(task_payload.get("id") or "").strip() or None,
-                goal_id=str(task_payload.get("goal_id") or "").strip() or None,
-            )
         compatibility = self._evaluate_role_template_compatibility(
             task_payload=task_payload,
             profile=profile,
             overlay=overlay,
         )
+        blocked_layers = {
+            str(item.get("layer") or "").strip().lower()
+            for item in list(compatibility.get("issues") or [])
+            if str(item.get("severity") or "").strip().lower() == "block"
+        }
+        if compatibility.get("status") == "block" and compatibility_enforcement == "suppress_on_block":
+            if "user_profile" in blocked_layers and profile and profile_validation.get("ok"):
+                suppressed_layers.append(
+                    {
+                        "layer": "user_profile",
+                        "profile_id": profile.id,
+                        "reason": "template_incompatible",
+                        "compatibility_status": "block",
+                    }
+                )
+            if "task_overlay" in blocked_layers and overlay and overlay_validation.get("ok"):
+                suppressed_layers.append(
+                    {
+                        "layer": "task_overlay",
+                        "overlay_id": overlay.id,
+                        "reason": "template_incompatible",
+                        "compatibility_status": "block",
+                    }
+                )
+
+        render_profile = bool(profile and profile_validation.get("ok")) and not (
+            compatibility.get("status") == "block"
+            and compatibility_enforcement == "suppress_on_block"
+            and "user_profile" in blocked_layers
+        )
+        render_overlay = bool(overlay and overlay_validation.get("ok")) and not (
+            compatibility.get("status") == "block"
+            and compatibility_enforcement == "suppress_on_block"
+            and "task_overlay" in blocked_layers
+        )
+
+        rendered_sections: list[str] = []
+        if system_prompt:
+            rendered_sections.append(system_prompt)
+        if role_template_prompt:
+            rendered_sections.append(f"[ROLE TEMPLATE]\n{role_template_prompt}")
+        if render_profile:
+            rendered_sections.append(f"[USER PROFILE]\n{str(profile.prompt_content or '').strip()}")
+        if render_overlay:
+            rendered_sections.append(f"[TASK OVERLAY]\n{str(overlay.prompt_content or '').strip()}")
+        rendered_system_prompt = "\n\n".join(section for section in rendered_sections if section).strip() or None
+        if emit_audit and overlay and render_overlay:
+            overlay = self._consume_one_shot_overlay_if_needed(
+                overlay,
+                task_id=str(task_payload.get("id") or "").strip() or None,
+                goal_id=str(task_payload.get("goal_id") or "").strip() or None,
+            )
 
         diagnostics = {
             "version": _STACK_VERSION,
@@ -671,6 +715,7 @@ class InstructionLayerService:
             "goal_id": str(task_payload.get("goal_id") or "").strip() or None,
             "role_template_context": role_template_context,
             "template_compatibility": compatibility,
+            "template_compatibility_enforcement": compatibility_enforcement,
         }
         artifact = get_instruction_stack_artifact_service().build_artifact(
             task_id=diagnostics.get("task_id"),

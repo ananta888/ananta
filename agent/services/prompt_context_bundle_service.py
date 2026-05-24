@@ -89,6 +89,7 @@ class PromptContextBundleService:
         worker_context = dict(task.get("worker_execution_context") or {})
         instruction_layers = dict(worker_context.get("instruction_layers") or {})
         instruction_context = dict(worker_context.get("instruction_context") or {})
+        planning_provenance = dict(worker_context.get("planning_provenance") or {})
         instruction_stack = dict(getattr(context, "instruction_stack", None) or {})
         instruction_diagnostics = dict(getattr(context, "instruction_diagnostics", None) or {})
         policy = getattr(context, "policy", None)
@@ -126,6 +127,14 @@ class PromptContextBundleService:
                     "profile_id": str(instruction_context.get("profile_id") or ""),
                     "overlay_id": str(instruction_context.get("overlay_id") or ""),
                     "selection_reason": "goal_execution_preferences_instruction_context",
+                },
+                "planning_provenance": {
+                    "plan_id": str(planning_provenance.get("plan_id") or ""),
+                    "plan_node_id": str(planning_provenance.get("plan_node_id") or ""),
+                    "goal_id": str(planning_provenance.get("goal_id") or ""),
+                    "blueprint_id": str(planning_provenance.get("blueprint_id") or ""),
+                    "blueprint_role_name": str(planning_provenance.get("blueprint_role_name") or ""),
+                    "blueprint_role_defaults": redact(dict(planning_provenance.get("blueprint_role_defaults") or {})),
                 },
             },
             policy_summary={

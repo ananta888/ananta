@@ -140,6 +140,7 @@ class TaskLifecycleService:
                 "plan_id": plan_id,
                 "plan_node_id": node.id,
                 "goal_id": goal_id,
+                "blueprint_role_defaults": dict((rationale or {}).get("blueprint_role_defaults") or {}),
                 **blueprint_provenance,
             },
             "routing_hints": {
@@ -197,6 +198,7 @@ class TaskLifecycleService:
                     "planning_provenance": {
                         "plan_id": plan_id,
                         "plan_node_id": node.id,
+                        "blueprint_role_defaults": dict((rationale or {}).get("blueprint_role_defaults") or {}),
                         **blueprint_provenance,
                     },
                     "artifact_traceability": {

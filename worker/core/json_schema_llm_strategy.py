@@ -8,22 +8,9 @@ from worker.core.propose import ProposeStrategyResult, ExecutableProposal
 from agent.services.model_invocation_service import ModelInvocationService, LLMUnavailableError
 from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
 from agent.services.prompt_context_bundle_service import get_prompt_context_bundle_service
+from agent.services.strategy_prompt_composer import get_strategy_prompt_composer
 
 _MOCK_ONLY_PROVIDERS = {"mock"}
-
-_SCHEMA_SYSTEM_PROMPT = """You are a structured output generator.
-You MUST respond with valid JSON only — no prose, no markdown, no explanations.
-
-The JSON must match this schema:
-{
-  "command": "<shell command string, or null>",
-  "tool_calls": [{"name": "<tool_name>", "args": {<arguments>}}]
-}
-
-Rules:
-- Include at least one of "command" or "tool_calls".
-- "reason" is optional but recommended.
-- Output ONLY the raw JSON object. No fences. No text before or after."""
 
 _SCHEMA_PROMPT_SUFFIX = """
 Respond with valid JSON:
@@ -55,11 +42,21 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
             )
 
         bundle = get_prompt_context_bundle_service().build_for_propose_context(context).to_dict()
-        prompt = (
-            context.base_prompt
-            + "\n\nPrompt context bundle (JSON):\n"
-            + json.dumps(bundle, ensure_ascii=True, sort_keys=True)
-            + _SCHEMA_PROMPT_SUFFIX
+        prompt = context.base_prompt + _SCHEMA_PROMPT_SUFFIX
+        system_prompt = get_strategy_prompt_composer().compose_system_prompt(
+            context=context,
+            prompt_context_bundle=bundle,
+            strategy_contract={
+                "role": "You are a structured output generator.",
+                "output_contract": (
+                    "You MUST respond with valid JSON only — no prose, no markdown, no explanations.\n\n"
+                    "The JSON must match this schema:\n"
+                    "{\n  \"command\": \"<shell command string, or null>\",\n"
+                    "  \"tool_calls\": [{\"name\": \"<tool_name>\", \"args\": {<arguments>}}]\n}\n\n"
+                    "Rules:\n- Include at least one of \"command\" or \"tool_calls\".\n"
+                    "- \"reason\" is optional but recommended.\n- Output ONLY the raw JSON object. No fences. No text before or after."
+                ),
+            },
         )
 
         try:
@@ -71,7 +68,7 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                 prompt=prompt,
                 json_schema=self.JSON_SCHEMA,
                 model=None,
-                system_prompt=_SCHEMA_SYSTEM_PROMPT,
+                system_prompt=system_prompt,
                 timeout=timeout_seconds,
             )
         except LLMUnavailableError as exc:
@@ -163,6 +160,8 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                         "task_kind": bundle.get("task_kind"),
                         "selected_chunks": ((bundle.get("context_summary") or {}).get("budget") or {}).get("selected_count"),
                         "instruction_layers_present": bool((bundle.get("context_summary") or {}).get("instruction_layers_present")),
+                        "instruction_stack_present": bool((bundle.get("context_summary") or {}).get("instruction_stack_present")),
+                        "instruction_stack_checksum": (bundle.get("context_summary") or {}).get("instruction_stack_checksum"),
                     },
                 },
             )
@@ -186,6 +185,8 @@ class JsonSchemaLLMStrategy(ProposeStrategy):
                         "task_kind": bundle.get("task_kind"),
                         "selected_chunks": ((bundle.get("context_summary") or {}).get("budget") or {}).get("selected_count"),
                         "instruction_layers_present": bool((bundle.get("context_summary") or {}).get("instruction_layers_present")),
+                        "instruction_stack_present": bool((bundle.get("context_summary") or {}).get("instruction_stack_present")),
+                        "instruction_stack_checksum": (bundle.get("context_summary") or {}).get("instruction_stack_checksum"),
                     },
                 },
             )

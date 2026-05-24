@@ -10,6 +10,7 @@ from agent.services.llm_response_normalizer import LLMResponseNormalizer
 from agent.services.context_bundle_service import ContextBundler
 from agent.services.prompt_context_bundle_service import get_prompt_context_bundle_service
 from agent.services.propose_runtime_policy import resolve_propose_llm_timeout_seconds
+from agent.services.strategy_prompt_composer import get_strategy_prompt_composer
 
 _MOCK_ONLY_PROVIDERS = {"mock"}
 
@@ -17,17 +18,7 @@ _MOCK_ONLY_PROVIDERS = {"mock"}
 def _build_system_prompt(context: ProposeContext) -> str:
     task = context.task or {}
     task_desc = (task.get("description") or task.get("prompt") or "").strip()
-    parts = [
-        "You are a software engineering agent executing a task.",
-        f"Goal: {context.goal_id}",
-        f"Task: {context.task_id}",
-        f"Task kind: {task.get('task_kind') or 'unknown'}",
-    ]
-    rendered_stack_prompt = str(getattr(context, "rendered_system_prompt", None) or "").strip()
-    if rendered_stack_prompt:
-        parts.append("")
-        parts.append("Validated instruction stack prompt:")
-        parts.append(rendered_stack_prompt)
+    governed_context_summary = None
     if task_desc and len(task_desc) > 20:
         parts.append("")
         parts.append("Task description:")
@@ -40,22 +31,21 @@ def _build_system_prompt(context: ProposeContext) -> str:
             policy_mode="standard",
             llm_scope="external_cloud_allowed",
         )
-        parts.append("")
-        parts.append("Governed context summary:")
-        parts.append(
-            f"chunks={bundle.get('chunk_count', 0)} denied={((bundle.get('policy_filter') or {}).get('denied_count', 0))}"
-        )
+        governed_context_summary = f"chunks={bundle.get('chunk_count', 0)} denied={((bundle.get('policy_filter') or {}).get('denied_count', 0))}"
     pcb = get_prompt_context_bundle_service().build_for_propose_context(context).to_dict()
-    parts.append("")
-    parts.append("Prompt context bundle:")
-    parts.append(json.dumps(pcb, ensure_ascii=True, sort_keys=True))
-    parts.append("")
-    parts.append(
-        "You MUST use one or more of the available tools to complete the task. "
-        "Return ONLY tool_calls — no prose, no explanations, no markdown. "
-        "Each tool_call must specify the function name and its arguments."
+    return get_strategy_prompt_composer().compose_system_prompt(
+        context=context,
+        prompt_context_bundle=pcb,
+        governed_context_summary=governed_context_summary,
+        strategy_contract={
+            "role": "You are a software engineering agent executing a task.",
+            "output_contract": (
+                "You MUST use one or more of the available tools to complete the task. "
+                "Return ONLY tool_calls — no prose, no explanations, no markdown. "
+                "Each tool_call must specify the function name and its arguments."
+            ),
+        },
     )
-    return "\n".join(parts)
 
 
 class ToolCallingLLMStrategy(ProposeStrategy):

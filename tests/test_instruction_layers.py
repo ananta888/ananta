@@ -622,3 +622,66 @@ def test_task_selection_blocks_incompatible_template_context(client, user_auth_h
     payload = selection_res.get_json()
     assert payload["message"] == "instruction_template_incompatible"
     assert payload["data"]["status"] == "block"
+
+
+def test_effective_stack_suppresses_incompatible_profile_when_enforcement_enabled(client, user_auth_header, app):
+    with app.app_context():
+        repos = get_repository_registry()
+        template = repos.template_repo.save(
+            TemplateDB(
+                name="qa-review-template-suppress",
+                description="Template with strict review expectations",
+                prompt_template="Prioritize review quality and auditability.",
+            )
+        )
+        role = repos.role_repo.save(
+            RoleDB(
+                name="QA Reviewer Suppress",
+                default_template_id=template.id,
+            )
+        )
+        repos.task_repo.save(
+            TaskDB(
+                id="inst-task-compat-suppress",
+                title="Compatibility suppress",
+                status="todo",
+                assigned_role_id=role.id,
+                worker_execution_context={
+                    "instruction_context": {"template_compatibility_enforcement": "suppress_on_block"}
+                },
+            )
+        )
+
+    profile_res = client.post(
+        "/instruction-profiles",
+        headers=user_auth_header,
+        json={
+            "name": "compat-suppress-profile",
+            "prompt_content": "Implementation profile that must avoid review templates.",
+            "profile_metadata": {
+                "preferences": {"working_mode": "implementation"},
+                "compatibility": {"blocked_template_contexts": ["review"]},
+            },
+        },
+    )
+    assert profile_res.status_code == 201
+    profile_id = profile_res.get_json()["data"]["id"]
+
+    selection_res = client.post(
+        "/tasks/inst-task-compat-suppress/instruction-selection",
+        headers=user_auth_header,
+        json={"profile_id": profile_id},
+    )
+    assert selection_res.status_code == 409
+
+    effective_res = client.get(
+        "/instruction-layers/effective?task_id=inst-task-compat-suppress&base_prompt=Run compatibility preview",
+        headers=user_auth_header,
+    )
+    assert effective_res.status_code == 200
+    data = effective_res.get_json()["data"]
+    diagnostics = dict(data.get("diagnostics") or {})
+    suppressed = list(diagnostics.get("suppressed_layers") or [])
+    assert any(item.get("layer") == "user_profile" and item.get("reason") == "template_incompatible" for item in suppressed)
+    rendered = str(data.get("rendered_system_prompt") or "")
+    assert "[USER PROFILE]" not in rendered
