@@ -246,6 +246,67 @@ class TestReasonCodes:
 # PRI-010: Rate-Limit / Backpressure
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# PRI-012: Provider error rate tracking
+# ---------------------------------------------------------------------------
+
+class TestProviderErrorRate:
+    def setup_method(self):
+        from agent.llm_integration import _ERR_SUCCESS_WINDOW, _ERR_FAILURE_WINDOW
+        _ERR_SUCCESS_WINDOW.clear()
+        _ERR_FAILURE_WINDOW.clear()
+
+    def test_error_rate_zero_when_no_calls(self):
+        from agent.llm_integration import get_provider_error_rate
+        state = get_provider_error_rate("lmstudio")
+        assert state["error_rate"] == 0.0
+        assert state["total"] == 0
+
+    def test_error_rate_one_when_all_failures(self):
+        from agent.llm_integration import _report_llm_failure, get_provider_error_rate
+        _report_llm_failure("lmstudio")
+        _report_llm_failure("lmstudio")
+        state = get_provider_error_rate("lmstudio")
+        assert state["error_rate"] == 1.0
+        assert state["failures"] == 2
+        assert state["successes"] == 0
+
+    def test_error_rate_mixed(self):
+        from agent.llm_integration import _report_llm_failure, _report_llm_success, get_provider_error_rate
+        _report_llm_success("lmstudio")
+        _report_llm_success("lmstudio")
+        _report_llm_failure("lmstudio")
+        state = get_provider_error_rate("lmstudio")
+        assert state["total"] == 3
+        assert abs(state["error_rate"] - 0.333) < 0.01
+
+    def test_error_rate_evicts_old_entries(self):
+        from agent.llm_integration import _report_llm_failure, get_provider_error_rate, _ERR_FAILURE_WINDOW
+        # Inject old timestamp directly.
+        _ERR_FAILURE_WINDOW["lmstudio"].append(time.time() - 120)
+        state = get_provider_error_rate("lmstudio", window_s=60.0)
+        assert state["failures"] == 0  # old entry evicted
+
+    def test_error_rate_independent_per_provider(self):
+        from agent.llm_integration import _report_llm_failure, _report_llm_success, get_provider_error_rate
+        _report_llm_failure("lmstudio")
+        _report_llm_failure("lmstudio")
+        _report_llm_success("ollama")
+        assert get_provider_error_rate("lmstudio")["error_rate"] == 1.0
+        assert get_provider_error_rate("ollama")["error_rate"] == 0.0
+
+    def test_planning_health_includes_error_rate(self, app, client, admin_auth_header):
+        """PRI-012: /goals/planning/health must include provider_error_rate and by_profile."""
+        res = client.get("/goals/planning/health", headers=admin_auth_header)
+        assert res.status_code == 200
+        data = res.get_json()["data"]
+        assert "provider_error_rate" in data
+        er = data["provider_error_rate"]
+        assert "error_rate" in er
+        assert "total" in er
+        assert "by_profile" in data
+
+
 class TestRateLimit:
     def setup_method(self):
         from agent.llm_integration import _RATE_LIMIT_WINDOW
@@ -368,11 +429,11 @@ class TestParallelGoalsSlotQueuing:
             assert goal_repo.get_by_id(goal.id) is None
 
     def test_worker_cancel_retry_on_connection_failure(self):
-        """PRI-008/015: RequestCancellationService retries failed worker POSTs."""
+        """PRI-008: RequestCancellationService retries failed worker POSTs on connection error."""
         from agent.services.request_cancellation_service import RequestCancellationService
         svc = RequestCancellationService()
         svc._retry_attempts = 2
-        svc._retry_delay_s = 0.0  # no actual sleep in tests
+        svc._retry_delay_s = 0.0
 
         call_count = [0]
 
@@ -380,12 +441,86 @@ class TestParallelGoalsSlotQueuing:
             call_count[0] += 1
             raise ConnectionError("refused")
 
-        import unittest.mock as mock
         with mock.patch("requests.post", side_effect=_failing_post):
             result = svc._post("http://worker:9000", "/cancel", token=None)
 
         assert result["ok"] is False
+        assert call_count[0] == 2
+        assert result["attempts"] == 2
+
+    def test_worker_cancel_retry_on_5xx(self):
+        """PRI-008: 5xx responses are retried; 4xx are not."""
+        from agent.services.request_cancellation_service import RequestCancellationService
+        svc = RequestCancellationService()
+        svc._retry_attempts = 2
+        svc._retry_delay_s = 0.0
+
+        call_count = [0]
+
+        def _5xx_response(*args, **kwargs):
+            call_count[0] += 1
+            r = mock.MagicMock()
+            r.status_code = 503
+            r.json.return_value = {"error": "overloaded"}
+            r.text = "overloaded"
+            return r
+
+        with mock.patch("requests.post", side_effect=_5xx_response):
+            result = svc._post("http://worker:9000", "/cancel", token=None)
+
+        assert result["ok"] is False
+        assert result["status_code"] == 503
         assert call_count[0] == 2  # retried once
+        assert result["attempts"] == 2
+
+    def test_worker_cancel_no_retry_on_4xx(self):
+        """PRI-008: 4xx responses are NOT retried (client errors)."""
+        from agent.services.request_cancellation_service import RequestCancellationService
+        svc = RequestCancellationService()
+        svc._retry_attempts = 3
+        svc._retry_delay_s = 0.0
+
+        call_count = [0]
+
+        def _4xx_response(*args, **kwargs):
+            call_count[0] += 1
+            r = mock.MagicMock()
+            r.status_code = 404
+            r.json.return_value = {"error": "not found"}
+            r.text = "not found"
+            return r
+
+        with mock.patch("requests.post", side_effect=_4xx_response):
+            result = svc._post("http://worker:9000", "/cancel", token=None)
+
+        assert result["ok"] is False
+        assert result["status_code"] == 404
+        assert call_count[0] == 1  # only one attempt for 4xx
+        assert result["attempts"] == 1
+
+    def test_worker_cancel_succeeds_on_second_attempt(self):
+        """PRI-008: If first attempt fails but second succeeds, result is ok=True."""
+        from agent.services.request_cancellation_service import RequestCancellationService
+        svc = RequestCancellationService()
+        svc._retry_attempts = 2
+        svc._retry_delay_s = 0.0
+
+        attempt = [0]
+
+        def _flaky(*args, **kwargs):
+            attempt[0] += 1
+            if attempt[0] == 1:
+                raise ConnectionError("transient")
+            r = mock.MagicMock()
+            r.status_code = 200
+            r.json.return_value = {"ok": True}
+            r.text = ""
+            return r
+
+        with mock.patch("requests.post", side_effect=_flaky):
+            result = svc._post("http://worker:9000", "/cancel", token=None)
+
+        assert result["ok"] is True
         assert result["attempts"] == 2
 
 

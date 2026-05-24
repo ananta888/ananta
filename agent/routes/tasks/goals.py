@@ -478,7 +478,7 @@ def planning_health():
     from sqlmodel import Session, select, func
     from agent.database import engine
     from agent.db_models import GoalDB as _GoalDB
-    from agent.llm_integration import get_circuit_breaker_state, get_rate_limit_state
+    from agent.llm_integration import get_circuit_breaker_state, get_rate_limit_state, get_provider_error_rate
 
     now = time.time()
     stale_count = 0
@@ -487,8 +487,10 @@ def planning_health():
 
     running_ages_s: list[float] = []
     oldest_queued_age_s: float | None = None
+    by_profile: dict[str, dict[str, int]] = {}
 
     try:
+        from sqlalchemy import text as _text
         with Session(engine) as session:
             for status_val, count in session.exec(
                 select(_GoalDB.status, func.count(_GoalDB.id))
@@ -518,6 +520,26 @@ def planning_health():
             ).one()
             if oldest_queued_row:
                 oldest_queued_age_s = round(now - float(oldest_queued_row), 1)
+            # Per-profile breakdown using json_extract (SQLite + PostgreSQL compatible).
+            try:
+                profile_rows = session.exec(
+                    _text(
+                        "SELECT json_extract(execution_preferences, '$.config_profile') AS profile,"
+                        " status, COUNT(*) AS cnt"
+                        " FROM goals WHERE status IN ('planning_running','planning_queued')"
+                        " GROUP BY profile, status"
+                    )
+                ).all()
+                for (profile, status_val, cnt) in profile_rows:
+                    key = str(profile or "unknown")
+                    if key not in by_profile:
+                        by_profile[key] = {"running": 0, "queued": 0}
+                    if status_val == "planning_running":
+                        by_profile[key]["running"] = int(cnt)
+                    elif status_val == "planning_queued":
+                        by_profile[key]["queued"] = int(cnt)
+            except Exception:
+                pass  # json_extract not available on all DB backends — non-fatal
     except Exception as exc:
         return api_response(status="error", message=f"db_query_failed:{type(exc).__name__}", code=500)
 
@@ -544,6 +566,8 @@ def planning_health():
         "oldest_queued_age_s": oldest_queued_age_s,
         "circuit_breaker": get_circuit_breaker_state(provider),
         "rate_limit": get_rate_limit_state(provider),
+        "provider_error_rate": get_provider_error_rate(provider),
+        "by_profile": by_profile,
         "timestamp": now,
     })
 
