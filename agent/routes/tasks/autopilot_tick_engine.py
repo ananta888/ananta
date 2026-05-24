@@ -2164,11 +2164,29 @@ def execute_autopilot_tick(
     # threads so two threads can never receive the same worker slot.
     task_assignments: list[tuple[Any, Any, bool]] = []
     for task in candidates[:effective_concurrency]:
-        target_worker, was_assigned = loop._assign_worker(task, workers)
+        target_worker, was_assigned, assign_reason = loop._assign_worker(task, workers)
+        append_trace_event(
+            task.id,
+            "worker_selection_decision",
+            selected_worker=(getattr(target_worker, "url", None) if target_worker is not None else None),
+            candidate_count=len(workers),
+            reason_code=assign_reason or ("assigned_worker" if not was_assigned else "round_robin"),
+            was_assigned=bool(was_assigned),
+        )
         if target_worker is None:
-            loop._increment_failed()
-            append_trace_event(task.id, "autopilot_no_worker", reason="no_worker_available")
-            update_local_task_status(task.id, "failed", error="no_worker_available", force=True)
+            no_worker_reason = str(assign_reason or "no_worker_available")
+            retryable = no_worker_reason in {"assigned_worker_offline", "assigned_worker_is_hub_forbidden", "hub_self_worker_filtered", "no_workers_available"}
+            if not retryable:
+                loop._increment_failed()
+            append_trace_event(task.id, "autopilot_no_worker", reason=no_worker_reason)
+            update_local_task_status(
+                task.id,
+                "todo" if retryable else "failed",
+                error=no_worker_reason,
+                event_type="autopilot_no_worker",
+                event_actor="autopilot_tick",
+                force=True,
+            )
             continue
         task_assignments.append((task, target_worker, was_assigned))
 

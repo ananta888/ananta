@@ -1,0 +1,58 @@
+{
+  "version": "scenario.v1",
+  "scenarios": [
+    {
+      "id": "hermes_free_models_small_task",
+      "name": "Hermes Free Models Small Task",
+      "test_goal": {
+        "prompt": "Implement a small mini_slugify helper and verify routing constraints.",
+        "expected_complexity": "small"
+      },
+      "config_overrides": {
+        "feature_flags": {
+          "enable_hermes_worker_adapter": true
+        },
+        "hermes_worker_adapter": {
+          "enabled": true,
+          "feature_flag_enabled": true,
+          "default_model": "z-ai/glm-4.5-air:free",
+          "task_kind_models": {
+            "plan_only": "z-ai/glm-4.5-air:free",
+            "review": "qwen/qwen3-coder:free",
+            "patch_propose": "qwen/qwen3-coder:free"
+          },
+          "fallback_free_models": [
+            "z-ai/glm-4.5-air:free",
+            "qwen/qwen3-coder:free"
+          ],
+          "blocked_task_kinds": [
+            "patch_apply",
+            "command_execute"
+          ],
+          "model_selection_policy": {
+            "require_free_model_suffix": true
+          }
+        }
+      },
+      "expected_routing": {
+        "plan_only": {
+          "backend": "hermes",
+          "read_only": true
+        },
+        "review": {
+          "backend": "hermes",
+          "read_only": true
+        },
+        "patch_propose": {
+          "backend": "hermes",
+          "read_only": true,
+          "must_not_apply_patch": true
+        },
+        "coding": {
+          "backend": "opencode",
+          "model": "Big Pickel"
+        }
+      }
+    }
+  ]
+}

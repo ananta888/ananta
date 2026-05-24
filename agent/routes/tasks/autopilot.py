@@ -452,12 +452,14 @@ class AutonomousLoopManager:
         """
         from agent.routes.tasks.autopilot_dispatch_policy import resolve_target_worker_for_task
         with self._routing_lock:
-            target_worker, self._worker_cursor, was_assigned = resolve_target_worker_for_task(
+            setattr(task, "_hub_can_be_worker", bool(settings.hub_can_be_worker))
+            setattr(task, "_local_worker_url", (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/"))
+            target_worker, self._worker_cursor, was_assigned, reason_code = resolve_target_worker_for_task(
                 task=task,
                 workers=workers,
                 worker_cursor=self._worker_cursor,
             )
-        return target_worker, was_assigned
+        return target_worker, was_assigned, reason_code
 
     def _circuit_open_details(self, worker_url: str) -> tuple[float, int]:
         """Return (open_until, failure_streak) for a worker under _routing_lock."""

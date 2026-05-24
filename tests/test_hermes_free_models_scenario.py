@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def test_single_hermes_free_models_scenario_is_valid() -> None:
-    path = Path("todos/single_hermes_free_models_scenario.json")
+    path = Path("scripts/scenarios/hermes_free_models_small_task.json")
     data = json.loads(path.read_text(encoding="utf-8"))
     scenarios = data["scenarios"]
     assert isinstance(scenarios, list) and scenarios
@@ -22,7 +22,7 @@ def test_single_hermes_free_models_scenario_is_valid() -> None:
 
 
 def test_scenario_free_suffix_policy_matches_model_ids() -> None:
-    path = Path("todos/single_hermes_free_models_scenario.json")
+    path = Path("scripts/scenarios/hermes_free_models_small_task.json")
     data = json.loads(path.read_text(encoding="utf-8"))
     scenario = data["scenarios"][0]
     hermes_cfg = scenario["config_overrides"]["hermes_worker_adapter"]
