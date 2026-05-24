@@ -252,7 +252,7 @@
     {
       "id": "CONS-005",
       "title": "PlanningSingleFlightService pro Goal einführen",
-      "status": "todo",
+      "status": "partial",
       "priority": "critical",
       "risk": "high",
       "type": "bugfix",
@@ -264,7 +264,7 @@
         "agent/routes/tasks/goals.py",
         "tests/test_planning_singleflight_service.py"
       ],
-      "code_state_after_review": "NOT_FOUND_IN_CODE: Suche nach PlanningSingleFlight/SingleFlight findet nur alte TODO.",
+      "code_state_after_review": "PARTIAL_IN_CODE: PlanningSingleFlightService eingeführt und in goals.py verdrahtet; pro-goal Acquire/Release verhindert doppelte parallele Planning-Runs, zusätzliche Tick-/Lease-Telemetrie bleibt offen.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -395,7 +395,7 @@
     {
       "id": "CONS-010",
       "title": "WorkerPolicyService für Fähigkeiten, Risiko und LLM-Scope einführen",
-      "status": "todo",
+      "status": "partial",
       "priority": "high",
       "risk": "high",
       "type": "feature",
@@ -407,7 +407,7 @@
         "agent/config_defaults.py",
         "tests/test_worker_policy_service.py"
       ],
-      "code_state_after_review": "NOT_FOUND_IN_CODE: Suche nach worker_policy_service/missing_capability findet nur alte TODO.",
+      "code_state_after_review": "PARTIAL_IN_CODE: WorkerPolicyService eingeführt (missing_capability, llm_scope_denied) und in Worker-Zuweisung verdrahtet; standardmäßig per Config deaktiviert für Backward-Compatibility.",
       "source_origin": [
         "todo.latest-commits-improvements.json"
       ],
@@ -425,7 +425,7 @@
     {
       "id": "CONS-011",
       "title": "Worker Restart Grace Period ergänzen",
-      "status": "todo",
+      "status": "partial",
       "priority": "high",
       "risk": "medium",
       "type": "feature",
@@ -437,7 +437,7 @@
         "agent/config_defaults.py",
         "tests/test_worker_restart_grace_period.py"
       ],
-      "code_state_after_review": "OPEN: Kein Grace-Period-Mechanismus im Suchabgleich gefunden.",
+      "code_state_after_review": "PARTIAL_IN_CODE: restart grace window ist nun konfigurierbar (autopilot_worker_policy.worker_restart_grace_seconds) und wird pro Worker markiert (_restart_grace); vollständige Blocked-Status-Policy noch ausstehend.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -886,9 +886,9 @@
   "tasks_status_summary": {
     "total": 25,
     "by_status": {
-      "todo": 7,
+      "todo": 4,
       "in_progress": 0,
-      "partial": 16,
+      "partial": 19,
       "blocked": 0,
       "done": 2
     },
@@ -932,9 +932,9 @@
   },
   "progress_summary": {
     "state": "implementation-in-progress",
-    "todo_remaining": 7,
+    "todo_remaining": 4,
     "in_progress": 0,
-    "partial": 16,
+    "partial": 19,
     "blocked": 0,
     "done": 2
   },
