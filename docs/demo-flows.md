@@ -289,7 +289,7 @@ Standardfall:
 
 Referenz:
 - Szenario: `docs/examples/ananta-strategy-game-development-scenario.md`
-- TODO-Spur: `todos/todo.ananta-strategy-game-development-scenario.json`
+- TODO-Spur: `docs/examples/todo.ananta-strategy-game-development-scenario.json`
 
 Realpfad UI:
 1. Dashboard -> `Assistent`.

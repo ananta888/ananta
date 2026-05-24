@@ -428,7 +428,7 @@
       "title": "Konfiguration, Diagnostics und Operator-Erklärbarkeit",
       "summary": "Wenn ein Command geblockt wird, muss klar sein warum: unsupported operator, Segment denied, Approval, Risk oder Scope. Außerdem sollen Operatoren bewusst konfigurierbar sein.",
       "priority": "high",
-      "status": "in_progress",
+      "status": "done",
       "tasks": [
         {
           "id": "SCG-011",
@@ -462,7 +462,7 @@
           "title": "Guardrail-Block-History um Chain-Diagnostics erweitern",
           "type": "observability",
           "priority": "high",
-          "status": "in_progress",
+          "status": "done",
           "summary": "Geblockte Chain-Commands sollen im Task-Verlauf verständlich erklären, welches Segment und welche Policy geblockt hat.",
           "files": [
             "agent/services/task_execution_service.py",
@@ -638,14 +638,14 @@
       "title": "Dokumentation und Migration",
       "summary": "Die neue Semantik muss dokumentiert werden: erlaubte Operatoren, blockierte Operatoren, segmentweise Prüfung und Beispiele für OpenCode/Worker.",
       "priority": "medium",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "SCG-019",
           "title": "Shell Command Policy Doku schreiben",
           "type": "docs",
           "priority": "medium",
-          "status": "todo",
+          "status": "done",
           "summary": "Operator-Policy und Sicherheitsmodell werden verständlich dokumentiert.",
           "files": [
             "docs/security/shell-command-policy.md",
@@ -672,7 +672,7 @@
           "title": "Release-/Migration-Notiz ergänzen",
           "type": "docs",
           "priority": "low",
-          "status": "todo",
+          "status": "done",
           "summary": "Bestehende Nutzer sollen wissen, dass Chain-Operatoren nun explizit konfigurierbar und segmentweise geprüft sind.",
           "files": [
             "docs/release/",
@@ -690,11 +690,7 @@
       ]
     }
   ],
-  "recommended_execution_order": [
-    "SCG-012",
-    "SCG-019",
-    "SCG-020"
-  ],
+  "recommended_execution_order": [],
   "progress_snapshot": {
     "updated_at": "2026-05-24",
     "completed_tasks": [
@@ -714,19 +710,14 @@
       "SCG-015",
       "SCG-016",
       "SCG-017",
-      "SCG-018"
-    ],
-    "in_progress_tasks": [
+      "SCG-018",
+      "SCG-019",
+      "SCG-020",
       "SCG-012"
     ],
-    "remaining_tasks": [
-      "SCG-019",
-      "SCG-020"
-    ],
-    "known_gaps": [
-      "allow_complex_shell_mode ist in der aktuellen Ausführung nicht durchgängig als harte Policy-Grenze erzwungen.",
-      "Einige Doku-Referenzen (z.B. Demo-Flow-Pfad zur Strategy-Game-Todo) sind nach Datei-Move inkonsistent."
-    ]
+    "in_progress_tasks": [],
+    "remaining_tasks": [],
+    "known_gaps": []
   },
   "definition_of_done": [
     "Der konkrete OpenCode-Command `python hello.py; python -c \"from hello import greet; print(greet('World'))\"` wird nicht mehr wegen Semikolon geblockt.",

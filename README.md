@@ -41,7 +41,7 @@ Ananta fokussiert sich bewusst auf eine kleine Menge reproduzierbarer Kernanwend
 - Existierendes Softwareprojekt weiterentwickeln
 - Research-gestuetzte Projektweiterentwicklung mit DeerFlow und Evolver
 
-Details: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-flows.md`, inklusive des offiziellen DeerFlow+Evolver-Standardpfads. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`.
+Details: `docs/use-cases.md`. Reproduzierbare Demo-Flows stehen in `docs/demo-flows.md`, inklusive des offiziellen DeerFlow+Evolver-Standardpfads. Strukturierte Eingaben fuer die neuen Softwarepfade stehen in `docs/goal-input-schemas.md`. Fuer Shell-Guardrails siehe `docs/security/shell-command-policy.md` und die Migrationsnotiz `docs/release/shell-command-policy-migration.md`.
 
 ## Schnellstart in 5 Minuten
 

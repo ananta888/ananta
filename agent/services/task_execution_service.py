@@ -36,7 +36,7 @@ from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.command_chain_parser import CommandChainParser
 from agent.services.command_to_tool_mapper import CommandToToolMapper
-from agent.services.shell_command_policy import ShellCommandAnalyzer
+from agent.services.shell_command_policy import ShellCommandAnalyzer, ShellCommandPolicy
 from agent.services.segment_preflight_validator import SegmentPreflightValidator
 from agent.services.tool_intent_resolver import ToolIntentResolver
 from agent.services.tool_intent_taxonomy_service import get_tool_intent_taxonomy_service
@@ -646,7 +646,10 @@ class TaskExecutionService:
 
         if command:
             _wec = effective_task.get("worker_execution_context") or {}
-            allow_complex_shell = str(_wec.get("shell_command_mode") or "").strip().lower() == "pipeline"
+            shell_mode = str(_wec.get("shell_command_mode") or "").strip().lower()
+            policy = ShellCommandPolicy.from_agent_cfg(guard_cfg)
+            # Complex shell mode requires both task intent (pipeline mode) and explicit policy allowance.
+            allow_complex_shell = shell_mode == "pipeline" and bool(policy.allow_complex_shell_mode)
             command_output, command_exit_code, retries_used, failure_type, retry_history = self._execute_shell_command_with_policy(
                 tid=tid,
                 command=command,
@@ -935,6 +938,7 @@ class TaskExecutionService:
                 "reason": reason,
                 "blocked_tools": list(decision.blocked_tools or []),
                 "blocked_reasons": list(decision.reasons or []),
+                **({"command_chain": dict(command_chain_summary or {})} if command_chain_summary else {}),
             },
         )
 
