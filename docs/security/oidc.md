@@ -9,6 +9,7 @@ Set the following environment variables:
 ```env
 TERMINAL_OIDC_ENABLED=true
 TERMINAL_OIDC_ISSUER=https://your-keycloak.example.com/realms/ananta
+TERMINAL_OIDC_BROWSER_ISSUER=https://your-keycloak.example.com/realms/ananta
 TERMINAL_OIDC_AUDIENCE=ananta-hub
 TERMINAL_OIDC_CLIENT_ID=ananta-hub
 ```
@@ -61,11 +62,13 @@ Default issuer used by this overlay:
 
 ```env
 TERMINAL_OIDC_ISSUER=http://localhost:8081/realms/ananta
+TERMINAL_OIDC_BROWSER_ISSUER=http://localhost:8081/realms/ananta
 TERMINAL_OIDC_CLIENT_ID=ananta-hub
 TERMINAL_OIDC_AUDIENCE=ananta-hub
 ```
 
 The implementation path remains unchanged and uses `GET /auth/oidc/login` and `GET /auth/oidc/callback` in `agent/routes/auth_oidc.py`.
+For containerized setups, `TERMINAL_OIDC_ISSUER` may point to an internal service DNS name, while `TERMINAL_OIDC_BROWSER_ISSUER` should point to the browser-reachable public URL.
 
 ## Local dev fallback
 

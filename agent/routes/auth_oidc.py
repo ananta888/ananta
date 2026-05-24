@@ -7,6 +7,7 @@ import secrets
 import time
 from typing import Any
 from urllib.parse import urlencode
+from urllib.parse import urlsplit, urlunsplit
 
 from flask import Blueprint, current_app, jsonify, redirect, request, session
 
@@ -90,6 +91,28 @@ def _fetch_oidc_discovery(issuer: str) -> dict[str, Any]:
         raise RuntimeError(f"oidc_discovery_failed: {exc}") from exc
 
 
+def _public_authorization_endpoint(
+    authorization_endpoint: str,
+    *,
+    internal_issuer: str,
+    browser_issuer: str,
+) -> str:
+    if not browser_issuer:
+        return authorization_endpoint
+
+    try:
+        ep = urlsplit(authorization_endpoint)
+        internal = urlsplit(internal_issuer)
+        public = urlsplit(browser_issuer)
+    except Exception:
+        return authorization_endpoint
+
+    if ep.netloc != internal.netloc:
+        return authorization_endpoint
+
+    return urlunsplit((public.scheme, public.netloc, ep.path, ep.query, ep.fragment))
+
+
 def _validate_id_token(token: str, *, issuer: str, audience: str, nonce: str | None = None) -> dict[str, Any]:
     try:
         import jwt as pyjwt
@@ -134,6 +157,11 @@ def oidc_login():
     auth_endpoint = discovery.get("authorization_endpoint")
     if not auth_endpoint:
         return api_response(status="error", message="oidc_auth_endpoint_missing", code=503)
+    auth_endpoint = _public_authorization_endpoint(
+        auth_endpoint,
+        internal_issuer=issuer,
+        browser_issuer=settings.terminal_oidc_browser_issuer,
+    )
 
     state = secrets.token_urlsafe(24)
     nonce = secrets.token_urlsafe(24)

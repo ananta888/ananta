@@ -100,6 +100,7 @@ class Settings(BaseSettings):
     terminal_recording_enabled_local_dev: bool = Field(default=False, validation_alias="TERMINAL_RECORDING_ENABLED_LOCAL_DEV")
     terminal_oidc_enabled: bool = Field(default=False, validation_alias="TERMINAL_OIDC_ENABLED")
     terminal_oidc_issuer: str = Field(default="", validation_alias="TERMINAL_OIDC_ISSUER")
+    terminal_oidc_browser_issuer: str = Field(default="", validation_alias="TERMINAL_OIDC_BROWSER_ISSUER")
     terminal_oidc_audience: str = Field(default="", validation_alias="TERMINAL_OIDC_AUDIENCE")
     terminal_oidc_client_id: str = Field(default="", validation_alias="TERMINAL_OIDC_CLIENT_ID")
     # Native SSH with OIDC-backed short-lived certificates
