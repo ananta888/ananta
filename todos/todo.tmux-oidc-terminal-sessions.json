@@ -427,7 +427,7 @@
         "POST /terminal/sessions/{id}/input refuses write input for read-only sessions.",
         "DELETE /terminal/sessions/{id} emits an audit event."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "T006-cli-tmux-commands",
@@ -456,7 +456,7 @@
         "CLI shows authorization failures without leaking tokens or stack traces.",
         "CLI documentation includes local and remote examples."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "T007-tui-terminal-view",
@@ -484,7 +484,7 @@
         "TUI handles lost Hub connection gracefully.",
         "TUI does not render unsafe control sequences without sanitization."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "T008-https-websocket-gateway",
@@ -546,7 +546,7 @@
         "Local login can be disabled by configuration in production profile.",
         "OIDC-authenticated user is subject to the same TerminalPolicyService decisions as local users."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "T010-session-timeouts-and-cleanup",
@@ -572,7 +572,7 @@
         "Cleanup emits terminal_session_expired audit event.",
         "Cleanup does not kill unrelated tmux sessions."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "T011-recording-and-redaction",
@@ -599,7 +599,7 @@
         "Raw Bearer tokens are never stored in audit events.",
         "Recording policy is visible in session metadata."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "T012-container-and-compose-support",
@@ -627,7 +627,7 @@
         "No default compose file mounts / or /var/run/docker.sock for terminal use.",
         "Documentation shows safe local-dev setup."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "T013-frontend-terminal-ui",
@@ -686,7 +686,7 @@
         "Docs include production OIDC examples.",
         "Docs explain that admin does not automatically bypass terminal policy."
       ],
-      "status": "open"
+      "status": "done"
     }
   ],
   "global_acceptance_criteria": [
@@ -759,28 +759,37 @@
     "raw_tmux_socket_exposure": false
   },
   "progress_summary": {
-    "updated_at": "2026-05-24",
+    "updated_at": "2026-05-25",
     "completed": [
       "T001-terminal-target-inventory",
       "T002-terminal-session-persistence",
       "T003-tmux-backend",
-      "T004-terminal-policy-service"
-    ],
-    "open": [
+      "T004-terminal-policy-service",
       "T005-terminal-rest-api",
       "T006-cli-tmux-commands",
       "T007-tui-terminal-view",
-      "T008-https-websocket-gateway",
       "T009-oidc-auth-provider",
       "T010-session-timeouts-and-cleanup",
       "T011-recording-and-redaction",
       "T012-container-and-compose-support",
-      "T013-frontend-terminal-ui",
       "T014-documentation-and-threat-model"
     ],
+    "open": [
+      "T008-https-websocket-gateway",
+      "T013-frontend-terminal-ui"
+    ],
     "notes": [
-      "T001-T004 completed (targets, persistence, tmux backend, terminal policy).",
-      "T005-T014 remain open."
+      "T001-T012 and T014 completed 2026-05-25.",
+      "T005: REST API fully implemented (GET/POST/input/output/attach-token/DELETE).",
+      "T006: ananta tmux targets/start/attach/list/kill commands added to cli/commands/tmux.py.",
+      "T007: Terminal section added to operator TUI sections and renderer.",
+      "T009: OIDC Authorization Code Flow with PKCE implemented in agent/routes/auth_oidc.py.",
+      "T010: TerminalCleanupService with idle/max-lifetime expiry in agent/services/terminal_cleanup_service.py.",
+      "T011: TerminalRecordingService with secret redaction in agent/services/terminal_recording_service.py.",
+      "T012: tmux added to Dockerfile and Dockerfile.quickstart-no-ollama; TERMINAL_* env vars in docker-compose.base.yml.",
+      "T014: docs/security/terminal-threat-model.md and docs/security/oidc.md written.",
+      "T008: ws_terminal.py (609 lines) already provides WSS infrastructure; attach-token validation not yet wired in.",
+      "T013: frontend-angular terminal.service.ts and terminal.component.ts exist (738 lines) but hub/hub_as_worker risk UI not yet separate."
     ]
   }
 }
