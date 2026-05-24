@@ -37,6 +37,7 @@ def assistant_editable_settings_inventory() -> list[dict]:
         {"key": "cli_session_mode", "path": "config.cli_session_mode", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "opencode_runtime", "path": "config.opencode_runtime", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "worker_runtime", "path": "config.worker_runtime", "type": "object", "editable": True, "endpoint": "POST /config"},
+        {"key": "propose_policy", "path": "config.propose_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "planning_policy", "path": "config.planning_policy", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "role_model_overrides", "path": "config.role_model_overrides", "type": "object", "editable": True, "endpoint": "POST /config"},
         {"key": "template_model_overrides", "path": "config.template_model_overrides", "type": "object", "editable": True, "endpoint": "POST /config"},
@@ -137,6 +138,20 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
             "artifact_flow": shared.artifact_flow_settings_summary(cfg),
             "opencode_runtime": shared.opencode_runtime_settings_summary(cfg),
             "worker_runtime": shared.worker_runtime_settings_summary(cfg),
+            "propose_policy": {
+                "context_compaction_enabled": bool(((cfg or {}).get("propose_policy") or {}).get("context_compaction_enabled", True))
+                if isinstance((cfg or {}).get("propose_policy"), dict)
+                else True,
+                "context_compaction_required": bool(((cfg or {}).get("propose_policy") or {}).get("context_compaction_required", False))
+                if isinstance((cfg or {}).get("propose_policy"), dict)
+                else False,
+                "context_compactor_fail_open": bool(((cfg or {}).get("propose_policy") or {}).get("context_compactor_fail_open", False))
+                if isinstance((cfg or {}).get("propose_policy"), dict)
+                else False,
+                "context_compactor_profile": str((((cfg or {}).get("propose_policy") or {}).get("context_compactor_profile") or "default")).strip().lower()
+                if isinstance((cfg or {}).get("propose_policy"), dict)
+                else "default",
+            },
             "planning_policy": shared.planning_policy_settings_summary(cfg),
             "planning_learning": shared.planning_learning_settings_summary(cfg),
             "role_model_overrides": shared.normalize_model_override_map(cfg.get("role_model_overrides")),

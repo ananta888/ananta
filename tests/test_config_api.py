@@ -910,6 +910,11 @@ def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token
     summary = (((res.json.get("data") or {}).get("settings") or {}).get("summary") or {})
     llm = summary.get("llm") or {}
     assert "artifact_flow" in llm
+    propose_policy = llm.get("propose_policy") or {}
+    assert propose_policy.get("context_compaction_enabled") in {True, False}
+    assert propose_policy.get("context_compaction_required") in {True, False}
+    assert propose_policy.get("context_compactor_fail_open") in {True, False}
+    assert str(propose_policy.get("context_compactor_profile") or "")
     planning_learning = llm.get("planning_learning") or {}
     assert planning_learning.get("snapshot") is not None
     assert planning_learning.get("overview") is not None
@@ -930,6 +935,39 @@ def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token
     assert platform_governance.get("policy_version") == "platform-governance-v1"
     assert platform_governance.get("platform_mode") in {"local-dev", "trusted-internal", "admin-only", "semi-public"}
     assert (platform_governance.get("terminal_policy") or {}).get("enabled") in {True, False}
+
+
+def test_propose_policy_compactor_kill_switch_visible_and_editable(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    patch = client.post(
+        "/config",
+        json={
+            "propose_policy": {
+                "context_compaction_enabled": False,
+                "context_compaction_required": False,
+                "context_compactor_fail_open": False,
+                "context_compactor_profile": "default",
+            }
+        },
+        headers=headers,
+    )
+    assert patch.status_code == 200
+
+    assistant = client.get("/assistant/read-model", headers=headers)
+    assert assistant.status_code == 200
+    summary = (((assistant.json.get("data") or {}).get("settings") or {}).get("summary") or {})
+    propose_policy = ((summary.get("llm") or {}).get("propose_policy") or {})
+    assert propose_policy.get("context_compaction_enabled") is False
+
+    inventory = (((assistant.json.get("data") or {}).get("settings") or {}).get("editable_inventory") or [])
+    assert any(item.get("key") == "propose_policy" for item in inventory)
+
+    dashboard = client.get("/dashboard/read-model", headers=headers)
+    assert dashboard.status_code == 200
+    llm_cfg = ((dashboard.json.get("data") or {}).get("llm_configuration") or {})
+    dash_policy = llm_cfg.get("propose_policy") or {}
+    assert dash_policy.get("context_compaction_enabled") is False
 
 
 def test_governance_policy_read_model_is_machine_readable(client, admin_token):
