@@ -1,0 +1,121 @@
+import { Component, Input, OnChanges, inject, ChangeDetectionStrategy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+import { GenericGraphModel, GraphNode, GraphEdge } from '../../models/graph.model';
+import { GraphViewMode } from '../../models/graph-view-mode';
+import { GraphFilter } from '../../models/graph-filter.model';
+import { GraphStateService } from '../../services/graph-state.service';
+import { GraphAdapterService } from '../../services/graph-adapter.service';
+import { GraphToolbarComponent } from '../graph-toolbar/graph-toolbar.component';
+import { GraphDetailPanelComponent } from '../graph-detail-panel/graph-detail-panel.component';
+import { SimpleGraphViewComponent } from '../simple-graph-view/simple-graph-view.component';
+import { Graph2dViewComponent } from '../graph-2d-view/graph-2d-view.component';
+
+@Component({
+  standalone: true,
+  selector: 'app-graph-viewer',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    CommonModule,
+    GraphToolbarComponent,
+    GraphDetailPanelComponent,
+    SimpleGraphViewComponent,
+    Graph2dViewComponent,
+  ],
+  template: `
+    <div class="gv-shell">
+      <app-graph-toolbar
+        [activeMode]="state.viewMode()"
+        [filter]="state.filter()"
+        (viewModeChange)="state.setViewMode($event)"
+        (filterChange)="state.updateFilter($event)"
+        (filterReset)="state.resetFilter()"
+      />
+
+      <div class="gv-body">
+        <div class="gv-renderer">
+          @switch (state.viewMode()) {
+            @case ('simple') {
+              <app-simple-graph-view
+                [graph]="filteredGraph()"
+                [selectedNode]="state.selectedNode()"
+                [selectedEdge]="state.selectedEdge()"
+                (nodeSelected)="state.selectNode($event)"
+                (edgeSelected)="state.selectEdge($event)"
+              />
+            }
+            @case ('2d') {
+              <app-graph-2d-view
+                [graph]="filteredGraph()"
+                [selectedNode]="state.selectedNode()"
+                [selectedEdge]="state.selectedEdge()"
+                (nodeSelected)="state.selectNode($event)"
+                (edgeSelected)="state.selectEdge($event)"
+              />
+            }
+            @case ('3d') {
+              <div class="coming-soon">
+                3D renderer not yet available. Install <code>3d-force-graph</code> and implement Graph3dViewComponent.
+              </div>
+            }
+          }
+        </div>
+
+        @if (state.selectedNode() || state.selectedEdge()) {
+          <div class="gv-detail">
+            <app-graph-detail-panel
+              [selectedNode]="state.selectedNode()"
+              [selectedEdge]="state.selectedEdge()"
+              (closed)="state.clearSelection()"
+            />
+          </div>
+        }
+      </div>
+
+      @if (graph?.warnings?.length) {
+        <div class="gv-warnings">
+          @for (w of graph!.warnings; track w) {
+            <p class="warning-msg">⚠ {{ w }}</p>
+          }
+        </div>
+      }
+    </div>
+  `,
+  styles: [`
+    .gv-shell { display: flex; flex-direction: column; height: 100%; min-height: 500px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
+    .gv-body { display: flex; flex: 1; overflow: hidden; }
+    .gv-renderer { flex: 1; overflow: auto; padding: .75rem; }
+    .gv-detail { width: 320px; border-left: 1px solid #e2e8f0; overflow-y: auto; background: #fafafa; }
+    .gv-warnings { padding: .5rem .75rem; background: #fef9c3; border-top: 1px solid #fde68a; }
+    .warning-msg { margin: 0; font-size: .8rem; color: #92400e; }
+    .coming-soon { padding: 1.5rem; color: #888; font-style: italic; }
+    .coming-soon code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-style: normal; }
+  `],
+})
+export class GraphViewerComponent implements OnChanges {
+  @Input() rawGraphData: unknown = null;
+
+  readonly state = inject(GraphStateService);
+  private readonly adapter = inject(GraphAdapterService);
+
+  graph: GenericGraphModel | null = null;
+
+  ngOnChanges(): void {
+    if (this.rawGraphData) {
+      this.graph = this.adapter.fromDomainArtifact(this.rawGraphData);
+      this.state.setGraph(this.graph);
+    } else {
+      this.graph = null;
+      this.state.setGraph({ nodes: [], edges: [], metadata: { sourceRef: '', sourceKind: '', nodeCount: 0, edgeCount: 0 }, warnings: [] });
+    }
+  }
+
+  filteredGraph(): GenericGraphModel | null {
+    if (!this.graph) return null;
+    return {
+      ...this.graph,
+      nodes: this.state.filteredNodes(),
+      edges: this.state.filteredEdges(),
+    };
+  }
+}
