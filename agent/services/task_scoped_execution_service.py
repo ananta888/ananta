@@ -63,6 +63,7 @@ from agent.services.task_execution_policy_service import normalize_allowed_tools
 from agent.services.task_handler_registry import get_task_handler_registry
 from agent.services.execution_improvement_loop_service import get_execution_improvement_loop_service
 from agent.services.planning_context_compactor_service import get_planning_context_compactor_service
+from agent.services.product_event_service import record_product_event
 from agent.services.worker_execution_profile_service import (
     normalize_worker_execution_profile,
     resolve_worker_execution_profile,
@@ -637,6 +638,42 @@ class TaskScopedExecutionService:
             )
             compaction_payload = dict(compacted.payload or {})
             compaction_meta = dict(compacted.meta or {})
+            _c_status = str(compaction_meta.get("status") or "").strip().lower()
+            if _c_status == "success":
+                record_product_event(
+                    "planning_context_compaction_succeeded",
+                    actor="task_scoped_execution_service",
+                    details={
+                        "task_id": tid,
+                        "status": _c_status,
+                        "input_chars": compaction_meta.get("input_chars"),
+                        "output_chars": compaction_meta.get("output_chars"),
+                        "reduction_ratio": compaction_meta.get("reduction_ratio"),
+                    },
+                    goal_id=str(task.get("goal_id") or "") or None,
+                )
+            elif _c_status in {"fallback", "bypassed"}:
+                record_product_event(
+                    "planning_context_compaction_fallback_used",
+                    actor="task_scoped_execution_service",
+                    details={
+                        "task_id": tid,
+                        "status": _c_status,
+                        "error_classification": compaction_meta.get("error_classification"),
+                    },
+                    goal_id=str(task.get("goal_id") or "") or None,
+                )
+            elif _c_status == "failed":
+                record_product_event(
+                    "planning_context_compaction_failed",
+                    actor="task_scoped_execution_service",
+                    details={
+                        "task_id": tid,
+                        "status": _c_status,
+                        "error_classification": compaction_meta.get("error_classification"),
+                    },
+                    goal_id=str(task.get("goal_id") or "") or None,
+                )
             if (
                 str(compaction_meta.get("status") or "").strip().lower() == "failed"
                 and bool(getattr(policy, "context_compaction_required", False))

@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from agent.services.propose_policy import ProposePolicy
+from agent.services.planning_contract import resolve_planning_contract
+from agent.services.planning_validation_service import get_planning_validation_service
 
 ERR_TIMEOUT = "context_compactor_timeout"
 ERR_UNPARSEABLE = "context_compactor_unparseable_output"
@@ -24,6 +26,19 @@ class CompactionResult:
 
 
 class PlanningContextCompactorService:
+    @staticmethod
+    def _normalize_payload(payload: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(payload or {})
+        for list_key in ("hard_constraints", "non_negotiables", "relevant_context", "risks", "open_questions"):
+            value = normalized.get(list_key)
+            if not isinstance(value, list):
+                normalized[list_key] = []
+                continue
+            normalized[list_key] = [str(item).strip() for item in value if str(item).strip()]
+        normalized["goal_summary"] = str(normalized.get("goal_summary") or "").strip()
+        normalized["omitted_context_summary"] = str(normalized.get("omitted_context_summary") or "").strip()
+        return normalized
+
     def _trim_text(self, value: str, *, max_chars: int) -> str:
         raw = str(value or "")
         if len(raw) <= max_chars:
@@ -142,6 +157,10 @@ class PlanningContextCompactorService:
                 temperature=0.1,
             )
             text = str(raw.get("text") if isinstance(raw, dict) else raw or "").strip()
+            if text.startswith("```"):
+                text = text.strip("`")
+                if text.lower().startswith("json"):
+                    text = text[4:].strip()
             parsed = json.loads(text)
             if not isinstance(parsed, dict):
                 return None, ERR_UNPARSEABLE, {
@@ -154,6 +173,50 @@ class PlanningContextCompactorService:
                 "model": model,
                 "duration_ms": int((time.time() - started) * 1000),
             }
+        except TimeoutError:
+            return None, ERR_TIMEOUT, {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)}
+        except Exception:
+            return None, ERR_RUNTIME, {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)}
+
+    def _llm_repair_compact(
+        self,
+        *,
+        trimmed_input: dict[str, Any],
+        policy: ProposePolicy,
+        llm_config: dict[str, Any] | None,
+        broken_payload: dict[str, Any] | None,
+        error_classification: str | None,
+    ) -> tuple[dict[str, Any] | None, str | None, dict[str, Any]]:
+        cfg = dict(llm_config or {})
+        provider = str(cfg.get("provider") or "").strip() or None
+        model = str(cfg.get("model") or "").strip() or None
+        base_url = str(cfg.get("base_url") or "").strip() or None
+        timeout = int(policy.context_compactor_timeout_seconds)
+        prompt = (
+            "Repair the invalid compacted planning context and return strict JSON only "
+            "with keys: goal_summary, hard_constraints, non_negotiables, relevant_context, "
+            "omitted_context_summary, risks, open_questions.\n"
+            f"ERROR_CLASS={error_classification}\n"
+            f"BROKEN={json.dumps(broken_payload or {}, ensure_ascii=False)}\n"
+            f"INPUT={json.dumps(trimmed_input, ensure_ascii=False)}"
+        )
+        started = time.time()
+        try:
+            from agent.services.hub_llm_service import generate_text
+
+            raw = generate_text(
+                prompt=prompt,
+                provider=provider,
+                model=model,
+                base_url=base_url,
+                timeout=timeout,
+                temperature=0.1,
+            )
+            text = str(raw.get("text") if isinstance(raw, dict) else raw or "").strip()
+            parsed = json.loads(text)
+            if not isinstance(parsed, dict):
+                return None, ERR_UNPARSEABLE, {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)}
+            return parsed, None, {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)}
         except TimeoutError:
             return None, ERR_TIMEOUT, {"provider": provider, "model": model, "duration_ms": int((time.time() - started) * 1000)}
         except Exception:
@@ -203,18 +266,19 @@ class PlanningContextCompactorService:
         duration_ms = 0
         final_payload = deterministic
 
+        trimmed_input = {
+            "goal": goal_text,
+            "context": context_text,
+            "mode": mode,
+            "mode_data": trimmed_mode_data,
+            "hard_constraints": hard,
+            "non_negotiables": non_neg,
+        }
         if bool(policy.context_compaction_enabled):
             retries = int(policy.context_compactor_retry_attempts)
             for _ in range(retries + 1):
                 llm_payload, llm_error, llm_meta = self._llm_compact(
-                    trimmed_input={
-                        "goal": goal_text,
-                        "context": context_text,
-                        "mode": mode,
-                        "mode_data": trimmed_mode_data,
-                        "hard_constraints": hard,
-                        "non_negotiables": non_neg,
-                    },
+                    trimmed_input=trimmed_input,
                     policy=policy,
                     llm_config=llm_config,
                 )
@@ -224,6 +288,7 @@ class PlanningContextCompactorService:
                 if llm_payload is None:
                     error_classification = llm_error
                     continue
+                llm_payload = self._normalize_payload(llm_payload)
                 ok, err = self._validate_payload(
                     llm_payload,
                     max_output_chars=int(policy.context_compactor_max_output_chars),
@@ -232,6 +297,32 @@ class PlanningContextCompactorService:
                 )
                 if ok:
                     final_payload = llm_payload
+                    status = "success"
+                    error_classification = None
+                    break
+                error_classification = err
+                repair_payload, repair_error, repair_meta = self._llm_repair_compact(
+                    trimmed_input=trimmed_input,
+                    policy=policy,
+                    llm_config=llm_config,
+                    broken_payload=llm_payload,
+                    error_classification=error_classification,
+                )
+                provider = repair_meta.get("provider") or provider
+                model = repair_meta.get("model") or model
+                duration_ms = int(repair_meta.get("duration_ms") or duration_ms)
+                if repair_payload is None:
+                    error_classification = repair_error or error_classification
+                    continue
+                repair_payload = self._normalize_payload(repair_payload)
+                ok, err = self._validate_payload(
+                    repair_payload,
+                    max_output_chars=int(policy.context_compactor_max_output_chars),
+                    hard_constraints=hard,
+                    non_negotiables=non_neg,
+                )
+                if ok:
+                    final_payload = repair_payload
                     status = "success"
                     error_classification = None
                     break
@@ -263,6 +354,35 @@ class PlanningContextCompactorService:
                 error_classification = error_classification or err or ERR_SCHEMA
 
         output_chars = len(json.dumps(final_payload, ensure_ascii=False))
+        contract = resolve_planning_contract(mode=mode, planning_policy=planning_policy)
+        contract_validation = get_planning_validation_service().validate_subtasks(
+            subtasks=[
+                {
+                    "title": "Compactor constraints preservation",
+                    "description": " ".join(list(final_payload.get("hard_constraints") or []) + list(final_payload.get("non_negotiables") or [])),
+                    "task_kind": "analysis",
+                },
+                {
+                    "title": "Compactor review constraints",
+                    "description": " ".join(list(final_payload.get("relevant_context") or [])),
+                    "task_kind": "review",
+                },
+                {
+                    "title": "Compactor testing constraints",
+                    "description": str(final_payload.get("goal_summary") or ""),
+                    "task_kind": "testing",
+                },
+                {
+                    "title": "Compactor coding constraints",
+                    "description": str(final_payload.get("omitted_context_summary") or ""),
+                    "task_kind": "coding",
+                },
+            ],
+            contract=contract,
+        )
+        if not contract_validation.ok and status != "bypassed":
+            status = "failed"
+            error_classification = ERR_CONTRACT_CONSTRAINT_LOSS
         reduction_ratio = 1.0 if input_chars <= 0 else round(max(0.0, min(1.0, output_chars / float(max(1, input_chars)))), 4)
         meta = {
             "input_chars": int(input_chars),
