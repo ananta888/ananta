@@ -164,7 +164,7 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
             "max_nodes": 8,
             "max_depth": 8,
             "timeout_seconds": 700,
-            "max_output_tokens": 1500,
+            "max_output_tokens": 1600,
             "segmented_planning_enabled": False,
             "segment_context_chars": 2400,
             "max_segments": 1,
@@ -174,8 +174,8 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
             "default_runtime_profile": "lmstudio_laptop",
             "runtime_profiles": {
                 "lmstudio_laptop": {
-                    "timeout_seconds": 700,
-                    "max_output_tokens": 1500,
+                    "timeout_seconds": 300,
+                    "max_output_tokens": 1600,
                     "retry_attempts": 1,
                     "retry_backoff_seconds": 1.0,
                     "segmented_planning_enabled": False,
