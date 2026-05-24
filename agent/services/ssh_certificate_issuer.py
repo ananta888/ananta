@@ -159,13 +159,17 @@ class SshCertificateIssuer:
             return self._deny(mapping.reason_code, decision_id, target_type, user_id)
 
         policy_svc = get_terminal_policy_service()
-        policy_decision = policy_svc.evaluate(
-            user_ctx=user_ctx,
-            operation="create",
-            target_type=target_type,
-            target_id=target_id,
-            cfg=cfg,
-        )
+        try:
+            policy_decision = policy_svc.evaluate(
+                user_ctx=user_ctx,
+                operation="create",
+                target_type=target_type,
+                target_id=target_id,
+                cfg=cfg,
+            )
+        except Exception:
+            self._audit_denied("ssh_cert_issuer_policy_unavailable", id_token_claims, decision_id, target_type)
+            return self._deny("ssh_cert_issuer_policy_unavailable", decision_id, target_type, user_id)
         if not policy_decision.allow:
             LOGGER.warning("Terminal policy denied SSH cert issuance: %s", policy_decision.reason_code)
             self._audit_denied(policy_decision.reason_code, id_token_claims, decision_id, target_type)

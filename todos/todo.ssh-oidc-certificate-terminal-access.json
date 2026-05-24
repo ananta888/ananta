@@ -143,6 +143,7 @@
   "implementation_tasks": [
     {
       "id": "SSH-T001-access-mode-documentation",
+      "status": "done",
       "title": "Document native SSH as separate access mode",
       "summary": "Extend terminal documentation to distinguish web OIDC/WSS, native SSH with OIDC-backed certificates, and local dev tmux.",
       "files": ["docs/security/terminal-sessions.md", "docs/security/oidc.md", "docs/security/ssh-terminal-access.md", "docs/cli/commands.md"],
@@ -155,6 +156,7 @@
     },
     {
       "id": "SSH-T002-ssh-ca-backend-decision",
+      "status": "done",
       "title": "Select and model SSH CA backend integration",
       "summary": "Define whether the first implementation uses smallstep step-ca, Teleport, or an Ananta-managed abstraction with pluggable backend.",
       "files": ["agent/config.py", "docs/security/ssh-terminal-access.md", "docs/decisions/ADR-ssh-oidc-certificate-access.md"],
@@ -167,6 +169,7 @@
     },
     {
       "id": "SSH-T003-certificate-issuer-service",
+      "status": "done",
       "title": "Add SSH certificate issuer service abstraction",
       "summary": "Introduce an issuer interface that validates OIDC identity and requests or creates constrained SSH user certificates.",
       "files": ["agent/services/ssh_certificate_issuer.py", "agent/services/ssh_principal_mapper.py", "agent/config.py", "tests/test_ssh_certificate_issuer.py"],
@@ -180,9 +183,10 @@
     },
     {
       "id": "SSH-T004-ssh-login-cli-flow",
+      "status": "partial",
       "title": "Add CLI flow for OIDC-backed SSH login",
       "summary": "Add commands that perform OIDC login, store short-lived SSH certificate material safely, and print or execute the ssh command.",
-      "files": ["agent/cli_goals.py", "docs/cli/commands.md", "tests/test_cli_ssh_terminal_commands.py"],
+      "files": ["agent/cli/commands/ssh.py", "docs/cli/commands.md", "tests/test_cli_ssh_terminal_commands.py"],
       "acceptance_criteria": [
         "ananta ssh login starts OIDC Authorization Code Flow with PKCE or calls the configured backend helper.",
         "ananta ssh targets lists only targets allowed by TerminalPolicyService.",
@@ -193,6 +197,7 @@
     },
     {
       "id": "SSH-T005-server-side-terminal-wrapper",
+      "status": "partial",
       "title": "Add server-side SSH terminal wrapper",
       "summary": "Create a strict wrapper that receives a validated SSH identity and opens only approved Ananta terminal sessions.",
       "files": ["agent/services/ssh_terminal_wrapper.py", "agent/services/terminal_session_service.py", "agent/services/terminal_policy_service.py", "tests/test_ssh_terminal_wrapper.py", "docs/security/ssh-terminal-access.md"],
@@ -206,6 +211,7 @@
     },
     {
       "id": "SSH-T006-openssh-configuration-examples",
+      "status": "done",
       "title": "Add hardened OpenSSH configuration examples",
       "summary": "Document safe sshd_config patterns for TrustedUserCAKeys, principal mapping and ForceCommand integration.",
       "files": ["docs/security/ssh-terminal-access.md", "deploy/examples/sshd_config.ananta.example", "deploy/examples/ananta-authorized-principals.example"],
@@ -219,6 +225,7 @@
     },
     {
       "id": "SSH-T007-audit-model",
+      "status": "partial",
       "title": "Add SSH audit model",
       "summary": "Ensure native SSH access is correlated with certificate issuance, terminal session lifecycle and policy decisions.",
       "files": ["agent/common/audit.py", "agent/services/ssh_access_audit_service.py", "agent/db_models.py", "tests/test_ssh_access_audit.py", "docs/security/terminal-audit.md"],
@@ -232,6 +239,7 @@
     },
     {
       "id": "SSH-T008-security-tests",
+      "status": "partial",
       "title": "Add native SSH security tests",
       "summary": "Test failure modes around certificates, principals, terminal wrapper, Hub access and stale credentials.",
       "files": ["tests/test_ssh_certificate_security.py", "tests/test_ssh_terminal_wrapper.py", "tests/test_terminal_policy_service.py"],
@@ -292,17 +300,19 @@
         "OIDC routes exist and are operational with Flask session secret set"
       ],
       "open_gaps": [
-        "No dedicated tests found for tests/test_ssh_certificate_issuer.py",
-        "No dedicated tests found for tests/test_ssh_terminal_wrapper.py",
-        "No dedicated tests found for tests/test_ssh_access_audit.py",
-        "No dedicated tests found for tests/test_ssh_certificate_security.py",
-        "No dedicated tests found for tests/test_cli_ssh_terminal_commands.py",
-        "docs/security/terminal-audit.md does not exist yet"
+        "CLI connect flow still does not enforce ambiguous target detection explicitly (SSH-T004 partial)",
+        "Wrapper/security tests currently cover core guards but not all acceptance-path permutations (SSH-T005/T008 partial)",
+        "Audit integration path is covered at service level; end-to-end DB correlation assertions remain partial (SSH-T007 partial)"
       ],
       "task_path_mismatches": [
-        "SSH-T004 references agent/cli_goals.py, but implementation is in agent/cli/commands/ssh.py",
-        "Several task file lists reference test files not yet present in tests/"
+        "SSH-T004 path corrected from agent/cli_goals.py to agent/cli/commands/ssh.py"
       ]
+    },
+    "summary": {
+      "total_tasks": 8,
+      "done": 4,
+      "partial": 4,
+      "todo": 0
     }
   }
 }
