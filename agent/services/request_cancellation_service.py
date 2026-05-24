@@ -53,36 +53,49 @@ class RequestCancellationService:
         return targets
 
     def _post(self, url: str, endpoint: str, *, token: str | None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-        """POST to a worker endpoint with retry on connection failure (PRI-008)."""
+        """POST to a worker endpoint with retry on connection errors and 5xx responses (PRI-008).
+
+        4xx responses are not retried (client errors — retrying won't help).
+        """
         full_url = f"{url}{endpoint}"
         headers: dict[str, str] = {}
         if token:
             headers["Authorization"] = f"Bearer {token}"
         last_error: str = ""
+        last_status: int = 0
         for attempt in range(max(1, self._retry_attempts)):
             try:
                 response = requests.post(full_url, json=payload or {}, headers=headers, timeout=self._timeout_seconds)
+                last_status = int(response.status_code)
                 try:
                     body = response.json()
                 except Exception:
                     body = {"raw": response.text[:500]}
-                return {
-                    "url": full_url,
-                    "ok": response.status_code < 400,
-                    "status_code": int(response.status_code),
-                    "body": body,
-                    "attempts": attempt + 1,
-                }
+                if last_status < 500:
+                    # 2xx/3xx = success; 4xx = client error (not retriable).
+                    return {
+                        "url": full_url,
+                        "ok": last_status < 400,
+                        "status_code": last_status,
+                        "body": body,
+                        "attempts": attempt + 1,
+                    }
+                # 5xx: server-side transient error — retry if attempts remain.
+                last_error = f"http_{last_status}"
             except Exception as exc:
                 last_error = str(exc)
-                if attempt < self._retry_attempts - 1:
-                    _LOG.debug(
-                        "worker_cancel_retry attempt=%s url=%s error=%s",
-                        attempt + 1, full_url, last_error,
-                    )
-                    time.sleep(self._retry_delay_s)
-        _LOG.warning("worker_cancel_failed_all_attempts url=%s attempts=%s error=%s", full_url, self._retry_attempts, last_error)
-        return {"url": full_url, "ok": False, "status_code": 0, "error": last_error, "attempts": self._retry_attempts}
+                last_status = 0
+            if attempt < self._retry_attempts - 1:
+                _LOG.debug(
+                    "worker_cancel_retry attempt=%s url=%s error=%s",
+                    attempt + 1, full_url, last_error,
+                )
+                time.sleep(self._retry_delay_s)
+        _LOG.warning(
+            "worker_cancel_failed_all_attempts url=%s attempts=%s status=%s error=%s",
+            full_url, self._retry_attempts, last_status, last_error,
+        )
+        return {"url": full_url, "ok": False, "status_code": last_status, "error": last_error, "attempts": self._retry_attempts}
 
     def _fanout(self, endpoint: str, *, payload: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         targets = self._worker_targets()

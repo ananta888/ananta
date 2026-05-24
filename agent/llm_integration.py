@@ -475,6 +475,12 @@ import collections as _collections
 _RATE_LIMIT_WINDOW: dict[str, _collections.deque] = defaultdict(lambda: _collections.deque())
 _RATE_LIMIT_LOCK = __import__("threading").Lock()
 
+# PRI-012: Per-provider sliding-window error rate tracking (60s window).
+# Separate deques for successes and failures to compute error_rate.
+_ERR_RATE_LOCK = __import__("threading").Lock()
+_ERR_SUCCESS_WINDOW: dict[str, _collections.deque] = defaultdict(lambda: _collections.deque())
+_ERR_FAILURE_WINDOW: dict[str, _collections.deque] = defaultdict(lambda: _collections.deque())
+
 
 def _cb_config() -> tuple[int, int]:
     """Return (threshold, recovery_seconds) from live app config when available."""
@@ -512,11 +518,47 @@ def _report_llm_failure(provider: str) -> None:
                 CIRCUIT_BREAKER["failures"][provider],
             )
             CIRCUIT_BREAKER["open"][provider] = True
+    _record_llm_failure_rate(provider)
 
 
 def _report_llm_success(provider: str) -> None:
     CIRCUIT_BREAKER["failures"][provider] = 0
     CIRCUIT_BREAKER["open"][provider] = False
+    now = time.time()
+    with _ERR_RATE_LOCK:
+        _ERR_SUCCESS_WINDOW[provider].append(now)
+
+
+def _record_llm_failure_rate(provider: str) -> None:
+    """Record failure timestamp for error-rate tracking (separate from CB)."""
+    now = time.time()
+    with _ERR_RATE_LOCK:
+        _ERR_FAILURE_WINDOW[provider].append(now)
+
+
+def get_provider_error_rate(provider: str, window_s: float = 60.0) -> dict:
+    """Return error rate for provider over the last window_s seconds (PRI-012)."""
+    now = time.time()
+    cutoff = now - window_s
+    with _ERR_RATE_LOCK:
+        s_dq = _ERR_SUCCESS_WINDOW[provider]
+        f_dq = _ERR_FAILURE_WINDOW[provider]
+        while s_dq and s_dq[0] < cutoff:
+            s_dq.popleft()
+        while f_dq and f_dq[0] < cutoff:
+            f_dq.popleft()
+        successes = len(s_dq)
+        failures = len(f_dq)
+    total = successes + failures
+    error_rate = round(failures / total, 3) if total > 0 else 0.0
+    return {
+        "provider": provider,
+        "window_seconds": window_s,
+        "successes": successes,
+        "failures": failures,
+        "total": total,
+        "error_rate": error_rate,
+    }
 
 
 def _rl_config(provider: str) -> int:

@@ -136,7 +136,7 @@
       "title": "Goal-Purge und Goal-Cancel idempotent haerten",
       "type": "implementation",
       "priority": "high",
-      "status": "partially_done",
+      "status": "done",
       "depends_on": ["PRI-001"],
       "deliverables": [
         "Deterministischer Cancel-Ablauf pro Goal",
@@ -146,14 +146,14 @@
         "Zweiter Purge-Aufruf auf bereits geloeschtes Goal liefert kontrollierte Antwort.",
         "Keine dangling tasks/runs nach erfolgreichem Purge."
       ],
-      "notes": "Teilweise: agent/services/goal_purge_service.py verwaltet worker_cancel_failures (Z. 40, 96-109, 226) und hat explizite Idempotenz-Behandlung fuer bereits-gecancelte Tasks. Offen: kein gezielter Test fuer Doppel-Purge-Szenario; dangling-task-Check nach Purge nicht explizit verifiziert."
+      "notes": "Vollstaendig: goal_purge_service.py idempotent fuer Doppel-Purge. Tests: test_goal_purge_double_call_is_idempotent, test_goal_purge_worker_cancel_failures_are_surfaced (test_goals.py), test_purge_after_cancel_leaves_no_orphan_tasks (test_planning_isolation.py) decken alle Acceptance-Criteria ab."
     },
     {
       "id": "PRI-008",
       "title": "Worker-Abbruchsignal pro Task/Goal verbindlich machen",
       "type": "implementation",
       "priority": "high",
-      "status": "partially_done",
+      "status": "done",
       "depends_on": ["PRI-007"],
       "deliverables": [
         "Cancel-Signal an alle betroffenen Worker-Endpoints",
@@ -163,7 +163,7 @@
         "Bei Goal-Cancel werden alle offenen Task-Auftraege aktiv gestoppt.",
         "Nicht erreichbare Worker erzeugen klare Fehlerereignisse, kein stilles Haengen."
       ],
-      "notes": "Infrastruktur vorhanden: agent/services/request_cancellation_service.py mit cancel_goal_requests(), cancel_task_requests(), cancel_all_requests() (Z. 89-117). worker_cancel_failures in goal_purge_service.py werden gesammelt und im Result gemeldet. Reason codes WORKER_CANCEL_ACK_TIMEOUT und WORKER_CANCEL_UNREACHABLE in planning_reason_codes.py definiert. Offen: aktive Retry-Logik fuer nicht erreichbare Worker fehlt noch; Ack-Timeout wird als Fehler geloggt aber nicht automatisch erneut versucht."
+      "notes": "Vollstaendig: _post() in request_cancellation_service.py retried bei ConnectionError UND bei HTTP-5xx (je 2 Versuche, 0.4s Delay). 4xx werden nicht retried (Client-Fehler). worker_cancel_failures sammeln alle Fehlschlaege mit task_id+worker_url+error. Getestet in TestParallelGoalsSlotQueuing (test_planning_isolation.py)."
     },
     {
       "id": "PRI-009",
@@ -221,7 +221,7 @@
       "title": "Observability erweitern: Metriken und Health-Signale",
       "type": "implementation",
       "priority": "high",
-      "status": "partially_done",
+      "status": "done",
       "depends_on": ["PRI-004", "PRI-005", "PRI-009"],
       "deliverables": [
         "Metriken: planning_running_age, queue_wait_seconds, stale_runs_count, circuit_state, provider_error_rate",
@@ -231,7 +231,7 @@
         "Metriken sind pro Runtime/Profil aufschluesselbar.",
         "Health zeigt klar, ob Blockade durch stale runs, slots oder provider ausgeloest wird."
       ],
-      "notes": "Erweitert: GET /goals/planning/health gibt jetzt running_ages_s, oldest_queued_age_s, rate_limit-State zurueck. POST /goals/planning/recover-stale Endpoint hinzugefuegt. get_rate_limit_state() in llm_integration.py exportiert. Offen: kein dedizierter Metriken-Aggregator oder Dashboard-Export (niedrige Prioritaet, Logs reichen fuer Betrieb)."
+      "notes": "Vollstaendig: /goals/planning/health gibt running_ages_s, oldest_queued_age_s, rate_limit, provider_error_rate (60s-Sliding-Window mit get_provider_error_rate()), by_profile (json_extract-Aufschluesselung nach config_profile) zurueck. Separate _ERR_SUCCESS_WINDOW/_ERR_FAILURE_WINDOW in llm_integration.py. Getestet in TestProviderErrorRate."
     },
     {
       "id": "PRI-013",
@@ -346,9 +346,8 @@
       "id": "M2",
       "title": "Stale-Recovery + sichere Abbrueche",
       "tasks": ["PRI-004", "PRI-005", "PRI-006", "PRI-007", "PRI-008"],
-      "status": "mostly_done",
-      "done_when": "Haengende Runs werden automatisch oder manuell deterministisch bereinigt. Queue-Wait und Execute-Timeout sind getrennt messbar.",
-      "notes": "PRI-004/005/006 done. PRI-007/008 partially_done (Idempotenz und Retry-Strategie fuer unreachbare Worker fehlen noch)."
+      "status": "done",
+      "done_when": "Haengende Runs werden automatisch oder manuell deterministisch bereinigt. Queue-Wait und Execute-Timeout sind getrennt messbar."
     },
     {
       "id": "M3",
