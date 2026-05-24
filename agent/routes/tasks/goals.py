@@ -478,12 +478,15 @@ def planning_health():
     from sqlmodel import Session, select, func
     from agent.database import engine
     from agent.db_models import GoalDB as _GoalDB
-    from agent.llm_integration import get_circuit_breaker_state
+    from agent.llm_integration import get_circuit_breaker_state, get_rate_limit_state
 
     now = time.time()
     stale_count = 0
     queued_count = 0
     running_count = 0
+
+    running_ages_s: list[float] = []
+    oldest_queued_age_s: float | None = None
 
     try:
         with Session(engine) as session:
@@ -503,6 +506,18 @@ def planning_health():
                     _GoalDB.planning_lease_expires_at < now,
                 )
             ).one()
+            # Collect ages for currently running planning goals.
+            for (updated_at,) in session.exec(
+                select(_GoalDB.updated_at).where(_GoalDB.status == "planning_running")
+            ).all():
+                if updated_at:
+                    running_ages_s.append(round(now - float(updated_at), 1))
+            # Age of oldest queued goal.
+            oldest_queued_row = session.exec(
+                select(func.min(_GoalDB.updated_at)).where(_GoalDB.status == "planning_queued")
+            ).one()
+            if oldest_queued_row:
+                oldest_queued_age_s = round(now - float(oldest_queued_row), 1)
     except Exception as exc:
         return api_response(status="error", message=f"db_query_failed:{type(exc).__name__}", code=500)
 
@@ -525,9 +540,22 @@ def planning_health():
             "running": running_count,
             "stale_expired_lease": int(stale_count),
         },
+        "running_ages_s": running_ages_s,
+        "oldest_queued_age_s": oldest_queued_age_s,
         "circuit_breaker": get_circuit_breaker_state(provider),
+        "rate_limit": get_rate_limit_state(provider),
         "timestamp": now,
     })
+
+
+@goals_bp.route("/goals/planning/recover-stale", methods=["POST"])
+@check_auth
+def planning_recover_stale():
+    """PRI-013: Server-side trigger for stale planning goal recovery."""
+    if not _is_admin_request():
+        return api_response(status="error", message="forbidden", code=403)
+    cancelled = _cancel_stale_planning_goals(actor="recover_stale_api")
+    return api_response(data={"cancelled": cancelled, "actor": "recover_stale_api"})
 
 
 @goals_bp.route("/goals/test/provision", methods=["POST"])

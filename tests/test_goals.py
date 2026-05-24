@@ -322,6 +322,64 @@ class TestGoalsAPI:
         assert data["already_deleted"] is True
         assert data["goal_id"] == "not-a-goal"
 
+    def test_goal_purge_double_call_is_idempotent(self, client, admin_auth_header, monkeypatch):
+        # PRI-007: second purge on already-purged goal must return 200 + already_deleted=True.
+        goal = goal_repo.save(
+            GoalDB(
+                goal="double purge target",
+                summary="double purge",
+                status="planned",
+                source="test",
+                requested_by="admin",
+            )
+        )
+        monkeypatch.setattr(
+            "agent.services.goal_purge_service.get_prompt_trace_service",
+            lambda: SimpleNamespace(delete_by_goal_id=lambda _gid: 0),
+        )
+        monkeypatch.setattr(
+            "agent.services.goal_purge_service.get_task_admin_service",
+            lambda: SimpleNamespace(intervene_task=lambda **_kwargs: (True, "ok", {})),
+        )
+        res1 = client.delete(f"/goals/{goal.id}/purge", headers=admin_auth_header)
+        assert res1.status_code == 200
+        assert res1.get_json()["data"].get("already_deleted") is not True  # first call: actually deleted
+
+        res2 = client.delete(f"/goals/{goal.id}/purge", headers=admin_auth_header)
+        assert res2.status_code == 200
+        assert res2.get_json()["data"]["already_deleted"] is True  # second call: idempotent
+
+    def test_goal_purge_worker_cancel_failures_are_surfaced(self, client, admin_auth_header, monkeypatch):
+        # PRI-007/008: worker cancel failures are reported in purge result, not silently dropped.
+        goal = goal_repo.save(
+            GoalDB(
+                goal="worker fail purge",
+                summary="worker fail",
+                status="running",
+                source="test",
+                requested_by="admin",
+            )
+        )
+        task_repo.save(TaskDB(id="wf-task-1", title="t1", status="running", goal_id=goal.id, goal_trace_id=goal.trace_id))
+
+        def _intervene_fail(**kwargs):
+            return True, "ok", {"worker_cancel_forward": {"attempted": True, "status": "error", "worker_url": "http://w:9000", "error": "connection refused"}}
+
+        monkeypatch.setattr(
+            "agent.services.goal_purge_service.get_task_admin_service",
+            lambda: SimpleNamespace(intervene_task=_intervene_fail),
+        )
+        monkeypatch.setattr(
+            "agent.services.goal_purge_service.get_prompt_trace_service",
+            lambda: SimpleNamespace(delete_by_goal_id=lambda _gid: 0),
+        )
+        res = client.delete(f"/goals/{goal.id}/purge", headers=admin_auth_header)
+        assert res.status_code == 200
+        data = res.get_json()["data"]
+        failures = data.get("worker_cancel_failures") or []
+        assert len(failures) >= 1
+        assert failures[0]["task_id"] == "wf-task-1"
+
     def test_generic_software_goal_soft_quality_miss_does_not_fail(self, client, admin_auth_header, monkeypatch):
         monkeypatch.setattr(
             "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
