@@ -15,6 +15,7 @@ Mandatory controls:
 - Cloud upstreams are lower-trust sinks than local upstreams.
 - Cloud forwarding uses reduced/redacted context by default.
 - Prompt text cannot disable policy or redaction.
+- Workers should prefer the interceptor endpoint over direct provider APIs where policy enforcement is required.
 
 ## Policy Profiles
 - `local_dev`: broader local context, still secret-redacted.
@@ -22,4 +23,3 @@ Mandatory controls:
 - `high_risk`: block sensitive context and credentials.
 
 Profile selection must come from configuration and runtime metadata, never from prompt text.
-

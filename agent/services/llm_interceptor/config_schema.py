@@ -98,6 +98,7 @@ class PolicyConfig(BaseModel):
     local_context_default: str = "allowed_by_context_gate"
     allow_worker_override_upstream: bool = False
     allow_prompt_override_policy: bool = False
+    allow_local_only_fallback_on_failure: bool = False
     max_context_chars_default: int = 120000
     active_profile: str = "cloud_safe"
     profiles: dict[str, dict[str, Any]] = Field(

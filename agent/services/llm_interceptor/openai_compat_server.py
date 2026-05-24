@@ -11,7 +11,7 @@ from agent.services.llm_interceptor.config_schema import LlmInterceptorConfig
 from agent.services.llm_interceptor.audit_logger import AuditLogger
 from agent.services.llm_interceptor.context_gate import ContextGate
 from agent.services.llm_interceptor.model_profiles import load_model_profiles
-from agent.services.llm_interceptor.policy_engine import PolicyEngine
+from agent.services.llm_interceptor.policy_engine import PolicyDecision, PolicyEngine
 from agent.services.llm_interceptor.prompt_adapter import PromptAdapter
 from agent.services.llm_interceptor.repair_controller import RepairController
 from agent.services.llm_interceptor.response_validator import ResponseValidator
@@ -96,18 +96,38 @@ class OpenAICompatInterceptorServer:
                 return _error_response("messages_required", code="messages_required", status=400)
             envelope = build_request_envelope(payload=payload, headers=dict(request.headers))
             upstream, routed_model = self._router.resolve_route(payload=payload, envelope=envelope.as_dict())
-            decision = self._policy.evaluate(envelope=envelope.as_dict(), upstream_trust_level=upstream.trust_level)
+            allow_local_fallback = bool(self.cfg.policy.allow_local_only_fallback_on_failure)
+            try:
+                decision = self._policy.evaluate(envelope=envelope.as_dict(), upstream_trust_level=upstream.trust_level)
+            except Exception:
+                if allow_local_fallback and upstream.trust_level == "local":
+                    decision = PolicyDecision(
+                        action="local_only",
+                        reason_codes=["policy_engine_failed_local_fallback"],
+                        cloud_allowed=False,
+                        context_mode="none",
+                    )
+                else:
+                    return _error_response("policy_engine_failed", code="policy_engine_failed", status=503)
             if decision.action in {"deny", "local_only"} and upstream.trust_level == "cloud":
                 return _error_response("policy_denied", code="policy_denied", status=403)
 
-            redacted_messages, _meta = self._redactor.redact_messages(messages)
+            try:
+                redacted_messages, _meta = self._redactor.redact_messages(messages)
+            except Exception:
+                if upstream.trust_level == "cloud":
+                    return _error_response("redaction_failed_cloud_blocked", code="redaction_failed", status=503)
+                redacted_messages, _meta = list(messages), {"redaction_hits": 0, "redaction_failed": 1}
             context_snippets = list(payload.get("context_snippets") or [])
-            gated_context, gate_meta = self._context_gate.gate(
-                snippets=context_snippets,
-                upstream_trust_level=upstream.trust_level,
-                decision=decision.as_dict(),
-                worker=envelope.caller_type,
-            )
+            try:
+                gated_context, gate_meta = self._context_gate.gate(
+                    snippets=context_snippets,
+                    upstream_trust_level=upstream.trust_level,
+                    decision=decision.as_dict(),
+                    worker=envelope.caller_type,
+                )
+            except Exception:
+                gated_context, gate_meta = [], {"input_count": len(context_snippets), "allowed_count": 0, "denied_count": len(context_snippets), "context_gate_failed": 1}
             adapted_messages = self._prompt_adapter.adapt_messages(
                 messages=redacted_messages,
                 model=routed_model,
@@ -197,3 +217,17 @@ class OpenAICompatInterceptorServer:
 
 def create_interceptor_app(cfg: LlmInterceptorConfig) -> Flask:
     return OpenAICompatInterceptorServer(cfg).create_app()
+
+
+def run_interceptor_server(cfg: LlmInterceptorConfig) -> None:
+    server = OpenAICompatInterceptorServer(cfg)
+    summary = server.startup_summary()
+    logger.info(
+        "llm_interceptor_start host=%s port=%s prefix=%s upstream_ids=%s",
+        summary["listen"]["host"],
+        summary["listen"]["port"],
+        summary["listen"]["prefix"],
+        [u["id"] for u in summary["upstreams"]],
+    )
+    app = server.create_app()
+    app.run(host=cfg.listen.host, port=cfg.listen.port)
