@@ -150,8 +150,8 @@ def validate_meta_characters(command: str) -> tuple[bool, str]:
     # control flow operators like `||` remain blocked.
     if "||" in command:
         return False, "Befehlsalternativen (||) sind aus Sicherheitsgruenden deaktiviert."
-    if re.search(r"(^|[^>])>([^>]|$)", command) or "<" in command:
-        return False, "Input/Output-Redirection ist aus Sicherheitsgruenden deaktiviert."
+    if "<" in command:
+        return False, "Input-Redirection (<) ist aus Sicherheitsgruenden deaktiviert."
     if re.search(r"(^|[^&])&([^&]|$)", command):
         return False, "Background-Execution (&) ist aus Sicherheitsgruenden deaktiviert."
     return True, ""

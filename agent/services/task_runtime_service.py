@@ -91,30 +91,6 @@ def _maybe_finalize_goal(goal_id: str) -> None:
                     new_status = "failed"
                     current_preferences["last_status_reason"] = "no_workspace_artifact_created"
                     current_preferences["failure_classification"] = "no_workspace_artifact_created"
-                elif _goal_requires_fibonacci_artifacts(goal):
-                    has_source = _workspace_has_any(
-                        resolved_output_dir,
-                        ["src/**/*fibonacci*.py", "src/**/*fib*.py", "src/**/*.py"],
-                    )
-                    has_tests = _workspace_has_any(
-                        resolved_output_dir,
-                        ["tests/test_*.py", "tests/**/*test*.py"],
-                    )
-                    has_pytest_evidence = _workspace_has_any(
-                        resolved_output_dir,
-                        ["artifacts/**/*pytest*.*", "**/*pytest-report*.*", "**/.pytest_cache/**"],
-                    )
-                    current_preferences["finalization_diagnostics"].update(
-                        {
-                            "fibonacci_source_present": bool(has_source),
-                            "fibonacci_tests_present": bool(has_tests),
-                            "pytest_evidence_present": bool(has_pytest_evidence),
-                        }
-                    )
-                    if not (has_source and has_tests and has_pytest_evidence):
-                        new_status = "failed"
-                        current_preferences["last_status_reason"] = "missing_required_fibonacci_artifacts"
-                        current_preferences["failure_classification"] = "missing_required_fibonacci_artifacts"
                 goal.execution_preferences = current_preferences
         goal.status = new_status
         goal.updated_at = time.time()

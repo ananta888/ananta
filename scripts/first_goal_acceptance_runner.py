@@ -558,7 +558,7 @@ def run_once(
         status = str(goal.get("status") or "")
         if status:
             status_seen.append((now, status))
-            if first_status_time is None and status in {"planning", "planned"}:
+            if first_status_time is None and status in {"planning", "planning_queued", "planning_running", "planned"}:
                 first_status_time = now
             if prev_status is None or status != prev_status:
                 last_activity_at = now
@@ -635,7 +635,7 @@ def run_once(
         max_idle_stretch_s = max(max_idle_stretch_s, idle_s)
         if status in {"planning", "planned"} and idle_s > 120:
             idle_hang_violation = True
-        if status in {"planning", "planned"} and (now - started_at) > 60 and (planning_real_llm_seen or first_task_seen_at is not None):
+        if status in {"planning", "planning_queued", "planning_running", "planned"} and (now - started_at) > 60 and (planning_real_llm_seen or first_task_seen_at is not None):
             planning_extended_by_activity = True
         if status in TERMINAL_STATUSES:
             final_status = status

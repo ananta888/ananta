@@ -662,6 +662,13 @@ class AutonomousLoopManager:
                             retry_backoff_strategy=cfg.get("retry_backoff_strategy"),
                         )
                     time.sleep(delay)
+                    _tid = str((payload or {}).get("task_id") or "").strip()
+                    if _tid:
+                        with contextlib.suppress(Exception):
+                            _t = get_repository_registry(self._app).task_repo.get_by_id(_tid)
+                            if _t and str(getattr(_t, "status", "") or "") in {"completed", "failed", "cancelled", "skipped"}:
+                                last_exc = RuntimeError(f"task_terminal_during_retry:{_tid}:{_t.status}")
+                                break
         raise RuntimeError(f"worker_forward_failed:{worker_url}:{endpoint}:{last_exc}")
 
     def tick_once(self) -> dict:

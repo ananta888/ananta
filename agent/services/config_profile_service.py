@@ -17,8 +17,8 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
         description="OpenCode worker with preconfigured default model (fully autonomous, no human review)",
         overrides={
             "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
-            # Use OpenCode's native credentials (Big Pickle) — don't inject LMStudio provider.
-            "opencode_runtime": {"target_provider": "opencode"},
+            # Use LM Studio for local laptop runs (Big Pickle not available in this env).
+            "opencode_runtime": {"target_provider": "lmstudio"},
             # Autonomous execution — no waiting_for_review gate.
             "autopilot_task_propose_hard_guard_status": "failed",
             "propose_policy": {
@@ -144,6 +144,7 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             "default_model": "auto",
             "llm_config": {"base_url": "http://192.168.178.100:1234/v1", "planner_output_format": "json"},
             "sgpt_routing": {"task_kind_backend": {"*": "ananta-worker"}},
+            "action_packs": {"shell": {"enabled": True}},
         },
     ),
     "opencode_lmstudio_local": ConfigProfile(
