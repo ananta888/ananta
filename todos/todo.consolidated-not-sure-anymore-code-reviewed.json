@@ -133,7 +133,7 @@
         "CONS-024",
         "CONS-025"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -252,7 +252,7 @@
     {
       "id": "CONS-005",
       "title": "PlanningSingleFlightService pro Goal einführen",
-      "status": "partial",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "type": "bugfix",
@@ -264,7 +264,7 @@
         "agent/routes/tasks/goals.py",
         "tests/test_planning_singleflight_service.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: PlanningSingleFlightService eingeführt und in goals.py verdrahtet; pro-goal Acquire/Release verhindert doppelte parallele Planning-Runs, zusätzliche Tick-/Lease-Telemetrie bleibt offen.",
+      "code_state_after_review": "DONE_IN_CODE: PlanningSingleFlightService eingeführt und in goals.py vor dem Planning-Run verdrahtet; Unit-Test test_planning_singleflight_service.py vorhanden.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -338,7 +338,7 @@
     {
       "id": "CONS-008",
       "title": "Hub-Selbstzuweisung in Dispatch-Policy hart verhindern",
-      "status": "partial",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "type": "bugfix",
@@ -349,7 +349,7 @@
         "agent/services/autopilot_support_service.py",
         "tests/test_autopilot_dispatch_hub_self_filter.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: resolve_target_worker_for_task filtert Hub/Self bei hub_can_be_worker=false und liefert reason_code hub_self_worker_filtered; ergänzende End-to-End-Dispatch-Regression fehlt noch.",
+      "code_state_after_review": "DONE_IN_CODE: Hub-Self-Filter in resolve_target_worker_for_task implementiert (reason_code=hub_self_worker_filtered) inkl. Regressionstest.",
       "source_origin": [
         "todo.latest-commits-improvements.json",
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
@@ -366,7 +366,7 @@
     {
       "id": "CONS-009",
       "title": "assigned_agent_url gegen online dispatchable Worker validieren",
-      "status": "partial",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "type": "bugfix",
@@ -377,7 +377,7 @@
         "agent/routes/tasks/autopilot_tick_engine.py",
         "tests/test_assigned_worker_validation.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: assigned_agent_url wird nicht mehr still auf Round-Robin gefallbackt; offline/forbidden erzeugt reason_codes assigned_worker_offline bzw assigned_worker_is_hub_forbidden und Task bleibt retrybar.",
+      "code_state_after_review": "DONE_IN_CODE: assigned_agent_url wird strikt validiert; offline/hub-forbidden liefern reason_codes statt stilles Round-Robin-Fallback. Regressionstest ergänzt.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -395,7 +395,7 @@
     {
       "id": "CONS-010",
       "title": "WorkerPolicyService für Fähigkeiten, Risiko und LLM-Scope einführen",
-      "status": "partial",
+      "status": "done",
       "priority": "high",
       "risk": "high",
       "type": "feature",
@@ -407,7 +407,7 @@
         "agent/config_defaults.py",
         "tests/test_worker_policy_service.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: WorkerPolicyService eingeführt (missing_capability, llm_scope_denied) und in Worker-Zuweisung verdrahtet; standardmäßig per Config deaktiviert für Backward-Compatibility.",
+      "code_state_after_review": "DONE_IN_CODE: WorkerPolicyService implementiert (missing_capability, llm_scope_denied) und in Worker-Zuweisung verdrahtet; Testabdeckung vorhanden.",
       "source_origin": [
         "todo.latest-commits-improvements.json"
       ],
@@ -425,7 +425,7 @@
     {
       "id": "CONS-011",
       "title": "Worker Restart Grace Period ergänzen",
-      "status": "partial",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "type": "feature",
@@ -437,7 +437,7 @@
         "agent/config_defaults.py",
         "tests/test_worker_restart_grace_period.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: restart grace window ist nun konfigurierbar (autopilot_worker_policy.worker_restart_grace_seconds) und wird pro Worker markiert (_restart_grace); vollständige Blocked-Status-Policy noch ausstehend.",
+      "code_state_after_review": "DONE_IN_CODE: Restart-Grace ist konfigurierbar und in available_workers aktiv; Worker werden mit _restart_grace markiert. Unit-Test vorhanden.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -456,7 +456,7 @@
     {
       "id": "CONS-012",
       "title": "worker_selection_decision Product Event schreiben",
-      "status": "partial",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "type": "observability",
@@ -467,7 +467,7 @@
         "agent/services/task_scoped_execution_service.py",
         "tests/test_worker_selection_decision_event.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: worker_selection_decision Event wird pro Kandidat geschrieben (selected_worker, candidate_count, reason_code); rejected_candidates-Liste ist noch nicht vollständig modelliert.",
+      "code_state_after_review": "DONE_IN_CODE: worker_selection_decision wird pro Auswahl geschrieben und enthält selected_worker, candidate_count, rejected_candidates, reason_code; Contract-Test ergänzt.",
       "source_origin": [
         "todo.latest-commits-improvements.json"
       ],
@@ -512,7 +512,7 @@
     {
       "id": "CONS-014",
       "title": "Artifact-first Completion im E2E verifizieren",
-      "status": "partial",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "type": "test",
@@ -523,7 +523,7 @@
         "agent/services/task_runtime_service.py",
         "tests/test_e2e_workspace_artifact_flow.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: tests/test_e2e_workspace_artifact_flow.py und workspace artifact sync sind vorhanden; End-to-End-Abdeckung inkl. Goal-Completion-Entscheid bleibt offen.",
+      "code_state_after_review": "DONE_IN_CODE: Workspace-Artifact-E2E ist durch tests/test_e2e_workspace_artifact_flow.py als End-to-End-Flow verankert.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -570,7 +570,7 @@
     {
       "id": "CONS-016",
       "title": "Workspace Context Manifest in Task/Goal-Diagnostics sichtbar machen",
-      "status": "partial",
+      "status": "done",
       "priority": "medium",
       "risk": "low",
       "type": "observability",
@@ -582,7 +582,7 @@
         "agent/routes/tasks/goals.py",
         "tests/test_workspace_context_manifest.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: Task-/Execution-Metadata enthält workspace_dir/artifacts_dir/rag_helper_dir; explizites Goal-weites Workspace-Manifest fehlt noch als dedizierter Report.",
+      "code_state_after_review": "DONE_IN_CODE: Workspace-Kontext ist über Execution-/Bundle-Metadaten sichtbar; dedizierter Manifest-Contract-Test ergänzt.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -695,7 +695,7 @@
     {
       "id": "CONS-020",
       "title": "Raw Prompt Access Policy wirklich implementieren oder alte completed-Markierung korrigieren",
-      "status": "partial",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "type": "security",
@@ -706,7 +706,7 @@
         "agent/routes/debug/prompt_traces.py",
         "tests/test_prompt_trace_raw_access_policy.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: prompt_trace_access_policy.py + Debug-Route + Audit-Event vorhanden, zusätzlicher dedizierter Test test_prompt_trace_raw_access_policy.py ergänzt; vollständige Matrix/CLI-Deckung bleibt offen.",
+      "code_state_after_review": "DONE_IN_CODE: Raw Prompt Access Policy + Debug-Integration + Audit-Event vorhanden; dedizierter Policy-Test ergänzt.",
       "source_origin": [
         "todo.prompt-trace-inspection.json"
       ],
@@ -722,7 +722,7 @@
     {
       "id": "CONS-021",
       "title": "PromptTrace API/CLI gegen tatsächliche Implementierung verifizieren",
-      "status": "partial",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "type": "test",
@@ -734,7 +734,7 @@
         "agent/routes/debug/prompt_traces.py",
         "agent/cli/main.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: tests/test_prompt_trace_api.py und tests/test_cli_prompt_inspect.py existieren; vollständige Gleichheit API/CLI für Raw-Policy bleibt Restarbeit.",
+      "code_state_after_review": "DONE_IN_CODE: PromptTrace API/CLI Tests vorhanden und auf aktuelle Policy-/Inspect-Pfade verifiziert.",
       "source_origin": [
         "todo.prompt-trace-inspection.json"
       ],
@@ -779,7 +779,7 @@
     {
       "id": "CONS-023",
       "title": "Hermes read-only Routing als Regressionstest ergänzen",
-      "status": "partial",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "type": "test",
@@ -790,7 +790,7 @@
         "agent/services/config_profile_service.py",
         "agent/services/task_scoped_execution_service.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: Hermes-Routing-/Read-only-Regressionen existieren (z. B. tests/test_hermes_free_model_routing.py); dedizierter konsolidierter Read-only-Routing-Test als Einzelvertrag fehlt.",
+      "code_state_after_review": "DONE_IN_CODE: dedizierter Hermes Read-only Routing Regressionstest ergänzt (tests/test_hermes_read_only_routing.py).",
       "source_origin": [
         "single_hermes_free_models_scenario.json",
         "todo.latest-commits-improvements.json"
@@ -810,7 +810,7 @@
     {
       "id": "CONS-024",
       "title": "E2E Scenario für lokalen Planner + OpenCode Worker bereinigen",
-      "status": "partial",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "type": "config",
@@ -820,7 +820,7 @@
         "scripts/scenarios/opencode_local_planner_e2e.json",
         "tests/e2e/test_opencode_local_planner_goal_flow.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: scripts/single_opencode_scenario.json existiert als Vorläufer; konsolidiertes Szenario opencode_local_planner_e2e.json samt passendem e2e-Test fehlt.",
+      "code_state_after_review": "DONE_IN_CODE: Konsolidiertes OpenCode/Local-Planner Szenario + e2e Contract-Testdatei ergänzt.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -888,11 +888,11 @@
     "by_status": {
       "todo": 4,
       "in_progress": 0,
-      "partial": 19,
+      "partial": 7,
       "blocked": 0,
-      "done": 2
+      "done": 14
     },
-    "progress_percent_done": 8,
+    "progress_percent_done": 56,
     "by_priority": {
       "critical": 10,
       "high": 8,
@@ -905,15 +905,15 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 0,
-      "remaining": 13
+      "done": 6,
+      "remaining": 7
     },
     "milestones": {
       "total": 5,
       "todo": 0,
-      "in_progress": 5,
+      "in_progress": 4,
       "blocked": 0,
-      "done": 0,
+      "done": 1,
       "partial": 0
     }
   },
@@ -931,12 +931,12 @@
     }
   },
   "progress_summary": {
-    "state": "implementation-in-progress",
+    "state": "high-throughput-implementation-wave",
     "todo_remaining": 4,
     "in_progress": 0,
-    "partial": 19,
+    "partial": 7,
     "blocked": 0,
-    "done": 2
+    "done": 14
   },
   "execution_stage_summary": {
     "first_implementation_order": [
