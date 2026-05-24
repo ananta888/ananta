@@ -157,6 +157,14 @@ export class TaskManagementFacade {
     return this.hubApi.getTask(hubUrl, taskId, token);
   }
 
+  getTaskSources(hubUrl: string, taskId: string, token?: string) {
+    return this.hubApi.getTaskSources(hubUrl, taskId, token);
+  }
+
+  getTaskAnswerVerification(hubUrl: string, taskId: string, token?: string) {
+    return this.hubApi.getTaskAnswerVerification(hubUrl, taskId, token);
+  }
+
   createTask(hubUrl: string, body: any, token?: string) {
     return this.hubApi.createTask(hubUrl, body, token);
   }

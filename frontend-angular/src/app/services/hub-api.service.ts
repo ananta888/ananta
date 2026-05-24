@@ -54,6 +54,8 @@ export class HubApiService {
 
   listTasks(baseUrl: string, token?: string): Observable<any[]> { return this.tasks.listTasks(baseUrl, token); }
   getTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.getTask(baseUrl, id, token); }
+  getTaskSources(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.getTaskSources(baseUrl, id, token); }
+  getTaskAnswerVerification(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.getTaskAnswerVerification(baseUrl, id, token); }
   createTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.createTask(baseUrl, body, token); }
   patchTask(baseUrl: string, id: string, patch: any, token?: string): Observable<any> { return this.tasks.patchTask(baseUrl, id, patch, token); }
   assign(baseUrl: string, id: string, body: any, token?: string): Observable<any> { return this.tasks.assign(baseUrl, id, body, token); }

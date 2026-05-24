@@ -17,6 +17,10 @@ describe('TaskDetailComponent', () => {
       'researchCitations',
       'researchVerification',
       'researchBackendMetadata',
+      'sourceCatalogEntries',
+      'sourceCatalogStatusClass',
+      'sourceCatalogFailedCitationRefs',
+      'sourceCatalogFailedReasonFor',
       'provenanceEvents',
       'latestExecutionCostSummary',
       'taskSessionReuseLabel',
@@ -71,6 +75,19 @@ describe('TaskDetailComponent', () => {
       ],
     };
     cmp.busy = false;
+    cmp.taskSourcesPayload = {
+      source_catalog_id: 'catalog-1',
+      sources: [
+        { source_id: 'SRC_0001', source_type: 'repo_file', path: 'README.md', allowed_for_llm_scope: true },
+        { source_id: 'RUN_0001', source_type: 'tool_run', path: 'python mining_demo.py', allowed_for_llm_scope: true },
+      ],
+    };
+    cmp.taskAnswerVerificationPayload = {
+      status: 'verified',
+      verified_claim_count: 2,
+      unverified_claim_count: 0,
+      failed_claims: [],
+    };
     return cmp;
   }
 
@@ -86,7 +103,29 @@ describe('TaskDetailComponent', () => {
     expect(cmp.researchCitations().length).toBe(1);
     expect(cmp.researchVerification()).toEqual({ ready: true, has_sources: true, source_count: 1 });
     expect(cmp.researchBackendMetadata()).toEqual({ backend: 'deerflow', source_count: 1 });
+    expect(cmp.sourceCatalogEntries().length).toBe(2);
+    expect(cmp.sourceCatalogStatusClass()).toBe('success');
     expect(cmp.provenanceEvents().length).toBe(2);
+  });
+
+  it('marks failed citation refs and exposes deterministic failure reason', () => {
+    const cmp = createComponent();
+    cmp.taskAnswerVerificationPayload = {
+      status: 'failed_unknown_source',
+      verified_claim_count: 1,
+      unverified_claim_count: 1,
+      failed_claims: [
+        {
+          claim_id: 'CLM_0009',
+          reason: 'failed_unknown_source',
+          citation_refs: ['SRC_9999'],
+        },
+      ],
+    };
+
+    expect(cmp.sourceCatalogStatusClass()).toBe('danger');
+    expect(cmp.sourceCatalogFailedCitationRefs()).toEqual(['SRC_9999']);
+    expect(cmp.sourceCatalogFailedReasonFor('SRC_9999')).toBe('failed_unknown_source');
   });
 
   it('reviews proposals through hub api and reloads task', () => {

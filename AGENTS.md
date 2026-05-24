@@ -346,4 +346,6 @@ If a change would alter the architecture, it must be explicitly justified and di
 The following rule overrides all others:
 
 **The hub remains the central control plane and owner of the task system.
-Workers execute delegated work only.**
+Workers execute delegated work only.
+
+Source-grounded answer rule: Agents and workers must never invent source identifiers. Only provided `SRC_*` and `RUN_*` IDs are valid for grounded claims; missing or unknown IDs must be treated as unverified/failed.**

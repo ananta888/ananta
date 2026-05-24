@@ -579,3 +579,16 @@ VRAM-orientierte Richtwerte (Startpunkt, dann messen):
 | 24 GB+ | 2-4 | 1-2 |
 
 Rollback-Hinweis: Bei steigender p95-Latenz, OOM oder Retry-Stuerme zuerst `OLLAMA_NUM_PARALLEL` wieder reduzieren.
+
+## Source-Grounded Answers
+
+Ananta enforces deterministic source-grounding for factual responses:
+- Only provided `SRC_*` / `RUN_*` identifiers may be cited.
+- Factual claims without valid citations fail verification.
+- Tool-result claims require `RUN_*` evidence.
+- Retrieval provenance anchors include `retrieval_trace_id`, `retrieval_context_hash`, and `retrieval_manifest_hash`.
+
+Architecture details and examples:
+- `docs/architecture/source_grounded_answers.md`
+- `tests/fixtures/bitcoin_mining_demo/`
+- `scripts/run_bitcoin_mining_citation_evidence.py`

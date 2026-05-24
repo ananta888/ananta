@@ -55,6 +55,9 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent } from
       flex-wrap: wrap;
       margin-top: 10px;
     }
+    .border-danger {
+      border: 1px solid #d9534f;
+    }
   `],
   template: `
     <div class="row title-row">
@@ -544,6 +547,66 @@ import { DecisionExplanationComponent, NextStepAction, NextStepsComponent } from
           } @else {
             <p class="muted">Kein Review erforderlich oder noch kein Forschungsvorschlag vorhanden.</p>
           }
+          @if (taskAnswerVerificationPayload) {
+            <div class="mt-10">
+              <strong>Citation Verification</strong>
+              <div class="row mt-5 gap-sm">
+                <span class="badge" [class.success]="sourceCatalogStatusClass() === 'success'" [class.warning]="sourceCatalogStatusClass() === 'warning'" [class.danger]="sourceCatalogStatusClass() === 'danger'">
+                  {{ taskAnswerVerificationPayload?.status || 'unknown' }}
+                </span>
+              </div>
+              <div class="grid cols-2 mt-sm">
+                <div>
+                  <div class="muted">Verified Claims</div>
+                  <strong>{{ taskAnswerVerificationPayload?.verified_claim_count ?? 0 }}</strong>
+                </div>
+                <div>
+                  <div class="muted">Unverified Claims</div>
+                  <strong>{{ taskAnswerVerificationPayload?.unverified_claim_count ?? 0 }}</strong>
+                </div>
+              </div>
+              @if (taskAnswerVerificationPayload?.failed_claims?.length) {
+                <div class="mt-10">
+                  <div class="muted">Failed Claims</div>
+                  <div class="grid mt-5 gap-5">
+                    @for (claim of taskAnswerVerificationPayload.failed_claims; track claim.claim_id + '-' + claim.reason) {
+                      <div class="card card-light border-danger">
+                        <strong>{{ claim.claim_id || 'claim' }}</strong>
+                        <div class="muted font-sm mt-5">Reason: {{ claim.reason || 'verification_failed' }}</div>
+                        @if (claim.citation_refs?.length) {
+                          <div class="muted font-sm mt-5">Refs: {{ claim.citation_refs.join(', ') }}</div>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+          @if (sourceCatalogEntries().length) {
+            <div class="mt-10">
+              <strong>Source Catalog (SRC_*/RUN_*)</strong>
+              <div class="muted font-sm mt-5">Kompakte Quellreferenzen fuer verifizierbare Claims.</div>
+              <div class="grid mt-5 gap-5">
+                @for (source of sourceCatalogEntries(); track source.source_id) {
+                  <div class="card card-light" [class.border-danger]="sourceCatalogFailedCitationRefs().includes(source.source_id)">
+                    <div class="row space-between">
+                      <strong>{{ source.source_id }}</strong>
+                      <span class="badge">{{ source.source_type || 'unknown' }}</span>
+                    </div>
+                    <div class="muted font-sm mt-5">Path: {{ source.path || '—' }} · Record: {{ source.record_id || '—' }}</div>
+                    <div class="muted font-sm mt-5">Allowed: {{ source.allowed_for_llm_scope === false ? 'nein' : 'ja' }}</div>
+                    @if (source.allowed_for_llm_scope === false) {
+                      <div class="muted font-sm mt-5">Blocked: {{ source.redaction_reason || 'blocked_by_policy_scope' }}</div>
+                    }
+                    @if (sourceCatalogFailedCitationRefs().includes(source.source_id)) {
+                      <div class="danger font-sm mt-5">Failed verification: {{ sourceCatalogFailedReasonFor(source.source_id) }}</div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
           @if (isAdmin && showAdminDrilldown && researchSources().length) {
             <div class="mt-10">
               <strong>Research Sources</strong>
@@ -709,6 +772,8 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
   isAdmin = false;
   showAdminDrilldown = false;
   taskTerminalMode: 'task' | 'diagnostic' = 'task';
+  taskSourcesPayload: any = null;
+  taskAnswerVerificationPayload: any = null;
   private routeSub?: Subscription;
   private activeLogTaskId?: string;
 
@@ -897,6 +962,7 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
         }
         this.comparisons = t?.last_proposal?.comparisons || null;
         this.refreshInstructionCompatibility();
+        this.loadSourceGroundingDetails();
         if (this.activeTab === 'logs' && !this.activeLogTaskId) this.startStreaming();
         this.loadSubtasks();
       },
@@ -921,6 +987,28 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
         if (Array.isArray(tasks)) {
           this.subtasks = tasks.filter(t => t.parent_task_id === this.tid);
         }
+      }
+    });
+  }
+
+  private loadSourceGroundingDetails() {
+    if (!this.hub || !this.tid) return;
+    this.taskSourcesPayload = null;
+    this.taskAnswerVerificationPayload = null;
+    this.taskFacade.getTaskSources(this.hub.url, this.tid).subscribe({
+      next: (res: any) => {
+        this.taskSourcesPayload = res?.data || null;
+      },
+      error: () => {
+        this.taskSourcesPayload = null;
+      }
+    });
+    this.taskFacade.getTaskAnswerVerification(this.hub.url, this.tid).subscribe({
+      next: (res: any) => {
+        this.taskAnswerVerificationPayload = res?.data || null;
+      },
+      error: () => {
+        this.taskAnswerVerificationPayload = null;
       }
     });
   }
@@ -1149,6 +1237,44 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
     const metadata = this.task?.last_proposal?.research_artifact?.backend_metadata;
     if (!metadata || typeof metadata !== 'object' || !Object.keys(metadata).length) return null;
     return metadata;
+  }
+
+  sourceCatalogEntries(): any[] {
+    const sources = this.taskSourcesPayload?.sources;
+    return Array.isArray(sources) ? sources : [];
+  }
+
+  sourceCatalogStatusClass(): string {
+    const status = String(this.taskAnswerVerificationPayload?.status || '').trim().toLowerCase();
+    if (status === 'verified') return 'success';
+    if (status.startsWith('failed')) return 'danger';
+    return 'warning';
+  }
+
+  sourceCatalogFailedCitationRefs(): string[] {
+    const refs = new Set<string>();
+    const failed = Array.isArray(this.taskAnswerVerificationPayload?.failed_claims) ? this.taskAnswerVerificationPayload.failed_claims : [];
+    for (const item of failed) {
+      const claimRefs = Array.isArray(item?.citation_refs) ? item.citation_refs : [];
+      for (const ref of claimRefs) {
+        const value = String(ref || '').trim();
+        if (value) refs.add(value);
+      }
+    }
+    return Array.from(refs);
+  }
+
+  sourceCatalogFailedReasonFor(sourceId: string): string {
+    const source = String(sourceId || '').trim();
+    if (!source) return '';
+    const failed = Array.isArray(this.taskAnswerVerificationPayload?.failed_claims) ? this.taskAnswerVerificationPayload.failed_claims : [];
+    for (const item of failed) {
+      const claimRefs = Array.isArray(item?.citation_refs) ? item.citation_refs : [];
+      if (claimRefs.includes(source)) {
+        return String(item?.reason || 'verification_failed').trim();
+      }
+    }
+    return '';
   }
 
   provenanceEvents(): any[] {

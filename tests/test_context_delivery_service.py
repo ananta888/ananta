@@ -156,3 +156,24 @@ class TestContextDeliveryService:
             }
         }
         assert svc._resolve_llm_scope(task=task) == "external_cloud_allowed"
+
+
+def test_external_cloud_with_full_scope_is_blocked_when_disabled(tmp_path):
+    svc = ContextDeliveryService()
+    ctx = _make_workspace_ctx(tmp_path, scope_mode="full")
+    task = {
+        "id": "t-cloud-1",
+        "effective_config": {
+            "default_provider": "openai",
+            "llm_config": {"provider": "openai", "base_url": "https://api.openai.com/v1"},
+            "workspace_context_policy": {
+                "llm_scope": "external_cloud_allowed",
+                "allow_full_context_for_cloud": False,
+            }
+        },
+    }
+
+    result = svc.deliver(task=task, workspace_ctx=ctx)
+    assert result.policy_scope_mode == "none"
+    assert result.delivered_paths == []
+    assert any("full_context_blocked_for_external_cloud" in warning for warning in result.warnings)

@@ -1,0 +1,27 @@
+{
+  "algorithm": "double_sha256(header)",
+  "disclaimer": "Toy/demo only. Not real Bitcoin mining.",
+  "failed_sample": {
+    "hash": "9d40b8c8e28062719ac4b68b143dd18ac9c8db3052453496c06b0a59179f03cd",
+    "nonce": 0,
+    "target": "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "valid": false
+  },
+  "input": {
+    "bits": "toy-easy-target",
+    "merkle_root": "1111111111111111111111111111111111111111111111111111111111111111",
+    "nonce_range": [
+      0,
+      100000
+    ],
+    "previous_block_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "timestamp": 1700000000,
+    "version": "00000001"
+  },
+  "valid_result": {
+    "hash": "000d1631fbffe69627691fc1ba61a1c9fc2c336bb27a5574b1fde8d2f6f3f924",
+    "nonce": 129,
+    "target": "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "valid": true
+  }
+}

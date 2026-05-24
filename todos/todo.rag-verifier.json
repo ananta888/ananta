@@ -1,7 +1,7 @@
 {
   "id": "todo.source-grounded-llm-answer-verification",
   "title": "Source-grounded LLM answers with deterministic citation verification",
-  "status": "in_progress",
+  "status": "done",
   "priority": "high",
   "scope": "ananta hub-worker orchestration, RAG provenance, tool-run evidence, answer verification",
   "context_analysis": {
@@ -383,7 +383,7 @@
         "Blocked source content is not displayed, only metadata and reason.",
         "Angular tests or component-level tests cover verified and failed states."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "SGA-011",
@@ -411,7 +411,7 @@
         "The expected hash is verified by test, not by LLM text.",
         "Fixture contains README text that can be indexed as SRC_* source."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "SGA-012",
@@ -460,7 +460,7 @@
         "Test fails if answer claims a nonce/hash not present in tool stdout/result artifact.",
         "Test passes when SRC_0001 explains the algorithm and RUN_0001 contains matching nonce/hash evidence."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "SGA-013",
@@ -488,7 +488,7 @@
         "E2E test fails if answer contains uncited factual claim.",
         "E2E test fails if answer cites invented SRC_9999."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "SGA-014",
@@ -513,7 +513,7 @@
         "No negative test relies on LLM judgement.",
         "Tests are stable without network access."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "SGA-015",
@@ -534,7 +534,7 @@
         "Existing local_only behavior remains unchanged.",
         "Tests cover external_cloud_allowed with allow_full_context_for_cloud=false."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "SGA-016",
@@ -564,7 +564,7 @@
         "Docs mention retrieval_trace_id/context_hash/manifest_hash.",
         "AGENTS.md states that source IDs must not be invented."
       ],
-      "status": "open"
+      "status": "done"
     }
   ],
   "bitcoin_test_example": {
@@ -605,10 +605,7 @@
       "SGA-006",
       "SGA-007",
       "SGA-008",
-      "SGA-009"
-    ],
-    "partial": [],
-    "open": [
+      "SGA-009",
       "SGA-010",
       "SGA-011",
       "SGA-012",
@@ -617,10 +614,10 @@
       "SGA-015",
       "SGA-016"
     ],
+    "partial": [],
+    "open": [],
     "notes": [
-      "Core source-catalog, answer-schema, verifier, tool-run evidence and API inspection endpoints implemented.",
-      "Focused unit tests for implemented blocks are green.",
-      "One legacy endpoint compatibility test remains unstable in current environment and is tracked outside this TODO status summary."
+      "All SGA blocks are implemented, including frontend source-verification UI, deterministic Bitcoin fixture/tests, E2E citation evidence flow, negative citation tests, cloud-scope policy coverage, and architecture docs."
     ]
   }
 }

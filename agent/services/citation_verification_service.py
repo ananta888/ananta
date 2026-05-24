@@ -14,6 +14,21 @@ class CitationVerificationService:
     _SOURCE_FACT_TYPES = {"rag_chunk", "repo_file", "artifact", "wiki_chunk"}
     _TOOL_RESULT_TYPES = {"tool_run", "test_result", "generated_artifact"}
 
+    def _run_entry_matches_expected_evidence(self, run_entry: dict[str, Any], expected: dict[str, Any]) -> bool:
+        payload = run_entry.get("result_payload")
+        if not isinstance(payload, dict):
+            return False
+        valid_result = payload.get("valid_result")
+        if not isinstance(valid_result, dict):
+            return False
+        expected_nonce = expected.get("nonce")
+        expected_hash = expected.get("hash")
+        if expected_nonce is not None and int(valid_result.get("nonce", -1)) != int(expected_nonce):
+            return False
+        if expected_hash is not None and str(valid_result.get("hash") or "") != str(expected_hash):
+            return False
+        return True
+
     def _validate_answer_shape(self, answer_payload: dict[str, Any]) -> list[str]:
         schema = json.loads(_ANSWER_SCHEMA_PATH.read_text(encoding="utf-8"))
         errors = sorted(Draft202012Validator(schema).iter_errors(answer_payload), key=lambda err: list(err.path))
@@ -50,6 +65,7 @@ class CitationVerificationService:
             claim_type = str(claim.get("claim_type") or "")
             refs = [str(x) for x in list(claim.get("citation_refs") or [])]
             confidence = str(claim.get("confidence") or "")
+            expected_evidence = claim.get("expected_evidence")
             if confidence == "unverified":
                 unverified += 1
                 continue
@@ -58,6 +74,7 @@ class CitationVerificationService:
                 continue
             claim_failed = False
             has_run = False
+            run_entries: list[dict[str, Any]] = []
             for ref in refs:
                 src = all_sources.get(ref)
                 if not src:
@@ -87,8 +104,17 @@ class CitationVerificationService:
                     continue
                 if stype in {"tool_run", "test_result", "generated_artifact"}:
                     has_run = True
+                    run_entries.append(src)
             if claim_type == "tool_result" and not has_run:
                 failed_claims.append({"claim_id": claim_id, "reason": "failed_missing_tool_run"})
+                claim_failed = True
+            if (
+                claim_type == "tool_result"
+                and isinstance(expected_evidence, dict)
+                and expected_evidence
+                and not any(self._run_entry_matches_expected_evidence(run_entry, expected_evidence) for run_entry in run_entries)
+            ):
+                failed_claims.append({"claim_id": claim_id, "reason": "failed_tool_evidence_mismatch"})
                 claim_failed = True
             if not claim_failed:
                 verified += 1
