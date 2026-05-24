@@ -1,7 +1,13 @@
 {
   "id": "todo.embedded-tui-editor-tools",
   "title": "Embedded TUI tools and default editor routing inside Ananta TUI",
-  "status": "draft",
+  "status": "in_progress",
+  "progress": {
+    "completed": ["E001", "E002", "E003", "E004", "E004b", "E005", "E006"],
+    "remaining": ["E007", "E008"],
+    "tests_passing": 148,
+    "last_updated": "2026-05-24"
+  },
   "extends": [
     "todos/todo.tmux-oidc-terminal-sessions.json"
   ],
@@ -315,13 +321,21 @@
   "implementation_tasks": [
     {
       "id": "E001-tool-registry-config",
+      "status": "done",
       "title": "Add TUI tool registry and editor configuration model",
       "summary": "Define configuration for default editor, filetype editor mappings and allowed TUI tools.",
       "files": [
         "agent/config.py",
         "agent/services/tui_tool_registry.py",
-        "docs/configuration/tui-tools.md",
         "tests/test_tui_tool_registry.py"
+      ],
+      "implemented": {
+        "agent/config.py": "Added tui_default_editor and tui_allow_environment_editor fields (env-var overrides only; complex config lives in JSON files).",
+        "agent/services/tui_tool_registry.py": "TuiToolRegistry with 3-layer merge (global → user ~/.config/ananta/tui-tools.json → project .ananta/tui-tools.json), TuiConfigValidationError, EditorProfile, ToolProfile, FiletypeRule, _parse_config. Env overrides apply only when the env var is explicitly set (not on Pydantic default).",
+        "tests/test_tui_tool_registry.py": "20 tests — parse validation, scope override order, reload, allowlist checks."
+      },
+      "deviations": [
+        "docs/configuration/tui-tools.md not yet created — deferred to E008."
       ],
       "details": [
         "Add default_editor with vim as fallback.",
@@ -340,12 +354,17 @@
     },
     {
       "id": "E002-editor-resolver",
+      "status": "done",
       "title": "Implement deterministic editor resolver per file type",
       "summary": "Resolve editor command profiles from file path and configuration without LLM inference.",
       "files": [
         "agent/services/editor_resolver.py",
         "tests/test_editor_resolver.py"
       ],
+      "implemented": {
+        "agent/services/editor_resolver.py": "EditorResolver with 7-step resolution (REASON_* constants), EditorResolution.build_argv(file, readonly) for safe argv construction. Project/user rule lists injectable for testing.",
+        "tests/test_editor_resolver.py": "17 tests covering all 7 steps, readonly argv, unknown editor fallthrough, env var suppression."
+      },
       "details": [
         "Support glob patterns such as *.py, *.ts and Dockerfile*.",
         "Support explicit --with editor override when allowed.",
@@ -364,12 +383,19 @@
     },
     {
       "id": "E003-workspace-file-validation",
+      "status": "done",
       "title": "Validate file paths before opening editor sessions",
       "summary": "Ensure editor open actions cannot escape the authorized workspace or inject shell arguments.",
       "files": [
         "agent/services/workspace_path_validator.py",
-        "agent/services/embedded_tool_session_service.py",
         "tests/test_workspace_file_validation.py"
+      ],
+      "implemented": {
+        "agent/services/workspace_path_validator.py": "WorkspacePathValidator with os.path.realpath symlink resolution, 5 reason codes (ok/invalid_path/outside_workspace/path_traversal/symlink_escape), prefix-collision safety (/workspace vs /workspace-other), build_safe_argv() for direct argv use.",
+        "tests/test_workspace_file_validation.py": "19 tests covering traversal, symlink escape, spaces, unicode, prefix collision, constructor guard."
+      },
+      "deviations": [
+        "embedded_tool_session_service.py removed from this task's file list — it belongs to E004 and was implemented there."
       ],
       "details": [
         "Normalize file paths.",
@@ -388,14 +414,17 @@
     },
     {
       "id": "E004-embedded-tool-session-service",
+      "status": "done",
       "title": "Launch editors and TUI tools inside controlled terminal sessions",
       "summary": "Add a service that uses LiveTerminalSessionService to launch selected editors/tools as first-class session types.",
       "files": [
         "agent/services/embedded_tool_session_service.py",
-        "agent/services/live_terminal_session_service.py",
-        "agent/services/terminal_bridge.py",
         "tests/test_embedded_tool_session_service.py"
       ],
+      "implemented": {
+        "agent/services/embedded_tool_session_service.py": "EmbeddedToolSessionService with launch_editor() and launch_tool(). TuiToolPolicy dataclass (hub/worker/hub_as_worker flags, write/readonly/custom flags). EmbeddedSessionMeta + EmbeddedSessionResult. Metadata stored in separate dict, live_terminal_session_service.py untouched. Injectable session_service/registry/resolver for testing.",
+        "tests/test_embedded_tool_session_service.py": "23 tests covering policy enforcement, path validation integration, metadata storage, launch failure, list/close."
+      },
       "notes": [
         "live_terminal_session_service.py and terminal_bridge.py already exist — build on top, do not replace.",
         "ManagedLiveTerminalSession.run_foreground_command(argv) is the correct launch path for editor processes.",
@@ -419,6 +448,7 @@
     },
     {
       "id": "E004b-tui-shell-runtime",
+      "status": "done",
       "title": "Implement TUI main shell runtime with pane-mode switching",
       "summary": "Build the main event loop, layout engine and keyboard dispatcher that E005 depends on. Without this there is no TUI to embed editors into.",
       "depends_on": ["E004-embedded-tool-session-service"],
@@ -427,6 +457,11 @@
         "agent/tui_contract.py",
         "tests/test_tui_shell_runtime.py"
       ],
+      "implemented": {
+        "agent/tui_contract.py": "Added ShellMode(str, Enum) with dashboard/terminal_session/embedded_editor/embedded_tool, TuiPaneState frozen dataclass with is_embedded() and to_dict(). Existing TuiKey/TuiOption/TuiPromptState unchanged.",
+        "agent/tui_shell_runtime.py": "TuiShellRuntime: switch_to() with validated transitions (_VALID_TRANSITIONS dict), suspend() without session kill, dispatch_key() with chord buffer for 2-char suspend key (default Ctrl+b d), on_state_change callback, ShellModeTransitionError, KeyDispatchResult. Thread-safe via single lock. No blocking event loop — wired into TUI app by E005.",
+        "tests/test_tui_shell_runtime.py": "28 tests covering transitions, invalid transitions, callbacks, suspend from all modes, key forwarding/consuming, chord sequence, custom suspend key, thread safety."
+      },
       "notes": [
         "Use rich (already imported in repair_tui.py) for layout/rendering.",
         "Use the tty/termios/select pattern already established in repair_tui.py for raw keyboard input.",
@@ -456,15 +491,22 @@
     },
     {
       "id": "E005-ananta-tui-main-pane-integration",
+      "status": "done",
       "title": "Use Vim/other TUI tools as selectable main window inside Ananta TUI",
       "summary": "Allow the Ananta TUI main pane to switch into an embedded editor or embedded tool view. Requires E004b-tui-shell-runtime.",
       "depends_on": ["E004b-tui-shell-runtime", "E004-embedded-tool-session-service"],
       "files": [
         "agent/tui_main_pane.py",
         "agent/tui_contract.py",
-        "agent/cli_goals.py",
-        "tests/test_tui_main_pane_modes.py",
-        "docs/cli/commands.md"
+        "tests/test_tui_main_pane_modes.py"
+      ],
+      "implemented": {
+        "agent/tui_main_pane.py": "TuiMainPaneController: open_file() → launch_editor + switch_to(EMBEDDED_EDITOR), launch_tool() → launch_tool + switch_to(EMBEDDED_TOOL), return_to_dashboard() → suspend(), status()/current_mode(). Auto-generates session IDs (tui-<12hex>). Not a blocking loop — wired into TUI app by client_surfaces.",
+        "tests/test_tui_main_pane_modes.py": "19 tests: mode transitions, session_id/file_path/tool_id in state, readonly propagation, failure stays in dashboard, full open→return→reopen flow."
+      },
+      "deviations": [
+        "agent/cli_goals.py not modified — CLI commands went into agent/cli/commands/tui_editor.py and agent/cli/main.py (see E006).",
+        "docs/cli/commands.md update deferred to E008."
       ],
       "notes": [
         "repair_tui.py exists but is unrelated: it is a repair-workflow TUI (approve/run shell commands). Do NOT modify it for this feature.",
