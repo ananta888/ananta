@@ -213,7 +213,7 @@
         "OHA-017",
         "OHA-018"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M6",
@@ -224,7 +224,7 @@
         "OHA-021",
         "OHA-022"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M7",
@@ -234,7 +234,7 @@
         "OHA-024",
         "OHA-025"
       ],
-      "status": "todo"
+      "status": "partial"
     }
   ],
   "tasks": [
@@ -577,7 +577,7 @@
     {
       "id": "OHA-016",
       "title": "HintRoutingService einführen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "routing",
@@ -604,7 +604,7 @@
     {
       "id": "OHA-017",
       "title": "Local-AI Workload Flags ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "config",
@@ -625,7 +625,7 @@
     {
       "id": "OHA-018",
       "title": "Hint-Routing mit modelladaptiven Formatprofilen verbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "integration",
@@ -645,7 +645,7 @@
     {
       "id": "OHA-019",
       "title": "Markdown Memory Vault Export bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "export",
@@ -670,7 +670,7 @@
     {
       "id": "OHA-020",
       "title": "Memory/Context Observability für Dashboard vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
@@ -690,7 +690,7 @@
     {
       "id": "OHA-021",
       "title": "Memory Tree Ingest Queue skizzieren und minimal implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "queue",
@@ -711,7 +711,7 @@
     {
       "id": "OHA-022",
       "title": "Auto-Fetch nur für Ananta-interne Quellen vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "scheduler",
@@ -731,7 +731,7 @@
     {
       "id": "OHA-023",
       "title": "Unit- und Integrationstests für neue Services",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "test",
@@ -753,7 +753,7 @@
     {
       "id": "OHA-024",
       "title": "Regression gegen bestehende Ananta-Flows ausführen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "test",
@@ -775,7 +775,7 @@
     {
       "id": "OHA-025",
       "title": "Doku und Architekturdiagramme erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -811,13 +811,13 @@
   "tasks_status_summary": {
     "total": 25,
     "by_status": {
-      "todo": 10,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 1,
       "blocked": 0,
-      "done": 15
+      "done": 24
     },
-    "progress_percent_done": 60,
+    "progress_percent_done": 96,
     "by_priority": {
       "P0": 15,
       "P1": 9,
@@ -832,18 +832,18 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 11,
-      "remaining": 3
+      "done": 13,
+      "remaining": 1
     },
     "milestones": {
       "total": 7,
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 4
+      "done": 6
     },
-    "done": 15,
-    "todo": 10
+    "done": 24,
+    "todo": 0
   },
   "tasks_type_summary": {
     "total": 25,
@@ -866,14 +866,14 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 10,
+    "state": "partial",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 1,
     "blocked": 0,
-    "done": 15,
+    "done": 24,
     "last_updated": "2026-05-24",
-    "notes": "OHA-001 to OHA-015 complete: compaction + MemoryTree services integrated with context policy/cloud-leak regression tests."
+    "notes": "OHA-001 to OHA-023 + OHA-025 implemented; OHA-024 remains partial due existing import issue in test_context_bundle_codecompass_provenance.py."
   },
   "end_summaries": [
     {

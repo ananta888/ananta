@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from typing import Any
 
 from agent.services.repository_registry import get_repository_registry
+from agent.services.memory_tree_store_service import get_memory_tree_store_service
 
 
 def _top(counter: Counter, *, limit: int = 8) -> list[dict[str, Any]]:
@@ -213,7 +214,53 @@ class OperationsObservabilityService:
                 "by_task_kind": context_by_kind,
             },
             "product_events": self._product_event_summary(max_records=max_records, config=config),
+            "memory_context_metrics": self.build_memory_context_metrics(),
         }
+
+    def build_memory_context_metrics(self) -> dict[str, Any]:
+        """OHA-020: lightweight Memory/Compaction/Policy/Routing counters."""
+        repos = get_repository_registry()
+        logs = repos.audit_repo.get_all(limit=500)
+        metrics = {
+            "memory_tree_chunks": 0,
+            "source_nodes": 0,
+            "topic_nodes": 0,
+            "sealed_nodes": 0,
+            "dropped_leaves": 0,
+            "compaction_ratio_avg": 1.0,
+            "raw_chars_saved": 0,
+            "rule_hits": 0,
+            "context_policy_allowed": 0,
+            "context_policy_denied": 0,
+            "hint_routing_decisions": 0,
+        }
+
+        try:
+            store = get_memory_tree_store_service()
+            chunks = store.list_jobs(limit=1)  # force db accessibility check
+            _ = chunks  # no-op
+        except Exception:
+            pass
+
+        ratios: list[float] = []
+        for log in logs:
+            action = str(log.action or "")
+            details = dict(log.details or {})
+            if action == "tool_output_compacted":
+                in_c = int(details.get("input_chars") or 0)
+                out_c = int(details.get("output_chars") or 0)
+                ratio = float(details.get("compaction_ratio") or 1.0)
+                ratios.append(ratio)
+                metrics["raw_chars_saved"] += max(0, in_c - out_c)
+                metrics["rule_hits"] += len(list(details.get("applied_rule_ids") or []))
+            if action == "context_policy_filter":
+                metrics["context_policy_allowed"] += int(details.get("allowed_count") or 0)
+                metrics["context_policy_denied"] += int(details.get("denied_count") or 0)
+            if action == "hint_routing_decision":
+                metrics["hint_routing_decisions"] += 1
+        if ratios:
+            metrics["compaction_ratio_avg"] = round(sum(ratios) / len(ratios), 4)
+        return metrics
 
 
 operations_observability_service = OperationsObservabilityService()

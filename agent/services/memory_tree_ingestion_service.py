@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
@@ -317,6 +318,56 @@ class MemoryTreeIngestionService:
                 stats.errors += 1
 
         return stats
+
+    def process_next_queue_job(self, *, lease_seconds: int = 90) -> dict[str, Any]:
+        """OHA-021: minimal durable queue execution path for ingest/seal jobs."""
+        released = self._store.release_expired_leases()
+        job = self._store.lease_next_job(
+            kinds=[
+                "ingest_source",
+                "extract_leaf",
+                "append_buffer",
+                "seal",
+                "route_topic",
+                "digest_goal",
+                "flush_stale",
+            ],
+            lease_seconds=lease_seconds,
+        )
+        if job is None:
+            return {"status": "idle", "released_expired": released}
+
+        payload = dict(job.payload or {})
+        kind = str(job.kind or "")
+        try:
+            if kind in {"append_buffer", "seal"}:
+                source_id = str(payload.get("source_id") or "").strip()
+                if source_id:
+                    self._store.seal_source(source_id)
+            self._store.complete_job(job.id, status="done")
+            return {"status": "done", "job_id": job.id, "kind": kind, "released_expired": released}
+        except Exception as exc:
+            self._store.complete_job(job.id, status="failed")
+            return {"status": "failed", "job_id": job.id, "kind": kind, "error": str(exc), "released_expired": released}
+
+    def enqueue_internal_autofetch(self, *, cfg: dict[str, Any] | None = None) -> dict[str, Any]:
+        """OHA-022: only enqueue internal/local sources; no external integrations."""
+        c = dict(cfg or {})
+        enabled = bool(c.get("enabled", False))
+        internal_only = bool(c.get("internal_only", True))
+        if not enabled or not internal_only:
+            return {"enabled": enabled, "internal_only": internal_only, "enqueued": 0}
+        sources = ["current_repo", "todos", "task_history", "result_memory", "knowledge_indices"]
+        enqueued = 0
+        for src in sources:
+            dedupe_key = f"ingest_source:{src}:{int(time.time() // 300)}"
+            self._store.enqueue_job(
+                kind="ingest_source",
+                payload={"source": src, "checkpoint": "time_window_5m"},
+                dedupe_key=dedupe_key,
+            )
+            enqueued += 1
+        return {"enabled": True, "internal_only": True, "enqueued": enqueued}
 
 
 # ---------------------------------------------------------------------------

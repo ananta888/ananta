@@ -10,6 +10,7 @@ from agent.config import settings
 from agent.db_models import StatsSnapshotDB
 from agent.metrics import CPU_USAGE, RAM_USAGE
 from agent.repository import banned_ip_repo, login_attempt_repo
+from agent.services.operations_observability_service import get_operations_observability_service
 from agent.services.repository_registry import get_repository_registry
 
 
@@ -57,6 +58,7 @@ class SystemStatsService:
             "tasks": task_counts,
             "shell_pool": shell_stats,
             "resources": self.get_resource_usage(),
+            "memory_context": get_operations_observability_service().build_memory_context_metrics(),
             "timestamp": time.time(),
             "agent_name": agent_name,
         }
