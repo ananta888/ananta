@@ -366,8 +366,8 @@
   "critical_path_tasks": ["TTA-001", "TTA-004", "TTA-005", "TTA-006", "TTA-008", "TTA-009", "TTA-011", "TTA-014", "TTA-016", "TTA-017", "TTA-018", "TTA-019", "TTA-021", "TTA-022", "TTA-023", "TTA-025"],
   "tasks_status_summary": {
     "total": 25,
-    "by_status": {"todo": 3, "in_progress": 0, "partial": 7, "blocked": 0, "done": 15},
-    "progress_percent_done": 60,
+    "by_status": {"todo": 1, "in_progress": 0, "partial": 7, "blocked": 0, "done": 17},
+    "progress_percent_done": 68,
     "by_priority": {"P0": 16, "P1": 7, "P2": 2, "P3": 0},
     "by_risk": {"low": 3, "medium": 5, "high": 8, "critical": 9},
     "critical_path": {"total": 16, "done": 10, "remaining": 6},
@@ -377,7 +377,7 @@
     "total": 25,
     "by_type": {"docs": 4, "data_model": 1, "service": 1, "integration": 5, "persistence": 1, "observability": 1, "prompting": 2, "architecture": 2, "security": 2, "validation": 1, "traceability": 1, "test": 3, "stability": 1, "governance": 1}
   },
-  "progress_summary": {"state": "phase_5_and_phase_6_partially_completed", "todo_remaining": 3, "in_progress": 0, "partial": 7, "blocked": 0, "done": 15},
+  "progress_summary": {"state": "phase_5_and_phase_6_partially_completed", "todo_remaining": 1, "in_progress": 0, "partial": 7, "blocked": 0, "done": 17},
   "definition_of_done": [
     "InstructionStackArtifact existiert und ist deterministisch hashbar.",
     "Role Template Prompt fließt als blueprint_template Layer in den Stack ein.",
