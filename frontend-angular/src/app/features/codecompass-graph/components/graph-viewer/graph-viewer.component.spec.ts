@@ -45,12 +45,13 @@ describe('GraphViewerComponent', () => {
     expect(view2d).toBeTruthy();
   });
 
-  it('shows 3d placeholder when mode is 3d', () => {
+  it('renders 3d view component when mode is 3d', () => {
     fixture.componentRef.setInput('rawGraphData', MOCK_DOMAIN_GRAPH_ARTIFACT);
     fixture.detectChanges();
     state.setViewMode('3d');
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('3D renderer not yet available');
+    const view3d = fixture.nativeElement.querySelector('app-graph-3d-view');
+    expect(view3d).toBeTruthy();
   });
 
   it('shows detail panel when a node is selected', () => {
