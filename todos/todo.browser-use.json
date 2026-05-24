@@ -47,7 +47,7 @@
     {
       "id": "BU-M2",
       "title": "Policy Guardrails",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "BU-T005",
         "BU-T006",
@@ -58,7 +58,7 @@
     {
       "id": "BU-M3",
       "title": "Execution Adapter",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "BU-T009",
         "BU-T010",
@@ -169,7 +169,7 @@
     {
       "id": "BU-T005",
       "title": "Implement domain allowlist enforcement",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "milestone": "BU-M2",
@@ -183,7 +183,7 @@
     {
       "id": "BU-T006",
       "title": "Implement action budget and timeout limits",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "milestone": "BU-M2",
@@ -197,7 +197,7 @@
     {
       "id": "BU-T007",
       "title": "Implement download and file-write policy",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "milestone": "BU-M2",
@@ -211,7 +211,7 @@
     {
       "id": "BU-T008",
       "title": "Implement credential and auth guardrails",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "milestone": "BU-M2",
@@ -225,7 +225,7 @@
     {
       "id": "BU-T009",
       "title": "Implement browser-use execution adapter",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "milestone": "BU-M3",
@@ -239,7 +239,7 @@
     {
       "id": "BU-T010",
       "title": "Add adapter preflight and health checks",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M3",
@@ -253,7 +253,7 @@
     {
       "id": "BU-T011",
       "title": "Normalize browser action traces",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M3",
@@ -281,7 +281,7 @@
     {
       "id": "BU-T013",
       "title": "Define browser artifact schema",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "milestone": "BU-M4",
@@ -295,7 +295,7 @@
     {
       "id": "BU-T014",
       "title": "Persist browser artifacts with provenance",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M4",
@@ -337,7 +337,7 @@
     {
       "id": "BU-T017",
       "title": "Add bounded repair loop for browser failures",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "milestone": "BU-M5",
@@ -351,7 +351,7 @@
     {
       "id": "BU-T018",
       "title": "Classify browser failure taxonomy",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M5",
@@ -450,12 +450,12 @@
   "tasks_status_summary": {
     "total": 24,
     "by_status": {
-      "todo": 13,
+      "todo": 5,
       "in_progress": 11,
       "blocked": 0,
-      "done": 0
+      "done": 8
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 33,
     "by_priority": {
       "P0": 11,
       "P1": 10,
@@ -475,8 +475,8 @@
     },
     "milestones": {
       "total": 6,
-      "todo": 2,
-      "in_progress": 4,
+      "todo": 0,
+      "in_progress": 6,
       "blocked": 0,
       "done": 0
     }
@@ -485,10 +485,9 @@
     "updated_at": "2026-05-25",
     "basis": "repository code scan",
     "evidence": [
-      "Generic routing + fallback policy surfaces exist (agent/services/routing_decision_service.py, docs/hub-fallback-and-reliability.md).",
-      "Generic artifact persistence and completion gates exist (agent/services/task_artifact_completion_gate_service.py, agent/services/artifact_store.py).",
-      "Generic task-scoped execution and policy services exist (agent/services/task_scoped_execution_service.py, agent/services/task_execution_policy_service.py).",
-      "Browser-specific worker adapter/contract fields/allowlist guardrails are not yet implemented as dedicated browser-use path."
+      "New browser contract/policy/adapter/artifact/recovery services added under agent/services/browser_*.",
+      "Unit tests for new browser services added under tests/test_browser_*.py.",
+      "Generic routing/fallback/artifact/verification platform capabilities remain reusable but browser-path integration into task-scoped execution is still open."
     ],
     "status_interpretation": {
       "done": "browser-use specific acceptance criteria implemented and test-covered",
@@ -547,8 +546,8 @@
     "definition_of_done": "Browser tasks run through hub policy, produce verified artifacts, and are fully auditable in E2E scenarios."
   },
   "task_category_totals": {
-    "done": 0,
+    "done": 8,
     "partial": 11,
-    "todo": 13
+    "todo": 5
   }
 }
