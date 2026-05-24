@@ -5,34 +5,63 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ananta</title>
   <meta name="description" content="Ananta ist ein AI Agent Management System für kontrollierte, nachvollziehbare Softwareentwicklung mit lokalen und externen Workern.">
+  <link rel="canonical" href="https://www.ananta.de/">
   <link rel="stylesheet" href="./assets/site.css">
+  <script src="./assets/terminal-cast-player.js" defer></script>
 </head>
 <body>
   <main class="page">
+    <nav class="nav" aria-label="Hauptnavigation">
+      <span class="brand">ananta</span>
+      <a href="https://github.com/ananta888/ananta">GitHub</a>
+    </nav>
+
     <section class="hero">
-      <p class="eyebrow">ananta.de</p>
-      <h1>Ananta</h1>
-      <p class="claim">AI Agent Management System für Softwareentwicklung.</p>
-      <p class="intro">
-        Ananta soll KI-gestützte Entwicklung kontrollierbarer machen: mit Hub, Workern,
-        klaren Policies, nachvollziehbaren Tasks und begrenztem Zugriff auf Projektwissen.
-      </p>
-      <div class="actions">
-        <a href="https://github.com/ananta888/ananta">GitHub ansehen</a>
-        <a href="#features">Was es zeigen soll</a>
+      <div class="copy">
+        <p class="eyebrow">www.ananta.de</p>
+        <h1>Ananta</h1>
+        <p class="claim">AI Agent Management System für kontrollierte Softwareentwicklung.</p>
+        <p class="intro">
+          Ananta verbindet Hub, Worker, Policies, Kontextsteuerung und sichtbare Ausführung.
+          Das Ziel: KI-Agenten nicht blind würfeln lassen, sondern nachvollziehbar führen.
+        </p>
+        <div class="actions">
+          <a href="https://github.com/ananta888/ananta">GitHub ansehen</a>
+          <a href="#features">Was es macht</a>
+        </div>
+        <div class="status-strip" aria-label="Projektstatus">
+          <span>local / cloud worker routing</span>
+          <span>policy based context control</span>
+          <span>operator TUI</span>
+        </div>
       </div>
+
+      <aside class="terminal-card" data-terminal-cast aria-label="Ananta Operator TUI Vorschau">
+        <div class="terminal-bar">
+          <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
+          <span>operator-tui splash.cast</span>
+          <span data-terminal-status>loading</span>
+        </div>
+        <div class="terminal-stage">
+          <pre class="terminal-output" data-terminal-output aria-live="off">loading ananta terminal...</pre>
+          <div class="terminal-caption">
+            <strong>ASCII terminal splash</strong>
+            <span>Direkt aus dem asciinema Recording der neuen Operator-TUI gerendert.</span>
+          </div>
+        </div>
+      </aside>
     </section>
 
     <section id="features" class="grid" aria-label="Ananta Features">
-      <article>
+      <article class="info-card">
         <h2>Agenten-Steuerung</h2>
         <p>Zentrale Verwaltung von Workern, Rollen, Laufumgebungen und Ausführungsmodi.</p>
       </article>
-      <article>
+      <article class="info-card">
         <h2>Kontrollierter Kontext</h2>
-        <p>Projektwissen soll gezielt an passende Worker gegeben werden, nicht blind alles an jedes Modell.</p>
+        <p>Projektwissen wird gezielt an passende Worker gegeben, nicht blind alles an jedes Modell.</p>
       </article>
-      <article>
+      <article class="info-card">
         <h2>Nachvollziehbare Tasks</h2>
         <p>Planung, Ausführung, Artefakte, Tests und Review sollen sichtbar und prüfbar bleiben.</p>
       </article>
