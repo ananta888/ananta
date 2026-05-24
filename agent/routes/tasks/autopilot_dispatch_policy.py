@@ -39,15 +39,33 @@ def resolve_target_worker_for_task(
     task: Any,
     workers: list[Any],
     worker_cursor: int,
-) -> tuple[Any, int, bool]:
-    target_worker = None
-    if getattr(task, "assigned_agent_url", None):
-        target_worker = next((w for w in workers if w.url == task.assigned_agent_url), None)
-    if target_worker is not None:
-        return target_worker, worker_cursor, False
+) -> tuple[Any, int, bool, str | None]:
+    def _norm_url(value: Any) -> str:
+        return str(value or "").strip().rstrip("/")
 
-    target_worker = workers[worker_cursor % len(workers)]
-    return target_worker, worker_cursor + 1, True
+    hub_can_be_worker = bool(getattr(task, "_hub_can_be_worker", True))
+    local_worker_url = _norm_url(getattr(task, "_local_worker_url", None))
+    target_worker = None
+    assigned_agent_url = _norm_url(getattr(task, "assigned_agent_url", None))
+    if assigned_agent_url:
+        if not hub_can_be_worker and local_worker_url and assigned_agent_url == local_worker_url:
+            return None, worker_cursor, False, "assigned_worker_is_hub_forbidden"
+        target_worker = next((w for w in workers if _norm_url(getattr(w, "url", None)) == assigned_agent_url), None)
+    if target_worker is not None:
+        return target_worker, worker_cursor, False, None
+    if assigned_agent_url:
+        return None, worker_cursor, False, "assigned_worker_offline"
+
+    eligible_workers = list(workers or [])
+    if not hub_can_be_worker and local_worker_url:
+        filtered = [w for w in eligible_workers if _norm_url(getattr(w, "url", None)) != local_worker_url]
+        if not filtered and eligible_workers:
+            return None, worker_cursor, False, "hub_self_worker_filtered"
+        eligible_workers = filtered
+    if not eligible_workers:
+        return None, worker_cursor, False, "no_workers_available"
+    target_worker = eligible_workers[worker_cursor % len(eligible_workers)]
+    return target_worker, worker_cursor + 1, True, None
 
 
 def classify_no_candidate_reason(

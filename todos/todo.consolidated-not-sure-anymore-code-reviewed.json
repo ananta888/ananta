@@ -338,7 +338,7 @@
     {
       "id": "CONS-008",
       "title": "Hub-Selbstzuweisung in Dispatch-Policy hart verhindern",
-      "status": "todo",
+      "status": "partial",
       "priority": "critical",
       "risk": "high",
       "type": "bugfix",
@@ -349,7 +349,7 @@
         "agent/services/autopilot_support_service.py",
         "tests/test_autopilot_dispatch_hub_self_filter.py"
       ],
-      "code_state_after_review": "CONFIRMED_OPEN: autopilot_dispatch_policy.resolve_target_worker_for_task nutzt workers[worker_cursor % len(workers)] ohne Hub/Self-Filter.",
+      "code_state_after_review": "PARTIAL_IN_CODE: resolve_target_worker_for_task filtert Hub/Self bei hub_can_be_worker=false und liefert reason_code hub_self_worker_filtered; ergänzende End-to-End-Dispatch-Regression fehlt noch.",
       "source_origin": [
         "todo.latest-commits-improvements.json",
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
@@ -366,7 +366,7 @@
     {
       "id": "CONS-009",
       "title": "assigned_agent_url gegen online dispatchable Worker validieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "critical",
       "risk": "medium",
       "type": "bugfix",
@@ -377,7 +377,7 @@
         "agent/routes/tasks/autopilot_tick_engine.py",
         "tests/test_assigned_worker_validation.py"
       ],
-      "code_state_after_review": "CONFIRMED_OPEN: resolve_target_worker_for_task sucht assigned_agent_url nur in workers und fällt danach ohne Grundcode auf Round-Robin zurück.",
+      "code_state_after_review": "PARTIAL_IN_CODE: assigned_agent_url wird nicht mehr still auf Round-Robin gefallbackt; offline/forbidden erzeugt reason_codes assigned_worker_offline bzw assigned_worker_is_hub_forbidden und Task bleibt retrybar.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -456,7 +456,7 @@
     {
       "id": "CONS-012",
       "title": "worker_selection_decision Product Event schreiben",
-      "status": "todo",
+      "status": "partial",
       "priority": "medium",
       "risk": "medium",
       "type": "observability",
@@ -467,7 +467,7 @@
         "agent/services/task_scoped_execution_service.py",
         "tests/test_worker_selection_decision_event.py"
       ],
-      "code_state_after_review": "NOT_FOUND_IN_CODE: Suche nach worker_selection_decision ergab keine Implementierung.",
+      "code_state_after_review": "PARTIAL_IN_CODE: worker_selection_decision Event wird pro Kandidat geschrieben (selected_worker, candidate_count, reason_code); rejected_candidates-Liste ist noch nicht vollständig modelliert.",
       "source_origin": [
         "todo.latest-commits-improvements.json"
       ],
@@ -706,7 +706,7 @@
         "agent/routes/debug/prompt_traces.py",
         "tests/test_prompt_trace_raw_access_policy.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: prompt_trace_access_policy.py, Debug-Route-Integration und Audit-Event prompt_trace_raw_access existieren; Grant-/Denied-Matrix muss noch vollständig testbar abgesichert werden.",
+      "code_state_after_review": "PARTIAL_IN_CODE: prompt_trace_access_policy.py + Debug-Route + Audit-Event vorhanden, zusätzlicher dedizierter Test test_prompt_trace_raw_access_policy.py ergänzt; vollständige Matrix/CLI-Deckung bleibt offen.",
       "source_origin": [
         "todo.prompt-trace-inspection.json"
       ],
@@ -752,18 +752,18 @@
     {
       "id": "CONS-022",
       "title": "Hermes Free-Model Szenario aus TODO-Ordner in Scenario-Struktur überführen",
-      "status": "todo",
+      "status": "done",
       "priority": "medium",
       "risk": "low",
       "type": "config",
       "milestone": "M5",
-      "summary": "single_hermes_free_models_scenario.json ist fachlich nützlich, aber keine Track-TODO. Es soll als Scenario-Datei validiert werden.",
+      "summary": "Hermes Free-Model Scenario ist in der Scenario-Struktur verankert und wird über Tests gegen Routing-/Read-only-Verträge geprüft.",
       "files": [
-        "todos/single_hermes_free_models_scenario.json",
         "scripts/scenarios/hermes_free_models_small_task.json",
-        "tests/test_hermes_free_models_scenario.py"
+        "tests/test_hermes_free_models_scenario.py",
+        "tests/test_hermes_opencode_small_project_flow.py"
       ],
-      "code_state_after_review": "OPEN_MISSING_SOURCE: tests referenzieren todos/single_hermes_free_models_scenario.json, Datei fehlt aktuell; Zielszenario unter scripts/scenarios/ ist ebenfalls noch nicht vorhanden.",
+      "code_state_after_review": "DONE_IN_CODE: Scenario liegt unter scripts/scenarios/hermes_free_models_small_task.json; Testreferenzen wurden auf den Scenario-Pfad umgestellt.",
       "source_origin": [
         "single_hermes_free_models_scenario.json"
       ],
@@ -886,13 +886,13 @@
   "tasks_status_summary": {
     "total": 25,
     "by_status": {
-      "todo": 11,
+      "todo": 7,
       "in_progress": 0,
-      "partial": 13,
+      "partial": 16,
       "blocked": 0,
-      "done": 1
+      "done": 2
     },
-    "progress_percent_done": 4,
+    "progress_percent_done": 8,
     "by_priority": {
       "critical": 10,
       "high": 8,
@@ -931,12 +931,12 @@
     }
   },
   "progress_summary": {
-    "state": "code-reviewed-reconciled",
-    "todo_remaining": 11,
+    "state": "implementation-in-progress",
+    "todo_remaining": 7,
     "in_progress": 0,
-    "partial": 13,
+    "partial": 16,
     "blocked": 0,
-    "done": 1
+    "done": 2
   },
   "execution_stage_summary": {
     "first_implementation_order": [
