@@ -1,0 +1,373 @@
+{
+  "id": "todo.graph-ui",
+  "title": "Add generic CodeCompass graph visualization component with simple, 2D and 3D views",
+  "status": "todo",
+  "progress": {
+    "completed": [],
+    "remaining": ["graph-000", "graph-001", "graph-002", "graph-003", "graph-004", "graph-005", "graph-006", "graph-007", "graph-008", "graph-009", "graph-010", "graph-011", "graph-012"],
+    "last_updated": "2026-05-24"
+  },
+  "goal": "Create a reusable Angular graph viewer for CodeCompass-generated graphs. The viewer must support three UI/UX variants: simple textual/tree view, graphical 2D graph view, and graphical 3D graph view. The implementation must stay generic, renderer-independent and easily extensible.",
+  "principles": [
+    "Do not couple UI components directly to raw CodeCompass output.",
+    "Use a canonical GenericGraphModel as the only input format for renderers.",
+    "Each graph view variant must be replaceable without changing the parent component.",
+    "The first implementation may use mock data, but the adapter boundary must already exist.",
+    "All renderer components must emit the same selection/filter/navigation events."
+  ],
+  "existing_infrastructure": {
+    "backend_graph_store": "worker/retrieval/codecompass_graph_store.py — CodeCompassGraphStore with load/save/rebuild_from_output_records/traverse/outgoing_edges. Already fully functional.",
+    "backend_graph_context": "worker/retrieval/codecompass_graph_context.py — build_graph_context_chunks() for LLM context generation from traversal results.",
+    "backend_graph_expansion": "worker/retrieval/codecompass_graph_expansion.py — 4 expansion profiles: bugfix_local (depth 2, max 20), refactor_navigation (depth 3, max 30), architecture_review (depth 3, max 40), config_integration (depth 2, max 24).",
+    "domain_graph_schema": "schemas/artifacts/domain_graph_artifact.v1.json — canonical graph artifact schema used for API responses. Nodes: node_id, node_type, attributes. Edges: source_id, target_id, relation, attributes.",
+    "task_graph_component": "frontend-angular/src/app/components/task-graph.component.ts — EXISTS but UNRELATED: Mermaid-based task dependency graph for ananta tasks, not CodeCompass. Do not confuse with this feature.",
+    "mermaid_installed": "mermaid@11.12.2 is installed in frontend-angular. Suitable for simple/fallback rendering but does NOT support interactive node/edge click selection — not usable for graph-005.",
+    "no_rest_endpoints": "No REST endpoints for CodeCompass graph exist anywhere in the backend. graph-000 is a prerequisite for any frontend task that needs real data."
+  },
+  "real_backend_data_model": {
+    "node_fields": ["id", "file", "kind", "name", "record_id", "content", "source_record"],
+    "node_kind_values": ["java_method", "java_type", "config", "xml_tag", "unknown"],
+    "edge_fields": ["source_id", "target_id", "edge_type", "confidence", "provenance"],
+    "edge_type_values": [
+      "calls_probable_target",
+      "injects_dependency",
+      "field_type_uses",
+      "extends",
+      "implements",
+      "child_of_type",
+      "child_of_file",
+      "declares_method",
+      "declares_bean",
+      "transactional_boundary",
+      "jpa_relation",
+      "related"
+    ],
+    "domain_artifact_mapping": {
+      "node_id": "id",
+      "node_type": "kind",
+      "attributes.file": "file",
+      "attributes.name": "name",
+      "attributes.content": "content",
+      "attributes.record_id": "record_id",
+      "relation": "edge_type",
+      "attributes.confidence": "confidence"
+    }
+  },
+  "npm_libs_status": {
+    "mermaid": "installed@11.12.2 — limited, no interactive selection",
+    "cytoscape": "NOT installed — recommended for graph-005 (npm install cytoscape @types/cytoscape)",
+    "d3": "NOT installed",
+    "three": "NOT installed — needed for graph-006 (npm install 3d-force-graph)",
+    "force-graph": "NOT installed",
+    "vis-network": "NOT installed",
+    "dagre-d3-es": "installed (Mermaid dependency) — internal only, not a standalone graph renderer"
+  },
+  "implementation_order": [
+    "graph-000",
+    "graph-001",
+    "graph-002",
+    "graph-009",
+    "graph-010",
+    "graph-004",
+    "graph-007",
+    "graph-008",
+    "graph-003",
+    "graph-005",
+    "graph-006",
+    "graph-011",
+    "graph-012"
+  ],
+  "tasks": [
+    {
+      "id": "graph-000",
+      "status": "todo",
+      "title": "Add backend REST endpoints for CodeCompass graph",
+      "type": "backend",
+      "files": [
+        "hub/routes/codecompass_graph_routes.py",
+        "tests/test_codecompass_graph_api.py"
+      ],
+      "description": "Expose the existing CodeCompassGraphStore via REST. No such endpoint exists. This is the prerequisite for all frontend tasks that need real graph data. Exact route module location depends on hub framework conventions — confirm with codebase before creating.",
+      "notes": [
+        "CodeCompassGraphStore already exists in worker/retrieval/codecompass_graph_store.py — wrap it, do not replace it.",
+        "Serialize responses as domain_graph_artifact.v1 JSON (see schemas/artifacts/domain_graph_artifact.v1.json).",
+        "No CodeCompass graph endpoints exist in the hub — verified against route-inventory.json."
+      ],
+      "acceptance_criteria": [
+        "GET /codecompass/graph?workspace=<path> returns a domain_graph_artifact.v1 JSON document.",
+        "GET /codecompass/graph/node/<id> returns single node details.",
+        "GET /codecompass/graph/expand?seed=<id>&profile=<name> returns BFS traversal result.",
+        "404 when no graph is indexed for the workspace.",
+        "200 with empty nodes/edges when graph is indexed but empty."
+      ]
+    },
+    {
+      "id": "graph-001",
+      "status": "todo",
+      "title": "Create generic graph model",
+      "type": "implementation",
+      "files": [
+        "frontend-angular/src/app/features/codecompass-graph/models/graph.model.ts",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-view-mode.ts",
+        "frontend-angular/src/app/features/codecompass-graph/models/graph-filter.model.ts"
+      ],
+      "description": "Define generic node, edge, graph, filter and view-mode interfaces aligned with the real CodeCompassGraphStore model and domain_graph_artifact.v1 schema.",
+      "notes": [
+        "Use 'kind' not 'type' for nodes — matches the backend field name.",
+        "Use 'edgeType' not 'type' for edges — maps from backend edge_type.",
+        "Do NOT add 'layer', 'group', 'weight' — these fields have no backend equivalent and would be fictional.",
+        "GenericGraphModel should map cleanly from domain_graph_artifact.v1 (see real_backend_data_model.domain_artifact_mapping)."
+      ],
+      "acceptance_criteria": [
+        "GraphNode has: id, kind, label (from name), file, content, recordId, metadata (additional attributes).",
+        "GraphEdge has: id (derived source+target+type), source, target, edgeType, confidence, metadata.",
+        "GraphViewMode is 'simple' | '2d' | '3d'.",
+        "GraphFilter has nodeKindFilter, edgeTypeFilter, searchText.",
+        "GenericGraphModel has nodes, edges, metadata (sourceRef, sourceKind, warnings).",
+        "No renderer-specific types in the generic model."
+      ]
+    },
+    {
+      "id": "graph-002",
+      "status": "todo",
+      "title": "Create GraphAdapterService",
+      "type": "implementation",
+      "files": [
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.ts"
+      ],
+      "description": "Translate domain_graph_artifact.v1 API responses (from graph-000 endpoint) into GenericGraphModel. The only place in the frontend that knows the raw backend format.",
+      "notes": [
+        "Input: domain_graph_artifact.v1 JSON from GET /codecompass/graph.",
+        "Map: node_id→id, node_type→kind, attributes.name→label, attributes.file→file, attributes.content→content.",
+        "Map: source_id→source, target_id→target, relation→edgeType, attributes.confidence→confidence.",
+        "Map unknown node_type values to 'unknown'; unknown relation values to 'related'.",
+        "Depends on graph-000 for real data; graph-010 mock can be used during development."
+      ],
+      "acceptance_criteria": [
+        "Raw domain_graph_artifact.v1 JSON never reaches renderer components.",
+        "Returns a valid GenericGraphModel.",
+        "Unknown node kinds map to 'unknown', unknown edge types to 'related'.",
+        "Invalid/incomplete input does not crash the UI.",
+        "Unit tests for empty graph, malformed input, and full valid graph."
+      ]
+    },
+    {
+      "id": "graph-003",
+      "status": "todo",
+      "title": "Create GraphViewerComponent as main shell",
+      "type": "implementation",
+      "files": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.html",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.scss"
+      ],
+      "description": "Parent component that owns mode switching, selected node/edge state, and delegates rendering to the active renderer component.",
+      "acceptance_criteria": [
+        "Component accepts a GenericGraphModel as @Input().",
+        "Component supports switching between simple, 2d, 3d mode.",
+        "Component keeps selectedNode and selectedEdge state.",
+        "Renderer is selected via @switch or conditional rendering.",
+        "Adding a fourth renderer does not require changing GenericGraphModel."
+      ]
+    },
+    {
+      "id": "graph-004",
+      "status": "todo",
+      "title": "Create simple graph view",
+      "type": "implementation",
+      "files": [
+        "frontend-angular/src/app/features/codecompass-graph/components/simple-graph-view/simple-graph-view.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/simple-graph-view/simple-graph-view.component.html",
+        "frontend-angular/src/app/features/codecompass-graph/components/simple-graph-view/simple-graph-view.component.scss"
+      ],
+      "description": "Non-graphical list-based view for nodes and edges. Requires no external graph library — buildable immediately.",
+      "notes": [
+        "This is the safe first renderer. No npm install needed, no WebGL.",
+        "Mermaid could optionally render a basic flowchart but is not required — interactive selection is needed and Mermaid does not support it."
+      ],
+      "acceptance_criteria": [
+        "Nodes listed by kind, label (name), and file.",
+        "Edges listed by source name, target name, and edgeType.",
+        "Clicking a node emits (nodeSelected).",
+        "Clicking an edge emits (edgeSelected).",
+        "No external graph libraries required."
+      ]
+    },
+    {
+      "id": "graph-005",
+      "status": "todo",
+      "title": "Create 2D graph renderer",
+      "type": "implementation",
+      "files": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.html",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.scss"
+      ],
+      "description": "Interactive 2D graph visualization. Requires a graph library that does not currently exist in the frontend.",
+      "notes": [
+        "BLOCKER: No 2D graph library is installed. Recommended: npm install cytoscape @types/cytoscape. Alternative: npm install force-graph.",
+        "Do NOT use Mermaid — it does not support per-node/edge click selection events.",
+        "dagre-d3-es is installed as a Mermaid internal dep but is not a usable standalone renderer.",
+        "GenericGraphModel → cytoscape elements conversion must stay private inside this component."
+      ],
+      "pre_conditions": [
+        "npm install cytoscape @types/cytoscape (or agreed alternative) in frontend-angular/"
+      ],
+      "acceptance_criteria": [
+        "Renders all nodes and edges from GenericGraphModel.",
+        "Node click emits (nodeSelected).",
+        "Edge click emits (edgeSelected).",
+        "Large graphs can be filtered before rendering.",
+        "Loading/empty/error states are handled.",
+        "Renderer-specific code does not leak into GenericGraphModel."
+      ]
+    },
+    {
+      "id": "graph-006",
+      "status": "todo",
+      "title": "Create 3D graph renderer",
+      "type": "implementation",
+      "files": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.html",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-3d-view/graph-3d-view.component.scss"
+      ],
+      "description": "Optional 3D visualization, lazy-loaded to keep three.js out of the main bundle.",
+      "notes": [
+        "BLOCKER: Neither three.js nor 3d-force-graph is installed. Must install before starting: npm install 3d-force-graph (it bundles three.js).",
+        "Must be isolated behind a dynamic import so 3D lib is not required by simple or 2D views.",
+        "If WebGL is unavailable, show a clear fallback and offer to switch to 2D."
+      ],
+      "pre_conditions": [
+        "graph-005 done",
+        "npm install 3d-force-graph in frontend-angular/"
+      ],
+      "acceptance_criteria": [
+        "Renders nodes and edges from GenericGraphModel in 3D.",
+        "3D dependency not imported by simple or 2D components.",
+        "Graceful fallback when WebGL is unavailable.",
+        "Node selection emits (nodeSelected).",
+        "Does not mutate GenericGraphModel input."
+      ]
+    },
+    {
+      "id": "graph-007",
+      "status": "todo",
+      "title": "Create graph toolbar",
+      "type": "implementation",
+      "files": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-toolbar/graph-toolbar.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-toolbar/graph-toolbar.component.html",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-toolbar/graph-toolbar.component.scss"
+      ],
+      "description": "Toolbar for mode switching, filtering by real node kind / edge type values, and text search.",
+      "acceptance_criteria": [
+        "Mode selection: simple, 2d, 3d.",
+        "Search input for node label/file.",
+        "Filter by node kind: java_method, java_type, config, xml_tag, unknown.",
+        "Filter by edge type: the 12 real edge_type values.",
+        "Emits typed events, no graph rendering logic."
+      ]
+    },
+    {
+      "id": "graph-008",
+      "status": "todo",
+      "title": "Create graph detail panel",
+      "type": "implementation",
+      "files": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-detail-panel/graph-detail-panel.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-detail-panel/graph-detail-panel.component.html",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-detail-panel/graph-detail-panel.component.scss"
+      ],
+      "description": "Detail panel for selected nodes and edges using real field names from the backend model.",
+      "notes": [
+        "Node fields to show: kind, name (as label), file, content, recordId.",
+        "Edge fields to show: edgeType, source node name, target node name, confidence."
+      ],
+      "acceptance_criteria": [
+        "Selected node: kind, name, file, content displayed.",
+        "Selected edge: edgeType, source, target, confidence displayed.",
+        "Additional metadata shown as key/value list.",
+        "File paths shown as copyable values.",
+        "Empty selection handled cleanly."
+      ]
+    },
+    {
+      "id": "graph-009",
+      "status": "todo",
+      "title": "Add graph state service",
+      "type": "implementation",
+      "files": [
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-state.service.ts"
+      ],
+      "description": "Centralize selectedNode, selectedEdge, active filters and active view mode. Use Angular signals or BehaviorSubjects.",
+      "acceptance_criteria": [
+        "GraphViewerComponent delegates state to GraphStateService.",
+        "State strongly typed with models from graph-001.",
+        "State can later connect to URL params.",
+        "No renderer component owns global graph state."
+      ]
+    },
+    {
+      "id": "graph-010",
+      "status": "todo",
+      "title": "Add mock graph data for development",
+      "type": "test-fixture",
+      "files": [
+        "frontend-angular/src/app/features/codecompass-graph/testing/mock-codecompass-graph.ts"
+      ],
+      "description": "Sample graph data in domain_graph_artifact.v1 format using real CodeCompassGraphStore node kinds and edge types.",
+      "notes": [
+        "Use real node kinds: java_method, java_type, config, xml_tag, unknown.",
+        "Use real edge types from the 12 real values (calls_probable_target, injects_dependency, extends, implements, declares_method, child_of_file, etc.).",
+        "Node attributes must include file, name, content fields.",
+        "Mock must pass through GraphAdapterService (graph-002) without errors."
+      ],
+      "acceptance_criteria": [
+        "At least 20 nodes using real kind values.",
+        "At least 30 edges using real edge_type values.",
+        "All five node kinds represented.",
+        "At least six edge types represented.",
+        "All three view modes can render the mock without errors."
+      ]
+    },
+    {
+      "id": "graph-011",
+      "status": "todo",
+      "title": "Add tests",
+      "type": "testing",
+      "files": [
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.spec.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-state.service.spec.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.spec.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/simple-graph-view/simple-graph-view.component.spec.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-toolbar/graph-toolbar.component.spec.ts"
+      ],
+      "description": "Unit tests for adapter, state service and component interaction. Spec files placed next to their source per Angular convention.",
+      "acceptance_criteria": [
+        "Adapter tests cover valid domain_graph_artifact.v1 input, empty graph, and malformed input.",
+        "GraphViewerComponent test verifies mode switching.",
+        "SimpleGraphView test verifies nodeSelected and edgeSelected events.",
+        "Toolbar test verifies mode change and filter events.",
+        "Tests do not depend on WebGL or cytoscape (mock the renderer)."
+      ]
+    },
+    {
+      "id": "graph-012",
+      "status": "todo",
+      "title": "Document extension points",
+      "type": "documentation",
+      "files": [
+        "docs/codecompass-graph-viewer.md"
+      ],
+      "description": "Document the generic graph model, adapter boundary, real backend field names and how to add renderers. File does not yet exist.",
+      "acceptance_criteria": [
+        "Explains GenericGraphModel and its mapping from domain_graph_artifact.v1.",
+        "Documents real backend field names: kind, edge_type, confidence (not 'type').",
+        "Explains how to add a new renderer.",
+        "Lists all real node kinds and edge types.",
+        "States that renderers must not invent semantic relations not present in the backend model."
+      ]
+    }
+  ]
+}
