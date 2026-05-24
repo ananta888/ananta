@@ -4,7 +4,7 @@ Status: Entwurf / Analyse v1.1
 
 Ziel dieser Datei: das aktuelle Template-, Rollen-, Blueprint-, Overlay-, Prompt- und Prompt-Evolver-System von Ananta verständlich darstellen und daraus konkrete Architekturverbesserungen ableiten.
 
-Wichtig: Der Dateiname `templeate` folgt absichtlich der angefragten Schreibweise.
+Hinweis: Diese Datei verwendet die konsistente Schreibweise `template`.
 
 ---
 

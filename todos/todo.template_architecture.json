@@ -36,7 +36,7 @@
     ],
     "main_architecture_gap": "InstructionLayerService.assemble_for_task erzeugt zwar rendered_system_prompt und diagnostics, aber es gibt kein kanonisches InstructionStackArtifact, das zuverlässig in ProposeContext, PromptContextBundle und alle ProposeStrategies integriert wird.",
     "evolver_gap": "PlanningPromptEvolverService ist bisher nicht explizit von Worker-Prompt-Komposition, Role Templates, Overlays und Governance getrennt. Zusätzlich fehlen klare Regeln gegen Prompt-Wachstum, zyklisches Einbetten alter Fehlerausgaben und blindes JSON-only-Reinforcement.",
-    "naming_note": "Die Markdown-Doku wurde absichtlich als todos/todo.templeate_architecture.md gespeichert, weil der angefragte Dateiname so geschrieben wurde. Die JSON nutzt die korrigierte Schreibweise todo.template_architecture.json."
+    "naming_note": "Die Markdown-Doku und die JSON verwenden konsistent die Schreibweise `template`."
   },
   "architecture_principles": [
     "Planning Templates erzeugen Tasks; Role Templates steuern Arbeitsweise; User Profiles/Overlays steuern nur erlaubte Präferenzen.",
@@ -89,7 +89,7 @@
       "priority": "P0",
       "risk": "medium",
       "type": "docs",
-      "files": ["todos/todo.templeate_architecture.md", "docs/template-role-overlay-architecture.md"],
+      "files": ["todos/todo.template_architecture.md", "docs/template-role-overlay-architecture.md"],
       "description": "Klare Trennung zwischen Planning Template, Role Template, Blueprint Artifact, Blueprint Role Defaults, User Profile, Instruction Overlay und Prompt Evolver festlegen.",
       "acceptance_criteria": ["Planning Template ist als Subtask-Erzeuger dokumentiert.", "Role Template ist als Arbeitsweise-/Prompt-Kontext dokumentiert.", "User Profile/Overlay sind als eingeschränkte Präferenzschicht dokumentiert.", "Prompt Evolver ist als Planning-Prompt-Optimierer dokumentiert.", "Doku nennt explizit, dass Profile/Overlays/Evolver keine Tool-, Security-, Approval- oder Runtime-Policy erweitern dürfen."]
     },
@@ -100,7 +100,7 @@
       "priority": "P1",
       "risk": "low",
       "type": "docs",
-      "files": ["todos/todo.templeate_architecture.md"],
+      "files": ["todos/todo.template_architecture.md"],
       "description": "Mermaid-Flows aus der Architekturdatei als Referenz für spätere Änderungen pflegen.",
       "acceptance_criteria": ["Diagramm Goal -> Planning -> PlanNode -> Task -> ProposeContext -> Worker vorhanden.", "Diagramm PlanningTemplateCatalog vs BlueprintPlanningAdapter vorhanden.", "Diagramm Instruction Layer Merge vorhanden.", "Diagramm Prompt Evolver Boundary vorhanden.", "Diagramme sind in GitHub Markdown renderbar."]
     },
@@ -298,7 +298,7 @@
       "priority": "P2",
       "risk": "low",
       "type": "docs",
-      "files": ["todos/todo.templeate_architecture.md", "docs/template-role-overlay-architecture.md"],
+      "files": ["todos/todo.template_architecture.md", "docs/template-role-overlay-architecture.md"],
       "description": "Die Mermaid-Analyse nach docs/ überführen, sobald die Architektur stabil ist.",
       "acceptance_criteria": ["docs/template-role-overlay-architecture.md existiert.", "Doku enthält Kern-Diagramme.", "Ist-Zustand und Zielarchitektur getrennt.", "Doku verweist auf Tests.", "TODO-Markdown bleibt als Arbeitsnotiz oder verweist auf docs/."]
     },
@@ -309,7 +309,7 @@
       "priority": "P0",
       "risk": "critical",
       "type": "architecture",
-      "files": ["todos/todo.templeate_architecture.md", "agent/services/planning_prompt_evolver_service.py", "docs/template-role-overlay-architecture.md"],
+      "files": ["todos/todo.template_architecture.md", "agent/services/planning_prompt_evolver_service.py", "docs/template-role-overlay-architecture.md"],
       "description": "Explizit festlegen, dass der Prompt Evolver nur Planning-Prompts optimiert und nicht Teil des finalen Worker-Prompt-Stacks ist.",
       "implementation_notes": ["Boundary-Kommentar im Evolver-Service ergänzen.", "Doku-Diagramm PlanningRun Telemetry -> Evolver -> PlanningPromptVersionDB -> zukünftige PlanningRuns pflegen.", "Doku klarstellen: InstructionStackArtifact und Worker-Prompt dürfen nicht vom Evolver mutiert werden."],
       "acceptance_criteria": ["Doku enthält eigenen Abschnitt Prompt Evolver Boundary.", "Mermaid-Diagramm zeigt Evolver getrennt vom Worker-Prompt-Stack.", "planning_prompt_evolver_service.py enthält Modul-/Klassendocstring mit erlaubtem Scope.", "Evolver-Scope nennt ausschließlich PlanningPromptVersionDB und PlanningModelProfileDB.", "Doku nennt verbotene Ziele: Role Templates, User Profiles, Overlays, Governance, Tool Contracts, Worker System Prompt, Context Policy."]
