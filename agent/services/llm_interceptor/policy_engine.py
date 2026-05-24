@@ -25,8 +25,17 @@ class PolicyEngine:
 
     def __init__(self, cfg: dict[str, Any]) -> None:
         self.cfg = dict(cfg or {})
+        self.profiles = dict(self.cfg.get("profiles") or {})
+        self.active_profile = str(self.cfg.get("active_profile") or "cloud_safe")
+
+    def _resolve_profile(self, envelope: dict[str, Any]) -> dict[str, Any]:
+        # Profile selection is metadata/config-driven, never prompt-text driven.
+        task_meta = dict(envelope.get("task_metadata") or {})
+        selected = str(task_meta.get("policy_profile") or self.active_profile).strip()
+        return dict(self.profiles.get(selected) or self.profiles.get(self.active_profile) or {})
 
     def evaluate(self, *, envelope: dict[str, Any], upstream_trust_level: str) -> PolicyDecision:
+        profile = self._resolve_profile(envelope)
         task_kind = str((envelope.get("task_metadata") or {}).get("task_kind") or "").strip().lower()
         model = str(envelope.get("model") or "").strip().lower()
         cloud = str(upstream_trust_level or "").strip().lower() == "cloud"
@@ -54,7 +63,7 @@ class PolicyEngine:
                 action="reduce_context",
                 reason_codes=reasons,
                 cloud_allowed=True,
-                context_mode=str(self.cfg.get("cloud_context_default") or "redacted_minimal"),
+                context_mode=str(profile.get("cloud_context_default") or self.cfg.get("cloud_context_default") or "redacted_minimal"),
             )
 
         reasons.append("local_allowed")
@@ -62,6 +71,5 @@ class PolicyEngine:
             action="allow",
             reason_codes=reasons,
             cloud_allowed=True,
-            context_mode=str(self.cfg.get("local_context_default") or "allowed_by_context_gate"),
+            context_mode=str(profile.get("local_context_default") or self.cfg.get("local_context_default") or "allowed_by_context_gate"),
         )
-

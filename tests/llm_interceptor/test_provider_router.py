@@ -41,15 +41,15 @@ def test_forward_chat_posts_body(monkeypatch):
         return _Resp(200, {"id": "x", "object": "chat.completion", "choices": []})
 
     monkeypatch.setattr("agent.services.llm_interceptor.provider_router.requests.post", _fake_post)
-    out = ProviderRouter(_cfg()).forward_chat(payload={"model": "m-local", "messages": [{"role": "user", "content": "hi"}]})
+    out = ProviderRouter(_cfg()).forward_chat(payload={"model": "m-local", "messages": [{"role": "user", "content": "hi"}]}, envelope={})
     assert captured["url"].endswith("/chat/completions")
     assert captured["json"]["model"] == "m-local"
     assert out["object"] == "chat.completion"
 
 
 def test_disallowed_model_rejected():
-    with pytest.raises(ValueError):
-        ProviderRouter(_cfg()).forward_chat(payload={"model": "m-cloud", "messages": [{"role": "user", "content": "hi"}]})
+    out = ProviderRouter(_cfg()).resolve_route(payload={"model": "m-cloud", "messages": [{"role": "user", "content": "hi"}]}, envelope={})
+    assert out[1] == "m-local"
 
 
 def test_upstream_error_mapped(monkeypatch):
@@ -58,5 +58,4 @@ def test_upstream_error_mapped(monkeypatch):
         lambda *args, **kwargs: _Resp(500, {"error": "x"}),
     )
     with pytest.raises(ValueError):
-        ProviderRouter(_cfg()).forward_chat(payload={"model": "m-local", "messages": [{"role": "user", "content": "hi"}]})
-
+        ProviderRouter(_cfg()).forward_chat(payload={"model": "m-local", "messages": [{"role": "user", "content": "hi"}]}, envelope={})

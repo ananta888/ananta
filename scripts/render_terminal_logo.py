@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Render ananta.svg → ANSI TrueColor half-block terminal art.
+Render ananta.svg → ANSI TrueColor half-block terminal art or ASCII fallback.
 
 Usage:
   python scripts/render_terminal_logo.py
   python scripts/render_terminal_logo.py --width 120
   python scripts/render_terminal_logo.py --width 90 --mono-only
+  python scripts/render_terminal_logo.py --width 160 --ascii-only --ascii-palette detailed
   python scripts/render_terminal_logo.py --svg path/to/file.svg --output-dir /tmp/out
 
 Requires: Pillow, cairosvg (or rsvg-convert / inkscape)
@@ -18,9 +19,8 @@ import os
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass, field
 
-WHITE_LUMA = 240
-FALLOFF = 10
 COLOR_TOLERANCE = 25
 
 ASCII_PALETTES = {
@@ -29,19 +29,47 @@ ASCII_PALETTES = {
 }
 
 
+@dataclass
+class RenderConfig:
+    white_luma: int = 240
+    falloff: int = 10
+    alpha_cutoff: int = 200
+    visible_threshold: float = 0.3
+    height_ratio: float = 0.48
+    render_size: int = 800
+    contrast: float = 1.0
+    gamma: float = 1.0
+    invert: bool = False
+    trim: bool = False
+    trim_padding: int = 2
+
+
 def luma(r, g, b):
     return 0.299 * r + 0.587 * g + 0.114 * b
 
 
-def pixel_alpha(r, g, b, a=255):
-    if a < 200:
+def pixel_alpha(r, g, b, a, cfg: RenderConfig):
+    if a < cfg.alpha_cutoff:
         return 0.0
     lum = luma(r, g, b)
-    if lum >= WHITE_LUMA:
+    if lum >= cfg.white_luma:
         return 0.0
-    if lum >= WHITE_LUMA - FALLOFF:
-        return (WHITE_LUMA - lum) / FALLOFF
+    if lum >= cfg.white_luma - cfg.falloff:
+        return (cfg.white_luma - lum) / cfg.falloff
     return 1.0
+
+
+def pixel_density(r, g, b, a, cfg: RenderConfig) -> float:
+    pa = pixel_alpha(r, g, b, a, cfg)
+    if pa < cfg.visible_threshold:
+        return 0.0
+    d = 1.0 - (luma(r, g, b) / 255.0)
+    d = ((d - 0.5) * cfg.contrast) + 0.5
+    d = max(0.0, min(1.0, d))
+    d = d ** cfg.gamma
+    if cfg.invert:
+        d = 1.0 - d
+    return d
 
 
 def col_dist(a, b):
@@ -77,11 +105,44 @@ def svg_to_png(svg_path: str, png_path: str, width: int = 800) -> None:
     sys.exit(1)
 
 
-def load_image(png_path: str, width: int, height_ratio: float = 0.48):
+def _trim_image(img, cfg: RenderConfig):
+    from PIL import Image
+    px = list(img.get_flattened_data())
+    w, h = img.size
+    min_x, min_y = w, h
+    max_x, max_y = -1, -1
+    found = False
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[y * w + x]
+            pa = pixel_alpha(r, g, b, a, cfg)
+            if pa >= cfg.visible_threshold:
+                if x < min_x:
+                    min_x = x
+                if y < min_y:
+                    min_y = y
+                if x > max_x:
+                    max_x = x
+                if y > max_y:
+                    max_y = y
+                found = True
+    if not found:
+        return img
+    pad = cfg.trim_padding
+    left = max(0, min_x - pad)
+    top = max(0, min_y - pad)
+    right = min(w, max_x + pad + 1)
+    bottom = min(h, max_y + pad + 1)
+    return img.crop((left, top, right, bottom))
+
+
+def load_image(png_path: str, width: int, cfg: RenderConfig):
     from PIL import Image
     img = Image.open(png_path).convert("RGBA")
+    if cfg.trim:
+        img = _trim_image(img, cfg)
     aspect = img.height / img.width
-    new_h = max(1, int(width * aspect * height_ratio))
+    new_h = max(1, int(width * aspect * cfg.height_ratio))
     return img.resize((width, new_h), Image.LANCZOS)
 
 
@@ -97,9 +158,10 @@ def ansi_reset():
     return "\x1b[0m"
 
 
-def render_ansi(img):
+def render_ansi(img, cfg: RenderConfig):
     px = list(img.get_flattened_data())
     w, h = img.size
+    thr = cfg.visible_threshold
 
     def g(x, y):
         return px[y * w + x]
@@ -113,10 +175,10 @@ def render_ansi(img):
         while x < w:
             tr, tg, tb, ta = g(x, y)
             br, bg, bb, ba = g(x, y + 1)
-            nta = pixel_alpha(tr, tg, tb, ta)
-            nba = pixel_alpha(br, bg, bb, ba)
-            tt = nta < 0.3
-            bt = nba < 0.3
+            nta = pixel_alpha(tr, tg, tb, ta, cfg)
+            nba = pixel_alpha(br, bg, bb, ba, cfg)
+            tt = nta < thr
+            bt = nba < thr
 
             if tt and bt:
                 if last_fg is not None or last_bg is not None:
@@ -144,10 +206,10 @@ def render_ansi(img):
             while x + run < w:
                 ntr, ntg, ntb, nta2 = g(x + run, y)
                 nbr, nbg, nbb, nba2 = g(x + run, y + 1)
-                nta3 = pixel_alpha(ntr, ntg, ntb, nta2)
-                nba3 = pixel_alpha(nbr, nbg, nbb, nba2)
-                ntt = nta3 < 0.3
-                nbt = nba3 < 0.3
+                nta3 = pixel_alpha(ntr, ntg, ntb, nta2, cfg)
+                nba3 = pixel_alpha(nbr, nbg, nbb, nba2, cfg)
+                ntt = nta3 < thr
+                nbt = nba3 < thr
                 if ntt and nbt:
                     break
                 if ntt and not nbt:
@@ -183,17 +245,18 @@ def render_ansi(img):
     return "\n".join(lines)
 
 
-def render_mono(img):
+def render_mono(img, cfg: RenderConfig):
     px = list(img.get_flattened_data())
     w, h = img.size
+    thr = cfg.visible_threshold
     lines = []
     for y in range(0, h - 1, 2):
         line = ""
         for x in range(w):
             t = px[y * w + x]
             b = px[(y + 1) * w + x]
-            tt = pixel_alpha(*t) < 0.3
-            bt = pixel_alpha(*b) < 0.3
+            tt = pixel_alpha(*t, cfg) < thr
+            bt = pixel_alpha(*b, cfg) < thr
             if tt and bt:
                 line += " "
             elif tt and not bt:
@@ -223,7 +286,9 @@ def _floyd_steinberg_diffuse(lum_map, w, h, num_chars):
                     lum_map[y + 1][x + 1] += err * 1 / 16
 
 
-def render_ascii(img, chars: str, dither: bool = False) -> str:
+def render_ascii(img, chars: str, dither: bool = False, cfg: RenderConfig | None = None) -> str:
+    if cfg is None:
+        cfg = RenderConfig()
     px = list(img.get_flattened_data())
     w, h = img.size
     num_chars = len(chars)
@@ -232,11 +297,7 @@ def render_ascii(img, chars: str, dither: bool = False) -> str:
     for y in range(h):
         for x in range(w):
             r, g, b, a = px[y * w + x]
-            pa = pixel_alpha(r, g, b, a)
-            if pa < 0.3:
-                lum_map[y][x] = 0.0
-            else:
-                lum_map[y][x] = 1.0 - (luma(r, g, b) / 255.0)
+            lum_map[y][x] = pixel_density(r, g, b, a, cfg)
 
     if dither:
         _floyd_steinberg_diffuse(lum_map, w, h, num_chars)
@@ -257,13 +318,45 @@ def main() -> None:
     parser.add_argument("--svg", default="ananta.svg", help="Path to source SVG (default: ananta.svg)")
     parser.add_argument("--output-dir", default=None, help="Output directory (default: temp dir)")
     parser.add_argument("--width", type=int, nargs="+", default=[90], help="Output widths (default: 90)")
-    parser.add_argument("--mono-only", action="store_true", help="Only generate monochrome fallback")
-    parser.add_argument("--color-only", action="store_true", help="Only generate ANSI color output")
-    parser.add_argument("--ascii-only", action="store_true", help="Only generate ASCII fallback")
-    parser.add_argument("--ascii-palette", choices=list(ASCII_PALETTES.keys()), default="clean")
-    parser.add_argument("--ascii-chars", default=None)
-    parser.add_argument("--ascii-dither", action="store_true")
+
+    out_grp = parser.add_argument_group("output selection")
+    out_grp.add_argument("--mono-only", action="store_true", help="Only generate monochrome fallback")
+    out_grp.add_argument("--color-only", action="store_true", help="Only generate ANSI color output")
+    out_grp.add_argument("--ascii-only", action="store_true", help="Only generate ASCII fallback")
+
+    ascii_grp = parser.add_argument_group("ASCII options")
+    ascii_grp.add_argument("--ascii-palette", choices=list(ASCII_PALETTES.keys()), default="clean")
+    ascii_grp.add_argument("--ascii-chars", default=None)
+    ascii_grp.add_argument("--ascii-dither", action="store_true")
+
+    img_grp = parser.add_argument_group("image tuning")
+    img_grp.add_argument("--height-ratio", type=float, default=0.48)
+    img_grp.add_argument("--render-size", type=int, default=800)
+    img_grp.add_argument("--white-luma", type=int, default=240)
+    img_grp.add_argument("--falloff", type=int, default=10)
+    img_grp.add_argument("--alpha-cutoff", type=int, default=200)
+    img_grp.add_argument("--visible-threshold", type=float, default=0.3)
+    img_grp.add_argument("--contrast", type=float, default=1.0)
+    img_grp.add_argument("--gamma", type=float, default=1.0)
+    img_grp.add_argument("--invert", action="store_true")
+    img_grp.add_argument("--trim", action="store_true")
+    img_grp.add_argument("--trim-padding", type=int, default=2)
+
     args = parser.parse_args()
+
+    cfg = RenderConfig(
+        white_luma=args.white_luma,
+        falloff=args.falloff,
+        alpha_cutoff=args.alpha_cutoff,
+        visible_threshold=args.visible_threshold,
+        height_ratio=args.height_ratio,
+        render_size=args.render_size,
+        contrast=args.contrast,
+        gamma=args.gamma,
+        invert=args.invert,
+        trim=args.trim,
+        trim_padding=args.trim_padding,
+    )
 
     svg_path = os.path.abspath(args.svg)
     if not os.path.exists(svg_path):
@@ -278,14 +371,14 @@ def main() -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         png_path = os.path.join(tmp, "rendered.png")
-        svg_to_png(svg_path, png_path)
+        svg_to_png(svg_path, png_path, width=cfg.render_size)
 
         for w in args.width:
-            img = load_image(png_path, w)
+            img = load_image(png_path, w, cfg)
 
             if args.ascii_only:
                 chars = args.ascii_chars or ASCII_PALETTES[args.ascii_palette]
-                art = render_ascii(img, chars, dither=args.ascii_dither)
+                art = render_ascii(img, chars, dither=args.ascii_dither, cfg=cfg)
                 dest = os.path.join(out_dir, f"ascii_fallback_{w}.txt")
                 with open(dest, "w") as f:
                     f.write(art)
@@ -293,13 +386,13 @@ def main() -> None:
                 continue
 
             if not args.mono_only:
-                art = render_ansi(img)
+                art = render_ansi(img, cfg)
                 dest = os.path.join(out_dir, f"ansi_halfblock_{w}.txt")
                 with open(dest, "w") as f:
                     f.write(art)
                 print(f"  -> {dest}")
             if not args.color_only:
-                art_m = render_mono(img)
+                art_m = render_mono(img, cfg)
                 dest = os.path.join(out_dir, f"mono_fallback_{w}.txt")
                 with open(dest, "w") as f:
                     f.write(art_m)
