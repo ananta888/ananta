@@ -129,6 +129,12 @@ def build_default_agent_config() -> dict:
         "autopilot": {
             "async_dispatch_enabled": True,
         },
+        "autopilot_worker_policy": {
+            "enabled": False,
+            "enforce_required_capabilities": True,
+            "enforce_llm_scope": True,
+            "worker_restart_grace_seconds": 120,
+        },
         "autopilot_strategy_max_attempts": 3,
         "autopilot_strategy_retry_delay_seconds": 20,
         # Use hard guard as recovery (todo) instead of dead-end review gate.

@@ -64,6 +64,7 @@ class AutopilotSupportService:
     ) -> tuple[list[Any], int]:
         repos = get_repository_registry(app)
         now = time.time()
+        grace_seconds = max(10, int((((app_config or {}).get("AGENT_CONFIG") or {}).get("autopilot_worker_policy", {}) or {}).get("worker_restart_grace_seconds", 120) or 120))
         all_workers = [a for a in repos.agent_repo.get_all() if (a.role or "").lower() == "worker"]
         workers_online_count = len([w for w in all_workers if w.status == "online"])
         workers = [
@@ -71,9 +72,14 @@ class AutopilotSupportService:
             if w.status == "online"
             or (
                 w.registration_validated
-                and (now - float(getattr(w, "last_seen", 0) or 0)) < 120
+                and (now - float(getattr(w, "last_seen", 0) or 0)) < grace_seconds
             )
         ]
+        for worker in workers:
+            status = str(getattr(worker, "status", "") or "").strip().lower()
+            in_grace = bool(status != "online" and (now - float(getattr(worker, "last_seen", 0) or 0)) < grace_seconds)
+            setattr(worker, "_restart_grace", in_grace)
+            setattr(worker, "_restart_grace_seconds", grace_seconds)
         if settings.role == "hub" and settings.hub_can_be_worker:
             my_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
             has_local = any((getattr(w, "url", "") or "").rstrip("/") == my_url for w in workers)

@@ -2170,6 +2170,7 @@ def execute_autopilot_tick(
             "worker_selection_decision",
             selected_worker=(getattr(target_worker, "url", None) if target_worker is not None else None),
             candidate_count=len(workers),
+            rejected_candidates=list(getattr(task, "_worker_policy_rejections", None) or []),
             reason_code=assign_reason or ("assigned_worker" if not was_assigned else "round_robin"),
             was_assigned=bool(was_assigned),
         )

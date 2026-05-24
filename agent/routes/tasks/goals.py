@@ -24,6 +24,7 @@ from agent.services.service_registry import get_core_services
 from agent.services.planning_quality_service import get_planning_quality_service
 from agent.services.planning_telemetry_service import get_planning_telemetry_service
 from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
+from agent.services.planning_singleflight_service import get_planning_singleflight_service
 from agent.utils import validate_request
 from agent.planning_reason_codes import (
     PLANNING_SLOT_TIMEOUT,
@@ -1030,13 +1031,15 @@ def _start_planning_deadline_guard(*, goal_id: str, app: Any, timeout_s: int) ->
 
 
 def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any]) -> None:
+    planning_policy = (current_app.config.get("AGENT_CONFIG") or {}).get("planning_policy") or {}
+    singleflight_ttl = int((planning_policy.get("singleflight_ttl_seconds") or 900))
+    if not get_planning_singleflight_service().acquire(goal_id=goal_id, ttl_seconds=singleflight_ttl):
+        try:
+            current_app.logger.warning("goal_planning_skip_duplicate_inflight goal_id=%s", goal_id)
+        except Exception:
+            pass
+        return
     with _GOAL_ACTIVE_PLANNING_LOCK:
-        if goal_id in _GOAL_ACTIVE_PLANNING_IDS:
-            try:
-                current_app.logger.warning("goal_planning_skip_duplicate_inflight goal_id=%s", goal_id)
-            except Exception:
-                pass
-            return
         _GOAL_ACTIVE_PLANNING_IDS.add(goal_id)
     try:
         goal_record = _repos().goal_repo.get_by_id(goal_id)
@@ -1370,5 +1373,6 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             plan_id=result.get("plan_id"),
         )
     finally:
+        get_planning_singleflight_service().release(goal_id=goal_id)
         with _GOAL_ACTIVE_PLANNING_LOCK:
             _GOAL_ACTIVE_PLANNING_IDS.discard(goal_id)
