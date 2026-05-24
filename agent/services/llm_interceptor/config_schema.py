@@ -87,6 +87,7 @@ class RoutingRuleConfig(BaseModel):
 class RoutingConfig(BaseModel):
     default_upstream: str
     default_model: str = "auto"
+    model_aliases: dict[str, str] = Field(default_factory=dict)
     rules: list[RoutingRuleConfig] = Field(default_factory=list)
 
 

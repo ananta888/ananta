@@ -32,6 +32,10 @@
   "routing": {
     "default_upstream": "local-lmstudio",
     "default_model": "intercepted-coder",
+    "model_aliases": {
+      "ananta-interceptor/intercepted-coder": "intercepted-coder",
+      "intercepted-coder": "intercepted-coder"
+    },
     "rules": [
       {
         "when": {
