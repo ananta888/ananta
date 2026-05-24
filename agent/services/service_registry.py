@@ -95,6 +95,7 @@ class KnowledgeServices:
     memory_tree_summary_service: Any = None
     memory_tree_retrieval_service: Any = None
     tool_output_compaction_service: Any = None
+    memory_vault_export_service: Any = None
 
 
 @dataclass(frozen=True)
@@ -184,6 +185,11 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
     from agent.services.rate_limit_service import get_rate_limit_service
     from agent.services.rag_helper_index_service import get_rag_helper_index_service
     from agent.services.result_memory_service import get_result_memory_service
+    from agent.services.memory_tree_store_service import get_memory_tree_store_service
+    from agent.services.memory_tree_summary_service import get_memory_tree_summary_service
+    from agent.services.memory_tree_retrieval_service import get_memory_tree_retrieval_service
+    from agent.services.tool_output_compaction_service import _build_from_config as get_tool_output_compaction_service
+    from agent.services.memory_vault_export_service import get_memory_vault_export_service
     from agent.services.scheduler_runtime_service import get_scheduler_runtime_service
     from agent.services.system_contract_service import get_system_contract_service
     from agent.services.system_stats_service import get_system_stats_service
@@ -202,6 +208,7 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
     from agent.services.verification_service import get_verification_service
     from agent.services.worker_contract_service import get_worker_contract_service
     from agent.services.worker_job_service import get_worker_job_service
+    from agent.services.hint_routing_service import get_hint_routing_service
 
     tasks = TaskServices(
         task_handler_registry=get_task_handler_registry(app),
@@ -233,6 +240,11 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
         knowledge_index_job_service=get_knowledge_index_job_service(),
         knowledge_index_retrieval_service=get_knowledge_index_retrieval_service(),
         result_memory_service=get_result_memory_service(),
+        memory_tree_store_service=get_memory_tree_store_service(),
+        memory_tree_summary_service=get_memory_tree_summary_service(),
+        memory_tree_retrieval_service=get_memory_tree_retrieval_service(),
+        tool_output_compaction_service=get_tool_output_compaction_service({}),
+        memory_vault_export_service=get_memory_vault_export_service(),
     )
     integrations = IntegrationServices(
         mcp_registry_service=get_mcp_registry_service(),
@@ -241,6 +253,7 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
         worker_job_service=get_worker_job_service(),
         agent_registry_service=get_agent_registry_service(),
         agent_health_monitor_service=get_agent_health_monitor_service(),
+        hint_routing_service=get_hint_routing_service(),
     )
     runtime = RuntimeServices(
         autopilot_runtime_service=get_autopilot_runtime_service(),

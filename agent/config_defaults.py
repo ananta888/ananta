@@ -489,11 +489,34 @@ def build_default_agent_config() -> dict:
             ],
             "unknown_hint_action": "mark_unavailable",
         },
+        "local_ai": {
+            "runtime_enabled": False,
+            "usage": {
+                "embeddings": False,
+                "summary_tree": False,
+                "context_compaction": True,
+                "format_normalization": True,
+                "cheap_classify": True,
+            },
+            "health_gate": {
+                "require_probe_ok": True,
+                "max_probe_age_seconds": 300,
+            },
+            "hardware_profiles": {
+                "rtx3080": {"summary_tree": True, "context_compaction": True, "embeddings": True},
+                "laptop": {"summary_tree": False, "context_compaction": True, "embeddings": False},
+                "cpu_only": {"summary_tree": False, "context_compaction": True, "embeddings": False},
+            },
+        },
         "memory_vault_export": {
             "enabled": False,
             "output_dir": ".ananta/memory",
             "export_mode": "local_only",
             "exclude_sensitivity": ["secret", "credential", "security_sensitive"],
+        },
+        "memory_tree_autofetch": {
+            "enabled": False,
+            "internal_only": True,
         },
         "git_workspace": {
             "enabled": False,

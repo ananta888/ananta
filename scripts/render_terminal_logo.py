@@ -98,7 +98,7 @@ def ansi_reset():
 
 
 def render_ansi(img):
-    px = list(img.getdata())
+    px = list(img.get_flattened_data())
     w, h = img.size
 
     def g(x, y):
@@ -184,7 +184,7 @@ def render_ansi(img):
 
 
 def render_mono(img):
-    px = list(img.getdata())
+    px = list(img.get_flattened_data())
     w, h = img.size
     lines = []
     for y in range(0, h - 1, 2):
@@ -224,7 +224,7 @@ def _floyd_steinberg_diffuse(lum_map, w, h, num_chars):
 
 
 def render_ascii(img, chars: str, dither: bool = False) -> str:
-    px = list(img.getdata())
+    px = list(img.get_flattened_data())
     w, h = img.size
     num_chars = len(chars)
 

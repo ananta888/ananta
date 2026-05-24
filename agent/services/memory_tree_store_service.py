@@ -271,6 +271,64 @@ class MemoryTreeStoreService:
         except OperationalError:
             return False
 
+    def lease_next_job(
+        self,
+        *,
+        kinds: list[str] | None = None,
+        lease_seconds: int = 60,
+    ) -> Optional[MemoryTreeJobDB]:
+        now = time.time()
+        try:
+            with Session(_db_module.engine) as session:
+                stmt = select(MemoryTreeJobDB).where(MemoryTreeJobDB.status == "pending")
+                if kinds:
+                    stmt = stmt.where(MemoryTreeJobDB.kind.in_(list(kinds)))
+                stmt = stmt.limit(1)
+                job = session.exec(stmt).first()
+                if job is None:
+                    return None
+                job.status = "leased"
+                job.lease_until = now + max(1, int(lease_seconds))
+                job.retry_count = int(job.retry_count or 0) + 1
+                session.add(job)
+                session.commit()
+                session.refresh(job)
+                return job
+        except OperationalError:
+            return None
+
+    def release_expired_leases(self) -> int:
+        now = time.time()
+        released = 0
+        try:
+            with Session(_db_module.engine) as session:
+                stmt = select(MemoryTreeJobDB).where(
+                    MemoryTreeJobDB.status == "leased",
+                    MemoryTreeJobDB.lease_until.is_not(None),
+                    MemoryTreeJobDB.lease_until < now,
+                )
+                rows = list(session.exec(stmt).all())
+                for job in rows:
+                    job.status = "pending"
+                    job.lease_until = None
+                    session.add(job)
+                    released += 1
+                session.commit()
+                return released
+        except OperationalError:
+            return 0
+
+    def list_jobs(self, *, status: str | None = None, limit: int = 200) -> list[MemoryTreeJobDB]:
+        try:
+            with Session(_db_module.engine) as session:
+                stmt = select(MemoryTreeJobDB)
+                if status:
+                    stmt = stmt.where(MemoryTreeJobDB.status == status)
+                stmt = stmt.limit(limit)
+                return list(session.exec(stmt).all())
+        except OperationalError:
+            return []
+
 
 # ---------------------------------------------------------------------------
 # Singleton

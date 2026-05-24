@@ -29,18 +29,36 @@ def _message_text(content: Any) -> str:
 class OpenAICompatService:
     """Thin OpenAI-style adapter over the existing hub services."""
 
+    def local_ai_usage_enabled(self, *, workload: str, agent_cfg: dict[str, Any] | None = None) -> bool:
+        cfg = dict(agent_cfg or current_app.config.get("AGENT_CONFIG", {}) or {})
+        local_ai = dict(cfg.get("local_ai") or {})
+        if not bool(local_ai.get("runtime_enabled", False)):
+            return False
+        usage = dict(local_ai.get("usage") or {})
+        return bool(usage.get(str(workload or "").strip().lower(), False))
+
     def list_models(self) -> list[dict[str, Any]]:
         agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         provider_urls = current_app.config.get("PROVIDER_URLS", {}) or {}
         default_provider = str(agent_cfg.get("default_provider") or "")
         default_model = str(agent_cfg.get("default_model") or "")
-        return get_integration_registry_service().list_openai_compat_models(
+        models = get_integration_registry_service().list_openai_compat_models(
             agent_cfg=agent_cfg,
             provider_urls=provider_urls,
             default_provider=default_provider,
             default_model=default_model,
             model_lister=list_openai_compatible_models,
         )
+        return [
+            {
+                **m,
+                "local_ai_usage": {
+                    "context_compaction": self.local_ai_usage_enabled(workload="context_compaction", agent_cfg=agent_cfg),
+                    "cheap_classify": self.local_ai_usage_enabled(workload="cheap_classify", agent_cfg=agent_cfg),
+                },
+            }
+            for m in models
+        ]
 
     def _resolve_model(self, raw_model: str | None) -> tuple[str | None, str | None]:
         value = str(raw_model or "").strip()

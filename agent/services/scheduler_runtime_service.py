@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from agent.services.scheduler_service import get_scheduler_service
+from agent.services.memory_tree_ingestion_service import get_memory_tree_ingestion_service
+from agent.services.memory_tree_store_service import get_memory_tree_store_service
 
 
 class SchedulerRuntimeService:
@@ -27,6 +29,23 @@ class SchedulerRuntimeService:
     def stop_scheduler(self) -> dict:
         get_scheduler_service().stop()
         return self.scheduler_state()
+
+    def memory_ingestion_queue_status(self) -> dict:
+        store = get_memory_tree_store_service()
+        pending = len(store.list_jobs(status="pending"))
+        leased = len(store.list_jobs(status="leased"))
+        done = len(store.list_jobs(status="done"))
+        failed = len(store.list_jobs(status="failed"))
+        return {
+            "pending": pending,
+            "leased": leased,
+            "done": done,
+            "failed": failed,
+            "total": pending + leased + done + failed,
+        }
+
+    def run_memory_ingestion_tick(self) -> dict:
+        return get_memory_tree_ingestion_service().process_next_queue_job()
 
 
 scheduler_runtime_service = SchedulerRuntimeService()

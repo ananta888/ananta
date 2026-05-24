@@ -1,6 +1,7 @@
 """OHA-008/009: Tests für MemoryTreeStoreService und MemoryTreeIngestionService."""
 import json
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ from agent.services.memory_tree_ingestion_service import (
     _label_from_record,
     _sensitivity_from_record,
 )
+from agent.services.memory_vault_export_service import MemoryVaultExportService
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +230,33 @@ def test_complete_job(store):
     assert ok is True
 
 
+def test_lease_next_job_and_release_expired(store):
+    job = store.enqueue_job(kind="seal", payload={"source_id": "ki-lease"})
+    leased = store.lease_next_job(kinds=["seal"], lease_seconds=1)
+    assert leased is not None
+    assert leased.id == job.id
+    assert leased.status == "leased"
+    time.sleep(1.05)
+    released = store.release_expired_leases()
+    assert released >= 1
+
+
+def test_process_next_queue_job_seals_source(store):
+    svc = MemoryTreeIngestionService(store=store)
+    for i in range(2):
+        chunk, _ = store.ingest_chunk(
+            source_id="ki-q",
+            source_type="code",
+            label=f"L{i}",
+            content=f"C{i}",
+        )
+        store.update_lifecycle(chunk.id, "buffered")
+    store.enqueue_job(kind="seal", payload={"source_id": "ki-q"}, dedupe_key="seal:ki-q")
+    out = svc.process_next_queue_job()
+    assert out["status"] == "done"
+    assert store.count_chunks("ki-q", lifecycle="sealed") == 2
+
+
 # ---------------------------------------------------------------------------
 # Record parsing helpers
 # ---------------------------------------------------------------------------
@@ -358,3 +387,27 @@ def test_ingest_codecompass_graph_disabled(ingestion):
     artifact = {"nodes": [{"node_id": "n1", "node_type": "java_type", "attributes": {}}], "edges": []}
     stats = ingestion.ingest_codecompass_graph(knowledge_index_id="ki-cc4", graph_artifact=artifact, enabled=False)
     assert stats.created == 0
+
+
+def test_enqueue_internal_autofetch_default_internal_only(ingestion):
+    out = ingestion.enqueue_internal_autofetch(cfg={"enabled": True, "internal_only": True})
+    assert out["enabled"] is True
+    assert out["enqueued"] == 5
+
+
+def test_memory_vault_export_writes_markdown(store, tmp_path):
+    store.ingest_chunk(
+        source_id="ki-vault",
+        source_type="code",
+        label="OrderService",
+        content="handles orders",
+        sensitivity="internal",
+    )
+    export = MemoryVaultExportService().export(
+        cfg={"memory_vault_export": {"enabled": True, "output_dir": str(tmp_path)}},
+        source_ids=["ki-vault"],
+    )
+    assert export["enabled"] is True
+    assert export["written"] == 1
+    files = list((tmp_path / "sources").glob("*.md"))
+    assert len(files) == 1
