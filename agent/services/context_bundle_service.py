@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from worker.core.propose_orchestrator import ProposeContext
 
 
@@ -106,23 +108,58 @@ Output ONLY valid JSON matching schema."""
         context_payload: dict,
         policy_mode: str = "standard",
         llm_scope: str = "local_only",
+        # OHA-014: optional MemoryTree view to include alongside standard chunks
+        memory_tree_retrieval_result: "Any | None" = None,
     ) -> dict:
         """FA-T012: Build a governed context bundle with scope-aware filtering."""
         chunks = list((context_payload or {}).get("chunks") or [])
         filtered = []
         denied = 0
+        cloud_deny_sensitivities = {"internal_high", "secret", "credential", "security_sensitive"}
         for chunk in chunks:
             meta = dict(chunk.get("metadata") or {})
             sensitivity = str(meta.get("sensitivity") or "public").lower()
             # external cloud scope: deny internal_high/secret-like content by default
-            if llm_scope == "external_cloud_allowed" and sensitivity in {
-                "internal_high", "secret", "credential", "security_sensitive"
-            }:
+            if llm_scope == "external_cloud_allowed" and sensitivity in cloud_deny_sensitivities:
                 denied += 1
                 continue
             filtered.append(chunk)
 
-        return {
+        # OHA-014: build memory_tree_view from MemoryRetrievalResult
+        memory_tree_view: dict | None = None
+        mt_denied = 0
+        if memory_tree_retrieval_result is not None:
+            mt_chunks_allowed = []
+            for mc in getattr(memory_tree_retrieval_result, "chunks", []):
+                if llm_scope == "external_cloud_allowed" and mc.sensitivity in cloud_deny_sensitivities:
+                    mt_denied += 1
+                    continue
+                mt_chunks_allowed.append({
+                    "chunk_id": mc.chunk_id,
+                    "source_id": mc.source_id,
+                    "label": mc.label,
+                    "content": mc.content,
+                    "sensitivity": mc.sensitivity,
+                    "score": mc.score,
+                })
+            summary_node = getattr(memory_tree_retrieval_result, "summary_node", None)
+            memory_tree_view = {
+                "scope": getattr(memory_tree_retrieval_result, "scope", "any"),
+                "query": getattr(memory_tree_retrieval_result, "query", query),
+                "chunk_count": len(mt_chunks_allowed),
+                "chunks": mt_chunks_allowed,
+                "denied_count": mt_denied + getattr(memory_tree_retrieval_result, "filtered_by_policy", 0),
+                "drilldown_refs": list(getattr(memory_tree_retrieval_result, "drilldown_refs", [])),
+                "summary_node": {
+                    "node_id": summary_node.node_id,
+                    "node_type": summary_node.node_type,
+                    "label": summary_node.label,
+                    "summary": summary_node.summary,
+                    "leaf_count": summary_node.leaf_count,
+                } if summary_node else None,
+            }
+
+        bundle: dict = {
             "schema": "worker_context_bundle.v1",
             "query": query,
             "policy_mode": policy_mode,
@@ -139,8 +176,14 @@ Output ONLY valid JSON matching schema."""
                 "input_count": len(chunks),
                 "allowed_count": len(filtered),
                 "denied_count": denied,
+                # OHA-014: separate memory_tree counts
+                "memory_tree_allowed_count": len(mt_chunks_allowed) if memory_tree_view else 0,
+                "memory_tree_denied_count": mt_denied,
             },
         }
+        if memory_tree_view is not None:
+            bundle["memory_tree_view"] = memory_tree_view
+        return bundle
 
     @staticmethod
     def _get_examples(strategy_id: str) -> str:
