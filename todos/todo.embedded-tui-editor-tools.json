@@ -241,10 +241,26 @@
         ]
       },
       {
-        "name": "TuiMainPaneController",
-        "summary": "Controls whether Ananta TUI main pane shows dashboard, terminal, editor or embedded tool.",
+        "name": "TuiShellRuntime",
+        "summary": "Main event loop, layout engine and keyboard dispatcher. Prerequisite for TuiMainPaneController.",
         "responsibilities": [
-          "Switch main pane mode",
+          "Run a non-blocking main loop that polls keyboard input and dispatches to the active mode handler",
+          "Manage ShellMode enum state: dashboard, terminal_session, embedded_editor, embedded_tool",
+          "Route raw key events to the active pane or to global shortcuts",
+          "Implement suspend/resume: return to dashboard from any mode without killing the session",
+          "Expose TuiPaneState (active mode, session reference, focus) for status display"
+        ],
+        "technology": "rich (already used in repair_tui.py) for layout rendering; custom keyboard loop using tty/termios/select as in repair_tui.py",
+        "files": [
+          "agent/tui_shell_runtime.py",
+          "agent/tui_contract.py"
+        ]
+      },
+      {
+        "name": "TuiMainPaneController",
+        "summary": "Controls whether Ananta TUI main pane shows dashboard, terminal, editor or embedded tool. Depends on TuiShellRuntime.",
+        "responsibilities": [
+          "Switch main pane mode via TuiShellRuntime.switch_to(mode, context)",
           "Preserve running tool session state",
           "Return to Ananta overview without killing session unless requested",
           "Show tool/editor status and target risk class"
@@ -402,9 +418,47 @@
       ]
     },
     {
+      "id": "E004b-tui-shell-runtime",
+      "title": "Implement TUI main shell runtime with pane-mode switching",
+      "summary": "Build the main event loop, layout engine and keyboard dispatcher that E005 depends on. Without this there is no TUI to embed editors into.",
+      "depends_on": ["E004-embedded-tool-session-service"],
+      "files": [
+        "agent/tui_shell_runtime.py",
+        "agent/tui_contract.py",
+        "tests/test_tui_shell_runtime.py"
+      ],
+      "notes": [
+        "Use rich (already imported in repair_tui.py) for layout/rendering.",
+        "Use the tty/termios/select pattern already established in repair_tui.py for raw keyboard input.",
+        "tui_contract.py already has TuiKey, TuiOption, TuiPromptState — extend with ShellMode and TuiPaneState, do not rewrite."
+      ],
+      "details": [
+        "Add ShellMode enum to tui_contract.py: dashboard, terminal_session, embedded_editor, embedded_tool.",
+        "Add TuiPaneState dataclass: active_mode, session_id, tool_id, file_path, read_only.",
+        "Implement TuiShellRuntime in tui_shell_runtime.py with a non-blocking main loop.",
+        "Implement switch_to(mode, context) that validates the transition and updates TuiPaneState.",
+        "Implement keyboard dispatcher: route keys to active pane handler or global shortcut table.",
+        "Implement suspend shortcut (default Ctrl+b then d, configurable) to return to dashboard from any mode without killing the session.",
+        "Embedded editor/tool mode must forward all key events to the underlying terminal session, not consume them.",
+        "Expose current_state() for status panels and CLI output.",
+        "Graceful teardown: close only the active session if explicitly killed, never affect other sessions."
+      ],
+      "acceptance_criteria": [
+        "Main loop starts and renders dashboard mode without blocking.",
+        "switch_to(embedded_editor, context) transitions correctly and sets TuiPaneState.",
+        "Key events in embedded_editor mode are forwarded to the live terminal session, not intercepted by TuiShellRuntime.",
+        "Suspend shortcut returns to dashboard; session remains alive and restorable.",
+        "switch_to rejects unknown modes with a clear error.",
+        "current_state() returns correct ShellMode and session reference after each transition.",
+        "Killing an embedded session does not affect unrelated terminal sessions.",
+        "Runtime is testable without a real TTY using a mock bridge."
+      ]
+    },
+    {
       "id": "E005-ananta-tui-main-pane-integration",
       "title": "Use Vim/other TUI tools as selectable main window inside Ananta TUI",
-      "summary": "Allow the Ananta TUI main pane to switch into an embedded editor or embedded tool view.",
+      "summary": "Allow the Ananta TUI main pane to switch into an embedded editor or embedded tool view. Requires E004b-tui-shell-runtime.",
+      "depends_on": ["E004b-tui-shell-runtime", "E004-embedded-tool-session-service"],
       "files": [
         "agent/tui_main_pane.py",
         "agent/tui_contract.py",
@@ -511,6 +565,17 @@
       ]
     }
   ],
+  "implementation_order": [
+    "E001-tool-registry-config",
+    "E002-editor-resolver",
+    "E003-workspace-file-validation",
+    "E004-embedded-tool-session-service",
+    "E004b-tui-shell-runtime",
+    "E005-ananta-tui-main-pane-integration",
+    "E006-cli-open-and-tool-commands",
+    "E007-frontend-configuration-ui",
+    "E008-documentation"
+  ],
   "global_acceptance_criteria": [
     "Vim is used as default fallback editor when no more specific editor rule exists.",
     "Users can configure other editors such as nvim, nano, micro or helix.",
@@ -529,7 +594,11 @@
       "EditorResolver filetype matching and fallback order",
       "Workspace path validation",
       "EmbeddedToolSessionService policy checks",
-      "Read-only vs write-capable editor mode"
+      "Read-only vs write-capable editor mode",
+      "TuiShellRuntime mode transitions (dashboard → embedded_editor → dashboard)",
+      "TuiShellRuntime keyboard dispatcher: keys forwarded in embedded mode, consumed in dashboard mode",
+      "TuiShellRuntime suspend shortcut does not kill session",
+      "TuiShellRuntime current_state() reflects transitions correctly"
     ],
     "integration_tests": [
       "Open markdown file in default Vim editor",
