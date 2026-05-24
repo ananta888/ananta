@@ -3,6 +3,7 @@ import os
 import re
 import time
 import uuid
+import hashlib
 from collections import defaultdict
 from typing import Any, Optional
 from urllib.parse import urlsplit, urlunsplit
@@ -21,6 +22,13 @@ _LMSTUDIO_HISTORY_FILE = "llm_model_history.json"
 _LOCAL_RUNTIME_SELECTION_CACHE: dict[str, dict[str, Any]] = {}
 _LOCAL_RUNTIME_SELECTION_CACHE_TTL_SECONDS = 30
 _LOCAL_RUNTIME_PROBE_TIMEOUT_SECONDS = 2
+
+
+def _sha256_text(value: str | None) -> str | None:
+    text = str(value or "")
+    if not text:
+        return None
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
 
 
 def _model_identifier_tokens(value: str | None) -> set[str]:
@@ -1267,12 +1275,33 @@ def _call_llm(
     _prompt_trace = None
     try:
         from agent.services.prompt_trace_service import get_prompt_trace_service
+        from agent.services.context_file_selector import provider_to_llm_scope
         _trace_svc = get_prompt_trace_service()
         # Planning/background calls often run with app context but without request context.
         # Use app-context metadata so traces can still be correlated to goals/tasks.
         # Explicit trace metadata always wins; app-context fallback is best-effort.
         _goal_id = str(trace_goal_id or "").strip() or (getattr(g, "llm_goal_id", None) if has_app_context() else None)
         _task_id = str(trace_task_id or "").strip() or (getattr(g, "llm_task_id", None) if has_app_context() else None)
+        _llm_scope = provider_to_llm_scope(provider, urls.get(provider))
+        _context_sources = []
+        if history:
+            _context_sources.append(
+                {
+                    "kind": "history",
+                    "included": True,
+                    "count": len(list(history or [])),
+                    "hash": _sha256_text(str(history)),
+                }
+            )
+        if prompt:
+            _context_sources.append(
+                {
+                    "kind": "prompt",
+                    "included": True,
+                    "chars": len(str(prompt)),
+                    "hash": _sha256_text(str(prompt)),
+                }
+            )
         _prompt_trace = _trace_svc.create_trace(
             request_id=request_id,
             idempotency_key=idempotency_key,
@@ -1285,6 +1314,9 @@ def _call_llm(
             prompt=prompt,
             messages=history,
             tools=tools,
+            context_sources=_context_sources,
+            llm_scope=_llm_scope,
+            sensitivity_level="internal",
         )
         if has_app_context():
             existing = list(getattr(g, "llm_prompt_trace_ids", []) or [])

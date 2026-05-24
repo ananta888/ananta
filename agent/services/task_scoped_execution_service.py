@@ -564,6 +564,9 @@ class TaskScopedExecutionService:
         tool_definitions_resolver: Callable,
     ) -> TaskScopedRouteResponse:
         task = self._require_task(tid)
+        terminal_guard = self._terminal_parent_goal_guard(tid=tid, task=task, phase="propose")
+        if terminal_guard is not None:
+            return terminal_guard
         forwarded = self._forward_task_request_if_remote(
             tid=tid,
             task=task,
@@ -771,6 +774,9 @@ class TaskScopedExecutionService:
         tool_definitions_resolver: Callable | None = None,
     ) -> TaskScopedRouteResponse:
         task = self._require_task(tid)
+        terminal_guard = self._terminal_parent_goal_guard(tid=tid, task=task, phase="execute")
+        if terminal_guard is not None:
+            return terminal_guard
         forwarded = self._forward_task_request_if_remote(
             tid=tid,
             task=task,
@@ -2525,6 +2531,12 @@ class TaskScopedExecutionService:
                     "source": "model_invocation_service",
                     "request_kind": "propose",
                 }
+            else:
+                response_trace = {
+                    "source": "external_worker_uninspectable",
+                    "request_kind": "propose",
+                    "external_worker_uninspectable": True,
+                }
         cli_result = response.get("cli_result") if isinstance(response.get("cli_result"), dict) else None
         if not isinstance(cli_result, dict):
             response_meta = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
@@ -4072,3 +4084,32 @@ task_scoped_execution_service = TaskScopedExecutionService()
 
 def get_task_scoped_execution_service() -> TaskScopedExecutionService:
     return task_scoped_execution_service
+    @staticmethod
+    def _terminal_parent_goal_guard(*, tid: str, task: dict, phase: str) -> TaskScopedRouteResponse | None:
+        goal_id = str((task or {}).get("goal_id") or "").strip()
+        if not goal_id:
+            return None
+        goal = get_repository_registry().goal_repo.get_by_id(goal_id)
+        goal_status = str(getattr(goal, "status", "") or "").strip().lower() if goal is not None else ""
+        if goal_status not in {"completed", "failed", "cancelled", "aborted", "timeout"}:
+            return None
+        update_local_task_status(
+            tid,
+            str((task or {}).get("status") or "todo"),
+            event_type="parent_goal_cancelled",
+            event_actor="task_scoped_execution_service",
+            event_details={"goal_id": goal_id, "goal_status": goal_status, "phase": phase},
+        )
+        return TaskScopedRouteResponse(
+            data={
+                "status": "skipped",
+                "reason": "parent_goal_cancelled",
+                "goal_status": goal_status,
+                "task_id": tid,
+                "goal_id": goal_id,
+                "phase": phase,
+            },
+            status="skipped",
+            message="Parent goal is terminal",
+            code=409,
+        )

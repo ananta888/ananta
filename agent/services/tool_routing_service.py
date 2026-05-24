@@ -72,7 +72,13 @@ class ToolRoutingService:
 
     def build_capability_catalog(self, *, agent_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
         cfg = dict(agent_cfg or {})
-        backends = get_integration_registry_service().list_execution_backends(include_preflight=True)
+        preflight_scope = str(
+            ((cfg.get("worker_runtime") or {}).get("preflight_scope") or "worker")
+        ).strip().lower() or "worker"
+        backends = get_integration_registry_service().list_execution_backends(
+            include_preflight=True,
+            preflight_scope=preflight_scope,
+        )
         backend_caps = dict(backends.get("capabilities") or {})
         tool_classes = self._normalize_tool_class_map(((cfg.get("llm_tool_guardrails") or {}).get("tool_classes")))
         stateful_backends = {str(item or "").strip().lower() for item in list(((cfg.get("cli_session_mode") or {}).get("stateful_backends") or []))}
