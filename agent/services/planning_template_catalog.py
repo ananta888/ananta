@@ -7,6 +7,9 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
+# PlanningTemplateCatalog is the deterministic planning-template source.
+# It defines reusable subtask skeletons and must stay separate from role/user prompt layers.
+
 ROOT = Path(__file__).resolve().parents[2]
 OPTIONAL_SUBTASK_METADATA = ("artifact", "risk_focus", "test_focus", "review_focus")
 VALID_PRIORITIES = {"high": "High", "medium": "Medium", "low": "Low"}

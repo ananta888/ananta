@@ -7,6 +7,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from agent.services.repository_registry import get_repository_registry
 
+# BlueprintPlanningAdapter translates blueprint task artifacts into planning subtasks.
+# It may pass role hints/defaults forward, but it must not own worker prompt composition.
+
 VALID_PRIORITIES = {"high": "High", "medium": "Medium", "low": "Low"}
 
 

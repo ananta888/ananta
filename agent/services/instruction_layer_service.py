@@ -8,6 +8,8 @@ from typing import Any
 from agent.common.audit import log_audit
 from agent.db_models import GoalDB, InstructionOverlayDB, TaskDB, UserInstructionProfileDB
 from agent.services.repository_registry import get_repository_registry
+from agent.services.instruction_stack_artifact_service import InstructionStackArtifact
+from agent.services.instruction_stack_artifact_service import get_instruction_stack_artifact_service
 from agent.services.task_template_resolution import resolve_task_role_template
 
 _LAYER_MODEL_VERSION = "instruction-layer-model-v1"
@@ -92,7 +94,7 @@ _LAYER_INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
 
 
 class InstructionLayerService:
-    """Resolves, validates and assembles user profile + overlay instruction layers."""
+    """Resolves policy-safe instruction layers and renders a deterministic stack artifact."""
 
     def layer_model(self) -> dict[str, Any]:
         return {
@@ -574,8 +576,19 @@ class InstructionLayerService:
         suppressed_layers: list[dict[str, Any]] = []
         effective_preferences: dict[str, Any] = {}
 
+        role_template_context = resolve_task_role_template(task_payload, repos=get_repository_registry())
+        role_template_prompt = str(role_template_context.get("template_prompt") or "").strip() or None
         if system_prompt:
-            applied_layers.append({"layer": "blueprint_template", "source": "task_role_template"})
+            applied_layers.append({"layer": "governance", "source": "system_prompt"})
+        if role_template_prompt:
+            applied_layers.append(
+                {
+                    "layer": "blueprint_template",
+                    "source": "task_role_template",
+                    "template_id": role_template_context.get("template_id"),
+                    "template_name": role_template_context.get("template_name"),
+                }
+            )
         if profile:
             if profile_validation.get("ok"):
                 applied_layers.append(
@@ -626,6 +639,8 @@ class InstructionLayerService:
         rendered_sections: list[str] = []
         if system_prompt:
             rendered_sections.append(system_prompt)
+        if role_template_prompt:
+            rendered_sections.append(f"[ROLE TEMPLATE]\n{role_template_prompt}")
         if profile and profile_validation.get("ok"):
             rendered_sections.append(f"[USER PROFILE]\n{str(profile.prompt_content or '').strip()}")
         if overlay and overlay_validation.get("ok"):
@@ -654,8 +669,19 @@ class InstructionLayerService:
             "owner_username": owner_username or None,
             "task_id": str(task_payload.get("id") or "").strip() or None,
             "goal_id": str(task_payload.get("goal_id") or "").strip() or None,
+            "role_template_context": role_template_context,
             "template_compatibility": compatibility,
         }
+        artifact = get_instruction_stack_artifact_service().build_artifact(
+            task_id=diagnostics.get("task_id"),
+            goal_id=diagnostics.get("goal_id"),
+            role_template_context=role_template_context,
+            applied_layers=applied_layers,
+            suppressed_layers=suppressed_layers,
+            rendered_system_prompt=rendered_system_prompt,
+            diagnostics=diagnostics,
+        )
+        diagnostics["instruction_stack_checksum"] = artifact.checksum
         if emit_audit and (profile or overlay):
             log_audit(
                 "instruction_layers_applied",
@@ -671,12 +697,42 @@ class InstructionLayerService:
         return {
             "rendered_system_prompt": rendered_system_prompt,
             "diagnostics": diagnostics,
+            "instruction_stack": artifact.as_dict(),
             "selection": {
                 "owner_username": owner_username or None,
                 "profile_id": (diagnostics.get("selected_profile") or {}).get("id"),
                 "overlay_id": (diagnostics.get("selected_overlay") or {}).get("id"),
             },
         }
+
+    def assemble_artifact_for_task(
+        self,
+        *,
+        task: dict | TaskDB | None,
+        base_prompt: str,
+        system_prompt: str | None,
+        session_id: str | None = None,
+        usage_key: str | None = None,
+        emit_audit: bool = False,
+    ) -> InstructionStackArtifact:
+        assembled = self.assemble_for_task(
+            task=task,
+            base_prompt=base_prompt,
+            system_prompt=system_prompt,
+            session_id=session_id,
+            usage_key=usage_key,
+            emit_audit=emit_audit,
+        )
+        stack_payload = dict(assembled.get("instruction_stack") or {})
+        return get_instruction_stack_artifact_service().build_artifact(
+            task_id=stack_payload.get("task_id"),
+            goal_id=stack_payload.get("goal_id"),
+            role_template_context=dict(stack_payload.get("role_template_context") or {}),
+            applied_layers=list(stack_payload.get("applied_layers") or []),
+            suppressed_layers=list(stack_payload.get("suppressed_layers") or []),
+            rendered_system_prompt=stack_payload.get("rendered_system_prompt"),
+            diagnostics=dict(stack_payload.get("diagnostics") or {}),
+        )
 
     def render_diagnostics_brief(self, diagnostics: dict | None) -> str:
         payload = dict(diagnostics or {})

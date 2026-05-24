@@ -8,6 +8,10 @@ from typing import Any
 from agent.db_models import PlanningPromptVersionDB
 from agent.services.repository_registry import get_repository_registry
 
+# Boundary note:
+# This service may evolve planning prompt versions only (PlanningPromptVersionDB/profile hints).
+# It must not mutate worker system prompts, role templates, overlays, governance, or tool contracts.
+
 
 class PlanningPromptEvolverService:
     def _infer_model_family(self, model_name: str | None) -> str | None:
