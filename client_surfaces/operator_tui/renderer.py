@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import re
 from textwrap import shorten
 from typing import TYPE_CHECKING
+
+_ANSI_STRIP = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
 from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
@@ -345,5 +348,5 @@ def _rule(width: int) -> str:
 
 
 def _clip(value: str, width: int) -> str:
-    text = str(value)
+    text = _ANSI_STRIP.sub("", str(value))
     return text if len(text) <= width else text[: max(0, width - 3)] + "..."

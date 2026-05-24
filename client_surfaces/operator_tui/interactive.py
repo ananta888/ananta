@@ -10,7 +10,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.widgets import TextArea
 
-_ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]?|\x1b")
+_ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import load_active_section
