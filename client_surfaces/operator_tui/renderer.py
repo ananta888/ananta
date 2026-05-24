@@ -83,14 +83,17 @@ def render_operator_shell(
 
 def _render_splash_header(splash: SplashMachine, state: OperatorState, width: int) -> list[str]:
     from agent.cli.splash import SplashState
-    from agent.cli.status_snapshot import StatusSnapshot
+    from agent.cli.status_snapshot import collect_status
 
     ctx = splash.context
     if ctx.state in (SplashState.DISABLED, SplashState.SKIPPED):
         return []
 
-    snapshot = StatusSnapshot(
+    snapshot = collect_status(
         mode=state.mode.value,
+        endpoint=state.endpoint,
+        auth_state=state.auth_state,
+        section=state.section_id,
     )
 
     color = not state.terminal_graphics.get("no_color", False) if state.terminal_graphics else True
