@@ -458,6 +458,43 @@ def build_default_agent_config() -> dict:
                 "constraints",
             ],
         },
+        # OHA-003: OpenHuman-inspired feature flags — all off/safe by default.
+        "memory_tree": {
+            "enabled": False,
+            "mode": "safe_readonly",
+            "auto_ingest_knowledge_index": False,
+            "auto_ingest_result_memory": False,
+            "llm_summary_enabled": False,
+            "llm_summary_cloud_allowed": False,
+            "max_leaves_per_source": 500,
+            "seal_threshold_leaves": 20,
+        },
+        "tool_output_compaction": {
+            "enabled": True,
+            "fail_open": True,
+            "builtin_rules_enabled": True,
+            "project_rules_path": ".ananta/tool-output-rules",
+            "max_input_chars_for_compaction": 4000,
+            "max_output_chars": 2000,
+            "always_preserve_signals": True,
+        },
+        "hint_routing": {
+            "enabled": False,
+            "mode": "compatibility",
+            "cloud_allowed_hints": [],
+            "local_only_hints": [
+                "hint:context_compaction",
+                "hint:cheap_classify",
+                "hint:local_embedding",
+            ],
+            "unknown_hint_action": "mark_unavailable",
+        },
+        "memory_vault_export": {
+            "enabled": False,
+            "output_dir": ".ananta/memory",
+            "export_mode": "local_only",
+            "exclude_sensitivity": ["secret", "credential", "security_sensitive"],
+        },
         "git_workspace": {
             "enabled": False,
             "remote_url": None,

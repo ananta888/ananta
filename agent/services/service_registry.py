@@ -82,7 +82,7 @@ class GovernanceServices:
 
 @dataclass(frozen=True)
 class KnowledgeServices:
-    """RAG, Ingestion, Knowledge-Index, Result-Memory."""
+    """RAG, Ingestion, Knowledge-Index, Result-Memory, Memory-Tree, Tool-Output-Compaction."""
 
     rag_service: Any
     rag_helper_index_service: Any
@@ -90,11 +90,15 @@ class KnowledgeServices:
     knowledge_index_job_service: Any
     knowledge_index_retrieval_service: Any
     result_memory_service: Any
+    # OHA-002: planned slots — wired once services are implemented
+    memory_tree_store_service: Any = None
+    memory_tree_retrieval_service: Any = None
+    tool_output_compaction_service: Any = None
 
 
 @dataclass(frozen=True)
 class IntegrationServices:
-    """LLM/MCP/OpenAI-Bridge, Worker-Jobs, Agent-Registry."""
+    """LLM/MCP/OpenAI-Bridge, Worker-Jobs, Agent-Registry, Hint-Routing."""
 
     mcp_registry_service: Any
     integration_registry_service: Any
@@ -102,6 +106,8 @@ class IntegrationServices:
     worker_job_service: Any
     agent_registry_service: Any
     agent_health_monitor_service: Any
+    # OHA-002: planned slot — wired once HintRoutingService is implemented
+    hint_routing_service: Any = None
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,73 @@
+{
+  "schema": "tool_output_compaction_rules.v1",
+  "version": "1.0",
+  "description": "Built-in compaction rules for Ananta tool and shell outputs. Security-signal preservation rules cannot be overridden by project rules.",
+  "rules": [
+    {
+      "id": "preserve_errors",
+      "type": "preserve_regex",
+      "description": "Always keep lines that indicate errors, failures, or security signals.",
+      "pattern": "ERROR|FAILED|FAIL:|Traceback|AssertionError|Exception:|raise |\\bpermission denied\\b|\\bsecurity\\b|\\bblocked\\b|\\bdenied\\b|\\bcredential\\b|\\bsecret\\b|\\bunauthorized\\b|\\bforbidden\\b|CRITICAL|\\bfailed\\b|\\btest.*FAILED\\b|^FAILED|^ERROR|assert ",
+      "case_sensitive": false,
+      "security_signal": true,
+      "applies_to": ["*"]
+    },
+    {
+      "id": "preserve_test_summary",
+      "type": "preserve_regex",
+      "description": "Keep pytest/unittest summary lines.",
+      "pattern": "passed|failed|error|warnings summary|short test summary|=====|-----",
+      "case_sensitive": false,
+      "security_signal": false,
+      "applies_to": ["pytest", "python", "python3", "shell_execute", "run_command"]
+    },
+    {
+      "id": "preserve_git_conflicts",
+      "type": "preserve_regex",
+      "description": "Keep git conflict and rejection markers.",
+      "pattern": "<<<<<<|>>>>>>|======|CONFLICT|rejected|merge failed|cannot|Aborting",
+      "case_sensitive": false,
+      "security_signal": false,
+      "applies_to": ["git_commit", "git", "shell_execute"]
+    },
+    {
+      "id": "generic_truncate",
+      "type": "keep_first_last",
+      "description": "Keep first 30 and last 50 lines of output; everything else summarised.",
+      "head_lines": 30,
+      "tail_lines": 50,
+      "max_lines": 200,
+      "security_signal": false,
+      "applies_to": ["*"]
+    },
+    {
+      "id": "npm_truncate",
+      "type": "keep_first_last",
+      "description": "npm output is verbose; keep head/tail and error lines.",
+      "head_lines": 20,
+      "tail_lines": 30,
+      "max_lines": 150,
+      "security_signal": false,
+      "applies_to": ["npm", "npx", "yarn", "pnpm"]
+    },
+    {
+      "id": "docker_truncate",
+      "type": "keep_first_last",
+      "description": "Docker output can be very long; keep head/tail.",
+      "head_lines": 15,
+      "tail_lines": 25,
+      "max_lines": 100,
+      "security_signal": false,
+      "applies_to": ["docker", "docker-compose"]
+    },
+    {
+      "id": "dedup_blank_lines",
+      "type": "dedup_lines",
+      "description": "Collapse consecutive blank lines to one.",
+      "pattern": "^\\s*$",
+      "max_consecutive": 1,
+      "security_signal": false,
+      "applies_to": ["*"]
+    }
+  ]
+}
