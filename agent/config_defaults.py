@@ -325,6 +325,15 @@ def build_default_agent_config() -> dict:
             "require_terminal_capability_for_command": False,
             "terminal_capability_name": "terminal",
         },
+        "shell_command_policy": {
+            "enabled": True,
+            "allow_chain_operators": [";", "&&", "||"],
+            "deny_operators": ["|", "`", "$(", "${", "<<"],
+            "validate_segments_individually": True,
+            "allow_quoted_operators": True,
+            "allow_inline_language_code": {"python -c": True, "node -e": True},
+            "allow_complex_shell_mode": False,
+        },
         "autopilot_security_policies": {
             "safe": {
                 "max_concurrency_cap": 1,

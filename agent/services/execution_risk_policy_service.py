@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agent.security_risk import (
     RISK_LEVEL_RANK,
@@ -12,6 +12,9 @@ from agent.security_risk import (
     max_risk_level,
     normalize_risk_level,
 )
+
+if TYPE_CHECKING:
+    from agent.services.shell_command_policy import CommandChainAnalysisResult
 
 
 @dataclass(frozen=True)
@@ -44,6 +47,7 @@ def evaluate_execution_risk(
     tool_calls: list[dict] | None,
     task: dict | None,
     agent_cfg: dict | None,
+    command_analysis: "CommandChainAnalysisResult | None" = None,
 ) -> ExecutionRiskDecision:
     policy = _policy(agent_cfg)
     if not policy["enabled"]:
@@ -54,7 +58,18 @@ def evaluate_execution_risk(
     if policy["task_scoped_only"] and not is_task_scoped:
         return ExecutionRiskDecision(True, False, "low", [], [], {"enabled": True, "task_scoped": False})
 
-    command_risk = classify_command_risk(command)
+    # SCG-006: segment-aware risk when a chain analysis is available
+    command_segments_risk: list[dict[str, Any]] = []
+    if command_analysis is not None and command_analysis.contains_chain and command_analysis.allowed:
+        seg_risks = [classify_command_risk(seg.raw) for seg in command_analysis.segments]
+        command_risk = max(seg_risks, key=lambda l: RISK_LEVEL_RANK.get(l, 1), default="low")
+        command_segments_risk = [
+            {"index": seg.index, "preview": seg.raw[:100], "risk_level": r}
+            for seg, r in zip(command_analysis.segments, seg_risks)
+        ]
+    else:
+        command_risk = classify_command_risk(command)
+
     tools_risk = classify_tool_calls_risk(tool_calls, guard_cfg=agent_cfg or {})
     risk_level = max_risk_level(command_risk, tools_risk)
     reasons: list[str] = []
@@ -92,6 +107,7 @@ def evaluate_execution_risk(
             "risk_level": risk_level,
             "command_risk": command_risk,
             "tool_calls_risk": tools_risk,
+            **({"command_segments_risk": command_segments_risk} if command_segments_risk else {}),
             "uses_terminal": has_terminal_signal(command),
             "uses_file_access": has_file_access_signal(command, tool_calls),
             "required_capabilities": sorted(required_caps),

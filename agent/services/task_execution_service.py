@@ -36,6 +36,8 @@ from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.command_chain_parser import CommandChainParser
 from agent.services.command_to_tool_mapper import CommandToToolMapper
+from agent.services.shell_command_policy import ShellCommandAnalyzer
+from agent.services.segment_preflight_validator import SegmentPreflightValidator
 from agent.services.tool_intent_resolver import ToolIntentResolver
 from agent.services.tool_intent_taxonomy_service import get_tool_intent_taxonomy_service
 from agent.services.execution_audit_service import get_execution_audit_service
@@ -273,11 +275,52 @@ class TaskExecutionService:
         loop_trace_id = self._resolve_loop_trace_id(effective_task)
         loop_service = get_doom_loop_service()
         loop_signature_for_command = self._loop_signature(command)
+        # SCG-004: analyse the command chain before running full-string preflight guards.
+        # For allowed chains, approval/risk use segment-aware mode instead of full-string matching.
+        # For commands with unsupported operators (pipes etc.), block early with a clear reason.
+        _chain_preflight_deferred = False
+        _command_analysis = None
+        if command:
+            _command_analysis = ShellCommandAnalyzer().analyze(command, guard_cfg)
+            if not _command_analysis.allowed:
+                if pipeline is not None:
+                    append_stage(
+                        pipeline,
+                        name="command_chain_analysis",
+                        status="blocked",
+                        metadata=_command_analysis.as_dict(),
+                    )
+                raise ToolGuardrailError(
+                    details={
+                        "blocked_tools": [],
+                        "blocked_reasons": [
+                            f"shell_operator_unsupported:{op}"
+                            if _command_analysis.denied_reason == "unsupported_operator"
+                            else (_command_analysis.denied_reason or "shell_chain_invalid")
+                            for op in (_command_analysis.unsupported_operators or ["?"])
+                        ],
+                        "shell_command_analysis": _command_analysis.as_dict(),
+                    }
+                )
+            if _command_analysis.contains_chain:
+                _chain_preflight_deferred = True
+                if pipeline is not None:
+                    append_stage(
+                        pipeline,
+                        name="command_chain_analysis",
+                        status="ok",
+                        metadata={
+                            **_command_analysis.as_dict(),
+                            "approval_preflight_deferred_to_segments": True,
+                        },
+                    )
+
         approval_decision = get_approval_policy_service().evaluate(
             command=command,
             tool_calls=tool_calls,
             task=effective_task,
             agent_cfg=guard_cfg,
+            command_analysis=_command_analysis,
         )
         approval_payload = approval_decision.as_dict()
         if pipeline is not None:
@@ -291,7 +334,9 @@ class TaskExecutionService:
                     "required_confirmation_level": approval_payload.get("required_confirmation_level"),
                 },
             )
-        if approval_payload.get("classification") == "blocked" and approval_payload.get("enforced"):
+        # For allowed chain commands, per-segment approval/risk runs in _execute_shell_command_with_policy.
+        # Only block here for non-chain commands (or when tool_calls is the concern, not the command).
+        if approval_payload.get("classification") == "blocked" and approval_payload.get("enforced") and not _chain_preflight_deferred:
             if tid:
                 self._append_approval_block_history(
                     tid=tid,
@@ -311,6 +356,7 @@ class TaskExecutionService:
             approval_payload.get("classification") == "confirm_required"
             and approval_payload.get("enforced")
             and not bool((effective_task or {}).get("approval_confirmed"))
+            and not _chain_preflight_deferred
         ):
             if tid:
                 self._append_approval_block_history(
@@ -334,6 +380,7 @@ class TaskExecutionService:
             tool_calls=tool_calls,
             task=effective_task,
             agent_cfg=guard_cfg,
+            command_analysis=_command_analysis,
         )
         if pipeline is not None:
             append_stage(
@@ -346,7 +393,7 @@ class TaskExecutionService:
                     "reasons": risk_decision.reasons,
                 },
             )
-        if not risk_decision.allowed:
+        if not risk_decision.allowed and not _chain_preflight_deferred:
             if tid:
                 self._append_guardrail_block_history(
                     tid,
@@ -532,6 +579,40 @@ class TaskExecutionService:
             for tool_call in normalized_tool_calls:
                 name = str(tool_call.get("name") or tool_call.get("tool_name") or "").strip()
                 args = tool_call.get("args") or tool_call.get("tool_input") or tool_call.get("parameters") or {}
+                # SCG-008: for shell tool calls, analyse the command argument for unsupported operators.
+                _SHELL_TOOL_NAMES = {"shell_execute", "run_command", "execute_command", "bash"}
+                if name in _SHELL_TOOL_NAMES and isinstance(args, dict):
+                    _tc_cmd = str(args.get("command") or args.get("cmd") or "").strip()
+                    if _tc_cmd:
+                        _tc_analysis = ShellCommandAnalyzer().analyze(_tc_cmd, guard_cfg)
+                        if not _tc_analysis.allowed:
+                            _reasons = [
+                                f"shell_operator_unsupported:{op}"
+                                if _tc_analysis.denied_reason == "unsupported_operator"
+                                else (_tc_analysis.denied_reason or "shell_chain_invalid")
+                                for op in (_tc_analysis.unsupported_operators or ["?"])
+                            ]
+                            if tid:
+                                self._append_guardrail_block_history(
+                                    tid,
+                                    effective_task,
+                                    _tc_cmd,
+                                    [tool_call],
+                                    ToolGuardrailDecision(
+                                        allowed=False,
+                                        blocked_tools=[name],
+                                        reasons=_reasons,
+                                        details={"shell_command_analysis": _tc_analysis.as_dict()},
+                                    ),
+                                    reason="shell_command_chain_blocked",
+                                )
+                            raise ToolGuardrailError(
+                                details={
+                                    "blocked_tools": [name],
+                                    "blocked_reasons": _reasons,
+                                    "shell_command_analysis": _tc_analysis.as_dict(),
+                                }
+                            )
                 logger = current_app.logger if has_app_context() else logging.getLogger(__name__)
                 logger.info("Task %s führt Tool aus: %s mit %s", tid or "<direct>", name, args)
                 tool_result = tool_registry.execute(name, args)
@@ -813,20 +894,23 @@ class TaskExecutionService:
         tool_calls: list[dict] | None,
         decision,
         reason: str = "tool_guardrail_blocked",
+        command_chain_summary: dict | None = None,
     ) -> None:
         history = list((task or {}).get("history") or [])
-        history.append(
-            {
-                "event_type": "tool_guardrail_blocked",
-                "reason": reason,
-                "command": command,
-                "tool_calls": tool_calls or [],
-                "blocked_tools": decision.blocked_tools,
-                "blocked_reasons": decision.reasons,
-                "guardrails": decision.details,
-                "timestamp": time.time(),
-            }
-        )
+        entry: dict = {
+            "event_type": "tool_guardrail_blocked",
+            "reason": reason,
+            "command": command[:200] if command else None,  # SCG-012: redact long commands
+            "tool_calls": tool_calls or [],
+            "blocked_tools": decision.blocked_tools,
+            "blocked_reasons": decision.reasons,
+            "guardrails": decision.details,
+            "timestamp": time.time(),
+        }
+        # SCG-012: include chain diagnostics when available
+        if command_chain_summary:
+            entry["command_chain"] = command_chain_summary
+        history.append(entry)
         get_task_runtime_service().update_local_task_status(
             tid,
             "blocked",
@@ -1160,63 +1244,27 @@ class TaskExecutionService:
         if not command_segments:
             return "", 0, 0, "success", []
 
-        # Upfront policy validation: every segment must be allowed before any execution.
+        # SCG-005: use SegmentPreflightValidator — every segment must be allowed before any execution.
         effective_task = task or {}
         cfg = dict(agent_cfg or {})
-        validation_meta: list[dict] = []
         known_tools = [definition.get("name") for definition in tool_registry.get_tool_definitions()]
         known_tool_set = set(known_tools)
-        for seg in chain_segments or []:
-            seg_cmd = seg.raw
-            mapped = CommandToToolMapper().map(seg_cmd)
-            mapped_is_known = bool(mapped.mapped_tool and mapped.mapped_tool in known_tool_set)
-            mapped_tool_calls = [{"name": mapped.mapped_tool, "args": mapped.args}] if mapped_is_known else None
-            seg_approval = get_approval_policy_service().evaluate(
-                command=None if mapped_is_known else seg_cmd,
-                tool_calls=mapped_tool_calls,
-                task=effective_task,
-                agent_cfg=cfg,
-            ).as_dict()
-            seg_risk = evaluate_execution_risk(
-                command=None if mapped_is_known else seg_cmd,
-                tool_calls=mapped_tool_calls,
-                task=effective_task,
-                agent_cfg=cfg,
+        preflight = SegmentPreflightValidator().validate_segments(
+            segments=chain_segments,
+            task=effective_task,
+            agent_cfg=cfg,
+            known_tools=known_tools,
+        )
+        validation_meta = preflight.as_validation_meta()
+        if not preflight.allowed:
+            denied_idx = preflight.denied_segment_index or 0
+            return (
+                f"Error: command chain segment denied at index {denied_idx}: {', '.join(preflight.reason_codes)}",
+                -1,
+                0,
+                "command_runtime_error",
+                [{"attempt": 0, "command_chain": {"segment_count": len(command_segments), "validations": validation_meta}}],
             )
-            allowed = True
-            reason_codes: list[str] = []
-            if seg_approval.get("classification") == "blocked" and seg_approval.get("enforced"):
-                allowed = False
-                reason_codes.append(str(seg_approval.get("reason_code") or "approval_blocked"))
-            if not seg_risk.allowed:
-                allowed = False
-                reason_codes.extend([str(item) for item in list(seg_risk.reasons or [])] or ["risk_policy_blocked"])
-            if mapped_is_known:
-                blocked, reasons = validate_task_scoped_tool_calls(
-                    mapped_tool_calls,
-                    allowed_tools=resolve_task_scope_allowed_tools(effective_task),
-                    known_tools=known_tools,
-                )
-                if blocked:
-                    allowed = False
-                    reason_codes.extend(list(reasons.values()))
-            row = {
-                "segment_index": seg.index,
-                "operator_before": seg.operator_before,
-                "command_preview": seg_cmd[:200],
-                "allowed": allowed,
-                "reason_codes": list(dict.fromkeys(reason_codes)),
-                "mapped_tool": mapped.mapped_tool if mapped_is_known else None,
-            }
-            validation_meta.append(row)
-            if not allowed:
-                return (
-                    f"Error: command chain segment denied at index {seg.index}: {', '.join(row['reason_codes'])}",
-                    -1,
-                    0,
-                    "command_runtime_error",
-                    [{"attempt": 0, "command_chain": {"segment_count": len(command_segments), "validations": validation_meta}}],
-                )
 
         aggregate_outputs: list[str] = []
         aggregate_retries = 0

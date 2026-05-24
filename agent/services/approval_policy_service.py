@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agent.governance_modes import resolve_governance_mode
 from agent.security_risk import classify_command_risk, classify_tool_calls_risk, max_risk_level
+
+if TYPE_CHECKING:
+    from agent.services.shell_command_policy import CommandChainAnalysisResult
 
 _ACTION_CLASSES = {"read_only", "mutation", "system_mutation", "install_remove", "admin_mutation"}
 _DEFAULT_POLICY = {
@@ -80,14 +83,27 @@ class ApprovalPolicyService:
         tool_calls: list[dict] | None,
         task: dict | None,
         agent_cfg: dict | None,
+        command_analysis: "CommandChainAnalysisResult | None" = None,
     ) -> ApprovalDecision:
         cfg = dict(agent_cfg or {})
         policy = self.normalize_policy(cfg.get("unified_approval_policy"))
         governance_mode = str((resolve_governance_mode(cfg) or {}).get("effective") or "balanced").strip().lower()
         if governance_mode not in {"safe", "balanced", "strict"}:
             governance_mode = "balanced"
-        operation_class = self._classify_operation(command=command, tool_calls=tool_calls, cfg=cfg)
-        risk_level = max_risk_level(classify_command_risk(command), classify_tool_calls_risk(tool_calls, guard_cfg=cfg))
+
+        # SCG-007: segment-aware operation classification for chain commands
+        seg_op_classes: list[dict[str, Any]] = []
+        if command_analysis is not None and command_analysis.contains_chain and command_analysis.allowed:
+            raw_classes = [self._classify_operation(command=seg.raw, tool_calls=None, cfg=cfg) for seg in command_analysis.segments]
+            operation_class = self._aggregate_operation_classes(raw_classes)
+            seg_op_classes = [{"index": i + 1, "class": c} for i, c in enumerate(raw_classes)]
+            risk_level = max_risk_level(
+                *[classify_command_risk(seg.raw) for seg in command_analysis.segments],
+                classify_tool_calls_risk(tool_calls, guard_cfg=cfg),
+            )
+        else:
+            operation_class = self._classify_operation(command=command, tool_calls=tool_calls, cfg=cfg)
+            risk_level = max_risk_level(classify_command_risk(command), classify_tool_calls_risk(tool_calls, guard_cfg=cfg))
         mode_policy = policy["governance_overrides"][governance_mode]
 
         classification = "allow"
@@ -144,6 +160,7 @@ class ApprovalPolicyService:
                 "approval_confirmed": approval_confirmed,
                 "policy": policy,
                 "task_id": str((task or {}).get("id") or "").strip() or None,
+                **({"segment_operation_classes": seg_op_classes} if seg_op_classes else {}),
                 "specialized_backend": {
                     "backend_id": specialized_backend_id,
                     "risk_class": specialized_risk_class,
@@ -201,6 +218,12 @@ class ApprovalPolicyService:
         if "write" in classes:
             return "mutation"
         return "read_only"
+
+    @staticmethod
+    def _aggregate_operation_classes(classes: list[str]) -> str:
+        """Return the most privileged operation class across a list."""
+        rank = {"read_only": 0, "mutation": 1, "install_remove": 2, "system_mutation": 3, "admin_mutation": 4}
+        return max(classes, key=lambda c: rank.get(c, 0), default="read_only")
 
     @staticmethod
     def _specialized_profiles(cfg: dict[str, Any]) -> dict[str, dict[str, Any]]:
