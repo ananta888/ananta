@@ -28,6 +28,7 @@ RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snaps
     net-tools \
     iputils-ping \
     traceroute \
+    tmux \
     nodejs \
     npm \
     && rm -rf /var/lib/apt/lists/*

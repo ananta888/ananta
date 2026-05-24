@@ -19,6 +19,18 @@ x-agent-env: &agent-env
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
   # Keep JWT validation consistent across hub/workers in compose deployments.
   SECRET_KEY: ${SECRET_KEY:-ananta-dev-shared-secret-change-me}
+  # Terminal session feature flags (disabled by default — enable explicitly for local-dev or production)
+  TERMINAL_FEATURE_ENABLED: ${TERMINAL_FEATURE_ENABLED:-false}
+  TERMINAL_WORKER_TARGET_ENABLED: ${TERMINAL_WORKER_TARGET_ENABLED:-true}
+  TERMINAL_HUB_TARGET_ENABLED: ${TERMINAL_HUB_TARGET_ENABLED:-false}
+  TERMINAL_HUB_AS_WORKER_TARGET_ENABLED: ${TERMINAL_HUB_AS_WORKER_TARGET_ENABLED:-false}
+  TERMINAL_IDLE_TIMEOUT_SECONDS: ${TERMINAL_IDLE_TIMEOUT_SECONDS:-900}
+  TERMINAL_MAX_LIFETIME_SECONDS: ${TERMINAL_MAX_LIFETIME_SECONDS:-14400}
+  TERMINAL_ATTACH_TOKEN_TTL_SECONDS: ${TERMINAL_ATTACH_TOKEN_TTL_SECONDS:-60}
+  TERMINAL_RECORDING_ENABLED_REMOTE: ${TERMINAL_RECORDING_ENABLED_REMOTE:-true}
+  TERMINAL_RECORDING_ENABLED_LOCAL_DEV: ${TERMINAL_RECORDING_ENABLED_LOCAL_DEV:-false}
+  # OIDC (disabled by default; set TERMINAL_OIDC_ENABLED=true and configure issuer/audience/client_id for production)
+  TERMINAL_OIDC_ENABLED: ${TERMINAL_OIDC_ENABLED:-false}
 
 x-agent-defaults: &agent-defaults
   build: .

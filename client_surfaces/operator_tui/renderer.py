@@ -173,6 +173,8 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
                 lines.append(f"    {entry.get('id','?')}  {entry.get('summary','')}")
     elif section.id == "system":
         lines.extend(_system_content_lines(payload))
+    elif section.id == "terminal":
+        lines.extend(_terminal_content_lines(payload, state, width))
     elif section.id == "help":
         lines.append("")
         lines.extend(_binding_lines(state, width))
@@ -264,6 +266,43 @@ def _system_content_lines(payload: dict) -> list[str]:
     if not lines:
         lines.append("  press r to load system data")
 
+    return lines
+
+
+def _terminal_content_lines(payload: dict, state: "OperatorState", width: int) -> list[str]:
+    lines: list[str] = []
+    targets = payload.get("targets") or []
+    sessions = payload.get("sessions") or []
+
+    lines.append("  Targets:")
+    if not targets:
+        lines.append("    no targets available (terminal feature disabled?)")
+    else:
+        for i, t in enumerate(targets):
+            marker = DEFAULT_THEME.selected_prefix if i == state.selected_index else " "
+            ttype = t.get("target_type", "?")
+            tid = t.get("target_id", "?")
+            risk = " [HIGH RISK]" if ttype in {"hub", "hub_as_worker"} else ""
+            lines.append(f"{marker} {ttype:<16} {tid}{risk}")
+
+    lines.append("")
+    lines.append("  Sessions:")
+    if not sessions:
+        lines.append("    no active sessions")
+    else:
+        for s in sessions:
+            sid = (s.get("id") or "?")[:16] + "…"
+            stype = s.get("target_type", "?")
+            status = s.get("status", "?")
+            ro = " [ro]" if s.get("read_only") else ""
+            lines.append(f"  {sid} {stype:<14} {status}{ro}")
+
+    lines.append("")
+    lines.append("  Commands:")
+    lines.append("    :tmux targets    list targets")
+    lines.append("    :tmux start      create session")
+    lines.append("    :tmux attach <id> attach")
+    lines.append("    :tmux kill <id>  kill session")
     return lines
 
 

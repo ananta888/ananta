@@ -39,6 +39,7 @@ RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99snaps
     net-tools \
     iputils-ping \
     traceroute \
+    tmux \
     && rm -rf /var/lib/apt/lists/*
 
 # Node 20.19.5 aus dem offiziellen Frontend-Runtime-Image uebernehmen.
