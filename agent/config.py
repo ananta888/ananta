@@ -182,6 +182,10 @@ class Settings(BaseSettings):
     mistral_code_default_model: Optional[str] = Field(default=None, validation_alias="MISTRAL_CODE_DEFAULT_MODEL")
     research_sandbox_docker_path: str = Field(default="docker", validation_alias="RESEARCH_SANDBOX_DOCKER_PATH")
 
+    # TUI Tools / Embedded Editor
+    tui_default_editor: str = Field(default="vim", validation_alias="TUI_DEFAULT_EDITOR")
+    tui_allow_environment_editor: bool = Field(default=True, validation_alias="TUI_ALLOW_ENVIRONMENT_EDITOR")
+
     # Hybrid RAG Config
     rag_enabled: bool = Field(default=True, validation_alias="RAG_ENABLED")
     rag_repo_root: str = Field(default=".", validation_alias="RAG_REPO_ROOT")
