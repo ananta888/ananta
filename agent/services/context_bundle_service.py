@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import time
 from typing import Any
 
 from worker.core.propose_orchestrator import ProposeContext
@@ -108,8 +110,14 @@ Output ONLY valid JSON matching schema."""
         context_payload: dict,
         policy_mode: str = "standard",
         llm_scope: str = "local_only",
+        include_context_text: bool | None = None,
+        task_kind: str | None = None,
+        retrieval_intent: str | None = None,
+        total_budget_tokens: int | None = None,
+        budget_tokens_by_mode: dict | None = None,
         # OHA-014: optional MemoryTree view to include alongside standard chunks
         memory_tree_retrieval_result: "Any | None" = None,
+        **_kwargs: Any,
     ) -> dict:
         """FA-T012: Build a governed context bundle with scope-aware filtering."""
         chunks = list((context_payload or {}).get("chunks") or [])
@@ -124,6 +132,23 @@ Output ONLY valid JSON matching schema."""
                 denied += 1
                 continue
             filtered.append(chunk)
+
+        # Compatibility ordering: architecture-like intents prioritize wiki over repo.
+        effective_intent = str(retrieval_intent or "").lower()
+        if effective_intent and "architecture" in effective_intent:
+            filtered.sort(
+                key=lambda c: (
+                    0 if str((c.get("metadata") or {}).get("source_type") or "").lower() == "wiki" else 1,
+                    -float(c.get("score") or 0.0),
+                )
+            )
+        else:
+            filtered.sort(
+                key=lambda c: (
+                    0 if str((c.get("metadata") or {}).get("source_type") or "").lower() == "repo" else 1,
+                    -float(c.get("score") or 0.0),
+                )
+            )
 
         # OHA-014: build memory_tree_view from MemoryRetrievalResult
         memory_tree_view: dict | None = None
@@ -159,18 +184,71 @@ Output ONLY valid JSON matching schema."""
                 } if summary_node else None,
             }
 
+        retrieval_trace = dict((context_payload or {}).get("retrieval_trace") or {})
+        if not retrieval_trace:
+            by_channel: dict[str, int] = {}
+            manifest_hash = None
+            for chunk in filtered:
+                channel = str(chunk.get("engine") or "unknown")
+                by_channel[channel] = by_channel.get(channel, 0) + 1
+                meta = dict(chunk.get("metadata") or {})
+                if not manifest_hash and meta.get("source_manifest_hash"):
+                    manifest_hash = str(meta.get("source_manifest_hash"))
+            context_hash = hashlib.sha256(
+                "\n".join(str(c.get("content") or "") for c in filtered).encode("utf-8", errors="replace")
+            ).hexdigest()[:16]
+            retrieval_trace = {
+                "trace_id": f"retrieval-{int(time.time())}",
+                "manifest_hash": manifest_hash,
+                "final_chunk_count": len(filtered),
+                "selected_chunk_counts_by_channel": by_channel,
+                "context_hash": context_hash,
+            }
+
+        channel_contrib: dict[str, int] = {}
+        sources: list[dict[str, Any]] = []
+        for chunk in filtered:
+            channel = str(chunk.get("engine") or "unknown")
+            channel_contrib[channel] = channel_contrib.get(channel, 0) + 1
+            meta = dict(chunk.get("metadata") or {})
+            sources.append(
+                {
+                    "source": chunk.get("source"),
+                    "engine": channel,
+                    "expanded_from": meta.get("expanded_from"),
+                    "relation_path": meta.get("relation_path"),
+                    "source_manifest_hash": meta.get("source_manifest_hash"),
+                }
+            )
+
         bundle: dict = {
             "schema": "worker_context_bundle.v1",
             "query": query,
             "policy_mode": policy_mode,
+            "task_kind": task_kind,
+            "retrieval_intent": retrieval_intent,
             "llm_scope": llm_scope,
             "chunk_count": len(filtered),
             "chunks": filtered,
-            "context_text": (context_payload or {}).get("context_text"),
+            "context_text": (context_payload or {}).get("context_text") if include_context_text is not False else None,
             "token_estimate": int((context_payload or {}).get("token_estimate") or 0),
             "context_policy": {
                 "default_deny": llm_scope == "external_cloud_allowed",
                 "llm_scope": llm_scope,
+            },
+            "retrieval_trace": retrieval_trace,
+            "selection_trace": {
+                "retrieval_trace_id": retrieval_trace.get("trace_id"),
+                "context_hash": retrieval_trace.get("context_hash"),
+                "manifest_hash": retrieval_trace.get("manifest_hash"),
+            },
+            "explainability": {
+                "channel_contributions": channel_contrib,
+                "sources": sources,
+            },
+            "budget": {
+                "total_budget_tokens": int(total_budget_tokens or 0),
+                "budget_tokens_by_mode": dict(budget_tokens_by_mode or {}),
             },
             "policy_filter": {
                 "input_count": len(chunks),
@@ -221,3 +299,7 @@ _context_bundle_service = ContextBundler()
 
 def get_context_bundle_service() -> ContextBundler:
     return _context_bundle_service
+
+
+# Backward-compatible alias for older tests/callers.
+ContextBundleService = ContextBundler
