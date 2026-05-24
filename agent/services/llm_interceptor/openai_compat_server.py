@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
@@ -7,10 +8,15 @@ from flask import Blueprint, Flask, Response, jsonify, request, stream_with_cont
 from werkzeug.exceptions import BadRequest
 
 from agent.services.llm_interceptor.config_schema import LlmInterceptorConfig
+from agent.services.llm_interceptor.audit_logger import AuditLogger
+from agent.services.llm_interceptor.context_gate import ContextGate
 from agent.services.llm_interceptor.policy_engine import PolicyEngine
+from agent.services.llm_interceptor.prompt_adapter import PromptAdapter
 from agent.services.llm_interceptor.provider_router import ProviderRouter
 from agent.services.llm_interceptor.request_envelope import build_request_envelope
 from agent.services.llm_interceptor.secret_redactor import SecretRedactor
+
+logger = logging.getLogger(__name__)
 
 
 def _error_response(message: str, *, code: str, status: int = 400):
@@ -32,6 +38,20 @@ class OpenAICompatInterceptorServer:
         self._router = ProviderRouter(cfg)
         self._policy = PolicyEngine(cfg.policy.model_dump())
         self._redactor = SecretRedactor(cfg.redaction.model_dump())
+        self._context_gate = ContextGate(cfg.policy.model_dump())
+        self._prompt_adapter = PromptAdapter(
+            {
+                "intercepted-coder": {
+                    "policy_preamble": "Follow system and security policy. Do not expose secrets.",
+                    "markdown_prone": True,
+                    "task_overrides": {
+                        "coding": {"markdown_prone": True},
+                        "security": {"markdown_prone": False},
+                    },
+                }
+            }
+        )
+        self._audit = AuditLogger(debug_prompt_logging=False)
 
     def _models_payload(self) -> dict[str, Any]:
         items: list[dict[str, Any]] = []
@@ -65,6 +85,7 @@ class OpenAICompatInterceptorServer:
 
         @bp.route("/chat/completions", methods=["POST"])
         def chat_completions():
+            started = time.time()
             try:
                 payload = request.get_json(force=False, silent=False)
             except BadRequest:
@@ -79,23 +100,60 @@ class OpenAICompatInterceptorServer:
             if not isinstance(messages, list) or not messages:
                 return _error_response("messages_required", code="messages_required", status=400)
             envelope = build_request_envelope(payload=payload, headers=dict(request.headers))
-            upstream = self._router.resolve_upstream(model=model)
+            upstream, routed_model = self._router.resolve_route(payload=payload, envelope=envelope.as_dict())
             decision = self._policy.evaluate(envelope=envelope.as_dict(), upstream_trust_level=upstream.trust_level)
             if decision.action in {"deny", "local_only"} and upstream.trust_level == "cloud":
                 return _error_response("policy_denied", code="policy_denied", status=403)
 
             redacted_messages, _meta = self._redactor.redact_messages(messages)
+            context_snippets = list(payload.get("context_snippets") or [])
+            gated_context, gate_meta = self._context_gate.gate(
+                snippets=context_snippets,
+                upstream_trust_level=upstream.trust_level,
+                decision=decision.as_dict(),
+                worker=envelope.caller_type,
+            )
+            adapted_messages = self._prompt_adapter.adapt_messages(
+                messages=redacted_messages,
+                model=routed_model,
+                task_kind=str((envelope.task_metadata or {}).get("task_kind") or ""),
+                require_strict_json=bool(payload.get("response_format") == "json_schema"),
+            )
             forwarded = dict(payload)
-            forwarded["messages"] = redacted_messages
+            forwarded["messages"] = adapted_messages
+            forwarded["model"] = routed_model
+            if gated_context:
+                forwarded["context_snippets"] = gated_context
+            else:
+                forwarded.pop("context_snippets", None)
 
             if bool(payload.get("stream", False)):
                 try:
-                    stream_iter = self._router.forward_chat_stream(payload=forwarded)
+                    stream_iter = self._router.forward_chat_stream(payload=forwarded, envelope=envelope.as_dict())
                 except ValueError as exc:
                     return _error_response(str(exc), code="upstream_error", status=502)
+                logger.info(
+                    "llm_interceptor_stream request_id=%s upstream=%s model=%s gate_denied=%s",
+                    envelope.request_id,
+                    upstream.id,
+                    routed_model,
+                    gate_meta.get("denied_count"),
+                )
                 return Response(stream_with_context(stream_iter), mimetype="text/event-stream")
             try:
-                return self._router.forward_chat(payload=forwarded)
+                result = self._router.forward_chat(payload=forwarded, envelope=envelope.as_dict())
+                event = self._audit.build_event(
+                    request_id=envelope.request_id,
+                    caller_type=envelope.caller_type,
+                    upstream_id=upstream.id,
+                    model=routed_model,
+                    policy_decision=decision.as_dict(),
+                    redaction_meta=_meta,
+                    duration_ms=int((time.time() - started) * 1000),
+                    messages=None,
+                )
+                logger.info("llm_interceptor_audit %s", event)
+                return result
             except ValueError as exc:
                 return _error_response(str(exc), code="upstream_error", status=502)
 

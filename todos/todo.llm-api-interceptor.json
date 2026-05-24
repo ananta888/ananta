@@ -213,7 +213,7 @@
         "LLMI-012",
         "LLMI-013"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -224,7 +224,7 @@
         "LLMI-016",
         "LLMI-017"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M5",
@@ -455,7 +455,7 @@
       "id": "LLMI-011",
       "title": "Implement ContextGate for project/codecompass/RAG context",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "summary": "Implement ContextGate for project/codecompass/RAG context",
@@ -475,7 +475,7 @@
       "id": "LLMI-012",
       "title": "Add policy profiles for local, cloud and high-risk modes",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "summary": "Add policy profiles for local, cloud and high-risk modes",
@@ -496,7 +496,7 @@
       "id": "LLMI-013",
       "title": "Add redacted audit logging",
       "type": "observability",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "summary": "Add redacted audit logging",
@@ -516,7 +516,7 @@
       "id": "LLMI-014",
       "title": "Implement ProviderRouter with allowlisted upstreams/models",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "summary": "Implement ProviderRouter with allowlisted upstreams/models",
@@ -536,7 +536,7 @@
       "id": "LLMI-015",
       "title": "Implement model-specific PromptAdapter",
       "type": "prompting",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "summary": "Implement model-specific PromptAdapter",
@@ -793,13 +793,13 @@
   "tasks_status_summary": {
     "total": 26,
     "by_status": {
-      "todo": 16,
+      "todo": 11,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 10
+      "done": 15
     },
-    "progress_percent_done": 38,
+    "progress_percent_done": 58,
     "by_priority": {
       "P0": 18,
       "P1": 8
@@ -811,15 +811,15 @@
     },
     "critical_path": {
       "total": 12,
-      "done": 6,
-      "remaining": 6
+      "done": 8,
+      "remaining": 4
     },
     "milestones": {
       "total": 6,
-      "todo": 3,
+      "todo": 2,
       "in_progress": 1,
       "blocked": 0,
-      "done": 2
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -837,13 +837,13 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 16,
+    "todo_remaining": 11,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 10,
+    "done": 15,
     "last_updated": "2026-05-24",
-    "notes": "LLMI-001..010 implemented: docs+ADR, config schema, request envelope, provider forwarding, streaming passthrough MVP, deterministic policy engine and secret redaction."
+    "notes": "LLMI-001..015 implemented: interceptor docs+ADR, schema, server skeleton, envelope, routing+streaming MVP, policy, redaction, context gate, policy profiles, audit logging and prompt adaptation."
   },
   "summary_notes": [
     "This TODO intentionally treats the interceptor as a security boundary and routing control point, not as a mere prompt trick.",

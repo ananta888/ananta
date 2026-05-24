@@ -98,6 +98,26 @@ class PolicyConfig(BaseModel):
     allow_worker_override_upstream: bool = False
     allow_prompt_override_policy: bool = False
     max_context_chars_default: int = 120000
+    active_profile: str = "cloud_safe"
+    profiles: dict[str, dict[str, Any]] = Field(
+        default_factory=lambda: {
+            "local_dev": {
+                "cloud_context_default": "redacted_minimal",
+                "local_context_default": "allowed_by_context_gate",
+                "deny_high_risk_to_cloud": True,
+            },
+            "cloud_safe": {
+                "cloud_context_default": "redacted_minimal",
+                "local_context_default": "allowed_by_context_gate",
+                "deny_high_risk_to_cloud": True,
+            },
+            "high_risk": {
+                "cloud_context_default": "none",
+                "local_context_default": "minimal_local",
+                "deny_high_risk_to_cloud": True,
+            },
+        }
+    )
 
     @field_validator("max_context_chars_default")
     @classmethod
@@ -172,4 +192,3 @@ def load_llm_interceptor_config(path: str | Path) -> LlmInterceptorConfig:
         return LlmInterceptorConfig.model_validate(raw)
     except ValidationError as exc:
         raise ValueError(f"invalid interceptor config: {exc}") from exc
-

@@ -55,11 +55,29 @@
   "policy": {
     "default_action": "deny_if_unclassified",
     "default_deny_secrets": true,
+    "active_profile": "cloud_safe",
     "cloud_context_default": "redacted_minimal",
     "local_context_default": "allowed_by_context_gate",
     "allow_worker_override_upstream": false,
     "allow_prompt_override_policy": false,
-    "max_context_chars_default": 120000
+    "max_context_chars_default": 120000,
+    "profiles": {
+      "local_dev": {
+        "cloud_context_default": "redacted_minimal",
+        "local_context_default": "allowed_by_context_gate",
+        "deny_high_risk_to_cloud": true
+      },
+      "cloud_safe": {
+        "cloud_context_default": "redacted_minimal",
+        "local_context_default": "allowed_by_context_gate",
+        "deny_high_risk_to_cloud": true
+      },
+      "high_risk": {
+        "cloud_context_default": "none",
+        "local_context_default": "minimal_local",
+        "deny_high_risk_to_cloud": true
+      }
+    }
   },
   "redaction": {
     "enabled": true,
@@ -80,4 +98,3 @@
     "structured_json_repair_attempts": 1
   }
 }
-
