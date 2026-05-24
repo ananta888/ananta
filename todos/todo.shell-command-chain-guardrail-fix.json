@@ -68,6 +68,37 @@
     "Die Policy ist konfigurierbar: erlaubte Chain-Operatoren, blockierte Operatoren, Segmentvalidierung, inline code handling.",
     "OpenCode-Testbefehle wie `python hello.py; python -c \"from hello import greet; print(greet('World'))\"` dürfen nicht wegen des Semikolons blockiert werden."
   ],
+  "implementation_guidance": {
+    "mode": "bugfix_first",
+    "worker_instruction": "Do not start with a large refactor. First fix the current bug path: execute_local_step() must not let Approval/Risk block allowed shell chains before CommandChainParser-based segment validation runs.",
+    "first_iteration_focus": [
+      "SCG-004 with the smallest required SCG-002 analyzer surface",
+      "SCG-003 regression tests for the concrete OpenCode command",
+      "SCG-006 segment-aware risk aggregation",
+      "SCG-007 segment-aware approval aggregation",
+      "SCG-008 shell_execute/run_command tool-call command argument path"
+    ],
+    "implement_first": [
+      "SCG-004",
+      "SCG-002-minimal",
+      "SCG-003",
+      "SCG-006",
+      "SCG-007",
+      "SCG-008"
+    ],
+    "defer_or_refactor_later": [
+      "SCG-005 SegmentPreflightValidator extraction",
+      "SCG-012 extended history/audit diagnostics beyond what is needed for the failing tests",
+      "SCG-013 Dry-Run Command Guardrail API/CLI",
+      "large documentation/release work until the fix is proven by tests"
+    ],
+    "notes": [
+      "SCG-002 may initially be implemented as a minimal ShellCommandAnalyzer wrapper around the existing CommandChainParser; full ShellCommandPolicy configurability can follow after the bug is fixed.",
+      "SCG-001 and SCG-011 are still valid, but should not block the first bugfix iteration if existing parser defaults are sufficient.",
+      "Security invariant: if any segment is denied, no segment may be executed.",
+      "Compatibility invariant: single-segment command behavior must remain unchanged except for clearer diagnostics."
+    ]
+  },
   "tracks": [
     {
       "id": "SCG-TRACK-001",
@@ -660,19 +691,19 @@
     }
   ],
   "recommended_execution_order": [
-    "SCG-003",
-    "SCG-001",
-    "SCG-002",
-    "SCG-011",
     "SCG-004",
-    "SCG-005",
+    "SCG-002-minimal",
+    "SCG-003",
     "SCG-006",
     "SCG-007",
+    "SCG-008",
     "SCG-014",
     "SCG-015",
     "SCG-016",
+    "SCG-001",
+    "SCG-011",
     "SCG-017",
-    "SCG-008",
+    "SCG-005",
     "SCG-009",
     "SCG-010",
     "SCG-012",
