@@ -771,6 +771,62 @@ class MemoryEntryDB(SQLModel, table=True):
     created_at: float = Field(default_factory=time.time)
 
 
+# ---------------------------------------------------------------------------
+# OHA-008: Memory Tree data model
+# Lifecycle: pending_extraction → admitted → buffered → sealed | dropped
+# IDs are content-addressed (SHA-256 of source_id + path + content).
+# ---------------------------------------------------------------------------
+
+class MemoryTreeChunkDB(SQLModel, table=True):
+    """Individual content unit in the Memory Tree (a leaf or summary chunk)."""
+    __tablename__ = "memory_tree_chunks"
+    id: str = Field(primary_key=True)          # content-addressed SHA-256[:32]
+    source_id: str = Field(index=True)         # knowledge_index_id / goal_id / task_id
+    source_type: str = "knowledge_index"       # knowledge_index | result_memory | codecompass | tool_output
+    scope: str = "source"                      # source | topic | global
+    kind: str = "leaf"                         # leaf | summary
+    sensitivity: str = "internal"             # public | internal | internal_high | secret | credential
+    lifecycle: str = "admitted"               # pending_extraction | admitted | buffered | sealed | dropped
+    label: str = ""                           # human-readable identifier (filename, symbol, ...)
+    content: str = ""                         # the actual text content
+    provenance_ref: Optional[str] = None      # file/line/commit/task/artifact pointer
+    original_ref: Optional[str] = None        # SHA-256[:16] of raw content before compaction
+    created_by: Optional[str] = None          # task_id or goal_id that triggered ingest
+    chunk_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time, index=True)
+    sealed_at: Optional[float] = None
+    dropped_at: Optional[float] = None
+
+
+class MemoryTreeNodeDB(SQLModel, table=True):
+    """Summary node in the source/topic/global tree hierarchy."""
+    __tablename__ = "memory_tree_nodes"
+    id: str = Field(primary_key=True)         # deterministic: scope:label hash
+    node_type: str = "source"                 # source | topic | global
+    label: str = ""
+    summary: Optional[str] = None             # LLM or deterministic summary text
+    provenance_refs: List[str] = Field(default=[], sa_column=Column(JSON))
+    child_chunk_ids: List[str] = Field(default=[], sa_column=Column(JSON))
+    sealed: bool = False
+    node_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    sealed_at: Optional[float] = None
+
+
+class MemoryTreeJobDB(SQLModel, table=True):
+    """Durable ingest/seal/digest job queue entry."""
+    __tablename__ = "memory_tree_jobs"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    kind: str = "ingest_source"  # ingest_source|extract_leaf|append_buffer|seal|route_topic|digest_goal|flush_stale
+    status: str = "pending"      # pending | leased | done | failed
+    payload: dict = Field(default={}, sa_column=Column(JSON))
+    dedupe_key: Optional[str] = Field(default=None, index=True)
+    retry_count: int = 0
+    lease_until: Optional[float] = None
+    created_at: float = Field(default_factory=time.time, index=True)
+    completed_at: Optional[float] = None
+
+
 class PasswordHistoryDB(SQLModel, table=True):
     __tablename__ = "password_history"
     id: Optional[int] = Field(default=None, primary_key=True)
