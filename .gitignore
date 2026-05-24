@@ -142,6 +142,9 @@ __pycache__/
 /fibonacci_test_v2/
 scripts/dyndns.conf
 
+# Temporary generated artifacts (terminal logo renders, svg-to-png output, etc.)
+/.tmp/
+
 # Runtime workspace outputs (generated per Goal/Task execution — not source)
 /project-workspaces/
 /artifacts/*.json
