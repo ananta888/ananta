@@ -2,7 +2,7 @@
   "$schema": "todo.track.schema.json",
   "id": "todo.ssh-oidc-certificate-terminal-access",
   "title": "Native SSH access with OIDC-backed short-lived SSH certificates for Ananta terminal targets",
-  "status": "done",
+  "status": "in_progress",
   "extends": [
     "todos/archiv/todo.tmux-oidc-terminal-sessions.json"
   ],
@@ -278,7 +278,31 @@
       "Native SSH OIDC/certificate services and CLI were added under agent/services and agent/cli/commands.",
       "OpenSSH hardened example and principals example are available under deploy/examples.",
       "Dedicated docs for SSH terminal access and ADR decision were added.",
-      "A dedicated Keycloak compose overlay (docker-compose.oidc-keycloak.yml) now provides a current Keycloak runtime and wires the existing OIDC implementation."
-    ]
+      "A dedicated Keycloak compose overlay (docker-compose.oidc-keycloak.yml) now provides a current Keycloak runtime and wires the existing OIDC implementation.",
+      "OIDC browser redirect/public issuer support was added through TERMINAL_OIDC_BROWSER_ISSUER while internal discovery can stay on container DNS."
+    ],
+    "verification": {
+      "date": "2026-05-25",
+      "completed": [
+        "SSH services exist: ssh_certificate_issuer, ssh_principal_mapper, ssh_terminal_wrapper, ssh_access_audit_service",
+        "CLI exists: agent/cli/commands/ssh.py and docs entry in docs/cli/commands.md",
+        "OpenSSH examples exist: deploy/examples/sshd_config.ananta.example and deploy/examples/ananta-authorized-principals.example",
+        "ADR exists: docs/decisions/ADR-ssh-oidc-certificate-access.md",
+        "Keycloak compose overlay exists and is live-validated with OIDC login redirect",
+        "OIDC routes exist and are operational with Flask session secret set"
+      ],
+      "open_gaps": [
+        "No dedicated tests found for tests/test_ssh_certificate_issuer.py",
+        "No dedicated tests found for tests/test_ssh_terminal_wrapper.py",
+        "No dedicated tests found for tests/test_ssh_access_audit.py",
+        "No dedicated tests found for tests/test_ssh_certificate_security.py",
+        "No dedicated tests found for tests/test_cli_ssh_terminal_commands.py",
+        "docs/security/terminal-audit.md does not exist yet"
+      ],
+      "task_path_mismatches": [
+        "SSH-T004 references agent/cli_goals.py, but implementation is in agent/cli/commands/ssh.py",
+        "Several task file lists reference test files not yet present in tests/"
+      ]
+    }
   }
 }
