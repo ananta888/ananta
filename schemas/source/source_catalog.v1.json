@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source_catalog.v1",
+  "title": "Source Catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "catalog_id",
+    "task_id",
+    "retrieval_trace_id",
+    "retrieval_context_hash",
+    "retrieval_manifest_hash",
+    "catalog_hash",
+    "sources"
+  ],
+  "properties": {
+    "schema": {
+      "const": "source_catalog.v1"
+    },
+    "catalog_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "retrieval_trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "retrieval_context_hash": {
+      "type": "string",
+      "minLength": 8
+    },
+    "retrieval_manifest_hash": {
+      "type": "string"
+    },
+    "catalog_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{16,64}$"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "source_type",
+          "path",
+          "record_id",
+          "line_start",
+          "line_end",
+          "content_hash",
+          "manifest_hash",
+          "sensitivity",
+          "allowed_for_llm_scope",
+          "created_at",
+          "task_id"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "pattern": "^(SRC|RUN)_[0-9]{4}$"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "rag_chunk",
+              "repo_file",
+              "artifact",
+              "wiki_chunk",
+              "tool_run",
+              "test_result",
+              "generated_artifact"
+            ]
+          },
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "record_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line_start": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "line_end": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "content_hash": {
+            "type": "string",
+            "minLength": 8
+          },
+          "manifest_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sensitivity": {
+            "type": "string",
+            "enum": [
+              "public",
+              "internal",
+              "internal_high",
+              "secret",
+              "credential",
+              "security_sensitive"
+            ]
+          },
+          "allowed_for_llm_scope": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "number"
+          },
+          "task_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
+
