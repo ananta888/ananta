@@ -27,6 +27,7 @@ from agent.services.planning_validation_service import get_planning_validation_s
 from agent.services.planning_telemetry_service import get_planning_telemetry_service
 from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
 from agent.services.planning_singleflight_service import get_planning_singleflight_service
+from agent.services.planning_timeout_service import get_planning_timeout_service
 from agent.utils import validate_request
 from agent.planning_reason_codes import (
     PLANNING_SLOT_TIMEOUT,
@@ -1001,47 +1002,12 @@ def _start_planning_heartbeat(*, goal_id: str, stop_event: threading.Event, inte
 
 
 def _start_planning_deadline_guard(*, goal_id: str, app: Any, timeout_s: int) -> None:
-    def _guard() -> None:
-        try:
-            app.logger.warning("planning_deadline_guard_started goal_id=%s timeout_s=%s", goal_id, int(timeout_s))
-        except Exception:
-            pass
-        time.sleep(max(10, int(timeout_s)))
-        with app.app_context():
-            goal = _repos().goal_repo.get_by_id(goal_id)
-            if not goal:
-                return
-            status = str(getattr(goal, "status", "") or "").strip().lower()
-            # Guard applies only while planning is still in progress. Once the
-            # goal leaves planning states, this watchdog must no longer force
-            # a terminal failure.
-            if status != "planning_running":
-                return
-            _mark_started_planning_runs_failed(
-                goal_id=goal_id,
-                reason=PLANNING_DEADLINE_GUARD_TIMEOUT,
-            )
-            _services().goal_lifecycle_service.transition_goal(
-                goal,
-                target_status="failed",
-                reason=PLANNING_DEADLINE_GUARD_TIMEOUT,
-                readiness=dict(getattr(goal, "readiness", None) or {}),
-            )
-            try:
-                app.logger.error("planning_deadline_guard_timeout goal_id=%s", goal_id)
-            except Exception:
-                pass
-            record_product_event(
-                "goal_planning_failed",
-                actor="auto_planner",
-                details={"reason": PLANNING_DEADLINE_GUARD_TIMEOUT, "timeout_seconds": int(timeout_s)},
-                goal_id=goal_id,
-                trace_id=str(getattr(goal, "trace_id", "") or ""),
-                plan_id=None,
-            )
-
-    thread = threading.Thread(target=_guard, daemon=True, name=f"planning-deadline-guard-{goal_id[:8]}")
-    thread.start()
+    get_planning_timeout_service().start_deadline_guard(
+        goal_id=goal_id,
+        timeout_s=timeout_s,
+        trace_id=None,
+        app=app,
+    )
 
 
 def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any]) -> None:

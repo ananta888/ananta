@@ -224,7 +224,7 @@
     {
       "id": "CONS-004",
       "title": "Planning Deadline Guard in PlanningTimeoutService kapseln",
-      "status": "partial",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "type": "refactor",
@@ -236,7 +236,7 @@
         "agent/services/goal_lifecycle_service.py",
         "tests/test_planning_timeout_service.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: _start_planning_deadline_guard existiert in agent/routes/tasks/goals.py und nutzt goal_lifecycle_service.transition_goal; dedizierter PlanningTimeoutService fehlt weiterhin.",
+      "code_state_after_review": "DONE_IN_CODE: PlanningTimeoutService eingefuehrt und goals.py auf start_deadline_guard(...) umgestellt; Guard ist pro Goal singleflight und testbar ohne echten Sleep via injizierbarem sleep_fn.",
       "source_origin": [
         "todo.latest-commits-improvements.json"
       ],
@@ -280,7 +280,7 @@
     {
       "id": "CONS-006",
       "title": "Worker-Preflight von Planner-Runtime trennen",
-      "status": "partial",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "type": "bugfix",
@@ -292,7 +292,7 @@
         "agent/config_defaults.py",
         "tests/test_worker_preflight_runtime_scope.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: CLI-Preflight unterstuetzt runtime_scope=worker und ueberspringt dann LMStudio/Ollama-Probes (probe_skipped=true); dedizierte End-to-End-Verdrahtung aller Worker-Preflight-Caller bleibt offen.",
+      "code_state_after_review": "DONE_IN_CODE: Worker-Preflight Scope ist auf worker verdrahtet (tool routing + integration registry + config default), LMStudio/Ollama Probes werden im Worker-Scope uebersprungen (probe_skipped=true).",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -309,7 +309,7 @@
     {
       "id": "CONS-007",
       "title": "Cancelled/terminale Goals vor Dispatch, Proposal und Execution hart blockieren",
-      "status": "partial",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "type": "bugfix",
@@ -322,7 +322,7 @@
         "agent/services/goal_lifecycle_service.py",
         "tests/test_cancelled_goal_task_execution_guard.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: Terminal-Goal-Guards existieren in autopilot_tick_engine vor Dispatch; zentraler Guard über alle späten Worker-Result-Pfade bleibt zu verifizieren.",
+      "code_state_after_review": "DONE_IN_CODE: TaskScopedExecutionService blockiert Proposal und Execution sofort bei terminalem Parent-Goal und schreibt parent_goal_cancelled in Task-History.",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -485,7 +485,7 @@
     {
       "id": "CONS-013",
       "title": "Goal-scoped Workspace-Profil für E2E aktivieren und testen",
-      "status": "partial",
+      "status": "done",
       "priority": "critical",
       "risk": "medium",
       "type": "config",
@@ -496,7 +496,7 @@
         "scripts/single_opencode_bigpickle_gemma_planner_scenario.json",
         "tests/test_e2e_goal_scoped_workspace.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: WorkerWorkspaceService besitzt scope_key, workspace_reuse_mode=goal_worker und Workspace-Root-Policy.",
+      "code_state_after_review": "DONE_IN_CODE: Goal-scoped Workspace-Reuse ist als E2E-Contract durch test_e2e_goal_scoped_workspace.py abgesichert (same-goal shared workspace, cross-goal isolation, output-dir lock).",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -541,7 +541,7 @@
     {
       "id": "CONS-015",
       "title": "Optionales Git-Workspace-Profil für E2E absichern",
-      "status": "partial",
+      "status": "done",
       "priority": "medium",
       "risk": "medium",
       "type": "feature",
@@ -552,7 +552,7 @@
         "agent/services/workspace_git_service.py",
         "tests/test_e2e_git_workspace_profile.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: WorkerWorkspaceContext enthält git_context; alte TODO nennt _init_git_context, aber konkrete Aktivierung im E2E-Profil fehlt.",
+      "code_state_after_review": "DONE_IN_CODE: Optionales Git-Workspace-Profil ist per Tests abgesichert (enabled=false blockiert nicht, branch_strategy=goal deterministisch).",
       "source_origin": [
         "todo.e2e-opencode-bigpickle-gemma-planner-stabilization.json"
       ],
@@ -601,7 +601,7 @@
     {
       "id": "CONS-017",
       "title": "PromptTrace-Restarbeiten: Worker-/Backend-Adapter anbinden",
-      "status": "partial",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "type": "feature",
@@ -615,7 +615,7 @@
         "agent/services/tool_routing_service.py",
         "tests/test_worker_prompt_trace_integration.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: prompt_trace_service.py implementiert Datenmodell/Storage/Service; Adapter-Anbindung ist nicht nachgewiesen.",
+      "code_state_after_review": "DONE_IN_CODE: Forwarded/external Worker-Proposals ohne inspectable PromptTrace werden explizit als external_worker_uninspectable markiert; Integrationstest ergaenzt.",
       "source_origin": [
         "todo.prompt-trace-inspection.json"
       ],
@@ -631,7 +631,7 @@
     {
       "id": "CONS-018",
       "title": "PromptTrace Context-/Tool-Provenance vervollständigen",
-      "status": "partial",
+      "status": "done",
       "priority": "high",
       "risk": "medium",
       "type": "feature",
@@ -644,7 +644,7 @@
         "agent/services/context_delivery_service.py",
         "tests/test_prompt_trace_context_tool_provenance.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: PromptTraceService kann tools hashen und context_sources speichern; echte Pfadabdeckung muss getestet/ergänzt werden.",
+      "code_state_after_review": "DONE_IN_CODE: PromptTrace-Provenance aus llm_integration fuehrt context_sources + tool provenance in die Traces; Regressionstest fuer Context-/Tool-Provenance ergänzt.",
       "source_origin": [
         "todo.prompt-trace-inspection.json"
       ],
@@ -662,7 +662,7 @@
     {
       "id": "CONS-019",
       "title": "PromptTrace Sensitivity und LLM-Scope Policy integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "critical",
       "risk": "high",
       "type": "security",
@@ -675,7 +675,7 @@
         "agent/services/context_delivery_service.py",
         "tests/test_prompt_trace_sensitivity_scope.py"
       ],
-      "code_state_after_review": "PARTIAL_IN_CODE: llm_scope/sensitivity-Kontexte sind in context_delivery/context_file_selector/rag_policy und PromptTrace-Feldern vorhanden; vollständige Policy-gebundene Trace-Assertions fehlen noch.",
+      "code_state_after_review": "DONE_IN_CODE: llm_scope wird provider-/endpoint-basiert in PromptTrace gesetzt (local_only vs external_cloud_allowed) inkl. Sensitivity-Feld; Scope-Tests local/cloud vorhanden.",
       "source_origin": [
         "todo.prompt-trace-inspection.json",
         "single_hermes_free_models_scenario.json"
@@ -888,11 +888,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 8,
+      "partial": 0,
       "blocked": 0,
-      "done": 17
+      "done": 25
     },
-    "progress_percent_done": 68,
+    "progress_percent_done": 100,
     "by_priority": {
       "critical": 10,
       "high": 8,
@@ -904,9 +904,9 @@
       "low": 3
     },
     "critical_path": {
-      "total": 13,
-      "done": 9,
-      "remaining": 4
+      "total": 0,
+      "done": 0,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
@@ -934,9 +934,9 @@
     "state": "high-throughput-implementation-wave",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 8,
+    "partial": 0,
     "blocked": 0,
-    "done": 17
+    "done": 25
   },
   "execution_stage_summary": {
     "first_implementation_order": [

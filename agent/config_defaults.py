@@ -410,6 +410,7 @@ def build_default_agent_config() -> dict:
         "worker_runtime": {
             "workspace_root": os.environ.get("ANANTA_WORKSPACE_ROOT") or None,
             "workspace_reuse_mode": "goal_worker",
+            "preflight_scope": "worker",
             "default_execution_profile": "balanced",
             "todo_contract": {
                 "enabled": True,
