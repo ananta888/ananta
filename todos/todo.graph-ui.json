@@ -1,10 +1,10 @@
 {
   "id": "todo.graph-ui",
   "title": "Add generic CodeCompass graph visualization component with simple, 2D and 3D views",
-  "status": "todo",
+  "status": "in_progress",
   "progress": {
-    "completed": ["graph-000", "graph-001", "graph-002", "graph-003", "graph-004", "graph-005", "graph-007", "graph-008", "graph-009", "graph-010", "graph-011"],
-    "remaining": ["graph-006", "graph-012"],
+    "completed": ["graph-000", "graph-001", "graph-002", "graph-003", "graph-004", "graph-005", "graph-007", "graph-008", "graph-009", "graph-010", "graph-011", "graph-012"],
+    "remaining": ["graph-006"],
     "tests_passing": { "backend": 15, "frontend": 40 },
     "last_updated": "2026-05-24"
   },
@@ -371,7 +371,7 @@
     },
     {
       "id": "graph-012",
-      "status": "todo",
+      "status": "done",
       "title": "Document extension points",
       "type": "documentation",
       "files": [
