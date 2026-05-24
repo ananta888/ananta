@@ -36,7 +36,7 @@
     {
       "id": "BU-M1",
       "title": "Contract And Routing",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "BU-T001",
         "BU-T002",
@@ -69,7 +69,7 @@
     {
       "id": "BU-M4",
       "title": "Artifacts And Verification",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "BU-T013",
         "BU-T014",
@@ -80,7 +80,7 @@
     {
       "id": "BU-M5",
       "title": "Recovery And Fallback",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "BU-T017",
         "BU-T018",
@@ -91,7 +91,7 @@
     {
       "id": "BU-M6",
       "title": "Ops And E2E",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "BU-T021",
         "BU-T022",
@@ -127,7 +127,7 @@
     {
       "id": "BU-T002",
       "title": "Add hub routing decision for browser path",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "milestone": "BU-M1",
@@ -155,7 +155,7 @@
     {
       "id": "BU-T004",
       "title": "Add config surface for browser backend",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M1",
@@ -295,7 +295,7 @@
     {
       "id": "BU-T014",
       "title": "Persist browser artifacts with provenance",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M4",
@@ -309,7 +309,7 @@
     {
       "id": "BU-T015",
       "title": "Add browser artifact verification gates",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "milestone": "BU-M4",
@@ -323,7 +323,7 @@
     {
       "id": "BU-T016",
       "title": "Add completion policy integration for browser tasks",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M4",
@@ -337,7 +337,7 @@
     {
       "id": "BU-T017",
       "title": "Add bounded repair loop for browser failures",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "milestone": "BU-M5",
@@ -351,7 +351,7 @@
     {
       "id": "BU-T018",
       "title": "Classify browser failure taxonomy",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M5",
@@ -365,7 +365,7 @@
     {
       "id": "BU-T019",
       "title": "Add deterministic fallback policy for browser path",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M5",
@@ -379,7 +379,7 @@
     {
       "id": "BU-T020",
       "title": "Add needs_review escalation contract",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "medium",
       "milestone": "BU-M5",
@@ -393,7 +393,7 @@
     {
       "id": "BU-T021",
       "title": "Add audit event family for browser execution",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "milestone": "BU-M6",
@@ -407,7 +407,7 @@
     {
       "id": "BU-T022",
       "title": "Add observability for browser backend usage",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M6",
@@ -450,8 +450,8 @@
   "tasks_status_summary": {
     "total": 24,
     "by_status": {
-      "todo": 24,
-      "in_progress": 0,
+      "todo": 13,
+      "in_progress": 11,
       "blocked": 0,
       "done": 0
     },
@@ -475,10 +475,25 @@
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 4,
       "blocked": 0,
       "done": 0
+    }
+  },
+  "code_alignment_notes": {
+    "updated_at": "2026-05-25",
+    "basis": "repository code scan",
+    "evidence": [
+      "Generic routing + fallback policy surfaces exist (agent/services/routing_decision_service.py, docs/hub-fallback-and-reliability.md).",
+      "Generic artifact persistence and completion gates exist (agent/services/task_artifact_completion_gate_service.py, agent/services/artifact_store.py).",
+      "Generic task-scoped execution and policy services exist (agent/services/task_scoped_execution_service.py, agent/services/task_execution_policy_service.py).",
+      "Browser-specific worker adapter/contract fields/allowlist guardrails are not yet implemented as dedicated browser-use path."
+    ],
+    "status_interpretation": {
+      "done": "browser-use specific acceptance criteria implemented and test-covered",
+      "in_progress": "partial via existing generic platform capability, browser specialization still missing",
+      "todo": "no meaningful implementation detected for browser-use-specific scope"
     }
   },
   "execution_stage_summary": {
@@ -530,5 +545,10 @@
     "quick_recommendation": "Start with BU-T001, BU-T002, BU-T005, BU-T009, BU-T013, BU-T021, BU-T023 in that order.",
     "default_rollout_mode": "Feature-flagged rollout with browser backend disabled by default and enabled per environment after preflight pass.",
     "definition_of_done": "Browser tasks run through hub policy, produce verified artifacts, and are fully auditable in E2E scenarios."
+  },
+  "task_category_totals": {
+    "done": 0,
+    "partial": 11,
+    "todo": 13
   }
 }
