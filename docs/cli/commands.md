@@ -133,7 +133,63 @@ ananta runtime recommend
 | `ananta evolve-project "..."` | Shortcut: goal evolve-project |
 | `ananta llm-log tail` | Alias: ananta llm log tail |
 | `ananta tui` | Operator TUI starten |
+| `ananta tui --open <file>` | Datei im konfigurierten Editor oeffnen |
+| `ananta tmux edit <file>` | Alias fuer `tui --open` |
+| `ananta tmux tool <tool-id>` | TUI-Tool starten (z.B. lazygit, ranger) |
 | `ananta web` | Web-UI URL anzeigen |
+
+---
+
+## `ananta tui` — Embedded Editor & TUI Tools
+
+```bash
+# Datei im Standard-Editor (Vim) oeffnen
+ananta tui --open README.md
+
+# Datei in einem bestimmten Editor oeffnen
+ananta tui --open app.py --with nvim
+
+# Datei schreibgeschuetzt oeffnen
+ananta tui --open config.json --readonly
+
+# TUI-Tool starten
+ananta tui --tool git_ui          # lazygit
+ananta tui --tool file_manager    # ranger
+
+# Workspace explizit angeben (default: aktuelles Verzeichnis)
+ananta tui --open app.py --workspace /path/to/project
+```
+
+Editor-Aufloesung (Reihenfolge, erster Treffer gewinnt):
+
+1. `--with <editor>` Argument
+2. Projekt-Filetype-Regel (`.ananta/tui-tools.json`)
+3. User-Filetype-Regel (`~/.config/ananta/tui-tools.json`)
+4. Global-Filetype-Regel
+5. `$EDITOR` / `$VISUAL` (wenn `allow_environment_editor: true`)
+6. `default_editor` aus Config
+7. Fallback: `vim`
+
+## `ananta tmux` — Terminal-Shortcuts
+
+```bash
+# Datei bearbeiten
+ananta tmux edit README.md
+ananta tmux edit app.py --with nvim
+ananta tmux edit config.json --readonly
+ananta tmux edit app.py --workspace /path/to/project
+
+# TUI-Tool starten
+ananta tmux tool git_ui
+ananta tmux tool file_manager
+```
+
+`ananta tmux` ist ein Alias-Einstiegspunkt fuer dieselbe Editor/Tool-Logik wie
+`ananta tui --open` und `ananta tui --tool`. Beide Befehle verwenden denselben
+Resolver und dieselbe Workspace-Validierung.
+
+Konfiguration: `docs/configuration/tui-tools.md`  
+Sicherheitsmodell: `docs/security/terminal-sessions.md`
 
 ---
 
