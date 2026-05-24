@@ -18,14 +18,14 @@ from agent.services.routing_decision_service import get_routing_decision_service
 class IntegrationRegistryService:
     """Central registry for provider, execution-backend and exposure-adapter metadata."""
 
-    def list_execution_backends(self, *, include_preflight: bool = True) -> dict[str, Any]:
+    def list_execution_backends(self, *, include_preflight: bool = True, preflight_scope: str = "full") -> dict[str, Any]:
         payload = {
             "supported_backends": sorted(SUPPORTED_CLI_BACKENDS),
             "capabilities": get_cli_backend_capabilities(),
             "runtime": get_cli_backend_runtime_status(),
         }
         if include_preflight:
-            payload["preflight"] = get_cli_backend_preflight()
+            payload["preflight"] = get_cli_backend_preflight(runtime_scope=preflight_scope)
         return payload
 
     def list_exposure_adapters(self, *, cfg: dict[str, Any] | None) -> list[dict[str, Any]]:

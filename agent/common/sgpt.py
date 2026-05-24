@@ -285,7 +285,9 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
     return data
 
 
-def get_cli_backend_preflight() -> dict[str, dict]:
+def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]:
+    scope = str(runtime_scope or "full").strip().lower() or "full"
+    worker_scope = scope in {"worker", "worker_only", "execution"}
     provider_urls = _get_runtime_provider_urls()
     lmstudio_base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
     from agent.llm_integration import _normalize_ollama_base_url
@@ -312,7 +314,7 @@ def get_cli_backend_preflight() -> dict[str, dict]:
         "candidate_count": 0,
         "candidates": [],
     }
-    if lmstudio_base_url:
+    if lmstudio_base_url and not worker_scope:
         from agent.llm_integration import probe_lmstudio_runtime
 
         try:
@@ -345,7 +347,7 @@ def get_cli_backend_preflight() -> dict[str, dict]:
         "executor_summary": {"gpu": 0, "cpu": 0, "unknown": 0},
         "active_models": [],
     }
-    if ollama_base_url:
+    if ollama_base_url and not worker_scope:
         from agent.llm_integration import probe_ollama_activity, probe_ollama_runtime
 
         try:
@@ -413,6 +415,8 @@ def get_cli_backend_preflight() -> dict[str, dict]:
                 "models_url": lmstudio_probe.get("models_url"),
                 "candidate_count": int(lmstudio_probe.get("candidate_count") or 0),
                 "candidates": list(lmstudio_probe.get("candidates") or []),
+                "runtime_scope": scope,
+                "probe_skipped": bool(worker_scope),
             },
             "ollama": {
                 "configured": bool(ollama_base_url),
@@ -433,6 +437,8 @@ def get_cli_backend_preflight() -> dict[str, dict]:
                     "executor_summary": dict(ollama_activity.get("executor_summary") or {"gpu": 0, "cpu": 0, "unknown": 0}),
                     "active_models": list(ollama_activity.get("active_models") or []),
                 },
+                "runtime_scope": scope,
+                "probe_skipped": bool(worker_scope),
             },
             "codex": {
                 "configured": bool(codex_runtime.get("base_url")),

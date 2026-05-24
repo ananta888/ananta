@@ -22,6 +22,8 @@ from agent.services.instruction_layer_service import get_instruction_layer_servi
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.planning_quality_service import get_planning_quality_service
+from agent.services.planning_contract import resolve_planning_contract
+from agent.services.planning_validation_service import get_planning_validation_service
 from agent.services.planning_telemetry_service import get_planning_telemetry_service
 from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
 from agent.services.planning_singleflight_service import get_planning_singleflight_service
@@ -103,7 +105,19 @@ def _plan_quality_from_task_ids(*, task_ids: list[str], mode: str, planning_poli
         planning_policy=planning_policy,
         team_id=team_id,
     )
-    return quality.ok, quality.reason
+    contract = resolve_planning_contract(mode=mode, planning_policy=planning_policy)
+    contract_validation = get_planning_validation_service().validate_subtasks(
+        subtasks=subtasks,
+        contract=contract,
+    )
+    if contract_validation.ok:
+        return quality.ok, quality.reason
+    contract_reason = "|".join(list(contract_validation.error_codes) or ["planning_contract_failed"])
+    if contract_validation.missing_task_kinds:
+        contract_reason = (
+            f"{contract_reason}|missing_task_kinds:{','.join(contract_validation.missing_task_kinds)}"
+        )
+    return False, contract_reason
 
 
 def _is_soft_planning_quality_failure(*, quality_reason: str) -> bool:
@@ -1292,6 +1306,50 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
             return
 
         if create_tasks_enabled and software_goal and not quality_ok and not _is_soft_planning_quality_failure(quality_reason=quality_reason):
+            quality_parts = [part.strip() for part in str(quality_reason or "").split("|") if part.strip()]
+            missing_task_kinds: list[str] = []
+            for part in quality_parts:
+                if part.startswith("missing_task_kinds:"):
+                    missing_task_kinds = [item.strip() for item in part.split(":", 1)[1].split(",") if item.strip()]
+            if missing_task_kinds:
+                retry_mode_data = dict(goal_record.mode_data or {})
+                retry_mode_data["planning_repair_context"] = {
+                    "missing_task_kinds": missing_task_kinds,
+                    "error_codes": [part for part in quality_parts if ":" not in part],
+                }
+                retry_result = auto_planner.plan_goal(
+                    goal=str(context.get("goal_text") or goal_record.goal or ""),
+                    context=context.get("mode_context"),
+                    team_id=effective.get("routing", {}).get("team_id"),
+                    create_tasks=True,
+                    use_template=bool(effective.get("planning", {}).get("use_template", True)),
+                    use_repo_context=bool(effective.get("planning", {}).get("use_repo_context", True)),
+                    goal_id=goal_record.id,
+                    goal_trace_id=goal_record.trace_id,
+                    mode="new_software_project",
+                    mode_data=retry_mode_data,
+                )
+                retry_task_ids = list(retry_result.get("created_task_ids") or [])
+                if not retry_result.get("error") and retry_task_ids:
+                    retry_quality_ok, retry_quality_reason = _plan_quality_from_task_ids(
+                        task_ids=retry_task_ids,
+                        mode="new_software_project",
+                        planning_policy=_resolved_pp,
+                        team_id=str(effective.get("routing", {}).get("team_id") or "") or None,
+                    )
+                    if retry_quality_ok or _is_soft_planning_quality_failure(quality_reason=retry_quality_reason):
+                        result = retry_result
+                        created_task_ids = retry_task_ids
+                        quality_ok = retry_quality_ok
+                        quality_reason = retry_quality_reason
+
+        if create_tasks_enabled and software_goal and not quality_ok and not _is_soft_planning_quality_failure(quality_reason=quality_reason):
+            quality_parts = [part.strip() for part in str(quality_reason or "").split("|") if part.strip()]
+            error_codes = [part for part in quality_parts if ":" not in part]
+            missing_task_kinds: list[str] = []
+            for part in quality_parts:
+                if part.startswith("missing_task_kinds:"):
+                    missing_task_kinds = [item.strip() for item in part.split(":", 1)[1].split(",") if item.strip()]
             _services().goal_lifecycle_service.transition_goal(
                 goal_record,
                 target_status="failed",
@@ -1304,6 +1362,8 @@ def _run_goal_planning_background_impl(*, goal_id: str, context: dict[str, Any])
                 details={
                     "reason": "planning_insufficient_task_detail",
                     "quality_reason": quality_reason,
+                    "error_codes": error_codes,
+                    "missing_task_kinds": missing_task_kinds,
                     "task_count": len(created_task_ids),
                     "source": goal_record.source,
                     "mode": goal_record.mode,
