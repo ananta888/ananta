@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "grounded_answer.v1",
+  "title": "Grounded Answer v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "answer",
+    "claims",
+    "unsupported_notes"
+  ],
+  "properties": {
+    "schema": {
+      "const": "grounded_answer.v1"
+    },
+    "answer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_id",
+          "text",
+          "claim_type",
+          "citation_refs",
+          "confidence"
+        ],
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "pattern": "^CLM_[0-9]{4}$"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "claim_type": {
+            "type": "string",
+            "enum": [
+              "source_fact",
+              "tool_result",
+              "inference",
+              "uncertain"
+            ]
+          },
+          "citation_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "partially_verified",
+              "unverified"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "claim_type": {
+                  "const": "uncertain"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "citation_refs": {
+                  "maxItems": 0
+                },
+                "confidence": {
+                  "const": "unverified"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "citation_refs": {
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "unsupported_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+
