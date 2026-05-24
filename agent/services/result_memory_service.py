@@ -84,6 +84,15 @@ class ResultMemoryService:
 
     _FILE_PATH_RE = re.compile(r"(?<![A-Za-z0-9_./-])([A-Za-z0-9_./-]+\.(?:py|ts|tsx|js|jsx|java|go|rs|md|json|yaml|yml|xml))(?![A-Za-z0-9_./-])")
 
+    def __init__(
+        self,
+        *,
+        memory_tree_ingestion_service: Any = None,
+        auto_ingest_tree: bool = False,
+    ) -> None:
+        self._memory_tree_ingestion_svc = memory_tree_ingestion_service
+        self._auto_ingest_tree = auto_ingest_tree
+
     def _compact_output(self, output: str) -> dict[str, object]:
         text = str(output or "").strip()
         if not text:
@@ -297,7 +306,7 @@ class ResultMemoryService:
             "retrieval_tags": list(retrieval_tags or []),
         } if bool(memory_policy["create_followup_artifact"]) else None
 
-        return memory_entry_repo.save(
+        entry = memory_entry_repo.save(
             MemoryEntryDB(
                 task_id=task_id,
                 goal_id=goal_id,
@@ -337,6 +346,58 @@ class ResultMemoryService:
                 },
             )
         )
+
+        # OHA-012: optional MemoryTree ingest after successful persist
+        if entry is not None and self._auto_ingest_tree and self._memory_tree_ingestion_svc is not None:
+            self._try_memory_tree_ingest(
+                entry=entry,
+                sensitivity=memory_policy["sensitivity"],
+                approved=bool(approved),
+                goal_id=goal_id,
+                task_id=task_id,
+                summary=summary,
+                retrieval_document=retrieval_document,
+                generated_by=generated_by,
+            )
+
+        return entry
+
+    def _try_memory_tree_ingest(
+        self,
+        *,
+        entry: Any,
+        sensitivity: str,
+        approved: bool,
+        goal_id: str | None,
+        task_id: str | None,
+        summary: str | None,
+        retrieval_document: str | None,
+        generated_by: str | None,
+    ) -> None:
+        """Ingest a persisted memory entry as a MemoryTree leaf. OHA-012."""
+        try:
+            source_id = f"result_memory:{goal_id or task_id or 'unknown'}"
+            content = retrieval_document or summary or ""
+            if not content.strip():
+                return
+            # Trusted leaves come from approved results; untrusted from worker proposals
+            kind = "trusted_leaf" if approved else "untrusted_leaf"
+            self._memory_tree_ingestion_svc._store.ingest_chunk(
+                source_id=source_id,
+                source_type="result_memory",
+                label=str(getattr(entry, "title", None) or task_id or "result")[:256],
+                content=content[:4000],
+                scope="task",
+                kind=kind,
+                sensitivity=sensitivity,
+                provenance_ref=f"memory_entry:{getattr(entry, 'id', '')}",
+                created_by=generated_by or task_id or "",
+            )
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "ResultMemoryService: MemoryTree ingest failed — %s", exc
+            )
 
     def build_memory_proposal(
         self,

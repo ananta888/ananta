@@ -7,6 +7,86 @@ from flask import current_app, has_app_context
 from agent.services.context_bundle_service import get_context_bundle_service
 from agent.services.repository_registry import get_repository_registry
 
+# OHA-013: sensitivity levels that are denied for cloud/external destinations by default
+_CLOUD_DENY_SENSITIVITIES = {"internal_high", "secret", "credential", "security_sensitive"}
+_SENSITIVITY_ORDER = ["public", "internal", "internal_high", "secret", "credential", "security_sensitive"]
+
+
+def _intent_to_tree_scope(retrieval_intent: str) -> str:
+    """Map retrieval intent to the most appropriate MemoryTree scope."""
+    intent = str(retrieval_intent or "").lower()
+    if any(k in intent for k in ("architecture", "decision", "cross_module", "global")):
+        return "global"
+    if any(k in intent for k in ("topic", "symbol", "module", "domain")):
+        return "topic"
+    if any(k in intent for k in ("config", "integration", "contract")):
+        return "topic"
+    return "source"  # default: most specific / cheapest
+
+
+def _build_destination(
+    *,
+    worker_id: str = "hub",
+    runtime_kind: str = "local",
+    provider_location: str = "local",
+    model_scope: str = "local_only",
+    cloud_effective: bool = False,
+    external_effective: bool = False,
+) -> dict[str, Any]:
+    return {
+        "worker_id": worker_id,
+        "runtime_kind": runtime_kind,
+        "provider_location": provider_location,
+        "model_scope": model_scope,
+        "cloud_effective": cloud_effective,
+        "external_effective": external_effective,
+        "local_effective": not cloud_effective and not external_effective,
+    }
+
+
+def filter_chunks_for_destination(
+    chunks: list[dict],
+    destination: dict[str, Any],
+    *,
+    sensitivity_ceiling: str = "internal_high",
+) -> dict[str, Any]:
+    """Apply destination-aware sensitivity filter to a list of chunk dicts.
+
+    Returns a dict with allowed/denied counts and denied_reasons.
+    """
+    cloud_or_external = destination.get("cloud_effective") or destination.get("external_effective")
+    allowed: list[dict] = []
+    denied_count = 0
+    denied_reasons: list[str] = []
+
+    ceiling_idx = _SENSITIVITY_ORDER.index(sensitivity_ceiling) if sensitivity_ceiling in _SENSITIVITY_ORDER else 2
+
+    for chunk in chunks:
+        meta = dict(chunk.get("metadata") or {})
+        sens = str(meta.get("sensitivity") or "public").lower()
+        sens_idx = _SENSITIVITY_ORDER.index(sens) if sens in _SENSITIVITY_ORDER else 1
+
+        reason: str | None = None
+        if cloud_or_external and sens in _CLOUD_DENY_SENSITIVITIES:
+            reason = f"cloud_deny:{sens}"
+        elif sens_idx > ceiling_idx:
+            reason = f"ceiling_exceeded:{sens}>{sensitivity_ceiling}"
+
+        if reason:
+            denied_count += 1
+            if reason not in denied_reasons:
+                denied_reasons.append(reason)
+        else:
+            allowed.append(chunk)
+
+    return {
+        "allowed_chunks": allowed,
+        "allowed_count": len(allowed),
+        "denied_count": denied_count,
+        "denied_reasons": denied_reasons,
+        "input_count": len(chunks),
+    }
+
 
 class TaskContextPolicyService:
     """Leitet Context-Bundle-Policy, Retrieval-Hints und Task-Nachbarschaft für Delegation ab."""
@@ -126,6 +206,8 @@ class TaskContextPolicyService:
         parent_task: dict[str, Any],
         data: Any,
         effective_task_kind: str | None,
+        # OHA-013: destination override (defaults to local hub worker)
+        destination: dict[str, Any] | None = None,
     ) -> tuple[dict[str, Any], dict[str, str], dict[str, list[str]]]:
         """Kombiniere Bundle-Policy, Retrieval-Hints und Task-Nachbarschaft zu einer Context-Policy."""
 
@@ -135,12 +217,20 @@ class TaskContextPolicyService:
             effective_task_kind=effective_task_kind,
         )
         task_neighborhood = self.derive_task_neighborhood(parent_task=parent_task)
+
+        # OHA-013: MemoryTree scope and destination
+        tree_scope = _intent_to_tree_scope(retrieval_hints["retrieval_intent"])
+        resolved_destination = destination or _build_destination()
+
         context_policy = {
             **self.resolve_context_bundle_policy(),
             "task_kind": effective_task_kind,
             "retrieval_intent": retrieval_hints["retrieval_intent"],
             "required_context_scope": retrieval_hints["required_context_scope"],
             "preferred_bundle_mode": retrieval_hints["preferred_bundle_mode"],
+            # OHA-013: new fields
+            "retrieval_tree_scope": tree_scope,
+            "destination": resolved_destination,
             **task_neighborhood,
         }
         return context_policy, retrieval_hints, task_neighborhood
