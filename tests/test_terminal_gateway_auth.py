@@ -115,18 +115,15 @@ def test_gateway_disconnect_transitions_session_to_detached():
 
     from agent.ws_terminal import _attach_token_ws_session
 
-    with patch("agent.ws_terminal.get_terminal_session_service") as mock_svc_fn:
-        mock_svc = mock_svc_fn.return_value
-        mock_svc.resolve_attach_token.return_value = ("sess-gw", "user-gw")
-
-        with patch("agent.ws_terminal.get_repository_registry") as mock_reg:
+    with patch("agent.services.terminal_session_service.TerminalSessionService.resolve_attach_token",
+               return_value=("sess-gw", "user-gw")):
+        with patch("agent.services.repository_registry.get_repository_registry") as mock_reg:
             mock_reg.return_value.terminal_session_repo.get_by_id.return_value = sess
             mock_reg.return_value.terminal_session_repo.transition_status = MagicMock()
             mock_reg.return_value.terminal_event_repo.append = MagicMock()
 
-            with patch("agent.ws_terminal.get_tmux_session_backend") as mock_be:
-                # Make capture_output raise so we exit the loop immediately
-                mock_be.return_value.capture_output.side_effect = Exception("tmux_gone")
+            with patch("agent.services.tmux_backend.TmuxSessionBackend.capture_output",
+                       side_effect=Exception("tmux_gone")):
                 with patch("agent.ws_terminal._WebSocketInputPump") as mock_pump_cls:
                     mock_pump = MagicMock()
                     mock_pump.closed = True
