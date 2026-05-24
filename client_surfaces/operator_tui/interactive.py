@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from typing import TYPE_CHECKING
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
@@ -13,10 +14,19 @@ from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.renderer import render_operator_shell
 
+if TYPE_CHECKING:
+    from agent.cli.splash import SplashMachine
+
 
 class InteractiveOperatorTui:
-    def __init__(self, state: OperatorState, registry: SectionAdapterRegistry | None = None) -> None:
+    def __init__(
+        self,
+        state: OperatorState,
+        registry: SectionAdapterRegistry | None = None,
+        splash: SplashMachine | None = None,
+    ) -> None:
         self._registry = registry or SectionAdapterRegistry()
+        self._splash = splash
         self.state = load_active_section(state, self._registry)
         self._command_buffer = ""
         self._output = TextArea(
@@ -174,5 +184,7 @@ class InteractiveOperatorTui:
         self._app.invalidate()
 
     def _render(self) -> str:
+        if self._splash is not None:
+            self._splash.tick()
         size = shutil.get_terminal_size((120, 32))
-        return render_operator_shell(self.state, width=size.columns, height=max(18, size.lines - 1))
+        return render_operator_shell(self.state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash)

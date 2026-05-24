@@ -520,6 +520,103 @@ class TaskScopedExecutionService:
             "retrieval_manifest_hash": manifest_hash,
         }
 
+    def _build_source_catalog_from_execution_context(
+        self,
+        *,
+        tid: str,
+        task: dict,
+        llm_scope: str = "local_only",
+    ) -> dict | None:
+        execution_context = dict((task or {}).get("worker_execution_context") or {})
+        context_payload = dict(execution_context.get("context") or {})
+        chunks = [dict(item) for item in list(context_payload.get("chunks") or []) if isinstance(item, dict)]
+        if not chunks:
+            return None
+        selected: list[dict[str, Any]] = []
+        provenance: list[dict[str, Any]] = []
+        for chunk in chunks:
+            metadata = dict(chunk.get("metadata") or {})
+            selected.append(
+                {
+                    "path": str(chunk.get("source") or metadata.get("file") or ""),
+                    "record_id": str(metadata.get("record_id") or chunk.get("record_id") or ""),
+                    "content_hash": str(metadata.get("record_id") or chunk.get("record_id") or chunk.get("source") or ""),
+                    "channel": str(metadata.get("channel") or metadata.get("engine") or ""),
+                    "metadata": metadata,
+                }
+            )
+            provenance.append(
+                {
+                    "engine": str(metadata.get("engine") or metadata.get("channel") or ""),
+                    "record_id": str(metadata.get("record_id") or chunk.get("record_id") or chunk.get("source") or ""),
+                    "file": str(metadata.get("file") or chunk.get("source") or ""),
+                    "kind": str(metadata.get("record_kind") or metadata.get("kind") or ""),
+                    "score": float(chunk.get("score") or 0.0),
+                    "manifest_hash": str(metadata.get("source_manifest_hash") or ""),
+                    "line_start": metadata.get("line_start"),
+                    "line_end": metadata.get("line_end"),
+                    "sensitivity": str(metadata.get("sensitivity") or "internal"),
+                }
+            )
+        retrieval_trace = dict((context_payload.get("bundle_metadata") or {}).get("retrieval_trace") or {})
+        if not retrieval_trace:
+            retrieval_trace = dict(context_payload.get("retrieval_trace") or {})
+        from agent.services.source_catalog_service import get_source_catalog_service
+
+        return get_source_catalog_service().build_catalog(
+            task_id=str(tid),
+            retrieval_payload={
+                "selected": selected,
+                "provenance": provenance,
+                "retrieval_trace": retrieval_trace,
+            },
+            llm_scope=llm_scope,
+        )
+
+    @staticmethod
+    def _render_citation_contract_prompt(source_catalog: dict | None) -> str:
+        if not isinstance(source_catalog, dict):
+            return ""
+        sources = [dict(item) for item in list(source_catalog.get("sources") or []) if isinstance(item, dict)]
+        if not sources:
+            return ""
+        preview = []
+        for item in sources[:12]:
+            preview.append(
+                {
+                    "source_id": item.get("source_id"),
+                    "source_type": item.get("source_type"),
+                    "path": item.get("path"),
+                    "record_id": item.get("record_id"),
+                    "allowed_for_llm_scope": bool(item.get("allowed_for_llm_scope", True)),
+                }
+            )
+        return (
+            "Citation Contract (grounded_answer.v1):\n"
+            "- Use only provided source IDs (SRC_* or RUN_*).\n"
+            "- Do not invent source IDs, paths, line ranges, or tool result IDs.\n"
+            "- Every factual claim must include citation_refs.\n"
+            "- Tool execution claims must cite RUN_* evidence.\n"
+            "- Uncertain statements must be marked with confidence=unverified and empty citation_refs.\n"
+            f"- source_catalog_id: {source_catalog.get('catalog_id')}\n"
+            f"- source_catalog_hash: {source_catalog.get('catalog_hash')}\n"
+            "Allowed sources excerpt:\n"
+            + json.dumps(preview, ensure_ascii=False)
+        )
+
+    @staticmethod
+    def _extract_grounded_answer_payload(output: str | None) -> dict | None:
+        raw = str(output or "").strip()
+        if not raw:
+            return None
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return None
+        if isinstance(parsed, dict) and str(parsed.get("schema") or "").strip() == "grounded_answer.v1":
+            return parsed
+        return None
+
     @staticmethod
     def _update_task_flow_metrics(
         *,
@@ -590,6 +687,22 @@ class TaskScopedExecutionService:
         )
         cfg = dict(scoped_resolution.config or {})
         base_prompt = request_data.prompt or task.get("description") or task.get("prompt") or f"Bearbeite Task {tid}"
+        source_catalog = self._build_source_catalog_from_execution_context(
+            tid=tid,
+            task=task,
+            llm_scope="local_only",
+        )
+        if not isinstance(source_catalog, dict):
+            existing_source_catalog = dict((task.get("verification_status") or {}).get("source_catalog") or {})
+            if existing_source_catalog:
+                source_catalog = {
+                    "catalog_id": existing_source_catalog.get("source_catalog_id"),
+                    "catalog_hash": existing_source_catalog.get("source_catalog_hash"),
+                    "sources": list(existing_source_catalog.get("sources") or []),
+                }
+        citation_contract = self._render_citation_contract_prompt(source_catalog)
+        if citation_contract:
+            base_prompt = f"{base_prompt}\n\n{citation_contract}"
         explicit_task_kind = str(task.get("task_kind") or "").strip().lower()
         task_kind = explicit_task_kind or normalize_task_kind(None, base_prompt)
         rc_input = getattr(request_data, "research_context", None)
@@ -782,6 +895,9 @@ class TaskScopedExecutionService:
                 "input_chars": (compaction_meta or {}).get("input_chars"),
                 "output_chars": (compaction_meta or {}).get("output_chars"),
             },
+            "source_catalog_id": (source_catalog or {}).get("catalog_id") if isinstance(source_catalog, dict) else None,
+            "source_catalog_hash": (source_catalog or {}).get("catalog_hash") if isinstance(source_catalog, dict) else None,
+            "answer_schema": "grounded_answer.v1",
         }
         proposal_meta = dict(getattr(result.proposal, "metadata", None) or {}) if result.proposal is not None else {}
         proposal_provider = str(proposal_meta.get("provider") or "").strip() or None
@@ -845,6 +961,25 @@ class TaskScopedExecutionService:
                 "propose_strategy_meta": propose_strategy_meta,
             },
         )
+        if isinstance(source_catalog, dict):
+            verification_status = dict(task.get("verification_status") or {})
+            verification_status["source_catalog"] = {
+                "source_catalog_id": source_catalog.get("catalog_id"),
+                "source_catalog_hash": source_catalog.get("catalog_hash"),
+                "source_count": len(list(source_catalog.get("sources") or [])),
+                "retrieval_trace_id": source_catalog.get("retrieval_trace_id"),
+                "sources": list(source_catalog.get("sources") or []),
+            }
+            verification_status["answer_verification"] = {
+                **dict(verification_status.get("answer_verification") or {}),
+                "answer_schema": "grounded_answer.v1",
+                "citation_verification_status": "pending",
+            }
+            update_local_task_status(
+                tid,
+                str(task.get("status") or "proposing"),
+                verification_status=verification_status,
+            )
 
         return TaskScopedRouteResponse(data={**result_dict, "propose_strategy_meta": propose_strategy_meta})
 
@@ -1273,6 +1408,53 @@ class TaskScopedExecutionService:
                     "missing_expected_paths": missing,
                     "final_status": final_status,
                 }
+
+            verification_status = dict((task.get("verification_status") or {}))
+            source_catalog_status = dict(verification_status.get("source_catalog") or {})
+            source_catalog_sources = list(source_catalog_status.get("sources") or [])
+            answer_payload = self._extract_grounded_answer_payload(response_payload.get("output"))
+            answer_verification = dict(verification_status.get("answer_verification") or {})
+            answer_verification.setdefault("answer_schema", "grounded_answer.v1")
+            if answer_payload and source_catalog_sources:
+                from agent.services.citation_verification_service import get_citation_verification_service
+
+                verification_result = get_citation_verification_service().verify(
+                    task_id=str(tid),
+                    answer_payload=answer_payload,
+                    source_catalog={
+                        "schema": "source_catalog.v1",
+                        "catalog_id": source_catalog_status.get("source_catalog_id"),
+                        "task_id": str(tid),
+                        "retrieval_trace_id": source_catalog_status.get("retrieval_trace_id"),
+                        "retrieval_context_hash": "",
+                        "retrieval_manifest_hash": "",
+                        "catalog_hash": source_catalog_status.get("source_catalog_hash") or "0" * 16,
+                        "sources": source_catalog_sources,
+                    },
+                    tool_run_catalog=tool_run_refs,
+                )
+                answer_verification.update(
+                    {
+                        "citation_verification_status": verification_result.get("status"),
+                        "verified_claim_count": int(verification_result.get("verified_claim_count") or 0),
+                        "unverified_claim_count": int(verification_result.get("unverified_claim_count") or 0),
+                        "failed_claims": list(verification_result.get("failed_claims") or []),
+                        "tool_run_refs": tool_run_refs,
+                    }
+                )
+                if verification_result.get("status") != "verified" and str(response_payload.get("status") or "") == "completed":
+                    response_payload["status"] = "failed"
+            else:
+                answer_verification.setdefault("citation_verification_status", "not_evaluated")
+                answer_verification.setdefault("verified_claim_count", 0)
+                answer_verification.setdefault("unverified_claim_count", 0)
+                answer_verification.setdefault("failed_claims", [])
+            verification_status["answer_verification"] = answer_verification
+            update_local_task_status(
+                tid,
+                str(response_payload.get("status") or execution_run.status),
+                verification_status=verification_status,
+            )
 
             history_len = len(task.get("history", []) or [])
             _log_terminal_entry(current_app.config["AGENT_NAME"], history_len, "out", command=command, task_id=tid)
@@ -4186,12 +4368,6 @@ class TaskScopedExecutionService:
         dimensions["inference_provider"] = str(cfg.get("default_provider") or "").strip().lower() or None
         return dimensions
 
-
-task_scoped_execution_service = TaskScopedExecutionService()
-
-
-def get_task_scoped_execution_service() -> TaskScopedExecutionService:
-    return task_scoped_execution_service
     @staticmethod
     def _terminal_parent_goal_guard(*, tid: str, task: dict, phase: str) -> TaskScopedRouteResponse | None:
         goal_id = str((task or {}).get("goal_id") or "").strip()
@@ -4221,3 +4397,10 @@ def get_task_scoped_execution_service() -> TaskScopedExecutionService:
             message="Parent goal is terminal",
             code=409,
         )
+
+
+task_scoped_execution_service = TaskScopedExecutionService()
+
+
+def get_task_scoped_execution_service() -> TaskScopedExecutionService:
+    return task_scoped_execution_service
