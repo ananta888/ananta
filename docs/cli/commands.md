@@ -219,6 +219,21 @@ Resolver und dieselbe Workspace-Validierung.
 Konfiguration: `docs/configuration/tui-tools.md`  
 Sicherheitsmodell: `docs/security/terminal-sessions.md`
 
+## `ananta ssh` — Native SSH terminal path
+
+```bash
+ananta ssh login
+ananta ssh targets
+ananta ssh connect --target-type worker --target-id alpha
+ananta ssh connect --target-type hub --reason "incident triage"
+```
+
+Hinweise:
+- Nutzt die bestehende OIDC-Integration (`/auth/oidc/*`) fuer Identity-Binding.
+- Benoetigt `NATIVE_SSH_ENABLED=true` und einen konfigurierten SSH-CA-Backend-Pfad.
+- Hub-Zugriff ist getrenntes High-Risk-Recht und standardmaessig denied.
+- Details: `docs/security/ssh-terminal-access.md`.
+
 ---
 
 ## Entwickler/CI-Befehle (`ananta dev`)

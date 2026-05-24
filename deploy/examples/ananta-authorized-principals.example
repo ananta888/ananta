@@ -1,0 +1,8 @@
+# /etc/ssh/ananta_principals/ananta-worker
+ananta-worker
+
+# /etc/ssh/ananta_principals/ananta-hub
+ananta-hub
+
+# /etc/ssh/ananta_principals/ananta-hub-as-worker
+ananta-hub-as-worker

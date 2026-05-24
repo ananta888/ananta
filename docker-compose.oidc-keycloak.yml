@@ -1,0 +1,52 @@
+# Optional compose overlay: local Keycloak OIDC provider for Ananta terminal auth.
+# Usage:
+#   docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.oidc-keycloak.yml --profile oidc up -d
+#
+# This overlay keeps the existing Ananta OIDC implementation (`/auth/oidc/*`) and
+# provides a current Keycloak runtime as OIDC issuer.
+
+services:
+  keycloak-db:
+    image: postgres:16.13@sha256:5a65324fe84dc41709ff914e90b07f3e2f577073ed27bf917d4873aca0c9ec51
+    restart: unless-stopped
+    profiles: ["oidc"]
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_DB_NAME:-keycloak}
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-keycloak_change_me}"
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.1
+    restart: unless-stopped
+    profiles: ["oidc"]
+    command: ["start-dev", "--import-realm", "--http-port=8080"]
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-admin_change_me}"
+      KC_DB: postgres
+      KC_DB_URL_HOST: keycloak-db
+      KC_DB_URL_DATABASE: ${KEYCLOAK_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-keycloak_change_me}"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME_STRICT: "false"
+    depends_on:
+      - keycloak-db
+    ports:
+      - "${KEYCLOAK_PORT:-8081}:8080"
+    volumes:
+      - ./deploy/keycloak/realm-export:/opt/keycloak/data/import:ro
+
+  ai-agent-hub:
+    environment:
+      TERMINAL_OIDC_ENABLED: ${TERMINAL_OIDC_ENABLED:-true}
+      TERMINAL_OIDC_ISSUER: ${TERMINAL_OIDC_ISSUER:-http://localhost:8081/realms/ananta}
+      TERMINAL_OIDC_AUDIENCE: ${TERMINAL_OIDC_AUDIENCE:-ananta-hub}
+      TERMINAL_OIDC_CLIENT_ID: ${TERMINAL_OIDC_CLIENT_ID:-ananta-hub}
+
+volumes:
+  keycloak_db_data:
+    name: ananta_keycloak_db_data
