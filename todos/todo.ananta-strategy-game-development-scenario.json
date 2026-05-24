@@ -1,0 +1,414 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "ananta_strategy_game_development_scenario",
+  "created": "2026-05-24",
+  "purpose": "Grosses Entwicklungsbeispiel fuer das Ananta-Hauptprojekt: Das Ananta Strategie-Game wird als kontrolliertes Hub-Worker-Szenario mit Scope-Reduktion, Artefakten, Playtest und spaeterem Game-Core geplant.",
+  "goal": "Das Strategie-Game Ananta mit Ananta selbst entwickeln: zuerst Brutal-MVP und Papier-Playtest, danach minimaler TypeScript-Game-Core, alles mit Review-Gates und ohne monolithische Agenten-Vollautomatik.",
+  "source_files": [
+    "ananta_consolidated_masterplan_mermaid.md",
+    "ananta_consolidated_grosse_todo.json",
+    "ananta_first_step_schwachstellen_mvp_reduktion.md",
+    "todo.ananta_first_step_mvp_reduktion.json"
+  ],
+  "active_reference": "docs/examples/ananta-strategy-game-development-scenario.md",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "scope_decision": {
+    "active_working_set": "First-Step Brutal-MVP",
+    "master_plan_role": "Backlog und Referenz",
+    "reason": "Der grosse Plan ist wertvoll, aber fuer den ersten Agentenlauf zu breit. Der First Step ist klein genug fuer Planung, Review, Playtest und spaetere Umsetzung."
+  },
+  "brutal_mvp_scope": {
+    "players": "2 lokal",
+    "map": "19 Hexfelder bevorzugt; 37 nur falls ohne Zusatzkomplexitaet",
+    "lokas": 3,
+    "units": ["Naga", "Rishi", "Deva"],
+    "structures": ["Ashram"],
+    "resources": ["Soma"],
+    "action_points": 6,
+    "core_mechanics": ["MOVE", "ATTACK", "RECRUIT", "END_TURN", "NAGABANDA"],
+    "technical_first_step": "Pure TypeScript Game-Core ohne UI-Abhaengigkeit"
+  },
+  "explicitly_out_of_scope_first_step": [
+    "Yaksha",
+    "Asura",
+    "Durga/Durg",
+    "Patalas-Sonderregeln",
+    "Tirtha-Mehrfachbonus",
+    "Trade",
+    "Fog of War",
+    "komplexe Scout-/Produktionsaktivierung",
+    "E-Ink-Optimierung",
+    "Magnetbrett-Hardware",
+    "Online-Multiplayer",
+    "KI-Gegner"
+  ],
+  "milestones": [
+    {
+      "id": "ASG01",
+      "title": "Szenario im Hauptprojekt verankern",
+      "status": "done",
+      "priority": "P0",
+      "task_ids": ["ASG001", "ASG002", "ASG003"]
+    },
+    {
+      "id": "ASG02",
+      "title": "Brutal-MVP finalisieren",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["ASG004", "ASG005", "ASG006", "ASG007", "ASG008"]
+    },
+    {
+      "id": "ASG03",
+      "title": "Papier-Playtest vorbereiten",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["ASG009", "ASG010", "ASG011"]
+    },
+    {
+      "id": "ASG04",
+      "title": "Playtest auswerten und Game-Core ableiten",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["ASG012", "ASG013", "ASG014", "ASG015"]
+    },
+    {
+      "id": "ASG05",
+      "title": "Ananta-Agentenflow als Demo validieren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["ASG016", "ASG017", "ASG018"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "ASG001",
+      "title": "Strategie-Game als offizielles Entwicklungs-Szenario dokumentieren",
+      "type": "documentation",
+      "milestone_id": "ASG01",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "summary": "Fuegt eine grosse Markdown-Datei hinzu, die das Game als Ananta-Hub-Worker-Beispiel einordnet.",
+      "deliverables": ["docs/examples/ananta-strategy-game-development-scenario.md"],
+      "acceptance_criteria": [
+        "Dokument erklaert, dass das Game ein Entwicklungsbeispiel fuer Ananta ist.",
+        "Dokument trennt grossen Masterplan von aktivem First-Step-Scope.",
+        "Dokument enthaelt Mermaid-Diagramme fuer Scope, Game-Core, Nagabanda und Review-Gates."
+      ]
+    },
+    {
+      "id": "ASG002",
+      "title": "First-Step als fuehrende Arbeitsbasis markieren",
+      "type": "scope_control",
+      "milestone_id": "ASG01",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "summary": "Legt fest, dass die First-Step-TODO aktiv ist und die grosse TODO nur Backlog bleibt.",
+      "deliverables": ["scope_decision im Szenario-Dokument"],
+      "acceptance_criteria": [
+        "Aktive Arbeitsbasis ist eindeutig dokumentiert.",
+        "Grosse Masterplan-Dateien sind als Backlog/Referenz markiert.",
+        "Kein First-Step-Task haengt von geparkten Features ab."
+      ]
+    },
+    {
+      "id": "ASG003",
+      "title": "Demo-Flow-Verweis im Hauptprojekt ergaenzen",
+      "type": "documentation",
+      "milestone_id": "ASG01",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "summary": "Ergaenzt docs/demo-flows.md um das Game als reales Projektentwicklungsbeispiel.",
+      "deliverables": ["docs/demo-flows.md"],
+      "acceptance_criteria": [
+        "Demo-Flow verweist auf die neue Szenario-Datei.",
+        "Flow beschreibt UI-, CLI- und API-Einstieg.",
+        "Erfolgssignal nennt Scope-Reduktion, Artefakte und Review-Gates."
+      ]
+    },
+    {
+      "id": "ASG004",
+      "title": "19-Hex-Testkarte finalisieren",
+      "type": "game_design",
+      "milestone_id": "ASG02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Erstellt die kleine Testkarte mit 3 Lokas und eindeutig benannten Feldern.",
+      "dependencies": [],
+      "deliverables": ["docs/examples/ananta-game/paper_map_19_hex.md"],
+      "acceptance_criteria": [
+        "Karte hat 19 Felder und genau 3 Lokas.",
+        "Alle Felder haben IDs.",
+        "Startpositionen sind symmetrisch oder bewusst begruendet.",
+        "Ein Zentralfeld/Meru ist markiert."
+      ]
+    },
+    {
+      "id": "ASG005",
+      "title": "2-Seiten-Brutal-MVP-Kurzregel schreiben",
+      "type": "rules",
+      "milestone_id": "ASG02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Schreibt eine kurze Regel, mit der ein fremder Tester starten kann.",
+      "dependencies": ["ASG004"],
+      "deliverables": ["docs/examples/ananta-game/brutal_mvp_rules.md"],
+      "acceptance_criteria": [
+        "Kurzregel ist maximal zwei Seiten lang.",
+        "Enthalten sind nur Naga, Rishi, Deva, Ashram, Soma, AP, Kampf und Nagabanda.",
+        "Out-of-Scope-Mechaniken tauchen nicht als aktive Regeln auf.",
+        "Ein externer Tester kann ohne Rueckfrage starten."
+      ]
+    },
+    {
+      "id": "ASG006",
+      "title": "Nagabanda-Minimalregel mit Beispielen dokumentieren",
+      "type": "core_mechanic",
+      "milestone_id": "ASG02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Macht die Kernmechanik testbar und fuer Agenten/Tester eindeutig.",
+      "dependencies": ["ASG004"],
+      "deliverables": ["docs/examples/ananta-game/nagabanda_examples.md"],
+      "acceptance_criteria": [
+        "Regel ist in maximal zehn Saetzen erklaerbar.",
+        "Es gibt Beispiele fuer keine, teilweise und volle Einkreisung.",
+        "Eigenes Ashram als Brecher der Einkreisung ist dokumentiert.",
+        "Regel ist spaeter direkt in TypeScript testbar."
+      ]
+    },
+    {
+      "id": "ASG007",
+      "title": "Deva- und Rishi-Korrekturen einfrieren",
+      "type": "balancing",
+      "milestone_id": "ASG02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Fixiert die analysierten Korrekturen fuer den First Step.",
+      "dependencies": ["ASG005"],
+      "deliverables": ["Abschnitt in brutal_mvp_rules.md"],
+      "acceptance_criteria": [
+        "Deva darf nicht bewegen und angreifen im selben Zug.",
+        "Rishi-Flucht ist auf einmal pro eigene Runde begrenzt.",
+        "Rishi kann bei voller Nagabanda nicht fliehen.",
+        "Es gibt keine alternative Kombikosten-Regel im First-Step-Regelset."
+      ]
+    },
+    {
+      "id": "ASG008",
+      "title": "Tirtha, Trade, Durg und E-Ink explizit parken",
+      "type": "scope_control",
+      "milestone_id": "ASG02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "summary": "Verhindert, dass der erste Test wieder mit Sondermechaniken volllaeuft.",
+      "dependencies": ["ASG005"],
+      "deliverables": ["docs/examples/ananta-game/parked_features.md"],
+      "acceptance_criteria": [
+        "Alle geparkten Features sind benannt.",
+        "Fuer jedes geparkte Feature steht: nicht im First Step.",
+        "Durg/Durga-Korrektur ist als spaetere Namenskorrektur notiert.",
+        "E-Ink und Hardware sind Architekturziele, aber keine First-Step-Aufgaben."
+      ]
+    },
+    {
+      "id": "ASG009",
+      "title": "Playtest-Protokollvorlage erstellen",
+      "type": "testing",
+      "milestone_id": "ASG03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "summary": "Definiert, welche Beobachtungen aus dem Papier-Playtest gesammelt werden.",
+      "dependencies": ["ASG005", "ASG006"],
+      "deliverables": ["docs/examples/ananta-game/playtest_protocol_template.md"],
+      "acceptance_criteria": [
+        "Vorlage erfasst Rundenzahl, Dauer, Sieger und Abbruchgrund.",
+        "Vorlage enthaelt Felder fuer Nagabanda-Verstaendlichkeit und Planbarkeit.",
+        "Vorlage enthaelt Felder fuer Deva zu stark/passend/zu schwach.",
+        "Vorlage enthaelt Felder fuer Rishi nervig/passend/zu schwach."
+      ]
+    },
+    {
+      "id": "ASG010",
+      "title": "Papiermaterial fuer Testpartie vorbereiten",
+      "type": "playtest",
+      "milestone_id": "ASG03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "summary": "Bereitet Karte, Marker und Zaehlhilfen vor.",
+      "dependencies": ["ASG004", "ASG005", "ASG009"],
+      "deliverables": ["Papierkarte", "Einheitenmarker", "AP/Soma-Zaehler"],
+      "acceptance_criteria": [
+        "Alle Felder sind eindeutig erkennbar.",
+        "Jeder Spieler hat unterscheidbare Marker.",
+        "AP und Soma koennen ohne App verwaltet werden.",
+        "Nagabanda-Situationen lassen sich auf Papier markieren."
+      ]
+    },
+    {
+      "id": "ASG011",
+      "title": "Ersten Papier-Playtest durchfuehren",
+      "type": "playtest",
+      "milestone_id": "ASG03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Prueft, ob der reduzierte Kern als Spiel funktioniert.",
+      "dependencies": ["ASG010"],
+      "deliverables": ["docs/examples/ananta-game/playtest_001.md"],
+      "acceptance_criteria": [
+        "Eine Partie wurde gespielt oder begruendet abgebrochen.",
+        "Mindestens drei Beobachtungen zu Nagabanda sind dokumentiert.",
+        "Mindestens je eine Beobachtung zu Deva und Rishi ist dokumentiert.",
+        "Keine neue Mechanik wurde waehrend des Tests eingefuehrt."
+      ]
+    },
+    {
+      "id": "ASG012",
+      "title": "Playtest-Entscheidungen dokumentieren",
+      "type": "decision",
+      "milestone_id": "ASG04",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Leitet klare Entscheidungen aus dem Playtest ab.",
+      "dependencies": ["ASG011"],
+      "deliverables": ["docs/examples/ananta-game/playtest_decisions.md"],
+      "acceptance_criteria": [
+        "Nagabanda ist bewertet: behalten, vereinfachen oder verschieben.",
+        "Deva ist bewertet: zu stark, passend oder zu schwach.",
+        "Rishi ist bewertet: nervig, passend oder zu schwach.",
+        "AP und Kartengroesse sind bewertet."
+      ]
+    },
+    {
+      "id": "ASG013",
+      "title": "Minimales GameState-Modell ableiten",
+      "type": "technical_design",
+      "milestone_id": "ASG04",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Leitet aus den getesteten Regeln ein kleines TypeScript-Modell ab.",
+      "dependencies": ["ASG012"],
+      "deliverables": ["docs/examples/ananta-game/game_core_model.md"],
+      "acceptance_criteria": [
+        "Modell enthaelt nur First-Step-Elemente.",
+        "GameState ist serialisierbar.",
+        "Keine Angular- oder UI-Abhaengigkeit.",
+        "Eine Papierstellung kann vollstaendig abgebildet werden."
+      ]
+    },
+    {
+      "id": "ASG014",
+      "title": "ActionLog- und Replay-Beispiel erstellen",
+      "type": "technical_design",
+      "milestone_id": "ASG04",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "summary": "Zeigt, wie der Game-Core deterministisch aus Actions reproduziert wird.",
+      "dependencies": ["ASG013"],
+      "deliverables": ["docs/examples/ananta-game/action_log_example.json"],
+      "acceptance_criteria": [
+        "Beispiel enthaelt mindestens fuenf Aktionen.",
+        "Aus InitialState + ActionLog ergibt sich ein eindeutiger Endzustand.",
+        "Keine zufaelligen oder nicht deterministischen Elemente enthalten.",
+        "Ungueltige Aktionen sind spaeter durch validateAction pruefbar."
+      ]
+    },
+    {
+      "id": "ASG015",
+      "title": "Core-Testplan schreiben",
+      "type": "testing",
+      "milestone_id": "ASG04",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "summary": "Definiert Tests, bevor UI oder Renderer gebaut werden.",
+      "dependencies": ["ASG013", "ASG014"],
+      "deliverables": ["docs/examples/ananta-game/test_plan.md"],
+      "acceptance_criteria": [
+        "Testplan enthaelt Bewegung, AP, Kampf, Rishi-Flucht, Deva-Regel und Nagabanda.",
+        "Nagabanda hat mehrere Edge-Case-Tests.",
+        "Replay-Test ist enthalten.",
+        "Tests laufen spaeter ohne Browser/UI."
+      ]
+    },
+    {
+      "id": "ASG016",
+      "title": "Ananta-Goal-Prompt fuer das Szenario definieren",
+      "type": "agent_flow",
+      "milestone_id": "ASG05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "summary": "Schreibt den konkreten Goal-Text fuer UI, CLI und API.",
+      "dependencies": ["ASG001"],
+      "deliverables": ["Goal-Beispiel im Szenario-Dokument oder Demo-Flow"],
+      "acceptance_criteria": [
+        "Goal beschreibt den Brutal-MVP klar.",
+        "Goal nennt explizit Nicht-Ziele.",
+        "Goal fordert Artefakte und Review-Gates.",
+        "Goal ist nicht als monolithischer 'baue alles'-Auftrag formuliert."
+      ]
+    },
+    {
+      "id": "ASG017",
+      "title": "Worker-Rollen fuer das Szenario beschreiben",
+      "type": "agent_flow",
+      "milestone_id": "ASG05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Definiert, welche Worker welche Aufgaben im Beispiel uebernehmen duerfen.",
+      "dependencies": ["ASG016"],
+      "deliverables": ["docs/examples/ananta-game/worker_roles.md"],
+      "acceptance_criteria": [
+        "Rollen fuer Regelanalyse, Core-Design, Tests und Dokumentation sind getrennt.",
+        "Kein Worker darf Scope eigenmaechtig erweitern.",
+        "Review-Gate Owner ist benannt.",
+        "Apply bleibt ohne Review deaktiviert."
+      ]
+    },
+    {
+      "id": "ASG018",
+      "title": "Demo-Erfolgssignale fuer Ananta pruefbar machen",
+      "type": "verification",
+      "milestone_id": "ASG05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Macht sichtbar, ob Ananta das Szenario korrekt steuert.",
+      "dependencies": ["ASG016", "ASG017"],
+      "deliverables": ["docs/examples/ananta-game/demo_review_check.md"],
+      "acceptance_criteria": [
+        "Goal-Detail zeigt geplante Artefakte.",
+        "Board zeigt kleine sequenzierte Tasks statt Monolith.",
+        "Scope-Reduktion ist als Hub-Entscheidung sichtbar.",
+        "Verification und Human Review sind vor Umsetzung sichtbar."
+      ]
+    }
+  ],
+  "first_recommended_working_set": ["ASG004", "ASG005", "ASG006", "ASG009", "ASG016"],
+  "definition_of_done": [
+    "Szenario ist im Hauptprojekt dokumentiert.",
+    "Demo-Flow verweist auf das Szenario.",
+    "Brutal-MVP-Regeln und 19-Hex-Testkarte liegen vor.",
+    "Mindestens ein Papier-Playtest wurde dokumentiert.",
+    "Game-Core wird erst nach Playtest-Entscheidungen abgeleitet.",
+    "Ananta zeigt dabei Scope-Reduktion, Artefakte, Verification und Review-Gates."
+  ]
+}
