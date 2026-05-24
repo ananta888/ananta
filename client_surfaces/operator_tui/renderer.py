@@ -269,7 +269,7 @@ def _system_content_lines(payload: dict) -> list[str]:
     return lines
 
 
-def _terminal_content_lines(payload: dict, state: "OperatorState", width: int) -> list[str]:
+def _terminal_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:
     lines: list[str] = []
     targets = payload.get("targets") or []
     sessions = payload.get("sessions") or []
