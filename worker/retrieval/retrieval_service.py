@@ -139,6 +139,13 @@ class HybridRetrievalService:
             selected.append(
                 {
                     "path": str(item.get("path") or ""),
+                    "record_id": str(
+                        item.get("record_id")
+                        or (item.get("metadata") or {}).get("record_id")
+                        or item.get("content_hash")
+                        or item.get("path")
+                        or ""
+                    ),
                     "symbol_name": str(item.get("symbol_name") or ""),
                     "content_hash": str(item.get("content_hash") or ""),
                     "channel": str(item.get("channel") or ""),
@@ -167,6 +174,8 @@ class HybridRetrievalService:
                 "expanded_from": str((item.get("metadata") or {}).get("expanded_from") or ""),
                 "relation_path": str((item.get("metadata") or {}).get("relation_path") or ""),
                 "manifest_hash": str((item.get("metadata") or {}).get("source_manifest_hash") or ""),
+                "line_start": (item.get("metadata") or {}).get("line_start"),
+                "line_end": (item.get("metadata") or {}).get("line_end"),
             }
             for item in selected
         ]

@@ -11,6 +11,8 @@ _ANSWER_SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "answers
 
 class CitationVerificationService:
     """Deterministic claim-to-source verifier for grounded answers."""
+    _SOURCE_FACT_TYPES = {"rag_chunk", "repo_file", "artifact", "wiki_chunk"}
+    _TOOL_RESULT_TYPES = {"tool_run", "test_result", "generated_artifact"}
 
     def _validate_answer_shape(self, answer_payload: dict[str, Any]) -> list[str]:
         schema = json.loads(_ANSWER_SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -71,6 +73,18 @@ class CitationVerificationService:
                     claim_failed = True
                     continue
                 stype = str(src.get("source_type") or "")
+                if claim_type == "source_fact" and stype not in self._SOURCE_FACT_TYPES:
+                    failed_claims.append(
+                        {"claim_id": claim_id, "reason": "failed_source_type_mismatch", "source_id": ref, "source_type": stype}
+                    )
+                    claim_failed = True
+                    continue
+                if claim_type == "tool_result" and stype not in self._TOOL_RESULT_TYPES:
+                    failed_claims.append(
+                        {"claim_id": claim_id, "reason": "failed_source_type_mismatch", "source_id": ref, "source_type": stype}
+                    )
+                    claim_failed = True
+                    continue
                 if stype in {"tool_run", "test_result", "generated_artifact"}:
                     has_run = True
             if claim_type == "tool_result" and not has_run:
@@ -93,4 +107,3 @@ _SERVICE = CitationVerificationService()
 
 def get_citation_verification_service() -> CitationVerificationService:
     return _SERVICE
-

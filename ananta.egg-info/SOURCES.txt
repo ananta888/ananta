@@ -1042,4 +1042,8 @@ tests/test_workspace_diff_service.py
 tests/test_workspace_git_service.py
 tests/test_workspace_git_tools.py
 tests/test_workspace_state_sync_isolation.py
-tests/test_ws_terminal.py
+tests/test_ws_terminal.pyagent/services/source_catalog_service.py
+agent/services/tool_run_catalog_service.py
+agent/services/citation_verification_service.py
+schemas/source/source_catalog.v1.json
+schemas/answers/grounded_answer.v1.json

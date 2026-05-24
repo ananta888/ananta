@@ -90,6 +90,9 @@ class KnowledgeServices:
     knowledge_index_job_service: Any
     knowledge_index_retrieval_service: Any
     result_memory_service: Any
+    source_catalog_service: Any = None
+    tool_run_catalog_service: Any = None
+    citation_verification_service: Any = None
     # OHA-002/010/011: planned slots — wired once services are implemented
     memory_tree_store_service: Any = None
     memory_tree_summary_service: Any = None
@@ -190,6 +193,9 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
     from agent.services.memory_tree_retrieval_service import get_memory_tree_retrieval_service
     from agent.services.tool_output_compaction_service import _build_from_config as get_tool_output_compaction_service
     from agent.services.memory_vault_export_service import get_memory_vault_export_service
+    from agent.services.source_catalog_service import get_source_catalog_service
+    from agent.services.tool_run_catalog_service import get_tool_run_catalog_service
+    from agent.services.citation_verification_service import get_citation_verification_service
     from agent.services.scheduler_runtime_service import get_scheduler_runtime_service
     from agent.services.system_contract_service import get_system_contract_service
     from agent.services.system_stats_service import get_system_stats_service
@@ -240,6 +246,9 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
         knowledge_index_job_service=get_knowledge_index_job_service(),
         knowledge_index_retrieval_service=get_knowledge_index_retrieval_service(),
         result_memory_service=get_result_memory_service(),
+        source_catalog_service=get_source_catalog_service(),
+        tool_run_catalog_service=get_tool_run_catalog_service(),
+        citation_verification_service=get_citation_verification_service(),
         memory_tree_store_service=get_memory_tree_store_service(),
         memory_tree_summary_service=get_memory_tree_summary_service(),
         memory_tree_retrieval_service=get_memory_tree_retrieval_service(),

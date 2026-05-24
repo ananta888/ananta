@@ -41,6 +41,8 @@ def test_worker_hybrid_merge_deduplicates_same_record_and_keeps_channel_contribu
                         "record_id": "type:PaymentController",
                         "record_kind": "java_type",
                         "file": "src/PaymentController.java",
+                        "line_start": 10,
+                        "line_end": 28,
                         "expanded_from": "method:PaymentService.retryTimeout",
                         "relation_path": "calls_probable_target",
                         "source_manifest_hash": "mh-1",
@@ -64,6 +66,8 @@ def test_worker_hybrid_merge_deduplicates_same_record_and_keeps_channel_contribu
     assert graph_provenance
     assert graph_provenance[0]["expanded_from"] == "method:PaymentService.retryTimeout"
     assert graph_provenance[0]["relation_path"] == "calls_probable_target"
+    assert graph_provenance[0]["line_start"] == 10
+    assert graph_provenance[0]["line_end"] == 28
     assert payload["retrieval_trace"]["trace_id"].startswith("retrieval-")
     assert payload["retrieval_trace"]["context_hash"]
     assert payload["retrieval_trace"]["manifest_hash"] == "mh-1"
