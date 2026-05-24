@@ -1,0 +1,241 @@
+{
+  "version": "todo.track.v1",
+  "owner": "Peter Stuiber / ananta",
+  "track": "todo.cli-terminal-logo-integration",
+  "title": "Integrate generated Ananta ANSI terminal logo cleanly into CLI/TUI",
+  "purpose": "Move the useful SVG-derived ANSI terminal logo work from temporary committed artifacts into a clean, tested CLI/TUI banner implementation.",
+  "context": {
+    "source_commit": "375900ac4ad7eb74dbc9be0fedb5b8f53b424061",
+    "source_commit_message": "Add ANSI color terminal logos for enhanced display output in temporary directory",
+    "problem": ".tmp/terminal-logo/render_terminal_logo.py was committed to the repository. It is useful as a generator prototype, but .tmp must not be the final location for production code or assets.",
+    "important_user_feedback": [
+      "The terminal logo must be derived from ananta.svg, not hand-drawn ASCII.",
+      "The logo may be large.",
+      "The result should be colorful terminal/TUI art.",
+      "Previous hand-made ASCII drafts were rejected and must not be restored."
+    ]
+  },
+  "code_review_basis": [
+    {
+      "finding": "A Python generator exists at .tmp/terminal-logo/render_terminal_logo.py. It renders ananta.svg-derived PNG into ANSI TrueColor half-block art and monochrome fallback.",
+      "evidence": ".tmp/terminal-logo/render_terminal_logo.py"
+    },
+    {
+      "finding": "The committed location is temporary and unsuitable for production. The code should be moved/refactored or converted into a maintained script/module.",
+      "evidence": "source_commit 375900ac"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Clean up temporary committed artifacts",
+      "task_ids": ["CLI-LOGO-001", "CLI-LOGO-002"],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Create maintained banner implementation",
+      "task_ids": ["CLI-LOGO-003", "CLI-LOGO-004", "CLI-LOGO-005"],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Integrate into CLI/TUI safely",
+      "task_ids": ["CLI-LOGO-006", "CLI-LOGO-007", "CLI-LOGO-008"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CLI-LOGO-001",
+      "title": "Remove committed .tmp terminal-logo artifacts from final repo state",
+      "status": "todo",
+      "priority": "critical",
+      "type": "cleanup",
+      "files": [
+        ".tmp/terminal-logo/render_terminal_logo.py",
+        ".tmp/terminal-logo/*.txt",
+        ".tmp/ananta-rendered.png"
+      ],
+      "summary": "Temporary generated files and generator prototypes must not live under .tmp in the committed tree.",
+      "acceptance_criteria": [
+        "No tracked file remains under .tmp/terminal-logo/.",
+        "No rendered PNG remains tracked under .tmp/.",
+        "The useful generator logic is not lost; it is either moved to scripts/ or converted into a maintained module.",
+        ".gitignore prevents future accidental commits of .tmp/ artifacts."
+      ]
+    },
+    {
+      "id": "CLI-LOGO-002",
+      "title": "Add or verify .gitignore rules for temporary logo output",
+      "status": "todo",
+      "priority": "high",
+      "type": "guardrail",
+      "files": [
+        ".gitignore"
+      ],
+      "summary": "Prevent future accidental commits of generated terminal-logo output.",
+      "depends_on": ["CLI-LOGO-001"],
+      "acceptance_criteria": [
+        ".tmp/ is ignored unless there is an explicit project reason not to ignore all of it.",
+        "If .tmp/ cannot be globally ignored, then .tmp/terminal-logo/ and .tmp/ananta-rendered.png are ignored.",
+        "A regression check or documented manual check proves git status stays clean after running the generator."
+      ]
+    },
+    {
+      "id": "CLI-LOGO-003",
+      "title": "Move terminal logo generator to maintained scripts path",
+      "status": "todo",
+      "priority": "high",
+      "type": "refactor",
+      "files": [
+        "scripts/render_terminal_logo.py",
+        "ananta.svg"
+      ],
+      "summary": "Keep the useful SVG-to-ANSI generation path, but move it out of .tmp and make it reusable.",
+      "depends_on": ["CLI-LOGO-001"],
+      "acceptance_criteria": [
+        "Generator reads ananta.svg by default but accepts --svg and --output-dir.",
+        "Generator supports --width 90/120 or arbitrary width.",
+        "Generator supports --ansi and --mono outputs.",
+        "Generator writes generated artifacts only to an ignored output directory unless explicitly requested.",
+        "Generator does not require network access."
+      ]
+    },
+    {
+      "id": "CLI-LOGO-004",
+      "title": "Create stable CLI banner module with ANSI and mono fallback",
+      "status": "todo",
+      "priority": "critical",
+      "type": "feature",
+      "files": [
+        "agent/cli/banner.py",
+        "agent/cli/assets/ananta_ansi_90.txt",
+        "agent/cli/assets/ananta_ansi_120.txt",
+        "agent/cli/assets/ananta_mono_90.txt"
+      ],
+      "summary": "Expose a simple API for CLI/TUI callers without duplicating banner strings across modules.",
+      "depends_on": ["CLI-LOGO-003"],
+      "acceptance_criteria": [
+        "agent.cli.banner.get_banner(width=None, color=None, style='auto') exists.",
+        "color=False returns mono fallback without ANSI escape sequences.",
+        "color=True returns ANSI TrueColor banner when terminal support is assumed/forced.",
+        "style='auto' selects large/medium/mono based on width and color.",
+        "Assets are stored in a non-temporary project path and are small enough to be reviewable."
+      ]
+    },
+    {
+      "id": "CLI-LOGO-005",
+      "title": "Preserve SVG-derived visual identity in generated assets",
+      "status": "todo",
+      "priority": "high",
+      "type": "quality",
+      "files": [
+        "agent/cli/assets/ananta_ansi_90.txt",
+        "agent/cli/assets/ananta_ansi_120.txt",
+        "agent/cli/assets/ananta_mono_90.txt",
+        "scripts/render_terminal_logo.py"
+      ],
+      "summary": "The banner must remain derived from ananta.svg and must not regress into hand-drawn ASCII.",
+      "depends_on": ["CLI-LOGO-004"],
+      "acceptance_criteria": [
+        "Generator documentation states the assets are derived from ananta.svg.",
+        "No emoji-based or manually invented snake logo is reintroduced.",
+        "ANSI assets use block/half-block characters such as ▀, ▄, █ and ANSI TrueColor.",
+        "Mono fallback uses block/half-block or density characters and remains recognizable.",
+        "Manual visual review confirms A and snake are recognizable in a dark terminal."
+      ]
+    },
+    {
+      "id": "CLI-LOGO-006",
+      "title": "Integrate banner into CLI welcome/help path behind config flag",
+      "status": "todo",
+      "priority": "medium",
+      "type": "feature",
+      "files": [
+        "agent/cli/main.py",
+        "agent/cli/banner.py",
+        "agent/config_defaults.py"
+      ],
+      "summary": "Show the logo only where it helps and never break scripts or machine-readable output.",
+      "depends_on": ["CLI-LOGO-004"],
+      "acceptance_criteria": [
+        "Banner is shown for interactive welcome/status command only, not for JSON/script output.",
+        "Environment flag or config can disable banner, e.g. ANANTA_NO_BANNER=1.",
+        "NO_COLOR disables ANSI color and uses mono fallback.",
+        "Non-TTY output does not emit ANSI escape sequences by default.",
+        "Existing CLI tests do not regress."
+      ]
+    },
+    {
+      "id": "CLI-LOGO-007",
+      "title": "Add tests for banner selection and ANSI safety",
+      "status": "todo",
+      "priority": "high",
+      "type": "test",
+      "files": [
+        "tests/test_cli_banner.py",
+        "agent/cli/banner.py"
+      ],
+      "summary": "Tests should verify behavior, not visual beauty.",
+      "depends_on": ["CLI-LOGO-004", "CLI-LOGO-006"],
+      "acceptance_criteria": [
+        "color=False output contains no ESC character.",
+        "color=True output contains ANSI TrueColor escape sequences.",
+        "width below threshold selects compact/mono fallback or returns empty if configured.",
+        "ANANTA_NO_BANNER disables output.",
+        "NO_COLOR disables ANSI color."
+      ]
+    },
+    {
+      "id": "CLI-LOGO-008",
+      "title": "Document terminal logo generation and usage",
+      "status": "todo",
+      "priority": "medium",
+      "type": "docs",
+      "files": [
+        "docs/development/terminal-logo.md",
+        "README.md"
+      ],
+      "summary": "Document how the banner is generated and when it is shown.",
+      "depends_on": ["CLI-LOGO-003", "CLI-LOGO-006"],
+      "acceptance_criteria": [
+        "Documentation explains SVG -> PNG -> ANSI halfblock pipeline.",
+        "Documentation lists required optional tooling: Pillow and either cairosvg/rsvg/inkscape if needed.",
+        "Documentation explains NO_COLOR and ANANTA_NO_BANNER.",
+        "Documentation warns not to commit .tmp output.",
+        "README mention is short and does not flood the page with huge ANSI output."
+      ]
+    }
+  ],
+  "recommended_execution_order": [
+    "CLI-LOGO-001",
+    "CLI-LOGO-002",
+    "CLI-LOGO-003",
+    "CLI-LOGO-004",
+    "CLI-LOGO-005",
+    "CLI-LOGO-007",
+    "CLI-LOGO-006",
+    "CLI-LOGO-008"
+  ],
+  "tasks_status_summary": {
+    "total": 8,
+    "todo": 8,
+    "partial": 0,
+    "done": 0,
+    "critical_path": [
+      "CLI-LOGO-001",
+      "CLI-LOGO-003",
+      "CLI-LOGO-004",
+      "CLI-LOGO-006",
+      "CLI-LOGO-007"
+    ]
+  },
+  "definition_of_done": [
+    ".tmp logo files are no longer tracked.",
+    "A maintained generator exists outside .tmp or the generation flow is documented if generator is not committed.",
+    "CLI banner module exists with ANSI and mono fallback.",
+    "Banner is opt-in/interactive-safe and respects NO_COLOR/ANANTA_NO_BANNER.",
+    "Tests cover ANSI/no-ANSI behavior and selection logic."
+  ]
+}
