@@ -26,7 +26,7 @@ class SectionAdapterRegistry:
     @staticmethod
     def _fixture_loader(section_id: str) -> SectionLoadResult:
         section = get_section(section_id)
-        payload = {
+        payload: dict[str, object] = {
             "title": section.title,
             "dependencies": list(section.primary_dependencies),
             "fallback": section.fallback,
@@ -34,20 +34,51 @@ class SectionAdapterRegistry:
             "render_policy": "partial_first_paint",
             "mutation_policy": "hub_dispatch_only",
         }
+        if section.id == "dashboard":
+            payload["agents"] = {"online": 7, "total": 8}
+            payload["llm_providers"] = {
+                "claude-sonnet-4-6": "ok",
+                "codex-2": "ok",
+                "whisper-v3": "ok",
+            }
+            payload["queue"] = {"depth": 3}
+            payload["goal_summary"] = "2 running · 5 done · 0 failed"
+            payload["task_summary"] = "3 active · 12 completed"
+            return SectionLoadResult(section.id, PanelState.HEALTHY, payload, "loaded")
         if section.id == "goals":
             payload["items"] = [
-                {"id": "G-1", "status": "in_progress", "title": "Operator TUI rollout"},
-                {"id": "G-2", "status": "todo", "title": "Diagram rendering hardening"},
+                {"id": "g-001", "status": "running", "title": "WebSocket live updates"},
+                {"id": "g-002", "status": "running", "title": "Voice command recognition"},
+                {"id": "g-003", "status": "done",    "title": "Refactor auth middleware"},
+                {"id": "g-004", "status": "done",    "title": "Multi-agent orchestrator"},
+                {"id": "g-005", "status": "done",    "title": "SVG logo 3D renderer"},
+                {"id": "g-006", "status": "blocked", "title": "External API rate limit fix"},
             ]
             return SectionLoadResult(section.id, PanelState.HEALTHY, payload, "loaded")
         if section.id == "tasks":
             payload["items"] = [
-                {"id": "TUI-T26", "status": "done", "agent": "hub", "title": "Read-only operator flows"},
-                {"id": "TUI-T27", "status": "done", "agent": "hub", "title": "Explicit action dispatch"},
+                {"id": "t-0a1", "status": "running", "agent": "claude", "title": "Auth flow unit tests"},
+                {"id": "t-0a2", "status": "running", "agent": "claude", "title": "Generate OpenAPI spec"},
+                {"id": "t-0a3", "status": "running", "agent": "codex",  "title": "Refactor connection pool"},
+                {"id": "t-0a4", "status": "done",    "agent": "claude", "title": "Fix ANSI rendering bug"},
+                {"id": "t-0a5", "status": "done",    "agent": "claude", "title": "Add 3D SVG logo animation"},
+                {"id": "t-0a6", "status": "done",    "agent": "codex",  "title": "Deploy landing page"},
             ]
             payload["timeline"] = [
-                {"id": "TL-1", "status": "loaded", "summary": "fixture timeline available"},
+                {"id": "t-0a4", "summary": "ANSI strip fix committed"},
+                {"id": "t-0a5", "summary": "SVG logo animates in 3D"},
+                {"id": "t-0a6", "summary": "www.ananta.de is live"},
             ]
+            return SectionLoadResult(section.id, PanelState.HEALTHY, payload, "loaded")
+        if section.id == "system":
+            payload["agents"] = {"online": 7, "total": 8}
+            payload["llm_providers"] = {
+                "claude-sonnet-4-6": "ok  284ms",
+                "codex-2":           "ok  110ms",
+                "whisper-v3":        "ok  450ms",
+            }
+            payload["queue"] = {"depth": 3, "counts": {"pending": 3, "retry": 0}}
+            payload["contracts"] = ["hub v2.1.4", "codex v1.0.3", "voice v0.4.1", "web v3.2.0"]
             return SectionLoadResult(section.id, PanelState.HEALTHY, payload, "loaded")
         if section.id in {"artifacts", "knowledge", "audit"}:
             payload["items"] = []
