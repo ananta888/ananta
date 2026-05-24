@@ -701,8 +701,6 @@ class TaskScopedExecutionService:
                     "sources": list(existing_source_catalog.get("sources") or []),
                 }
         citation_contract = self._render_citation_contract_prompt(source_catalog)
-        if citation_contract:
-            base_prompt = f"{base_prompt}\n\n{citation_contract}"
         explicit_task_kind = str(task.get("task_kind") or "").strip().lower()
         task_kind = explicit_task_kind or normalize_task_kind(None, base_prompt)
         rc_input = getattr(request_data, "research_context", None)
@@ -832,6 +830,8 @@ class TaskScopedExecutionService:
             planning_context_compaction=compaction_payload,
             planning_context_compaction_meta=compaction_meta,
         )
+        if citation_contract:
+            context.base_prompt = f"{context.base_prompt}\n\n{citation_contract}"
         had_llm_goal_id = False
         had_llm_task_id = False
         previous_llm_goal_id = None
@@ -862,6 +862,32 @@ class TaskScopedExecutionService:
                     except Exception:
                         pass
         result_dict = result.to_dict()
+        if not result.is_executable:
+            try:
+                rc, cli_out, cli_err, backend_used = self._invoke_cli_runner(
+                    cli_runner,
+                    prompt=str(base_prompt or ""),
+                    options=["--no-interaction"],
+                    timeout=self._resolve_task_propose_timeout(cfg, task_kind),
+                    backend="aider",
+                    model=getattr(request_data, "model", None),
+                    routing_policy={"mode": "adaptive", "task_kind": task_kind, "policy_version": "v1"},
+                    session=None,
+                    workdir=None,
+                )
+                raw_res, _output_source = self._coalesce_cli_output(cli_out, cli_err)
+                parsed = json.loads(str(raw_res or "{}"))
+                fallback_command = str(parsed.get("command") or "").strip() or None
+                fallback_tool_calls = parsed.get("tool_calls") if isinstance(parsed.get("tool_calls"), list) else []
+                fallback_reason = str(parsed.get("reason") or result.reason or "fallback_cli_proposal").strip()
+                if rc == 0 and (fallback_command or fallback_tool_calls):
+                    result_dict["command"] = fallback_command
+                    result_dict["tool_calls"] = fallback_tool_calls
+                    result_dict["reason"] = fallback_reason
+                    result_dict["backend"] = backend_used
+                    result_dict["status"] = "executable"
+            except Exception:
+                pass
 
         # Persist to last_proposal so execute step and API can read it.
         _sgpt_routing = cfg.get("sgpt_routing") if isinstance(cfg.get("sgpt_routing"), dict) else {}
@@ -935,12 +961,22 @@ class TaskScopedExecutionService:
             "output_source": "orchestrator",
             **({"llm_call_profile": llm_call_profile} if llm_call_profile else {}),
         }
+        resolved_reason = str(result_dict.get("reason") or result.reason or "").strip() or result.reason
+        resolved_command = result_dict.get("command") if isinstance(result_dict.get("command"), str) else (
+            result.proposal.command if result.is_executable and result.proposal is not None else None
+        )
+        resolved_tool_calls = (
+            list(result_dict.get("tool_calls") or [])
+            if isinstance(result_dict.get("tool_calls"), list)
+            else ((result.proposal.tool_calls or []) if result.is_executable and result.proposal is not None else [])
+        )
+        resolved_backend = str(result_dict.get("backend") or "orchestrator").strip() or "orchestrator"
         get_core_services().task_execution_service.persist_task_proposal_result(
             tid=tid,
             task=task,
-            reason=result.reason,
+            reason=resolved_reason,
             raw=None,
-            backend="orchestrator",
+            backend=resolved_backend,
             model=None,
             routing={
                 "task_kind": task_kind,
@@ -951,13 +987,13 @@ class TaskScopedExecutionService:
             worker_context={"strategy": result.metadata.get("selected_strategy")},
             trace={"policy_version": "v1"},
             review=None,
-            command=(result.proposal.command if result.is_executable and result.proposal is not None else None),
-            tool_calls=(result.proposal.tool_calls or []) if result.is_executable and result.proposal is not None else [],
+            command=resolved_command,
+            tool_calls=resolved_tool_calls,
             research_context=research_context_summary,
             history_event={
                 "event_type": "proposal_result",
-                "reason": result.reason,
-                "backend": "orchestrator",
+                "reason": resolved_reason,
+                "backend": resolved_backend,
                 "propose_strategy_meta": propose_strategy_meta,
             },
         )
