@@ -1,10 +1,10 @@
 {
   "id": "todo.embedded-tui-editor-tools",
   "title": "Embedded TUI tools and default editor routing inside Ananta TUI",
-  "status": "in_progress",
+  "status": "done",
   "progress": {
-    "completed": ["E001", "E002", "E003", "E004", "E004b", "E005", "E006"],
-    "remaining": ["E007", "E008"],
+    "completed": ["E001", "E002", "E003", "E004", "E004b", "E005", "E006", "E007", "E008"],
+    "remaining": [],
     "tests_passing": 148,
     "last_updated": "2026-05-24"
   },
@@ -570,14 +570,20 @@
     },
     {
       "id": "E007-frontend-configuration-ui",
-      "status": "todo",
+      "status": "done",
       "title": "Add optional UI for editor/tool configuration",
       "summary": "Expose default editor and filetype mappings in the Angular frontend where appropriate.",
       "files": [
         "frontend-angular/src/app/services/tui-tools.service.ts",
-        "frontend-angular/src/app/components/tui-tool-settings.component.ts",
-        "frontend-angular/src/app/components/terminal-session.component.ts",
-        "frontend-angular/src/app/app.routes.ts"
+        "frontend-angular/src/app/components/tui-tool-settings.component.ts"
+      ],
+      "implemented": {
+        "frontend-angular/src/app/services/tui-tools.service.ts": "TuiToolsService with listTools(), resolveEditor(), launchTool(), openEditor(). Typed interfaces TuiToolProfile, FiletypeRule, TuiToolsConfig, EditorResolveResult. Wraps GET /tui/tools, GET /tui/editors/resolve, POST /tui/tools/launch, POST /tui/editors/open via HubApiCoreService.",
+        "frontend-angular/src/app/components/tui-tool-settings.component.ts": "Read-only settings display component showing default_editor, allow_environment_editor, allowed_tools list, tool profiles table, filetype mapping table. Loads from Hub via TuiToolsService. Standalone component with inline template and styles."
+      },
+      "deviations": [
+        "terminal-session.component.ts not modified — no open file action exists in frontend yet (that depends on session routing work outside this task scope).",
+        "app.routes.ts not modified — TuiToolSettingsComponent can be imported standalone without a dedicated route. Route registration deferred until a Settings page integration is planned."
       ],
       "details": [
         "Show default editor setting.",
@@ -596,14 +602,21 @@
     },
     {
       "id": "E008-documentation",
-      "status": "todo",
+      "status": "done",
       "title": "Document embedded TUI tools and editor routing",
       "summary": "Add documentation for default editor behavior, filetype mapping, safe custom tools and examples.",
       "files": [
         "docs/configuration/tui-tools.md",
         "docs/cli/commands.md",
-        "docs/security/terminal-sessions.md",
-        "README.md"
+        "docs/security/terminal-sessions.md"
+      ],
+      "implemented": {
+        "docs/configuration/tui-tools.md": "Full config reference: 3-scope merge (global/user/project), full example JSON, 7-step resolution order table, placeholder substitution, read-only mode, common recipes (Neovim for Python, disable env editor, custom project tool).",
+        "docs/cli/commands.md": "Extended flat-commands table with tui --open and tmux variants. Added two new sections: 'ananta tui — Embedded Editor & TUI Tools' and 'ananta tmux — Terminal-Shortcuts' with examples, resolution order summary, and cross-references.",
+        "docs/security/terminal-sessions.md": "New file: target-type permission table, permission name reference, hard-deny list, path validation steps, command construction (argv vs shell=True), audit trail fields, remote vs local-dev defaults."
+      },
+      "deviations": [
+        "README.md not updated — top-level README covers initial setup, not feature-specific CLI details. Feature docs are in docs/ subdirectories per project convention."
       ],
       "details": [
         "Document Vim default fallback.",
