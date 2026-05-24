@@ -19,6 +19,7 @@ CORE_COMMANDS = (
     "run",
     *GOAL_ALIAS_COMMANDS,
     "tui",
+    "tmux",
     "doctor",
     "web",
     "voice-file",
@@ -163,11 +164,26 @@ def _run_ananta_run(argv: Sequence[str]) -> int:
     return 0 if result.get("status") == "ok" else 1
 
 
+def _run_tmux(argv: Sequence[str]) -> int:
+    from agent.cli.commands.tmux import dispatch
+    return dispatch(argv)
+
+
 def _run_tui(argv: Sequence[str]) -> int:
+    # Editor/tool launch mode: intercept before routing to operator TUI
+    argv_list = list(argv)
+    if "--open" in argv_list or "--tool" in argv_list:
+        from agent.cli.commands.tui_editor import dispatch as tui_editor_dispatch
+        return tui_editor_dispatch(argv_list)
+
     if any(arg in {"-h", "--help"} for arg in argv):
         print("Usage: ananta tui [tui options]")
         print("Launches the operator TUI by default.")
-        print("Use `ananta tui --legacy` for the previous report-style shell.")
+        print("  --open <file>              Open file in configured editor")
+        print("  --open <file> --with nvim  Open file with specific editor")
+        print("  --open <file> --readonly   Open file in read-only mode")
+        print("  --tool <tool-id>           Launch a TUI tool (e.g. git_ui)")
+        print("  --legacy                   Use the previous report-style shell")
         return 0
     use_legacy = "--legacy" in argv or "--fixture" in argv
     if not use_legacy:
@@ -284,6 +300,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_doctor(rest)
     if command == "tui":
         return _run_tui(rest)
+    if command == "tmux":
+        return _run_tmux(rest)
     if command == "web":
         return _run_web(rest)
     if command == "voice-file":
