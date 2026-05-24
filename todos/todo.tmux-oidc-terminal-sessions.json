@@ -515,7 +515,7 @@
         "Browser terminal works over HTTPS/WSS only in production profile.",
         "Gateway disconnect event is audit logged."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "T009-oidc-auth-provider",
@@ -657,7 +657,7 @@
         "WSS connection uses scoped attach token, not long-lived raw JWT in URL where avoidable.",
         "UI survives gateway disconnect with clear status."
       ],
-      "status": "open"
+      "status": "done"
     },
     {
       "id": "T014-documentation-and-threat-model",
@@ -760,6 +760,12 @@
   },
   "progress_summary": {
     "updated_at": "2026-05-25",
+    "task_count": {
+      "total": 14,
+      "completed": 14,
+      "open": 0
+    },
+    "status": "DONE — all 14 tasks completed",
     "completed": [
       "T001-terminal-target-inventory",
       "T002-terminal-session-persistence",
@@ -768,28 +774,41 @@
       "T005-terminal-rest-api",
       "T006-cli-tmux-commands",
       "T007-tui-terminal-view",
+      "T008-https-websocket-gateway",
       "T009-oidc-auth-provider",
       "T010-session-timeouts-and-cleanup",
       "T011-recording-and-redaction",
       "T012-container-and-compose-support",
+      "T013-frontend-terminal-ui",
       "T014-documentation-and-threat-model"
     ],
-    "open": [
-      "T008-https-websocket-gateway",
-      "T013-frontend-terminal-ui"
-    ],
-    "notes": [
-      "T001-T012 and T014 completed 2026-05-25.",
-      "T005: REST API fully implemented (GET/POST/input/output/attach-token/DELETE).",
-      "T006: ananta tmux targets/start/attach/list/kill commands added to cli/commands/tmux.py.",
-      "T007: Terminal section added to operator TUI sections and renderer.",
-      "T009: OIDC Authorization Code Flow with PKCE implemented in agent/routes/auth_oidc.py.",
-      "T010: TerminalCleanupService with idle/max-lifetime expiry in agent/services/terminal_cleanup_service.py.",
-      "T011: TerminalRecordingService with secret redaction in agent/services/terminal_recording_service.py.",
-      "T012: tmux added to Dockerfile and Dockerfile.quickstart-no-ollama; TERMINAL_* env vars in docker-compose.base.yml.",
-      "T014: docs/security/terminal-threat-model.md and docs/security/oidc.md written.",
-      "T008: ws_terminal.py (609 lines) already provides WSS infrastructure; attach-token validation not yet wired in.",
-      "T013: frontend-angular terminal.service.ts and terminal.component.ts exist (738 lines) but hub/hub_as_worker risk UI not yet separate."
-    ]
+    "open": [],
+    "summaries": {
+      "T001": "TerminalTargetService exposes worker/hub/hub_as_worker targets controlled by TERMINAL_*_ENABLED config flags. Hub-as-Worker is always a separate target type. Tests in test_terminal_targets.py.",
+      "T002": "TerminalSessionDB + TerminalEventDB models in db_models.py. TerminalSessionRepository and TerminalEventRepository in agent/repositories/terminal.py. Repository validates target_type, target_id, user and policy_decision_id on every save. Tests in test_terminal_session_repository.py.",
+      "T003": "TmuxSessionBackend in agent/services/tmux_backend.py. Uses subprocess argument arrays only (no shell=True). Session names generated from safe prefix + UUID, validated against strict regex. create_session/send_input/capture_output/kill_session all in place.",
+      "T004": "TerminalPolicyService in agent/services/terminal_policy_service.py. Separate terminal.worker.* / terminal.hub.* / terminal.hub_as_worker.* permission namespaces. Hub terminal create/attach/read/write denied by default even for admin. Every decision returns allow + reason_code + decision_id + policy_version. Tests in test_terminal_policy_service.py.",
+      "T005": "Full REST API in agent/routes/terminal.py: GET /targets, GET/POST /sessions, GET /sessions/{id}, POST /sessions/{id}/input, GET /sessions/{id}/output, POST /sessions/{id}/attach-token, DELETE /sessions/{id}. All routes enforce policy checks and emit audit events. Tests in test_terminal_routes.py.",
+      "T006": "ananta tmux targets/start/attach/list/kill commands in agent/cli/commands/tmux.py. New agent/cli/api_client.py provides thin HTTP wrapper reusing ANANTA_BASE_URL/ANANTA_USER/ANANTA_PASSWORD. Hub/hub_as_worker start requires --reason flag and shows HIGH RISK warning. Ambiguous multi-worker target selection refused.",
+      "T007": "'terminal' section added to SECTIONS in client_surfaces/operator_tui/sections.py (alias 'term'). _terminal_content_lines() in renderer.py shows target list with HIGH RISK markers, active session list, and command hints.",
+      "T008": "New /ws/terminal/session WSS endpoint in agent/ws_terminal.py. _attach_token_ws_session() validates single-use scoped attach token, bridges tmux output via capture_output polling, forwards input via send_input, redacts secrets in output, enforces idle/max-lifetime timeouts, emits session_attached and gateway_disconnected audit events, transitions session to detached on close. docs/security/terminal-gateway.md added. Tests in test_terminal_gateway_auth.py.",
+      "T009": "OIDC Authorization Code Flow with PKCE in agent/routes/auth_oidc.py. Routes: GET /auth/oidc/login, GET /auth/oidc/callback, GET /auth/oidc/userinfo, POST /auth/oidc/logout. Validates issuer/audience/expiry/nonce/signature via PyJWT. Maps groups (ananta-admin, ananta-user, ananta-viewer, ananta-terminal-hub, ananta-terminal-worker) to Ananta roles and terminal permissions. 9 new config fields in agent/config.py. docs/security/oidc.md with Keycloak example.",
+      "T010": "TerminalCleanupService in agent/services/terminal_cleanup_service.py. run_cleanup_tick() iterates all active sessions and expires those exceeding idle_expires_at or expires_at. Kills tmux session, transitions DB status to 'expired', emits terminal_session_expired audit event. TERMINAL_IDLE_TIMEOUT_SECONDS (900s) and TERMINAL_MAX_LIFETIME_SECONDS (14400s) configurable. Expired sessions reject further input. Tests in test_terminal_session_cleanup.py.",
+      "T011": "TerminalRecordingService in agent/services/terminal_recording_service.py. redact_secrets() strips Bearer tokens, passwords, API keys, ANANTA_TOKEN/ANANTA_PASSWORD env vars, AWS-style access keys, private key blocks. Called on every output chunk in REST output endpoint and WSS gateway. recording_enabled flag on session. 9 redaction patterns, 9 tests in test_terminal_recording_redaction.py.",
+      "T012": "tmux installed in Dockerfile and Dockerfile.quickstart-no-ollama apt-get install blocks. TERMINAL_FEATURE_ENABLED, TERMINAL_WORKER/HUB/HUB_AS_WORKER_TARGET_ENABLED, TERMINAL_IDLE/MAX_LIFETIME/ATTACH_TOKEN config vars, TERMINAL_RECORDING_ENABLED_REMOTE/LOCAL_DEV, TERMINAL_OIDC_ENABLED all added to x-agent-env in docker-compose.base.yml. All default to safe values (feature disabled, hub disabled, recording enabled for remote).",
+      "T013": "TerminalApiService in frontend-angular/src/app/services/terminal-api.service.ts: listTargets, listSessions, createSession, getSession, getAttachToken, killSession, toWssUrl. TerminalTargetsComponent in terminal-targets.component.ts: groups targets, shows HIGH RISK badge, requires explicit confirmation before opening Hub/Hub-as-Worker terminal, emits attach token on create. TerminalSessionListComponent in terminal-session-list.component.ts: table view with status badges, type badges (hub/worker color-coded), attach and kill actions. terminal.service.ts extended with connectWithAttachToken() for WSS attach-token flow.",
+      "T014": "docs/security/terminal-threat-model.md: target classification, permission matrix, hard denies, attach token security, session lifecycle, why admin does not bypass terminal policy, audit event table, container notes, OIDC security notes. docs/security/terminal-gateway.md: WSS flow diagram, attach token properties, server/client message types, lifecycle, production nginx config. docs/security/oidc.md: OIDC flow, claim mapping table, Keycloak setup example, local dev fallback."
+    },
+    "test_counts": {
+      "test_terminal_bridge": 5,
+      "test_terminal_targets": 3,
+      "test_terminal_policy_service": 3,
+      "test_terminal_session_repository": 3,
+      "test_terminal_routes": 7,
+      "test_terminal_session_cleanup": 5,
+      "test_terminal_recording_redaction": 9,
+      "test_terminal_gateway_auth": 7,
+      "total_terminal_tests": 42
+    }
   }
 }
