@@ -106,6 +106,8 @@ def create_app(agent: str = "default") -> Flask:
     run_startup_phase("database", init_db)
 
     app = run_startup_phase("flask_app", Flask, __name__)
+    # Required for Flask session-backed auth flows (e.g., OIDC state/nonce storage).
+    app.secret_key = settings.secret_key
     run_startup_phase("request_hooks", register_request_hooks, app)
     run_startup_phase("error_handlers", register_error_handler, app)
     run_startup_phase("cors", configure_cors, app)

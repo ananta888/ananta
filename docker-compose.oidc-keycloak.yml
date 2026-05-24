@@ -43,7 +43,8 @@ services:
   ai-agent-hub:
     environment:
       TERMINAL_OIDC_ENABLED: ${TERMINAL_OIDC_ENABLED:-true}
-      TERMINAL_OIDC_ISSUER: ${TERMINAL_OIDC_ISSUER:-http://localhost:8081/realms/ananta}
+      TERMINAL_OIDC_ISSUER: ${TERMINAL_OIDC_ISSUER:-http://keycloak:8080/realms/ananta}
+      TERMINAL_OIDC_BROWSER_ISSUER: ${TERMINAL_OIDC_BROWSER_ISSUER:-http://localhost:8081/realms/ananta}
       TERMINAL_OIDC_AUDIENCE: ${TERMINAL_OIDC_AUDIENCE:-ananta-hub}
       TERMINAL_OIDC_CLIENT_ID: ${TERMINAL_OIDC_CLIENT_ID:-ananta-hub}
 
