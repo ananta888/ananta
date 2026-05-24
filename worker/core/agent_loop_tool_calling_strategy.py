@@ -74,4 +74,8 @@ class AgentLoopToolCallingStrategy(ProposeStrategy):
             cli_runner=context.cli_runner,
             tool_definitions_resolver=context.tool_definitions_resolver,
             policy=context.policy,
+            effective_config=deepcopy(context.effective_config) if isinstance(context.effective_config, dict) else context.effective_config,
+            instruction_stack=deepcopy(context.instruction_stack) if isinstance(context.instruction_stack, dict) else context.instruction_stack,
+            rendered_system_prompt=context.rendered_system_prompt,
+            instruction_diagnostics=deepcopy(context.instruction_diagnostics) if isinstance(context.instruction_diagnostics, dict) else context.instruction_diagnostics,
         )

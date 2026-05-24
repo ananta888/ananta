@@ -24,6 +24,9 @@ class TestJsonSchemaLLMStrategy:
         ctx.task = {}
         ctx.base_prompt = "Create a Fibonacci API"
         ctx.effective_config = None
+        ctx.rendered_system_prompt = "STACK POLICY\nDo not bypass governance."
+        ctx.instruction_stack = {"checksum": "json-stack-1"}
+        ctx.instruction_diagnostics = {"applied_layers": [{"layer": "governance"}]}
         return ctx
 
     def test_declined_mock_provider(self, context, monkeypatch):
@@ -65,8 +68,10 @@ class TestJsonSchemaLLMStrategy:
         assert result.status == STATUS_EXECUTABLE
         assert result.proposal.tool_calls[0]["name"] == "write_file"
         call_kwargs = mock_svc.call_args.kwargs
-        assert "Prompt context bundle (JSON):" in call_kwargs["prompt"]
+        assert "Respond with valid JSON:" in call_kwargs["prompt"]
+        assert call_kwargs["system_prompt"].count("STACK POLICY") == 1
         assert result.proposal.metadata["prompt_context_bundle"]["schema"] == "prompt_context_bundle.v1"
+        assert result.proposal.metadata["prompt_context_bundle"]["instruction_stack_checksum"] == "json-stack-1"
         assert result.proposal.metadata["provider"] == "ollama"
         assert result.proposal.metadata["model"] == "qwen2.5"
         assert result.proposal.metadata["llm_call_profile"][0]["estimated"] is False
