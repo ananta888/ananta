@@ -40,6 +40,11 @@ def _configure_subparsers(p: argparse.ArgumentParser) -> None:
     rec_p.add_argument("--hardware", default="", help="Hint: laptop, workstation, server.")
     rec_p.add_argument("--use-case", default="", dest="use_case", help="Hint: dev, ci, demo, production.")
 
+    llmi_p = sub.add_parser("llm-interceptor", help="Validate/start OpenAI-compatible interceptor.")
+    llmi_p.add_argument("--config", required=True, help="Path to interceptor config JSON.")
+    llmi_p.add_argument("--dry-run", action="store_true", help="Validate config and print startup summary only.")
+    llmi_p.add_argument("--dev-fake-upstream", action="store_true", help="Run with fake upstream mode note (no secret output).")
+
 
 def dispatch(argv: Sequence[str]) -> int:
     parser = _build_parser()
@@ -58,6 +63,8 @@ def dispatch(argv: Sequence[str]) -> int:
         return _cmd_inspect(parsed)
     if cmd == "recommend":
         return _cmd_recommend(parsed)
+    if cmd == "llm-interceptor":
+        return _cmd_llm_interceptor(parsed)
     parser.print_help()
     return 0
 
@@ -138,6 +145,32 @@ def _cmd_recommend(parsed) -> int:
             print(json.dumps({"profile_id": "developer-local", "reason": "fallback"}))
         else:
             print("Profile: developer-local")
+    return 0
+
+
+def _cmd_llm_interceptor(parsed) -> int:
+    import sys
+    from agent.services.llm_interceptor.config_schema import load_llm_interceptor_config
+    from agent.services.llm_interceptor.openai_compat_server import OpenAICompatInterceptorServer, run_interceptor_server
+
+    try:
+        cfg = load_llm_interceptor_config(parsed.config)
+    except ValueError as exc:
+        print(f"Error: invalid interceptor config: {exc}", file=sys.stderr)
+        return 2
+
+    server = OpenAICompatInterceptorServer(cfg)
+    summary = server.startup_summary()
+    upstream_ids = [item["id"] for item in summary["upstreams"]]
+    print(
+        f"LLM interceptor bind {summary['listen']['host']}:{summary['listen']['port']}{summary['listen']['prefix']} "
+        f"upstreams={upstream_ids}"
+    )
+    if getattr(parsed, "dev_fake_upstream", False):
+        print("Dev fake upstream mode requested (use test harness/fake upstream endpoint).")
+    if getattr(parsed, "dry_run", False):
+        return 0
+    run_interceptor_server(cfg)
     return 0
 
 

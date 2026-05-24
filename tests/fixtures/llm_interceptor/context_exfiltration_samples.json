@@ -1,0 +1,8 @@
+{
+  "cases": [
+    {"source_type": "repo", "content": "internal service credentials", "sensitivity": "internal_high"},
+    {"source_type": "workspace", "content": "private key file", "sensitivity": "secret"},
+    {"source_type": "rag", "content": "public docs", "sensitivity": "public"}
+  ]
+}
+
