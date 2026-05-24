@@ -240,3 +240,192 @@ class TestReasonCodes:
             CIRCUIT_BREAKER_OPEN,
         ):
             assert code in TERMINAL_REASON_CODES
+
+
+# ---------------------------------------------------------------------------
+# PRI-010: Rate-Limit / Backpressure
+# ---------------------------------------------------------------------------
+
+class TestRateLimit:
+    def setup_method(self):
+        from agent.llm_integration import _RATE_LIMIT_WINDOW
+        _RATE_LIMIT_WINDOW.clear()
+
+    def test_rate_limit_disabled_by_default(self):
+        from agent.llm_integration import _check_rate_limit
+        # No Flask context → _rl_config returns 0 → always allowed.
+        for _ in range(100):
+            assert _check_rate_limit("lmstudio") is True
+
+    def test_rate_limit_blocks_over_budget(self, app):
+        from agent.llm_integration import _check_rate_limit, _RATE_LIMIT_WINDOW
+        import collections
+        with app.app_context():
+            with mock.patch.dict(
+                app.config,
+                {"AGENT_CONFIG": {"llm_config": {"rate_limit_rpm": 3}}},
+            ):
+                _RATE_LIMIT_WINDOW.clear()
+                assert _check_rate_limit("lmstudio") is True
+                assert _check_rate_limit("lmstudio") is True
+                assert _check_rate_limit("lmstudio") is True
+                assert _check_rate_limit("lmstudio") is False  # 4th request → blocked
+
+    def test_rate_limit_window_expires_old_entries(self, app):
+        from agent.llm_integration import _check_rate_limit, _RATE_LIMIT_WINDOW
+        import collections
+        with app.app_context():
+            with mock.patch.dict(
+                app.config,
+                {"AGENT_CONFIG": {"llm_config": {"rate_limit_rpm": 2}}},
+            ):
+                _RATE_LIMIT_WINDOW.clear()
+                # Inject two old timestamps (>60s ago) directly.
+                old_ts = time.time() - 61
+                _RATE_LIMIT_WINDOW["lmstudio"].extend([old_ts, old_ts])
+                # Should be allowed because old entries are evicted.
+                assert _check_rate_limit("lmstudio") is True
+
+    def test_get_rate_limit_state_structure(self):
+        from agent.llm_integration import get_rate_limit_state
+        state = get_rate_limit_state("lmstudio")
+        assert state["provider"] == "lmstudio"
+        assert isinstance(state["requests_in_last_60s"], int)
+        assert isinstance(state["enabled"], bool)
+
+    def test_rate_limit_per_provider_independent(self, app):
+        from agent.llm_integration import _check_rate_limit, _RATE_LIMIT_WINDOW
+        with app.app_context():
+            with mock.patch.dict(
+                app.config,
+                {"AGENT_CONFIG": {"llm_config": {"rate_limit_rpm": 1}}},
+            ):
+                _RATE_LIMIT_WINDOW.clear()
+                assert _check_rate_limit("lmstudio") is True
+                assert _check_rate_limit("lmstudio") is False  # blocked
+                assert _check_rate_limit("ollama") is True    # independent budget
+
+
+# ---------------------------------------------------------------------------
+# PRI-015: Parallel goals — slot queuing integration
+# ---------------------------------------------------------------------------
+
+class TestParallelGoalsSlotQueuing:
+    """PRI-015: Verify that parallel goals queue correctly and don't block indefinitely."""
+
+    def test_two_parallel_goals_respect_capacity_one(self):
+        """With capacity=1, second acquire times out cleanly — first is not starved."""
+        from agent.routes.tasks.goals import _acquire_planning_slot, _release_planning_slot, _PLANNING_SLOTS_LOCK
+        import agent.routes.tasks.goals as goals_mod
+
+        with _PLANNING_SLOTS_LOCK:
+            goals_mod._PLANNING_SLOTS = None
+            goals_mod._PLANNING_SLOTS_CAPACITY = 0
+
+        # First goal acquires the only slot.
+        acquired1, cap1 = _acquire_planning_slot(timeout_s=1, capacity=1)
+        assert acquired1 is True
+        assert cap1 == 1
+
+        # Second goal times out immediately (capacity=1, slot taken).
+        acquired2, _ = _acquire_planning_slot(timeout_s=0, capacity=1)
+        assert acquired2 is False
+
+        # Release first — next acquire should succeed.
+        _release_planning_slot()
+        acquired3, _ = _acquire_planning_slot(timeout_s=1, capacity=1)
+        assert acquired3 is True
+        _release_planning_slot()
+
+    def test_purge_after_cancel_leaves_no_orphan_tasks(self, app):
+        """PRI-015: After purge, all tasks for that goal must be gone."""
+        from agent.db_models import GoalDB, TaskDB
+        from agent.repository import goal_repo, task_repo
+        from agent.services.goal_purge_service import GoalPurgeService
+        from types import SimpleNamespace
+
+        with app.app_context():
+            goal = goal_repo.save(GoalDB(goal="parallel orphan test", status="running", summary="t"))
+            t1 = task_repo.save(TaskDB(id="orphan-t1", title="a", status="running", goal_id=goal.id, goal_trace_id=goal.trace_id))
+            t2 = task_repo.save(TaskDB(id="orphan-t2", title="b", status="todo", goal_id=goal.id, goal_trace_id=goal.trace_id))
+
+            svc = GoalPurgeService()
+            # Patch dependencies.
+            import agent.services.goal_purge_service as gps_mod
+            original_pts = gps_mod.get_prompt_trace_service
+            original_tas = gps_mod.get_task_admin_service
+            gps_mod.get_prompt_trace_service = lambda: SimpleNamespace(delete_by_goal_id=lambda _: 0)
+            gps_mod.get_task_admin_service = lambda: SimpleNamespace(intervene_task=lambda **_kw: (True, "ok", {}))
+            try:
+                result = svc.purge_goal(goal.id)
+            finally:
+                gps_mod.get_prompt_trace_service = original_pts
+                gps_mod.get_task_admin_service = original_tas
+
+            assert result is not None
+            assert task_repo.get_by_id("orphan-t1") is None
+            assert task_repo.get_by_id("orphan-t2") is None
+            assert goal_repo.get_by_id(goal.id) is None
+
+    def test_worker_cancel_retry_on_connection_failure(self):
+        """PRI-008/015: RequestCancellationService retries failed worker POSTs."""
+        from agent.services.request_cancellation_service import RequestCancellationService
+        svc = RequestCancellationService()
+        svc._retry_attempts = 2
+        svc._retry_delay_s = 0.0  # no actual sleep in tests
+
+        call_count = [0]
+
+        def _failing_post(*args, **kwargs):
+            call_count[0] += 1
+            raise ConnectionError("refused")
+
+        import unittest.mock as mock
+        with mock.patch("requests.post", side_effect=_failing_post):
+            result = svc._post("http://worker:9000", "/cancel", token=None)
+
+        assert result["ok"] is False
+        assert call_count[0] == 2  # retried once
+        assert result["attempts"] == 2
+
+
+# ---------------------------------------------------------------------------
+# PRI-016: Live smoke (feature-flagged, skipped unless ANANTA_LIVE_LMSTUDIO_SMOKE=1)
+# ---------------------------------------------------------------------------
+
+import os as _os
+
+@pytest.mark.skipif(
+    not _os.getenv("ANANTA_LIVE_LMSTUDIO_SMOKE"),
+    reason="Set ANANTA_LIVE_LMSTUDIO_SMOKE=1 to run live LMStudio smoke tests.",
+)
+class TestLiveSmokeLMStudio:
+    """PRI-016: Optional live smoke against a real LMStudio instance.
+
+    Requires ANANTA_LIVE_LMSTUDIO_SMOKE=1 and a running Hub+LMStudio.
+    """
+
+    def test_planning_health_endpoint_responds(self):
+        import requests
+        base = _os.getenv("ANANTA_BASE_URL", "http://localhost:5000")
+        try:
+            r = requests.get(f"{base}/goals/planning/health", timeout=5)
+        except Exception as exc:
+            pytest.skip(f"Hub not reachable: {exc}")
+        assert r.status_code in (200, 403)  # 403 = running but no admin creds
+
+    def test_circuit_breaker_not_open_at_start(self):
+        """Circuit breaker must start closed on a fresh hub."""
+        from agent.llm_integration import get_circuit_breaker_state, CIRCUIT_BREAKER
+        from collections import defaultdict
+        CIRCUIT_BREAKER["failures"] = defaultdict(int)
+        CIRCUIT_BREAKER["open"] = defaultdict(bool)
+        state = get_circuit_breaker_state("lmstudio")
+        assert state["state"] == "closed"
+
+    def test_rate_limit_state_observable(self):
+        """Rate-limit state is observable without error."""
+        from agent.llm_integration import get_rate_limit_state
+        state = get_rate_limit_state("lmstudio")
+        assert "requests_in_last_60s" in state
+        assert "limit_rpm" in state

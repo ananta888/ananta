@@ -10,7 +10,8 @@ from collections.abc import Sequence
 from typing import Any
 
 SUBCOMMANDS = ["create", "list", "inspect", "status", "ask", "plan", "review",
-               "diagnose", "patch", "repair-admin", "new-project", "evolve-project"]
+               "diagnose", "patch", "repair-admin", "new-project", "evolve-project",
+               "planning-stuck", "recover-stale", "cancel-tree"]
 
 _DEFAULT_BASE_URL = "http://localhost:5000"
 _DEFAULT_USER = "admin"
@@ -44,6 +45,27 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _configure_subparsers(p: argparse.ArgumentParser) -> None:
     sub = p.add_subparsers(dest="goal_cmd", metavar="<action>")
+
+    # Diagnostic / recovery commands (PRI-013)
+    ps_p = sub.add_parser("planning-stuck", help="List goals stuck in planning (expired lease).")
+    ps_p.add_argument("--json", action="store_true")
+    ps_p.add_argument("--base-url", default=None)
+    ps_p.add_argument("--user", default=_DEFAULT_USER)
+    ps_p.add_argument("--password", default=_DEFAULT_PASSWORD)
+
+    rs_p = sub.add_parser("recover-stale", help="[MUTATING] Cancel stale planning goals with expired lease.")
+    rs_p.add_argument("--yes", action="store_true", help="Execute recovery (default: dry-run).")
+    rs_p.add_argument("--json", action="store_true")
+    rs_p.add_argument("--base-url", default=None)
+    rs_p.add_argument("--user", default=_DEFAULT_USER)
+    rs_p.add_argument("--password", default=_DEFAULT_PASSWORD)
+
+    ct_p = sub.add_parser("cancel-tree", help="[MUTATING] Cancel all tasks for a goal and mark it failed.")
+    ct_p.add_argument("goal_id", help="Goal ID or prefix.")
+    ct_p.add_argument("--yes", action="store_true", help="Required to confirm destructive action.")
+    ct_p.add_argument("--base-url", default=None)
+    ct_p.add_argument("--user", default=_DEFAULT_USER)
+    ct_p.add_argument("--password", default=_DEFAULT_PASSWORD)
 
     # Core commands
     cr_p = sub.add_parser("create", help="[MUTATING] Submit a new goal.")
@@ -130,6 +152,12 @@ def dispatch(argv: Sequence[str]) -> int:
         mode = getattr(parsed, "_goal_mode", "generic")
         parsed.mode = mode
         return _cmd_create(parsed)
+    if cmd == "planning-stuck":
+        return _cmd_planning_stuck(parsed)
+    if cmd == "recover-stale":
+        return _cmd_recover_stale(parsed)
+    if cmd == "cancel-tree":
+        return _cmd_cancel_tree(parsed)
     parser.print_help()
     return 0
 
@@ -347,4 +375,129 @@ def _cmd_status(parsed) -> int:
         fr = g.get("failure_reason", "")
         if fr:
             print(f"Reason: {fr}")
+    return 0
+
+
+def _cmd_planning_stuck(parsed) -> int:
+    """PRI-013: Show goals stuck in planning (expired lease or long-running)."""
+    import requests
+    base = _base_url(parsed)
+    try:
+        token = _login(base, parsed.user, parsed.password)
+        r = requests.get(f"{base}/goals/planning/health", headers=_auth(token), timeout=15)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 4
+    if r.status_code == 403:
+        print("Error: planning-stuck requires admin credentials", file=sys.stderr)
+        return 2
+    if not r.ok:
+        print(f"Error: {r.status_code} {r.text[:200]}", file=sys.stderr)
+        return 1
+    data = r.json().get("data", {})
+    if getattr(parsed, "json", False):
+        print(json.dumps(data, indent=2))
+        return 0
+    goals = data.get("goals") or {}
+    slots = data.get("planning_slots") or {}
+    cb = data.get("circuit_breaker") or {}
+    print("=== Planning Health ===")
+    print(f"  Slots:   capacity={slots.get('capacity')}  in_use={slots.get('in_use')}  available={slots.get('available')}")
+    print(f"  Goals:   queued={goals.get('queued')}  running={goals.get('running')}  stale_expired_lease={goals.get('stale_expired_lease')}")
+    print(f"  Circuit: provider={cb.get('provider')}  state={cb.get('state')}  failures={cb.get('failures')}/{cb.get('threshold')}")
+    ages = data.get("running_ages_s")
+    if ages:
+        print(f"  Running ages (s): {ages}")
+    stale = int(goals.get("stale_expired_lease") or 0)
+    if stale:
+        print(f"\n  WARNING: {stale} goal(s) have an expired planning lease.")
+        print("  Run: ananta goal recover-stale --yes   to cancel them.")
+    return 0
+
+
+def _cmd_recover_stale(parsed) -> int:
+    """PRI-013: Cancel stale planning goals with expired lease."""
+    import requests
+    base = _base_url(parsed)
+    dry_run = not getattr(parsed, "yes", False)
+    try:
+        token = _login(base, parsed.user, parsed.password)
+        r = requests.get(f"{base}/goals/planning/health", headers=_auth(token), timeout=15)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 4
+    if r.status_code == 403:
+        print("Error: recover-stale requires admin credentials", file=sys.stderr)
+        return 2
+    if not r.ok:
+        print(f"Error: {r.status_code} {r.text[:200]}", file=sys.stderr)
+        return 1
+    stale = int((r.json().get("data", {}).get("goals") or {}).get("stale_expired_lease") or 0)
+    if stale == 0:
+        print("No stale planning goals found.")
+        return 0
+    if dry_run:
+        print(f"[DRY RUN] Would cancel {stale} stale planning goal(s). Add --yes to execute.")
+        return 0
+    try:
+        rec = requests.post(f"{base}/goals/planning/recover-stale", headers=_auth(token), timeout=30)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 4
+    if rec.status_code == 404:
+        print(f"Recover endpoint not available. Use: ananta goal cancel-tree <goal_id>", file=sys.stderr)
+        return 1
+    if not rec.ok:
+        print(f"Error: {rec.status_code} {rec.text[:200]}", file=sys.stderr)
+        return 1
+    rec_data = rec.json().get("data", {})
+    cancelled = rec_data.get("cancelled", stale)
+    if getattr(parsed, "json", False):
+        print(json.dumps(rec_data, indent=2))
+    else:
+        print(f"Cancelled {cancelled} stale planning goal(s).")
+    return 0
+
+
+def _cmd_cancel_tree(parsed) -> int:
+    """PRI-013: Cancel all tasks for a goal and mark it failed."""
+    import requests
+    base = _base_url(parsed)
+    if not getattr(parsed, "yes", False):
+        print("Error: cancel-tree is destructive — add --yes to confirm.", file=sys.stderr)
+        return 2
+    goal_id = getattr(parsed, "goal_id", "")
+    if not goal_id:
+        print("Error: goal_id required.", file=sys.stderr)
+        return 2
+    try:
+        token = _login(base, parsed.user, parsed.password)
+        r = requests.post(f"{base}/goals/{goal_id}/cancel", headers=_auth(token), timeout=30)
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 4
+    if r.status_code == 404:
+        # Fall back to purge when no dedicated cancel endpoint.
+        print(f"No cancel endpoint — falling back to purge for goal {goal_id}")
+        try:
+            rp = requests.delete(f"{base}/goals/{goal_id}/purge", headers=_auth(token), timeout=30)
+        except Exception as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 4
+        if not rp.ok:
+            print(f"Error: {rp.status_code} {rp.text[:200]}", file=sys.stderr)
+            return 1
+        print(f"Goal purged: {goal_id}")
+        return 0
+    if not r.ok:
+        print(f"Error: {r.status_code} {r.text[:200]}", file=sys.stderr)
+        return 1
+    data = r.json().get("data", {})
+    print(f"Goal cancelled: {goal_id}")
+    print(f"  Tasks cancelled: {data.get('tasks_cancelled', '?')}")
+    failures = data.get("worker_cancel_failures") or []
+    if failures:
+        print(f"  WARNING: {len(failures)} worker(s) did not ack cancel:")
+        for f in failures[:5]:
+            print(f"    task={f.get('task_id')} url={f.get('worker_url')} error={f.get('error')}")
     return 0

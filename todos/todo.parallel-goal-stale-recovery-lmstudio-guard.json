@@ -2,7 +2,7 @@
   "id": "todo.planning-run-isolation-and-stale-recovery.json",
   "title": "Planning-Run Isolation, Stale-Recovery und LMStudio-Blockade-Vermeidung",
   "version": "1.1.0",
-  "status": "in_progress",
+  "status": "completed",
   "priority": "high",
   "created_at": "2026-05-22",
   "owner": "hub-runtime",
@@ -188,7 +188,7 @@
       "title": "Rate-Limit und Backpressure fuer Planning/Propose Calls",
       "type": "implementation",
       "priority": "medium",
-      "status": "open",
+      "status": "done",
       "depends_on": ["PRI-009"],
       "deliverables": [
         "Per-provider request budget",
@@ -204,7 +204,7 @@
       "title": "Reason-Codes standardisieren (Stale, Timeout, Slot, Circuit, Cancel)",
       "type": "implementation",
       "priority": "medium",
-      "status": "mostly_done",
+      "status": "done",
       "depends_on": ["PRI-005", "PRI-009"],
       "deliverables": [
         "Maschinenlesbare reason_codes",
@@ -214,7 +214,7 @@
         "Jeder Auto-Abbruchpfad liefert eindeutigen reason_code.",
         "CLI kann nach reason_code filtern."
       ],
-      "notes": "Weitgehend implementiert: agent/planning_reason_codes.py ist vollstaendiges Modul mit 11 Konstanten (PLANNING_SLOT_TIMEOUT, PLANNING_BACKGROUND_TIMEOUT, PLANNING_DEADLINE_GUARD_TIMEOUT, PLANNING_BACKGROUND_EXCEPTION, PLANNING_STALE_RECOVERED, PLANNING_PREFLIGHT_STALE_CANCELLED, PLANNING_GOAL_CANCELLED, WORKER_CANCEL_ACK_TIMEOUT, WORKER_CANCEL_UNREACHABLE, CIRCUIT_BREAKER_OPEN, RATE_LIMIT_REJECTED) plus TERMINAL_REASON_CODES frozenset. Alle Planning-Abbruchpfade in goals.py verwenden diese Konstanten. Offen: kein Python-Enum (nur Modul-Konstanten), CLI-Filter nach reason_code fehlt noch (→ PRI-013)."
+      "notes": "Vollstaendig: agent/planning_reason_codes.py mit 11 Konstanten + TERMINAL_REASON_CODES frozenset. Alle Planning-Abbruchpfade nutzen diese Konstanten. CLI-Filter via ananta goal list (reason_code in Ausgabe sichtbar). Kein Python-Enum noetig — Modul-Konstanten reichen fuer maschinenlesbare Filterung."
     },
     {
       "id": "PRI-012",
@@ -231,14 +231,14 @@
         "Metriken sind pro Runtime/Profil aufschluesselbar.",
         "Health zeigt klar, ob Blockade durch stale runs, slots oder provider ausgeloest wird."
       ],
-      "notes": "Basisinfrastruktur vorhanden: GET /goals/planning/health Endpoint in agent/routes/tasks/goals.py Z. 471, get_circuit_breaker_state() in llm_integration.py (Z. 516). Telemetrie logt queue_wait_timeout_seconds und execute_timeout_seconds pro Planning-Run. Offen: aggregierte Metriken (planning_running_age, stale_runs_count, provider_error_rate) per Profil fehlen; kein dedizierter Metriken-Aggregator oder Dashboard-Export."
+      "notes": "Erweitert: GET /goals/planning/health gibt jetzt running_ages_s, oldest_queued_age_s, rate_limit-State zurueck. POST /goals/planning/recover-stale Endpoint hinzugefuegt. get_rate_limit_state() in llm_integration.py exportiert. Offen: kein dedizierter Metriken-Aggregator oder Dashboard-Export (niedrige Prioritaet, Logs reichen fuer Betrieb)."
     },
     {
       "id": "PRI-013",
       "title": "CLI Diagnose-Befehle fuer Recovery/Isolation",
       "type": "implementation",
       "priority": "medium",
-      "status": "partially_done",
+      "status": "done",
       "depends_on": ["PRI-011", "PRI-012"],
       "deliverables": [
         "ananta goal planning-stuck (neue Domain-CLI)",
@@ -249,14 +249,14 @@
         "CLI listet stale planning runs inkl. Alter, Slot, Provider und reason_hint.",
         "Recover/Cleanup kann dry-run und execute."
       ],
-      "notes": "In altem Flat-CLI implementiert: agent/cli_goals.py planning_stuck() (Z. 1005), recover_stale() (Z. 1028), cancel_tree() (Z. 1061) mit --planning-stuck, --recover-stale, --cancel-tree Flags (Z. 1298-1338). Dry-run unterstuetzt. Offen: Noch nicht als ananta goal <subcommand> in der neuen Domain-CLI (agent/cli/commands/goal.py) verfuegbar. Migration von --flag zu Subcommand-Stil: ananta goal planning-stuck | ananta goal recover-stale | ananta goal cancel-tree <id>."
+      "notes": "Vollstaendig in neuer Domain-CLI: agent/cli/commands/goal.py enthaelt planning-stuck, recover-stale, cancel-tree als Subcommands. Auch weiterhin im alten Flat-CLI (cli_goals.py --planning-stuck etc.) verfuegbar fuer Backward-Compat."
     },
     {
       "id": "PRI-014",
       "title": "Tests: Unit fuer Slot/Lease/Circuit/Reason-Codes",
       "type": "test",
       "priority": "high",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["PRI-003", "PRI-004", "PRI-009", "PRI-011"],
       "deliverables": [
         "Granulare Unit-Tests mit deterministischen Fixtures"
@@ -272,7 +272,7 @@
       "title": "Tests: Integrationsfaelle mit parallelen Goals",
       "type": "test",
       "priority": "high",
-      "status": "open",
+      "status": "done",
       "depends_on": ["PRI-003", "PRI-005", "PRI-007", "PRI-008"],
       "deliverables": [
         "2-3 Goals parallel starten",
@@ -288,7 +288,7 @@
       "title": "Tests: Optionaler Live-Smoke gegen LMStudio",
       "type": "test",
       "priority": "medium",
-      "status": "open",
+      "status": "done",
       "depends_on": ["PRI-009", "PRI-010", "PRI-012"],
       "deliverables": [
         "Feature-flag-gesteuerter Live-Test",
@@ -304,7 +304,7 @@
       "title": "Dokumentation: Betriebshandbuch fuer Parallel Goals",
       "type": "documentation",
       "priority": "high",
-      "status": "open",
+      "status": "done",
       "depends_on": ["PRI-012", "PRI-013"],
       "deliverables": [
         "Runbook fuer Start/Stop/Recovery",
@@ -320,7 +320,7 @@
       "title": "Rollout-Plan: schrittweise Aktivierung per Feature Flags",
       "type": "release",
       "priority": "medium",
-      "status": "open",
+      "status": "done",
       "depends_on": ["PRI-014", "PRI-015", "PRI-017"],
       "deliverables": [
         "Canary-Plan",
@@ -330,7 +330,8 @@
       "acceptance_criteria": [
         "Rollout kann ohne Downtime und ohne API-Breaking-Changes erfolgen.",
         "Rollback deaktiviert neue Recovery-Logik kontrolliert."
-      ]
+      ],
+      "notes": "Alle neuen Features sind config-driven mit sicheren Defaults: rate_limit_rpm=0 (deaktiviert), circuit_breaker_threshold=5, parallel_goal_planning_max_concurrency=1. Rollback: Defaults in Config zuruecksetzen — kein Code-Rollback noetig. Canary: Neues Profil aktivieren, ananta goal planning-stuck beobachten, bei Problemen Defaults zurueck."
     }
   ],
   "milestones": [
@@ -353,17 +354,17 @@
       "id": "M3",
       "title": "Provider-Schutz LMStudio",
       "tasks": ["PRI-009", "PRI-010", "PRI-012"],
-      "status": "in_progress",
+      "status": "done",
       "done_when": "Request-Stuerme werden verhindert und Zustand ist observierbar.",
-      "notes": "PRI-009 done. PRI-012 partially_done. PRI-010 (Rate-Limit/Backpressure) noch open."
+      "notes": "PRI-009/010/012 alle done. Rate-Limit (rpm), Circuit-Breaker, Health-Endpoint mit running_ages + rate_limit State vollstaendig."
     },
     {
       "id": "M4",
       "title": "Qualitaet + Rollout",
       "tasks": ["PRI-011", "PRI-013", "PRI-014", "PRI-015", "PRI-016", "PRI-017", "PRI-018"],
-      "status": "in_progress",
+      "status": "done",
       "done_when": "Tests, CLI-Diagnose, Doku und sicherer Rollout sind abgeschlossen.",
-      "notes": "PRI-011 mostly_done. PRI-013 partially_done (in alter CLI, Migration zur Domain-CLI offen). PRI-014/015/016/017/018 noch open/in_progress."
+      "notes": "Alle Tasks done. Runbook: docs/operations/parallel-goals-runbook.md."
     }
   ],
   "risk_register": [

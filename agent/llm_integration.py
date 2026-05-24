@@ -469,6 +469,12 @@ CIRCUIT_BREAKER = {"failures": defaultdict(int), "last_failure": defaultdict(flo
 _CB_DEFAULT_THRESHOLD = 5
 _CB_DEFAULT_RECOVERY_TIME = 60
 
+# PRI-010: Per-provider rate limiter (sliding window, tracks request timestamps).
+# Key: provider name → deque of float timestamps (seconds since epoch).
+import collections as _collections
+_RATE_LIMIT_WINDOW: dict[str, _collections.deque] = defaultdict(lambda: _collections.deque())
+_RATE_LIMIT_LOCK = __import__("threading").Lock()
+
 
 def _cb_config() -> tuple[int, int]:
     """Return (threshold, recovery_seconds) from live app config when available."""
@@ -511,6 +517,62 @@ def _report_llm_failure(provider: str) -> None:
 def _report_llm_success(provider: str) -> None:
     CIRCUIT_BREAKER["failures"][provider] = 0
     CIRCUIT_BREAKER["open"][provider] = False
+
+
+def _rl_config(provider: str) -> int:
+    """Return max requests-per-minute for provider (0 = disabled)."""
+    try:
+        from flask import current_app
+        cfg = (current_app.config.get("AGENT_CONFIG") or {}).get("llm_config") or {}
+        rl = cfg.get("rate_limit_rpm") or 0
+        # Per-provider override: rate_limit_rpm_<provider>
+        rl_per = cfg.get(f"rate_limit_rpm_{provider}") or rl
+        return max(0, int(rl_per))
+    except (RuntimeError, TypeError, ValueError):
+        return 0
+
+
+def _check_rate_limit(provider: str) -> bool:
+    """Return True if request is allowed, False if rate limit exceeded (PRI-010).
+
+    Uses a 60-second sliding window. Thread-safe.
+    """
+    rpm = _rl_config(provider)
+    if rpm <= 0:
+        return True  # rate limiting disabled
+    now = time.time()
+    window_start = now - 60.0
+    with _RATE_LIMIT_LOCK:
+        dq = _RATE_LIMIT_WINDOW[provider]
+        # Evict timestamps outside the window.
+        while dq and dq[0] < window_start:
+            dq.popleft()
+        if len(dq) >= rpm:
+            logging.warning(
+                "rate_limit_exceeded provider=%s requests_in_window=%s limit_rpm=%s",
+                provider, len(dq), rpm,
+            )
+            return False
+        dq.append(now)
+        return True
+
+
+def get_rate_limit_state(provider: str) -> dict:
+    """Return observable rate-limit state for a provider (for health/diagnostics)."""
+    rpm = _rl_config(provider)
+    now = time.time()
+    window_start = now - 60.0
+    with _RATE_LIMIT_LOCK:
+        dq = _RATE_LIMIT_WINDOW[provider]
+        while dq and dq[0] < window_start:
+            dq.popleft()
+        count = len(dq)
+    return {
+        "provider": provider,
+        "requests_in_last_60s": count,
+        "limit_rpm": rpm,
+        "enabled": rpm > 0,
+    }
 
 
 def get_circuit_breaker_state(provider: str) -> dict:
@@ -1126,6 +1188,9 @@ def _call_llm(
     """Wrapper für _execute_llm_call mit automatischer Retry-Logik."""
     if not _check_circuit_breaker(provider):
         logging.warning(f"Abbruch: Circuit Breaker für {provider} ist offen.")
+        return ""
+    if not _check_rate_limit(provider):
+        logging.warning("Abbruch: Rate-Limit für provider=%s überschritten.", provider)
         return ""
 
     max_retries = getattr(settings, "retry_count", 3)
