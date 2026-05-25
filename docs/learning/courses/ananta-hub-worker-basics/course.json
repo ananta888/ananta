@@ -1,0 +1,26 @@
+{
+  "id": "ananta-hub-worker-basics",
+  "title": "Ananta Hub-Worker-Grundlagen",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-game-basics"],
+  "learning_goals": [
+    "Hub als Control Plane und Worker als Execution Plane verstehen",
+    "Worker-zu-Worker-Orchestrierung als Anti-Pattern erkennen",
+    "Goal -> Plan -> Task -> Execution -> Verification -> Artifact anwenden"
+  ],
+  "references": ["AGENTS.md"],
+  "lessons": [
+    {"id": "control-vs-execution-plane", "title": "Hub vs Worker Verantwortungen", "type": "lesson"},
+    {"id": "task-flow", "title": "Task-System und Verifikation", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "map-goal-to-task-chain",
+    "title": "Ein Ziel in eine sichere Task-Kette zerlegen",
+    "acceptance_criteria": [
+      "Task-Kette ist vollstaendig und pruefbar",
+      "Orchestrierung bleibt beim Hub",
+      "Verification/Artifacts sind explizit benannt"
+    ]
+  }
+}

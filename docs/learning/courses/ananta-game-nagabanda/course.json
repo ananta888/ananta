@@ -1,0 +1,28 @@
+{
+  "id": "ananta-game-nagabanda",
+  "title": "Nagabanda und deterministische Regeln",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-game-basics"],
+  "learning_goals": [
+    "Nagabanda als regelbasierte Entscheidung verstehen",
+    "vollstaendige, teilweise und keine Einkreisung unterscheiden",
+    "LLM-Vorschlaege von deterministischer Regelpruefung trennen"
+  ],
+  "lessons": [
+    {"id": "nagabanda-cases", "title": "Nagabanda-Fallklassen", "type": "lesson"},
+    {"id": "validate-action-manual", "title": "validateAction manuell anwenden", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "validate-action-cases",
+    "title": "Mehrere Zugfaelle deterministisch entscheiden",
+    "acceptance_criteria": [
+      "Faelle sind korrekt als allow/deny begruendet",
+      "Regelbezug ist explizit statt probabilistisch",
+      "Freitext ohne Regelgrundlage gilt nicht als bestanden"
+    ]
+  },
+  "unlock_rules": [
+    {"condition": "exercise_passed", "unlock": "game-core-test-exercises"}
+  ]
+}

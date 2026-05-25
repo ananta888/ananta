@@ -1,0 +1,25 @@
+{
+  "id": "ananta-game-figure-agents",
+  "title": "Figuren-Agenten im Strategiespiel",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-game-nagabanda"],
+  "learning_goals": [
+    "suggest_only, auto_if_valid und Advisor Mode unterscheiden",
+    "Template-Schichten fuer Naga, Rishi und Deva verstehen",
+    "Agentenvorschlaege vor Ausfuehrung validieren"
+  ],
+  "lessons": [
+    {"id": "agent-modes", "title": "Agentenmodi und Risiko", "type": "lesson"},
+    {"id": "template-layers", "title": "Template-Schichten pro Figur", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "validate-agent-proposal",
+    "title": "Agentenvorschlag pruefen und begrenzt freigeben",
+    "acceptance_criteria": [
+      "Vorschlag wird gegen Regeln validiert",
+      "Begruendung nennt Scope und Risiko",
+      "Auto-if-valid bleibt ohne Folgekurs gesperrt"
+    ]
+  }
+}

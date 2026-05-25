@@ -1,0 +1,25 @@
+{
+  "id": "ananta-templates-blueprints",
+  "title": "Templates, Blueprints und Rollen",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-hub-worker-basics"],
+  "learning_goals": [
+    "TemplateDB, RoleDB, BlueprintRoleDB und TeamMemberDB konzeptionell verstehen",
+    "Template-Grenzen fuer Personas und Worker-Verhalten anwenden",
+    "Rollenkonzept ohne Production-Rechte entwerfen"
+  ],
+  "lessons": [
+    {"id": "template-role-model", "title": "Template- und Rollenmodell", "type": "lesson"},
+    {"id": "blueprint-boundaries", "title": "Blueprint-Grenzen und Least Privilege", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "design-minimal-role-template",
+    "title": "Minimales Rollen-/Template-Setup fuer einen Use Case erstellen",
+    "acceptance_criteria": [
+      "Rollen und Rechte sind minimal gehalten",
+      "Grenzen fuer Worker-Zugriffe sind explizit",
+      "Keine impliziten Production-Freigaben"
+    ]
+  }
+}
