@@ -1,0 +1,342 @@
+{
+  "id": "todo.operator-tui-mouse-snake-artifact-chat",
+  "title": "Mouse-driven Snake movement, AI-Snake artifact targeting, and contextual artifact chat",
+  "status": "open",
+  "priority": "high",
+  "created": "2026-05-25",
+  "context": {
+    "summary": "Extend the Operator TUI Snake mode so the local user snake softly follows the mouse cursor inside the terminal. The AI snake continues to follow or observe the user snake, but when the system recognizes which artifact, file, panel, or section the user likely means, the AI snake quickly moves to that target, explains it, and opens or anchors a contextual chat about it.",
+    "motivation": "The Snake UI should feel like a playful but useful guide layer. Mouse movement gives intuitive steering, while AI-Snake movement makes explanations spatial: the AI physically moves to the artifact it is talking about instead of only writing abstract text.",
+    "related_todo": [
+      "todos/todo.homepage-tui-e2e-inline-viewer-fixup.json"
+    ],
+    "target_environment": [
+      "Windows 11 Terminal",
+      "WSL2 Ubuntu terminal sessions",
+      "Linux terminals with xterm-compatible mouse escape support",
+      "prompt_toolkit-based TUI runtime if present"
+    ]
+  },
+  "target_behavior": {
+    "local_snake": [
+      "Mouse movement updates a cursor target point in terminal cell coordinates.",
+      "The local snake does not teleport directly to the mouse pointer; it follows with damped/smoothed movement.",
+      "The snake remains readable and visually stable even when the mouse moves quickly.",
+      "Clicking or hovering over an artifact increases that artifact's targeting confidence."
+    ],
+    "ai_snake": [
+      "AI snake normally follows or shadows the local snake at a readable delay.",
+      "If artifact intent confidence becomes high enough, AI snake enters fast_target mode and moves quickly to the artifact/panel/line region.",
+      "After arrival, AI snake anchors an explanation bubble/status/chat near the target.",
+      "The AI snake can continue a contextual chat about the selected artifact."
+    ],
+    "artifact_chat": [
+      "Detected target artifact becomes the chat context.",
+      "The user can ask follow-up questions about this artifact without repeating its name.",
+      "Inline viewer should open or focus the artifact when appropriate, using read-only viewer by default.",
+      "The chat should show which artifact/context is currently active."
+    ]
+  },
+  "implementation_plan": [
+    {
+      "id": "MSA-001",
+      "title": "Add terminal mouse capability detection",
+      "status": "open",
+      "type": "foundation",
+      "tasks": [
+        "Add a TUI capability layer that records whether mouse events are enabled and supported.",
+        "Support prompt_toolkit mouse_support=True where the Operator TUI application is initialized.",
+        "Add fallback behavior for terminals without mouse support.",
+        "Expose mouse support status in debug/status output for troubleshooting WSL2/Windows Terminal."
+      ],
+      "acceptance_criteria": [
+        "Windows Terminal + WSL2 can emit mouse move/click/scroll events to the TUI when mouse mode is enabled.",
+        "If mouse events are not available, keyboard Snake movement still works exactly as before.",
+        "The TUI status/debug panel can show mouse_support=enabled/disabled and terminal TERM value.",
+        "No crash occurs when running inside a non-mouse terminal or CI pseudo-terminal."
+      ],
+      "suggested_tests": [
+        "tests/client_surfaces/operator_tui/test_mouse_capabilities.py::test_mouse_support_flag_enabled",
+        "tests/client_surfaces/operator_tui/test_mouse_capabilities.py::test_mouse_support_fallback_without_terminal_mouse"
+      ]
+    },
+    {
+      "id": "MSA-002",
+      "title": "Represent mouse state and terminal cell coordinates",
+      "status": "open",
+      "type": "model",
+      "tasks": [
+        "Add MouseState model with x, y, last_event_type, buttons, scroll_delta, last_seen_at, active flag.",
+        "Normalize terminal mouse events to integer cell coordinates matching renderer width/height.",
+        "Clamp coordinates to visible terminal bounds.",
+        "Track hover duration per cell/region for artifact intent scoring."
+      ],
+      "acceptance_criteria": [
+        "Mouse coordinates are always clamped to 0 <= x < width and 0 <= y < height.",
+        "Move, click, double-click if supported, and scroll events are represented without terminal-specific leakage into game logic.",
+        "MouseState can be updated and tested without a real terminal.",
+        "Scroll events can be routed to inline viewer/log panes later without conflicting with Snake movement."
+      ],
+      "suggested_tests": [
+        "tests/client_surfaces/operator_tui/test_mouse_state.py::test_mouse_coordinates_are_clamped",
+        "tests/client_surfaces/operator_tui/test_mouse_state.py::test_mouse_move_click_and_scroll_are_normalized"
+      ]
+    },
+    {
+      "id": "MSA-003",
+      "title": "Implement smooth local Snake mouse-follow movement",
+      "status": "open",
+      "type": "feature",
+      "tasks": [
+        "Add a local snake movement mode mouse_follow.",
+        "Use damped target following instead of direct teleporting.",
+        "Limit speed per tick and avoid visual jitter around the mouse pointer.",
+        "Keep keyboard steering available and allow toggling between keyboard, free, and mouse-follow modes.",
+        "Render a subtle target marker only if it improves readability."
+      ],
+      "acceptance_criteria": [
+        "When the mouse moves, local snake gradually turns/moves toward the cursor target.",
+        "The local snake never jumps more than the configured max step distance per tick.",
+        "Rapid mouse movement produces a smooth chase, not flickering or broken snake body segments.",
+        "Keyboard steering still works when mouse-follow mode is disabled.",
+        "The Snake remains within visible terminal bounds."
+      ],
+      "suggested_tests": [
+        "tests/client_surfaces/operator_tui/test_mouse_snake_movement.py::test_local_snake_follows_mouse_target_smoothly",
+        "tests/client_surfaces/operator_tui/test_mouse_snake_movement.py::test_local_snake_does_not_teleport",
+        "tests/client_surfaces/operator_tui/test_mouse_snake_movement.py::test_keyboard_mode_still_works"
+      ]
+    },
+    {
+      "id": "MSA-004",
+      "title": "Map screen regions to artifacts, files, panels, and sections",
+      "status": "open",
+      "type": "integration",
+      "tasks": [
+        "Add a RegionIndex or HitMap generated during rendering.",
+        "Map visible screen rectangles/cells to semantic targets such as artifact id, file path, pane id, section id, task id, or log line.",
+        "Expose hit-testing function get_target_at(x, y).",
+        "Ensure the hit map is derived deterministically from rendered layout state.",
+        "Keep hit map independent from visual ANSI escape sequences."
+      ],
+      "acceptance_criteria": [
+        "Given mouse coordinates over a visible artifact row, hit-testing returns the correct artifact id/path.",
+        "Given coordinates over the Artifacts pane header, hit-testing returns pane/section target but not a fake artifact.",
+        "Given coordinates over empty space, hit-testing returns none or neutral target.",
+        "Hit-testing works after terminal resize and renderer width/height changes.",
+        "The hit map does not depend on parsing the final ANSI-rendered string."
+      ],
+      "suggested_tests": [
+        "tests/client_surfaces/operator_tui/test_region_hit_map.py::test_artifact_row_hit_returns_artifact_target",
+        "tests/client_surfaces/operator_tui/test_region_hit_map.py::test_empty_space_returns_no_target",
+        "tests/client_surfaces/operator_tui/test_region_hit_map.py::test_resize_rebuilds_hit_map"
+      ]
+    },
+    {
+      "id": "MSA-005",
+      "title": "Add artifact intent recognition from mouse behavior",
+      "status": "open",
+      "type": "logic",
+      "tasks": [
+        "Create an ArtifactIntentDetector that combines hover, click, movement direction, selected row, current focus pane, and recent user chat text.",
+        "Use deterministic scoring, not LLM guessing, for the first target decision.",
+        "Expose confidence levels: none, weak, likely, confirmed.",
+        "Clicks or double-clicks should immediately raise confidence for the clicked artifact.",
+        "Hover should require a short dwell threshold before likely intent is reached."
+      ],
+      "acceptance_criteria": [
+        "Hovering over the same artifact for the configured dwell duration results in likely confidence.",
+        "Clicking an artifact results in confirmed confidence.",
+        "Moving quickly across artifacts without hover/click does not falsely confirm intent.",
+        "If current keyboard selection and mouse hover agree, confidence increases.",
+        "Intent scoring is deterministic and unit tested with fixed timestamps/events."
+      ],
+      "suggested_tests": [
+        "tests/client_surfaces/operator_tui/test_artifact_intent_detector.py::test_hover_dwell_creates_likely_intent",
+        "tests/client_surfaces/operator_tui/test_artifact_intent_detector.py::test_click_confirms_artifact_intent",
+        "tests/client_surfaces/operator_tui/test_artifact_intent_detector.py::test_fast_mouse_pass_does_not_confirm"
+      ]
+    },
+    {
+      "id": "MSA-006",
+      "title": "Implement AI-Snake follow and fast-target modes",
+      "status": "open",
+      "type": "feature",
+      "tasks": [
+        "Represent AI-Snake movement mode: follow_user, inspect_target, fast_target, explain_target, idle.",
+        "In follow_user mode, AI snake trails local snake with readable delay.",
+        "When artifact intent is likely or confirmed, transition to fast_target mode.",
+        "Use a higher max speed for fast_target while keeping path visually understandable.",
+        "When the AI snake reaches the target region, transition to explain_target mode."
+      ],
+      "acceptance_criteria": [
+        "AI snake follows local snake during normal mouse movement.",
+        "AI snake switches to fast_target when artifact intent confidence reaches threshold.",
+        "AI snake reaches the artifact target within a bounded number of ticks for normal terminal sizes.",
+        "AI snake does not oscillate endlessly around the target.",
+        "State transitions are deterministic and unit tested."
+      ],
+      "suggested_tests": [
+        "tests/client_surfaces/operator_tui/test_ai_snake_targeting.py::test_ai_snake_follows_user_by_default",
+        "tests/client_surfaces/operator_tui/test_ai_snake_targeting.py::test_ai_snake_fast_targets_confirmed_artifact",
+        "tests/client_surfaces/operator_tui/test_ai_snake_targeting.py::test_ai_snake_enters_explain_mode_on_arrival"
+      ]
+    },
+    {
+      "id": "MSA-007",
+      "title": "Anchor artifact explanation bubble and contextual chat",
+      "status": "open",
+      "type": "ui",
+      "tasks": [
+        "Add a contextual ArtifactChatState with active_target, messages, pending_request, backend_source, and error state.",
+        "Render a compact explanation bubble near the artifact or in the detail pane if space is limited.",
+        "Show active artifact path/name in the chat header.",
+        "Allow user to type a follow-up question scoped to the active artifact.",
+        "Support closing or changing the active artifact context."
+      ],
+      "acceptance_criteria": [
+        "When AI snake reaches a target artifact, the UI shows a clear explanation area tied to that artifact.",
+        "The active artifact context is visible before and after the first AI response.",
+        "Follow-up chat messages are associated with the active artifact without requiring the user to repeat its path.",
+        "If the artifact changes, the chat header updates and old context is not silently mixed.",
+        "If AI backend fails, the UI shows a readable error and keeps the selected artifact context."
+      ],
+      "suggested_tests": [
+        "tests/client_surfaces/operator_tui/test_artifact_chat_renderer.py::test_artifact_chat_header_shows_active_artifact",
+        "tests/client_surfaces/operator_tui/test_artifact_chat_renderer.py::test_ai_response_is_rendered_near_target",
+        "tests/client_surfaces/operator_tui/test_artifact_chat_renderer.py::test_backend_error_keeps_context"
+      ]
+    },
+    {
+      "id": "MSA-008",
+      "title": "Connect artifact chat to existing Tutorial/AI backend",
+      "status": "open",
+      "type": "integration",
+      "tasks": [
+        "Reuse existing Tutorial AI/OpenAI-compatible backend configuration where possible.",
+        "Build artifact explanation prompt from artifact metadata, visible inline viewer excerpt, file path, task context, and user question.",
+        "Do not send full large files by default; use bounded excerpts and metadata.",
+        "Respect existing local/cloud model policy boundaries.",
+        "Show backend/model source in the UI without exposing API tokens."
+      ],
+      "acceptance_criteria": [
+        "Artifact explanation request can be made to local LM Studio/OpenAI-compatible backend.",
+        "Prompt includes artifact identity and bounded context excerpt.",
+        "Prompt does not include unrelated workspace files by default.",
+        "Large artifact context is truncated or summarized with visible marker.",
+        "Cloud/disallowed backend policies can block artifact context transmission.",
+        "API tokens are never rendered or written to cast metadata."
+      ],
+      "suggested_tests": [
+        "tests/client_surfaces/operator_tui/test_artifact_chat_backend.py::test_artifact_prompt_contains_bounded_context",
+        "tests/client_surfaces/operator_tui/test_artifact_chat_backend.py::test_large_artifact_context_is_truncated",
+        "tests/client_surfaces/operator_tui/test_artifact_chat_backend.py::test_policy_blocks_disallowed_backend"
+      ]
+    },
+    {
+      "id": "MSA-009",
+      "title": "Integrate inline viewer with AI-Snake artifact explanation",
+      "status": "open",
+      "type": "integration",
+      "tasks": [
+        "When artifact target is confirmed, open or focus the artifact in the inline read-only viewer if it is a text artifact.",
+        "Keep AI explanation bubble/chat synchronized with viewer scroll position where practical.",
+        "Allow AI snake to point to a specific line range if the explanation references lines.",
+        "Fallback to metadata-only explanation for binary or missing artifacts."
+      ],
+      "acceptance_criteria": [
+        "Confirmed text artifact opens in inline viewer by default.",
+        "AI chat context uses the same artifact path as the inline viewer header.",
+        "Binary artifact does not crash the viewer/chat flow.",
+        "Missing artifact produces a clear error and no stale previous artifact explanation is shown.",
+        "External editor is not launched by this flow unless explicitly requested."
+      ],
+      "suggested_tests": [
+        "tests/client_surfaces/operator_tui/test_ai_snake_inline_viewer_integration.py::test_confirmed_artifact_opens_inline_viewer",
+        "tests/client_surfaces/operator_tui/test_ai_snake_inline_viewer_integration.py::test_binary_artifact_uses_metadata_only_explanation",
+        "tests/client_surfaces/operator_tui/test_ai_snake_inline_viewer_integration.py::test_missing_artifact_shows_error"
+      ]
+    },
+    {
+      "id": "MSA-010",
+      "title": "Record mouse-driven Snake artifact chat in homepage E2E cast",
+      "status": "open",
+      "type": "e2e",
+      "tasks": [
+        "Extend snake-mode-live-e2e script to optionally emit mouse movement/click escape sequences if the terminal/app supports them.",
+        "Move mouse target toward Artifacts pane during recording.",
+        "Click or hover an artifact until intent is confirmed.",
+        "Show AI snake fast-targeting that artifact.",
+        "Show AI explanation and at least one scoped follow-up chat message.",
+        "Add proof markers for mouse-follow, artifact-intent, ai-fast-target, artifact-chat-active."
+      ],
+      "acceptance_criteria": [
+        "Generated E2E cast visibly shows local snake following mouse target or equivalent mouse-driven motion marker.",
+        "Generated E2E cast visibly shows AI snake switching from follow behavior to fast artifact target behavior.",
+        "Generated E2E cast contains a stable marker for the recognized artifact target.",
+        "Generated E2E cast contains an artifact explanation response.",
+        "Generated E2E cast contains a follow-up chat message scoped to the artifact.",
+        "Cast parser tests verify the required markers after stripping ANSI escapes.",
+        "CI-safe fake PTY tests do not require real mouse hardware."
+      ],
+      "suggested_tests": [
+        "tests/e2e/test_tui_mouse_snake_artifact_chat_cast.py::test_cast_contains_mouse_follow_marker",
+        "tests/e2e/test_tui_mouse_snake_artifact_chat_cast.py::test_cast_contains_ai_fast_target_marker",
+        "tests/e2e/test_tui_mouse_snake_artifact_chat_cast.py::test_cast_contains_artifact_chat_marker"
+      ]
+    },
+    {
+      "id": "MSA-011",
+      "title": "Document WSL2 and Windows Terminal mouse usage",
+      "status": "open",
+      "type": "documentation",
+      "tasks": [
+        "Add docs/operator-tui-mouse-snake.md.",
+        "Document expected Windows Terminal + WSL2 behavior.",
+        "Document TERM recommendations such as xterm-256color.",
+        "Document how to enable/disable mouse-follow mode.",
+        "Document fallback keys if mouse events do not work.",
+        "Document known caveats: terminal selection mode may intercept mouse, tmux may need mouse on, remote SSH layers may alter events."
+      ],
+      "acceptance_criteria": [
+        "Docs include a short WSL2 Windows Terminal checklist.",
+        "Docs include how to test mouse events manually.",
+        "Docs include how to disable mouse mode if it interferes with text selection.",
+        "Docs explain local snake, AI snake, artifact intent, and artifact chat behavior in user-facing language.",
+        "Docs reference the homepage E2E cast flow if this feature is included there."
+      ],
+      "suggested_tests": [
+        "Optional docs existence/link test if docs test framework exists."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Operator TUI can enable mouse event handling in compatible terminals including Windows Terminal through WSL2.",
+    "Local snake smoothly follows mouse movement without teleporting or visual jitter.",
+    "AI snake follows the local snake by default.",
+    "When artifact intent is detected with sufficient confidence, AI snake quickly moves to the artifact target.",
+    "After reaching the artifact, AI snake explains it and opens or anchors a contextual artifact chat.",
+    "Artifact chat context is explicit and does not silently mix unrelated artifacts.",
+    "Inline read-only viewer remains the default artifact/file display path.",
+    "External editor launch is not triggered by mouse artifact explanation flow unless explicitly requested.",
+    "Homepage E2E cast can include proof markers for mouse-follow, artifact target recognition, AI fast-target, and artifact chat.",
+    "All logic is testable without real mouse hardware by injecting normalized mouse events."
+  ],
+  "manual_validation": [
+    "Run ananta tui inside Windows Terminal + WSL2 Ubuntu.",
+    "Enable Snake mouse-follow mode.",
+    "Move mouse slowly across the TUI and verify local snake follows softly.",
+    "Hover or click an Artifact row and verify target confidence becomes visible/confirmed.",
+    "Verify AI snake moves quickly to the artifact region and displays explanation.",
+    "Ask a follow-up question and verify chat remains scoped to the selected artifact.",
+    "Verify keyboard fallback still works after disabling mouse mode."
+  ],
+  "risk_notes": [
+    "Terminal mouse move events can be noisy; movement must be throttled or smoothed.",
+    "Windows Terminal text selection can conflict with mouse capture; provide a clear toggle.",
+    "tmux/screen may require additional mouse configuration and can alter event sequences.",
+    "AI artifact explanation must not send large or sensitive files to disallowed backends.",
+    "The visual metaphor should remain useful, not just playful animation; artifact target and chat state must be explicit."
+  ],
+  "completion_definition": "Complete when mouse movement in compatible terminals can steer a smooth local Snake, the AI Snake follows then fast-targets recognized artifacts, and a contextual artifact explanation/chat opens without breaking keyboard fallback or inline viewer defaults."
+}
