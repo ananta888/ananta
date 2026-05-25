@@ -165,6 +165,13 @@ CLI_BACKEND_CAPABILITIES = {
         "supports_temperature": False,
         "supports_top_p": False,
     },
+    "browser_use": {
+        "display_name": "browser_use",
+        "supports_model": False,
+        "supported_flags": [],
+        "supports_temperature": False,
+        "supports_top_p": False,
+    },
 }
 
 _BACKEND_RUNTIME: dict[str, dict] = {
@@ -467,7 +474,7 @@ def get_cli_backend_capabilities() -> dict[str, dict]:
 
 
 def _prioritize_code_backends(candidates: list[str]) -> list[str]:
-    code_pref = ["ananta-worker", "sgpt", "codex", "aider", "opencode", "mistral_code", "deerflow", "ananta_research"]
+    code_pref = ["ananta-worker", "sgpt", "codex", "aider", "opencode", "mistral_code", "deerflow", "ananta_research", "browser_use"]
     ordered = [c for c in code_pref if c in candidates]
     for candidate in candidates:
         if candidate not in ordered:

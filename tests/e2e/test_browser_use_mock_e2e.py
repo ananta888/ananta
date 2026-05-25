@@ -24,6 +24,8 @@ def test_e2e_browser_use_allowed_domain_mock():
     assert rc == 0
     payload = json.loads(out)
     assert payload["sources"][0]["url"].startswith("https://example.com")
+    assert "page_evidence" in payload
+    assert "extracted_data" in payload
 
 
 def test_e2e_browser_use_blocked_domain_mock():
@@ -44,3 +46,4 @@ def test_e2e_browser_use_blocked_domain_mock():
     rc, out, err = rb._execute_research_backend_cli(prompt="collect", provider="browser_use", timeout=5, research_context=ctx)
     assert rc != 0
     assert "security_denied" in err or "domain_not_allowed" in err
+    assert out == ""
