@@ -61,11 +61,10 @@ def test_tui_tutorial_ai_live_recording_default_sync_targets_are_written(tmp_pat
     )
 
     synced_targets = list(payload.get("synced_cast_targets") or [])
-    assert len(synced_targets) == 4
+    assert len(synced_targets) == 3
     target_paths = [Path(path) for path in synced_targets]
     for target in target_paths:
         assert target.exists()
-    assert target_paths[0].as_posix().endswith("tests/output/operator_tui_splash.cast")
-    assert target_paths[1].as_posix().endswith("tests/output/operator_tui_tutorial_ai_live.cast")
-    assert target_paths[2].as_posix().endswith("web/www/assets/operator_tui_tutorial_ai_live.cast")
-    assert target_paths[3].as_posix().endswith("web/www/assets/operator_tui_splash.cast")
+    assert target_paths[0].as_posix().endswith("tests/output/operator_tui_tutorial_ai_live.cast")
+    assert target_paths[1].as_posix().endswith("web/www/assets/operator_tui_tutorial_ai_live.cast")
+    assert target_paths[2].as_posix().endswith("web/www/assets/operator_tui_splash.cast")
