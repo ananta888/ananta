@@ -1,0 +1,452 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "ananta_game_platform_showcase",
+  "created": "2026-05-25",
+  "status": "backlog",
+  "purpose": "Das Ananta Strategie-Game als offiziellen Showcase fuer Ananta selbst ausarbeiten: Scope-Kontrolle, Hub-Worker-Orchestrierung, Artefakte, Tests, Review-Gates, Replay, Economy und spaetere Policy-Demo.",
+  "goal": "Das Spielbeispiel so strukturieren, dass es nicht als Nebenschauplatz wirkt, sondern als reproduzierbarer Stresstest fuer kontrollierte KI-Softwareentwicklung mit Ananta.",
+  "overview": "docs/examples/ananta-game/README.md",
+  "related_documents": [
+    "docs/examples/ananta-strategy-game-development-scenario.md",
+    "docs/examples/todo.ananta-strategy-game-development-scenario.json",
+    "docs/examples/ananta-game/README.split-coin-tally-economy.md",
+    "docs/examples/ananta-game/todo.split-coin-tally-economy.json",
+    "docs/demo-flows.md",
+    "AGENTS.md"
+  ],
+  "scope_decision": {
+    "showcase_role": "Das Spiel dient als kontrolliertes Entwicklungsbeispiel und Architektur-Demonstrator fuer Ananta.",
+    "not_a_product_branch": "Das Spiel ist nicht als unkontrolliertes Zweitprodukt im Hauptrepo zu behandeln.",
+    "first_active_scope": "Brutal-MVP mit Papier-Playtest und spaeter minimalem TypeScript-Game-Core.",
+    "parked_until_after_first_playtest": [
+      "Economy",
+      "Trade",
+      "E-Ink",
+      "Magnetbrett-Hardware",
+      "Online-Multiplayer",
+      "KI-Gegner",
+      "komplexe Mythologie-Mechaniken",
+      "Policy-Demo"
+    ]
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "SHOW01",
+      "title": "Showcase-Einordnung im Projekt klaeren",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["SHOW001", "SHOW002", "SHOW003", "SHOW004"]
+    },
+    {
+      "id": "SHOW02",
+      "title": "Brutal-MVP-Artefakte erzeugen",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["SHOW005", "SHOW006", "SHOW007", "SHOW008", "SHOW009"]
+    },
+    {
+      "id": "SHOW03",
+      "title": "Deterministischen Game-Core vorbereiten",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["SHOW010", "SHOW011", "SHOW012", "SHOW013"]
+    },
+    {
+      "id": "SHOW04",
+      "title": "Economy- und Policy-Bruecke planen",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["SHOW014", "SHOW015", "SHOW016", "SHOW017"]
+    },
+    {
+      "id": "SHOW05",
+      "title": "Ananta-Demo-Flow und Review-Signale schaerfen",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["SHOW018", "SHOW019", "SHOW020", "SHOW021"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "SHOW001",
+      "title": "Zentrale Showcase-README pflegen",
+      "type": "documentation",
+      "milestone_id": "SHOW01",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "summary": "Legt docs/examples/ananta-game/README.md als zentrale Klammer fuer das Spielbeispiel an.",
+      "deliverables": ["docs/examples/ananta-game/README.md"],
+      "acceptance_criteria": [
+        "README erklaert, warum das Spiel im Ananta-Projekt liegt.",
+        "README trennt Brutal-MVP, Backlog, Economy, UI, Hardware und Policy-Demo.",
+        "README enthaelt Mermaid-Diagramme fuer Scope, Economy, Entwicklungsstufen und Hub-Worker-Flow.",
+        "README macht klar, dass das Spiel ein Showcase und kein unkontrollierter zweiter Produktstrang ist."
+      ]
+    },
+    {
+      "id": "SHOW002",
+      "title": "Bestehende Szenario-Datei mit zentraler README verlinken",
+      "type": "documentation",
+      "milestone_id": "SHOW01",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "dependencies": ["SHOW001"],
+      "deliverables": ["docs/examples/ananta-strategy-game-development-scenario.md"],
+      "acceptance_criteria": [
+        "Szenario-Datei verweist auf docs/examples/ananta-game/README.md.",
+        "Der Verweis beschreibt die README als zentrale Showcase-Klammer.",
+        "Bestehende First-Step-Entscheidung bleibt unveraendert.",
+        "Keine geparkten Features werden dadurch aktiviert."
+      ]
+    },
+    {
+      "id": "SHOW003",
+      "title": "Demo-Flows um Showcase-Rolle ergaenzen",
+      "type": "documentation",
+      "milestone_id": "SHOW01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "dependencies": ["SHOW001"],
+      "deliverables": ["docs/demo-flows.md"],
+      "acceptance_criteria": [
+        "Flow J verweist auf die neue zentrale README.",
+        "Flow J nennt das Spiel explizit als Complex-System-Development-Demo.",
+        "Review-Check prueft Scope-Parking, Artefakte und Review-Gates.",
+        "Der Demo-Flow bleibt kurz und reproduzierbar."
+      ]
+    },
+    {
+      "id": "SHOW004",
+      "title": "Showcase-Begriffe konsistent machen",
+      "type": "documentation",
+      "milestone_id": "SHOW01",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "dependencies": ["SHOW001", "SHOW002", "SHOW003"],
+      "deliverables": ["docs/examples/ananta-game/README.md", "docs/demo-flows.md"],
+      "acceptance_criteria": [
+        "Begriffe Brutal-MVP, First-Step, Showcase, Backlog und geparkt werden konsistent verwendet.",
+        "Keine Datei beschreibt Economy als aktiven First-Step.",
+        "Keine Datei beschreibt UI oder Hardware als Voraussetzung fuer den ersten Playtest.",
+        "Showcase bleibt als Ananta-Demo und nicht als isoliertes Spielprojekt beschrieben."
+      ]
+    },
+    {
+      "id": "SHOW005",
+      "title": "19-Hex-Papierkarte als erstes echtes Artefakt schreiben",
+      "type": "game_design",
+      "milestone_id": "SHOW02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "deliverables": ["docs/examples/ananta-game/paper_map_19_hex.md"],
+      "acceptance_criteria": [
+        "Karte enthaelt genau 19 Hexfelder.",
+        "Jedes Feld hat eine stabile ID.",
+        "3 Lokas sind eindeutig markiert.",
+        "Startpositionen fuer 2 Spieler sind dokumentiert.",
+        "Meru/Zentralfeld ist klar erkennbar."
+      ]
+    },
+    {
+      "id": "SHOW006",
+      "title": "Brutal-MVP-Kurzregel schreiben",
+      "type": "rules",
+      "milestone_id": "SHOW02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["SHOW005"],
+      "deliverables": ["docs/examples/ananta-game/brutal_mvp_rules.md"],
+      "acceptance_criteria": [
+        "Regel ist kurz genug fuer einen Papier-Playtest.",
+        "Nur Naga, Rishi, Deva, Ashram, Soma, AP, Kampf und Nagabanda sind aktiv.",
+        "Deva darf nicht bewegen und angreifen im selben Zug.",
+        "Rishi-Flucht ist begrenzt und bei voller Nagabanda unmoeglich.",
+        "Out-of-Scope-Mechaniken werden nicht als aktive Regeln beschrieben."
+      ]
+    },
+    {
+      "id": "SHOW007",
+      "title": "Nagabanda-Beispiele ausarbeiten",
+      "type": "rules",
+      "milestone_id": "SHOW02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["SHOW005", "SHOW006"],
+      "deliverables": ["docs/examples/ananta-game/nagabanda_examples.md"],
+      "acceptance_criteria": [
+        "Mindestens ein Beispiel ohne Einkreisung ist enthalten.",
+        "Mindestens ein Beispiel mit teilweiser Einkreisung ist enthalten.",
+        "Mindestens ein Beispiel mit voller Nagabanda ist enthalten.",
+        "Ashram als Brecher oder Schutz ist eindeutig beschrieben.",
+        "Beispiele sind spaeter direkt in Tests ueberfuehrbar."
+      ]
+    },
+    {
+      "id": "SHOW008",
+      "title": "Playtest-Protokollvorlage erstellen",
+      "type": "testing",
+      "milestone_id": "SHOW02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "dependencies": ["SHOW006", "SHOW007"],
+      "deliverables": ["docs/examples/ananta-game/playtest_protocol_template.md"],
+      "acceptance_criteria": [
+        "Vorlage erfasst Dauer, Rundenzahl, Sieger und Abbruchgrund.",
+        "Vorlage erfasst Verstaendlichkeit von Nagabanda.",
+        "Vorlage erfasst Balance von Deva, Rishi und Naga.",
+        "Vorlage erfasst, ob AP und Kartengroesse funktionieren.",
+        "Vorlage erzwingt keine neue Mechanik waehrend des Tests."
+      ]
+    },
+    {
+      "id": "SHOW009",
+      "title": "Geparkte Features als sichtbares Scope-Artefakt dokumentieren",
+      "type": "scope_control",
+      "milestone_id": "SHOW02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "dependencies": ["SHOW006"],
+      "deliverables": ["docs/examples/ananta-game/parked_features.md"],
+      "acceptance_criteria": [
+        "Economy, E-Ink, Hardware, UI, Multiplayer und KI-Gegner sind geparkt.",
+        "Jedes geparkte Feature hat einen Grund und ein spaeteres Aktivierungs-Gate.",
+        "Datei dient als Pruefgrundlage fuer Worker-Scope-Verstoesse.",
+        "Keine geparkte Mechanik wird im Brutal-MVP als Pflicht eingefuehrt."
+      ]
+    },
+    {
+      "id": "SHOW010",
+      "title": "Minimales GameState-Modell fuer Brutal-MVP schreiben",
+      "type": "technical_design",
+      "milestone_id": "SHOW03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["SHOW005", "SHOW006", "SHOW007"],
+      "deliverables": ["docs/examples/ananta-game/game_core_model.md"],
+      "acceptance_criteria": [
+        "GameState enthaelt Spieler, Felder, Einheiten, Ashrams, Soma, AP und Runde.",
+        "GameState ist JSON-serialisierbar.",
+        "Keine UI-, Angular- oder Renderer-Abhaengigkeit ist enthalten.",
+        "Eine Papierstellung kann vollstaendig im State abgebildet werden."
+      ]
+    },
+    {
+      "id": "SHOW011",
+      "title": "Deterministische Actions fuer Brutal-MVP definieren",
+      "type": "technical_design",
+      "milestone_id": "SHOW03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["SHOW010"],
+      "deliverables": ["Abschnitt in game_core_model.md"],
+      "acceptance_criteria": [
+        "MOVE, ATTACK, RECRUIT, END_TURN und NAGABANDA_CHECK sind definiert.",
+        "Jede Action hat Validierungsbedingungen.",
+        "Ungueltige Aktionen liefern deterministische Fehlgruende.",
+        "Kein Zufall ist fuer den ersten Core noetig."
+      ]
+    },
+    {
+      "id": "SHOW012",
+      "title": "ActionLog- und Replay-Modell fuer Brutal-MVP beschreiben",
+      "type": "technical_design",
+      "milestone_id": "SHOW03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["SHOW010", "SHOW011"],
+      "deliverables": ["docs/examples/ananta-game/action_log_replay_model.md"],
+      "acceptance_criteria": [
+        "InitialState + ActionLog ergeben eindeutigen EndState.",
+        "Rejected Actions koennen protokolliert werden, ohne den State zu veraendern.",
+        "Replay ist ohne UI ausfuehrbar planbar.",
+        "Das Modell ist spaeter fuer Economy wiederverwendbar."
+      ]
+    },
+    {
+      "id": "SHOW013",
+      "title": "Core-Testplan fuer Brutal-MVP schreiben",
+      "type": "testing",
+      "milestone_id": "SHOW03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["SHOW010", "SHOW011", "SHOW012"],
+      "deliverables": ["docs/examples/ananta-game/test_plan.md"],
+      "acceptance_criteria": [
+        "Tests fuer Bewegung, AP-Verbrauch und End-Turn sind beschrieben.",
+        "Tests fuer Kampf und Deva-Einschraenkung sind beschrieben.",
+        "Tests fuer Rishi-Flucht sind beschrieben.",
+        "Mehrere Nagabanda-Edge-Cases sind beschrieben.",
+        "Replay-Test ist enthalten."
+      ]
+    },
+    {
+      "id": "SHOW014",
+      "title": "Economy-Modul als spaeteren Level verlinken",
+      "type": "documentation",
+      "milestone_id": "SHOW04",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "deliverables": ["docs/examples/ananta-game/README.md"],
+      "acceptance_criteria": [
+        "README verweist auf README.split-coin-tally-economy.md.",
+        "README beschreibt Muenzen als Wertseite und Kerbholz als Anspruchsseite.",
+        "README macht klar, dass Economy nach dem Brutal-MVP kommt.",
+        "Economy ist als eigener Level und nicht als stille First-Step-Erweiterung beschrieben."
+      ]
+    },
+    {
+      "id": "SHOW015",
+      "title": "Policy-Analogien aus TallyContract ableiten",
+      "type": "concept_design",
+      "milestone_id": "SHOW04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["SHOW014"],
+      "deliverables": ["docs/examples/ananta-game/policy_object_permission_examples.md"],
+      "acceptance_criteria": [
+        "REDEEM_TALLY wird als objektbasierte Berechtigungspruefung beschrieben.",
+        "Altdaten vs. Neudaten werden am Tally-Beispiel erklaert.",
+        "Mindestens eine Business-Analogie wie Rechnung oder Zahlungsforderung ist enthalten.",
+        "Keine heuristische LLM-Entscheidung ist fuer Permission erlaubt."
+      ]
+    },
+    {
+      "id": "SHOW016",
+      "title": "Action Validation als Policy Enforcement Beispiel beschreiben",
+      "type": "concept_design",
+      "milestone_id": "SHOW04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["SHOW010", "SHOW011", "SHOW015"],
+      "deliverables": ["docs/examples/ananta-game/action_validation_examples.md"],
+      "acceptance_criteria": [
+        "Validierung prueft Objektzustand, Besitzer, Status und erlaubte Transition.",
+        "Beispiele zeigen erlaubte und abgelehnte Aktionen.",
+        "Pruefung ist deterministisch und replay-faehig.",
+        "Beispiel laesst sich spaeter auf Privilege-/Object-Graph-Konzepte uebertragen."
+      ]
+    },
+    {
+      "id": "SHOW017",
+      "title": "Object-Graph-Bruecke fuer Spielobjekte skizzieren",
+      "type": "technical_design",
+      "milestone_id": "SHOW04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["SHOW015", "SHOW016"],
+      "deliverables": ["docs/examples/ananta-game/object_graph_bridge.md"],
+      "acceptance_criteria": [
+        "Spielobjekte wie Player, Unit, Territory, TallyContract und CoinAccount werden als Graphknoten beschrieben.",
+        "Beziehungen wie owns, owes, controls, occupies und may_redeem sind beschrieben.",
+        "Mindestens ein Beispiel fuer Feld-/Objektzustandspruefung ist enthalten.",
+        "Dokument bleibt als Konzept und erzwingt keine Implementierung im Brutal-MVP."
+      ]
+    },
+    {
+      "id": "SHOW018",
+      "title": "Ananta-Goal fuer Showcase-Start formulieren",
+      "type": "agent_flow",
+      "milestone_id": "SHOW05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "dependencies": ["SHOW001"],
+      "deliverables": ["docs/examples/ananta-game/showcase_goal_prompt.md"],
+      "acceptance_criteria": [
+        "Goal beschreibt das Spiel als Ananta-Showcase.",
+        "Goal fordert zuerst Brutal-MVP-Artefakte.",
+        "Goal nennt explizit Nicht-Ziele fuer den ersten Lauf.",
+        "Goal fordert Review-Gates, Tests und Artefakte statt direktem Vollbau."
+      ]
+    },
+    {
+      "id": "SHOW019",
+      "title": "Worker-Rollen fuer Showcase definieren",
+      "type": "agent_flow",
+      "milestone_id": "SHOW05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["SHOW018"],
+      "deliverables": ["docs/examples/ananta-game/showcase_worker_roles.md"],
+      "acceptance_criteria": [
+        "Planner, Rules Worker, Test Worker, Model Worker und Review Gate Owner sind getrennt.",
+        "Kein Worker darf geparkte Features aktivieren.",
+        "Hub bleibt Owner von Queue, Scope, Policy und Review.",
+        "Worker-Aufgaben sind klein und artefaktbezogen."
+      ]
+    },
+    {
+      "id": "SHOW020",
+      "title": "Review-Checkliste fuer Showcase schreiben",
+      "type": "verification",
+      "milestone_id": "SHOW05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["SHOW018", "SHOW019"],
+      "deliverables": ["docs/examples/ananta-game/showcase_review_check.md"],
+      "acceptance_criteria": [
+        "Checkliste prueft, ob der Hub monolithische Tasks verhindert.",
+        "Checkliste prueft, ob Artefakte statt Textmasse entstehen.",
+        "Checkliste prueft, ob Economy/UI/Hardware geparkt bleiben.",
+        "Checkliste prueft, ob Tests und Replay vor UI geplant sind.",
+        "Checkliste prueft, ob Worker-Rollen die Hub-Worker-Architektur respektieren."
+      ]
+    },
+    {
+      "id": "SHOW021",
+      "title": "Showcase als reproduzierbaren Demo-Pfad vorbereiten",
+      "type": "demo",
+      "milestone_id": "SHOW05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["SHOW018", "SHOW019", "SHOW020"],
+      "deliverables": ["docs/examples/ananta-game/showcase_demo_path.md"],
+      "acceptance_criteria": [
+        "Demo-Pfad beschreibt UI-, CLI- und API-Start.",
+        "Demo-Pfad nennt erwartete Artefakte und Erfolgssignale.",
+        "Demo-Pfad enthaelt Abbruchkriterien bei Scope-Explosion.",
+        "Demo-Pfad ist fuer Reviewer ohne Vorwissen nachvollziehbar."
+      ]
+    }
+  ],
+  "first_recommended_working_set": [
+    "SHOW002",
+    "SHOW003",
+    "SHOW005",
+    "SHOW006",
+    "SHOW007",
+    "SHOW008"
+  ],
+  "definition_of_done": [
+    "Das Spiel ist als offizieller Ananta-Showcase erkennbar.",
+    "Brutal-MVP, Backlog, Economy, Policy, UI und Hardware sind sauber getrennt.",
+    "Die ersten echten Artefakte fuer Karte, Regeln, Nagabanda und Playtest liegen vor.",
+    "Game-Core, ActionLog, Replay und Tests sind vor UI geplant.",
+    "Economy und Policy sind als spaetere Module verlinkt, aber nicht im First-Step aktiv.",
+    "Demo- und Review-Dokumente machen pruefbar, ob Ananta Scope-Kontrolle wirklich leistet."
+  ]
+}
