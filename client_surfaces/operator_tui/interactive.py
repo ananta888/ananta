@@ -272,6 +272,30 @@ class InteractiveOperatorTui:
                 return
             self._snake_replace_selection()
 
+        @bindings.add("t")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command("t")
+                return
+            if self._snake_message_mode_active():
+                self._snake_message_append("t")
+                return
+            if not self._snake_mode_active():
+                return
+            self._snake_cycle_message_style()
+
+        @bindings.add("y")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command("y")
+                return
+            if self._snake_message_mode_active():
+                self._snake_message_append("y")
+                return
+            if not self._snake_mode_active():
+                return
+            self._snake_cycle_color()
+
         @bindings.add("left")
         def _(event) -> None:
             if self._try_header_snake_direction((-1, 0)):
@@ -395,6 +419,8 @@ class InteractiveOperatorTui:
             "selection_anchor": None,
             "selection_cells": [],
             "clipboard": "",
+            "message_style": "trail",
+            "snake_color": "mint",
             "direction": (1, 0),
             "next_direction": (1, 0),
             "vel_x": 10.0,
@@ -648,10 +674,46 @@ class InteractiveOperatorTui:
         game["free_mode"] = True
         game["message_mode"] = False
         game["message_draft"] = ""
+        game["message_style"] = str(game.get("message_style") or "trail")
+        game["snake_color"] = str(game.get("snake_color") or "mint")
         game["selection_anchor"] = None
         game["selection_cells"] = []
         game["last_move"] = time.monotonic()
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: an"))
+
+    def _snake_cycle_message_style(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        styles = ("trail", "orbit", "ticker")
+        current = str(game.get("message_style") or styles[0])
+        try:
+            idx = styles.index(current)
+        except ValueError:
+            idx = 0
+        next_style = styles[(idx + 1) % len(styles)]
+        game["message_style"] = next_style
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message=f"snake text-style: {next_style}",
+            )
+        )
+
+    def _snake_cycle_color(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        palette = ("mint", "cyan", "violet", "amber", "rose")
+        current = str(game.get("snake_color") or palette[0])
+        try:
+            idx = palette.index(current)
+        except ValueError:
+            idx = 0
+        next_color = palette[(idx + 1) % len(palette)]
+        game["snake_color"] = next_color
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message=f"snake farbe: {next_color}",
+            )
+        )
 
     def _snake_head(self, game: dict[str, object]) -> tuple[int, int] | None:
         snake = game.get("snake") or []
