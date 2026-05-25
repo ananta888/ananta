@@ -239,15 +239,16 @@ def render_logo_snake_game_animated(
     board_h = max(6, min(10, rows))
     geom = build_a_snake_geometry(board_w, board_h, seed=int(t * speed * 100))
     snake_base, snake_head = _snake_palette_from_svg(cols, rows)
+    a_blue = _a_blue_from_svg(cols, rows)
 
     grid_chars = [[" " for _ in range(cols)] for _ in range(rows)]
     grid_colors: list[list[tuple[int, int, int] | None]] = [[None for _ in range(cols)] for _ in range(rows)]
 
     pulse = 1.0 + 0.08 * math.sin(t * speed * math.tau)
     wall_col = (
-        max(0, min(255, int(snake_base[0] * pulse))),
-        max(0, min(255, int(snake_base[1] * pulse))),
-        max(0, min(255, int(snake_base[2] * pulse))),
+        max(0, min(255, int(a_blue[0] * pulse))),
+        max(0, min(255, int(a_blue[1] * pulse))),
+        max(0, min(255, int(a_blue[2] * pulse))),
     )
     gate_col = _lerp_color(snake_head, (255, 220, 120), 0.45)
     for wx, wy in geom["walls"]:
@@ -265,6 +266,16 @@ def render_logo_snake_game_animated(
             gx, gy = mapped_gate
             grid_chars[gy][gx] = "◌"
             grid_colors[gy][gx] = gate_col
+
+    _draw_zone_frames(
+        grid_chars,
+        grid_colors,
+        board_w=board_w,
+        board_h=board_h,
+        cols=cols,
+        rows=rows,
+        palette=_zone_palette(),
+    )
 
     ring = _snake_ring_path(1, 1, max(2, board_w - 2), max(2, board_h - 2))
     if not ring:
@@ -308,6 +319,7 @@ def render_logo_snake_game_playable(
         return None
 
     snake_base, snake_head = _snake_palette_from_svg(cols, rows)
+    a_blue = _a_blue_from_svg(cols, rows)
     gate_seed = int(game_state.get("gate_seed", int(t * 1000)))
     geom = build_a_snake_geometry(board_w, board_h, seed=gate_seed)
 
@@ -317,9 +329,9 @@ def render_logo_snake_game_playable(
     # Base "A" logo
     pulse = 1.0 + 0.06 * math.sin(t * speed * math.tau)
     wall_col = (
-        max(0, min(255, int(snake_base[0] * pulse))),
-        max(0, min(255, int(snake_base[1] * pulse))),
-        max(0, min(255, int(snake_base[2] * pulse))),
+        max(0, min(255, int(a_blue[0] * pulse))),
+        max(0, min(255, int(a_blue[1] * pulse))),
+        max(0, min(255, int(a_blue[2] * pulse))),
     )
     for wx, wy in geom["walls"]:
         mapped = _map_board_cell_to_canvas(wx, wy, board_w=board_w, board_h=board_h, cols=cols, rows=rows)
@@ -337,15 +349,26 @@ def render_logo_snake_game_playable(
             grid_chars[gy][gx] = "◌"
             grid_colors[gy][gx] = _lerp_color(snake_head, (255, 220, 120), 0.4)
 
+    palette = _zone_palette()
+    _draw_zone_frames(
+        grid_chars,
+        grid_colors,
+        board_w=board_w,
+        board_h=board_h,
+        cols=cols,
+        rows=rows,
+        palette=palette,
+    )
+
     portals = game_state.get("portals")
     if isinstance(portals, dict):
         portal_colors = {
-            "nav": _lerp_color(snake_head, (120, 220, 255), 0.45),
-            "content": _lerp_color(snake_head, (255, 210, 120), 0.35),
-            "detail": _lerp_color(snake_head, (220, 160, 255), 0.35),
-            "command": _lerp_color(snake_head, (255, 255, 180), 0.45),
+            "nav": palette["nav"],
+            "content": palette["content"],
+            "detail": palette["detail"],
+            "command": palette["command"],
         }
-        portal_chars = {"nav": "▷", "content": "▽", "detail": "◇", "command": "◎"}
+        portal_chars = {"nav": "N", "content": "C", "detail": "D", "command": "I"}
         for key, pos in portals.items():
             if key not in portal_chars or not isinstance(pos, (list, tuple)) or len(pos) != 2:
                 continue
@@ -502,6 +525,69 @@ def _snake_palette_from_svg(cols: int, rows: int) -> tuple[tuple[int, int, int],
         _cells, _bbox, snake_base, snake_head = cached
         return snake_base, snake_head
     return (70, 188, 132), (186, 244, 214)
+
+
+def _a_blue_from_svg(cols: int, rows: int) -> tuple[int, int, int]:
+    cached = _cached_logo_cells(cols, rows)
+    if cached is not None:
+        cells, _bbox, _snake_base, _snake_head = cached
+        if cells:
+            ranked = sorted(cells.values(), key=lambda c: (c[2] - (c[0] + c[1]) * 0.45, c[2]), reverse=True)
+            if ranked:
+                return ranked[0]
+    return (74, 136, 228)
+
+
+def _zone_palette() -> dict[str, tuple[int, int, int]]:
+    return {
+        "nav": (98, 212, 255),
+        "content": (255, 200, 96),
+        "detail": (214, 156, 255),
+        "command": (255, 238, 150),
+    }
+
+
+def _draw_zone_frames(
+    grid_chars: list[list[str]],
+    grid_colors: list[list[tuple[int, int, int] | None]],
+    *,
+    board_w: int,
+    board_h: int,
+    cols: int,
+    rows: int,
+    palette: dict[str, tuple[int, int, int]],
+) -> None:
+    third = max(1, board_w // 3)
+    zones = (
+        ("nav", 0, min(board_w - 1, third - 1)),
+        ("content", min(board_w - 1, third), min(board_w - 1, third * 2 - 1)),
+        ("detail", min(board_w - 1, third * 2), board_w - 1),
+    )
+
+    def paint(bx: int, by: int, ch: str, color: tuple[int, int, int]) -> None:
+        mapped = _map_board_cell_to_canvas(bx, by, board_w=board_w, board_h=board_h, cols=cols, rows=rows)
+        if mapped is None:
+            return
+        x, y = mapped
+        grid_chars[y][x] = ch
+        grid_colors[y][x] = color
+
+    top = 0
+    bottom = max(0, board_h - 1)
+    for key, x0, x1 in zones:
+        if x1 < x0:
+            continue
+        color = palette[key]
+        for x in range(x0, x1 + 1):
+            paint(x, top, "─", color)
+            paint(x, bottom, "─", color)
+        for y in range(top, bottom + 1):
+            paint(x0, y, "│", color)
+            paint(x1, y, "│", color)
+        paint(x0, top, "┌", color)
+        paint(x1, top, "┐", color)
+        paint(x0, bottom, "└", color)
+        paint(x1, bottom, "┘", color)
 
 
 def _snake_ring_path(left: int, top: int, right: int, bottom: int) -> list[tuple[int, int]]:
