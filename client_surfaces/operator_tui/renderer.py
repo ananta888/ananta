@@ -277,14 +277,21 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
                 pseudonym = str(snap.get("pseudonym") or sid)
                 provider = str(snap.get("oidc_provider") or "unknown-oidc")
                 msg = str(snap.get("message") or "-")
-                col = _snake_palette(color_name)["label"]
+                pal = _snake_palette(color_name)
+                user_col = pal["head"]
+                msg_col = pal["body"]
                 prefix = f"{DEFAULT_THEME.muted_prefix} "
-                entry_plain = f"{str(sid).upper()} {pseudonym}@{provider} [{color_name}]: {msg}"
-                max_entry_len = max(0, width - len(_ANSI_STRIP.sub("", prefix)))
-                if len(entry_plain) > max_entry_len:
-                    entry_plain = entry_plain[: max(0, max_entry_len - 3)] + "..."
-                entry_colored = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{entry_plain}\x1b[0m"
-                lines.append(prefix + entry_colored)
+                user_plain = f"{str(sid).upper()} {pseudonym}@{provider} [{color_name}]"
+                max_entry_len = max(0, width - len(_ANSI_STRIP.sub("", prefix)) - 2)  # ": "
+                if len(user_plain) > max_entry_len:
+                    user_plain = user_plain[: max(0, max_entry_len - 3)] + "..."
+                    lines.append(prefix + f"\x1b[38;2;{user_col[0]};{user_col[1]};{user_col[2]}m{user_plain}\x1b[0m")
+                    continue
+                remaining = max(0, max_entry_len - len(user_plain))
+                msg_plain = msg if len(msg) <= remaining else (msg[: max(0, remaining - 3)] + "...")
+                user_colored = f"\x1b[38;2;{user_col[0]};{user_col[1]};{user_col[2]}m{user_plain}\x1b[0m"
+                msg_colored = f"\x1b[38;2;{msg_col[0]};{msg_col[1]};{msg_col[2]}m{msg_plain}\x1b[0m"
+                lines.append(prefix + f"{user_colored}: {msg_colored}")
         if game.get("message_mode"):
             draft = str(game.get("message_draft", ""))
             lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} MSG* {draft}", width))
