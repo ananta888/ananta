@@ -5,6 +5,8 @@ import os
 import re
 import shutil
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -52,6 +54,7 @@ class InteractiveOperatorTui:
         self._plugins: PluginRegistry = default_plugin_registry()
         self.state = load_active_section(state, self._registry)
         self._tutorial_codecompass_cache: tuple[float, list[str]] = (0.0, [])
+        self._tutorial_llm_cache: tuple[float, str] = (0.0, "")
         self._command_buffer = ""
         self._rendered_text = self._render()
         self._control = FormattedTextControl(text=lambda: ANSI(self._rendered_text))
@@ -750,11 +753,88 @@ class InteractiveOperatorTui:
         selected = self.state.selected_index
         status = f"TUI mode={mode} focus={focus} section={section} idx={selected}."
         hints = self._load_codecompass_hints(now=now)
+        llm_tip = self._tutorial_ai_llm_message(now=now, status=status, hints=hints)
+        if llm_tip:
+            return llm_tip
         if not hints:
             base = _TUTORIAL_AI_KNOWLEDGE[int(now * 0.5) % len(_TUTORIAL_AI_KNOWLEDGE)]
             return f"{status} {base}"
         cc = hints[int(now * 0.7) % len(hints)]
         return f"{status} CodeCompass: {cc}"
+
+    def _tutorial_ai_llm_message(self, *, now: float, status: str, hints: list[str]) -> str | None:
+        model = str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "")).strip()
+        api_base = str(
+            os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
+            or os.environ.get("OPENAI_BASE_URL")
+            or os.environ.get("OPENAI_API_BASE")
+            or ""
+        ).strip()
+        api_token = str(
+            os.environ.get("ANANTA_TUI_SNAKE_AI_API_TOKEN")
+            or os.environ.get("OPENAI_API_KEY")
+            or ""
+        ).strip()
+        if not (model and api_base and api_token):
+            return None
+
+        refresh_seconds = max(2.0, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_REFRESH", "8.0"))))
+        cached_at, cached_msg = self._tutorial_llm_cache
+        if cached_msg and (now - cached_at) < refresh_seconds:
+            return cached_msg
+
+        timeout_seconds = max(0.3, min(10.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "1.6"))))
+        hint_block = "\n".join(f"- {h}" for h in hints[:10]) if hints else "- no codecompass hints available"
+        prompt = (
+            f"{status}\n"
+            "Provide one concise tutorial line for a snake assistant in this TUI.\n"
+            "Focus on immediate next action and project-aware guidance.\n"
+            f"CodeCompass hints:\n{hint_block}\n"
+            "Max 180 chars."
+        )
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are a concise in-product tutorial assistant."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.2,
+            "max_tokens": 90,
+        }
+        body = json.dumps(payload).encode("utf-8")
+        request = urllib.request.Request(
+            url=api_base.rstrip("/") + "/chat/completions",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_token}",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                raw = response.read().decode("utf-8", errors="replace")
+            parsed = json.loads(raw)
+        except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError):
+            return None
+        choices = parsed.get("choices") if isinstance(parsed, dict) else None
+        if not isinstance(choices, list) or not choices:
+            return None
+        first = choices[0]
+        if not isinstance(first, dict):
+            return None
+        message = first.get("message")
+        if not isinstance(message, dict):
+            return None
+        content = str(message.get("content") or "").strip()
+        if not content:
+            return None
+        single_line = " ".join(content.split())
+        if not single_line:
+            return None
+        clipped = single_line[:180]
+        self._tutorial_llm_cache = (now, clipped)
+        return clipped
 
     def _load_codecompass_hints(self, *, now: float) -> list[str]:
         cached_at, cached = self._tutorial_codecompass_cache
