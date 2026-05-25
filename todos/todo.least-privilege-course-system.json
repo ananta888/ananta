@@ -4,7 +4,7 @@
   "track": "ananta_least_privilege_course_system",
   "created": "2026-05-25",
   "updated": "2026-05-25",
-  "status": "in_progress",
+  "status": "done",
   "purpose": "Ein Kurs- und Lernsystem fuer Ananta planen, das nicht bei null startet, sondern vorhandene Onboarding-, Demo-, First-Run-, Instruction-Layer-, Artifact-, Context-Policy- und Audit-Bausteine nutzt und zu einem Least-Privilege-Lernsystem erweitert.",
   "goal": "Ananta soll Nutzer, Entwickler und Reviewer schrittweise lehren, wie man Ananta sicher nutzt, das Strategie-Game versteht und zentrale Sicherheitsprinzipien wie Least-Privilege, Kryptographie, Artefaktfreigaben, sichere KI, RAG-Kontextfreigaben und Review-Gates praktisch anwendet.",
   "analysis_summary": {
@@ -133,7 +133,7 @@
     {
       "id": "LPCS06",
       "title": "Progress, Pruefungen, Zertifikate und UI planen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "task_ids": ["LPCS025", "LPCS026", "LPCS027", "LPCS028", "LPCS029", "LPCS030"]
     }
@@ -641,7 +641,7 @@
       "title": "Assessments und praktische Checks definieren",
       "type": "assessment_design",
       "milestone_id": "LPCS06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS025"],
@@ -658,7 +658,7 @@
       "title": "Zertifikate/Badges fuer interne Lernpfade planen",
       "type": "product_design",
       "milestone_id": "LPCS06",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "dependencies": ["LPCS025", "LPCS026"],
@@ -675,7 +675,7 @@
       "title": "UI-Konzept fuer Kursmodus planen",
       "type": "ui_design",
       "milestone_id": "LPCS06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS001", "LPCS000B", "LPCS025"],
@@ -693,7 +693,7 @@
       "title": "Demo-Flow fuer Kursmodus definieren",
       "type": "demo",
       "milestone_id": "LPCS06",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "dependencies": ["LPCS028", "LPCS000A"],
@@ -711,7 +711,7 @@
       "title": "Testplan fuer Kurs- und Freischaltungssystem schreiben",
       "type": "testing",
       "milestone_id": "LPCS06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": ["LPCS003", "LPCS025", "LPCS026", "LPCS028"],
@@ -738,11 +738,11 @@
     "LPCS030"
   ],
   "task_status_summary": {
-    "todo": 5,
+    "todo": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 29
+    "done": 34
   },
   "definition_of_done": [
     "Bestehende Onboarding-/Demo-/Instruction-/Artifact-/Context-/Audit-Basis ist dokumentiert.",

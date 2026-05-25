@@ -34,3 +34,9 @@ Deterministische Tests fuer Kursvoraussetzungen, Freischaltungen, Sandbox-Grenze
 - Keine echten Cloud-LLMs erforderlich
 - Keine Production-Daten
 - Reproduzierbare Fixtures statt externer Zufallsabhaengigkeit
+
+## 6) CoursePreview Read-only
+
+- Tests pruefen read-only CoursePreview analog zu `tests/test_demo_mode.py`.
+- CoursePreview darf keine produktiven Goals/Tasks veraendern.
+- CoursePreview bleibt isoliert und ohne Seiteneffekte auf produktiven Zustand.
