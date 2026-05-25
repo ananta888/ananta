@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import time
+from concurrent.futures import Future, ThreadPoolExecutor
 import urllib.error
 import urllib.request
 from urllib.parse import urlparse
@@ -61,6 +62,11 @@ class InteractiveOperatorTui:
         self._tutorial_llm_cache: tuple[float, str] = (0.0, "")
         self._tutorial_llm_profile_cache: dict[str, Any] | None = None
         self._tutorial_llm_profile_key: str = ""
+        self._tutorial_last_tip_text: str = ""
+        self._tutorial_async_tip_future: Future[dict[str, str] | None] | None = None
+        self._tutorial_async_tip_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tui-tutorial-ai")
+        self._tutorial_async_next_refresh_at: float = 0.0
+        self._tutorial_status_snapshot: dict[str, str] = {}
         self._tutorial_last_source: str = "local-knowledge"
         self._tutorial_last_target: str = "follow"
         self._command_buffer = ""
@@ -895,29 +901,102 @@ class InteractiveOperatorTui:
         return (cx % max(1, board_w), cy % max(1, board_h))
 
     def _tutorial_ai_tip(self, *, now: float) -> str:
+        status = self._tutorial_status_delta_summary()
+        hints = self._load_codecompass_hints(now=now)
+        rag_context = self._load_rag_helper_context(now=now)
+        if not self._tutorial_async_enabled():
+            result = self._tutorial_ai_tip_sync(now=now, status=status, hints=hints, rag_context=rag_context)
+            if result:
+                self._tutorial_last_source = result.get("source", self._tutorial_last_source)
+                self._tutorial_last_target = result.get("target", self._tutorial_last_target)
+                self._tutorial_last_tip_text = result.get("text", self._tutorial_last_tip_text)
+            return self._tutorial_last_tip_text
+
+        refresh_seconds = max(2.0, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_REFRESH", "8.0"))))
+        self._poll_tutorial_async_tip_result()
+        if self._tutorial_async_tip_future is None and now >= self._tutorial_async_next_refresh_at:
+            self._tutorial_async_next_refresh_at = now + refresh_seconds
+            self._tutorial_async_tip_future = self._tutorial_async_tip_executor.submit(
+                self._tutorial_ai_tip_sync,
+                now=now,
+                status=status,
+                hints=list(hints),
+                rag_context=list(rag_context),
+            )
+        if self._tutorial_last_tip_text:
+            return self._tutorial_last_tip_text
+        return "KI-Schlange analysiert UI-Delta…"
+
+    def _tutorial_async_enabled(self) -> bool:
+        enabled = str(os.environ.get("ANANTA_TUI_SNAKE_AI_ASYNC", "1")).strip().lower() in {"1", "true", "yes", "on"}
+        return bool(enabled and getattr(self._app, "is_running", False))
+
+    def _poll_tutorial_async_tip_result(self) -> None:
+        future = self._tutorial_async_tip_future
+        if future is None or not future.done():
+            return
+        result = future.result()
+        self._tutorial_async_tip_future = None
+        if not isinstance(result, dict):
+            return
+        text = str(result.get("text") or "").strip()
+        if not text:
+            return
+        self._tutorial_last_tip_text = text
+        self._tutorial_last_source = str(result.get("source") or self._tutorial_last_source)
+        self._tutorial_last_target = str(result.get("target") or self._tutorial_last_target)
+
+    def _tutorial_status_delta_summary(self) -> str:
         mode = self.state.mode.value
         focus = self.state.focus.value
         section = self.state.section_id
         selected = self.state.selected_index
-        status = f"TUI mode={mode} focus={focus} section={section} idx={selected}."
-        hints = self._load_codecompass_hints(now=now)
-        rag_context = self._load_rag_helper_context(now=now)
+        snapshot = {
+            "mode": str(mode),
+            "focus": str(focus),
+            "section": str(section),
+            "idx": str(selected),
+            "state": str((self.state.panel_states or {}).get(section, "")),
+        }
+        previous = dict(self._tutorial_status_snapshot)
+        changed = [f"{key}={value}" for key, value in snapshot.items() if previous.get(key) != value]
+        self._tutorial_status_snapshot = snapshot
+        if not previous:
+            return f"TUI state mode={mode} focus={focus} section={section} idx={selected}."
+        if not changed:
+            return "TUI delta: unchanged."
+        return "TUI delta: " + ", ".join(changed)
+
+    def _tutorial_ai_tip_sync(
+        self,
+        *,
+        now: float,
+        status: str,
+        hints: list[str],
+        rag_context: list[str],
+    ) -> dict[str, str]:
         worker_tip = self._tutorial_ai_worker_propose_message(now=now, status=status, hints=hints, rag_context=rag_context)
         if worker_tip:
-            self._tutorial_last_source = "worker-propose"
-            self._tutorial_last_target = self._tutorial_worker_target_hint or "follow"
-            return worker_tip
+            return {
+                "source": "worker-propose",
+                "target": self._tutorial_worker_target_hint or "follow",
+                "text": worker_tip,
+            }
         llm_hints = [*hints[:12], *[f"RAG {entry}" for entry in rag_context[:8]]]
         llm_tip = self._tutorial_ai_llm_message(now=now, status=status, hints=llm_hints)
         if llm_tip:
-            self._tutorial_last_source = "openai-compatible"
-            self._tutorial_last_target = "content"
-            return llm_tip
+            return {
+                "source": "openai-compatible",
+                "target": self._tutorial_worker_target_hint or "content",
+                "text": llm_tip,
+            }
         if not hints and not rag_context:
             base = _TUTORIAL_AI_KNOWLEDGE[int(now * 0.5) % len(_TUTORIAL_AI_KNOWLEDGE)]
-            self._tutorial_last_source = "local-knowledge"
-            self._tutorial_last_target = "follow"
-            return f"{status} {base}"
+            return {
+                "source": "local-knowledge",
+                "target": "follow",
+                "text": f"{status} {base}",
+            }
         cc = hints[int(now * 0.7) % len(hints)] if hints else ""
         rag = rag_context[int(now * 0.9) % len(rag_context)] if rag_context else ""
         parts = [status]
@@ -925,9 +1004,11 @@ class InteractiveOperatorTui:
             parts.append(f"CodeCompass: {cc}")
         if rag:
             parts.append(f"RAG: {rag}")
-        self._tutorial_last_source = "codecompass-rag"
-        self._tutorial_last_target = "content"
-        return " ".join(parts)
+        return {
+            "source": "codecompass-rag",
+            "target": "content",
+            "text": " ".join(parts),
+        }
 
     def _tutorial_ai_worker_propose_message(
         self,
