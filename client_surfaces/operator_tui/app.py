@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
+import sys
+import time
 from collections.abc import Sequence
 
 from agent.cli.splash import SplashMachine
@@ -141,9 +144,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if not args.render_once and not args.command and not args.measure_first_paint and os.isatty(0):
+        if splash is not None:
+            _play_splash_to_terminal(splash, state)
         from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
 
-        return InteractiveOperatorTui(state, registry, splash=splash).run()
+        return InteractiveOperatorTui(state, registry, splash=None).run()
     if splash is not None:
         splash.tick()
     print(render_operator_shell(state, width=args.width, height=args.height, splash=splash))
