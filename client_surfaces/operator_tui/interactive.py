@@ -284,11 +284,12 @@ class InteractiveOperatorTui:
 
     def _default_header_snake(self) -> dict[str, object]:
         board_w, board_h = 18, 6
-        snake = [(4, 3), (3, 3), (2, 3)]
+        snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         gaps = self._compute_snake_escape_gaps(board_w, board_h, seed=int(time.time() * 1000))
         return {
             "active": True,
             "alive": True,
+            "ui_steering": True,
             "board_w": board_w,
             "board_h": board_h,
             "snake": snake,
@@ -314,6 +315,7 @@ class InteractiveOperatorTui:
             seed=int(time.time() * 1000),
         )
         game["active"] = True
+        game["ui_steering"] = True
         if not game.get("alive", True):
             game = self._default_header_snake()
         game["last_move"] = time.monotonic()
@@ -365,14 +367,18 @@ class InteractiveOperatorTui:
         if (now - last_move) < step:
             return
 
-        board_w = max(6, int(game.get("board_w", 18)))
-        board_h = max(4, int(game.get("board_h", 6)))
+        size = shutil.get_terminal_size((120, 32))
+        board_w = max(24, int(size.columns))
+        board_h = max(12, int(size.lines - 1))
+        game["board_w"] = board_w
+        game["board_h"] = board_h
         boxes = self._compute_control_boxes(board_w, board_h)
         game["boxes"] = boxes
         snake_raw = game.get("snake") or []
         snake = [(int(p[0]), int(p[1])) for p in snake_raw if isinstance(p, (list, tuple)) and len(p) == 2]
         if not snake:
-            snake = [(4, 3), (3, 3), (2, 3)]
+            snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
+        snake = [((x % board_w), (y % board_h)) for x, y in snake]
         direction = tuple(game.get("direction", (1, 0)))
         next_direction = tuple(game.get("next_direction", direction))
         if next_direction[0] == -direction[0] and next_direction[1] == -direction[1]:
@@ -380,22 +386,14 @@ class InteractiveOperatorTui:
         direction = next_direction
 
         hx, hy = snake[0]
-        nx = hx + direction[0]
-        ny = hy + direction[1]
-        if nx < 0 or nx >= board_w or ny < 0 or ny >= board_h:
-            game["active"] = True
-            game["alive"] = True
-            game["direction"] = direction
-            game["next_direction"] = direction
-            game["moves"] = int(game.get("moves", 0)) + 1
-            game["last_move"] = now
-            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: rand blockiert")
-            return
+        nx = (hx + direction[0]) % board_w
+        ny = (hy + direction[1]) % board_h
         new_head = (nx, ny)
         box_target = self._box_hit_target(new_head, boxes)
         if box_target == "command":
             snake = [new_head, *snake]
-            snake.pop()
+            while len(snake) > 12:
+                snake.pop()
             game["snake"] = snake
             game["direction"] = direction
             game["next_direction"] = direction
@@ -416,26 +414,9 @@ class InteractiveOperatorTui:
             self._apply_snake_section_target(game, section_id=box_target, now=now)
             return
 
-        food_raw = game.get("food", (12, 3))
-        food = (int(food_raw[0]), int(food_raw[1])) if isinstance(food_raw, (list, tuple)) and len(food_raw) == 2 else (12, 3)
-        grow = new_head == food
-        body_to_check = snake if grow else snake[:-1]
-        if new_head in body_to_check:
-            game["active"] = True
-            game["alive"] = True
-            game["direction"] = direction
-            game["next_direction"] = direction
-            game["moves"] = int(game.get("moves", 0)) + 1
-            game["last_move"] = now
-            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: eigener Körper blockiert")
-            return
-
         snake = [new_head, *snake]
-        if not grow:
+        while len(snake) > 12:
             snake.pop()
-        else:
-            game["score"] = int(game.get("score", 0)) + 1
-            game["food"] = self._spawn_snake_food(board_w, board_h, snake, int(game.get("moves", 0)) + 1)
 
         game["snake"] = snake
         game["direction"] = direction
