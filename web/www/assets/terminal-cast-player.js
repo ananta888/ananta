@@ -68,6 +68,7 @@
 
   function cleanFrame(frame) {
     return frame
+      .replaceAll("\r", "")
       .replaceAll("\x1b[H", "")
       .replaceAll("\x1b[2J", "")
       .replaceAll("\x1b[?25l", "")
@@ -94,6 +95,23 @@
 
     try {
       if (status) status.textContent = "loading cast";
+      if (window.AsciinemaPlayer && typeof window.AsciinemaPlayer.create === "function") {
+        output.textContent = "";
+        output.classList.add("asciinema-host");
+        window.AsciinemaPlayer.create(url, output, {
+          autoPlay: true,
+          loop: true,
+          controls: false,
+          preload: true,
+          fit: "width",
+          speed: 1,
+          terminalFontSize: "10px",
+          terminalLineHeight: 1.05
+        });
+        if (status) status.textContent = "live cast · asciinema player";
+        return;
+      }
+
       const frames = await loadCast(url);
       if (!frames.length) throw new Error("no frames");
       if (status) status.textContent = `${frames.length} frames · asciinema v2`;
