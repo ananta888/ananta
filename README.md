@@ -517,6 +517,7 @@ Linting:
 - `docs/ollama-model-routing.md`
 - `docs/deerflow-integration.md`
 - `docs/testing.md`
+- `docs/operator-tui-mouse-snake.md`
 - `README_VERGLEICHSPROJEKTE.md`
 - `api-spec.md`
 - `docs/backend.md`

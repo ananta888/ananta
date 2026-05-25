@@ -12,6 +12,7 @@ REQUIRED_DOCS = [
     "docs/execution_scope.md",
     "docs/artifacts_and_routing.md",
     "docs/frontend_goal_ux.md",
+    "docs/operator-tui-mouse-snake.md",
     "docs/status/active_and_completed_tracks.md",
     "docs/status/documentation-command-contract.json",
     "docs/status/documentation-command-usage.md",

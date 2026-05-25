@@ -20,7 +20,7 @@ KEYBINDINGS: tuple[KeyBinding, ...] = (
 )
 
 _NORMAL_HINTS = "[Tab/←→] Focus  [j/k/↑↓] Move  [r] Refresh  [n/p] Section  [Enter] Inspect  [e] Inline Vim  [o] MouseFollow  [:] Command  [?] Help  [q] Quit"
-_COMMAND_HINTS = "[Enter] Execute  [Esc] Cancel  — commands: :section <id>  :refresh  :focus <pane>  :help  :action <name> <risk>"
+_COMMAND_HINTS = "[Enter] Execute  [Esc] Cancel  — commands: :section <id>  :refresh  :focus <pane>  :mouse <on|off|toggle>  :help  :action <name> <risk>"
 _INSPECT_HINTS = "[j/k/↑↓] Move  [Esc] Normal  [?] Help  [q] Quit  — confirm actions with :confirm"
 
 

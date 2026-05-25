@@ -67,6 +67,23 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         return CommandResult(state.with_updates(mode=mode, status_message=f"mode {mode.value}"), f"mode {mode.value}")
     if command in {"help", "?"}:
         return CommandResult(state.with_updates(show_help=not state.show_help, status_message="help toggled"), "help toggled")
+    if command == "mouse":
+        mode = (args[0].strip().lower() if args else "toggle")
+        if mode not in {"on", "off", "toggle"}:
+            return CommandResult(state, "mouse command requires on, off, or toggle", handled=False)
+        game = dict(state.header_logo_game or {})
+        current = bool(game.get("mouse_follow_enabled"))
+        if mode == "toggle":
+            next_value = not current
+        else:
+            next_value = mode == "on"
+        game["mouse_follow_enabled"] = next_value
+        game["movement_mode"] = "mouse_follow" if next_value else "keyboard"
+        label = "on" if next_value else "off"
+        return CommandResult(
+            state.with_updates(header_logo_game=game, status_message=f"mouse-follow {label}"),
+            f"mouse-follow {label}",
+        )
     if command == "inspect":
         return CommandResult(state.with_updates(mode=OperatorMode.INSPECT, status_message="inspect current selection"), "inspect current selection")
     if command == "browser":
