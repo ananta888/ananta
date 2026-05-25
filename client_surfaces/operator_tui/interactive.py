@@ -324,15 +324,17 @@ class InteractiveOperatorTui:
         game = dict(state.header_logo_game or {})
         if not game:
             return state
+        if game.get("ui_steering"):
+            return state.with_updates(header_logo_game=game)
         game["active"] = False
         return state.with_updates(header_logo_game=game)
 
     def _try_header_snake_direction(self, direction: tuple[int, int]) -> bool:
-        if self.state.mode is OperatorMode.COMMAND:
+        game = dict(self.state.header_logo_game or {})
+        if self.state.mode is OperatorMode.COMMAND and not game.get("ui_steering"):
             return False
         if not self._header_snake_enabled():
             return False
-        game = dict(self.state.header_logo_game or {})
         steering = self.state.focus is FocusPane.HEADER or bool(game.get("ui_steering"))
         if not steering:
             return False
@@ -402,21 +404,23 @@ class InteractiveOperatorTui:
             if target is not None:
                 self._apply_snake_escape(game, target=target, now=now, board_h=board_h)
                 return
-            game["alive"] = False
             game["active"] = True
+            game["alive"] = True
             game["direction"] = direction
             game["next_direction"] = direction
+            game["moves"] = int(game.get("moves", 0)) + 1
             game["last_move"] = now
-            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: wand getroffen")
+            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: wand blockiert")
             return
         new_head = (nx, ny)
         if new_head in wall_cells:
-            game["alive"] = False
             game["active"] = True
+            game["alive"] = True
             game["direction"] = direction
             game["next_direction"] = direction
+            game["moves"] = int(game.get("moves", 0)) + 1
             game["last_move"] = now
-            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: A-Wand getroffen")
+            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: A-Wand blockiert")
             return
 
         food_raw = game.get("food", (12, 3))
@@ -424,12 +428,13 @@ class InteractiveOperatorTui:
         grow = new_head == food
         body_to_check = snake if grow else snake[:-1]
         if new_head in body_to_check:
-            game["alive"] = False
             game["active"] = True
+            game["alive"] = True
             game["direction"] = direction
             game["next_direction"] = direction
+            game["moves"] = int(game.get("moves", 0)) + 1
             game["last_move"] = now
-            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: game over (tab zurück, dann erneut)")
+            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: eigener Körper blockiert")
             return
 
         snake = [new_head, *snake]
@@ -444,7 +449,8 @@ class InteractiveOperatorTui:
         game["next_direction"] = direction
         game["moves"] = int(game.get("moves", 0)) + 1
         game["last_move"] = now
-        self.state = self.state.with_updates(header_logo_game=game)
+        next_state = self.state.with_updates(header_logo_game=game)
+        self.state = self._apply_snake_ui_controls(next_state, head=new_head, board_w=board_w, board_h=board_h)
 
     def _snake_escape_target(
         self,
@@ -501,6 +507,35 @@ class InteractiveOperatorTui:
             header_logo_game=game,
             status_message=f"snake: ausgebrochen nach {target.value}",
         )
+
+    def _apply_snake_ui_controls(
+        self,
+        state: OperatorState,
+        *,
+        head: tuple[int, int],
+        board_w: int,
+        board_h: int,
+    ) -> OperatorState:
+        game = dict(state.header_logo_game or {})
+        if not game.get("ui_steering"):
+            return state
+        x, y = head
+        x = max(0, min(board_w - 1, x))
+        y = max(0, min(board_h - 1, y))
+        third = max(1, board_w // 3)
+
+        # Top-center zone acts as "input field focus" (command line mode).
+        if y <= 1 and third <= x < (third * 2):
+            return state.with_updates(mode=OperatorMode.COMMAND, command_line=state.command_line)
+
+        if x < third:
+            nav_idx = min(len(SECTIONS) - 1, max(0, round((y / max(1, board_h - 1)) * max(0, len(SECTIONS) - 1))))
+            return state.with_updates(focus=FocusPane.NAVIGATION, selected_index=nav_idx, mode=OperatorMode.NORMAL)
+        if x < (third * 2):
+            content_idx = max(0, round((y / max(1, board_h - 1)) * 8))
+            return state.with_updates(focus=FocusPane.CONTENT, selected_index=content_idx, mode=OperatorMode.NORMAL)
+        detail_idx = max(0, round((y / max(1, board_h - 1)) * 8))
+        return state.with_updates(focus=FocusPane.DETAIL, selected_index=detail_idx, mode=OperatorMode.NORMAL)
 
     def _ensure_snake_escape_gaps(
         self,
