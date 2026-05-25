@@ -41,7 +41,7 @@ def _load_small_logo() -> list[str]:
 
 
 def _render_small_logo() -> list[str]:
-    """Render ananta.svg at 22 cols using render_terminal_logo; color in dark blue."""
+    """Render ananta.svg at _SMALL_LOGO_COLS with full SVG colors (truecolor)."""
     script_dir = os.path.join(os.path.dirname(__file__), "..", "..", "scripts")
     script_dir = os.path.abspath(script_dir)
     if script_dir not in sys.path:
@@ -49,7 +49,7 @@ def _render_small_logo() -> list[str]:
     try:
         from render_terminal_logo import (
             ASCII_PALETTES, RenderConfig, load_image,
-            render_ascii, svg_to_png,
+            render_ascii_color, svg_to_png,
         )
     except ImportError:
         return []
@@ -68,7 +68,7 @@ def _render_small_logo() -> list[str]:
         try:
             svg_to_png(svg_path, png, width=800)
             img = load_image(png, _SMALL_LOGO_COLS, cfg)
-            art = render_ascii(img, chars, cfg)
+            art = render_ascii_color(img, chars)
         finally:
             try:
                 os.unlink(png)
@@ -77,25 +77,21 @@ def _render_small_logo() -> list[str]:
     except Exception:
         return []
 
-    raw_lines = art.split("\n")
-    # color each non-blank line
-    colored = []
-    for line in raw_lines:
-        if line.strip():
-            colored.append(f"{_LOGO_FG}{line}{_ANSI_RST}")
-        else:
-            colored.append(line)
-    return colored
+    return art.split("\n")
+
+
+_LOGO_FG = "\x1b[38;2;4;62;98m"   # #043E62 – dark blue, used only in fallback
+_ANSI_RST = "\x1b[0m"
 
 
 def _fallback_small_logo() -> list[str]:
     """Minimal text fallback when SVG rendering is unavailable."""
     art = [
-        "   /\\    ",
-        "  /  \\   ",
-        " / /\\ \\  ",
-        "/______\\ ",
-        " ananta  ",
+        "    /\\       ",
+        "   /  \\      ",
+        "  / /\\ \\     ",
+        " /______\\    ",
+        "   ananta    ",
     ]
     return [f"{_LOGO_FG}{l}{_ANSI_RST}" for l in art]
 
