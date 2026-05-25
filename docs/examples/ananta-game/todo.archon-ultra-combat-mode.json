@@ -1,0 +1,449 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "ananta_game_archon_ultra_combat_mode",
+  "created": "2026-05-25",
+  "status": "backlog",
+  "purpose": "Erweiterungsmodul fuer das Ananta Strategie-Game: Bei bestimmten Kaempfen kann vom strategischen Brett in einen separaten taktischen Arena-Kampfmodus gewechselt werden, inspiriert vom alten Archon/Archon-Ultra-Prinzip, ohne dieses Spiel zu kopieren.",
+  "goal": "Ein sauberes, deterministisch begrenztes Combat-Mode-Konzept planen, bei dem Brettposition, Figurentyp, Terrain, Agenten-Persona und Kampfregeln in eine kleine Arena-Resolution ueberfuehrt werden koennen.",
+  "scope_decision": {
+    "active_in_brutal_mvp": false,
+    "reason": "Der Brutal-MVP braucht zuerst einfache deterministische Kaempfe. Ein Arena-Wechsel wuerde den ersten Playtest stark vergroessern.",
+    "activation_gate": [
+      "Brutal-MVP-Regeln sind dokumentiert.",
+      "Einfacher deterministischer Kampf ist testbar.",
+      "GameState, ActionLog und Replay sind beschrieben.",
+      "Figuren-Agenten sind mindestens konzeptionell als suggest_only geplant.",
+      "Combat-Mode ist als optionaler Resolver und nicht als Pflicht fuer jeden Kampf definiert."
+    ],
+    "copyright_boundary": "Nur das abstrakte Prinzip 'strategisches Brett wechselt bei Kampf in taktische Arena' wird als Inspiration genutzt. Keine Namen, Assets, Regeln, Figuren, Balancingwerte oder Look-and-Feel des historischen Spiels uebernehmen."
+  },
+  "related_documents": [
+    "docs/examples/ananta-game/README.md",
+    "docs/examples/ananta-game/README.figure-agents.md",
+    "docs/examples/ananta-game/todo.figure-agents.json",
+    "docs/examples/ananta-game/todo.ananta-game-platform-showcase.json"
+  ],
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "AUC01",
+      "title": "Konzept und Scope-Grenzen definieren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["AUC001", "AUC002", "AUC003", "AUC004"]
+    },
+    {
+      "id": "AUC02",
+      "title": "Arena-Combat-Regeln entwerfen",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["AUC005", "AUC006", "AUC007", "AUC008", "AUC009"]
+    },
+    {
+      "id": "AUC03",
+      "title": "Game-State, Actions und Replay planen",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["AUC010", "AUC011", "AUC012", "AUC013"]
+    },
+    {
+      "id": "AUC04",
+      "title": "Figuren-Agenten und taktische Personas einbinden",
+      "status": "todo",
+      "priority": "P2",
+      "task_ids": ["AUC014", "AUC015", "AUC016"]
+    },
+    {
+      "id": "AUC05",
+      "title": "Tests, Balance und Demo-Review definieren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["AUC017", "AUC018", "AUC019", "AUC020", "AUC021"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "AUC001",
+      "title": "Archon-Ultra-inspiriertes Combat-Prinzip dokumentieren",
+      "type": "concept_design",
+      "milestone_id": "AUC01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "deliverables": ["docs/examples/ananta-game/archon_ultra_combat_mode.md"],
+      "acceptance_criteria": [
+        "Dokument beschreibt nur das abstrakte Prinzip: Strategiebrett -> taktische Arena -> Ergebnis zurueck aufs Brett.",
+        "Dokument macht klar, dass keine historischen Spielassets, Namen, Regeln oder Look-and-Feel uebernommen werden.",
+        "Dokument erklaert, warum der Modus nicht in den Brutal-MVP gehoert.",
+        "Dokument beschreibt den Modus als optionalen Combat Resolver."
+      ]
+    },
+    {
+      "id": "AUC002",
+      "title": "Combat-Mode als optionalen Resolver definieren",
+      "type": "scope_control",
+      "milestone_id": "AUC01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["AUC001"],
+      "deliverables": ["Abschnitt in archon_ultra_combat_mode.md"],
+      "acceptance_criteria": [
+        "Einfacher deterministischer Kampf bleibt Standard fuer Brutal-MVP.",
+        "Arena-Modus wird nur bei explizit aktivierter Regel genutzt.",
+        "Ausloeser fuer Arena-Modus sind konfigurierbar.",
+        "Kein Kampf darf ohne definierten Resolver haengen bleiben."
+      ]
+    },
+    {
+      "id": "AUC003",
+      "title": "Uebergang Strategiebrett zu Arena modellieren",
+      "type": "technical_design",
+      "milestone_id": "AUC01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["AUC001"],
+      "deliverables": ["docs/examples/ananta-game/combat_transition_model.md"],
+      "acceptance_criteria": [
+        "Transition enthaelt Angreifer, Verteidiger, Ursprungsfeld, Zielfeld und Terrain-Kontext.",
+        "Strategischer GameState wird waehrend Arena-Kampf eingefroren oder klar als pending combat markiert.",
+        "Arena-Ergebnis wird deterministisch zurueck auf Brettzustand gemappt.",
+        "Abbruch-, Timeout- und Fallback-Regeln sind vorgesehen."
+      ]
+    },
+    {
+      "id": "AUC004",
+      "title": "Copyright- und Originalitaetsgrenzen festhalten",
+      "type": "governance",
+      "milestone_id": "AUC01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["AUC001"],
+      "deliverables": ["Abschnitt Copyright Boundary in archon_ultra_combat_mode.md"],
+      "acceptance_criteria": [
+        "Keine Uebernahme von Namen, Figuren, Sprites, Sounds, Leveldesigns oder konkreten Regeln des Vorbilds.",
+        "Eigene Begriffe fuer Modus, Arena, Aktionen und Effekte sind definiert.",
+        "Dokument beschreibt nur genretypische/abstrakte Inspiration.",
+        "Review-Check enthaelt einen Punkt fuer Originalitaet."
+      ]
+    },
+    {
+      "id": "AUC005",
+      "title": "Minimale Arena-Geometrie definieren",
+      "type": "rules",
+      "milestone_id": "AUC02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["AUC003"],
+      "deliverables": ["docs/examples/ananta-game/arena_combat_rules.md"],
+      "acceptance_criteria": [
+        "Eine kleine Arena-Groesse ist definiert, z. B. 7x7, 9x9 oder hexbasierte Mini-Arena.",
+        "Startpositionen fuer Angreifer und Verteidiger sind eindeutig.",
+        "Hindernisse oder Terrain-Boni sind optional und aus dem Zielfeld ableitbar.",
+        "Arena ist klein genug fuer schwache Systeme und spaeter E-Ink/Tablet-tauglich."
+      ]
+    },
+    {
+      "id": "AUC006",
+      "title": "Arena-Kampf als rundenbasierten Minimalmodus planen",
+      "type": "rules",
+      "milestone_id": "AUC02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["AUC005"],
+      "deliverables": ["Abschnitt in arena_combat_rules.md"],
+      "acceptance_criteria": [
+        "Erster Arena-Modus ist rundenbasiert, nicht Echtzeit.",
+        "Pro Arena-Turn ist genau eine kleine Aktion erlaubt.",
+        "Maximale Anzahl Arena-Turns ist definiert.",
+        "Timeout/Fallback fuehrt zu einem deterministischen Ergebnis, z. B. Verteidiger haelt, beide ziehen sich zurueck oder Standard-Kampfresolver greift."
+      ]
+    },
+    {
+      "id": "AUC007",
+      "title": "Figurenwerte fuer Arena-Kampf ableiten",
+      "type": "rules",
+      "milestone_id": "AUC02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["AUC006"],
+      "deliverables": ["docs/examples/ananta-game/arena_unit_profiles.md"],
+      "acceptance_criteria": [
+        "Naga, Rishi und Deva haben je ein minimales Arena-Profil.",
+        "Profile enthalten Bewegung, Reichweite, Trefferpunkte oder Widerstand und eine Spezialidee.",
+        "Spezialideen brechen nicht die Brettregeln.",
+        "Werte sind bewusst provisorisch und playtestpflichtig markiert."
+      ]
+    },
+    {
+      "id": "AUC008",
+      "title": "Arena-Actions definieren",
+      "type": "rules",
+      "milestone_id": "AUC02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["AUC006", "AUC007"],
+      "deliverables": ["Abschnitt Arena Actions in arena_combat_rules.md"],
+      "acceptance_criteria": [
+        "ARENA_MOVE ist definiert.",
+        "ARENA_ATTACK ist definiert.",
+        "ARENA_GUARD oder ARENA_FOCUS ist definiert.",
+        "ARENA_SPECIAL ist nur erlaubt, wenn die Figur ein dokumentiertes Profil dafuer hat.",
+        "Jede Arena-Action hat Validierungsbedingungen."
+      ]
+    },
+    {
+      "id": "AUC009",
+      "title": "Arena-Ergebnisregeln definieren",
+      "type": "rules",
+      "milestone_id": "AUC02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["AUC008"],
+      "deliverables": ["Abschnitt Arena Results in arena_combat_rules.md"],
+      "acceptance_criteria": [
+        "Moegliche Ergebnisse sind mindestens attacker_wins, defender_wins, draw und retreat.",
+        "Jedes Ergebnis beschreibt, was auf dem strategischen Brett passiert.",
+        "Besiegte Figur, Rueckzug, Feldbesitz und AP-Kosten sind eindeutig geregelt.",
+        "Unentschieden/Timeout ist ohne Diskussion auswertbar."
+      ]
+    },
+    {
+      "id": "AUC010",
+      "title": "ArenaCombatState modellieren",
+      "type": "technical_design",
+      "milestone_id": "AUC03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["AUC003", "AUC005", "AUC008"],
+      "deliverables": ["docs/examples/ananta-game/arena_combat_state_model.md"],
+      "acceptance_criteria": [
+        "ArenaCombatState enthaelt combatId, attackerFigureId, defenderFigureId, sourceFieldId, targetFieldId und arenaGrid.",
+        "ArenaCombatState enthaelt hp/status/position je Teilnehmer.",
+        "ArenaCombatState enthaelt turnCounter und maxTurns.",
+        "State ist JSON-serialisierbar.",
+        "State ist vom strategischen GameState klar trennbar."
+      ]
+    },
+    {
+      "id": "AUC011",
+      "title": "Arena ActionLog und Replay definieren",
+      "type": "technical_design",
+      "milestone_id": "AUC03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["AUC010"],
+      "deliverables": ["docs/examples/ananta-game/arena_action_log_replay.md"],
+      "acceptance_criteria": [
+        "Initial ArenaCombatState + ArenaActionLog ergeben eindeutiges Arena-Ergebnis.",
+        "Rejected Arena-Actions sind protokollierbar.",
+        "Replay braucht keine UI und keinen LLM-Agenten.",
+        "Arena-Ergebnis kann danach eindeutig in strategischen GameState ueberfuehrt werden."
+      ]
+    },
+    {
+      "id": "AUC012",
+      "title": "Combat Resolver Interface skizzieren",
+      "type": "technical_design",
+      "milestone_id": "AUC03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["AUC002", "AUC010"],
+      "deliverables": ["docs/examples/ananta-game/combat_resolver_interface.md"],
+      "acceptance_criteria": [
+        "SimpleDeterministicCombatResolver ist als Standard beschrieben.",
+        "ArenaCombatResolver ist als optionaler Resolver beschrieben.",
+        "Resolver-Auswahl ist konfigurierbar.",
+        "Resolver liefern ein gemeinsames CombatResult-Format."
+      ]
+    },
+    {
+      "id": "AUC013",
+      "title": "Strategic-to-Arena-to-Strategic Mapping testen planbar machen",
+      "type": "technical_design",
+      "milestone_id": "AUC03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["AUC009", "AUC010", "AUC012"],
+      "deliverables": ["Abschnitt in combat_transition_model.md"],
+      "acceptance_criteria": [
+        "Mapping beschreibt alle Felder, die aus dem strategischen State in ArenaCombatState uebernommen werden.",
+        "Mapping beschreibt alle Ergebnisdaten, die zurueck in den strategischen State gehen.",
+        "Mapping ist verlustarm genug fuer Replay und Debugging.",
+        "Offene Informationsanteile sind explizit als nicht uebernommen dokumentiert."
+      ]
+    },
+    {
+      "id": "AUC014",
+      "title": "Figuren-Agenten fuer Arena-Modus begrenzen",
+      "type": "agent_flow",
+      "milestone_id": "AUC04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "dependencies": ["AUC008", "AUC010"],
+      "deliverables": ["docs/examples/ananta-game/arena_figure_agent_flow.md"],
+      "acceptance_criteria": [
+        "Figuren-Agenten duerfen im Arena-Modus nur ArenaAction-Proposals erzeugen.",
+        "validateArenaAction bleibt deterministische Instanz.",
+        "Suggest-only bleibt erster erlaubter Modus.",
+        "Auto-if-valid fuer Arena ist separat gegated und nicht Standard."
+      ]
+    },
+    {
+      "id": "AUC015",
+      "title": "Taktische Persona-Overlays fuer Arena entwerfen",
+      "type": "prompt_design",
+      "milestone_id": "AUC04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["AUC014"],
+      "deliverables": ["docs/examples/ananta-game/arena_persona_overlays.md"],
+      "acceptance_criteria": [
+        "Naga, Rishi und Deva erhalten je ein Arena-Overlay.",
+        "Overlay beschreibt taktisches Verhalten, aber keine neuen Regeln.",
+        "Overlay nutzt nur Arena-State-Slice und erlaubte Actions.",
+        "Overlay bleibt mit README.figure-agents.md kompatibel."
+      ]
+    },
+    {
+      "id": "AUC016",
+      "title": "Agent-vs-Agent und Human-vs-Agent Szenarien unterscheiden",
+      "type": "agent_flow",
+      "milestone_id": "AUC04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["AUC014"],
+      "deliverables": ["Abschnitt in arena_figure_agent_flow.md"],
+      "acceptance_criteria": [
+        "Human steuert beide Seiten ist als Testmodus beschrieben.",
+        "Human vs Agent ist als Assistenz-/Spielmodus beschrieben.",
+        "Agent vs Agent ist als Replay-/Simulation-/Balance-Modus beschrieben.",
+        "Alle Modi nutzen dieselbe validateArenaAction-Logik."
+      ]
+    },
+    {
+      "id": "AUC017",
+      "title": "Arena-Core-Testplan schreiben",
+      "type": "testing",
+      "milestone_id": "AUC05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["AUC008", "AUC009", "AUC010", "AUC011"],
+      "deliverables": ["docs/examples/ananta-game/arena_combat_test_plan.md"],
+      "acceptance_criteria": [
+        "Tests fuer Arena-State-Erzeugung aus strategischem Kampf sind enthalten.",
+        "Tests fuer ARENA_MOVE, ARENA_ATTACK und ARENA_SPECIAL sind enthalten.",
+        "Tests fuer Sieg, Niederlage, Draw, Retreat und Timeout sind enthalten.",
+        "Replay-Test ist enthalten.",
+        "Tests laufen konzeptionell ohne UI und ohne LLM."
+      ]
+    },
+    {
+      "id": "AUC018",
+      "title": "Balance-Risiken des Arena-Modus dokumentieren",
+      "type": "risk_analysis",
+      "milestone_id": "AUC05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["AUC007", "AUC009"],
+      "deliverables": ["docs/examples/ananta-game/arena_balance_risks.md"],
+      "acceptance_criteria": [
+        "Risiko: Kaempfe dauern zu lange ist beschrieben.",
+        "Risiko: taktischer Modus dominiert strategisches Spiel ist beschrieben.",
+        "Risiko: einzelne Figurentypen werden zu stark ist beschrieben.",
+        "Risiko: Agentenvorschlaege erzeugen Analyse-Paralyse ist beschrieben.",
+        "Mindestens fuenf Begrenzungsregeln sind vorgeschlagen."
+      ]
+    },
+    {
+      "id": "AUC019",
+      "title": "Performance- und Low-End-Device-Anforderungen definieren",
+      "type": "non_functional_requirements",
+      "milestone_id": "AUC05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["AUC005", "AUC006"],
+      "deliverables": ["docs/examples/ananta-game/arena_performance_requirements.md"],
+      "acceptance_criteria": [
+        "Arena-Modus ist fuer schwache Tablets/E-Ink-nahe Systeme klein gehalten.",
+        "Keine Pflicht fuer Echtzeitphysik, Partikeleffekte oder komplexe Animationen.",
+        "Frame-unabhaengige Logik ist beschrieben.",
+        "Renderer darf austauschbar bleiben."
+      ]
+    },
+    {
+      "id": "AUC020",
+      "title": "Demo-Review-Check fuer Arena-Modus definieren",
+      "type": "verification",
+      "milestone_id": "AUC05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["AUC017", "AUC018", "AUC019"],
+      "deliverables": ["docs/examples/ananta-game/arena_demo_review_check.md"],
+      "acceptance_criteria": [
+        "Review prueft, dass der Arena-Modus nicht im Brutal-MVP aktiv ist.",
+        "Review prueft, dass SimpleDeterministicCombatResolver weiterhin existiert.",
+        "Review prueft, dass ArenaCombatResolver replay-faehig ist.",
+        "Review prueft, dass keine Archon-Assets oder konkreten Regeln kopiert wurden.",
+        "Review prueft, dass Agenten nur Vorschlaege erzeugen."
+      ]
+    },
+    {
+      "id": "AUC021",
+      "title": "Zentrale Showcase-README mit Arena-Modus verlinken",
+      "type": "documentation",
+      "milestone_id": "AUC05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "dependencies": ["AUC001"],
+      "deliverables": ["docs/examples/ananta-game/README.md"],
+      "acceptance_criteria": [
+        "README.md verweist auf archon_ultra_combat_mode.md und diese TODO-Spur.",
+        "Arena-Modus erscheint als spaeteres Showcase-Level nach Game-Core und Replay.",
+        "README macht klar, dass der Modus optional und gegated ist.",
+        "README nennt den Combat-Modus als Beispiel fuer getrennte Resolver-Strategien."
+      ]
+    }
+  ],
+  "first_recommended_working_set_after_activation": [
+    "AUC001",
+    "AUC002",
+    "AUC003",
+    "AUC005",
+    "AUC006",
+    "AUC012",
+    "AUC017"
+  ],
+  "definition_of_done": [
+    "Arena-Combat-Modus ist als optionaler, spaeterer Combat Resolver geplant.",
+    "Brutal-MVP bleibt beim einfachen deterministischen Kampf.",
+    "Strategiebrett -> Arena -> Strategiebrett ist eindeutig modelliert.",
+    "ArenaCombatState, ArenaActionLog und Replay sind JSON-serialisierbar planbar.",
+    "Figuren-Agenten duerfen nur ArenaAction-Proposals erzeugen.",
+    "validateArenaAction bleibt deterministische Kontrollinstanz.",
+    "Tests fuer Transition, Actions, Ergebnis, Timeout und Replay sind definiert.",
+    "Keine konkreten Inhalte des historischen Vorbilds werden kopiert."
+  ]
+}
