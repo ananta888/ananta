@@ -175,6 +175,7 @@ def _play_splash_to_terminal(state: OperatorState) -> None:
     from client_surfaces.operator_tui.splash_animation import build_splash_frames
 
     width, height = _tty_size()
+    height = min(height, 45)  # animation content fits in ~45 rows; more = wasted throughput
     frames = build_splash_frames(w=width, h=height, fps=24)
     if not frames:
         return
