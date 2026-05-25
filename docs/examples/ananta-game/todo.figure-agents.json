@@ -1,0 +1,402 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "ananta_game_figure_agents",
+  "created": "2026-05-25",
+  "status": "backlog",
+  "purpose": "Spaeteres Showcase-Modul fuer das Ananta Strategie-Game: Jede Spielfigur kann optional eine KI-Agenten-Persoenlichkeit ueber Anantas bestehendes Template-/Blueprint-System erhalten.",
+  "goal": "Figuren-Agenten so planen, dass sie Anantas Template-System sichtbar machen, aber niemals deterministische Game-Core-Regeln, Action Validation, Replay oder Scope-Gates umgehen.",
+  "readme": "docs/examples/ananta-game/README.figure-agents.md",
+  "related_ananta_components": [
+    "TemplateDB.prompt_template",
+    "RoleDB.default_template_id",
+    "BlueprintRoleDB.template_id",
+    "BlueprintRoleDB.config",
+    "TeamMemberDB.custom_template_id",
+    "TeamBlueprintDB",
+    "InstructionOverlayDB",
+    "UserInstructionProfileDB"
+  ],
+  "scope_decision": {
+    "active_in_brutal_mvp": false,
+    "first_allowed_mode": "suggest_only",
+    "reason": "Figuren-Agenten brauchen zuerst stabile Regeln, GameState, validateAction, ActionLog und Replay. Sonst wuerden LLM-Vorschlaege den Spielkern verunreinigen.",
+    "activation_gate": [
+      "Brutal-MVP-Regeln sind dokumentiert.",
+      "GameState und validateAction sind beschrieben.",
+      "ActionLog und Replay sind geplant.",
+      "Mindestens ein Papier-Playtest wurde ausgewertet.",
+      "Template-Nutzung ist klar von Game-State-Mutation getrennt."
+    ]
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "FIGA01",
+      "title": "Konzept und Scope-Grenzen dokumentieren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["FIGA001", "FIGA002", "FIGA003"]
+    },
+    {
+      "id": "FIGA02",
+      "title": "Template- und Persona-Modell entwerfen",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["FIGA004", "FIGA005", "FIGA006", "FIGA007"]
+    },
+    {
+      "id": "FIGA03",
+      "title": "Action-Proposal-Flow definieren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["FIGA008", "FIGA009", "FIGA010", "FIGA011"]
+    },
+    {
+      "id": "FIGA04",
+      "title": "Integration mit Ananta-Blueprints planen",
+      "status": "todo",
+      "priority": "P2",
+      "task_ids": ["FIGA012", "FIGA013", "FIGA014"]
+    },
+    {
+      "id": "FIGA05",
+      "title": "Tests, Security und Demo-Review definieren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["FIGA015", "FIGA016", "FIGA017", "FIGA018"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FIGA001",
+      "title": "Figure-Agents-Konzept dokumentieren",
+      "type": "documentation",
+      "milestone_id": "FIGA01",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "summary": "Legt die zentrale README fuer Figuren-Agenten an.",
+      "deliverables": ["docs/examples/ananta-game/README.figure-agents.md"],
+      "acceptance_criteria": [
+        "README erklaert, dass Figuren optionale KI-Agenten-Persoenlichkeiten erhalten koennen.",
+        "README verweist auf Anantas Template-/Blueprint-/Team-Modell statt Sonderagenten.",
+        "README enthaelt Mermaid-Diagramme fuer Proposal-Flow, Template-Schichten und Sequenz.",
+        "README trennt LLM-Vorschlag und deterministische Game-Core-Validation."
+      ]
+    },
+    {
+      "id": "FIGA002",
+      "title": "Scope-Gate gegen Brutal-MVP definieren",
+      "type": "scope_control",
+      "milestone_id": "FIGA01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "dependencies": ["FIGA001"],
+      "deliverables": ["Abschnitt in parked_features.md oder README.figure-agents.md"],
+      "acceptance_criteria": [
+        "Figuren-Agenten sind nicht Teil des Brutal-MVP.",
+        "Suggest-only ist als erster erlaubter Modus definiert.",
+        "Auto-if-valid ist als spaeterer Modus markiert.",
+        "Aktivierung erfordert stabile Regeln, validateAction, ActionLog und Replay."
+      ]
+    },
+    {
+      "id": "FIGA003",
+      "title": "Zentrale Showcase-README mit Figure-Agents-Modul verlinken",
+      "type": "documentation",
+      "milestone_id": "FIGA01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "dependencies": ["FIGA001"],
+      "deliverables": ["docs/examples/ananta-game/README.md"],
+      "acceptance_criteria": [
+        "README.md verweist auf README.figure-agents.md.",
+        "Figuren-Agenten erscheinen als spaeteres Showcase-Level.",
+        "Die Beschreibung macht klar: Agenten beraten oder schlagen Aktionen vor, aber validieren nicht selbst.",
+        "Keine bestehende Brutal-MVP-Scope-Entscheidung wird aufgeweicht."
+      ]
+    },
+    {
+      "id": "FIGA004",
+      "title": "Figurenrollen auf Ananta-Templates mappen",
+      "type": "technical_design",
+      "milestone_id": "FIGA02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["FIGA001"],
+      "deliverables": ["docs/examples/ananta-game/figure_agent_template_mapping.md"],
+      "acceptance_criteria": [
+        "GameFigure -> FigureRole -> Template -> Personality ist beschrieben.",
+        "Naga, Rishi und Deva haben je mindestens eine Beispielrolle.",
+        "Mapping nutzt vorhandene Konzepte wie TemplateDB und BlueprintRoleDB.",
+        "Keine neue parallele Agentenverwaltung wird vorgeschlagen."
+      ]
+    },
+    {
+      "id": "FIGA005",
+      "title": "Prompt-Template-Schichten fuer Figuren definieren",
+      "type": "prompt_design",
+      "milestone_id": "FIGA02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["FIGA004"],
+      "deliverables": ["docs/examples/ananta-game/figure_agent_prompt_layers.md"],
+      "acceptance_criteria": [
+        "Base Game Rules Template ist beschrieben.",
+        "Unit Type Template ist beschrieben.",
+        "Personality Template ist beschrieben.",
+        "Situation Overlay ist beschrieben.",
+        "Action Proposal Prompt mit strukturierter Ausgabe ist beschrieben."
+      ]
+    },
+    {
+      "id": "FIGA006",
+      "title": "Beispiel-Personas fuer Naga, Rishi und Deva schreiben",
+      "type": "prompt_design",
+      "milestone_id": "FIGA02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["FIGA005"],
+      "deliverables": ["docs/examples/ananta-game/figure_agent_personas.md"],
+      "acceptance_criteria": [
+        "Naga-Persona betont Kontrolle, Einkreisung und Gebietssicherung.",
+        "Rishi-Persona betont Vorsicht, Analyse, Flucht und Beratung.",
+        "Deva-Persona betont Druck, Angriff und Risiko, aber ohne Regelbruch.",
+        "Alle Personas enthalten den Hinweis: keine Regeln erfinden."
+      ]
+    },
+    {
+      "id": "FIGA007",
+      "title": "Strukturiertes Proposal-JSON-Schema fuer Figuren definieren",
+      "type": "schema_design",
+      "milestone_id": "FIGA02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["FIGA005"],
+      "deliverables": ["docs/examples/ananta-game/figure_agent_proposal_schema.md"],
+      "acceptance_criteria": [
+        "Schema enthaelt figureId, turn, proposalId, actionType, payload und reason.",
+        "Erlaubte actionType-Werte sind auf Brutal-MVP-Actions begrenzt.",
+        "Freitext darf den GameState nicht veraendern.",
+        "Ungultige oder nicht parsebare Vorschlaege sind als rejected behandelbar."
+      ]
+    },
+    {
+      "id": "FIGA008",
+      "title": "Suggest-only Flow definieren",
+      "type": "technical_design",
+      "milestone_id": "FIGA03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["FIGA007"],
+      "deliverables": ["docs/examples/ananta-game/figure_agent_action_flow.md"],
+      "acceptance_criteria": [
+        "Agent erhaelt nur State Slice und erlaubte Action-Typen.",
+        "Agent gibt nur Action Proposal zurueck.",
+        "Spieler oder Review-Schritt entscheidet ueber Anwendung.",
+        "GameState wird im Suggest-only-Modus nicht automatisch veraendert."
+      ]
+    },
+    {
+      "id": "FIGA009",
+      "title": "Validation-Gate fuer Agentenvorschlaege beschreiben",
+      "type": "technical_design",
+      "milestone_id": "FIGA03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["FIGA008"],
+      "deliverables": ["Abschnitt in figure_agent_action_flow.md"],
+      "acceptance_criteria": [
+        "validateAction entscheidet deterministisch ueber valid/rejected.",
+        "Agent darf validateAction nicht ueberschreiben.",
+        "Rejected Actions enthalten einen Grund.",
+        "Nur valide und akzeptierte Actions duerfen in den ActionLog."
+      ]
+    },
+    {
+      "id": "FIGA010",
+      "title": "DecisionLog fuer Figuren-Agenten definieren",
+      "type": "technical_design",
+      "milestone_id": "FIGA03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["FIGA009"],
+      "deliverables": ["docs/examples/ananta-game/figure_agent_decision_log.md"],
+      "acceptance_criteria": [
+        "DecisionLog speichert Proposal, validationStatus, rejectionReason und applied.",
+        "Rejected Proposals bleiben auditierbar.",
+        "Log ist replay-kompatibel, veraendert aber nicht automatisch historische States.",
+        "Mindestens zwei Beispiel-Logeintraege sind enthalten."
+      ]
+    },
+    {
+      "id": "FIGA011",
+      "title": "Auto-if-valid als spaeteren Modus begrenzen",
+      "type": "scope_control",
+      "milestone_id": "FIGA03",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "dependencies": ["FIGA009", "FIGA010"],
+      "deliverables": ["Abschnitt in figure_agent_action_flow.md"],
+      "acceptance_criteria": [
+        "Auto-if-valid ist nicht erster Umsetzungsmodus.",
+        "Auto-if-valid erfordert explizite Aktivierung pro Figur oder Szenario.",
+        "Auto-if-valid nutzt weiterhin validateAction und ActionLog.",
+        "Remote-LLM-Nutzung ist dabei ohne Policy-Freigabe ausgeschlossen."
+      ]
+    },
+    {
+      "id": "FIGA012",
+      "title": "Figure-Agent-TeamBlueprint skizzieren",
+      "type": "blueprint_design",
+      "milestone_id": "FIGA04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["FIGA004", "FIGA006"],
+      "deliverables": ["docs/examples/ananta-game/figure_agent_blueprint.md"],
+      "acceptance_criteria": [
+        "Blueprint enthaelt Rollen wie Naga Strategist, Rishi Advisor und Deva Commander.",
+        "Jede Rolle verweist konzeptionell auf ein Template.",
+        "Artifacts wie action_proposals.json und rejected_actions.json sind vorgesehen.",
+        "Blueprint bleibt Konzept und erzeugt keine Pflichtmigration."
+      ]
+    },
+    {
+      "id": "FIGA013",
+      "title": "Template-Konfiguration fuer lokale/remote LLMs planen",
+      "type": "security_design",
+      "milestone_id": "FIGA04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "dependencies": ["FIGA012"],
+      "deliverables": ["Abschnitt in figure_agent_blueprint.md"],
+      "acceptance_criteria": [
+        "Figuren-Agenten koennen llmBackend local, remote oder disabled haben.",
+        "Remote muss explizit erlaubt werden.",
+        "State Slice fuer externe Modelle ist begrenzt.",
+        "Keine Repo-Secrets oder Projektinternas werden ohne Grund in Figurenprompts gegeben."
+      ]
+    },
+    {
+      "id": "FIGA014",
+      "title": "InstructionOverlay fuer situativen GameState beschreiben",
+      "type": "technical_design",
+      "milestone_id": "FIGA04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["FIGA005", "FIGA013"],
+      "deliverables": ["docs/examples/ananta-game/figure_agent_instruction_overlay.md"],
+      "acceptance_criteria": [
+        "Situation Overlay enthaelt nur relevanten State Slice.",
+        "Overlay ist kurzlebig und turn-/action-bezogen.",
+        "Overlay darf keine neuen Regeln einfuehren.",
+        "Overlay trennt Spielzustand von dauerhafter Persona."
+      ]
+    },
+    {
+      "id": "FIGA015",
+      "title": "Tests fuer parsebare und unparsebare Agentenvorschlaege definieren",
+      "type": "testing",
+      "milestone_id": "FIGA05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["FIGA007"],
+      "deliverables": ["docs/examples/ananta-game/figure_agent_test_plan.md"],
+      "acceptance_criteria": [
+        "Parsebares Proposal wird validiert.",
+        "Unparsebares Proposal wird rejected.",
+        "Proposal mit unbekanntem actionType wird rejected.",
+        "Proposal mit Freitext-Regelerfindung veraendert den State nicht."
+      ]
+    },
+    {
+      "id": "FIGA016",
+      "title": "Tests fuer validateAction-Grenzen definieren",
+      "type": "testing",
+      "milestone_id": "FIGA05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["FIGA009"],
+      "deliverables": ["Abschnitt in figure_agent_test_plan.md"],
+      "acceptance_criteria": [
+        "Agentenvorschlag ausserhalb Bewegungsreichweite wird rejected.",
+        "Agentenvorschlag mit falscher Figur wird rejected.",
+        "Agentenvorschlag mit zu wenig AP wird rejected.",
+        "Agentenvorschlag, der Deva-Sonderregel bricht, wird rejected.",
+        "Rejected Proposal bleibt im DecisionLog sichtbar."
+      ]
+    },
+    {
+      "id": "FIGA017",
+      "title": "Security-Checkliste fuer Figuren-Agenten schreiben",
+      "type": "security",
+      "milestone_id": "FIGA05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["FIGA013", "FIGA014"],
+      "deliverables": ["docs/examples/ananta-game/figure_agent_security_check.md"],
+      "acceptance_criteria": [
+        "Checkliste prueft lokale vs remote LLM-Nutzung.",
+        "Checkliste prueft State-Slice-Minimierung.",
+        "Checkliste prueft, dass keine Secrets/Repo-Kontexte in Figurenprompts landen.",
+        "Checkliste prueft, dass Agenten keine direkten Tools fuer GameState-Mutation bekommen.",
+        "Checkliste fordert Audit fuer Vorschlaege und Rejections."
+      ]
+    },
+    {
+      "id": "FIGA018",
+      "title": "Demo-Review fuer Figuren-Agenten definieren",
+      "type": "verification",
+      "milestone_id": "FIGA05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["FIGA015", "FIGA016", "FIGA017"],
+      "deliverables": ["docs/examples/ananta-game/figure_agent_demo_review_check.md"],
+      "acceptance_criteria": [
+        "Review prueft, ob Personas aus Templates kommen.",
+        "Review prueft, ob Agenten nur Vorschlaege erzeugen.",
+        "Review prueft, ob validateAction alle Vorschlaege kontrolliert.",
+        "Review prueft, ob Replay und Audit erhalten bleiben.",
+        "Review prueft, ob der Modus nicht still von suggest_only auf auto_if_valid springt."
+      ]
+    }
+  ],
+  "first_recommended_working_set_after_activation": [
+    "FIGA004",
+    "FIGA005",
+    "FIGA006",
+    "FIGA007",
+    "FIGA008",
+    "FIGA009"
+  ],
+  "definition_of_done": [
+    "Figuren-Agenten sind als spaeteres Showcase-Modul dokumentiert.",
+    "Jede Figur kann konzeptionell an ein Template oder eine BlueprintRole gebunden werden.",
+    "Personas sind in Prompt-Schichten statt als Sonderlogik beschrieben.",
+    "Agenten erzeugen nur Action-Proposals.",
+    "validateAction bleibt alleinige deterministische Instanz fuer GameState-Aenderungen.",
+    "Rejected Proposals sind auditierbar.",
+    "Suggest-only ist erster Modus; Auto-if-valid ist spaeter und explizit gated.",
+    "Lokale/remote LLM-Nutzung ist ueber Policy und State-Slice-Minimierung abgesichert."
+  ]
+}
