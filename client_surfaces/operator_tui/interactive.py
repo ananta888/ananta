@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import time
 from typing import TYPE_CHECKING
 
 import asyncio
@@ -36,6 +37,8 @@ class InteractiveOperatorTui:
         self._splash = splash
         self._plugins: PluginRegistry = default_plugin_registry()
         self.state = load_active_section(state, self._registry)
+        if self.state.focus is FocusPane.HEADER:
+            self.state = self._activate_header_snake(self.state)
         self._command_buffer = ""
         self._rendered_text = self._render()
         self._control = FormattedTextControl(text=lambda: ANSI(self._rendered_text))
@@ -67,6 +70,7 @@ class InteractiveOperatorTui:
         fps = max(1, min(60, int(os.environ.get("ANANTA_TUI_HEADER_3D_FPS", "12"))))
         delay = 1.0 / fps
         while True:
+            self._tick_header_snake()
             self._rendered_text = self._render()
             self._app.invalidate()
             await asyncio.sleep(delay)
@@ -179,18 +183,26 @@ class InteractiveOperatorTui:
 
         @bindings.add("left")
         def _(event) -> None:
+            if self._try_header_snake_direction((-1, 0)):
+                return
             self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
 
         @bindings.add("right")
         def _(event) -> None:
+            if self._try_header_snake_direction((1, 0)):
+                return
             self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
 
         @bindings.add("up")
         def _(event) -> None:
+            if self._try_header_snake_direction((0, -1)):
+                return
             self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
 
         @bindings.add("down")
         def _(event) -> None:
+            if self._try_header_snake_direction((0, 1)):
+                return
             self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
 
         @bindings.add("n")
@@ -259,7 +271,139 @@ class InteractiveOperatorTui:
             new_selected = 0
         else:
             new_selected = self.state.selected_index
-        self._set_state(self.state.with_updates(focus=new_focus, selected_index=new_selected))
+        next_state = self.state.with_updates(focus=new_focus, selected_index=new_selected)
+        if new_focus is FocusPane.HEADER:
+            next_state = self._activate_header_snake(next_state)
+        elif self.state.focus is FocusPane.HEADER:
+            next_state = self._deactivate_header_snake(next_state)
+        self._set_state(next_state)
+
+    def _header_snake_enabled(self) -> bool:
+        return os.environ.get("ANANTA_TUI_HEADER_SNAKE", "1").strip().lower() not in {"0", "false", "no", "off"}
+
+    def _default_header_snake(self) -> dict[str, object]:
+        board_w, board_h = 18, 6
+        snake = [(4, 3), (3, 3), (2, 3)]
+        return {
+            "active": True,
+            "alive": True,
+            "board_w": board_w,
+            "board_h": board_h,
+            "snake": snake,
+            "direction": (1, 0),
+            "next_direction": (1, 0),
+            "food": (12, 3),
+            "score": 0,
+            "moves": 0,
+            "last_move": time.monotonic(),
+        }
+
+    def _activate_header_snake(self, state: OperatorState) -> OperatorState:
+        if not self._header_snake_enabled():
+            return state
+        game = dict(state.header_logo_game or self._default_header_snake())
+        game["active"] = True
+        if not game.get("alive", True):
+            game = self._default_header_snake()
+        game["last_move"] = time.monotonic()
+        return state.with_updates(header_logo_game=game)
+
+    def _deactivate_header_snake(self, state: OperatorState) -> OperatorState:
+        game = dict(state.header_logo_game or {})
+        if not game:
+            return state
+        game["active"] = False
+        return state.with_updates(header_logo_game=game)
+
+    def _try_header_snake_direction(self, direction: tuple[int, int]) -> bool:
+        if self.state.mode is OperatorMode.COMMAND:
+            return False
+        if self.state.focus is not FocusPane.HEADER or not self._header_snake_enabled():
+            return False
+        game = dict(self.state.header_logo_game or {})
+        if not game:
+            game = self._default_header_snake()
+        if not game.get("active", False):
+            game["active"] = True
+        if not game.get("alive", True):
+            game = self._default_header_snake()
+        current = tuple(game.get("direction", (1, 0)))
+        if direction[0] == -current[0] and direction[1] == -current[1]:
+            return True
+        game["next_direction"] = direction
+        self._set_state(self.state.with_updates(header_logo_game=game))
+        return True
+
+    def _tick_header_snake(self) -> None:
+        if self.state.focus is not FocusPane.HEADER or not self._header_snake_enabled():
+            return
+        game = dict(self.state.header_logo_game or {})
+        if not game or not game.get("active", False) or not game.get("alive", True):
+            return
+        tps = max(3, min(20, int(os.environ.get("ANANTA_TUI_HEADER_SNAKE_TPS", "8"))))
+        step = 1.0 / tps
+        now = time.monotonic()
+        last_move = float(game.get("last_move", now))
+        if (now - last_move) < step:
+            return
+
+        board_w = max(6, int(game.get("board_w", 18)))
+        board_h = max(4, int(game.get("board_h", 6)))
+        snake_raw = game.get("snake") or []
+        snake = [(int(p[0]), int(p[1])) for p in snake_raw if isinstance(p, (list, tuple)) and len(p) == 2]
+        if not snake:
+            snake = [(4, 3), (3, 3), (2, 3)]
+        direction = tuple(game.get("direction", (1, 0)))
+        next_direction = tuple(game.get("next_direction", direction))
+        if next_direction[0] == -direction[0] and next_direction[1] == -direction[1]:
+            next_direction = direction
+        direction = next_direction
+
+        hx, hy = snake[0]
+        nx = (hx + direction[0]) % board_w
+        ny = (hy + direction[1]) % board_h
+        new_head = (nx, ny)
+
+        food_raw = game.get("food", (12, 3))
+        food = (int(food_raw[0]), int(food_raw[1])) if isinstance(food_raw, (list, tuple)) and len(food_raw) == 2 else (12, 3)
+        grow = new_head == food
+        body_to_check = snake if grow else snake[:-1]
+        if new_head in body_to_check:
+            game["alive"] = False
+            game["active"] = True
+            game["direction"] = direction
+            game["next_direction"] = direction
+            game["last_move"] = now
+            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: game over (tab zurück, dann erneut)")
+            return
+
+        snake = [new_head, *snake]
+        if not grow:
+            snake.pop()
+        else:
+            game["score"] = int(game.get("score", 0)) + 1
+            game["food"] = self._spawn_snake_food(board_w, board_h, snake, int(game.get("moves", 0)) + 1)
+
+        game["snake"] = snake
+        game["direction"] = direction
+        game["next_direction"] = direction
+        game["moves"] = int(game.get("moves", 0)) + 1
+        game["last_move"] = now
+        self.state = self.state.with_updates(header_logo_game=game)
+
+    def _spawn_snake_food(
+        self,
+        board_w: int,
+        board_h: int,
+        snake: list[tuple[int, int]],
+        seed: int,
+    ) -> tuple[int, int]:
+        occupied = set(snake)
+        free = [(x, y) for y in range(board_h) for x in range(board_w) if (x, y) not in occupied]
+        if not free:
+            return snake[-1] if snake else (0, 0)
+        idx = (seed * 17 + board_w * 13 + board_h * 7) % len(free)
+        return free[idx]
 
     def _set_state(self, state: OperatorState) -> None:
         if self._splash is not None:

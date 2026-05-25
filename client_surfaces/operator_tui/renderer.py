@@ -150,6 +150,7 @@ def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | No
         from client_surfaces.operator_tui.logo_inline import (
             render_logo_braille,
             render_logo_braille_animated,
+            render_logo_snake_game_playable,
             render_logo_snake_game_animated,
             render_logo_halfblock_animated,
             render_logo_halfblock,
@@ -160,7 +161,16 @@ def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | No
             anim_mode = os.environ.get("ANANTA_TUI_HEADER_ANIM", "snake_game").strip().lower()
             t_now = time.monotonic()
             lines = None
-            if anim_mode in {"snake", "snake_game", "game"}:
+            game_state = state.header_logo_game if state is not None else None
+            if game_state and game_state.get("active"):
+                lines = render_logo_snake_game_playable(
+                    cols=cols,
+                    rows=COMPACT_HEADER_LINES,
+                    game_state=game_state,
+                    t=t_now,
+                    speed=max(0.2, min(4.0, speed)),
+                )
+            if not lines and anim_mode in {"snake", "snake_game", "game"}:
                 lines = render_logo_snake_game_animated(
                     cols=cols,
                     rows=COMPACT_HEADER_LINES,
@@ -248,6 +258,12 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
     from client_surfaces.operator_tui.header_config import CONFIG_ITEMS, CONFIG_LABELS, config_value, is_cycleable
 
     lines = [_pane_title("CONFIG", True)]
+    game = state.header_logo_game or {}
+    if game.get("active"):
+        score = int(game.get("score", 0))
+        status = "running" if game.get("alive", True) else "game over"
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake  score={score}  {status}", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Arrows steuern · Tab verlässt Fokus", width))
     for i, key in enumerate(CONFIG_ITEMS):
         cursor = DEFAULT_THEME.selected_prefix if i == state.selected_index else DEFAULT_THEME.idle_prefix
         label = CONFIG_LABELS[key]
@@ -562,7 +578,11 @@ def _command_line(state: OperatorState, width: int) -> str:
 
 
 def _hints_line(state: OperatorState, width: int) -> str:
-    return _clip(hints_for_mode(state.mode), width)
+    hints = hints_for_mode(state.mode)
+    game = state.header_logo_game or {}
+    if state.focus is FocusPane.HEADER and game.get("active"):
+        hints = "[←→↑↓] Snake  [Enter] Config  [Tab] Next Pane  [:] Command  [q] Quit"
+    return _clip(hints, width)
 
 
 def _rule(width: int) -> str:

@@ -72,6 +72,7 @@ class OperatorState:
     audit_context: dict[str, Any] | None = None
     browser_fallback_url: str = ""
     terminal_graphics: dict[str, Any] | None = None
+    header_logo_game: dict[str, Any] | None = None
 
     def with_updates(self, **updates: object) -> "OperatorState":
         return replace(self, **updates)
