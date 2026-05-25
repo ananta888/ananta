@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import asyncio
 import math
@@ -59,6 +59,8 @@ class InteractiveOperatorTui:
         self._tutorial_worker_cache: tuple[float, str] = (0.0, "")
         self._tutorial_worker_target_hint: str = ""
         self._tutorial_llm_cache: tuple[float, str] = (0.0, "")
+        self._tutorial_llm_profile_cache: dict[str, Any] | None = None
+        self._tutorial_llm_profile_key: str = ""
         self._tutorial_last_source: str = "local-knowledge"
         self._tutorial_last_target: str = "follow"
         self._command_buffer = ""
@@ -1040,22 +1042,137 @@ class InteractiveOperatorTui:
             return cached_msg
 
         timeout_seconds = max(0.3, min(10.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "1.6"))))
-        hint_block = "\n".join(f"- {h}" for h in hints[:10]) if hints else "- no codecompass hints available"
+        profile = self._resolve_tutorial_llm_profile(
+            now=now,
+            model=model,
+            api_base=api_base,
+            api_token=api_token,
+            timeout_seconds=timeout_seconds,
+        )
+        hint_block = "\n".join(f"- {h}" for h in hints[:8]) if hints else "- no codecompass hints available"
         prompt = (
             f"{status}\n"
-            "Provide one concise tutorial line for a snake assistant in this TUI.\n"
-            "Focus on immediate next action and project-aware guidance.\n"
+            f"{str(profile.get('user_prompt') or '')}\n"
             f"CodeCompass + rag_helper hints:\n{hint_block}\n"
             "Max 180 chars."
         )
+        content = self._tutorial_llm_chat_completion(
+            model=model,
+            api_base=api_base,
+            api_token=api_token,
+            timeout_seconds=timeout_seconds,
+            system_prompt=str(profile.get("system_prompt") or "You are a concise in-product tutorial assistant."),
+            user_prompt=prompt,
+            temperature=float(profile.get("temperature") or 0.15),
+            max_tokens=int(profile.get("max_tokens") or 72),
+        )
+        if not content:
+            return None
+        parsed = self._parse_tutorial_ai_llm_content(content)
+        if not parsed:
+            return None
+        clipped, target_hint = parsed
+        self._tutorial_worker_target_hint = target_hint
+        self._tutorial_last_source = "openai-compatible"
+        self._tutorial_last_target = target_hint or "content"
+        self._tutorial_llm_cache = (now, clipped)
+        return clipped
+
+    def _resolve_tutorial_llm_profile(
+        self,
+        *,
+        now: float,
+        model: str,
+        api_base: str,
+        api_token: str,
+        timeout_seconds: float,
+    ) -> dict[str, Any]:
+        profile_key = f"{model}@{api_base}"
+        if self._tutorial_llm_profile_cache and self._tutorial_llm_profile_key == profile_key:
+            return dict(self._tutorial_llm_profile_cache)
+
+        default_profile: dict[str, Any] = {
+            "id": "compact-plain",
+            "system_prompt": "You are a concise in-product tutorial assistant.",
+            "user_prompt": "Provide one concise tutorial line for a snake assistant in this TUI. Focus on the immediate next action.",
+            "temperature": 0.15,
+            "max_tokens": 72,
+        }
+        training_enabled = str(os.environ.get("ANANTA_TUI_SNAKE_AI_TRAINING", "0")).strip().lower() in {"1", "true", "yes", "on"}
+        if not training_enabled:
+            self._tutorial_llm_profile_key = profile_key
+            self._tutorial_llm_profile_cache = dict(default_profile)
+            return dict(default_profile)
+
+        candidates: list[dict[str, Any]] = [
+            dict(default_profile),
+            {
+                "id": "compact-tagged",
+                "system_prompt": "You are a concise in-product tutorial assistant.",
+                "user_prompt": (
+                    "Return exactly one short line with one steering prefix "
+                    "[target=header|nav|content|detail|follow] and immediate next action."
+                ),
+                "temperature": 0.1,
+                "max_tokens": 64,
+            },
+        ]
+
+        best_profile: dict[str, Any] = dict(default_profile)
+        best_score: tuple[int, float] = (-1, 999.0)
+        for candidate in candidates:
+            probe_prompt = (
+                "TUI mode=normal focus=content section=dashboard idx=0.\n"
+                f"{str(candidate.get('user_prompt') or '')}\n"
+                "CodeCompass + rag_helper hints:\n- queue depth\n- tasks pending\n"
+                "Max 180 chars."
+            )
+            started = time.monotonic()
+            content = self._tutorial_llm_chat_completion(
+                model=model,
+                api_base=api_base,
+                api_token=api_token,
+                timeout_seconds=min(1.8, timeout_seconds),
+                system_prompt=str(candidate.get("system_prompt") or ""),
+                user_prompt=probe_prompt,
+                temperature=float(candidate.get("temperature") or 0.15),
+                max_tokens=int(candidate.get("max_tokens") or 72),
+            )
+            elapsed = time.monotonic() - started
+            parsed = self._parse_tutorial_ai_llm_content(content or "")
+            if not parsed:
+                continue
+            _, target_hint = parsed
+            structure_bonus = 1 if target_hint else 0
+            score = (1 + structure_bonus, elapsed)
+            if score[0] > best_score[0] or (score[0] == best_score[0] and score[1] < best_score[1]):
+                best_score = score
+                best_profile = dict(candidate)
+
+        self._tutorial_llm_profile_key = profile_key
+        self._tutorial_llm_profile_cache = dict(best_profile)
+        return dict(best_profile)
+
+    def _tutorial_llm_chat_completion(
+        self,
+        *,
+        model: str,
+        api_base: str,
+        api_token: str,
+        timeout_seconds: float,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> str | None:
         payload = {
             "model": model,
             "messages": [
-                {"role": "system", "content": "You are a concise in-product tutorial assistant."},
-                {"role": "user", "content": prompt},
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
             ],
-            "temperature": 0.2,
-            "max_tokens": 90,
+            "temperature": max(0.0, min(1.0, float(temperature))),
+            "max_tokens": max(24, min(120, int(max_tokens))),
         }
         body = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}
@@ -1083,16 +1200,33 @@ class InteractiveOperatorTui:
         if not isinstance(message, dict):
             return None
         content = str(message.get("content") or "").strip()
-        if not content:
-            return None
-        single_line = " ".join(content.split())
+        return content or None
+
+    def _parse_tutorial_ai_llm_content(self, content: str) -> tuple[str, str] | None:
+        single_line = " ".join(str(content or "").split())
         if not single_line:
             return None
-        clipped = single_line[:180]
-        self._tutorial_last_source = "openai-compatible"
-        self._tutorial_last_target = "content"
-        self._tutorial_llm_cache = (now, clipped)
-        return clipped
+        target_hint = ""
+        match = re.search(r"\[target=(header|nav|content|detail|follow)\]", single_line, flags=re.IGNORECASE)
+        if match:
+            target_hint = match.group(1).lower()
+            single_line = re.sub(r"\[target=(header|nav|content|detail|follow)\]\s*", "", single_line, flags=re.IGNORECASE)
+        elif single_line.startswith("{") and single_line.endswith("}"):
+            try:
+                payload = json.loads(single_line)
+            except json.JSONDecodeError:
+                payload = {}
+            if isinstance(payload, dict):
+                text = str(payload.get("text") or payload.get("message") or "").strip()
+                target = str(payload.get("target") or "").strip().lower()
+                if target in {"header", "nav", "content", "detail", "follow"}:
+                    target_hint = target
+                if text:
+                    single_line = " ".join(text.split())
+        clipped = single_line[:180].strip()
+        if not clipped:
+            return None
+        return clipped, target_hint
 
     def _load_codecompass_hints(self, *, now: float) -> list[str]:
         cached_at, cached = self._tutorial_codecompass_cache
