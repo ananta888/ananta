@@ -157,9 +157,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _play_splash_to_terminal(splash: SplashMachine, state: OperatorState) -> None:
     from agent.cli.splash import SplashState
-    from agent.cli.status_snapshot import collect_status
+    from agent.cli.status_snapshot import StatusSnapshot
 
-    snapshot = collect_status(
+    try:
+        tty = open("/dev/tty", "w", encoding="utf-8", errors="replace")
+    except OSError:
+        return
+
+    snapshot = StatusSnapshot(
         mode=state.mode.value,
         endpoint=state.endpoint,
         auth_state=state.auth_state,
@@ -168,8 +173,8 @@ def _play_splash_to_terminal(splash: SplashMachine, state: OperatorState) -> Non
     size = shutil.get_terminal_size((120, 32))
     width, height = size.columns, size.lines
 
-    sys.stdout.write("\x1b[?25l\x1b[2J\x1b[H")
-    sys.stdout.flush()
+    tty.write("\x1b[?25l\x1b[2J\x1b[H")
+    tty.flush()
     try:
         while True:
             ctx = splash.tick()
@@ -179,14 +184,15 @@ def _play_splash_to_terminal(splash: SplashMachine, state: OperatorState) -> Non
             padded = list(lines[:height])
             while len(padded) < height:
                 padded.append("")
-            sys.stdout.write("\x1b[H" + "\n".join(padded))
-            sys.stdout.flush()
+            tty.write("\x1b[H" + "\n".join(padded))
+            tty.flush()
             time.sleep(1.0 / 24)
     except KeyboardInterrupt:
         pass
     finally:
-        sys.stdout.write("\x1b[?25h\x1b[2J\x1b[H")
-        sys.stdout.flush()
+        tty.write("\x1b[?25h\x1b[2J\x1b[H")
+        tty.flush()
+        tty.close()
 
 
 def _handle_render_once(args: argparse.Namespace, splash: SplashMachine | None) -> None:
