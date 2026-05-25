@@ -161,7 +161,9 @@
       "Bash(docker network *)",
       "Bash(docker inspect *)",
       "Bash(docker cp *)",
-      "Bash(grep -v \"WARNING\\\\|INFO\\\\|DEBUG\\\\|^$\")"
+      "Bash(grep -v \"WARNING\\\\|INFO\\\\|DEBUG\\\\|^$\")",
+      "Bash(ananta --version)",
+      "Bash(.venv/bin/pip show *)"
     ]
   }
 }
