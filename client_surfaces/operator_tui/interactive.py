@@ -109,17 +109,11 @@ class InteractiveOperatorTui:
 
         @bindings.add("j")
         def _(event) -> None:
-            def _j():
-                if self.state.focus is FocusPane.NAVIGATION:
-                    new_idx = min(self.state.selected_index + 1, len(SECTIONS) - 1)
-                else:
-                    new_idx = self.state.selected_index + 1
-                self._set_state(self.state.with_updates(selected_index=new_idx))
-            self._normal_or_text("j", _j)
+            self._normal_or_text("j", lambda: self._move_focus(1))
 
         @bindings.add("k")
         def _(event) -> None:
-            self._normal_or_text("k", lambda: self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1))))
+            self._normal_or_text("k", lambda: self._move_focus(-1))
 
         @bindings.add("e")
         def _(event) -> None:
