@@ -47,6 +47,13 @@ def _render_svg_ascii(logo_width: int, color: bool = True) -> list[str]:
     return art.split('\n')
 
 
+def _pad_line(line: str, width: int) -> str:
+    visible = len(_ANSI_RE.sub('', line))
+    if visible < width:
+        return line + ' ' * (width - visible)
+    return line
+
+
 def _orbit_path(top: int, bottom: int, left: int, right: int) -> list[tuple[int, int]]:
     p: list[tuple[int, int]] = []
     for c in range(left, right + 1):          p.append((top, c))
@@ -135,7 +142,7 @@ def _frame_from_logo(
         row_snakes = {c: ch for (r, c), ch in snake_map.items() if r == row}
 
         if not row_snakes:
-            rows_out.append(base.ljust(canvas_w) if base else ' ' * canvas_w)
+            rows_out.append(_pad_line(base, canvas_w) if base else ' ' * canvas_w)
         elif row >= logo_h:
             parts, in_g = '', False
             for ci in range(canvas_w):

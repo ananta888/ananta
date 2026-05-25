@@ -196,6 +196,13 @@ def _orbit_path(top: int, bottom: int, left: int, right: int) -> list[tuple[int,
     return p
 
 
+def _pad_canvas_line(line: str, width: int) -> str:
+    visible = len(_ANSI_RE.sub('', line))
+    if visible < width:
+        return line + ' ' * (width - visible)
+    return line
+
+
 def _insert_snake_on_row(
     base: str,
     snake_cols: dict[int, str],
@@ -208,14 +215,14 @@ def _insert_snake_on_row(
     Snake chars are only placed in empty regions (before logo_col_start or after logo end).
     """
     if not snake_cols:
-        return base.ljust(canvas_w)
+        return _pad_canvas_line(base, canvas_w)
 
     # Positions left of the logo and right of the logo
     left_snakes  = {c: ch for c, ch in snake_cols.items() if c < logo_col_start}
     right_snakes = {c: ch for c, ch in snake_cols.items() if c >= logo_col_start + 70}
 
     if not left_snakes and not right_snakes:
-        return base.ljust(canvas_w)
+        return _pad_canvas_line(base, canvas_w)
 
     # Left region (cols 0..logo_col_start-1): pure spaces + snake chars
     left_part = list(' ' * logo_col_start)
@@ -284,7 +291,7 @@ def _frame_from_logo(
         row_snakes = {c: ch for (r, c), ch in snake_map.items() if r == row}
 
         if not row_snakes:
-            rows_out.append(base.ljust(canvas_w) if base else ' ' * canvas_w)
+            rows_out.append(_pad_canvas_line(base, canvas_w) if base else ' ' * canvas_w)
         elif row >= logo_h:
             # Empty row: just place snake chars
             line = list(' ' * canvas_w)
@@ -455,6 +462,18 @@ def _render_tui_snapshot(section_id: str, width: int, height: int) -> str:
     return render_operator_shell(state, width=width, height=height)
 
 
+def _pad_canvas(text: str, w: int, h: int) -> str:
+    """Pad every line to full width and ensure exactly h rows — so in-place overwrite is clean."""
+    lines = text.split('\n')
+    padded = []
+    for line in lines[:h]:
+        visible = len(_ANSI_RE.sub('', line))
+        padded.append(line + ' ' * max(0, w - visible))
+    while len(padded) < h:
+        padded.append(' ' * w)
+    return '\n'.join(padded[:h])
+
+
 def _tty_size(fallback: tuple[int, int] = (120, 32)) -> tuple[int, int]:
     """Read actual terminal size via /dev/tty ioctl (works in WSL2/Windows Terminal)."""
     try:
@@ -500,11 +519,13 @@ def record(fps: int = 24, width: int = 0, height: int = 0, **_: object) -> None:
         ("system",    0.8),
     ]
     for si, (section_id, dur) in enumerate(section_specs):
-        text = _render_tui_snapshot(section_id, w, h)
+        raw = _render_tui_snapshot(section_id, w, h)
+        text = _pad_canvas(raw, w, h)
         count = max(1, int(fps * dur))
         is_last_section = si == len(section_specs) - 1
         for i in range(count):
-            prefix = "\x1b[2J\x1b[H" if i == 0 else "\x1b[H"
+            # Clear only once at splash→TUI transition; overwrite in-place after that
+            prefix = "\x1b[2J\x1b[H" if (si == 0 and i == 0) else "\x1b[H"
             suffix = "\x1b[?25h" if is_last_section and i == count - 1 else ""
             events.append((t, f"{prefix}{text}{suffix}"))
             t += interval
