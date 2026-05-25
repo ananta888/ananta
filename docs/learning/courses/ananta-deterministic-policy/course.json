@@ -20,7 +20,7 @@
     "acceptance_criteria": [
       "Entscheidungen sind reproduzierbar",
       "Begruendung nennt Policy-Regel statt LLM-Bauchgefuehl",
-      "Artefaktfreigaben und Tally-Kontext werden korrekt abgegrenzt"
+      "Artefaktfreigaben und TallyContract/REDEEM_TALLY-Kontext werden korrekt abgegrenzt"
     ]
   }
 }
