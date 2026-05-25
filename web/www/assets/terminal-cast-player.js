@@ -1,5 +1,5 @@
 (() => {
-  const DEFAULT_CAST_URL = "./assets/operator_tui_tutorial_ai_live.cast";
+  const DEFAULT_CAST_URL = "./assets/operator_tui_splash.cast";
 
   const ANSI_256 = [
     [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128], [128, 0, 128], [0, 128, 128], [192, 192, 192],
