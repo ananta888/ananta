@@ -75,6 +75,9 @@ class InteractiveOperatorTui:
         self._tutorial_async_tip_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tui-tutorial-ai")
         self._tutorial_async_next_refresh_at: float = 0.0
         self._tutorial_status_snapshot: dict[str, str] = {}
+        self._codecompass_build_future: Future[Path | None] | None = None
+        self._codecompass_build_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tui-codecompass-build")
+        self._codecompass_build_output_dir: Path | None = None
         self._tutorial_last_source: str = "local-knowledge"
         self._tutorial_last_target: str = "follow"
         self._command_buffer = ""
@@ -1583,6 +1586,8 @@ class InteractiveOperatorTui:
             "rag-helper/output",
             "codecompass-out",
         ]
+        if self._codecompass_build_output_dir is not None:
+            candidates.insert(0, str(self._codecompass_build_output_dir))
         for raw in candidates:
             if not raw:
                 continue
@@ -1591,7 +1596,72 @@ class InteractiveOperatorTui:
                 path = (Path.cwd() / path).resolve()
             if path.exists() and path.is_dir() and (path / "index.jsonl").exists():
                 return path
+        built_dir = self._poll_codecompass_output_build()
+        if built_dir is not None and built_dir.exists() and (built_dir / "index.jsonl").exists():
+            return built_dir
+        self._ensure_codecompass_output_build_started()
         return None
+
+    def _ensure_codecompass_output_build_started(self) -> None:
+        auto_enabled = str(os.environ.get("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "1")).strip().lower() in {"1", "true", "yes", "on"}
+        if not auto_enabled:
+            return
+        if self._codecompass_build_future is not None and not self._codecompass_build_future.done():
+            return
+        self._codecompass_build_future = self._codecompass_build_executor.submit(self._build_codecompass_outputs_sync)
+
+    def _poll_codecompass_output_build(self) -> Path | None:
+        future = self._codecompass_build_future
+        if future is None or not future.done():
+            return None
+        self._codecompass_build_future = None
+        built = future.result()
+        if built is None:
+            return None
+        self._codecompass_build_output_dir = built
+        return built
+
+    def _build_codecompass_outputs_sync(self) -> Path | None:
+        root_dir = Path.cwd()
+        candidate_scripts = [
+            root_dir / "rag-helper" / "codecompass_rag.py",
+            root_dir / "codecompass_rag.py",
+        ]
+        script_path = next((path for path in candidate_scripts if path.exists() and path.is_file()), None)
+        if script_path is None:
+            return None
+        output_dir = (root_dir / "rag-helper" / "out").resolve()
+        output_dir.mkdir(parents=True, exist_ok=True)
+        command = [
+            "python3",
+            str(script_path),
+            str(root_dir),
+            "-o",
+            str(output_dir),
+            "--retrieval-output-mode",
+            "both",
+            "--graph-export-mode",
+            "jsonl",
+            "--relation-output-mode",
+            "both",
+            "--output-partition-mode",
+            "by-kind",
+        ]
+        timeout_seconds = max(20, min(900, int(os.environ.get("ANANTA_TUI_CODECOMPASS_BUILD_TIMEOUT", "240"))))
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=str(root_dir),
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if completed.returncode != 0:
+            return None
+        return output_dir if (output_dir / "index.jsonl").exists() else None
 
     def _update_demo_remote_snakes(
         self,
