@@ -277,11 +277,22 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Text: [T] style={msg_style} · [Y] farbe={snake_color}", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Botschaft: [M] tippen · [Enter] speichern · [Esc] abbrechen", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Config: ~/.config/ananta/snake-config.json → snake_message", width))
+        if snakes:
+            ordered = sorted(snakes.items(), key=lambda kv: (0 if str(kv[0]) == str(game.get("local_snake_id") or "s1") else 1, str(kv[0])))
+            for sid, snap in ordered:
+                if not isinstance(snap, dict):
+                    continue
+                msg = str(snap.get("message") or "")
+                if not msg:
+                    continue
+                color_name = str(snap.get("snake_color") or "mint")
+                col = _snake_palette(color_name)["label"]
+                sid_colored = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{str(sid).upper()}[{color_name}]\x1b[0m"
+                msg_colored = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{msg}\x1b[0m"
+                lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} MSG {sid_colored}: {msg_colored}", width))
         if game.get("message_mode"):
             draft = str(game.get("message_draft", ""))
             lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} MSG* {draft}", width))
-        elif game.get("message"):
-            lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} MSG: {game.get('message')}", width))
     for i, key in enumerate(CONFIG_ITEMS):
         cursor = DEFAULT_THEME.selected_prefix if i == state.selected_index else DEFAULT_THEME.idle_prefix
         label = CONFIG_LABELS[key]
@@ -679,7 +690,6 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
                 color=pal["label"],
             )
 
-    out = _overlay_snake_labels(out, snakes=snakes, width=width)
     return out
 
 
@@ -700,31 +710,6 @@ def _collect_snakes(game: dict[str, object], *, local_snake_id: str) -> dict[str
             "snake_color": str(game.get("snake_color") or "mint"),
             "local": True,
         }
-    return out
-
-
-def _overlay_snake_labels(
-    out: list[str],
-    *,
-    snakes: dict[str, dict[str, object]],
-    width: int,
-) -> list[str]:
-    sorted_ids = sorted(snakes.keys(), key=lambda sid: (0 if sid == "s1" else 1, sid))
-    y = 1
-    for sid in sorted_ids:
-        if y >= len(out) - 1:
-            break
-        snap = snakes[sid]
-        msg = str(snap.get("message") or "")
-        if not msg:
-            continue
-        color_name = str(snap.get("snake_color") or "mint")
-        label = f"{sid.upper()}[{color_name}]: {msg}"
-        if len(_ANSI_STRIP.sub("", label)) > max(4, width - 4):
-            label = _ANSI_STRIP.sub("", label)[: max(1, width - 7)] + "..."
-        col = _snake_palette(color_name)["label"]
-        out = _overlay_text(out, x=2, y=y, text=label, color=col)
-        y += 1
     return out
 
 
