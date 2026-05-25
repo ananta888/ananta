@@ -93,32 +93,83 @@ def render_operator_shell(
 
 
 _LOGO_COLS = 50
+_LOGO_COLS_MAX = 72
 _LOGO_SEP = " │ "
 
 
-def _load_logo_lines(color: bool = True) -> list[str]:
-    """Return logo lines: half-block pixels if PIL available, ASCII art fallback."""
+def _trim_visible_leading_spaces(line: str, spaces: int) -> str:
+    if spaces <= 0:
+        return line
+    i = 0
+    removed = 0
+    prefix: list[str] = []
+    n = len(line)
+    while i < n and removed < spaces:
+        if line[i] == "\x1b":
+            m = _ANSI_STRIP.match(line, i)
+            if m:
+                prefix.append(m.group(0))
+                i = m.end()
+                continue
+        if line[i] == " ":
+            removed += 1
+            i += 1
+            continue
+        break
+    return "".join(prefix) + line[i:]
+
+
+def _left_align_logo_lines(lines: list[str]) -> list[str]:
+    leading: list[int] = []
+    for line in lines:
+        plain = _ANSI_STRIP.sub("", line)
+        if plain.strip():
+            leading.append(len(plain) - len(plain.lstrip(" ")))
+    if not leading:
+        return lines
+    trim = min(leading)
+    if trim <= 0:
+        return lines
+    return [_trim_visible_leading_spaces(line, trim) for line in lines]
+
+
+def _logo_cols_for_width(width: int) -> int:
+    # Keep a readable right panel while maximizing logo fidelity on wide terminals.
+    return max(_LOGO_COLS, min(_LOGO_COLS_MAX, width - 28 - len(_LOGO_SEP)))
+
+
+def _load_logo_lines(*, cols: int, color: bool = True) -> list[str]:
+    """Return logo lines preferring highest-fidelity renderers."""
     from agent.cli.logo_layout import COMPACT_HEADER_LINES
 
     if color:
-        from client_surfaces.operator_tui.logo_inline import render_logo_halfblock
-        lines = render_logo_halfblock(cols=_LOGO_COLS, rows=COMPACT_HEADER_LINES)
+        from client_surfaces.operator_tui.logo_inline import render_logo_braille, render_logo_halfblock
+
+        # Highest resolution in terminal cells (2x4 pixels per char)
+        lines = render_logo_braille(cols=cols, rows=COMPACT_HEADER_LINES)
         if lines:
-            return lines
+            return _left_align_logo_lines(lines)
+
+        # Fallback to half-block renderer (2 vertical pixels per char)
+        lines = render_logo_halfblock(cols=cols, rows=COMPACT_HEADER_LINES)
+        if lines:
+            return _left_align_logo_lines(lines)
 
     # Fallback: existing ASCII art via logo_layout (pass snapshot=None → logo only)
     from agent.cli.logo_layout import render_compact_header
-    return render_compact_header(snapshot=None, terminal_width=_LOGO_COLS + 20, color=color)
+    return _left_align_logo_lines(
+        render_compact_header(snapshot=None, terminal_width=cols + 20, color=color)
+    )
 
 
-def _assemble_header_lines(logo_lines: list[str], right_lines: list[str], n_rows: int) -> list[str]:
+def _assemble_header_lines(logo_lines: list[str], right_lines: list[str], n_rows: int, *, logo_cols: int) -> list[str]:
     """Combine logo and right-side lines with │ separator, padded to n_rows."""
     result = []
     for i in range(n_rows):
         logo_part = logo_lines[i] if i < len(logo_lines) else ""
         right_part = right_lines[i] if i < len(right_lines) else ""
         visible = len(_ANSI_STRIP.sub("", logo_part))
-        padded = logo_part + " " * max(0, _LOGO_COLS - visible)
+        padded = logo_part + " " * max(0, logo_cols - visible)
         result.append(padded + _LOGO_SEP + right_part)
     return result
 
@@ -130,9 +181,10 @@ def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
 
     no_color = state.terminal_graphics.get("no_color", False) if state.terminal_graphics else False
     color = not no_color
-    right_width = max(20, width - _LOGO_COLS - len(_LOGO_SEP))
+    logo_cols = _logo_cols_for_width(width)
+    right_width = max(20, width - logo_cols - len(_LOGO_SEP))
 
-    logo_lines = _load_logo_lines(color=color)
+    logo_lines = _load_logo_lines(cols=logo_cols, color=color)
 
     if state.focus == FocusPane.HEADER:
         right_lines = _render_header_config_lines(state, right_width)
@@ -149,7 +201,7 @@ def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
     while len(right_lines) < COMPACT_HEADER_LINES:
         right_lines.append("")
 
-    return _assemble_header_lines(logo_lines, right_lines, COMPACT_HEADER_LINES)
+    return _assemble_header_lines(logo_lines, right_lines, COMPACT_HEADER_LINES, logo_cols=logo_cols)
 
 
 def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
