@@ -408,5 +408,8 @@ def _rule(width: int) -> str:
 
 
 def _clip(value: str, width: int) -> str:
-    text = _ANSI_STRIP.sub("", str(value))
-    return text if len(text) <= width else text[: max(0, width - 3)] + "..."
+    raw = str(value)
+    plain = _ANSI_STRIP.sub("", raw)
+    if len(plain) <= width:
+        return raw
+    return plain[: max(0, width - 3)] + "..."

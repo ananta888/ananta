@@ -23,6 +23,7 @@ from typing import NamedTuple
 _ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
 _W, _H = 100, 30
 _CAST_FILE = Path(__file__).parent / "output" / "operator_tui_e2e.cast"
+_SPLASH_CAST_FILE = Path(__file__).parent / "output" / "operator_tui_splash.cast"
 
 _CLEAR = "\x1b[2J\x1b[H"   # clear screen + cursor home
 
@@ -41,6 +42,20 @@ def _render(*extra: str) -> tuple[int, str]:
             *extra,
         ])
     return rc, _ANSI_RE.sub("", buf.getvalue())
+
+
+def _render_raw(*extra: str) -> tuple[int, str]:
+    """Run operator TUI in render-once mode and return raw output including ANSI."""
+    from agent.cli.main import _run_tui
+
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = _run_tui([
+            "--render-once",
+            "--width", str(_W), "--height", str(_H),
+            *extra,
+        ])
+    return rc, buf.getvalue()
 
 
 # ── recording ────────────────────────────────────────────────────────────────
@@ -94,6 +109,26 @@ def test_e2e_render_is_ansi_free() -> None:
     """Our renderer must not leak any ANSI escape codes into the TUI text."""
     _, out = _render("--section", "dashboard")
     assert "\x1b" not in out, "ANSI escape code found in TUI render output"
+
+
+def test_e2e_splash_render_preserves_truecolor_ansi() -> None:
+    """Fullscreen splash should keep ANSI color codes in raw CLI output."""
+    rc, out = _render_raw("--section", "dashboard")
+    assert rc == 0
+    assert "\x1b[38;2;" in out
+
+
+def test_e2e_live_splash_matches_website_cast_color_mode(monkeypatch) -> None:
+    """Live render-once splash and website splash cast must both carry truecolor ANSI."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("ANANTA_TUI_SPLASH", "1")
+
+    rc, out = _render_raw("--section", "dashboard")
+    assert rc == 0
+    assert "\x1b[38;2;" in out
+
+    raw_cast = _SPLASH_CAST_FILE.read_text(encoding="utf-8")
+    assert "\\u001b[38;2;" in raw_cast
 
 
 def test_e2e_three_pane_layout_present() -> None:
