@@ -99,6 +99,6 @@ def test_tui_snake_mode_live_recording_contains_real_tui_frames(tmp_path: Path) 
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", frame_text)
     assert "Tutorial-AI propose flow" in plain
     assert "endpoint=http://localhost:5000" in plain
-    assert "snake demo" in plain
+    assert "snake walkthrough" in plain
     assert synced_a.exists()
     assert synced_b.exists()

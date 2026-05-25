@@ -83,7 +83,7 @@ def _tutorial_ai_live_cast(*, run_id: str) -> str:
 
 
 def _snake_mode_live_cast(*, run_id: str) -> str:
-    def _load_splash_intro_from_cast(*, max_frames: int = 18) -> list[str]:
+    def _load_splash_intro_from_cast(*, max_frames: int = 40) -> list[str]:
         cast_path = Path("tests/output/operator_tui_splash.cast")
         if not cast_path.exists():
             return []
@@ -104,13 +104,14 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
         return frames
 
     frames: list[tuple[float, str]] = []
-    splash_frames = _load_splash_intro_from_cast(max_frames=18)
+    splash_frames = _load_splash_intro_from_cast(max_frames=40)
     if not splash_frames:
-        splash_frames = ["\u001b[2J\u001b[H" + screen + "\n" for screen in build_splash_frames(w=120, h=32, fps=12)[:18]]
+        splash_frames = ["\u001b[2J\u001b[H" + screen + "\n" for screen in build_splash_frames(w=120, h=32, fps=12)[:40]]
     if splash_frames:
+        splash_frames = splash_frames + [splash_frames[-1], splash_frames[-1], splash_frames[-1]]
         for idx, screen in enumerate(splash_frames):
-            frames.append((idx * 0.1, screen))
-        base_time = len(splash_frames) * 0.1 + 0.25
+            frames.append((idx * 0.12, screen))
+        base_time = len(splash_frames) * 0.12 + 0.3
     else:
         frames.append(
             (
@@ -122,16 +123,109 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
         )
         base_time = 0.8
 
-    positions = [
-        ((82, 8), (68, 9), "header", "Ich starte oben: Endpoint, Auth und Status."),
-        ((80, 10), (62, 12), "nav", "Links findest du Goals/Tasks Navigation."),
-        ((76, 13), (58, 15), "content", "In der Mitte siehst du den aktiven Arbeitskontext."),
-        ((72, 17), (64, 18), "detail", "Rechts sind Details/Inspektionsdaten."),
-        ((68, 20), (66, 20), "follow", "Ich bin jetzt bei deiner Position und erkläre diesen Bereich."),
-        ((64, 22), (64, 22), "follow", "Nächster Schritt: Section wählen und dann :inspect nutzen."),
+    nav_walk = [
+        (
+            (84, 8),
+            (76, 8),
+            "header",
+            FocusPane.HEADER,
+            "dashboard",
+            "Schritt 1: Wir starten im Header und lesen Endpoint/Auth.",
+            "start",
+        ),
+        (
+            (82, 10),
+            (72, 10),
+            "nav",
+            FocusPane.NAVIGATION,
+            "dashboard",
+            "Schritt 2: Ich bewege mich langsam zur Navigation links.",
+            "approach-nav",
+        ),
+        (
+            (80, 12),
+            (68, 12),
+            "nav",
+            FocusPane.NAVIGATION,
+            "dashboard",
+            "Schritt 3: Nächster Menüpunkt ist Goals.",
+            "aim-goals",
+        ),
+        (
+            (78, 13),
+            (63, 13),
+            "nav",
+            FocusPane.NAVIGATION,
+            "goals",
+            "Schritt 4: Menüwechsel auf GOALS. Jetzt erkläre ich den Abschnitt.",
+            "goals-selected",
+        ),
+        (
+            (76, 14),
+            (60, 14),
+            "nav",
+            FocusPane.NAVIGATION,
+            "goals",
+            "Schritt 5: AI-Snake zeigt, wie du Goals inspizierst und priorisierst.",
+            "goals-explain",
+        ),
+        (
+            (74, 16),
+            (58, 16),
+            "content",
+            FocusPane.CONTENT,
+            "goals",
+            "Schritt 6: In der Mitte siehst du den GOALS-Content.",
+            "goals-content",
+        ),
+        (
+            (72, 18),
+            (56, 18),
+            "nav",
+            FocusPane.NAVIGATION,
+            "tasks",
+            "Schritt 7: Nächster Menüpunkt TASKS, damit du Ausführung siehst.",
+            "tasks-selected",
+        ),
+        (
+            (70, 19),
+            (55, 19),
+            "content",
+            FocusPane.CONTENT,
+            "tasks",
+            "Schritt 8: AI-Snake erklärt Task-Queue und laufende Worker.",
+            "tasks-explain",
+        ),
+        (
+            (68, 20),
+            (57, 20),
+            "detail",
+            FocusPane.DETAIL,
+            "tasks",
+            "Schritt 9: Rechts erscheinen Detail-Hinweise für den aktiven Bereich.",
+            "tasks-detail",
+        ),
+        (
+            (66, 21),
+            (62, 21),
+            "follow",
+            FocusPane.CONTENT,
+            "tasks",
+            "Schritt 10: Bei Kontakt mit deiner Position gibt die AI konkrete Tipps.",
+            "contact",
+        ),
+        (
+            (64, 22),
+            (64, 22),
+            "follow",
+            FocusPane.CONTENT,
+            "tasks",
+            "Schritt 11: Beispiel-Tipp: :inspect ausführen und danach :refresh.",
+            "contact-tip",
+        ),
     ]
     history: list[dict[str, object]] = []
-    for idx, (local_head, ai_head, target, text) in enumerate(positions):
+    for idx, (local_head, ai_head, target, focus, section_id, text, phase) in enumerate(nav_walk):
         history.append({"at": float(idx), "source": "openai-compatible", "target": target, "text": text})
         local_snake = [
             local_head,
@@ -168,7 +262,7 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
                     "oidc_provider": "local",
                     "snake": local_snake,
                     "trail_path": list(local_snake),
-                    "message": "user moves",
+                    "message": f"user navigates {phase}",
                     "message_style": "trail",
                     "snake_color": "mint",
                     "local": True,
@@ -187,24 +281,36 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
                 },
             },
         }
+        payloads = {
+            "dashboard": {
+                "agents": {"online": 3, "total": 3},
+                "queue": {"depth": 2},
+                "goal_summary": "1 active goal",
+                "task_summary": "2 running tasks",
+            },
+            "goals": {
+                "items": [
+                    {"id": "g-ui", "title": "Improve TUI onboarding", "status": "active"},
+                    {"id": "g-snakes", "title": "Explain AI-snake guidance", "status": "ready"},
+                ]
+            },
+            "tasks": {
+                "running": 2,
+                "queued": 3,
+                "summary": "worker-1 processes goal g-ui; worker-2 validates cast",
+            },
+        }
         state = OperatorState(
             endpoint="http://localhost:5000",
-            focus=FocusPane.HEADER,
-            section_id="dashboard",
-            status_message=f"snake demo {idx + 1}/6 · run={run_id}",
-            panel_states={"dashboard": PanelState.HEALTHY},
-            section_payloads={
-                "dashboard": {
-                    "agents": {"online": 3, "total": 3},
-                    "queue": {"depth": 2},
-                    "goal_summary": "1 active goal",
-                    "task_summary": "2 running tasks",
-                }
-            },
+            focus=focus,
+            section_id=section_id,
+            status_message=f"snake walkthrough {idx + 1}/{len(nav_walk)} · run={run_id}",
+            panel_states={section_id: PanelState.HEALTHY},
+            section_payloads=payloads,
             header_logo_game=game,
         )
         screen = render_operator_shell(state, width=120, height=32)
-        frames.append((base_time + idx * 0.55, "\u001b[2J\u001b[H" + screen + "\n"))
+        frames.append((base_time + idx * 0.7, "\u001b[2J\u001b[H" + screen + "\n"))
     return _asciinema_v2_lines(title="Ananta Operator TUI – Snake Mode Live", frames=frames)
 
 
