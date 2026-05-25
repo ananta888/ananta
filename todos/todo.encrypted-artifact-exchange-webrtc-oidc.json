@@ -3,7 +3,7 @@
   "owner": "Peter Stuiber",
   "track": "ananta_encrypted_artifact_exchange_webrtc_oidc",
   "created": "2026-05-25",
-  "status": "backlog",
+  "status": "in_progress",
   "purpose": "Grundidee aus dem Ananta-Strategie-Game in das Ananta-Hauptprojekt uebertragen: verschluesselter, berechtigungsgebundener Artefakt-Austausch zwischen Usern, Geraeten, Hub und Workern mit OIDC/Keycloak-Identity, optional WebRTC-P2P-Transport und klaren Freigabe-/Policy-Gates.",
   "goal": "Artefakte sollen nicht nur gespeichert und verlinkt werden, sondern kontrolliert freigegeben, verschluesselt uebertragen, lokal validiert, auditiert und optional peer-to-peer ausgetauscht werden koennen, ohne die Hub-Worker-Architektur zu brechen.",
   "core_idea": {
@@ -19,7 +19,11 @@
     "agent/db_models.py: ArtifactVersionDB",
     "agent/db_models.py: UserDB",
     "agent/db_models.py: TeamDB / TeamMemberDB / RoleDB",
-    "agent/db_models.py: BlueprintRoleDB.config",
+    "agent/db_models.py: BlueprintRoleDB (config field)",
+    "agent/routes/auth_oidc.py",
+    "worker/core/context_access_policy.py",
+    "agent/services/context_bundle_service.py",
+    "agent/services/source_classification_service.py",
     "docs/examples/ananta-game/todo.webrtc-p2p-match-network.json"
   ],
   "architecture_constraints": [
@@ -30,6 +34,22 @@
     "Artefaktverschluesselung muss auch bei Transport ueber fremde oder kompromittierte Infrastruktur Schutz bieten.",
     "Signaling/STUN/TURN sind Transport-Hilfen, keine Artefakt-Autoritaeten."
   ],
+  "code_alignment_snapshot": {
+    "captured_at": "2026-05-25",
+    "implemented_foundations": [
+      "ArtifactDB/ArtifactVersionDB mit artifact_metadata/version_metadata und sha256/latest_sha256 sind vorhanden.",
+      "OIDC/Keycloak-Flows sind vorhanden (auth_oidc.py, /auth/oidc/*, AUTH_MODE=oidc_bff).",
+      "Deterministische Context-Access-Policy-Evaluation inkl. approval_required und decision_hash ist vorhanden.",
+      "Context-Bundle-Filterung nach Sensitivity/Scope ist vorhanden.",
+      "Source-Klassifikation und Secret-Detection fuer Kontexte ist vorhanden."
+    ],
+    "major_gaps_to_this_track": [
+      "Kein ArtifactAccessGrant-Datenmodell fuer download/decrypt/share/provide_to_worker/provide_to_remote_llm.",
+      "Keine explizite Envelope-Encryption/CEK-Verwaltung fuer ArtifactVersionen.",
+      "Keine WebRTC-Artefakttransfer-Implementierung (Signaling/STUN/TURN/DataChannel) im Agent-Kernpfad.",
+      "Keine expliziten Artefakt-Audit-Events fuer Grant/Decrypt/Transfer/Context-Release."
+    ]
+  },
   "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high"],
@@ -37,7 +57,7 @@
     {
       "id": "EAX01",
       "title": "Architektur und Begriffe festlegen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "task_ids": ["EAX001", "EAX002", "EAX003", "EAX004"]
     },
@@ -51,7 +71,7 @@
     {
       "id": "EAX03",
       "title": "Verschluesselungs- und Key-Management-Konzept planen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "task_ids": ["EAX010", "EAX011", "EAX012", "EAX013", "EAX014"]
     },
@@ -65,14 +85,14 @@
     {
       "id": "EAX05",
       "title": "Worker-/LLM-Kontextfreigabe absichern",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "task_ids": ["EAX020", "EAX021", "EAX022", "EAX023"]
     },
     {
       "id": "EAX06",
       "title": "Audit, Tests und UI-Review-Gates definieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "task_ids": ["EAX024", "EAX025", "EAX026", "EAX027", "EAX028"]
     }
@@ -135,10 +155,11 @@
       "title": "Datenklassifikation fuer Artefakte einfuehren",
       "type": "security_design",
       "milestone_id": "EAX01",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "medium",
       "dependencies": ["EAX003"],
+      "code_alignment": "ArtifactDB.artifact_metadata existiert bereits; Klassifikationsschema und Policy-Zuordnung fuer Artefakte fehlen noch.",
       "deliverables": ["docs/security/artifact-classification.md"],
       "acceptance_criteria": [
         "Mindestens Klassen public, internal, restricted, secret und local_only sind definiert.",
@@ -288,10 +309,11 @@
       "title": "Integrity und Hash-Metadaten fuer Artefakte definieren",
       "type": "crypto_design",
       "milestone_id": "EAX03",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["EAX010"],
+      "code_alignment": "sha256/latest_sha256-Felder in ArtifactVersionDB/ArtifactDB sind vorhanden; Ciphertext-/Plaintext-Hash-Strategie und Verifikationsfluss fehlen.",
       "deliverables": ["Abschnitt Integrity in artifact-encryption-model.md"],
       "acceptance_criteria": [
         "ArtifactVersion speichert Hash der Ciphertext-Daten.",
@@ -407,10 +429,11 @@
       "title": "Context Release Gate fuer Worker/LLMs definieren",
       "type": "security_design",
       "milestone_id": "EAX05",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["EAX007", "EAX012"],
+      "code_alignment": "ContextAccessPolicy + Evaluator sind vorhanden; artefakt-spezifische Rechte (decrypt/share/provide_to_remote_llm) sind noch nicht an Artefaktgrants gebunden.",
       "deliverables": ["docs/security/context-release-gates.md"],
       "acceptance_criteria": [
         "Jede Artefaktuebergabe an Worker laeuft ueber ein Context Release Gate.",
@@ -424,10 +447,11 @@
       "title": "RAG-/CodeCompass-Kontextzugriff mit Artefaktfreigaben verbinden",
       "type": "security_design",
       "milestone_id": "EAX05",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["EAX020"],
+      "code_alignment": "RAG/Context-Bundle-Filterung nach Sensitivity ist vorhanden; Grant-Bezug auf Artefakt-/Versionsebene fehlt.",
       "deliverables": ["docs/security/rag-artifact-release-policy.md"],
       "acceptance_criteria": [
         "RAG-Kontext darf nur freigegebene Artefakte/Chunks enthalten.",
@@ -492,10 +516,11 @@
       "title": "Unit-Tests fuer Policy-Entscheidungen planen",
       "type": "testing",
       "milestone_id": "EAX06",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "dependencies": ["EAX007", "EAX020"],
+      "code_alignment": "Es existieren bereits Tests fuer Context-Access-Policy-Evaluation; artefaktgrant-spezifische Deny/Expiry/Revocation-Tests fehlen.",
       "deliverables": ["docs/security/encrypted-artifact-exchange-test-plan.md"],
       "acceptance_criteria": [
         "Tests fuer fehlenden Grant -> deny sind definiert.",
@@ -567,6 +592,13 @@
     "EAX020",
     "EAX025"
   ],
+  "task_status_summary": {
+    "todo": 23,
+    "in_progress": 0,
+    "partial": 5,
+    "blocked": 0,
+    "done": 0
+  },
   "definition_of_done": [
     "Verschluesselter Artefakt-Austausch ist als Ananta-Kernarchitektur-Erweiterung dokumentiert.",
     "Berechtigungen steuern Download, Decrypt, Share, Worker- und Remote-LLM-Kontext getrennt.",
