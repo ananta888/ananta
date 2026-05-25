@@ -1065,6 +1065,44 @@ def test_tutorial_rag_context_prefers_operator_tui_graph_and_embedding_records(t
     assert "client_surfaces/operator_tui/interactive.py" in joined
 
 
+def test_codecompass_outputs_auto_build_from_repo_when_missing(tmp_path, monkeypatch) -> None:
+    script = tmp_path / "codecompass_rag.py"
+    script.write_text(
+        "\n".join(
+            [
+                "import json, sys",
+                "out = None",
+                "for i, part in enumerate(sys.argv):",
+                "    if part == '-o' and i + 1 < len(sys.argv):",
+                "        out = sys.argv[i + 1]",
+                "if not out:",
+                "    raise SystemExit(2)",
+                "import pathlib",
+                "out_dir = pathlib.Path(out)",
+                "out_dir.mkdir(parents=True, exist_ok=True)",
+                "(out_dir / 'index.jsonl').write_text(json.dumps({'kind':'function_symbol','file':'client_surfaces/operator_tui/interactive.py','name':'_tutorial_ai_tip'}) + '\\n', encoding='utf-8')",
+                "raise SystemExit(0)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "1")
+    state = OperatorState(endpoint="http://localhost:5000", section_id="dashboard", focus=FocusPane.CONTENT)
+    tui = InteractiveOperatorTui(state)
+
+    resolved = tui._resolve_codecompass_output_dir()
+    if resolved is None:
+        for _ in range(40):
+            time.sleep(0.05)
+            resolved = tui._resolve_codecompass_output_dir()
+            if resolved is not None:
+                break
+
+    assert resolved is not None
+    assert (resolved / "index.jsonl").exists()
+
+
 def test_snake_message_mode_typing_and_backspace() -> None:
     game = {
         "active": True,
