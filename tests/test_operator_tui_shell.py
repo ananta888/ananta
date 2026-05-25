@@ -272,6 +272,17 @@ def test_ananta_tui_default_uses_operator_render_once(capsys) -> None:
     assert "Ananta Operator TUI" in captured.out
 
 
+def test_ananta_tui_help_lists_logo_renderer_flags(capsys) -> None:
+    exit_code = _run_tui(["--help"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "--logo-renderer" in captured.out
+    assert "--logo-animation" in captured.out
+    assert "--logo-fps" in captured.out
+    assert "--no-logo" in captured.out
+
+
 def test_operator_tui_inspect_and_browser_commands_render_context() -> None:
     state = load_active_section(OperatorState(endpoint="http://localhost:5000", section_id="tasks"))
     state = execute_command(":inspect", state).state

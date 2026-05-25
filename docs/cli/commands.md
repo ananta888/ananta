@@ -170,12 +170,19 @@ Nach 2 Sekunden geht es fließend in einen kompakten 8-zeiligen Header ueber
 |----------|---------|-------------|
 | `--skip-splash` | off | Fullscreen-Splash deaktivieren. Zeigt sofort den kompakten Header. |
 | `--splash-seconds` | `2.0` | Dauer der Fullscreen-Phase in Sekunden. |
+| `--logo-renderer` | `auto` | Persistentes Header-Logo: `auto`, `ansi`, `sixel`, `kitty`, `none`. |
+| `--logo-animation` | `pulse` | Header-Animation: `static`, `pulse`, `shimmer`, `rotate_hint`. |
+| `--logo-fps` | `6` | FPS fuer Header-Animation (begrenzt auf `1..16`). |
+| `--no-logo` | off | Persistentes Header-Logo komplett deaktivieren. |
 
 | Umgebungsvariable | Wirkung |
 |-------------------|---------|
 | `ANANTA_TUI_SPLASH=0` | Fullscreen-Splash deaktivieren (kompakter Header bleibt sichtbar). |
 | `ANANTA_TUI_SPLASH=1` | Fullscreen-Splash aktivieren (Standardverhalten). |
 | `ANANTA_TUI_LOGO=0` | Logo komplett ausblenden (auch im kompakten Header). |
+| `ANANTA_TUI_LOGO_RENDERER=auto|ansi|sixel|kitty|none` | Renderer-Auswahl fuer persistentes Header-Logo. |
+| `ANANTA_TUI_LOGO_ANIMATION=static|pulse|shimmer|rotate_hint` | Animationspreset fuer persistentes Header-Logo. |
+| `ANANTA_TUI_LOGO_FPS=<n>` | FPS-Limit der Header-Animation (`1..16`). |
 | `NO_COLOR=1` | Keine ANSI-Farben im Splash/Header. |
 
 Waehrend der Fullscreen-Phase kann jede Taste gedrueckt werden, um sofort
@@ -188,6 +195,9 @@ ananta tui --render-once --width 120 --height 32
 
 # Ohne Splash (direkt kompakter Header)
 ananta tui --render-once --skip-splash --width 120 --height 32
+
+# Text-only Snapshot (ohne Bildprotokoll-Sequenzen)
+ANANTA_TUI_LOGO_RENDERER=ansi ananta tui --render-once --skip-splash --width 120 --height 32
 ```
 
 Editor-Aufloesung (Reihenfolge, erster Treffer gewinnt):

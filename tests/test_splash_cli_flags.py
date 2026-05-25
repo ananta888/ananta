@@ -64,6 +64,25 @@ def test_parse_args_skip_splash_default():
     assert args.skip_splash is False
 
 
+def test_parse_args_logo_renderer_animation_flags():
+    from client_surfaces.operator_tui.app import _parse_args
+    args = _parse_args(["--logo-renderer", "ansi", "--logo-animation", "shimmer", "--logo-fps", "7", "--no-logo"])
+    assert args.logo_renderer == "ansi"
+    assert args.logo_animation == "shimmer"
+    assert args.logo_fps == 7
+    assert args.no_logo is True
+
+
+def test_apply_logo_runtime_overrides_sets_env_for_render_once(monkeypatch):
+    from client_surfaces.operator_tui.app import _apply_logo_runtime_overrides, _parse_args
+
+    monkeypatch.delenv("ANANTA_TUI_LOGO_ANIMATION", raising=False)
+    args = _parse_args(["--render-once", "--logo-renderer", "ansi"])
+    _apply_logo_runtime_overrides(args)
+    assert os.environ.get("ANANTA_TUI_LOGO_RENDERER") == "ansi"
+    assert os.environ.get("ANANTA_TUI_LOGO_ANIMATION") == "static"
+
+
 def test_render_once_without_splash():
     from client_surfaces.operator_tui.models import OperatorState, OperatorMode, FocusPane
     from client_surfaces.operator_tui.renderer import render_operator_shell

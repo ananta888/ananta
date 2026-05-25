@@ -84,3 +84,15 @@ def test_cache_miss_for_different_preset(monkeypatch, tmp_path):
     _ = cache.get_ansi_frames(svg_path=str(svg), width_cells=20, height_cells=8, preset="pulse", frame_count=2)
 
     assert calls["render"] >= 2
+
+
+def test_static_preset_returns_single_stable_frame(monkeypatch, tmp_path):
+    svg = tmp_path / "logo.svg"
+    _write_svg(svg, "red")
+
+    monkeypatch.setattr(frame_cache, "_rasterize_svg_rgba", lambda **kwargs: object())
+    monkeypatch.setattr(frame_cache, "render_halfblock_image", lambda _img, **kwargs: ["stable"])
+
+    cache = LogoFrameCache()
+    frames = cache.get_ansi_frames(svg_path=str(svg), width_cells=20, height_cells=8, preset="static", frame_count=8)
+    assert frames == [["stable"]]

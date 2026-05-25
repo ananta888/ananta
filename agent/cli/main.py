@@ -185,6 +185,10 @@ def _run_tui(argv: Sequence[str]) -> int:
         print("  --open <file> --readonly   Open file in read-only mode")
         print("  --tool <tool-id>           Launch a TUI tool (e.g. git_ui)")
         print("  --skip-splash              Skip fullscreen startup splash")
+        print("  --logo-renderer <mode>     Header logo renderer: auto|ansi|sixel|kitty|none")
+        print("  --logo-animation <preset>  Header logo animation: static|pulse|shimmer|rotate_hint")
+        print("  --logo-fps <n>             Header logo animation fps (1-16)")
+        print("  --no-logo                  Disable persistent header logo")
         print("  --legacy                   Use the previous report-style shell")
         return 0
     use_legacy = "--legacy" in argv or "--fixture" in argv

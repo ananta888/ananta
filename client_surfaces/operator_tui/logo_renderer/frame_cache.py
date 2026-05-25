@@ -117,7 +117,7 @@ def _apply_preset(image: Any, *, preset: str, index: int, total: int) -> Any:
     if ImageEnhance is None:
         return image
     preset_key = (preset or "pulse").strip().lower()
-    if preset_key not in {"pulse", "shimmer"}:
+    if preset_key not in {"pulse", "shimmer", "rotate_hint"}:
         preset_key = "pulse"
 
     phase = (index / max(1, total)) * 6.283185307179586
@@ -125,14 +125,19 @@ def _apply_preset(image: Any, *, preset: str, index: int, total: int) -> Any:
         factor = 0.90 + (0.18 * ((1.0 + math.sin(phase)) / 2.0))
         return ImageEnhance.Brightness(image).enhance(factor)
 
-    # shimmer: mild x-gradient brightness shift based on phase
+    # shimmer/rotate_hint: mild x-gradient brightness shift based on phase
     width, height = image.size
     rgba = image.convert("RGBA")
     pix = rgba.load()
+    if preset_key == "rotate_hint":
+        shift = int((index % max(1, total)) * max(1, width // max(1, total)))
+    else:
+        shift = 0
     for y in range(height):
         for x in range(width):
             r, g, b, a = pix[x, y]
-            wave = 0.92 + (0.16 * ((1.0 + math.sin((x * 0.25) + phase)) / 2.0))
+            wave_x = x + shift
+            wave = 0.92 + (0.16 * ((1.0 + math.sin((wave_x * 0.25) + phase)) / 2.0))
             pix[x, y] = (
                 max(0, min(255, int(r * wave))),
                 max(0, min(255, int(g * wave))),
