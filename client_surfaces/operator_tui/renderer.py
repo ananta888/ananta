@@ -163,7 +163,8 @@ def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | No
             t_now = time.monotonic()
             lines = None
             game_state = state.header_logo_game if state is not None else None
-            if game_state and game_state.get("active"):
+            has_snake_roster = bool(game_state.get("snakes")) if isinstance(game_state, dict) else False
+            if game_state and (game_state.get("active") or has_snake_roster):
                 lines = render_logo_snake_game_playable(
                     cols=cols,
                     rows=COMPACT_HEADER_LINES,

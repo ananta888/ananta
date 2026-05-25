@@ -276,66 +276,122 @@ def render_logo_snake_game_playable(
         return None
 
     body = game_state.get("snake") or []
+    snakes_raw = game_state.get("snakes") if isinstance(game_state.get("snakes"), dict) else {}
     food = game_state.get("food")
     board_w = max(1, int(game_state.get("board_w", 18)))
     board_h = max(1, int(game_state.get("board_h", 6)))
+    active = bool(game_state.get("active"))
     alive = bool(game_state.get("alive", True))
-    if not body:
+    if not body and not snakes_raw:
         return None
 
     snake_base, snake_head = _snake_palette_from_svg(cols, rows)
 
     grid_chars = [[" " for _ in range(cols)] for _ in range(rows)]
     grid_colors: list[list[tuple[int, int, int] | None]] = [[None for _ in range(cols)] for _ in range(rows)]
-    _draw_active_mode_frame(grid_chars, grid_colors, cols=cols, rows=rows, t=t, color_base=snake_head)
+    if active:
+        _draw_active_mode_frame(grid_chars, grid_colors, cols=cols, rows=rows, t=t, color_base=snake_head)
 
-    # Snake body
-    for idx, logical in enumerate(body):
-        if not isinstance(logical, (list, tuple)) or len(logical) != 2:
-            continue
-        sx, sy = int(logical[0]), int(logical[1])
-        mapped = _map_board_cell_to_canvas(sx, sy, board_w=board_w, board_h=board_h, cols=cols, rows=rows)
-        if mapped is None:
-            continue
-        mx, my = mapped
-        mix = idx / max(1, len(body) - 1)
-        col = _lerp_color(snake_head, snake_base, mix)
-        if idx == 0:
-            ch = "●" if alive else "✕"
-        elif idx < 4:
-            ch = "◉"
-        elif idx < 8:
-            ch = "◍"
-        else:
-            ch = "·"
-        grid_chars[my][mx] = ch
-        grid_colors[my][mx] = col
+    if active and body:
+        # Snake body
+        for idx, logical in enumerate(body):
+            if not isinstance(logical, (list, tuple)) or len(logical) != 2:
+                continue
+            sx, sy = int(logical[0]), int(logical[1])
+            mapped = _map_board_cell_to_canvas(sx, sy, board_w=board_w, board_h=board_h, cols=cols, rows=rows)
+            if mapped is None:
+                continue
+            mx, my = mapped
+            mix = idx / max(1, len(body) - 1)
+            col = _lerp_color(snake_head, snake_base, mix)
+            if idx == 0:
+                ch = "●" if alive else "✕"
+            elif idx < 4:
+                ch = "◉"
+            elif idx < 8:
+                ch = "◍"
+            else:
+                ch = "·"
+            grid_chars[my][mx] = ch
+            grid_colors[my][mx] = col
 
-    # Food
-    if isinstance(food, (list, tuple)) and len(food) == 2:
-        mapped_food = _map_board_cell_to_canvas(
-            int(food[0]),
-            int(food[1]),
-            board_w=board_w,
-            board_h=board_h,
-            cols=cols,
-            rows=rows,
-        )
-        if mapped_food is not None:
-            fx, fy = mapped_food
-            # warmer accent from SVG palette by shifting from head color
-            warm = (
-                min(255, int(snake_head[0] * 1.10)),
-                min(255, int(snake_head[1] * 0.95)),
-                min(255, int(snake_head[2] * 0.85)),
+        # Food
+        if isinstance(food, (list, tuple)) and len(food) == 2:
+            mapped_food = _map_board_cell_to_canvas(
+                int(food[0]),
+                int(food[1]),
+                board_w=board_w,
+                board_h=board_h,
+                cols=cols,
+                rows=rows,
             )
-            grid_chars[fy][fx] = "◆"
-            grid_colors[fy][fx] = warm
+            if mapped_food is not None:
+                fx, fy = mapped_food
+                # warmer accent from SVG palette by shifting from head color
+                warm = (
+                    min(255, int(snake_head[0] * 1.10)),
+                    min(255, int(snake_head[1] * 0.95)),
+                    min(255, int(snake_head[2] * 0.85)),
+                )
+                grid_chars[fy][fx] = "◆"
+                grid_colors[fy][fx] = warm
 
     if bool(game_state.get("active")):
         _draw_snake_mode_legend(grid_chars, grid_colors, cols=cols, rows=rows, color=snake_head)
+    elif snakes_raw:
+        _draw_passive_snake_roster(
+            grid_chars,
+            grid_colors,
+            cols=cols,
+            rows=rows,
+            snakes=snakes_raw,
+            local_snake_id=str(game_state.get("local_snake_id") or "s1"),
+        )
 
     return _compose_color_grid(grid_chars, grid_colors, rows=rows)
+
+
+def _draw_passive_snake_roster(
+    grid_chars: list[list[str]],
+    grid_colors: list[list[tuple[int, int, int] | None]],
+    *,
+    cols: int,
+    rows: int,
+    snakes: dict[str, Any],
+    local_snake_id: str,
+) -> None:
+    if cols < 18 or rows < 3:
+        return
+    ordered = sorted(
+        ((str(k), v) for k, v in snakes.items() if isinstance(v, dict)),
+        key=lambda item: (0 if item[0] == local_snake_id else 1, item[0]),
+    )
+    max_rows = max(1, rows - 1)
+    for idx, (sid, snap) in enumerate(ordered[: max_rows]):
+        y = 1 + idx
+        if y >= rows:
+            break
+        color_name = str(snap.get("snake_color") or "mint")
+        col = _logo_snake_palette(color_name)
+        pseudonym = str(snap.get("pseudonym") or sid)
+        label = f"{sid.upper()} {pseudonym} [{color_name}]"
+        for j, ch in enumerate(label[: max(0, cols - 2)]):
+            x = 1 + j
+            if x >= cols:
+                break
+            grid_chars[y][x] = ch
+            grid_colors[y][x] = col
+
+
+def _logo_snake_palette(name: str) -> tuple[int, int, int]:
+    palettes = {
+        "mint": (170, 255, 210),
+        "cyan": (120, 235, 255),
+        "violet": (212, 176, 255),
+        "amber": (255, 205, 130),
+        "rose": (255, 170, 200),
+    }
+    return palettes.get(name, palettes["mint"])
 
 
 def build_a_snake_geometry(board_w: int, board_h: int, seed: int = 0) -> dict[str, object]:
