@@ -17,7 +17,6 @@ from prompt_toolkit.output.color_depth import ColorDepth
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.logo_inline import build_snake_control_boxes
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry
 from client_surfaces.operator_tui.renderer import render_operator_shell
@@ -68,7 +67,7 @@ class InteractiveOperatorTui:
         return enabled and not no_3d
 
     async def _header_logo_loop(self) -> None:
-        fps = max(1, min(60, int(os.environ.get("ANANTA_TUI_HEADER_3D_FPS", "12"))))
+        fps = max(1, min(60, int(os.environ.get("ANANTA_TUI_HEADER_3D_FPS", "24"))))
         delay = 1.0 / fps
         while True:
             self._tick_header_snake()
@@ -360,7 +359,7 @@ class InteractiveOperatorTui:
             return
         if not game or not game.get("active", False) or not game.get("alive", True):
             return
-        tps = max(1, min(12, int(os.environ.get("ANANTA_TUI_HEADER_SNAKE_TPS", "4"))))
+        tps = max(2, min(40, int(os.environ.get("ANANTA_TUI_HEADER_SNAKE_TPS", "18"))))
         step = 1.0 / tps
         now = time.monotonic()
         last_move = float(game.get("last_move", now))
@@ -372,8 +371,6 @@ class InteractiveOperatorTui:
         board_h = max(12, int(size.lines - 1))
         game["board_w"] = board_w
         game["board_h"] = board_h
-        boxes = self._compute_control_boxes(board_w, board_h)
-        game["boxes"] = boxes
         snake_raw = game.get("snake") or []
         snake = [(int(p[0]), int(p[1])) for p in snake_raw if isinstance(p, (list, tuple)) and len(p) == 2]
         if not snake:
@@ -389,30 +386,6 @@ class InteractiveOperatorTui:
         nx = (hx + direction[0]) % board_w
         ny = (hy + direction[1]) % board_h
         new_head = (nx, ny)
-        box_target = self._box_hit_target(new_head, boxes)
-        if box_target == "command":
-            snake = [new_head, *snake]
-            while len(snake) > 12:
-                snake.pop()
-            game["snake"] = snake
-            game["direction"] = direction
-            game["next_direction"] = direction
-            game["moves"] = int(game.get("moves", 0)) + 1
-            game["last_move"] = now
-            self.state = self.state.with_updates(
-                mode=OperatorMode.COMMAND,
-                header_logo_game=game,
-                status_message="snake: input-fokus gesetzt",
-            )
-            return
-        if isinstance(box_target, FocusPane):
-            game["snake"] = [new_head, *snake[:-1]]
-            self._apply_snake_escape(game, target=box_target, now=now, board_h=board_h)
-            return
-        if isinstance(box_target, str):
-            game["snake"] = [new_head, *snake[:-1]]
-            self._apply_snake_section_target(game, section_id=box_target, now=now)
-            return
 
         snake = [new_head, *snake]
         while len(snake) > 12:
@@ -423,8 +396,7 @@ class InteractiveOperatorTui:
         game["next_direction"] = direction
         game["moves"] = int(game.get("moves", 0)) + 1
         game["last_move"] = now
-        next_state = self.state.with_updates(header_logo_game=game)
-        self.state = self._apply_snake_ui_controls(next_state, head=new_head, board_w=board_w, board_h=board_h)
+        self.state = self.state.with_updates(header_logo_game=game, status_message="snake: frei")
 
     def _snake_escape_target(
         self,
@@ -534,34 +506,14 @@ class InteractiveOperatorTui:
         board_w: int,
         board_h: int,
     ) -> list[dict[str, object]]:
-        section_ids = [s.id for s in SECTIONS]
-        return build_snake_control_boxes(board_w, board_h, section_ids=section_ids)
+        return []
 
     def _box_hit_target(
         self,
         head: tuple[int, int],
         boxes: list[dict[str, object]],
     ) -> FocusPane | str | None:
-        x, y = head
-        for box in boxes:
-            x0 = int(box.get("x0", -1))
-            y0 = int(box.get("y0", -1))
-            x1 = int(box.get("x1", -1))
-            y1 = int(box.get("y1", -1))
-            if x0 <= x <= x1 and y0 <= y <= y1:
-                kind = str(box.get("kind", ""))
-                target = str(box.get("target", ""))
-                if kind == "pane":
-                    if target == "navigation":
-                        return FocusPane.NAVIGATION
-                    if target == "content":
-                        return FocusPane.CONTENT
-                    if target == "detail":
-                        return FocusPane.DETAIL
-                    if target == "command":
-                        return "command"
-                if kind == "section" and target:
-                    return target
+        _ = (head, boxes)
         return None
 
     def _ensure_snake_escape_gaps(

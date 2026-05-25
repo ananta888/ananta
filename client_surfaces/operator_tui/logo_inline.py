@@ -287,6 +287,7 @@ def render_logo_snake_game_playable(
 
     grid_chars = [[" " for _ in range(cols)] for _ in range(rows)]
     grid_colors: list[list[tuple[int, int, int] | None]] = [[None for _ in range(cols)] for _ in range(rows)]
+    _draw_active_mode_frame(grid_chars, grid_colors, cols=cols, rows=rows, t=t, color_base=snake_head)
 
     # Snake body
     for idx, logical in enumerate(body):
@@ -480,6 +481,49 @@ def _snake_palette_from_svg(cols: int, rows: int) -> tuple[tuple[int, int, int],
         _cells, _bbox, snake_base, snake_head = cached
         return snake_base, snake_head
     return (70, 188, 132), (186, 244, 214)
+
+
+def _draw_active_mode_frame(
+    grid_chars: list[list[str]],
+    grid_colors: list[list[tuple[int, int, int] | None]],
+    *,
+    cols: int,
+    rows: int,
+    t: float,
+    color_base: tuple[int, int, int],
+) -> None:
+    if cols < 3 or rows < 3:
+        return
+    pulse = 1.0 + 0.18 * math.sin(t * math.tau * 1.2)
+    col = (
+        max(0, min(255, int(color_base[0] * pulse))),
+        max(0, min(255, int(color_base[1] * pulse))),
+        max(0, min(255, int(color_base[2] * pulse))),
+    )
+    spikes = ("*", "✶", "·", "•")
+    phase = int(t * 20)
+
+    def paint(x: int, y: int, ch: str) -> None:
+        if 0 <= x < cols and 0 <= y < rows:
+            grid_chars[y][x] = ch
+            grid_colors[y][x] = col
+
+    top, bottom = 0, rows - 1
+    left, right = 0, cols - 1
+    for x in range(left, right + 1):
+        ch = spikes[(x + phase) % len(spikes)] if (x + phase) % 5 == 0 else "─"
+        paint(x, top, ch)
+        ch2 = spikes[(x + phase + 1) % len(spikes)] if (x + phase + 2) % 5 == 0 else "─"
+        paint(x, bottom, ch2)
+    for y in range(top, bottom + 1):
+        ch = spikes[(y + phase) % len(spikes)] if (y + phase + 1) % 5 == 0 else "│"
+        paint(left, y, ch)
+        ch2 = spikes[(y + phase + 2) % len(spikes)] if (y + phase + 3) % 5 == 0 else "│"
+        paint(right, y, ch2)
+    paint(left, top, "┌")
+    paint(right, top, "┐")
+    paint(left, bottom, "└")
+    paint(right, bottom, "┘")
 
 
 def _a_blue_from_svg(cols: int, rows: int) -> tuple[int, int, int]:
