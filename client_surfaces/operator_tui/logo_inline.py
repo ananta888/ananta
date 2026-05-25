@@ -26,6 +26,15 @@ def _bg(r: int, g: int, b: int) -> str:
     return f"\x1b[48;2;{r};{g};{b}m"
 
 
+def _lerp_color(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[int, int, int]:
+    t = max(0.0, min(1.0, t))
+    return (
+        int(a[0] + (b[0] - a[0]) * t),
+        int(a[1] + (b[1] - a[1]) * t),
+        int(a[2] + (b[2] - a[2]) * t),
+    )
+
+
 # ── shared image loading ───────────────────────────────────────────────────────
 
 @lru_cache(maxsize=4)
@@ -216,6 +225,194 @@ def render_logo_halfblock(cols: int = 50, rows: int = 8) -> list[str] | None:
         return _cached_halfblock(cols, rows)
     except Exception:
         return None
+
+
+def render_logo_snake_game_animated(
+    cols: int = 50,
+    rows: int = 8,
+    *,
+    t: float = 0.0,
+    speed: float = 1.5,
+) -> list[str] | None:
+    """Mini retro snake animation around the original SVG A silhouette."""
+    cached = _cached_logo_cells(cols, rows)
+    if cached is None:
+        return None
+    cells, bbox, snake_base, snake_head = cached
+    if not cells:
+        return None
+
+    left, top, right, bottom = bbox
+    ring = _snake_ring_path(
+        max(0, left - 1),
+        max(0, top - 1),
+        min(cols - 1, right + 1),
+        min(rows - 1, bottom + 1),
+    )
+    if not ring:
+        return None
+
+    grid_chars = [[" " for _ in range(cols)] for _ in range(rows)]
+    grid_colors: list[list[tuple[int, int, int] | None]] = [[None for _ in range(cols)] for _ in range(rows)]
+
+    # Base logo (original SVG colors with light pulse)
+    pulse = 1.0 + 0.08 * math.sin(t * speed * math.tau)
+    for (cx, cy), color in cells.items():
+        r, g, b = color
+        rr = max(0, min(255, int(r * pulse)))
+        gg = max(0, min(255, int(g * pulse)))
+        bb = max(0, min(255, int(b * pulse)))
+        grid_chars[cy][cx] = "█"
+        grid_colors[cy][cx] = (rr, gg, bb)
+
+    # Snake ring animation
+    head_index = int(t * speed * 10) % len(ring)
+    snake_len = max(6, min(20, len(ring) // 3))
+    body_chars = ("●", "◉", "◍", "•", "·")
+    for i in range(snake_len):
+        idx = (head_index - i) % len(ring)
+        sx, sy = ring[idx]
+        mix = i / max(1, snake_len - 1)
+        col = _lerp_color(snake_head, snake_base, mix)
+        if i == 0:
+            ch = body_chars[0]
+        elif i < 3:
+            ch = body_chars[1]
+        elif i < 6:
+            ch = body_chars[2]
+        elif i < 10:
+            ch = body_chars[3]
+        else:
+            ch = body_chars[4]
+        grid_chars[sy][sx] = ch
+        grid_colors[sy][sx] = col
+
+    lines: list[str] = []
+    for y in range(rows):
+        line = ""
+        for x in range(cols):
+            ch = grid_chars[y][x]
+            col = grid_colors[y][x]
+            if col is None or ch == " ":
+                line += " "
+            else:
+                line += f"{_fg(col[0], col[1], col[2])}{ch}{_RST}"
+        lines.append(line)
+    return lines
+
+
+def _snake_ring_path(left: int, top: int, right: int, bottom: int) -> list[tuple[int, int]]:
+    if right <= left or bottom <= top:
+        return []
+    path: list[tuple[int, int]] = []
+    for x in range(left, right + 1):
+        path.append((x, top))
+    for y in range(top + 1, bottom + 1):
+        path.append((right, y))
+    for x in range(right - 1, left - 1, -1):
+        path.append((x, bottom))
+    for y in range(bottom - 1, top, -1):
+        path.append((left, y))
+    return path
+
+
+@lru_cache(maxsize=8)
+def _cached_logo_cells(
+    cols: int, rows: int
+) -> tuple[
+    dict[tuple[int, int], tuple[int, int, int]],
+    tuple[int, int, int, int],
+    tuple[int, int, int],
+    tuple[int, int, int],
+] | None:
+    img = _load_logo_image(cols, rows * 2)
+    if img is None:
+        return None
+    is_bg = img._is_bg  # type: ignore[attr-defined]
+    px = img.load()
+
+    cells: dict[tuple[int, int], tuple[int, int, int]] = {}
+    min_x, min_y, max_x, max_y = cols, rows, 0, 0
+    swatch: list[tuple[int, int, int]] = []
+    for y in range(rows):
+        for x in range(cols):
+            lit: list[tuple[int, int, int]] = []
+            for dy in (0, 1):
+                r, g, b, _ = px[x, y * 2 + dy]  # type: ignore[index]
+                if not is_bg(r, g, b):
+                    lit.append((r, g, b))
+                    swatch.append((r, g, b))
+            if lit:
+                c = (
+                    sum(p[0] for p in lit) // len(lit),
+                    sum(p[1] for p in lit) // len(lit),
+                    sum(p[2] for p in lit) // len(lit),
+                )
+                cells[(x, y)] = c
+                min_x = min(min_x, x)
+                min_y = min(min_y, y)
+                max_x = max(max_x, x)
+                max_y = max(max_y, y)
+
+    if not cells:
+        return None
+
+    # pick snake palette from svg colors (green-ish body, bright head)
+    snake_base = max(swatch, key=lambda c: (c[1] - (c[0] + c[2]) * 0.35, c[1]))
+    snake_head = max(swatch, key=lambda c: (c[0] + c[1] + c[2], c[1]))
+    return cells, (min_x, min_y, max_x, max_y), snake_base, snake_head
+
+
+def render_logo_halfblock_animated(
+    cols: int = 50,
+    rows: int = 8,
+    *,
+    t: float = 0.0,
+    speed: float = 1.2,
+    pulse_depth: float = 0.10,
+    shimmer_depth: float = 0.12,
+) -> list[str] | None:
+    """Animate SVG half-block render when drawille is unavailable."""
+    try:
+        img = _load_logo_image(cols, rows * 2)
+    except Exception:
+        return None
+    if img is None:
+        return None
+
+    is_bg = img._is_bg  # type: ignore[attr-defined]
+    px = img.load()
+
+    pulse = 1.0 + pulse_depth * math.sin(t * speed * math.tau)
+    lines: list[str] = []
+    for row in range(rows):
+        line = ""
+        for col in range(cols):
+            r1, g1, b1, _ = px[col, row * 2]      # type: ignore[index]
+            r2, g2, b2, _ = px[col, row * 2 + 1]  # type: ignore[index]
+            top = not is_bg(r1, g1, b1)
+            bot = not is_bg(r2, g2, b2)
+            if not top and not bot:
+                line += " "
+                continue
+
+            wave = 1.0 + shimmer_depth * math.sin((col * 0.25) + (row * 0.9) + t * speed * 1.6)
+            factor = max(0.70, min(1.35, pulse * wave))
+
+            def mod(c: int) -> int:
+                return max(0, min(255, int(c * factor)))
+
+            if not top:
+                line += f"{_fg(mod(r2), mod(g2), mod(b2))}▄{_RST}"
+            elif not bot:
+                line += f"{_fg(mod(r1), mod(g1), mod(b1))}▀{_RST}"
+            else:
+                line += (
+                    f"{_fg(mod(r1), mod(g1), mod(b1))}"
+                    f"{_bg(mod(r2), mod(g2), mod(b2))}▀{_RST}"
+                )
+        lines.append(line)
+    return lines
 
 
 @lru_cache(maxsize=8)
