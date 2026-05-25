@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import sys
 import tempfile
@@ -99,8 +100,56 @@ def render_logo_braille(cols: int = 50, rows: int = 8) -> list[str] | None:
         return None
 
 
+def render_logo_braille_animated(
+    cols: int = 50,
+    rows: int = 8,
+    *,
+    t: float = 0.0,
+    speed: float = 1.2,
+    pulse_depth: float = 0.14,
+    shimmer_depth: float = 0.18,
+) -> list[str] | None:
+    """Animate original SVG braille render with subtle pulse/shimmer color modulation."""
+    try:
+        frame_rows, char_colors = _cached_braille_cells(cols, rows)
+    except Exception:
+        return None
+    if frame_rows is None:
+        return None
+
+    pulse = 1.0 + pulse_depth * math.sin(t * speed * math.tau)
+    result: list[str] = []
+    for row_i in range(rows):
+        raw = frame_rows[row_i] if row_i < len(frame_rows) else ""
+        line = ""
+        for col_i in range(cols):
+            ch = raw[col_i] if col_i < len(raw) else " "
+            color = char_colors.get((col_i, row_i))
+            if color and ch != " ":
+                wave = 1.0 + shimmer_depth * math.sin((col_i * 0.33) + (row_i * 0.71) + t * speed * 1.8)
+                factor = max(0.62, min(1.42, pulse * wave))
+                r, g, b = color
+                rr = max(0, min(255, int(r * factor)))
+                gg = max(0, min(255, int(g * factor)))
+                bb = max(0, min(255, int(b * factor)))
+                line += f"{_fg(rr, gg, bb)}{ch}{_RST}"
+            else:
+                line += " "
+        result.append(line)
+    return result
+
+
 @lru_cache(maxsize=8)
 def _cached_braille(cols: int, rows: int) -> list[str] | None:
+    cells = _cached_braille_cells(cols, rows)
+    if cells is None:
+        return None
+    frame_rows, char_colors = cells
+    return _compose_braille_lines(frame_rows, char_colors, cols, rows)
+
+
+@lru_cache(maxsize=8)
+def _cached_braille_cells(cols: int, rows: int) -> tuple[tuple[str, ...], dict[tuple[int, int], tuple[int, int, int]]] | None:
     try:
         import drawille
     except ImportError:
@@ -130,8 +179,15 @@ def _cached_braille(cols: int, rows: int) -> list[str] | None:
                     sum(c[i] for c in lit) // len(lit) for i in range(3)
                 )  # type: ignore[assignment]
 
-    frame_rows = canvas.rows()
+    return (tuple(canvas.rows()), char_colors)
 
+
+def _compose_braille_lines(
+    frame_rows: tuple[str, ...],
+    char_colors: dict[tuple[int, int], tuple[int, int, int]],
+    cols: int,
+    rows: int,
+) -> list[str]:
     result: list[str] = []
     for row_i in range(rows):
         raw = frame_rows[row_i] if row_i < len(frame_rows) else ""
@@ -145,7 +201,6 @@ def _cached_braille(cols: int, rows: int) -> list[str] | None:
             else:
                 line += " "
         result.append(line)
-
     return result
 
 
