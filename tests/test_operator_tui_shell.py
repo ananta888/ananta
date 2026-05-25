@@ -279,6 +279,20 @@ def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
     assert off_game.get("free_mode") is False
 
 
+def test_snake_message_style_and_color_can_cycle() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER)
+    tui = InteractiveOperatorTui(state)
+    tui._toggle_snake_mode()
+
+    before = dict(tui.state.header_logo_game or {})
+    tui._snake_cycle_message_style()
+    tui._snake_cycle_color()
+    after = dict(tui.state.header_logo_game or {})
+
+    assert before.get("message_style") != after.get("message_style")
+    assert before.get("snake_color") != after.get("snake_color")
+
+
 def test_snake_mode_does_not_auto_switch_focus_or_section() -> None:
     game = {
         "active": True,
