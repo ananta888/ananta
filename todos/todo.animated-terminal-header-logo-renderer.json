@@ -87,7 +87,7 @@
     {
       "id": "ATHL02",
       "title": "ANSI TrueColor Halfblock Renderer als stabilen Baseline-Renderer extrahieren",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "ATHL005",
         "ATHL006",
@@ -254,7 +254,7 @@
       "title": "SVG zu Frame-Pipeline fuer Header-Logo bauen",
       "type": "implementation",
       "milestone_id": "ATHL02",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "files": [
@@ -273,7 +273,7 @@
       "title": "Frame-Cache fuer kleine Logo-Animation implementieren",
       "type": "implementation",
       "milestone_id": "ATHL02",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "files": [
@@ -291,7 +291,7 @@
       "title": "ANSI-Animation fuer Header-Logo als Baseline einbauen",
       "type": "implementation",
       "milestone_id": "ATHL02",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "files": [
@@ -733,13 +733,13 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 26,
+      "todo": 23,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 4
+      "done": 7
     },
-    "progress_percent_done": 13,
+    "progress_percent_done": 23,
     "by_priority": {
       "P0": 13,
       "P1": 11,
@@ -753,15 +753,15 @@
     },
     "critical_path": {
       "total": 12,
-      "done": 2,
-      "remaining": 10
+      "done": 4,
+      "remaining": 8
     },
     "milestones": {
       "total": 7,
       "todo": 5,
-      "in_progress": 2,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "tasks_type_summary": {
@@ -779,11 +779,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 26,
+    "todo_remaining": 23,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 4
+    "done": 7
   },
   "definition_of_done": [
     "Das kleine Logo links oben kann in der TUI animiert werden, ohne den Statusbereich zu zerstoeren.",
