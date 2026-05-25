@@ -4,7 +4,7 @@
   "track": "ananta_least_privilege_course_system",
   "created": "2026-05-25",
   "updated": "2026-05-25",
-  "status": "backlog",
+  "status": "in_progress",
   "purpose": "Ein Kurs- und Lernsystem fuer Ananta planen, das nicht bei null startet, sondern vorhandene Onboarding-, Demo-, First-Run-, Instruction-Layer-, Artifact-, Context-Policy- und Audit-Bausteine nutzt und zu einem Least-Privilege-Lernsystem erweitert.",
   "goal": "Ananta soll Nutzer, Entwickler und Reviewer schrittweise lehren, wie man Ananta sicher nutzt, das Strategie-Game versteht und zentrale Sicherheitsprinzipien wie Least-Privilege, Kryptographie, Artefaktfreigaben, sichere KI, RAG-Kontextfreigaben und Review-Gates praktisch anwendet.",
   "analysis_summary": {
@@ -91,7 +91,7 @@
     {
       "id": "LPCS00",
       "title": "Bestehende Learning-/Onboarding-Foundation analysieren und anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "task_ids": ["LPCS000", "LPCS000A", "LPCS000B", "LPCS000C"]
     },
@@ -144,7 +144,7 @@
       "title": "Existing Learning/Onboarding Foundation dokumentieren",
       "type": "analysis",
       "milestone_id": "LPCS00",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "summary": "Analysiert vorhandene Onboarding-, Demo-, Instruction-, Artifact-, Context-Policy- und Audit-Bausteine als Basis fuer das Kurssystem.",
@@ -162,7 +162,7 @@
       "title": "DemoModeService zu CoursePreview-Konzept erweitern",
       "type": "architecture",
       "milestone_id": "LPCS00",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": ["LPCS000"],
@@ -179,7 +179,7 @@
       "title": "OnboardingChecklist zu LearningPath-Startpunkt mappen",
       "type": "ui_design",
       "milestone_id": "LPCS00",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": ["LPCS000"],
@@ -196,7 +196,7 @@
       "title": "Instruction Profiles und Overlays als Lesson-/Exercise-Kontext planen",
       "type": "architecture",
       "milestone_id": "LPCS00",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS000"],
@@ -737,6 +737,13 @@
     "LPCS025",
     "LPCS030"
   ],
+  "task_status_summary": {
+    "todo": 30,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 4
+  },
   "definition_of_done": [
     "Bestehende Onboarding-/Demo-/Instruction-/Artifact-/Context-/Audit-Basis ist dokumentiert.",
     "Kurs-System startet nicht bei null, sondern erweitert vorhandene Bausteine.",

@@ -105,6 +105,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = execute_command(command, state)
         state = load_active_section(result.state.with_updates(status_message=result.message), registry)
 
+    with open("/tmp/splash_debug.txt", "w") as _d:
+        _d.write(f"main reached\nisatty0={os.isatty(0)}\nsplash_disabled={_splash_disabled(args)}\n")
+
     splash: SplashMachine | None = None
     if _splash_disabled(args):
         splash = None
