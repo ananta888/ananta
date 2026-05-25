@@ -300,6 +300,29 @@ def test_header_lists_snakes_with_oidc_pseudonym_color_and_message() -> None:
     assert "\x1b[38;2;96;215;165mhello\x1b[0m" in output
 
 
+def test_non_snake_mode_shows_passive_snake_roster_top_left_only() -> None:
+    game = {
+        "active": False,
+        "ui_steering": False,
+        "alive": True,
+        "local_snake_id": "s1",
+        "snakes": {
+            "s1": {"id": "s1", "pseudonym": "alice", "snake_color": "mint"},
+            "s-ai": {"id": "s-ai", "pseudonym": "tutor-ai", "snake_color": "amber"},
+        },
+        "snake": [(4, 2), (3, 2)],
+        "trail_path": [(4, 2), (3, 2)],
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game=game)
+
+    output = render_operator_shell(state, width=120, height=28)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+
+    assert "S1 alice [mint]" in plain
+    assert "S-AI tutor-ai [amber]" in plain
+    assert "Snakes (OIDC / Farbe / Nachricht):" not in plain
+
+
 def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER)
     tui = InteractiveOperatorTui(state)
