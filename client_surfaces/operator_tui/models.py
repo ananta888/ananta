@@ -13,6 +13,7 @@ class OperatorMode(str, Enum):
 
 
 class FocusPane(str, Enum):
+    HEADER = "header"
     NAVIGATION = "navigation"
     CONTENT = "content"
     DETAIL = "detail"

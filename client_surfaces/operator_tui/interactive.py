@@ -109,11 +109,17 @@ class InteractiveOperatorTui:
 
         @bindings.add("j")
         def _(event) -> None:
-            self._normal_or_text("j", lambda: self._move_focus(1))
+            def _j():
+                if self.state.focus is FocusPane.NAVIGATION:
+                    new_idx = min(self.state.selected_index + 1, len(SECTIONS) - 1)
+                else:
+                    new_idx = self.state.selected_index + 1
+                self._set_state(self.state.with_updates(selected_index=new_idx))
+            self._normal_or_text("j", _j)
 
         @bindings.add("k")
         def _(event) -> None:
-            self._normal_or_text("k", lambda: self._move_focus(-1))
+            self._normal_or_text("k", lambda: self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1))))
 
         @bindings.add("e")
         def _(event) -> None:
@@ -155,11 +161,15 @@ class InteractiveOperatorTui:
 
         @bindings.add("left")
         def _(event) -> None:
-            self._move_focus(-1)
+            self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1)))
 
         @bindings.add("right")
         def _(event) -> None:
-            self._move_focus(1)
+            if self.state.focus is FocusPane.NAVIGATION:
+                new_idx = min(self.state.selected_index + 1, len(SECTIONS) - 1)
+            else:
+                new_idx = self.state.selected_index + 1
+            self._set_state(self.state.with_updates(selected_index=new_idx))
 
         @bindings.add("up")
         def _(event) -> None:
@@ -217,18 +227,16 @@ class InteractiveOperatorTui:
         self._set_state(state.with_updates(command_line=""))
 
     def _move_focus(self, delta: int) -> None:
-        panes = (FocusPane.NAVIGATION, FocusPane.CONTENT, FocusPane.DETAIL)
+        panes = (FocusPane.HEADER, FocusPane.NAVIGATION, FocusPane.CONTENT, FocusPane.DETAIL)
         cur = panes.index(self.state.focus)
         new_focus = panes[(cur + delta) % len(panes)]
         if new_focus is FocusPane.NAVIGATION:
-            # entering NAV: position cursor on the currently loaded section
             section_ids = [s.id for s in SECTIONS]
             try:
                 new_selected = section_ids.index(self.state.section_id)
             except ValueError:
                 new_selected = 0
         elif self.state.focus is FocusPane.NAVIGATION:
-            # leaving NAV: reset item cursor
             new_selected = 0
         else:
             new_selected = self.state.selected_index
