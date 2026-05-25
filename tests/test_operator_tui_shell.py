@@ -223,7 +223,7 @@ def test_operator_tui_inspect_and_browser_commands_render_context() -> None:
     assert "browser=http://localhost:5000/t" in output
 
 
-def test_tab_focus_header_activates_logo_snake_controls() -> None:
+def test_tab_focus_header_does_not_auto_activate_snake_mode() -> None:
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION)
     tui = InteractiveOperatorTui(state)
 
@@ -231,9 +231,8 @@ def test_tab_focus_header_activates_logo_snake_controls() -> None:
 
     game = tui.state.header_logo_game or {}
     assert tui.state.focus is FocusPane.HEADER
-    assert game.get("active") is True
-    assert isinstance(game.get("snake"), list)
-    assert tui._try_header_snake_direction((0, -1)) is True
+    assert game.get("active") is not True
+    assert tui._try_header_snake_direction((0, -1)) is False
 
 
 def test_header_focus_hints_show_snake_controls() -> None:
@@ -259,7 +258,24 @@ def test_header_focus_hints_show_snake_controls() -> None:
     output = render_operator_shell(state, width=100, height=24)
 
     assert "Snake  score=2  running" in output
-    assert "[Ctrl+F] Frame↔Fullscreen" in output
+    assert "[Ctrl+S] Snake an/aus" in output
+
+
+def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER)
+    tui = InteractiveOperatorTui(state)
+
+    tui._toggle_snake_mode()
+    on_game = tui.state.header_logo_game or {}
+    assert on_game.get("active") is True
+    assert on_game.get("ui_steering") is True
+    assert on_game.get("free_mode") is True
+
+    tui._toggle_snake_mode()
+    off_game = tui.state.header_logo_game or {}
+    assert off_game.get("active") is False
+    assert off_game.get("ui_steering") is False
+    assert off_game.get("free_mode") is False
 
 
 def test_snake_mode_does_not_auto_switch_focus_or_section() -> None:
