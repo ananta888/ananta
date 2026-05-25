@@ -55,6 +55,8 @@ class InteractiveOperatorTui:
         self.state = load_active_section(state, self._registry)
         self._tutorial_codecompass_cache: tuple[float, list[str]] = (0.0, [])
         self._tutorial_rag_cache: tuple[float, list[str]] = (0.0, [])
+        self._tutorial_worker_cache: tuple[float, str] = (0.0, "")
+        self._tutorial_worker_target_hint: str = ""
         self._tutorial_llm_cache: tuple[float, str] = (0.0, "")
         self._command_buffer = ""
         self._rendered_text = self._render()
@@ -718,6 +720,8 @@ class InteractiveOperatorTui:
         hints = self._load_codecompass_hints(now=now)
         rag_context = self._load_rag_helper_context(now=now)
         context_tokens = [*hints[:10], *rag_context[:10]]
+        if self._tutorial_worker_target_hint:
+            context_tokens.insert(0, f"target:{self._tutorial_worker_target_hint}")
         local = snakes.get(str(self.state.header_logo_game.get("local_snake_id", "s1"))) if isinstance(self.state.header_logo_game, dict) else None
         local_head = None
         if isinstance(local, dict):
@@ -785,6 +789,16 @@ class InteractiveOperatorTui:
         local_head: tuple[int, int] | None,
     ) -> tuple[int, int]:
         text = " ".join(context_tokens).lower()
+        if "target:header" in text:
+            return (max(0, board_w - max(4, board_w // 6)), max(1, board_h // 6))
+        if "target:nav" in text:
+            return (max(1, board_w // 5), max(2, board_h // 2))
+        if "target:content" in text:
+            return (max(2, board_w // 2), max(2, board_h // 2))
+        if "target:detail" in text:
+            return (max(2, board_w - max(8, board_w // 4)), max(2, board_h - max(4, board_h // 4)))
+        if "target:follow" in text and local_head is not None:
+            return ((local_head[0] + 3) % max(1, board_w), local_head[1] % max(1, board_h))
         if any(token in text for token in ("endpoint", "auth", "header", "config", "oidc")):
             return (max(0, board_w - max(4, board_w // 6)), max(1, board_h // 6))
         if any(token in text for token in ("task", "goal", "section", "navigation", "queue")):
@@ -823,6 +837,9 @@ class InteractiveOperatorTui:
         status = f"TUI mode={mode} focus={focus} section={section} idx={selected}."
         hints = self._load_codecompass_hints(now=now)
         rag_context = self._load_rag_helper_context(now=now)
+        worker_tip = self._tutorial_ai_worker_propose_message(now=now, status=status, hints=hints, rag_context=rag_context)
+        if worker_tip:
+            return worker_tip
         llm_hints = [*hints[:12], *[f"RAG {entry}" for entry in rag_context[:8]]]
         llm_tip = self._tutorial_ai_llm_message(now=now, status=status, hints=llm_hints)
         if llm_tip:
@@ -838,6 +855,87 @@ class InteractiveOperatorTui:
         if rag:
             parts.append(f"RAG: {rag}")
         return " ".join(parts)
+
+    def _tutorial_ai_worker_propose_message(
+        self,
+        *,
+        now: float,
+        status: str,
+        hints: list[str],
+        rag_context: list[str],
+    ) -> str | None:
+        backend = str(os.environ.get("ANANTA_TUI_SNAKE_AI_BACKEND", "")).strip().lower()
+        if backend not in {"worker-propose", "worker", "opencode", "hermes"}:
+            return None
+        refresh_seconds = max(2.0, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_REFRESH", "8.0"))))
+        cached_at, cached_msg = self._tutorial_worker_cache
+        if cached_msg and (now - cached_at) < refresh_seconds:
+            return cached_msg
+
+        base_url = str(self.state.endpoint or os.environ.get("ANANTA_BASE_URL") or "http://localhost:5000").strip()
+        if not base_url:
+            return None
+        timeout_seconds = max(0.3, min(12.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "1.6"))))
+        model = str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "")).strip()
+        provider = str(os.environ.get("ANANTA_TUI_SNAKE_AI_WORKER_PROVIDER", "")).strip()
+        if not provider and backend in {"opencode", "hermes"}:
+            provider = backend
+
+        hint_block = "\n".join(f"- {h}" for h in hints[:8]) if hints else "- no codecompass hints"
+        rag_block = "\n".join(f"- {h}" for h in rag_context[:8]) if rag_context else "- no rag_helper context"
+        prompt = (
+            f"{status}\n"
+            "You are the tutorial snake controller for Ananta TUI.\n"
+            "Use CodeCompass and rag_helper context.\n"
+            "Return exactly one line <=180 chars with immediate guidance.\n"
+            "Prefix the line with one steering tag in this format: [target=header|nav|content|detail|follow].\n"
+            f"CodeCompass hints:\n{hint_block}\n"
+            f"rag_helper context:\n{rag_block}\n"
+        )
+        payload: dict[str, object] = {"prompt": prompt, "temperature": 0.2}
+        if model:
+            payload["model"] = model
+        if provider:
+            payload["provider"] = provider
+        strategy_mode = str(os.environ.get("ANANTA_TUI_SNAKE_AI_WORKER_STRATEGY", "")).strip()
+        if strategy_mode:
+            payload["strategy_mode"] = strategy_mode
+        token = str(os.environ.get("ANANTA_TUI_SNAKE_AI_WORKER_TOKEN", "")).strip()
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        request = urllib.request.Request(
+            url=base_url.rstrip("/") + "/step/propose",
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                raw = response.read().decode("utf-8", errors="replace")
+            parsed = json.loads(raw)
+        except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError):
+            return None
+        data = parsed.get("data") if isinstance(parsed, dict) and isinstance(parsed.get("data"), dict) else parsed
+        if not isinstance(data, dict):
+            return None
+        text = str(data.get("reason") or data.get("raw") or "").strip()
+        if not text:
+            return None
+        single_line = " ".join(text.split())
+        if not single_line:
+            return None
+        target_hint = ""
+        match = re.search(r"\[target=(header|nav|content|detail|follow)\]", single_line, flags=re.IGNORECASE)
+        if match:
+            target_hint = match.group(1).lower()
+            single_line = re.sub(r"\[target=(header|nav|content|detail|follow)\]\s*", "", single_line, flags=re.IGNORECASE)
+        self._tutorial_worker_target_hint = target_hint
+        clipped = single_line[:180].strip()
+        if not clipped:
+            return None
+        self._tutorial_worker_cache = (now, clipped)
+        return clipped
 
     def _tutorial_ai_llm_message(self, *, now: float, status: str, hints: list[str]) -> str | None:
         model = str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "")).strip()
