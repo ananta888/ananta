@@ -22,7 +22,13 @@ def _resolve_ref(ref: str) -> Path:
 def _require_live_lmstudio() -> str:
     if os.environ.get("ANANTA_E2E_LIVE_LMSTUDIO", "").strip().lower() not in {"1", "true", "yes", "on"}:
         pytest.skip("Set ANANTA_E2E_LIVE_LMSTUDIO=1 to run live LM Studio cast E2E.")
-    api_base = str(os.environ.get("ANANTA_TUI_LLM_API_BASE") or "http://127.0.0.1:1234/v1").rstrip("/")
+    api_base = str(
+        os.environ.get("ANANTA_TUI_LLM_API_BASE")
+        or os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
+        or os.environ.get("OPENAI_BASE_URL")
+        or os.environ.get("OPENAI_API_BASE")
+        or "http://127.0.0.1:1234/v1"
+    ).rstrip("/")
     try:
         with urllib.request.urlopen(f"{api_base}/models", timeout=2.5):
             pass
