@@ -330,9 +330,12 @@ class InteractiveOperatorTui:
     def _try_header_snake_direction(self, direction: tuple[int, int]) -> bool:
         if self.state.mode is OperatorMode.COMMAND:
             return False
-        if self.state.focus is not FocusPane.HEADER or not self._header_snake_enabled():
+        if not self._header_snake_enabled():
             return False
         game = dict(self.state.header_logo_game or {})
+        steering = self.state.focus is FocusPane.HEADER or bool(game.get("ui_steering"))
+        if not steering:
+            return False
         if not game:
             game = self._default_header_snake()
         if not game.get("active", False):
@@ -347,12 +350,14 @@ class InteractiveOperatorTui:
         return True
 
     def _tick_header_snake(self) -> None:
-        if self.state.focus is not FocusPane.HEADER or not self._header_snake_enabled():
-            return
         game = dict(self.state.header_logo_game or {})
+        if not self._header_snake_enabled():
+            return
+        if self.state.focus is not FocusPane.HEADER and not game.get("ui_steering"):
+            return
         if not game or not game.get("active", False) or not game.get("alive", True):
             return
-        tps = max(3, min(20, int(os.environ.get("ANANTA_TUI_HEADER_SNAKE_TPS", "8"))))
+        tps = max(1, min(12, int(os.environ.get("ANANTA_TUI_HEADER_SNAKE_TPS", "4"))))
         step = 1.0 / tps
         now = time.monotonic()
         last_move = float(game.get("last_move", now))
@@ -476,7 +481,8 @@ class InteractiveOperatorTui:
         now: float,
         board_h: int,
     ) -> None:
-        game["active"] = False
+        game["active"] = True
+        game["ui_steering"] = True
         game["escaped_to"] = target.value
         game["last_move"] = now
         if target is FocusPane.NAVIGATION:

@@ -288,7 +288,8 @@ def test_snake_escape_from_logo_switches_focus_to_navigation() -> None:
 
     assert tui.state.focus is FocusPane.NAVIGATION
     assert "ausgebrochen nach NAV" in tui.state.status_message
-    assert (tui.state.header_logo_game or {}).get("active") is False
+    assert (tui.state.header_logo_game or {}).get("active") is True
+    assert (tui.state.header_logo_game or {}).get("ui_steering") is True
 
 
 def test_after_snake_escape_target_pane_can_be_controlled() -> None:
@@ -320,6 +321,30 @@ def test_after_snake_escape_target_pane_can_be_controlled() -> None:
 
     assert tui.state.focus is FocusPane.NAVIGATION
     assert tui.state.selected_index >= before
+
+
+def test_snake_remains_drivable_after_escape_outside_header_focus() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "board_w": 18,
+        "board_h": 6,
+        "snake": [(17, 2), (16, 2), (15, 2)],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "food": (3, 3),
+        "gaps": {"right": 2, "bottom_nav": 4, "bottom_content": 9, "bottom_detail": 14},
+        "score": 0,
+        "moves": 0,
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.NAVIGATION)
+
+    assert tui._try_header_snake_direction((0, 1)) is True
+    assert (tui.state.header_logo_game or {}).get("next_direction") == (0, 1)
 
 
 def test_snake_dies_on_a_wall_when_not_using_gate() -> None:
