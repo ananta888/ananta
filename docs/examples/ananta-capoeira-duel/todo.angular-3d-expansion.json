@@ -1,0 +1,443 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "ananta_capoeira_angular_3d_expansion",
+  "created": "2026-05-25",
+  "status": "backlog",
+  "purpose": "Angular/Web-3D-Ausbaustufe fuer Ananta Capoeira Terminal Duel planen, ohne den Terminal-First-MVP zu verwässern.",
+  "goal": "Nach erfolgreichem Terminal-3D-MVP denselben GameCore, dieselben Combat-Regeln und dieselben ActionLogs in eine Angular-Web-3D-Ausbaustufe ueberfuehren.",
+  "overview": "docs/examples/ananta-capoeira-duel/README.md",
+  "depends_on": [
+    "docs/examples/ananta-capoeira-duel/todo.capoeira-3d-duel-mvp.json",
+    "prototypes/ananta-capoeira-terminal-duel/"
+  ],
+  "target_runtime": "Angular + TypeScript + WebGL Renderer",
+  "preferred_renderer_candidates": ["Three.js", "Babylon.js"],
+  "recommended_first_renderer": "Three.js",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "activation_gate": {
+    "terminal_mvp_required": true,
+    "required_before_start": [
+      "Terminal-Roda ist sichtbar und stabil projiziert.",
+      "Ginga, Kick und Esquiva sind im Terminal lesbar.",
+      "Combat-Regeln fuer Distanz, Winkel und Trefferfenster sind getestet.",
+      "ActionLog-Struktur ist mindestens als Debug-/JSON-Format vorhanden.",
+      "First-Terminal-Playable-Review liegt vor."
+    ],
+    "not_allowed_before_gate": [
+      "Angular-App aktiv implementieren",
+      "WebGL-Asset-Pipeline starten",
+      "Charaktermodelle bauen",
+      "VR/MR einplanen",
+      "Online-Multiplayer einbauen"
+    ]
+  },
+  "scope_decision": {
+    "role": "spaetere Renderer-Ausbaustufe, nicht Ersatz fuer Terminal-MVP",
+    "core_rule": "GameCore und Combat bleiben renderer-unabhaengig.",
+    "renderer_rule": "Angular/Three.js zeigt nur RenderSnapshots und DebugOverlays an.",
+    "debug_rule": "Hitboxen, Hurtboxen, MoveState und ActionLog muessen sichtbar bleiben."
+  },
+  "proposed_structure": {
+    "angular_app": "apps/ananta-capoeira-web/",
+    "shared_core_lib": "libs/ananta-capoeira-core/",
+    "example_files": [
+      "apps/ananta-capoeira-web/src/app/capoeira-duel/capoeira-duel.component.ts",
+      "apps/ananta-capoeira-web/src/app/capoeira-duel/renderers/three-scene-renderer.service.ts",
+      "apps/ananta-capoeira-web/src/app/capoeira-duel/input/duel-input.service.ts",
+      "apps/ananta-capoeira-web/src/app/capoeira-duel/hud/duel-hud.component.ts",
+      "apps/ananta-capoeira-web/src/app/capoeira-duel/state/duel-store.service.ts",
+      "libs/ananta-capoeira-core/src/lib/state.ts",
+      "libs/ananta-capoeira-core/src/lib/moves.ts",
+      "libs/ananta-capoeira-core/src/lib/combat.ts",
+      "libs/ananta-capoeira-core/src/lib/action-log.ts",
+      "libs/ananta-capoeira-core/src/lib/replay.ts"
+    ]
+  },
+  "explicitly_out_of_scope_first_angular_stage": [
+    "echte Charaktermodelle als Pflicht",
+    "Motion Capture",
+    "komplexe Animation Blending Pipeline",
+    "Online-Multiplayer",
+    "Backend-Synchronisation",
+    "VR/MR/Meta Quest",
+    "Story/Kampagne",
+    "viele Charaktere",
+    "komplexe Combos",
+    "Asset-Shop oder Progression",
+    "Physikbasierter Kampf"
+  ],
+  "milestones": [
+    {
+      "id": "ANG3D01",
+      "title": "Terminal-Core in webfaehigen GameCore ueberfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["ANG3D001", "ANG3D002", "ANG3D003", "ANG3D004"]
+    },
+    {
+      "id": "ANG3D02",
+      "title": "Angular-App und Render-Snapshot-Schicht anlegen",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["ANG3D005", "ANG3D006", "ANG3D007"]
+    },
+    {
+      "id": "ANG3D03",
+      "title": "Three.js-Roda und Fighter-Debug-Renderer bauen",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["ANG3D008", "ANG3D009", "ANG3D010", "ANG3D011"]
+    },
+    {
+      "id": "ANG3D04",
+      "title": "Input, HUD, ActionLog und Replay-Debug anbinden",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["ANG3D012", "ANG3D013", "ANG3D014", "ANG3D015"]
+    },
+    {
+      "id": "ANG3D05",
+      "title": "Tests und Review-Gate fuer Angular-Ausbaustufe",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["ANG3D016", "ANG3D017", "ANG3D018"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "ANG3D001",
+      "title": "Terminal-MVP-Ergebnisse als Eingang pruefen",
+      "type": "review",
+      "milestone_id": "ANG3D01",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "deliverables": ["docs/examples/ananta-capoeira-duel/angular_activation_review.md"],
+      "acceptance_criteria": [
+        "Review bestaetigt, dass Terminal-MVP spielbar oder zumindest technisch stabil ist.",
+        "Combat-Regeln sind dokumentiert und testbar.",
+        "MoveStateMachine ist ausreichend klar fuer TypeScript-Portierung.",
+        "Angular-Ausbaustufe wird abgelehnt, falls Terminal-Core noch unklar ist."
+      ]
+    },
+    {
+      "id": "ANG3D002",
+      "title": "Gemeinsames TypeScript-Core-Modell definieren",
+      "type": "technical_design",
+      "milestone_id": "ANG3D01",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["ANG3D001"],
+      "deliverables": ["libs/ananta-capoeira-core/src/lib/state.ts"],
+      "acceptance_criteria": [
+        "GameState enthaelt Fighter, Dummy, Position, Facing, MoveState, Score und Tick.",
+        "State ist serialisierbar.",
+        "State enthaelt keine Angular- oder Three.js-Abhaengigkeit.",
+        "State kann spaeter aus ActionLog rekonstruiert werden."
+      ]
+    },
+    {
+      "id": "ANG3D003",
+      "title": "MoveState und Combat-Regeln nach TypeScript uebertragen",
+      "type": "implementation",
+      "milestone_id": "ANG3D01",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["ANG3D002"],
+      "deliverables": ["libs/ananta-capoeira-core/src/lib/moves.ts", "libs/ananta-capoeira-core/src/lib/combat.ts"],
+      "acceptance_criteria": [
+        "Ginga, Kick, Esquiva und Recovery sind als deterministische States vorhanden.",
+        "Kick prueft Distanz, Winkel und aktives Trefferfenster.",
+        "Esquiva kann Treffer bei korrektem Timing verhindern.",
+        "Mehrfachtreffer im selben Trefferfenster werden verhindert."
+      ]
+    },
+    {
+      "id": "ANG3D004",
+      "title": "ActionLog- und Replay-Schnittstelle in TypeScript definieren",
+      "type": "implementation",
+      "milestone_id": "ANG3D01",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["ANG3D002", "ANG3D003"],
+      "deliverables": ["libs/ananta-capoeira-core/src/lib/action-log.ts", "libs/ananta-capoeira-core/src/lib/replay.ts"],
+      "acceptance_criteria": [
+        "Inputs, MoveState-Wechsel und Trefferereignisse sind loggbar.",
+        "ActionLog ist JSON-serialisierbar.",
+        "Replay kann mindestens deterministisch bis zu einem EndState geplant werden.",
+        "Renderer-spezifische Daten sind nicht im ActionLog erforderlich."
+      ]
+    },
+    {
+      "id": "ANG3D005",
+      "title": "Angular-App-Skelett fuer Capoeira-Web anlegen",
+      "type": "implementation",
+      "milestone_id": "ANG3D02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["ANG3D002"],
+      "deliverables": ["apps/ananta-capoeira-web/"],
+      "acceptance_criteria": [
+        "Angular-App kann lokal gestartet werden.",
+        "CapoeiraDuelComponent existiert als Einstieg.",
+        "Core-Lib ist importierbar.",
+        "App startet ohne WebGL-Asset-Abhaengigkeiten."
+      ]
+    },
+    {
+      "id": "ANG3D006",
+      "title": "RenderSnapshot-Schnittstelle definieren",
+      "type": "technical_design",
+      "milestone_id": "ANG3D02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["ANG3D002", "ANG3D005"],
+      "deliverables": ["libs/ananta-capoeira-core/src/lib/render-snapshot.ts"],
+      "acceptance_criteria": [
+        "RenderSnapshot beschreibt nur sichtbare Daten, nicht die Spielregeln.",
+        "Snapshot enthaelt Roda, Fighter, Dummy, MoveState, HitboxDebug und Score.",
+        "Three.js-Renderer kann Snapshot lesen, ohne GameState zu mutieren.",
+        "Terminal- und Angular-Renderer koennen perspektivisch dieselben Snapshots nutzen."
+      ]
+    },
+    {
+      "id": "ANG3D007",
+      "title": "DuelStore fuer Angular-State-Ticks schreiben",
+      "type": "implementation",
+      "milestone_id": "ANG3D02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["ANG3D003", "ANG3D005", "ANG3D006"],
+      "deliverables": ["apps/ananta-capoeira-web/src/app/capoeira-duel/state/duel-store.service.ts"],
+      "acceptance_criteria": [
+        "DuelStore fuehrt Fixed-Tick-Updates aus oder kapselt sie klar.",
+        "DuelStore nutzt Core-Regeln statt UI-Logik.",
+        "DuelStore liefert RenderSnapshots.",
+        "DuelStore kann fuer Tests ohne echte Three.js-Szene ausgefuehrt werden."
+      ]
+    },
+    {
+      "id": "ANG3D008",
+      "title": "Three.js-Renderer-Service anlegen",
+      "type": "implementation",
+      "milestone_id": "ANG3D03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["ANG3D005", "ANG3D006"],
+      "deliverables": ["apps/ananta-capoeira-web/src/app/capoeira-duel/renderers/three-scene-renderer.service.ts"],
+      "acceptance_criteria": [
+        "Renderer initialisiert Scene, Camera und Renderer kontrolliert.",
+        "Renderer kann ohne echte Charakterassets starten.",
+        "Renderer besitzt eine destroy/cleanup-Methode.",
+        "Angular-Komponente bleibt frei von Low-Level-Three.js-Details."
+      ]
+    },
+    {
+      "id": "ANG3D009",
+      "title": "3D-Roda mit einfachen Geometrien rendern",
+      "type": "implementation",
+      "milestone_id": "ANG3D03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["ANG3D008"],
+      "deliverables": ["three-scene-renderer.service.ts"],
+      "acceptance_criteria": [
+        "Roda-Kreis oder Bodenraster ist sichtbar.",
+        "Kamera zeigt beide Figurenpositionen.",
+        "Szene bleibt bewusst minimal.",
+        "Keine externen 3D-Assets sind erforderlich."
+      ]
+    },
+    {
+      "id": "ANG3D010",
+      "title": "Fighter und Dummy als Debug-Geometrien anzeigen",
+      "type": "implementation",
+      "milestone_id": "ANG3D03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["ANG3D008", "ANG3D009"],
+      "deliverables": ["three-scene-renderer.service.ts"],
+      "acceptance_criteria": [
+        "Fighter und Dummy sind unterscheidbar.",
+        "Facing/Blickrichtung ist erkennbar.",
+        "MoveState kann visuell unterschieden werden.",
+        "Geometrien werden aus RenderSnapshot aktualisiert."
+      ]
+    },
+    {
+      "id": "ANG3D011",
+      "title": "Hitbox- und Hurtbox-Debug-Overlay rendern",
+      "type": "implementation",
+      "milestone_id": "ANG3D03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["ANG3D006", "ANG3D008", "ANG3D010"],
+      "deliverables": ["apps/ananta-capoeira-web/src/app/capoeira-duel/renderers/debug-hitbox-renderer.service.ts"],
+      "acceptance_criteria": [
+        "Kick-Hitbox ist im aktiven Fenster sichtbar schaltbar.",
+        "Hurtbox/Pose-Aenderung bei Esquiva ist sichtbar.",
+        "Debug-Overlay kann ein-/ausgeschaltet werden.",
+        "Debug-Darstellung beeinflusst Combat-Regeln nicht."
+      ]
+    },
+    {
+      "id": "ANG3D012",
+      "title": "Angular-Input-Service fuer Tastatur/Gamepad vorbereiten",
+      "type": "implementation",
+      "milestone_id": "ANG3D04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["ANG3D007"],
+      "deliverables": ["apps/ananta-capoeira-web/src/app/capoeira-duel/input/duel-input.service.ts"],
+      "acceptance_criteria": [
+        "Input kennt Bewegung, Kick, Esquiva und Pause/Reset.",
+        "Input wird in Core-kompatible Commands uebersetzt.",
+        "Input-Service ist testbar ohne DOM-Rendering.",
+        "Gamepad bleibt optional und nicht Pflicht fuer ersten Angular-Lauf."
+      ]
+    },
+    {
+      "id": "ANG3D013",
+      "title": "Angular-HUD fuer Score, MoveState und Debugdaten bauen",
+      "type": "implementation",
+      "milestone_id": "ANG3D04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "dependencies": ["ANG3D007"],
+      "deliverables": ["apps/ananta-capoeira-web/src/app/capoeira-duel/hud/duel-hud.component.ts"],
+      "acceptance_criteria": [
+        "HUD zeigt Score, aktuellen MoveState und Tick/FPS-Debug.",
+        "HUD kann Hitbox-Debug umschalten.",
+        "HUD zeigt ActionLog-Laenge oder letzte Aktion.",
+        "HUD bleibt funktional und nicht designlastig."
+      ]
+    },
+    {
+      "id": "ANG3D014",
+      "title": "ActionLog-Anzeige und Minimal-Replay-Debug anbinden",
+      "type": "implementation",
+      "milestone_id": "ANG3D04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["ANG3D004", "ANG3D007", "ANG3D013"],
+      "deliverables": ["apps/ananta-capoeira-web/src/app/capoeira-duel/hud/duel-hud.component.ts", "apps/ananta-capoeira-web/src/app/capoeira-duel/state/duel-store.service.ts"],
+      "acceptance_criteria": [
+        "Letzte Inputs und Trefferereignisse sind sichtbar.",
+        "ActionLog kann als JSON exportiert oder kopiert werden.",
+        "Replay-Debug kann mindestens einen Log deterministisch erneut auswerten oder vorbereiten.",
+        "Replay bleibt Core-Aufgabe, nicht Renderer-Aufgabe."
+      ]
+    },
+    {
+      "id": "ANG3D015",
+      "title": "Angular-Komponente mit Renderer, Store, Input und HUD verbinden",
+      "type": "implementation",
+      "milestone_id": "ANG3D04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["ANG3D008", "ANG3D012", "ANG3D013"],
+      "deliverables": ["apps/ananta-capoeira-web/src/app/capoeira-duel/capoeira-duel.component.ts", "apps/ananta-capoeira-web/src/app/capoeira-duel/capoeira-duel.component.html", "apps/ananta-capoeira-web/src/app/capoeira-duel/capoeira-duel.component.scss"],
+      "acceptance_criteria": [
+        "Komponente startet Renderer und Store kontrolliert.",
+        "Input veraendert GameState ueber Core-Regeln.",
+        "Renderer aktualisiert aus RenderSnapshots.",
+        "Cleanup verhindert haengende AnimationFrames oder EventListener."
+      ]
+    },
+    {
+      "id": "ANG3D016",
+      "title": "Core-Unit-Tests fuer Angular-Ausbaustufe schreiben",
+      "type": "testing",
+      "milestone_id": "ANG3D05",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["ANG3D002", "ANG3D003", "ANG3D004"],
+      "deliverables": ["libs/ananta-capoeira-core/src/lib/*.spec.ts"],
+      "acceptance_criteria": [
+        "MoveState-Tests pruefen Ginga, Kick, Esquiva und Recovery.",
+        "Combat-Tests pruefen Distanz, Winkel, Trefferfenster und Esquiva.",
+        "ActionLog-Tests pruefen Serialisierung.",
+        "Tests laufen ohne Angular-Komponente und ohne Three.js."
+      ]
+    },
+    {
+      "id": "ANG3D017",
+      "title": "Angular-Renderer-Smoke-Tests schreiben",
+      "type": "testing",
+      "milestone_id": "ANG3D05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["ANG3D008", "ANG3D015"],
+      "deliverables": ["apps/ananta-capoeira-web/src/app/capoeira-duel/*.spec.ts"],
+      "acceptance_criteria": [
+        "CapoeiraDuelComponent kann initialisiert werden.",
+        "Renderer-Service kann mit Mock-Canvas/Abstraktion erzeugt oder sinnvoll isoliert getestet werden.",
+        "DuelStore kann RenderSnapshots liefern.",
+        "Input-Service kann Commands erzeugen."
+      ]
+    },
+    {
+      "id": "ANG3D018",
+      "title": "Angular-3D-Review-Gate dokumentieren",
+      "type": "review",
+      "milestone_id": "ANG3D05",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["ANG3D016", "ANG3D017"],
+      "deliverables": ["docs/examples/ananta-capoeira-duel/angular_3d_review.md"],
+      "acceptance_criteria": [
+        "Review prueft, ob Angular nur Renderer-Ausbau ist und den Core nicht dupliziert.",
+        "Review prueft, ob Debug-Hitboxen und ActionLog sichtbar bleiben.",
+        "Review prueft, ob keine Asset-/VR-/Online-Scope-Explosion passiert ist.",
+        "Review entscheidet, ob als naechstes Animationen, Input oder Replay verbessert werden."
+      ]
+    }
+  ],
+  "first_recommended_working_set_after_activation": [
+    "ANG3D001",
+    "ANG3D002",
+    "ANG3D003",
+    "ANG3D004",
+    "ANG3D005",
+    "ANG3D006",
+    "ANG3D007",
+    "ANG3D008",
+    "ANG3D009",
+    "ANG3D010",
+    "ANG3D011",
+    "ANG3D016",
+    "ANG3D018"
+  ],
+  "definition_of_done": [
+    "Angular-Ausbaustufe startet erst nach Terminal-MVP-Review.",
+    "Gemeinsamer TypeScript-GameCore existiert ohne Angular-/Three.js-Abhaengigkeit.",
+    "Angular-App kann gestartet werden.",
+    "Three.js-Renderer zeigt Roda, Fighter und Dummy mit einfachen Geometrien.",
+    "Hitbox-/Hurtbox-Debug ist sichtbar und schaltbar.",
+    "Input steuert den Core, nicht den Renderer direkt.",
+    "HUD zeigt Score, MoveState und ActionLog-Debug.",
+    "Core-Tests laufen ohne Renderer.",
+    "Renderer-Smoke-Tests pruefen Startbarkeit.",
+    "Review bestaetigt, dass Angular Renderer-Ausbau bleibt und keine Scope-Explosion erzeugt."
+  ]
+}
