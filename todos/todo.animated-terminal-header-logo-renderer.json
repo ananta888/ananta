@@ -98,7 +98,7 @@
     {
       "id": "ATHL03",
       "title": "Sixel-Renderer fuer Windows Terminal/WSL2 und kompatible Terminals ergaenzen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "ATHL009",
         "ATHL010",
@@ -109,7 +109,7 @@
     {
       "id": "ATHL04",
       "title": "Kitty Graphics Renderer fuer echte Pixelgrafik und Animation ergaenzen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "ATHL013",
         "ATHL014",
@@ -310,7 +310,7 @@
       "title": "Sixel-Faehigkeit deterministisch erkennen",
       "type": "implementation",
       "milestone_id": "ATHL03",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "files": [
@@ -328,7 +328,7 @@
       "title": "Sixel-Encoder/Backend anbinden",
       "type": "implementation",
       "milestone_id": "ATHL03",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "files": [
@@ -346,7 +346,7 @@
       "title": "Sixel-Positionierung fuer Logo links oben implementieren",
       "type": "implementation",
       "milestone_id": "ATHL03",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "files": [
@@ -365,7 +365,7 @@
       "title": "Sixel-Smoke-Test fuer WSL2/Windows Terminal dokumentieren",
       "type": "documentation",
       "milestone_id": "ATHL03",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "files": [
@@ -383,7 +383,7 @@
       "title": "Kitty Graphics Faehigkeit erkennen",
       "type": "implementation",
       "milestone_id": "ATHL04",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "files": [
@@ -401,7 +401,7 @@
       "title": "Kitty Graphics Renderer fuer PNG/RGBA-Frames implementieren",
       "type": "implementation",
       "milestone_id": "ATHL04",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "files": [
@@ -419,7 +419,7 @@
       "title": "Kitty-Animation ohne Flackern testen",
       "type": "test",
       "milestone_id": "ATHL04",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "files": [
@@ -438,7 +438,7 @@
       "title": "Renderer-Prioritaet und Fallback-Reihenfolge festlegen",
       "type": "architecture",
       "milestone_id": "ATHL04",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "files": [
@@ -733,13 +733,13 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 23,
+      "todo": 15,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 7
+      "done": 15
     },
-    "progress_percent_done": 23,
+    "progress_percent_done": 50,
     "by_priority": {
       "P0": 13,
       "P1": 11,
@@ -753,15 +753,15 @@
     },
     "critical_path": {
       "total": 12,
-      "done": 4,
-      "remaining": 8
+      "done": 5,
+      "remaining": 7
     },
     "milestones": {
       "total": 7,
-      "todo": 5,
+      "todo": 3,
       "in_progress": 1,
       "blocked": 0,
-      "done": 1
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -779,11 +779,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 23,
+    "todo_remaining": 15,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 7
+    "done": 15
   },
   "definition_of_done": [
     "Das kleine Logo links oben kann in der TUI animiert werden, ohne den Statusbereich zu zerstoeren.",

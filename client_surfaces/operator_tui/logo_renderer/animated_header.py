@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import os
+import sys
 import time
 from dataclasses import dataclass
 
+from client_surfaces.operator_tui.logo_renderer.detect import (
+    is_debug_enabled,
+    resolve_renderer,
+)
 from client_surfaces.operator_tui.logo_renderer.frame_cache import LogoFrameCache
+from client_surfaces.operator_tui.logo_renderer.kitty import KittyRenderer
+from client_surfaces.operator_tui.logo_renderer.sixel import SixelRenderer
 
 _DEFAULT_SVG = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "ananta.svg"))
 _CACHE = LogoFrameCache()
@@ -67,3 +74,59 @@ def render_ansi_header_logo(
     now = t_now if t_now is not None else time.monotonic()
     index = int(now * config.fps) % len(frames)
     return frames[index]
+
+
+def render_header_logo(
+    *,
+    cols: int,
+    rows: int,
+    color: bool,
+    t_now: float | None = None,
+) -> list[str] | None:
+    env = dict(os.environ)
+    sixel_renderer = SixelRenderer()
+    kitty_renderer = KittyRenderer()
+    sixel_available = sixel_renderer.detect(
+        probe=_build_probe(cols=cols, rows=rows, color=color, env=env)
+    )
+    kitty_available = kitty_renderer.detect(
+        probe=_build_probe(cols=cols, rows=rows, color=color, env=env)
+    )
+
+    decision = resolve_renderer(env=env, sixel_available=sixel_available, kitty_available=kitty_available)
+    if decision.warning and is_debug_enabled(env):
+        print(f"[logo-renderer] {decision.warning}", file=sys.stderr)
+
+    if decision.selected == "none":
+        return None
+
+    if decision.selected == "kitty":
+        # Stream protocol output is implemented and testable in KittyRenderer, but
+        # the current header composer is line-based; keep deterministic ANSI layout here.
+        frame = kitty_renderer.render_frame(width_cells=cols, height_cells=rows, t=t_now or 0.0)
+        if frame.sequence and env.get("ANANTA_TUI_LOGO_STREAM_INLINE", "").strip().lower() in {"1", "true", "yes", "on"}:
+            return [frame.sequence] + ([""] * max(0, rows - 1))
+        return render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)
+
+    if decision.selected == "sixel":
+        frame = sixel_renderer.render_frame(width_cells=cols, height_cells=rows, t=t_now or 0.0)
+        if frame.sequence and env.get("ANANTA_TUI_LOGO_STREAM_INLINE", "").strip().lower() in {"1", "true", "yes", "on"}:
+            return [frame.sequence] + ([""] * max(0, rows - 1))
+        return render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)
+
+    return render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)
+
+
+def _build_probe(*, cols: int, rows: int, color: bool, env: dict[str, str]):
+    from client_surfaces.operator_tui.logo_renderer.base import LogoRendererProbe
+
+    return LogoRendererProbe(
+        term=env.get("TERM", ""),
+        term_program=env.get("TERM_PROGRAM", ""),
+        colorterm=env.get("COLORTERM", ""),
+        no_color=not color,
+        is_tty=True,
+        width=max(1, int(cols)),
+        height=max(1, int(rows)),
+        env=env,
+    )
