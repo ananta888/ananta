@@ -264,6 +264,9 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
         status = "running" if game.get("alive", True) else "game over"
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake  score={score}  {status}", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Arrows steuern · Tab verlässt Fokus", width))
+        gaps = game.get("gaps") if isinstance(game.get("gaps"), dict) else {}
+        if gaps:
+            lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Lücken: rechts+unten → Pane-Steuerung", width))
     for i, key in enumerate(CONFIG_ITEMS):
         cursor = DEFAULT_THEME.selected_prefix if i == state.selected_index else DEFAULT_THEME.idle_prefix
         label = CONFIG_LABELS[key]
