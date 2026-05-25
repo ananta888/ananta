@@ -88,7 +88,7 @@ def review_policy(
     cfg = (agent_cfg or {}).get("review_policy", {}) or {}
     enabled = bool(cfg.get("enabled", True))
     review_backends = {
-        str(x).strip().lower() for x in (cfg.get("research_backends") or ["deerflow", "ananta_research"])
+        str(x).strip().lower() for x in (cfg.get("research_backends") or ["deerflow", "ananta_research", "browser_use"])
     }
     review_task_kinds = {str(x).strip().lower() for x in (cfg.get("task_kinds") or ["research"])}
     base_required = enabled and str(backend or "").strip().lower() in review_backends and str(task_kind or "").strip().lower() in review_task_kinds

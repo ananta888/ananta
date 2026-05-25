@@ -73,6 +73,7 @@ _BROWSER_OBSERVABILITY = {
     "last_failure_class": None,
     "last_latency_ms": 0,
 }
+_BROWSER_POLICY_VERSION = "browser-policy-v1"
 
 
 def _get_agent_config() -> dict:
@@ -120,6 +121,7 @@ def resolve_research_backend_config(
         provider_cfg.update(top_level_cfg)
 
     mode = str(provider_cfg.get("mode") or spec["default_mode"]).strip().lower()
+    provider_mode = str(provider_cfg.get("provider_mode") or "oss").strip().lower()
     command = str(provider_cfg.get("command") or spec["default_command"]).strip()
     working_dir = str(provider_cfg.get("working_dir") or "").strip() or None
     timeout_seconds = max(30, int(provider_cfg.get("timeout_seconds") or getattr(settings, "command_timeout", 60) or 60))
@@ -150,6 +152,7 @@ def resolve_research_backend_config(
         "selected": selected,
         "enabled": enabled,
         "mode": mode,
+        "provider_mode": provider_mode,
         "command": command,
         "command_tokens": command_tokens,
         "binary_path": binary,
@@ -185,6 +188,7 @@ def get_research_backend_preflight(*, agent_cfg: dict[str, Any] | None = None) -
             "enabled": bool(cfg["enabled"]),
             "configured": bool(cfg["configured"]),
             "mode": cfg["mode"],
+            "provider_mode": cfg.get("provider_mode"),
             "command": cfg["command"],
             "binary_path": cfg["binary_path"],
             "binary_available": bool(cfg["binary_path"]),
@@ -205,6 +209,7 @@ def get_research_backend_preflight(*, agent_cfg: dict[str, Any] | None = None) -
         }
         if provider == "browser_use":
             entries[provider]["observability"] = dict(_BROWSER_OBSERVABILITY)
+            entries[provider]["health"] = get_browser_backend_health(cfg)
     return entries
 
 
@@ -215,6 +220,37 @@ def get_browser_backend_diagnostics() -> dict[str, Any]:
         "actions": int(_BROWSER_OBSERVABILITY.get("actions", 0)),
         "last_failure_class": _BROWSER_OBSERVABILITY.get("last_failure_class"),
         "last_latency_ms": int(_BROWSER_OBSERVABILITY.get("last_latency_ms", 0)),
+    }
+
+
+def get_browser_backend_health(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
+    resolved = dict(cfg or resolve_research_backend_config(provider_override="browser_use"))
+    provider_mode = str(resolved.get("provider_mode") or "oss").strip().lower()
+    if provider_mode not in {"oss", "cloud"}:
+        return {
+            "provider": "browser_use",
+            "ready": False,
+            "reason": "browser_backend_invalid_provider_mode",
+            "mode": str(resolved.get("mode") or ""),
+            "enabled": bool(resolved.get("enabled")),
+            "configured": bool(resolved.get("configured")),
+            "provider_mode": provider_mode,
+        }
+    adapter = get_browser_use_execution_adapter()
+    preflight = adapter.preflight(
+        {
+            "enabled": bool(resolved.get("enabled")),
+            "command": str(resolved.get("command") or ""),
+        }
+    )
+    return {
+        "provider": "browser_use",
+        "ready": bool(preflight.ready),
+        "reason": preflight.reason,
+        "mode": str(resolved.get("mode") or ""),
+        "enabled": bool(resolved.get("enabled")),
+        "configured": bool(resolved.get("configured")),
+        "provider_mode": provider_mode,
     }
 
 
@@ -360,8 +396,25 @@ def _execute_research_backend_cli(
         )
         adapter = get_browser_use_execution_adapter()
         preflight = adapter.preflight(browser_cfg)
-        log_audit("browser_route_selected", {"provider": "browser_use", "ready": preflight.ready})
-        log_audit("browser_policy_checked", {"provider": "browser_use", "phase": "preflight", "ready": preflight.ready})
+        routing_reason = "research_backend_policy:research->browser_use"
+        log_audit(
+            "browser_route_selected",
+            {
+                "provider": "browser_use",
+                "resolved_backend": "browser_use",
+                "reason": routing_reason,
+                "ready": preflight.ready,
+            },
+        )
+        log_audit(
+            "browser_policy_checked",
+            {
+                "provider": "browser_use",
+                "phase": "preflight",
+                "ready": preflight.ready,
+                "policy_version": _BROWSER_POLICY_VERSION,
+            },
+        )
         if not preflight.ready:
             _BROWSER_OBSERVABILITY["calls"] += 1
             _BROWSER_OBSERVABILITY["last_failure_class"] = "backend_unavailable"
@@ -372,6 +425,23 @@ def _execute_research_backend_cli(
         actions = list(ctx.get("actions") or [])
         if not start_url:
             return -1, "", "browser_use_start_url_missing"
+        if bool(browser_cfg.get("auth_requested", False)):
+            if contract.auth_policy != "explicit_opt_in":
+                log_audit(
+                    "browser_policy_blocked",
+                    {"provider": "browser_use", "reason": "browser_policy_auth_not_allowed", "auth_policy": "masked"},
+                )
+                return -1, "", "browser_policy_auth_not_allowed"
+            log_audit(
+                "browser_policy_checked",
+                {
+                    "provider": "browser_use",
+                    "phase": "auth",
+                    "auth_requested": True,
+                    "auth_policy": "masked",
+                    "policy_version": _BROWSER_POLICY_VERSION,
+                },
+            )
 
         result = adapter.execute(start_url=start_url, actions=actions, contract=contract)
         latency_ms = int((time.time() - started) * 1000)
@@ -396,12 +466,40 @@ def _execute_research_backend_cli(
             "sources": [{"url": start_url, "kind": "web"}],
             "trace": list(result.trace or []),
         }
+        for action in actions:
+            if str((action or {}).get("type") or "").strip().lower() == "download":
+                log_audit(
+                    "browser_policy_checked",
+                    {
+                        "provider": "browser_use",
+                        "phase": "download",
+                        "policy_version": _BROWSER_POLICY_VERSION,
+                        "download_url": str((action or {}).get("url") or ""),
+                        "output_path": str((action or {}).get("output_path") or ""),
+                        "provenance_ref": "browser-policy-v1:download",
+                    },
+                )
         check = get_browser_artifact_service().validate_schema(artifact_payload)
         if not check.valid:
             log_audit("browser_policy_blocked", {"provider": "browser_use", "reason": check.reason})
             return -1, "", check.reason
 
         if result.status == "success":
+            gate = get_browser_artifact_service().verify_completion_gate(
+                payload=artifact_payload,
+                min_source_count=int(browser_cfg.get("min_source_count") or 1),
+                require_evidence=bool(browser_cfg.get("require_evidence", True)),
+            )
+            if not gate.valid:
+                log_audit(
+                    "browser_policy_blocked",
+                    {
+                        "provider": "browser_use",
+                        "reason": gate.reason,
+                        "policy_version": _BROWSER_POLICY_VERSION,
+                    },
+                )
+                return -1, "", gate.reason
             log_audit("browser_artifact_verified", {"provider": "browser_use", "status": "passed"})
             return 0, json.dumps(artifact_payload, ensure_ascii=False), ""
 
@@ -410,9 +508,26 @@ def _execute_research_backend_cli(
             attempt=1,
             max_repair_attempts=int(browser_cfg.get("max_repair_attempts") or 1),
             fallback_allowed=bool(browser_cfg.get("fallback_allowed", True)),
+            strict_browser_evidence=bool(browser_cfg.get("strict_browser_evidence", False)),
         )
         if recovery.action in {"needs_review", "fail"}:
-            log_audit("browser_fallback_used", {"provider": "browser_use", "reason": recovery.reason, "action": recovery.action})
+            log_audit(
+                "browser_fallback_used",
+                {
+                    "provider": "browser_use",
+                    "reason": recovery.reason,
+                    "action": recovery.action,
+                    "policy_version": _BROWSER_POLICY_VERSION,
+                },
+            )
+        if recovery.action == "needs_review":
+            escalation = {
+                "status": "needs_review",
+                "policy_reason": recovery.reason,
+                "failure_class": str(result.failure_class or "transient_navigation"),
+                "evidence_refs": list(artifact_payload.get("sources") or []),
+            }
+            return -1, "", f"browser_needs_review:{json.dumps(escalation, ensure_ascii=False)}"
         return -1, "", f"browser_use_{result.failure_class or 'failed'}:{recovery.action}:{recovery.reason}"
     if cfg["mode"] == "sandbox":
         return _execute_research_backend_sandbox(
@@ -587,6 +702,8 @@ def get_research_backend_adapter(provider: str | None = None) -> ResearchBackend
     normalized = _normalize_provider_name(provider)
     if normalized == "ananta_research":
         return AnantaResearchAdapter()
+    if normalized == "browser_use":
+        return ResearchBackendAdapter(provider="browser_use")
     return DeerFlowAdapter()
 
 

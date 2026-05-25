@@ -47,6 +47,27 @@ class BrowserArtifactService:
             },
         }
 
+    def verify_completion_gate(
+        self,
+        *,
+        payload: dict[str, Any],
+        min_source_count: int = 1,
+        require_evidence: bool = True,
+    ) -> BrowserArtifactValidation:
+        check = self.validate_schema(payload)
+        if not check.valid:
+            return check
+
+        sources = payload.get("sources") if isinstance(payload.get("sources"), list) else []
+        extracted = payload.get("extracted_data") if isinstance(payload.get("extracted_data"), dict) else {}
+        evidence = payload.get("page_evidence") if isinstance(payload.get("page_evidence"), list) else []
+
+        if int(min_source_count) > 0 and len(sources) < int(min_source_count):
+            return BrowserArtifactValidation(False, "browser_artifact_min_sources_not_met")
+        if require_evidence and (not evidence or not extracted):
+            return BrowserArtifactValidation(False, "browser_artifact_required_evidence_missing")
+        return BrowserArtifactValidation(True, "ok")
+
 
 _SERVICE = BrowserArtifactService()
 

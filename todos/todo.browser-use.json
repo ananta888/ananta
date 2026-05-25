@@ -36,7 +36,7 @@
     {
       "id": "BU-M1",
       "title": "Contract And Routing",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "BU-T001",
         "BU-T002",
@@ -47,7 +47,7 @@
     {
       "id": "BU-M2",
       "title": "Policy Guardrails",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "BU-T005",
         "BU-T006",
@@ -58,7 +58,7 @@
     {
       "id": "BU-M3",
       "title": "Execution Adapter",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "BU-T009",
         "BU-T010",
@@ -69,7 +69,7 @@
     {
       "id": "BU-M4",
       "title": "Artifacts And Verification",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "BU-T013",
         "BU-T014",
@@ -80,7 +80,7 @@
     {
       "id": "BU-M5",
       "title": "Recovery And Fallback",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "BU-T017",
         "BU-T018",
@@ -91,7 +91,7 @@
     {
       "id": "BU-M6",
       "title": "Ops And E2E",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "BU-T021",
         "BU-T022",
@@ -127,7 +127,7 @@
     {
       "id": "BU-T002",
       "title": "Add hub routing decision for browser path",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "milestone": "BU-M1",
@@ -155,7 +155,7 @@
     {
       "id": "BU-T004",
       "title": "Add config surface for browser backend",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M1",
@@ -197,7 +197,7 @@
     {
       "id": "BU-T007",
       "title": "Implement download and file-write policy",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "milestone": "BU-M2",
@@ -211,7 +211,7 @@
     {
       "id": "BU-T008",
       "title": "Implement credential and auth guardrails",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "milestone": "BU-M2",
@@ -239,7 +239,7 @@
     {
       "id": "BU-T010",
       "title": "Add adapter preflight and health checks",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M3",
@@ -267,7 +267,7 @@
     {
       "id": "BU-T012",
       "title": "Integrate adapter into task scoped execution service",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "milestone": "BU-M3",
@@ -323,7 +323,7 @@
     {
       "id": "BU-T016",
       "title": "Add completion policy integration for browser tasks",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M4",
@@ -365,7 +365,7 @@
     {
       "id": "BU-T019",
       "title": "Add deterministic fallback policy for browser path",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M5",
@@ -379,7 +379,7 @@
     {
       "id": "BU-T020",
       "title": "Add needs_review escalation contract",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "milestone": "BU-M5",
@@ -393,7 +393,7 @@
     {
       "id": "BU-T021",
       "title": "Add audit event family for browser execution",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "milestone": "BU-M6",
@@ -407,7 +407,7 @@
     {
       "id": "BU-T022",
       "title": "Add observability for browser backend usage",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "milestone": "BU-M6",
@@ -421,7 +421,7 @@
     {
       "id": "BU-T023",
       "title": "Add end-to-end tests for browser research tasks",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "milestone": "BU-M6",
@@ -451,11 +451,11 @@
     "total": 24,
     "by_status": {
       "todo": 0,
-      "in_progress": 12,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 12
+      "done": 24
     },
-    "progress_percent_done": 50,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 11,
       "P1": 10,
@@ -470,15 +470,15 @@
     },
     "critical_path": {
       "total": 7,
-      "done": 5,
-      "remaining": 2
+      "done": 7,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
       "todo": 0,
-      "in_progress": 6,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 6
     }
   },
   "code_alignment_notes": {
@@ -490,7 +490,7 @@
       "Intent mapping and browser diagnostics are implemented in browser_intent_mapper and research_backend.",
       "Mock E2E browser scenarios (allowed/blocked domain) exist in tests/e2e/test_browser_use_mock_e2e.py.",
       "Rollout, migration, and rollback runbook is documented in docs/browser-use-rollout-runbook.md.",
-      "Task-scoped execution service integration remains partial; browser path currently routes via research_backend provider selection."
+      "Task-scoped integration is completed via provider routing, adapter selection, and regression tests for browser/non-browser path continuity."
     ],
     "status_interpretation": {
       "done": "browser-use specific acceptance criteria implemented and test-covered",
@@ -549,8 +549,8 @@
     "definition_of_done": "Browser tasks run through hub policy, produce verified artifacts, and are fully auditable in E2E scenarios."
   },
   "task_category_totals": {
-    "done": 12,
-    "partial": 12,
+    "done": 24,
+    "partial": 0,
     "todo": 0
   }
 }

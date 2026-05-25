@@ -22,11 +22,21 @@ class BrowserRecoveryService:
             return "backend_unavailable"
         return "transient_navigation"
 
-    def decide(self, *, failure_class: str, attempt: int, max_repair_attempts: int, fallback_allowed: bool) -> BrowserRecoveryDecision:
+    def decide(
+        self,
+        *,
+        failure_class: str,
+        attempt: int,
+        max_repair_attempts: int,
+        fallback_allowed: bool,
+        strict_browser_evidence: bool = False,
+    ) -> BrowserRecoveryDecision:
         if failure_class in {"security_denied", "policy_denied"}:
             return BrowserRecoveryDecision("block", "hard_policy_block")
         if attempt < max_repair_attempts and failure_class in {"transient_navigation", "timeout", "element_not_found"}:
             return BrowserRecoveryDecision("retry", "bounded_retry")
+        if strict_browser_evidence:
+            return BrowserRecoveryDecision("fail", "strict_browser_evidence_requires_browser_artifact")
         if fallback_allowed and failure_class in {"backend_unavailable", "timeout"}:
             return BrowserRecoveryDecision("needs_review", "fallback_consideration")
         return BrowserRecoveryDecision("fail", "terminal_failure")
