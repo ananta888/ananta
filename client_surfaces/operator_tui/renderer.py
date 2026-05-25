@@ -606,7 +606,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
     game = state.header_logo_game or {}
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
-        hints = "[Ctrl+S] Snake  [X/C/V] Select/Copy/Replace  [T] Textstyle  [Y] Farbe"
+        hints = "[Ctrl+S] Snake  [B] Frame-Mode  [X] Rahmen setzen  [C] Copy  [V] Replace"
     return _clip(hints, width)
 
 
@@ -656,6 +656,14 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         y = int(anchor[1]) % max(1, len(out))
         repl = f"\x1b[38;2;{anchor_col[0]};{anchor_col[1]};{anchor_col[2]}m◎\x1b[0m"
         out[y] = _overlay_at_visible_col(out[y], x, repl)
+
+    if bool(game.get("selection_frame_mode")):
+        frame_anchor = game.get("selection_frame_anchor")
+        local_head = local_snake[0] if local_snake and isinstance(local_snake[0], (list, tuple)) else None
+        if isinstance(frame_anchor, (list, tuple)) and len(frame_anchor) == 2 and isinstance(local_head, (list, tuple)) and len(local_head) == 2:
+            ax, ay = int(frame_anchor[0]), int(frame_anchor[1])
+            hx, hy = int(local_head[0]), int(local_head[1])
+            out = _overlay_frame_preview(out, x1=ax, y1=ay, x2=hx, y2=hy, width=width, color=anchor_col)
 
     for sid, snapshot in snakes.items():
         snake = snapshot.get("snake") if isinstance(snapshot.get("snake"), list) else []
@@ -793,6 +801,38 @@ def _overlay_text(
         repl = f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{ch}\x1b[0m"
         out[y] = _overlay_at_visible_col(out[y], cx, repl)
         cx += 1
+    return out
+
+
+def _overlay_frame_preview(
+    out: list[str],
+    *,
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+    width: int,
+    color: tuple[int, int, int],
+) -> list[str]:
+    if not out:
+        return out
+    height = len(out)
+    min_x, max_x = sorted((x1 % max(1, width), x2 % max(1, width)))
+    min_y, max_y = sorted((y1 % max(1, height), y2 % max(1, height)))
+    h = "═"
+    v = "║"
+    tl, tr, bl, br = "╔", "╗", "╚", "╝"
+
+    for x in range(min_x, max_x + 1):
+        out[min_y] = _overlay_at_visible_col(out[min_y], x, f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{h}\x1b[0m")
+        out[max_y] = _overlay_at_visible_col(out[max_y], x, f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{h}\x1b[0m")
+    for y in range(min_y, max_y + 1):
+        out[y] = _overlay_at_visible_col(out[y], min_x, f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{v}\x1b[0m")
+        out[y] = _overlay_at_visible_col(out[y], max_x, f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{v}\x1b[0m")
+    out[min_y] = _overlay_at_visible_col(out[min_y], min_x, f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{tl}\x1b[0m")
+    out[min_y] = _overlay_at_visible_col(out[min_y], max_x, f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{tr}\x1b[0m")
+    out[max_y] = _overlay_at_visible_col(out[max_y], min_x, f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{bl}\x1b[0m")
+    out[max_y] = _overlay_at_visible_col(out[max_y], max_x, f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{br}\x1b[0m")
     return out
 
 

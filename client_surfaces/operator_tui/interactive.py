@@ -249,6 +249,18 @@ class InteractiveOperatorTui:
                 return
             self._snake_toggle_selection()
 
+        @bindings.add("b")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command("b")
+                return
+            if self._snake_message_mode_active():
+                self._snake_message_append("b")
+                return
+            if not self._snake_mode_active():
+                return
+            self._snake_toggle_frame_mode()
+
         @bindings.add("c")
         def _(event) -> None:
             if self.state.mode is OperatorMode.COMMAND:
@@ -422,6 +434,9 @@ class InteractiveOperatorTui:
             "mark_cells": [],
             "selection_anchor": None,
             "selection_cells": [],
+            "selection_regions": [],
+            "selection_frame_mode": False,
+            "selection_frame_anchor": None,
             "clipboard": "",
             "message_style": "trail",
             "snake_color": "mint",
@@ -629,6 +644,9 @@ class InteractiveOperatorTui:
             "oidc_provider": local_provider,
             "snake": list(game.get("snake") or []),
             "trail_path": list(game.get("trail_path") or []),
+            "mark_cells": list(game.get("mark_cells") or []),
+            "selection_cells": list(game.get("selection_cells") or []),
+            "selection_regions": list(game.get("selection_regions") or []),
             "message": str(game.get("message") or ""),
             "message_style": str(game.get("message_style") or "trail"),
             "snake_color": str(game.get("snake_color") or "mint"),
@@ -667,12 +685,19 @@ class InteractiveOperatorTui:
                 by = (hy - (j // 4)) % max(1, board_h)
                 body.append((bx, by))
             trail = list(body)
+            min_x = max(0, hx - 1)
+            max_x = min(max(0, board_w - 1), hx + 1)
+            min_y = max(0, hy - 1)
+            max_y = min(max(0, board_h - 1), hy + 1)
+            selection_cells = [(x, y) for y in range(min_y, max_y + 1) for x in (min_x, max_x)]
+            selection_cells += [(x, y) for x in range(min_x, max_x + 1) for y in (min_y, max_y)]
             snakes[sid] = {
                 "id": sid,
                 "pseudonym": f"peer-{i + 2}",
                 "oidc_provider": "demo-oidc",
                 "snake": body,
                 "trail_path": trail,
+                "selection_cells": selection_cells,
                 "message": f"peer-{i + 2}",
                 "message_style": ("orbit" if i % 2 == 0 else "trail"),
                 "snake_color": ("cyan" if i % 2 == 0 else "violet"),
@@ -748,6 +773,9 @@ class InteractiveOperatorTui:
             game["message_draft"] = ""
             game["selection_anchor"] = None
             game["selection_cells"] = []
+            game["selection_regions"] = []
+            game["selection_frame_mode"] = False
+            game["selection_frame_anchor"] = None
             self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: aus"))
             return
         game["active"] = True
@@ -759,6 +787,9 @@ class InteractiveOperatorTui:
         game["snake_color"] = str(game.get("snake_color") or "mint")
         game["selection_anchor"] = None
         game["selection_cells"] = []
+        game["selection_regions"] = []
+        game["selection_frame_mode"] = False
+        game["selection_frame_anchor"] = None
         game["last_move"] = time.monotonic()
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: an"))
 
@@ -812,6 +843,9 @@ class InteractiveOperatorTui:
         head = self._snake_head(game)
         if head is None:
             return
+        if bool(game.get("selection_frame_mode")):
+            self._snake_commit_frame_selection(game, head=head)
+            return
         anchor_raw = game.get("selection_anchor")
         if not isinstance(anchor_raw, (list, tuple)) or len(anchor_raw) != 2:
             game["selection_anchor"] = head
@@ -829,6 +863,56 @@ class InteractiveOperatorTui:
             self.state.with_updates(
                 header_logo_game=game,
                 status_message=f"snake select: {len(cells)} zellen markiert",
+            )
+        )
+
+    def _snake_toggle_frame_mode(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        if not self._snake_mode_active(game):
+            return
+        head = self._snake_head(game)
+        if head is None:
+            return
+        enabled = bool(game.get("selection_frame_mode"))
+        if enabled:
+            game["selection_frame_mode"] = False
+            game["selection_frame_anchor"] = None
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake frame: aus"))
+            return
+        game["selection_frame_mode"] = True
+        game["selection_frame_anchor"] = head
+        if not isinstance(game.get("selection_regions"), list):
+            game["selection_regions"] = []
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake frame: an (X setzt Rahmen)"))
+
+    def _snake_commit_frame_selection(self, game: dict[str, object], *, head: tuple[int, int]) -> None:
+        anchor_raw = game.get("selection_frame_anchor")
+        if not isinstance(anchor_raw, (list, tuple)) or len(anchor_raw) != 2:
+            game["selection_frame_anchor"] = head
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake frame: anchor gesetzt"))
+            return
+        ax, ay = int(anchor_raw[0]), int(anchor_raw[1])
+        hx, hy = head
+        min_x, max_x = sorted((ax, hx))
+        min_y, max_y = sorted((ay, hy))
+        region_cells = [(x, y) for y in range(min_y, max_y + 1) for x in range(min_x, max_x + 1)]
+        existing_raw = game.get("selection_cells") or []
+        existing = {
+            (int(c[0]), int(c[1]))
+            for c in existing_raw
+            if isinstance(c, (list, tuple)) and len(c) == 2
+        }
+        existing.update(region_cells)
+        game["selection_cells"] = sorted(existing)
+        regions_raw = game.get("selection_regions")
+        regions = list(regions_raw) if isinstance(regions_raw, list) else []
+        regions.append((min_x, min_y, max_x, max_y))
+        game["selection_regions"] = regions
+        game["selection_frame_anchor"] = head
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message=f"snake frame: +{len(region_cells)} zellen ({len(regions)} rahmen)",
             )
         )
 
@@ -864,10 +948,22 @@ class InteractiveOperatorTui:
             xs = by_row[y]
             if not xs:
                 continue
-            min_x, max_x = min(xs), max(xs)
-            if min_x >= len(row):
-                continue
-            chunks.append(row[min_x : min(len(row), max_x + 1)])
+            x_sorted = sorted(set(xs))
+            parts: list[str] = []
+            seg_start = x_sorted[0]
+            seg_end = x_sorted[0]
+            for x in x_sorted[1:]:
+                if x == seg_end + 1:
+                    seg_end = x
+                    continue
+                if seg_start < len(row):
+                    parts.append(row[seg_start : min(len(row), seg_end + 1)])
+                seg_start = x
+                seg_end = x
+            if seg_start < len(row):
+                parts.append(row[seg_start : min(len(row), seg_end + 1)])
+            if parts:
+                chunks.append(" | ".join(parts))
         copied = "\n".join(chunks).rstrip("\n")
         game["clipboard"] = copied
         if copied:
