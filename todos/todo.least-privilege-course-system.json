@@ -163,7 +163,7 @@
       "title": "Kursdatenstruktur und Dateikonventionen definieren",
       "type": "documentation",
       "milestone_id": "LPCS01",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "dependencies": ["LPCS001"],
@@ -316,7 +316,7 @@
       "title": "Kurs 'Artifact-first Entwicklung' planen",
       "type": "course_design",
       "milestone_id": "LPCS03",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "dependencies": ["LPCS010"],
@@ -537,7 +537,7 @@
       "title": "LearningProgress Modell entwerfen",
       "type": "data_model_design",
       "milestone_id": "LPCS06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS003"],
@@ -554,7 +554,7 @@
       "title": "Assessments und praktische Checks definieren",
       "type": "assessment_design",
       "milestone_id": "LPCS06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS025"],
@@ -571,7 +571,7 @@
       "title": "Zertifikate/Badges fuer interne Lernpfade planen",
       "type": "product_design",
       "milestone_id": "LPCS06",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "dependencies": ["LPCS025", "LPCS026"],
@@ -650,11 +650,11 @@
     "LPCS030"
   ],
   "task_status_summary": {
-    "todo": 9,
+    "todo": 4,
     "in_progress": 0,
     "partial": 23,
     "blocked": 0,
-    "done": 0
+    "done": 5
   },
   "definition_of_done": [
     "Kurs-System ist als Ananta-Erweiterung dokumentiert.",
