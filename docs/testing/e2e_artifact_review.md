@@ -46,6 +46,15 @@ ANANTA_TUI_LLM_MODEL=meta-llama_-_llama-3.2-1b-instruct \
 python3 scripts/e2e/record_tui_demo.py --enable --scene snake-mode-live-e2e
 ```
 
+Or run the dedicated E2E pytest (records cast + requires LM Studio responses):
+
+```bash
+ANANTA_E2E_LIVE_LMSTUDIO=1 \
+ANANTA_TUI_LLM_API_BASE=http://127.0.0.1:1234/v1 \
+ANANTA_TUI_LLM_MODEL=meta-llama_-_llama-3.2-1b-instruct \
+PYTHONPATH=. .venv/bin/pytest -q tests/e2e/test_tui_snake_mode_live_lmstudio_e2e.py -s
+```
+
 ## Review workflow
 
 1. Open `aggregate_report.md` for a compact flow overview.

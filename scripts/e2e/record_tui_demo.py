@@ -382,7 +382,8 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     width = max(80, min(220, int(os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH", "120"))))
     height = max(20, min(80, int(os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT", "32"))))
     duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "34"))))
-    run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or "ananta tui").strip()
+    default_cmd = ".venv/bin/ananta tui" if Path(".venv/bin/ananta").exists() else "ananta tui"
+    run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or default_cmd).strip()
     command = shlex.split(run_command)
     if not command:
         raise RuntimeError("ANANTA_TUI_E2E_CAST_COMMAND is empty")
