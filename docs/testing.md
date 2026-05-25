@@ -471,6 +471,18 @@ Der Lauf prueft jetzt zusaetzlich:
 
 Danach sollten im Agenten auch `/api/sgpt/backends` und `/ready` plausibel sein.
 
+## Operator TUI Mouse-Snake (WSL2/Windows Terminal)
+
+Fuer den Mouse-Snake-Flow (Local Snake + AI fast-target + Artifact Chat) siehe:
+
+- `docs/operator-tui-mouse-snake.md`
+
+Cast-Checks:
+
+```bash
+PYTHONPATH=. .venv/bin/pytest -q tests/e2e/test_tui_mouse_snake_artifact_chat_cast.py -s
+```
+
 ## Runtime-Profile Validierung
 
 Gezielte Checks fuer Runtime-Profile:

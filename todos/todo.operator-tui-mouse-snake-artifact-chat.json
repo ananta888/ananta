@@ -1,7 +1,7 @@
 {
   "id": "todo.operator-tui-mouse-snake-artifact-chat",
   "title": "Mouse-driven Snake movement, AI-Snake artifact targeting, and contextual artifact chat",
-  "status": "open",
+  "status": "in_progress",
   "priority": "high",
   "created": "2026-05-25",
   "context": {
@@ -41,7 +41,7 @@
     {
       "id": "MSA-001",
       "title": "Add terminal mouse capability detection",
-      "status": "open",
+      "status": "done",
       "type": "foundation",
       "tasks": [
         "Add a TUI capability layer that records whether mouse events are enabled and supported.",
@@ -63,7 +63,7 @@
     {
       "id": "MSA-002",
       "title": "Represent mouse state and terminal cell coordinates",
-      "status": "open",
+      "status": "done",
       "type": "model",
       "tasks": [
         "Add MouseState model with x, y, last_event_type, buttons, scroll_delta, last_seen_at, active flag.",
@@ -85,7 +85,7 @@
     {
       "id": "MSA-003",
       "title": "Implement smooth local Snake mouse-follow movement",
-      "status": "open",
+      "status": "done",
       "type": "feature",
       "tasks": [
         "Add a local snake movement mode mouse_follow.",
@@ -110,7 +110,7 @@
     {
       "id": "MSA-004",
       "title": "Map screen regions to artifacts, files, panels, and sections",
-      "status": "open",
+      "status": "done",
       "type": "integration",
       "tasks": [
         "Add a RegionIndex or HitMap generated during rendering.",
@@ -135,7 +135,7 @@
     {
       "id": "MSA-005",
       "title": "Add artifact intent recognition from mouse behavior",
-      "status": "open",
+      "status": "done",
       "type": "logic",
       "tasks": [
         "Create an ArtifactIntentDetector that combines hover, click, movement direction, selected row, current focus pane, and recent user chat text.",
@@ -160,7 +160,7 @@
     {
       "id": "MSA-006",
       "title": "Implement AI-Snake follow and fast-target modes",
-      "status": "open",
+      "status": "done",
       "type": "feature",
       "tasks": [
         "Represent AI-Snake movement mode: follow_user, inspect_target, fast_target, explain_target, idle.",
@@ -185,7 +185,7 @@
     {
       "id": "MSA-007",
       "title": "Anchor artifact explanation bubble and contextual chat",
-      "status": "open",
+      "status": "done",
       "type": "ui",
       "tasks": [
         "Add a contextual ArtifactChatState with active_target, messages, pending_request, backend_source, and error state.",
@@ -210,7 +210,7 @@
     {
       "id": "MSA-008",
       "title": "Connect artifact chat to existing Tutorial/AI backend",
-      "status": "open",
+      "status": "done",
       "type": "integration",
       "tasks": [
         "Reuse existing Tutorial AI/OpenAI-compatible backend configuration where possible.",
@@ -236,7 +236,7 @@
     {
       "id": "MSA-009",
       "title": "Integrate inline viewer with AI-Snake artifact explanation",
-      "status": "open",
+      "status": "done",
       "type": "integration",
       "tasks": [
         "When artifact target is confirmed, open or focus the artifact in the inline read-only viewer if it is a text artifact.",
@@ -260,7 +260,7 @@
     {
       "id": "MSA-010",
       "title": "Record mouse-driven Snake artifact chat in homepage E2E cast",
-      "status": "open",
+      "status": "done",
       "type": "e2e",
       "tasks": [
         "Extend snake-mode-live-e2e script to optionally emit mouse movement/click escape sequences if the terminal/app supports them.",
@@ -288,7 +288,7 @@
     {
       "id": "MSA-011",
       "title": "Document WSL2 and Windows Terminal mouse usage",
-      "status": "open",
+      "status": "done",
       "type": "documentation",
       "tasks": [
         "Add docs/operator-tui-mouse-snake.md.",

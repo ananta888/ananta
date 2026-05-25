@@ -67,6 +67,19 @@ def test_operator_tui_focus_command_is_typed() -> None:
     assert result.state.focus is FocusPane.DETAIL
 
 
+def test_operator_tui_mouse_command_toggles_follow_mode() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game={"mouse_follow_enabled": False})
+
+    on = execute_command(":mouse on", state)
+    toggle = execute_command(":mouse", on.state)
+    off = execute_command(":mouse off", toggle.state)
+
+    assert on.handled is True
+    assert bool((on.state.header_logo_game or {}).get("mouse_follow_enabled")) is True
+    assert bool((toggle.state.header_logo_game or {}).get("mouse_follow_enabled")) is False
+    assert bool((off.state.header_logo_game or {}).get("mouse_follow_enabled")) is False
+
+
 def test_operator_tui_section_aliases_and_navigation() -> None:
     assert normalize_section_id("task") == "tasks"
     assert normalize_section_id("?") == "help"
