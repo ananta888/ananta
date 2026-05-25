@@ -14,11 +14,14 @@ def _resolve_ref(ref: str) -> Path:
 
 
 def test_tui_tutorial_ai_live_recording_contains_explainer_events(tmp_path: Path) -> None:
+    synced_a = tmp_path / "synced" / "tests-output.cast"
+    synced_b = tmp_path / "synced" / "web-asset.cast"
     payload = record_tui_demo(
         run_id="video-enable-tui-ai-live",
         flow_id="tui-tutorial-ai-live-video",
         enabled=True,
         scene="tutorial-ai-live",
+        sync_targets=[synced_a, synced_b],
         artifact_root=tmp_path / "artifacts",
     )
 
@@ -40,3 +43,27 @@ def test_tui_tutorial_ai_live_recording_contains_explainer_events(tmp_path: Path
     assert "[target=header]" in frame_text
     assert "[target=nav]" in frame_text
     assert "[target=detail]" in frame_text
+    synced_targets = list(payload.get("synced_cast_targets") or [])
+    assert len(synced_targets) == 2
+    assert synced_a.exists()
+    assert synced_b.exists()
+    assert synced_a.read_text(encoding="utf-8") == synced_b.read_text(encoding="utf-8")
+
+
+def test_tui_tutorial_ai_live_recording_default_sync_targets_are_written(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    payload = record_tui_demo(
+        run_id="video-enable-tui-ai-live-default-sync",
+        flow_id="tui-tutorial-ai-live-video",
+        enabled=True,
+        scene="tutorial-ai-live",
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    synced_targets = list(payload.get("synced_cast_targets") or [])
+    assert len(synced_targets) == 2
+    target_paths = [Path(path) for path in synced_targets]
+    for target in target_paths:
+        assert target.exists()
+    assert target_paths[0].as_posix().endswith("tests/output/operator_tui_tutorial_ai_live.cast")
+    assert target_paths[1].as_posix().endswith("web/www/assets/operator_tui_tutorial_ai_live.cast")
