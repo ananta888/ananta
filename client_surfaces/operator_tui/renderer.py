@@ -71,7 +71,9 @@ def render_operator_shell(
     nav_lines = _navigation_lines(state)
     content_lines = _content_lines(state, middle_width)
     detail_lines = _detail_lines(state, detail_width)
-    body_height = height - 5 - body_offset
+    propose_dock_lines = _tutorial_propose_dock_lines(state, width)
+    body_height = height - 5 - body_offset - len(propose_dock_lines)
+    body_height = max(3, body_height)
     for index in range(body_height):
         lines.append(
             " ".join(
@@ -85,6 +87,7 @@ def render_operator_shell(
             )
         )
 
+    lines.extend(propose_dock_lines)
     lines.append(_rule(width))
     lines.append(_status_line(state, width, splash_state=splash_state))
     lines.append(_command_line(state, width))
@@ -439,26 +442,6 @@ def _dashboard_content_lines(payload: dict, *, state: OperatorState | None = Non
     if not agents and not llm and not queue:
         lines.append("    go to System for health info")
 
-    game = state.header_logo_game if isinstance(state, OperatorState) and isinstance(state.header_logo_game, dict) else {}
-    history = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
-    show_tutorial_flow = bool(game.get("tutorial_mode")) or bool(history)
-    if show_tutorial_flow:
-        lines.append("")
-        lines.append("  Tutorial-AI propose flow")
-        if not history:
-            lines.append("    waiting for first propose...")
-        else:
-            for entry in history[-4:]:
-                if not isinstance(entry, dict):
-                    continue
-                source = str(entry.get("source") or "unknown")
-                target = str(entry.get("target") or "content")
-                text = str(entry.get("text") or "").strip()
-                if not text:
-                    continue
-                label = f"    [{source}->{target}] {text}"
-                lines.append(shorten(label, width=max(24, int(width) - 2), placeholder="..."))
-
     if goal_summary or task_summary:
         lines.append("")
         lines.append("  Overview")
@@ -636,6 +619,35 @@ def _hints_line(state: OperatorState, width: int) -> str:
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
         hints = "[Ctrl+S] Snake  [U] Tutorial-AI  [B] Frame  [X/C/V] Select/Copy/Replace  [Z] Clear"
     return _clip(hints, width)
+
+
+def _tutorial_propose_dock_lines(state: OperatorState, width: int) -> list[str]:
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    history = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
+    show_tutorial_flow = bool(game.get("tutorial_mode")) or bool(history)
+    if not show_tutorial_flow:
+        return []
+
+    inner_width = max(24, int(width) - 4)
+    top = f"+-{'-' * inner_width}-+"
+    title = f"| {_clip('Tutorial-AI propose flow', inner_width).ljust(inner_width)} |"
+
+    rows: list[str] = []
+    if history:
+        for entry in history[-2:]:
+            if not isinstance(entry, dict):
+                continue
+            source = str(entry.get("source") or "unknown")
+            target = str(entry.get("target") or "content")
+            text = str(entry.get("text") or "").strip()
+            if not text:
+                continue
+            label = f"[{source}->{target}] {text}"
+            rows.append(f"| {shorten(label, width=inner_width, placeholder='...').ljust(inner_width)} |")
+    if not rows:
+        rows.append(f"| {_clip('waiting for first propose...', inner_width).ljust(inner_width)} |")
+
+    return [top, title, *rows, top]
 
 
 def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: int) -> list[str]:

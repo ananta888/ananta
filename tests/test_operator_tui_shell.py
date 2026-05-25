@@ -634,8 +634,10 @@ def test_dashboard_shows_tutorial_ai_propose_history_in_snake_mode() -> None:
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
 
     assert "Tutorial-AI propose flow" in plain
+    assert "+-" in plain
     assert "worker-propose->header" in plain
     assert "openai-compatible->nav" in plain
+    assert plain.index("Tutorial-AI propose flow") < plain.index("endpoint=")
 
 
 def test_dashboard_shows_tutorial_ai_propose_history_when_snake_inactive() -> None:
