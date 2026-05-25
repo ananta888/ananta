@@ -381,7 +381,7 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
 def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     width = max(80, min(220, int(os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH", "120"))))
     height = max(20, min(80, int(os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT", "32"))))
-    duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "34"))))
+    duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "52"))))
     default_cmd = ".venv/bin/ananta tui" if Path(".venv/bin/ananta").exists() else "ananta tui"
     run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or default_cmd).strip()
     command = shlex.split(run_command)
@@ -396,8 +396,8 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     env.setdefault("ANANTA_TUI_SNAKE_TUTORIAL_AI", "1")
     env.setdefault("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "1")
     env.setdefault("ANANTA_TUI_SNAKE_AI_BACKEND", "openai-compatible")
-    env.setdefault("ANANTA_TUI_SNAKE_AI_REFRESH", "2.5")
-    env.setdefault("ANANTA_TUI_SNAKE_AI_TIMEOUT", "2.4")
+    env.setdefault("ANANTA_TUI_SNAKE_AI_REFRESH", "1.2")
+    env.setdefault("ANANTA_TUI_SNAKE_AI_TIMEOUT", "8.0")
     env.setdefault("ANANTA_TUI_SNAKE_SELECT_DELAY", "0.30")
     env.setdefault("ANANTA_TUI_SNAKE_AI_MODEL", str(env.get("ANANTA_TUI_LLM_MODEL") or "meta-llama_-_llama-3.2-1b-instruct"))
     env.setdefault("ANANTA_TUI_SNAKE_AI_API_BASE_URL", str(env.get("ANANTA_TUI_LLM_API_BASE") or "http://127.0.0.1:1234/v1"))
@@ -420,7 +420,8 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
         {"at": 16.3, "need": "", "send": "Welche Cast- und Bericht-Artefakte sind hier wichtig?".encode("utf-8")},
         {"at": 16.8, "need": "", "send": b"\r"},
         {"at": 24.0, "need": "", "send": (b"\x1b[C" * 4 + b"\x1b[B" * 2 + b" ")},
-        {"at": 31.0, "need": "", "send": b"q"},
+        {"at": 36.0, "need": "[openai-compatible->", "send": b"q"},
+        {"at": 50.0, "need": "", "send": b"q"},
     ]
 
     master_fd, slave_fd = pty.openpty()
