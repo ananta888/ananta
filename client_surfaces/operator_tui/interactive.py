@@ -39,8 +39,6 @@ class InteractiveOperatorTui:
         self._splash = splash
         self._plugins: PluginRegistry = default_plugin_registry()
         self.state = load_active_section(state, self._registry)
-        if self.state.focus is FocusPane.HEADER:
-            self.state = self._activate_header_snake(self.state)
         self._command_buffer = ""
         self._rendered_text = self._render()
         self._control = FormattedTextControl(text=lambda: ANSI(self._rendered_text))
@@ -100,6 +98,8 @@ class InteractiveOperatorTui:
 
         @bindings.add(":")
         def _(event) -> None:
+            if self._snake_mode_active():
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._append_command(":")
                 return
@@ -110,6 +110,8 @@ class InteractiveOperatorTui:
         def _(event) -> None:
             if self._snake_message_mode_active():
                 self._snake_commit_message()
+                return
+            if self._snake_mode_active():
                 return
             if self.state.mode is OperatorMode.COMMAND:
                 self._run_command(self._command_buffer)
@@ -132,6 +134,8 @@ class InteractiveOperatorTui:
             if self._snake_message_mode_active():
                 self._snake_cancel_message()
                 return
+            if self._snake_mode_active():
+                return
             self._command_buffer = ""
             self._run_command(":cancel")
 
@@ -139,6 +143,8 @@ class InteractiveOperatorTui:
         def _(event) -> None:
             if self._snake_message_mode_active():
                 self._snake_message_backspace()
+                return
+            if self._snake_mode_active():
                 return
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_buffer = self._command_buffer[:-1]
@@ -187,6 +193,8 @@ class InteractiveOperatorTui:
 
         @bindings.add("tab")
         def _(event) -> None:
+            if self._snake_mode_active():
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._append_command(" ")
                 return
@@ -199,16 +207,18 @@ class InteractiveOperatorTui:
                 return
             self._snake_immediate_brake()
 
-        @bindings.add("c-f")
+        @bindings.add("c-s")
         def _(event) -> None:
             if self.state.mode is OperatorMode.COMMAND:
                 return
-            self._toggle_snake_free_mode()
+            self._toggle_snake_mode()
 
         @bindings.add("m")
         def _(event) -> None:
             if self.state.mode is OperatorMode.COMMAND:
                 self._append_command("m")
+                return
+            if not self._snake_mode_active():
                 return
             self._toggle_snake_message_mode()
 
@@ -270,6 +280,8 @@ class InteractiveOperatorTui:
         if self.state.mode is OperatorMode.COMMAND:
             self._append_command(text)
             return
+        if self._snake_mode_active():
+            return
         normal_action()
 
     def _append_command(self, text: str) -> None:
@@ -308,10 +320,6 @@ class InteractiveOperatorTui:
         else:
             new_selected = self.state.selected_index
         next_state = self.state.with_updates(focus=new_focus, selected_index=new_selected)
-        if new_focus is FocusPane.HEADER:
-            next_state = self._activate_header_snake(next_state)
-        elif self.state.focus is FocusPane.HEADER:
-            next_state = self._deactivate_header_snake(next_state)
         self._set_state(next_state)
 
     def _header_snake_enabled(self) -> bool:
@@ -376,11 +384,9 @@ class InteractiveOperatorTui:
             return False
         if not self._header_snake_enabled():
             return False
-        steering = self.state.focus is FocusPane.HEADER or bool(game.get("ui_steering"))
+        steering = self._snake_mode_active(game)
         if not steering:
             return False
-        if not game:
-            game = self._default_header_snake()
         if not game.get("active", False):
             game["active"] = True
         if not game.get("alive", True):
@@ -537,14 +543,27 @@ class InteractiveOperatorTui:
             )
         return state.with_updates(header_logo_game=game)
 
-    def _toggle_snake_free_mode(self) -> None:
+    def _snake_mode_active(self, game: dict[str, object] | None = None) -> bool:
+        g = game if game is not None else dict(self.state.header_logo_game or {})
+        return bool(g.get("active") and g.get("ui_steering"))
+
+    def _toggle_snake_mode(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
-        new_mode = not bool(game.get("free_mode"))
+        if self._snake_mode_active(game):
+            game["active"] = False
+            game["ui_steering"] = False
+            game["free_mode"] = False
+            game["message_mode"] = False
+            game["message_draft"] = ""
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: aus"))
+            return
         game["active"] = True
         game["ui_steering"] = True
-        game["free_mode"] = new_mode
-        label = "an" if new_mode else "aus"
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake fullscreen: {label}"))
+        game["free_mode"] = True
+        game["message_mode"] = False
+        game["message_draft"] = ""
+        game["last_move"] = time.monotonic()
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: an"))
 
     def _snake_message_mode_active(self) -> bool:
         game = dict(self.state.header_logo_game or {})
