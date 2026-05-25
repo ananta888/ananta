@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import time
 from pathlib import Path
@@ -26,6 +27,8 @@ from client_surfaces.operator_tui.sections import SECTIONS, get_section
 
 if TYPE_CHECKING:
     from agent.cli.splash import SplashMachine, SplashState
+
+_ANSI_STRIP = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 class InteractiveOperatorTui:
@@ -233,6 +236,42 @@ class InteractiveOperatorTui:
                 return
             self._toggle_snake_message_mode()
 
+        @bindings.add("x")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command("x")
+                return
+            if self._snake_message_mode_active():
+                self._snake_message_append("x")
+                return
+            if not self._snake_mode_active():
+                return
+            self._snake_toggle_selection()
+
+        @bindings.add("c")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command("c")
+                return
+            if self._snake_message_mode_active():
+                self._snake_message_append("c")
+                return
+            if not self._snake_mode_active():
+                return
+            self._snake_copy_selection()
+
+        @bindings.add("v")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command("v")
+                return
+            if self._snake_message_mode_active():
+                self._snake_message_append("v")
+                return
+            if not self._snake_mode_active():
+                return
+            self._snake_replace_selection()
+
         @bindings.add("left")
         def _(event) -> None:
             if self._try_header_snake_direction((-1, 0)):
@@ -353,6 +392,9 @@ class InteractiveOperatorTui:
             "snake": snake,
             "trail_path": list(snake),
             "mark_cells": [],
+            "selection_anchor": None,
+            "selection_cells": [],
+            "clipboard": "",
             "direction": (1, 0),
             "next_direction": (1, 0),
             "vel_x": 10.0,
@@ -597,6 +639,8 @@ class InteractiveOperatorTui:
             game["free_mode"] = False
             game["message_mode"] = False
             game["message_draft"] = ""
+            game["selection_anchor"] = None
+            game["selection_cells"] = []
             self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: aus"))
             return
         game["active"] = True
@@ -604,8 +648,159 @@ class InteractiveOperatorTui:
         game["free_mode"] = True
         game["message_mode"] = False
         game["message_draft"] = ""
+        game["selection_anchor"] = None
+        game["selection_cells"] = []
         game["last_move"] = time.monotonic()
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: an"))
+
+    def _snake_head(self, game: dict[str, object]) -> tuple[int, int] | None:
+        snake = game.get("snake") or []
+        if not isinstance(snake, list) or not snake:
+            return None
+        head = snake[0]
+        if not isinstance(head, (list, tuple)) or len(head) != 2:
+            return None
+        return int(head[0]), int(head[1])
+
+    def _snake_toggle_selection(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        if not self._snake_mode_active(game):
+            return
+        head = self._snake_head(game)
+        if head is None:
+            return
+        anchor_raw = game.get("selection_anchor")
+        if not isinstance(anchor_raw, (list, tuple)) or len(anchor_raw) != 2:
+            game["selection_anchor"] = head
+            game["selection_cells"] = []
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake select: start"))
+            return
+        ax, ay = int(anchor_raw[0]), int(anchor_raw[1])
+        hx, hy = head
+        min_x, max_x = sorted((ax, hx))
+        min_y, max_y = sorted((ay, hy))
+        cells = [(x, y) for y in range(min_y, max_y + 1) for x in range(min_x, max_x + 1)]
+        game["selection_anchor"] = None
+        game["selection_cells"] = cells
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message=f"snake select: {len(cells)} zellen markiert",
+            )
+        )
+
+    def _snake_render_plain_lines(self) -> list[str]:
+        game = dict(self.state.header_logo_game or {})
+        if game.get("free_mode"):
+            game["free_mode"] = False
+        temp_state = self.state.with_updates(header_logo_game=game)
+        size = shutil.get_terminal_size((120, 32))
+        rendered = render_operator_shell(temp_state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash)
+        return [_ANSI_STRIP.sub("", line) for line in rendered.splitlines()]
+
+    def _snake_copy_selection(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        cells_raw = game.get("selection_cells") or []
+        cells = [
+            (int(c[0]), int(c[1]))
+            for c in cells_raw
+            if isinstance(c, (list, tuple)) and len(c) == 2
+        ]
+        if not cells:
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake copy: keine auswahl"))
+            return
+        lines = self._snake_render_plain_lines()
+        by_row: dict[int, list[int]] = {}
+        for x, y in cells:
+            by_row.setdefault(y, []).append(x)
+        chunks: list[str] = []
+        for y in sorted(by_row.keys()):
+            if y < 0 or y >= len(lines):
+                continue
+            row = lines[y]
+            xs = by_row[y]
+            if not xs:
+                continue
+            min_x, max_x = min(xs), max(xs)
+            if min_x >= len(row):
+                continue
+            chunks.append(row[min_x : min(len(row), max_x + 1)])
+        copied = "\n".join(chunks).rstrip("\n")
+        game["clipboard"] = copied
+        if copied:
+            game["message"] = copied
+        self._set_state(
+            self.state.with_updates(
+                header_logo_game=game,
+                status_message="snake copy: in clipboard + message",
+            )
+        )
+
+    def _snake_replace_selection(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        cells_raw = game.get("selection_cells") or []
+        cells = [
+            (int(c[0]), int(c[1]))
+            for c in cells_raw
+            if isinstance(c, (list, tuple)) and len(c) == 2
+        ]
+        if not cells:
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake replace: keine auswahl"))
+            return
+        if self.state.mode is not OperatorMode.COMMAND:
+            self._set_state(
+                self.state.with_updates(
+                    header_logo_game=game,
+                    status_message="snake replace: nur im editierbaren command-feld",
+                )
+            )
+            return
+        lines = self._snake_render_plain_lines()
+        if not lines:
+            return
+        command_row = len(lines) - 2
+        ys = {y for _, y in cells}
+        if ys != {command_row}:
+            self._set_state(
+                self.state.with_updates(
+                    header_logo_game=game,
+                    status_message="snake replace: auswahl muss in der command-zeile liegen",
+                )
+            )
+            return
+        replacement = str(game.get("message") or game.get("clipboard") or "")
+        if not replacement:
+            self._set_state(
+                self.state.with_updates(
+                    header_logo_game=game,
+                    status_message="snake replace: keine message/clipboard vorhanden",
+                )
+            )
+            return
+        xs = sorted(x for x, _ in cells)
+        min_x = min(xs)
+        max_x = max(xs)
+        # command line has one visible prefix char (":" in command mode)
+        start = max(0, min_x - 1)
+        end = max(start, max_x - 1)
+        cmd = self.state.command_line
+        if start > len(cmd):
+            start = len(cmd)
+        end = min(len(cmd) - 1, end) if cmd else -1
+        if end >= start:
+            new_cmd = cmd[:start] + replacement + cmd[end + 1 :]
+        else:
+            new_cmd = cmd[:start] + replacement + cmd[start:]
+        self._command_buffer = new_cmd
+        game["selection_anchor"] = None
+        game["selection_cells"] = []
+        self._set_state(
+            self.state.with_updates(
+                command_line=new_cmd,
+                header_logo_game=game,
+                status_message="snake replace: command-feld ersetzt",
+            )
+        )
 
     def _snake_message_mode_active(self) -> bool:
         game = dict(self.state.header_logo_game or {})

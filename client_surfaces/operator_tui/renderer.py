@@ -267,7 +267,8 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-Mode aktiv: nur Snake-Steuerung steuert die UI", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Steuerung: [←→↑↓] lenken/boost · [Space] stop", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Mode: [Ctrl+S] an/aus · Bewegung über die gesamte UI", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Markieren: Snake-Spur markiert Text beim Vorbeifahren", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Auswahl: [X] start/ende · [C] kopieren · [V] ersetzen", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Ersetzen nur im Command-Feld (editierbar)", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Botschaft: [M] tippen · [Enter] speichern · [Esc] abbrechen", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Config: ~/.config/ananta/snake-config.json → snake_message", width))
         if game.get("message_mode"):
@@ -592,7 +593,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
     game = state.header_logo_game or {}
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
-        hints = "[Ctrl+S] Snake an/aus  [←→↑↓] Lenken/Boost  [M] Message  [Enter] Speichern  [Space] Stop"
+        hints = "[Ctrl+S] Snake  [X/C/V] Auswahl/Kopie/Replace  [M] Message  [Space] Stop"
     return _clip(hints, width)
 
 
@@ -606,6 +607,8 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
 
     out = list(lines)
     marker_col = (255, 220, 120)
+    select_col = (255, 172, 95)
+    anchor_col = (255, 150, 180)
     head_col = (170, 255, 210)
     body_col = (96, 215, 165)
     marks = game.get("mark_cells") or []
@@ -620,6 +623,26 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
                 continue
             repl = f"\x1b[48;2;{marker_col[0]};{marker_col[1]};{marker_col[2]}m\x1b[38;2;25;25;25m{base}\x1b[0m"
             out[y] = _overlay_at_visible_col(out[y], x, repl)
+
+    selection = game.get("selection_cells") or []
+    if isinstance(selection, list):
+        for item in selection:
+            if not isinstance(item, (list, tuple)) or len(item) != 2:
+                continue
+            x = int(item[0]) % max(1, width)
+            y = int(item[1]) % max(1, len(out))
+            base = _visible_char_at(out[y], x)
+            if base == " ":
+                base = "░"
+            repl = f"\x1b[48;2;{select_col[0]};{select_col[1]};{select_col[2]}m\x1b[38;2;20;20;20m{base}\x1b[0m"
+            out[y] = _overlay_at_visible_col(out[y], x, repl)
+
+    anchor = game.get("selection_anchor")
+    if isinstance(anchor, (list, tuple)) and len(anchor) == 2:
+        x = int(anchor[0]) % max(1, width)
+        y = int(anchor[1]) % max(1, len(out))
+        repl = f"\x1b[38;2;{anchor_col[0]};{anchor_col[1]};{anchor_col[2]}m◎\x1b[0m"
+        out[y] = _overlay_at_visible_col(out[y], x, repl)
 
     for idx, pos in enumerate(snake):
         if not isinstance(pos, (list, tuple)) or len(pos) != 2:
