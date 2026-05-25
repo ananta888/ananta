@@ -20,13 +20,14 @@
 
 ## Delegation
 
-- Delegation erfordert explizit `share`.
-- Delegierte Grants duerfen nur gleich eng oder enger sein.
-- Delegation an Worker und an User sind getrennte Pfade.
-- Delegation an Remote-LLM ist immer explizit und separat.
+- Delegation erfordert explizit `share` und erzeugt immer einen neuen Grant mit eigener ID und Audit-Referenz.
+- `share` ist getrennt von `read_metadata`, `download_encrypted` und `decrypt`.
+- Delegierte Grants duerfen nur gleich eng oder enger sein (kleineres Scope, kuerzere Laufzeit, weniger Berechtigungen).
+- Delegation an User ist getrennt von Delegation an Worker.
+- Delegation an Remote-LLM ist immer explizit und separat (`provide_to_remote_llm`), niemals implizit aus `provide_to_worker`.
+- Delegation muss den Ursprung (`parent_grant_id`) behalten, damit ein Widerruf vererbte Grants nachvollziehbar sperren kann.
 
 ## Revocation-Wirkung
 
 - Revocation stoppt neue Tickets, Key-Unwraps und neue Context-Releases.
 - Bereits lokal entschluesselte Kopien sind nicht vollstaendig rueckholbar (explizit dokumentiert).
-

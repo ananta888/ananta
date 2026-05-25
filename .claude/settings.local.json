@@ -163,7 +163,8 @@
       "Bash(docker cp *)",
       "Bash(grep -v \"WARNING\\\\|INFO\\\\|DEBUG\\\\|^$\")",
       "Bash(ananta --version)",
-      "Bash(.venv/bin/pip show *)"
+      "Bash(.venv/bin/pip show *)",
+      "Bash(asciinema --version)"
     ]
   }
 }
