@@ -42,13 +42,15 @@ def render_operator_shell(
             lines.append("")
         return "\n".join(_clip(line, width) for line in lines)
 
+    header_focused = state.focus == FocusPane.HEADER
+
     if splash_line_count > 0 and splash_state not in ("disabled", "skipped"):
         persistent_header: list[str] = []
         rule_line = _rule(width)
         body_offset = splash_line_count
     else:
         persistent_header = _render_persistent_header(state, width)
-        rule_line = _rule(width)
+        rule_line = _header_rule(width, focused=header_focused)
         body_offset = len(persistent_header) + 1  # +1 for the rule
 
     left_width = 22
@@ -415,6 +417,16 @@ def _hints_line(state: OperatorState, width: int) -> str:
 
 def _rule(width: int) -> str:
     return "-" * width
+
+
+def _header_rule(width: int, focused: bool = False) -> str:
+    if not focused:
+        return "-" * width
+    label = " [HEADER] "
+    dashes = width - len(label)
+    left = dashes // 2
+    right = dashes - left
+    return "-" * left + label + "-" * right
 
 
 def _clip(value: str, width: int) -> str:
