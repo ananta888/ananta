@@ -78,14 +78,14 @@
     {
       "id": "EAX04",
       "title": "Transport: Hub/Object-Storage und optional WebRTC-P2P planen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "task_ids": ["EAX015", "EAX016", "EAX017", "EAX018", "EAX019"]
     },
     {
       "id": "EAX05",
       "title": "Worker-/LLM-Kontextfreigabe absichern",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "task_ids": ["EAX020", "EAX021", "EAX022", "EAX023"]
     },
@@ -412,7 +412,7 @@
       "title": "Docker-Profile fuer Artifact-P2P-Hilfsdienste skizzieren",
       "type": "deployment_design",
       "milestone_id": "EAX04",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": ["EAX016", "EAX018"],
@@ -447,7 +447,7 @@
       "title": "RAG-/CodeCompass-Kontextzugriff mit Artefaktfreigaben verbinden",
       "type": "security_design",
       "milestone_id": "EAX05",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["EAX020"],
@@ -465,7 +465,7 @@
       "title": "Worker-Result-Artefakte automatisch klassifizieren und sperren",
       "type": "security_design",
       "milestone_id": "EAX05",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["EAX004", "EAX020"],
@@ -482,7 +482,7 @@
       "title": "Human Approval fuer sensible Kontextfreigaben planen",
       "type": "workflow_design",
       "milestone_id": "EAX05",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": ["EAX020", "EAX021", "EAX022"],
@@ -499,7 +499,7 @@
       "title": "Audit-Events fuer Artefaktfreigaben definieren",
       "type": "audit_design",
       "milestone_id": "EAX06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["EAX006", "EAX020"],
@@ -593,11 +593,11 @@
     "EAX025"
   ],
   "task_status_summary": {
-    "todo": 7,
+    "todo": 3,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 0,
     "blocked": 0,
-    "done": 20
+    "done": 25
   },
   "definition_of_done": [
     "Verschluesselter Artefakt-Austausch ist als Ananta-Kernarchitektur-Erweiterung dokumentiert.",
