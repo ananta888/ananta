@@ -1,0 +1,381 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "ananta_capoeira_3d_duel_mvp",
+  "created": "2026-05-25",
+  "status": "todo",
+  "purpose": "Ein extrem kleiner 3D-Capoeira-Duell-Prototyp als kontrolliertes Ananta-Entwicklungsbeispiel: Ginga, Distanz, Ausweichen, ein sauberer Kick, deterministische Trefferlogik.",
+  "goal": "Einen kleinen Godot-4-Prototyp entwickeln, der Capoeira-inspiriertes 1-vs-1-Spielgefuehl prueft, ohne in Content, Online, VR/MR oder Asset-Polish zu explodieren.",
+  "overview": "docs/examples/ananta-capoeira-duel/README.md",
+  "target_engine": "Godot 4",
+  "prototype_path": "prototypes/ananta-capoeira-duel/",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "scope_decision": {
+    "active_working_set": "Brutal-MVP Capoeira Duel",
+    "first_playable_goal": "Ginga + Bewegung + ein Kick + eine Esquiva + Dummy + Punkte",
+    "not_a_full_fighting_game": true,
+    "not_a_vr_or_mr_project_yet": true,
+    "not_a_content_project_yet": true
+  },
+  "brutal_mvp_scope": {
+    "players": "1 Spieler gegen Dummy; lokaler 2-Spieler-Modus erst danach",
+    "arena": "kleine runde 3D-Roda",
+    "camera": "seitlich/leicht erhoeht, Street-Fighter-lesbar mit etwas Tiefe",
+    "characters": "Placeholder-Fighter und DummyOpponent",
+    "moves": ["Ginga", "Meia Lua", "Martelo", "Esquiva", "Negativa"],
+    "active_first_moves": ["Ginga", "ein Kick", "eine Esquiva"],
+    "combat": "deterministische Hitbox/Hurtbox-Regeln",
+    "score": "Punkte statt komplexem Lebensbalken",
+    "tests_first": true
+  },
+  "explicitly_out_of_scope_first_step": [
+    "Online-Multiplayer",
+    "KI-Gegner mit Taktik",
+    "Story/Kampagne",
+    "viele Charaktere",
+    "komplexe Combos",
+    "Motion Capture",
+    "realistische Physik",
+    "VR/MR/Meta Quest",
+    "Musik-/Rhythmus-System als Pflichtmechanik",
+    "Asset-Polish",
+    "Shop/Progression",
+    "Balancing fuer kompetitives Spiel"
+  ],
+  "milestones": [
+    {
+      "id": "CAP01",
+      "title": "Konzept und Scope einfrieren",
+      "status": "done",
+      "priority": "P0",
+      "task_ids": ["CAP001", "CAP002"]
+    },
+    {
+      "id": "CAP02",
+      "title": "Godot-Prototyp-Skelett erstellen",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["CAP003", "CAP004", "CAP005"]
+    },
+    {
+      "id": "CAP03",
+      "title": "Fighter-Bewegung und Ginga umsetzen",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["CAP006", "CAP007", "CAP008"]
+    },
+    {
+      "id": "CAP04",
+      "title": "Minimalen Kampf-Core umsetzen",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["CAP009", "CAP010", "CAP011", "CAP012"]
+    },
+    {
+      "id": "CAP05",
+      "title": "Tests, Review und naechste Entscheidung",
+      "status": "todo",
+      "priority": "P0",
+      "task_ids": ["CAP013", "CAP014", "CAP015", "CAP016"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CAP001",
+      "title": "Capoeira-Duel-README anlegen",
+      "type": "documentation",
+      "milestone_id": "CAP01",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "deliverables": ["docs/examples/ananta-capoeira-duel/README.md"],
+      "acceptance_criteria": [
+        "README beschreibt das Spiel als kleinen 3D-Capoeira-Duell-Prototyp.",
+        "README grenzt den MVP klar von vollstaendigem Fighting Game, Online, VR/MR und Asset-Polish ab.",
+        "README enthaelt Mermaid-Diagramme fuer Core Loop, Move-Satz, technische Architektur und Ananta-Integration.",
+        "README nennt Godot 4 als bevorzugte erste Engine."
+      ]
+    },
+    {
+      "id": "CAP002",
+      "title": "Feingranulare TODO-JSON anlegen",
+      "type": "planning",
+      "milestone_id": "CAP01",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "deliverables": ["docs/examples/ananta-capoeira-duel/todo.capoeira-3d-duel-mvp.json"],
+      "acceptance_criteria": [
+        "TODO trennt Konzept, Godot-Skelett, Bewegung, Kampf-Core, Tests und Review.",
+        "Jeder Task hat Acceptance Criteria.",
+        "Nicht-Ziele sind explizit dokumentiert.",
+        "Der erste Working Set bleibt klein genug fuer einen echten MVP."
+      ]
+    },
+    {
+      "id": "CAP003",
+      "title": "Godot-Projektstruktur vorbereiten",
+      "type": "implementation",
+      "milestone_id": "CAP02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "deliverables": ["prototypes/ananta-capoeira-duel/project.godot", "prototypes/ananta-capoeira-duel/scenes/", "prototypes/ananta-capoeira-duel/scripts/"],
+      "acceptance_criteria": [
+        "Godot-4-Projekt kann lokal geoeffnet werden.",
+        "Main.tscn existiert als Einstiegsszene.",
+        "Szenen und Scripts liegen in klaren Unterordnern.",
+        "Keine externen Assets sind fuer den Start notwendig."
+      ]
+    },
+    {
+      "id": "CAP004",
+      "title": "RodaArena-Szene erstellen",
+      "type": "implementation",
+      "milestone_id": "CAP02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "dependencies": ["CAP003"],
+      "deliverables": ["prototypes/ananta-capoeira-duel/scenes/RodaArena.tscn"],
+      "acceptance_criteria": [
+        "Arena ist rund oder klar als Roda markiert.",
+        "Spielbereich hat eine einfache Begrenzung.",
+        "Spawnpunkte fuer Spieler und Dummy sind vorhanden.",
+        "Arena bleibt visuell minimal und funktional."
+      ]
+    },
+    {
+      "id": "CAP005",
+      "title": "Kamera fuer 3D-Fighter-Lesbarkeit einrichten",
+      "type": "implementation",
+      "milestone_id": "CAP02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["CAP004"],
+      "deliverables": ["Kamera-Setup in Main.tscn"],
+      "acceptance_criteria": [
+        "Beide Figuren sind gleichzeitig sichtbar.",
+        "Tiefe der Arena ist erkennbar.",
+        "Kamera rotiert im MVP nicht unkontrolliert.",
+        "Treffer- und Ausweichbewegungen bleiben lesbar."
+      ]
+    },
+    {
+      "id": "CAP006",
+      "title": "Placeholder-Fighter erstellen",
+      "type": "implementation",
+      "milestone_id": "CAP03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "dependencies": ["CAP003"],
+      "deliverables": ["prototypes/ananta-capoeira-duel/scenes/Fighter.tscn"],
+      "acceptance_criteria": [
+        "Fighter ist als einfache Capsule/Low-Poly-Figur sichtbar.",
+        "Fighter hat eine eindeutig erkennbare Blickrichtung.",
+        "Fighter kann vom PlayerController bewegt werden.",
+        "Keine fertigen Charakterassets sind erforderlich."
+      ]
+    },
+    {
+      "id": "CAP007",
+      "title": "PlayerController fuer Grundbewegung schreiben",
+      "type": "implementation",
+      "milestone_id": "CAP03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["CAP006"],
+      "deliverables": ["prototypes/ananta-capoeira-duel/scripts/player_controller.gd"],
+      "acceptance_criteria": [
+        "Spieler kann sich links/rechts/vor/zurueck innerhalb der Roda bewegen.",
+        "Bewegung ist begrenzt und verlaesst die Arena nicht.",
+        "Figur richtet sich grob zum Gegner aus.",
+        "Input ist klar von Kampfzustand/MoveState getrennt."
+      ]
+    },
+    {
+      "id": "CAP008",
+      "title": "Ginga als Grundzustand modellieren",
+      "type": "implementation",
+      "milestone_id": "CAP03",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["CAP007"],
+      "deliverables": ["prototypes/ananta-capoeira-duel/scripts/move_state_machine.gd"],
+      "acceptance_criteria": [
+        "Ginga ist der Default-State, wenn kein Angriff/Ausweichen aktiv ist.",
+        "Ginga beeinflusst visuell den Rhythmus, aber zerstoert nicht die Steuerbarkeit.",
+        "StateMachine kennt mindestens IDLE_GINGA, MOVE, ATTACK, EVADE und RECOVERY.",
+        "Wechsel zwischen States ist deterministisch nachvollziehbar."
+      ]
+    },
+    {
+      "id": "CAP009",
+      "title": "DummyOpponent erstellen",
+      "type": "implementation",
+      "milestone_id": "CAP04",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "dependencies": ["CAP004", "CAP006"],
+      "deliverables": ["prototypes/ananta-capoeira-duel/scenes/DummyOpponent.tscn"],
+      "acceptance_criteria": [
+        "Dummy steht in der Roda und kann getroffen werden.",
+        "Dummy hat eine Hurtbox.",
+        "Dummy muss im MVP nicht intelligent reagieren.",
+        "Dummy kann optional einfache Testpose/Ginga zeigen."
+      ]
+    },
+    {
+      "id": "CAP010",
+      "title": "Ersten Kick mit Hitbox umsetzen",
+      "type": "implementation",
+      "milestone_id": "CAP04",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["CAP008", "CAP009"],
+      "deliverables": ["prototypes/ananta-capoeira-duel/scripts/combat_controller.gd", "prototypes/ananta-capoeira-duel/scripts/hitbox.gd"],
+      "acceptance_criteria": [
+        "Ein Kick kann per Input ausgeloest werden.",
+        "Kick hat Start-up, Active-Frames und Recovery als einfache Zeitfenster.",
+        "Hitbox ist nur im aktiven Trefferfenster aktiv.",
+        "Treffer gegen Dummy wird eindeutig erkannt."
+      ]
+    },
+    {
+      "id": "CAP011",
+      "title": "Erste Esquiva mit Hurtbox-Verschiebung umsetzen",
+      "type": "implementation",
+      "milestone_id": "CAP04",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["CAP008", "CAP010"],
+      "deliverables": ["prototypes/ananta-capoeira-duel/scripts/hurtbox.gd"],
+      "acceptance_criteria": [
+        "Esquiva kann per Input ausgeloest werden.",
+        "Hurtbox wird fuer kurze Zeit nach unten/seitlich verschoben oder verkleinert.",
+        "Esquiva hat Recovery und ist nicht kostenlos spambar.",
+        "Mindestens ein Angriff kann durch korrektes Timing vermieden werden."
+      ]
+    },
+    {
+      "id": "CAP012",
+      "title": "ScoreState und deterministische Trefferwertung schreiben",
+      "type": "implementation",
+      "milestone_id": "CAP04",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["CAP010"],
+      "deliverables": ["prototypes/ananta-capoeira-duel/scripts/score_state.gd"],
+      "acceptance_criteria": [
+        "Treffer erhoeht Punktestand deterministisch.",
+        "Mehrfachtreffer durch denselben aktiven Kick werden verhindert.",
+        "Score wird sichtbar oder per Debug-Ausgabe nachvollziehbar angezeigt.",
+        "Kein komplexer Lebensbalken ist im MVP erforderlich."
+      ]
+    },
+    {
+      "id": "CAP013",
+      "title": "ActionLog fuer Debug und spaeteres Replay skizzieren",
+      "type": "implementation",
+      "milestone_id": "CAP05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["CAP008", "CAP010", "CAP012"],
+      "deliverables": ["prototypes/ananta-capoeira-duel/scripts/action_log.gd"],
+      "acceptance_criteria": [
+        "Inputs und daraus entstehende Move-State-Wechsel koennen geloggt werden.",
+        "Trefferereignisse werden mit Zeit/Frame und Move erfasst.",
+        "Log ist einfach serialisierbar oder als Debug-Text ausgebbar.",
+        "Replay muss noch nicht voll implementiert sein."
+      ]
+    },
+    {
+      "id": "CAP014",
+      "title": "Minimaltests fuer StateMachine und Trefferlogik schreiben",
+      "type": "testing",
+      "milestone_id": "CAP05",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["CAP008", "CAP010", "CAP012"],
+      "deliverables": ["prototypes/ananta-capoeira-duel/tests/test_move_state_machine.gd", "prototypes/ananta-capoeira-duel/tests/test_hit_detection.gd", "prototypes/ananta-capoeira-duel/tests/test_score_rules.gd"],
+      "acceptance_criteria": [
+        "StateMachine-Test prueft erlaubte und verbotene State-Wechsel.",
+        "HitDetection-Test prueft Treffer nur in aktiven Frames.",
+        "Score-Test prueft genau einen Punkt pro gueltigem Trefferfenster.",
+        "Tests laufen ohne manuelle Spielinteraktion."
+      ]
+    },
+    {
+      "id": "CAP015",
+      "title": "First-Playable-Review dokumentieren",
+      "type": "review",
+      "milestone_id": "CAP05",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["CAP003", "CAP004", "CAP005", "CAP006", "CAP007", "CAP008", "CAP009", "CAP010", "CAP011", "CAP012", "CAP014"],
+      "deliverables": ["docs/examples/ananta-capoeira-duel/first_playable_review.md"],
+      "acceptance_criteria": [
+        "Review beantwortet, ob Ginga + Kick + Esquiva schon spielerisch Sinn ergeben.",
+        "Review nennt maximal drei konkrete Verbesserungen fuer Bewegungsgefuehl.",
+        "Review entscheidet, ob Martelo, Meia Lua oder Negativa als naechstes sinnvoll ist.",
+        "Review verhindert Scope-Sprung zu Online/VR/Asset-Polish."
+      ]
+    },
+    {
+      "id": "CAP016",
+      "title": "Naechsten Sprint nur nach Spielgefuehl-Entscheidung planen",
+      "type": "planning",
+      "milestone_id": "CAP05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["CAP015"],
+      "deliverables": ["docs/examples/ananta-capoeira-duel/next_sprint_decision.md"],
+      "acceptance_criteria": [
+        "Entscheidung basiert auf First-Playable-Review, nicht auf Wunschliste.",
+        "Maximal ein neuer Move wird fuer den naechsten Sprint aktiviert.",
+        "Tests und Trefferfenster bleiben Pflicht.",
+        "Geparkte Features bleiben geparkt, bis der Kern Spass macht."
+      ]
+    }
+  ],
+  "first_recommended_working_set": [
+    "CAP003",
+    "CAP004",
+    "CAP005",
+    "CAP006",
+    "CAP007",
+    "CAP008",
+    "CAP009",
+    "CAP010",
+    "CAP011",
+    "CAP012",
+    "CAP014",
+    "CAP015"
+  ],
+  "definition_of_done": [
+    "README und TODO-JSON sind im Repo vorhanden.",
+    "Godot-Prototyp laesst sich starten.",
+    "Roda, Fighter und Dummy sind sichtbar.",
+    "Spieler kann sich kontrolliert in der Roda bewegen.",
+    "Ginga ist als Grundzustand sichtbar oder im State-Modell vorhanden.",
+    "Ein Kick trifft den Dummy nur in aktivem Trefferfenster.",
+    "Eine Esquiva veraendert Hurtbox/Verletzbarkeit nachvollziehbar.",
+    "Treffer zaehlen deterministisch Punkte.",
+    "Minimaltests pruefen StateMachine, HitDetection und Score.",
+    "Review entscheidet bewusst ueber naechsten Move statt Scope-Explosion."
+  ]
+}
