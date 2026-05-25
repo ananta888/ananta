@@ -364,7 +364,7 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
         return lines
 
     if section.id == "dashboard":
-        lines.extend(_dashboard_content_lines(payload))
+        lines.extend(_dashboard_content_lines(payload, state=state, width=width))
     elif section.id == "goals":
         items = payload.get("items") or []
         if not items:
@@ -416,7 +416,7 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
     return lines
 
 
-def _dashboard_content_lines(payload: dict) -> list[str]:
+def _dashboard_content_lines(payload: dict, *, state: OperatorState | None = None, width: int = 72) -> list[str]:
     lines = []
     agents = payload.get("agents") or {}
     llm = payload.get("llm_providers") or {}
@@ -448,6 +448,25 @@ def _dashboard_content_lines(payload: dict) -> list[str]:
     else:
         lines.append("")
         lines.append("  go to Goals or Tasks for details")
+
+    game = state.header_logo_game if isinstance(state, OperatorState) and isinstance(state.header_logo_game, dict) else {}
+    if game.get("active") and game.get("tutorial_mode"):
+        lines.append("")
+        lines.append("  Tutorial-AI propose flow")
+        history = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
+        if not history:
+            lines.append("    waiting for first propose...")
+        else:
+            for entry in history[-4:]:
+                if not isinstance(entry, dict):
+                    continue
+                source = str(entry.get("source") or "unknown")
+                target = str(entry.get("target") or "content")
+                text = str(entry.get("text") or "").strip()
+                if not text:
+                    continue
+                label = f"    [{source}->{target}] {text}"
+                lines.append(shorten(label, width=max(24, int(width) - 2), placeholder="..."))
 
     return lines
 
