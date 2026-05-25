@@ -1,0 +1,431 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "ananta_game_ascii_logo_animation_renderer",
+  "created": "2026-05-25",
+  "status": "backlog",
+  "purpose": "Erweiterungsmodul fuer das Ananta Strategie-Game: Die bestehende ananta.svg-basierte 2D/3D ASCII-Logo-Animation und ihr E2E-/Smoke-Test sollen zuerst als Renderer-/Animationsbasis fuer das Strategiespiel genutzt werden.",
+  "goal": "Die vorhandene Logo-ASCII-Pipeline nicht duplizieren, sondern als generische Terminal-/ASCII-Rendering-Basis fuer Spielkarte, Figuren, Splash, Kampfmodus und spaetere 3D-Erweiterungen ausbauen.",
+  "existing_basis": [
+    "ananta.svg",
+    "scripts/smoke_logo.py",
+    "scripts/render_terminal_logo.py",
+    "agent/cli/logo_assets.py",
+    "client_surfaces/operator_tui/animation3d/backends",
+    "client_surfaces/operator_tui/animation3d/capabilities",
+    "todos/archiv/todo.operator-tui-logo-splash-status-header.json",
+    "todos/archiv/todo.operator-tui-3d-logo-animation.json"
+  ],
+  "scope_decision": {
+    "active_in_brutal_mvp": false,
+    "first_game_use": "Strategiespiel-Visualisierung fuer Karte/Figuren/Splash als optionaler Terminal-Prototyp nach Regeln und Papierkarte.",
+    "reason": "Die erste Spielversion muss Regeln und Core testen. ASCII-Rendering ist wertvoll, aber darf die Regelarbeit nicht ersetzen.",
+    "activation_gate": [
+      "19-Hex-Papierkarte ist dokumentiert.",
+      "Brutal-MVP-Regeln sind dokumentiert.",
+      "GameState-Modell ist beschrieben.",
+      "Logo-ASCII-Smoke-Test laeuft weiterhin gruen.",
+      "Renderer ist klar vom Game-Core getrennt."
+    ]
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "ASCR01",
+      "title": "Bestehende Logo-ASCII-Pipeline als Basis sichern",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["ASCR001", "ASCR002", "ASCR003"]
+    },
+    {
+      "id": "ASCR02",
+      "title": "Generische 2D-ASCII-Renderer-Schicht fuer Spielkarte planen",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["ASCR004", "ASCR005", "ASCR006", "ASCR007"]
+    },
+    {
+      "id": "ASCR03",
+      "title": "Animationen fuer Spiel-Splash, Figuren und Kampf vorbereiten",
+      "status": "todo",
+      "priority": "P2",
+      "task_ids": ["ASCR008", "ASCR009", "ASCR010", "ASCR011"]
+    },
+    {
+      "id": "ASCR04",
+      "title": "3D-Erweiterung als spaeteren Renderer-Modus planen",
+      "status": "todo",
+      "priority": "P2",
+      "task_ids": ["ASCR012", "ASCR013", "ASCR014", "ASCR015"]
+    },
+    {
+      "id": "ASCR05",
+      "title": "E2E-, Smoke- und Regressionstests fuer Game-Rendering definieren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["ASCR016", "ASCR017", "ASCR018", "ASCR019", "ASCR020"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "ASCR001",
+      "title": "Bestehenden smoke_logo.py-Test als Referenz analysieren",
+      "type": "analysis",
+      "milestone_id": "ASCR01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "deliverables": ["docs/examples/ananta-game/ascii_renderer_existing_basis.md"],
+      "acceptance_criteria": [
+        "Dokument nennt smoke_logo.py als bestehende Referenz fuer 2D und 3D.",
+        "Dokument beschreibt, welche Teile SVG->ASCII, 2D-Anzeige, 3D-Frames und CI-Check liefern.",
+        "Dokument trennt wiederverwendbare Komponenten von reinen Smoke-Test-Funktionen.",
+        "Keine bestehende Logo-Testfunktion wird fuer das Spiel direkt zweckentfremdet, ohne Abstraktion zu planen."
+      ]
+    },
+    {
+      "id": "ASCR002",
+      "title": "Logo-Renderer nicht duplizieren, sondern abstrahieren",
+      "type": "architecture",
+      "milestone_id": "ASCR01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["ASCR001"],
+      "deliverables": ["docs/examples/ananta-game/ascii_renderer_architecture.md"],
+      "acceptance_criteria": [
+        "Architektur beschreibt eine gemeinsame ASCII-Rendering-Schicht fuer Logo und Spiel.",
+        "SVG/Asset-Rendering bleibt als Input-Quelle nutzbar.",
+        "Game-Rendering nutzt eigene Datenmodelle und haengt nicht direkt an smoke_logo.py.",
+        "Bestehende CLI/TUI-Logo-Funktion bleibt rueckwaertskompatibel."
+      ]
+    },
+    {
+      "id": "ASCR003",
+      "title": "Renderer strikt vom Game-Core trennen",
+      "type": "architecture",
+      "milestone_id": "ASCR01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["ASCR002"],
+      "deliverables": ["Abschnitt in ascii_renderer_architecture.md"],
+      "acceptance_criteria": [
+        "Game-Core bleibt ohne Terminal-, ANSI-, SVG- oder Renderer-Abhaengigkeit.",
+        "Renderer liest nur GameState/ViewModel und erzeugt Text/Frames.",
+        "Rendering-Aenderungen koennen keine Spielregeln aendern.",
+        "Tests fuer Game-Core duerfen ohne Renderer laufen."
+      ]
+    },
+    {
+      "id": "ASCR004",
+      "title": "ASCII GameViewModel fuer 19-Hex-Karte definieren",
+      "type": "technical_design",
+      "milestone_id": "ASCR02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["ASCR003"],
+      "deliverables": ["docs/examples/ananta-game/ascii_game_view_model.md"],
+      "acceptance_criteria": [
+        "ViewModel enthaelt Hex-Feld-IDs, Loka, Belegung, Besitzer und optionale Highlights.",
+        "ViewModel ist aus GameState ableitbar, aber nicht identisch mit GameState.",
+        "ViewModel ist JSON-serialisierbar.",
+        "19-Hex-Karte kann vollstaendig dargestellt werden."
+      ]
+    },
+    {
+      "id": "ASCR005",
+      "title": "2D-ASCII-Hexkarte entwerfen",
+      "type": "renderer_design",
+      "milestone_id": "ASCR02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["ASCR004"],
+      "deliverables": ["docs/examples/ananta-game/ascii_hex_map_layout.md"],
+      "acceptance_criteria": [
+        "Layout zeigt alle 19 Hexfelder in stabiler Position.",
+        "Feld-IDs sind bei Bedarf sichtbar oder per Debug-Modus einschaltbar.",
+        "Einheiten Naga, Rishi, Deva und Ashram sind unterscheidbar.",
+        "Darstellung funktioniert ohne Farbe im Plain-ASCII-Modus."
+      ]
+    },
+    {
+      "id": "ASCR006",
+      "title": "ANSI-Farb- und Plain-ASCII-Modi definieren",
+      "type": "renderer_design",
+      "milestone_id": "ASCR02",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "dependencies": ["ASCR005"],
+      "deliverables": ["Abschnitt in ascii_hex_map_layout.md"],
+      "acceptance_criteria": [
+        "Renderer hat color, mono und plain_ascii Modi.",
+        "Plain-ASCII enthaelt keine ANSI-Sequenzen.",
+        "Mono bleibt lesbar auf schlechten Terminals.",
+        "Farbmodus darf keine Informationen transportieren, die im Plain-Modus fehlen."
+      ]
+    },
+    {
+      "id": "ASCR007",
+      "title": "Terminal-Groessen und Responsive-ASCII-Regeln planen",
+      "type": "renderer_design",
+      "milestone_id": "ASCR02",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["ASCR005"],
+      "deliverables": ["docs/examples/ananta-game/ascii_terminal_constraints.md"],
+      "acceptance_criteria": [
+        "Mindestgroesse fuer volle Karte ist definiert.",
+        "Fallback fuer kleine Terminals ist definiert.",
+        "Statusleiste oder Seitenpanel ist optional geplant.",
+        "Renderer darf bei zu kleiner Flaeche kontrolliert abbrechen statt unlesbar zu rendern."
+      ]
+    },
+    {
+      "id": "ASCR008",
+      "title": "Ananta-Logo-Splash als Spielstart-Animation wiederverwenden",
+      "type": "animation_design",
+      "milestone_id": "ASCR03",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "dependencies": ["ASCR001", "ASCR002"],
+      "deliverables": ["docs/examples/ananta-game/ascii_game_splash.md"],
+      "acceptance_criteria": [
+        "Splash nutzt die bestehende ananta.svg-basierte Logo-Pipeline als Quelle.",
+        "Splash ist optional und abschaltbar.",
+        "Splash blockiert Tests nicht.",
+        "Nach Splash kann zur 19-Hex-Karte gewechselt werden."
+      ]
+    },
+    {
+      "id": "ASCR009",
+      "title": "2D-Figurenanimationen fuer Bewegung und Angriff planen",
+      "type": "animation_design",
+      "milestone_id": "ASCR03",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["ASCR005"],
+      "deliverables": ["docs/examples/ananta-game/ascii_unit_animations.md"],
+      "acceptance_criteria": [
+        "Bewegung kann als einfache Framefolge zwischen Hexfeldern dargestellt werden.",
+        "Angriff kann als kurzer Marker-/Pulse-Effekt dargestellt werden.",
+        "Animationen veraendern nie selbst den GameState.",
+        "Animationen koennen im Testmodus deaktiviert werden."
+      ]
+    },
+    {
+      "id": "ASCR010",
+      "title": "ASCII-Kampfuebergang fuer Arena-Modus planen",
+      "type": "animation_design",
+      "milestone_id": "ASCR03",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["ASCR009"],
+      "deliverables": ["docs/examples/ananta-game/ascii_combat_transition.md"],
+      "acceptance_criteria": [
+        "Transition Strategiebrett -> Arena ist visuell beschreibbar.",
+        "Transition ist optional und ueberspringbar.",
+        "Transition nutzt CombatResult/CombatState, aber erzeugt keine eigenen Regeln.",
+        "Transition bleibt kompatibel mit dem Archon-Ultra-inspirierten Combat-Mode-Backlog."
+      ]
+    },
+    {
+      "id": "ASCR011",
+      "title": "Statusanzeige fuer Spiel und Agenten-Entscheidungen planen",
+      "type": "ui_design",
+      "milestone_id": "ASCR03",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["ASCR004"],
+      "deliverables": ["docs/examples/ananta-game/ascii_status_panel.md"],
+      "acceptance_criteria": [
+        "Statuspanel zeigt Runde, aktiven Spieler, AP, Soma und aktuell ausgewaehlte Figur.",
+        "Optional zeigt es letzten Agenten-Vorschlag und Validation-Status.",
+        "Panel ist ohne Farbe lesbar.",
+        "Panel bleibt getrennt vom Game-Core."
+      ]
+    },
+    {
+      "id": "ASCR012",
+      "title": "Vorhandene 3D-Logo-Animation als technische Basis bewerten",
+      "type": "analysis",
+      "milestone_id": "ASCR04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["ASCR001"],
+      "deliverables": ["docs/examples/ananta-game/ascii_3d_existing_basis.md"],
+      "acceptance_criteria": [
+        "Dokument beschreibt BuiltinBackend, detect_3d_capability und Presets aus smoke_logo.py.",
+        "Dokument bewertet, welche Teile fuer Spielobjekte nutzbar sind.",
+        "Dokument nennt Grenzen: keine echte Game-Engine, nur ASCII-/Wireframe-Visualisierung.",
+        "Dokument empfiehlt eine minimale 3D-Abstraktion statt direkter Kopplung an Logo-Modell."
+      ]
+    },
+    {
+      "id": "ASCR013",
+      "title": "3D-ASCII-Modell fuer Spielfiguren skizzieren",
+      "type": "renderer_design",
+      "milestone_id": "ASCR04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "dependencies": ["ASCR012"],
+      "deliverables": ["docs/examples/ananta-game/ascii_3d_unit_model.md"],
+      "acceptance_criteria": [
+        "Naga, Rishi und Deva haben je eine einfache symbolische 3D-/Wireframe-Idee.",
+        "Modelle sind stark vereinfacht und terminaltauglich.",
+        "3D-Modell ist rein visuell und beeinflusst keine Regeln.",
+        "2D bleibt immer Fallback."
+      ]
+    },
+    {
+      "id": "ASCR014",
+      "title": "3D-ASCII-Arena-Preview fuer Kampfmodus planen",
+      "type": "renderer_design",
+      "milestone_id": "ASCR04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "dependencies": ["ASCR013"],
+      "deliverables": ["docs/examples/ananta-game/ascii_3d_arena_preview.md"],
+      "acceptance_criteria": [
+        "3D-Arena ist nur Preview/Animation, nicht Pflicht fuer CombatResolver.",
+        "ArenaCombatState bleibt auch ohne 3D darstellbar.",
+        "3D-Preview hat niedrige FPS-/Frame-Grenzen fuer schwache Systeme.",
+        "Fallback auf 2D-Arena ist definiert."
+      ]
+    },
+    {
+      "id": "ASCR015",
+      "title": "3D-Capability und Feature-Flags fuer Spielrenderer planen",
+      "type": "configuration",
+      "milestone_id": "ASCR04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["ASCR012", "ASCR014"],
+      "deliverables": ["docs/examples/ananta-game/ascii_renderer_config.md"],
+      "acceptance_criteria": [
+        "Feature-Flags fuer game_ascii_2d, game_ascii_animations und game_ascii_3d sind beschrieben.",
+        "3D ist standardmaessig optional und abschaltbar.",
+        "Terminal-Capability-Erkennung wird beruecksichtigt.",
+        "CI kann Headless/Plain-ASCII testen."
+      ]
+    },
+    {
+      "id": "ASCR016",
+      "title": "Bestehenden Logo-Smoke-Test als Regression behalten",
+      "type": "testing",
+      "milestone_id": "ASCR05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "dependencies": ["ASCR001"],
+      "deliverables": ["docs/examples/ananta-game/ascii_renderer_test_plan.md"],
+      "acceptance_criteria": [
+        "Logo-Smoke-Test bleibt unveraendert oder rueckwaertskompatibel gruen.",
+        "2D-Logo-Check bleibt unabhaengig vom Spielrenderer.",
+        "3D-Logo-Check bleibt unabhaengig vom Spielrenderer.",
+        "Neue Game-Renderer-Tests duerfen Logo-Tests nicht destabilisieren."
+      ]
+    },
+    {
+      "id": "ASCR017",
+      "title": "Game-ASCII-Snapshot-Test fuer 19-Hex-Karte definieren",
+      "type": "testing",
+      "milestone_id": "ASCR05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["ASCR004", "ASCR005"],
+      "deliverables": ["Abschnitt in ascii_renderer_test_plan.md"],
+      "acceptance_criteria": [
+        "Fester Beispiel-GameState rendert deterministischen Plain-ASCII-Snapshot.",
+        "Snapshot enthaelt 19 Hexfelder.",
+        "Snapshot enthaelt mindestens eine Naga-, Rishi-, Deva- und Ashram-Darstellung.",
+        "Test ist ohne ANSI, TTY und Animation ausfuehrbar."
+      ]
+    },
+    {
+      "id": "ASCR018",
+      "title": "Animation-Frame-Test fuer Bewegung definieren",
+      "type": "testing",
+      "milestone_id": "ASCR05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["ASCR009"],
+      "deliverables": ["Abschnitt in ascii_renderer_test_plan.md"],
+      "acceptance_criteria": [
+        "Bewegungsanimation erzeugt eine begrenzte Anzahl Frames.",
+        "Frames sind deterministisch fuer gleichen Input.",
+        "Animation veraendert den GameState nicht.",
+        "Test kann ohne Wartezeit/real time clock laufen."
+      ]
+    },
+    {
+      "id": "ASCR019",
+      "title": "3D-Frame-Smoke-Test fuer Spielrenderer definieren",
+      "type": "testing",
+      "milestone_id": "ASCR05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "dependencies": ["ASCR013", "ASCR015"],
+      "deliverables": ["Abschnitt in ascii_renderer_test_plan.md"],
+      "acceptance_criteria": [
+        "3D-Test rendert mindestens einen Frame headless.",
+        "Test prueft nicht Pixel-genau auf komplexe ANSI-Farben.",
+        "Test kann bei fehlender Capability sauber skippen.",
+        "2D-Fallback-Test bleibt Pflicht."
+      ]
+    },
+    {
+      "id": "ASCR020",
+      "title": "Zentrale Showcase-README mit ASCII-Renderer-Modul verlinken",
+      "type": "documentation",
+      "milestone_id": "ASCR05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "dependencies": ["ASCR001"],
+      "deliverables": ["docs/examples/ananta-game/README.md"],
+      "acceptance_criteria": [
+        "README.md verweist auf diese TODO-Spur.",
+        "ASCII/2D/3D-Rendering erscheint als spaeteres Visualisierungsmodul nach Regeln und Game-Core.",
+        "README macht klar, dass die bestehende ananta.svg-Pipeline als Basis dient.",
+        "README warnt davor, Rendering vor Regeln/Core zu priorisieren."
+      ]
+    }
+  ],
+  "first_recommended_working_set_after_activation": [
+    "ASCR001",
+    "ASCR002",
+    "ASCR003",
+    "ASCR004",
+    "ASCR005",
+    "ASCR016",
+    "ASCR017"
+  ],
+  "definition_of_done": [
+    "Bestehende ananta.svg-basierte 2D/3D-ASCII-Pipeline ist als Basis dokumentiert.",
+    "Logo-Smoke-Test bleibt rueckwaertskompatibel gruen.",
+    "Game-Core bleibt strikt rendererfrei.",
+    "19-Hex-Karte kann als deterministischer Plain-ASCII-Snapshot geplant werden.",
+    "2D-ASCII-Animationen fuer Bewegung/Angriff sind optional und testbar.",
+    "3D-ASCII-Erweiterung ist als spaeterer optionaler Renderer-Modus geplant.",
+    "Alle Renderer-Modi haben Headless-/CI-taugliche Teststrategien.",
+    "Strategiespiel nutzt die Renderer-Pipeline zuerst als Visualisierungsmodul, nicht als Regelersatz."
+  ]
+}
