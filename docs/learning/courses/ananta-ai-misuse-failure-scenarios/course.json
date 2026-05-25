@@ -1,0 +1,25 @@
+{
+  "id": "ananta-ai-misuse-failure-scenarios",
+  "title": "Angriffs- und Fehlbedienungsszenarien",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-secure-ai-basics", "ananta-worker-least-privilege", "ananta-secure-rag-context-release"],
+  "learning_goals": [
+    "Prompt Injection, ueberbreite Grants und Datenabfluss als Muster erkennen",
+    "Falsche Worker-Auswahl und unsichere Kontextfreigaben vermeiden",
+    "Defensive Gegenmassnahmen systematisch ableiten"
+  ],
+  "lessons": [
+    {"id": "misuse-patterns", "title": "Typische Missbrauchs- und Fehlerbilder", "type": "lesson"},
+    {"id": "defensive-controls", "title": "Default-Deny, Expiry und State-Slice-Minimierung", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "secure-response-playbook",
+    "title": "Gegenmassnahmen fuer mehrere Fehlbedienungsszenarien festlegen",
+    "acceptance_criteria": [
+      "Jedes Szenario nutzt nur harmlose Demo-Artefakte",
+      "Mindestens eine wirksame Gegenmassnahme pro Szenario ist benannt",
+      "Antworten bleiben defensiv und sicherheitsorientiert"
+    ]
+  }
+}

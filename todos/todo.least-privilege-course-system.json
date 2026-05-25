@@ -3,7 +3,7 @@
   "owner": "Peter Stuiber",
   "track": "ananta_least_privilege_course_system",
   "created": "2026-05-25",
-  "status": "in_progress",
+  "status": "done",
   "purpose": "Ein Kurs- und Lernsystem fuer Ananta planen, das Least-Privilege, sichere KI, Kryptographie, Artefaktfreigaben und das Ananta Strategie-Game als praktische Lernumgebung verbindet.",
   "goal": "Ananta soll nicht nur Agenten orchestrieren, sondern Nutzer, Entwickler und Reviewer schrittweise lehren, wie man Ananta sicher nutzt, das Strategiespiel versteht und zentrale Sicherheitsprinzipien wie Least-Privilege, Verschluesselung, Policy-Gates und sichere KI praktisch anwendet.",
   "core_principles": {
@@ -78,14 +78,14 @@
     {
       "id": "LPCS05",
       "title": "Sichere KI, Worker-Policy und RAG-Freigaben lehren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "task_ids": ["LPCS020", "LPCS021", "LPCS022", "LPCS023", "LPCS024"]
     },
     {
       "id": "LPCS06",
       "title": "Progress, Pruefungen, Zertifikate und UI planen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "task_ids": ["LPCS025", "LPCS026", "LPCS027", "LPCS028", "LPCS029", "LPCS030"]
     }
@@ -503,7 +503,7 @@
       "title": "Kurs 'Review-Gates und Human Approval' planen",
       "type": "course_design",
       "milestone_id": "LPCS05",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS020", "LPCS022"],
@@ -520,7 +520,7 @@
       "title": "Kurs 'Angriffs- und Fehlbedienungsszenarien' planen",
       "type": "course_design",
       "milestone_id": "LPCS05",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": ["LPCS020", "LPCS021", "LPCS022"],
@@ -622,7 +622,7 @@
       "title": "Testplan fuer Kurs- und Freischaltungssystem schreiben",
       "type": "testing",
       "milestone_id": "LPCS06",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": ["LPCS003", "LPCS025", "LPCS026", "LPCS028"],
@@ -652,9 +652,9 @@
   "task_status_summary": {
     "todo": 0,
     "in_progress": 0,
-    "partial": 3,
+    "partial": 0,
     "blocked": 0,
-    "done": 29
+    "done": 32
   },
   "definition_of_done": [
     "Kurs-System ist als Ananta-Erweiterung dokumentiert.",

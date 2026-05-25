@@ -1,0 +1,26 @@
+{
+  "id": "ananta-review-gates",
+  "title": "Review-Gates und Human Approval",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-secure-ai-basics", "ananta-secure-rag-context-release"],
+  "learning_goals": [
+    "Szenarien mit Pflicht-Review und Human Approval identifizieren",
+    "Review vor Apply, Remote-LLM-Release und sensibler Artefaktfreigabe anwenden",
+    "Automatische Eskalation ohne Approval verhindern"
+  ],
+  "references": ["docs/security/context-release-approval-workflow.md", "docs/security/artifact-release-ui-review.md"],
+  "lessons": [
+    {"id": "approval-triggers", "title": "Wann ist Approval erforderlich?", "type": "lesson"},
+    {"id": "review-checklists", "title": "Review-Checklisten fuer Task-Ketten", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "build-review-checklist",
+    "title": "Review-Checkliste fuer eine sensitive Task-Kette erstellen",
+    "acceptance_criteria": [
+      "Apply-/Remote-LLM-/Artefakt-Freigaben sind separat bewertet",
+      "Approval-Pflicht ist klar markiert",
+      "Ohne Approval bleibt Eskalation blockiert"
+    ]
+  }
+}
