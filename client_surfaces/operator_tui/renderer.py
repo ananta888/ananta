@@ -92,19 +92,52 @@ def render_operator_shell(
     return "\n".join(_clip(line, width) for line in lines)
 
 
+_LOGO_COLS = 35
+_LOGO_SEP = " │ "
+
+
 def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
-    """Compact logo + live status shown permanently once splash is done."""
-    from agent.cli.logo_layout import render_compact_header
+    """Compact logo + live status (or interactive config when HEADER focused)."""
+    from agent.cli.logo_layout import COMPACT_HEADER_LINES, render_compact_header
     from agent.cli.status_snapshot import collect_status
 
     no_color = state.terminal_graphics.get("no_color", False) if state.terminal_graphics else False
+    color = not no_color
+
+    if state.focus == FocusPane.HEADER:
+        logo_lines = render_compact_header(snapshot=None, terminal_width=width, color=color)
+        right_width = max(20, width - _LOGO_COLS - len(_LOGO_SEP))
+        config_lines = _render_header_config_lines(state, right_width)
+        while len(config_lines) < COMPACT_HEADER_LINES:
+            config_lines.append("")
+        result = []
+        for i in range(COMPACT_HEADER_LINES):
+            logo_part = logo_lines[i] if i < len(logo_lines) else ""
+            visible = len(_ANSI_STRIP.sub("", logo_part))
+            padded = logo_part + " " * max(0, _LOGO_COLS - visible)
+            result.append(padded + _LOGO_SEP + (config_lines[i] if i < len(config_lines) else ""))
+        return result
+
     snapshot = collect_status(
         mode=state.mode.value,
         endpoint=state.endpoint,
         auth_state=state.auth_state,
         section=state.section_id,
     )
-    return render_compact_header(snapshot, terminal_width=width, color=not no_color)
+    return render_compact_header(snapshot, terminal_width=width, color=color)
+
+
+def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
+    from client_surfaces.operator_tui.header_config import CONFIG_ITEMS, CONFIG_LABELS, config_value, is_cycleable
+
+    lines = [_pane_title("CONFIG", True)]
+    for i, key in enumerate(CONFIG_ITEMS):
+        cursor = DEFAULT_THEME.selected_prefix if i == state.selected_index else DEFAULT_THEME.idle_prefix
+        label = CONFIG_LABELS[key]
+        value = config_value(state, key)
+        hint = " [↵]" if is_cycleable(key) else "    "
+        lines.append(_clip(f"{cursor} {label}= {value}{hint}", width))
+    return lines
 
 
 def _render_splash_header(splash: SplashMachine, state: OperatorState, width: int) -> list[str]:
