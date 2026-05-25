@@ -295,6 +295,7 @@ def test_header_lists_snakes_with_oidc_pseudonym_color_and_message() -> None:
 
     assert "alice@keycloak [mint]: hello" in plain
     assert "bob@entra [violet]: world" in plain
+    assert "Mode    =" not in plain
 
 
 def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
