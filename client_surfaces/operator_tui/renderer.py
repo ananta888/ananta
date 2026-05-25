@@ -263,12 +263,15 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
     if game.get("active"):
         score = int(game.get("score", 0))
         status = "running" if game.get("alive", True) else "game over"
+        msg_style = str(game.get("message_style") or "trail")
+        snake_color = str(game.get("snake_color") or "mint")
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake  score={score}  {status}", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-Mode aktiv: nur Snake-Steuerung steuert die UI", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Steuerung: [←→↑↓] lenken/boost · [Space] stop", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Mode: [Ctrl+S] an/aus · Bewegung über die gesamte UI", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Auswahl: [X] start/ende · [C] kopieren · [V] ersetzen", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Ersetzen nur im Command-Feld (editierbar)", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Text: [T] style={msg_style} · [Y] farbe={snake_color}", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Botschaft: [M] tippen · [Enter] speichern · [Esc] abbrechen", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Config: ~/.config/ananta/snake-config.json → snake_message", width))
         if game.get("message_mode"):
@@ -593,7 +596,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
     game = state.header_logo_game or {}
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
-        hints = "[Ctrl+S] Snake  [X/C/V] Auswahl/Kopie/Replace  [M] Message  [Space] Stop"
+        hints = "[Ctrl+S] Snake  [X/C/V] Select/Copy/Replace  [T] Textstyle  [Y] Farbe"
     return _clip(hints, width)
 
 
@@ -606,11 +609,12 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         return lines
 
     out = list(lines)
+    snake_palette = _snake_palette(str(game.get("snake_color") or "mint"))
     marker_col = (255, 220, 120)
     select_col = (255, 172, 95)
     anchor_col = (255, 150, 180)
-    head_col = (170, 255, 210)
-    body_col = (96, 215, 165)
+    head_col = snake_palette["head"]
+    body_col = snake_palette["body"]
     marks = game.get("mark_cells") or []
     if isinstance(marks, list):
         for item in marks:
@@ -655,28 +659,106 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         out[y] = _overlay_at_visible_col(out[y], x, repl)
 
     message = str(game.get("message_draft") if game.get("message_mode") else game.get("message") or "")
+    if message:
+        top_left = f"S1[{str(game.get('snake_color') or 'mint')}]: {message}"
+        out = _overlay_text(out, x=2, y=1, text=top_left, color=snake_palette["label"])
     trail = game.get("trail_path") or []
+    mode = str(game.get("message_style") or "trail")
     if message and isinstance(trail, list):
-        seq = f"{message}   "
-        if seq.strip():
-            phase = int(time.monotonic() * 8)
-            tail_offset = max(0, len(snake))
-            message_col = (255, 244, 190)
-            max_chars = min(len(seq) * 4, max(8, len(trail) - tail_offset))
-            for i in range(max_chars):
-                trail_idx = tail_offset + i
-                if trail_idx >= len(trail):
-                    break
-                pos = trail[trail_idx]
-                if not isinstance(pos, (list, tuple)) or len(pos) != 2:
-                    continue
-                x = int(pos[0]) % max(1, width)
-                y = int(pos[1]) % max(1, len(out))
-                ch = seq[(i + phase) % len(seq)]
-                if ch == " ":
-                    continue
-                repl = f"\x1b[38;2;{message_col[0]};{message_col[1]};{message_col[2]}m{ch}\x1b[0m"
-                out[y] = _overlay_at_visible_col(out[y], x, repl)
+        out = _overlay_snake_message_effect(
+            out,
+            snake=snake,
+            trail=trail,
+            message=message,
+            width=width,
+            mode=mode,
+            color=snake_palette["label"],
+        )
+    return out
+
+
+def _snake_palette(name: str) -> dict[str, tuple[int, int, int]]:
+    palettes = {
+        "mint": {"head": (170, 255, 210), "body": (96, 215, 165), "label": (236, 255, 244)},
+        "cyan": {"head": (120, 235, 255), "body": (75, 188, 224), "label": (220, 248, 255)},
+        "violet": {"head": (212, 176, 255), "body": (163, 120, 228), "label": (242, 230, 255)},
+        "amber": {"head": (255, 205, 130), "body": (224, 155, 84), "label": (255, 238, 202)},
+        "rose": {"head": (255, 170, 200), "body": (222, 110, 156), "label": (255, 230, 240)},
+    }
+    return palettes.get(name, palettes["mint"])
+
+
+def _overlay_snake_message_effect(
+    out: list[str],
+    *,
+    snake: list[object],
+    trail: list[object],
+    message: str,
+    width: int,
+    mode: str,
+    color: tuple[int, int, int],
+) -> list[str]:
+    seq = f"{message}   "
+    if not seq.strip():
+        return out
+    phase = int(time.monotonic() * 8)
+    tail_offset = max(0, len(snake))
+    height = max(1, len(out))
+
+    if mode == "ticker":
+        y = max(0, height - 2)
+        start = max(0, width - ((phase * 2) % max(1, width + len(seq))))
+        return _overlay_text(out, x=start, y=y, text=seq, color=color)
+
+    if mode == "orbit":
+        if not snake or not isinstance(snake[0], (list, tuple)) or len(snake[0]) != 2:
+            return out
+        hx, hy = int(snake[0][0]), int(snake[0][1])
+        ring = [(-2, 0), (-1, -1), (0, -2), (1, -1), (2, 0), (1, 1), (0, 2), (-1, 1)]
+        for i, ch in enumerate(seq):
+            if ch == " ":
+                continue
+            dx, dy = ring[(i + phase) % len(ring)]
+            x = (hx + dx) % max(1, width)
+            y = (hy + dy) % height
+            repl = f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{ch}\x1b[0m"
+            out[y] = _overlay_at_visible_col(out[y], x, repl)
+        return out
+
+    # default: trailing text behind the tail
+    max_chars = min(len(seq) * 4, max(8, len(trail) - tail_offset))
+    for i in range(max_chars):
+        trail_idx = tail_offset + i
+        if trail_idx >= len(trail):
+            break
+        pos = trail[trail_idx]
+        if not isinstance(pos, (list, tuple)) or len(pos) != 2:
+            continue
+        x = int(pos[0]) % max(1, width)
+        y = int(pos[1]) % height
+        ch = seq[(i + phase) % len(seq)]
+        if ch == " ":
+            continue
+        repl = f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{ch}\x1b[0m"
+        out[y] = _overlay_at_visible_col(out[y], x, repl)
+    return out
+
+
+def _overlay_text(
+    out: list[str],
+    *,
+    x: int,
+    y: int,
+    text: str,
+    color: tuple[int, int, int],
+) -> list[str]:
+    if y < 0 or y >= len(out):
+        return out
+    cx = max(0, x)
+    for ch in text:
+        repl = f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{ch}\x1b[0m"
+        out[y] = _overlay_at_visible_col(out[y], cx, repl)
+        cx += 1
     return out
 
 
