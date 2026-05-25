@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import math
 import os
 import subprocess
@@ -195,7 +196,7 @@ def _svg_to_png(svg_path: str, png_path: str, *, width_px: int, height_px: int) 
         return False
 
 
-def _rasterize_svg_rgba(*, svg_path: str, width_px: int, height_px: int) -> Any | None:
+def rasterize_svg_rgba(*, svg_path: str, width_px: int, height_px: int) -> Any | None:
     if Image is None:
         return None
     if not os.path.isfile(svg_path):
@@ -211,3 +212,17 @@ def _rasterize_svg_rgba(*, svg_path: str, width_px: int, height_px: int) -> Any 
             os.unlink(png_path)
         except OSError:
             pass
+
+
+def encode_png_bytes(image: Any) -> bytes:
+    if Image is None:
+        return b""
+    if not hasattr(image, "save"):
+        return b""
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _rasterize_svg_rgba(*, svg_path: str, width_px: int, height_px: int) -> Any | None:
+    return rasterize_svg_rgba(svg_path=svg_path, width_px=width_px, height_px=height_px)

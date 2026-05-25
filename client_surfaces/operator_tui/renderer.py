@@ -149,10 +149,10 @@ def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | No
     from agent.cli.logo_layout import COMPACT_HEADER_LINES
 
     renderer_pref = os.environ.get("ANANTA_TUI_LOGO_RENDERER", "auto").strip().lower()
-    if renderer_pref in {"", "auto", "ansi"}:
-        from client_surfaces.operator_tui.logo_renderer.animated_header import render_ansi_header_logo
+    if renderer_pref in {"", "auto", "ansi", "sixel", "kitty", "none"}:
+        from client_surfaces.operator_tui.logo_renderer.animated_header import render_header_logo
 
-        lines = render_ansi_header_logo(
+        lines = render_header_logo(
             cols=cols,
             rows=COMPACT_HEADER_LINES,
             color=color,
@@ -160,6 +160,9 @@ def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | No
         )
         if lines:
             return _left_align_logo_lines(lines)
+        logo_enabled = os.environ.get("ANANTA_TUI_LOGO", "1").strip().lower() not in {"0", "false", "no", "off"}
+        if renderer_pref == "none" or not logo_enabled:
+            return [""] * COMPACT_HEADER_LINES
 
     header_3d = os.environ.get("ANANTA_TUI_HEADER_3D", "1").strip().lower() not in {"0", "false", "no", "off"}
     no_3d = (state.terminal_graphics or {}).get("no_3d", False) if state is not None else False

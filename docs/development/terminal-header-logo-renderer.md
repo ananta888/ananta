@@ -35,3 +35,34 @@ It is now used by `scripts/render_terminal_logo.py` and accepts RGBA frames whil
 - If SVG rasterization is unavailable, existing text fallback remains active.
 - The TUI must continue to start in non-interactive or limited terminals.
 - Optional protocol renderers (kitty/sixel) are additive and must not break ANSI baseline behavior.
+
+## Manual smoke tests (WSL2 / Windows Terminal / Kitty family)
+
+### Sixel on Windows 11 WSL2 + Windows Terminal
+
+```bash
+ANANTA_TUI_LOGO_RENDERER=sixel ananta tui --render-once --width 120 --height 32
+```
+
+Fallback when output looks broken:
+
+```bash
+ANANTA_TUI_LOGO_RENDERER=ansi ananta tui --render-once --width 120 --height 32
+```
+
+Sixel is a terminal image protocol. It is unrelated to WSLg/OpenGL windows.
+
+### Kitty graphics (kitty / wezterm / ghostty)
+
+```bash
+ANANTA_TUI_LOGO_RENDERER=kitty ananta tui --render-once --width 120 --height 32
+```
+
+If the terminal does not support kitty graphics, renderer selection falls back to ANSI.
+
+### Safe reset commands
+
+```bash
+ANANTA_TUI_LOGO_RENDERER=ansi ananta tui
+ANANTA_TUI_LOGO=0 ananta tui
+```
