@@ -1,58 +1,106 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "owner": "Peter Stuiber",
   "track": "ananta_least_privilege_course_system",
   "created": "2026-05-25",
+  "updated": "2026-05-25",
   "status": "done",
-  "purpose": "Ein Kurs- und Lernsystem fuer Ananta planen, das Least-Privilege, sichere KI, Kryptographie, Artefaktfreigaben und das Ananta Strategie-Game als praktische Lernumgebung verbindet.",
-  "goal": "Ananta soll nicht nur Agenten orchestrieren, sondern Nutzer, Entwickler und Reviewer schrittweise lehren, wie man Ananta sicher nutzt, das Strategiespiel versteht und zentrale Sicherheitsprinzipien wie Least-Privilege, Verschluesselung, Policy-Gates und sichere KI praktisch anwendet.",
+  "purpose": "Ein Kurs- und Lernsystem fuer Ananta planen, das nicht bei null startet, sondern vorhandene Onboarding-, Demo-, First-Run-, Instruction-Layer-, Artifact-, Context-Policy- und Audit-Bausteine nutzt und zu einem Least-Privilege-Lernsystem erweitert.",
+  "goal": "Ananta soll Nutzer, Entwickler und Reviewer schrittweise lehren, wie man Ananta sicher nutzt, das Strategie-Game versteht und zentrale Sicherheitsprinzipien wie Least-Privilege, Kryptographie, Artefaktfreigaben, sichere KI, RAG-Kontextfreigaben und Review-Gates praktisch anwendet.",
+  "analysis_summary": {
+    "conclusion": "Im Repo existiert bereits eine brauchbare Learning-/Onboarding-Foundation, aber noch kein echtes Course/Lesson/Exercise/Assessment/Progress-System.",
+    "existing_kind": "Onboarding + Demo-Flows + Guided First Run + Instruction Workbench + Artifact/Context/Policy/Audit-Grundmodelle.",
+    "missing_kind": "Kurse + Lektionen + Übungen + Prüfungen + Lernfortschritt + Least-Privilege-Freischaltungen + Sandbox-Checks."
+  },
+  "existing_foundation": [
+    {
+      "component": "frontend-angular/src/app/components/onboarding-checklist.component.ts",
+      "role": "Erste-Schritte-Checkliste und Blueprint-Empfehlung fuer First-Run.",
+      "reuse": "Als Basis fuer Lernpfad-Start, Fortschrittsanzeige und gefuehrte sichere Erstkonfiguration nutzen."
+    },
+    {
+      "component": "agent/services/demo_mode_service.py",
+      "role": "Read-only Demo-Beispiele mit Goal, Outcome, Tasks, Starter-Kontext, Governance und Artefakten.",
+      "reuse": "Zu CoursePreview/CourseCatalog erweitern, ohne produktive Task-State-Aenderung."
+    },
+    {
+      "component": "tests/test_demo_mode.py",
+      "role": "Sichert isolierten, read-only Demo-Modus ab.",
+      "reuse": "Als Testmuster fuer read-only Kursvorschau und sichere Demo-Lektionen verwenden."
+    },
+    {
+      "component": "docs/frontend_goal_ux.md",
+      "role": "First-Run-Guidance, Safe Defaults und Advanced Panels fuer Policy/Routing/Verification.",
+      "reuse": "Als UX-Grundlage fuer Kursmodus, Lernpfad-Hinweise und Advanced Security Lessons nutzen."
+    },
+    {
+      "component": "frontend-angular/src/app/components/instruction-layers-workbench.component.ts",
+      "role": "Profile und Overlays fuer dauerhafte bzw. kontextspezifische Anweisungen.",
+      "reuse": "Lesson-/Exercise-Overlays, Sicherheitsprofile und temporäre Uebungskontexte daraus ableiten."
+    },
+    {
+      "component": "agent/db_models.py: UserInstructionProfileDB / InstructionOverlayDB",
+      "role": "Persistente Profile und scoped Overlays.",
+      "reuse": "Kurskontext, Uebungsanweisungen und temporäre Schutzprofile abbilden."
+    },
+    {
+      "component": "agent/db_models.py: ArtifactDB / ArtifactVersionDB / ExtractedDocumentDB",
+      "role": "Artefakt- und Dokumentbasis.",
+      "reuse": "Trainingsartefakte, Kursmaterial, verschluesselte Uebungsdaten und Review-Artefakte nutzen."
+    },
+    {
+      "component": "agent/db_models.py: RetrievalRunDB / ContextBundleDB / ContextAccessPolicyDB",
+      "role": "RAG-/Kontext- und Policy-Grundlage.",
+      "reuse": "Sichere RAG-Kurse und Context-Release-Uebungen darauf aufbauen."
+    },
+    {
+      "component": "agent/db_models.py: TerminalSessionDB / TerminalEventDB",
+      "role": "Terminal-Sessions und auditierbare Terminal-Events.",
+      "reuse": "Uebungs-Sandboxen, sichere CLI/TUI-Kurse und auditierten Fortschritt nutzen."
+    },
+    {
+      "component": "agent/db_models.py: TeamDB / RoleDB / BlueprintRoleDB / TeamMemberDB / TemplateDB",
+      "role": "Team-, Rollen-, Blueprint- und Template-System.",
+      "reuse": "Kurse zu Templates/Blueprints, Worker Least Privilege und Figuren-Agenten anbinden."
+    }
+  ],
   "core_principles": {
     "least_privilege_default": "Jeder Kurs, jede Uebung, jeder Worker und jedes Artefakt startet mit minimalen Rechten.",
     "progressive_unlocking": "Mehr Rechte, komplexere Worker und sensiblere Artefakte werden erst nach bestandenen Checks/Reviews freigeschaltet.",
+    "reuse_existing_foundation": "Vorhandene Demo-, Onboarding-, Instruction-, Artifact-, Context-Policy- und Audit-Bausteine werden erweitert statt neu erfunden.",
     "learn_by_doing": "Das Strategie-Game dient als harmlose, aber realistische Uebungswelt fuer Regeln, Actions, Agenten, Artefakte, Kryptographie und P2P.",
     "deterministic_security": "Sicherheitsentscheidungen werden deterministisch ueber Policies, Grants, Rollen und Objektzustand getroffen, nicht per LLM-Bauchgefuehl.",
     "audit_everything": "Lernfortschritt, Freigaben, Worker-Zugriffe, Artefaktuebergaben und Review-Entscheidungen bleiben nachvollziehbar."
   },
   "related_documents": [
     "docs/examples/ananta-game/README.md",
-    "docs/examples/ananta-game/README.figure-agents.md",
-    "docs/examples/ananta-game/todo.ascii-logo-animation-game-renderer.json",
     "docs/examples/ananta-game/todo.webrtc-p2p-match-network.json",
     "todos/todo.encrypted-artifact-exchange-webrtc-oidc.json",
+    "frontend-angular/src/app/components/onboarding-checklist.component.ts",
+    "frontend-angular/src/app/components/instruction-layers-workbench.component.ts",
+    "agent/services/demo_mode_service.py",
+    "tests/test_demo_mode.py",
+    "docs/frontend_goal_ux.md",
     "AGENTS.md",
-    "docs/security/encrypted-artifact-exchange.md",
-    "docs/security/context-release-gates.md",
-    "docs/security/rag-artifact-release-policy.md",
-    "docs/security/artifact-audit-events.md",
     "docs/security/shell-command-policy.md"
   ],
-  "code_alignment_snapshot": {
-    "captured_at": "2026-05-25",
-    "implemented_foundations": [
-      "Hub-Worker-Architektur, Rollen- und Governance-Regeln sind ueber AGENTS.md und bestehende Services klar dokumentiert.",
-      "OIDC-Grundlagen und Flows sind im Code vorhanden (agent/routes/auth_oidc.py).",
-      "Deterministische Context-Policy-Evaluation ist vorhanden (worker/core/context_access_policy.py).",
-      "Kontext-Bundle-Filterung und Source-Klassifikation fuer sichere Kontextfreigaben sind vorhanden.",
-      "Umfangreiche Security-Dokumente zu Artefaktgrants, Encryption, Revocation, Audit, RAG und Approval sind vorhanden.",
-      "Ananta-Game-Dokumentation und P2P/ASCII-Planungsartefakte fuer praxisnahe Lernpfade sind vorhanden."
-    ],
-    "major_gaps_to_this_track": [
-      "Die docs/learning Zielstruktur fuer das Kurs-System ist noch nicht angelegt.",
-      "Es existieren noch keine course.json-Dateien fuer die geplanten Kurse.",
-      "CourseAccessGrant/LearningProgress/Assessment/Badge-Dokumente fehlen als eigene Lernsystem-Artefakte.",
-      "UI-Konzept, Demo-Flow und dedizierter Testplan fuer den Kursmodus fehlen noch."
-    ]
-  },
   "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high"],
   "milestones": [
     {
+      "id": "LPCS00",
+      "title": "Bestehende Learning-/Onboarding-Foundation analysieren und anbinden",
+      "status": "done",
+      "priority": "P0",
+      "task_ids": ["LPCS000", "LPCS000A", "LPCS000B", "LPCS000C"]
+    },
+    {
       "id": "LPCS01",
       "title": "Kursarchitektur und Least-Privilege-Grundmodell definieren",
       "status": "done",
       "priority": "P0",
-      "task_ids": ["LPCS001", "LPCS002", "LPCS003", "LPCS004", "LPCS005", "LPCS031", "LPCS032"]
+      "task_ids": ["LPCS001", "LPCS002", "LPCS003", "LPCS004", "LPCS005"]
     },
     {
       "id": "LPCS02",
@@ -92,6 +140,75 @@
   ],
   "tasks": [
     {
+      "id": "LPCS000",
+      "title": "Existing Learning/Onboarding Foundation dokumentieren",
+      "type": "analysis",
+      "milestone_id": "LPCS00",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "summary": "Analysiert vorhandene Onboarding-, Demo-, Instruction-, Artifact-, Context-Policy- und Audit-Bausteine als Basis fuer das Kurssystem.",
+      "deliverables": ["docs/learning/existing-learning-foundation.md"],
+      "acceptance_criteria": [
+        "Dokument nennt OnboardingChecklistComponent als vorhandene First-Run-/Blueprint-Empfehlungsbasis.",
+        "Dokument nennt DemoModeService als vorhandene read-only CoursePreview-nahe Basis.",
+        "Dokument nennt Instruction Profiles und Overlays als vorhandene Lesson-/Exercise-Kontextbasis.",
+        "Dokument nennt ArtifactDB, ContextBundleDB, ContextAccessPolicyDB und TerminalEventDB als Sicherheits- und Auditbasis.",
+        "Dokument trennt klar: vorhanden ist Onboarding/Demo; noch nicht vorhanden ist echtes Course/Lesson/Exercise/Progress."
+      ]
+    },
+    {
+      "id": "LPCS000A",
+      "title": "DemoModeService zu CoursePreview-Konzept erweitern",
+      "type": "architecture",
+      "milestone_id": "LPCS00",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["LPCS000"],
+      "deliverables": ["docs/learning/course-preview-from-demo-mode.md"],
+      "acceptance_criteria": [
+        "Konzept beschreibt DemoExample -> CoursePreview/LessonPreview-Mapping.",
+        "Read-only- und isolated-Eigenschaft bleiben erhalten.",
+        "Bestehende Tests aus test_demo_mode.py werden als Muster fuer Kursvorschau-Tests referenziert.",
+        "Produktive Goals/Tasks werden durch Kursvorschau nicht veraendert."
+      ]
+    },
+    {
+      "id": "LPCS000B",
+      "title": "OnboardingChecklist zu LearningPath-Startpunkt mappen",
+      "type": "ui_design",
+      "milestone_id": "LPCS00",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "dependencies": ["LPCS000"],
+      "deliverables": ["docs/learning/onboarding-to-learning-path.md"],
+      "acceptance_criteria": [
+        "Mapping beschreibt, wie bestehende Checklistenpunkte zu Einstiegskursen werden.",
+        "Blueprint-Empfehlung wird als Lernpfad-Empfehlung wiederverwendbar geplant.",
+        "Lokaler localStorage-Fortschritt wird nicht als dauerhaftes LearningProgress-Modell missverstanden.",
+        "Konzept beschreibt Migration von UI-only Fortschritt zu backendseitigem LearningProgress."
+      ]
+    },
+    {
+      "id": "LPCS000C",
+      "title": "Instruction Profiles und Overlays als Lesson-/Exercise-Kontext planen",
+      "type": "architecture",
+      "milestone_id": "LPCS00",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "dependencies": ["LPCS000"],
+      "deliverables": ["docs/learning/instruction-layers-for-courses.md"],
+      "acceptance_criteria": [
+        "Profile werden als dauerhafte Lern-/Arbeitsstilvorgaben beschrieben.",
+        "Overlays werden als temporaere Lesson-/Exercise-/Sandbox-Anweisungen beschrieben.",
+        "Governance und Policy bleiben dominanter als Kurs-Overlays.",
+        "Overlays duerfen keine Sicherheitsfreigaben ersetzen oder erweitern."
+      ]
+    },
+    {
       "id": "LPCS001",
       "title": "Kurs-System-Gesamtarchitektur dokumentieren",
       "type": "architecture",
@@ -99,9 +216,11 @@
       "status": "done",
       "priority": "P0",
       "risk": "medium",
+      "dependencies": ["LPCS000", "LPCS000A", "LPCS000B", "LPCS000C"],
       "deliverables": ["docs/learning/least-privilege-course-system.md"],
       "acceptance_criteria": [
         "Dokument beschreibt Lernpfade, Module, Lektionen, Uebungen, Checks und Freischaltungen.",
+        "Dokument baut explizit auf OnboardingChecklist, DemoModeService und Instruction Layers auf.",
         "Dokument verbindet Ananta-System, Strategiespiel, Kryptographie und sichere KI.",
         "Dokument enthaelt ein Mermaid-Diagramm fuer Course -> Lesson -> Exercise -> Check -> Unlock.",
         "Dokument stellt Least-Privilege als Default-Regel dar."
@@ -155,7 +274,8 @@
         "Jede praktische Uebung laeuft in begrenztem Kontext oder Demo-Workspace.",
         "Uebungen bekommen nur explizit benoetigte Artefakte und Tools.",
         "Shell-/Tool-Zugriff ist nach Risikostufe begrenzt.",
-        "Sandboxen koennen nach Uebung geloescht oder zurueckgesetzt werden."
+        "Sandboxen koennen nach Uebung geloescht oder zurueckgesetzt werden.",
+        "TerminalSessionDB/TerminalEventDB werden als Audit-Basis beruecksichtigt."
       ]
     },
     {
@@ -173,40 +293,6 @@
         "Namensschema fuer course.json, lesson.md, exercise.json und assessment.json ist definiert.",
         "Jede Lektion kann Voraussetzungen und Freischaltungen deklarieren.",
         "Jede Uebung hat Acceptance Criteria und Sicherheitsgrenzen."
-      ]
-    },
-    {
-      "id": "LPCS031",
-      "title": "Code-zu-Kurs-Mapping fuer bestehende Sicherheits- und Game-Artefakte erstellen",
-      "type": "documentation",
-      "milestone_id": "LPCS01",
-      "status": "done",
-      "priority": "P0",
-      "risk": "medium",
-      "dependencies": ["LPCS001", "LPCS005"],
-      "deliverables": ["docs/learning/course-source-mapping.md"],
-      "acceptance_criteria": [
-        "Dokument mappt bestehende Quellen (AGENTS.md, docs/security/*, docs/examples/ananta-game/*) auf konkrete Kursmodule.",
-        "Mapping zeigt pro Kursmodul, welche Quellen bereits vorhanden sind und welche Kursartefakte fehlen.",
-        "Mapping markiert explizit wiederverwendbare Uebungen und Demo-Szenarien.",
-        "Mapping vermeidet Duplikation bereits bestehender Security-Dokumentation."
-      ]
-    },
-    {
-      "id": "LPCS032",
-      "title": "Kurs-Scaffold fuer docs/learning/courses standardisieren",
-      "type": "documentation",
-      "milestone_id": "LPCS01",
-      "status": "done",
-      "priority": "P1",
-      "risk": "low",
-      "dependencies": ["LPCS005"],
-      "deliverables": ["docs/learning/course-scaffold-template.md"],
-      "acceptance_criteria": [
-        "Template beschreibt Minimalstruktur fuer course.json, lesson.md, exercise.json und assessment.json.",
-        "Template enthaelt Pflichtfelder fuer prerequisites, grants_required und security_boundaries.",
-        "Template definiert Namenskonventionen fuer Kursordner und IDs.",
-        "Template ist mit bestehender Dokumentstruktur im Repository kompatibel."
       ]
     },
     {
@@ -540,10 +626,11 @@
       "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "dependencies": ["LPCS003"],
+      "dependencies": ["LPCS003", "LPCS000B"],
       "deliverables": ["docs/learning/learning-progress-model.md"],
       "acceptance_criteria": [
         "Modell enthaelt user_id, course_id, lesson_id, status, score, attempts und completed_at.",
+        "Modell grenzt sich klar von localStorage-Onboarding-Fortschritt ab.",
         "Progress kann Freischaltungen ausloesen, aber nur ueber definierte Regeln.",
         "Progress ist auditierbar.",
         "Manuelles Override durch Mentor/Admin ist als eigener Audit-Event geplant."
@@ -591,9 +678,10 @@
       "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "dependencies": ["LPCS001", "LPCS025"],
+      "dependencies": ["LPCS001", "LPCS000B", "LPCS025"],
       "deliverables": ["docs/learning/course-ui-concept.md"],
       "acceptance_criteria": [
+        "UI baut auf OnboardingChecklist und First-Run-Guidance auf.",
         "UI zeigt Lernpfade, Lektionen, Voraussetzungen, Fortschritt und naechste sichere Uebung.",
         "UI zeigt bei jeder Uebung benoetigte Rechte und Sandbox-Grenzen.",
         "UI zeigt, welche Rechte durch Abschluss freigeschaltet werden koennen.",
@@ -608,11 +696,12 @@
       "status": "done",
       "priority": "P2",
       "risk": "low",
-      "dependencies": ["LPCS028"],
+      "dependencies": ["LPCS028", "LPCS000A"],
       "deliverables": ["docs/learning/course-demo-flow.md"],
       "acceptance_criteria": [
         "Demo startet mit Ananta Game Basics.",
         "Demo zeigt danach Least-Privilege-Freischaltung fuer eine sichere Uebung.",
+        "Demo nutzt read-only CoursePreview analog zum DemoModeService.",
         "Demo zeigt eine abgelehnte zu breite Artefakt-/Worker-Freigabe.",
         "Demo endet mit auditierbarem Fortschritt und Review-Hinweis."
       ]
@@ -632,21 +721,20 @@
         "Tests fuer Grant-Eskalation ohne bestandenen Check sind deny.",
         "Tests fuer Sandbox-Rechte und Artefaktzugriff sind definiert.",
         "Tests fuer Progress-Audit und Mentor-Override sind definiert.",
+        "Tests fuer CoursePreview-read-only analog test_demo_mode.py sind definiert.",
         "Tests brauchen keine echten Secrets, keine echten Cloud-LLMs und keine Production-Daten."
       ]
     }
   ],
   "first_recommended_working_set": [
+    "LPCS000",
+    "LPCS000A",
+    "LPCS000B",
+    "LPCS000C",
     "LPCS001",
     "LPCS002",
     "LPCS003",
-    "LPCS004",
-    "LPCS005",
-    "LPCS031",
-    "LPCS032",
-    "LPCS010",
-    "LPCS015",
-    "LPCS020",
+    "LPCS025",
     "LPCS030"
   ],
   "task_status_summary": {
@@ -654,15 +742,17 @@
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 32
+    "done": 34
   },
   "definition_of_done": [
-    "Kurs-System ist als Ananta-Erweiterung dokumentiert.",
+    "Bestehende Onboarding-/Demo-/Instruction-/Artifact-/Context-/Audit-Basis ist dokumentiert.",
+    "Kurs-System startet nicht bei null, sondern erweitert vorhandene Bausteine.",
     "Least-Privilege ist Default fuer Kurse, Sandboxen, Worker und Artefakte.",
     "Lernpfade fuer Strategie-Game, Ananta-System, Kryptographie, sichere KI und Artefaktfreigaben sind geplant.",
     "Freischaltungen basieren auf deterministischen Checks oder Human Approval, nicht auf LLM-Ermessen.",
     "Kursfortschritt, Grants und Overrides sind auditierbar.",
-    "UI-Konzept zeigt Rechte, Risiken, Voraussetzungen und naechste sichere Schritte.",
-    "Testplan deckt Freischaltungen, Sandboxen, Artefaktzugriff und Eskalationsschutz ab."
+    "UI-Konzept baut auf OnboardingChecklist und First-Run-Guidance auf.",
+    "DemoModeService wird als Muster fuer read-only CoursePreview genutzt.",
+    "Testplan deckt Freischaltungen, Sandboxen, Artefaktzugriff, CoursePreview und Eskalationsschutz ab."
   ]
 }
