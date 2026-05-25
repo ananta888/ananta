@@ -155,11 +155,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
+def _tty_size(fallback: tuple[int, int] = (120, 32)) -> tuple[int, int]:
+    try:
+        import fcntl
+        import struct
+        import termios
+        with open("/dev/tty") as tty:
+            data = fcntl.ioctl(tty, termios.TIOCGWINSZ, b"\x00" * 8)
+            rows, cols = struct.unpack("HHHH", data)[:2]
+            if cols > 0 and rows > 0:
+                return cols, rows
+    except Exception:
+        pass
+    sz = shutil.get_terminal_size(fallback)
+    return sz.columns, sz.lines
+
+
 def _play_splash_to_terminal(state: OperatorState) -> None:
     from client_surfaces.operator_tui.splash_animation import build_splash_frames
 
-    size = shutil.get_terminal_size((120, 32))
-    width, height = size.columns, size.lines
+    width, height = _tty_size()
     frames = build_splash_frames(w=width, h=height, fps=24)
     if not frames:
         return

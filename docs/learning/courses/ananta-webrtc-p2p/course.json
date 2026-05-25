@@ -1,0 +1,29 @@
+{
+  "id": "ananta-webrtc-p2p",
+  "title": "WebRTC P2P und sichere Transporte",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-oidc-identity"],
+  "learning_goals": [
+    "Signaling, STUN, TURN und DataChannel einordnen",
+    "P2P-Transport im Sicherheitsmodell korrekt abgrenzen",
+    "Transportmodi mit sicheren Defaults vergleichen"
+  ],
+  "references": [
+    "docs/security/webrtc-artifact-transfer.md",
+    "docs/examples/ananta-game/todo.webrtc-p2p-match-network.json"
+  ],
+  "lessons": [
+    {"id": "webrtc-components", "title": "Signaling, STUN, TURN, DataChannel", "type": "lesson"},
+    {"id": "serverless-boundary", "title": "Kein zentraler Server != keine Hilfsdienste", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "compare-transport-modes",
+    "title": "self_hosted, external_services, manual_pairing und lan_only vergleichen",
+    "acceptance_criteria": [
+      "Modi werden nach Risiko und Betriebsaufwand eingeordnet",
+      "Policy-Bypass durch P2P wird explizit verneint",
+      "Empfohlener Default bleibt sicherheitsorientiert"
+    ]
+  }
+}

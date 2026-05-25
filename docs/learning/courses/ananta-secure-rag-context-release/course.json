@@ -1,0 +1,29 @@
+{
+  "id": "ananta-secure-rag-context-release",
+  "title": "RAG und Kontextfreigaben sicher bauen",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-artifact-grants-audit", "ananta-worker-least-privilege"],
+  "learning_goals": [
+    "RAG-Kontext strikt an freigegebene Artefakte/Chunks binden",
+    "local_only, restricted und remote_llm_allowed sicher unterscheiden",
+    "Context Release Gate vor Prompt-Erzeugung erzwingen"
+  ],
+  "references": [
+    "docs/security/rag-artifact-release-policy.md",
+    "docs/security/context-release-gates.md"
+  ],
+  "lessons": [
+    {"id": "chunk-grant-binding", "title": "Chunk-Metadaten und Grant-Bezug", "type": "lesson"},
+    {"id": "release-gate-order", "title": "Release-Gate vor Prompt-Erzeugung", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "route-chunks-by-runtime",
+    "title": "Chunks den erlaubten Zielruntimes zuordnen",
+    "acceptance_criteria": [
+      "Nur freigegebene Chunks werden uebernommen",
+      "Remote-LLM-Freigaben bleiben explizit getrennt",
+      "Gate-Entscheidung ist deterministisch nachvollziehbar"
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "ananta-artifact-grants-audit",
+  "title": "Artefaktfreigaben und Audit",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-envelope-encryption", "ananta-oidc-identity"],
+  "learning_goals": [
+    "ArtifactAccessGrant, Expiry und Revocation anwenden",
+    "Rechte sauber trennen (metadata/download/decrypt/share/worker/remote-llm)",
+    "Auditierbare allow/deny-Entscheidungen begruenden"
+  ],
+  "references": [
+    "docs/security/artifact-access-grants.md",
+    "docs/security/artifact-grant-revocation.md",
+    "docs/security/artifact-audit-events.md"
+  ],
+  "lessons": [
+    {"id": "grant-lifecycle", "title": "Grant-Lifecycle und Widerruf", "type": "lesson"},
+    {"id": "rights-separation", "title": "Rechtetrennung pro Aktionstyp", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "multi-grant-decisions",
+    "title": "Mehrere Freigabefaelle als allow/deny entscheiden",
+    "acceptance_criteria": [
+      "Rechte werden getrennt und korrekt bewertet",
+      "Revocation/Expiry-Effekte werden richtig angewendet",
+      "Nicht rueckholbare lokale Klartextkopien werden korrekt kommuniziert"
+    ]
+  }
+}
