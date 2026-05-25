@@ -130,8 +130,11 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             "header",
             FocusPane.HEADER,
             "dashboard",
+            0,
             "Schritt 1: Wir starten im Header und lesen Endpoint/Auth.",
             "start",
+            "",
+            "",
         ),
         (
             (82, 10),
@@ -139,8 +142,11 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             "nav",
             FocusPane.NAVIGATION,
             "dashboard",
+            0,
             "Schritt 2: Ich bewege mich langsam zur Navigation links.",
             "approach-nav",
+            "",
+            "",
         ),
         (
             (80, 12),
@@ -148,8 +154,11 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             "nav",
             FocusPane.NAVIGATION,
             "dashboard",
+            0,
             "Schritt 3: Nächster Menüpunkt ist Goals.",
             "aim-goals",
+            "",
+            "",
         ),
         (
             (78, 13),
@@ -157,8 +166,11 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             "nav",
             FocusPane.NAVIGATION,
             "goals",
+            1,
             "Schritt 4: Menüwechsel auf GOALS. Jetzt erkläre ich den Abschnitt.",
             "goals-selected",
+            "Was zeigt mir der Menüpunkt Goals genau?",
+            "Goals zeigt Ziele, Status und Priorität; mit :inspect bekommst du Details.",
         ),
         (
             (76, 14),
@@ -166,8 +178,11 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             "nav",
             FocusPane.NAVIGATION,
             "goals",
+            1,
             "Schritt 5: AI-Snake zeigt, wie du Goals inspizierst und priorisierst.",
             "goals-explain",
+            "Wie priorisiere ich schnell?",
+            "Starte mit active goals, dann ready, danach blocked prüfen.",
         ),
         (
             (74, 16),
@@ -175,8 +190,11 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             "content",
             FocusPane.CONTENT,
             "goals",
+            1,
             "Schritt 6: In der Mitte siehst du den GOALS-Content.",
             "goals-content",
+            "",
+            "",
         ),
         (
             (72, 18),
@@ -184,8 +202,11 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             "nav",
             FocusPane.NAVIGATION,
             "tasks",
+            2,
             "Schritt 7: Nächster Menüpunkt TASKS, damit du Ausführung siehst.",
             "tasks-selected",
+            "Und wo sehe ich laufende Ausführung?",
+            "Im Menü TASKS: running, queued und Worker-Zuordnung.",
         ),
         (
             (70, 19),
@@ -193,8 +214,11 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             "content",
             FocusPane.CONTENT,
             "tasks",
+            2,
             "Schritt 8: AI-Snake erklärt Task-Queue und laufende Worker.",
             "tasks-explain",
+            "Welche Frage kann ich der AI-Snake hier stellen?",
+            "Frag nach dem nächsten Schritt, z.B. 'welchen Task zuerst?'.",
         ),
         (
             (68, 20),
@@ -202,8 +226,11 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             "detail",
             FocusPane.DETAIL,
             "tasks",
+            2,
             "Schritt 9: Rechts erscheinen Detail-Hinweise für den aktiven Bereich.",
             "tasks-detail",
+            "",
+            "",
         ),
         (
             (66, 21),
@@ -211,8 +238,11 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             "follow",
             FocusPane.CONTENT,
             "tasks",
+            2,
             "Schritt 10: Bei Kontakt mit deiner Position gibt die AI konkrete Tipps.",
             "contact",
+            "OK, was jetzt konkret?",
+            "Konkreter Ablauf: :inspect, dann Ergebnis lesen, danach :refresh.",
         ),
         (
             (64, 22),
@@ -220,13 +250,29 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             "follow",
             FocusPane.CONTENT,
             "tasks",
+            2,
             "Schritt 11: Beispiel-Tipp: :inspect ausführen und danach :refresh.",
             "contact-tip",
+            "",
+            "",
         ),
     ]
     history: list[dict[str, object]] = []
-    for idx, (local_head, ai_head, target, focus, section_id, text, phase) in enumerate(nav_walk):
-        history.append({"at": float(idx), "source": "openai-compatible", "target": target, "text": text})
+    for idx, (local_head, ai_head, target, focus, section_id, selected_index, text, phase, user_question, ai_answer) in enumerate(
+        nav_walk
+    ):
+        if user_question.strip():
+            history.append({"at": float(idx) + 0.01, "source": "user", "target": target, "text": user_question.strip()})
+            history.append(
+                {
+                    "at": float(idx) + 0.02,
+                    "source": "openai-compatible",
+                    "target": target,
+                    "text": ai_answer.strip() or text,
+                }
+            )
+        else:
+            history.append({"at": float(idx), "source": "openai-compatible", "target": target, "text": text})
         local_snake = [
             local_head,
             ((local_head[0] - 1) % 120, local_head[1]),
@@ -304,6 +350,7 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             endpoint="http://localhost:5000",
             focus=focus,
             section_id=section_id,
+            selected_index=selected_index,
             status_message=f"snake walkthrough {idx + 1}/{len(nav_walk)} · run={run_id}",
             panel_states={section_id: PanelState.HEALTHY},
             section_payloads=payloads,
