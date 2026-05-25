@@ -260,7 +260,7 @@ def test_header_focus_hints_show_snake_controls() -> None:
     assert "[←→↑↓] Snake" in output
 
 
-def test_snake_escape_from_logo_switches_focus_to_navigation() -> None:
+def test_snake_mode_does_not_auto_switch_focus_or_section() -> None:
     game = {
         "active": True,
         "alive": True,
@@ -280,25 +280,16 @@ def test_snake_escape_from_logo_switches_focus_to_navigation() -> None:
         header_logo_game=game,
     )
     tui = InteractiveOperatorTui(state)
-    boxes = tui._compute_control_boxes(18, 6)
-    nav_box = next(b for b in boxes if b.get("kind") == "pane" and b.get("target") == "navigation")
-    nav_portal = (int(nav_box["x0"]), int(nav_box["y0"]))
-    portal_game = dict(game)
-    portal_game["boxes"] = boxes
-    portal_game["snake"] = [(nav_portal[0] - 1, nav_portal[1]), (max(0, nav_portal[0] - 2), nav_portal[1]), (max(0, nav_portal[0] - 3), nav_portal[1])]
-    portal_game["direction"] = (1, 0)
-    portal_game["next_direction"] = (1, 0)
-    tui.state = tui.state.with_updates(header_logo_game=portal_game, focus=FocusPane.HEADER)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER, section_id="dashboard")
 
     tui._tick_header_snake()
 
-    assert tui.state.focus is FocusPane.NAVIGATION
-    assert "ausgebrochen nach NAV" in tui.state.status_message
+    assert tui.state.focus is FocusPane.HEADER
+    assert tui.state.section_id == "dashboard"
     assert (tui.state.header_logo_game or {}).get("active") is True
-    assert (tui.state.header_logo_game or {}).get("ui_steering") is True
 
 
-def test_after_snake_escape_target_pane_can_be_controlled() -> None:
+def test_snake_tick_keeps_manual_ui_state_stable() -> None:
     game = {
         "active": True,
         "alive": True,
@@ -318,25 +309,14 @@ def test_after_snake_escape_target_pane_can_be_controlled() -> None:
         header_logo_game=game,
     )
     tui = InteractiveOperatorTui(state)
-    boxes = tui._compute_control_boxes(18, 6)
-    nav_box = next(b for b in boxes if b.get("kind") == "pane" and b.get("target") == "navigation")
-    nav_portal = (int(nav_box["x0"]), int(nav_box["y0"]))
-    portal_game = dict(game)
-    portal_game["boxes"] = boxes
-    portal_game["snake"] = [(nav_portal[0] - 1, nav_portal[1]), (max(0, nav_portal[0] - 2), nav_portal[1]), (max(0, nav_portal[0] - 3), nav_portal[1])]
-    portal_game["direction"] = (1, 0)
-    portal_game["next_direction"] = (1, 0)
-    tui.state = tui.state.with_updates(header_logo_game=portal_game, focus=FocusPane.HEADER, selected_index=0)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.NAVIGATION, section_id="tasks", selected_index=3)
     tui._tick_header_snake()
-    before = tui.state.selected_index
-
-    tui._set_state(tui.state.with_updates(selected_index=tui._clamp_down()))
-
     assert tui.state.focus is FocusPane.NAVIGATION
-    assert tui.state.selected_index >= before
+    assert tui.state.section_id == "tasks"
+    assert tui.state.selected_index == 3
 
 
-def test_snake_portal_to_detail_switches_focus() -> None:
+def test_snake_does_not_switch_to_detail_by_position() -> None:
     game = {
         "active": True,
         "alive": True,
@@ -352,21 +332,12 @@ def test_snake_portal_to_detail_switches_focus() -> None:
     }
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
     tui = InteractiveOperatorTui(state)
-    boxes = tui._compute_control_boxes(120, 31)
-    detail_box = next(b for b in boxes if b.get("kind") == "pane" and b.get("target") == "detail")
-    detail_portal = (int(detail_box["x0"]), int(detail_box["y0"]))
-    portal_game = dict(game)
-    portal_game["board_w"] = 120
-    portal_game["board_h"] = 31
-    portal_game["boxes"] = boxes
-    portal_game["snake"] = [(detail_portal[0], detail_portal[1] - 1), (detail_portal[0], max(0, detail_portal[1] - 2)), (detail_portal[0], max(0, detail_portal[1] - 3))]
-    portal_game["direction"] = (0, 1)
-    portal_game["next_direction"] = (0, 1)
-    tui.state = tui.state.with_updates(header_logo_game=portal_game, focus=FocusPane.HEADER)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER, section_id="dashboard")
 
     tui._tick_header_snake()
 
-    assert tui.state.focus is FocusPane.DETAIL
+    assert tui.state.focus is FocusPane.HEADER
+    assert tui.state.section_id == "dashboard"
 
 
 def test_snake_remains_drivable_after_escape_outside_header_focus() -> None:
@@ -380,7 +351,6 @@ def test_snake_remains_drivable_after_escape_outside_header_focus() -> None:
         "direction": (1, 0),
         "next_direction": (1, 0),
         "food": (3, 3),
-        "gaps": {"right": 2, "bottom_nav": 4, "bottom_content": 9, "bottom_detail": 14},
         "score": 0,
         "moves": 0,
         "last_move": 0.0,
@@ -417,38 +387,10 @@ def test_snake_wraps_at_screen_border_and_stays_alive() -> None:
 
     snake = (tui.state.header_logo_game or {}).get("snake") or []
     assert (tui.state.header_logo_game or {}).get("alive") is True
-    assert snake and snake[0][0] == 0
+    assert snake and snake[0][0] in {0, 119}
 
 
-def test_snake_can_focus_command_input_zone() -> None:
-    game = {
-        "active": True,
-        "alive": True,
-        "ui_steering": True,
-        "board_w": 18,
-        "board_h": 6,
-        "snake": [(8, 1), (7, 1), (6, 1)],
-        "direction": (1, 0),
-        "next_direction": (1, 0),
-        "food": (3, 3),
-        "boxes": [],
-        "score": 0,
-        "moves": 1,
-        "last_move": 0.0,
-    }
-    state = OperatorState(
-        endpoint="http://localhost:5000",
-        focus=FocusPane.NAVIGATION,
-        mode=OperatorMode.NORMAL,
-        header_logo_game=game,
-    )
-    tui = InteractiveOperatorTui(state)
-    ui_state = tui._apply_snake_ui_controls(tui.state, head=(8, 1), board_w=18, board_h=6)
-
-    assert ui_state.mode is OperatorMode.COMMAND
-
-
-def test_snake_can_select_artifacts_section_box() -> None:
+def test_snake_no_longer_selects_sections_from_screen_regions() -> None:
     game = {
         "active": True,
         "alive": True,
@@ -465,16 +407,9 @@ def test_snake_can_select_artifacts_section_box() -> None:
     }
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
     tui = InteractiveOperatorTui(state)
-    boxes = tui._compute_control_boxes(120, 31)
-    art_box = next(b for b in boxes if b.get("kind") == "section" and b.get("target") == "artifacts")
-    head = (int(art_box["x0"]), max(0, int(art_box["y0"]) - 1))
-    game["boxes"] = boxes
-    game["snake"] = [head, (max(0, head[0] - 1), head[1]), (max(0, head[0] - 2), head[1])]
-    game["direction"] = (0, 1)
-    game["next_direction"] = (0, 1)
-    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER, section_id="dashboard")
 
     tui._tick_header_snake()
 
-    assert tui.state.section_id == "artifacts"
-    assert tui.state.focus is FocusPane.NAVIGATION
+    assert tui.state.section_id == "dashboard"
+    assert tui.state.focus is FocusPane.HEADER
