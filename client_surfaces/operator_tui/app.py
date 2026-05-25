@@ -105,9 +105,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = execute_command(command, state)
         state = load_active_section(result.state.with_updates(status_message=result.message), registry)
 
-    with open("/tmp/splash_debug.txt", "w") as _d:
-        _d.write(f"main reached\nisatty0={os.isatty(0)}\nsplash_disabled={_splash_disabled(args)}\n")
-
     splash: SplashMachine | None = None
     if _splash_disabled(args):
         splash = None
@@ -177,32 +174,24 @@ def _tty_size(fallback: tuple[int, int] = (120, 32)) -> tuple[int, int]:
 def _play_splash_to_terminal(state: OperatorState) -> None:
     from client_surfaces.operator_tui.splash_animation import build_splash_frames
 
-    _dbg = open("/tmp/splash_debug.txt", "w")
-    _dbg.write("_play_splash_to_terminal called\n"); _dbg.flush()
-
     try:
         tty = open("/dev/tty", "w", encoding="utf-8", errors="replace")
-    except OSError as e:
-        _dbg.write(f"tty open failed: {e}\n"); _dbg.close()
+    except OSError:
         return
 
     width, height = _tty_size()
     height = min(height, 45)
-    _dbg.write(f"tty_size={width}x{height}\n"); _dbg.flush()
 
     tty.write("\x1b[?25l\x1b[2J\x1b[H")
     tty.flush()
 
     frames = build_splash_frames(w=width, h=height, fps=24)
-    _dbg.write(f"frames built: {len(frames)}\n"); _dbg.flush()
     if not frames:
         tty.write("\x1b[?25h")
         tty.flush()
         tty.close()
-        _dbg.close()
         return
 
-    _dbg.write("starting frame loop\n"); _dbg.flush()
     interval = 1.0 / 24
     try:
         for frame in frames:
@@ -212,7 +201,6 @@ def _play_splash_to_terminal(state: OperatorState) -> None:
     except KeyboardInterrupt:
         pass
     finally:
-        _dbg.write("frame loop done\n"); _dbg.flush(); _dbg.close()
         tty.write("\x1b[?25h\x1b[2J\x1b[H")
         tty.flush()
         tty.close()
