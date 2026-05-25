@@ -543,6 +543,7 @@ def _draw_snake_mode_legend(
     legend = (
         "SNAKE MODE [Ctrl+S off]",
         "Keys: arrows move/boost, space stop",
+        "B frame-mode, X set/add frame selection",
         "X select, C copy, V replace (cmdline)",
         "T text-style, Y color, top-left label always on",
         "M message, Enter save, Esc cancel",
