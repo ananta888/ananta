@@ -265,7 +265,10 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
         status = "running" if game.get("alive", True) else "game over"
         msg_style = str(game.get("message_style") or "trail")
         snake_color = str(game.get("snake_color") or "mint")
+        snakes = game.get("snakes") if isinstance(game.get("snakes"), dict) else {}
+        peer_count = len([k for k in snakes.keys() if str(k) != str(game.get("local_snake_id") or "s1")]) if snakes else 0
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake  score={score}  {status}", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-ID: {game.get('local_snake_id', 's1')} · Peers: {peer_count}", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-Mode aktiv: nur Snake-Steuerung steuert die UI", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Steuerung: [←→↑↓] lenken/boost · [Space] stop", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Mode: [Ctrl+S] an/aus · Bewegung über die gesamte UI", width))
@@ -604,17 +607,16 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
     game = state.header_logo_game or {}
     if not game.get("active") or not game.get("free_mode"):
         return lines
-    snake = game.get("snake") or []
-    if not isinstance(snake, list) or not snake:
+    local_snake = game.get("snake") or []
+    if not isinstance(local_snake, list) or not local_snake:
         return lines
 
     out = list(lines)
-    snake_palette = _snake_palette(str(game.get("snake_color") or "mint"))
+    local_id = str(game.get("local_snake_id") or "s1")
+    snakes = _collect_snakes(game, local_snake_id=local_id)
     marker_col = (255, 220, 120)
     select_col = (255, 172, 95)
     anchor_col = (255, 150, 180)
-    head_col = snake_palette["head"]
-    body_col = snake_palette["body"]
     marks = game.get("mark_cells") or []
     if isinstance(marks, list):
         for item in marks:
@@ -648,32 +650,81 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         repl = f"\x1b[38;2;{anchor_col[0]};{anchor_col[1]};{anchor_col[2]}m◎\x1b[0m"
         out[y] = _overlay_at_visible_col(out[y], x, repl)
 
-    for idx, pos in enumerate(snake):
-        if not isinstance(pos, (list, tuple)) or len(pos) != 2:
+    for sid, snapshot in snakes.items():
+        snake = snapshot.get("snake") if isinstance(snapshot.get("snake"), list) else []
+        if not snake:
             continue
-        x = int(pos[0]) % max(1, width)
-        y = int(pos[1]) % max(1, len(out))
-        ch = "●" if idx == 0 else ("◉" if idx < 4 else "·")
-        col = head_col if idx == 0 else body_col
-        repl = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{ch}\x1b[0m"
-        out[y] = _overlay_at_visible_col(out[y], x, repl)
+        pal = _snake_palette(str(snapshot.get("snake_color") or "mint"))
+        for idx, pos in enumerate(snake):
+            if not isinstance(pos, (list, tuple)) or len(pos) != 2:
+                continue
+            x = int(pos[0]) % max(1, width)
+            y = int(pos[1]) % max(1, len(out))
+            ch = "●" if idx == 0 else ("◉" if idx < 4 else "·")
+            col = pal["head"] if idx == 0 else pal["body"]
+            repl = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{ch}\x1b[0m"
+            out[y] = _overlay_at_visible_col(out[y], x, repl)
 
-    message = str(game.get("message_draft") if game.get("message_mode") else game.get("message") or "")
-    if message:
-        top_left = f"S1[{str(game.get('snake_color') or 'mint')}]: {message}"
-        out = _overlay_text(out, x=2, y=1, text=top_left, color=snake_palette["label"])
-    trail = game.get("trail_path") or []
-    mode = str(game.get("message_style") or "trail")
-    if message and isinstance(trail, list):
-        out = _overlay_snake_message_effect(
-            out,
-            snake=snake,
-            trail=trail,
-            message=message,
-            width=width,
-            mode=mode,
-            color=snake_palette["label"],
-        )
+        message = str(snapshot.get("message") or "")
+        style = str(snapshot.get("message_style") or "trail")
+        trail = snapshot.get("trail_path") if isinstance(snapshot.get("trail_path"), list) else []
+        if message and trail:
+            out = _overlay_snake_message_effect(
+                out,
+                snake=snake,
+                trail=trail,
+                message=message,
+                width=width,
+                mode=style,
+                color=pal["label"],
+            )
+
+    out = _overlay_snake_labels(out, snakes=snakes, width=width)
+    return out
+
+
+def _collect_snakes(game: dict[str, object], *, local_snake_id: str) -> dict[str, dict[str, object]]:
+    raw = game.get("snakes")
+    out: dict[str, dict[str, object]] = {}
+    if isinstance(raw, dict):
+        for sid, snapshot in raw.items():
+            if isinstance(snapshot, dict):
+                out[str(sid)] = dict(snapshot)
+    if local_snake_id not in out:
+        out[local_snake_id] = {
+            "id": local_snake_id,
+            "snake": list(game.get("snake") or []),
+            "trail_path": list(game.get("trail_path") or []),
+            "message": str(game.get("message") or ""),
+            "message_style": str(game.get("message_style") or "trail"),
+            "snake_color": str(game.get("snake_color") or "mint"),
+            "local": True,
+        }
+    return out
+
+
+def _overlay_snake_labels(
+    out: list[str],
+    *,
+    snakes: dict[str, dict[str, object]],
+    width: int,
+) -> list[str]:
+    sorted_ids = sorted(snakes.keys(), key=lambda sid: (0 if sid == "s1" else 1, sid))
+    y = 1
+    for sid in sorted_ids:
+        if y >= len(out) - 1:
+            break
+        snap = snakes[sid]
+        msg = str(snap.get("message") or "")
+        if not msg:
+            continue
+        color_name = str(snap.get("snake_color") or "mint")
+        label = f"{sid.upper()}[{color_name}]: {msg}"
+        if len(_ANSI_STRIP.sub("", label)) > max(4, width - 4):
+            label = _ANSI_STRIP.sub("", label)[: max(1, width - 7)] + "..."
+        col = _snake_palette(color_name)["label"]
+        out = _overlay_text(out, x=2, y=y, text=label, color=col)
+        y += 1
     return out
 
 

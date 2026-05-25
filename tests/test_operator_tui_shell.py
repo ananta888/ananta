@@ -548,6 +548,69 @@ def test_fullscreen_snake_overlay_renders_message_tail_and_text_marking(monkeypa
     assert plain[5] == "f"
 
 
+def test_fullscreen_overlay_renders_peer_snake_from_multi_snake_state(monkeypatch) -> None:
+    monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 0.0)
+    lines = [" " * 20 for _ in range(5)]
+    game = {
+        "active": True,
+        "free_mode": True,
+        "local_snake_id": "s1",
+        "snake": [(1, 1)],
+        "trail_path": [(1, 1)],
+        "snakes": {
+            "s1": {
+                "id": "s1",
+                "snake": [(1, 1)],
+                "trail_path": [(1, 1)],
+                "message": "",
+                "snake_color": "mint",
+                "message_style": "trail",
+            },
+            "s2": {
+                "id": "s2",
+                "snake": [(5, 1), (4, 1)],
+                "trail_path": [(5, 1), (4, 1), (3, 1)],
+                "message": "peer",
+                "snake_color": "violet",
+                "message_style": "trail",
+            },
+        },
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+    out = _overlay_fullscreen_snake(lines, state, width=20)
+    plain_row = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[1])
+
+    assert plain_row[5] != " "
+
+
+def test_snake_tick_populates_local_snapshot_for_collab_state() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "free_mode": True,
+        "local_snake_id": "s1",
+        "snake": [(6, 3), (5, 3), (4, 3)],
+        "trail_path": [(6, 3), (5, 3), (4, 3)],
+        "mark_cells": [],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "vel_x": 0.0,
+        "vel_y": 0.0,
+        "accum_x": 0.0,
+        "accum_y": 0.0,
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER)
+
+    tui._tick_header_snake()
+
+    snakes = ((tui.state.header_logo_game or {}).get("snakes") or {})
+    local = snakes.get("s1") if isinstance(snakes, dict) else None
+    assert isinstance(local, dict)
+    assert local.get("local") is True
 def test_snake_copy_selection_moves_text_to_clipboard_and_message(monkeypatch) -> None:
     game = {
         "active": True,

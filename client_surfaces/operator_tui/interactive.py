@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import asyncio
+import math
 from prompt_toolkit.application import Application
 from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.key_binding import KeyBindings
@@ -411,6 +412,7 @@ class InteractiveOperatorTui:
             "alive": True,
             "ui_steering": False,
             "free_mode": False,
+            "local_snake_id": "s1",
             "board_w": board_w,
             "board_h": board_h,
             "snake": snake,
@@ -421,6 +423,7 @@ class InteractiveOperatorTui:
             "clipboard": "",
             "message_style": "trail",
             "snake_color": "mint",
+            "snakes": {},
             "direction": (1, 0),
             "next_direction": (1, 0),
             "vel_x": 10.0,
@@ -593,12 +596,82 @@ class InteractiveOperatorTui:
         game["moves"] = int(game.get("moves", 0)) + max(1, moved)
         game["last_move"] = now
         game["free_mode"] = free_mode
+        self._update_multi_snake_state(game, now=now, board_w=board_w, board_h=board_h)
         mode_label = "fullscreen" if free_mode else "framed"
         next_state = self.state.with_updates(
             header_logo_game=game,
             status_message=f"snake:{mode_label} vx={vx:.1f} vy={vy:.1f}",
         )
         self.state = self._apply_snake_hover_selection_delay(next_state, head=snake[0], now=now)
+
+    def _update_multi_snake_state(
+        self,
+        game: dict[str, object],
+        *,
+        now: float,
+        board_w: int,
+        board_h: int,
+    ) -> None:
+        snakes_raw = game.get("snakes")
+        snakes: dict[str, dict[str, object]]
+        if isinstance(snakes_raw, dict):
+            snakes = {str(k): dict(v) for k, v in snakes_raw.items() if isinstance(v, dict)}
+        else:
+            snakes = {}
+        local_id = str(game.get("local_snake_id") or "s1")
+        local_snapshot = {
+            "id": local_id,
+            "snake": list(game.get("snake") or []),
+            "trail_path": list(game.get("trail_path") or []),
+            "message": str(game.get("message") or ""),
+            "message_style": str(game.get("message_style") or "trail"),
+            "snake_color": str(game.get("snake_color") or "mint"),
+            "active": True,
+            "updated_at": now,
+            "local": True,
+        }
+        snakes[local_id] = local_snapshot
+        self._update_demo_remote_snakes(snakes, now=now, board_w=board_w, board_h=board_h)
+        game["snakes"] = snakes
+        game["local_snake_id"] = local_id
+
+    def _update_demo_remote_snakes(
+        self,
+        snakes: dict[str, dict[str, object]],
+        *,
+        now: float,
+        board_w: int,
+        board_h: int,
+    ) -> None:
+        demo_peers = max(0, min(3, int(os.environ.get("ANANTA_TUI_SNAKE_DEMO_PEERS", "0"))))
+        if demo_peers <= 0:
+            return
+        radius_x = max(3, board_w // 7)
+        radius_y = max(2, board_h // 5)
+        center_x = board_w // 2
+        center_y = board_h // 2
+        for i in range(demo_peers):
+            sid = f"s{i + 2}"
+            phase = now * (0.9 + i * 0.3)
+            hx = int(center_x + radius_x * math.sin(phase + i * 1.7)) % max(1, board_w)
+            hy = int(center_y + radius_y * math.cos(phase + i * 1.3)) % max(1, board_h)
+            body = []
+            for j in range(8):
+                bx = (hx - (j % 4)) % max(1, board_w)
+                by = (hy - (j // 4)) % max(1, board_h)
+                body.append((bx, by))
+            trail = list(body)
+            snakes[sid] = {
+                "id": sid,
+                "snake": body,
+                "trail_path": trail,
+                "message": f"peer-{i + 2}",
+                "message_style": ("orbit" if i % 2 == 0 else "trail"),
+                "snake_color": ("cyan" if i % 2 == 0 else "violet"),
+                "active": True,
+                "updated_at": now,
+                "local": False,
+            }
 
     def _apply_snake_hover_selection_delay(
         self,
