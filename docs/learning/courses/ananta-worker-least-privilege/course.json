@@ -1,0 +1,26 @@
+{
+  "id": "ananta-worker-least-privilege",
+  "title": "Worker Least Privilege",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-secure-ai-basics"],
+  "learning_goals": [
+    "Worker-Rollen, Capabilities und Runtime Targets einordnen",
+    "Lokale vs Cloud-Worker nach Datenrechten abgrenzen",
+    "Ueberbreite Worker-Rechte vermeiden"
+  ],
+  "references": ["docs/security/worker-artifact-key-access.md", "AGENTS.md"],
+  "lessons": [
+    {"id": "worker-capabilities", "title": "Capabilities und Ausfuehrungsgrenzen", "type": "lesson"},
+    {"id": "runtime-data-rights", "title": "Datenrechte je Runtime", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "build-minimal-worker-profile",
+    "title": "Minimales Worker-Profil fuer eine konkrete Aufgabe entwerfen",
+    "acceptance_criteria": [
+      "Nur benoetigte Rechte werden vergeben",
+      "Local/Cloud-Unterschied ist korrekt abgebildet",
+      "Ueberbreite Profile werden explizit abgelehnt"
+    ]
+  }
+}

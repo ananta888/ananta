@@ -71,7 +71,7 @@
     {
       "id": "LPCS04",
       "title": "Krypto- und Artefakt-Sicherheitskurse definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "task_ids": ["LPCS015", "LPCS016", "LPCS017", "LPCS018", "LPCS019"]
     },
@@ -418,7 +418,7 @@
       "title": "Kurs 'WebRTC P2P und sichere Transporte' planen",
       "type": "course_design",
       "milestone_id": "LPCS04",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": ["LPCS017"],
@@ -435,7 +435,7 @@
       "title": "Kurs 'Artefaktfreigaben und Audit' planen",
       "type": "course_design",
       "milestone_id": "LPCS04",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS016", "LPCS017"],
@@ -452,7 +452,7 @@
       "title": "Kurs 'Sichere KI-Grundlagen' planen",
       "type": "course_design",
       "milestone_id": "LPCS05",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS010", "LPCS013"],
@@ -469,7 +469,7 @@
       "title": "Kurs 'Worker Least Privilege' planen",
       "type": "course_design",
       "milestone_id": "LPCS05",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS020"],
@@ -486,7 +486,7 @@
       "title": "Kurs 'RAG und Kontextfreigaben sicher bauen' planen",
       "type": "course_design",
       "milestone_id": "LPCS05",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS019", "LPCS021"],
@@ -652,9 +652,9 @@
   "task_status_summary": {
     "todo": 0,
     "in_progress": 0,
-    "partial": 8,
+    "partial": 3,
     "blocked": 0,
-    "done": 24
+    "done": 29
   },
   "definition_of_done": [
     "Kurs-System ist als Ananta-Erweiterung dokumentiert.",

@@ -455,11 +455,30 @@ def _render_tui_snapshot(section_id: str, width: int, height: int) -> str:
     return render_operator_shell(state, width=width, height=height)
 
 
+def _tty_size(fallback: tuple[int, int] = (120, 32)) -> tuple[int, int]:
+    """Read actual terminal size via /dev/tty ioctl (works in WSL2/Windows Terminal)."""
+    try:
+        import fcntl
+        import struct
+        import termios
+        with open("/dev/tty") as tty:
+            data = fcntl.ioctl(tty, termios.TIOCGWINSZ, b"\x00" * 8)
+            rows, cols = struct.unpack("HHHH", data)[:2]
+            if cols > 0 and rows > 0:
+                return cols, rows
+    except Exception:
+        pass
+    sz = shutil.get_terminal_size(fallback)
+    return sz.columns, sz.lines
+
+
 def record(fps: int = 24, width: int = 0, height: int = 0, **_: object) -> None:
     """Record operator_tui_splash.cast: logo animation → TUI dashboard overview."""
-    sz = shutil.get_terminal_size((120, 32))
-    w = width or sz.columns
-    h = height or sz.lines
+    w, h = _tty_size()
+    if width:
+        w = width
+    if height:
+        h = height
 
     events: list[tuple[float, str]] = []
     interval = 1.0 / fps

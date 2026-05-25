@@ -1,0 +1,26 @@
+{
+  "id": "ananta-secure-ai-basics",
+  "title": "Sichere KI-Grundlagen",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-hub-worker-basics", "ananta-deterministic-policy"],
+  "learning_goals": [
+    "Prompt Injection, Tool-Risiken, Datenabfluss und Halluzinationen erkennen",
+    "LLM-Vorschlaege von Sicherheitsentscheidungen trennen",
+    "Riskante Agentenantworten defensiv klassifizieren"
+  ],
+  "references": ["docs/security/shell-command-policy.md", "docs/security/context-release-gates.md"],
+  "lessons": [
+    {"id": "ai-risk-landscape", "title": "Bedrohungsbild fuer KI-Agenten", "type": "lesson"},
+    {"id": "policy-over-llm", "title": "Policy vor Modellintuition", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "classify-risky-agent-output",
+    "title": "Agentenantworten in safe/unsafe/needs-review klassifizieren",
+    "acceptance_criteria": [
+      "Prompt-Injection-Muster werden erkannt",
+      "Tool-Missbrauch wird als Risiko markiert",
+      "Defensive Gegenmassnahmen werden benannt"
+    ]
+  }
+}
