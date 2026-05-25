@@ -181,6 +181,13 @@ class InteractiveOperatorTui:
                 return
             self._move_focus(1)
 
+        @bindings.add("space")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command(" ")
+                return
+            self._snake_immediate_brake()
+
         @bindings.add("c-f")
         def _(event) -> None:
             if self.state.mode is OperatorMode.COMMAND:
@@ -448,10 +455,64 @@ class InteractiveOperatorTui:
         game["last_move"] = now
         game["free_mode"] = free_mode
         mode_label = "fullscreen" if free_mode else "framed"
-        self.state = self.state.with_updates(
+        next_state = self.state.with_updates(
             header_logo_game=game,
             status_message=f"snake:{mode_label} vx={vx:.1f} vy={vy:.1f}",
         )
+        self.state = self._apply_snake_hover_selection_delay(next_state, head=snake[0], now=now)
+
+    def _apply_snake_hover_selection_delay(
+        self,
+        state: OperatorState,
+        *,
+        head: tuple[int, int],
+        now: float,
+    ) -> OperatorState:
+        """Only apply selectable-option focus after a short hover delay."""
+        game = dict(state.header_logo_game or {})
+        if not game.get("active"):
+            return state
+        size = shutil.get_terminal_size((120, 32))
+        width = max(72, int(size.columns))
+        x, y = head
+        x = max(0, min(width - 1, int(x)))
+        y = max(0, int(y))
+
+        # Approximate body start from renderer layout (header + rule).
+        body_start = 9
+        left_width = 22
+        candidate: tuple[str, int] | None = None
+        if y >= body_start + 1 and x < left_width:
+            row = y - (body_start + 1)
+            if 0 <= row < len(SECTIONS):
+                candidate = ("nav", row)
+
+        if candidate is None:
+            game.pop("pending_select_target", None)
+            game.pop("pending_select_since", None)
+            return state.with_updates(header_logo_game=game)
+
+        delay = max(0.10, min(2.0, float(os.environ.get("ANANTA_TUI_SNAKE_SELECT_DELAY", "0.45"))))
+        pending = game.get("pending_select_target")
+        since = float(game.get("pending_select_since", now))
+        if pending != candidate:
+            game["pending_select_target"] = candidate
+            game["pending_select_since"] = now
+            return state.with_updates(header_logo_game=game, status_message="snake: option anvisiert…")
+        if (now - since) < delay:
+            return state.with_updates(header_logo_game=game)
+
+        pane, idx = candidate
+        game.pop("pending_select_target", None)
+        game.pop("pending_select_since", None)
+        if pane == "nav":
+            return state.with_updates(
+                focus=FocusPane.NAVIGATION,
+                selected_index=max(0, min(len(SECTIONS) - 1, idx)),
+                header_logo_game=game,
+                status_message="snake: option gewählt",
+            )
+        return state.with_updates(header_logo_game=game)
 
     def _toggle_snake_free_mode(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
@@ -461,6 +522,17 @@ class InteractiveOperatorTui:
         game["free_mode"] = new_mode
         label = "an" if new_mode else "aus"
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake fullscreen: {label}"))
+
+    def _snake_immediate_brake(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        if not game:
+            return
+        game["vel_x"] = 0.0
+        game["vel_y"] = 0.0
+        game["accum_x"] = 0.0
+        game["accum_y"] = 0.0
+        game["next_direction"] = (0, 0)
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake: sofortstopp"))
 
     def _snake_escape_target(
         self,

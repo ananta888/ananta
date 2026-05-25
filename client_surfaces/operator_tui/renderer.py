@@ -585,7 +585,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
     game = state.header_logo_game or {}
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
-        hints = "[Ctrl+F] Frame↔Fullscreen  [←→↑↓] mehrfach=Boost  Gegentaste=bremst/kehrt um"
+        hints = "[Ctrl+F] Frame↔Fullscreen  [←→↑↓] Boost/Bremsen  [Space] Sofortstopp  [Hover] Auswahl mit Delay"
     return _clip(hints, width)
 
 
