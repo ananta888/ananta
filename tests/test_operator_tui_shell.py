@@ -638,6 +638,29 @@ def test_dashboard_shows_tutorial_ai_propose_history_in_snake_mode() -> None:
     assert "openai-compatible->nav" in plain
 
 
+def test_dashboard_shows_tutorial_ai_propose_history_when_snake_inactive() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="dashboard",
+        focus=FocusPane.CONTENT,
+        panel_states={"dashboard": PanelState.HEALTHY},
+        section_payloads={"dashboard": {"queue": {"depth": 2}}},
+        header_logo_game={
+            "active": False,
+            "tutorial_mode": False,
+            "tutorial_propose_history": [
+                {"source": "worker-propose", "target": "content", "text": "I explain the currently selected panel."},
+            ],
+        },
+    )
+
+    output = render_operator_shell(state, width=118, height=34)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+
+    assert "Tutorial-AI propose flow" in plain
+    assert "worker-propose->content" in plain
+
+
 def test_snake_message_style_and_color_can_cycle() -> None:
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER)
     tui = InteractiveOperatorTui(state)
