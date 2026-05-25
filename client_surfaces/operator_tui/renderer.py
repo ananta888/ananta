@@ -597,6 +597,9 @@ def _cell(lines: list[str], index: int, width: int) -> str:
 
 
 def _status_line(state: OperatorState, width: int, splash_state: str = "") -> str:
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    mouse_caps = (state.terminal_graphics or {}).get("mouse_support")
+    mouse_state = game.get("mouse_state") if isinstance(game.get("mouse_state"), dict) else {}
     parts = [
         f"endpoint={state.endpoint}",
         f"auth={state.auth_state}",
@@ -604,6 +607,11 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
         f"mode={state.mode.value}",
         f"status={state.status_message}",
     ]
+    if isinstance(mouse_caps, dict):
+        parts.append(f"mouse_support={'enabled' if mouse_caps.get('enabled') else 'disabled'}")
+        parts.append(f"term={mouse_caps.get('term')}")
+    if isinstance(mouse_state, dict) and mouse_state.get("active"):
+        parts.append(f"mouse={int(mouse_state.get('x', 0))},{int(mouse_state.get('y', 0))}")
     if splash_state:
         parts.append(f"splash={splash_state}")
     return _clip(" ".join(parts), width)
@@ -618,14 +626,15 @@ def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
     game = state.header_logo_game or {}
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
-        hints = "[Ctrl+S] Snake  [U] Tutorial-AI  [B] Frame  [X/C/V] Select/Copy/Replace  [Z] Clear"
+        hints = "[Ctrl+S] Snake  [U] Tutorial-AI  [O] MouseFollow  [B] Frame  [X/C/V] Select/Copy/Replace  [Z] Clear"
     return _clip(hints, width)
 
 
 def _tutorial_propose_dock_lines(state: OperatorState, width: int) -> list[str]:
     game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
     history = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
-    show_tutorial_flow = bool(game.get("tutorial_mode")) or bool(history)
+    chat = game.get("artifact_chat_state") if isinstance(game.get("artifact_chat_state"), dict) else {}
+    show_tutorial_flow = bool(game.get("tutorial_mode")) or bool(history) or bool(chat.get("active_target"))
     if not show_tutorial_flow:
         return []
 
@@ -634,6 +643,23 @@ def _tutorial_propose_dock_lines(state: OperatorState, width: int) -> list[str]:
     title = f"| {_clip('Tutorial-AI propose flow', inner_width).ljust(inner_width)} |"
 
     rows: list[str] = []
+    marker_bits: list[str] = []
+    if bool(game.get("mouse_follow_enabled")) and bool(game.get("mouse_state")):
+        marker_bits.append("mouse-follow")
+    confidence = str(game.get("artifact_intent_confidence") or "none")
+    if confidence in {"likely", "confirmed"}:
+        marker_bits.append("artifact-intent")
+    if str(game.get("tutorial_ai_target_mode") or "") in {"fast_target", "explain_target"}:
+        marker_bits.append("ai-fast-target")
+    if isinstance(chat, dict) and chat.get("active_target"):
+        marker_bits.append("artifact-chat-active")
+    if marker_bits:
+        marker_line = " ".join(f"[{bit}]" for bit in marker_bits)
+        rows.append(f"| {shorten(marker_line, width=inner_width, placeholder='...').ljust(inner_width)} |")
+    if isinstance(chat, dict) and isinstance(chat.get("active_target"), dict):
+        active = chat.get("active_target") or {}
+        label = str(active.get("label") or active.get("path") or active.get("id") or "(none)")
+        rows.append(f"| {shorten(f'context: {label}', width=inner_width, placeholder='...').ljust(inner_width)} |")
     if history:
         for entry in history[-2:]:
             if not isinstance(entry, dict):

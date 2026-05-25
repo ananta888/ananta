@@ -48,4 +48,9 @@ def graphics_decision(env: dict[str, str] | None = None) -> dict[str, object]:
         }
     except ImportError:
         result["animation_3d"] = {"enabled": False, "reason": "import_error"}
+    try:
+        from client_surfaces.operator_tui.mouse import detect_mouse_support as _mouse
+        result["mouse_support"] = _mouse(env)
+    except ImportError:
+        result["mouse_support"] = {"enabled": False, "reason": "import_error", "term": "(unknown)"}
     return result

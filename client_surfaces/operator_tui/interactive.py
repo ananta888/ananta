@@ -11,23 +11,32 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import asyncio
 import math
 from prompt_toolkit.application import Application
 from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import Window
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.output.color_depth import ColorDepth
 
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
+from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, ArtifactIntentDetector, IntentConfidence
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
+from client_surfaces.operator_tui.mouse import (
+    MouseEventType as NormalizedMouseEventType,
+    MouseState,
+    detect_mouse_support,
+    normalize_mouse_state,
+)
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry, resolve_item_reference
+from client_surfaces.operator_tui.region_index import RegionTarget, build_region_index
 from client_surfaces.operator_tui.renderer import render_operator_shell
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
 
@@ -62,7 +71,15 @@ class InteractiveOperatorTui:
         self._registry = registry or SectionAdapterRegistry()
         self._splash = splash
         self._plugins: PluginRegistry = default_plugin_registry()
+        self._mouse_capabilities = detect_mouse_support()
+        self._mouse_state = MouseState()
+        self._intent_detector = ArtifactIntentDetector(
+            dwell_seconds=float(os.environ.get("ANANTA_TUI_SNAKE_MOUSE_DWELL", "0.35"))
+        )
         self.state = load_active_section(state, self._registry)
+        term_graphics = dict(self.state.terminal_graphics or {})
+        term_graphics["mouse_support"] = dict(self._mouse_capabilities)
+        self.state = self.state.with_updates(terminal_graphics=term_graphics)
         self._tutorial_codecompass_cache: tuple[float, list[str]] = (0.0, [])
         self._tutorial_rag_cache: tuple[float, list[str]] = (0.0, [])
         self._tutorial_worker_cache: tuple[float, str] = (0.0, "")
@@ -88,7 +105,7 @@ class InteractiveOperatorTui:
             layout=Layout(self._output),
             key_bindings=self._build_keybindings(),
             full_screen=True,
-            mouse_support=False,
+            mouse_support=bool(self._mouse_capabilities.get("enabled")),
             color_depth=ColorDepth.TRUE_COLOR,
         )
 
@@ -372,6 +389,18 @@ class InteractiveOperatorTui:
                 return
             self._toggle_tutorial_ai_mode()
 
+        @bindings.add("o")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command("o")
+                return
+            if self._snake_message_mode_active():
+                self._snake_message_append("o")
+                return
+            if not self._snake_mode_active():
+                return
+            self._toggle_snake_mouse_follow()
+
         @bindings.add("left")
         def _(event) -> None:
             if self._try_header_snake_direction((-1, 0)):
@@ -424,6 +453,23 @@ class InteractiveOperatorTui:
                 if data and data.isprintable():
                     self._append_command(data)
 
+        @bindings.add(Keys.Vt100MouseEvent)
+        def _(event) -> None:
+            game = dict(self.state.header_logo_game or {})
+            if not self._snake_mode_active(game):
+                return
+            data = event.key_sequence[0].data or ""
+            parsed = self._parse_sgr_mouse_event(data)
+            if parsed is None:
+                return
+            self._ingest_mouse_event(
+                x=parsed[0],
+                y=parsed[1],
+                event_type=parsed[2],
+                buttons=parsed[3],
+                scroll_delta=parsed[4],
+            )
+
         return bindings
 
     def _normal_or_text(self, text: str, normal_action) -> None:
@@ -441,10 +487,214 @@ class InteractiveOperatorTui:
         self._command_buffer += text
         self._set_state(self.state.with_updates(command_line=self._command_buffer))
 
+    def _toggle_snake_mouse_follow(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        enabled = bool(game.get("mouse_follow_enabled"))
+        game["mouse_follow_enabled"] = not enabled
+        game["movement_mode"] = "mouse_follow" if not enabled else "keyboard"
+        status = "an" if not enabled else "aus"
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake mouse-follow: {status}"))
+
+    def _ingest_mouse_event(
+        self,
+        *,
+        x: int,
+        y: int,
+        event_type: str,
+        buttons: int = 0,
+        scroll_delta: int = 0,
+        now: float | None = None,
+    ) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        size = shutil.get_terminal_size((120, 32))
+        width = max(72, int(size.columns))
+        height = max(18, int(size.lines - 1))
+        ts = float(now if now is not None else time.monotonic())
+        self._mouse_state = normalize_mouse_state(
+            self._mouse_state,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            event_type=cast(NormalizedMouseEventType, str(event_type)),
+            buttons=buttons,
+            scroll_delta=scroll_delta,
+            now=ts,
+        )
+        game["mouse_state"] = {
+            "x": self._mouse_state.x,
+            "y": self._mouse_state.y,
+            "event": self._mouse_state.last_event_type,
+            "buttons": self._mouse_state.buttons,
+            "scroll_delta": self._mouse_state.scroll_delta,
+            "last_seen_at": self._mouse_state.last_seen_at,
+            "active": self._mouse_state.active,
+            "hover_started_at": self._mouse_state.hover_started_at,
+        }
+
+        region_index = build_region_index(self.state, width=width, height=height)
+        target = region_index.get_target_at(self._mouse_state.x, self._mouse_state.y)
+        if target is not None:
+            game["mouse_target"] = {
+                "kind": target.kind,
+                "section_id": target.section_id,
+                "pane": target.pane,
+                "label": target.label,
+                "payload": dict(target.payload),
+            }
+        else:
+            game["mouse_target"] = None
+
+        intent = self._intent_detector.evaluate(
+            now=ts,
+            mouse=self._mouse_state,
+            target=target,
+            selected_index=self.state.selected_index,
+            current_section_id=self.state.section_id,
+            user_feed=str(game.get("tutorial_user_feed") or ""),
+        )
+        self._apply_artifact_intent(game, intent=intent, now=ts, width=width, height=height)
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"mouse {self._mouse_state.x},{self._mouse_state.y}"))
+
+    def _parse_sgr_mouse_event(self, raw: str) -> tuple[int, int, str, int, int] | None:
+        # Typical xterm SGR mouse: ESC [ < Cb ; Cx ; Cy M|m
+        text = str(raw or "")
+        match = re.search(r"\x1b\[<(\d+);(\d+);(\d+)([Mm])", text)
+        if not match:
+            return None
+        cb = int(match.group(1))
+        cx = max(0, int(match.group(2)) - 1)
+        cy = max(0, int(match.group(3)) - 1)
+        release = match.group(4) == "m"
+        event_type = "move"
+        buttons = 0
+        scroll_delta = 0
+        if cb & 64:
+            event_type = "scroll_down" if (cb & 1) else "scroll_up"
+            scroll_delta = 1 if event_type == "scroll_down" else -1
+        elif release:
+            event_type = "up"
+        elif cb & 32:
+            event_type = "move"
+        else:
+            event_type = "down"
+            buttons = 1
+        return cx, cy, event_type, buttons, scroll_delta
+
+    def _apply_artifact_intent(
+        self,
+        game: dict[str, object],
+        *,
+        intent: ArtifactIntent,
+        now: float,
+        width: int,
+        height: int,
+    ) -> None:
+        game["artifact_intent_confidence"] = intent.confidence.value
+        game["artifact_intent_score"] = round(float(intent.score), 3)
+        game["artifact_intent_reason"] = intent.reason
+        target = intent.target
+        if target is None:
+            game["artifact_intent_target"] = None
+            return
+        payload = dict(target.payload)
+        target_payload = {
+            "kind": target.kind,
+            "section_id": target.section_id,
+            "pane": target.pane,
+            "label": target.label,
+            "payload": payload,
+        }
+        game["artifact_intent_target"] = target_payload
+        target_cell = self._target_cell_for_region_target(target=target, width=width, height=height)
+        game["artifact_target_cell"] = target_cell
+        if intent.confidence in {IntentConfidence.LIKELY, IntentConfidence.CONFIRMED}:
+            game["tutorial_ai_target_mode"] = "fast_target"
+            game["tutorial_ai_target_hint"] = target.pane or "content"
+            if intent.confidence is IntentConfidence.CONFIRMED:
+                self._activate_artifact_chat(game, target=target, now=now)
+                self._open_artifact_target_inline(target=target)
+        else:
+            game["tutorial_ai_target_mode"] = "follow_user"
+
+    def _target_cell_for_region_target(self, *, target: RegionTarget, width: int, height: int) -> tuple[int, int]:
+        w = max(72, int(width))
+        h = max(18, int(height))
+        if target.pane == "nav":
+            return (max(1, w // 6), max(2, h // 2))
+        if target.pane == "detail":
+            return (max(2, w - 10), max(2, h - 5))
+        return (max(2, w // 2), max(2, h // 2))
+
+    def _activate_artifact_chat(self, game: dict[str, object], *, target: RegionTarget, now: float) -> None:
+        chat_raw = game.get("artifact_chat_state")
+        chat = dict(chat_raw) if isinstance(chat_raw, dict) else {}
+        active_target = {
+            "section_id": target.section_id,
+            "kind": target.kind,
+            "label": target.label,
+            "path": str(target.payload.get("path") or ""),
+            "id": str(target.payload.get("id") or ""),
+        }
+        messages_raw = chat.get("messages")
+        messages = [dict(msg) for msg in messages_raw if isinstance(msg, dict)] if isinstance(messages_raw, list) else []
+        if not messages or messages[-1].get("text") != f"Kontext aktiv: {target.label}":
+            messages.append(
+                {
+                    "at": float(now),
+                    "source": "system",
+                    "text": f"Kontext aktiv: {target.label}",
+                }
+            )
+        chat.update(
+            {
+                "active_target": active_target,
+                "messages": messages[-8:],
+                "pending_request": "",
+                "backend_source": self._tutorial_last_source or "local-knowledge",
+                "error": "",
+            }
+        )
+        game["artifact_chat_state"] = chat
+
+    def _append_artifact_chat_ai_message(self, *, game: dict[str, object], now: float, text: str) -> None:
+        chat_raw = game.get("artifact_chat_state")
+        if not isinstance(chat_raw, dict):
+            return
+        chat = dict(chat_raw)
+        messages_raw = chat.get("messages")
+        messages = [dict(msg) for msg in messages_raw if isinstance(msg, dict)] if isinstance(messages_raw, list) else []
+        normalized = " ".join(str(text or "").split())
+        if not normalized:
+            return
+        if messages and str(messages[-1].get("text") or "") == normalized and str(messages[-1].get("source") or "") == "ai":
+            return
+        messages.append({"at": float(now), "source": "ai", "text": normalized})
+        chat["messages"] = messages[-8:]
+        chat["backend_source"] = self._tutorial_last_source or "local-knowledge"
+        game["artifact_chat_state"] = chat
+
+    def _open_artifact_target_inline(self, *, target: RegionTarget) -> None:
+        path = str(target.payload.get("path") or "").strip()
+        if not path:
+            return
+        p = Path(path).expanduser()
+        if not p.is_absolute():
+            p = (Path.cwd() / p).resolve()
+        if not p.exists() or not p.is_file():
+            return
+        self._open_inline_path(path_override=str(p))
+
     def _open_selected_item_inline(self) -> bool:
         section = get_section(self.state.section_id)
         payload = (self.state.section_payloads or {}).get(section.id, {})
         reference = resolve_item_reference(payload, self.state.selected_index)
+        if not reference:
+            return False
+        return self._open_inline_path(path_override=reference)
+
+    def _open_inline_path(self, *, path_override: str) -> bool:
+        reference = str(path_override).strip()
         if not reference:
             return False
 
@@ -560,6 +810,24 @@ class InteractiveOperatorTui:
             ),
             "message_style": "trail",
             "snake_color": "mint",
+            "movement_mode": "mouse_follow" if bool(self._mouse_capabilities.get("enabled")) else "keyboard",
+            "mouse_follow_enabled": bool(self._mouse_capabilities.get("enabled")),
+            "mouse_state": {},
+            "mouse_target": None,
+            "artifact_intent_confidence": "none",
+            "artifact_intent_score": 0.0,
+            "artifact_intent_reason": "",
+            "artifact_intent_target": None,
+            "artifact_target_cell": None,
+            "tutorial_ai_target_mode": "follow_user",
+            "tutorial_ai_target_hint": "follow",
+            "artifact_chat_state": {
+                "active_target": None,
+                "messages": [],
+                "pending_request": "",
+                "backend_source": "",
+                "error": "",
+            },
             "trail_window": max(1, min(120, int(os.environ.get("ANANTA_TUI_SNAKE_TRAIL_WINDOW", "10")))),
             "trail_speed": max(0.2, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_TRAIL_SPEED", "8.0")))),
             "tutorial_mode": os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "0").strip().lower() in {"1", "true", "yes", "on"},
@@ -693,6 +961,20 @@ class InteractiveOperatorTui:
                 marks.append((mx % board_w, my % board_h, ttl))
         vx = float(game.get("vel_x", 10.0))
         vy = float(game.get("vel_y", 0.0))
+        if bool(game.get("mouse_follow_enabled")) and str(game.get("movement_mode") or "") == "mouse_follow":
+            mouse = game.get("mouse_state")
+            if isinstance(mouse, dict) and bool(mouse.get("active")):
+                hx, hy = snake[0]
+                mx = max(0, min(board_w - 1, int(mouse.get("x", hx))))
+                my = max(0, min(board_h - 1, int(mouse.get("y", hy))))
+                dx = mx - hx
+                dy = my - hy
+                smoothing = max(0.05, min(0.9, float(os.environ.get("ANANTA_TUI_MOUSE_FOLLOW_SMOOTHING", "0.28"))))
+                limit = max(6.0, min(100.0, float(os.environ.get("ANANTA_TUI_MOUSE_FOLLOW_MAX_SPEED", "56.0"))))
+                vx = (vx * (1.0 - smoothing)) + (dx * smoothing * 8.0)
+                vy = (vy * (1.0 - smoothing)) + (dy * smoothing * 8.0)
+                vx = max(-limit, min(limit, vx))
+                vy = max(-limit, min(limit, vy))
         ax = float(game.get("accum_x", 0.0)) + vx * dt
         ay = float(game.get("accum_y", 0.0)) + vy * dt
 
@@ -802,6 +1084,14 @@ class InteractiveOperatorTui:
         hints = self._load_codecompass_hints(now=now)
         rag_context = self._load_rag_helper_context(now=now)
         context_tokens = [*hints[:10], *rag_context[:10]]
+        intent_confidence = str(game.get("artifact_intent_confidence") or "none")
+        artifact_target = game.get("artifact_intent_target")
+        target_mode = "follow_user"
+        if intent_confidence in {"likely", "confirmed"}:
+            target_mode = "fast_target"
+            if isinstance(artifact_target, dict):
+                context_tokens.insert(0, f"artifact:{artifact_target.get('label')}")
+                context_tokens.insert(0, f"target:{artifact_target.get('pane') or 'content'}")
         if self._tutorial_worker_target_hint:
             context_tokens.insert(0, f"target:{self._tutorial_worker_target_hint}")
         local = snakes.get(str(self.state.header_logo_game.get("local_snake_id", "s1"))) if isinstance(self.state.header_logo_game, dict) else None
@@ -818,6 +1108,9 @@ class InteractiveOperatorTui:
             context_tokens=context_tokens,
             local_head=local_head,
         )
+        artifact_cell = game.get("artifact_target_cell")
+        if target_mode == "fast_target" and isinstance(artifact_cell, (list, tuple)) and len(artifact_cell) == 2:
+            target = (int(artifact_cell[0]) % max(1, board_w), int(artifact_cell[1]) % max(1, board_h))
         existing = snakes.get(sid, {})
         existing_snake_raw = existing.get("snake") if isinstance(existing, dict) else []
         existing_snake = [
@@ -836,6 +1129,13 @@ class InteractiveOperatorTui:
             board_w=board_w,
             board_h=board_h,
         )
+        if target_mode == "fast_target":
+            new_head = self._step_toward_cell(
+                current=new_head,
+                target=target,
+                board_w=board_w,
+                board_h=board_h,
+            )
         body = [new_head, *existing_snake]
         while len(body) < 10:
             tx = (body[-1][0] - 1) % max(1, board_w)
@@ -851,6 +1151,12 @@ class InteractiveOperatorTui:
         game["tutorial_ai_local_contact"] = ai_local_contact
         game["tutorial_ai_contact_zone"] = contact_zone
         game["tutorial_ai_contact_at"] = float(now) if ai_local_contact else 0.0
+        game["tutorial_ai_target_mode"] = target_mode
+        if target_mode == "fast_target":
+            dist = abs(new_head[0] - target[0]) + abs(new_head[1] - target[1])
+            if dist <= 1:
+                game["tutorial_ai_target_mode"] = "explain_target"
+                self._append_artifact_chat_ai_message(game=game, now=now, text="Ziel erreicht. Ich erkläre dieses Artefakt im Kontext.")
 
         tip = self._tutorial_ai_tip(now=now)
         target_label = self._tutorial_last_target or self._tutorial_target_label(board_w=board_w, board_h=board_h, target=target)
@@ -879,6 +1185,7 @@ class InteractiveOperatorTui:
             "local": False,
             "knowledge_scope": ("tui", "architecture", "workflow"),
             "target_cell": target,
+            "mode": game.get("tutorial_ai_target_mode") or "follow_user",
         }
 
     def _tutorial_target_label(
@@ -1058,6 +1365,7 @@ class InteractiveOperatorTui:
         game = dict(self.state.header_logo_game or {})
         user_feed = str(game.get("tutorial_user_feed") or game.get("message") or "").strip()
         contact_zone = str(game.get("tutorial_ai_contact_zone") or "").strip()
+        artifact_overlay = self._artifact_chat_prompt_overlay(game=game)
         priority = "explain-current-position" if bool(game.get("tutorial_ai_local_contact")) else "navigation-guidance"
         template = self._resolve_tutorial_prompt_template(game)
         overlay = self._render_tutorial_prompt_overlay(
@@ -1066,9 +1374,11 @@ class InteractiveOperatorTui:
             user_feed=user_feed or "(none)",
             contact_zone=contact_zone or "(none)",
         )
-        effective_status = f"{status}\n{overlay}"
+        effective_status = f"{status}\n{overlay}\n{artifact_overlay}"
         worker_tip = self._tutorial_ai_worker_propose_message(now=now, status=effective_status, hints=hints, rag_context=rag_context)
         if worker_tip:
+            self._append_artifact_chat_ai_message(game=game, now=now, text=worker_tip)
+            self.state = self.state.with_updates(header_logo_game=game)
             return {
                 "source": "worker-propose",
                 "target": self._tutorial_worker_target_hint or "follow",
@@ -1077,6 +1387,8 @@ class InteractiveOperatorTui:
         llm_hints = [*hints[:12], *[f"RAG {entry}" for entry in rag_context[:8]]]
         llm_tip = self._tutorial_ai_llm_message(now=now, status=effective_status, hints=llm_hints)
         if llm_tip:
+            self._append_artifact_chat_ai_message(game=game, now=now, text=llm_tip)
+            self.state = self.state.with_updates(header_logo_game=game)
             return {
                 "source": "openai-compatible",
                 "target": self._tutorial_worker_target_hint or "content",
@@ -1101,6 +1413,32 @@ class InteractiveOperatorTui:
             "target": "content",
             "text": " ".join(parts),
         }
+
+    def _artifact_chat_prompt_overlay(self, *, game: dict[str, object]) -> str:
+        target = game.get("artifact_intent_target")
+        if not isinstance(target, dict):
+            return "artifact_context=none"
+        label = str(target.get("label") or "(unnamed)")
+        payload = target.get("payload")
+        path = ""
+        if isinstance(payload, dict):
+            path = str(payload.get("path") or "")
+        excerpt = ""
+        if path:
+            p = Path(path).expanduser()
+            if not p.is_absolute():
+                p = (Path.cwd() / p).resolve()
+            if p.exists() and p.is_file():
+                try:
+                    lines = p.read_text(encoding="utf-8").splitlines()[:8]
+                    excerpt = " | ".join(" ".join(line.split()) for line in lines if line.strip())[:420]
+                except OSError:
+                    excerpt = ""
+                except UnicodeDecodeError:
+                    excerpt = ""
+        if excerpt:
+            return f"artifact_context={label} path={path} excerpt={excerpt}"
+        return f"artifact_context={label} path={path or '(none)'}"
 
     def _resolve_tutorial_prompt_template(self, game: dict[str, object]) -> str:
         env_template = str(os.environ.get("ANANTA_TUI_SNAKE_AI_PROMPT_TEMPLATE") or "").strip()
@@ -1838,6 +2176,8 @@ class InteractiveOperatorTui:
         game["active"] = True
         game["ui_steering"] = True
         game["free_mode"] = True
+        game["mouse_follow_enabled"] = bool(game.get("mouse_follow_enabled", self._mouse_capabilities.get("enabled")))
+        game["movement_mode"] = "mouse_follow" if bool(game.get("mouse_follow_enabled")) else "keyboard"
         game["message_mode"] = False
         game["message_draft"] = ""
         game["message_style"] = str(game.get("message_style") or "trail")
