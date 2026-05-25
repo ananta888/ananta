@@ -264,15 +264,15 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
         score = int(game.get("score", 0))
         status = "running" if game.get("alive", True) else "game over"
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake  score={score}  {status}", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Arrows steuern · Tab verlässt Fokus", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Steuerung: [←→↑↓] lenken/boost · [Space] stop", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Ausbrechen: [Ctrl+F] → Fullscreen über die ganze UI", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Botschaft: [M] tippen · [Enter] speichern · [Esc] abbrechen", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Config: ~/.config/ananta/snake-config.json → snake_message", width))
         if game.get("message_mode"):
             draft = str(game.get("message_draft", ""))
             lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} MSG* {draft}", width))
         elif game.get("message"):
             lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} MSG: {game.get('message')}", width))
-        gaps = game.get("gaps") if isinstance(game.get("gaps"), dict) else {}
-        if gaps:
-            lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} A-Lücke öffnet zufällig: Snake kann ins Dreieck", width))
     for i, key in enumerate(CONFIG_ITEMS):
         cursor = DEFAULT_THEME.selected_prefix if i == state.selected_index else DEFAULT_THEME.idle_prefix
         label = CONFIG_LABELS[key]
