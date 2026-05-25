@@ -1,5 +1,5 @@
 (() => {
-  const DEFAULT_CAST_URL = "https://raw.githubusercontent.com/ananta888/ananta/main/tests/output/operator_tui_splash.cast";
+  const DEFAULT_CAST_URL = "https://raw.githubusercontent.com/ananta888/ananta/main/tests/output/operator_tui_tutorial_ai_live.cast";
 
   const ANSI_256 = [
     [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128], [128, 0, 128], [0, 128, 128], [192, 192, 192],
