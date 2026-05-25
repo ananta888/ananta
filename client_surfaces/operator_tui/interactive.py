@@ -51,6 +51,7 @@ class InteractiveOperatorTui:
         self._splash = splash
         self._plugins: PluginRegistry = default_plugin_registry()
         self.state = load_active_section(state, self._registry)
+        self._tutorial_codecompass_cache: tuple[float, list[str]] = (0.0, [])
         self._command_buffer = ""
         self._rendered_text = self._render()
         self._control = FormattedTextControl(text=lambda: ANSI(self._rendered_text))
@@ -723,11 +724,11 @@ class InteractiveOperatorTui:
             by = (hy - (j // 5)) % max(1, board_h)
             body.append((bx, by))
         trail = list(body)
-        tip = _TUTORIAL_AI_KNOWLEDGE[int(now * 0.5) % len(_TUTORIAL_AI_KNOWLEDGE)]
+        tip = self._tutorial_ai_tip(now=now)
         snakes[sid] = {
             "id": sid,
             "pseudonym": "tutor-ai",
-            "oidc_provider": "tutorial-local",
+            "oidc_provider": "codecompass-ai",
             "snake": body,
             "trail_path": trail,
             "selection_cells": [],
@@ -741,6 +742,86 @@ class InteractiveOperatorTui:
             "local": False,
             "knowledge_scope": ("tui", "architecture", "workflow"),
         }
+
+    def _tutorial_ai_tip(self, *, now: float) -> str:
+        mode = self.state.mode.value
+        focus = self.state.focus.value
+        section = self.state.section_id
+        selected = self.state.selected_index
+        status = f"TUI mode={mode} focus={focus} section={section} idx={selected}."
+        hints = self._load_codecompass_hints(now=now)
+        if not hints:
+            base = _TUTORIAL_AI_KNOWLEDGE[int(now * 0.5) % len(_TUTORIAL_AI_KNOWLEDGE)]
+            return f"{status} {base}"
+        cc = hints[int(now * 0.7) % len(hints)]
+        return f"{status} CodeCompass: {cc}"
+
+    def _load_codecompass_hints(self, *, now: float) -> list[str]:
+        cached_at, cached = self._tutorial_codecompass_cache
+        if cached and (now - cached_at) < 6.0:
+            return cached
+
+        out_dir = self._resolve_codecompass_output_dir()
+        if out_dir is None:
+            self._tutorial_codecompass_cache = (now, [])
+            return []
+
+        try:
+            from worker.retrieval.codecompass_output_reader import CodeCompassOutputReader
+        except Exception:
+            self._tutorial_codecompass_cache = (now, [])
+            return []
+
+        try:
+            payload = CodeCompassOutputReader().load_from_output_dir(output_dir=out_dir)
+            records = payload.get("records") if isinstance(payload, dict) else []
+            if not isinstance(records, list):
+                records = []
+            hints: list[str] = []
+            for record in records:
+                if not isinstance(record, dict):
+                    continue
+                kind = str(record.get("kind") or record.get("type") or "").strip()
+                file_path = str(record.get("file") or record.get("path") or "").strip()
+                name = str(record.get("name") or record.get("id") or "").strip()
+                if not (kind or file_path or name):
+                    continue
+                parts = []
+                if kind:
+                    parts.append(kind)
+                if name:
+                    parts.append(name)
+                if file_path:
+                    parts.append(file_path)
+                hint = " · ".join(parts)
+                if hint:
+                    hints.append(hint)
+                if len(hints) >= 64:
+                    break
+            self._tutorial_codecompass_cache = (now, hints)
+            return hints
+        except Exception:
+            self._tutorial_codecompass_cache = (now, [])
+            return []
+
+    def _resolve_codecompass_output_dir(self) -> Path | None:
+        candidates = [
+            os.environ.get("ANANTA_TUI_CODECOMPASS_OUTPUT_DIR"),
+            os.environ.get("CODECOMPASS_OUTPUT_DIR"),
+            os.environ.get("ANANTA_CODECOMPASS_OUTPUT_DIR"),
+            "rag-helper/out",
+            "rag-helper/output",
+            "codecompass-out",
+        ]
+        for raw in candidates:
+            if not raw:
+                continue
+            path = Path(raw).expanduser()
+            if not path.is_absolute():
+                path = (Path.cwd() / path).resolve()
+            if path.exists() and path.is_dir() and (path / "index.jsonl").exists():
+                return path
+        return None
 
     def _update_demo_remote_snakes(
         self,
