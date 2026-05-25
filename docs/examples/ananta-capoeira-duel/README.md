@@ -2,8 +2,8 @@
 
 **Status:** neues Mini-Spiel-/Prototyp-Szenario fuer Ananta  
 **Zweck:** extrem kleiner 3D-Terminal-/ASCII-Capoeira-Duell-Prototyp als kontrolliertes Entwicklungsbeispiel  
-**Technikziel:** zuerst Terminal/TUI mit 3D-Projektion, spaeter optional echter 3D-Renderer  
-**Scope-Regel:** erst 3D-Terminal-Spielgefuehl beweisen, dann Engine/Assets/VR.
+**Technikziel:** zuerst Terminal/TUI mit 3D-Projektion, danach optional Angular/Web-3D-Ausbaustufe  
+**Scope-Regel:** erst 3D-Terminal-Spielgefuehl beweisen, dann Web-Renderer/Assets/VR.
 
 ## 1. Grundidee
 
@@ -44,6 +44,7 @@ Sondern: Terminal-3D-Roda + Ginga + Distanz + Esquiva + Kick.
 - realistische Physik
 - Asset-Polish
 - Musik-/Rhythmus-System als Pflichtmechanik
+- Angular/Web-3D als aktiver First-Step
 
 Diese Themen bleiben geparkt, bis der Terminal-Core funktioniert.
 
@@ -150,7 +151,71 @@ Moegliche Libraries, aber optional:
 - `textual` spaeter fuer TUI,
 - zuerst notfalls plain ANSI.
 
-## 9. Ananta-Integration als Entwicklungsbeispiel
+## 9. Angular/Web-3D-Ausbaustufe
+
+Angular kommt nicht vor dem Terminal-MVP. Die Web-Stufe soll denselben Game-Core, dieselben ActionLogs und dieselben Combat-Regeln nutzen. Nur der Renderer wird ausgetauscht: Terminal-Renderer raus, Angular/WebGL-Renderer rein.
+
+```mermaid
+flowchart TD
+    Core[Shared GameCore / Rules / ActionLog] --> T[Terminal Renderer]
+    Core --> A[Angular App]
+    A --> S[Scene Adapter]
+    S --> W[WebGL / Three.js Renderer]
+    A --> HUD[Angular HUD / Debug Panels]
+    A --> Input[Keyboard/Gamepad Input]
+    Input --> Core
+    HUD --> Core
+```
+
+Empfohlene Angular-Struktur:
+
+```text
+apps/ananta-capoeira-web/
+  src/app/
+    capoeira-duel/
+      capoeira-duel.component.ts
+      capoeira-duel.component.html
+      capoeira-duel.component.scss
+      renderers/
+        three-scene-renderer.service.ts
+        debug-hitbox-renderer.service.ts
+      input/
+        duel-input.service.ts
+      hud/
+        duel-hud.component.ts
+      state/
+        duel-store.service.ts
+libs/ananta-capoeira-core/
+  src/lib/
+    state.ts
+    moves.ts
+    combat.ts
+    action-log.ts
+    replay.ts
+```
+
+Ziel der Angular-Stufe:
+
+- Terminal-Prototyp spielerisch bestaetigt,
+- GameCore in TypeScript portiert oder als gemeinsames Schema gespiegelt,
+- Three.js/Babylon.js nur als Renderer,
+- Debug-Hitboxen und ActionLog bleiben sichtbar,
+- kein Asset-/Animations-Overkill.
+
+## 10. Angular-Renderer-Pipeline
+
+```mermaid
+flowchart LR
+    Input[Angular Input Service] --> Store[Duel Store]
+    Store --> Core[TypeScript GameCore]
+    Core --> Snapshot[Render Snapshot]
+    Snapshot --> Three[Three.js Scene]
+    Snapshot --> Debug[Debug Overlay]
+    Core --> ActionLog[ActionLog]
+    ActionLog --> Replay[Replay / Audit]
+```
+
+## 11. Ananta-Integration als Entwicklungsbeispiel
 
 ```mermaid
 sequenceDiagram
@@ -175,7 +240,7 @@ sequenceDiagram
     V-->>H: Freigabe oder Rework
 ```
 
-## 10. Erfolgskriterien fuer den ersten Prototyp
+## 12. Erfolgskriterien fuer den ersten Prototyp
 
 Der erste MVP ist erfolgreich, wenn:
 
@@ -189,11 +254,17 @@ Der erste MVP ist erfolgreich, wenn:
 - Punkte/HUD im Terminal angezeigt werden,
 - Tests fuer Projektion, MoveState und Combat existieren.
 
-## 11. Leitregel
+Die Angular-Stufe ist erst sinnvoll, wenn diese Punkte erfuellt sind.
+
+## 13. Leitregel
 
 Bis der Terminal-Prototyp Spass macht:
 
 > Keine Engine-Flucht.
+
+Bis die Angular-Stufe dran ist:
+
+> Kein WebGL ohne stabilen Core.
 
 Erlaubt sind:
 
@@ -202,11 +273,13 @@ Erlaubt sind:
 - bessere Keyframes,
 - klarere Hitbox-Debug-Ausgabe,
 - Tests ergaenzen,
-- schlechte Moves streichen.
+- schlechte Moves streichen,
+- spaeter Angular als Renderer-Ausbau planen.
 
 Nicht erlaubt:
 
 - Godot-Umstieg als Ausrede,
+- Angular vor Terminal-Core,
 - neue Charaktere,
 - Online,
 - Story,
