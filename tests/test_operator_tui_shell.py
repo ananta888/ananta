@@ -671,6 +671,44 @@ def test_snake_copy_selection_moves_text_to_clipboard_and_message(monkeypatch) -
     assert g.get("message") == "bcd"
 
 
+def test_snake_frame_mode_collects_multiple_regions_and_copy(monkeypatch) -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "free_mode": True,
+        "snake": [(2, 1), (1, 1), (0, 1)],
+        "selection_cells": [],
+        "selection_regions": [],
+        "board_w": 30,
+        "board_h": 12,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    tui._snake_toggle_frame_mode()  # anchor at (2,1)
+    g = dict(tui.state.header_logo_game or {})
+    g["snake"] = [(4, 2), (3, 2), (2, 2)]
+    tui.state = tui.state.with_updates(header_logo_game=g)
+    tui._snake_toggle_selection()  # first frame
+
+    g = dict(tui.state.header_logo_game or {})
+    g["snake"] = [(8, 2), (7, 2), (6, 2)]
+    tui.state = tui.state.with_updates(header_logo_game=g)
+    tui._snake_toggle_selection()  # second frame
+
+    g = tui.state.header_logo_game or {}
+    regions = g.get("selection_regions") or []
+    assert len(regions) == 2
+    assert len(g.get("selection_cells") or []) > 0
+
+    monkeypatch.setattr(tui, "_snake_render_plain_lines", lambda: ["0123456789", "abcdefghij", "klmnopqrst", "", ""])
+    tui._snake_copy_selection()
+    copied = (tui.state.header_logo_game or {}).get("clipboard") or ""
+    assert copied
+
+
 def test_snake_replace_selection_only_in_command_line(monkeypatch) -> None:
     game = {
         "active": True,
