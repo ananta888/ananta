@@ -17,7 +17,7 @@ from prompt_toolkit.output.color_depth import ColorDepth
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
-from client_surfaces.operator_tui.logo_inline import build_a_snake_geometry
+from client_surfaces.operator_tui.logo_inline import build_snake_control_boxes
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry
 from client_surfaces.operator_tui.renderer import render_operator_shell
@@ -296,7 +296,6 @@ class InteractiveOperatorTui:
             "next_direction": (1, 0),
             "food": (12, 3),
             "gaps": gaps,
-            "gate_seed": int(time.time() * 1000),
             "score": 0,
             "moves": 0,
             "last_move": time.monotonic(),
@@ -368,18 +367,8 @@ class InteractiveOperatorTui:
 
         board_w = max(6, int(game.get("board_w", 18)))
         board_h = max(4, int(game.get("board_h", 6)))
-        game["gaps"] = self._ensure_snake_escape_gaps(
-            game.get("gaps"),
-            board_w=board_w,
-            board_h=board_h,
-            seed=int(game.get("moves", 0)) + int(time.time() * 1000),
-        )
-        if int(game.get("moves", 0)) % 9 == 0:
-            game["gate_seed"] = int(time.time() * 1000) + int(game.get("score", 0)) * 31
-        geom = build_a_snake_geometry(board_w, board_h, seed=int(game.get("gate_seed", 0)))
-        wall_cells = set(geom.get("walls", set()))
-        portals = self._compute_ui_portals(board_w, board_h, wall_cells=wall_cells, gaps=game.get("gaps"))
-        game["portals"] = portals
+        boxes = self._compute_control_boxes(board_w, board_h)
+        game["boxes"] = boxes
         snake_raw = game.get("snake") or []
         snake = [(int(p[0]), int(p[1])) for p in snake_raw if isinstance(p, (list, tuple)) and len(p) == 2]
         if not snake:
@@ -394,29 +383,17 @@ class InteractiveOperatorTui:
         nx = hx + direction[0]
         ny = hy + direction[1]
         if nx < 0 or nx >= board_w or ny < 0 or ny >= board_h:
-            target = self._snake_escape_target(
-                nx=nx,
-                ny=ny,
-                hx=hx,
-                hy=hy,
-                board_w=board_w,
-                board_h=board_h,
-                gaps=game.get("gaps"),
-            )
-            if target is not None:
-                self._apply_snake_escape(game, target=target, now=now, board_h=board_h)
-                return
             game["active"] = True
             game["alive"] = True
             game["direction"] = direction
             game["next_direction"] = direction
             game["moves"] = int(game.get("moves", 0)) + 1
             game["last_move"] = now
-            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: wand blockiert")
+            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: rand blockiert")
             return
         new_head = (nx, ny)
-        portal_target = self._portal_hit_target(new_head, portals)
-        if portal_target == "command":
+        box_target = self._box_hit_target(new_head, boxes)
+        if box_target == "command":
             snake = [new_head, *snake]
             snake.pop()
             game["snake"] = snake
@@ -430,18 +407,13 @@ class InteractiveOperatorTui:
                 status_message="snake: input-fokus gesetzt",
             )
             return
-        if isinstance(portal_target, FocusPane):
+        if isinstance(box_target, FocusPane):
             game["snake"] = [new_head, *snake[:-1]]
-            self._apply_snake_escape(game, target=portal_target, now=now, board_h=board_h)
+            self._apply_snake_escape(game, target=box_target, now=now, board_h=board_h)
             return
-        if new_head in wall_cells:
-            game["active"] = True
-            game["alive"] = True
-            game["direction"] = direction
-            game["next_direction"] = direction
-            game["moves"] = int(game.get("moves", 0)) + 1
-            game["last_move"] = now
-            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: A-Wand blockiert")
+        if isinstance(box_target, str):
+            game["snake"] = [new_head, *snake[:-1]]
+            self._apply_snake_section_target(game, section_id=box_target, now=now)
             return
 
         food_raw = game.get("food", (12, 3))
@@ -529,6 +501,24 @@ class InteractiveOperatorTui:
             status_message=f"snake: ausgebrochen nach {target.value}",
         )
 
+    def _apply_snake_section_target(self, game: dict[str, object], *, section_id: str, now: float) -> None:
+        section_ids = [s.id for s in SECTIONS]
+        if section_id not in section_ids:
+            return
+        idx = section_ids.index(section_id)
+        game["active"] = True
+        game["ui_steering"] = True
+        game["escaped_to"] = "navigation"
+        game["last_move"] = now
+        next_state = self.state.with_updates(
+            focus=FocusPane.NAVIGATION,
+            selected_index=idx,
+            section_id=section_id,
+            header_logo_game=game,
+            status_message=f"snake: section {section_id}",
+        )
+        self.state = load_active_section(next_state, self._registry)
+
     def _apply_snake_ui_controls(
         self,
         state: OperatorState,
@@ -558,58 +548,39 @@ class InteractiveOperatorTui:
         detail_idx = max(0, round((y / max(1, board_h - 1)) * 8))
         return state.with_updates(focus=FocusPane.DETAIL, selected_index=detail_idx, mode=OperatorMode.NORMAL)
 
-    def _compute_ui_portals(
+    def _compute_control_boxes(
         self,
         board_w: int,
         board_h: int,
-        *,
-        wall_cells: set[tuple[int, int]],
-        gaps: object,
-    ) -> dict[str, tuple[int, int]]:
-        g = self._ensure_snake_escape_gaps(gaps, board_w=board_w, board_h=board_h, seed=0)
-        portals = {
-            "nav": (max(1, board_w - 2), max(1, min(board_h - 2, int(g.get("right", 1))))),
-            "content": (max(1, min(board_w - 2, int(g.get("bottom_content", board_w // 2)))), max(1, board_h - 2)),
-            "detail": (max(1, min(board_w - 2, int(g.get("bottom_detail", (board_w * 4) // 5)))), max(1, board_h - 2)),
-            "command": (max(1, board_w // 2), 1),
-        }
-        return {
-            key: self._shift_to_free_cell(value, wall_cells=wall_cells, board_w=board_w, board_h=board_h)
-            for key, value in portals.items()
-        }
+    ) -> list[dict[str, object]]:
+        section_ids = [s.id for s in SECTIONS]
+        return build_snake_control_boxes(board_w, board_h, section_ids=section_ids)
 
-    def _shift_to_free_cell(
-        self,
-        cell: tuple[int, int],
-        *,
-        wall_cells: set[tuple[int, int]],
-        board_w: int,
-        board_h: int,
-    ) -> tuple[int, int]:
-        x, y = cell
-        x = max(1, min(board_w - 2, x))
-        y = max(1, min(board_h - 2, y))
-        if (x, y) not in wall_cells:
-            return (x, y)
-        candidates = [(x - 1, y), (x, y - 1), (x + 1, y), (x, y + 1), (x - 1, y - 1), (x + 1, y - 1)]
-        for cx, cy in candidates:
-            if 1 <= cx <= board_w - 2 and 1 <= cy <= board_h - 2 and (cx, cy) not in wall_cells:
-                return (cx, cy)
-        return (x, y)
-
-    def _portal_hit_target(
+    def _box_hit_target(
         self,
         head: tuple[int, int],
-        portals: dict[str, tuple[int, int]],
+        boxes: list[dict[str, object]],
     ) -> FocusPane | str | None:
-        if head == portals.get("nav"):
-            return FocusPane.NAVIGATION
-        if head == portals.get("content"):
-            return FocusPane.CONTENT
-        if head == portals.get("detail"):
-            return FocusPane.DETAIL
-        if head == portals.get("command"):
-            return "command"
+        x, y = head
+        for box in boxes:
+            x0 = int(box.get("x0", -1))
+            y0 = int(box.get("y0", -1))
+            x1 = int(box.get("x1", -1))
+            y1 = int(box.get("y1", -1))
+            if x0 <= x <= x1 and y0 <= y <= y1:
+                kind = str(box.get("kind", ""))
+                target = str(box.get("target", ""))
+                if kind == "pane":
+                    if target == "navigation":
+                        return FocusPane.NAVIGATION
+                    if target == "content":
+                        return FocusPane.CONTENT
+                    if target == "detail":
+                        return FocusPane.DETAIL
+                    if target == "command":
+                        return "command"
+                if kind == "section" and target:
+                    return target
         return None
 
     def _ensure_snake_escape_gaps(
