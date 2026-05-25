@@ -30,6 +30,14 @@ if TYPE_CHECKING:
     from agent.cli.splash import SplashMachine, SplashState
 
 _ANSI_STRIP = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+_TUTORIAL_AI_KNOWLEDGE: tuple[str, ...] = (
+    "TUI: Focus [Tab], Command [:], Snake [Ctrl+S], Hilfe [?].",
+    "Snake: B frame-mode, X Rahmen, C copy, V replace (nur command line).",
+    "Architektur: Hub orchestriert, Worker fuehren aus; keine worker-zu-worker orchestration.",
+    "Taskfluss: User -> Hub -> Task Queue -> Worker; Hub bleibt Control Plane.",
+    "Betrieb: Hub/Worker getrennte Container, reproduzierbare Umgebungen.",
+    "API evolution: additive, rueckwaertskompatibel, keine Big-Bang Refactors.",
+)
 
 
 class InteractiveOperatorTui:
@@ -321,6 +329,18 @@ class InteractiveOperatorTui:
                 return
             self._snake_clear_visual_marks()
 
+        @bindings.add("u")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command("u")
+                return
+            if self._snake_message_mode_active():
+                self._snake_message_append("u")
+                return
+            if not self._snake_mode_active():
+                return
+            self._toggle_tutorial_ai_mode()
+
         @bindings.add("left")
         def _(event) -> None:
             if self._try_header_snake_direction((-1, 0)):
@@ -454,6 +474,7 @@ class InteractiveOperatorTui:
             "snake_color": "mint",
             "trail_window": max(1, min(120, int(os.environ.get("ANANTA_TUI_SNAKE_TRAIL_WINDOW", "10")))),
             "trail_speed": max(0.2, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_TRAIL_SPEED", "8.0")))),
+            "tutorial_mode": os.environ.get("ANANTA_TUI_SNAKE_TUTORIAL_AI", "0").strip().lower() in {"1", "true", "yes", "on"},
             "snakes": {},
             "direction": (1, 0),
             "next_direction": (1, 0),
@@ -672,8 +693,54 @@ class InteractiveOperatorTui:
         }
         snakes[local_id] = local_snapshot
         self._update_demo_remote_snakes(snakes, now=now, board_w=board_w, board_h=board_h)
+        self._update_tutorial_ai_snake(snakes, now=now, board_w=board_w, board_h=board_h, enabled=bool(game.get("tutorial_mode")))
         game["snakes"] = snakes
         game["local_snake_id"] = local_id
+
+    def _update_tutorial_ai_snake(
+        self,
+        snakes: dict[str, dict[str, object]],
+        *,
+        now: float,
+        board_w: int,
+        board_h: int,
+        enabled: bool,
+    ) -> None:
+        sid = "s-ai"
+        if not enabled:
+            snakes.pop(sid, None)
+            return
+        radius_x = max(3, board_w // 6)
+        radius_y = max(2, board_h // 4)
+        center_x = max(0, board_w - max(6, board_w // 4))
+        center_y = max(0, board_h // 3)
+        phase = now * 0.75
+        hx = int(center_x + radius_x * math.sin(phase)) % max(1, board_w)
+        hy = int(center_y + radius_y * math.cos(phase * 1.1)) % max(1, board_h)
+        body = []
+        for j in range(10):
+            bx = (hx - (j % 5)) % max(1, board_w)
+            by = (hy - (j // 5)) % max(1, board_h)
+            body.append((bx, by))
+        trail = list(body)
+        tip = _TUTORIAL_AI_KNOWLEDGE[int(now * 0.5) % len(_TUTORIAL_AI_KNOWLEDGE)]
+        snakes[sid] = {
+            "id": sid,
+            "pseudonym": "tutor-ai",
+            "oidc_provider": "tutorial-local",
+            "snake": body,
+            "trail_path": trail,
+            "selection_cells": [],
+            "message": tip,
+            "message_style": "ticker",
+            "snake_color": "amber",
+            "trail_window": 28,
+            "trail_speed": 8.0,
+            "active": True,
+            "updated_at": now,
+            "local": False,
+            "knowledge_scope": ("tui", "architecture", "workflow"),
+        }
 
     def _update_demo_remote_snakes(
         self,
@@ -810,6 +877,13 @@ class InteractiveOperatorTui:
         game["selection_frame_anchor"] = None
         game["last_move"] = time.monotonic()
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake mode: an"))
+
+    def _toggle_tutorial_ai_mode(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        enabled = bool(game.get("tutorial_mode"))
+        game["tutorial_mode"] = not enabled
+        label = "an" if not enabled else "aus"
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake tutorial-ai: {label}"))
 
     def _snake_cycle_message_style(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
