@@ -1,0 +1,25 @@
+{
+  "id": "ananta-game-arena-ascii",
+  "title": "Arena-Kampf und ASCII-Visualisierung",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-game-nagabanda"],
+  "learning_goals": [
+    "Combat Resolver, ArenaCombatState und ActionLog einordnen",
+    "ASCII-Renderer als View-Schicht verstehen",
+    "Visualisierung und Regelengine sauber trennen"
+  ],
+  "lessons": [
+    {"id": "combat-state", "title": "Kampfzustand und ActionLog", "type": "lesson"},
+    {"id": "ascii-view-boundary", "title": "ASCII als Darstellung, nicht Regelquelle", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "render-plain-ascii-snapshot",
+    "title": "Plain-ASCII-Snapshot einer Spielsituation erstellen",
+    "acceptance_criteria": [
+      "Snapshot ist reproduzierbar",
+      "Regelentscheidungen bleiben getrennt von Darstellung",
+      "3D/Animation wird als optional markiert"
+    ]
+  }
+}
