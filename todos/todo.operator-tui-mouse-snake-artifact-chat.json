@@ -1,7 +1,7 @@
 {
   "id": "todo.operator-tui-mouse-snake-artifact-chat",
   "title": "Mouse-driven Snake movement, AI-Snake artifact targeting, and contextual artifact chat",
-  "status": "in_progress",
+  "status": "done",
   "priority": "high",
   "created": "2026-05-25",
   "context": {
