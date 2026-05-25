@@ -16,6 +16,8 @@ _MIN_TERMINAL_WIDTH_FOR_BOTH = 80
 
 # width of the small logo rendered for the persistent TUI header
 _SMALL_LOGO_COLS = 35
+LOGO_ZONE_WIDTH = _SMALL_LOGO_COLS
+LOGO_ZONE_HEIGHT = COMPACT_HEADER_LINES
 
 _small_logo_cache: list[str] | None = None
 
@@ -154,7 +156,7 @@ def render_compact_header(
     else:
         logo_lines = [""] * COMPACT_HEADER_LINES
 
-    logo_visual_w = _SMALL_LOGO_COLS if any(l.strip() for l in logo_lines) else 0
+    logo_visual_w = LOGO_ZONE_WIDTH if any(l.strip() for l in logo_lines) else 0
     sep = " │ " if logo_visual_w else ""
     right_width = terminal_width - logo_visual_w - len(sep)
 

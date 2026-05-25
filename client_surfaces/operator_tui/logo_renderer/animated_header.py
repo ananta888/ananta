@@ -32,7 +32,7 @@ def _parse_animation_config() -> HeaderLogoAnimationConfig:
         return HeaderLogoAnimationConfig(enabled=False, preset="static", fps=1, frame_count=1)
 
     preset = value or "pulse"
-    if preset not in {"static", "pulse", "shimmer"}:
+    if preset not in {"static", "pulse", "shimmer", "rotate_hint"}:
         preset = "pulse"
 
     try:
@@ -76,6 +76,14 @@ def render_ansi_header_logo(
     return frames[index]
 
 
+def stream_frame_sequence(*, frame_sequence: str, rows: int, hide_cursor: bool = True) -> list[str]:
+    """Wrap stream-protocol frame output with safe cursor handling and row restore."""
+    hide = "\x1b[?25l" if hide_cursor else ""
+    show = "\x1b[?25h" if hide_cursor else ""
+    sequence = f"\x1b7{hide}\x1b[1;1H{frame_sequence}\x1b[{max(1, int(rows)) + 1};1H{show}\x1b8"
+    return [sequence] + ([""] * max(0, int(rows) - 1))
+
+
 def render_header_logo(
     *,
     cols: int,
@@ -105,13 +113,13 @@ def render_header_logo(
         # the current header composer is line-based; keep deterministic ANSI layout here.
         frame = kitty_renderer.render_frame(width_cells=cols, height_cells=rows, t=t_now or 0.0)
         if frame.sequence and env.get("ANANTA_TUI_LOGO_STREAM_INLINE", "").strip().lower() in {"1", "true", "yes", "on"}:
-            return [frame.sequence] + ([""] * max(0, rows - 1))
+            return stream_frame_sequence(frame_sequence=frame.sequence, rows=rows, hide_cursor=True)
         return render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)
 
     if decision.selected == "sixel":
         frame = sixel_renderer.render_frame(width_cells=cols, height_cells=rows, t=t_now or 0.0)
         if frame.sequence and env.get("ANANTA_TUI_LOGO_STREAM_INLINE", "").strip().lower() in {"1", "true", "yes", "on"}:
-            return [frame.sequence] + ([""] * max(0, rows - 1))
+            return stream_frame_sequence(frame_sequence=frame.sequence, rows=rows, hide_cursor=True)
         return render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)
 
     return render_ansi_header_logo(cols=cols, rows=rows, color=color, t_now=t_now)

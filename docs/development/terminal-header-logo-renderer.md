@@ -66,3 +66,60 @@ If the terminal does not support kitty graphics, renderer selection falls back t
 ANANTA_TUI_LOGO_RENDERER=ansi ananta tui
 ANANTA_TUI_LOGO=0 ananta tui
 ```
+
+## Renderer environment variables
+
+- `ANANTA_TUI_LOGO=0` disables the persistent header logo.
+- `ANANTA_TUI_LOGO_RENDERER=auto|ansi|sixel|kitty|none` selects renderer strategy.
+- `ANANTA_TUI_LOGO_ANIMATION=static|pulse|shimmer|rotate_hint` controls subtle animation presets.
+- `ANANTA_TUI_LOGO_FPS=<n>` limits header animation rate (`1..16`, default `6`).
+- `ANANTA_TUI_SPLASH` controls fullscreen startup splash only and remains separate from persistent header rendering.
+
+## Terminal compatibility guidance
+
+- **Windows Terminal + WSL2**: prefer `auto` or explicit `ansi`; test `sixel` only when terminal/image backend supports it.
+- **Kitty / Ghostty / WezTerm**: `auto` can choose kitty graphics when capability is detected.
+- **Simple SSH terminals**: use `ansi` or `none` for maximum reliability.
+
+Quality overview:
+
+- `kitty` (best image quality when supported)
+- `sixel` (good bitmap quality on compatible terminals)
+- `ansi` (portable default)
+- `none` (disable logo)
+
+## Optional tools and dependencies
+
+Required runtime:
+
+- `Pillow` (already in `pyproject.toml`)
+
+Optional rasterizers for SVG -> PNG:
+
+- `cairosvg` (Python)
+- `rsvg-convert` (system)
+- `inkscape` (system)
+
+Optional image protocol backend:
+
+- `img2sixel` for sixel encoding
+
+If optional tools are missing, renderer selection degrades to ANSI and startup remains functional.
+
+## Troubleshooting
+
+Symptoms and fallback actions:
+
+- **Visible escape sequences / broken glyph output**  
+  `ANANTA_TUI_LOGO_RENDERER=ansi ananta tui`
+- **Flicker or unstable cursor position**  
+  `ANANTA_TUI_LOGO_RENDERER=ansi ANANTA_TUI_LOGO_ANIMATION=static ananta tui`
+- **Logo clipped/cut**  
+  increase terminal size or run `ananta tui --width 120 --height 32 --render-once`
+- **Need fully clean text mode**  
+  `ANANTA_TUI_LOGO=0 ananta tui`
+
+Debug mode:
+
+- `ANANTA_TUI_LOGO_DEBUG=1` (or `ANANTA_TUI_VERBOSE=1`) prints renderer fallback warnings to stderr.
+- No debug files are written by default.

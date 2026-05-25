@@ -120,7 +120,7 @@
     {
       "id": "ATHL05",
       "title": "Animiertes Header-Logo in die TUI integrieren",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "ATHL017",
         "ATHL018",
@@ -132,7 +132,7 @@
     {
       "id": "ATHL06",
       "title": "Konfiguration, CLI, Env-Overrides und Dokumentation fertigstellen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "ATHL022",
         "ATHL023",
@@ -456,7 +456,7 @@
       "title": "Header-Layout von Text-Logo auf Overlay-faehigen Logo-Bereich erweitern",
       "type": "implementation",
       "milestone_id": "ATHL05",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "files": [
@@ -475,7 +475,7 @@
       "title": "Animation-Timer fuer kleines Header-Logo implementieren",
       "type": "implementation",
       "milestone_id": "ATHL05",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "files": [
@@ -494,7 +494,7 @@
       "title": "Animationspresets fuer kleines Logo definieren",
       "type": "implementation",
       "milestone_id": "ATHL05",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "files": [
@@ -513,7 +513,7 @@
       "title": "Cursor- und Screen-State sauber verwalten",
       "type": "implementation",
       "milestone_id": "ATHL05",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "files": [
@@ -532,7 +532,7 @@
       "title": "Render-once und Snapshot-Ausgabe kompatibel halten",
       "type": "test",
       "milestone_id": "ATHL05",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "files": [
@@ -552,7 +552,7 @@
       "title": "Env-Variablen fuer Logo-Renderer definieren",
       "type": "configuration",
       "milestone_id": "ATHL06",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
       "files": [
@@ -572,7 +572,7 @@
       "title": "CLI-Flags fuer Renderer und Animation ergaenzen",
       "type": "configuration",
       "milestone_id": "ATHL06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "files": [
@@ -591,7 +591,7 @@
       "title": "Dokumentation fuer Terminal-Kompatibilitaet schreiben",
       "type": "documentation",
       "milestone_id": "ATHL06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "files": [
@@ -609,7 +609,7 @@
       "title": "Abhaengigkeiten und optionale Tools dokumentieren",
       "type": "documentation",
       "milestone_id": "ATHL06",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "files": [
@@ -628,7 +628,7 @@
       "title": "Troubleshooting fuer kaputte Terminalausgabe ergaenzen",
       "type": "documentation",
       "milestone_id": "ATHL06",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "files": [
@@ -733,13 +733,13 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 15,
+      "todo": 5,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 15
+      "done": 25
     },
-    "progress_percent_done": 50,
+    "progress_percent_done": 83,
     "by_priority": {
       "P0": 13,
       "P1": 11,
@@ -753,15 +753,15 @@
     },
     "critical_path": {
       "total": 12,
-      "done": 5,
-      "remaining": 7
+      "done": 8,
+      "remaining": 4
     },
     "milestones": {
       "total": 7,
-      "todo": 3,
+      "todo": 1,
       "in_progress": 1,
       "blocked": 0,
-      "done": 3
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -779,11 +779,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 15,
+    "todo_remaining": 5,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 15
+    "done": 25
   },
   "definition_of_done": [
     "Das kleine Logo links oben kann in der TUI animiert werden, ohne den Statusbereich zu zerstoeren.",

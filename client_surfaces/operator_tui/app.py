@@ -47,6 +47,20 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--3d-duration-ms", type=int, default=2000, help="3D animation duration in ms")
     parser.add_argument("--splash-frame", default="",
                         help="Render a specific splash frame: 3d:0, 3d:mid, 3d:last, compact")
+    parser.add_argument(
+        "--logo-renderer",
+        choices=["auto", "ansi", "sixel", "kitty", "none"],
+        default=None,
+        help="Select persistent header logo renderer (default: auto).",
+    )
+    parser.add_argument(
+        "--logo-animation",
+        choices=["static", "pulse", "shimmer", "rotate_hint"],
+        default=None,
+        help="Set persistent header logo animation preset.",
+    )
+    parser.add_argument("--logo-fps", type=int, default=None, help="Set persistent header logo animation FPS.")
+    parser.add_argument("--no-logo", action="store_true", help="Disable persistent header logo.")
     return parser.parse_args(argv)
 
 
@@ -87,6 +101,7 @@ def load_active_section(state: OperatorState, registry: SectionAdapterRegistry |
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
+    _apply_logo_runtime_overrides(args)
     if not operator_tui_enabled():
         print(f"[OPERATOR-TUI-DISABLED] {rollback_hint()}")
         return 2
@@ -244,3 +259,19 @@ def _handle_render_once(args: argparse.Namespace, splash: SplashMachine | None) 
         return
 
     print("")
+
+
+def _apply_logo_runtime_overrides(args: argparse.Namespace) -> None:
+    if bool(getattr(args, "no_logo", False)):
+        os.environ["ANANTA_TUI_LOGO"] = "0"
+    if getattr(args, "logo_renderer", None):
+        os.environ["ANANTA_TUI_LOGO_RENDERER"] = str(args.logo_renderer)
+    if getattr(args, "logo_animation", None):
+        os.environ["ANANTA_TUI_LOGO_ANIMATION"] = str(args.logo_animation)
+    if getattr(args, "logo_fps", None) is not None:
+        os.environ["ANANTA_TUI_LOGO_FPS"] = str(max(1, min(16, int(args.logo_fps))))
+
+    # Render-once snapshots should be deterministic unless user explicitly opts in.
+    if bool(getattr(args, "render_once", False)):
+        if getattr(args, "logo_animation", None) is None and "ANANTA_TUI_LOGO_ANIMATION" not in os.environ:
+            os.environ["ANANTA_TUI_LOGO_ANIMATION"] = "static"
