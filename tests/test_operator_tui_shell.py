@@ -296,7 +296,8 @@ def test_header_lists_snakes_with_oidc_pseudonym_color_and_message() -> None:
     assert "alice@keycloak [mint]: hello" in plain
     assert "bob@entra [violet]: world" in plain
     assert "Mode    =" not in plain
-    assert re.search(r"\x1b\[38;2;\d+;\d+;\d+mS1 alice@keycloak \[mint\]: hello\x1b\[0m", output) is not None
+    assert "\x1b[38;2;170;255;210mS1 alice@keycloak [mint]\x1b[0m" in output
+    assert "\x1b[38;2;96;215;165mhello\x1b[0m" in output
 
 
 def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
@@ -314,6 +315,52 @@ def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
     assert off_game.get("active") is False
     assert off_game.get("ui_steering") is False
     assert off_game.get("free_mode") is False
+
+
+def test_tutorial_ai_toggle_changes_mode_flag() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER)
+    tui = InteractiveOperatorTui(state)
+    tui._toggle_snake_mode()
+
+    tui._toggle_tutorial_ai_mode()
+    on_game = tui.state.header_logo_game or {}
+    assert on_game.get("tutorial_mode") is True
+
+    tui._toggle_tutorial_ai_mode()
+    off_game = tui.state.header_logo_game or {}
+    assert off_game.get("tutorial_mode") is False
+
+
+def test_tutorial_ai_snake_is_added_with_knowledge_message() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "free_mode": True,
+        "tutorial_mode": True,
+        "local_snake_id": "s1",
+        "snake": [(6, 3), (5, 3), (4, 3)],
+        "trail_path": [(6, 3), (5, 3), (4, 3)],
+        "mark_cells": [],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "vel_x": 0.0,
+        "vel_y": 0.0,
+        "accum_x": 0.0,
+        "accum_y": 0.0,
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER)
+
+    tui._tick_header_snake()
+
+    snakes = ((tui.state.header_logo_game or {}).get("snakes") or {})
+    ai = snakes.get("s-ai") if isinstance(snakes, dict) else None
+    assert isinstance(ai, dict)
+    assert ai.get("pseudonym") == "tutor-ai"
+    assert str(ai.get("message") or "") != ""
 
 
 def test_snake_message_style_and_color_can_cycle() -> None:

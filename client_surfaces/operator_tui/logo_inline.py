@@ -545,6 +545,7 @@ def _draw_snake_mode_legend(
         "Keys: arrows move/boost, space stop",
         "B frame-mode, X set/add frame selection",
         "X select, C copy, V replace (cmdline), Z clear",
+        "U tutorial-ai snake parallel an/aus",
         "T text-style, Y color, top-left label always on",
         "M message, Enter save, Esc cancel",
     )
