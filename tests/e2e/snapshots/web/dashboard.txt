@@ -3,3 +3,6 @@ screen: dashboard
 run_id: <RUN_ID>
 status: healthy
 widget: goals=1
+widget: ki-snake-live-recording=visible
+tutorial_ai: snake mode walkthrough available
+tutorial_ai_video: artifacts/e2e/<RUN_ID>/tui-tutorial-ai-live-video/video-tui-tutorial-ai-live.cast
