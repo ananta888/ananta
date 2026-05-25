@@ -27,9 +27,10 @@ import argparse
 import json
 import os
 import re
-import shutil
 import sys
 import time
+
+from client_surfaces.operator_tui.terminal import get_tty_size
 
 _ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
 _CAST_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "output")
@@ -46,7 +47,8 @@ def show_2d(width: int = 0) -> str:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     from agent.cli.logo_assets import load_logo
 
-    w = width or shutil.get_terminal_size((120, 32)).columns
+    tty_w, _ = get_tty_size((120, 32))
+    w = width or tty_w
     logo = load_logo(width=w, color=True)
     if not logo:
         print("[smoke_logo] 2D: no asset found", file=sys.stderr)
@@ -116,9 +118,9 @@ def show_3d(
     repeat: int = 1,
 ) -> list[str]:
     """Play the 3D animation live in the terminal."""
-    sz = shutil.get_terminal_size((120, 32))
-    w = width or sz.columns
-    h = height or sz.lines
+    tty_w, tty_h = get_tty_size((120, 32))
+    w = width or tty_w
+    h = height or tty_h
 
     frames = _render_frames(preset, w, h, fps, duration_ms)
     if not frames:
@@ -474,30 +476,13 @@ def _pad_canvas(text: str, w: int, h: int) -> str:
     return '\n'.join(padded[:h])
 
 
-def _tty_size(fallback: tuple[int, int] = (120, 32)) -> tuple[int, int]:
-    """Read actual terminal size via /dev/tty ioctl (works in WSL2/Windows Terminal)."""
-    try:
-        import fcntl
-        import struct
-        import termios
-        with open("/dev/tty") as tty:
-            data = fcntl.ioctl(tty, termios.TIOCGWINSZ, b"\x00" * 8)
-            rows, cols = struct.unpack("HHHH", data)[:2]
-            if cols > 0 and rows > 0:
-                return cols, rows
-    except Exception:
-        pass
-    sz = shutil.get_terminal_size(fallback)
-    return sz.columns, sz.lines
-
-
 _MAX_SPLASH_H = 45   # animation content lives in rows 0-26; more rows = wasted throughput
 _MAX_SPLASH_FPS = 15  # 24fps * 28KB/frame = 500KB/s; Windows Terminal can't keep up
 
 
 def record(fps: int = _MAX_SPLASH_FPS, width: int = 0, height: int = 0, **_: object) -> None:
     """Record operator_tui_splash.cast: logo animation → TUI dashboard overview."""
-    w, h = _tty_size()
+    w, h = get_tty_size((120, 32))
     if width:
         w = width
     if height:

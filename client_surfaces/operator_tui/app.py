@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import shutil
 import sys
 import time
 from collections.abc import Sequence
@@ -17,6 +16,7 @@ from client_surfaces.operator_tui.models import FocusPane, OperatorMode, Operato
 from client_surfaces.operator_tui.renderer import render_operator_shell
 from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint
 from client_surfaces.operator_tui.sections import normalize_section_id
+from client_surfaces.operator_tui.terminal import get_tty_size
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -155,22 +155,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
-def _tty_size(fallback: tuple[int, int] = (120, 32)) -> tuple[int, int]:
-    try:
-        import fcntl
-        import struct
-        import termios
-        with open("/dev/tty") as tty:
-            data = fcntl.ioctl(tty, termios.TIOCGWINSZ, b"\x00" * 8)
-            rows, cols = struct.unpack("HHHH", data)[:2]
-            if cols > 0 and rows > 0:
-                return cols, rows
-    except Exception:
-        pass
-    sz = shutil.get_terminal_size(fallback)
-    return sz.columns, sz.lines
-
-
 def _play_splash_to_terminal(state: OperatorState) -> None:
     from client_surfaces.operator_tui.splash_animation import build_splash_frames
 
@@ -179,7 +163,7 @@ def _play_splash_to_terminal(state: OperatorState) -> None:
     except OSError:
         return
 
-    width, height = _tty_size()
+    width, height = get_tty_size()
     height = min(height, 45)
 
     tty.write("\x1b[?25l\x1b[2J\x1b[H")
