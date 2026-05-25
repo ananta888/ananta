@@ -134,6 +134,50 @@ def test_operator_tui_initial_state_carries_markdown_source() -> None:
     assert "mermaid diagram preview" in output
 
 
+def test_operator_tui_markdown_source_renders_outside_artifacts_and_help() -> None:
+    state = load_active_section(
+        OperatorState(
+            endpoint="http://localhost:5000",
+            section_id="tasks",
+            mode=OperatorMode.EDIT,
+            markdown_source="# Inline Vim Viewer\n```py\nprint('ok')\n```",
+        )
+    )
+    output = render_operator_shell(state, width=100, height=40)
+
+    assert "markdown:" in output
+    assert "Inline Vim Viewer" in output
+    assert "print('ok')" in output
+
+
+def test_operator_tui_inline_vim_open_is_default(tmp_path: Path) -> None:
+    sample = tmp_path / "sample.py"
+    sample.write_text("line1\nline2\n", encoding="utf-8")
+
+    def _loader(section_id: str) -> SectionLoadResult:
+        if section_id == "artifacts":
+            return SectionLoadResult(
+                section_id="artifacts",
+                state=PanelState.HEALTHY,
+                payload={"items": [{"id": "a-1", "title": "sample", "path": str(sample)}]},
+                message="loaded",
+            )
+        return SectionLoadResult(section_id=section_id, state=PanelState.EMPTY, payload={}, message="empty")
+
+    state = OperatorState(endpoint="http://localhost:5000", section_id="artifacts", focus=FocusPane.CONTENT)
+    tui = InteractiveOperatorTui(state, registry=SectionAdapterRegistry(loader=_loader))
+
+    opened = tui._open_selected_item_inline()
+    output = render_operator_shell(tui.state, width=110, height=36)
+
+    assert opened is True
+    assert tui.state.mode is OperatorMode.EDIT
+    assert "inline vim: sample.py" in tui.state.status_message
+    assert "Inline Vim Viewer" in tui.state.markdown_source
+    assert "line1" in tui.state.markdown_source
+    assert "sample.py" in output
+
+
 def test_operator_tui_detects_terminal_graphics_capabilities() -> None:
     decision = graphics_decision({"KITTY_WINDOW_ID": "1"})
 
