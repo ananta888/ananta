@@ -7,12 +7,14 @@
   "learning_goals": [
     "Prompt Injection, Tool-Risiken, Datenabfluss und Halluzinationen erkennen",
     "LLM-Vorschlaege von Sicherheitsentscheidungen trennen",
-    "Riskante Agentenantworten defensiv klassifizieren"
+    "Riskante Agentenantworten defensiv klassifizieren",
+    "Spiel-Figuren-Agenten als harmlose Analogie fuer Agentenrisiken nutzen"
   ],
   "references": ["docs/security/shell-command-policy.md", "docs/security/context-release-gates.md"],
   "lessons": [
     {"id": "ai-risk-landscape", "title": "Bedrohungsbild fuer KI-Agenten", "type": "lesson"},
-    {"id": "policy-over-llm", "title": "Policy vor Modellintuition", "type": "lesson"}
+    {"id": "policy-over-llm", "title": "Policy vor Modellintuition", "type": "lesson"},
+    {"id": "figure-agent-analogy", "title": "Figuren-Agenten als sichere Analogie", "type": "lesson"}
   ],
   "exercise": {
     "id": "classify-risky-agent-output",

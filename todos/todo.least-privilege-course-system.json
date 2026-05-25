@@ -119,7 +119,7 @@
     {
       "id": "LPCS04",
       "title": "Krypto- und Artefakt-Sicherheitskurse definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "task_ids": ["LPCS015", "LPCS016", "LPCS017", "LPCS018", "LPCS019"]
     },
@@ -470,7 +470,7 @@
       "title": "Kurs 'Envelope Encryption fuer Artefakte' planen",
       "type": "course_design",
       "milestone_id": "LPCS04",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS015"],
@@ -487,7 +487,7 @@
       "title": "Kurs 'OIDC/Keycloak und Identitaet' planen",
       "type": "course_design",
       "milestone_id": "LPCS04",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS015"],
@@ -504,7 +504,7 @@
       "title": "Kurs 'WebRTC P2P und sichere Transporte' planen",
       "type": "course_design",
       "milestone_id": "LPCS04",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": ["LPCS017"],
@@ -521,7 +521,7 @@
       "title": "Kurs 'Artefaktfreigaben und Audit' planen",
       "type": "course_design",
       "milestone_id": "LPCS04",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS016", "LPCS017"],
@@ -538,7 +538,7 @@
       "title": "Kurs 'Sichere KI-Grundlagen' planen",
       "type": "course_design",
       "milestone_id": "LPCS05",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS010", "LPCS013"],
@@ -738,11 +738,11 @@
     "LPCS030"
   ],
   "task_status_summary": {
-    "todo": 15,
+    "todo": 10,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 19
+    "done": 24
   },
   "definition_of_done": [
     "Bestehende Onboarding-/Demo-/Instruction-/Artifact-/Context-/Audit-Basis ist dokumentiert.",
