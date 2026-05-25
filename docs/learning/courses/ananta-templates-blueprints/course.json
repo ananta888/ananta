@@ -7,11 +7,13 @@
   "learning_goals": [
     "TemplateDB, RoleDB, BlueprintRoleDB und TeamMemberDB konzeptionell verstehen",
     "Template-Grenzen fuer Personas und Worker-Verhalten anwenden",
-    "Rollenkonzept ohne Production-Rechte entwerfen"
+    "Rollenkonzept ohne Production-Rechte entwerfen",
+    "Figuren-Agenten-Prinzipien aus dem Spiel auf Ananta-Blueprints uebertragen"
   ],
   "lessons": [
     {"id": "template-role-model", "title": "Template- und Rollenmodell", "type": "lesson"},
-    {"id": "blueprint-boundaries", "title": "Blueprint-Grenzen und Least Privilege", "type": "lesson"}
+    {"id": "blueprint-boundaries", "title": "Blueprint-Grenzen und Least Privilege", "type": "lesson"},
+    {"id": "figure-agent-bridge", "title": "Bruecke von Figuren-Agenten zu Blueprints", "type": "lesson"}
   ],
   "exercise": {
     "id": "design-minimal-role-template",

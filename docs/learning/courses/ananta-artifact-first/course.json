@@ -7,7 +7,8 @@
   "learning_goals": [
     "Geplante Artefakte, Acceptance Criteria und Review-Gates anwenden",
     "Textmenge von pruefbaren Ergebnissen unterscheiden",
-    "Grosse Ziele in kleine, verifizierbare Artefakte zerlegen"
+    "Grosse Ziele in kleine, verifizierbare Artefakte zerlegen",
+    "Strategie-Game-Beispiele fuer Scope-Reduktion anwenden"
   ],
   "security_boundaries": [
     "Keine echten Secrets",
@@ -23,6 +24,11 @@
     {
       "id": "artifact-review-gates",
       "title": "Review-Gates und Nachweisbarkeit",
+      "type": "lesson"
+    },
+    {
+      "id": "game-scope-reduction",
+      "title": "Scope-Reduktion anhand von Strategie-Game-Szenarien",
       "type": "lesson"
     }
   ],

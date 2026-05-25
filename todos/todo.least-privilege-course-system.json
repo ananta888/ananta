@@ -112,7 +112,7 @@
     {
       "id": "LPCS03",
       "title": "Lernpfade fuer Ananta-System selbst definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "task_ids": ["LPCS010", "LPCS011", "LPCS012", "LPCS013", "LPCS014"]
     },
@@ -385,7 +385,7 @@
       "title": "Kurs 'Templates, Blueprints und Rollen' planen",
       "type": "course_design",
       "milestone_id": "LPCS03",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": ["LPCS010"],
@@ -402,7 +402,7 @@
       "title": "Kurs 'Artifact-first Entwicklung' planen",
       "type": "course_design",
       "milestone_id": "LPCS03",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "dependencies": ["LPCS010"],
@@ -419,7 +419,7 @@
       "title": "Kurs 'Deterministische Policies statt LLM-Ermessen' planen",
       "type": "course_design",
       "milestone_id": "LPCS03",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS010", "LPCS012"],
@@ -436,7 +436,7 @@
       "title": "Kurs 'CLI/TUI sicher nutzen' planen",
       "type": "course_design",
       "milestone_id": "LPCS03",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS010"],
@@ -453,7 +453,7 @@
       "title": "Kurs 'Kryptographie-Grundlagen fuer Ananta' planen",
       "type": "course_design",
       "milestone_id": "LPCS04",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": ["LPCS005"],
@@ -738,11 +738,11 @@
     "LPCS030"
   ],
   "task_status_summary": {
-    "todo": 20,
+    "todo": 15,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 14
+    "done": 19
   },
   "definition_of_done": [
     "Bestehende Onboarding-/Demo-/Instruction-/Artifact-/Context-/Audit-Basis ist dokumentiert.",
