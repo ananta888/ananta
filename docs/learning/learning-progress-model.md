@@ -13,6 +13,12 @@
 - `completed_at`
 - `last_event_id`
 
+## Abgrenzung zu Onboarding-UI-Progress
+
+- Der bisherige localStorage-Progress aus der Onboarding-UI bleibt ein lokaler UX-Hinweis.
+- `LearningProgress` ist das serverseitige, auditierbare System-of-Record fuer Kursfortschritt.
+- Migration erfolgt kompatibel: UI kann lokal anzeigen, Rechteentscheidungen basieren aber auf backendseitigem LearningProgress.
+
 ## Freischaltungslogik
 
 - Freischaltungen entstehen nur aus definierten Regeln.

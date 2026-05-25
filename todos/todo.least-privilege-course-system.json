@@ -126,7 +126,7 @@
     {
       "id": "LPCS05",
       "title": "Sichere KI, Worker-Policy und RAG-Freigaben lehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "task_ids": ["LPCS020", "LPCS021", "LPCS022", "LPCS023", "LPCS024"]
     },
@@ -555,7 +555,7 @@
       "title": "Kurs 'Worker Least Privilege' planen",
       "type": "course_design",
       "milestone_id": "LPCS05",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS020"],
@@ -572,7 +572,7 @@
       "title": "Kurs 'RAG und Kontextfreigaben sicher bauen' planen",
       "type": "course_design",
       "milestone_id": "LPCS05",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS019", "LPCS021"],
@@ -589,7 +589,7 @@
       "title": "Kurs 'Review-Gates und Human Approval' planen",
       "type": "course_design",
       "milestone_id": "LPCS05",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS020", "LPCS022"],
@@ -606,7 +606,7 @@
       "title": "Kurs 'Angriffs- und Fehlbedienungsszenarien' planen",
       "type": "course_design",
       "milestone_id": "LPCS05",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": ["LPCS020", "LPCS021", "LPCS022"],
@@ -623,7 +623,7 @@
       "title": "LearningProgress Modell entwerfen",
       "type": "data_model_design",
       "milestone_id": "LPCS06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS003", "LPCS000B"],
@@ -738,11 +738,11 @@
     "LPCS030"
   ],
   "task_status_summary": {
-    "todo": 10,
+    "todo": 5,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 24
+    "done": 29
   },
   "definition_of_done": [
     "Bestehende Onboarding-/Demo-/Instruction-/Artifact-/Context-/Audit-Basis ist dokumentiert.",
