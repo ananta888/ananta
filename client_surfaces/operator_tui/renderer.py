@@ -584,7 +584,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
     game = state.header_logo_game or {}
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
-        hints = "[←→↑↓] Snake UI  Portale: N/NAV C/CONTENT D/DETAIL I/INPUT  [Tab] Header"
+        hints = "[←→↑↓] Snake steuert ganzen Screen  [Tab auf Logo] startet Modus  [oben-mitte] Input"
     return _clip(hints, width)
 
 

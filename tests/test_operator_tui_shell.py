@@ -352,10 +352,12 @@ def test_snake_portal_to_detail_switches_focus() -> None:
     }
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
     tui = InteractiveOperatorTui(state)
-    boxes = tui._compute_control_boxes(18, 6)
+    boxes = tui._compute_control_boxes(120, 31)
     detail_box = next(b for b in boxes if b.get("kind") == "pane" and b.get("target") == "detail")
     detail_portal = (int(detail_box["x0"]), int(detail_box["y0"]))
     portal_game = dict(game)
+    portal_game["board_w"] = 120
+    portal_game["board_h"] = 31
     portal_game["boxes"] = boxes
     portal_game["snake"] = [(detail_portal[0], detail_portal[1] - 1), (detail_portal[0], max(0, detail_portal[1] - 2)), (detail_portal[0], max(0, detail_portal[1] - 3))]
     portal_game["direction"] = (0, 1)
@@ -391,8 +393,8 @@ def test_snake_remains_drivable_after_escape_outside_header_focus() -> None:
     assert (tui.state.header_logo_game or {}).get("next_direction") == (0, 1)
 
 
-def test_snake_border_collision_blocks_but_never_ends_game() -> None:
-    head = (17, 2)
+def test_snake_wraps_at_screen_border_and_stays_alive() -> None:
+    head = (119, 2)
     game = {
         "active": True,
         "alive": True,
@@ -413,8 +415,9 @@ def test_snake_border_collision_blocks_but_never_ends_game() -> None:
 
     tui._tick_header_snake()
 
+    snake = (tui.state.header_logo_game or {}).get("snake") or []
     assert (tui.state.header_logo_game or {}).get("alive") is True
-    assert "rand blockiert" in tui.state.status_message
+    assert snake and snake[0][0] == 0
 
 
 def test_snake_can_focus_command_input_zone() -> None:
@@ -462,13 +465,13 @@ def test_snake_can_select_artifacts_section_box() -> None:
     }
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
     tui = InteractiveOperatorTui(state)
-    boxes = tui._compute_control_boxes(18, 6)
+    boxes = tui._compute_control_boxes(120, 31)
     art_box = next(b for b in boxes if b.get("kind") == "section" and b.get("target") == "artifacts")
-    head = (int(art_box["x0"]), int(art_box["y0"]))
+    head = (int(art_box["x0"]), max(0, int(art_box["y0"]) - 1))
     game["boxes"] = boxes
     game["snake"] = [head, (max(0, head[0] - 1), head[1]), (max(0, head[0] - 2), head[1])]
-    game["direction"] = (0, 0)
-    game["next_direction"] = (0, 0)
+    game["direction"] = (0, 1)
+    game["next_direction"] = (0, 1)
     tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER)
 
     tui._tick_header_snake()

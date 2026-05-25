@@ -234,25 +234,15 @@ def render_logo_snake_game_animated(
     t: float = 0.0,
     speed: float = 1.5,
 ) -> list[str] | None:
-    """Idle animation: snake on colored control boxes."""
+    """Idle animation: empty area with gently circling snake."""
     board_w = max(12, min(24, cols - 2))
     board_h = max(6, min(10, rows))
-    boxes = build_snake_control_boxes(board_w, board_h, section_ids=("dashboard", "artifacts", "tasks", "help"))
     snake_base, snake_head = _snake_palette_from_svg(cols, rows)
 
     grid_chars = [[" " for _ in range(cols)] for _ in range(rows)]
     grid_colors: list[list[tuple[int, int, int] | None]] = [[None for _ in range(cols)] for _ in range(rows)]
-    _draw_control_boxes(
-        grid_chars,
-        grid_colors,
-        boxes=boxes,
-        board_w=board_w,
-        board_h=board_h,
-        cols=cols,
-        rows=rows,
-    )
 
-    ring = _snake_ring_path(1, 1, max(2, board_w - 2), max(2, board_h - 2))
+    ring = _snake_ring_path(max(1, board_w // 3), max(1, board_h // 3), max(2, (board_w * 2) // 3), max(2, (board_h * 2) // 3))
     if not ring:
         return None
     head_index = int(t * speed * 9) % len(ring)
@@ -281,7 +271,7 @@ def render_logo_snake_game_playable(
     t: float = 0.0,
     speed: float = 1.2,
 ) -> list[str] | None:
-    """Render playable snake over colored control boxes (no collision walls)."""
+    """Render playable snake only (left-top area stays clean, no box clutter)."""
     if not game_state:
         return None
 
@@ -294,24 +284,9 @@ def render_logo_snake_game_playable(
         return None
 
     snake_base, snake_head = _snake_palette_from_svg(cols, rows)
-    boxes_raw = game_state.get("boxes")
-    if isinstance(boxes_raw, list):
-        boxes = [b for b in boxes_raw if isinstance(b, dict)]
-    else:
-        boxes = build_snake_control_boxes(board_w, board_h, section_ids=("dashboard", "artifacts", "tasks", "help"))
 
     grid_chars = [[" " for _ in range(cols)] for _ in range(rows)]
     grid_colors: list[list[tuple[int, int, int] | None]] = [[None for _ in range(cols)] for _ in range(rows)]
-
-    _draw_control_boxes(
-        grid_chars,
-        grid_colors,
-        boxes=boxes,
-        board_w=board_w,
-        board_h=board_h,
-        cols=cols,
-        rows=rows,
-    )
 
     # Snake body
     for idx, logical in enumerate(body):
