@@ -265,6 +265,11 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
         status = "running" if game.get("alive", True) else "game over"
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake  score={score}  {status}", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Arrows steuern · Tab verlässt Fokus", width))
+        if game.get("message_mode"):
+            draft = str(game.get("message_draft", ""))
+            lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} MSG* {draft}", width))
+        elif game.get("message"):
+            lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} MSG: {game.get('message')}", width))
         gaps = game.get("gaps") if isinstance(game.get("gaps"), dict) else {}
         if gaps:
             lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} A-Lücke öffnet zufällig: Snake kann ins Dreieck", width))
@@ -585,7 +590,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
     game = state.header_logo_game or {}
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
-        hints = "[Ctrl+F] Frame↔Fullscreen  [←→↑↓] Boost/Bremsen  [Space] Sofortstopp  [Hover] Auswahl mit Delay"
+        hints = "[Ctrl+F] Frame↔Fullscreen  [M] Message  [Enter] Speichern  [Space] Sofortstopp"
     return _clip(hints, width)
 
 
