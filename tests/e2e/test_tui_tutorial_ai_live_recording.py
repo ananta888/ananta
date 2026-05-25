@@ -103,3 +103,37 @@ def test_tui_snake_mode_live_recording_contains_real_tui_frames(tmp_path: Path) 
     assert "[user->" in plain
     assert synced_a.exists()
     assert synced_b.exists()
+
+
+def test_tui_snake_mode_live_e2e_scene_uses_real_capture_backend(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def _fake_live_cast(*, run_id: str) -> str:
+        assert run_id == "video-enable-snake-mode-live-e2e"
+        return (
+            '{"version": 2, "width": 104, "height": 30, "title": "Ananta Operator TUI – Snake Mode Live E2E",'
+            ' "env": {"TERM": "xterm-256color", "COLORTERM": "truecolor"}}\n'
+            '[0.0, "o", "\\u001b[2J\\u001b[Hlive tui frame"]\n'
+        )
+
+    monkeypatch.setattr("scripts.e2e.record_tui_demo._snake_mode_live_e2e_cast", _fake_live_cast)
+
+    synced_a = tmp_path / "synced" / "tests-splash.cast"
+    synced_b = tmp_path / "synced" / "web-splash.cast"
+    payload = record_tui_demo(
+        run_id="video-enable-snake-mode-live-e2e",
+        flow_id="tui-snake-mode-live-e2e-video",
+        enabled=True,
+        scene="snake-mode-live-e2e",
+        sync_targets=[synced_a, synced_b],
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    assert payload["status"] == "recorded"
+    video_path = _resolve_ref(payload["video_ref"])
+    assert video_path.exists()
+    assert video_path.name == "video-tui-snake-mode-live-e2e.cast"
+    assert "live tui frame" in video_path.read_text(encoding="utf-8")
+    assert synced_a.exists()
+    assert synced_b.exists()

@@ -131,6 +131,10 @@ Optional video capture (non-blocking):
 - `python3 scripts/e2e/record_tui_demo.py --enable`
 - `python3 scripts/e2e/record_web_demo.py --enable`
 
+Real local TUI+LMStudio evidence run (homepage snake cast source):
+
+- `ANANTA_TUI_LLM_API_BASE=http://127.0.0.1:1234/v1 ANANTA_TUI_LLM_MODEL=meta-llama_-_llama-3.2-1b-instruct python3 scripts/e2e/record_tui_demo.py --enable --scene snake-mode-live-e2e`
+
 ## Extension guidance
 
 Future Blender/FreeCAD/KiCad integrations should reuse:
