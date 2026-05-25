@@ -439,22 +439,12 @@ def _dashboard_content_lines(payload: dict, *, state: OperatorState | None = Non
     if not agents and not llm and not queue:
         lines.append("    go to System for health info")
 
-    if goal_summary or task_summary:
-        lines.append("")
-        lines.append("  Overview")
-        if goal_summary:
-            lines.append(f"    Goals:  {goal_summary}")
-        if task_summary:
-            lines.append(f"    Tasks:  {task_summary}")
-    else:
-        lines.append("")
-        lines.append("  go to Goals or Tasks for details")
-
     game = state.header_logo_game if isinstance(state, OperatorState) and isinstance(state.header_logo_game, dict) else {}
-    if game.get("active") and game.get("tutorial_mode"):
+    history = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
+    show_tutorial_flow = bool(game.get("tutorial_mode")) or bool(history)
+    if show_tutorial_flow:
         lines.append("")
         lines.append("  Tutorial-AI propose flow")
-        history = game.get("tutorial_propose_history") if isinstance(game.get("tutorial_propose_history"), list) else []
         if not history:
             lines.append("    waiting for first propose...")
         else:
@@ -468,6 +458,17 @@ def _dashboard_content_lines(payload: dict, *, state: OperatorState | None = Non
                     continue
                 label = f"    [{source}->{target}] {text}"
                 lines.append(shorten(label, width=max(24, int(width) - 2), placeholder="..."))
+
+    if goal_summary or task_summary:
+        lines.append("")
+        lines.append("  Overview")
+        if goal_summary:
+            lines.append(f"    Goals:  {goal_summary}")
+        if task_summary:
+            lines.append(f"    Tasks:  {task_summary}")
+    else:
+        lines.append("")
+        lines.append("  go to Goals or Tasks for details")
 
     return lines
 
