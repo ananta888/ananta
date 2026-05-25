@@ -259,7 +259,7 @@ def test_header_focus_hints_show_snake_controls() -> None:
     output = render_operator_shell(state, width=100, height=24)
 
     assert "Snake  score=2  running" in output
-    assert "[Ctrl+S] Snake an/aus" in output
+    assert "[Ctrl+S] Snake" in output
 
 
 def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
@@ -532,6 +532,57 @@ def test_fullscreen_snake_overlay_renders_message_tail_and_text_marking(monkeypa
     assert plain[2] == "H"
     assert plain[3] == "I"
     assert plain[5] == "f"
+
+
+def test_snake_copy_selection_moves_text_to_clipboard_and_message(monkeypatch) -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "free_mode": True,
+        "snake": [(2, 3), (1, 3), (0, 3)],
+        "selection_cells": [(1, 1), (2, 1), (3, 1)],
+        "board_w": 30,
+        "board_h": 12,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game)
+    monkeypatch.setattr(tui, "_snake_render_plain_lines", lambda: ["", "abcde", "", "", ""])
+
+    tui._snake_copy_selection()
+
+    g = tui.state.header_logo_game or {}
+    assert g.get("clipboard") == "bcd"
+    assert g.get("message") == "bcd"
+
+
+def test_snake_replace_selection_only_in_command_line(monkeypatch) -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "free_mode": True,
+        "snake": [(2, 3), (1, 3), (0, 3)],
+        "selection_cells": [(2, 3), (3, 3)],
+        "message": "ZZ",
+        "board_w": 40,
+        "board_h": 12,
+    }
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        focus=FocusPane.HEADER,
+        mode=OperatorMode.COMMAND,
+        command_line="abcdef",
+        header_logo_game=game,
+    )
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, mode=OperatorMode.COMMAND, command_line="abcdef")
+    monkeypatch.setattr(tui, "_snake_render_plain_lines", lambda: ["line0", "line1", "line2", ":abcdef", "line4"])
+
+    tui._snake_replace_selection()
+
+    assert tui.state.command_line == "aZZdef"
 
 
 def test_snake_immediate_brake_sets_velocity_zero() -> None:
