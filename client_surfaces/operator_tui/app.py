@@ -33,14 +33,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--skip-splash",
         action="store_true",
-        default=True,
-        help="Skip the startup splash animation (default behavior)",
-    )
-    parser.add_argument(
-        "--splash",
-        dest="skip_splash",
-        action="store_false",
-        help="Enable fullscreen startup splash animation",
+        help="Skip the startup splash animation",
     )
     parser.add_argument("--splash-seconds", type=float, default=2.0, help="Duration of fullscreen splash")
     parser.add_argument("--no-3d", action="store_true", help="Disable 3D logo animation")
