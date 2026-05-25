@@ -153,8 +153,9 @@ def render_compact_header(
         return [""] * COMPACT_HEADER_LINES
 
     # ── small logo (22 cols, full shape, dark blue) ───────────────────────────
+    logo_enabled = os.getenv("ANANTA_TUI_LOGO", "").strip().lower() not in {"0", "false", "no", "off"}
     logo_lines: list[str]
-    if terminal_width >= _MIN_TERMINAL_WIDTH_FOR_LOGO:
+    if logo_enabled and terminal_width >= _MIN_TERMINAL_WIDTH_FOR_LOGO:
         logo_lines = _load_small_logo()
     else:
         logo_lines = [""] * COMPACT_HEADER_LINES

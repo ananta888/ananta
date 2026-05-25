@@ -69,7 +69,7 @@ def load_logo(
     prefer_ascii: bool = False,
     max_lines: int | None = None,
 ) -> str:
-    if os.getenv("ANANTA_TUI_SPLASH", "").strip() == "0":
+    if os.getenv("ANANTA_TUI_LOGO", "").strip().lower() in {"0", "false", "no", "off"}:
         return ""
 
     if width is None:
