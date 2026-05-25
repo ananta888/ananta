@@ -42,6 +42,13 @@ _TUTORIAL_AI_KNOWLEDGE: tuple[str, ...] = (
     "Betrieb: Hub/Worker getrennte Container, reproduzierbare Umgebungen.",
     "API evolution: additive, rueckwaertskompatibel, keine Big-Bang Refactors.",
 )
+_TUTORIAL_AI_PROMPT_TEMPLATE_DEFAULT = (
+    "You are tutorial-snake guidance.\n"
+    "Priority: {priority}\n"
+    "User feed: {user_feed}\n"
+    "Contact zone: {contact_zone}\n"
+    "Respond with one immediate actionable hint (max 180 chars)."
+)
 
 
 class InteractiveOperatorTui:
@@ -466,6 +473,7 @@ class InteractiveOperatorTui:
         return os.environ.get("ANANTA_TUI_HEADER_SNAKE", "1").strip().lower() not in {"0", "false", "no", "off"}
 
     def _default_header_snake(self) -> dict[str, object]:
+        cfg = self._load_snake_message_config()
         board_w, board_h = 18, 6
         snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         gaps = self._compute_snake_escape_gaps(board_w, board_h, seed=int(time.time() * 1000))
@@ -488,6 +496,13 @@ class InteractiveOperatorTui:
             "selection_frame_mode": False,
             "selection_frame_anchor": None,
             "clipboard": "",
+            "message": str(cfg.get("snake_message") or ""),
+            "tutorial_user_feed": str(cfg.get("tutorial_user_feed") or ""),
+            "tutorial_prompt_template": str(
+                cfg.get("tutorial_prompt_template")
+                or os.environ.get("ANANTA_TUI_SNAKE_AI_PROMPT_TEMPLATE")
+                or _TUTORIAL_AI_PROMPT_TEMPLATE_DEFAULT
+            ),
             "message_style": "trail",
             "snake_color": "mint",
             "trail_window": max(1, min(120, int(os.environ.get("ANANTA_TUI_SNAKE_TRAIL_WINDOW", "10")))),
@@ -772,6 +787,16 @@ class InteractiveOperatorTui:
             body.append((tx, body[-1][1]))
         body = body[:10]
         trail = list(body)
+        ai_local_contact = False
+        contact_zone = ""
+        if local_head is not None:
+            ai_local_contact = abs(new_head[0] - local_head[0]) + abs(new_head[1] - local_head[1]) <= 1
+            if ai_local_contact:
+                contact_zone = self._tutorial_target_label(board_w=board_w, board_h=board_h, target=local_head)
+        game["tutorial_ai_local_contact"] = ai_local_contact
+        game["tutorial_ai_contact_zone"] = contact_zone
+        game["tutorial_ai_contact_at"] = float(now) if ai_local_contact else 0.0
+
         tip = self._tutorial_ai_tip(now=now)
         target_label = self._tutorial_last_target or self._tutorial_target_label(board_w=board_w, board_h=board_h, target=target)
         source_label = self._tutorial_last_source or "codecompass-rag"
@@ -975,7 +1000,19 @@ class InteractiveOperatorTui:
         hints: list[str],
         rag_context: list[str],
     ) -> dict[str, str]:
-        worker_tip = self._tutorial_ai_worker_propose_message(now=now, status=status, hints=hints, rag_context=rag_context)
+        game = dict(self.state.header_logo_game or {})
+        user_feed = str(game.get("tutorial_user_feed") or game.get("message") or "").strip()
+        contact_zone = str(game.get("tutorial_ai_contact_zone") or "").strip()
+        priority = "explain-current-position" if bool(game.get("tutorial_ai_local_contact")) else "navigation-guidance"
+        template = self._resolve_tutorial_prompt_template(game)
+        overlay = self._render_tutorial_prompt_overlay(
+            template=template,
+            priority=priority,
+            user_feed=user_feed or "(none)",
+            contact_zone=contact_zone or "(none)",
+        )
+        effective_status = f"{status}\n{overlay}"
+        worker_tip = self._tutorial_ai_worker_propose_message(now=now, status=effective_status, hints=hints, rag_context=rag_context)
         if worker_tip:
             return {
                 "source": "worker-propose",
@@ -983,7 +1020,7 @@ class InteractiveOperatorTui:
                 "text": worker_tip,
             }
         llm_hints = [*hints[:12], *[f"RAG {entry}" for entry in rag_context[:8]]]
-        llm_tip = self._tutorial_ai_llm_message(now=now, status=status, hints=llm_hints)
+        llm_tip = self._tutorial_ai_llm_message(now=now, status=effective_status, hints=llm_hints)
         if llm_tip:
             return {
                 "source": "openai-compatible",
@@ -1009,6 +1046,34 @@ class InteractiveOperatorTui:
             "target": "content",
             "text": " ".join(parts),
         }
+
+    def _resolve_tutorial_prompt_template(self, game: dict[str, object]) -> str:
+        env_template = str(os.environ.get("ANANTA_TUI_SNAKE_AI_PROMPT_TEMPLATE") or "").strip()
+        game_template = str(game.get("tutorial_prompt_template") or "").strip()
+        template = game_template or env_template or _TUTORIAL_AI_PROMPT_TEMPLATE_DEFAULT
+        return template[:1200]
+
+    def _render_tutorial_prompt_overlay(
+        self,
+        *,
+        template: str,
+        priority: str,
+        user_feed: str,
+        contact_zone: str,
+    ) -> str:
+        values = {
+            "priority": str(priority or ""),
+            "user_feed": str(user_feed or ""),
+            "contact_zone": str(contact_zone or ""),
+        }
+        class _SafeTemplateDict(dict[str, str]):
+            def __missing__(self, key: str) -> str:
+                return "{" + key + "}"
+        try:
+            rendered = str(template).format_map(_SafeTemplateDict(values))
+        except Exception:
+            rendered = _TUTORIAL_AI_PROMPT_TEMPLATE_DEFAULT.format_map(_SafeTemplateDict(values))
+        return " ".join(rendered.split())[:1200]
 
     def _tutorial_ai_worker_propose_message(
         self,
@@ -1914,18 +1979,45 @@ class InteractiveOperatorTui:
         if not game.get("message_mode"):
             return
         message = str(game.get("message_draft", "")).strip()
-        game["message"] = message
+        if message.lower().startswith("/template "):
+            template = message[10:].strip()
+            if template:
+                game["tutorial_prompt_template"] = template
+                game["message"] = f"template set ({len(template)} chars)"
+                status_message = "snake template: gespeichert"
+            else:
+                status_message = "snake template: leer, ignoriert"
+        else:
+            game["message"] = message
+            game["tutorial_user_feed"] = message
+            status_message = "snake message/feed: gespeichert"
         game["message_mode"] = False
         game["message_draft"] = ""
         self._save_snake_message_config(message)
-        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake message: gespeichert"))
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=status_message))
 
     def _save_snake_message_config(self, message: str) -> None:
         cfg_dir = Path.home() / ".config" / "ananta"
         cfg_dir.mkdir(parents=True, exist_ok=True)
         cfg_file = cfg_dir / "snake-config.json"
-        payload = {"snake_message": message, "updated_at": int(time.time())}
+        game = dict(self.state.header_logo_game or {})
+        payload = {
+            "snake_message": message,
+            "tutorial_user_feed": str(game.get("tutorial_user_feed") or message),
+            "tutorial_prompt_template": str(game.get("tutorial_prompt_template") or ""),
+            "updated_at": int(time.time()),
+        }
         cfg_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    def _load_snake_message_config(self) -> dict[str, object]:
+        cfg_file = Path.home() / ".config" / "ananta" / "snake-config.json"
+        if not cfg_file.exists():
+            return {}
+        try:
+            payload = json.loads(cfg_file.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        return payload if isinstance(payload, dict) else {}
 
     def _snake_immediate_brake(self) -> None:
         game = dict(self.state.header_logo_game or {})

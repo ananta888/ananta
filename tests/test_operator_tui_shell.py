@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from argparse import Namespace
 from pathlib import Path
 
@@ -515,6 +516,30 @@ def test_tutorial_ai_llm_training_mode_selects_tagged_profile(monkeypatch) -> No
     assert calls["count"] >= 3
 
 
+def test_tutorial_ai_tip_async_mode_keeps_ui_responsive(monkeypatch) -> None:
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="dashboard")
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setattr(tui, "_tutorial_async_enabled", lambda: True)
+    monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: ["queue depth"])
+    monkeypatch.setattr(tui, "_load_rag_helper_context", lambda now: ["tasks pending"])
+    monkeypatch.setattr(tui, "_tutorial_ai_worker_propose_message", lambda now, status, hints, rag_context: None)
+
+    def _slow_llm(*, now: float, status: str, hints: list[str]) -> str | None:
+        time.sleep(0.15)
+        tui._tutorial_worker_target_hint = "nav"
+        return "Open tasks and inspect queue."
+
+    monkeypatch.setattr(tui, "_tutorial_ai_llm_message", _slow_llm)
+
+    first_tip = tui._tutorial_ai_tip(now=1.0)
+    assert "analysiert UI-Delta" in first_tip
+
+    time.sleep(0.2)
+    second_tip = tui._tutorial_ai_tip(now=2.0)
+    assert "Open tasks and inspect queue." in second_tip
+    assert tui._tutorial_last_target == "nav"
+
+
 def test_tutorial_ai_worker_propose_message_reads_step_propose(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000")
     tui = InteractiveOperatorTui(state)
@@ -895,7 +920,64 @@ def test_snake_message_can_be_saved_to_config(tmp_path, monkeypatch) -> None:
     cfg = Path(tmp_path) / ".config" / "ananta" / "snake-config.json"
     data = json.loads(cfg.read_text(encoding="utf-8"))
     assert data["snake_message"] == "Hallo Snake"
+    assert data["tutorial_user_feed"] == "Hallo Snake"
     assert (tui.state.header_logo_game or {}).get("message") == "Hallo Snake"
+    assert (tui.state.header_logo_game or {}).get("tutorial_user_feed") == "Hallo Snake"
+
+
+def test_snake_message_template_command_updates_prompt_template(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "message_mode": True,
+        "message_draft": "/template Explain zone={contact_zone} using feed={user_feed}.",
+        "board_w": 18,
+        "board_h": 6,
+        "snake": [(6, 3), (5, 3), (4, 3)],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    tui._snake_commit_message()
+
+    g = tui.state.header_logo_game or {}
+    assert "Explain zone={contact_zone}" in str(g.get("tutorial_prompt_template") or "")
+    assert "template set" in str(g.get("message") or "")
+
+
+def test_tutorial_ai_tip_sync_includes_user_feed_and_contact_zone(monkeypatch) -> None:
+    game = {
+        "active": True,
+        "tutorial_mode": True,
+        "tutorial_user_feed": "Explain authentication panel",
+        "tutorial_ai_local_contact": True,
+        "tutorial_ai_contact_zone": "header",
+        "tutorial_prompt_template": "Priority={priority}; Feed={user_feed}; Zone={contact_zone}",
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="dashboard", header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    captured = {}
+
+    def _fake_llm(*, now: float, status: str, hints: list[str]) -> str | None:
+        captured["status"] = status
+        return None
+
+    monkeypatch.setattr(tui, "_tutorial_ai_worker_propose_message", lambda now, status, hints, rag_context: None)
+    monkeypatch.setattr(tui, "_tutorial_ai_llm_message", _fake_llm)
+
+    result = tui._tutorial_ai_tip_sync(now=1.0, status="base-status", hints=["h1"], rag_context=["r1"])
+
+    assert result["source"] == "codecompass-rag"
+    status = str(captured.get("status") or "")
+    assert "Feed=Explain authentication panel" in status
+    assert "Zone=header" in status
+    assert "Priority=explain-current-position" in status
 
 
 def test_snake_message_mode_typing_and_backspace() -> None:
