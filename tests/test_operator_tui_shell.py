@@ -11,6 +11,7 @@ from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
+from client_surfaces.operator_tui.logo_inline import build_a_snake_geometry
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState, SectionLoadResult
 from client_surfaces.operator_tui.performance import measure
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
@@ -319,3 +320,34 @@ def test_after_snake_escape_target_pane_can_be_controlled() -> None:
 
     assert tui.state.focus is FocusPane.NAVIGATION
     assert tui.state.selected_index >= before
+
+
+def test_snake_dies_on_a_wall_when_not_using_gate() -> None:
+    geom = build_a_snake_geometry(18, 6, seed=42)
+    wall_x, wall_y = next(iter(geom["walls"]))
+    if wall_x <= 0:
+        wall_x = 1
+    head = (wall_x - 1, wall_y)
+    game = {
+        "active": True,
+        "alive": True,
+        "board_w": 18,
+        "board_h": 6,
+        "snake": [head, (max(0, head[0] - 1), head[1]), (max(0, head[0] - 2), head[1])],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "food": (3, 3),
+        "gaps": {"right": 2, "bottom_nav": 4, "bottom_content": 9, "bottom_detail": 14},
+        "gate_seed": 42,
+        "score": 0,
+        "moves": 1,
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER)
+
+    tui._tick_header_snake()
+
+    assert (tui.state.header_logo_game or {}).get("alive") is False
+    assert "A-Wand getroffen" in tui.state.status_message
