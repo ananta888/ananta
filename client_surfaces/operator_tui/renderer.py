@@ -140,53 +140,29 @@ def _logo_cols_for_width(width: int) -> int:
     return max(_LOGO_COLS, min(_LOGO_COLS_MAX, width - 28 - len(_LOGO_SEP)))
 
 
-def _render_logo_3d_lines(*, cols: int, rows: int, color: bool) -> list[str]:
-    from client_surfaces.operator_tui.animation3d.backends import BuiltinBackend
-    from client_surfaces.operator_tui.animation3d.capabilities import detect_3d_capability
-
-    cap = detect_3d_capability(
-        terminal_width=cols,
-        terminal_height=rows,
-        no_color=not color,
-        is_tty=True,
-    )
-    if not cap.enabled:
-        return []
-
-    backend = BuiltinBackend()
-    fps = max(1, min(60, int(os.environ.get("ANANTA_TUI_HEADER_3D_FPS", "12"))))
-    t = time.monotonic()
-    result = backend.frame_at(
-        t=t,
-        width=cols,
-        height=rows,
-        options={
-            "preset": cap.preset_name,
-            "color_mode": cap.color_mode,
-            "no_color": cap.color_mode in ("mono", "plain_ascii"),
-            "no_ansi": cap.color_mode == "plain_ascii",
-            "allow_small": True,
-            "fps": fps,
-        },
-    )
-    if not result.text:
-        return []
-    return result.text.splitlines()
-
-
 def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | None = None) -> list[str]:
-    """Return logo lines preferring highest-fidelity renderers."""
+    """Return logo lines preferring highest-fidelity original-SVG renderers."""
     from agent.cli.logo_layout import COMPACT_HEADER_LINES
 
     header_3d = os.environ.get("ANANTA_TUI_HEADER_3D", "1").strip().lower() not in {"0", "false", "no", "off"}
     no_3d = (state.terminal_graphics or {}).get("no_3d", False) if state is not None else False
-    if header_3d and not no_3d:
-        lines = _render_logo_3d_lines(cols=cols, rows=COMPACT_HEADER_LINES, color=color)
-        if lines:
-            return _left_align_logo_lines(lines)
-
     if color:
-        from client_surfaces.operator_tui.logo_inline import render_logo_braille, render_logo_halfblock
+        from client_surfaces.operator_tui.logo_inline import (
+            render_logo_braille,
+            render_logo_braille_animated,
+            render_logo_halfblock,
+        )
+
+        if header_3d and not no_3d:
+            speed = float(os.environ.get("ANANTA_TUI_HEADER_3D_SPEED", "1.2"))
+            lines = render_logo_braille_animated(
+                cols=cols,
+                rows=COMPACT_HEADER_LINES,
+                t=time.monotonic(),
+                speed=max(0.2, min(4.0, speed)),
+            )
+            if lines:
+                return _left_align_logo_lines(lines)
 
         # Highest resolution in terminal cells (2x4 pixels per char)
         lines = render_logo_braille(cols=cols, rows=COMPACT_HEADER_LINES)
