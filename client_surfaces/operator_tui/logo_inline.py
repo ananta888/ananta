@@ -301,6 +301,121 @@ def render_logo_snake_game_animated(
     return lines
 
 
+def render_logo_snake_game_playable(
+    cols: int = 50,
+    rows: int = 8,
+    *,
+    game_state: dict[str, Any] | None = None,
+    t: float = 0.0,
+    speed: float = 1.2,
+) -> list[str] | None:
+    """Render a playable snake overlay using Ananta SVG-derived colors."""
+    if not game_state:
+        return None
+    cached = _cached_logo_cells(cols, rows)
+    if cached is None:
+        return None
+    cells, bbox, snake_base, snake_head = cached
+    if not cells:
+        return None
+
+    body = game_state.get("snake") or []
+    food = game_state.get("food")
+    board_w = max(1, int(game_state.get("board_w", 18)))
+    board_h = max(1, int(game_state.get("board_h", 6)))
+    alive = bool(game_state.get("alive", True))
+    if not body:
+        return None
+
+    grid_chars = [[" " for _ in range(cols)] for _ in range(rows)]
+    grid_colors: list[list[tuple[int, int, int] | None]] = [[None for _ in range(cols)] for _ in range(rows)]
+
+    # Base logo (original SVG colors + light shimmer)
+    pulse = 1.0 + 0.06 * math.sin(t * speed * math.tau)
+    for (cx, cy), color in cells.items():
+        r, g, b = color
+        rr = max(0, min(255, int(r * pulse)))
+        gg = max(0, min(255, int(g * pulse)))
+        bb = max(0, min(255, int(b * pulse)))
+        grid_chars[cy][cx] = "█"
+        grid_colors[cy][cx] = (rr, gg, bb)
+
+    # Snake body
+    for idx, logical in enumerate(body):
+        if not isinstance(logical, (list, tuple)) or len(logical) != 2:
+            continue
+        sx, sy = int(logical[0]), int(logical[1])
+        mapped = _map_board_cell_to_logo(sx, sy, board_w=board_w, board_h=board_h, bbox=bbox)
+        if mapped is None:
+            continue
+        mx, my = mapped
+        mix = idx / max(1, len(body) - 1)
+        col = _lerp_color(snake_head, snake_base, mix)
+        if idx == 0:
+            ch = "●" if alive else "✕"
+        elif idx < 4:
+            ch = "◉"
+        elif idx < 8:
+            ch = "◍"
+        else:
+            ch = "·"
+        grid_chars[my][mx] = ch
+        grid_colors[my][mx] = col
+
+    # Food
+    if isinstance(food, (list, tuple)) and len(food) == 2:
+        mapped_food = _map_board_cell_to_logo(
+            int(food[0]),
+            int(food[1]),
+            board_w=board_w,
+            board_h=board_h,
+            bbox=bbox,
+        )
+        if mapped_food is not None:
+            fx, fy = mapped_food
+            # warmer accent from SVG palette by shifting from head color
+            warm = (
+                min(255, int(snake_head[0] * 1.10)),
+                min(255, int(snake_head[1] * 0.95)),
+                min(255, int(snake_head[2] * 0.85)),
+            )
+            grid_chars[fy][fx] = "◆"
+            grid_colors[fy][fx] = warm
+
+    lines: list[str] = []
+    for y in range(rows):
+        line = ""
+        for x in range(cols):
+            ch = grid_chars[y][x]
+            col = grid_colors[y][x]
+            if col is None or ch == " ":
+                line += " "
+            else:
+                line += f"{_fg(col[0], col[1], col[2])}{ch}{_RST}"
+        lines.append(line)
+    return lines
+
+
+def _map_board_cell_to_logo(
+    x: int,
+    y: int,
+    *,
+    board_w: int,
+    board_h: int,
+    bbox: tuple[int, int, int, int],
+) -> tuple[int, int] | None:
+    left, top, right, bottom = bbox
+    if board_w <= 0 or board_h <= 0:
+        return None
+    if not (0 <= x < board_w and 0 <= y < board_h):
+        return None
+    usable_w = max(1, right - left + 1)
+    usable_h = max(1, bottom - top + 1)
+    mx = left + round((x / max(1, board_w - 1)) * max(0, usable_w - 1))
+    my = top + round((y / max(1, board_h - 1)) * max(0, usable_h - 1))
+    return mx, my
+
+
 def _snake_ring_path(left: int, top: int, right: int, bottom: int) -> list[tuple[int, int]]:
     if right <= left or bottom <= top:
         return []

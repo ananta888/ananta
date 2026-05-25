@@ -10,6 +10,7 @@ from client_surfaces.operator_tui.capabilities import graphics_decision
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
+from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState, PanelState, SectionLoadResult
 from client_surfaces.operator_tui.performance import measure
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
@@ -218,3 +219,42 @@ def test_operator_tui_inspect_and_browser_commands_render_context() -> None:
 
     assert "inspect:" in output
     assert "browser=http://localhost:5000/t" in output
+
+
+def test_tab_focus_header_activates_logo_snake_controls() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION)
+    tui = InteractiveOperatorTui(state)
+
+    tui._move_focus(-1)  # NAV -> HEADER
+
+    game = tui.state.header_logo_game or {}
+    assert tui.state.focus is FocusPane.HEADER
+    assert game.get("active") is True
+    assert isinstance(game.get("snake"), list)
+    assert tui._try_header_snake_direction((0, -1)) is True
+
+
+def test_header_focus_hints_show_snake_controls() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "board_w": 18,
+        "board_h": 6,
+        "snake": [(4, 3), (3, 3), (2, 3)],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "food": (8, 3),
+        "score": 2,
+        "moves": 5,
+        "last_move": 0.0,
+    }
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        focus=FocusPane.HEADER,
+        header_logo_game=game,
+    )
+
+    output = render_operator_shell(state, width=100, height=24)
+
+    assert "Snake  score=2  running" in output
+    assert "[←→↑↓] Snake" in output
