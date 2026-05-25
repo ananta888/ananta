@@ -155,6 +155,40 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
+def _play_splash_to_terminal(splash: SplashMachine, state: OperatorState) -> None:
+    from agent.cli.splash import SplashState
+    from agent.cli.status_snapshot import collect_status
+
+    snapshot = collect_status(
+        mode=state.mode.value,
+        endpoint=state.endpoint,
+        auth_state=state.auth_state,
+        section=state.section_id,
+    )
+    size = shutil.get_terminal_size((120, 32))
+    width, height = size.columns, size.lines
+
+    sys.stdout.write("\x1b[?25l\x1b[2J\x1b[H")
+    sys.stdout.flush()
+    try:
+        while True:
+            ctx = splash.tick()
+            if ctx.state in (SplashState.DISABLED, SplashState.SKIPPED, SplashState.COMPACT_HEADER):
+                break
+            lines = splash.render(snapshot, width=width, color=True)
+            padded = list(lines[:height])
+            while len(padded) < height:
+                padded.append("")
+            sys.stdout.write("\x1b[H" + "\n".join(padded))
+            sys.stdout.flush()
+            time.sleep(1.0 / 24)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        sys.stdout.write("\x1b[?25h\x1b[2J\x1b[H")
+        sys.stdout.flush()
+
+
 def _handle_render_once(args: argparse.Namespace, splash: SplashMachine | None) -> None:
     from client_surfaces.operator_tui.animation3d.backends import BuiltinBackend
     from client_surfaces.operator_tui.animation3d.capabilities import detect_3d_capability
