@@ -118,10 +118,11 @@ class BuiltinBackend:
         color_mode: str = opts.get("color_mode", "truecolor")
         no_color: bool = opts.get("no_color", color_mode in ("mono", "plain_ascii"))
         no_ansi: bool = opts.get("no_ansi", color_mode == "plain_ascii")
+        allow_small: bool = bool(opts.get("allow_small", False))
 
         preset = builtin_presets.get(preset_name, builtin_presets["rotate_in"])
 
-        if width < 80 or height < 18:
+        if (width < 80 or height < 18) and not allow_small:
             return FrameResult(
                 text="",
                 visible_width=0,
