@@ -165,7 +165,8 @@
       "Bash(ananta --version)",
       "Bash(.venv/bin/pip show *)",
       "Bash(asciinema --version)",
-      "Bash(.venv/bin/ananta --version)"
+      "Bash(.venv/bin/ananta --version)",
+      "Bash(pip list *)"
     ]
   }
 }

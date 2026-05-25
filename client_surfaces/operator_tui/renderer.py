@@ -92,7 +92,7 @@ def render_operator_shell(
     return "\n".join(_clip(line, width) for line in lines)
 
 
-_LOGO_COLS = 35
+_LOGO_COLS = 50
 _LOGO_SEP = " │ "
 
 
