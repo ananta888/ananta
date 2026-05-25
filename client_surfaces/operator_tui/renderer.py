@@ -237,7 +237,7 @@ def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
 
     logo_lines = _load_logo_lines(cols=logo_cols, color=color, state=state)
 
-    if state.focus == FocusPane.HEADER:
+    if state.focus == FocusPane.HEADER or bool((state.header_logo_game or {}).get("active")):
         right_lines = _render_header_config_lines(state, right_width)
     else:
         snapshot = collect_status(

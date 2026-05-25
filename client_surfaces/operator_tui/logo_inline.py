@@ -332,6 +332,9 @@ def render_logo_snake_game_playable(
             grid_chars[fy][fx] = "◆"
             grid_colors[fy][fx] = warm
 
+    if bool(game_state.get("active")):
+        _draw_snake_mode_legend(grid_chars, grid_colors, cols=cols, rows=rows, color=snake_head)
+
     return _compose_color_grid(grid_chars, grid_colors, rows=rows)
 
 
@@ -524,6 +527,42 @@ def _draw_active_mode_frame(
     paint(right, top, "┐")
     paint(left, bottom, "└")
     paint(right, bottom, "┘")
+
+
+def _draw_snake_mode_legend(
+    grid_chars: list[list[str]],
+    grid_colors: list[list[tuple[int, int, int] | None]],
+    *,
+    cols: int,
+    rows: int,
+    color: tuple[int, int, int],
+) -> None:
+    if cols < 28 or rows < 4:
+        return
+
+    legend = (
+        "SNAKE MODE [Ctrl+S off]",
+        "Keys: arrows move/boost, space stop",
+        "M message, Enter save, Esc cancel",
+    )
+    start_x = 2
+    start_y = 1
+    tint = (
+        max(0, min(255, int(color[0] * 0.95))),
+        max(0, min(255, int(color[1] * 0.95))),
+        max(0, min(255, int(color[2] * 0.95))),
+    )
+
+    for i, text in enumerate(legend):
+        y = start_y + i
+        if y >= rows - 1:
+            break
+        for j, ch in enumerate(text):
+            x = start_x + j
+            if x >= cols - 1:
+                break
+            grid_chars[y][x] = ch
+            grid_colors[y][x] = tint
 
 
 def _a_blue_from_svg(cols: int, rows: int) -> tuple[int, int, int]:
