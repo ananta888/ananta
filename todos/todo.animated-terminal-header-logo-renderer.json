@@ -1,0 +1,802 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "animated-terminal-header-logo-renderer",
+  "purpose": "Plan fuer ein animiertes, hochqualitatives Ananta-Logo links oben im TUI-Header mit Renderer-Kaskade fuer Kitty Graphics, Sixel und ANSI TrueColor Halfblocks.",
+  "goal": "Das persistente Logo im linken oberen TUI-Header soll nicht nur statisch als ASCII/ANSI-Text erscheinen, sondern optional animiert und in bestmoeglicher Terminal-Bildqualitaet dargestellt werden. Der Renderer muss terminalfaehigkeitsbasiert automatisch den besten verfuegbaren Modus waehlen und robust auf einfache ANSI-Ausgabe zurueckfallen.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "scope": {
+    "in_scope": [
+      "Animiertes Logo links oben im kompakten TUI-Header",
+      "SVG/PNG-basierte Frame-Erzeugung aus ananta.svg",
+      "Renderer-Kaskade: Kitty Graphics, Sixel, ANSI TrueColor Halfblocks, optional ASCII-Fallback",
+      "Terminal-Faehigkeitserkennung und manuelle Overrides per Env/CLI",
+      "Tests fuer Renderer-Auswahl, Fallbacks, Dimensionen, Caching und Header-Layout",
+      "Dokumentation fuer Windows 11 WSL2, Windows Terminal, WezTerm/Ghostty/Kitty und einfache Terminals"
+    ],
+    "out_of_scope": [
+      "Echtes OpenGL/DirectX/WSLg-Fenster",
+      "Komplette 3D-Engine fuer das Spiel",
+      "Remote-Rendering oder Browser/WebGL-Frontend",
+      "Austausch des gesamten TUI-Frameworks"
+    ]
+  },
+  "design_principles": [
+    "Default muss stabil und nicht nervig sein: wenn Bildprotokolle fehlen, bleibt ANSI-Fallback funktionsfaehig.",
+    "Keine Heuristik fuer Sicherheitsentscheidungen; Renderer-Auswahl darf aber deterministisch aus Terminal-Features und expliziten Overrides abgeleitet werden.",
+    "Logo-Rendering darf die TUI nicht blockieren; Frames muessen gecacht oder vorgerendert werden.",
+    "Statusbereich rechts neben dem Logo darf nicht flackern oder durch Bildsequenzen ueberschrieben werden.",
+    "Debug-Ausgaben duerfen nur explizit per Env/CLI aktiviert werden. Keine hardcodierten /tmp-Debugdateien im Normalbetrieb."
+  ],
+  "target_files": {
+    "new": [
+      "client_surfaces/operator_tui/logo_renderer/__init__.py",
+      "client_surfaces/operator_tui/logo_renderer/base.py",
+      "client_surfaces/operator_tui/logo_renderer/detect.py",
+      "client_surfaces/operator_tui/logo_renderer/ansi_halfblock.py",
+      "client_surfaces/operator_tui/logo_renderer/sixel.py",
+      "client_surfaces/operator_tui/logo_renderer/kitty.py",
+      "client_surfaces/operator_tui/logo_renderer/frame_cache.py",
+      "client_surfaces/operator_tui/logo_renderer/animated_header.py",
+      "client_surfaces/operator_tui/terminal.py",
+      "tests/test_tui_logo_renderer_detection.py",
+      "tests/test_tui_logo_renderer_ansi.py",
+      "tests/test_tui_logo_renderer_header_layout.py",
+      "tests/test_tui_logo_renderer_frame_cache.py",
+      "docs/development/terminal-header-logo-renderer.md"
+    ],
+    "modify": [
+      "agent/cli/logo_layout.py",
+      "agent/cli/logo_assets.py",
+      "client_surfaces/operator_tui/app.py",
+      "scripts/render_terminal_logo.py",
+      "docs/development/terminal-logo.md",
+      "docs/cli/commands.md"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "ATHL01",
+      "title": "Bestehenden Logo-Pfad bereinigen und Renderer-Abstraktion vorbereiten",
+      "status": "todo",
+      "task_ids": [
+        "ATHL001",
+        "ATHL002",
+        "ATHL003",
+        "ATHL004"
+      ]
+    },
+    {
+      "id": "ATHL02",
+      "title": "ANSI TrueColor Halfblock Renderer als stabilen Baseline-Renderer extrahieren",
+      "status": "todo",
+      "task_ids": [
+        "ATHL005",
+        "ATHL006",
+        "ATHL007",
+        "ATHL008"
+      ]
+    },
+    {
+      "id": "ATHL03",
+      "title": "Sixel-Renderer fuer Windows Terminal/WSL2 und kompatible Terminals ergaenzen",
+      "status": "todo",
+      "task_ids": [
+        "ATHL009",
+        "ATHL010",
+        "ATHL011",
+        "ATHL012"
+      ]
+    },
+    {
+      "id": "ATHL04",
+      "title": "Kitty Graphics Renderer fuer echte Pixelgrafik und Animation ergaenzen",
+      "status": "todo",
+      "task_ids": [
+        "ATHL013",
+        "ATHL014",
+        "ATHL015",
+        "ATHL016"
+      ]
+    },
+    {
+      "id": "ATHL05",
+      "title": "Animiertes Header-Logo in die TUI integrieren",
+      "status": "todo",
+      "task_ids": [
+        "ATHL017",
+        "ATHL018",
+        "ATHL019",
+        "ATHL020",
+        "ATHL021"
+      ]
+    },
+    {
+      "id": "ATHL06",
+      "title": "Konfiguration, CLI, Env-Overrides und Dokumentation fertigstellen",
+      "status": "todo",
+      "task_ids": [
+        "ATHL022",
+        "ATHL023",
+        "ATHL024",
+        "ATHL025",
+        "ATHL026"
+      ]
+    },
+    {
+      "id": "ATHL07",
+      "title": "Tests, Smoke-Tests und Qualitaets-Gates abschliessen",
+      "status": "todo",
+      "task_ids": [
+        "ATHL027",
+        "ATHL028",
+        "ATHL029",
+        "ATHL030"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "ATHL001",
+      "title": "Hardcoded Splash-Debugdatei entfernen oder hinter Debug-Flag verstecken",
+      "type": "cleanup",
+      "milestone_id": "ATHL01",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "files": [
+        "client_surfaces/operator_tui/app.py"
+      ],
+      "acceptance_criteria": [
+        "Im Normalbetrieb wird keine Datei wie /tmp/splash_debug.txt geschrieben.",
+        "Debug-Ausgaben fuer Splash/Header sind nur aktiv, wenn ANANTA_TUI_SPLASH_DEBUG=1 oder ein dokumentierter CLI-Flag gesetzt ist.",
+        "Bei Fehlern im Splash-/Logo-Pfad bleibt der Cursor sichtbar und die TUI startet weiter.",
+        "Ein Test prueft, dass ohne Debug-Flag keine Debugdatei erzeugt wird."
+      ]
+    },
+    {
+      "id": "ATHL002",
+      "title": "Gemeinsame Terminalgroessen-Ermittlung auslagern",
+      "type": "refactor",
+      "milestone_id": "ATHL01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "files": [
+        "client_surfaces/operator_tui/terminal.py",
+        "client_surfaces/operator_tui/app.py",
+        "scripts/smoke_logo.py"
+      ],
+      "acceptance_criteria": [
+        "Es gibt eine zentrale Funktion get_tty_size(fallback=(120, 32)), die /dev/tty ioctl nutzt und danach auf shutil.get_terminal_size zurueckfaellt.",
+        "client_surfaces/operator_tui/app.py und scripts/smoke_logo.py nutzen dieselbe Funktion statt kopierter Logik.",
+        "Die Funktion ist unter nicht-interaktiven Testbedingungen ohne /dev/tty stabil.",
+        "Unit-Tests decken ioctl-Erfolg, ioctl-Fehler und Fallback ab."
+      ]
+    },
+    {
+      "id": "ATHL003",
+      "title": "Renderer-Basisinterface definieren",
+      "type": "architecture",
+      "milestone_id": "ATHL01",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/base.py"
+      ],
+      "acceptance_criteria": [
+        "Es gibt ein Renderer-Interface mit mindestens name, quality_rank, supports_animation, detect(), render_frame() und render_sequence() oder aequivalenten Methoden.",
+        "Das Interface unterscheidet zwischen Textzeilen-Ausgabe und Cursor-/Bildprotokoll-Ausgabe.",
+        "Renderer duerfen keine direkte globale Terminal-Manipulation machen, ohne einen Output-Stream oder Writer zu erhalten.",
+        "Das Interface beschreibt klar, ob der Renderer ANSI-Zeilen zurueckgibt oder direkt Escape-Sequenzen schreibt."
+      ]
+    },
+    {
+      "id": "ATHL004",
+      "title": "Bestehenden kleinen Header-Logo-Pfad dokumentieren und absichern",
+      "type": "analysis",
+      "milestone_id": "ATHL01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "files": [
+        "agent/cli/logo_layout.py",
+        "agent/cli/logo_assets.py",
+        "scripts/render_terminal_logo.py"
+      ],
+      "acceptance_criteria": [
+        "Dokumentiert ist, dass der bisherige Pfad ananta.svg zu PNG zu ANSI/ASCII nutzt.",
+        "Dokumentiert ist, welche Parameter aktuell fuer das 8-Zeilen-Logo verwendet werden (_SMALL_LOGO_COLS, COMPACT_HEADER_LINES).",
+        "Es gibt eine klare Entscheidung, welche bestehende Funktion in den ANSI-Renderer ueberfuehrt wird.",
+        "Bestehende Tests fuer load_logo und render_compact_header bleiben gruen."
+      ]
+    },
+    {
+      "id": "ATHL005",
+      "title": "ANSI TrueColor Halfblock Renderer extrahieren",
+      "type": "implementation",
+      "milestone_id": "ATHL02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/ansi_halfblock.py",
+        "scripts/render_terminal_logo.py"
+      ],
+      "acceptance_criteria": [
+        "Die bestehende TrueColor-Halfblock-Logik ist als wiederverwendbarer Renderer ohne CLI-Abhaengigkeit verfuegbar.",
+        "Der Renderer kann RGBA/PIL-Frames in ANSI-Zeilen umwandeln.",
+        "Der Renderer kann auf NO_COLOR reagieren und dann mono/ASCII oder einfache Blockzeichen ausgeben.",
+        "Die Ausgabe bleibt bei 8 Header-Zeilen und konfigurierbarer Breite stabil."
+      ]
+    },
+    {
+      "id": "ATHL006",
+      "title": "SVG zu Frame-Pipeline fuer Header-Logo bauen",
+      "type": "implementation",
+      "milestone_id": "ATHL02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/frame_cache.py",
+        "agent/cli/logo_assets.py"
+      ],
+      "acceptance_criteria": [
+        "ananta.svg kann deterministisch in RGBA-Frames fuer Header-Groessen gerastert werden.",
+        "Die Pipeline nutzt vorhandene Renderer-Moeglichkeiten: cairosvg, rsvg-convert oder inkscape, mit sauberem Fehler-Fallback.",
+        "Frame-Groessen sind getrennt nach Pixelgroesse und Terminal-Zellgroesse konfigurierbar.",
+        "Bei fehlendem SVG-Renderer startet die TUI weiter mit Fallback-Logo."
+      ]
+    },
+    {
+      "id": "ATHL007",
+      "title": "Frame-Cache fuer kleine Logo-Animation implementieren",
+      "type": "implementation",
+      "milestone_id": "ATHL02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/frame_cache.py"
+      ],
+      "acceptance_criteria": [
+        "Frames werden pro SVG-Pfad, Zielgroesse, Renderer-Modus und Animationspreset gecacht.",
+        "Der Cache verhindert wiederholtes teures Rasterisieren bei jedem Header-Refresh.",
+        "Cache-Invalidierung beruecksichtigt geaendertes SVG-mtime oder Hash.",
+        "Unit-Tests pruefen Cache-Hit, Cache-Miss und Invalidation."
+      ]
+    },
+    {
+      "id": "ATHL008",
+      "title": "ANSI-Animation fuer Header-Logo als Baseline einbauen",
+      "type": "implementation",
+      "milestone_id": "ATHL02",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/animated_header.py",
+        "agent/cli/logo_layout.py"
+      ],
+      "acceptance_criteria": [
+        "Ohne Sixel/Kitty kann das Logo links oben mit ANSI-Halfblock-Frames animiert werden.",
+        "Die Animation kann deaktiviert werden und faellt dann auf statisches Logo zurueck.",
+        "Die Animation ueberschreibt nicht die Statuszeilen rechts neben dem Logo.",
+        "Die Framerate ist begrenzt und verursacht keine hohe CPU-Last im Idle-Betrieb."
+      ]
+    },
+    {
+      "id": "ATHL009",
+      "title": "Sixel-Faehigkeit deterministisch erkennen",
+      "type": "implementation",
+      "milestone_id": "ATHL03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/detect.py"
+      ],
+      "acceptance_criteria": [
+        "Detector erkennt Sixel anhand dokumentierter Env-/Terminal-Indikatoren und optionaler manueller Overrides.",
+        "ANANTA_TUI_LOGO_RENDERER=sixel erzwingt Sixel, wenn nicht explizit deaktiviert.",
+        "ANANTA_TUI_LOGO_RENDERER=auto waehlt Sixel nur, wenn die Umgebung geeignet erscheint.",
+        "Bei unsicherer Erkennung wird nicht abgestuerzt, sondern auf ANSI zurueckgefallen."
+      ]
+    },
+    {
+      "id": "ATHL010",
+      "title": "Sixel-Encoder/Backend anbinden",
+      "type": "implementation",
+      "milestone_id": "ATHL03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/sixel.py"
+      ],
+      "acceptance_criteria": [
+        "SixelRenderer kann einen RGBA/PNG-Frame als Sixel-Escape-Sequenz ausgeben.",
+        "Der Renderer unterstuetzt entweder eine Python-Bibliothek, ein optionales externes Tool oder einen klar dokumentierten Minimal-Encoder.",
+        "Fehlt das Sixel-Backend, liefert detect() false und der Renderer wird nicht automatisch genutzt.",
+        "Fehlerhafte Encoder-Aufrufe zerstoeren nicht die TUI-Ausgabe und triggern Fallback."
+      ]
+    },
+    {
+      "id": "ATHL011",
+      "title": "Sixel-Positionierung fuer Logo links oben implementieren",
+      "type": "implementation",
+      "milestone_id": "ATHL03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/sixel.py",
+        "client_surfaces/operator_tui/logo_renderer/animated_header.py"
+      ],
+      "acceptance_criteria": [
+        "Sixel-Frames werden an der linken oberen Header-Position gezeichnet.",
+        "Nach dem Zeichnen wird der Cursor korrekt rechts neben oder unter den Headerbereich gesetzt.",
+        "Statuszeilen rechts neben dem Logo bleiben lesbar und werden nicht durch Bilddaten ueberschrieben.",
+        "Ein Snapshot-/Golden-Test prueft die Sequenzstruktur ohne echtes Terminal."
+      ]
+    },
+    {
+      "id": "ATHL012",
+      "title": "Sixel-Smoke-Test fuer WSL2/Windows Terminal dokumentieren",
+      "type": "documentation",
+      "milestone_id": "ATHL03",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "files": [
+        "docs/development/terminal-header-logo-renderer.md"
+      ],
+      "acceptance_criteria": [
+        "Die Doku enthaelt einen manuellen Smoke-Test fuer Windows 11 WSL2 und Windows Terminal.",
+        "Die Doku erklaert, wie ANANTA_TUI_LOGO_RENDERER=sixel getestet wird.",
+        "Die Doku beschreibt, wie man bei kaputter Ausgabe auf ANSI zurueckstellt.",
+        "Die Doku grenzt Sixel klar von WSLg/OpenGL ab."
+      ]
+    },
+    {
+      "id": "ATHL013",
+      "title": "Kitty Graphics Faehigkeit erkennen",
+      "type": "implementation",
+      "milestone_id": "ATHL04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/detect.py"
+      ],
+      "acceptance_criteria": [
+        "Detector erkennt Kitty-kompatible Terminals ueber TERM/TERM_PROGRAM/KITTY_WINDOW_ID oder dokumentierte Overrides.",
+        "ANANTA_TUI_LOGO_RENDERER=kitty erzwingt Kitty-Ausgabe fuer Tests.",
+        "Auto-Modus bevorzugt Kitty nur, wenn die Umgebung hinreichend eindeutig ist.",
+        "Bei Windows Terminal ohne Kitty-Support wird Kitty nicht automatisch gewaehlt."
+      ]
+    },
+    {
+      "id": "ATHL014",
+      "title": "Kitty Graphics Renderer fuer PNG/RGBA-Frames implementieren",
+      "type": "implementation",
+      "milestone_id": "ATHL04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/kitty.py"
+      ],
+      "acceptance_criteria": [
+        "KittyRenderer kann einen PNG/RGBA-Frame als Kitty Graphics Escape-Sequenz ausgeben.",
+        "Renderer unterstuetzt mindestens direkte Frame-Ausgabe; optionale Animation-Frame-Features sind getrennt gekapselt.",
+        "Bild-IDs/Placement-IDs werden so verwaltet, dass alte Frames ersetzt und nicht unendlich gestapelt werden.",
+        "Bei Fehlern wird sauber auf Sixel oder ANSI zurueckgefallen."
+      ]
+    },
+    {
+      "id": "ATHL015",
+      "title": "Kitty-Animation ohne Flackern testen",
+      "type": "test",
+      "milestone_id": "ATHL04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "files": [
+        "tests/test_tui_logo_renderer_detection.py",
+        "tests/test_tui_logo_renderer_header_layout.py"
+      ],
+      "acceptance_criteria": [
+        "Tests pruefen, dass Kitty-Frames dieselbe Bildposition/Placement-Zone verwenden.",
+        "Tests pruefen, dass alte Frames ersetzt oder geloescht werden koennen.",
+        "Die Tests benoetigen kein echtes Kitty-Terminal und validieren Escape-Sequenz-Metadaten strukturell.",
+        "Ein manueller Smoke-Test fuer Kitty/WezTerm/Ghostty ist dokumentiert."
+      ]
+    },
+    {
+      "id": "ATHL016",
+      "title": "Renderer-Prioritaet und Fallback-Reihenfolge festlegen",
+      "type": "architecture",
+      "milestone_id": "ATHL04",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/detect.py"
+      ],
+      "acceptance_criteria": [
+        "Auto-Modus nutzt eine dokumentierte Reihenfolge: kitty, sixel, ansi_halfblock, ascii/fallback.",
+        "Manueller Override kann jeden Renderer erzwingen oder deaktivieren.",
+        "Wenn ein erzwungener Renderer nicht verfuegbar ist, wird eine klare Warnung nur im Debug-/Verbose-Modus ausgegeben und danach Fallback verwendet.",
+        "Tests decken alle Fallback-Pfade ab."
+      ]
+    },
+    {
+      "id": "ATHL017",
+      "title": "Header-Layout von Text-Logo auf Overlay-faehigen Logo-Bereich erweitern",
+      "type": "implementation",
+      "milestone_id": "ATHL05",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "files": [
+        "agent/cli/logo_layout.py",
+        "client_surfaces/operator_tui/logo_renderer/animated_header.py"
+      ],
+      "acceptance_criteria": [
+        "Das Header-Layout kennt eine reservierte Logo-Zone links oben mit Breite/Hoehe.",
+        "Statuszeilen werden rechts neben der Logo-Zone gerendert, unabhaengig vom konkreten Renderer.",
+        "Textbasierte ANSI-Renderer koennen weiterhin als normale Zeilen in das Layout einfliessen.",
+        "Bildprotokoll-Renderer koennen die reservierte Zone direkt zeichnen, ohne Status-Text zu vermischen."
+      ]
+    },
+    {
+      "id": "ATHL018",
+      "title": "Animation-Timer fuer kleines Header-Logo implementieren",
+      "type": "implementation",
+      "milestone_id": "ATHL05",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/animated_header.py",
+        "client_surfaces/operator_tui/app.py"
+      ],
+      "acceptance_criteria": [
+        "Das kleine Header-Logo kann mit konfigurierbarer FPS animiert werden.",
+        "Default-FPS ist niedrig genug fuer geringe CPU-Last, z.B. 4 bis 8 fps fuer Header-Animation.",
+        "Bei nicht-interaktivem Render-once wird entweder ein einzelner deterministischer Frame oder eine dokumentierte Frame-Auswahl genutzt.",
+        "Animation kann vollstaendig deaktiviert werden."
+      ]
+    },
+    {
+      "id": "ATHL019",
+      "title": "Animationspresets fuer kleines Logo definieren",
+      "type": "implementation",
+      "milestone_id": "ATHL05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/frame_cache.py",
+        "client_surfaces/operator_tui/logo_renderer/animated_header.py"
+      ],
+      "acceptance_criteria": [
+        "Es gibt mindestens die Presets static, pulse, shimmer und rotate_hint oder aequivalente subtile Effekte.",
+        "Presets veraendern das Logo nur dezent und stoeren die Lesbarkeit der TUI nicht.",
+        "Preset-Auswahl ist per ANANTA_TUI_LOGO_ANIMATION oder CLI konfigurierbar.",
+        "Ein Test prueft, dass static genau einen stabilen Frame liefert."
+      ]
+    },
+    {
+      "id": "ATHL020",
+      "title": "Cursor- und Screen-State sauber verwalten",
+      "type": "implementation",
+      "milestone_id": "ATHL05",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "files": [
+        "client_surfaces/operator_tui/logo_renderer/animated_header.py",
+        "client_surfaces/operator_tui/app.py"
+      ],
+      "acceptance_criteria": [
+        "Renderer verstecken den Cursor nur, wenn noetig, und stellen ihn im finally-Pfad wieder her.",
+        "Escape-Sequenzen setzen den Cursor nach jedem Logo-Frame an eine definierte Position zurueck.",
+        "KeyboardInterrupt oder Exceptions lassen keinen unsichtbaren Cursor zurueck.",
+        "Tests pruefen, dass Restore-Sequenzen im Fehlerpfad ausgegeben werden."
+      ]
+    },
+    {
+      "id": "ATHL021",
+      "title": "Render-once und Snapshot-Ausgabe kompatibel halten",
+      "type": "test",
+      "milestone_id": "ATHL05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "files": [
+        "client_surfaces/operator_tui/app.py",
+        "scripts/smoke_logo.py",
+        "tests/output/operator_tui_splash.cast"
+      ],
+      "acceptance_criteria": [
+        "ananta tui --render-once funktioniert weiterhin ohne interaktives Terminal.",
+        "Snapshot-/cast-Erzeugung bleibt deterministisch, auch wenn Header-Animation im Live-Modus aktiv ist.",
+        "Tests verhindern, dass binary/graphics escape dumps unkontrolliert in textbasierte Golden-Files laufen.",
+        "Es gibt einen dokumentierten Modus fuer Text-only Snapshots."
+      ]
+    },
+    {
+      "id": "ATHL022",
+      "title": "Env-Variablen fuer Logo-Renderer definieren",
+      "type": "configuration",
+      "milestone_id": "ATHL06",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "files": [
+        "docs/development/terminal-header-logo-renderer.md",
+        "docs/cli/commands.md"
+      ],
+      "acceptance_criteria": [
+        "ANANTA_TUI_LOGO=0 deaktiviert weiterhin jedes Logo.",
+        "ANANTA_TUI_LOGO_RENDERER akzeptiert mindestens auto, ansi, sixel, kitty, none.",
+        "ANANTA_TUI_LOGO_ANIMATION akzeptiert mindestens static und ein animiertes Preset.",
+        "ANANTA_TUI_LOGO_FPS begrenzt die Header-Animationsrate.",
+        "ANANTA_TUI_SPLASH bleibt semantisch getrennt vom persistenten Header-Logo."
+      ]
+    },
+    {
+      "id": "ATHL023",
+      "title": "CLI-Flags fuer Renderer und Animation ergaenzen",
+      "type": "configuration",
+      "milestone_id": "ATHL06",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "files": [
+        "agent/cli/main.py",
+        "client_surfaces/operator_tui/app.py"
+      ],
+      "acceptance_criteria": [
+        "ananta tui --logo-renderer auto|ansi|sixel|kitty|none ist verfuegbar oder bewusst dokumentiert vertagt.",
+        "ananta tui --logo-animation static|pulse|shimmer oder aequivalent ist verfuegbar oder bewusst dokumentiert vertagt.",
+        "ananta tui --no-logo deaktiviert Logo-Ausgabe ohne die gesamte TUI zu deaktivieren.",
+        "--help zeigt die neuen Flags in kurzer, verstaendlicher Form."
+      ]
+    },
+    {
+      "id": "ATHL024",
+      "title": "Dokumentation fuer Terminal-Kompatibilitaet schreiben",
+      "type": "documentation",
+      "milestone_id": "ATHL06",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "files": [
+        "docs/development/terminal-header-logo-renderer.md"
+      ],
+      "acceptance_criteria": [
+        "Doku erklaert kurz ANSI, Sixel und Kitty Graphics und deren Qualitaetsunterschiede.",
+        "Doku enthaelt Empfehlungen fuer Windows Terminal/WSL2, WezTerm, Kitty und einfache SSH-Terminals.",
+        "Doku enthaelt Testbefehle fuer auto, ansi, sixel und kitty.",
+        "Doku erklaert, wie man bei kaputter Ausgabe sicher auf ANSI oder none zurueckstellt."
+      ]
+    },
+    {
+      "id": "ATHL025",
+      "title": "Abhaengigkeiten und optionale Tools dokumentieren",
+      "type": "documentation",
+      "milestone_id": "ATHL06",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "files": [
+        "docs/development/terminal-header-logo-renderer.md",
+        "pyproject.toml"
+      ],
+      "acceptance_criteria": [
+        "Dokumentiert ist, welche Abhaengigkeiten Pflicht und welche optional sind.",
+        "SVG-Rasterizer-Pfad beschreibt cairosvg, rsvg-convert und inkscape als Optionen.",
+        "Sixel-Backend ist optional und deaktiviert sich sauber, wenn nicht installiert.",
+        "Neue optionale Python-Abhaengigkeiten werden nicht unnoetig hart fuer den gesamten Ananta-Start vorausgesetzt."
+      ]
+    },
+    {
+      "id": "ATHL026",
+      "title": "Troubleshooting fuer kaputte Terminalausgabe ergaenzen",
+      "type": "documentation",
+      "milestone_id": "ATHL06",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "files": [
+        "docs/development/terminal-header-logo-renderer.md",
+        "docs/cli/commands.md"
+      ],
+      "acceptance_criteria": [
+        "Troubleshooting nennt konkrete Fallback-Befehle wie ANANTA_TUI_LOGO_RENDERER=ansi und ANANTA_TUI_LOGO=0.",
+        "Troubleshooting beschreibt typische Symptome: Escape-Sequenzen sichtbar, Flackern, falsche Cursorposition, abgeschnittenes Logo.",
+        "Troubleshooting trennt Splash-Probleme von persistentem Header-Logo.",
+        "Troubleshooting nennt Debug-Flag und Log-Ziel, falls Debugging aktiv ist."
+      ]
+    },
+    {
+      "id": "ATHL027",
+      "title": "Unit-Tests fuer Renderer-Detection schreiben",
+      "type": "test",
+      "milestone_id": "ATHL07",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "files": [
+        "tests/test_tui_logo_renderer_detection.py"
+      ],
+      "acceptance_criteria": [
+        "Tests pruefen auto-Auswahl fuer kitty, sixel und ansi anhand simulierter Env-Variablen.",
+        "Tests pruefen manuelle Overrides fuer ANANTA_TUI_LOGO_RENDERER.",
+        "Tests pruefen, dass unbekannte Renderer-Werte nicht crashen, sondern validiert oder klar abgelehnt werden.",
+        "Tests pruefen, dass ANANTA_TUI_LOGO=0 alle Renderer-Ausgabe deaktiviert."
+      ]
+    },
+    {
+      "id": "ATHL028",
+      "title": "Unit-Tests fuer ANSI-Halfblock-Renderer schreiben",
+      "type": "test",
+      "milestone_id": "ATHL07",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "files": [
+        "tests/test_tui_logo_renderer_ansi.py"
+      ],
+      "acceptance_criteria": [
+        "Tests pruefen, dass ein kleines RGBA-Testbild erwartete Halfblock-Zeichen erzeugt.",
+        "Tests pruefen transparente Pixel und NO_COLOR-Verhalten.",
+        "Tests pruefen, dass ANSI-Reset am Zeilenende gesetzt wird, wenn Farben genutzt werden.",
+        "Tests pruefen stabile Breite/Hoehe fuer 8-Zeilen-Header."
+      ]
+    },
+    {
+      "id": "ATHL029",
+      "title": "Integrationstests fuer Header-Layout und Animation schreiben",
+      "type": "test",
+      "milestone_id": "ATHL07",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "files": [
+        "tests/test_tui_logo_renderer_header_layout.py"
+      ],
+      "acceptance_criteria": [
+        "Tests pruefen, dass Logo-Zone links und Status-Zone rechts getrennt bleiben.",
+        "Tests pruefen kleine Terminalbreiten mit Status-only oder Logo-only Fallback.",
+        "Tests pruefen render-once ohne interaktiven TTY.",
+        "Tests pruefen, dass Animation bei deaktivierter Option keinen Timer/Frame-Loop startet."
+      ]
+    },
+    {
+      "id": "ATHL030",
+      "title": "Smoke-Test-Kommandos und CI-Gates definieren",
+      "type": "test",
+      "milestone_id": "ATHL07",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "files": [
+        "docs/development/terminal-header-logo-renderer.md",
+        "scripts/smoke_logo.py"
+      ],
+      "acceptance_criteria": [
+        "Es gibt dokumentierte Smoke-Kommandos fuer ANSI-only, auto und deaktiviertes Logo.",
+        "CI kann textbasierte Tests ohne echtes Sixel/Kitty-Terminal ausfuehren.",
+        "Optionale lokale Smoke-Tests fuer Sixel/Kitty sind klar von CI-Pflichttests getrennt.",
+        "Definition of Done verlangt gruene Unit-Tests und mindestens einen manuellen Live-Test auf Windows Terminal/WSL2 oder dokumentiert, warum dieser noch aussteht."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "ATHL001",
+    "ATHL003",
+    "ATHL005",
+    "ATHL006",
+    "ATHL008",
+    "ATHL016",
+    "ATHL017",
+    "ATHL018",
+    "ATHL020",
+    "ATHL027",
+    "ATHL028",
+    "ATHL029"
+  ],
+  "tasks_status_summary": {
+    "total": 30,
+    "by_status": {
+      "todo": 30,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 13,
+      "P1": 11,
+      "P2": 6,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 9,
+      "medium": 16,
+      "high": 5
+    },
+    "critical_path": {
+      "total": 12,
+      "done": 0,
+      "remaining": 12
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 30,
+    "by_type": {
+      "cleanup": 1,
+      "refactor": 1,
+      "architecture": 3,
+      "analysis": 1,
+      "implementation": 12,
+      "test": 7,
+      "documentation": 4,
+      "configuration": 2
+    }
+  },
+  "progress_summary": {
+    "state": "planned",
+    "todo_remaining": 30,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "definition_of_done": [
+    "Das kleine Logo links oben kann in der TUI animiert werden, ohne den Statusbereich zu zerstoeren.",
+    "Auto-Renderer waehlt deterministisch den besten verfuegbaren Modus: Kitty, Sixel, ANSI, Fallback.",
+    "ANSI-Fallback funktioniert ohne optionale Bildprotokolle und ohne interaktives Spezialterminal.",
+    "Sixel und Kitty sind optional und brechen den Start nicht, wenn sie nicht verfuegbar sind.",
+    "Render-once, Snapshot-Tests und nicht-interaktive CI bleiben stabil.",
+    "Debug-Ausgaben sind explizit aktivierbar und im Normalbetrieb aus.",
+    "Dokumentation beschreibt Windows 11 WSL2, Windows Terminal und alternative Terminals knapp und praktisch."
+  ],
+  "summary_notes": [
+    "Fokus liegt nur auf dem persistenten Header-Logo links oben, nicht auf Vollbild-Splash oder kompletter 3D-Engine.",
+    "Die bestehende SVG zu PNG zu ANSI-Pipeline soll nicht weggeworfen, sondern als robuster Baseline-Renderer extrahiert werden.",
+    "Bildprotokoll-Renderer muessen als Overlay/Zeichenbereich gedacht werden; der Statusbereich darf nicht direkt mit Bild-Escape-Sequenzen vermischt werden."
+  ]
+}
