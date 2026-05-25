@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import asyncio
@@ -106,6 +108,9 @@ class InteractiveOperatorTui:
 
         @bindings.add("enter")
         def _(event) -> None:
+            if self._snake_message_mode_active():
+                self._snake_commit_message()
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._run_command(self._command_buffer)
                 return
@@ -124,11 +129,17 @@ class InteractiveOperatorTui:
 
         @bindings.add("escape")
         def _(event) -> None:
+            if self._snake_message_mode_active():
+                self._snake_cancel_message()
+                return
             self._command_buffer = ""
             self._run_command(":cancel")
 
         @bindings.add("backspace")
         def _(event) -> None:
+            if self._snake_message_mode_active():
+                self._snake_message_backspace()
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._command_buffer = self._command_buffer[:-1]
                 self._set_state(self.state.with_updates(command_line=self._command_buffer))
@@ -194,6 +205,13 @@ class InteractiveOperatorTui:
                 return
             self._toggle_snake_free_mode()
 
+        @bindings.add("m")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command("m")
+                return
+            self._toggle_snake_message_mode()
+
         @bindings.add("left")
         def _(event) -> None:
             if self._try_header_snake_direction((-1, 0)):
@@ -236,6 +254,11 @@ class InteractiveOperatorTui:
 
         @bindings.add("<any>")
         def _(event) -> None:
+            if self._snake_message_mode_active():
+                data = event.key_sequence[0].data
+                if data and data.isprintable():
+                    self._snake_message_append(data)
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 data = event.key_sequence[0].data
                 if data and data.isprintable():
@@ -522,6 +545,65 @@ class InteractiveOperatorTui:
         game["free_mode"] = new_mode
         label = "an" if new_mode else "aus"
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake fullscreen: {label}"))
+
+    def _snake_message_mode_active(self) -> bool:
+        game = dict(self.state.header_logo_game or {})
+        return bool(game.get("message_mode"))
+
+    def _toggle_snake_message_mode(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        game["active"] = True
+        game["ui_steering"] = True
+        if game.get("message_mode"):
+            game["message_mode"] = False
+            game["message_draft"] = ""
+            self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake message: abgebrochen"))
+            return
+        game["message_mode"] = True
+        game["message_draft"] = str(game.get("message", ""))
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake message: eingeben + Enter speichern"))
+
+    def _snake_message_append(self, text: str) -> None:
+        game = dict(self.state.header_logo_game or {})
+        if not game.get("message_mode"):
+            return
+        draft = str(game.get("message_draft", ""))
+        game["message_draft"] = (draft + text)[:200]
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake message: tippen..."))
+
+    def _snake_message_backspace(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        if not game.get("message_mode"):
+            return
+        draft = str(game.get("message_draft", ""))
+        game["message_draft"] = draft[:-1]
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake message: tippen..."))
+
+    def _snake_cancel_message(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        if not game.get("message_mode"):
+            return
+        game["message_mode"] = False
+        game["message_draft"] = ""
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake message: abgebrochen"))
+
+    def _snake_commit_message(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        if not game.get("message_mode"):
+            return
+        message = str(game.get("message_draft", "")).strip()
+        game["message"] = message
+        game["message_mode"] = False
+        game["message_draft"] = ""
+        self._save_snake_message_config(message)
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake message: gespeichert"))
+
+    def _save_snake_message_config(self, message: str) -> None:
+        cfg_dir = Path.home() / ".config" / "ananta"
+        cfg_dir.mkdir(parents=True, exist_ok=True)
+        cfg_file = cfg_dir / "snake-config.json"
+        payload = {"snake_message": message, "updated_at": int(time.time())}
+        cfg_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     def _snake_immediate_brake(self) -> None:
         game = dict(self.state.header_logo_game or {})
