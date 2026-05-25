@@ -83,13 +83,34 @@ def _tutorial_ai_live_cast(*, run_id: str) -> str:
 
 
 def _snake_mode_live_cast(*, run_id: str) -> str:
+    def _load_splash_intro_from_cast(*, max_frames: int = 18) -> list[str]:
+        cast_path = Path("tests/output/operator_tui_splash.cast")
+        if not cast_path.exists():
+            return []
+        frames: list[str] = []
+        for raw_line in cast_path.read_text(encoding="utf-8").splitlines()[1:]:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not (isinstance(event, list) and len(event) >= 3 and event[1] == "o" and isinstance(event[2], str)):
+                continue
+            frames.append(event[2])
+            if len(frames) >= max_frames:
+                break
+        return frames
+
     frames: list[tuple[float, str]] = []
-    splash_frames = build_splash_frames(w=120, h=32, fps=12)
+    splash_frames = _load_splash_intro_from_cast(max_frames=18)
+    if not splash_frames:
+        splash_frames = ["\u001b[2J\u001b[H" + screen + "\n" for screen in build_splash_frames(w=120, h=32, fps=12)[:18]]
     if splash_frames:
-        intro = splash_frames[:18]
-        for idx, screen in enumerate(intro):
-            frames.append((idx * 0.1, "\u001b[?25l\u001b[2J\u001b[H" + screen + "\n"))
-        base_time = len(intro) * 0.1 + 0.25
+        for idx, screen in enumerate(splash_frames):
+            frames.append((idx * 0.1, screen))
+        base_time = len(splash_frames) * 0.1 + 0.25
     else:
         frames.append(
             (
