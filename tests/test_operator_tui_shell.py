@@ -361,6 +361,19 @@ def test_tutorial_ai_snake_is_added_with_knowledge_message() -> None:
     assert isinstance(ai, dict)
     assert ai.get("pseudonym") == "tutor-ai"
     assert str(ai.get("message") or "") != ""
+    assert ai.get("oidc_provider") == "codecompass-ai"
+
+
+def test_tutorial_ai_tip_uses_codecompass_hints_when_available(monkeypatch) -> None:
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="tasks")
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: ["method · plan_tasks · client_surfaces/operator_tui/interactive.py"])
+
+    tip = tui._tutorial_ai_tip(now=1.0)
+
+    assert "CodeCompass:" in tip
+    assert "mode=normal" in tip
+    assert "section=tasks" in tip
 
 
 def test_snake_message_style_and_color_can_cycle() -> None:
