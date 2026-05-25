@@ -1,0 +1,467 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "ananta_game_webrtc_p2p_match_network",
+  "created": "2026-05-25",
+  "status": "backlog",
+  "purpose": "Erweiterungsmodul fuer das Ananta Strategie-Game: Peer-to-Peer-Spiel ueber WebRTC DataChannels mit Keycloak/OIDC-Identitaet, optional eigenem Docker-Container fuer Signaling/STUN/TURN oder konfigurierbaren externen Services.",
+  "goal": "Einen Netzwerk-Layer planen, der keinen zentralen Game-Server benoetigt, aber die real notwendigen WebRTC-Hilfsdienste sauber kapselt: Signaling, STUN, optional TURN, NAT-Traversal und Peer-Verbindungsaufbau.",
+  "scope_decision": {
+    "active_in_brutal_mvp": false,
+    "reason": "Der erste Spielkern muss lokal und deterministisch funktionieren. Netzwerk kommt erst nach GameState, validateAction, ActionLog und Replay.",
+    "serverless_wording": "Nicht 'ohne jeden Server', sondern 'ohne zentralen Game-Server'. Signaling/STUN/TURN bleiben optional oder konfigurierbar notwendig.",
+    "activation_gate": [
+      "GameState ist serialisierbar.",
+      "ActionLog und Replay sind definiert.",
+      "validateAction prueft alle Spielzuege deterministisch.",
+      "OIDC/Keycloak-Identity-Binding ist konzeptionell beschrieben.",
+      "Transport synchronisiert Actions, nicht beliebige GameState-Mutationen."
+    ]
+  },
+  "network_components": {
+    "keycloak_oidc": "Identitaet, Login, Token, Rollen, Match-Einladung, Device/User-Bindung.",
+    "signaling_service": "Austausch von SDP Offers/Answers und ICE Candidates. Kann eigener Docker-Service oder externer Dienst sein.",
+    "stun_service": "Hilft Peers, ihre erreichbare Adresse/NAT-Situation zu erkennen. Kann extern oder selbst gehostet sein.",
+    "turn_service": "Relay-Fallback, wenn direkte P2P-Verbindung nicht funktioniert. Optional, aber fuer robuste Internet-Verbindungen praktisch notwendig.",
+    "webrtc_datachannel": "Transport fuer signierte Spielaktionen, Hash-Kette, Match-Control-Messages und ggf. Chat.",
+    "game_core": "Validiert lokal alle Actions und baut State per Replay auf."
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "P2P01",
+      "title": "Netzwerkarchitektur und Servergrenzen definieren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["P2P001", "P2P002", "P2P003", "P2P004"]
+    },
+    {
+      "id": "P2P02",
+      "title": "Docker- und Konfigurationsmodell fuer Signaling/STUN/TURN planen",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["P2P005", "P2P006", "P2P007", "P2P008", "P2P009"]
+    },
+    {
+      "id": "P2P03",
+      "title": "OIDC Identity Binding und Match Pairing definieren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["P2P010", "P2P011", "P2P012", "P2P013"]
+    },
+    {
+      "id": "P2P04",
+      "title": "WebRTC Action-Sync-Protokoll planen",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["P2P014", "P2P015", "P2P016", "P2P017"]
+    },
+    {
+      "id": "P2P05",
+      "title": "Security, Tests und Demo-Review definieren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["P2P018", "P2P019", "P2P020", "P2P021", "P2P022"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "P2P001",
+      "title": "P2P-Netzwerkarchitektur dokumentieren",
+      "type": "architecture",
+      "milestone_id": "P2P01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "deliverables": ["docs/examples/ananta-game/webrtc_p2p_match_architecture.md"],
+      "acceptance_criteria": [
+        "Dokument trennt Keycloak/OIDC, Signaling, STUN, TURN, WebRTC DataChannel und Game-Core.",
+        "Dokument verwendet die Formulierung 'ohne zentralen Game-Server' statt 'ohne jeden Server'.",
+        "Dokument beschreibt, dass nur Actions synchronisiert werden, nicht beliebige State-Mutationen.",
+        "Dokument enthaelt ein Mermaid-Diagramm fuer Login -> Pairing -> Signaling -> DataChannel -> ActionLog."
+      ]
+    },
+    {
+      "id": "P2P002",
+      "title": "Serverrollen sauber abgrenzen",
+      "type": "architecture",
+      "milestone_id": "P2P01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["P2P001"],
+      "deliverables": ["Abschnitt in webrtc_p2p_match_architecture.md"],
+      "acceptance_criteria": [
+        "Keycloak ist nur Identity Provider und keine Spielautoritaet.",
+        "Signaling-Service sieht nur Verbindungs-Metadaten und keine Spielautoritaet.",
+        "STUN liefert nur NAT-Hilfe und keine Spielautoritaet.",
+        "TURN relayt nur verschluesselten Transport und ist keine Spielautoritaet.",
+        "Game-Core auf beiden Clients bleibt Autoritaet fuer validateAction und Replay."
+      ]
+    },
+    {
+      "id": "P2P003",
+      "title": "Betriebsvarianten definieren",
+      "type": "deployment_design",
+      "milestone_id": "P2P01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "dependencies": ["P2P001"],
+      "deliverables": ["docs/examples/ananta-game/webrtc_p2p_deployment_modes.md"],
+      "acceptance_criteria": [
+        "Variante self_hosted beschreibt eigene Docker-Services fuer Signaling und TURN/STUN.",
+        "Variante external_services beschreibt konfigurierbare externe STUN/TURN/Signaling-Endpunkte.",
+        "Variante manual_pairing beschreibt QR/Copy-Paste Signaling fuer lokale Tests.",
+        "Variante lan_only beschreibt lokalen Testbetrieb ohne Internet-Matchmaking."
+      ]
+    },
+    {
+      "id": "P2P004",
+      "title": "Nicht-Ziele und Missverstaendnisse dokumentieren",
+      "type": "scope_control",
+      "milestone_id": "P2P01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "dependencies": ["P2P001"],
+      "deliverables": ["Abschnitt Non-Goals in webrtc_p2p_match_architecture.md"],
+      "acceptance_criteria": [
+        "Kein zentraler authoritative Game-Server im ersten Netzwerkmodul.",
+        "Kein permanenter Match-State auf Signaling-Server als Quelle der Wahrheit.",
+        "Keine blinde Akzeptanz fremder GameStates.",
+        "Keine Remote-LLM- oder Agentensteuerung ohne eigene Policy-Freigabe."
+      ]
+    },
+    {
+      "id": "P2P005",
+      "title": "Signaling-Service als optionalen Docker-Container planen",
+      "type": "deployment_design",
+      "milestone_id": "P2P02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["P2P001", "P2P003"],
+      "deliverables": ["docs/examples/ananta-game/webrtc_signaling_service.md"],
+      "acceptance_criteria": [
+        "Signaling-Service tauscht SDP Offer/Answer und ICE Candidates aus.",
+        "Signaling-Service validiert optional OIDC Access Token oder Match Token.",
+        "Signaling-Service speichert keine dauerhaften Spielzuege als Autoritaet.",
+        "Signaling-Service kann per Docker Compose aktiviert oder deaktiviert werden."
+      ]
+    },
+    {
+      "id": "P2P006",
+      "title": "Externe Signaling-Service-Konfiguration planen",
+      "type": "configuration",
+      "milestone_id": "P2P02",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["P2P005"],
+      "deliverables": ["Abschnitt in webrtc_signaling_service.md"],
+      "acceptance_criteria": [
+        "Konfiguration erlaubt signaling.mode = self_hosted, external, manual oder disabled.",
+        "External Mode erlaubt URL, Auth-Modus und TLS-Anforderung.",
+        "Manual Mode erzeugt/akzeptiert kopierbare Offer/Answer-Payloads.",
+        "Disabled Mode verhindert Online-Matches sauber."
+      ]
+    },
+    {
+      "id": "P2P007",
+      "title": "STUN-Konfiguration planen",
+      "type": "configuration",
+      "milestone_id": "P2P02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["P2P003"],
+      "deliverables": ["docs/examples/ananta-game/webrtc_ice_config.md"],
+      "acceptance_criteria": [
+        "ICE-Konfiguration erlaubt eine Liste von STUN-Servern.",
+        "Externe STUN-Server koennen konfiguriert werden.",
+        "Self-hosted STUN ueber TURN-Server-Komponente ist vorgesehen.",
+        "Fehlende STUN-Konfiguration erzeugt klare Diagnose statt stillen Verbindungsfehlern."
+      ]
+    },
+    {
+      "id": "P2P008",
+      "title": "TURN-Relay als optionalen Docker-Container planen",
+      "type": "deployment_design",
+      "milestone_id": "P2P02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["P2P007"],
+      "deliverables": ["Abschnitt TURN in webrtc_ice_config.md"],
+      "acceptance_criteria": [
+        "TURN ist als optionaler Relay-Fallback beschrieben.",
+        "Self-hosted TURN kann per Docker Compose aktiviert werden.",
+        "Externe TURN-Server koennen konfiguriert werden.",
+        "TURN-Credentials sind nicht hardcoded und koennen zeitbegrenzt geplant werden.",
+        "Dokument beschreibt, dass TURN keine Game-Server-Autoritaet ist."
+      ]
+    },
+    {
+      "id": "P2P009",
+      "title": "Docker-Compose-Profile fuer Netzwerkdienste skizzieren",
+      "type": "deployment_design",
+      "milestone_id": "P2P02",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["P2P005", "P2P008"],
+      "deliverables": ["docs/examples/ananta-game/webrtc_docker_profiles.md"],
+      "acceptance_criteria": [
+        "Compose-Profil game-p2p-signaling ist beschrieben.",
+        "Compose-Profil game-p2p-turn ist beschrieben.",
+        "Profile sind optional und beeinflussen lokale Singleplayer-/Hotseat-Tests nicht.",
+        "Konfigurationsbeispiele nutzen Environment-Variablen statt Secrets im Repo."
+      ]
+    },
+    {
+      "id": "P2P010",
+      "title": "OIDC Identity Binding fuer Spieler definieren",
+      "type": "security_design",
+      "milestone_id": "P2P03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["P2P001"],
+      "deliverables": ["docs/examples/ananta-game/webrtc_oidc_identity_binding.md"],
+      "acceptance_criteria": [
+        "Spieleridentitaet wird aus OIDC Subject/Claims abgeleitet.",
+        "Match-Teilnahme ist an einen User oder ein Device gebunden.",
+        "Token werden nicht als Spielaktion weitergereicht oder im ActionLog gespeichert.",
+        "Clients koennen Peer-Identitaet gegen erwartete Match-Einladung pruefen."
+      ]
+    },
+    {
+      "id": "P2P011",
+      "title": "Match Invite und Pairing-Flow planen",
+      "type": "protocol_design",
+      "milestone_id": "P2P03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["P2P010"],
+      "deliverables": ["docs/examples/ananta-game/webrtc_match_pairing.md"],
+      "acceptance_criteria": [
+        "Einladung enthaelt MatchId, erwartete Spieler, Ablaufzeit und erlaubten Signaling-Modus.",
+        "Einladung kann ueber UI-Link, QR-Code oder Copy-Paste transportiert werden.",
+        "Pairing akzeptiert nur erwartete Spieler/Devices.",
+        "Abgelaufene oder wiederverwendete Einladungen werden abgelehnt."
+      ]
+    },
+    {
+      "id": "P2P012",
+      "title": "Kurzlebiges Match Token planen",
+      "type": "security_design",
+      "milestone_id": "P2P03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["P2P011"],
+      "deliverables": ["Abschnitt in webrtc_match_pairing.md"],
+      "acceptance_criteria": [
+        "Match Token ist kurzlebig und match-spezifisch.",
+        "Match Token kann Signaling-Zugriff absichern.",
+        "Match Token ersetzt nicht OIDC-Login, sondern bindet Login an Match.",
+        "Token-Leak fuehrt nicht zu dauerhaftem Account-Zugriff."
+      ]
+    },
+    {
+      "id": "P2P013",
+      "title": "Peer Device Fingerprint und Session-Key Konzept skizzieren",
+      "type": "security_design",
+      "milestone_id": "P2P03",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "dependencies": ["P2P010", "P2P011"],
+      "deliverables": ["docs/examples/ananta-game/webrtc_peer_session_security.md"],
+      "acceptance_criteria": [
+        "Dokument beschreibt optionale Device-Bindung pro Match.",
+        "Dokument beschreibt Session-Key oder Signaturkonzept fuer Actions.",
+        "Dokument trennt Transportverschluesselung von Action-Signaturen.",
+        "Replay/Audit bleibt auch nach Verbindungsende pruefbar."
+      ]
+    },
+    {
+      "id": "P2P014",
+      "title": "WebRTC DataChannel Message Schema definieren",
+      "type": "protocol_design",
+      "milestone_id": "P2P04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["P2P001", "P2P010"],
+      "deliverables": ["docs/examples/ananta-game/webrtc_action_sync_protocol.md"],
+      "acceptance_criteria": [
+        "Schema enthaelt messageType, matchId, senderPlayerId, seq, timestamp, payload und signature/hash.",
+        "MessageTypes fuer action_proposal, action_commit, ack, resync_request und ping sind vorgesehen.",
+        "Unbekannte MessageTypes werden abgelehnt oder ignoriert.",
+        "Schema ist JSON-serialisierbar und versioniert."
+      ]
+    },
+    {
+      "id": "P2P015",
+      "title": "Signed ActionLog mit Hash-Kette planen",
+      "type": "protocol_design",
+      "milestone_id": "P2P04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["P2P014"],
+      "deliverables": ["Abschnitt in webrtc_action_sync_protocol.md"],
+      "acceptance_criteria": [
+        "Jede Action referenziert prevHash.",
+        "Jede Action ist einem Spieler und Turn zugeordnet.",
+        "Hash-Kette erkennt fehlende oder manipulierte Actions.",
+        "Signatur oder Match-Key-MAC ist als spaeteres Sicherheitsmittel vorgesehen."
+      ]
+    },
+    {
+      "id": "P2P016",
+      "title": "Deterministische Action-Anwendung zwischen Peers definieren",
+      "type": "protocol_design",
+      "milestone_id": "P2P04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["P2P014", "P2P015"],
+      "deliverables": ["Abschnitt Deterministic Sync in webrtc_action_sync_protocol.md"],
+      "acceptance_criteria": [
+        "Peer akzeptiert keine Action, die validateAction lokal ablehnt.",
+        "Beide Peers koennen denselben State aus InitialState + ActionLog berechnen.",
+        "Divergenz erzeugt resync_request oder Match-Pause.",
+        "Fremder Full-State wird nie blind als Wahrheit uebernommen."
+      ]
+    },
+    {
+      "id": "P2P017",
+      "title": "Reconnect und Resync planen",
+      "type": "protocol_design",
+      "milestone_id": "P2P04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "dependencies": ["P2P016"],
+      "deliverables": ["docs/examples/ananta-game/webrtc_reconnect_resync.md"],
+      "acceptance_criteria": [
+        "Reconnect nutzt MatchId und erneutes Pairing/Signaling.",
+        "Resync basiert auf ActionLog-Range oder Hash-Vergleich.",
+        "Fehlende Actions koennen nachgeliefert werden.",
+        "Unaufloesbare Divergenz fuehrt zu kontrolliertem Abbruch oder manueller Review."
+      ]
+    },
+    {
+      "id": "P2P018",
+      "title": "Security-Checkliste fuer P2P-Matches schreiben",
+      "type": "security",
+      "milestone_id": "P2P05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "dependencies": ["P2P010", "P2P014", "P2P015"],
+      "deliverables": ["docs/examples/ananta-game/webrtc_p2p_security_check.md"],
+      "acceptance_criteria": [
+        "Checkliste prueft OIDC-Token-Verwendung und Nicht-Persistenz im ActionLog.",
+        "Checkliste prueft Signaling-Zugriff und Match Token.",
+        "Checkliste prueft TURN-Credentials und Secret-Handling.",
+        "Checkliste prueft lokale validateAction-Pflicht.",
+        "Checkliste prueft Hash-Kette, Replay und Divergenzbehandlung."
+      ]
+    },
+    {
+      "id": "P2P019",
+      "title": "Unit- und Integrationstests fuer Message Schema planen",
+      "type": "testing",
+      "milestone_id": "P2P05",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "dependencies": ["P2P014"],
+      "deliverables": ["docs/examples/ananta-game/webrtc_p2p_test_plan.md"],
+      "acceptance_criteria": [
+        "Tests fuer gueltige und ungueltige MessageTypes sind definiert.",
+        "Tests fuer fehlende Felder und falsche Version sind definiert.",
+        "Tests fuer falsche matchId und falschen senderPlayerId sind definiert.",
+        "Tests brauchen keinen echten TURN-Server."
+      ]
+    },
+    {
+      "id": "P2P020",
+      "title": "E2E-Test mit lokalem Signaling-Container planen",
+      "type": "testing",
+      "milestone_id": "P2P05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "dependencies": ["P2P005", "P2P009", "P2P019"],
+      "deliverables": ["Abschnitt E2E in webrtc_p2p_test_plan.md"],
+      "acceptance_criteria": [
+        "E2E startet zwei lokale Spielclients und optional lokalen Signaling-Service.",
+        "E2E prueft Offer/Answer/ICE-Austausch bis DataChannel offen ist.",
+        "E2E sendet mindestens eine signierte Test-Action.",
+        "E2E prueft, dass beide Clients denselben ActionLog-Hash haben."
+      ]
+    },
+    {
+      "id": "P2P021",
+      "title": "TURN-Fallback-Teststrategie definieren",
+      "type": "testing",
+      "milestone_id": "P2P05",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "high",
+      "dependencies": ["P2P008", "P2P020"],
+      "deliverables": ["Abschnitt TURN Tests in webrtc_p2p_test_plan.md"],
+      "acceptance_criteria": [
+        "Teststrategie beschreibt mindestens einen manuell/optional laufenden TURN-Fallback-Test.",
+        "CI darf TURN-Fallback-Test skippen, wenn keine Secrets/Ports vorhanden sind.",
+        "Test prueft Relay-Verbindung, ohne TURN als Spielautoritaet zu behandeln.",
+        "Fehlerdiagnose unterscheidet Signaling-, STUN-, TURN- und DataChannel-Probleme."
+      ]
+    },
+    {
+      "id": "P2P022",
+      "title": "Zentrale Showcase-README mit P2P-Netzwerkmodul verlinken",
+      "type": "documentation",
+      "milestone_id": "P2P05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "dependencies": ["P2P001"],
+      "deliverables": ["docs/examples/ananta-game/README.md"],
+      "acceptance_criteria": [
+        "README.md verweist auf das WebRTC-P2P-Netzwerkmodul.",
+        "README beschreibt Netzwerk als spaeteres Level nach Game-Core und Replay.",
+        "README nennt Keycloak/OIDC fuer Identitaet und WebRTC fuer direkten Transport.",
+        "README stellt klar, dass Signaling/STUN/TURN optional self-hosted oder extern konfigurierbar sind."
+      ]
+    }
+  ],
+  "first_recommended_working_set_after_activation": [
+    "P2P001",
+    "P2P002",
+    "P2P003",
+    "P2P005",
+    "P2P007",
+    "P2P008",
+    "P2P010",
+    "P2P014"
+  ],
+  "definition_of_done": [
+    "Netzwerkarchitektur trennt Identity, Signaling, STUN, TURN, DataChannel und Game-Core.",
+    "Signaling/STUN/TURN koennen self-hosted per Docker oder als externe Services konfiguriert werden.",
+    "Kein zentraler Game-Server ist fuer Autoritaet oder State-Wahrheit notwendig.",
+    "OIDC bindet Spieler/Device an Match, ohne Tokens im ActionLog zu speichern.",
+    "WebRTC synchronisiert signierte Actions mit Hash-Kette, nicht beliebige GameStates.",
+    "Beide Peers validieren lokal mit validateAction und Replay.",
+    "Tests fuer Message Schema, lokalen Signaling-Flow und optional TURN-Fallback sind geplant.",
+    "Secrets, TURN-Credentials und externe Service-URLs sind konfigurierbar und nicht hardcoded."
+  ]
+}
