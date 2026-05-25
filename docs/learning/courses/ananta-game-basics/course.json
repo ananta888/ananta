@@ -1,0 +1,49 @@
+{
+  "id": "ananta-game-basics",
+  "title": "Ananta Strategie-Game Grundlagen",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": [],
+  "learning_goals": [
+    "19-Hex-Karte, 3 Lokas und Kernfiguren verstehen",
+    "AP-Fluss und Basisaktionen nachvollziehen",
+    "Scope-Grenzen und geparkte Features erkennen"
+  ],
+  "security_boundaries": [
+    "Kein Netzwerk- oder Krypto-Unlock",
+    "Keine echten Secrets oder externen Dienste",
+    "Nur Demo- und Lernartefakte"
+  ],
+  "lessons": [
+    {
+      "id": "board-and-lokas",
+      "title": "Board, Lokas und Figuren",
+      "type": "lesson"
+    },
+    {
+      "id": "ap-and-turns",
+      "title": "AP, Zuege und Basisaktionen",
+      "type": "lesson"
+    }
+  ],
+  "exercise": {
+    "id": "paper-start-scenario",
+    "title": "Papiernahe Einstiegsuebung ohne KI-Agenten",
+    "acceptance_criteria": [
+      "Startzustand und AP werden korrekt beschrieben",
+      "Aktion bleibt im erlaubten Scope",
+      "Geparkte Features werden korrekt als nicht aktiv markiert"
+    ]
+  },
+  "quiz_topics": [
+    "Scope-Grenzen",
+    "Geparkte Features",
+    "Basisregeln ohne KI-Automatisierung"
+  ],
+  "unlock_rules": [
+    {
+      "condition": "exercise_passed",
+      "unlock": "ananta-game-nagabanda"
+    }
+  ]
+}

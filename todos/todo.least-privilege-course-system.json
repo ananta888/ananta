@@ -50,7 +50,7 @@
     {
       "id": "LPCS01",
       "title": "Kursarchitektur und Least-Privilege-Grundmodell definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "task_ids": ["LPCS001", "LPCS002", "LPCS003", "LPCS004", "LPCS005", "LPCS031", "LPCS032"]
     },
@@ -96,7 +96,7 @@
       "title": "Kurs-System-Gesamtarchitektur dokumentieren",
       "type": "architecture",
       "milestone_id": "LPCS01",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "deliverables": ["docs/learning/least-privilege-course-system.md"],
@@ -112,7 +112,7 @@
       "title": "Least-Privilege-Lernmodell definieren",
       "type": "security_design",
       "milestone_id": "LPCS01",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS001"],
@@ -129,7 +129,7 @@
       "title": "CourseAccessGrant Modell entwerfen",
       "type": "data_model_design",
       "milestone_id": "LPCS01",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": ["LPCS002"],
@@ -146,7 +146,7 @@
       "title": "Lern-Sandboxen mit minimalen Rechten planen",
       "type": "security_design",
       "milestone_id": "LPCS01",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS002", "LPCS003"],
@@ -214,7 +214,7 @@
       "title": "Kurs 'Ananta Strategie-Game Grundlagen' planen",
       "type": "course_design",
       "milestone_id": "LPCS02",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "dependencies": ["LPCS005"],
@@ -652,9 +652,9 @@
   "task_status_summary": {
     "todo": 0,
     "in_progress": 0,
-    "partial": 23,
+    "partial": 18,
     "blocked": 0,
-    "done": 9
+    "done": 14
   },
   "definition_of_done": [
     "Kurs-System ist als Ananta-Erweiterung dokumentiert.",
