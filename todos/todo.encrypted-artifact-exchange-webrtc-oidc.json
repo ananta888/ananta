@@ -64,7 +64,7 @@
     {
       "id": "EAX02",
       "title": "Berechtigungs- und Freigabemodell fuer Artefakte definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "task_ids": ["EAX005", "EAX006", "EAX007", "EAX008", "EAX009"]
     },
@@ -207,7 +207,7 @@
       "title": "Berechtigungsentscheidung an Objektzustand binden",
       "type": "security_design",
       "milestone_id": "EAX02",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["EAX005", "EAX006"],
@@ -224,7 +224,7 @@
       "title": "Delegierbare Freigaben und Weitergabegrenzen definieren",
       "type": "security_design",
       "milestone_id": "EAX02",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": ["EAX006"],
@@ -241,7 +241,7 @@
       "title": "Revocation und Expiry fuer Artefaktfreigaben planen",
       "type": "security_design",
       "milestone_id": "EAX02",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["EAX005"],
@@ -275,7 +275,7 @@
       "title": "Device-/User-Key-Binding planen",
       "type": "crypto_design",
       "milestone_id": "EAX03",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["EAX010"],
@@ -292,7 +292,7 @@
       "title": "Worker-Key-Access und Laufzeitgrenzen definieren",
       "type": "crypto_design",
       "milestone_id": "EAX03",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["EAX010", "EAX011"],
@@ -593,11 +593,11 @@
     "EAX025"
   ],
   "task_status_summary": {
-    "todo": 17,
+    "todo": 12,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 10
+    "done": 15
   },
   "definition_of_done": [
     "Verschluesselter Artefakt-Austausch ist als Ananta-Kernarchitektur-Erweiterung dokumentiert.",
