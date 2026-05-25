@@ -294,6 +294,10 @@ class InteractiveOperatorTui:
             "snake": snake,
             "direction": (1, 0),
             "next_direction": (1, 0),
+            "vel_x": 10.0,
+            "vel_y": 0.0,
+            "accum_x": 0.0,
+            "accum_y": 0.0,
             "food": (12, 3),
             "gaps": gaps,
             "score": 0,
@@ -344,9 +348,28 @@ class InteractiveOperatorTui:
             game["active"] = True
         if not game.get("alive", True):
             game = self._default_header_snake()
-        current = tuple(game.get("direction", (1, 0)))
-        if direction[0] == -current[0] and direction[1] == -current[1]:
-            return True
+        accel = max(1.0, min(20.0, float(os.environ.get("ANANTA_TUI_HEADER_SNAKE_ACCEL", "3.0"))))
+        max_speed = max(6.0, min(120.0, float(os.environ.get("ANANTA_TUI_HEADER_SNAKE_MAX_SPEED", "70"))))
+        vx = float(game.get("vel_x", 10.0))
+        vy = float(game.get("vel_y", 0.0))
+        dx, dy = direction
+        if dx:
+            vx += accel * dx
+            vy *= 0.15
+            if abs(vx) < 4.0:
+                vx = 4.0 * dx
+        if dy:
+            vy += accel * dy
+            vx *= 0.15
+            if abs(vy) < 4.0:
+                vy = 4.0 * dy
+        if abs(vx) < 0.1 and abs(vy) < 0.1:
+            vx = 4.0 * dx
+            vy = 4.0 * dy
+        vx = max(-max_speed, min(max_speed, vx))
+        vy = max(-max_speed, min(max_speed, vy))
+        game["vel_x"] = vx
+        game["vel_y"] = vy
         game["next_direction"] = direction
         self._set_state(self.state.with_updates(header_logo_game=game))
         return True
@@ -359,12 +382,13 @@ class InteractiveOperatorTui:
             return
         if not game or not game.get("active", False) or not game.get("alive", True):
             return
-        tps = max(2, min(40, int(os.environ.get("ANANTA_TUI_HEADER_SNAKE_TPS", "18"))))
+        tps = max(2, min(60, int(os.environ.get("ANANTA_TUI_HEADER_SNAKE_TPS", "18"))))
         step = 1.0 / tps
         now = time.monotonic()
         last_move = float(game.get("last_move", now))
         if (now - last_move) < step:
             return
+        dt = max(step, now - last_move)
 
         size = shutil.get_terminal_size((120, 32))
         board_w = max(24, int(size.columns))
@@ -376,27 +400,44 @@ class InteractiveOperatorTui:
         if not snake:
             snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         snake = [((x % board_w), (y % board_h)) for x, y in snake]
-        direction = tuple(game.get("direction", (1, 0)))
-        next_direction = tuple(game.get("next_direction", direction))
-        if next_direction[0] == -direction[0] and next_direction[1] == -direction[1]:
-            next_direction = direction
-        direction = next_direction
+        vx = float(game.get("vel_x", 10.0))
+        vy = float(game.get("vel_y", 0.0))
+        ax = float(game.get("accum_x", 0.0)) + vx * dt
+        ay = float(game.get("accum_y", 0.0)) + vy * dt
 
-        hx, hy = snake[0]
-        nx = (hx + direction[0]) % board_w
-        ny = (hy + direction[1]) % board_h
-        new_head = (nx, ny)
-
-        snake = [new_head, *snake]
-        while len(snake) > 12:
-            snake.pop()
+        moved = 0
+        safety = 120
+        while safety > 0 and (abs(ax) >= 1.0 or abs(ay) >= 1.0):
+            safety -= 1
+            if abs(ax) >= abs(ay):
+                sx = 1 if ax > 0 else -1
+                sy = 0
+                ax -= sx
+            else:
+                sx = 0
+                sy = 1 if ay > 0 else -1
+                ay -= sy
+            hx, hy = snake[0]
+            new_head = ((hx + sx) % board_w, (hy + sy) % board_h)
+            snake = [new_head, *snake]
+            while len(snake) > 12:
+                snake.pop()
+            moved += 1
 
         game["snake"] = snake
-        game["direction"] = direction
-        game["next_direction"] = direction
-        game["moves"] = int(game.get("moves", 0)) + 1
+        if abs(vx) >= abs(vy):
+            game["direction"] = (1 if vx > 0 else (-1 if vx < 0 else 0), 0)
+        else:
+            game["direction"] = (0, 1 if vy > 0 else (-1 if vy < 0 else 0))
+        game["next_direction"] = game["direction"]
+        game["accum_x"] = ax
+        game["accum_y"] = ay
+        game["moves"] = int(game.get("moves", 0)) + max(1, moved)
         game["last_move"] = now
-        self.state = self.state.with_updates(header_logo_game=game, status_message="snake: frei")
+        self.state = self.state.with_updates(
+            header_logo_game=game,
+            status_message=f"snake: frei vx={vx:.1f} vy={vy:.1f}",
+        )
 
     def _snake_escape_target(
         self,
