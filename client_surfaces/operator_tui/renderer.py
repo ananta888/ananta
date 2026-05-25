@@ -791,12 +791,17 @@ def _overlay_snake_message_effect(
         seq_window = "".join(seq[(phase + i) % len(seq)] for i in range(window))
     else:
         seq_window = ""
-    max_chars = min(len(seq_window), max(0, len(trail) - tail_offset))
+    trail_positions = _message_trail_positions(
+        snake=snake,
+        trail=trail,
+        width=width,
+        height=height,
+        tail_offset=tail_offset,
+        needed=max(1, len(seq_window)),
+    )
+    max_chars = min(len(seq_window), len(trail_positions))
     for i in range(max_chars):
-        trail_idx = tail_offset + i
-        if trail_idx >= len(trail):
-            break
-        pos = trail[trail_idx]
+        pos = trail_positions[i]
         if not isinstance(pos, (list, tuple)) or len(pos) != 2:
             continue
         x = int(pos[0]) % max(1, width)
@@ -807,6 +812,55 @@ def _overlay_snake_message_effect(
         repl = f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{ch}\x1b[0m"
         out[y] = _overlay_at_visible_col(out[y], x, repl)
     return out
+
+
+def _message_trail_positions(
+    *,
+    snake: list[object],
+    trail: list[object],
+    width: int,
+    height: int,
+    tail_offset: int,
+    needed: int,
+) -> list[tuple[int, int]]:
+    w = max(1, width)
+    h = max(1, height)
+    positions: list[tuple[int, int]] = []
+    for pos in trail[tail_offset:]:
+        if isinstance(pos, (list, tuple)) and len(pos) == 2:
+            positions.append((int(pos[0]) % w, int(pos[1]) % h))
+            if len(positions) >= needed:
+                return positions
+
+    if snake and isinstance(snake[-1], (list, tuple)) and len(snake[-1]) == 2:
+        tx, ty = int(snake[-1][0]) % w, int(snake[-1][1]) % h
+    else:
+        tx, ty = 0, 0
+
+    dx, dy = -1, 0
+    if len(snake) >= 2 and isinstance(snake[-1], (list, tuple)) and isinstance(snake[-2], (list, tuple)):
+        if len(snake[-1]) == 2 and len(snake[-2]) == 2:
+            tx2, ty2 = int(snake[-2][0]) % w, int(snake[-2][1]) % h
+            dx = (tx - tx2)
+            dy = (ty - ty2)
+            if dx > 1:
+                dx = -1
+            elif dx < -1:
+                dx = 1
+            dx = 1 if dx > 0 else (-1 if dx < 0 else 0)
+            if dy > 1:
+                dy = -1
+            elif dy < -1:
+                dy = 1
+            dy = 1 if dy > 0 else (-1 if dy < 0 else 0)
+            if dx == 0 and dy == 0:
+                dx, dy = -1, 0
+
+    while len(positions) < needed:
+        tx = (tx + dx) % w
+        ty = (ty + dy) % h
+        positions.append((tx, ty))
+    return positions
 
 
 def _overlay_text(
