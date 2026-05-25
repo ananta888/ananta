@@ -23,6 +23,8 @@ import sys
 import tempfile
 from dataclasses import dataclass, field
 
+from client_surfaces.operator_tui.logo_renderer.ansi_halfblock import render_halfblock_text
+
 COLOR_TOLERANCE = 25
 
 ASCII_PALETTES = {
@@ -72,10 +74,6 @@ def pixel_density(r, g, b, a, cfg: RenderConfig) -> float:
     if cfg.invert:
         d = 1.0 - d
     return d
-
-
-def col_dist(a, b):
-    return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2
 
 
 def svg_to_png(svg_path: str, png_path: str, width: int = 800) -> None:
@@ -161,114 +159,26 @@ def ansi_reset():
 
 
 def render_ansi(img, cfg: RenderConfig):
-    px = list(img.get_flattened_data())
-    w, h = img.size
-    thr = cfg.visible_threshold
-
-    def g(x, y):
-        return px[y * w + x]
-
-    lines = []
-    for y in range(0, h - 1, 2):
-        parts = []
-        last_fg = None
-        last_bg = None
-        x = 0
-        while x < w:
-            tr, tg, tb, ta = g(x, y)
-            br, bg, bb, ba = g(x, y + 1)
-            nta = pixel_alpha(tr, tg, tb, ta, cfg)
-            nba = pixel_alpha(br, bg, bb, ba, cfg)
-            tt = nta < thr
-            bt = nba < thr
-
-            if tt and bt:
-                if last_fg is not None or last_bg is not None:
-                    parts.append(ansi_reset())
-                    last_fg = None
-                    last_bg = None
-                parts.append(" ")
-                x += 1
-                continue
-
-            if tt and not bt:
-                ch = "▄"
-                fg = (br, bg, bb)
-                bg_key = None
-            elif not tt and bt:
-                ch = "▀"
-                fg = (tr, tg, tb)
-                bg_key = None
-            else:
-                ch = "▀"
-                fg = (tr, tg, tb)
-                bg_key = (br, bg, bb)
-
-            run = 1
-            while x + run < w:
-                ntr, ntg, ntb, nta2 = g(x + run, y)
-                nbr, nbg, nbb, nba2 = g(x + run, y + 1)
-                nta3 = pixel_alpha(ntr, ntg, ntb, nta2, cfg)
-                nba3 = pixel_alpha(nbr, nbg, nbb, nba2, cfg)
-                ntt = nta3 < thr
-                nbt = nba3 < thr
-                if ntt and nbt:
-                    break
-                if ntt and not nbt:
-                    if col_dist((nbr, nbg, nbb), fg) <= COLOR_TOLERANCE and bg_key is None:
-                        run += 1
-                        continue
-                elif not ntt and nbt:
-                    if col_dist((ntr, ntg, ntb), fg) <= COLOR_TOLERANCE and bg_key is None:
-                        run += 1
-                        continue
-                else:
-                    if (col_dist((ntr, ntg, ntb), fg) <= COLOR_TOLERANCE and
-                            col_dist((nbr, nbg, nbb), bg_key) <= COLOR_TOLERANCE):
-                        run += 1
-                        continue
-                break
-
-            if fg != last_fg or bg_key != last_bg:
-                if last_fg is not None or last_bg is not None:
-                    parts.append(ansi_reset())
-                if bg_key:
-                    parts.append(ansi_bg(*bg_key))
-                parts.append(ansi_fg(*fg))
-                last_fg = fg
-                last_bg = bg_key
-
-            parts.append(ch * run)
-            x += run
-
-        if last_fg is not None or last_bg is not None:
-            parts.append(ansi_reset())
-        lines.append("".join(parts))
-    return "\n".join(lines)
+    return render_halfblock_text(
+        img,
+        visible_threshold=cfg.visible_threshold,
+        white_luma=cfg.white_luma,
+        falloff=cfg.falloff,
+        alpha_cutoff=cfg.alpha_cutoff,
+        color_tolerance=COLOR_TOLERANCE,
+        no_color=False,
+    )
 
 
 def render_mono(img, cfg: RenderConfig):
-    px = list(img.get_flattened_data())
-    w, h = img.size
-    thr = cfg.visible_threshold
-    lines = []
-    for y in range(0, h - 1, 2):
-        line = ""
-        for x in range(w):
-            t = px[y * w + x]
-            b = px[(y + 1) * w + x]
-            tt = pixel_alpha(*t, cfg) < thr
-            bt = pixel_alpha(*b, cfg) < thr
-            if tt and bt:
-                line += " "
-            elif tt and not bt:
-                line += "▄"
-            elif not tt and bt:
-                line += "▀"
-            else:
-                line += "▀" if luma(*t[:3]) > luma(*b[:3]) else "▄"
-        lines.append(line)
-    return "\n".join(lines)
+    return render_halfblock_text(
+        img,
+        visible_threshold=cfg.visible_threshold,
+        white_luma=cfg.white_luma,
+        falloff=cfg.falloff,
+        alpha_cutoff=cfg.alpha_cutoff,
+        no_color=True,
+    )
 
 
 def _floyd_steinberg_diffuse(lum_map, w, h, num_chars):

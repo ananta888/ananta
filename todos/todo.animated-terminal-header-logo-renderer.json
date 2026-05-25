@@ -76,7 +76,7 @@
     {
       "id": "ATHL01",
       "title": "Bestehenden Logo-Pfad bereinigen und Renderer-Abstraktion vorbereiten",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "ATHL001",
         "ATHL002",
@@ -87,7 +87,7 @@
     {
       "id": "ATHL02",
       "title": "ANSI TrueColor Halfblock Renderer als stabilen Baseline-Renderer extrahieren",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "ATHL005",
         "ATHL006",
@@ -177,7 +177,7 @@
       "title": "Gemeinsame Terminalgroessen-Ermittlung auslagern",
       "type": "refactor",
       "milestone_id": "ATHL01",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "files": [
@@ -197,7 +197,7 @@
       "title": "Renderer-Basisinterface definieren",
       "type": "architecture",
       "milestone_id": "ATHL01",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "files": [
@@ -215,7 +215,7 @@
       "title": "Bestehenden kleinen Header-Logo-Pfad dokumentieren und absichern",
       "type": "analysis",
       "milestone_id": "ATHL01",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "files": [
@@ -235,7 +235,7 @@
       "title": "ANSI TrueColor Halfblock Renderer extrahieren",
       "type": "implementation",
       "milestone_id": "ATHL02",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "files": [
@@ -733,13 +733,13 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 30,
+      "todo": 26,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 4
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 13,
     "by_priority": {
       "P0": 13,
       "P1": 11,
@@ -753,13 +753,13 @@
     },
     "critical_path": {
       "total": 12,
-      "done": 0,
-      "remaining": 12
+      "done": 2,
+      "remaining": 10
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
-      "in_progress": 0,
+      "todo": 5,
+      "in_progress": 2,
       "blocked": 0,
       "done": 0
     }
@@ -778,12 +778,12 @@
     }
   },
   "progress_summary": {
-    "state": "planned",
-    "todo_remaining": 30,
+    "state": "in_progress",
+    "todo_remaining": 26,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 4
   },
   "definition_of_done": [
     "Das kleine Logo links oben kann in der TUI animiert werden, ohne den Statusbereich zu zerstoeren.",
