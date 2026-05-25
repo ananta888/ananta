@@ -1,0 +1,44 @@
+{
+  "id": "ananta-artifact-first",
+  "title": "Artifact-first Entwicklung",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-hub-worker-basics"],
+  "learning_goals": [
+    "Geplante Artefakte, Acceptance Criteria und Review-Gates anwenden",
+    "Textmenge von pruefbaren Ergebnissen unterscheiden",
+    "Grosse Ziele in kleine, verifizierbare Artefakte zerlegen"
+  ],
+  "security_boundaries": [
+    "Keine echten Secrets",
+    "Keine Production-Daten",
+    "Keine implizite Rechte-Eskalation"
+  ],
+  "lessons": [
+    {
+      "id": "artifact-scope-slicing",
+      "title": "Scope in Artefakte schneiden",
+      "type": "lesson"
+    },
+    {
+      "id": "artifact-review-gates",
+      "title": "Review-Gates und Nachweisbarkeit",
+      "type": "lesson"
+    }
+  ],
+  "exercise": {
+    "id": "derive-artifacts-from-goal",
+    "title": "Leite aus einem Ziel drei verifizierbare Artefakte ab",
+    "acceptance_criteria": [
+      "Jedes Artefakt hat klare Definition of Done",
+      "Jedes Artefakt hat Sicherheitsgrenzen",
+      "Abhaengigkeiten sind explizit benannt"
+    ]
+  },
+  "unlock_rules": [
+    {
+      "condition": "exercise_passed",
+      "unlock": "deterministic-policy"
+    }
+  ]
+}
