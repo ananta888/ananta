@@ -148,6 +148,19 @@ def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | No
     """Return logo lines preferring highest-fidelity original-SVG renderers."""
     from agent.cli.logo_layout import COMPACT_HEADER_LINES
 
+    renderer_pref = os.environ.get("ANANTA_TUI_LOGO_RENDERER", "auto").strip().lower()
+    if renderer_pref in {"", "auto", "ansi"}:
+        from client_surfaces.operator_tui.logo_renderer.animated_header import render_ansi_header_logo
+
+        lines = render_ansi_header_logo(
+            cols=cols,
+            rows=COMPACT_HEADER_LINES,
+            color=color,
+            t_now=time.monotonic(),
+        )
+        if lines:
+            return _left_align_logo_lines(lines)
+
     header_3d = os.environ.get("ANANTA_TUI_HEADER_3D", "1").strip().lower() not in {"0", "false", "no", "off"}
     no_3d = (state.terminal_graphics or {}).get("no_3d", False) if state is not None else False
     if color:
