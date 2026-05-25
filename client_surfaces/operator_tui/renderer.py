@@ -150,15 +150,36 @@ def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | No
         from client_surfaces.operator_tui.logo_inline import (
             render_logo_braille,
             render_logo_braille_animated,
+            render_logo_snake_game_animated,
+            render_logo_halfblock_animated,
             render_logo_halfblock,
         )
 
         if header_3d and not no_3d:
             speed = float(os.environ.get("ANANTA_TUI_HEADER_3D_SPEED", "1.2"))
-            lines = render_logo_braille_animated(
+            anim_mode = os.environ.get("ANANTA_TUI_HEADER_ANIM", "snake_game").strip().lower()
+            t_now = time.monotonic()
+            lines = None
+            if anim_mode in {"snake", "snake_game", "game"}:
+                lines = render_logo_snake_game_animated(
+                    cols=cols,
+                    rows=COMPACT_HEADER_LINES,
+                    t=t_now,
+                    speed=max(0.2, min(4.0, speed)),
+                )
+            if not lines:
+                lines = render_logo_braille_animated(
+                    cols=cols,
+                    rows=COMPACT_HEADER_LINES,
+                    t=t_now,
+                    speed=max(0.2, min(4.0, speed)),
+                )
+            if lines:
+                return _left_align_logo_lines(lines)
+            lines = render_logo_halfblock_animated(
                 cols=cols,
                 rows=COMPACT_HEADER_LINES,
-                t=time.monotonic(),
+                t=t_now,
                 speed=max(0.2, min(4.0, speed)),
             )
             if lines:
