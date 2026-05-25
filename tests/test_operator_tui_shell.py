@@ -296,6 +296,7 @@ def test_header_lists_snakes_with_oidc_pseudonym_color_and_message() -> None:
     assert "alice@keycloak [mint]: hello" in plain
     assert "bob@entra [violet]: world" in plain
     assert "Mode    =" not in plain
+    assert re.search(r"\x1b\[38;2;\d+;\d+;\d+mS1 alice@keycloak \[mint\]: hello\x1b\[0m", output) is not None
 
 
 def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
