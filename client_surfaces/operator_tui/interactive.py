@@ -378,6 +378,8 @@ class InteractiveOperatorTui:
             game["gate_seed"] = int(time.time() * 1000) + int(game.get("score", 0)) * 31
         geom = build_a_snake_geometry(board_w, board_h, seed=int(game.get("gate_seed", 0)))
         wall_cells = set(geom.get("walls", set()))
+        portals = self._compute_ui_portals(board_w, board_h, wall_cells=wall_cells, gaps=game.get("gaps"))
+        game["portals"] = portals
         snake_raw = game.get("snake") or []
         snake = [(int(p[0]), int(p[1])) for p in snake_raw if isinstance(p, (list, tuple)) and len(p) == 2]
         if not snake:
@@ -413,6 +415,25 @@ class InteractiveOperatorTui:
             self.state = self.state.with_updates(header_logo_game=game, status_message="snake: wand blockiert")
             return
         new_head = (nx, ny)
+        portal_target = self._portal_hit_target(new_head, portals)
+        if portal_target == "command":
+            snake = [new_head, *snake]
+            snake.pop()
+            game["snake"] = snake
+            game["direction"] = direction
+            game["next_direction"] = direction
+            game["moves"] = int(game.get("moves", 0)) + 1
+            game["last_move"] = now
+            self.state = self.state.with_updates(
+                mode=OperatorMode.COMMAND,
+                header_logo_game=game,
+                status_message="snake: input-fokus gesetzt",
+            )
+            return
+        if isinstance(portal_target, FocusPane):
+            game["snake"] = [new_head, *snake[:-1]]
+            self._apply_snake_escape(game, target=portal_target, now=now, board_h=board_h)
+            return
         if new_head in wall_cells:
             game["active"] = True
             game["alive"] = True
@@ -536,6 +557,60 @@ class InteractiveOperatorTui:
             return state.with_updates(focus=FocusPane.CONTENT, selected_index=content_idx, mode=OperatorMode.NORMAL)
         detail_idx = max(0, round((y / max(1, board_h - 1)) * 8))
         return state.with_updates(focus=FocusPane.DETAIL, selected_index=detail_idx, mode=OperatorMode.NORMAL)
+
+    def _compute_ui_portals(
+        self,
+        board_w: int,
+        board_h: int,
+        *,
+        wall_cells: set[tuple[int, int]],
+        gaps: object,
+    ) -> dict[str, tuple[int, int]]:
+        g = self._ensure_snake_escape_gaps(gaps, board_w=board_w, board_h=board_h, seed=0)
+        portals = {
+            "nav": (max(1, board_w - 2), max(1, min(board_h - 2, int(g.get("right", 1))))),
+            "content": (max(1, min(board_w - 2, int(g.get("bottom_content", board_w // 2)))), max(1, board_h - 2)),
+            "detail": (max(1, min(board_w - 2, int(g.get("bottom_detail", (board_w * 4) // 5)))), max(1, board_h - 2)),
+            "command": (max(1, board_w // 2), 1),
+        }
+        return {
+            key: self._shift_to_free_cell(value, wall_cells=wall_cells, board_w=board_w, board_h=board_h)
+            for key, value in portals.items()
+        }
+
+    def _shift_to_free_cell(
+        self,
+        cell: tuple[int, int],
+        *,
+        wall_cells: set[tuple[int, int]],
+        board_w: int,
+        board_h: int,
+    ) -> tuple[int, int]:
+        x, y = cell
+        x = max(1, min(board_w - 2, x))
+        y = max(1, min(board_h - 2, y))
+        if (x, y) not in wall_cells:
+            return (x, y)
+        candidates = [(x - 1, y), (x, y - 1), (x + 1, y), (x, y + 1), (x - 1, y - 1), (x + 1, y - 1)]
+        for cx, cy in candidates:
+            if 1 <= cx <= board_w - 2 and 1 <= cy <= board_h - 2 and (cx, cy) not in wall_cells:
+                return (cx, cy)
+        return (x, y)
+
+    def _portal_hit_target(
+        self,
+        head: tuple[int, int],
+        portals: dict[str, tuple[int, int]],
+    ) -> FocusPane | str | None:
+        if head == portals.get("nav"):
+            return FocusPane.NAVIGATION
+        if head == portals.get("content"):
+            return FocusPane.CONTENT
+        if head == portals.get("detail"):
+            return FocusPane.DETAIL
+        if head == portals.get("command"):
+            return "command"
+        return None
 
     def _ensure_snake_escape_gaps(
         self,
