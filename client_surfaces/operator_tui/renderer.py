@@ -621,24 +621,28 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
     out = list(lines)
     local_id = str(game.get("local_snake_id") or "s1")
     snakes = _collect_snakes(game, local_snake_id=local_id)
-    marker_col = (255, 220, 120)
-    select_col = (255, 172, 95)
-    anchor_col = (255, 150, 180)
-    marks = game.get("mark_cells") or []
-    if isinstance(marks, list):
-        for item in marks:
-            if not isinstance(item, (list, tuple)) or len(item) != 3:
+    local_snapshot = snakes.get(local_id, {}) if isinstance(snakes.get(local_id), dict) else {}
+    local_pal = _snake_palette(str(local_snapshot.get("snake_color") or game.get("snake_color") or "mint"))
+
+    # Markings and selections are rendered in each snake's own color.
+    for sid, snapshot in snakes.items():
+        if not isinstance(snapshot, dict):
+            continue
+        pal = _snake_palette(str(snapshot.get("snake_color") or "mint"))
+        mark_cells = snapshot.get("mark_cells") if isinstance(snapshot.get("mark_cells"), list) else []
+        for item in mark_cells:
+            if not isinstance(item, (list, tuple)) or len(item) < 2:
                 continue
             x = int(item[0]) % max(1, width)
             y = int(item[1]) % max(1, len(out))
             base = _visible_char_at(out[y], x)
             if base == " ":
                 continue
-            repl = f"\x1b[48;2;{marker_col[0]};{marker_col[1]};{marker_col[2]}m\x1b[38;2;25;25;25m{base}\x1b[0m"
+            mcol = pal["body"]
+            repl = f"\x1b[48;2;{mcol[0]};{mcol[1]};{mcol[2]}m\x1b[38;2;20;20;20m{base}\x1b[0m"
             out[y] = _overlay_at_visible_col(out[y], x, repl)
 
-    selection = game.get("selection_cells") or []
-    if isinstance(selection, list):
+        selection = snapshot.get("selection_cells") if isinstance(snapshot.get("selection_cells"), list) else []
         for item in selection:
             if not isinstance(item, (list, tuple)) or len(item) != 2:
                 continue
@@ -647,14 +651,16 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
             base = _visible_char_at(out[y], x)
             if base == " ":
                 base = "░"
-            repl = f"\x1b[48;2;{select_col[0]};{select_col[1]};{select_col[2]}m\x1b[38;2;20;20;20m{base}\x1b[0m"
+            scol = pal["head"]
+            repl = f"\x1b[48;2;{scol[0]};{scol[1]};{scol[2]}m\x1b[38;2;15;15;15m{base}\x1b[0m"
             out[y] = _overlay_at_visible_col(out[y], x, repl)
 
     anchor = game.get("selection_anchor")
     if isinstance(anchor, (list, tuple)) and len(anchor) == 2:
         x = int(anchor[0]) % max(1, width)
         y = int(anchor[1]) % max(1, len(out))
-        repl = f"\x1b[38;2;{anchor_col[0]};{anchor_col[1]};{anchor_col[2]}m◎\x1b[0m"
+        acol = local_pal["label"]
+        repl = f"\x1b[38;2;{acol[0]};{acol[1]};{acol[2]}m◎\x1b[0m"
         out[y] = _overlay_at_visible_col(out[y], x, repl)
 
     if bool(game.get("selection_frame_mode")):
@@ -663,7 +669,7 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         if isinstance(frame_anchor, (list, tuple)) and len(frame_anchor) == 2 and isinstance(local_head, (list, tuple)) and len(local_head) == 2:
             ax, ay = int(frame_anchor[0]), int(frame_anchor[1])
             hx, hy = int(local_head[0]), int(local_head[1])
-            out = _overlay_frame_preview(out, x1=ax, y1=ay, x2=hx, y2=hy, width=width, color=anchor_col)
+            out = _overlay_frame_preview(out, x1=ax, y1=ay, x2=hx, y2=hy, width=width, color=local_pal["label"])
 
     for sid, snapshot in snakes.items():
         snake = snapshot.get("snake") if isinstance(snapshot.get("snake"), list) else []
@@ -711,6 +717,9 @@ def _collect_snakes(game: dict[str, object], *, local_snake_id: str) -> dict[str
             "oidc_provider": str(game.get("oidc_provider") or "unknown-oidc"),
             "snake": list(game.get("snake") or []),
             "trail_path": list(game.get("trail_path") or []),
+            "mark_cells": list(game.get("mark_cells") or []),
+            "selection_cells": list(game.get("selection_cells") or []),
+            "selection_regions": list(game.get("selection_regions") or []),
             "message": str(game.get("message") or ""),
             "message_style": str(game.get("message_style") or "trail"),
             "snake_color": str(game.get("snake_color") or "mint"),
