@@ -205,6 +205,8 @@ class InteractiveOperatorTui:
             if self.state.mode is OperatorMode.COMMAND:
                 self._append_command(" ")
                 return
+            if not self._snake_mode_active():
+                return
             self._snake_immediate_brake()
 
         @bindings.add("c-s")
