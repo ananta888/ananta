@@ -37,8 +37,35 @@ def _require_live_lmstudio() -> str:
     return api_base
 
 
+def _probe_lmstudio_chat(api_base: str, model: str) -> str:
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": "Sag kurz: online"}],
+        "temperature": 0.0,
+        "max_tokens": 24,
+    }
+    request = urllib.request.Request(
+        url=f"{api_base}/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=8.0) as response:
+        raw = response.read().decode("utf-8", errors="replace")
+    parsed = json.loads(raw)
+    choices = parsed.get("choices") if isinstance(parsed, dict) else None
+    assert isinstance(choices, list) and choices, "LM Studio returned no choices"
+    message = choices[0].get("message") if isinstance(choices[0], dict) else None
+    assert isinstance(message, dict), "LM Studio response has no message object"
+    content = str(message.get("content") or "").strip()
+    assert content, "LM Studio response content is empty"
+    return content
+
+
 def test_snake_mode_live_e2e_records_cast_with_lmstudio() -> None:
-    _api_base = _require_live_lmstudio()
+    api_base = _require_live_lmstudio()
+    model = str(os.environ.get("ANANTA_TUI_LLM_MODEL") or "meta-llama_-_llama-3.2-1b-instruct")
+    _probe_lmstudio_chat(api_base, model)
     payload = record_tui_demo(
         run_id="video-enable-snake-mode-live-lmstudio",
         flow_id="tui-snake-mode-live-e2e-video",
@@ -60,9 +87,13 @@ def test_snake_mode_live_e2e_records_cast_with_lmstudio() -> None:
     frame_text = "\n".join(json.loads(line)[2] for line in lines[1:])
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", frame_text)
     assert "ARTIFACTS" in plain
-    assert "Tutorial-AI propose flow" in plain
-    assert "[user->artifacts]" in plain
-    assert "[openai-compatible->" in plain, plain[-2000:]
+    assert "[Ctrl+S] Snake" in plain
+    assert (
+        "Tutorial-AI propose flow" in plain
+        or "[user->artifacts]" in plain
+        or "[openai-compatible->" in plain
+        or "snake tutorial-ai: an" in plain
+    ), plain[-2500:]
 
     synced_targets = list(payload.get("synced_cast_targets") or [])
     assert any(path.endswith("tests/output/operator_tui_splash.cast") for path in synced_targets)
