@@ -7,6 +7,7 @@ from typing import Any
 
 from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
 from client_surfaces.operator_tui.renderer import render_operator_shell
+from client_surfaces.operator_tui.splash_animation import build_splash_frames
 
 try:
     from scripts.e2e.e2e_artifacts import write_text_artifact
@@ -82,6 +83,24 @@ def _tutorial_ai_live_cast(*, run_id: str) -> str:
 
 
 def _snake_mode_live_cast(*, run_id: str) -> str:
+    frames: list[tuple[float, str]] = []
+    splash_frames = build_splash_frames(w=120, h=32, fps=12)
+    if splash_frames:
+        intro = splash_frames[:18]
+        for idx, screen in enumerate(intro):
+            frames.append((idx * 0.1, "\u001b[?25l\u001b[2J\u001b[H" + screen + "\n"))
+        base_time = len(intro) * 0.1 + 0.25
+    else:
+        frames.append(
+            (
+                0.0,
+                "\u001b[?25l\u001b[2J\u001b[H"
+                "                                      ANANTA                                      \n"
+                "                               operator tui · snake mode                            \n",
+            )
+        )
+        base_time = 0.8
+
     positions = [
         ((82, 8), (68, 9), "header", "Ich starte oben: Endpoint, Auth und Status."),
         ((80, 10), (62, 12), "nav", "Links findest du Goals/Tasks Navigation."),
@@ -90,7 +109,6 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
         ((68, 20), (66, 20), "follow", "Ich bin jetzt bei deiner Position und erkläre diesen Bereich."),
         ((64, 22), (64, 22), "follow", "Nächster Schritt: Section wählen und dann :inspect nutzen."),
     ]
-    frames: list[tuple[float, str]] = []
     history: list[dict[str, object]] = []
     for idx, (local_head, ai_head, target, text) in enumerate(positions):
         history.append({"at": float(idx), "source": "openai-compatible", "target": target, "text": text})
@@ -165,7 +183,7 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             header_logo_game=game,
         )
         screen = render_operator_shell(state, width=120, height=32)
-        frames.append((idx * 0.55, "\u001b[2J\u001b[H" + screen + "\n"))
+        frames.append((base_time + idx * 0.55, "\u001b[2J\u001b[H" + screen + "\n"))
     return _asciinema_v2_lines(title="Ananta Operator TUI – Snake Mode Live", frames=frames)
 
 
