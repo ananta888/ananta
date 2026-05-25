@@ -264,8 +264,9 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
         score = int(game.get("score", 0))
         status = "running" if game.get("alive", True) else "game over"
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake  score={score}  {status}", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-Mode aktiv: nur Snake-Steuerung steuert die UI", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Steuerung: [←→↑↓] lenken/boost · [Space] stop", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Ausbrechen: [Ctrl+F] → Fullscreen über die ganze UI", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Mode: [Ctrl+S] an/aus · Bewegung über die gesamte UI", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Botschaft: [M] tippen · [Enter] speichern · [Esc] abbrechen", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Config: ~/.config/ananta/snake-config.json → snake_message", width))
         if game.get("message_mode"):
@@ -590,7 +591,7 @@ def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
     game = state.header_logo_game or {}
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
-        hints = "[Ctrl+F] Frame↔Fullscreen  [M] Message  [Enter] Speichern  [Space] Sofortstopp"
+        hints = "[Ctrl+S] Snake an/aus  [←→↑↓] Lenken/Boost  [M] Message  [Enter] Speichern  [Space] Stop"
     return _clip(hints, width)
 
 

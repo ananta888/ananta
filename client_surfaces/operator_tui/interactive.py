@@ -330,9 +330,9 @@ class InteractiveOperatorTui:
         snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         gaps = self._compute_snake_escape_gaps(board_w, board_h, seed=int(time.time() * 1000))
         return {
-            "active": True,
+            "active": False,
             "alive": True,
-            "ui_steering": True,
+            "ui_steering": False,
             "free_mode": False,
             "board_w": board_w,
             "board_h": board_h,
