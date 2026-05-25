@@ -491,13 +491,18 @@ def _tty_size(fallback: tuple[int, int] = (120, 32)) -> tuple[int, int]:
     return sz.columns, sz.lines
 
 
-def record(fps: int = 24, width: int = 0, height: int = 0, **_: object) -> None:
+_MAX_SPLASH_H = 45   # animation content lives in rows 0-26; more rows = wasted throughput
+_MAX_SPLASH_FPS = 15  # 24fps * 28KB/frame = 500KB/s; Windows Terminal can't keep up
+
+
+def record(fps: int = _MAX_SPLASH_FPS, width: int = 0, height: int = 0, **_: object) -> None:
     """Record operator_tui_splash.cast: logo animation → TUI dashboard overview."""
     w, h = _tty_size()
     if width:
         w = width
     if height:
         h = height
+    h = min(h, _MAX_SPLASH_H)  # cap: animation only needs ~45 rows, extra = wasted KB/s
 
     events: list[tuple[float, str]] = []
     interval = 1.0 / fps
