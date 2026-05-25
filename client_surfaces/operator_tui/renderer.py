@@ -690,6 +690,8 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         style = str(snapshot.get("message_style") or "trail")
         trail = snapshot.get("trail_path") if isinstance(snapshot.get("trail_path"), list) else []
         if message and trail:
+            trail_window = int(snapshot.get("trail_window") or os.environ.get("ANANTA_TUI_SNAKE_TRAIL_WINDOW", "10"))
+            trail_speed = float(snapshot.get("trail_speed") or os.environ.get("ANANTA_TUI_SNAKE_TRAIL_SPEED", "8.0"))
             out = _overlay_snake_message_effect(
                 out,
                 snake=snake,
@@ -698,6 +700,8 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
                 width=width,
                 mode=style,
                 color=pal["label"],
+                trail_window=trail_window,
+                trail_speed=trail_speed,
             )
 
     return out
@@ -723,6 +727,8 @@ def _collect_snakes(game: dict[str, object], *, local_snake_id: str) -> dict[str
             "message": str(game.get("message") or ""),
             "message_style": str(game.get("message_style") or "trail"),
             "snake_color": str(game.get("snake_color") or "mint"),
+            "trail_window": int(game.get("trail_window") or os.environ.get("ANANTA_TUI_SNAKE_TRAIL_WINDOW", "10")),
+            "trail_speed": float(game.get("trail_speed") or os.environ.get("ANANTA_TUI_SNAKE_TRAIL_SPEED", "8.0")),
             "local": True,
         }
     return out
@@ -748,11 +754,14 @@ def _overlay_snake_message_effect(
     width: int,
     mode: str,
     color: tuple[int, int, int],
+    trail_window: int,
+    trail_speed: float,
 ) -> list[str]:
     seq = f"{message}   "
     if not seq.strip():
         return out
-    phase = int(time.monotonic() * 8)
+    speed = max(0.2, min(60.0, float(trail_speed)))
+    phase = int(time.monotonic() * speed)
     tail_offset = max(0, len(snake))
     height = max(1, len(out))
 
@@ -777,7 +786,12 @@ def _overlay_snake_message_effect(
         return out
 
     # default: trailing text behind the tail
-    max_chars = min(len(seq) * 4, max(8, len(trail) - tail_offset))
+    window = max(1, min(240, int(trail_window)))
+    if len(seq) > 0:
+        seq_window = "".join(seq[(phase + i) % len(seq)] for i in range(window))
+    else:
+        seq_window = ""
+    max_chars = min(len(seq_window), max(0, len(trail) - tail_offset))
     for i in range(max_chars):
         trail_idx = tail_offset + i
         if trail_idx >= len(trail):
@@ -787,7 +801,7 @@ def _overlay_snake_message_effect(
             continue
         x = int(pos[0]) % max(1, width)
         y = int(pos[1]) % height
-        ch = seq[(i + phase) % len(seq)]
+        ch = seq_window[i]
         if ch == " ":
             continue
         repl = f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{ch}\x1b[0m"
