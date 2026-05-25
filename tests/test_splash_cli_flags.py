@@ -14,7 +14,7 @@ def test_splash_disabled_by_env_var(monkeypatch):
 
 
 def test_splash_disabled_no_logo(monkeypatch):
-    monkeypatch.setenv("ANANTA_TUI_SPLASH", "0")
+    monkeypatch.setenv("ANANTA_TUI_LOGO", "0")
     clear_asset_cache()
     logo = load_logo(width=90, color=False)
     assert logo == ""
@@ -61,12 +61,6 @@ def test_parse_args_default_splash_seconds():
 def test_parse_args_skip_splash_default():
     from client_surfaces.operator_tui.app import _parse_args
     args = _parse_args([])
-    assert args.skip_splash is True
-
-
-def test_parse_args_splash_reenables_fullscreen():
-    from client_surfaces.operator_tui.app import _parse_args
-    args = _parse_args(["--splash"])
     assert args.skip_splash is False
 
 

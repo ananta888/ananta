@@ -30,18 +30,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--render-once", action="store_true")
     parser.add_argument("--width", type=int, default=120)
     parser.add_argument("--height", type=int, default=32)
-    parser.add_argument(
-        "--skip-splash",
-        action="store_true",
-        default=True,
-        help="Skip the startup splash animation (default behavior)",
-    )
-    parser.add_argument(
-        "--splash",
-        dest="skip_splash",
-        action="store_false",
-        help="Enable fullscreen startup splash animation",
-    )
+    parser.add_argument("--skip-splash", action="store_true", help="Skip the startup splash animation")
     parser.add_argument("--splash-seconds", type=float, default=2.0, help="Duration of fullscreen splash")
     parser.add_argument("--no-3d", action="store_true", help="Disable 3D logo animation")
     parser.add_argument("--3d-preset", default=os.environ.get("ANANTA_TUI_3D_PRESET", "rotate_in"),

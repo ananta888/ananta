@@ -179,12 +179,12 @@ def _run_tui(argv: Sequence[str]) -> int:
     if any(arg in {"-h", "--help"} for arg in argv):
         print("Usage: ananta tui [tui options]")
         print("Launches the operator TUI by default.")
-        print("Startup splash is skipped by default.")
+        print("Startup splash is shown by default.")
         print("  --open <file>              Open file in configured editor")
         print("  --open <file> --with nvim  Open file with specific editor")
         print("  --open <file> --readonly   Open file in read-only mode")
         print("  --tool <tool-id>           Launch a TUI tool (e.g. git_ui)")
-        print("  --splash                   Enable fullscreen startup splash")
+        print("  --skip-splash              Skip fullscreen startup splash")
         print("  --legacy                   Use the previous report-style shell")
         return 0
     use_legacy = "--legacy" in argv or "--fixture" in argv

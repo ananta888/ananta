@@ -21,7 +21,7 @@ def test_load_logo_respects_max_lines():
 
 
 def test_load_logo_respects_disable_env(monkeypatch):
-    monkeypatch.setenv("ANANTA_TUI_SPLASH", "0")
+    monkeypatch.setenv("ANANTA_TUI_LOGO", "0")
     clear_asset_cache()
     result = load_logo(width=90, color=True)
     assert result == ""
