@@ -1,0 +1,6 @@
+{"version": 2, "width": 104, "height": 30, "title": "Ananta Operator TUI – Tutorial AI Snake Live", "env": {"TERM": "xterm-256color", "COLORTERM": "truecolor"}}
+[0.0, "o", "\u001b[2J\u001b[Hananta tui · snake tutorial ai live\nrun_id: e2e-tutorial-ai-live\nmodel: google/gemma-4-e4b\napi: http://192.168.178.100:1234/v1\n\nTutor-Snake initialisiert ...\n"]
+[0.8, "o", "\u001b[2J\u001b[Hananta tui · snake tutorial ai live\ns-ai [target=header]: Ich zeige zuerst Header, Endpoint und Auth.\nHinweis: Ctrl+S aktiviert den Snake-Modus.\n"]
+[1.6, "o", "\u001b[2J\u001b[Hananta tui · snake tutorial ai live\ns-ai [target=nav]: Jetzt Navigation: Goals und Tasks auswählen.\nHinweis: Pfeiltasten steuern die Schlange.\n"]
+[2.4, "o", "\u001b[2J\u001b[Hananta tui · snake tutorial ai live\ns-ai [target=content]: Hier ist der Hauptinhalt der gewählten Section.\nHinweis: M öffnet Message-Mode.\n"]
+[3.2, "o", "\u001b[2J\u001b[Hananta tui · snake tutorial ai live\ns-ai [target=detail]: Im Detail erkläre ich Inspect/Artifact Kontext.\nHinweis: X markiert, C kopiert, V ersetzt (command line).\n"]

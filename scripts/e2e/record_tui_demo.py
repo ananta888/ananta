@@ -16,28 +16,66 @@ except ModuleNotFoundError:
     from scripts.e2e.e2e_artifacts import write_text_artifact
 
 
-def _tutorial_ai_live_payload(*, run_id: str) -> dict[str, Any]:
-    model = "google/gemma-4-e4b"
-    api_base = "http://192.168.178.100:1234/v1"
-    return {
-        "schema": "asciinema-placeholder-v2",
-        "run_id": run_id,
-        "flow": "tui_tutorial_ai_live",
-        "metadata": {
-            "mode": "tutorial-ai-live",
-            "snake_id": "s-ai",
-            "backend_chain": ["worker-propose", "openai-compatible-fallback"],
-            "openai_api_base_url": api_base,
-            "model": model,
-        },
-        "events": [
-            {"t": 0.0, "type": "mode", "value": "snake+tutorial-ai"},
-            {"t": 0.4, "type": "snake_message", "snake_id": "s-ai", "target": "header", "text": "Ich zeige dir zuerst Status und Auth im Header."},
-            {"t": 1.1, "type": "snake_message", "snake_id": "s-ai", "target": "nav", "text": "Dann wechseln wir zu Tasks und Goals in der Navigation."},
-            {"t": 1.9, "type": "snake_message", "snake_id": "s-ai", "target": "content", "text": "Hier siehst du den Hauptinhalt und aktuelle Auswahlen."},
-            {"t": 2.6, "type": "snake_message", "snake_id": "s-ai", "target": "detail", "text": "Im Detailbereich erkläre ich Artifact- und Inspect-Daten."},
-        ],
+def _asciinema_v2_lines(*, title: str, frames: list[tuple[float, str]]) -> str:
+    header = {
+        "version": 2,
+        "width": 104,
+        "height": 30,
+        "title": title,
+        "env": {"TERM": "xterm-256color", "COLORTERM": "truecolor"},
     }
+    lines = [json.dumps(header, ensure_ascii=False)]
+    for timestamp, frame in frames:
+        lines.append(json.dumps([float(timestamp), "o", frame], ensure_ascii=False))
+    return "\n".join(lines) + "\n"
+
+
+def _tutorial_ai_live_cast(*, run_id: str) -> str:
+    frames: list[tuple[float, str]] = [
+        (
+            0.0,
+            (
+                "\u001b[2J\u001b[Hananta tui · snake tutorial ai live\n"
+                f"run_id: {run_id}\n"
+                "model: google/gemma-4-e4b\n"
+                "api: http://192.168.178.100:1234/v1\n\n"
+                "Tutor-Snake initialisiert ...\n"
+            ),
+        ),
+        (
+            0.8,
+            (
+                "\u001b[2J\u001b[Hananta tui · snake tutorial ai live\n"
+                "s-ai [target=header]: Ich zeige zuerst Header, Endpoint und Auth.\n"
+                "Hinweis: Ctrl+S aktiviert den Snake-Modus.\n"
+            ),
+        ),
+        (
+            1.6,
+            (
+                "\u001b[2J\u001b[Hananta tui · snake tutorial ai live\n"
+                "s-ai [target=nav]: Jetzt Navigation: Goals und Tasks auswählen.\n"
+                "Hinweis: Pfeiltasten steuern die Schlange.\n"
+            ),
+        ),
+        (
+            2.4,
+            (
+                "\u001b[2J\u001b[Hananta tui · snake tutorial ai live\n"
+                "s-ai [target=content]: Hier ist der Hauptinhalt der gewählten Section.\n"
+                "Hinweis: M öffnet Message-Mode.\n"
+            ),
+        ),
+        (
+            3.2,
+            (
+                "\u001b[2J\u001b[Hananta tui · snake tutorial ai live\n"
+                "s-ai [target=detail]: Im Detail erkläre ich Inspect/Artifact Kontext.\n"
+                "Hinweis: X markiert, C kopiert, V ersetzt (command line).\n"
+            ),
+        ),
+    ]
+    return _asciinema_v2_lines(title="Ananta Operator TUI – Tutorial AI Snake Live", frames=frames)
 
 
 def record_tui_demo(
@@ -56,21 +94,19 @@ def record_tui_demo(
             "video_ref": "",
         }
     if str(scene).strip().lower() == "tutorial-ai-live":
-        cast_payload = _tutorial_ai_live_payload(run_id=run_id)
+        cast_content = _tutorial_ai_live_cast(run_id=run_id)
         file_name = "video-tui-tutorial-ai-live.cast"
     else:
-        cast_payload = {
-            "schema": "asciinema-placeholder-v1",
-            "run_id": run_id,
-            "flow": "tui_demo",
-            "events": [],
-        }
+        cast_content = _asciinema_v2_lines(
+            title="Ananta Operator TUI – Demo Placeholder",
+            frames=[(0.0, "\u001b[2J\u001b[Hananta tui demo placeholder\n")],
+        )
         file_name = "video-tui-demo.cast"
     video_ref = write_text_artifact(
         run_id,
         flow_id,
         file_name,
-        json.dumps(cast_payload, ensure_ascii=False, indent=2) + "\n",
+        cast_content,
         artifact_root=artifact_root,
     )
     return {"status": "recorded", "optional": True, "reason": "", "video_ref": video_ref}
