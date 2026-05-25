@@ -27,7 +27,7 @@ from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
-from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry
+from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry, resolve_item_reference
 from client_surfaces.operator_tui.renderer import render_operator_shell
 from client_surfaces.operator_tui.sections import SECTIONS, get_section
 
@@ -210,6 +210,8 @@ class InteractiveOperatorTui:
         @bindings.add("e")
         def _(event) -> None:
             def _e():
+                if self._open_selected_item_inline():
+                    return
                 section = get_section(self.state.section_id)
                 payload = (self.state.section_payloads or {}).get(section.id, {})
                 plugin = self._plugins.launcher_for(payload, self.state.selected_index)
@@ -438,6 +440,55 @@ class InteractiveOperatorTui:
     def _append_command(self, text: str) -> None:
         self._command_buffer += text
         self._set_state(self.state.with_updates(command_line=self._command_buffer))
+
+    def _open_selected_item_inline(self) -> bool:
+        section = get_section(self.state.section_id)
+        payload = (self.state.section_payloads or {}).get(section.id, {})
+        reference = resolve_item_reference(payload, self.state.selected_index)
+        if not reference:
+            return False
+
+        path = Path(reference).expanduser()
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        if not path.exists():
+            self._set_state(self.state.with_updates(status_message=f"inline vim: file not found ({reference})"))
+            return True
+        if not path.is_file():
+            self._set_state(self.state.with_updates(status_message=f"inline vim: not a file ({path.name})"))
+            return True
+
+        try:
+            raw = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            raw = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            self._set_state(self.state.with_updates(status_message=f"inline vim: {exc}"))
+            return True
+
+        max_lines = 260
+        lines = raw.splitlines()
+        clipped = lines[:max_lines]
+        truncated = len(lines) > max_lines
+        numbered = [f"{idx + 1:>4} {line}" for idx, line in enumerate(clipped)]
+        language = (path.suffix or "").lstrip(".")
+        fenced = "\n".join(numbered)
+        if truncated:
+            fenced += f"\n... ({len(lines) - max_lines} more lines)"
+        markdown = (
+            f"# Inline Vim Viewer\n\n"
+            f"`{path}`\n\n"
+            f"```{language}\n{fenced}\n```"
+        )
+        self._set_state(
+            self.state.with_updates(
+                mode=OperatorMode.EDIT,
+                focus=FocusPane.CONTENT,
+                markdown_source=markdown,
+                status_message=f"inline vim: {path.name}",
+            )
+        )
+        return True
 
     def _run_command(self, command: str) -> None:
         result = execute_command(command, self.state)

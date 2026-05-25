@@ -409,13 +409,14 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
                 label = item.get("title") or item.get("id") or str(item)
                 lines.append(f"{marker} {label}")
 
-    if state.markdown_source and section.id in {"artifacts", "help"}:
+    if state.markdown_source:
         lines.append("")
         for block in detect_diagram_blocks(state.markdown_source):
             lines.extend(render_diagram_fallback(block, width=width))
             lines.append("")
+        max_lines = 24 if state.mode.value == "edit" else 8
         lines.append("markdown:")
-        lines.extend(render_markdown_lines(state.markdown_source, width=width, max_lines=8))
+        lines.extend(render_markdown_lines(state.markdown_source, width=width, max_lines=max_lines))
 
     return lines
 

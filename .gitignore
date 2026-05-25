@@ -156,3 +156,4 @@ scripts/dyndns.conf
 /autoimport-state/logs/
 /autoimport-state/modelfiles/[!a]*.Modelfile
 /data/
+/rag-helper/out/

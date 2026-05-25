@@ -41,11 +41,7 @@ class EditorPlugin(ContentPlugin):
         return "Editor"
 
     def _resolve_path(self, payload: dict[str, Any], selected: int) -> str | None:
-        items = payload.get("items") or []
-        if not items or selected >= len(items):
-            return None
-        item = items[selected]
-        return item.get("path") or item.get("file") or item.get("id")
+        return resolve_item_reference(payload, selected)
 
     def can_launch(self, payload: dict[str, Any], selected: int) -> bool:
         return self._resolve_path(payload, selected) is not None
@@ -104,3 +100,15 @@ def default_plugin_registry() -> PluginRegistry:
     registry = PluginRegistry()
     registry.register(EditorPlugin())
     return registry
+
+
+def resolve_item_reference(payload: dict[str, Any], selected: int) -> str | None:
+    items = payload.get("items") or []
+    if not items or selected < 0 or selected >= len(items):
+        return None
+    item = items[selected]
+    if not isinstance(item, dict):
+        return None
+    value = item.get("path") or item.get("file") or item.get("id")
+    text = str(value or "").strip()
+    return text or None
