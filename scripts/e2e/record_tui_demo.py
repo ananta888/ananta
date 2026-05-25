@@ -84,6 +84,7 @@ def _sync_tutorial_ai_live_cast_targets(
     sync_targets: list[Path] | None = None,
 ) -> list[str]:
     targets = sync_targets or [
+        Path("tests/output/operator_tui_splash.cast"),
         Path("tests/output/operator_tui_tutorial_ai_live.cast"),
         Path("web/www/assets/operator_tui_tutorial_ai_live.cast"),
         Path("web/www/assets/operator_tui_splash.cast"),
