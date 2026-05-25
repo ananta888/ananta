@@ -174,19 +174,25 @@ def _tty_size(fallback: tuple[int, int] = (120, 32)) -> tuple[int, int]:
 def _play_splash_to_terminal(state: OperatorState) -> None:
     from client_surfaces.operator_tui.splash_animation import build_splash_frames
 
-    width, height = _tty_size()
-    height = min(height, 45)  # animation content fits in ~45 rows; more = wasted throughput
-    frames = build_splash_frames(w=width, h=height, fps=24)
-    if not frames:
-        return
-
     try:
         tty = open("/dev/tty", "w", encoding="utf-8", errors="replace")
     except OSError:
         return
 
+    width, height = _tty_size()
+    height = min(height, 45)
+
+    # Clear screen immediately so there's no frozen-terminal gap while frames build
     tty.write("\x1b[?25l\x1b[2J\x1b[H")
     tty.flush()
+
+    frames = build_splash_frames(w=width, h=height, fps=24)
+    if not frames:
+        tty.write("\x1b[?25h")
+        tty.flush()
+        tty.close()
+        return
+
     interval = 1.0 / 24
     try:
         for frame in frames:
