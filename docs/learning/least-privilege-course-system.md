@@ -4,6 +4,12 @@
 
 Das Kurs-System verbindet Ananta-Plattform, Strategie-Game und Security-Module zu einem durchgaengigen Lernpfad mit Default-Deny und kontrollierten Freischaltungen.
 
+Es baut explizit auf vorhandenen Bausteinen auf:
+
+- OnboardingChecklist als Einstiegspfad
+- DemoModeService als read-only CoursePreview-Muster
+- Instruction Profiles/Overlays als Lesson-/Exercise-Kontext
+
 ## Lernbausteine
 
 1. **Course**: fachlicher Rahmen, Voraussetzungen, Grants, Unlock-Regeln.

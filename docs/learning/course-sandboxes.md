@@ -22,3 +22,10 @@ Praktische Uebungen laufen in begrenzten, ruecksetzbaren Umgebungen mit minimale
 - Keine Production-Secrets
 - Keine Production-Daten
 - Keine ungepruefte Rechteeskalation zwischen Uebungen
+
+## Audit-Basis
+
+Sandbox-Laeufe und kritische Aktionen sollen auf den vorhandenen Audit-Modellen aufsetzen:
+
+- `TerminalSessionDB` fuer nachvollziehbare Session-Rahmen
+- `TerminalEventDB` fuer auditiertes Event-Logging pro Uebung
