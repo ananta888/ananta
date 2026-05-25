@@ -9,6 +9,11 @@ Die Kurs-UI zeigt:
 - Progress-Status je Nutzer
 - naechste sichere Uebung
 
+Die Kursnavigation baut auf vorhandenen Einstiegsmustern auf:
+
+- OnboardingChecklist als First-Run-Einstieg
+- bestehende First-Run-Guidance als sichere Standardfuehrung
+
 ## Rechte- und Sicherheitsanzeige
 
 Pro Uebung sichtbar:
