@@ -64,7 +64,7 @@
     {
       "id": "LPCS03",
       "title": "Lernpfade fuer Ananta-System selbst definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "task_ids": ["LPCS010", "LPCS011", "LPCS012", "LPCS013", "LPCS014"]
     },
@@ -333,7 +333,7 @@
       "title": "Kurs 'Deterministische Policies statt LLM-Ermessen' planen",
       "type": "course_design",
       "milestone_id": "LPCS03",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS010", "LPCS012"],
@@ -350,7 +350,7 @@
       "title": "Kurs 'CLI/TUI sicher nutzen' planen",
       "type": "course_design",
       "milestone_id": "LPCS03",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS010"],
@@ -367,7 +367,7 @@
       "title": "Kurs 'Kryptographie-Grundlagen fuer Ananta' planen",
       "type": "course_design",
       "milestone_id": "LPCS04",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": ["LPCS005"],
@@ -384,7 +384,7 @@
       "title": "Kurs 'Envelope Encryption fuer Artefakte' planen",
       "type": "course_design",
       "milestone_id": "LPCS04",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": ["LPCS015"],
@@ -401,7 +401,7 @@
       "title": "Kurs 'OIDC/Keycloak und Identitaet' planen",
       "type": "course_design",
       "milestone_id": "LPCS04",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS015"],
@@ -652,9 +652,9 @@
   "task_status_summary": {
     "todo": 0,
     "in_progress": 0,
-    "partial": 13,
+    "partial": 8,
     "blocked": 0,
-    "done": 19
+    "done": 24
   },
   "definition_of_done": [
     "Kurs-System ist als Ananta-Erweiterung dokumentiert.",

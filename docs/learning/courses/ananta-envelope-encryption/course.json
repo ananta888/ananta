@@ -1,0 +1,29 @@
+{
+  "id": "ananta-envelope-encryption",
+  "title": "Envelope Encryption fuer Artefakte",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-crypto-basics"],
+  "learning_goals": [
+    "CEK und Empfaenger-spezifisch verschluesselte CEKs verstehen",
+    "download_encrypted und decrypt sauber trennen",
+    "Inhaltsfreigabe von Transportverschluesselung unterscheiden"
+  ],
+  "references": [
+    "docs/security/artifact-encryption-model.md",
+    "docs/security/encrypted-artifact-storage-transfer.md"
+  ],
+  "lessons": [
+    {"id": "cek-model", "title": "CEK-Lifecycle und ArtifactVersion", "type": "lesson"},
+    {"id": "decrypt-rights", "title": "Decrypt-Rechte und Freigabegrenzen", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "encrypted-artifact-grant-sim",
+    "title": "Freigabe eines verschluesselten Artefakts mit Demo-Keys simulieren",
+    "acceptance_criteria": [
+      "download_encrypted ohne decrypt wird korrekt modelliert",
+      "CEK-Zuordnung pro Empfaenger ist nachvollziehbar",
+      "Transportverschluesselung ersetzt keine Inhaltsfreigabe"
+    ]
+  }
+}
