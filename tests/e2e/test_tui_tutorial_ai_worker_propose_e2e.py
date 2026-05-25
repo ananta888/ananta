@@ -98,7 +98,7 @@ def test_tutorial_ai_e2e_worker_target_tag_steers_snake_to_detail_zone(monkeypat
         }
     }
 
-    tui._update_tutorial_ai_snake(snakes, now=5.0, board_w=120, board_h=30, enabled=True)
+    tui._update_tutorial_ai_snake(game, snakes, now=5.0, board_w=120, board_h=30, enabled=True)
 
     ai = snakes.get("s-ai")
     assert isinstance(ai, dict)

@@ -59,6 +59,8 @@ class InteractiveOperatorTui:
         self._tutorial_worker_cache: tuple[float, str] = (0.0, "")
         self._tutorial_worker_target_hint: str = ""
         self._tutorial_llm_cache: tuple[float, str] = (0.0, "")
+        self._tutorial_last_source: str = "local-knowledge"
+        self._tutorial_last_target: str = "follow"
         self._command_buffer = ""
         self._rendered_text = self._render()
         self._control = FormattedTextControl(text=lambda: ANSI(self._rendered_text))
@@ -701,12 +703,13 @@ class InteractiveOperatorTui:
         }
         snakes[local_id] = local_snapshot
         self._update_demo_remote_snakes(snakes, now=now, board_w=board_w, board_h=board_h)
-        self._update_tutorial_ai_snake(snakes, now=now, board_w=board_w, board_h=board_h, enabled=bool(game.get("tutorial_mode")))
+        self._update_tutorial_ai_snake(game, snakes, now=now, board_w=board_w, board_h=board_h, enabled=bool(game.get("tutorial_mode")))
         game["snakes"] = snakes
         game["local_snake_id"] = local_id
 
     def _update_tutorial_ai_snake(
         self,
+        game: dict[str, object],
         snakes: dict[str, dict[str, object]],
         *,
         now: float,
@@ -762,6 +765,15 @@ class InteractiveOperatorTui:
         body = body[:10]
         trail = list(body)
         tip = self._tutorial_ai_tip(now=now)
+        target_label = self._tutorial_last_target or self._tutorial_target_label(board_w=board_w, board_h=board_h, target=target)
+        source_label = self._tutorial_last_source or "codecompass-rag"
+        self._record_tutorial_propose_event(
+            game,
+            now=now,
+            source=source_label,
+            target=target_label,
+            text=tip,
+        )
         snakes[sid] = {
             "id": sid,
             "pseudonym": "tutor-ai",
@@ -780,6 +792,56 @@ class InteractiveOperatorTui:
             "knowledge_scope": ("tui", "architecture", "workflow"),
             "target_cell": target,
         }
+
+    def _tutorial_target_label(
+        self,
+        *,
+        board_w: int,
+        board_h: int,
+        target: tuple[int, int],
+    ) -> str:
+        tx, ty = int(target[0]), int(target[1])
+        if ty <= max(2, board_h // 6):
+            return "header"
+        if tx <= max(2, board_w // 4):
+            return "nav"
+        if tx >= max(2, board_w - max(8, board_w // 4)) and ty >= max(2, board_h - max(6, board_h // 4)):
+            return "detail"
+        return "content"
+
+    def _record_tutorial_propose_event(
+        self,
+        game: dict[str, object],
+        *,
+        now: float,
+        source: str,
+        target: str,
+        text: str,
+    ) -> None:
+        history_raw = game.get("tutorial_propose_history")
+        history: list[dict[str, object]]
+        if isinstance(history_raw, list):
+            history = [dict(entry) for entry in history_raw if isinstance(entry, dict)]
+        else:
+            history = []
+        entry = {
+            "at": float(now),
+            "source": str(source or "unknown"),
+            "target": str(target or "content"),
+            "text": str(text or "").strip(),
+        }
+        if not entry["text"]:
+            return
+        last = history[-1] if history else None
+        if isinstance(last, dict):
+            if (
+                str(last.get("source") or "") == str(entry["source"])
+                and str(last.get("target") or "") == str(entry["target"])
+                and str(last.get("text") or "") == str(entry["text"])
+            ):
+                return
+        history.append(entry)
+        game["tutorial_propose_history"] = history[-8:]
 
     def _tutorial_ai_target_cell(
         self,
@@ -840,13 +902,19 @@ class InteractiveOperatorTui:
         rag_context = self._load_rag_helper_context(now=now)
         worker_tip = self._tutorial_ai_worker_propose_message(now=now, status=status, hints=hints, rag_context=rag_context)
         if worker_tip:
+            self._tutorial_last_source = "worker-propose"
+            self._tutorial_last_target = self._tutorial_worker_target_hint or "follow"
             return worker_tip
         llm_hints = [*hints[:12], *[f"RAG {entry}" for entry in rag_context[:8]]]
         llm_tip = self._tutorial_ai_llm_message(now=now, status=status, hints=llm_hints)
         if llm_tip:
+            self._tutorial_last_source = "openai-compatible"
+            self._tutorial_last_target = "content"
             return llm_tip
         if not hints and not rag_context:
             base = _TUTORIAL_AI_KNOWLEDGE[int(now * 0.5) % len(_TUTORIAL_AI_KNOWLEDGE)]
+            self._tutorial_last_source = "local-knowledge"
+            self._tutorial_last_target = "follow"
             return f"{status} {base}"
         cc = hints[int(now * 0.7) % len(hints)] if hints else ""
         rag = rag_context[int(now * 0.9) % len(rag_context)] if rag_context else ""
@@ -855,6 +923,8 @@ class InteractiveOperatorTui:
             parts.append(f"CodeCompass: {cc}")
         if rag:
             parts.append(f"RAG: {rag}")
+        self._tutorial_last_source = "codecompass-rag"
+        self._tutorial_last_target = "content"
         return " ".join(parts)
 
     def _tutorial_ai_worker_propose_message(
@@ -871,6 +941,9 @@ class InteractiveOperatorTui:
         refresh_seconds = max(2.0, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_REFRESH", "8.0"))))
         cached_at, cached_msg = self._tutorial_worker_cache
         if cached_msg and (now - cached_at) < refresh_seconds:
+            self._tutorial_last_source = "worker-propose"
+            if self._tutorial_worker_target_hint:
+                self._tutorial_last_target = self._tutorial_worker_target_hint
             return cached_msg
 
         base_url = str(self.state.endpoint or os.environ.get("ANANTA_BASE_URL") or "http://localhost:5000").strip()
@@ -932,6 +1005,8 @@ class InteractiveOperatorTui:
             target_hint = match.group(1).lower()
             single_line = re.sub(r"\[target=(header|nav|content|detail|follow)\]\s*", "", single_line, flags=re.IGNORECASE)
         self._tutorial_worker_target_hint = target_hint
+        self._tutorial_last_source = "worker-propose"
+        self._tutorial_last_target = target_hint or "follow"
         clipped = single_line[:180].strip()
         if not clipped:
             return None
@@ -960,6 +1035,8 @@ class InteractiveOperatorTui:
         refresh_seconds = max(2.0, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_REFRESH", "8.0"))))
         cached_at, cached_msg = self._tutorial_llm_cache
         if cached_msg and (now - cached_at) < refresh_seconds:
+            self._tutorial_last_source = "openai-compatible"
+            self._tutorial_last_target = "content"
             return cached_msg
 
         timeout_seconds = max(0.3, min(10.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "1.6"))))
@@ -1012,6 +1089,8 @@ class InteractiveOperatorTui:
         if not single_line:
             return None
         clipped = single_line[:180]
+        self._tutorial_last_source = "openai-compatible"
+        self._tutorial_last_target = "content"
         self._tutorial_llm_cache = (now, clipped)
         return clipped
 

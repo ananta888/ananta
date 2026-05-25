@@ -538,7 +538,7 @@ def test_tutorial_ai_snake_moves_toward_context_target(monkeypatch) -> None:
             "snake_color": "mint",
         }
     }
-    tui._update_tutorial_ai_snake(snakes, now=10.0, board_w=120, board_h=30, enabled=True)
+    tui._update_tutorial_ai_snake(game, snakes, now=10.0, board_w=120, board_h=30, enabled=True)
 
     ai = snakes.get("s-ai")
     assert isinstance(ai, dict)
@@ -547,6 +547,72 @@ def test_tutorial_ai_snake_moves_toward_context_target(monkeypatch) -> None:
     assert isinstance(target, tuple)
     assert isinstance(head, tuple)
     assert head[0] >= 100
+
+
+def test_tutorial_ai_propose_history_is_recorded_in_game_state(monkeypatch) -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "free_mode": True,
+        "tutorial_mode": True,
+        "local_snake_id": "s1",
+        "snake": [(10, 10), (9, 10), (8, 10)],
+        "trail_path": [(10, 10), (9, 10), (8, 10)],
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: ["task navigation"])
+    monkeypatch.setattr(tui, "_load_rag_helper_context", lambda now: ["queue status"])
+    monkeypatch.setattr(tui, "_tutorial_ai_tip", lambda now: "Open tasks and inspect queue.")
+    tui._tutorial_last_source = "worker-propose"
+    tui._tutorial_last_target = "nav"
+
+    snakes = {
+        "s1": {
+            "id": "s1",
+            "snake": [(10, 10), (9, 10)],
+            "trail_path": [(10, 10), (9, 10)],
+            "message": "",
+            "snake_color": "mint",
+        }
+    }
+    tui._update_tutorial_ai_snake(game, snakes, now=4.0, board_w=120, board_h=30, enabled=True)
+
+    history = game.get("tutorial_propose_history")
+    assert isinstance(history, list)
+    assert history
+    latest = history[-1]
+    assert isinstance(latest, dict)
+    assert latest.get("source") == "worker-propose"
+    assert latest.get("target") == "nav"
+    assert "inspect queue" in str(latest.get("text") or "")
+
+
+def test_dashboard_shows_tutorial_ai_propose_history_in_snake_mode() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="dashboard",
+        focus=FocusPane.CONTENT,
+        panel_states={"dashboard": PanelState.HEALTHY},
+        section_payloads={"dashboard": {"queue": {"depth": 2}}},
+        header_logo_game={
+            "active": True,
+            "tutorial_mode": True,
+            "tutorial_propose_history": [
+                {"source": "worker-propose", "target": "header", "text": "Check endpoint and auth first."},
+                {"source": "openai-compatible", "target": "nav", "text": "Now move to Tasks section."},
+            ],
+        },
+    )
+
+    output = render_operator_shell(state, width=118, height=34)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+
+    assert "Tutorial-AI propose flow" in plain
+    assert "worker-propose->header" in plain
+    assert "openai-compatible->nav" in plain
 
 
 def test_snake_message_style_and_color_can_cycle() -> None:
