@@ -686,7 +686,7 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
             repl = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{ch}\x1b[0m"
             out[y] = _overlay_at_visible_col(out[y], x, repl)
 
-        message = str(snapshot.get("message") or "")
+        message = _display_message_for_snake(str(snapshot.get("message") or ""))
         style = str(snapshot.get("message_style") or "trail")
         trail = snapshot.get("trail_path") if isinstance(snapshot.get("trail_path"), list) else []
         if message and trail:
@@ -743,6 +743,12 @@ def _snake_palette(name: str) -> dict[str, tuple[int, int, int]]:
         "rose": {"head": (255, 170, 200), "body": (222, 110, 156), "label": (255, 230, 240)},
     }
     return palettes.get(name, palettes["mint"])
+
+
+def _display_message_for_snake(value: str) -> str:
+    # Display-only mapping: keep stored/copied text unchanged.
+    normalized = value.replace("\r\n", "\n").replace("\r", "\n")
+    return normalized.replace("\n", "⏎")
 
 
 def _overlay_snake_message_effect(

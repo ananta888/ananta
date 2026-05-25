@@ -632,6 +632,27 @@ def test_trail_message_remains_visible_when_snake_stops(monkeypatch) -> None:
     assert len(letters) >= 4
 
 
+def test_trail_message_translates_newlines_for_display_only(monkeypatch) -> None:
+    monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 0.0)
+    lines = [" " * 20]
+    game = {
+        "active": True,
+        "free_mode": True,
+        "snake": [(1, 0), (0, 0)],
+        "trail_path": [(1, 0), (0, 0), (2, 0), (3, 0), (4, 0), (5, 0)],
+        "message": "A\nB",
+        "message_style": "trail",
+        "trail_window": 4,
+        "trail_speed": 1.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+
+    out = _overlay_fullscreen_snake(lines, state, width=20)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[0])
+
+    assert "⏎" in plain
+
+
 def test_fullscreen_overlay_renders_peer_snake_from_multi_snake_state(monkeypatch) -> None:
     monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 0.0)
     lines = [" " * 20 for _ in range(5)]
@@ -735,6 +756,28 @@ def test_snake_copy_selection_moves_text_to_clipboard_and_message(monkeypatch) -
     g = tui.state.header_logo_game or {}
     assert g.get("clipboard") == "bcd"
     assert g.get("message") == "bcd"
+
+
+def test_snake_copy_preserves_newlines_unchanged(monkeypatch) -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "free_mode": True,
+        "snake": [(2, 3), (1, 3), (0, 3)],
+        "selection_cells": [(0, 0), (1, 0), (0, 1), (1, 1)],
+        "board_w": 30,
+        "board_h": 12,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game)
+    monkeypatch.setattr(tui, "_snake_render_plain_lines", lambda: ["ab", "cd", "", "", ""])
+
+    tui._snake_copy_selection()
+
+    copied = str((tui.state.header_logo_game or {}).get("clipboard") or "")
+    assert copied == "ab\ncd"
 
 
 def test_snake_frame_mode_collects_multiple_regions_and_copy(monkeypatch) -> None:
