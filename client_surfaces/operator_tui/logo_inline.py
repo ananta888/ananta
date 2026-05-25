@@ -337,6 +337,32 @@ def render_logo_snake_game_playable(
             grid_chars[gy][gx] = "◌"
             grid_colors[gy][gx] = _lerp_color(snake_head, (255, 220, 120), 0.4)
 
+    portals = game_state.get("portals")
+    if isinstance(portals, dict):
+        portal_colors = {
+            "nav": _lerp_color(snake_head, (120, 220, 255), 0.45),
+            "content": _lerp_color(snake_head, (255, 210, 120), 0.35),
+            "detail": _lerp_color(snake_head, (220, 160, 255), 0.35),
+            "command": _lerp_color(snake_head, (255, 255, 180), 0.45),
+        }
+        portal_chars = {"nav": "▷", "content": "▽", "detail": "◇", "command": "◎"}
+        for key, pos in portals.items():
+            if key not in portal_chars or not isinstance(pos, (list, tuple)) or len(pos) != 2:
+                continue
+            mapped_portal = _map_board_cell_to_canvas(
+                int(pos[0]),
+                int(pos[1]),
+                board_w=board_w,
+                board_h=board_h,
+                cols=cols,
+                rows=rows,
+            )
+            if mapped_portal is None:
+                continue
+            px, py = mapped_portal
+            grid_chars[py][px] = portal_chars[key]
+            grid_colors[py][px] = portal_colors[key]
+
     # Snake body
     for idx, logical in enumerate(body):
         if not isinstance(logical, (list, tuple)) or len(logical) != 2:
