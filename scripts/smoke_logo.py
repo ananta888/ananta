@@ -455,9 +455,11 @@ def _render_tui_snapshot(section_id: str, width: int, height: int) -> str:
     return render_operator_shell(state, width=width, height=height)
 
 
-def record(fps: int = 24, **_: object) -> None:
+def record(fps: int = 24, width: int = 0, height: int = 0, **_: object) -> None:
     """Record operator_tui_splash.cast: logo animation → TUI dashboard overview."""
-    w, h = 120, 32
+    sz = shutil.get_terminal_size((120, 32))
+    w = width or sz.columns
+    h = height or sz.lines
 
     events: list[tuple[float, str]] = []
     interval = 1.0 / fps
@@ -490,7 +492,7 @@ def record(fps: int = 24, **_: object) -> None:
     header = {
         "version": 2, "width": w, "height": h,
         "title": "Ananta – snake wraps A → TUI",
-        "env": {"TERM": "xterm-256color"},
+        "env": {"TERM": "xterm-256color", "COLORTERM": "truecolor"},
     }
     json_lines = [json.dumps(header, ensure_ascii=False)]
     for ts, data in events:
