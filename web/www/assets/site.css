@@ -170,6 +170,22 @@ h1 {
   filter: drop-shadow(0 0 12px rgba(112, 225, 200, 0.22));
 }
 
+.terminal-output.asciinema-host {
+  font-size: 0;
+  line-height: normal;
+  white-space: normal;
+  color: inherit;
+  filter: none;
+  min-height: 450px;
+  overflow: hidden;
+}
+
+.terminal-output.asciinema-host .asciinema-player {
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
 .terminal-caption {
   position: absolute;
   left: 20px;
