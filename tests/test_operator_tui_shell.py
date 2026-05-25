@@ -415,6 +415,34 @@ def test_tutorial_ai_llm_message_reads_openai_compatible_endpoint(monkeypatch) -
     assert tip == "Use [Tab] to switch focus."
 
 
+def test_tutorial_ai_worker_propose_message_reads_step_propose(monkeypatch) -> None:
+    state = OperatorState(endpoint="http://localhost:5000")
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setenv("ANANTA_TUI_SNAKE_AI_BACKEND", "worker-propose")
+
+    class _FakeResp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return b'{"status":"success","data":{"reason":"[target=nav] Open tasks and inspect failed item first."}}'
+
+    monkeypatch.setattr("client_surfaces.operator_tui.interactive.urllib.request.urlopen", lambda req, timeout=0: _FakeResp())
+
+    tip = tui._tutorial_ai_worker_propose_message(
+        now=1.0,
+        status="status",
+        hints=["hint-a"],
+        rag_context=["rag-a"],
+    )
+
+    assert tip == "Open tasks and inspect failed item first."
+    assert tui._tutorial_worker_target_hint == "nav"
+
+
 def test_tutorial_ai_tip_includes_rag_helper_context_when_llm_missing(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="tasks")
     tui = InteractiveOperatorTui(state)
