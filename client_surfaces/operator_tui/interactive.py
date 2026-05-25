@@ -88,6 +88,11 @@ class InteractiveOperatorTui:
             if self.state.mode is OperatorMode.COMMAND:
                 self._run_command(self._command_buffer)
                 return
+            if self.state.focus is FocusPane.HEADER:
+                from client_surfaces.operator_tui.header_config import CONFIG_ITEMS, cycle_value
+                if 0 <= self.state.selected_index < len(CONFIG_ITEMS):
+                    self._set_state(cycle_value(self.state, CONFIG_ITEMS[self.state.selected_index]))
+                return
             if self.state.focus is FocusPane.NAVIGATION:
                 if 0 <= self.state.selected_index < len(SECTIONS):
                     section = SECTIONS[self.state.selected_index]
@@ -110,11 +115,7 @@ class InteractiveOperatorTui:
         @bindings.add("j")
         def _(event) -> None:
             def _j():
-                if self.state.focus is FocusPane.NAVIGATION:
-                    new_idx = min(self.state.selected_index + 1, len(SECTIONS) - 1)
-                else:
-                    new_idx = self.state.selected_index + 1
-                self._set_state(self.state.with_updates(selected_index=new_idx))
+                self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
             self._normal_or_text("j", _j)
 
         @bindings.add("k")
@@ -165,11 +166,7 @@ class InteractiveOperatorTui:
 
         @bindings.add("right")
         def _(event) -> None:
-            if self.state.focus is FocusPane.NAVIGATION:
-                new_idx = min(self.state.selected_index + 1, len(SECTIONS) - 1)
-            else:
-                new_idx = self.state.selected_index + 1
-            self._set_state(self.state.with_updates(selected_index=new_idx))
+            self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
 
         @bindings.add("up")
         def _(event) -> None:
@@ -177,11 +174,7 @@ class InteractiveOperatorTui:
 
         @bindings.add("down")
         def _(event) -> None:
-            if self.state.focus is FocusPane.NAVIGATION:
-                new_idx = min(self.state.selected_index + 1, len(SECTIONS) - 1)
-            else:
-                new_idx = self.state.selected_index + 1
-            self._set_state(self.state.with_updates(selected_index=new_idx))
+            self._set_state(self.state.with_updates(selected_index=self._clamp_down()))
 
         @bindings.add("n")
         def _(event) -> None:
@@ -226,6 +219,15 @@ class InteractiveOperatorTui:
         self._command_buffer = ""
         self._set_state(state.with_updates(command_line=""))
 
+    def _clamp_down(self) -> int:
+        cur = self.state.selected_index
+        if self.state.focus is FocusPane.NAVIGATION:
+            return min(cur + 1, len(SECTIONS) - 1)
+        if self.state.focus is FocusPane.HEADER:
+            from client_surfaces.operator_tui.header_config import CONFIG_ITEMS
+            return min(cur + 1, len(CONFIG_ITEMS) - 1)
+        return cur + 1
+
     def _move_focus(self, delta: int) -> None:
         panes = (FocusPane.HEADER, FocusPane.NAVIGATION, FocusPane.CONTENT, FocusPane.DETAIL)
         cur = panes.index(self.state.focus)
@@ -236,7 +238,7 @@ class InteractiveOperatorTui:
                 new_selected = section_ids.index(self.state.section_id)
             except ValueError:
                 new_selected = 0
-        elif self.state.focus is FocusPane.NAVIGATION:
+        elif new_focus is FocusPane.HEADER or self.state.focus in (FocusPane.NAVIGATION, FocusPane.HEADER):
             new_selected = 0
         else:
             new_selected = self.state.selected_index
