@@ -585,6 +585,31 @@ def test_fullscreen_snake_overlay_renders_message_tail_and_text_marking(monkeypa
     assert plain[5] == "f"
 
 
+def test_trail_message_window_and_speed_scroll_over_full_text(monkeypatch) -> None:
+    times = iter([0.0, 2.0])
+    monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: next(times))
+    lines = [" " * 20]
+    game = {
+        "active": True,
+        "free_mode": True,
+        "snake": [(1, 0), (0, 0)],
+        "trail_path": [(1, 0), (0, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0)],
+        "message": "ABCDE",
+        "message_style": "trail",
+        "trail_window": 3,
+        "trail_speed": 1.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+
+    out1 = _overlay_fullscreen_snake(lines, state, width=20)
+    plain1 = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out1[0])
+    out2 = _overlay_fullscreen_snake(lines, state, width=20)
+    plain2 = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out2[0])
+
+    assert plain1[2:5] == "ABC"
+    assert plain2[2:5] == "CDE"
+
+
 def test_fullscreen_overlay_renders_peer_snake_from_multi_snake_state(monkeypatch) -> None:
     monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 0.0)
     lines = [" " * 20 for _ in range(5)]
