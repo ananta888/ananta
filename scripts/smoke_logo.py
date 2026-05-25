@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
 """
-Visual smoke test for the Ananta logo – 2D then 3D.
+DEPRECATED — use `ananta tui` for the live animation or
+`client_surfaces/operator_tui/splash_animation.py` for the animation logic.
 
-Modes
------
-2D (ANSI halfblock from SVG-generated assets):
-    .venv/bin/python scripts/smoke_logo.py --2d
+The --2d and --3d modes (wireframe) shown here are superseded by the
+SVG-reveal + snake-orbit animation now used at TUI startup.
+The --record mode still works and regenerates tests/output/operator_tui_splash.cast.
 
-3D (animated wireframe built from SVG silhouette):
-    .venv/bin/python scripts/smoke_logo.py --3d
-    .venv/bin/python scripts/smoke_logo.py --3d --preset snake_orbit
-    .venv/bin/python scripts/smoke_logo.py --3d --preset depth_pulse
-
-Both modes in sequence:
-    .venv/bin/python scripts/smoke_logo.py           (default)
-
-Record to cast file (tests/output/):
+Legacy modes (kept for CI / cast generation only)
+--------------------------------------------------
+Record splash cast (still valid):
     .venv/bin/python scripts/smoke_logo.py --record
 
-Headless check (CI):
+Headless CI check:
     .venv/bin/python scripts/smoke_logo.py --check
-    echo $?    # 0 = ok
+
+Old 2D halfblock (deprecated):
+    .venv/bin/python scripts/smoke_logo.py --2d
+
+Old 3D wireframe (deprecated):
+    .venv/bin/python scripts/smoke_logo.py --3d
 """
 from __future__ import annotations
 

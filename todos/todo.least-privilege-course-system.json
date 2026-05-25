@@ -180,7 +180,7 @@
       "title": "Code-zu-Kurs-Mapping fuer bestehende Sicherheits- und Game-Artefakte erstellen",
       "type": "documentation",
       "milestone_id": "LPCS01",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": ["LPCS001", "LPCS005"],
@@ -197,7 +197,7 @@
       "title": "Kurs-Scaffold fuer docs/learning/courses standardisieren",
       "type": "documentation",
       "milestone_id": "LPCS01",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "dependencies": ["LPCS005"],
@@ -588,7 +588,7 @@
       "title": "UI-Konzept fuer Kursmodus planen",
       "type": "ui_design",
       "milestone_id": "LPCS06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS001", "LPCS025"],
@@ -605,7 +605,7 @@
       "title": "Demo-Flow fuer Kursmodus definieren",
       "type": "demo",
       "milestone_id": "LPCS06",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "dependencies": ["LPCS028"],
@@ -650,11 +650,11 @@
     "LPCS030"
   ],
   "task_status_summary": {
-    "todo": 4,
+    "todo": 0,
     "in_progress": 0,
     "partial": 23,
     "blocked": 0,
-    "done": 5
+    "done": 9
   },
   "definition_of_done": [
     "Kurs-System ist als Ananta-Erweiterung dokumentiert.",
