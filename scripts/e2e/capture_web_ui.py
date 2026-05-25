@@ -24,7 +24,15 @@ _PLACEHOLDER_PNG = base64.b64decode(
 def render_web_screen(screen: str, *, run_id: str) -> str:
     lines = ["ananta web ui", f"screen: {screen}", f"run_id: {run_id}"]
     if screen == "dashboard":
-        lines.extend(["status: healthy", "widget: goals=1"])
+        lines.extend(
+            [
+                "status: healthy",
+                "widget: goals=1",
+                "widget: ki-snake-live-recording=visible",
+                "tutorial_ai: snake mode walkthrough available",
+                "tutorial_ai_video: artifacts/e2e/<RUN_ID>/tui-tutorial-ai-live-video/video-tui-tutorial-ai-live.cast",
+            ]
+        )
     elif screen == "goals_tasks":
         lines.extend(["goals: visible", "tasks: visible", "state: actionable"])
     elif screen == "artifact_view":

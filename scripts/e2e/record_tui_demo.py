@@ -16,11 +16,36 @@ except ModuleNotFoundError:
     from scripts.e2e.e2e_artifacts import write_text_artifact
 
 
+def _tutorial_ai_live_payload(*, run_id: str) -> dict[str, Any]:
+    model = "google/gemma-4-e4b"
+    api_base = "http://192.168.178.100:1234/v1"
+    return {
+        "schema": "asciinema-placeholder-v2",
+        "run_id": run_id,
+        "flow": "tui_tutorial_ai_live",
+        "metadata": {
+            "mode": "tutorial-ai-live",
+            "snake_id": "s-ai",
+            "backend_chain": ["worker-propose", "openai-compatible-fallback"],
+            "openai_api_base_url": api_base,
+            "model": model,
+        },
+        "events": [
+            {"t": 0.0, "type": "mode", "value": "snake+tutorial-ai"},
+            {"t": 0.4, "type": "snake_message", "snake_id": "s-ai", "target": "header", "text": "Ich zeige dir zuerst Status und Auth im Header."},
+            {"t": 1.1, "type": "snake_message", "snake_id": "s-ai", "target": "nav", "text": "Dann wechseln wir zu Tasks und Goals in der Navigation."},
+            {"t": 1.9, "type": "snake_message", "snake_id": "s-ai", "target": "content", "text": "Hier siehst du den Hauptinhalt und aktuelle Auswahlen."},
+            {"t": 2.6, "type": "snake_message", "snake_id": "s-ai", "target": "detail", "text": "Im Detailbereich erkläre ich Artifact- und Inspect-Daten."},
+        ],
+    }
+
+
 def record_tui_demo(
     *,
     run_id: str,
     flow_id: str = "tui-demo-video",
     enabled: bool = False,
+    scene: str = "default",
     artifact_root: Path | None = None,
 ) -> dict[str, Any]:
     if not enabled:
@@ -30,19 +55,22 @@ def record_tui_demo(
             "reason": "video capture disabled (set --enable to record)",
             "video_ref": "",
         }
+    if str(scene).strip().lower() == "tutorial-ai-live":
+        cast_payload = _tutorial_ai_live_payload(run_id=run_id)
+        file_name = "video-tui-tutorial-ai-live.cast"
+    else:
+        cast_payload = {
+            "schema": "asciinema-placeholder-v1",
+            "run_id": run_id,
+            "flow": "tui_demo",
+            "events": [],
+        }
+        file_name = "video-tui-demo.cast"
     video_ref = write_text_artifact(
         run_id,
         flow_id,
-        "video-tui-demo.cast",
-        "\n".join(
-            [
-                "schema: asciinema-placeholder-v1",
-                f"run_id: {run_id}",
-                "flow: tui_demo",
-                "events: []",
-                "",
-            ]
-        ),
+        file_name,
+        json.dumps(cast_payload, ensure_ascii=False, indent=2) + "\n",
         artifact_root=artifact_root,
     )
     return {"status": "recorded", "optional": True, "reason": "", "video_ref": video_ref}
@@ -53,6 +81,7 @@ def main() -> int:
     parser.add_argument("--run-id", default="e2e-tui-demo")
     parser.add_argument("--flow-id", default="tui-demo-video")
     parser.add_argument("--enable", action="store_true")
+    parser.add_argument("--scene", default="default")
     parser.add_argument("--artifact-root", default="")
     args = parser.parse_args()
 
@@ -61,6 +90,7 @@ def main() -> int:
         run_id=args.run_id,
         flow_id=args.flow_id,
         enabled=args.enable,
+        scene=args.scene,
         artifact_root=artifact_root,
     )
     print(json.dumps(payload, indent=2))
