@@ -17,6 +17,7 @@ from prompt_toolkit.output.color_depth import ColorDepth
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
+from client_surfaces.operator_tui.logo_inline import build_a_snake_geometry
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry
 from client_surfaces.operator_tui.renderer import render_operator_shell
@@ -295,6 +296,7 @@ class InteractiveOperatorTui:
             "next_direction": (1, 0),
             "food": (12, 3),
             "gaps": gaps,
+            "gate_seed": int(time.time() * 1000),
             "score": 0,
             "moves": 0,
             "last_move": time.monotonic(),
@@ -365,6 +367,10 @@ class InteractiveOperatorTui:
             board_h=board_h,
             seed=int(game.get("moves", 0)) + int(time.time() * 1000),
         )
+        if int(game.get("moves", 0)) % 9 == 0:
+            game["gate_seed"] = int(time.time() * 1000) + int(game.get("score", 0)) * 31
+        geom = build_a_snake_geometry(board_w, board_h, seed=int(game.get("gate_seed", 0)))
+        wall_cells = set(geom.get("walls", set()))
         snake_raw = game.get("snake") or []
         snake = [(int(p[0]), int(p[1])) for p in snake_raw if isinstance(p, (list, tuple)) and len(p) == 2]
         if not snake:
@@ -399,6 +405,14 @@ class InteractiveOperatorTui:
             self.state = self.state.with_updates(header_logo_game=game, status_message="snake: wand getroffen")
             return
         new_head = (nx, ny)
+        if new_head in wall_cells:
+            game["alive"] = False
+            game["active"] = True
+            game["direction"] = direction
+            game["next_direction"] = direction
+            game["last_move"] = now
+            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: A-Wand getroffen")
+            return
 
         food_raw = game.get("food", (12, 3))
         food = (int(food_raw[0]), int(food_raw[1])) if isinstance(food_raw, (list, tuple)) and len(food_raw) == 2 else (12, 3)
