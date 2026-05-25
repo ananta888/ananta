@@ -476,6 +476,45 @@ def test_tutorial_ai_llm_message_uses_lmstudio_defaults_without_token(monkeypatc
     assert '"model": "google/gemma-4-e4b"' in captured["body"]
 
 
+def test_tutorial_ai_llm_training_mode_selects_tagged_profile(monkeypatch) -> None:
+    state = OperatorState(endpoint="http://localhost:5000")
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setenv("ANANTA_TUI_SNAKE_AI_MODEL", "meta-llama_-_llama-3.2-1b-instruct")
+    monkeypatch.setenv("ANANTA_TUI_SNAKE_AI_API_BASE_URL", "http://localhost:9999/v1")
+    monkeypatch.setenv("ANANTA_TUI_SNAKE_AI_TRAINING", "1")
+
+    calls = {"count": 0}
+
+    class _FakeResp:
+        def __init__(self, payload: bytes) -> None:
+            self._payload = payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return self._payload
+
+    def _fake_urlopen(req, timeout=0):
+        calls["count"] += 1
+        body = req.data.decode("utf-8")
+        if "steering prefix" in body:
+            return _FakeResp(b'{"choices":[{"message":{"content":"[target=nav] Open tasks and inspect queue."}}]}')
+        return _FakeResp(b'{"choices":[{"message":{"content":"Open tasks and inspect queue."}}]}')
+
+    monkeypatch.setattr("client_surfaces.operator_tui.interactive.urllib.request.urlopen", _fake_urlopen)
+
+    tip = tui._tutorial_ai_llm_message(now=1.0, status="status", hints=["hint"])
+
+    assert tip == "Open tasks and inspect queue."
+    assert tui._tutorial_worker_target_hint == "nav"
+    assert tui._tutorial_last_target == "nav"
+    assert calls["count"] >= 3
+
+
 def test_tutorial_ai_worker_propose_message_reads_step_propose(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000")
     tui = InteractiveOperatorTui(state)
