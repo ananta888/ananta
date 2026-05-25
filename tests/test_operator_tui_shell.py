@@ -980,6 +980,91 @@ def test_tutorial_ai_tip_sync_includes_user_feed_and_contact_zone(monkeypatch) -
     assert "Priority=explain-current-position" in status
 
 
+def test_tutorial_rag_context_prefers_operator_tui_graph_and_embedding_records(tmp_path, monkeypatch) -> None:
+    out_dir = tmp_path / "rag-out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "index.jsonl").write_text(
+        json.dumps({"kind": "function_symbol", "file": "client_surfaces/operator_tui/interactive.py", "name": "_tutorial_ai_tip"}) + "\n",
+        encoding="utf-8",
+    )
+    (out_dir / "embedding.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "kind": "embedding_record",
+                        "file": "client_surfaces/operator_tui/interactive.py",
+                        "embedding_text": "snake prompt template propose flow",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "kind": "embedding_record",
+                        "file": "src/unrelated.py",
+                        "embedding_text": "completely unrelated",
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (out_dir / "graph_nodes.jsonl").write_text(
+        json.dumps(
+            {
+                "kind": "graph_node",
+                "name": "_update_tutorial_ai_snake",
+                "file": "client_surfaces/operator_tui/interactive.py",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (out_dir / "graph_edges.jsonl").write_text(
+        json.dumps(
+            {
+                "kind": "graph_edge",
+                "relation": "calls",
+                "source_path": "client_surfaces/operator_tui/interactive.py",
+                "target_path": "client_surfaces/operator_tui/renderer.py",
+                "source_id": "n1",
+                "target_id": "n2",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (out_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "partitioned_outputs": {
+                    "embedding": ["embedding.jsonl"],
+                    "graph_nodes": ["graph_nodes.jsonl"],
+                    "graph_edges": ["graph_edges.jsonl"],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("ANANTA_TUI_CODECOMPASS_OUTPUT_DIR", str(out_dir))
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        section_id="dashboard",
+        focus=FocusPane.CONTENT,
+        header_logo_game={"tutorial_user_feed": "explain snake prompt flow"},
+    )
+    tui = InteractiveOperatorTui(state)
+
+    context = tui._load_rag_helper_context(now=1.0)
+
+    joined = "\n".join(context)
+    assert "embedding" in joined
+    assert "graph_nodes" in joined
+    assert "graph_edges" in joined
+    assert "client_surfaces/operator_tui/interactive.py" in joined
+
+
 def test_snake_message_mode_typing_and_backspace() -> None:
     game = {
         "active": True,

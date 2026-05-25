@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 import urllib.error
@@ -1448,7 +1449,18 @@ class InteractiveOperatorTui:
                         rel = str(item or "").strip()
                         if rel:
                             files.append(rel)
-        files.extend(["context.jsonl", "details.jsonl", "index.jsonl", "xml_overview.jsonl"])
+        files.extend(
+            [
+                "context.jsonl",
+                "details.jsonl",
+                "index.jsonl",
+                "xml_overview.jsonl",
+                "embedding.jsonl",
+                "graph_nodes.jsonl",
+                "graph_edges.jsonl",
+                "relations.jsonl",
+            ]
+        )
         deduped_files: list[str] = []
         seen_files: set[str] = set()
         for rel in files:
@@ -1458,7 +1470,10 @@ class InteractiveOperatorTui:
             seen_files.add(normalized)
             deduped_files.append(normalized)
 
-        context: list[str] = []
+        query_tokens = self._tutorial_relevance_tokens()
+        top_k = max(12, min(96, int(os.environ.get("ANANTA_TUI_SNAKE_RAG_TOP_K", "48"))))
+        candidates: list[tuple[float, str]] = []
+        max_records_per_file = max(80, min(3000, int(os.environ.get("ANANTA_TUI_SNAKE_RAG_MAX_RECORDS_PER_FILE", "800"))))
         for rel in deduped_files[:24]:
             path = out_dir / rel
             if not path.exists() or not path.is_file() or path.suffix.lower() != ".jsonl":
@@ -1467,7 +1482,10 @@ class InteractiveOperatorTui:
                 lines = path.read_text(encoding="utf-8").splitlines()
             except Exception:
                 continue
-            for line in lines:
+            source_kind = path.name.lower().replace(".jsonl", "")
+            for idx, line in enumerate(lines):
+                if idx >= max_records_per_file:
+                    break
                 payload = line.strip()
                 if not payload:
                     continue
@@ -1477,13 +1495,33 @@ class InteractiveOperatorTui:
                     continue
                 if not isinstance(parsed, dict):
                     continue
+                source_file = str(
+                    parsed.get("file")
+                    or parsed.get("path")
+                    or parsed.get("source_file")
+                    or parsed.get("source_path")
+                    or parsed.get("target_file")
+                    or parsed.get("target_path")
+                    or ""
+                ).strip()
+                if source_kind in {"graph_nodes", "graph_edges"} and source_file:
+                    source_lower = source_file.lower()
+                    if "client_surfaces/operator_tui" not in source_lower and "/operator_tui/" not in source_lower:
+                        target_file = str(parsed.get("target_file") or parsed.get("target_path") or "").lower()
+                        if "client_surfaces/operator_tui" not in target_file and "/operator_tui/" not in target_file:
+                            continue
+
                 tokens = [
                     str(parsed.get("domain") or "").strip(),
                     str(parsed.get("kind") or "").strip(),
                     str(parsed.get("title") or "").strip(),
                     str(parsed.get("section_title") or "").strip(),
                     str(parsed.get("name") or "").strip(),
-                    str(parsed.get("file") or parsed.get("path") or "").strip(),
+                    source_file,
+                    str(parsed.get("source_id") or parsed.get("from") or "").strip(),
+                    str(parsed.get("target_id") or parsed.get("to") or "").strip(),
+                    str(parsed.get("relation") or parsed.get("type") or "").strip(),
+                    str(parsed.get("embedding_text") or "").strip(),
                     str(parsed.get("summary") or "").strip(),
                     str(parsed.get("content") or parsed.get("text") or "").strip(),
                 ]
@@ -1491,13 +1529,50 @@ class InteractiveOperatorTui:
                 compact = " ".join(text.split())
                 if not compact:
                     continue
-                context.append(compact[:220])
-                if len(context) >= 64:
-                    break
-            if len(context) >= 64:
-                break
+                compact = f"{source_kind} · {compact}"
+                score = self._tutorial_context_relevance_score(compact, query_tokens=query_tokens)
+                if source_kind in {"embedding", "graph_nodes", "graph_edges"}:
+                    score += 0.8
+                if "client_surfaces/operator_tui" in compact.lower():
+                    score += 1.2
+                if score <= 0:
+                    continue
+                candidates.append((score, compact[:240]))
+        ranked = sorted(candidates, key=lambda item: item[0], reverse=True)
+        context = [item[1] for item in ranked[:top_k]]
         self._tutorial_rag_cache = (now, context)
         return context
+
+    def _tutorial_relevance_tokens(self) -> list[str]:
+        game = dict(self.state.header_logo_game or {})
+        raw_parts = [
+            str(self.state.section_id or ""),
+            str(self.state.focus.value or ""),
+            str(self.state.mode.value or ""),
+            str(game.get("tutorial_user_feed") or ""),
+            str(game.get("tutorial_ai_contact_zone") or ""),
+            "ananta tui snake operator_tui interactive renderer prompt propose",
+        ]
+        text = " ".join(raw_parts).lower()
+        return [token for token in re.findall(r"[a-z0-9_./-]+", text) if len(token) >= 2][:64]
+
+    def _tutorial_context_relevance_score(self, text: str, *, query_tokens: list[str]) -> float:
+        haystack = str(text or "").lower()
+        if not haystack:
+            return 0.0
+        if not query_tokens:
+            return 0.5
+        score = 0.0
+        for token in query_tokens:
+            count = haystack.count(token)
+            if count <= 0:
+                continue
+            score += 1.0 + min(0.6, (count - 1) * 0.15)
+        if "embedding_text" in haystack or "embedding" in haystack:
+            score += 0.3
+        if "graph_edges" in haystack or "graph_nodes" in haystack:
+            score += 0.3
+        return score
 
     def _resolve_codecompass_output_dir(self) -> Path | None:
         candidates = [
