@@ -145,7 +145,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if not args.render_once and not args.command and not args.measure_first_paint and os.isatty(0):
         if splash is not None:
-            _play_splash_to_terminal(splash, state)
+            _play_splash_to_terminal(state)
         from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
 
         return InteractiveOperatorTui(state, registry, splash=None).run()
@@ -155,38 +155,28 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
-def _play_splash_to_terminal(splash: SplashMachine, state: OperatorState) -> None:
-    from agent.cli.splash import SplashState
-    from agent.cli.status_snapshot import StatusSnapshot
+def _play_splash_to_terminal(state: OperatorState) -> None:
+    from client_surfaces.operator_tui.splash_animation import build_splash_frames
+
+    size = shutil.get_terminal_size((120, 32))
+    width, height = size.columns, size.lines
+    frames = build_splash_frames(w=width, h=height, fps=24)
+    if not frames:
+        return
 
     try:
         tty = open("/dev/tty", "w", encoding="utf-8", errors="replace")
     except OSError:
         return
 
-    snapshot = StatusSnapshot(
-        mode=state.mode.value,
-        endpoint=state.endpoint,
-        auth_state=state.auth_state,
-        section=state.section_id,
-    )
-    size = shutil.get_terminal_size((120, 32))
-    width, height = size.columns, size.lines
-
     tty.write("\x1b[?25l\x1b[2J\x1b[H")
     tty.flush()
+    interval = 1.0 / 24
     try:
-        while True:
-            ctx = splash.tick()
-            if ctx.state in (SplashState.DISABLED, SplashState.SKIPPED, SplashState.COMPACT_HEADER):
-                break
-            lines = splash.render(snapshot, width=width, color=True)
-            padded = list(lines[:height])
-            while len(padded) < height:
-                padded.append("")
-            tty.write("\x1b[H" + "\n".join(padded))
+        for frame in frames:
+            tty.write(f"\x1b[H{frame}")
             tty.flush()
-            time.sleep(1.0 / 24)
+            time.sleep(interval)
     except KeyboardInterrupt:
         pass
     finally:
