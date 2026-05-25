@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import re
+import time
 from textwrap import shorten
 from typing import TYPE_CHECKING
 
@@ -138,9 +140,50 @@ def _logo_cols_for_width(width: int) -> int:
     return max(_LOGO_COLS, min(_LOGO_COLS_MAX, width - 28 - len(_LOGO_SEP)))
 
 
-def _load_logo_lines(*, cols: int, color: bool = True) -> list[str]:
+def _render_logo_3d_lines(*, cols: int, rows: int, color: bool) -> list[str]:
+    from client_surfaces.operator_tui.animation3d.backends import BuiltinBackend
+    from client_surfaces.operator_tui.animation3d.capabilities import detect_3d_capability
+
+    cap = detect_3d_capability(
+        terminal_width=cols,
+        terminal_height=rows,
+        no_color=not color,
+        is_tty=True,
+    )
+    if not cap.enabled:
+        return []
+
+    backend = BuiltinBackend()
+    fps = max(1, min(60, int(os.environ.get("ANANTA_TUI_HEADER_3D_FPS", "12"))))
+    t = time.monotonic()
+    result = backend.frame_at(
+        t=t,
+        width=cols,
+        height=rows,
+        options={
+            "preset": cap.preset_name,
+            "color_mode": cap.color_mode,
+            "no_color": cap.color_mode in ("mono", "plain_ascii"),
+            "no_ansi": cap.color_mode == "plain_ascii",
+            "allow_small": True,
+            "fps": fps,
+        },
+    )
+    if not result.text:
+        return []
+    return result.text.splitlines()
+
+
+def _load_logo_lines(*, cols: int, color: bool = True, state: OperatorState | None = None) -> list[str]:
     """Return logo lines preferring highest-fidelity renderers."""
     from agent.cli.logo_layout import COMPACT_HEADER_LINES
+
+    header_3d = os.environ.get("ANANTA_TUI_HEADER_3D", "1").strip().lower() not in {"0", "false", "no", "off"}
+    no_3d = (state.terminal_graphics or {}).get("no_3d", False) if state is not None else False
+    if header_3d and not no_3d:
+        lines = _render_logo_3d_lines(cols=cols, rows=COMPACT_HEADER_LINES, color=color)
+        if lines:
+            return _left_align_logo_lines(lines)
 
     if color:
         from client_surfaces.operator_tui.logo_inline import render_logo_braille, render_logo_halfblock
@@ -184,7 +227,7 @@ def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
     logo_cols = _logo_cols_for_width(width)
     right_width = max(20, width - logo_cols - len(_LOGO_SEP))
 
-    logo_lines = _load_logo_lines(cols=logo_cols, color=color)
+    logo_lines = _load_logo_lines(cols=logo_cols, color=color, state=state)
 
     if state.focus == FocusPane.HEADER:
         right_lines = _render_header_config_lines(state, right_width)

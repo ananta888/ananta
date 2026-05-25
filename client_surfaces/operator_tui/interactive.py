@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 from typing import TYPE_CHECKING
 
@@ -48,11 +49,27 @@ class InteractiveOperatorTui:
         )
 
     def run(self) -> int:
-        self._app.run(pre_run=self._on_app_start if self._splash is not None else None)
+        self._app.run(pre_run=self._on_app_start)
         return 0
 
     def _on_app_start(self) -> None:
-        self._app.create_background_task(self._splash_loop())
+        if self._splash is not None:
+            self._app.create_background_task(self._splash_loop())
+        if self._header_3d_active():
+            self._app.create_background_task(self._header_logo_loop())
+
+    def _header_3d_active(self) -> bool:
+        enabled = os.environ.get("ANANTA_TUI_HEADER_3D", "1").strip().lower() not in {"0", "false", "no", "off"}
+        no_3d = (self.state.terminal_graphics or {}).get("no_3d", False)
+        return enabled and not no_3d
+
+    async def _header_logo_loop(self) -> None:
+        fps = max(1, min(60, int(os.environ.get("ANANTA_TUI_HEADER_3D_FPS", "12"))))
+        delay = 1.0 / fps
+        while True:
+            self._rendered_text = self._render()
+            self._app.invalidate()
+            await asyncio.sleep(delay)
 
     async def _splash_loop(self) -> None:
         while self._splash is not None:
