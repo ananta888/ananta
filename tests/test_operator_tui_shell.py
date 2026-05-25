@@ -282,7 +282,14 @@ def test_snake_escape_from_logo_switches_focus_to_navigation() -> None:
         header_logo_game=game,
     )
     tui = InteractiveOperatorTui(state)
-    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER)
+    portals = tui._compute_ui_portals(18, 6, wall_cells=set(), gaps=game.get("gaps"))
+    nav_portal = portals["nav"]
+    portal_game = dict(game)
+    portal_game["portals"] = portals
+    portal_game["snake"] = [(nav_portal[0] - 1, nav_portal[1]), (max(0, nav_portal[0] - 2), nav_portal[1]), (max(0, nav_portal[0] - 3), nav_portal[1])]
+    portal_game["direction"] = (1, 0)
+    portal_game["next_direction"] = (1, 0)
+    tui.state = tui.state.with_updates(header_logo_game=portal_game, focus=FocusPane.HEADER)
 
     tui._tick_header_snake()
 
@@ -313,7 +320,14 @@ def test_after_snake_escape_target_pane_can_be_controlled() -> None:
         header_logo_game=game,
     )
     tui = InteractiveOperatorTui(state)
-    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER, selected_index=0)
+    portals = tui._compute_ui_portals(18, 6, wall_cells=set(), gaps=game.get("gaps"))
+    nav_portal = portals["nav"]
+    portal_game = dict(game)
+    portal_game["portals"] = portals
+    portal_game["snake"] = [(nav_portal[0] - 1, nav_portal[1]), (max(0, nav_portal[0] - 2), nav_portal[1]), (max(0, nav_portal[0] - 3), nav_portal[1])]
+    portal_game["direction"] = (1, 0)
+    portal_game["next_direction"] = (1, 0)
+    tui.state = tui.state.with_updates(header_logo_game=portal_game, focus=FocusPane.HEADER, selected_index=0)
     tui._tick_header_snake()
     before = tui.state.selected_index
 
@@ -321,6 +335,39 @@ def test_after_snake_escape_target_pane_can_be_controlled() -> None:
 
     assert tui.state.focus is FocusPane.NAVIGATION
     assert tui.state.selected_index >= before
+
+
+def test_snake_portal_to_detail_switches_focus() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "board_w": 18,
+        "board_h": 6,
+        "snake": [(4, 3), (3, 3), (2, 3)],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "food": (3, 3),
+        "gaps": {"right": 2, "bottom_nav": 4, "bottom_content": 9, "bottom_detail": 14},
+        "score": 0,
+        "moves": 1,
+        "gate_seed": 42,
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    geom = build_a_snake_geometry(18, 6, seed=42)
+    portals = tui._compute_ui_portals(18, 6, wall_cells=set(geom.get("walls", set())), gaps=game.get("gaps"))
+    detail_portal = portals["detail"]
+    portal_game = dict(game)
+    portal_game["portals"] = portals
+    portal_game["snake"] = [(detail_portal[0], detail_portal[1] - 1), (detail_portal[0], max(0, detail_portal[1] - 2)), (detail_portal[0], max(0, detail_portal[1] - 3))]
+    portal_game["direction"] = (0, 1)
+    portal_game["next_direction"] = (0, 1)
+    tui.state = tui.state.with_updates(header_logo_game=portal_game, focus=FocusPane.HEADER)
+
+    tui._tick_header_snake()
+
+    assert tui.state.focus is FocusPane.DETAIL
 
 
 def test_snake_remains_drivable_after_escape_outside_header_focus() -> None:
