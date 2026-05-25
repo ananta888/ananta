@@ -413,3 +413,57 @@ def test_snake_no_longer_selects_sections_from_screen_regions() -> None:
 
     assert tui.state.section_id == "dashboard"
     assert tui.state.focus is FocusPane.HEADER
+
+
+def test_snake_immediate_brake_sets_velocity_zero() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "vel_x": 14.0,
+        "vel_y": -3.0,
+        "accum_x": 0.4,
+        "accum_y": 0.8,
+        "board_w": 18,
+        "board_h": 6,
+        "snake": [(6, 3), (5, 3), (4, 3)],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    tui._snake_immediate_brake()
+
+    g = tui.state.header_logo_game or {}
+    assert g.get("vel_x") == 0.0
+    assert g.get("vel_y") == 0.0
+    assert g.get("accum_x") == 0.0
+    assert g.get("accum_y") == 0.0
+
+
+def test_snake_hover_selection_uses_delay_before_selecting_nav() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "board_w": 120,
+        "board_h": 31,
+        "snake": [(2, 12), (1, 12), (0, 12)],
+        "direction": (0, 1),
+        "next_direction": (0, 1),
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    base = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER)
+
+    s1 = tui._apply_snake_hover_selection_delay(base, head=(2, 12), now=10.0)
+    s2 = tui._apply_snake_hover_selection_delay(s1, head=(2, 12), now=10.2)
+    s3 = tui._apply_snake_hover_selection_delay(s2, head=(2, 12), now=10.8)
+
+    assert s1.focus is FocusPane.HEADER
+    assert s2.focus is FocusPane.HEADER
+    assert s3.focus is FocusPane.NAVIGATION
