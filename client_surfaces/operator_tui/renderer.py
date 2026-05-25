@@ -36,6 +36,12 @@ def render_operator_shell(
         splash_state = ""
 
     splash_line_count = len(splash_lines)
+    if splash_line_count > 0 and splash_state in ("fullscreen", "transition"):
+        lines = splash_lines[:height]
+        while len(lines) < height:
+            lines.append("")
+        return "\n".join(_clip(line, width) for line in lines)
+
     if splash_line_count > 0 and splash_state not in ("disabled", "skipped"):
         persistent_header: list[str] = []
         rule_line = _rule(width)
