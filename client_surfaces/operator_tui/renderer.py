@@ -278,9 +278,13 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
                 provider = str(snap.get("oidc_provider") or "unknown-oidc")
                 msg = str(snap.get("message") or "-")
                 col = _snake_palette(color_name)["label"]
-                sid_colored = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{str(sid).upper()} {pseudonym}@{provider} [{color_name}]\x1b[0m"
-                msg_colored = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{msg}\x1b[0m"
-                lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} {sid_colored}: {msg_colored}", width))
+                prefix = f"{DEFAULT_THEME.muted_prefix} "
+                entry_plain = f"{str(sid).upper()} {pseudonym}@{provider} [{color_name}]: {msg}"
+                max_entry_len = max(0, width - len(_ANSI_STRIP.sub("", prefix)))
+                if len(entry_plain) > max_entry_len:
+                    entry_plain = entry_plain[: max(0, max_entry_len - 3)] + "..."
+                entry_colored = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{entry_plain}\x1b[0m"
+                lines.append(prefix + entry_colored)
         if game.get("message_mode"):
             draft = str(game.get("message_draft", ""))
             lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} MSG* {draft}", width))
