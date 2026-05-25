@@ -168,13 +168,14 @@ Nach 2 Sekunden geht es fließend in einen kompakten 8-zeiligen Header ueber
 
 | CLI Flag | Default | Beschreibung |
 |----------|---------|-------------|
-| `--skip-splash` | off | Fullscreen-Splash deaktivieren. Zeigt sofort den kompakten Header. |
+| `--skip-splash` | on | Fullscreen-Splash deaktivieren. Zeigt sofort den kompakten Header (Standard). |
+| `--splash` | off | Fullscreen-Splash explizit aktivieren. |
 | `--splash-seconds` | `2.0` | Dauer der Fullscreen-Phase in Sekunden. |
 
 | Umgebungsvariable | Wirkung |
 |-------------------|---------|
 | `ANANTA_TUI_SPLASH=0` | Fullscreen-Splash deaktivieren (kompakter Header bleibt sichtbar). |
-| `ANANTA_TUI_SPLASH=1` | Fullscreen-Splash aktivieren (Standardverhalten). |
+| `ANANTA_TUI_SPLASH=1` | Splash erzwingen (wie `--splash`). |
 | `ANANTA_TUI_LOGO=0` | Logo komplett ausblenden (auch im kompakten Header). |
 | `NO_COLOR=1` | Keine ANSI-Farben im Splash/Header. |
 
@@ -183,11 +184,11 @@ zum kompakten Header zu springen.
 
 Vorschau ohne interaktive TUI:
 ```bash
-# Fullscreen-Logo + Shell (Standard, nach splash-seconds automatisch)
-ananta tui --render-once --width 120 --height 32
-
-# Ohne Splash (direkt kompakter Header)
+# Standard ohne Splash
 ananta tui --render-once --skip-splash --width 120 --height 32
+
+# Fullscreen-Logo + Shell (nach splash-seconds automatisch)
+ananta tui --render-once --splash --width 120 --height 32
 ```
 
 Editor-Aufloesung (Reihenfolge, erster Treffer gewinnt):
