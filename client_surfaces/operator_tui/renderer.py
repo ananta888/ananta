@@ -127,10 +127,20 @@ def _render_splash_header(splash: SplashMachine, state: OperatorState, width: in
 
 def _navigation_lines(state: OperatorState) -> list[str]:
     lines = [_pane_title("NAV", state.focus == FocusPane.NAVIGATION)]
-    for section in SECTIONS:
-        selected = DEFAULT_THEME.selected_prefix if section.id == state.section_id else DEFAULT_THEME.idle_prefix
+    nav_focused = state.focus == FocusPane.NAVIGATION
+    for i, section in enumerate(SECTIONS):
         panel_state = (state.panel_states or {}).get(section.id)
-        lines.append(f"{selected}{state_prefix(panel_state)} {section.title}")
+        if nav_focused:
+            # cursor shows selected_index; "*" marks the currently loaded section
+            if i == state.selected_index:
+                cursor = DEFAULT_THEME.selected_prefix
+            elif section.id == state.section_id:
+                cursor = "*"
+            else:
+                cursor = DEFAULT_THEME.idle_prefix
+        else:
+            cursor = DEFAULT_THEME.selected_prefix if section.id == state.section_id else DEFAULT_THEME.idle_prefix
+        lines.append(f"{cursor}{state_prefix(panel_state)} {section.title}")
     return lines
 
 

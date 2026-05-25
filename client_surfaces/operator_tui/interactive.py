@@ -16,7 +16,9 @@ from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
+from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry
 from client_surfaces.operator_tui.renderer import render_operator_shell
+from client_surfaces.operator_tui.sections import SECTIONS, get_section
 
 if TYPE_CHECKING:
     from agent.cli.splash import SplashMachine, SplashState
@@ -31,6 +33,7 @@ class InteractiveOperatorTui:
     ) -> None:
         self._registry = registry or SectionAdapterRegistry()
         self._splash = splash
+        self._plugins: PluginRegistry = default_plugin_registry()
         self.state = load_active_section(state, self._registry)
         self._command_buffer = ""
         self._rendered_text = self._render()
@@ -85,6 +88,12 @@ class InteractiveOperatorTui:
             if self.state.mode is OperatorMode.COMMAND:
                 self._run_command(self._command_buffer)
                 return
+            if self.state.focus is FocusPane.NAVIGATION:
+                if 0 <= self.state.selected_index < len(SECTIONS):
+                    section = SECTIONS[self.state.selected_index]
+                    self._run_command(f":section {section.id}")
+                    self._set_state(self.state.with_updates(focus=FocusPane.CONTENT, selected_index=0))
+                return
             self._run_command(":inspect")
 
         @bindings.add("escape")
@@ -100,11 +109,32 @@ class InteractiveOperatorTui:
 
         @bindings.add("j")
         def _(event) -> None:
-            self._normal_or_text("j", lambda: self._set_state(self.state.with_updates(selected_index=self.state.selected_index + 1)))
+            def _j():
+                if self.state.focus is FocusPane.NAVIGATION:
+                    new_idx = min(self.state.selected_index + 1, len(SECTIONS) - 1)
+                else:
+                    new_idx = self.state.selected_index + 1
+                self._set_state(self.state.with_updates(selected_index=new_idx))
+            self._normal_or_text("j", _j)
 
         @bindings.add("k")
         def _(event) -> None:
             self._normal_or_text("k", lambda: self._set_state(self.state.with_updates(selected_index=max(0, self.state.selected_index - 1))))
+
+        @bindings.add("e")
+        def _(event) -> None:
+            def _e():
+                section = get_section(self.state.section_id)
+                payload = (self.state.section_payloads or {}).get(section.id, {})
+                plugin = self._plugins.launcher_for(payload, self.state.selected_index)
+                if plugin is None:
+                    return
+                async def _run():
+                    await event.app.run_in_terminal(
+                        lambda: plugin.launch(payload, self.state.selected_index)
+                    )
+                event.app.create_background_task(_run())
+            self._normal_or_text("e", _e)
 
         @bindings.add("h")
         def _(event) -> None:
@@ -143,7 +173,11 @@ class InteractiveOperatorTui:
 
         @bindings.add("down")
         def _(event) -> None:
-            self._set_state(self.state.with_updates(selected_index=self.state.selected_index + 1))
+            if self.state.focus is FocusPane.NAVIGATION:
+                new_idx = min(self.state.selected_index + 1, len(SECTIONS) - 1)
+            else:
+                new_idx = self.state.selected_index + 1
+            self._set_state(self.state.with_updates(selected_index=new_idx))
 
         @bindings.add("n")
         def _(event) -> None:
@@ -190,8 +224,21 @@ class InteractiveOperatorTui:
 
     def _move_focus(self, delta: int) -> None:
         panes = (FocusPane.NAVIGATION, FocusPane.CONTENT, FocusPane.DETAIL)
-        index = panes.index(self.state.focus)
-        self._set_state(self.state.with_updates(focus=panes[(index + delta) % len(panes)]))
+        cur = panes.index(self.state.focus)
+        new_focus = panes[(cur + delta) % len(panes)]
+        if new_focus is FocusPane.NAVIGATION:
+            # entering NAV: position cursor on the currently loaded section
+            section_ids = [s.id for s in SECTIONS]
+            try:
+                new_selected = section_ids.index(self.state.section_id)
+            except ValueError:
+                new_selected = 0
+        elif self.state.focus is FocusPane.NAVIGATION:
+            # leaving NAV: reset item cursor
+            new_selected = 0
+        else:
+            new_selected = self.state.selected_index
+        self._set_state(self.state.with_updates(focus=new_focus, selected_index=new_selected))
 
     def _set_state(self, state: OperatorState) -> None:
         if self._splash is not None:
