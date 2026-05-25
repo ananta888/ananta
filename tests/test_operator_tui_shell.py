@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from argparse import Namespace
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from client_surfaces.operator_tui.models import FocusPane, OperatorMode, Operato
 from client_surfaces.operator_tui.performance import measure
 from client_surfaces.operator_tui.read_models import build_goal_rows, build_task_rows
 from client_surfaces.operator_tui.refresh import refresh_policy_for, should_refresh
-from client_surfaces.operator_tui.renderer import render_operator_shell
+from client_surfaces.operator_tui.renderer import _overlay_fullscreen_snake, render_operator_shell
 from client_surfaces.operator_tui.rollout import operator_tui_enabled, rollback_hint, rollout_stage
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id
 from client_surfaces.operator_tui.smoke import run_fixture_smoke
@@ -484,6 +485,53 @@ def test_snake_message_mode_typing_and_backspace() -> None:
     g = tui.state.header_logo_game or {}
     assert g.get("message_mode") is True
     assert g.get("message_draft") == "A"
+
+
+def test_snake_message_mode_accepts_command_bound_letters() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "message_mode": True,
+        "message_draft": "",
+        "board_w": 18,
+        "board_h": 6,
+        "snake": [(6, 3), (5, 3), (4, 3)],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    tui._normal_or_text("e", lambda: None)
+    tui._normal_or_text("m", lambda: None)
+
+    g = tui.state.header_logo_game or {}
+    assert g.get("message_mode") is True
+    assert g.get("message_draft") == "em"
+
+
+def test_fullscreen_snake_overlay_renders_message_tail_and_text_marking(monkeypatch) -> None:
+    monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 0.0)
+    lines = ["abcdefghij"]
+    game = {
+        "active": True,
+        "free_mode": True,
+        "snake": [(1, 0), (0, 0)],
+        "trail_path": [(1, 0), (0, 0), (2, 0), (3, 0), (4, 0)],
+        "mark_cells": [(5, 0, 8)],
+        "message": "HI",
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+
+    out = _overlay_fullscreen_snake(lines, state, width=10)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[0])
+
+    assert plain[2] == "H"
+    assert plain[3] == "I"
+    assert plain[5] == "f"
 
 
 def test_snake_immediate_brake_sets_velocity_zero() -> None:

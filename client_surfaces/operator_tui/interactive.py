@@ -91,6 +91,9 @@ class InteractiveOperatorTui:
 
         @bindings.add("q")
         def _(event) -> None:
+            if self._snake_message_mode_active():
+                self._snake_message_append("q")
+                return
             if self.state.mode is OperatorMode.COMMAND:
                 self._append_command("q")
                 return
@@ -98,6 +101,9 @@ class InteractiveOperatorTui:
 
         @bindings.add(":")
         def _(event) -> None:
+            if self._snake_message_mode_active():
+                self._snake_message_append(":")
+                return
             if self._snake_mode_active():
                 return
             if self.state.mode is OperatorMode.COMMAND:
@@ -220,6 +226,9 @@ class InteractiveOperatorTui:
             if self.state.mode is OperatorMode.COMMAND:
                 self._append_command("m")
                 return
+            if self._snake_message_mode_active():
+                self._snake_message_append("m")
+                return
             if not self._snake_mode_active():
                 return
             self._toggle_snake_message_mode()
@@ -279,6 +288,9 @@ class InteractiveOperatorTui:
         return bindings
 
     def _normal_or_text(self, text: str, normal_action) -> None:
+        if self._snake_message_mode_active():
+            self._snake_message_append(text)
+            return
         if self.state.mode is OperatorMode.COMMAND:
             self._append_command(text)
             return
@@ -339,6 +351,8 @@ class InteractiveOperatorTui:
             "board_w": board_w,
             "board_h": board_h,
             "snake": snake,
+            "trail_path": list(snake),
+            "mark_cells": [],
             "direction": (1, 0),
             "next_direction": (1, 0),
             "vel_x": 10.0,
@@ -450,6 +464,22 @@ class InteractiveOperatorTui:
         if not snake:
             snake = [(6, 3), (5, 3), (4, 3), (3, 3), (2, 3)]
         snake = [((x % board_w), (y % board_h)) for x, y in snake]
+        trail_raw = game.get("trail_path") or []
+        trail_path = [
+            (int(p[0]) % board_w, int(p[1]) % board_h)
+            for p in trail_raw
+            if isinstance(p, (list, tuple)) and len(p) == 2
+        ]
+        if not trail_path:
+            trail_path = list(snake)
+        marks_raw = game.get("mark_cells") or []
+        marks: list[tuple[int, int, int]] = []
+        for item in marks_raw:
+            if not isinstance(item, (list, tuple)) or len(item) != 3:
+                continue
+            mx, my, ttl = int(item[0]), int(item[1]), int(item[2])
+            if ttl > 0:
+                marks.append((mx % board_w, my % board_h, ttl))
         vx = float(game.get("vel_x", 10.0))
         vy = float(game.get("vel_y", 0.0))
         ax = float(game.get("accum_x", 0.0)) + vx * dt
@@ -472,9 +502,19 @@ class InteractiveOperatorTui:
             snake = [new_head, *snake]
             while len(snake) > 12:
                 snake.pop()
+            trail_path = [new_head, *trail_path]
+            mark_ttl = max(4, min(24, int(os.environ.get("ANANTA_TUI_SNAKE_MARK_TTL", "12"))))
+            marks = [(mx, my, ttl - 1) for (mx, my, ttl) in marks if ttl > 1]
+            marks.insert(0, (new_head[0], new_head[1], mark_ttl))
             moved += 1
 
+        msg = str(game.get("message") or "")
+        trail_max = max(96, min(800, max(len(msg) * 8, 256)))
+        trail_path = trail_path[:trail_max]
+        marks = marks[:trail_max]
         game["snake"] = snake
+        game["trail_path"] = trail_path
+        game["mark_cells"] = marks
         if abs(vx) >= abs(vy):
             game["direction"] = (1 if vx > 0 else (-1 if vx < 0 else 0), 0)
         else:

@@ -267,6 +267,7 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-Mode aktiv: nur Snake-Steuerung steuert die UI", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Steuerung: [←→↑↓] lenken/boost · [Space] stop", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Mode: [Ctrl+S] an/aus · Bewegung über die gesamte UI", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Markieren: Snake-Spur markiert Text beim Vorbeifahren", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Botschaft: [M] tippen · [Enter] speichern · [Esc] abbrechen", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Config: ~/.config/ananta/snake-config.json → snake_message", width))
         if game.get("message_mode"):
@@ -604,8 +605,22 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         return lines
 
     out = list(lines)
+    marker_col = (255, 220, 120)
     head_col = (170, 255, 210)
     body_col = (96, 215, 165)
+    marks = game.get("mark_cells") or []
+    if isinstance(marks, list):
+        for item in marks:
+            if not isinstance(item, (list, tuple)) or len(item) != 3:
+                continue
+            x = int(item[0]) % max(1, width)
+            y = int(item[1]) % max(1, len(out))
+            base = _visible_char_at(out[y], x)
+            if base == " ":
+                continue
+            repl = f"\x1b[48;2;{marker_col[0]};{marker_col[1]};{marker_col[2]}m\x1b[38;2;25;25;25m{base}\x1b[0m"
+            out[y] = _overlay_at_visible_col(out[y], x, repl)
+
     for idx, pos in enumerate(snake):
         if not isinstance(pos, (list, tuple)) or len(pos) != 2:
             continue
@@ -615,6 +630,30 @@ def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: 
         col = head_col if idx == 0 else body_col
         repl = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{ch}\x1b[0m"
         out[y] = _overlay_at_visible_col(out[y], x, repl)
+
+    message = str(game.get("message_draft") if game.get("message_mode") else game.get("message") or "")
+    trail = game.get("trail_path") or []
+    if message and isinstance(trail, list):
+        seq = f"{message}   "
+        if seq.strip():
+            phase = int(time.monotonic() * 8)
+            tail_offset = max(0, len(snake))
+            message_col = (255, 244, 190)
+            max_chars = min(len(seq) * 4, max(8, len(trail) - tail_offset))
+            for i in range(max_chars):
+                trail_idx = tail_offset + i
+                if trail_idx >= len(trail):
+                    break
+                pos = trail[trail_idx]
+                if not isinstance(pos, (list, tuple)) or len(pos) != 2:
+                    continue
+                x = int(pos[0]) % max(1, width)
+                y = int(pos[1]) % max(1, len(out))
+                ch = seq[(i + phase) % len(seq)]
+                if ch == " ":
+                    continue
+                repl = f"\x1b[38;2;{message_col[0]};{message_col[1]};{message_col[2]}m{ch}\x1b[0m"
+                out[y] = _overlay_at_visible_col(out[y], x, repl)
     return out
 
 
@@ -645,6 +684,14 @@ def _overlay_at_visible_col(line: str, col: int, replacement: str) -> str:
         i += 1
         visible += 1
     return line
+
+
+def _visible_char_at(line: str, col: int) -> str:
+    col = max(0, col)
+    plain = _ANSI_STRIP.sub("", line)
+    if col >= len(plain):
+        return " "
+    return plain[col]
 
 
 def _rule(width: int) -> str:
