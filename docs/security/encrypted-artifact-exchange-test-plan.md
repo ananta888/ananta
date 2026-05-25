@@ -19,6 +19,12 @@ Deterministische Tests fuer Grant-/Policy-/Crypto-Verhalten ohne LLM-Ermessensab
 - manipulierte Bytes/Hashes -> Integrity-Fehler
 - CEK-Rotation/Re-Encryption wird korrekt erzwungen
 
+### Crypto Tests (konkret)
+
+1. Decrypt ohne passenden Key muss deterministisch fehlschlagen.
+2. Decrypt mit falschem Empfaenger-Key muss mit erwartbarem Fehlercode fehlschlagen.
+3. Rotierter/abgelaufener Key darf alte Grant-Bindings nicht weiter entsperren.
+
 ## 3) P2P-E2E-Strategie (Plan)
 
 - lokaler Signaling-Service oder deterministischer Fallback
@@ -26,9 +32,14 @@ Deterministische Tests fuer Grant-/Policy-/Crypto-Verhalten ohne LLM-Ermessensab
 - Hash- und Grant-Pruefung vor Decrypt
 - externe TURN-Secrets optional; ansonsten sauberer Skip
 
+### P2P Tests (konkret)
+
+1. E2E mit lokalem Signaling-Service uebertraegt verschluesselte Chunks und prueft End-Hash.
+2. E2E kann ohne TURN-Secrets sauber skippen statt false-positive Erfolg zu melden.
+3. Resume-Pfad nach simuliertem Verbindungsabbruch setzt korrekt bei bestaetigtem Chunk fort.
+
 ## 4) Testqualitaet
 
 - keine netzwerkabhaengigen Zufallserfolge
 - reproduzierbare Fixtures
 - klare Audit-Assertions fuer deny/allow/revoke
-

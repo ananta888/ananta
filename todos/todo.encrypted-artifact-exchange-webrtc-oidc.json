@@ -3,7 +3,7 @@
   "owner": "Peter Stuiber",
   "track": "ananta_encrypted_artifact_exchange_webrtc_oidc",
   "created": "2026-05-25",
-  "status": "in_progress",
+  "status": "done",
   "purpose": "Grundidee aus dem Ananta-Strategie-Game in das Ananta-Hauptprojekt uebertragen: verschluesselter, berechtigungsgebundener Artefakt-Austausch zwischen Usern, Geraeten, Hub und Workern mit OIDC/Keycloak-Identity, optional WebRTC-P2P-Transport und klaren Freigabe-/Policy-Gates.",
   "goal": "Artefakte sollen nicht nur gespeichert und verlinkt werden, sondern kontrolliert freigegeben, verschluesselt uebertragen, lokal validiert, auditiert und optional peer-to-peer ausgetauscht werden koennen, ohne die Hub-Worker-Architektur zu brechen.",
   "core_idea": {
@@ -92,7 +92,7 @@
     {
       "id": "EAX06",
       "title": "Audit, Tests und UI-Review-Gates definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "task_ids": ["EAX024", "EAX025", "EAX026", "EAX027", "EAX028"]
     }
@@ -535,7 +535,7 @@
       "title": "Crypto- und Integrity-Tests planen",
       "type": "testing",
       "milestone_id": "EAX06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": ["EAX010", "EAX013"],
@@ -552,7 +552,7 @@
       "title": "P2P-Transfer-E2E-Teststrategie planen",
       "type": "testing",
       "milestone_id": "EAX06",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "dependencies": ["EAX016", "EAX017", "EAX018"],
@@ -569,7 +569,7 @@
       "title": "UI-Review-Gates fuer Artefaktfreigaben planen",
       "type": "ui_design",
       "milestone_id": "EAX06",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["EAX023", "EAX024"],
@@ -593,11 +593,11 @@
     "EAX025"
   ],
   "task_status_summary": {
-    "todo": 3,
+    "todo": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 25
+    "done": 28
   },
   "definition_of_done": [
     "Verschluesselter Artefakt-Austausch ist als Ananta-Kernarchitektur-Erweiterung dokumentiert.",
