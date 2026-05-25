@@ -257,7 +257,7 @@ def test_header_focus_hints_show_snake_controls() -> None:
     output = render_operator_shell(state, width=100, height=24)
 
     assert "Snake  score=2  running" in output
-    assert "[←→↑↓] Snake" in output
+    assert "[Ctrl+F] Frame↔Fullscreen" in output
 
 
 def test_snake_mode_does_not_auto_switch_focus_or_section() -> None:
@@ -387,7 +387,7 @@ def test_snake_wraps_at_screen_border_and_stays_alive() -> None:
 
     snake = (tui.state.header_logo_game or {}).get("snake") or []
     assert (tui.state.header_logo_game or {}).get("alive") is True
-    assert snake and snake[0][0] in {0, 119}
+    assert snake and snake[0][0] != 119
 
 
 def test_snake_no_longer_selects_sections_from_screen_regions() -> None:

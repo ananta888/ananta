@@ -91,6 +91,7 @@ def render_operator_shell(
     lines.append(_hints_line(state, width))
     if state.show_help or section.id == "help":
         lines.extend(_help_overlay(state, width))
+    lines = _overlay_fullscreen_snake(lines, state, width=width)
     return "\n".join(_clip(line, width) for line in lines)
 
 
@@ -584,8 +585,60 @@ def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
     game = state.header_logo_game or {}
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
-        hints = "[←→↑↓] Snake Fullscreen  Taste mehrfach=Beschleunigung  Gegentaste=bremst/kehrt um"
+        hints = "[Ctrl+F] Frame↔Fullscreen  [←→↑↓] mehrfach=Boost  Gegentaste=bremst/kehrt um"
     return _clip(hints, width)
+
+
+def _overlay_fullscreen_snake(lines: list[str], state: OperatorState, *, width: int) -> list[str]:
+    game = state.header_logo_game or {}
+    if not game.get("active") or not game.get("free_mode"):
+        return lines
+    snake = game.get("snake") or []
+    if not isinstance(snake, list) or not snake:
+        return lines
+
+    out = list(lines)
+    head_col = (170, 255, 210)
+    body_col = (96, 215, 165)
+    for idx, pos in enumerate(snake):
+        if not isinstance(pos, (list, tuple)) or len(pos) != 2:
+            continue
+        x = int(pos[0]) % max(1, width)
+        y = int(pos[1]) % max(1, len(out))
+        ch = "●" if idx == 0 else ("◉" if idx < 4 else "·")
+        col = head_col if idx == 0 else body_col
+        repl = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{ch}\x1b[0m"
+        out[y] = _overlay_at_visible_col(out[y], x, repl)
+    return out
+
+
+def _overlay_at_visible_col(line: str, col: int, replacement: str) -> str:
+    col = max(0, col)
+    plain = _ANSI_STRIP.sub("", line)
+    if len(plain) <= col:
+        return line + (" " * (col - len(plain))) + replacement
+
+    i = 0
+    visible = 0
+    out = ""
+    n = len(line)
+    while i < n:
+        if line[i] == "\x1b":
+            m = _ANSI_STRIP.match(line, i)
+            if m:
+                out += m.group(0)
+                i = m.end()
+                continue
+        ch = line[i]
+        if visible == col:
+            out += replacement
+            i += 1
+            out += line[i:]
+            return out
+        out += ch
+        i += 1
+        visible += 1
+    return line
 
 
 def _rule(width: int) -> str:

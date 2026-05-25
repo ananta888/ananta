@@ -181,6 +181,12 @@ class InteractiveOperatorTui:
                 return
             self._move_focus(1)
 
+        @bindings.add("c-f")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                return
+            self._toggle_snake_free_mode()
+
         @bindings.add("left")
         def _(event) -> None:
             if self._try_header_snake_direction((-1, 0)):
@@ -289,6 +295,7 @@ class InteractiveOperatorTui:
             "active": True,
             "alive": True,
             "ui_steering": True,
+            "free_mode": False,
             "board_w": board_w,
             "board_h": board_h,
             "snake": snake,
@@ -390,9 +397,14 @@ class InteractiveOperatorTui:
             return
         dt = max(step, now - last_move)
 
-        size = shutil.get_terminal_size((120, 32))
-        board_w = max(24, int(size.columns))
-        board_h = max(12, int(size.lines - 1))
+        free_mode = bool(game.get("free_mode"))
+        if free_mode:
+            size = shutil.get_terminal_size((120, 32))
+            board_w = max(24, int(size.columns))
+            board_h = max(12, int(size.lines - 1))
+        else:
+            board_w = max(18, int(game.get("board_w", 18)))
+            board_h = max(6, int(game.get("board_h", 6)))
         game["board_w"] = board_w
         game["board_h"] = board_h
         snake_raw = game.get("snake") or []
@@ -434,10 +446,21 @@ class InteractiveOperatorTui:
         game["accum_y"] = ay
         game["moves"] = int(game.get("moves", 0)) + max(1, moved)
         game["last_move"] = now
+        game["free_mode"] = free_mode
+        mode_label = "fullscreen" if free_mode else "framed"
         self.state = self.state.with_updates(
             header_logo_game=game,
-            status_message=f"snake: frei vx={vx:.1f} vy={vy:.1f}",
+            status_message=f"snake:{mode_label} vx={vx:.1f} vy={vy:.1f}",
         )
+
+    def _toggle_snake_free_mode(self) -> None:
+        game = dict(self.state.header_logo_game or self._default_header_snake())
+        new_mode = not bool(game.get("free_mode"))
+        game["active"] = True
+        game["ui_steering"] = True
+        game["free_mode"] = new_mode
+        label = "an" if new_mode else "aus"
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake fullscreen: {label}"))
 
     def _snake_escape_target(
         self,
