@@ -71,14 +71,14 @@
     {
       "id": "EAX03",
       "title": "Verschluesselungs- und Key-Management-Konzept planen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "task_ids": ["EAX010", "EAX011", "EAX012", "EAX013", "EAX014"]
     },
     {
       "id": "EAX04",
       "title": "Transport: Hub/Object-Storage und optional WebRTC-P2P planen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "task_ids": ["EAX015", "EAX016", "EAX017", "EAX018", "EAX019"]
     },
@@ -327,7 +327,7 @@
       "title": "Key-Rotation und Re-Encryption planen",
       "type": "crypto_design",
       "milestone_id": "EAX03",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "dependencies": ["EAX010", "EAX011"],
@@ -344,7 +344,7 @@
       "title": "Klassischen Hub/Object-Storage-Transfer mit Verschluesselung planen",
       "type": "transport_design",
       "milestone_id": "EAX04",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["EAX010"],
@@ -361,7 +361,7 @@
       "title": "Optionalen WebRTC-P2P-Artefakttransfer planen",
       "type": "transport_design",
       "milestone_id": "EAX04",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": ["EAX015"],
@@ -378,7 +378,7 @@
       "title": "Chunking und Resume fuer grosse Artefakte definieren",
       "type": "transport_design",
       "milestone_id": "EAX04",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": ["EAX016"],
@@ -395,7 +395,7 @@
       "title": "Transport-Modi konfigurierbar machen",
       "type": "configuration",
       "milestone_id": "EAX04",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["EAX015", "EAX016"],
@@ -593,11 +593,11 @@
     "EAX025"
   ],
   "task_status_summary": {
-    "todo": 12,
+    "todo": 7,
     "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 15
+    "done": 20
   },
   "definition_of_done": [
     "Verschluesselter Artefakt-Austausch ist als Ananta-Kernarchitektur-Erweiterung dokumentiert.",
