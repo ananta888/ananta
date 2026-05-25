@@ -309,6 +309,18 @@ class InteractiveOperatorTui:
                 return
             self._snake_cycle_color()
 
+        @bindings.add("z")
+        def _(event) -> None:
+            if self.state.mode is OperatorMode.COMMAND:
+                self._append_command("z")
+                return
+            if self._snake_message_mode_active():
+                self._snake_message_append("z")
+                return
+            if not self._snake_mode_active():
+                return
+            self._snake_clear_visual_marks()
+
         @bindings.add("left")
         def _(event) -> None:
             if self._try_header_snake_direction((-1, 0)):
@@ -890,6 +902,30 @@ class InteractiveOperatorTui:
         if not isinstance(game.get("selection_regions"), list):
             game["selection_regions"] = []
         self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake frame: an (X setzt Rahmen)"))
+
+    def _snake_clear_visual_marks(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        if not self._snake_mode_active(game):
+            return
+        game["mark_cells"] = []
+        game["selection_anchor"] = None
+        game["selection_cells"] = []
+        game["selection_regions"] = []
+        game["selection_frame_mode"] = False
+        game["selection_frame_anchor"] = None
+        snakes_raw = game.get("snakes")
+        if isinstance(snakes_raw, dict):
+            cleaned: dict[str, dict[str, object]] = {}
+            for sid, snap in snakes_raw.items():
+                if not isinstance(snap, dict):
+                    continue
+                s = dict(snap)
+                s["mark_cells"] = []
+                s["selection_cells"] = []
+                s["selection_regions"] = []
+                cleaned[str(sid)] = s
+            game["snakes"] = cleaned
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message="snake marks: ausgeblendet"))
 
     def _snake_commit_frame_selection(self, game: dict[str, object], *, head: tuple[int, int]) -> None:
         anchor_raw = game.get("selection_frame_anchor")
