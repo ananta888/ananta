@@ -96,35 +96,60 @@ _LOGO_COLS = 35
 _LOGO_SEP = " │ "
 
 
+def _load_logo_lines(color: bool = True) -> list[str]:
+    """Return logo lines: half-block pixels if PIL available, ASCII art fallback."""
+    from agent.cli.logo_layout import COMPACT_HEADER_LINES
+
+    if color:
+        from client_surfaces.operator_tui.logo_inline import render_logo_halfblock
+        lines = render_logo_halfblock(cols=_LOGO_COLS, rows=COMPACT_HEADER_LINES)
+        if lines:
+            return lines
+
+    # Fallback: existing ASCII art via logo_layout (pass snapshot=None → logo only)
+    from agent.cli.logo_layout import render_compact_header
+    return render_compact_header(snapshot=None, terminal_width=_LOGO_COLS + 20, color=color)
+
+
+def _assemble_header_lines(logo_lines: list[str], right_lines: list[str], n_rows: int) -> list[str]:
+    """Combine logo and right-side lines with │ separator, padded to n_rows."""
+    result = []
+    for i in range(n_rows):
+        logo_part = logo_lines[i] if i < len(logo_lines) else ""
+        right_part = right_lines[i] if i < len(right_lines) else ""
+        visible = len(_ANSI_STRIP.sub("", logo_part))
+        padded = logo_part + " " * max(0, _LOGO_COLS - visible)
+        result.append(padded + _LOGO_SEP + right_part)
+    return result
+
+
 def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
     """Compact logo + live status (or interactive config when HEADER focused)."""
-    from agent.cli.logo_layout import COMPACT_HEADER_LINES, render_compact_header
+    from agent.cli.logo_layout import COMPACT_HEADER_LINES
     from agent.cli.status_snapshot import collect_status
 
     no_color = state.terminal_graphics.get("no_color", False) if state.terminal_graphics else False
     color = not no_color
+    right_width = max(20, width - _LOGO_COLS - len(_LOGO_SEP))
+
+    logo_lines = _load_logo_lines(color=color)
 
     if state.focus == FocusPane.HEADER:
-        logo_lines = render_compact_header(snapshot=None, terminal_width=width, color=color)
-        right_width = max(20, width - _LOGO_COLS - len(_LOGO_SEP))
-        config_lines = _render_header_config_lines(state, right_width)
-        while len(config_lines) < COMPACT_HEADER_LINES:
-            config_lines.append("")
-        result = []
-        for i in range(COMPACT_HEADER_LINES):
-            logo_part = logo_lines[i] if i < len(logo_lines) else ""
-            visible = len(_ANSI_STRIP.sub("", logo_part))
-            padded = logo_part + " " * max(0, _LOGO_COLS - visible)
-            result.append(padded + _LOGO_SEP + (config_lines[i] if i < len(config_lines) else ""))
-        return result
+        right_lines = _render_header_config_lines(state, right_width)
+    else:
+        snapshot = collect_status(
+            mode=state.mode.value,
+            endpoint=state.endpoint,
+            auth_state=state.auth_state,
+            section=state.section_id,
+        )
+        from agent.cli.status_snapshot import format_status_lines
+        right_lines = format_status_lines(snapshot, color=color, width=right_width)
 
-    snapshot = collect_status(
-        mode=state.mode.value,
-        endpoint=state.endpoint,
-        auth_state=state.auth_state,
-        section=state.section_id,
-    )
-    return render_compact_header(snapshot, terminal_width=width, color=color)
+    while len(right_lines) < COMPACT_HEADER_LINES:
+        right_lines.append("")
+
+    return _assemble_header_lines(logo_lines, right_lines, COMPACT_HEADER_LINES)
 
 
 def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
