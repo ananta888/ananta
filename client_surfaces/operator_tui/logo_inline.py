@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 from functools import lru_cache
+from typing import Any
 
 _SVG_PATH = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "ananta.svg")
@@ -13,6 +14,7 @@ _SCRIPTS_DIR = os.path.abspath(
 )
 
 _RST = "\x1b[0m"
+_BG_THRESHOLD = 28
 
 
 def _fg(r: int, g: int, b: int) -> str:
@@ -23,47 +25,25 @@ def _bg(r: int, g: int, b: int) -> str:
     return f"\x1b[48;2;{r};{g};{b}m"
 
 
-def render_logo_halfblock(cols: int = 35, rows: int = 8) -> list[str] | None:
-    """
-    Render the SVG logo as Unicode half-block art.
+# ── shared image loading ───────────────────────────────────────────────────────
 
-    Each character cell holds two pixel rows (▀ upper / ▄ lower half-block),
-    so the effective pixel resolution is cols × (rows * 2).
-    Returns None if PIL or the SVG/PNG pipeline is unavailable.
-    """
-    try:
-        return _cached_render(cols, rows)
-    except Exception:
-        return None
-
-
-@lru_cache(maxsize=8)
-def _cached_render(cols: int, rows: int) -> list[str] | None:
+@lru_cache(maxsize=4)
+def _load_logo_image(pixel_w: int, pixel_h: int) -> Any | None:
+    """Load, crop and resize the SVG logo to pixel_w × pixel_h. Cached."""
     if _SCRIPTS_DIR not in sys.path:
         sys.path.insert(0, _SCRIPTS_DIR)
-
     try:
         from render_terminal_logo import svg_to_png
-    except ImportError:
-        return None
-
-    if not os.path.isfile(_SVG_PATH):
-        return None
-
-    try:
         from PIL import Image
     except ImportError:
         return None
-
-    # Render SVG at a generous resolution, then downscale with LANCZOS
-    pixel_w = cols
-    pixel_h = rows * 2  # two pixel rows per character row
+    if not os.path.isfile(_SVG_PATH):
+        return None
 
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
         png_path = f.name
     try:
-        # Wide render preserves SVG detail before downscale
-        svg_to_png(_SVG_PATH, png_path, width=max(400, pixel_w * 12))
+        svg_to_png(_SVG_PATH, png_path, width=max(600, pixel_w * 10))
         img = Image.open(png_path).convert("RGBA")
     except Exception:
         return None
@@ -73,55 +53,133 @@ def _cached_render(cols: int, rows: int) -> list[str] | None:
         except OSError:
             pass
 
-    # Detect background color from image corners (SVG has explicit white bg)
+    # Detect background from corners
     src_w, src_h = img.size
-    corners = [
-        img.getpixel((0, 0)),
-        img.getpixel((src_w - 1, 0)),
-        img.getpixel((0, src_h - 1)),
-        img.getpixel((src_w - 1, src_h - 1)),
-    ]
-    bg_r = sum(c[0] for c in corners) // 4
-    bg_g = sum(c[1] for c in corners) // 4
-    bg_b = sum(c[2] for c in corners) // 4
-    _BG_THRESHOLD = 28
+    corners = [img.getpixel((x, y)) for x, y in
+               [(0, 0), (src_w - 1, 0), (0, src_h - 1), (src_w - 1, src_h - 1)]]
+    bg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
 
-    def _is_bg(r: int, g: int, b: int) -> bool:
-        return ((r - bg_r) ** 2 + (g - bg_g) ** 2 + (b - bg_b) ** 2) ** 0.5 < _BG_THRESHOLD
+    def is_bg(r: int, g: int, b: int) -> bool:
+        return ((r - bg[0]) ** 2 + (g - bg[1]) ** 2 + (b - bg[2]) ** 2) ** 0.5 < _BG_THRESHOLD
 
-    # Crop to bounding box of non-background pixels so the logo fills the frame
-    pixels = img.load()
+    # Crop to logo bounding box
+    px = img.load()
     min_x, min_y, max_x, max_y = src_w, src_h, 0, 0
     for y in range(src_h):
         for x in range(src_w):
-            r, g, b, _ = pixels[x, y]  # type: ignore[index]
-            if not _is_bg(r, g, b):
-                min_x = min(min_x, x)
-                min_y = min(min_y, y)
-                max_x = max(max_x, x)
-                max_y = max(max_y, y)
+            r, g, b, _ = px[x, y]  # type: ignore[index]
+            if not is_bg(r, g, b):
+                min_x, min_y = min(min_x, x), min(min_y, y)
+                max_x, max_y = max(max_x, x), max(max_y, y)
 
     if max_x > min_x and max_y > min_y:
         pad = max((max_x - min_x) // 20, 2)
-        min_x = max(0, min_x - pad)
-        min_y = max(0, min_y - pad)
-        max_x = min(src_w, max_x + pad)
-        max_y = min(src_h, max_y + pad)
-        img = img.crop((min_x, min_y, max_x, max_y))
+        img = img.crop((
+            max(0, min_x - pad), max(0, min_y - pad),
+            min(src_w, max_x + pad), min(src_h, max_y + pad),
+        ))
 
-    # Downscale to target pixel grid
     img = img.resize((pixel_w, pixel_h), Image.LANCZOS)
+    # Attach background detector to image object for callers
+    img._is_bg = is_bg  # type: ignore[attr-defined]
+    return img
+
+
+# ── Braille renderer (drawille — 2×4 px per char, 100×32 in 50×8) ─────────────
+
+def render_logo_braille(cols: int = 50, rows: int = 8) -> list[str] | None:
+    """
+    Render SVG logo via drawille Braille characters.
+    Resolution: cols*2 × rows*4 pixels (100×32 at 50×8 chars).
+    Returns None if drawille or the SVG pipeline is unavailable.
+    """
+    try:
+        return _cached_braille(cols, rows)
+    except Exception:
+        return None
+
+
+@lru_cache(maxsize=8)
+def _cached_braille(cols: int, rows: int) -> list[str] | None:
+    try:
+        import drawille
+    except ImportError:
+        return None
+
+    img = _load_logo_image(cols * 2, rows * 4)
+    if img is None:
+        return None
+
+    is_bg = img._is_bg  # type: ignore[attr-defined]
+    px = img.load()
+
+    canvas = drawille.Canvas()
+    char_colors: dict[tuple[int, int], tuple[int, int, int]] = {}
+
+    for cy in range(rows):
+        for cx in range(cols):
+            lit: list[tuple[int, int, int]] = []
+            for dy in range(4):
+                for dx in range(2):
+                    r, g, b, _ = px[cx * 2 + dx, cy * 4 + dy]  # type: ignore[index]
+                    if not is_bg(r, g, b):
+                        canvas.set(cx * 2 + dx, cy * 4 + dy)
+                        lit.append((r, g, b))
+            if lit:
+                char_colors[(cx, cy)] = tuple(
+                    sum(c[i] for c in lit) // len(lit) for i in range(3)
+                )  # type: ignore[assignment]
+
+    frame_rows = canvas.rows()
+
+    result: list[str] = []
+    for row_i in range(rows):
+        raw = frame_rows[row_i] if row_i < len(frame_rows) else ""
+        line = ""
+        for col_i in range(cols):
+            ch = raw[col_i] if col_i < len(raw) else " "
+            color = char_colors.get((col_i, row_i))
+            if color and ch != " ":
+                r, g, b = color
+                line += f"{_fg(r, g, b)}{ch}{_RST}"
+            else:
+                line += " "
+        result.append(line)
+
+    return result
+
+
+# ── Half-block renderer (fallback — 2 px per char row) ────────────────────────
+
+def render_logo_halfblock(cols: int = 50, rows: int = 8) -> list[str] | None:
+    """
+    Render SVG logo as Unicode half-block art (▀ / ▄).
+    Resolution: cols × rows*2 pixels.
+    Returns None if unavailable.
+    """
+    try:
+        return _cached_halfblock(cols, rows)
+    except Exception:
+        return None
+
+
+@lru_cache(maxsize=8)
+def _cached_halfblock(cols: int, rows: int) -> list[str] | None:
+    img = _load_logo_image(cols, rows * 2)
+    if img is None:
+        return None
+
+    is_bg = img._is_bg  # type: ignore[attr-defined]
+    px = img.load()
 
     lines: list[str] = []
     for row in range(rows):
         line = ""
-        for col in range(pixel_w):
-            r1, g1, b1, _ = img.getpixel((col, row * 2))
-            r2, g2, b2, _ = img.getpixel((col, row * 2 + 1))
-
-            top = not _is_bg(r1, g1, b1)
-            bot = not _is_bg(r2, g2, b2)
-
+        for col in range(cols):
+            r1, g1, b1, _ = px[col, row * 2]      # type: ignore[index]
+            r2, g2, b2, _ = px[col, row * 2 + 1]  # type: ignore[index]
+            top = not is_bg(r1, g1, b1)
+            bot = not is_bg(r2, g2, b2)
             if not top and not bot:
                 line += " "
             elif not top:
