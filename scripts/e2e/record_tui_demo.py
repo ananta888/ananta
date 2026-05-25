@@ -78,12 +78,33 @@ def _tutorial_ai_live_cast(*, run_id: str) -> str:
     return _asciinema_v2_lines(title="Ananta Operator TUI – Tutorial AI Snake Live", frames=frames)
 
 
+def _sync_tutorial_ai_live_cast_targets(
+    *,
+    cast_content: str,
+    sync_targets: list[Path] | None = None,
+) -> list[str]:
+    targets = sync_targets or [
+        Path("tests/output/operator_tui_tutorial_ai_live.cast"),
+        Path("web/www/assets/operator_tui_tutorial_ai_live.cast"),
+    ]
+    written: list[str] = []
+    for target in targets:
+        path = Path(target)
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(cast_content, encoding="utf-8")
+        written.append(str(path))
+    return written
+
+
 def record_tui_demo(
     *,
     run_id: str,
     flow_id: str = "tui-demo-video",
     enabled: bool = False,
     scene: str = "default",
+    sync_targets: list[Path] | None = None,
     artifact_root: Path | None = None,
 ) -> dict[str, Any]:
     if not enabled:
@@ -96,12 +117,14 @@ def record_tui_demo(
     if str(scene).strip().lower() == "tutorial-ai-live":
         cast_content = _tutorial_ai_live_cast(run_id=run_id)
         file_name = "video-tui-tutorial-ai-live.cast"
+        synced_targets = _sync_tutorial_ai_live_cast_targets(cast_content=cast_content, sync_targets=sync_targets)
     else:
         cast_content = _asciinema_v2_lines(
             title="Ananta Operator TUI – Demo Placeholder",
             frames=[(0.0, "\u001b[2J\u001b[Hananta tui demo placeholder\n")],
         )
         file_name = "video-tui-demo.cast"
+        synced_targets = []
     video_ref = write_text_artifact(
         run_id,
         flow_id,
@@ -109,7 +132,13 @@ def record_tui_demo(
         cast_content,
         artifact_root=artifact_root,
     )
-    return {"status": "recorded", "optional": True, "reason": "", "video_ref": video_ref}
+    return {
+        "status": "recorded",
+        "optional": True,
+        "reason": "",
+        "video_ref": video_ref,
+        "synced_cast_targets": synced_targets,
+    }
 
 
 def main() -> int:
