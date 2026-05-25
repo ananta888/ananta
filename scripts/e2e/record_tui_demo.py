@@ -1,7 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
+import os
+import pty
+import select
+import shlex
+import struct
+import subprocess
+import termios
+import time
 from pathlib import Path
 from typing import Any
 
@@ -361,6 +370,139 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
     return _asciinema_v2_lines(title="Ananta Operator TUI – Snake Mode Live", frames=frames)
 
 
+def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
+    width = max(80, min(220, int(os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH", "120"))))
+    height = max(20, min(80, int(os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT", "32"))))
+    duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "34"))))
+    run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or "ananta tui").strip()
+    command = shlex.split(run_command)
+    if not command:
+        raise RuntimeError("ANANTA_TUI_E2E_CAST_COMMAND is empty")
+
+    env = dict(os.environ)
+    env.setdefault("TERM", "xterm-256color")
+    env.setdefault("COLORTERM", "truecolor")
+    env.setdefault("COLUMNS", str(width))
+    env.setdefault("LINES", str(height))
+    env.setdefault("ANANTA_TUI_SNAKE_TUTORIAL_AI", "1")
+    env.setdefault("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "1")
+    env.setdefault("ANANTA_TUI_SNAKE_AI_BACKEND", "openai-compatible")
+    env.setdefault("ANANTA_TUI_SNAKE_AI_REFRESH", "2.5")
+    env.setdefault("ANANTA_TUI_SNAKE_AI_TIMEOUT", "2.4")
+    env.setdefault("ANANTA_TUI_SNAKE_SELECT_DELAY", "0.30")
+    env.setdefault("ANANTA_TUI_SNAKE_AI_MODEL", str(env.get("ANANTA_TUI_LLM_MODEL") or "meta-llama_-_llama-3.2-1b-instruct"))
+    env.setdefault("ANANTA_TUI_SNAKE_AI_API_BASE_URL", str(env.get("ANANTA_TUI_LLM_API_BASE") or "http://127.0.0.1:1234/v1"))
+    env.setdefault("ANANTA_TUI_SNAKE_AI_API_TOKEN", str(env.get("ANANTA_TUI_LLM_API_TOKEN") or ""))
+
+    # Timed scripted walkthrough:
+    # local snake -> nav artifact area -> tutorial AI on -> user question(s) -> AI replies -> quit.
+    script_steps: list[tuple[float, bytes]] = [
+        (2.6, b"\x13"),  # Ctrl+S snake mode on
+        (3.0, b"\x1b[D" * 14),
+        (3.5, b"\x1b[B" * 11),
+        (4.2, b" "),  # brake near nav
+        (4.8, b"u"),  # tutorial ai on
+        (8.6, b"m"),
+        (8.9, "Was zeigt mir der Menüpunkt artifacts in diesem Projekt?".encode("utf-8")),
+        (9.2, b"\r"),
+        (14.8, b"\x1b[C" * 20),
+        (15.6, b" "),
+        (16.0, b"m"),
+        (16.3, "Welche Artefakte sind für die TUI und den Cast relevant?".encode("utf-8")),
+        (16.6, b"\r"),
+        (22.8, b"\x1b[C" * 5 + b"\x1b[B" * 3),
+        (23.4, b" "),
+        (28.0, b"q"),
+    ]
+
+    master_fd, slave_fd = pty.openpty()
+    try:
+        # force deterministic terminal size for prompt_toolkit session
+        termios_winsz = struct.pack("HHHH", height, width, 0, 0)
+        fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, termios_winsz)
+    except Exception:
+        pass
+
+    process = subprocess.Popen(
+        command,
+        stdin=slave_fd,
+        stdout=slave_fd,
+        stderr=slave_fd,
+        env=env,
+        close_fds=True,
+        start_new_session=True,
+    )
+    os.close(slave_fd)
+
+    events: list[tuple[float, str]] = []
+    script_index = 0
+    started = time.monotonic()
+    forced_quit_sent = False
+
+    try:
+        while True:
+            elapsed = time.monotonic() - started
+            while script_index < len(script_steps) and elapsed >= script_steps[script_index][0]:
+                os.write(master_fd, script_steps[script_index][1])
+                script_index += 1
+
+            readable, _, _ = select.select([master_fd], [], [], 0.08)
+            if readable:
+                chunk = os.read(master_fd, 65536)
+                if chunk:
+                    text = chunk.decode("utf-8", errors="replace")
+                    if events:
+                        events.append((elapsed, text))
+                    else:
+                        events.append((elapsed, "\x1b[2J\x1b[H" + text))
+                elif process.poll() is not None:
+                    break
+
+            if process.poll() is not None:
+                # drain remaining output
+                try:
+                    while True:
+                        chunk = os.read(master_fd, 65536)
+                        if not chunk:
+                            break
+                        events.append((time.monotonic() - started, chunk.decode("utf-8", errors="replace")))
+                except OSError:
+                    pass
+                break
+
+            if elapsed >= duration_limit and not forced_quit_sent:
+                os.write(master_fd, b"q")
+                forced_quit_sent = True
+
+            if elapsed >= (duration_limit + 4.0):
+                break
+    finally:
+        try:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=1.0)
+        except Exception:
+            try:
+                process.kill()
+            except Exception:
+                pass
+        try:
+            os.close(master_fd)
+        except OSError:
+            pass
+
+    if not events:
+        raise RuntimeError(
+            "No PTY output captured for snake-mode-live-e2e cast. "
+            "Check ANANTA_TUI_E2E_CAST_COMMAND and local terminal environment."
+        )
+
+    # normalize timestamps to monotonic cast timeline
+    first_ts = events[0][0]
+    normalized = [(max(0.0, ts - first_ts), frame) for ts, frame in events]
+    return _asciinema_v2_lines(title=f"Ananta Operator TUI – Snake Mode Live E2E ({run_id})", frames=normalized)
+
+
 def _sync_tutorial_ai_live_cast_targets(
     *,
     cast_content: str,
@@ -426,6 +568,10 @@ def record_tui_demo(
     elif normalized_scene == "snake-mode-live":
         cast_content = _snake_mode_live_cast(run_id=run_id)
         file_name = "video-tui-snake-mode-live.cast"
+        synced_targets = _sync_snake_mode_live_cast_targets(cast_content=cast_content, sync_targets=sync_targets)
+    elif normalized_scene == "snake-mode-live-e2e":
+        cast_content = _snake_mode_live_e2e_cast(run_id=run_id)
+        file_name = "video-tui-snake-mode-live-e2e.cast"
         synced_targets = _sync_snake_mode_live_cast_targets(cast_content=cast_content, sync_targets=sync_targets)
     else:
         cast_content = _asciinema_v2_lines(
