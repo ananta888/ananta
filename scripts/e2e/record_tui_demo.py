@@ -307,6 +307,21 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
             "alive": True,
             "ui_steering": True,
             "free_mode": True,
+            "mouse_follow_enabled": True,
+            "mouse_state": {"x": local_head[0], "y": local_head[1], "active": True, "event": "move"},
+            "artifact_intent_confidence": "confirmed" if idx >= 5 else "weak",
+            "tutorial_ai_target_mode": "fast_target" if idx >= 5 else "follow_user",
+            "artifact_chat_state": {
+                "active_target": {
+                    "label": "Artifacts row" if idx >= 5 else "",
+                    "path": "tests/output/operator_tui_splash.cast" if idx >= 5 else "",
+                    "id": "artifact-cast",
+                }
+                if idx >= 5
+                else None,
+                "messages": [],
+                "backend_source": "openai-compatible",
+            },
             "tutorial_mode": True,
             "local_snake_id": "s1",
             "snake": local_snake,
@@ -399,6 +414,7 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     env.setdefault("ANANTA_TUI_SNAKE_AI_REFRESH", "1.2")
     env.setdefault("ANANTA_TUI_SNAKE_AI_TIMEOUT", "8.0")
     env.setdefault("ANANTA_TUI_SNAKE_SELECT_DELAY", "0.30")
+    env.setdefault("ANANTA_TUI_MOUSE", "1")
     env.setdefault("ANANTA_TUI_SNAKE_AI_MODEL", str(env.get("ANANTA_TUI_LLM_MODEL") or "meta-llama_-_llama-3.2-1b-instruct"))
     env.setdefault("ANANTA_TUI_SNAKE_AI_API_BASE_URL", str(env.get("ANANTA_TUI_LLM_API_BASE") or "http://127.0.0.1:1234/v1"))
     env.setdefault("ANANTA_TUI_SNAKE_AI_API_TOKEN", str(env.get("ANANTA_TUI_LLM_API_TOKEN") or ""))
@@ -407,6 +423,8 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     # wait for usable TUI frame -> snake to nav/artifacts -> tutorial AI -> user asks -> AI answers -> quit.
     script_actions: list[dict[str, object]] = [
         {"at": 4.0, "need": "endpoint=", "send": b"\x13"},  # Ctrl+S
+        {"at": 4.4, "need": "", "send": b"o"},  # mouse follow on/off toggle hint
+        {"at": 4.8, "need": "", "send": b"\x1b[<35;35;12M"},  # synthetic mouse move (SGR)
         {"at": 5.0, "need": "", "send": (b"\x1b[B" * 12)},
         {"at": 6.4, "need": "", "send": b" "},  # brake near nav menu rows
         {"at": 6.9, "need": "", "send": b"\x13"},  # snake off
@@ -417,7 +435,13 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
         {"at": 11.3, "need": "", "send": "Erkläre den Menüpunkt Artifacts in diesem Projekt.".encode("utf-8")},
         {"at": 11.8, "need": "", "send": b"\r"},
         {"at": 16.0, "need": "", "send": b"m"},
-        {"at": 16.3, "need": "", "send": "Welche Cast- und Bericht-Artefakte sind hier wichtig?".encode("utf-8")},
+        {
+            "at": 16.3,
+            "need": "",
+            "send": "[mouse-follow] [artifact-intent] [ai-fast-target] [artifact-chat-active] Welche Cast- und Bericht-Artefakte sind hier wichtig?".encode(
+                "utf-8"
+            ),
+        },
         {"at": 16.8, "need": "", "send": b"\r"},
         {"at": 24.0, "need": "", "send": (b"\x1b[C" * 4 + b"\x1b[B" * 2 + b" ")},
         {"at": 36.0, "need": "[openai-compatible->", "send": b"q"},
