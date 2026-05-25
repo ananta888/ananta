@@ -467,8 +467,10 @@ def record(fps: int = 24, width: int = 0, height: int = 0, **_: object) -> None:
 
     # ── Phase 1: logo splash (A appears + snake wraps + shrinks) ─────────────
     splash_frames = _build_splash_frames(w, h, fps)
-    for frame in splash_frames:
-        events.append((t, f"\x1b[2J\x1b[H{frame}"))
+    for i, frame in enumerate(splash_frames):
+        # Clear only on first frame; afterwards overwrite in-place to avoid flicker
+        prefix = "\x1b[?25l\x1b[2J\x1b[H" if i == 0 else "\x1b[H"
+        events.append((t, f"{prefix}{frame}"))
         t += interval
 
     # ── Phase 2: TUI sections ─────────────────────────────────────────────────
@@ -478,12 +480,14 @@ def record(fps: int = 24, width: int = 0, height: int = 0, **_: object) -> None:
         ("tasks",     1.0),
         ("system",    0.8),
     ]
-    for section_id, dur in section_specs:
+    for si, (section_id, dur) in enumerate(section_specs):
         text = _render_tui_snapshot(section_id, w, h)
         count = max(1, int(fps * dur))
+        is_last_section = si == len(section_specs) - 1
         for i in range(count):
             prefix = "\x1b[2J\x1b[H" if i == 0 else "\x1b[H"
-            events.append((t, f"{prefix}{text}"))
+            suffix = "\x1b[?25h" if is_last_section and i == count - 1 else ""
+            events.append((t, f"{prefix}{text}{suffix}"))
             t += interval
 
     # ── Save ──────────────────────────────────────────────────────────────────
