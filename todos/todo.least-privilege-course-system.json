@@ -105,7 +105,7 @@
     {
       "id": "LPCS02",
       "title": "Lernpfade fuer Ananta Strategie-Game definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "task_ids": ["LPCS006", "LPCS007", "LPCS008", "LPCS009"]
     },
@@ -300,7 +300,7 @@
       "title": "Kurs 'Ananta Strategie-Game Grundlagen' planen",
       "type": "course_design",
       "milestone_id": "LPCS02",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "dependencies": ["LPCS005"],
@@ -317,7 +317,7 @@
       "title": "Kurs 'Nagabanda und deterministische Regeln' planen",
       "type": "course_design",
       "milestone_id": "LPCS02",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": ["LPCS006"],
@@ -334,7 +334,7 @@
       "title": "Kurs 'Figuren-Agenten im Strategiespiel' planen",
       "type": "course_design",
       "milestone_id": "LPCS02",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": ["LPCS007"],
@@ -351,7 +351,7 @@
       "title": "Kurs 'Arena-Kampf und ASCII-Visualisierung' planen",
       "type": "course_design",
       "milestone_id": "LPCS02",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": ["LPCS007"],
@@ -368,7 +368,7 @@
       "title": "Kurs 'Ananta Hub-Worker-Grundlagen' planen",
       "type": "course_design",
       "milestone_id": "LPCS03",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "dependencies": ["LPCS005"],
@@ -738,11 +738,11 @@
     "LPCS030"
   ],
   "task_status_summary": {
-    "todo": 25,
+    "todo": 20,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 9
+    "done": 14
   },
   "definition_of_done": [
     "Bestehende Onboarding-/Demo-/Instruction-/Artifact-/Context-/Audit-Basis ist dokumentiert.",
