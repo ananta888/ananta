@@ -607,6 +607,7 @@ def test_fullscreen_overlay_renders_peer_snake_from_multi_snake_state(monkeypatc
                 "id": "s2",
                 "snake": [(5, 1), (4, 1)],
                 "trail_path": [(5, 1), (4, 1), (3, 1)],
+                "selection_cells": [(7, 1)],
                 "message": "peer",
                 "snake_color": "violet",
                 "message_style": "trail",
@@ -618,6 +619,24 @@ def test_fullscreen_overlay_renders_peer_snake_from_multi_snake_state(monkeypatc
     plain_row = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out[1])
 
     assert plain_row[5] != " "
+    assert "\x1b[48;2;212;176;255m" in out[1]
+
+
+def test_local_selection_uses_local_snake_color() -> None:
+    lines = ["abcdefghij"]
+    game = {
+        "active": True,
+        "free_mode": True,
+        "local_snake_id": "s1",
+        "snake_color": "mint",
+        "snake": [(1, 0), (0, 0)],
+        "trail_path": [(1, 0), (0, 0)],
+        "selection_cells": [(2, 0)],
+    }
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game=game)
+    out = _overlay_fullscreen_snake(lines, state, width=10)
+
+    assert "\x1b[48;2;170;255;210m" in out[0]
 
 
 def test_snake_tick_populates_local_snapshot_for_collab_state() -> None:
