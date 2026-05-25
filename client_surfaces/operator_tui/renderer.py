@@ -263,33 +263,24 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
     if game.get("active"):
         score = int(game.get("score", 0))
         status = "running" if game.get("alive", True) else "game over"
-        msg_style = str(game.get("message_style") or "trail")
-        snake_color = str(game.get("snake_color") or "mint")
         snakes = game.get("snakes") if isinstance(game.get("snakes"), dict) else {}
         peer_count = len([k for k in snakes.keys() if str(k) != str(game.get("local_snake_id") or "s1")]) if snakes else 0
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake  score={score}  {status}", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-ID: {game.get('local_snake_id', 's1')} · Peers: {peer_count}", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-Mode aktiv: nur Snake-Steuerung steuert die UI", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Steuerung: [←→↑↓] lenken/boost · [Space] stop", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Mode: [Ctrl+S] an/aus · Bewegung über die gesamte UI", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Auswahl: [X] start/ende · [C] kopieren · [V] ersetzen", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Ersetzen nur im Command-Feld (editierbar)", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Text: [T] style={msg_style} · [Y] farbe={snake_color}", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Botschaft: [M] tippen · [Enter] speichern · [Esc] abbrechen", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Config: ~/.config/ananta/snake-config.json → snake_message", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snakes (OIDC / Farbe / Nachricht):", width))
         if snakes:
             ordered = sorted(snakes.items(), key=lambda kv: (0 if str(kv[0]) == str(game.get("local_snake_id") or "s1") else 1, str(kv[0])))
             for sid, snap in ordered:
                 if not isinstance(snap, dict):
                     continue
-                msg = str(snap.get("message") or "")
-                if not msg:
-                    continue
                 color_name = str(snap.get("snake_color") or "mint")
+                pseudonym = str(snap.get("pseudonym") or sid)
+                provider = str(snap.get("oidc_provider") or "unknown-oidc")
+                msg = str(snap.get("message") or "-")
                 col = _snake_palette(color_name)["label"]
-                sid_colored = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{str(sid).upper()}[{color_name}]\x1b[0m"
+                sid_colored = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{str(sid).upper()} {pseudonym}@{provider} [{color_name}]\x1b[0m"
                 msg_colored = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{msg}\x1b[0m"
-                lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} MSG {sid_colored}: {msg_colored}", width))
+                lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} {sid_colored}: {msg_colored}", width))
         if game.get("message_mode"):
             draft = str(game.get("message_draft", ""))
             lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} MSG* {draft}", width))
@@ -703,6 +694,8 @@ def _collect_snakes(game: dict[str, object], *, local_snake_id: str) -> dict[str
     if local_snake_id not in out:
         out[local_snake_id] = {
             "id": local_snake_id,
+            "pseudonym": str(game.get("pseudonym") or local_snake_id),
+            "oidc_provider": str(game.get("oidc_provider") or "unknown-oidc"),
             "snake": list(game.get("snake") or []),
             "trail_path": list(game.get("trail_path") or []),
             "message": str(game.get("message") or ""),

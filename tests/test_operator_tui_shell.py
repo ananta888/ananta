@@ -262,6 +262,41 @@ def test_header_focus_hints_show_snake_controls() -> None:
     assert "[Ctrl+S] Snake" in output
 
 
+def test_header_lists_snakes_with_oidc_pseudonym_color_and_message() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "score": 1,
+        "local_snake_id": "s1",
+        "snakes": {
+            "s1": {
+                "id": "s1",
+                "pseudonym": "alice",
+                "oidc_provider": "keycloak",
+                "snake_color": "mint",
+                "message": "hello",
+            },
+            "s2": {
+                "id": "s2",
+                "pseudonym": "bob",
+                "oidc_provider": "entra",
+                "snake_color": "violet",
+                "message": "world",
+            },
+        },
+        "snake": [(3, 2), (2, 2)],
+        "trail_path": [(3, 2), (2, 2)],
+        "free_mode": True,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+
+    output = render_operator_shell(state, width=120, height=28)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+
+    assert "alice@keycloak [mint]: hello" in plain
+    assert "bob@entra [violet]: world" in plain
+
+
 def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER)
     tui = InteractiveOperatorTui(state)

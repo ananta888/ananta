@@ -413,6 +413,8 @@ class InteractiveOperatorTui:
             "ui_steering": False,
             "free_mode": False,
             "local_snake_id": "s1",
+            "pseudonym": os.environ.get("ANANTA_TUI_SNAKE_PSEUDONYM", "local-snake"),
+            "oidc_provider": os.environ.get("ANANTA_TUI_SNAKE_OIDC_PROVIDER", "local"),
             "board_w": board_w,
             "board_h": board_h,
             "snake": snake,
@@ -619,8 +621,12 @@ class InteractiveOperatorTui:
         else:
             snakes = {}
         local_id = str(game.get("local_snake_id") or "s1")
+        local_pseudonym = str(game.get("pseudonym") or os.environ.get("ANANTA_TUI_SNAKE_PSEUDONYM", "local-snake"))
+        local_provider = str(game.get("oidc_provider") or os.environ.get("ANANTA_TUI_SNAKE_OIDC_PROVIDER", "local"))
         local_snapshot = {
             "id": local_id,
+            "pseudonym": local_pseudonym,
+            "oidc_provider": local_provider,
             "snake": list(game.get("snake") or []),
             "trail_path": list(game.get("trail_path") or []),
             "message": str(game.get("message") or ""),
@@ -663,6 +669,8 @@ class InteractiveOperatorTui:
             trail = list(body)
             snakes[sid] = {
                 "id": sid,
+                "pseudonym": f"peer-{i + 2}",
+                "oidc_provider": "demo-oidc",
                 "snake": body,
                 "trail_path": trail,
                 "message": f"peer-{i + 2}",
