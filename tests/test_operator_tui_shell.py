@@ -368,12 +368,49 @@ def test_tutorial_ai_tip_uses_codecompass_hints_when_available(monkeypatch) -> N
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="tasks")
     tui = InteractiveOperatorTui(state)
     monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: ["method · plan_tasks · client_surfaces/operator_tui/interactive.py"])
+    monkeypatch.setattr(tui, "_tutorial_ai_llm_message", lambda now, status, hints: None)
 
     tip = tui._tutorial_ai_tip(now=1.0)
 
     assert "CodeCompass:" in tip
     assert "mode=normal" in tip
     assert "section=tasks" in tip
+
+
+def test_tutorial_ai_tip_prefers_llm_when_available(monkeypatch) -> None:
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="tasks")
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: ["hint-a"])
+    monkeypatch.setattr(tui, "_tutorial_ai_llm_message", lambda now, status, hints: "LLM tutor hint")
+
+    tip = tui._tutorial_ai_tip(now=2.0)
+
+    assert tip == "LLM tutor hint"
+
+
+def test_tutorial_ai_llm_message_reads_openai_compatible_endpoint(monkeypatch) -> None:
+    state = OperatorState(endpoint="http://localhost:5000")
+    tui = InteractiveOperatorTui(state)
+
+    monkeypatch.setenv("ANANTA_TUI_SNAKE_AI_MODEL", "gpt-test")
+    monkeypatch.setenv("ANANTA_TUI_SNAKE_AI_API_BASE_URL", "http://localhost:9999/v1")
+    monkeypatch.setenv("ANANTA_TUI_SNAKE_AI_API_TOKEN", "secret-token")
+
+    class _FakeResp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return b'{"choices":[{"message":{"content":"Use [Tab] to switch focus."}}]}'
+
+    monkeypatch.setattr("client_surfaces.operator_tui.interactive.urllib.request.urlopen", lambda req, timeout=0: _FakeResp())
+
+    tip = tui._tutorial_ai_llm_message(now=1.0, status="status", hints=["hint"])
+
+    assert tip == "Use [Tab] to switch focus."
 
 
 def test_snake_message_style_and_color_can_cycle() -> None:
