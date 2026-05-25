@@ -2135,6 +2135,22 @@ class InteractiveOperatorTui:
         else:
             game["message"] = message
             game["tutorial_user_feed"] = message
+            if message:
+                target = str(game.get("tutorial_ai_contact_zone") or self.state.section_id or "content")
+                history_raw = game.get("tutorial_propose_history")
+                history = [dict(item) for item in history_raw if isinstance(item, dict)] if isinstance(history_raw, list) else []
+                history.append(
+                    {
+                        "at": float(time.monotonic()),
+                        "source": "user",
+                        "target": target,
+                        "text": message,
+                    }
+                )
+                game["tutorial_propose_history"] = history[-8:]
+                # Force a fresh AI response after a new user question.
+                self._tutorial_worker_cache = (0.0, "")
+                self._tutorial_llm_cache = (0.0, "")
             status_message = "snake message/feed: gespeichert"
         game["message_mode"] = False
         game["message_draft"] = ""
