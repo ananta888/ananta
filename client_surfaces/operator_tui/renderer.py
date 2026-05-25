@@ -284,6 +284,7 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
         if game.get("message_mode"):
             draft = str(game.get("message_draft", ""))
             lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} MSG* {draft}", width))
+        return lines
     for i, key in enumerate(CONFIG_ITEMS):
         cursor = DEFAULT_THEME.selected_prefix if i == state.selected_index else DEFAULT_THEME.idle_prefix
         label = CONFIG_LABELS[key]
