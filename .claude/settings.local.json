@@ -164,7 +164,8 @@
       "Bash(grep -v \"WARNING\\\\|INFO\\\\|DEBUG\\\\|^$\")",
       "Bash(ananta --version)",
       "Bash(.venv/bin/pip show *)",
-      "Bash(asciinema --version)"
+      "Bash(asciinema --version)",
+      "Bash(.venv/bin/ananta --version)"
     ]
   }
 }
