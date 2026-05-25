@@ -31,11 +31,17 @@ except ModuleNotFoundError:
     from scripts.e2e.e2e_artifacts import write_text_artifact
 
 
-def _asciinema_v2_lines(*, title: str, frames: list[tuple[float, str]]) -> str:
+def _asciinema_v2_lines(
+    *,
+    title: str,
+    frames: list[tuple[float, str]],
+    width: int = 104,
+    height: int = 30,
+) -> str:
     header = {
         "version": 2,
-        "width": 104,
-        "height": 30,
+        "width": max(40, int(width)),
+        "height": max(12, int(height)),
         "title": title,
         "env": {"TERM": "xterm-256color", "COLORTERM": "truecolor"},
     }
@@ -369,7 +375,7 @@ def _snake_mode_live_cast(*, run_id: str) -> str:
         )
         screen = render_operator_shell(state, width=120, height=32)
         frames.append((base_time + idx * 0.7, "\u001b[2J\u001b[H" + screen + "\n"))
-    return _asciinema_v2_lines(title="Ananta Operator TUI – Snake Mode Live", frames=frames)
+    return _asciinema_v2_lines(title="Ananta Operator TUI – Snake Mode Live", frames=frames, width=120, height=32)
 
 
 def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
@@ -520,7 +526,12 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     # normalize timestamps to monotonic cast timeline
     first_ts = events[0][0]
     normalized = [(max(0.0, ts - first_ts), frame) for ts, frame in events]
-    return _asciinema_v2_lines(title=f"Ananta Operator TUI – Snake Mode Live E2E ({run_id})", frames=normalized)
+    return _asciinema_v2_lines(
+        title=f"Ananta Operator TUI – Snake Mode Live E2E ({run_id})",
+        frames=normalized,
+        width=width,
+        height=height,
+    )
 
 
 def _sync_tutorial_ai_live_cast_targets(

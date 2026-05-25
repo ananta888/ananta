@@ -92,6 +92,8 @@ def test_tui_snake_mode_live_recording_contains_real_tui_frames(tmp_path: Path) 
     header = json.loads(lines[0])
     assert header["version"] == 2
     assert "Snake Mode Live" in header["title"]
+    assert header["width"] == 120
+    assert header["height"] == 32
 
     frames = [json.loads(line) for line in lines[1:]]
     assert len(frames) >= 5
