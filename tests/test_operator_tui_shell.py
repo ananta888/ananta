@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from argparse import Namespace
+from pathlib import Path
 
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import build_initial_state, load_active_section
@@ -413,6 +415,59 @@ def test_snake_no_longer_selects_sections_from_screen_regions() -> None:
 
     assert tui.state.section_id == "dashboard"
     assert tui.state.focus is FocusPane.HEADER
+
+
+def test_snake_message_can_be_saved_to_config(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "message_mode": True,
+        "message_draft": "Hallo Snake",
+        "board_w": 18,
+        "board_h": 6,
+        "snake": [(6, 3), (5, 3), (4, 3)],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    tui._snake_commit_message()
+
+    cfg = Path(tmp_path) / ".config" / "ananta" / "snake-config.json"
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    assert data["snake_message"] == "Hallo Snake"
+    assert (tui.state.header_logo_game or {}).get("message") == "Hallo Snake"
+
+
+def test_snake_message_mode_typing_and_backspace() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "board_w": 18,
+        "board_h": 6,
+        "snake": [(6, 3), (5, 3), (4, 3)],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    tui._toggle_snake_message_mode()
+    tui._snake_message_append("A")
+    tui._snake_message_append("B")
+    tui._snake_message_backspace()
+
+    g = tui.state.header_logo_game or {}
+    assert g.get("message_mode") is True
+    assert g.get("message_draft") == "A"
 
 
 def test_snake_immediate_brake_sets_velocity_zero() -> None:
