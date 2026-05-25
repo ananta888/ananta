@@ -1,0 +1,26 @@
+{
+  "id": "ananta-deterministic-policy",
+  "title": "Deterministische Policies statt LLM-Ermessen",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-hub-worker-basics", "ananta-artifact-first"],
+  "learning_goals": [
+    "Sicherheitsentscheidungen als deterministische Policy-Pruefung verstehen",
+    "allow/deny aus Objektzustand und Grant-Kontext ableiten",
+    "LLM-Output von Autorisierungslogik trennen"
+  ],
+  "references": ["docs/security/context-release-gates.md", "docs/security/artifact-object-policy.md"],
+  "lessons": [
+    {"id": "policy-inputs", "title": "Objektzustand, Grants und Zielruntime", "type": "lesson"},
+    {"id": "deny-by-default", "title": "Default-Deny und explizite Freigabe", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "deterministic-policy-cases",
+    "title": "Mehrere Policy-Faelle als allow/deny entscheiden",
+    "acceptance_criteria": [
+      "Entscheidungen sind reproduzierbar",
+      "Begruendung nennt Policy-Regel statt LLM-Bauchgefuehl",
+      "Artefaktfreigaben und Tally-Kontext werden korrekt abgegrenzt"
+    ]
+  }
+}

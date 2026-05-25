@@ -1,0 +1,26 @@
+{
+  "id": "ananta-crypto-basics",
+  "title": "Kryptographie-Grundlagen fuer Ananta",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-game-basics"],
+  "learning_goals": [
+    "Hash, Signatur, symmetrische und asymmetrische Kryptographie einordnen",
+    "Krypto-Bausteine in Ananta-Use-Cases anwenden",
+    "Eigenbau-Krypto in Production als Risiko verstehen"
+  ],
+  "references": ["docs/security/artifact-encryption-model.md"],
+  "lessons": [
+    {"id": "crypto-primitives", "title": "Krypto-Grundbausteine", "type": "lesson"},
+    {"id": "actionlog-hash-chain", "title": "ActionLog-Hash-Kette als Praxisbeispiel", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "classify-crypto-usage",
+    "title": "Mehrere Szenarien den passenden Krypto-Bausteinen zuordnen",
+    "acceptance_criteria": [
+      "Korrekte Zuordnung von Hash/Signatur/Encryption",
+      "Warnung vor Eigenbau-Krypto ist explizit",
+      "Nur Demo-Schluessel und Testdaten"
+    ]
+  }
+}

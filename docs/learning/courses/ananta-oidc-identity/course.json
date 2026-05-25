@@ -1,0 +1,26 @@
+{
+  "id": "ananta-oidc-identity",
+  "title": "OIDC/Keycloak und Identitaet",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-crypto-basics"],
+  "learning_goals": [
+    "OIDC als Identitaetsschicht in Ananta einordnen",
+    "Token, Claims und Rollen fuer Freigaben bewerten",
+    "User/Device-Bindung konzeptionell anwenden"
+  ],
+  "references": ["agent/routes/auth_oidc.py", "docs/security/oidc.md"],
+  "lessons": [
+    {"id": "oidc-claims", "title": "Token und Claims im Freigabekontext", "type": "lesson"},
+    {"id": "identity-boundaries", "title": "OIDC ist nicht Transport oder Allzweck-Verschluesselung", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "claims-for-artifact-access",
+    "title": "Relevante Claims fuer Artefaktfreigaben auswaehlen",
+    "acceptance_criteria": [
+      "Claims werden begruendet auf Rechtewirkung abgebildet",
+      "Keine Speicherung echter Tokens in Uebungsartefakten",
+      "Identity und Encryption werden korrekt getrennt"
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "ananta-cli-tui-safe-use",
+  "title": "CLI/TUI sicher nutzen",
+  "version": "1.0",
+  "status": "planned",
+  "prerequisites": ["ananta-hub-worker-basics"],
+  "learning_goals": [
+    "Sichere CLI/TUI-Nutzung und Statusinterpretation",
+    "Riskante Shell-Operationen erkennen und vermeiden",
+    "Analysebefehle von destruktiven Aktionen trennen"
+  ],
+  "references": ["docs/security/shell-command-policy.md"],
+  "lessons": [
+    {"id": "safe-cli-patterns", "title": "Sichere Kommando-Muster", "type": "lesson"},
+    {"id": "tui-status-signals", "title": "TUI-Status und Freigabehinweise lesen", "type": "lesson"}
+  ],
+  "exercise": {
+    "id": "classify-shell-actions",
+    "title": "Befehle als safe-read, guarded-write oder forbidden klassifizieren",
+    "acceptance_criteria": [
+      "Read-only Analysebefehle werden korrekt erkannt",
+      "Riskante Write/Delete-Befehle werden korrekt markiert",
+      "Keine Freischaltung echter destruktiver Rechte"
+    ]
+  }
+}
