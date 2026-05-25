@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import fcntl
 import json
 import os
 import pty
+import re
 import select
 import shlex
 import struct
@@ -394,25 +396,24 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     env.setdefault("ANANTA_TUI_SNAKE_AI_API_BASE_URL", str(env.get("ANANTA_TUI_LLM_API_BASE") or "http://127.0.0.1:1234/v1"))
     env.setdefault("ANANTA_TUI_SNAKE_AI_API_TOKEN", str(env.get("ANANTA_TUI_LLM_API_TOKEN") or ""))
 
-    # Timed scripted walkthrough:
-    # local snake -> nav artifact area -> tutorial AI on -> user question(s) -> AI replies -> quit.
-    script_steps: list[tuple[float, bytes]] = [
-        (2.6, b"\x13"),  # Ctrl+S snake mode on
-        (3.0, b"\x1b[D" * 14),
-        (3.5, b"\x1b[B" * 11),
-        (4.2, b" "),  # brake near nav
-        (4.8, b"u"),  # tutorial ai on
-        (8.6, b"m"),
-        (8.9, "Was zeigt mir der Menüpunkt artifacts in diesem Projekt?".encode("utf-8")),
-        (9.2, b"\r"),
-        (14.8, b"\x1b[C" * 20),
-        (15.6, b" "),
-        (16.0, b"m"),
-        (16.3, "Welche Artefakte sind für die TUI und den Cast relevant?".encode("utf-8")),
-        (16.6, b"\r"),
-        (22.8, b"\x1b[C" * 5 + b"\x1b[B" * 3),
-        (23.4, b" "),
-        (28.0, b"q"),
+    # Event-driven walkthrough:
+    # wait for usable TUI frame -> snake to nav/artifacts -> tutorial AI -> user asks -> AI answers -> quit.
+    script_actions: list[dict[str, object]] = [
+        {"at": 4.0, "need": "endpoint=", "send": b"\x13"},  # Ctrl+S
+        {"at": 5.0, "need": "", "send": (b"\x1b[B" * 12)},
+        {"at": 6.4, "need": "", "send": b" "},  # brake near nav menu rows
+        {"at": 6.9, "need": "", "send": b"\x13"},  # snake off
+        {"at": 7.5, "need": "", "send": b"jjj\r"},  # select/open Artifacts in NAV
+        {"at": 9.0, "need": "", "send": b"\x13"},  # snake on again
+        {"at": 9.6, "need": "", "send": b"u"},  # enable tutorial ai
+        {"at": 11.0, "need": "", "send": b"m"},
+        {"at": 11.3, "need": "", "send": "Erkläre den Menüpunkt Artifacts in diesem Projekt.".encode("utf-8")},
+        {"at": 11.8, "need": "", "send": b"\r"},
+        {"at": 16.0, "need": "", "send": b"m"},
+        {"at": 16.3, "need": "", "send": "Welche Cast- und Bericht-Artefakte sind hier wichtig?".encode("utf-8")},
+        {"at": 16.8, "need": "", "send": b"\r"},
+        {"at": 24.0, "need": "", "send": (b"\x1b[C" * 4 + b"\x1b[B" * 2 + b" ")},
+        {"at": 31.0, "need": "", "send": b"q"},
     ]
 
     master_fd, slave_fd = pty.openpty()
@@ -435,22 +436,41 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     os.close(slave_fd)
 
     events: list[tuple[float, str]] = []
-    script_index = 0
+    action_index = 0
     started = time.monotonic()
     forced_quit_sent = False
+    ansi_re = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
+    text_tail = ""
 
     try:
         while True:
             elapsed = time.monotonic() - started
-            while script_index < len(script_steps) and elapsed >= script_steps[script_index][0]:
-                os.write(master_fd, script_steps[script_index][1])
-                script_index += 1
+            while action_index < len(script_actions):
+                action = script_actions[action_index]
+                at = float(action.get("at") or 0.0)
+                need = str(action.get("need") or "")
+                if elapsed < at:
+                    break
+                if need and need not in text_tail:
+                    break
+                payload = action.get("send")
+                if isinstance(payload, bytes):
+                    os.write(master_fd, payload)
+                action_index += 1
 
             readable, _, _ = select.select([master_fd], [], [], 0.08)
             if readable:
-                chunk = os.read(master_fd, 65536)
+                try:
+                    chunk = os.read(master_fd, 65536)
+                except OSError as exc:
+                    if exc.errno == errno.EIO:
+                        chunk = b""
+                    else:
+                        raise
                 if chunk:
                     text = chunk.decode("utf-8", errors="replace")
+                    plain = ansi_re.sub("", text)
+                    text_tail = (text_tail + plain)[-12000:]
                     if events:
                         events.append((elapsed, text))
                     else:
