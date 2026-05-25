@@ -1,0 +1,404 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "ananta_strategy_game_split_coin_tally_economy",
+  "created": "2026-05-25",
+  "status": "backlog",
+  "purpose": "Erweiterungsmodul fuer das Ananta Strategie-Game: historisch inspiriertes Geldsystem aus chinesischem Muenzmodell und Kerbholz-/Tally-System.",
+  "goal": "Ein neues spielbares Geldsystem entwerfen, das mobile Muenzen, pruefbare Schulden, Vertrauen, Forderungen und deterministische Game-State-Transitions verbindet.",
+  "readme": "docs/examples/ananta-game/README.split-coin-tally-economy.md",
+  "scope_decision": {
+    "active_in_brutal_mvp": false,
+    "reason": "Das Brutal-MVP soll nur Soma, AP, Kampf, Ashram, Naga, Rishi, Deva und Nagabanda testen. Economy wuerde den ersten Playtest verwaschen.",
+    "activation_gate": [
+      "Brutal-MVP-Regeln sind stabil dokumentiert.",
+      "Mindestens ein Papier-Playtest ist ausgewertet.",
+      "Minimaler Game-Core fuer Bewegung, AP, Kampf und Nagabanda ist modelliert oder geplant.",
+      "Economy wird als eigener Milestone aktiviert."
+    ]
+  },
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "ECO01",
+      "title": "Historisches Konzept sauber erklaeren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["ECO001", "ECO002", "ECO003"]
+    },
+    {
+      "id": "ECO02",
+      "title": "Spielmechanik fuer Muenzen und Kerbholz definieren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["ECO004", "ECO005", "ECO006", "ECO007"]
+    },
+    {
+      "id": "ECO03",
+      "title": "Game-State und Actions modellieren",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["ECO008", "ECO009", "ECO010", "ECO011"]
+    },
+    {
+      "id": "ECO04",
+      "title": "Tests und Edge Cases vorbereiten",
+      "status": "todo",
+      "priority": "P1",
+      "task_ids": ["ECO012", "ECO013", "ECO014", "ECO015"]
+    },
+    {
+      "id": "ECO05",
+      "title": "Ananta-Agentenflow als Demo nutzbar machen",
+      "status": "todo",
+      "priority": "P2",
+      "task_ids": ["ECO016", "ECO017", "ECO018"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "ECO001",
+      "title": "Chinesisches Muenzmodell als Spielinspiration beschreiben",
+      "type": "documentation",
+      "milestone_id": "ECO01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "summary": "Beschreibt runde gelochte Muenzen als mobile, buendelbare und standardisierte Werttraeger.",
+      "deliverables": ["Abschnitt in README.split-coin-tally-economy.md"],
+      "acceptance_criteria": [
+        "Erklaert Muenzen als transportierbaren Standardwert.",
+        "Erklaert Buendelbarkeit/Schnur als spielmechanische Inspiration.",
+        "Vermeidet Anspruch auf exakte historische Simulation.",
+        "Leitet daraus konkrete Spielrollen wie Markt, Steuer, Sold und Tribut ab."
+      ]
+    },
+    {
+      "id": "ECO002",
+      "title": "Kerbholz-/Tally-System als Anspruchs- und Schuldsystem erklaeren",
+      "type": "documentation",
+      "milestone_id": "ECO01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "summary": "Erklaert das Prinzip gespaltener Kerbhoelzer als manipulationsarmes Nachweissystem.",
+      "deliverables": ["Abschnitt in README.split-coin-tally-economy.md"],
+      "acceptance_criteria": [
+        "Erklaert Schuldner- und Glaeubigerhaelfte.",
+        "Erklaert, warum passende Bruchkante und Kerben als Nachweis dienen.",
+        "Leitet daraus Spielkonzepte wie Forderung, Tribut, Kredit und Lieferrecht ab.",
+        "Trennt Kerbholz klar von frei handelbarer Muenze."
+      ]
+    },
+    {
+      "id": "ECO003",
+      "title": "Split-Coin-Tally-System als neues Geldsystem definieren",
+      "type": "concept_design",
+      "milestone_id": "ECO01",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Verbindet Muenzen und Kerbholz zu einem zweischichtigen Geldsystem.",
+      "deliverables": ["README Diagramm und Konzeptabschnitt"],
+      "acceptance_criteria": [
+        "Definiert Muenze als Wertseite.",
+        "Definiert Kerbholz als Vertrauens-/Schuldseite.",
+        "Beschreibt die Kombination als Wert + Vertrag + Vertrauen + Audit.",
+        "Enthaelt ein Mermaid-Diagramm fuer die Systemstruktur."
+      ]
+    },
+    {
+      "id": "ECO004",
+      "title": "Standardmuenzen und lokale Muenzen regeltechnisch unterscheiden",
+      "type": "rules",
+      "milestone_id": "ECO02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Definiert einfache Standardmuenzen und optional lokale Praegungen.",
+      "dependencies": ["ECO001", "ECO003"],
+      "deliverables": ["docs/examples/ananta-game/economy_coin_rules.md"],
+      "acceptance_criteria": [
+        "Standardmuenzen sind ohne Wechselkurs direkt nutzbar.",
+        "Lokale Muenzen sind als spaetere optionale Erweiterung markiert.",
+        "Regeln nennen mindestens Baukosten, Handel, Sold oder Tribut als Einsatzfelder.",
+        "Keine Muenzregel erzwingt Aenderungen am Brutal-MVP."
+      ]
+    },
+    {
+      "id": "ECO005",
+      "title": "Tally-Vertraege als Schuld-, Tribut- und Lieferanspruch definieren",
+      "type": "rules",
+      "milestone_id": "ECO02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Definiert, wann ein Kerbholz entsteht und was es repraesentieren darf.",
+      "dependencies": ["ECO002", "ECO003"],
+      "deliverables": ["docs/examples/ananta-game/economy_tally_rules.md"],
+      "acceptance_criteria": [
+        "Tally kann fuer COINS, SOMA, UNIT_SERVICE und PASSAGE_RIGHT stehen.",
+        "Jeder Tally hat Schuldner, Glaeubiger, Wert, Status und optionale Faelligkeit.",
+        "Einloesung, Bruch, Verlust, Eroberung und Aufhebung sind als Zustaende beschrieben.",
+        "Regel erklaert, dass Tally keine anonyme Muenze ist."
+      ]
+    },
+    {
+      "id": "ECO006",
+      "title": "Vertrauenssystem minimal definieren",
+      "type": "rules",
+      "milestone_id": "ECO02",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "summary": "Definiert eine kleine Reputationsebene fuer Vertragsbruch und Handel.",
+      "dependencies": ["ECO005"],
+      "deliverables": ["Abschnitt in economy_tally_rules.md"],
+      "acceptance_criteria": [
+        "Vertrauen ist als einfacher Zahlenwert modellierbar.",
+        "Vertragsbruch veraendert Vertrauen deterministisch.",
+        "Hohe oder niedrige Vertrauenwerte koennen Handel beeinflussen, muessen aber im ersten Economy-Step noch keine komplexen Boni haben.",
+        "Keine psychologische oder heuristische Bewertung durch LLMs ist noetig."
+      ]
+    },
+    {
+      "id": "ECO007",
+      "title": "Beispieltransaktionen dokumentieren",
+      "type": "documentation",
+      "milestone_id": "ECO02",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "summary": "Schreibt konkrete Beispiele fuer Kauf, Kredit, Tribut und Vertragsbruch.",
+      "dependencies": ["ECO004", "ECO005", "ECO006"],
+      "deliverables": ["docs/examples/ananta-game/economy_examples.md"],
+      "acceptance_criteria": [
+        "Mindestens ein Beispiel fuer Sofortzahlung mit Muenzen ist enthalten.",
+        "Mindestens ein Beispiel fuer Restschuld per Tally ist enthalten.",
+        "Mindestens ein Beispiel fuer Tribut ist enthalten.",
+        "Mindestens ein Beispiel fuer Vertragsbruch mit Vertrauensverlust ist enthalten."
+      ]
+    },
+    {
+      "id": "ECO008",
+      "title": "EconomyState TypeScript-Modell entwerfen",
+      "type": "technical_design",
+      "milestone_id": "ECO03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Definiert CoinAccount, TallyContract und Trust-Matrix als serialisierbaren State.",
+      "dependencies": ["ECO004", "ECO005"],
+      "deliverables": ["docs/examples/ananta-game/economy_game_state_model.md"],
+      "acceptance_criteria": [
+        "CoinAccount enthaelt Standardmuenzen und optionale lokale Muenzen.",
+        "TallyContract enthaelt id, debtor, creditor, valueType, amount, turns, half owners und status.",
+        "Trust ist zwischen Spielern abbildbar.",
+        "State ist JSON-serialisierbar und replay-faehig."
+      ]
+    },
+    {
+      "id": "ECO009",
+      "title": "Deterministische Economy-Actions definieren",
+      "type": "technical_design",
+      "milestone_id": "ECO03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Definiert die erlaubten Actions fuer das Economy-Modul.",
+      "dependencies": ["ECO008"],
+      "deliverables": ["Abschnitt in economy_game_state_model.md"],
+      "acceptance_criteria": [
+        "TRANSFER_COINS ist definiert.",
+        "CREATE_TALLY ist definiert.",
+        "REDEEM_TALLY ist definiert.",
+        "BREAK_TALLY ist definiert.",
+        "CAPTURE_TALLY_HALF ist definiert.",
+        "VOID_TALLY ist definiert.",
+        "Jede Action hat Validierungsregeln und Fehlgruende."
+      ]
+    },
+    {
+      "id": "ECO010",
+      "title": "Tally-State-Machine dokumentieren",
+      "type": "technical_design",
+      "milestone_id": "ECO03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "summary": "Beschreibt erlaubte Statuswechsel eines TallyContract.",
+      "dependencies": ["ECO005", "ECO009"],
+      "deliverables": ["Mermaid State Diagram in README oder economy_tally_rules.md"],
+      "acceptance_criteria": [
+        "active, redeemed, broken, captured, lost und void sind enthalten.",
+        "Ungueltige Rueckspruenge sind ausgeschlossen.",
+        "Captured ist als Besitzwechsel, nicht automatisch als Einloesung modelliert.",
+        "Diagramm ist in Mermaid darstellbar."
+      ]
+    },
+    {
+      "id": "ECO011",
+      "title": "ActionLog- und Replay-Beispiel fuer Economy erstellen",
+      "type": "technical_design",
+      "milestone_id": "ECO03",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Zeigt, wie Economy-Zustand aus InitialState und Actions reproduzierbar wird.",
+      "dependencies": ["ECO008", "ECO009"],
+      "deliverables": ["docs/examples/ananta-game/economy_action_log_example.json"],
+      "acceptance_criteria": [
+        "Beispiel enthaelt mindestens sechs Economy-Actions.",
+        "InitialState + ActionLog fuehren zu eindeutigem EndState.",
+        "Mindestens eine Tally-Erstellung und eine Einloesung sind enthalten.",
+        "Mindestens ein Fehlfall ist als rejected action dokumentiert."
+      ]
+    },
+    {
+      "id": "ECO012",
+      "title": "Testplan fuer Coin-Transfers schreiben",
+      "type": "testing",
+      "milestone_id": "ECO04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "summary": "Definiert Tests fuer einfache Muenzbewegungen.",
+      "dependencies": ["ECO009"],
+      "deliverables": ["docs/examples/ananta-game/economy_test_plan.md"],
+      "acceptance_criteria": [
+        "Transfer mit ausreichendem Bestand ist gueltig.",
+        "Transfer mit zu geringem Bestand wird abgelehnt.",
+        "Negative Betraege werden abgelehnt.",
+        "Replay erzeugt identische CoinAccount-Zustaende."
+      ]
+    },
+    {
+      "id": "ECO013",
+      "title": "Testplan fuer Tally-Einloesung und Vertragsbruch schreiben",
+      "type": "testing",
+      "milestone_id": "ECO04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Definiert Tests fuer aktive, faellige, eingeloeste und gebrochene Tallys.",
+      "dependencies": ["ECO009", "ECO010"],
+      "deliverables": ["Abschnitt in economy_test_plan.md"],
+      "acceptance_criteria": [
+        "Faelliger aktiver Tally kann korrekt eingeloest werden.",
+        "Nicht faelliger Tally kann nur bei erlaubter Regel eingeloest werden.",
+        "Bereits redeemed Tally kann nicht erneut eingeloest werden.",
+        "Broken Tally veraendert Vertrauen deterministisch."
+      ]
+    },
+    {
+      "id": "ECO014",
+      "title": "Testplan fuer Eroberung und Besitzwechsel von Tally-Haelften schreiben",
+      "type": "testing",
+      "milestone_id": "ECO04",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "summary": "Definiert Tests fuer captured/lost und Besitzwechsel der Glaeubigerhaelfte.",
+      "dependencies": ["ECO010"],
+      "deliverables": ["Abschnitt in economy_test_plan.md"],
+      "acceptance_criteria": [
+        "Glaeubigerhaelfte kann Besitzer wechseln, wenn eine gueltige Capture-Regel greift.",
+        "Schuldnerhaelfte und Glaeubigerhaelfte werden getrennt betrachtet.",
+        "Captured fuehrt nicht automatisch zu Auszahlung.",
+        "Lost verhindert oder erschwert Einloesung gemaess dokumentierter Regel."
+      ]
+    },
+    {
+      "id": "ECO015",
+      "title": "Balance-Risiken und Missbrauchsfaelle dokumentieren",
+      "type": "risk_analysis",
+      "milestone_id": "ECO04",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "summary": "Beschreibt, wo das System spielerisch kippen kann.",
+      "dependencies": ["ECO007", "ECO013", "ECO014"],
+      "deliverables": ["docs/examples/ananta-game/economy_risks.md"],
+      "acceptance_criteria": [
+        "Inflation/zu viele Muenzen ist als Risiko benannt.",
+        "Tally-Spam ist als Risiko benannt.",
+        "Endlos-Schuldenketten sind als Risiko benannt.",
+        "Eroberung von Forderungen ist als starkes politisches Werkzeug bewertet.",
+        "Mindestens drei einfache Begrenzungsregeln sind vorgeschlagen."
+      ]
+    },
+    {
+      "id": "ECO016",
+      "title": "Ananta-Goal-Prompt fuer Economy-Modul formulieren",
+      "type": "agent_flow",
+      "milestone_id": "ECO05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "summary": "Schreibt einen konkreten Goal-Text fuer Agentenarbeit am Economy-Modul.",
+      "dependencies": ["ECO003"],
+      "deliverables": ["docs/examples/ananta-game/economy_agent_goal.md"],
+      "acceptance_criteria": [
+        "Goal verlangt keine direkte Umsetzung im Brutal-MVP.",
+        "Goal fordert getrennte Artefakte fuer Regeln, Modell und Tests.",
+        "Goal nennt Muenzen und Kerbholz als zwei getrennte Schichten.",
+        "Goal fordert deterministische Actions und Replay-Faehigkeit."
+      ]
+    },
+    {
+      "id": "ECO017",
+      "title": "Worker-Rollen fuer Economy-Design trennen",
+      "type": "agent_flow",
+      "milestone_id": "ECO05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "summary": "Definiert getrennte Rollen fuer Historie, Game-Design, Modellierung und Tests.",
+      "dependencies": ["ECO016"],
+      "deliverables": ["docs/examples/ananta-game/economy_worker_roles.md"],
+      "acceptance_criteria": [
+        "Historie-Worker darf nur Inspiration und Begriffe klaeren.",
+        "Game-Design-Worker darf Regeln vorschlagen, aber nicht aktiv implementieren.",
+        "Model-Worker darf State und Actions spezifizieren.",
+        "Test-Worker muss Edge Cases und Replay pruefen.",
+        "Kein Worker darf Scope-Gate gegen Brutal-MVP umgehen."
+      ]
+    },
+    {
+      "id": "ECO018",
+      "title": "Demo-Review-Check fuer Economy-Modul definieren",
+      "type": "verification",
+      "milestone_id": "ECO05",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "summary": "Macht pruefbar, ob Ananta das Modul sauber geplant statt chaotisch erweitert hat.",
+      "dependencies": ["ECO016", "ECO017"],
+      "deliverables": ["docs/examples/ananta-game/economy_demo_review_check.md"],
+      "acceptance_criteria": [
+        "Review prueft, ob Economy nicht im Brutal-MVP gelandet ist.",
+        "Review prueft, ob README, Regeln, State-Modell und Tests getrennt sind.",
+        "Review prueft, ob alle Mermaid-Diagramme renderbar sind.",
+        "Review prueft, ob Acceptance Criteria pro Task konkret und testbar sind."
+      ]
+    }
+  ],
+  "first_recommended_working_set_after_activation": [
+    "ECO004",
+    "ECO005",
+    "ECO008",
+    "ECO009",
+    "ECO012",
+    "ECO013"
+  ],
+  "definition_of_done": [
+    "README beschreibt chinesisches Muenzmodell und Kerbholzsystem als getrennte Inspirationen.",
+    "Split-Coin-Tally-System ist als neues kombiniertes Geldsystem erklaert.",
+    "Muenzen, Tallys, Vertrauen und Audit sind regeltechnisch getrennt.",
+    "EconomyState und Actions sind JSON-serialisierbar und replay-faehig planbar.",
+    "Tests fuer Transfer, Einloesung, Bruch, Eroberung und Replay sind definiert.",
+    "Scope-Gate verhindert Einbau in den Brutal-MVP vor Playtest-Auswertung."
+  ]
+}
