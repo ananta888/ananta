@@ -415,6 +415,44 @@ def test_tutorial_ai_llm_message_reads_openai_compatible_endpoint(monkeypatch) -
     assert tip == "Use [Tab] to switch focus."
 
 
+def test_tutorial_ai_llm_message_uses_lmstudio_defaults_without_token(monkeypatch) -> None:
+    state = OperatorState(endpoint="http://localhost:5000")
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_MODEL", raising=False)
+    monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_API_BASE_URL", raising=False)
+    monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_API_TOKEN", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_API_BASE", raising=False)
+
+    captured = {}
+
+    class _FakeResp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return b'{"choices":[{"message":{"content":"Use :inspect for details."}}]}'
+
+    def _fake_urlopen(req, timeout=0):
+        captured["url"] = req.full_url
+        captured["authorization"] = req.headers.get("Authorization")
+        captured["body"] = req.data.decode("utf-8")
+        return _FakeResp()
+
+    monkeypatch.setattr("client_surfaces.operator_tui.interactive.urllib.request.urlopen", _fake_urlopen)
+
+    tip = tui._tutorial_ai_llm_message(now=1.0, status="status", hints=["hint"])
+
+    assert tip == "Use :inspect for details."
+    assert captured["url"] == "http://192.168.178.100:1234/v1/chat/completions"
+    assert captured["authorization"] in {None, ""}
+    assert '"model": "google/gemma-4-e4b"' in captured["body"]
+
+
 def test_tutorial_ai_worker_propose_message_reads_step_propose(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000")
     tui = InteractiveOperatorTui(state)

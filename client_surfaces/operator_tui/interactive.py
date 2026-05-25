@@ -7,6 +7,7 @@ import shutil
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -938,20 +939,23 @@ class InteractiveOperatorTui:
         return clipped
 
     def _tutorial_ai_llm_message(self, *, now: float, status: str, hints: list[str]) -> str | None:
-        model = str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "")).strip()
+        model = str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL") or "google/gemma-4-e4b").strip()
         api_base = str(
             os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
             or os.environ.get("OPENAI_BASE_URL")
             or os.environ.get("OPENAI_API_BASE")
-            or ""
+            or "http://192.168.178.100:1234"
         ).strip()
         api_token = str(
             os.environ.get("ANANTA_TUI_SNAKE_AI_API_TOKEN")
             or os.environ.get("OPENAI_API_KEY")
             or ""
         ).strip()
-        if not (model and api_base and api_token):
+        if not (model and api_base):
             return None
+        parsed_api_base = urlparse(api_base)
+        if (not parsed_api_base.path or parsed_api_base.path == "/") and parsed_api_base.netloc.endswith(":1234"):
+            api_base = api_base.rstrip("/") + "/v1"
 
         refresh_seconds = max(2.0, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_REFRESH", "8.0"))))
         cached_at, cached_msg = self._tutorial_llm_cache
@@ -977,13 +981,13 @@ class InteractiveOperatorTui:
             "max_tokens": 90,
         }
         body = json.dumps(payload).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if api_token:
+            headers["Authorization"] = f"Bearer {api_token}"
         request = urllib.request.Request(
             url=api_base.rstrip("/") + "/chat/completions",
             data=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_token}",
-            },
+            headers=headers,
             method="POST",
         )
         try:
@@ -1023,6 +1027,38 @@ class InteractiveOperatorTui:
 
         try:
             from worker.retrieval.codecompass_output_reader import CodeCompassOutputReader
+        except Exception:
+            self._tutorial_codecompass_cache = (now, [])
+            return []
+
+        try:
+            payload = CodeCompassOutputReader().load_from_output_dir(output_dir=out_dir)
+            records = payload.get("records") if isinstance(payload, dict) else []
+            if not isinstance(records, list):
+                records = []
+            hints: list[str] = []
+            for record in records:
+                if not isinstance(record, dict):
+                    continue
+                kind = str(record.get("kind") or record.get("type") or "").strip()
+                file_path = str(record.get("file") or record.get("path") or "").strip()
+                name = str(record.get("name") or record.get("id") or "").strip()
+                if not (kind or file_path or name):
+                    continue
+                parts = []
+                if kind:
+                    parts.append(kind)
+                if name:
+                    parts.append(name)
+                if file_path:
+                    parts.append(file_path)
+                hint = " · ".join(parts)
+                if hint:
+                    hints.append(hint)
+                if len(hints) >= 64:
+                    break
+            self._tutorial_codecompass_cache = (now, hints)
+            return hints
         except Exception:
             self._tutorial_codecompass_cache = (now, [])
             return []
@@ -1103,38 +1139,6 @@ class InteractiveOperatorTui:
                 break
         self._tutorial_rag_cache = (now, context)
         return context
-
-        try:
-            payload = CodeCompassOutputReader().load_from_output_dir(output_dir=out_dir)
-            records = payload.get("records") if isinstance(payload, dict) else []
-            if not isinstance(records, list):
-                records = []
-            hints: list[str] = []
-            for record in records:
-                if not isinstance(record, dict):
-                    continue
-                kind = str(record.get("kind") or record.get("type") or "").strip()
-                file_path = str(record.get("file") or record.get("path") or "").strip()
-                name = str(record.get("name") or record.get("id") or "").strip()
-                if not (kind or file_path or name):
-                    continue
-                parts = []
-                if kind:
-                    parts.append(kind)
-                if name:
-                    parts.append(name)
-                if file_path:
-                    parts.append(file_path)
-                hint = " · ".join(parts)
-                if hint:
-                    hints.append(hint)
-                if len(hints) >= 64:
-                    break
-            self._tutorial_codecompass_cache = (now, hints)
-            return hints
-        except Exception:
-            self._tutorial_codecompass_cache = (now, [])
-            return []
 
     def _resolve_codecompass_output_dir(self) -> Path | None:
         candidates = [
