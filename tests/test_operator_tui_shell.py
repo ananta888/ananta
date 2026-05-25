@@ -818,6 +818,41 @@ def test_snake_frame_mode_collects_multiple_regions_and_copy(monkeypatch) -> Non
     assert copied
 
 
+def test_snake_clear_visual_marks_resets_all_selection_state() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "free_mode": True,
+        "snake": [(2, 1), (1, 1), (0, 1)],
+        "mark_cells": [(2, 1, 4)],
+        "selection_anchor": (2, 1),
+        "selection_cells": [(1, 1), (2, 1)],
+        "selection_regions": [(1, 1, 2, 2)],
+        "selection_frame_mode": True,
+        "selection_frame_anchor": (1, 1),
+        "snakes": {
+            "s1": {"selection_cells": [(1, 1)], "mark_cells": [(1, 1, 2)], "selection_regions": [(1, 1, 1, 1)]},
+            "s2": {"selection_cells": [(3, 3)], "mark_cells": [(3, 3, 2)], "selection_regions": [(3, 3, 3, 3)]},
+        },
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game)
+
+    tui._snake_clear_visual_marks()
+
+    g = tui.state.header_logo_game or {}
+    assert g.get("mark_cells") == []
+    assert g.get("selection_cells") == []
+    assert g.get("selection_regions") == []
+    assert g.get("selection_frame_mode") is False
+    snakes = g.get("snakes") or {}
+    assert isinstance(snakes, dict)
+    assert (snakes.get("s1") or {}).get("selection_cells") == []
+    assert (snakes.get("s2") or {}).get("mark_cells") == []
+
+
 def test_snake_replace_selection_only_in_command_line(monkeypatch) -> None:
     game = {
         "active": True,
