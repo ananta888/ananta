@@ -15,15 +15,13 @@ _MIN_TERMINAL_WIDTH_FOR_STATUS = 40
 _MIN_TERMINAL_WIDTH_FOR_BOTH = 80
 
 # width of the small logo rendered for the persistent TUI header
-_SMALL_LOGO_COLS = 22
-_LOGO_FG = "\x1b[38;2;4;62;98m"   # #043E62 – dark blue
-_ANSI_RST = "\x1b[0m"
+_SMALL_LOGO_COLS = 35
 
 _small_logo_cache: list[str] | None = None
 
 
 def _load_small_logo() -> list[str]:
-    """Return compact ASCII logo (22 cols, ~8 lines, dark-blue colored)."""
+    """Return compact ASCII logo (35 cols, ~8 lines, SVG colors)."""
     global _small_logo_cache
     if _small_logo_cache is not None:
         return _small_logo_cache
