@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from scripts.e2e.record_tui_demo import record_tui_demo
@@ -68,3 +69,36 @@ def test_tui_tutorial_ai_live_recording_default_sync_targets_are_written(tmp_pat
     assert target_paths[0].as_posix().endswith("tests/output/operator_tui_tutorial_ai_live.cast")
     assert target_paths[1].as_posix().endswith("web/www/assets/operator_tui_tutorial_ai_live.cast")
     assert target_paths[2].as_posix().endswith("web/www/assets/operator_tui_splash.cast")
+
+
+def test_tui_snake_mode_live_recording_contains_real_tui_frames(tmp_path: Path) -> None:
+    synced_a = tmp_path / "synced" / "tests-splash.cast"
+    synced_b = tmp_path / "synced" / "web-splash.cast"
+    payload = record_tui_demo(
+        run_id="video-enable-snake-mode-live",
+        flow_id="tui-snake-mode-live-video",
+        enabled=True,
+        scene="snake-mode-live",
+        sync_targets=[synced_a, synced_b],
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    assert payload["status"] == "recorded"
+    video_path = _resolve_ref(payload["video_ref"])
+    assert video_path.exists()
+    assert video_path.name == "video-tui-snake-mode-live.cast"
+
+    lines = [line for line in video_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    header = json.loads(lines[0])
+    assert header["version"] == 2
+    assert "Snake Mode Live" in header["title"]
+
+    frames = [json.loads(line) for line in lines[1:]]
+    assert len(frames) >= 5
+    frame_text = "\n".join(str(frame[2]) for frame in frames if isinstance(frame, list) and len(frame) >= 3)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", frame_text)
+    assert "Tutorial-AI propose flow" in plain
+    assert "endpoint=http://localhost:5000" in plain
+    assert "snake demo" in plain
+    assert synced_a.exists()
+    assert synced_b.exists()

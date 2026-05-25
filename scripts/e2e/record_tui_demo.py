@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 from typing import Any
 
+from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
+from client_surfaces.operator_tui.renderer import render_operator_shell
+
 try:
     from scripts.e2e.e2e_artifacts import write_text_artifact
 except ModuleNotFoundError:
@@ -78,6 +81,94 @@ def _tutorial_ai_live_cast(*, run_id: str) -> str:
     return _asciinema_v2_lines(title="Ananta Operator TUI – Tutorial AI Snake Live", frames=frames)
 
 
+def _snake_mode_live_cast(*, run_id: str) -> str:
+    positions = [
+        ((82, 8), (68, 9), "header", "Ich starte oben: Endpoint, Auth und Status."),
+        ((80, 10), (62, 12), "nav", "Links findest du Goals/Tasks Navigation."),
+        ((76, 13), (58, 15), "content", "In der Mitte siehst du den aktiven Arbeitskontext."),
+        ((72, 17), (64, 18), "detail", "Rechts sind Details/Inspektionsdaten."),
+        ((68, 20), (66, 20), "follow", "Ich bin jetzt bei deiner Position und erkläre diesen Bereich."),
+        ((64, 22), (64, 22), "follow", "Nächster Schritt: Section wählen und dann :inspect nutzen."),
+    ]
+    frames: list[tuple[float, str]] = []
+    history: list[dict[str, object]] = []
+    for idx, (local_head, ai_head, target, text) in enumerate(positions):
+        history.append({"at": float(idx), "source": "openai-compatible", "target": target, "text": text})
+        local_snake = [
+            local_head,
+            ((local_head[0] - 1) % 120, local_head[1]),
+            ((local_head[0] - 2) % 120, local_head[1]),
+            ((local_head[0] - 3) % 120, local_head[1]),
+        ]
+        ai_snake = [
+            ai_head,
+            ((ai_head[0] - 1) % 120, ai_head[1]),
+            ((ai_head[0] - 2) % 120, ai_head[1]),
+            ((ai_head[0] - 3) % 120, ai_head[1]),
+        ]
+        game = {
+            "active": True,
+            "alive": True,
+            "ui_steering": True,
+            "free_mode": True,
+            "tutorial_mode": True,
+            "local_snake_id": "s1",
+            "snake": local_snake,
+            "trail_path": list(local_snake),
+            "message": f"user-snake frame {idx + 1}",
+            "message_style": "ticker",
+            "snake_color": "mint",
+            "tutorial_user_feed": "Erkläre mir die TUI während ich mich bewege.",
+            "tutorial_ai_local_contact": bool(target == "follow"),
+            "tutorial_ai_contact_zone": "content" if target == "follow" else target,
+            "tutorial_propose_history": history[-8:],
+            "snakes": {
+                "s1": {
+                    "id": "s1",
+                    "pseudonym": "local-snake",
+                    "oidc_provider": "local",
+                    "snake": local_snake,
+                    "trail_path": list(local_snake),
+                    "message": "user moves",
+                    "message_style": "trail",
+                    "snake_color": "mint",
+                    "local": True,
+                },
+                "s-ai": {
+                    "id": "s-ai",
+                    "pseudonym": "tutor-ai",
+                    "oidc_provider": "codecompass-ai",
+                    "snake": ai_snake,
+                    "trail_path": list(ai_snake),
+                    "message": text,
+                    "message_style": "ticker",
+                    "snake_color": "amber",
+                    "local": False,
+                    "target_cell": ai_head,
+                },
+            },
+        }
+        state = OperatorState(
+            endpoint="http://localhost:5000",
+            focus=FocusPane.HEADER,
+            section_id="dashboard",
+            status_message=f"snake demo {idx + 1}/6 · run={run_id}",
+            panel_states={"dashboard": PanelState.HEALTHY},
+            section_payloads={
+                "dashboard": {
+                    "agents": {"online": 3, "total": 3},
+                    "queue": {"depth": 2},
+                    "goal_summary": "1 active goal",
+                    "task_summary": "2 running tasks",
+                }
+            },
+            header_logo_game=game,
+        )
+        screen = render_operator_shell(state, width=120, height=32)
+        frames.append((idx * 0.55, "\u001b[2J\u001b[H" + screen + "\n"))
+    return _asciinema_v2_lines(title="Ananta Operator TUI – Snake Mode Live", frames=frames)
+
+
 def _sync_tutorial_ai_live_cast_targets(
     *,
     cast_content: str,
@@ -86,6 +177,26 @@ def _sync_tutorial_ai_live_cast_targets(
     targets = sync_targets or [
         Path("tests/output/operator_tui_tutorial_ai_live.cast"),
         Path("web/www/assets/operator_tui_tutorial_ai_live.cast"),
+        Path("web/www/assets/operator_tui_splash.cast"),
+    ]
+    written: list[str] = []
+    for target in targets:
+        path = Path(target)
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(cast_content, encoding="utf-8")
+        written.append(str(path))
+    return written
+
+
+def _sync_snake_mode_live_cast_targets(
+    *,
+    cast_content: str,
+    sync_targets: list[Path] | None = None,
+) -> list[str]:
+    targets = sync_targets or [
+        Path("tests/output/operator_tui_splash.cast"),
         Path("web/www/assets/operator_tui_splash.cast"),
     ]
     written: list[str] = []
@@ -115,10 +226,15 @@ def record_tui_demo(
             "reason": "video capture disabled (set --enable to record)",
             "video_ref": "",
         }
-    if str(scene).strip().lower() == "tutorial-ai-live":
+    normalized_scene = str(scene).strip().lower()
+    if normalized_scene == "tutorial-ai-live":
         cast_content = _tutorial_ai_live_cast(run_id=run_id)
         file_name = "video-tui-tutorial-ai-live.cast"
         synced_targets = _sync_tutorial_ai_live_cast_targets(cast_content=cast_content, sync_targets=sync_targets)
+    elif normalized_scene == "snake-mode-live":
+        cast_content = _snake_mode_live_cast(run_id=run_id)
+        file_name = "video-tui-snake-mode-live.cast"
+        synced_targets = _sync_snake_mode_live_cast_targets(cast_content=cast_content, sync_targets=sync_targets)
     else:
         cast_content = _asciinema_v2_lines(
             title="Ananta Operator TUI – Demo Placeholder",
