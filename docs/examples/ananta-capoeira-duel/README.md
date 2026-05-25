@@ -1,185 +1,214 @@
-# Ananta Capoeira Duel
+# Ananta Capoeira Terminal Duel
 
 **Status:** neues Mini-Spiel-/Prototyp-Szenario fuer Ananta  
-**Zweck:** extrem kleiner 3D-Capoeira-Duell-Prototyp als kontrolliertes Entwicklungsbeispiel  
-**Technikziel:** zuerst Godot 4, spaeter optional Web/VR/MR  
-**Scope-Regel:** erst Spielgefuehl beweisen, dann Content erweitern.
+**Zweck:** extrem kleiner 3D-Terminal-/ASCII-Capoeira-Duell-Prototyp als kontrolliertes Entwicklungsbeispiel  
+**Technikziel:** zuerst Terminal/TUI mit 3D-Projektion, spaeter optional echter 3D-Renderer  
+**Scope-Regel:** erst 3D-Terminal-Spielgefuehl beweisen, dann Engine/Assets/VR.
 
 ## 1. Grundidee
 
-`Ananta Capoeira Duel` ist ein sehr kleiner 3D-Fighting-Prototyp: 1 gegen 1 in einer Roda, inspiriert von Street Fighter, aber nicht als klassischer Combo-Pruegler. Der Kern liegt auf Capoeira-typischen Bewegungen: Ginga, Distanz, Rhythmus, Ausweichen und kurze Trefferfenster.
+`Ananta Capoeira Terminal Duel` greift die bestehende 3D-Terminal-/ASCII-Idee auf. Es ist kein Godot-First-Projekt. Der erste Prototyp soll im Terminal laufen und eine kleine 3D-Roda mit ASCII-/Unicode-Figuren darstellen.
+
+Die Idee ist: Street-Fighter-artiges Duell, aber als stilisierte Terminal-3D-Simulation mit Capoeira-Bewegungen.
 
 ```text
-Nicht: 20 Figuren, 100 Moves, Story, Online, perfekte Animationen.
-Sondern: Ginga + Distanz + Esquiva + ein sauberer Kick.
+Nicht: Godot-Game, Asset-Pipeline, VR, komplexe Engine.
+Sondern: Terminal-3D-Roda + Ginga + Distanz + Esquiva + Kick.
 ```
 
 ## 2. Brutal-MVP
 
 | Bereich | Entscheidung |
 | --- | --- |
-| Spieler | 1 Spieler gegen Dummy, spaeter lokal 2 Spieler |
-| Arena | kleine runde 3D-Roda |
-| Kamera | seitlich/leicht erhoeht, Street-Fighter-lesbar, aber mit Tiefe |
-| Engine | Godot 4 |
-| Figuren | Platzhalter-Kapseln oder Low-Poly-Dummies |
-| Animation | einfache Keyframe-/Tween-Animationen, noch kein Mocap |
-| Moves | Ginga, Meia Lua, Martelo, Esquiva, Negativa |
-| Kampf | Hitbox/Hurtbox, Punkte statt komplexem Lebensbalken |
-| Ziel | pruefen, ob Capoeira-Bewegung als kleines 3D-Duell Spass macht |
+| Darstellung | Terminal/TUI mit ASCII/Unicode |
+| 3D | einfache eigene 3D-zu-2D-Projektion |
+| Spieler | 1 Spieler gegen Dummy |
+| Arena | kleine runde Roda als projizierter Kreis/Bodenraster |
+| Kamera | feste isometrische oder seitlich erhoehte Terminal-Kamera |
+| Figuren | ASCII-/Unicode-Skelett oder einfache Glyph-Silhouette |
+| Animation | Frame-basierte ASCII-Keyframes |
+| Moves | Ginga, ein Kick, eine Esquiva |
+| Kampf | deterministische Distanz-/Winkel-/Hitbox-Regeln |
+| Ziel | pruefen, ob Capoeira-Bewegung im Terminal lesbar und spielbar wird |
 
 ## 3. Bewusst nicht im ersten Schritt
 
+- Godot/Unity/Unreal
+- echte 3D-Modelle
+- Motion Capture
+- VR/MR/Meta Quest
 - Online-Multiplayer
 - KI-Gegner mit Taktik
 - Story/Kampagne
-- viele Charaktere
 - komplexe Combos
-- Motion Capture
 - realistische Physik
-- VR/MR/Quest
-- Musik-/Rhythmus-System als Pflichtmechanik
 - Asset-Polish
-- Shop/Progression
+- Musik-/Rhythmus-System als Pflichtmechanik
 
-Diese Themen bleiben geparkt, bis der Kern spielbar ist.
+Diese Themen bleiben geparkt, bis der Terminal-Core funktioniert.
 
-## 4. Kern-Loop
+## 4. Terminal-3D-Core
 
 ```mermaid
 flowchart TD
-    A[Start in Ginga] --> B[Distanz lesen]
-    B --> C{Gegner greift an?}
-    C -->|ja| D[Esquiva oder Negativa]
-    D --> E[Konterfenster]
-    C -->|nein| F[Eigenen Angriff vorbereiten]
-    F --> G[Kick ausfuehren]
-    E --> G
-    G --> H{Treffer?}
-    H -->|ja| I[Punkt / kurzer Hit-Stun]
-    H -->|nein| J[Recovery / Risiko]
-    I --> A
+    W[World 3D Coordinates] --> C[Camera Transform]
+    C --> P[Perspective/Isometric Projection]
+    P --> Z[Depth Sort / Z Buffer Light]
+    Z --> R[Terminal Raster]
+    R --> G[Glyph Renderer]
+    G --> F[Frame Output]
+```
+
+Wichtig: Der Renderer muss klein bleiben. Kein vollstaendiger 3D-Engine-Nachbau. Es reicht ein stabiler Mini-Renderer fuer Punkte, Linien, Kreise, einfache Figuren und Hitbox-Debug.
+
+## 5. Kern-Loop
+
+```mermaid
+flowchart TD
+    A[Start in Ginga] --> B[3D-Position und Distanz lesen]
+    B --> C{Dummy / Gegner im Kick-Winkel?}
+    C -->|ja| D[Kick ausfuehren]
+    C -->|nein| E[Position durch Ginga/Step anpassen]
+    D --> F{Trefferfenster aktiv und Distanz passt?}
+    F -->|ja| G[Punkt / Hit Marker]
+    F -->|nein| H[Recovery]
+    E --> I{Angriff erwartet?}
+    I -->|ja| J[Esquiva]
+    I -->|nein| A
+    G --> A
+    H --> A
     J --> A
 ```
 
-## 5. Minimaler Move-Satz
+## 6. Minimaler Move-Satz
 
 ```mermaid
 flowchart LR
-    G[Ginga] --> M1[Meia Lua]
-    G --> M2[Martelo]
-    G --> E1[Esquiva]
-    G --> E2[Negativa]
-    E1 --> C1[Konterfenster]
-    E2 --> C1
-    C1 --> M2
+    G[Ginga Frames] --> S[Step / Position]
+    G --> K[Kick Frames]
+    G --> E[Esquiva Frames]
+    K --> R[Recovery]
+    E --> C[Counter Window spaeter]
+    R --> G
+    C --> G
 ```
 
 | Move | Rolle im MVP |
 | --- | --- |
-| Ginga | Grundrhythmus, Idle, Bewegungsbasis |
-| Meia Lua | weiter Rundtritt, gut sichtbar, laengeres Risiko |
-| Martelo | schneller Kick, kuerzeres Fenster |
-| Esquiva | hohes/mittleres Angriffsfeld ausweichen |
-| Negativa | tiefes Ausweichen, Vorbereitung fuer Konter |
+| Ginga | animierter Grundrhythmus, leichte Positionsverschiebung |
+| Kick | erster lesbarer Angriff, z. B. Martelo oder Meia Lua stark vereinfacht |
+| Esquiva | Ausweichen durch Pose-/Hurtbox-Aenderung |
 
-## 6. Technische Zielarchitektur
+## 7. Technische Zielarchitektur
 
 ```mermaid
 flowchart LR
-    Input[Input] --> Controller[PlayerController]
-    Controller --> MoveState[MoveStateMachine]
-    MoveState --> Anim[AnimationController]
-    MoveState --> Combat[CombatController]
-    Combat --> Hitbox[Hitbox/Hurtbox]
-    Hitbox --> Rules[Deterministic Combat Rules]
-    Rules --> Score[ScoreState]
-    Rules --> Log[ActionLog]
-    Log --> Replay[Replay spaeter]
+    Input[Keyboard Input] --> GameLoop[Fixed Tick GameLoop]
+    GameLoop --> State[GameState]
+    State --> Moves[MoveStateMachine]
+    Moves --> Combat[Combat Rules]
+    State --> Scene[3D Scene Model]
+    Combat --> Score[ScoreState]
+    Combat --> Debug[Hitbox Debug Layer]
+    Scene --> Projector[3D Projector]
+    Projector --> Terminal[Terminal Renderer]
+    Score --> Hud[ASCII HUD]
+    Debug --> Terminal
+    Hud --> Terminal
 ```
 
-Wichtig: Kampfregeln bleiben deterministisch. Die Animation darf visuell weich sein, aber Trefferfenster muessen klar und testbar bleiben.
+Kampf und Rendering bleiben getrennt. Der Renderer zeigt nur den Zustand. Die Regeln entscheiden deterministisch.
 
-## 7. Godot-Prototyp-Struktur
+## 8. Vorgeschlagene Python-Struktur
 
 ```text
-prototypes/ananta-capoeira-duel/
-  project.godot
-  scenes/
-    Main.tscn
-    RodaArena.tscn
-    Fighter.tscn
-    DummyOpponent.tscn
-  scripts/
-    player_controller.gd
-    move_state_machine.gd
-    combat_controller.gd
-    hitbox.gd
-    hurtbox.gd
-    score_state.gd
-    action_log.gd
+prototypes/ananta-capoeira-terminal-duel/
+  README.md
+  pyproject.toml
+  src/ananta_capoeira_terminal_duel/
+    main.py
+    game_loop.py
+    input.py
+    state.py
+    moves.py
+    combat.py
+    projection.py
+    renderer.py
+    glyphs.py
+    hud.py
+    action_log.py
   tests/
-    test_move_state_machine.gd
-    test_hit_detection.gd
-    test_score_rules.gd
+    test_projection.py
+    test_move_state_machine.py
+    test_combat_rules.py
+    test_renderer_smoke.py
 ```
 
-## 8. Ananta-Integration als Entwicklungsbeispiel
+Moegliche Libraries, aber optional:
 
-Der Prototyp soll nicht blind gebaut werden. Ananta soll ihn wie ein kontrolliertes Projekt behandeln.
+- `rich` fuer Terminal-Ausgabe,
+- `textual` spaeter fuer TUI,
+- zuerst notfalls plain ANSI.
+
+## 9. Ananta-Integration als Entwicklungsbeispiel
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant H as Ananta Hub
     participant P as Planner
-    participant G as Godot Worker
+    participant R as Renderer Worker
+    participant G as GameCore Worker
     participant T as Test Worker
-    participant R as Reviewer
+    participant V as Reviewer
 
-    U->>H: Mini 3D Capoeira Duel entwickeln
-    H->>P: Scope auf Brutal-MVP reduzieren
+    U->>H: Terminal-3D Capoeira Duel entwickeln
+    H->>P: Scope auf Terminal-Brutal-MVP reduzieren
     P-->>H: Tasks + Artefakte + Nicht-Ziele
-    H->>G: Roda + Fighter + Ginga-Prototyp
-    H->>T: Tests fuer StateMachine und Trefferfenster
-    G-->>H: Prototyp-Artefakte
+    H->>R: 3D-Projektion + ASCII-Renderer
+    H->>G: GameState + Moves + Combat Rules
+    H->>T: Tests fuer Projektion, StateMachine, Combat
+    R-->>H: Renderer-Artefakte
+    G-->>H: GameCore-Artefakte
     T-->>H: Testbericht
-    H->>R: Review Gate
-    R-->>H: Freigabe oder Rework
+    H->>V: Review Gate
+    V-->>H: Freigabe oder Rework
 ```
 
-## 9. Erfolgskriterien fuer den ersten Prototyp
+## 10. Erfolgskriterien fuer den ersten Prototyp
 
 Der erste MVP ist erfolgreich, wenn:
 
-- eine kleine 3D-Roda laeuft,
-- eine Figur kontrollierbar ist,
-- Ginga als Grundzustand sichtbar ist,
-- mindestens ein Kick mit Hitbox funktioniert,
-- mindestens eine Esquiva/Hurtbox-Verschiebung funktioniert,
-- ein Dummy getroffen werden kann,
-- Punkte deterministic gezaehlt werden,
-- der Scope nicht in Content/Online/VR explodiert.
+- ein Terminal-Fenster eine kleine 3D-Roda zeigt,
+- 3D-Punkte/Objekte stabil in 2D-Terminalkoordinaten projiziert werden,
+- eine Fighter-Glyph-Figur sichtbar und steuerbar ist,
+- Ginga als einfache Frame-Animation sichtbar ist,
+- ein Kick als Animation/Hitbox-Debug sichtbar ist,
+- eine Esquiva als Pose-/Hurtbox-Aenderung sichtbar ist,
+- Treffer deterministisch nach Distanz/Winkel/Fenster erkannt werden,
+- Punkte/HUD im Terminal angezeigt werden,
+- Tests fuer Projektion, MoveState und Combat existieren.
 
-## 10. Leitregel
+## 11. Leitregel
 
-Bis der Mini-Prototyp Spass macht:
+Bis der Terminal-Prototyp Spass macht:
 
-> Keine neuen Figuren, keine neuen Systeme, keine Polishing-Orgie.
+> Keine Engine-Flucht.
 
 Erlaubt sind:
 
-- Bewegungsgefuehl verbessern,
-- Timing-Fenster anpassen,
-- Trefferlogik klaeren,
+- bessere ASCII-Lesbarkeit,
+- stabilere Projektion,
+- bessere Keyframes,
+- klarere Hitbox-Debug-Ausgabe,
 - Tests ergaenzen,
 - schlechte Moves streichen.
 
 Nicht erlaubt:
 
+- Godot-Umstieg als Ausrede,
 - neue Charaktere,
 - Online,
 - Story,
-- komplexe Combos,
 - VR/MR,
 - grosses Asset-System.
