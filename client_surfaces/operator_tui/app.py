@@ -115,9 +115,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             terminal_height=args.height,
         )
         backend: BuiltinBackend | None = None
-        env_3d = os.environ.get("ANANTA_TUI_3D", "").strip()
-        opt_in_3d = env_3d in ("1", "yes", "on") or not args.no_3d and cap.enabled and os.environ.get("ANANTA_TUI_3D_PRESET")
-        if opt_in_3d and cap.enabled:
+        opt_in_3d = not args.no_3d and cap.enabled
+        if opt_in_3d:
             backend = BuiltinBackend()
         splash = SplashMachine(
             fullscreen_seconds=args.splash_seconds,

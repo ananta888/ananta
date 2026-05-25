@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import re
 import shutil
 from typing import TYPE_CHECKING
 
 import asyncio
 from prompt_toolkit.application import Application
+from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
-from prompt_toolkit.widgets import TextArea
-
-_ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.layout.containers import Window
 
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
 from client_surfaces.operator_tui.app import load_active_section
@@ -33,13 +32,9 @@ class InteractiveOperatorTui:
         self._splash = splash
         self.state = load_active_section(state, self._registry)
         self._command_buffer = ""
-        self._output = TextArea(
-            text=self._render(),
-            read_only=True,
-            scrollbar=True,
-            focusable=True,
-            wrap_lines=False,
-        )
+        self._rendered_text = self._render()
+        self._control = FormattedTextControl(text=lambda: ANSI(self._rendered_text))
+        self._output = Window(content=self._control, wrap_lines=False)
         self._app = Application(
             layout=Layout(self._output),
             key_bindings=self._build_keybindings(),
@@ -61,7 +56,7 @@ class InteractiveOperatorTui:
             if ctx.state in (SplashState.DISABLED, SplashState.SKIPPED, SplashState.COMPACT_HEADER):
                 break
             self._splash.tick()
-            self._output.text = self._render()
+            self._rendered_text = self._render()
             self._app.invalidate()
             await asyncio.sleep(0.1)
 
@@ -203,12 +198,11 @@ class InteractiveOperatorTui:
             if ctx.state in (SplashState.FULLSCREEN, SplashState.TRANSITION):
                 self._splash.transition_to(SplashState.COMPACT_HEADER)
         self.state = state
-        self._output.text = self._render()
+        self._rendered_text = self._render()
         self._app.invalidate()
 
     def _render(self) -> str:
         if self._splash is not None:
             self._splash.tick()
         size = shutil.get_terminal_size((120, 32))
-        raw = render_operator_shell(self.state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash)
-        return _ANSI_RE.sub("", raw)
+        return render_operator_shell(self.state, width=size.columns, height=max(18, size.lines - 1), splash=self._splash)
