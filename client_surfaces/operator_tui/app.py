@@ -30,7 +30,18 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--render-once", action="store_true")
     parser.add_argument("--width", type=int, default=120)
     parser.add_argument("--height", type=int, default=32)
-    parser.add_argument("--skip-splash", action="store_true", help="Skip the startup splash animation")
+    parser.add_argument(
+        "--skip-splash",
+        action="store_true",
+        default=True,
+        help="Skip the startup splash animation (default behavior)",
+    )
+    parser.add_argument(
+        "--splash",
+        dest="skip_splash",
+        action="store_false",
+        help="Enable fullscreen startup splash animation",
+    )
     parser.add_argument("--splash-seconds", type=float, default=2.0, help="Duration of fullscreen splash")
     parser.add_argument("--no-3d", action="store_true", help="Disable 3D logo animation")
     parser.add_argument("--3d-preset", default=os.environ.get("ANANTA_TUI_3D_PRESET", "rotate_in"),
@@ -41,6 +52,15 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--splash-frame", default="",
                         help="Render a specific splash frame: 3d:0, 3d:mid, 3d:last, compact")
     return parser.parse_args(argv)
+
+
+def _splash_disabled(args: argparse.Namespace) -> bool:
+    splash_env = os.environ.get("ANANTA_TUI_SPLASH", "").strip().lower()
+    if splash_env in {"0", "false", "no", "off"}:
+        return True
+    if splash_env in {"1", "true", "yes", "on"}:
+        return False
+    return bool(args.skip_splash)
 
 
 def build_initial_state(args: argparse.Namespace) -> OperatorState:
@@ -90,7 +110,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         state = load_active_section(result.state.with_updates(status_message=result.message), registry)
 
     splash: SplashMachine | None = None
-    if args.skip_splash:
+    if _splash_disabled(args):
         splash = None
     else:
         from client_surfaces.operator_tui.animation3d.backends import BuiltinBackend

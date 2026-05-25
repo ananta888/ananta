@@ -74,17 +74,20 @@ Lifecycle states: `disabled → fullscreen → transition → compact_header`
 
 | CLI Flag | Default | Description |
 |----------|---------|-------------|
-| `--skip-splash` | off | Skip fullscreen splash, show compact header immediately |
+| `--skip-splash` | on | Skip fullscreen splash, show compact header immediately (default) |
+| `--splash` | off | Explicitly enable fullscreen splash |
 | `--splash-seconds` | `2.0` | Duration of fullscreen phase |
 
 | Env Var | Effect |
 |---------|--------|
 | `ANANTA_TUI_SPLASH=0` | Disable splash entirely |
+| `ANANTA_TUI_SPLASH=1` | Force fullscreen splash |
 | `NO_COLOR=1` | Disable ANSI color in splash/header |
 
 Preview without interactive TUI:
 ```bash
-python -m client_surfaces.operator_tui.app --render-once --width 120 --height 32
+python -m client_surfaces.operator_tui.app --render-once --skip-splash --width 120 --height 32
+python -m client_surfaces.operator_tui.app --render-once --splash --width 120 --height 32
 ```
 
 ## Maintenance
