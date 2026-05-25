@@ -284,6 +284,7 @@ class InteractiveOperatorTui:
     def _default_header_snake(self) -> dict[str, object]:
         board_w, board_h = 18, 6
         snake = [(4, 3), (3, 3), (2, 3)]
+        gaps = self._compute_snake_escape_gaps(board_w, board_h, seed=int(time.time() * 1000))
         return {
             "active": True,
             "alive": True,
@@ -293,6 +294,7 @@ class InteractiveOperatorTui:
             "direction": (1, 0),
             "next_direction": (1, 0),
             "food": (12, 3),
+            "gaps": gaps,
             "score": 0,
             "moves": 0,
             "last_move": time.monotonic(),
@@ -302,6 +304,14 @@ class InteractiveOperatorTui:
         if not self._header_snake_enabled():
             return state
         game = dict(state.header_logo_game or self._default_header_snake())
+        board_w = max(6, int(game.get("board_w", 18)))
+        board_h = max(4, int(game.get("board_h", 6)))
+        game["gaps"] = self._ensure_snake_escape_gaps(
+            game.get("gaps"),
+            board_w=board_w,
+            board_h=board_h,
+            seed=int(time.time() * 1000),
+        )
         game["active"] = True
         if not game.get("alive", True):
             game = self._default_header_snake()
@@ -349,6 +359,12 @@ class InteractiveOperatorTui:
 
         board_w = max(6, int(game.get("board_w", 18)))
         board_h = max(4, int(game.get("board_h", 6)))
+        game["gaps"] = self._ensure_snake_escape_gaps(
+            game.get("gaps"),
+            board_w=board_w,
+            board_h=board_h,
+            seed=int(game.get("moves", 0)) + int(time.time() * 1000),
+        )
         snake_raw = game.get("snake") or []
         snake = [(int(p[0]), int(p[1])) for p in snake_raw if isinstance(p, (list, tuple)) and len(p) == 2]
         if not snake:
@@ -360,8 +376,28 @@ class InteractiveOperatorTui:
         direction = next_direction
 
         hx, hy = snake[0]
-        nx = (hx + direction[0]) % board_w
-        ny = (hy + direction[1]) % board_h
+        nx = hx + direction[0]
+        ny = hy + direction[1]
+        if nx < 0 or nx >= board_w or ny < 0 or ny >= board_h:
+            target = self._snake_escape_target(
+                nx=nx,
+                ny=ny,
+                hx=hx,
+                hy=hy,
+                board_w=board_w,
+                board_h=board_h,
+                gaps=game.get("gaps"),
+            )
+            if target is not None:
+                self._apply_snake_escape(game, target=target, now=now, board_h=board_h)
+                return
+            game["alive"] = False
+            game["active"] = True
+            game["direction"] = direction
+            game["next_direction"] = direction
+            game["last_move"] = now
+            self.state = self.state.with_updates(header_logo_game=game, status_message="snake: wand getroffen")
+            return
         new_head = (nx, ny)
 
         food_raw = game.get("food", (12, 3))
@@ -390,6 +426,98 @@ class InteractiveOperatorTui:
         game["moves"] = int(game.get("moves", 0)) + 1
         game["last_move"] = now
         self.state = self.state.with_updates(header_logo_game=game)
+
+    def _snake_escape_target(
+        self,
+        *,
+        nx: int,
+        ny: int,
+        hx: int,
+        hy: int,
+        board_w: int,
+        board_h: int,
+        gaps: object,
+    ) -> FocusPane | None:
+        g = self._ensure_snake_escape_gaps(gaps, board_w=board_w, board_h=board_h, seed=0)
+        right_gap = int(g.get("right", 1))
+        if nx >= board_w and abs(hy - right_gap) <= 1:
+            return FocusPane.NAVIGATION
+        if ny >= board_h:
+            bottom_nav = int(g.get("bottom_nav", board_w // 5))
+            bottom_content = int(g.get("bottom_content", board_w // 2))
+            bottom_detail = int(g.get("bottom_detail", (board_w * 4) // 5))
+            if abs(hx - bottom_nav) <= 1:
+                return FocusPane.NAVIGATION
+            if abs(hx - bottom_content) <= 1:
+                return FocusPane.CONTENT
+            if abs(hx - bottom_detail) <= 1:
+                return FocusPane.DETAIL
+        return None
+
+    def _apply_snake_escape(
+        self,
+        game: dict[str, object],
+        *,
+        target: FocusPane,
+        now: float,
+        board_h: int,
+    ) -> None:
+        game["active"] = False
+        game["escaped_to"] = target.value
+        game["last_move"] = now
+        if target is FocusPane.NAVIGATION:
+            nav_idx = min(len(SECTIONS) - 1, max(0, int((int(game.get("moves", 0)) + board_h) % max(1, len(SECTIONS)))))
+            self.state = self.state.with_updates(
+                focus=FocusPane.NAVIGATION,
+                selected_index=nav_idx,
+                header_logo_game=game,
+                status_message="snake: ausgebrochen nach NAV",
+            )
+            return
+        selected = max(0, min(999999, int(self.state.selected_index)))
+        self.state = self.state.with_updates(
+            focus=target,
+            selected_index=selected,
+            header_logo_game=game,
+            status_message=f"snake: ausgebrochen nach {target.value}",
+        )
+
+    def _ensure_snake_escape_gaps(
+        self,
+        gaps: object,
+        *,
+        board_w: int,
+        board_h: int,
+        seed: int,
+    ) -> dict[str, int]:
+        if isinstance(gaps, dict):
+            try:
+                keys = ("right", "bottom_nav", "bottom_content", "bottom_detail")
+                parsed = {k: int(gaps[k]) for k in keys}
+                if 1 <= parsed["right"] <= board_h - 2:
+                    for key in ("bottom_nav", "bottom_content", "bottom_detail"):
+                        parsed[key] = max(1, min(board_w - 2, parsed[key]))
+                    return parsed
+            except Exception:
+                pass
+        return self._compute_snake_escape_gaps(board_w, board_h, seed=seed)
+
+    def _compute_snake_escape_gaps(self, board_w: int, board_h: int, *, seed: int) -> dict[str, int]:
+        usable_w = max(3, board_w - 2)
+        right_gap = 1 + ((seed // 3) % max(1, board_h - 2))
+        nav = 1 + ((seed // 5) % max(1, usable_w // 3))
+        content = max(2, min(board_w - 2, board_w // 2 + ((seed // 7) % 3) - 1))
+        detail = max(2, min(board_w - 2, board_w - 2 - ((seed // 11) % max(1, usable_w // 3))))
+        if detail <= content:
+            detail = min(board_w - 2, content + 2)
+        if content <= nav:
+            content = min(board_w - 2, nav + 2)
+        return {
+            "right": right_gap,
+            "bottom_nav": nav,
+            "bottom_content": content,
+            "bottom_detail": detail,
+        }
 
     def _spawn_snake_food(
         self,

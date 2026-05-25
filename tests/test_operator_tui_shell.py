@@ -258,3 +258,64 @@ def test_header_focus_hints_show_snake_controls() -> None:
 
     assert "Snake  score=2  running" in output
     assert "[←→↑↓] Snake" in output
+
+
+def test_snake_escape_from_logo_switches_focus_to_navigation() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "board_w": 18,
+        "board_h": 6,
+        "snake": [(17, 2), (16, 2), (15, 2)],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "food": (3, 3),
+        "gaps": {"right": 2, "bottom_nav": 4, "bottom_content": 9, "bottom_detail": 14},
+        "score": 0,
+        "moves": 0,
+        "last_move": 0.0,
+    }
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        focus=FocusPane.HEADER,
+        header_logo_game=game,
+    )
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER)
+
+    tui._tick_header_snake()
+
+    assert tui.state.focus is FocusPane.NAVIGATION
+    assert "ausgebrochen nach NAV" in tui.state.status_message
+    assert (tui.state.header_logo_game or {}).get("active") is False
+
+
+def test_after_snake_escape_target_pane_can_be_controlled() -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "board_w": 18,
+        "board_h": 6,
+        "snake": [(17, 2), (16, 2), (15, 2)],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "food": (3, 3),
+        "gaps": {"right": 2, "bottom_nav": 4, "bottom_content": 9, "bottom_detail": 14},
+        "score": 0,
+        "moves": 0,
+        "last_move": 0.0,
+    }
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        focus=FocusPane.HEADER,
+        header_logo_game=game,
+    )
+    tui = InteractiveOperatorTui(state)
+    tui.state = tui.state.with_updates(header_logo_game=game, focus=FocusPane.HEADER, selected_index=0)
+    tui._tick_header_snake()
+    before = tui.state.selected_index
+
+    tui._set_state(tui.state.with_updates(selected_index=tui._clamp_down()))
+
+    assert tui.state.focus is FocusPane.NAVIGATION
+    assert tui.state.selected_index >= before
