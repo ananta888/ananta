@@ -54,6 +54,7 @@ class InteractiveOperatorTui:
         self._plugins: PluginRegistry = default_plugin_registry()
         self.state = load_active_section(state, self._registry)
         self._tutorial_codecompass_cache: tuple[float, list[str]] = (0.0, [])
+        self._tutorial_rag_cache: tuple[float, list[str]] = (0.0, [])
         self._tutorial_llm_cache: tuple[float, str] = (0.0, "")
         self._command_buffer = ""
         self._rendered_text = self._render()
@@ -714,18 +715,46 @@ class InteractiveOperatorTui:
         if not enabled:
             snakes.pop(sid, None)
             return
-        radius_x = max(3, board_w // 6)
-        radius_y = max(2, board_h // 4)
-        center_x = max(0, board_w - max(6, board_w // 4))
-        center_y = max(0, board_h // 3)
-        phase = now * 0.75
-        hx = int(center_x + radius_x * math.sin(phase)) % max(1, board_w)
-        hy = int(center_y + radius_y * math.cos(phase * 1.1)) % max(1, board_h)
-        body = []
-        for j in range(10):
-            bx = (hx - (j % 5)) % max(1, board_w)
-            by = (hy - (j // 5)) % max(1, board_h)
-            body.append((bx, by))
+        hints = self._load_codecompass_hints(now=now)
+        rag_context = self._load_rag_helper_context(now=now)
+        context_tokens = [*hints[:10], *rag_context[:10]]
+        local = snakes.get(str(self.state.header_logo_game.get("local_snake_id", "s1"))) if isinstance(self.state.header_logo_game, dict) else None
+        local_head = None
+        if isinstance(local, dict):
+            local_snake = local.get("snake")
+            if isinstance(local_snake, list) and local_snake:
+                head = local_snake[0]
+                if isinstance(head, (list, tuple)) and len(head) == 2:
+                    local_head = (int(head[0]) % max(1, board_w), int(head[1]) % max(1, board_h))
+        target = self._tutorial_ai_target_cell(
+            board_w=board_w,
+            board_h=board_h,
+            context_tokens=context_tokens,
+            local_head=local_head,
+        )
+        existing = snakes.get(sid, {})
+        existing_snake_raw = existing.get("snake") if isinstance(existing, dict) else []
+        existing_snake = [
+            (int(p[0]) % max(1, board_w), int(p[1]) % max(1, board_h))
+            for p in (existing_snake_raw or [])
+            if isinstance(p, (list, tuple)) and len(p) == 2
+        ]
+        if existing_snake:
+            start_head = existing_snake[0]
+        else:
+            start_head = ((target[0] - 1) % max(1, board_w), target[1] % max(1, board_h))
+            existing_snake = [start_head]
+        new_head = self._step_toward_cell(
+            current=start_head,
+            target=target,
+            board_w=board_w,
+            board_h=board_h,
+        )
+        body = [new_head, *existing_snake]
+        while len(body) < 10:
+            tx = (body[-1][0] - 1) % max(1, board_w)
+            body.append((tx, body[-1][1]))
+        body = body[:10]
         trail = list(body)
         tip = self._tutorial_ai_tip(now=now)
         snakes[sid] = {
@@ -744,7 +773,47 @@ class InteractiveOperatorTui:
             "updated_at": now,
             "local": False,
             "knowledge_scope": ("tui", "architecture", "workflow"),
+            "target_cell": target,
         }
+
+    def _tutorial_ai_target_cell(
+        self,
+        *,
+        board_w: int,
+        board_h: int,
+        context_tokens: list[str],
+        local_head: tuple[int, int] | None,
+    ) -> tuple[int, int]:
+        text = " ".join(context_tokens).lower()
+        if any(token in text for token in ("endpoint", "auth", "header", "config", "oidc")):
+            return (max(0, board_w - max(4, board_w // 6)), max(1, board_h // 6))
+        if any(token in text for token in ("task", "goal", "section", "navigation", "queue")):
+            return (max(1, board_w // 5), max(2, board_h // 2))
+        if any(token in text for token in ("detail", "inspect", "artifact", "context", "result")):
+            return (max(2, board_w - max(8, board_w // 4)), max(2, board_h - max(4, board_h // 4)))
+        if local_head is not None:
+            return ((local_head[0] + 3) % max(1, board_w), local_head[1] % max(1, board_h))
+        return (max(2, board_w // 2), max(2, board_h // 2))
+
+    def _step_toward_cell(
+        self,
+        *,
+        current: tuple[int, int],
+        target: tuple[int, int],
+        board_w: int,
+        board_h: int,
+    ) -> tuple[int, int]:
+        cx, cy = int(current[0]), int(current[1])
+        tx, ty = int(target[0]), int(target[1])
+        dx = tx - cx
+        dy = ty - cy
+        if abs(dx) >= abs(dy) and dx != 0:
+            step_x = 1 if dx > 0 else -1
+            return ((cx + step_x) % max(1, board_w), cy % max(1, board_h))
+        if dy != 0:
+            step_y = 1 if dy > 0 else -1
+            return (cx % max(1, board_w), (cy + step_y) % max(1, board_h))
+        return (cx % max(1, board_w), cy % max(1, board_h))
 
     def _tutorial_ai_tip(self, *, now: float) -> str:
         mode = self.state.mode.value
@@ -753,14 +822,22 @@ class InteractiveOperatorTui:
         selected = self.state.selected_index
         status = f"TUI mode={mode} focus={focus} section={section} idx={selected}."
         hints = self._load_codecompass_hints(now=now)
-        llm_tip = self._tutorial_ai_llm_message(now=now, status=status, hints=hints)
+        rag_context = self._load_rag_helper_context(now=now)
+        llm_hints = [*hints[:12], *[f"RAG {entry}" for entry in rag_context[:8]]]
+        llm_tip = self._tutorial_ai_llm_message(now=now, status=status, hints=llm_hints)
         if llm_tip:
             return llm_tip
-        if not hints:
+        if not hints and not rag_context:
             base = _TUTORIAL_AI_KNOWLEDGE[int(now * 0.5) % len(_TUTORIAL_AI_KNOWLEDGE)]
             return f"{status} {base}"
-        cc = hints[int(now * 0.7) % len(hints)]
-        return f"{status} CodeCompass: {cc}"
+        cc = hints[int(now * 0.7) % len(hints)] if hints else ""
+        rag = rag_context[int(now * 0.9) % len(rag_context)] if rag_context else ""
+        parts = [status]
+        if cc:
+            parts.append(f"CodeCompass: {cc}")
+        if rag:
+            parts.append(f"RAG: {rag}")
+        return " ".join(parts)
 
     def _tutorial_ai_llm_message(self, *, now: float, status: str, hints: list[str]) -> str | None:
         model = str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "")).strip()
@@ -789,7 +866,7 @@ class InteractiveOperatorTui:
             f"{status}\n"
             "Provide one concise tutorial line for a snake assistant in this TUI.\n"
             "Focus on immediate next action and project-aware guidance.\n"
-            f"CodeCompass hints:\n{hint_block}\n"
+            f"CodeCompass + rag_helper hints:\n{hint_block}\n"
             "Max 180 chars."
         )
         payload = {
@@ -851,6 +928,83 @@ class InteractiveOperatorTui:
         except Exception:
             self._tutorial_codecompass_cache = (now, [])
             return []
+
+    def _load_rag_helper_context(self, *, now: float) -> list[str]:
+        cached_at, cached = self._tutorial_rag_cache
+        if cached and (now - cached_at) < 6.0:
+            return cached
+
+        out_dir = self._resolve_codecompass_output_dir()
+        if out_dir is None:
+            self._tutorial_rag_cache = (now, [])
+            return []
+
+        manifest_path = out_dir / "manifest.json"
+        files: list[str] = []
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except Exception:
+                manifest = {}
+            partitioned = manifest.get("partitioned_outputs") if isinstance(manifest, dict) else None
+            if isinstance(partitioned, dict):
+                for values in partitioned.values():
+                    if not isinstance(values, list):
+                        continue
+                    for item in values:
+                        rel = str(item or "").strip()
+                        if rel:
+                            files.append(rel)
+        files.extend(["context.jsonl", "details.jsonl", "index.jsonl", "xml_overview.jsonl"])
+        deduped_files: list[str] = []
+        seen_files: set[str] = set()
+        for rel in files:
+            normalized = rel.strip().lstrip("/")
+            if not normalized or normalized in seen_files:
+                continue
+            seen_files.add(normalized)
+            deduped_files.append(normalized)
+
+        context: list[str] = []
+        for rel in deduped_files[:24]:
+            path = out_dir / rel
+            if not path.exists() or not path.is_file() or path.suffix.lower() != ".jsonl":
+                continue
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except Exception:
+                continue
+            for line in lines:
+                payload = line.strip()
+                if not payload:
+                    continue
+                try:
+                    parsed = json.loads(payload)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(parsed, dict):
+                    continue
+                tokens = [
+                    str(parsed.get("domain") or "").strip(),
+                    str(parsed.get("kind") or "").strip(),
+                    str(parsed.get("title") or "").strip(),
+                    str(parsed.get("section_title") or "").strip(),
+                    str(parsed.get("name") or "").strip(),
+                    str(parsed.get("file") or parsed.get("path") or "").strip(),
+                    str(parsed.get("summary") or "").strip(),
+                    str(parsed.get("content") or parsed.get("text") or "").strip(),
+                ]
+                text = " · ".join(part for part in tokens if part)
+                compact = " ".join(text.split())
+                if not compact:
+                    continue
+                context.append(compact[:220])
+                if len(context) >= 64:
+                    break
+            if len(context) >= 64:
+                break
+        self._tutorial_rag_cache = (now, context)
+        return context
 
         try:
             payload = CodeCompassOutputReader().load_from_output_dir(output_dir=out_dir)

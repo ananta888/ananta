@@ -368,6 +368,7 @@ def test_tutorial_ai_tip_uses_codecompass_hints_when_available(monkeypatch) -> N
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="tasks")
     tui = InteractiveOperatorTui(state)
     monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: ["method · plan_tasks · client_surfaces/operator_tui/interactive.py"])
+    monkeypatch.setattr(tui, "_load_rag_helper_context", lambda now: [])
     monkeypatch.setattr(tui, "_tutorial_ai_llm_message", lambda now, status, hints: None)
 
     tip = tui._tutorial_ai_tip(now=1.0)
@@ -381,6 +382,7 @@ def test_tutorial_ai_tip_prefers_llm_when_available(monkeypatch) -> None:
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="tasks")
     tui = InteractiveOperatorTui(state)
     monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: ["hint-a"])
+    monkeypatch.setattr(tui, "_load_rag_helper_context", lambda now: ["rag-context"])
     monkeypatch.setattr(tui, "_tutorial_ai_llm_message", lambda now, status, hints: "LLM tutor hint")
 
     tip = tui._tutorial_ai_tip(now=2.0)
@@ -411,6 +413,74 @@ def test_tutorial_ai_llm_message_reads_openai_compatible_endpoint(monkeypatch) -
     tip = tui._tutorial_ai_llm_message(now=1.0, status="status", hints=["hint"])
 
     assert tip == "Use [Tab] to switch focus."
+
+
+def test_tutorial_ai_tip_includes_rag_helper_context_when_llm_missing(monkeypatch) -> None:
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="tasks")
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: [])
+    monkeypatch.setattr(tui, "_load_rag_helper_context", lambda now: ["architecture · Hub owns routing"])
+    monkeypatch.setattr(tui, "_tutorial_ai_llm_message", lambda now, status, hints: None)
+
+    tip = tui._tutorial_ai_tip(now=2.0)
+
+    assert "RAG:" in tip
+    assert "Hub owns routing" in tip
+
+
+def test_tutorial_ai_target_cell_prefers_header_for_auth_context() -> None:
+    state = OperatorState(endpoint="http://localhost:5000")
+    tui = InteractiveOperatorTui(state)
+
+    target = tui._tutorial_ai_target_cell(
+        board_w=120,
+        board_h=30,
+        context_tokens=["auth endpoint oidc header"],
+        local_head=(50, 12),
+    )
+
+    assert target[0] >= 90
+    assert target[1] <= 6
+
+
+def test_tutorial_ai_snake_moves_toward_context_target(monkeypatch) -> None:
+    game = {
+        "active": True,
+        "alive": True,
+        "ui_steering": True,
+        "free_mode": True,
+        "tutorial_mode": True,
+        "local_snake_id": "s1",
+        "snake": [(10, 10), (9, 10), (8, 10)],
+        "trail_path": [(10, 10), (9, 10), (8, 10)],
+        "direction": (1, 0),
+        "next_direction": (1, 0),
+        "last_move": 0.0,
+    }
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.HEADER, header_logo_game=game)
+    tui = InteractiveOperatorTui(state)
+    monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: ["auth endpoint header"])
+    monkeypatch.setattr(tui, "_load_rag_helper_context", lambda now: ["oidc configuration"])
+    monkeypatch.setattr(tui, "_tutorial_ai_tip", lambda now: "tip")
+
+    snakes = {
+        "s1": {
+            "id": "s1",
+            "snake": [(10, 10), (9, 10)],
+            "trail_path": [(10, 10), (9, 10)],
+            "message": "",
+            "snake_color": "mint",
+        }
+    }
+    tui._update_tutorial_ai_snake(snakes, now=10.0, board_w=120, board_h=30, enabled=True)
+
+    ai = snakes.get("s-ai")
+    assert isinstance(ai, dict)
+    head = (ai.get("snake") or [(-1, -1)])[0]
+    target = ai.get("target_cell")
+    assert isinstance(target, tuple)
+    assert isinstance(head, tuple)
+    assert head[0] >= 100
 
 
 def test_snake_message_style_and_color_can_cycle() -> None:
