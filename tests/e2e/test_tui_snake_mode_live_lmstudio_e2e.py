@@ -62,7 +62,7 @@ def test_snake_mode_live_e2e_records_cast_with_lmstudio() -> None:
     assert "ARTIFACTS" in plain
     assert "Tutorial-AI propose flow" in plain
     assert "[user->artifacts]" in plain
-    assert "[openai-compatible->" in plain
+    assert "[openai-compatible->" in plain, plain[-2000:]
 
     synced_targets = list(payload.get("synced_cast_targets") or [])
     assert any(path.endswith("tests/output/operator_tui_splash.cast") for path in synced_targets)
