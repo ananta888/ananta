@@ -234,47 +234,22 @@ def render_logo_snake_game_animated(
     t: float = 0.0,
     speed: float = 1.5,
 ) -> list[str] | None:
-    """Idle animation: simple A-shape with moving snake and random inner gate."""
+    """Idle animation: snake on colored control boxes."""
     board_w = max(12, min(24, cols - 2))
     board_h = max(6, min(10, rows))
-    geom = build_a_snake_geometry(board_w, board_h, seed=int(t * speed * 100))
+    boxes = build_snake_control_boxes(board_w, board_h, section_ids=("dashboard", "artifacts", "tasks", "help"))
     snake_base, snake_head = _snake_palette_from_svg(cols, rows)
-    a_blue = _a_blue_from_svg(cols, rows)
 
     grid_chars = [[" " for _ in range(cols)] for _ in range(rows)]
     grid_colors: list[list[tuple[int, int, int] | None]] = [[None for _ in range(cols)] for _ in range(rows)]
-
-    pulse = 1.0 + 0.08 * math.sin(t * speed * math.tau)
-    wall_col = (
-        max(0, min(255, int(a_blue[0] * pulse))),
-        max(0, min(255, int(a_blue[1] * pulse))),
-        max(0, min(255, int(a_blue[2] * pulse))),
-    )
-    gate_col = _lerp_color(snake_head, (255, 220, 120), 0.45)
-    for wx, wy in geom["walls"]:
-        mapped = _map_board_cell_to_canvas(wx, wy, board_w=board_w, board_h=board_h, cols=cols, rows=rows)
-        if mapped is None:
-            continue
-        mx, my = mapped
-        grid_chars[my][mx] = "█"
-        grid_colors[my][mx] = wall_col
-
-    gate = geom.get("gate")
-    if isinstance(gate, tuple) and len(gate) == 2:
-        mapped_gate = _map_board_cell_to_canvas(gate[0], gate[1], board_w=board_w, board_h=board_h, cols=cols, rows=rows)
-        if mapped_gate is not None:
-            gx, gy = mapped_gate
-            grid_chars[gy][gx] = "◌"
-            grid_colors[gy][gx] = gate_col
-
-    _draw_zone_frames(
+    _draw_control_boxes(
         grid_chars,
         grid_colors,
+        boxes=boxes,
         board_w=board_w,
         board_h=board_h,
         cols=cols,
         rows=rows,
-        palette=_zone_palette(),
     )
 
     ring = _snake_ring_path(1, 1, max(2, board_w - 2), max(2, board_h - 2))
@@ -306,7 +281,7 @@ def render_logo_snake_game_playable(
     t: float = 0.0,
     speed: float = 1.2,
 ) -> list[str] | None:
-    """Render playable snake on a simple A logo with a randomly opening inner gap."""
+    """Render playable snake over colored control boxes (no collision walls)."""
     if not game_state:
         return None
 
@@ -319,72 +294,24 @@ def render_logo_snake_game_playable(
         return None
 
     snake_base, snake_head = _snake_palette_from_svg(cols, rows)
-    a_blue = _a_blue_from_svg(cols, rows)
-    gate_seed = int(game_state.get("gate_seed", int(t * 1000)))
-    geom = build_a_snake_geometry(board_w, board_h, seed=gate_seed)
+    boxes_raw = game_state.get("boxes")
+    if isinstance(boxes_raw, list):
+        boxes = [b for b in boxes_raw if isinstance(b, dict)]
+    else:
+        boxes = build_snake_control_boxes(board_w, board_h, section_ids=("dashboard", "artifacts", "tasks", "help"))
 
     grid_chars = [[" " for _ in range(cols)] for _ in range(rows)]
     grid_colors: list[list[tuple[int, int, int] | None]] = [[None for _ in range(cols)] for _ in range(rows)]
 
-    # Base "A" logo
-    pulse = 1.0 + 0.06 * math.sin(t * speed * math.tau)
-    wall_col = (
-        max(0, min(255, int(a_blue[0] * pulse))),
-        max(0, min(255, int(a_blue[1] * pulse))),
-        max(0, min(255, int(a_blue[2] * pulse))),
-    )
-    for wx, wy in geom["walls"]:
-        mapped = _map_board_cell_to_canvas(wx, wy, board_w=board_w, board_h=board_h, cols=cols, rows=rows)
-        if mapped is None:
-            continue
-        mx, my = mapped
-        grid_chars[my][mx] = "█"
-        grid_colors[my][mx] = wall_col
-
-    gate = geom.get("gate")
-    if isinstance(gate, tuple) and len(gate) == 2:
-        mapped_gate = _map_board_cell_to_canvas(gate[0], gate[1], board_w=board_w, board_h=board_h, cols=cols, rows=rows)
-        if mapped_gate is not None:
-            gx, gy = mapped_gate
-            grid_chars[gy][gx] = "◌"
-            grid_colors[gy][gx] = _lerp_color(snake_head, (255, 220, 120), 0.4)
-
-    palette = _zone_palette()
-    _draw_zone_frames(
+    _draw_control_boxes(
         grid_chars,
         grid_colors,
+        boxes=boxes,
         board_w=board_w,
         board_h=board_h,
         cols=cols,
         rows=rows,
-        palette=palette,
     )
-
-    portals = game_state.get("portals")
-    if isinstance(portals, dict):
-        portal_colors = {
-            "nav": palette["nav"],
-            "content": palette["content"],
-            "detail": palette["detail"],
-            "command": palette["command"],
-        }
-        portal_chars = {"nav": "N", "content": "C", "detail": "D", "command": "I"}
-        for key, pos in portals.items():
-            if key not in portal_chars or not isinstance(pos, (list, tuple)) or len(pos) != 2:
-                continue
-            mapped_portal = _map_board_cell_to_canvas(
-                int(pos[0]),
-                int(pos[1]),
-                board_w=board_w,
-                board_h=board_h,
-                cols=cols,
-                rows=rows,
-            )
-            if mapped_portal is None:
-                continue
-            px, py = mapped_portal
-            grid_chars[py][px] = portal_chars[key]
-            grid_colors[py][px] = portal_colors[key]
 
     # Snake body
     for idx, logical in enumerate(body):
@@ -477,6 +404,59 @@ def build_a_snake_geometry(board_w: int, board_h: int, seed: int = 0) -> dict[st
     return {"walls": walls, "interior": interior, "gate": gate}
 
 
+def build_snake_control_boxes(
+    board_w: int,
+    board_h: int,
+    *,
+    section_ids: tuple[str, ...] | list[str],
+) -> list[dict[str, object]]:
+    boxes: list[dict[str, object]] = []
+    board_w = max(8, board_w)
+    board_h = max(4, board_h)
+
+    panes = ("navigation", "content", "detail", "command")
+    pane_h = 2 if board_h >= 6 else 1
+    for i, target in enumerate(panes):
+        x0 = round((i * board_w) / len(panes))
+        x1 = round(((i + 1) * board_w) / len(panes)) - 1
+        boxes.append(
+            {
+                "kind": "pane",
+                "target": target,
+                "label": target[:3].upper() if target != "command" else "INP",
+                "x0": max(0, x0),
+                "y0": 0,
+                "x1": max(0, min(board_w - 1, x1)),
+                "y1": pane_h - 1,
+            }
+        )
+
+    section_list = [str(s) for s in section_ids] or ["dashboard"]
+    y0 = pane_h
+    section_h = max(1, board_h - y0)
+    cols = min(5, max(1, len(section_list)))
+    rows = max(1, (len(section_list) + cols - 1) // cols)
+    for idx, sid in enumerate(section_list):
+        r = min(rows - 1, idx // cols)
+        c = idx % cols
+        sx0 = round((c * board_w) / cols)
+        sx1 = round(((c + 1) * board_w) / cols) - 1
+        sy0 = y0 + round((r * section_h) / rows)
+        sy1 = y0 + round(((r + 1) * section_h) / rows) - 1
+        boxes.append(
+            {
+                "kind": "section",
+                "target": sid,
+                "label": sid[:3].upper(),
+                "x0": max(0, sx0),
+                "y0": max(y0, sy0),
+                "x1": max(0, min(board_w - 1, sx1)),
+                "y1": max(y0, min(board_h - 1, sy1)),
+            }
+        )
+    return boxes
+
+
 def _map_board_cell_to_canvas(
     x: int,
     y: int,
@@ -544,6 +524,7 @@ def _zone_palette() -> dict[str, tuple[int, int, int]]:
         "content": (255, 200, 96),
         "detail": (214, 156, 255),
         "command": (255, 238, 150),
+        "section": (120, 190, 255),
     }
 
 
@@ -588,6 +569,57 @@ def _draw_zone_frames(
         paint(x1, top, "┐", color)
         paint(x0, bottom, "└", color)
         paint(x1, bottom, "┘", color)
+
+
+def _draw_control_boxes(
+    grid_chars: list[list[str]],
+    grid_colors: list[list[tuple[int, int, int] | None]],
+    *,
+    boxes: list[dict[str, object]],
+    board_w: int,
+    board_h: int,
+    cols: int,
+    rows: int,
+) -> None:
+    palette = _zone_palette()
+
+    def paint(bx: int, by: int, ch: str, color: tuple[int, int, int]) -> None:
+        mapped = _map_board_cell_to_canvas(bx, by, board_w=board_w, board_h=board_h, cols=cols, rows=rows)
+        if mapped is None:
+            return
+        x, y = mapped
+        grid_chars[y][x] = ch
+        grid_colors[y][x] = color
+
+    for box in boxes:
+        kind = str(box.get("kind", "section"))
+        target = str(box.get("target", ""))
+        label = str(box.get("label", ""))
+        x0 = int(box.get("x0", 0))
+        y0 = int(box.get("y0", 0))
+        x1 = int(box.get("x1", x0))
+        y1 = int(box.get("y1", y0))
+        if x1 < x0 or y1 < y0:
+            continue
+        if kind == "pane":
+            color = palette.get(target if target != "navigation" else "nav", palette["section"])
+        else:
+            color = palette["section"]
+        for x in range(x0, x1 + 1):
+            paint(x, y0, "─", color)
+            paint(x, y1, "─", color)
+        for y in range(y0, y1 + 1):
+            paint(x0, y, "│", color)
+            paint(x1, y, "│", color)
+        paint(x0, y0, "┌", color)
+        paint(x1, y0, "┐", color)
+        paint(x0, y1, "└", color)
+        paint(x1, y1, "┘", color)
+        if label and x1 - x0 >= 2 and y1 - y0 >= 0:
+            ly = (y0 + y1) // 2
+            lx = x0 + max(1, ((x1 - x0 + 1) - len(label)) // 2)
+            for i, ch in enumerate(label[: max(1, x1 - x0 - 1)]):
+                paint(min(x1 - 1, lx + i), ly, ch, color)
 
 
 def _snake_ring_path(left: int, top: int, right: int, bottom: int) -> list[tuple[int, int]]:
