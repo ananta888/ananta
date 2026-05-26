@@ -4,17 +4,17 @@ Dieses Verzeichnis enthält die statischen Dateien für die öffentliche Ananta-
 
 Deployment:
 
-- Quelle: `web/www/`
+- Quelle: `web/www/` im Repo `ananta888/ananta`
 - Workflow: `.github/workflows/pages-www.yml`
-- Ziel: GitHub Pages
-- Gewünschte Domain: `www.ananta.de`
+- Ziel-Repo: `ananta888/ananta888.github.io` (Branch `main`, Root)
+- Gewünschte Domain: `www.ananta.de` (über `CNAME` in den veröffentlichten Dateien)
 
-Nach dem Merge muss in GitHub einmalig eingestellt werden:
+Einmalige GitHub-Konfiguration:
 
-1. Repository `Settings` → `Pages`
-2. `Build and deployment` → `Source` = `GitHub Actions`
-3. `Custom domain` = `www.ananta.de`
-4. Nach erfolgreicher DNS-Prüfung `Enforce HTTPS` aktivieren
+1. Im Repo `ananta888/ananta` ein Secret `ANANTA888_GH_IO_TOKEN` anlegen.
+2. Token-Rechte: `Contents: Read and write` auf `ananta888/ananta888.github.io`.
+3. Im Repo `ananta888/ananta888.github.io` unter `Settings` → `Pages` als Source `Deploy from a branch` (Branch `main`, `/root`) setzen.
+4. `Custom domain` = `www.ananta.de` und danach `Enforce HTTPS` aktivieren.
 
 DNS beim Domainanbieter:
 
