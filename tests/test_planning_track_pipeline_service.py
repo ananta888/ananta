@@ -72,6 +72,22 @@ def test_summary_consistency_detects_and_repairs_mismatch() -> None:
     assert repaired["repaired_payload"]["tasks_status_summary"] == compute_tasks_status_summary(payload)
 
 
+def test_summary_consistency_detects_stale_source_hash() -> None:
+    payload = _fixture_payload()
+    payload["derived_summary_metadata"] = {
+        "mode": "derived_cache",
+        "source_of_truth": "tasks",
+        "generated_at": "2026-01-01T00:00:00Z",
+        "generator": "manual",
+        "generator_version": "0",
+        "source_hash": "stale",
+        "is_stale": True,
+    }
+    result = validate_summary_consistency(payload, repair_mode=False)
+    reason_codes = {item["reason_code"] for item in list(result.get("issues") or [])}
+    assert "summary_source_hash_stale" in reason_codes
+
+
 def test_quality_gates_flag_invalid_refs_and_allow_non_blocking_warnings() -> None:
     payload = _fixture_payload()
     payload["critical_path_tasks"] = ["T01", "T404"]
@@ -211,3 +227,40 @@ def test_persist_planning_track_result_recomputes_missing_summaries(tmp_path: Pa
     assert dict(payload_saved.get("weighted_progress_summary") or {})
     assert dict(payload_saved.get("derived_summary_metadata") or {})
     assert result["output_artifact"]["extensions"]["summary_recalculation_status"] == "recalculated"
+
+
+def test_persist_planning_track_result_overwrites_wrong_summary_from_worker(tmp_path: Path) -> None:
+    goal_id = "goal-planning-worker-wrong-summary"
+    service = _artifact_service(tmp_path)
+    payload = _fixture_payload()
+    payload["tasks_status_summary"]["total"] = 999
+    payload["tasks_type_summary"] = {"total": 999, "by_type": {}}
+    payload["derived_summary_metadata"] = {
+        "mode": "derived_cache",
+        "source_of_truth": "tasks",
+        "generated_at": "2026-01-01T00:00:00Z",
+        "generator": "worker",
+        "generator_version": "1",
+        "source_hash": "stale",
+        "is_stale": True,
+    }
+    result = persist_planning_track_result(
+        goal_id=goal_id,
+        task_id="task-plan",
+        worker_id="worker-planner",
+        raw_output=json.dumps(payload),
+        prompt_template_ref="prompt:planning/track_planning",
+        final_prompt="rendered planning prompt",
+        model_ref={"provider_id": "local", "model_id": "planner-test"},
+        config_refs={
+            "worker_config_ref": "cfg:worker",
+            "runtime_config_ref": "cfg:runtime",
+            "model_config_ref": "cfg:model",
+            "policy_config_ref": "cfg:policy",
+        },
+        goal_artifact_service=service,
+    )
+    saved = dict(result["output_artifact"]["extensions"]["payload"] or {})
+    assert result["status"] == "valid"
+    assert saved["tasks_status_summary"]["total"] == len(list(saved.get("tasks") or []))
+    assert result["output_artifact"]["extensions"]["summary_recalculation_status"] in {"repaired", "recalculated"}

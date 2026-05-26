@@ -1275,19 +1275,26 @@ def _handle_plan_command(subcommand: str, extra: list[str], args) -> int:
     if action == "migrate":
         repo_root = str(extra[1]).strip() if len(extra) > 1 else "."
         dry_run = bool(getattr(args, "dry_run", False) or not bool(getattr(args, "write", False)))
-        report = migrate_track_todos(repo_root=repo_root, dry_run=dry_run)
+        report = migrate_track_todos(
+            repo_root=repo_root,
+            dry_run=dry_run,
+            convert_epics=bool(getattr(args, "convert_epics", False)),
+        )
         if bool(getattr(args, "json_output", False)):
             print(json.dumps(report, ensure_ascii=False))
             return 0
         _print_terminal("repo_root: {}", report.get("repo_root", "-"))
         _print_terminal("dry_run: {}", "yes" if bool(report.get("dry_run")) else "no")
+        _print_terminal("convert_epics: {}", "yes" if bool(report.get("convert_epics")) else "no")
         _print_terminal("scanned: {} track_files: {} changed: {}", report.get("scanned", 0), report.get("track_files", 0), report.get("changed", 0))
         for item in list(report.get("results") or [])[:50]:
             _print_terminal(
-                "track: {} changed={} repaired_fields={}",
+                "track: {} changed={} legacy_epics={} repaired_fields={}{}",
                 dict(item).get("path", "-"),
                 "yes" if bool(dict(item).get("changed")) else "no",
+                "yes" if bool(dict(item).get("legacy_epics_detected")) else "no",
                 ", ".join(list(dict(item).get("repaired_fields") or [])) or "-",
+                f" warning={dict(item).get('warning')}" if dict(item).get("warning") else "",
             )
         return 0
     print("Error: 'plan summary' requires doctor|fix|migrate", file=sys.stderr)
@@ -1470,6 +1477,7 @@ Examples:
     parser.add_argument("--include-optional-sources", action="store_true", help="Include optional sources in source-pack bootstrap")
     parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output (sources doctor)")
     parser.add_argument("--write", action="store_true", help="Write changes for plan summary fix/migrate")
+    parser.add_argument("--convert-epics", action="store_true", help="Convert legacy epics.tasks in plan summary migrate")
 
     args = parser.parse_args(argv)
 

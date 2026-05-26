@@ -31,7 +31,7 @@
         "T01.03",
         "T01.04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M02",
@@ -42,7 +42,7 @@
         "T02.03",
         "T02.04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M03",
@@ -53,7 +53,7 @@
         "T03.03",
         "T03.04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M04",
@@ -64,7 +64,7 @@
         "T04.03",
         "T04.04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M05",
@@ -75,7 +75,7 @@
         "T05.03",
         "T05.04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M06",
@@ -86,7 +86,7 @@
         "T06.03",
         "T06.04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M07",
@@ -95,7 +95,7 @@
         "T07.01",
         "T07.02"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -114,7 +114,8 @@
         "Zusätzliche Felder bleiben erlaubt, aber Pflichtfelder werden strikt validiert.",
         "Dokumentiert ist, welche Felder der Worker zwingend erzeugen muss und welche optional sind.",
         "Tests laden todos/todo.track.schema.json und validieren mindestens ein positives und ein negatives Planning-Beispiel."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.02",
@@ -133,7 +134,8 @@
         "PlanningProfile definiert Mindestqualität pro Task: title, risk, acceptance_criteria, optional depends_on/type/milestone_id.",
         "PlanningProfile definiert, wie tasks_status_summary berechnet oder validiert wird.",
         "PlanningProfile ist als Config/Snapshot referenzierbar."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.03",
@@ -152,7 +154,8 @@
         "Payload bleibt exakt gegen todo.track.schema.json validierbar.",
         "Roh-Chattext ohne JSON wird im Planning-Modus nicht als erfolgreich akzeptiert.",
         "Tests prüfen payload-only und envelope mode."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.04",
@@ -171,7 +174,8 @@
         "Fixtures validieren gegen todo.track.schema.json.",
         "Fixtures enthalten tasks_type_summary, progress_summary und end_summaries als empfohlene Zusatzfelder.",
         "Fixtures liegen unter tests/fixtures/planning_tracks/."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.01",
@@ -191,7 +195,8 @@
         "Planner Role kann Goal-Beschreibung, vorhandene Artefakte, CodeCompass-Kontext und Constraints als Input erhalten.",
         "Planner Role bekommt das todo.track.schema.json oder eine kompakte Schema-Zusammenfassung im Prompt.",
         "Planner Role gibt structured JSON zurück; freier Chat gilt als invalid."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.02",
@@ -212,7 +217,8 @@
         "Prompt verlangt flache tasks-Liste statt verschachtelter epics.tasks-Struktur.",
         "Prompt verlangt tasks_status_summary konsistent zur tasks-Liste.",
         "PromptTemplateSnapshot wird in ExecutionProvenance erfasst."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.03",
@@ -231,7 +237,8 @@
         "Kontext enthält schema_ref auf todos/todo.track.schema.json und schema_hash.",
         "Große Kontexte werden zusammengefasst und mit source_refs versehen.",
         "Tests prüfen allowed artifacts, denied artifacts und missing context."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.04",
@@ -251,7 +258,8 @@
         "Output-Artefakt verweist auf genutzte SourceArtifactUsage refs.",
         "Ungültiger Planning Output wird als failed/degraded result gespeichert, aber nicht als aktiver Plan übernommen.",
         "Tests prüfen valid plan artifact und invalid output rejection."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T03.01",
@@ -270,7 +278,8 @@
         "Fehler enthalten JSON-Pfad, reason_code und human_message.",
         "Validation läuft vor Speichern als aktiver Plan.",
         "Tests prüfen fehlende Pflichtfelder, leere acceptance_criteria und falsche task summary."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T03.02",
@@ -289,7 +298,8 @@
         "Kleine Abweichungen können automatisch repariert werden, wenn repair mode aktiv ist.",
         "Kritische Abweichungen führen zu invalid planning output.",
         "Tests prüfen korrekte Summary, falsche total-Zahl und falsche by_priority-Zählung."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T03.03",
@@ -310,7 +320,8 @@
         "Markdown-Fences werden nicht als Erfolg akzeptiert, außer extrahiertes JSON validiert vollständig.",
         "Nach fehlgeschlagenem Repair wird degraded planning result gespeichert.",
         "Tests prüfen prose-only, fenced-json, missing fields und inconsistent summary."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T03.04",
@@ -329,7 +340,8 @@
         "Quality Gate prüft, dass critical_path_tasks existierende Task-IDs referenziert.",
         "Quality Gate prüft, dass Milestones nur existierende Task-IDs enthalten.",
         "Warnings sind im TUI sichtbar, aber nicht immer blockierend."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T04.01",
@@ -349,7 +361,8 @@
         "TUI zeigt pending, validating, repaired, valid oder failed Status.",
         "TUI zeigt bei Fehlern JSON-Pfad und reason_code.",
         "Command funktioniert mit Mock-Worker in Tests."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T04.02",
@@ -368,7 +381,8 @@
         "TUI zeigt Tasks flach filterbar nach status, priority, risk und type.",
         "TUI zeigt critical_path_tasks gesondert.",
         "Kleine Terminalbreiten erhalten kompakte Listenansicht."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T04.03",
@@ -388,7 +402,8 @@
         "User kann Track verwerfen, ohne Artefakt zu löschen.",
         "Übernahme erzeugt Audit/Provenance Event.",
         "TUI zeigt klar, welcher Track aktuell aktiv ist."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T04.04",
@@ -406,7 +421,8 @@
         "TUI zeigt neue/geänderte/entfernte Tasks zwischen zwei Planversionen.",
         "Plan-Diff kann später in den diff3-Modus eingebunden werden.",
         "Tests prüfen Plan A vs Plan B mit Task-Änderungen."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T05.01",
@@ -426,7 +442,8 @@
         "Milestone-Information bleibt erhalten oder wird als Task-Metadaten gespeichert.",
         "Plan-Tasks können einzeln in Ausführung überführt werden.",
         "Tests prüfen Plan -> interne Tasks Mapping."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T05.02",
@@ -445,7 +462,8 @@
         "PlanningTrack kann SourceReferences und ContextReferences im Output-Metadatenbereich tragen.",
         "Citation Bundle pro Goal kann genutzte Planungsquellen ausgeben.",
         "Tests prüfen GoalArtifactGraph mit PlanningTrack-Output."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T05.03",
@@ -465,7 +483,8 @@
         "Provenance enthält schema_ref und schema_hash von todo.track.schema.json.",
         "TUI kann Provenance des Planning Tracks anzeigen.",
         "Tests prüfen vollständige Provenance."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T05.04",
@@ -484,7 +503,8 @@
         "Task-Status kann nach Ausführung aktualisiert werden.",
         "Plan bleibt nachvollziehbar, wenn Tasks partial/blocked/done werden.",
         "Tests prüfen Planung -> Ausführung -> Statusupdate."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T06.01",
@@ -504,7 +524,8 @@
         "Tests lehnen fehlende tasks_status_summary ab.",
         "Tests lehnen Tasks ohne acceptance_criteria ab.",
         "Tests laufen ohne LLM und ohne Netzwerk."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T06.02",
@@ -524,7 +545,8 @@
         "Mock fenced-json wird nur akzeptiert, wenn extrahiertes JSON validiert.",
         "Mock inconsistent summary wird repariert oder rejected.",
         "Tests prüfen degraded result bei final invalid output."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T06.03",
@@ -545,7 +567,8 @@
         "Test für valid/invalid/repaired Statusanzeige.",
         "Test für Plan übernehmen/verwerfen.",
         "Tests prüfen kleine Terminalbreite."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T06.04",
@@ -569,7 +592,8 @@
         "User übernimmt Track als aktiven Plan.",
         "Mindestens eine Plan-Task wird als nächster Schritt auswählbar.",
         "GoalArtifactGraph zeigt PlanningTrack als OutputArtifact mit Provenance."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T07.01",
@@ -590,7 +614,8 @@
         "Doku erklärt Unterschied zwischen PlanningTrack-Artefakt und ausführbarer Task.",
         "Doku erklärt Repair/Validation Pipeline.",
         "Doku enthält Beispiel-JSON."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T07.02",
@@ -609,7 +634,8 @@
         "Doku erklärt, warum epics.tasks nicht das Zielmodell ist.",
         "Doku erklärt, wie tasks_status_summary berechnet wird.",
         "Doku enthält Hinweise für lokale LM Studio/Ollama Planung."
-      ]
+      ],
+      "progress_percent": 100.0
     }
   ],
   "critical_path_tasks": [
@@ -629,60 +655,218 @@
   "tasks_status_summary": {
     "total": 26,
     "by_status": {
-      "todo": 26,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 26
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100.0,
     "by_priority": {
-      "P1": 23,
-      "P2": 3,
+      "P1": 22,
+      "P2": 4,
       "P3": 0
     },
     "by_risk": {
-      "low": 4,
+      "low": 3,
       "medium": 15,
-      "high": 7
+      "high": 8
     },
     "critical_path": {
       "total": 12,
-      "done": 0,
-      "remaining": 12
+      "done": 12,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 7
     }
   },
   "tasks_type_summary": {
     "total": 26,
     "by_type": {
-      "schema": 3,
-      "fixture": 1,
-      "worker": 2,
-      "prompt": 1,
-      "artifact": 2,
-      "validation": 4,
-      "tui": 4,
-      "integration": 2,
-      "provenance": 1,
-      "test": 3,
-      "e2e": 1,
-      "docs": 2
+      "schema": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "fixture": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "worker": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "prompt": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "artifact": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "validation": {
+        "total": 4,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 4
+        },
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "tui": {
+        "total": 4,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 4
+        },
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "integration": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "provenance": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "test": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "e2e": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "docs": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 26,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 26,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -722,5 +906,82 @@
         "Es lässt zusätzliche Felder zu, bleibt aber für Planning validierbar."
       ]
     }
-  ]
+  ],
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 48.0,
+    "done_weight": 48.0,
+    "remaining_weight": 0.0,
+    "blocked_weight": 0.0,
+    "weighted_percent": 100.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M01": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M02": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M03": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M04": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M05": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M06": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M07": {
+        "total_tasks": 2,
+        "done": 2,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-05-26T21:37:31.214234Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "0dc58f60b7a71825f59176fdb9112ba8b14dfe62f598f6215c31367266a91d03",
+    "is_stale": false
+  }
 }

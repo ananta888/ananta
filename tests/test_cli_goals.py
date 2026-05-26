@@ -406,3 +406,29 @@ def test_plan_summary_migrate_ignores_archive_and_kritis(capsys, tmp_path):
     report = json.loads(capsys.readouterr().out)
     assert report["track_files"] == 1
     assert report["scanned"] == 1
+
+
+def test_plan_summary_migrate_detects_legacy_epics_without_convert(capsys, tmp_path):
+    todos = tmp_path / "todos"
+    todos.mkdir(parents=True)
+    legacy = {
+        "version": "1.0",
+        "owner": "tester",
+        "track": "legacy-epics",
+        "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+        "priority_scale": ["P1", "P2", "P3"],
+        "risk_scale": ["low", "medium", "high"],
+        "milestones": [],
+        "epics": [{"id": "E1", "title": "Epic", "tasks": [{"title": "Legacy task"}]}],
+        "tasks_status_summary": {"total": 0, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}},
+    }
+    (todos / "legacy.json").write_text(json.dumps(legacy, ensure_ascii=False, indent=2), encoding="utf-8")
+    try:
+        cli_goals.main(["plan", "summary", "migrate", str(tmp_path), "--json"])
+    except SystemExit as exc:
+        assert int(exc.code) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["track_files"] == 1
+    item = report["results"][0]
+    assert item["legacy_epics_detected"] is True
+    assert item["changed"] is False
