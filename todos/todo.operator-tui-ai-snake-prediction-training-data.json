@@ -294,7 +294,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T03.01", "T01.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Miner erzeugt nur Patterns mit human_explanation.",
             "Patterns basieren auf aggregierten Eventsequenzen und Countern.",
@@ -317,7 +317,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T03.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:ai prediction good` verstärkt letzte Prediction.",
             "`:ai prediction bad` schwächt letzte Prediction und speichert Korrekturgrund optional.",
@@ -339,7 +339,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T03.01", "T03.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Eventlog hat konfigurierbare Maximalgröße, Default z. B. 5 MB.",
             "Alte Events können in Pattern-Counter aggregiert werden.",
@@ -361,7 +361,7 @@
           "priority": "P1",
           "effort": "S",
           "depends_on": ["T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:ai learning off` stoppt neue Eventaufzeichnung und Pattern-Mining.",
             "`:ai learning pause` pausiert nur temporär für aktuelle Session.",
@@ -390,7 +390,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.04", "T02.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:ai data export <path>` schreibt TrainingBundle-v1 JSON.",
             "Export wird gegen Schema validiert, bevor Datei final geschrieben wird.",

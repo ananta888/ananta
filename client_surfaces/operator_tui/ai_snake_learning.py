@@ -20,30 +20,15 @@ def mine_patterns_from_events(
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
     for item in events:
-        event_type = str(item.get("event_type") or "")
-        refs = item.get("refs") if isinstance(item.get("refs"), list) else []
-        value = str(item.get("value_norm") or "")
-        if event_type == "section_visit":
-            for ref in refs:
-                text = str(ref)
-                if text.startswith("section:"):
-                    section_by_ref[text] = value or text.removeprefix("section:")
-        if event_type != "artifact_focus":
+        event_type, value, refs = _normalize_event(item)
+        if event_type == "section_change":
+            section_ref = str(refs.get("section_ref") or "")
+            if section_ref.startswith("section:"):
+                section_by_ref[section_ref] = value or section_ref.removeprefix("section:")
+        if event_type != "artifact_selected":
             continue
-        artifact_ref = ""
-        for ref in refs:
-            text = str(ref)
-            if text and not text.startswith("section:"):
-                artifact_ref = text
-                break
-        if not artifact_ref:
-            artifact_ref = value
-        section_ref = ""
-        for ref in refs:
-            text = str(ref)
-            if text.startswith("section:"):
-                section_ref = text
-                break
+        artifact_ref = str(refs.get("artifact_ref") or value or "")
+        section_ref = str(refs.get("section_ref") or "")
         section = section_by_ref.get(section_ref, section_ref.removeprefix("section:") or "dashboard")
         grouped.setdefault((section, artifact_ref), []).append(item)
 
@@ -205,11 +190,33 @@ def compact_event_log(
     after = int(path.stat().st_size)
     if after > int(max_bytes):
         encoded = "\n".join(kept).encode("utf-8")
-        slice_size = max(1, min(len(encoded), int(max_bytes)))
+        slice_size = max(1, min(len(encoded), max(1, int(max_bytes) - 1)))
         tail = encoded[-slice_size:]
         path.write_bytes(tail if tail.endswith(b"\n") else tail + b"\n")
         after = int(path.stat().st_size)
     return {"before_bytes": before, "after_bytes": after, "kept_lines": len(kept)}
+
+
+def _normalize_event(item: dict[str, Any]) -> tuple[str, str, dict[str, str]]:
+    event_type_raw = str(item.get("event_type") or "")
+    event_type = {
+        "section_visit": "section_change",
+        "artifact_focus": "artifact_selected",
+        "movement_vector": "movement",
+    }.get(event_type_raw, event_type_raw)
+    value = str(item.get("normalized_value") or item.get("value_norm") or "")
+    refs_raw = item.get("refs")
+    refs: dict[str, str] = {}
+    if isinstance(refs_raw, dict):
+        refs = {str(k): str(v) for k, v in refs_raw.items() if str(v)}
+    elif isinstance(refs_raw, list):
+        for ref in refs_raw:
+            text = str(ref)
+            if text.startswith("section:"):
+                refs["section_ref"] = text
+            elif text:
+                refs["artifact_ref"] = text
+    return event_type, value, refs
 
 
 def _build_sequence_pattern(
