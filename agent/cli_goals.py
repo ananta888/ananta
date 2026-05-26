@@ -1220,6 +1220,80 @@ def _handle_sources_command(subcommand: str, extra: list[str], args) -> int:
     return 2
 
 
+def _handle_plan_command(subcommand: str, extra: list[str], args) -> int:
+    from agent.services.planning_summary_doctor_service import doctor_file, fix_file, migrate_track_todos
+
+    if subcommand != "summary":
+        print(f"Error: unknown plan subcommand '{subcommand}'", file=sys.stderr)
+        return 2
+    action = str(extra[0]).strip().lower() if extra else ""
+    if action == "doctor":
+        target = str(extra[1]).strip() if len(extra) > 1 else ""
+        if not target:
+            print("Error: 'plan summary doctor' requires <file>", file=sys.stderr)
+            return 2
+        result = doctor_file(target)
+        if bool(getattr(args, "json_output", False)):
+            print(json.dumps(result, ensure_ascii=False))
+        else:
+            _print_terminal("status: {}", "ok" if bool(result.get("valid")) else "invalid")
+            _print_terminal("path: {}", result.get("path", "-"))
+            _print_terminal("format: {}", result.get("format", "-"))
+            _print_terminal("summary_recalculation_status: {}", result.get("summary_recalculation_status", "-"))
+            _print_terminal("repaired_fields: {}", ", ".join(list(result.get("repaired_fields") or [])) or "-")
+            for issue in list(result.get("issues") or []):
+                _print_terminal(
+                    "issue: path={} reason={} message={}",
+                    dict(issue).get("path", "-"),
+                    dict(issue).get("reason_code", "-"),
+                    dict(issue).get("human_message", "-"),
+                )
+        return 0 if bool(result.get("valid")) else 1
+    if action == "fix":
+        target = str(extra[1]).strip() if len(extra) > 1 else ""
+        if not target:
+            print("Error: 'plan summary fix' requires <file>", file=sys.stderr)
+            return 2
+        write = bool(getattr(args, "write", False))
+        result = fix_file(target, write=write)
+        if bool(getattr(args, "json_output", False)):
+            print(json.dumps({k: v for k, v in result.items() if k != "payload"}, ensure_ascii=False))
+        else:
+            _print_terminal("status: {}", "ok" if bool(result.get("valid")) else "invalid")
+            _print_terminal("path: {}", result.get("path", "-"))
+            _print_terminal("write: {}", "yes" if write else "no (dry-run)")
+            _print_terminal("changed: {}", "yes" if bool(result.get("changed")) else "no")
+            _print_terminal("repaired_fields: {}", ", ".join(list(result.get("repaired_fields") or [])) or "-")
+            for issue in list(result.get("issues") or []):
+                _print_terminal(
+                    "issue: path={} reason={} message={}",
+                    dict(issue).get("path", "-"),
+                    dict(issue).get("reason_code", "-"),
+                    dict(issue).get("human_message", "-"),
+                )
+        return 0 if bool(result.get("valid")) else 1
+    if action == "migrate":
+        repo_root = str(extra[1]).strip() if len(extra) > 1 else "."
+        dry_run = bool(getattr(args, "dry_run", False) or not bool(getattr(args, "write", False)))
+        report = migrate_track_todos(repo_root=repo_root, dry_run=dry_run)
+        if bool(getattr(args, "json_output", False)):
+            print(json.dumps(report, ensure_ascii=False))
+            return 0
+        _print_terminal("repo_root: {}", report.get("repo_root", "-"))
+        _print_terminal("dry_run: {}", "yes" if bool(report.get("dry_run")) else "no")
+        _print_terminal("scanned: {} track_files: {} changed: {}", report.get("scanned", 0), report.get("track_files", 0), report.get("changed", 0))
+        for item in list(report.get("results") or [])[:50]:
+            _print_terminal(
+                "track: {} changed={} repaired_fields={}",
+                dict(item).get("path", "-"),
+                "yes" if bool(dict(item).get("changed")) else "no",
+                ", ".join(list(dict(item).get("repaired_fields") or [])) or "-",
+            )
+        return 0
+    print("Error: 'plan summary' requires doctor|fix|migrate", file=sys.stderr)
+    return 2
+
+
 def list_artifacts(limit: int = 20):
     response = _request("GET", "/artifacts", timeout=10)
     if response.status_code != 200:
@@ -1395,6 +1469,7 @@ Examples:
     parser.add_argument("--skip-source", action="append", default=[], help="Source ID to skip (repeatable, sources bootstrap)")
     parser.add_argument("--include-optional-sources", action="store_true", help="Include optional sources in source-pack bootstrap")
     parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output (sources doctor)")
+    parser.add_argument("--write", action="store_true", help="Write changes for plan summary fix/migrate")
 
     args = parser.parse_args(argv)
 
@@ -1466,6 +1541,8 @@ Examples:
             print("Error: 'sources' requires a subcommand (list-packs|bootstrap|doctor|query)", file=sys.stderr)
             sys.exit(2)
         sys.exit(_handle_sources_command(subcommand, args.extra[1:], args))
+    elif args.goal == "plan" and args.extra and str(args.extra[0]).strip().lower() == "summary":
+        sys.exit(_handle_plan_command("summary", args.extra[1:], args))
     elif args.goal == "repair-script":
         shortcut_text = " ".join(args.extra).strip()
         if not shortcut_text:

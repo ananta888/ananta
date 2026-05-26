@@ -7,8 +7,11 @@ from pathlib import Path
 
 from agent.artifacts.artifact_access_policy import ArtifactAccessPolicy
 from agent.artifacts.artifact_candidate_service import ArtifactCandidateService
+from agent.artifacts.goal_artifact_repository import GoalArtifactRepository
 from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
 from agent.repository import goal_repo, task_repo
+from agent.services.planning_summary_doctor_service import doctor_file, fix_file
+from agent.services.planning_summary_engine import PlanningSummaryEngine
 from agent.sources.citation_formatter import format_citation
 from agent.sources.builtin_sources import load_builtin_source_descriptors
 from agent.sources.source_refresh_service import SourceRefreshService
@@ -261,16 +264,8 @@ def _build_mock_planning_track_payload(goal_id: str) -> dict[str, object]:
         "tasks": tasks,
         "critical_path_tasks": ["T01", "T02", "T03", "T04"],
     }
-    payload["tasks_status_summary"] = compute_tasks_status_summary(payload)
-    payload["progress_summary"] = {
-        "state": "todo",
-        "todo_remaining": len(tasks),
-        "in_progress": 0,
-        "partial": 0,
-        "blocked": 0,
-        "done": 0,
-    }
-    return payload
+    recomputed, _ = PlanningSummaryEngine().recompute(payload)
+    return recomputed
 
 
 def _task_matches_filters(task: dict[str, object], filters: dict[str, str]) -> bool:
@@ -357,6 +352,10 @@ def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> d
                 "quality_gate_warnings": list(ext.get("quality_gate_warnings") or []),
                 "validation_issues": list(ext.get("validation_issues") or []),
                 "repair_attempt_count": int(ext.get("repair_attempt_count") or 0),
+                "summary_recalculation_status": str(ext.get("summary_recalculation_status") or "not_needed"),
+                "repaired_fields": list(ext.get("repaired_fields") or []),
+                "old_summary_hash": str(ext.get("old_summary_hash") or ""),
+                "new_summary_hash": str(ext.get("new_summary_hash") or ""),
                 "source_references": list(ext.get("source_references") or []),
                 "context_references": list(ext.get("context_references") or []),
                 "context_hash": str(ext.get("context_hash") or ""),
@@ -390,6 +389,10 @@ def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> d
         selected_payload_with_filters["provenance"] = dict(selected_row.get("provenance") or {})
         selected_task_mapping = dict(selected_row.get("task_mapping") or {})
         selected_payload_with_filters["task_mapping"] = selected_task_mapping
+        selected_payload_with_filters["summary_recalculation_status"] = str(selected_row.get("summary_recalculation_status") or "not_needed")
+        selected_payload_with_filters["repaired_fields"] = list(selected_row.get("repaired_fields") or [])
+        selected_payload_with_filters["old_summary_hash"] = str(selected_row.get("old_summary_hash") or "")
+        selected_payload_with_filters["new_summary_hash"] = str(selected_row.get("new_summary_hash") or "")
     selected_output_task_states: dict[str, str] = {}
     selected_output_id = str(selected_output_id or "")
     if selected_output_id:
@@ -419,6 +422,57 @@ def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> d
         "internal_task_status": selected_output_task_states,
         "plan_diff": diff_state,
     }
+
+
+def _recompute_planning_track_output(*, goal_id: str, output_artifact_id: str) -> dict[str, object]:
+    service = GoalArtifactService()
+    repository = GoalArtifactRepository()
+    graph = service.get_goal_graph(goal_id)
+    outputs = [dict(item) for item in list(graph.get("output_artifacts") or []) if isinstance(item, dict)]
+    changed = False
+    result_payload: dict[str, object] = {}
+    for index, output in enumerate(outputs):
+        if str(output.get("output_artifact_id") or "") != str(output_artifact_id):
+            continue
+        ext = dict(output.get("extensions") or {})
+        payload = dict(ext.get("payload") or {})
+        if not payload:
+            raise ValueError("planning_track_payload_missing")
+        old_summary_hash = str(dict(payload.get("derived_summary_metadata") or {}).get("source_hash") or "")
+        recomputed, _ = PlanningSummaryEngine().recompute(payload)
+        new_summary_hash = str(dict(recomputed.get("derived_summary_metadata") or {}).get("source_hash") or "")
+        ext["payload"] = recomputed
+        ext["summary_recalculation_status"] = "recalculated" if old_summary_hash != new_summary_hash else "not_needed"
+        ext["old_summary_hash"] = old_summary_hash
+        ext["new_summary_hash"] = new_summary_hash
+        ext["repaired_fields"] = [
+            key
+            for key in (
+                "tasks_status_summary",
+                "tasks_type_summary",
+                "progress_summary",
+                "weighted_progress_summary",
+                "milestone_progress_summary",
+                "derived_summary_metadata",
+            )
+            if dict(payload.get(key) or {}) != dict(recomputed.get(key) or {})
+        ]
+        output["extensions"] = ext
+        outputs[index] = output
+        result_payload = {
+            "summary_recalculation_status": ext["summary_recalculation_status"],
+            "repaired_fields": list(ext.get("repaired_fields") or []),
+            "old_summary_hash": old_summary_hash,
+            "new_summary_hash": new_summary_hash,
+        }
+        changed = True
+        break
+    if not changed:
+        raise ValueError("planning_track_output_not_found")
+    graph["output_artifacts"] = outputs
+    graph["updated_at"] = _now_iso()
+    repository.save_graph(graph)
+    return result_payload
 
 
 def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
@@ -917,8 +971,60 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             return CommandResult(next_state.with_updates(status_message=f"diff3 ai {mode}"), f"diff3 ai {mode}")
         return CommandResult(state, "diff3: panel ... | focus <A|B|C> | scroll ... | sync on|off | ai ...", handled=False)
     if command == "plan":
-        if not args or str(args[0]).lower() != "track":
-            return CommandResult(state, "plan track [--from-goal <goal-id>]", handled=False)
+        if not args:
+            return CommandResult(state, "plan track [--from-goal <goal-id>] | plan summary doctor|fix|recompute", handled=False)
+        if str(args[0]).lower() == "summary":
+            sub = str(args[1]).lower() if len(args) > 1 else ""
+            if sub == "doctor":
+                if len(args) < 3:
+                    return CommandResult(state, "plan summary doctor <file>", handled=False)
+                path = str(args[2]).strip()
+                result = doctor_file(path)
+                message = json.dumps(result, ensure_ascii=False)
+                return CommandResult(state.with_updates(status_message=f"plan summary doctor {result.get('format')}"), message, handled=True)
+            if sub == "fix":
+                if len(args) < 3:
+                    return CommandResult(state, "plan summary fix <file>", handled=False)
+                path = str(args[2]).strip()
+                result = fix_file(path, write=True)
+                payload = {k: v for k, v in result.items() if k != "payload"}
+                message = json.dumps(payload, ensure_ascii=False)
+                return CommandResult(
+                    state.with_updates(status_message=f"plan summary fix changed={bool(result.get('changed'))}"),
+                    message,
+                    handled=True,
+                )
+            if sub == "recompute":
+                game = dict(state.header_logo_game or {})
+                goal_id = str(game.get("active_goal_id") or "").strip()
+                if not goal_id:
+                    return CommandResult(state, "plan summary recompute requires active goal", handled=False)
+                output_id = str(game.get("planning_track_selected_output_id") or game.get("active_planning_track_output_id") or "").strip()
+                if not output_id:
+                    return CommandResult(state, "plan summary recompute requires selected planning output", handled=False)
+                try:
+                    recompute_result = _recompute_planning_track_output(goal_id=goal_id, output_artifact_id=output_id)
+                except ValueError as exc:
+                    return CommandResult(state, f"plan summary recompute blocked reason={str(exc)}", handled=False)
+                refreshed = _build_planning_track_payload(goal_id=goal_id, game=game)
+                section_payloads = dict(state.section_payloads or {})
+                section_payloads["artifacts"] = refreshed
+                panel_states = dict(state.panel_states or {})
+                panel_states["artifacts"] = PanelState.HEALTHY
+                return CommandResult(
+                    state.with_updates(
+                        section_id="artifacts",
+                        selected_index=0,
+                        section_payloads=section_payloads,
+                        panel_states=panel_states,
+                        status_message=f"plan summary recompute {output_id}",
+                    ),
+                    json.dumps({"output_artifact_id": output_id, **recompute_result, "payload": refreshed}, ensure_ascii=False),
+                    handled=True,
+                )
+            return CommandResult(state, "plan summary doctor <file> | fix <file> | recompute", handled=False)
+        if str(args[0]).lower() != "track":
+            return CommandResult(state, "plan track [--from-goal <goal-id>] | plan summary doctor|fix|recompute", handled=False)
         game = dict(state.header_logo_game or {})
         tail = list(args[1:])
         explicit_goal_id = ""
