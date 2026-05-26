@@ -121,6 +121,17 @@ def test_registry_lists_and_registers_source_pack(tmp_path: Path) -> None:
     assert any(str(item.get("source_id") or "") == "eclipse-platform-official-source" for item in sources)
     eclipse = next(item for item in sources if str(item.get("source_id") or "") == "eclipse-platform-official-source")
     assert str(dict(eclipse.get("extensions") or {}).get("source_pack_id") or "") == "ananta-dev-default"
+    assert all(str(item.get("source_id") or "") != "eclipse-swt-official-source" for item in sources)
+
+
+def test_registry_can_include_optional_sources_explicitly(tmp_path: Path) -> None:
+    registry = SourceRegistry(root=tmp_path)
+    result = registry.register_source_pack_with_options(source_pack_id="ananta-dev-default", include_optional=True)
+    assert result["count"] >= 7
+    sources = registry.list_sources()
+    assert any(str(item.get("source_id") or "") == "eclipse-swt-official-source" for item in sources)
+    optional_row = next(item for item in sources if str(item.get("source_id") or "") == "eclipse-swt-official-source")
+    assert bool(optional_row.get("enabled")) is False
 
 
 def test_registry_rejects_duplicate_source_ids_inside_pack(tmp_path: Path) -> None:
@@ -138,3 +149,26 @@ def test_registry_rejects_duplicate_source_ids_inside_pack(tmp_path: Path) -> No
         assert "duplicate_source_id_in_pack" in str(exc)
     else:
         raise AssertionError("expected duplicate source ids in pack to fail")
+
+
+def test_registry_ranks_sources_with_technical_priority(tmp_path: Path) -> None:
+    registry = SourceRegistry(root=tmp_path)
+    ids = [
+        "wikimedia-wikipedia-initial-dump",
+        "keycloak-official-docs",
+        "eclipse-platform-official-source",
+    ]
+    ranked_keycloak = registry.rank_sources_for_query(
+        source_pack_id="ananta-dev-default",
+        source_ids=ids,
+        query="How to configure oidc realm client token mapping in keycloak?",
+    )
+    assert ranked_keycloak[0] == "keycloak-official-docs"
+    assert ranked_keycloak[-1] == "wikimedia-wikipedia-initial-dump"
+
+    ranked_eclipse = registry.rank_sources_for_query(
+        source_pack_id="ananta-dev-default",
+        source_ids=ids,
+        query="How to create eclipse pde plugin and osgi extension point?",
+    )
+    assert ranked_eclipse[0].startswith("eclipse-")

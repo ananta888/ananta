@@ -21,12 +21,16 @@ def test_source_schemas_validate_examples() -> None:
     eclipse_platform = json.loads(Path("sources/eclipse/eclipse-platform.source_descriptor.json").read_text(encoding="utf-8"))
     eclipse_jdt = json.loads(Path("sources/eclipse/eclipse-jdt-core.source_descriptor.json").read_text(encoding="utf-8"))
     eclipse_pde = json.loads(Path("sources/eclipse/eclipse-pde.source_descriptor.json").read_text(encoding="utf-8"))
+    eclipse_swt = json.loads(Path("sources/eclipse/eclipse-swt.source_descriptor.json").read_text(encoding="utf-8"))
+    eclipse_equinox = json.loads(Path("sources/eclipse/eclipse-equinox.source_descriptor.json").read_text(encoding="utf-8"))
     keycloak = json.loads(Path("sources/keycloak/source_descriptor.json").read_text(encoding="utf-8"))
     wikipedia = json.loads(Path("sources/wikipedia/source_descriptor.json").read_text(encoding="utf-8"))
     source_pack = json.loads(Path("sources/source-packs/ananta-dev-default.source-pack.json").read_text(encoding="utf-8"))
     assert list(descriptor_validator.iter_errors(eclipse_platform)) == []
     assert list(descriptor_validator.iter_errors(eclipse_jdt)) == []
     assert list(descriptor_validator.iter_errors(eclipse_pde)) == []
+    assert list(descriptor_validator.iter_errors(eclipse_swt)) == []
+    assert list(descriptor_validator.iter_errors(eclipse_equinox)) == []
     assert list(descriptor_validator.iter_errors(keycloak)) == []
     assert list(descriptor_validator.iter_errors(wikipedia)) == []
     assert list(source_pack_validator.iter_errors(source_pack)) == []

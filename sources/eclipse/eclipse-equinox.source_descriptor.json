@@ -1,0 +1,40 @@
+{
+  "schema": "source_descriptor.v1",
+  "source_id": "eclipse-equinox-official-source",
+  "source_type": "web_doc",
+  "display_name": "Eclipse Equinox (GitHub Mirror)",
+  "enabled": false,
+  "trust_level": "official_project_repository",
+  "fetch_source": {
+    "url": "https://github.com/eclipse-equinox/equinox",
+    "method": "GET",
+    "refresh_interval": "24h",
+    "cache_policy": "etag_and_commit_hash",
+    "expected_format": "git"
+  },
+  "citation_source": {
+    "canonical_url": "https://github.com/eclipse-equinox/equinox",
+    "title": "Eclipse Equinox Source Repository",
+    "publisher": "Eclipse Equinox Project / Eclipse Foundation",
+    "version_label": "main",
+    "retrieved_at": "2026-05-26T00:00:00Z",
+    "license_ref": "EPL-2.0",
+    "citation_text": "Eclipse Equinox source repository, Eclipse Foundation, EPL-2.0."
+  },
+  "license": {
+    "name": "Eclipse Public License 2.0",
+    "ref": "EPL-2.0"
+  },
+  "snapshot_policy": {
+    "immutable": true,
+    "dedupe_by_hash": true
+  },
+  "retention_policy": {
+    "keep_latest": 10,
+    "max_age_days": 365
+  },
+  "extensions": {
+    "source_kind": "git_repository",
+    "optional_source": true
+  }
+}

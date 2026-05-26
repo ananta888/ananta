@@ -209,7 +209,7 @@
     {
       "id": "T02.03",
       "title": "Eclipse PDE SourceDescriptor anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "source",
@@ -230,7 +230,7 @@
     {
       "id": "T02.04",
       "title": "Optional weitere Eclipse Quellen vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "source",
@@ -251,7 +251,7 @@
     {
       "id": "T03.01",
       "title": "Keycloak SourceDescriptor in SourcePack integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "source",
@@ -270,7 +270,7 @@
     {
       "id": "T03.02",
       "title": "Wikipedia/Wikimedia Initial Dump in SourcePack integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "source",
@@ -290,7 +290,7 @@
     {
       "id": "T03.03",
       "title": "Quellenabhängigkeiten und Prioritäten definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "source",

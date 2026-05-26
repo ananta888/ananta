@@ -78,6 +78,28 @@
           "citation_source": {
             "type": "object"
           },
+          "source_priority": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "knowledge_domain": {
+            "type": "string",
+            "enum": [
+              "source_code",
+              "technical_docs",
+              "general_knowledge",
+              "plugin_development_knowledge"
+            ]
+          },
+          "bootstrap_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "manual",
+              "subset"
+            ]
+          },
           "enabled": {
             "type": "boolean",
             "default": true
@@ -116,6 +138,14 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 100
+          },
+          "query_terms": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
           }
         }
       }
