@@ -28,3 +28,14 @@ def test_diff3_renderer_tabbed_mode_for_small_width() -> None:
     assert "tabbed mode" in output
     assert "active panel=B" in output
 
+
+def test_diff3_renderer_shows_active_panel_and_headers() -> None:
+    state = execute_command(":diff3", _state()).state
+    state = execute_command(":diff3 panel A current", state).state
+    state = execute_command(":diff3 panel B current --mode summary", state).state
+    state = execute_command(":diff3 panel C ai review", state).state
+    state = execute_command(":diff3 focus C", state).state
+    output = render_operator_shell(state, width=176, height=34)
+    assert "active panel=C" in output
+    assert "Current Diff" in output
+    assert "ai_review" in output

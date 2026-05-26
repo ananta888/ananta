@@ -135,6 +135,51 @@ def test_resolver_returns_reason_code_for_missing_source(tmp_path: Path) -> None
     assert result["reason_code"] in {"output_not_found", "artifact_content_not_found"}
 
 
+def test_resolver_returns_reason_for_missing_file_path(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    resolver = DiffSourceResolver(repo_root=repo)
+    result = resolver.resolve(
+        {
+            "source_ref_id": "missing-file",
+            "source_kind": "file_path",
+            "display_name": "Missing",
+            "locator": {},
+        }
+    )
+    assert result["ok"] is False
+    assert result["reason_code"] == "path_required"
+
+
+def test_resolver_supports_inline_text_source(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    resolver = DiffSourceResolver(repo_root=repo)
+    result = resolver.resolve(
+        {
+            "source_ref_id": "inline",
+            "source_kind": "inline_text",
+            "display_name": "Inline",
+            "locator": {"text": "hello"},
+        }
+    )
+    assert result["ok"] is True
+    assert result["text"] == "hello"
+
+
+def test_resolver_rejects_unknown_source_kind(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    resolver = DiffSourceResolver(repo_root=repo)
+    result = resolver.resolve(
+        {
+            "source_ref_id": "bad",
+            "source_kind": "custom_kind",
+            "display_name": "Bad",
+            "locator": {},
+        }
+    )
+    assert result["ok"] is False
+    assert result["reason_code"] == "unsupported_source_kind"
+
+
 def test_output_artifact_vs_current_file_diff(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     report_file = repo / "report.txt"

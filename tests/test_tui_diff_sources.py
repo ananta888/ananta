@@ -71,3 +71,17 @@ def test_current_diff_builder_sets_head_to_working_tree() -> None:
     assert payload["locator"]["base_ref"] == "HEAD"
     assert payload["locator"]["target"] == "working_tree"
 
+
+def test_diff_panel_config_rejects_invalid_panel_id() -> None:
+    with pytest.raises(ValueError):
+        build_diff_panel_config(panel_id="Z", render_mode="unified", filters={})
+
+
+def test_diff_panel_config_rejects_invalid_render_mode() -> None:
+    with pytest.raises(ValueError):
+        build_diff_panel_config(panel_id="A", render_mode="invalid_mode", filters={})
+
+
+def test_current_diff_source_ref_includes_path_filter() -> None:
+    payload = build_current_diff_source_ref(path_filter="src/")
+    assert payload["locator"]["path_filter"] == "src/"
