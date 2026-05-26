@@ -1,0 +1,741 @@
+{
+  "id": "todo.terminal-pixel-graphics-2d-3d",
+  "title": "Terminal Pixel Graphics: hochwertige 2D-Grafik und Echtzeit-3D in der Ananta-TUI",
+  "status": "planned",
+  "priority": "high",
+  "goal": "Die Ananta-TUI soll nicht nur ASCII-Grafik anzeigen, sondern echte Pixelgrafik im Terminal rendern können. Ziel ist zuerst hochwertige 2D-Grafik, danach Echtzeit-3D über Offscreen-Rendering mit Ausgabe über moderne Terminal-Grafikprotokolle.",
+  "context": {
+    "problem": "Die bisherige Grafikdarstellung ist stark verpixelt, weil SVG/Bitmap vermutlich zu klein gerendert und anschließend vergrößert oder zu grob in ASCII/ANSI umgewandelt wird.",
+    "target": "Direkte Darstellung von hochauflösender 2D-Grafik und später 3D-Frames im Terminal, ohne separates GUI-Fenster.",
+    "primary_environment": [
+      "Windows 11",
+      "WSL2 Ubuntu",
+      "Windows Terminal Preview",
+      "WezTerm optional",
+      "Ananta TUI"
+    ],
+    "preferred_rendering_model": "Offscreen rendern -> RGBA/PNG Frame -> Terminal Image Backend ausgeben",
+    "non_goals": [
+      "Kein reines ASCII-3D als Hauptlösung",
+      "Kein externes GUI-Fenster als primärer Renderer",
+      "Kein Terminal-Fallback als Qualitätsreferenz verwenden",
+      "Keine feste Bindung an nur ein Terminal"
+    ]
+  },
+  "architecture": {
+    "layers": [
+      {
+        "name": "TerminalGraphicsBackend",
+        "description": "Abstrakte Ausgabe-Schicht für verschiedene Terminal-Grafikprotokolle.",
+        "backends": [
+          "KittyGraphicsBackend",
+          "SixelBackend",
+          "Iterm2InlineImageBackend",
+          "UnicodeHalfBlockBackend",
+          "AsciiFallbackBackend"
+        ]
+      },
+      {
+        "name": "FrameRenderer2D",
+        "description": "Rendert SVG, PNG, Sprites, Text und Overlays in hochwertige RGBA-Frames."
+      },
+      {
+        "name": "FrameRenderer3D",
+        "description": "Rendert 3D-Szenen offscreen in Framebuffer und gibt RGBA-Frames zurück."
+      },
+      {
+        "name": "AnimationLoop",
+        "description": "Steuert FPS, Resize, Dirty-Region-Optimierung und Frame-Ausgabe."
+      },
+      {
+        "name": "CapabilityDetection",
+        "description": "Erkennt Terminal-Fähigkeiten automatisch und wählt das beste verfügbare Backend."
+      }
+    ],
+    "backend_priority": [
+      "kitty",
+      "sixel",
+      "iterm2",
+      "unicode_halfblock",
+      "ascii"
+    ],
+    "recommended_defaults": {
+      "preferred_backend": "kitty",
+      "fallback_backend": "sixel",
+      "default_frame_size": "480x270",
+      "high_quality_frame_size": "640x360",
+      "interactive_target_fps": 10,
+      "intro_target_fps": 15,
+      "oversampling_factor_2d": 4,
+      "resampling_filter": "lanczos",
+      "ascii_is_fallback_only": true
+    }
+  },
+  "files_to_add": [
+    {
+      "path": "src/ananta/tui/graphics/__init__.py",
+      "purpose": "Graphics-Modul initialisieren"
+    },
+    {
+      "path": "src/ananta/tui/graphics/backends/base.py",
+      "purpose": "Abstraktes Interface für Terminal-Grafikbackends"
+    },
+    {
+      "path": "src/ananta/tui/graphics/backends/kitty.py",
+      "purpose": "Kitty Graphics Protocol Backend"
+    },
+    {
+      "path": "src/ananta/tui/graphics/backends/sixel.py",
+      "purpose": "Sixel Backend"
+    },
+    {
+      "path": "src/ananta/tui/graphics/backends/iterm2.py",
+      "purpose": "iTerm2 Inline Image Backend"
+    },
+    {
+      "path": "src/ananta/tui/graphics/backends/halfblock.py",
+      "purpose": "Unicode-Halfblock-Fallback"
+    },
+    {
+      "path": "src/ananta/tui/graphics/backends/ascii.py",
+      "purpose": "ASCII-Fallback"
+    },
+    {
+      "path": "src/ananta/tui/graphics/capabilities.py",
+      "purpose": "Terminal-Fähigkeiten erkennen"
+    },
+    {
+      "path": "src/ananta/tui/graphics/frame.py",
+      "purpose": "Gemeinsames Frame-Objekt für RGBA/PNG/Pixels"
+    },
+    {
+      "path": "src/ananta/tui/graphics/renderer_2d.py",
+      "purpose": "2D-Renderer für SVG, PNG, Sprites, Overlays"
+    },
+    {
+      "path": "src/ananta/tui/graphics/renderer_3d.py",
+      "purpose": "Offscreen-3D-Renderer-Schnittstelle"
+    },
+    {
+      "path": "src/ananta/tui/graphics/moderngl_renderer.py",
+      "purpose": "ModernGL-Offscreen-Renderer für echtes 3D"
+    },
+    {
+      "path": "src/ananta/tui/graphics/raylib_renderer.py",
+      "purpose": "Optionaler Raylib/Pyray-Prototyp-Renderer"
+    },
+    {
+      "path": "src/ananta/tui/graphics/animation_loop.py",
+      "purpose": "Renderloop, FPS-Limit, Resize Handling"
+    },
+    {
+      "path": "src/ananta/tui/graphics/config.py",
+      "purpose": "Konfiguration für Grafikmodus, Backend, Qualität und FPS"
+    },
+    {
+      "path": "tests/tui/graphics/test_capability_detection.py",
+      "purpose": "Tests für Terminal-Erkennung"
+    },
+    {
+      "path": "tests/tui/graphics/test_2d_renderer_quality.py",
+      "purpose": "Tests für Oversampling, SVG-Rendering und Downsampling"
+    },
+    {
+      "path": "tests/tui/graphics/test_backend_selection.py",
+      "purpose": "Tests für Backend-Priorisierung und Fallbacks"
+    },
+    {
+      "path": "tests/tui/graphics/test_frame_size_mapping.py",
+      "purpose": "Tests für Terminal-Zellen zu Pixel-Framegrößen"
+    },
+    {
+      "path": "docs/tui-terminal-graphics.md",
+      "purpose": "Dokumentation der Terminal-Grafikarchitektur"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "TUI-GFX-001",
+      "title": "TerminalGraphicsBackend Interface definieren",
+      "type": "implementation",
+      "priority": "high",
+      "description": "Eine abstrakte Backend-Schnittstelle für alle Terminal-Grafikmodi erstellen.",
+      "details": [
+        "Methode render_frame(frame, x, y, width, height) definieren",
+        "Methode clear_region(x, y, width, height) definieren",
+        "Methode supports_animation() definieren",
+        "Methode supports_truecolor() definieren",
+        "Methode get_capabilities() definieren",
+        "Backend darf keine konkreten Renderer-Details kennen"
+      ],
+      "acceptance_criteria": [
+        "Alle Grafikbackends implementieren dasselbe Interface",
+        "Die TUI kann ein Backend austauschen, ohne Renderer-Code zu ändern",
+        "Unit-Test prüft, dass alle Backends die Pflichtmethoden anbieten",
+        "Kein Rendering-Code schreibt direkt unkontrolliert Escape-Sequenzen außerhalb des Backends"
+      ]
+    },
+    {
+      "id": "TUI-GFX-002",
+      "title": "Capability Detection für Terminal-Grafik implementieren",
+      "type": "implementation",
+      "priority": "high",
+      "description": "Automatisch erkennen, welche Grafikprotokolle im aktuellen Terminal verfügbar oder wahrscheinlich verfügbar sind.",
+      "details": [
+        "TERM, COLORTERM, WT_SESSION, WEZTERM_EXECUTABLE, KITTY_WINDOW_ID auswerten",
+        "Konfigurierbaren Override anbieten",
+        "Backend-Priorität anwenden: kitty > sixel > iterm2 > halfblock > ascii",
+        "Debug-Ausgabe für erkannte Fähigkeiten bereitstellen"
+      ],
+      "acceptance_criteria": [
+        "Unter WezTerm wird bevorzugt Kitty Graphics gewählt, wenn nicht deaktiviert",
+        "Unter Windows Terminal Preview wird Sixel als bevorzugter Pixelmodus gewählt",
+        "Bei unbekanntem Terminal wird sicher auf Halfblock oder ASCII zurückgefallen",
+        "Der gewählte Backend-Name ist in der TUI-Statusanzeige sichtbar",
+        "Tests decken mindestens WezTerm, Windows Terminal, unknown terminal und forced backend ab"
+      ]
+    },
+    {
+      "id": "TUI-GFX-003",
+      "title": "Hochwertige 2D-SVG-Rendering-Pipeline bauen",
+      "type": "implementation",
+      "priority": "high",
+      "description": "SVGs dürfen nicht klein gerendert und hochskaliert werden. Stattdessen wird Oversampling verwendet.",
+      "details": [
+        "SVG mit Faktor 2x/3x/4x rendern",
+        "Lanczos-Downsampling verwenden",
+        "Alpha-Kanal erhalten",
+        "Konfigurierbare Zielgröße in Pixeln unterstützen",
+        "Frame nicht an Terminal-Zellen, sondern an echte Pixelgröße koppeln"
+      ],
+      "acceptance_criteria": [
+        "Ein SVG-Logo wird intern mindestens mit 4x Oversampling gerendert, wenn quality=high gesetzt ist",
+        "Die finale Ausgabe zeigt weniger sichtbare Treppenbildung als die alte Pipeline",
+        "Alpha-Kanal bleibt erhalten oder wird sauber gegen Hintergrundfarbe komponiert",
+        "Unit-Test prüft, dass ein 80x40-Zielbild nicht direkt aus 80x40 gerendert wird",
+        "Keine harte Fixierung auf ASCII-Zeichen als Hauptausgabe"
+      ]
+    },
+    {
+      "id": "TUI-GFX-004",
+      "title": "SixelBackend implementieren",
+      "type": "implementation",
+      "priority": "high",
+      "description": "Sixel-Ausgabe für Windows Terminal Preview und kompatible Terminals bereitstellen.",
+      "details": [
+        "RGBA/PNG Frame nach Sixel konvertieren",
+        "Positionierung im Terminal unterstützen",
+        "Optional externe Tools wie img2sixel nutzen",
+        "Optional reine Python-Implementierung später prüfen",
+        "Frame-Caching vorbereiten"
+      ],
+      "acceptance_criteria": [
+        "Ein PNG-Frame kann per Sixel im Terminal angezeigt werden",
+        "Ein SVG-gerendertes Logo kann per Sixel angezeigt werden",
+        "Backend liefert verständliche Fehlermeldung, wenn img2sixel/libsixel fehlt",
+        "Fallback auf anderes Backend funktioniert ohne Crash",
+        "Integrationstest kann Sixel-Ausgabe als Escape-Sequenz validieren"
+      ]
+    },
+    {
+      "id": "TUI-GFX-005",
+      "title": "KittyGraphicsBackend implementieren",
+      "type": "implementation",
+      "priority": "high",
+      "description": "Kitty Graphics Protocol als hochwertiges Hauptbackend für moderne Terminal-Pixelgrafik implementieren.",
+      "details": [
+        "PNG/RGBA Frame base64-kodiert ausgeben",
+        "Positionierung unterstützen",
+        "Frame-Update ohne kompletten Terminal-Reset ermöglichen",
+        "Backend optional nur aktivieren, wenn Terminal es unterstützt oder force gesetzt ist"
+      ],
+      "acceptance_criteria": [
+        "Backend kann ein einzelnes Bild anzeigen",
+        "Backend kann mehrere Frames nacheinander anzeigen",
+        "Backend wird in WezTerm bevorzugt, sofern konfiguriert",
+        "Backend kann deaktiviert werden",
+        "Tests validieren Sequenzaufbau ohne echten Terminal-Zugriff"
+      ]
+    },
+    {
+      "id": "TUI-GFX-006",
+      "title": "Unicode Halfblock Renderer als guter Fallback",
+      "type": "implementation",
+      "priority": "medium",
+      "description": "Fallback, der deutlich besser aussieht als ASCII, indem obere und untere Zellhälften getrennt dargestellt werden.",
+      "details": [
+        "Pixelpaare vertikal zu Halfblock-Zeichen mappen",
+        "Truecolor-Foreground/Background verwenden",
+        "Alpha-Komposition beachten",
+        "Terminalbreite und Zellverhältnis berücksichtigen"
+      ],
+      "acceptance_criteria": [
+        "Halfblock-Ausgabe nutzt mindestens doppelte vertikale Auflösung gegenüber klassischem ASCII",
+        "Truecolor wird verwendet, wenn verfügbar",
+        "Bei fehlendem Truecolor wird auf 256 Farben oder ASCII zurückgefallen",
+        "Logo ist im Halfblock-Modus erkennbar besser als im ASCII-Modus"
+      ]
+    },
+    {
+      "id": "TUI-GFX-007",
+      "title": "ASCII Renderer als reiner Notfallmodus markieren",
+      "type": "implementation",
+      "priority": "medium",
+      "description": "ASCII darf nicht mehr als Qualitätsmodus behandelt werden, sondern nur als Fallback.",
+      "details": [
+        "ASCII-Renderer behalten",
+        "Dokumentieren, dass ASCII nur Retro/Fallback ist",
+        "Warnhinweis im Debug-Modus anzeigen",
+        "Keine High-Quality-Claims für ASCII"
+      ],
+      "acceptance_criteria": [
+        "Bei renderer=auto wird ASCII nur gewählt, wenn kein besseres Backend verfügbar ist",
+        "Statusanzeige zeigt ascii_fallback an",
+        "Dokumentation beschreibt Qualitätsgrenzen klar",
+        "Bestehende ASCII-Tests bleiben lauffähig"
+      ]
+    },
+    {
+      "id": "TUI-GFX-008",
+      "title": "Frame-Objekt einführen",
+      "type": "implementation",
+      "priority": "high",
+      "description": "Ein gemeinsames Frame-Modell einführen, das 2D- und 3D-Renderer unabhängig vom Terminalbackend macht.",
+      "details": [
+        "Breite/Höhe in Pixeln speichern",
+        "RGBA-Daten speichern",
+        "PNG-Serialisierung anbieten",
+        "Hash/Cache-Key anbieten",
+        "Optional dirty-region metadata vorbereiten"
+      ],
+      "acceptance_criteria": [
+        "2D-Renderer gibt Frame-Objekte zurück",
+        "3D-Renderer gibt Frame-Objekte zurück",
+        "Backends akzeptieren Frame-Objekte",
+        "Frame kann nach PNG serialisiert werden",
+        "Tests prüfen Dimensionen, Alpha und PNG-Encoding"
+      ]
+    },
+    {
+      "id": "TUI-GFX-009",
+      "title": "Terminal-Pixelgröße und Zellgröße sauber abbilden",
+      "type": "implementation",
+      "priority": "high",
+      "description": "Die TUI muss wissen, welche Pixelgröße für eine gewünschte Terminalfläche sinnvoll ist.",
+      "details": [
+        "Terminal-Spalten/Zeilen lesen",
+        "Optional Pixelgröße über Terminalprotokolle abfragen",
+        "Fallback-Zellverhältnis konfigurieren",
+        "Zielgröße für Intro, Logo und Viewport berechnen"
+      ],
+      "acceptance_criteria": [
+        "Bei 120x40 Terminalzellen wird eine sinnvolle Pixelgröße berechnet",
+        "Logo mit 8 Zeilen Höhe wird nicht aus einer 8-Pixel-hohen Quelle erzeugt",
+        "Resize wird erkannt und führt zu neuer Zielgröße",
+        "Tests decken verschiedene Terminalgrößen ab"
+      ]
+    },
+    {
+      "id": "TUI-GFX-010",
+      "title": "AnimationLoop für Pixelgrafik implementieren",
+      "type": "implementation",
+      "priority": "high",
+      "description": "Ein zentraler Loop für animierte 2D- und 3D-Ausgabe.",
+      "details": [
+        "FPS-Limit einbauen",
+        "Frame-Dauer messen",
+        "Backend-Ausgabezeit messen",
+        "Resize-Events berücksichtigen",
+        "Graceful degradation bei zu langsamer Ausgabe"
+      ],
+      "acceptance_criteria": [
+        "Loop kann mit 5, 10 und 15 FPS konfiguriert werden",
+        "Bei zu langsamer Ausgabe wird FPS reduziert oder Frame übersprungen",
+        "TUI bleibt bedienbar",
+        "Animation kann sauber gestartet und gestoppt werden",
+        "Performance-Metriken sind im Debug-Modus sichtbar"
+      ]
+    },
+    {
+      "id": "TUI-GFX-011",
+      "title": "3D-Offscreen-Renderer mit ModernGL vorbereiten",
+      "type": "implementation",
+      "priority": "high",
+      "description": "ModernGL als Hauptpfad für echtes 3D-Offscreen-Rendering vorbereiten.",
+      "details": [
+        "Headless/OpenGL-Kontext prüfen",
+        "Framebuffer in gewünschter Größe erzeugen",
+        "Einfaches Testobjekt rendern",
+        "Kamera und Projektionsmatrix einführen",
+        "Framebuffer zu RGBA-Frame konvertieren"
+      ],
+      "acceptance_criteria": [
+        "Ein rotierender Würfel oder ein einfaches Mesh kann offscreen gerendert werden",
+        "Renderer gibt ein Frame-Objekt zurück",
+        "Frame kann über Kitty oder Sixel angezeigt werden",
+        "Renderer funktioniert ohne separates GUI-Fenster",
+        "Fehlende OpenGL-Unterstützung führt zu verständlichem Fallback"
+      ]
+    },
+    {
+      "id": "TUI-GFX-012",
+      "title": "Raylib/Pyray-Prototyp-Renderer optional ergänzen",
+      "type": "implementation",
+      "priority": "medium",
+      "description": "Einfacherer 3D-Prototyp-Renderer für schnelle Spiel- und Snake-Experimente.",
+      "details": [
+        "Raylib als optional dependency führen",
+        "RenderTexture/Framebuffer nutzen",
+        "Einfache Szene mit Kamera, Boden und Objekt erzeugen",
+        "RGBA-Frame auslesen"
+      ],
+      "acceptance_criteria": [
+        "Raylib-Renderer ist optional und bricht Installation nicht, wenn Dependency fehlt",
+        "Ein einfacher 3D-Testframe kann erzeugt werden",
+        "Renderer kann über Konfiguration aktiviert werden",
+        "ModernGL bleibt bevorzugter ernsthafter Renderer"
+      ]
+    },
+    {
+      "id": "TUI-GFX-013",
+      "title": "2D/3D-Mischmodus ermöglichen",
+      "type": "implementation",
+      "priority": "high",
+      "description": "3D-Szene und 2D-Overlay müssen kombiniert werden können.",
+      "details": [
+        "3D-Frame als Basis",
+        "2D-Overlay für Status, Pfad, Artefaktname, Chat-Hinweise",
+        "Alpha-Komposition",
+        "Debug-Overlay optional"
+      ],
+      "acceptance_criteria": [
+        "3D-Frame kann mit 2D-Textoverlay kombiniert werden",
+        "Statusanzeige bleibt lesbar",
+        "Overlay verändert 3D-Renderer nicht direkt",
+        "Tests prüfen Frame-Komposition mit Alpha"
+      ]
+    },
+    {
+      "id": "TUI-GFX-014",
+      "title": "Ananta-Logo-Intro mit hochwertiger Pixelgrafik neu bauen",
+      "type": "feature",
+      "priority": "high",
+      "description": "Das bestehende verpixelte Logo-Intro durch eine hochwertige Pixelpipeline ersetzen.",
+      "details": [
+        "Logo initial groß anzeigen",
+        "Logo weich nach links oben verkleinern",
+        "Kleines Logo mit etwa 8 Terminalzeilen Höhe anzeigen",
+        "Statusbereich rechts daneben anzeigen",
+        "Keine ASCII-Ausgabe verwenden, wenn Pixelbackend verfügbar ist"
+      ],
+      "acceptance_criteria": [
+        "Logo wirkt sichtbar weniger verpixelt als bisher",
+        "Intro läuft mit mindestens 10 FPS auf geeignetem Terminal",
+        "Nach Intro bleibt kleines Logo oben links stabil sichtbar",
+        "Statusbereich zeigt aktuelles Verzeichnis, Backend, Renderer und FPS",
+        "Fallback-Modus funktioniert weiter"
+      ]
+    },
+    {
+      "id": "TUI-GFX-015",
+      "title": "Snake-/KI-Avatar-Bewegung auf Pixelgrafik umstellen",
+      "type": "feature",
+      "priority": "medium",
+      "description": "Die KI-Snake soll nicht grob über ASCII-Zellen springen, sondern weich als Sprite/2D- oder 3D-Objekt bewegt werden.",
+      "details": [
+        "Snake-Position in Pixelkoordinaten führen",
+        "Sanfte Verfolgung der Mausposition implementieren",
+        "Schnellbewegung zu erkanntem Artefakt ermöglichen",
+        "Bewegung unabhängig von Terminal-Zellraster berechnen",
+        "Später 3D-Snake-Modell optional"
+      ],
+      "acceptance_criteria": [
+        "Snake folgt der Maus sichtbar weicher als zellbasierte Bewegung",
+        "Bei Artefakterkennung bewegt sie sich schneller zum Ziel",
+        "Bewegung kann mit 2D-Sprite und später 3D-Modell verwendet werden",
+        "TUI-Eingaben bleiben während Animation nutzbar"
+      ]
+    },
+    {
+      "id": "TUI-GFX-016",
+      "title": "Performance-Budget definieren und messen",
+      "type": "quality",
+      "priority": "high",
+      "description": "Terminalgrafik kann schnell langsam werden. Deshalb braucht es klare Budgets.",
+      "details": [
+        "Renderzeit messen",
+        "Encodingzeit messen",
+        "Terminal-Ausgabezeit messen",
+        "FPS messen",
+        "Framegröße dynamisch reduzieren, wenn Ziel-FPS nicht erreicht wird"
+      ],
+      "acceptance_criteria": [
+        "Debug-Modus zeigt render_ms, encode_ms, output_ms und fps",
+        "Bei zu langsamer Ausgabe wird nicht die gesamte TUI unbrauchbar",
+        "480x270 läuft als Standardziel auf passender Umgebung",
+        "640x360 ist als High-Quality-Modus konfigurierbar",
+        "Tests prüfen Fallback bei künstlich langsamem Backend"
+      ]
+    },
+    {
+      "id": "TUI-GFX-017",
+      "title": "Konfiguration erweitern",
+      "type": "configuration",
+      "priority": "high",
+      "description": "Grafikmodus und Qualität müssen über Config/CLI steuerbar sein.",
+      "details": [
+        "renderer=auto|kitty|sixel|iterm2|halfblock|ascii",
+        "quality=low|medium|high|ultra",
+        "frame_width/frame_height",
+        "target_fps",
+        "oversampling_factor",
+        "enable_3d",
+        "force_pixel_graphics"
+      ],
+      "acceptance_criteria": [
+        "CLI kann Renderer erzwingen",
+        "Config kann Renderer default setzen",
+        "Auto-Modus bleibt Standard",
+        "Ungültige Werte führen zu klarer Fehlermeldung",
+        "Dokumentation enthält Beispielkonfiguration"
+      ]
+    },
+    {
+      "id": "TUI-GFX-018",
+      "title": "E2E-Demo für hochwertige 2D-Grafik erstellen",
+      "type": "test",
+      "priority": "high",
+      "description": "Eine echte Demo/Testaufnahme erstellen, die beweist, dass 2D-Pixelgrafik sauber im Terminal läuft.",
+      "details": [
+        "Ananta-Logo laden",
+        "SVG hochauflösend rendern",
+        "Intro abspielen",
+        "Kleines Logo oben links anzeigen",
+        "Statusbereich anzeigen",
+        "Backend und FPS sichtbar machen"
+      ],
+      "acceptance_criteria": [
+        "Demo läuft ohne Fake-Frames",
+        "Aufnahme zeigt echtes Terminal",
+        "Backend ist sichtbar",
+        "Logo ist nicht stark verpixelt",
+        "Testartefakte werden reproduzierbar gespeichert"
+      ]
+    },
+    {
+      "id": "TUI-GFX-019",
+      "title": "E2E-Demo für 3D-Rendering erstellen",
+      "type": "test",
+      "priority": "medium",
+      "description": "Eine kleine 3D-Echtzeitdemo im Terminal erstellen.",
+      "details": [
+        "Rotierender Würfel oder kleines Ananta-Symbol in 3D",
+        "Offscreen rendern",
+        "Frame per Kitty/Sixel anzeigen",
+        "FPS sichtbar machen",
+        "Fallback dokumentieren"
+      ],
+      "acceptance_criteria": [
+        "3D-Objekt wird im Terminal sichtbar animiert",
+        "Kein separates GUI-Fenster ist nötig",
+        "Animation läuft mit mindestens 5 FPS auf Zielumgebung",
+        "Renderer, Framegröße und FPS werden angezeigt",
+        "Bei fehlendem 3D-Support wird sauber auf 2D-Demo zurückgefallen"
+      ]
+    },
+    {
+      "id": "TUI-GFX-020",
+      "title": "Dokumentation schreiben",
+      "type": "documentation",
+      "priority": "medium",
+      "description": "Dokumentieren, warum Pixelgrafik, Sixel/Kitty und Offscreen-Rendering genutzt werden.",
+      "details": [
+        "Architektur erklären",
+        "Backend-Priorität erklären",
+        "Windows Terminal vs WezTerm erklären",
+        "2D-Qualität/Oversampling erklären",
+        "3D-Offscreen-Konzept erklären",
+        "Known limitations dokumentieren"
+      ],
+      "acceptance_criteria": [
+        "docs/tui-terminal-graphics.md existiert",
+        "Enthält Setup für Windows Terminal Preview + Sixel",
+        "Enthält Setup für WezTerm + Kitty Graphics",
+        "Enthält Troubleshooting für verpixelte Ausgabe",
+        "Enthält Performance-Hinweise"
+      ]
+    }
+  ],
+  "integration_tests": [
+    {
+      "id": "IT-TUI-GFX-001",
+      "title": "Backend Auto Detection",
+      "scenario": "Simulierte Umgebungsvariablen für verschiedene Terminals.",
+      "steps": [
+        "Setze WEZTERM_EXECUTABLE",
+        "Starte Capability Detection",
+        "Prüfe gewähltes Backend",
+        "Wiederhole mit WT_SESSION",
+        "Wiederhole mit unbekannter Umgebung"
+      ],
+      "expected_result": "WezTerm bevorzugt Kitty, Windows Terminal bevorzugt Sixel, unbekannt fällt auf Halfblock/ASCII zurück."
+    },
+    {
+      "id": "IT-TUI-GFX-002",
+      "title": "SVG Oversampling Quality",
+      "scenario": "Ananta-SVG wird mit unterschiedlichen Qualitätsstufen gerendert.",
+      "steps": [
+        "Render quality=low",
+        "Render quality=high",
+        "Vergleiche interne Rendergröße",
+        "Vergleiche finale Zielgröße"
+      ],
+      "expected_result": "High-Quality rendert intern größer und sampelt sauber herunter."
+    },
+    {
+      "id": "IT-TUI-GFX-003",
+      "title": "2D Pixel Terminal Intro",
+      "scenario": "Logo-Intro läuft im Terminal-Pixelmodus.",
+      "steps": [
+        "Starte TUI mit renderer=auto",
+        "Lade Ananta-Logo",
+        "Spiele Intro",
+        "Verkleinere Logo nach oben links",
+        "Zeige Statusbereich"
+      ],
+      "expected_result": "Logo ist hochwertig sichtbar, Backend/FPS werden angezeigt, kein Crash bei Resize."
+    },
+    {
+      "id": "IT-TUI-GFX-004",
+      "title": "3D Offscreen Frame",
+      "scenario": "ModernGL rendert ein 3D-Testobjekt offscreen.",
+      "steps": [
+        "Initialisiere ModernGL-Renderer",
+        "Erzeuge 480x270 Framebuffer",
+        "Rendere Testmesh",
+        "Lese RGBA-Frame",
+        "Gib Frame an TerminalBackend"
+      ],
+      "expected_result": "Ein gültiger Frame wird erzeugt und kann über Pixelbackend ausgegeben werden."
+    },
+    {
+      "id": "IT-TUI-GFX-005",
+      "title": "Graceful Fallback",
+      "scenario": "Kein Pixelbackend und kein OpenGL verfügbar.",
+      "steps": [
+        "Deaktiviere Kitty/Sixel",
+        "Simuliere fehlendes OpenGL",
+        "Starte TUI",
+        "Prüfe Fallback"
+      ],
+      "expected_result": "TUI startet trotzdem und nutzt Halfblock oder ASCII mit Warnhinweis."
+    }
+  ],
+  "cli_examples": [
+    {
+      "description": "Automatische beste Grafik wählen",
+      "command": "ananta tui --graphics auto"
+    },
+    {
+      "description": "Kitty Graphics erzwingen",
+      "command": "ananta tui --graphics kitty --quality high"
+    },
+    {
+      "description": "Sixel erzwingen",
+      "command": "ananta tui --graphics sixel --quality high"
+    },
+    {
+      "description": "3D-Test starten",
+      "command": "ananta tui --graphics kitty --enable-3d --scene demo-cube"
+    },
+    {
+      "description": "Fallback erzwingen",
+      "command": "ananta tui --graphics halfblock"
+    }
+  ],
+  "config_example": {
+    "tui": {
+      "graphics": {
+        "mode": "auto",
+        "preferred_backend": "kitty",
+        "fallback_backend": "sixel",
+        "quality": "high",
+        "oversampling_factor": 4,
+        "resampling_filter": "lanczos",
+        "default_frame_size": {
+          "width": 480,
+          "height": 270
+        },
+        "high_quality_frame_size": {
+          "width": 640,
+          "height": 360
+        },
+        "target_fps": {
+          "interactive": 10,
+          "intro": 15,
+          "fallback": 5
+        },
+        "renderer_2d": {
+          "enabled": true,
+          "svg_oversampling": true,
+          "alpha_compositing": true
+        },
+        "renderer_3d": {
+          "enabled": false,
+          "primary": "moderngl",
+          "prototype": "raylib",
+          "offscreen": true
+        },
+        "fallbacks": {
+          "allow_halfblock": true,
+          "allow_ascii": true,
+          "ascii_warning": true
+        },
+        "debug": {
+          "show_backend": true,
+          "show_fps": true,
+          "show_frame_size": true,
+          "show_render_times": true
+        }
+      }
+    }
+  },
+  "mermaid": {
+    "architecture": "flowchart TD\n    TUI[Ananta TUI] --> Loop[AnimationLoop]\n    Loop --> R2D[FrameRenderer2D]\n    Loop --> R3D[FrameRenderer3D]\n    R2D --> Frame[RGBA Frame]\n    R3D --> Frame\n    Frame --> Backend[TerminalGraphicsBackend]\n    Backend --> Kitty[Kitty Graphics]\n    Backend --> Sixel[Sixel]\n    Backend --> Iterm[iTerm2 Inline Image]\n    Backend --> Half[Unicode Halfblock]\n    Backend --> ASCII[ASCII Fallback]\n    Cap[Capability Detection] --> Backend",
+    "render_pipeline": "flowchart LR\n    SVG[SVG/Assets] --> Oversample[High Resolution Render 2x-4x]\n    Oversample --> Downsample[Lanczos Downsample]\n    Downsample --> RGBA[RGBA Frame]\n    Scene3D[3D Scene] --> Offscreen[Offscreen Framebuffer]\n    Offscreen --> RGBA\n    RGBA --> Encode[Encode PNG/Sixel/Protocol]\n    Encode --> Terminal[Terminal Output]"
+  },
+  "risks": [
+    {
+      "risk": "Terminal-Protokolle verhalten sich je nach Terminal unterschiedlich.",
+      "mitigation": "Backend-Abstraktion und Capability Detection, kein hartes Single-Terminal-Design."
+    },
+    {
+      "risk": "Sixel kann bei hoher Auflösung langsam sein.",
+      "mitigation": "Framegröße begrenzen, FPS-Limit, Kitty bevorzugen, Fallback auf niedrigere Qualität."
+    },
+    {
+      "risk": "OpenGL/ModernGL unter WSL2 kann je nach Setup problematisch sein.",
+      "mitigation": "Sauberer Fallback auf 2D, optional Raylib-Prototyp, verständliche Fehlerausgabe."
+    },
+    {
+      "risk": "Zu hohe Zielauflösung macht die TUI träge.",
+      "mitigation": "Default 480x270, High 640x360, adaptive Reduktion bei schlechter Performance."
+    },
+    {
+      "risk": "ASCII-Fallback wird fälschlich als Qualitätsmodus verwendet.",
+      "mitigation": "ASCII explizit als fallback_only markieren und Statuswarnung anzeigen."
+    }
+  ],
+  "definition_of_done": [
+    "Ananta-TUI kann hochwertige 2D-Grafik per Pixelbackend anzeigen",
+    "SVG-Logo wird nicht mehr sichtbar stark verpixelt gerendert",
+    "Backend-Auswahl funktioniert automatisch und manuell",
+    "Sixel und Kitty sind als getrennte Backends implementiert",
+    "Halfblock und ASCII existieren nur als Fallback",
+    "Eine echte 2D-E2E-Demo existiert",
+    "Eine einfache 3D-Offscreen-Demo existiert",
+    "3D-Frame kann im Terminal angezeigt werden",
+    "Performance-Metriken sind sichtbar",
+    "Dokumentation und Troubleshooting sind vorhanden"
+  ]
+}
