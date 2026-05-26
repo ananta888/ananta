@@ -368,6 +368,7 @@
     },
     {
       "id": "TUI-GFX-011",
+      "status": "done",
       "title": "3D-Offscreen-Renderer mit ModernGL vorbereiten",
       "type": "implementation",
       "priority": "high",
@@ -389,6 +390,7 @@
     },
     {
       "id": "TUI-GFX-012",
+      "status": "done",
       "title": "Raylib/Pyray-Prototyp-Renderer optional ergänzen",
       "type": "implementation",
       "priority": "medium",
@@ -408,6 +410,7 @@
     },
     {
       "id": "TUI-GFX-013",
+      "status": "done",
       "title": "2D/3D-Mischmodus ermöglichen",
       "type": "implementation",
       "priority": "high",
@@ -427,6 +430,7 @@
     },
     {
       "id": "TUI-GFX-014",
+      "status": "done",
       "title": "Ananta-Logo-Intro mit hochwertiger Pixelgrafik neu bauen",
       "type": "feature",
       "priority": "high",
@@ -448,6 +452,7 @@
     },
     {
       "id": "TUI-GFX-015",
+      "status": "done",
       "title": "Snake-/KI-Avatar-Bewegung auf Pixelgrafik umstellen",
       "type": "feature",
       "priority": "medium",

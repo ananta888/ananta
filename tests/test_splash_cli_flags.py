@@ -73,6 +73,15 @@ def test_parse_args_logo_renderer_animation_flags():
     assert args.no_logo is True
 
 
+def test_parse_args_offscreen_3d_flags():
+    from client_surfaces.operator_tui.app import _parse_args
+
+    args = _parse_args(["--enable-3d", "--scene", "demo-cube", "--3d-renderer", "raylib"])
+    assert args.enable_3d is True
+    assert args.scene == "demo-cube"
+    assert getattr(args, "3d_renderer") == "raylib"
+
+
 def test_apply_logo_runtime_overrides_sets_env_for_render_once(monkeypatch):
     from client_surfaces.operator_tui.app import _apply_logo_runtime_overrides, _parse_args
 
@@ -81,6 +90,19 @@ def test_apply_logo_runtime_overrides_sets_env_for_render_once(monkeypatch):
     _apply_logo_runtime_overrides(args)
     assert os.environ.get("ANANTA_TUI_LOGO_RENDERER") == "ansi"
     assert os.environ.get("ANANTA_TUI_LOGO_ANIMATION") == "static"
+
+
+def test_apply_logo_runtime_overrides_sets_offscreen_3d_env(monkeypatch):
+    from client_surfaces.operator_tui.app import _apply_logo_runtime_overrides, _parse_args
+
+    monkeypatch.delenv("ANANTA_TUI_ENABLE_3D", raising=False)
+    monkeypatch.delenv("ANANTA_TUI_3D_SCENE", raising=False)
+    monkeypatch.delenv("ANANTA_TUI_3D_RENDERER", raising=False)
+    args = _parse_args(["--enable-3d", "--scene", "demo-cube", "--3d-renderer", "moderngl"])
+    _apply_logo_runtime_overrides(args)
+    assert os.environ.get("ANANTA_TUI_ENABLE_3D") == "1"
+    assert os.environ.get("ANANTA_TUI_3D_SCENE") == "demo-cube"
+    assert os.environ.get("ANANTA_TUI_3D_RENDERER") == "moderngl"
 
 
 def test_splash_debug_file_not_written_without_flag(tmp_path, monkeypatch):
@@ -119,7 +141,7 @@ def test_render_once_without_splash():
         terminal_graphics={"no_color": True},
     )
     output = render_operator_shell(state, width=120, height=32, splash=None)
-    assert "Ananta Operator TUI" in output
+    assert "SNAKE" in output
     assert len(output) > 0
 
 
@@ -159,4 +181,17 @@ def test_render_once_with_skip_splash():
         terminal_graphics={"no_color": True},
     )
     output = render_operator_shell(state, width=120, height=32, splash=sm)
-    assert "Ananta Operator TUI" in output
+    assert "SNAKE" in output
+
+
+def test_render_once_pixel_intro_frame(capsys, monkeypatch):
+    from client_surfaces.operator_tui.app import _handle_render_once, _parse_args
+
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.logo_renderer.animated_header.render_header_logo",
+        lambda **kwargs: ["PIXEL-INTRO"],
+    )
+    args = _parse_args(["--render-once", "--splash-frame", "pixel:intro", "--width", "90", "--height", "20"])
+    _handle_render_once(args, splash=None)
+    out = capsys.readouterr().out
+    assert "PIXEL-INTRO" in out

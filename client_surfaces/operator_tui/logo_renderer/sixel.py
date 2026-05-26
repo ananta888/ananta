@@ -99,6 +99,9 @@ class SixelRenderer:
         frames = [self.render_frame(width_cells=width_cells, height_cells=height_cells, t=i / max(1, fps), writer=writer) for i in range(count)]
         return frames
 
+    def render_pixel_frame(self, frame: PixelFrame) -> str:
+        return self._encode_sixel_from_frame(frame)
+
     def _encode_sixel_from_frame(self, frame: PixelFrame) -> str:
         png_bytes = frame.to_png_bytes()
         if not png_bytes:

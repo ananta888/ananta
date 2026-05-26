@@ -188,6 +188,9 @@ def _run_tui(argv: Sequence[str]) -> int:
         print("  --logo-renderer <mode>     Header logo renderer: auto|ansi|sixel|kitty|none")
         print("  --logo-animation <preset>  Header logo animation: static|pulse|shimmer|rotate_hint")
         print("  --logo-fps <n>             Header logo animation fps (1-16)")
+        print("  --enable-3d                Enable offscreen 3D header scene")
+        print("  --scene <id>               3D scene (e.g. demo-cube)")
+        print("  --3d-renderer <mode>       3D renderer: auto|moderngl|raylib")
         print("  --no-logo                  Disable persistent header logo")
         print("  --legacy                   Use the previous report-style shell")
         return 0

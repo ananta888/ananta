@@ -95,6 +95,14 @@ class KittyRenderer:
     def render_pixel_frame(self, frame: PixelFrame) -> bytes:
         return frame.to_png_bytes()
 
+    def render_pixel_sequence(self, *, frame: PixelFrame, height_cells: int) -> str:
+        payload = self.render_pixel_frame(frame)
+        if not payload:
+            return ""
+        delete_old = f"\x1b_Ga=d,d=I,i={self._image_id}\x1b\\"
+        draw = self._build_transmit_sequence(payload)
+        return f"\x1b7\x1b[1;1H{delete_old}{draw}\x1b[{max(1, int(height_cells)) + 1};1H\x1b8"
+
     def _build_transmit_sequence(self, payload: bytes) -> str:
         encoded = base64.b64encode(payload).decode("ascii")
         chunk_size = 4096

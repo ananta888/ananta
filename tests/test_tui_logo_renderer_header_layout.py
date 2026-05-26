@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from client_surfaces.operator_tui.logo_renderer import animated_header
+from client_surfaces.operator_tui.logo_renderer.frame import PixelFrame
 from client_surfaces.operator_tui.logo_renderer.kitty import KittyRenderer
 from client_surfaces.operator_tui.logo_renderer.sixel import SixelRenderer
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
@@ -135,3 +136,30 @@ def test_animation_disabled_uses_single_static_frame(monkeypatch):
     assert lines == ["static"]
     assert len(calls) == 1
     assert calls[0]["frame_count"] == 1
+
+
+def test_render_header_logo_3d_stream_mode_uses_offscreen_frame(monkeypatch):
+    monkeypatch.setenv("ANANTA_TUI_ENABLE_3D", "1")
+    monkeypatch.setenv("ANANTA_TUI_LOGO_STREAM_INLINE", "1")
+    monkeypatch.setenv("ANANTA_TUI_LOGO_RENDERER", "kitty")
+    monkeypatch.setenv("KITTY_WINDOW_ID", "11")
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.logo_renderer.animated_header._pick_3d_renderer",
+        lambda pref: type(
+            "R",
+            (),
+            {
+                "name": "test3d",
+                "render_scene": staticmethod(
+                    lambda **kwargs: PixelFrame(width_px=12, height_px=12, rgba=b"\x00" * (12 * 12 * 4), metadata={"renderer": "test3d"})
+                ),
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "client_surfaces.operator_tui.logo_renderer.kitty.KittyRenderer.render_pixel_sequence",
+        lambda self, *, frame, height_cells: "\x1b_Ga=T,f=100,m=0;ZW5jb2RlZA==\x1b\\",
+    )
+    lines = animated_header.render_header_logo(cols=40, rows=8, color=True, t_now=1.0)
+    assert lines is not None
+    assert lines[0].startswith("\x1b7")

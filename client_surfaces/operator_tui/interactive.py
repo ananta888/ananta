@@ -35,6 +35,7 @@ from client_surfaces.operator_tui.mouse import (
     normalize_mouse_state,
 )
 from client_surfaces.operator_tui.models import FocusPane, OperatorMode, OperatorState
+from client_surfaces.operator_tui.logo_renderer.snake_motion import PixelPoint, pixel_boost_speed, smooth_follow
 from client_surfaces.operator_tui.plugins import PluginRegistry, default_plugin_registry, resolve_item_reference
 from client_surfaces.operator_tui.region_index import RegionTarget, build_region_index
 from client_surfaces.operator_tui.renderer import render_operator_shell
@@ -2077,6 +2078,17 @@ class InteractiveOperatorTui:
             phase = now * (0.9 + i * 0.3)
             hx = int(center_x + radius_x * math.sin(phase + i * 1.7)) % max(1, board_w)
             hy = int(center_y + radius_y * math.cos(phase + i * 1.3)) % max(1, board_h)
+            target_pixel = PixelPoint(float(hx * 8), float(hy * 16))
+            prev_px = float(existing.get("pixel_x") or target_pixel.x)
+            prev_py = float(existing.get("pixel_y") or target_pixel.y)
+            intent_level = str((self.state.header_logo_game or {}).get("artifact_intent_confidence") or "none")
+            speed = pixel_boost_speed(base_speed=2.2 + i * 0.4, artifact_intent=intent_level)
+            smoothed = smooth_follow(
+                current=PixelPoint(prev_px, prev_py),
+                target=target_pixel,
+                speed=speed,
+                dt=max(0.01, min(0.25, 0.08 + (i * 0.02))),
+            )
             body = []
             for j in range(8):
                 bx = (hx - (j % 4)) % max(1, board_w)
@@ -2105,6 +2117,8 @@ class InteractiveOperatorTui:
                 "updated_at": now,
                 "local": False,
                 "access_level": access_level,
+                "pixel_x": round(smoothed.x, 3),
+                "pixel_y": round(smoothed.y, 3),
             }
 
     def _apply_snake_hover_selection_delay(
