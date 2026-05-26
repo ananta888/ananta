@@ -11,6 +11,7 @@ from agent.sources.citation_formatter import format_citation
 from agent.sources.source_cache import SourceCache
 from agent.sources.source_refresh_service import SourceRefreshService
 from agent.sources.source_registry import SourceRegistry
+from agent.sources.source_pack_service import SourcePackService
 from agent.sources.source_snapshot_store import SourceSnapshotStore
 
 sources_bp = Blueprint("sources", __name__)
@@ -30,6 +31,10 @@ def _refresh_service() -> SourceRefreshService:
 
 def _cache() -> SourceCache:
     return SourceCache()
+
+
+def _packs() -> SourcePackService:
+    return SourcePackService(registry=_registry(), snapshots=_snapshots())
 
 
 def _sync_builtin_descriptors() -> None:
@@ -63,6 +68,52 @@ def list_sources():
     _sync_builtin_descriptors()
     payload = [_source_payload(item) for item in _registry().list_sources(include_disabled=True)]
     return api_response(data=payload)
+
+
+@sources_bp.route("/sources/packs", methods=["GET"])
+@check_auth
+def list_source_packs():
+    _sync_builtin_descriptors()
+    return api_response(data=_packs().list_packs())
+
+
+@sources_bp.route("/sources/packs/<source_pack_id>", methods=["GET"])
+@check_auth
+def get_source_pack(source_pack_id: str):
+    _sync_builtin_descriptors()
+    try:
+        pack = _packs().get_pack(source_pack_id)
+    except ValueError:
+        raise NotFoundError("source_pack_not_found")
+    return api_response(data=pack)
+
+
+@sources_bp.route("/sources/packs/<source_pack_id>/bootstrap", methods=["POST"])
+@check_auth
+def bootstrap_source_pack(source_pack_id: str):
+    _sync_builtin_descriptors()
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        raise BadRequestError("invalid_payload")
+    result = _packs().bootstrap(
+        source_pack_id=source_pack_id,
+        dry_run=bool(payload.get("dry_run", False)),
+        skip_source_ids=[str(item) for item in list(payload.get("skip_source_ids") or []) if str(item).strip()],
+        include_optional=bool(payload.get("include_optional_sources", False)),
+    )
+    return api_response(data=result)
+
+
+@sources_bp.route("/sources/doctor", methods=["GET"])
+@check_auth
+def source_pack_doctor():
+    _sync_builtin_descriptors()
+    source_pack_id = str(request.args.get("source_pack_id") or "ananta-dev-default").strip() or "ananta-dev-default"
+    try:
+        report = _packs().doctor(source_pack_id=source_pack_id)
+    except ValueError:
+        raise NotFoundError("source_pack_not_found")
+    return api_response(data=report)
 
 
 @sources_bp.route("/sources/<source_id>", methods=["GET"])

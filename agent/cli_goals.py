@@ -1162,6 +1162,34 @@ def _handle_sources_command(subcommand: str, extra: list[str], args) -> int:
             _print_terminal("snapshots: {}", ", ".join(list(result.get("snapshot_ids") or [])) or "-")
             _print_terminal("bundle_id: {}", bundle.get("bundle_id", "-"))
             _print_terminal("bundle_path: {}", bundle.get("bundle_path", "-"))
+        if list(dict(result.get("license_policy_report") or {}).get("warnings") or []):
+            for item in list(dict(result.get("license_policy_report") or {}).get("warnings") or []):
+                _print_terminal("license-warning: {}", item)
+        if list(dict(result.get("license_policy_report") or {}).get("blocking_errors") or []):
+            for item in list(dict(result.get("license_policy_report") or {}).get("blocking_errors") or []):
+                _print_terminal("license-error: {}", item)
+            return 1
+        return 0
+    if subcommand == "doctor":
+        source_pack_id = str(extra[0]).strip() if extra else "ananta-dev-default"
+        report = service.doctor(source_pack_id=source_pack_id)
+        if bool(getattr(args, "json_output", False)):
+            print(json.dumps(report, ensure_ascii=False))
+            return 0 if bool(report.get("ready")) else 1
+        _print_terminal("status: {}", report.get("status", "unknown"))
+        _print_terminal("source_pack_id: {}", report.get("source_pack_id", "-"))
+        _print_terminal("bundle_ready: {}", "yes" if bool(report.get("bundle_ready")) else "no")
+        for source_id, details in dict(report.get("sources") or {}).items():
+            _print_terminal(
+                "{}\tregistered={}\tsnapshot={}\ttrust={}\tlicense={}",
+                source_id,
+                "yes" if bool(dict(details).get("registered")) else "no",
+                dict(details).get("snapshot_status", "-"),
+                dict(details).get("trust_level", "-"),
+                dict(details).get("license_ref", "-"),
+            )
+        for step in list(report.get("next_steps") or []):
+            _print_terminal("next-step: {}", step)
         return 0
     print(f"Error: unknown sources subcommand '{subcommand}'", file=sys.stderr)
     return 2
@@ -1341,6 +1369,7 @@ Examples:
     parser.add_argument("--dry-run", action="store_true", help="Preview operation without writing state (sources bootstrap)")
     parser.add_argument("--skip-source", action="append", default=[], help="Source ID to skip (repeatable, sources bootstrap)")
     parser.add_argument("--include-optional-sources", action="store_true", help="Include optional sources in source-pack bootstrap")
+    parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output (sources doctor)")
 
     args = parser.parse_args(argv)
 
@@ -1409,7 +1438,7 @@ Examples:
     elif args.goal == "sources":
         subcommand = str(args.extra[0]).strip() if args.extra else ""
         if not subcommand:
-            print("Error: 'sources' requires a subcommand (list-packs|bootstrap)", file=sys.stderr)
+            print("Error: 'sources' requires a subcommand (list-packs|bootstrap|doctor)", file=sys.stderr)
             sys.exit(2)
         sys.exit(_handle_sources_command(subcommand, args.extra[1:], args))
     elif args.goal == "repair-script":

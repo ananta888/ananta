@@ -39,6 +39,14 @@ def test_sources_routes_list_get_citation_and_snapshots(client, admin_auth_heade
     res_unknown = client.get("/sources/does-not-exist", headers=admin_auth_header)
     assert res_unknown.status_code == 404
 
+    packs = client.get("/sources/packs", headers=admin_auth_header)
+    assert packs.status_code == 200
+    assert any(str(item.get("source_pack_id") or "") == "ananta-dev-default" for item in list(packs.json["data"] or []))
+
+    pack_get = client.get("/sources/packs/ananta-dev-default", headers=admin_auth_header)
+    assert pack_get.status_code == 200
+    assert pack_get.json["data"]["source_pack_id"] == "ananta-dev-default"
+
 
 def test_sources_refresh_routes(client, admin_auth_header, monkeypatch, tmp_path) -> None:
     from agent.config import settings
@@ -65,3 +73,16 @@ def test_sources_refresh_routes(client, admin_auth_header, monkeypatch, tmp_path
     cache_clear = client.post("/sources/keycloak-official-docs/cache/clear", headers=admin_auth_header, json={})
     assert cache_clear.status_code == 200
     assert "removed_files" in cache_clear.json["data"]
+
+    pack_bootstrap = client.post(
+        "/sources/packs/ananta-dev-default/bootstrap",
+        headers=admin_auth_header,
+        json={"dry_run": True, "skip_source_ids": ["wikimedia-wikipedia-initial-dump"]},
+    )
+    assert pack_bootstrap.status_code == 200
+    assert pack_bootstrap.json["data"]["status"] == "planned"
+    assert "wikimedia-wikipedia-initial-dump" in list(pack_bootstrap.json["data"].get("skip_source_ids") or [])
+
+    doctor = client.get("/sources/doctor?source_pack_id=ananta-dev-default", headers=admin_auth_header)
+    assert doctor.status_code == 200
+    assert doctor.json["data"]["source_pack_id"] == "ananta-dev-default"

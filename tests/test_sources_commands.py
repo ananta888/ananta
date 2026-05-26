@@ -77,3 +77,22 @@ def test_sources_commands_list_refresh_snapshots_cite(monkeypatch, tmp_path) -> 
     cache_clear = execute_command(":sources cache keycloak-official-docs clear", cache.state)
     assert cache_clear.handled is True
     assert "cleared removed=" in cache_clear.message
+
+
+def test_sources_pack_commands_list_show_bootstrap(monkeypatch, tmp_path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    state = OperatorState(endpoint="http://localhost")
+
+    packs = execute_command(":sources packs", state)
+    assert packs.handled is True
+    assert "ananta-dev-default" in packs.message
+
+    show = execute_command(":sources pack show ananta-dev-default", packs.state)
+    assert show.handled is True
+    assert "eclipse-platform-official-source" in show.message
+
+    bootstrap = execute_command(":sources pack bootstrap ananta-dev-default --dry-run", show.state)
+    assert bootstrap.handled is True
+    assert "\"status\": \"planned\"" in bootstrap.message

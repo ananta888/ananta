@@ -58,3 +58,57 @@ def test_source_pack_retrieval_rules_scope_sources(tmp_path: Path) -> None:
         query="How to map realm roles to token claims in keycloak?",
     )
     assert keycloak_scope == ["keycloak-official-docs"]
+
+
+def test_source_pack_bootstrap_license_policy_can_block(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    registry = service.registry
+    pack = registry.get_source_pack("ananta-dev-default")
+    assert isinstance(pack, dict)
+    modified = dict(pack)
+    modified["source_pack_id"] = "blocked-license-pack"
+    modified["license_policy"] = {
+        "require_license_ref": True,
+        "block_on_missing_license": True,
+        "allowed_licenses": ["EPL-2.0", "CC BY-SA 4.0"],
+    }
+    registry.create_source_pack(modified)
+    result = service.bootstrap(source_pack_id="blocked-license-pack")
+    assert result["status"] == "failed"
+    assert result["reason_code"] == "license_policy_blocked"
+    assert any("license_not_allowed:keycloak-official-docs:license_unknown" in item for item in list(result["license_policy_report"]["blocking_errors"]))
+
+
+def test_source_pack_doctor_reports_ready_and_missing_cases(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    report_initial = service.doctor(source_pack_id="ananta-dev-default")
+    assert report_initial["ready"] is False
+    assert any(
+        item in {"register_source:keycloak-official-docs", "refresh_or_bootstrap:keycloak-official-docs"}
+        for item in list(report_initial.get("next_steps") or [])
+    )
+
+    boot = service.bootstrap(source_pack_id="ananta-dev-default")
+    assert boot["status"] == "ok"
+    report_ready = service.doctor(source_pack_id="ananta-dev-default")
+    assert report_ready["ready"] is True
+    assert report_ready["bundle_ready"] is True
+
+
+def test_source_pack_doctor_detects_index_failed(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    service.registry.register_source_pack(source_pack_id="ananta-dev-default", overwrite_existing=True)
+    snapshots = service.snapshots
+    failed = snapshots.build_snapshot(
+        source_id="keycloak-official-docs",
+        descriptor_hash="a" * 64,
+        content_payload=[{"k": "v"}],
+        metadata_payload={},
+        status="failed",
+        reason_code="index_failed",
+        human_message="failed fixture",
+    )
+    snapshots.save_snapshot(failed)
+    report = service.doctor(source_pack_id="ananta-dev-default")
+    assert report["ready"] is False
+    assert "repair_index:keycloak-official-docs" in list(report.get("next_steps") or [])
