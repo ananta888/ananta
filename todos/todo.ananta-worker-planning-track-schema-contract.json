@@ -102,7 +102,7 @@
     {
       "id": "T01.01",
       "title": "PlanningTrackContract aus todo.track.schema.json ableiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "schema",
