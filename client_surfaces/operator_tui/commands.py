@@ -165,4 +165,228 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
     if command == "sections":
         return CommandResult(state.with_updates(status_message="sections: " + ",".join(section_ids())), "sections listed")
 
+    # ── speed ─────────────────────────────────────────────────────────────────
+    if command == "speed":
+        if not args:
+            return CommandResult(state, "speed requires a level 1-5", handled=False)
+        try:
+            level = int(args[0])
+        except ValueError:
+            return CommandResult(state.with_updates(status_message="speed: ungültiger Wert (1-5)"), "speed: invalid", handled=False)
+        if level < 1 or level > 5:
+            return CommandResult(state.with_updates(status_message="speed: Wert muss 1-5 sein"), "speed: out of range", handled=False)
+        # Map level 1-5 to TPS: 3, 6, 12, 24, 60
+        tps_map = {1: 3, 2: 6, 3: 12, 4: 24, 5: 60}
+        tps = tps_map[level]
+        game = dict(state.header_logo_game or {})
+        game["tps_override"] = tps
+        game["speed_level"] = level
+        return CommandResult(
+            state.with_updates(header_logo_game=game, status_message=f"speed: {level}/5 ({tps} tps)"),
+            f"speed {level}/5",
+        )
+
+    # ── tutor ─────────────────────────────────────────────────────────────────
+    if command == "tutor":
+        sub = args[0].lower() if args else ""
+        if sub == "mode":
+            mode_arg = args[1].lower() if len(args) > 1 else ""
+            if mode_arg not in {"overview", "deep", "expert"}:
+                return CommandResult(state, "tutor mode erwartet: overview | deep | expert", handled=False)
+            try:
+                from client_surfaces.operator_tui.snake_persistence import set_tutor_mode
+                set_tutor_mode(mode_arg)
+            except Exception:
+                pass
+            game = dict(state.header_logo_game or {})
+            game["tutor_depth_mode"] = mode_arg
+            return CommandResult(
+                state.with_updates(header_logo_game=game, status_message=f"tutor mode: {mode_arg}"),
+                f"tutor mode {mode_arg}",
+            )
+        if sub == "silent":
+            try:
+                from client_surfaces.operator_tui.snake_persistence import set_tutor_silent
+                set_tutor_silent(True)
+            except Exception:
+                pass
+            game = dict(state.header_logo_game or {})
+            game["tutor_silent"] = True
+            return CommandResult(
+                state.with_updates(header_logo_game=game, status_message="tutor: idle-Kommentare deaktiviert"),
+                "tutor silent",
+            )
+        if sub == "active":
+            try:
+                from client_surfaces.operator_tui.snake_persistence import set_tutor_silent
+                set_tutor_silent(False)
+            except Exception:
+                pass
+            game = dict(state.header_logo_game or {})
+            game["tutor_silent"] = False
+            return CommandResult(
+                state.with_updates(header_logo_game=game, status_message="tutor: idle-Kommentare aktiv"),
+                "tutor active",
+            )
+        if sub == "replay":
+            section_arg = args[1].lower() if len(args) > 1 else ""
+            try:
+                from client_surfaces.operator_tui.snake_persistence import load_tutor_config, save_tutor_config
+                cfg = load_tutor_config()
+                visited = list(cfg.get("visited_sections") or [])
+                if section_arg in visited:
+                    visited.remove(section_arg)
+                    cfg["visited_sections"] = visited
+                    save_tutor_config(cfg)
+            except Exception:
+                pass
+            return CommandResult(
+                state.with_updates(status_message=f"tutor replay: {section_arg or '(alle)'} zurückgesetzt"),
+                f"tutor replay {section_arg}",
+            )
+        return CommandResult(state, "tutor: mode <overview|deep|expert> | silent | active | replay <section>", handled=False)
+
+    # ── ask ───────────────────────────────────────────────────────────────────
+    if command == "ask":
+        question = " ".join(args).strip()
+        if not question:
+            return CommandResult(state.with_updates(status_message="ask: Bitte Frage angeben"), "ask: leer", handled=False)
+        game = dict(state.header_logo_game or {})
+        game["tutor_ask_question"] = question
+        game["tutor_ask_at"] = __import__("time").monotonic()
+        game["tutor_ask_answered"] = False
+        # pause game while AI answers
+        game["paused"] = True
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                status_message=f"ask: {question[:40]}...",
+            ),
+            f"ask: {question[:40]}",
+        )
+
+    # ── tutorial ──────────────────────────────────────────────────────────────
+    if command == "tutorial":
+        sub = args[0].lower() if args else ""
+        if sub == "start":
+            name = args[1] if len(args) > 1 else "intro"
+            try:
+                from client_surfaces.operator_tui.snake_tutorial import make_tutorial_state
+                from client_surfaces.operator_tui.snake_persistence import get_tutorial_progress
+                start_step = max(0, get_tutorial_progress(name))
+                ts = make_tutorial_state(name, start_step=start_step)
+            except Exception:
+                ts = None
+            if ts is None:
+                return CommandResult(state.with_updates(status_message=f"tutorial: '{name}' nicht gefunden"), f"tutorial not found: {name}", handled=False)
+            game = dict(state.header_logo_game or {})
+            game["tutorial_state"] = ts
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"tutorial: {ts['title']} gestartet"),
+                f"tutorial start {name}",
+            )
+        if sub == "stop":
+            game = dict(state.header_logo_game or {})
+            game["tutorial_state"] = None
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="tutorial: gestoppt"),
+                "tutorial stop",
+            )
+        if sub == "skip":
+            game = dict(state.header_logo_game or {})
+            ts = dict(game.get("tutorial_state") or {})
+            if not ts:
+                return CommandResult(state.with_updates(status_message="tutorial: kein aktives Tutorial"), "tutorial: none active", handled=False)
+            try:
+                from client_surfaces.operator_tui.snake_tutorial import advance_step, get_current_step
+                step = get_current_step(ts)
+                ts = advance_step(ts, skipped=True)
+                game["tutorial_state"] = ts
+            except Exception:
+                pass
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="tutorial: Step übersprungen"),
+                "tutorial skip",
+            )
+        if sub == "reset":
+            game = dict(state.header_logo_game or {})
+            ts_raw = game.get("tutorial_state")
+            name = str((ts_raw or {}).get("name") or "intro") if isinstance(ts_raw, dict) else "intro"
+            try:
+                from client_surfaces.operator_tui.snake_tutorial import make_tutorial_state
+                from client_surfaces.operator_tui.snake_persistence import reset_tutorial_progress
+                reset_tutorial_progress(name)
+                ts = make_tutorial_state(name, start_step=0)
+                game["tutorial_state"] = ts
+            except Exception:
+                game["tutorial_state"] = None
+            return CommandResult(
+                state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"tutorial: {name} zurückgesetzt"),
+                f"tutorial reset {name}",
+            )
+        if sub == "guided":
+            game = dict(state.header_logo_game or {})
+            ts_raw = game.get("tutorial_state")
+            if isinstance(ts_raw, dict) and ts_raw.get("active"):
+                ts = dict(ts_raw)
+                ts["guided"] = True
+                game["tutorial_state"] = ts
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message="tutorial: Guided Mode aktiviert"),
+                    "tutorial guided",
+                )
+            return CommandResult(state.with_updates(status_message="tutorial: erst :tutorial start <name>"), "tutorial: none active", handled=False)
+        return CommandResult(state, "tutorial: start <name> | stop | skip | reset | guided", handled=False)
+
+    # ── tutorials ─────────────────────────────────────────────────────────────
+    if command == "tutorials":
+        try:
+            from client_surfaces.operator_tui.snake_tutorial import list_tutorials
+            items = list_tutorials()
+            names = ", ".join(f"{t['name']} ({t['step_count']} Steps)" for t in items) if items else "(keine)"
+        except Exception:
+            names = "(Ladefehler)"
+        return CommandResult(state.with_updates(status_message=f"tutorials: {names}"), "tutorials listed")
+
+    # ── snakes ────────────────────────────────────────────────────────────────
+    if command == "snakes":
+        game = state.header_logo_game or {}
+        snakes_raw = game.get("snakes")
+        snakes = {str(k): dict(v) for k, v in snakes_raw.items() if isinstance(v, dict)} if isinstance(snakes_raw, dict) else {}
+        if not snakes:
+            return CommandResult(state.with_updates(status_message="snakes: keine aktiven Schlangen"), "snakes: empty")
+        parts = []
+        for sid, snap in sorted(snakes.items()):
+            pseudo = str(snap.get("pseudonym") or sid)
+            color = str(snap.get("snake_color") or "mint")
+            role = str(snap.get("role") or ("player" if snap.get("local") else "tutor"))
+            parts.append(f"{sid}={pseudo}[{color}/{role}]")
+        return CommandResult(state.with_updates(status_message="snakes: " + " ".join(parts)), "snakes listed")
+
+    # ── msg ───────────────────────────────────────────────────────────────────
+    if command == "msg":
+        if len(args) < 2:
+            return CommandResult(state, "msg erwartet: <snake-id> <text>", handled=False)
+        target_id = args[0].strip()
+        text = " ".join(args[1:]).strip()
+        if not text:
+            return CommandResult(state.with_updates(status_message="msg: leere Nachricht ignoriert"), "msg: empty", handled=False)
+        if len(text) > 200:
+            return CommandResult(state.with_updates(status_message="msg: max. 200 Zeichen"), "msg: too long", handled=False)
+        game = dict(state.header_logo_game or {})
+        outbox: list[dict] = list(game.get("snake_outbox") or [])
+        outbox.append({
+            "to": target_id,
+            "from": str(game.get("local_snake_id") or "s1"),
+            "text": text,
+            "at": __import__("time").monotonic(),
+        })
+        game["snake_outbox"] = outbox[-20:]  # keep last 20
+        return CommandResult(
+            state.with_updates(header_logo_game=game, mode=OperatorMode.NORMAL, command_line="", status_message=f"msg → {target_id}: {text[:40]}"),
+            f"msg sent to {target_id}",
+        )
+
     return CommandResult(state.with_updates(status_message=f"unknown command: {command}"), f"unknown command: {command}", handled=False)

@@ -1,0 +1,279 @@
+# Erklär-AI-Snake – Erklärungstexte
+# Alle Texte in drei Erklärungstiefen: overview | deep | expert
+# overview: max. 60 Zeichen / Satz
+# deep:     2-3 Sätze mit konkretem Beispiel
+# expert:   technisch mit Dateireferenzen / API-Pfaden
+
+events:
+  food_eaten:
+    overview: "Futter gefunden – wie ein abgeschlossener Task!"
+    deep: |
+      Die Schlange hat Futter gefunden. In Ananta entspricht das einem
+      Worker, der eine Task erfolgreich abschließt und ein Artefakt erzeugt.
+      Das Hub empfängt das Ergebnis und markiert die Task als done.
+    expert: |
+      food_eaten → TaskCompleted-Event; vgl. worker/loop/progress_events.py.
+      Hub verarbeitet via POST /tasks/{id}/complete; Artefakt landet im
+      Artifact Store. Snakes sehen neue Artefakte im artifacts-Panel.
+
+  collision_wall:
+    overview: "Grenze erreicht – wie eine Policy, die blockiert!"
+    deep: |
+      Die Schlange hat die Spielfeldgrenze berührt. In Ananta entspricht das
+      einer Policy-Grenze: ein Worker versucht auf Daten zuzugreifen, die
+      ihm laut Policy nicht erlaubt sind. Der Request wird blockiert.
+    expert: |
+      Policy-Gate in CodeCompass: policies/ Verzeichnis definiert Zugriffsregeln.
+      Worker mit Rolle 'external' sehen sensible Artefakte nicht (least-privilege).
+      Vgl. policies/context_policy.yaml und domains/access_control.py.
+
+  collision_self:
+    overview: "Selbstkollision – wie ein Deadlock im System!"
+    deep: |
+      Die Schlange ist in sich selbst gefahren. Das ist wie ein Deadlock:
+      zwei Tasks warten aufeinander und blockieren sich gegenseitig.
+      In Ananta verhindert die Task-Queue zirkuläre Abhängigkeiten.
+    expert: |
+      Deadlock-Prävention: Hub-Scheduler erkennt zyklische Task-Deps via
+      topologischer Sortierung in services/task_scheduler.py:detect_cycles().
+      Bei Deadlock-Erkennung: Tasks werden mit status=blocked markiert.
+
+  level_up_5:
+    overview: "Score 5! Die Goals-Sektion erklärt Ziele."
+    deep: |
+      Mit Score 5 bist du in der Grundlage angekommen. Im Goals-Panel
+      definierst du übergeordnete Ziele, die Ananta in Tasks aufteilt.
+      Jedes Goal bekommt automatisch einen Plan mit Abhängigkeiten.
+    expert: |
+      Goals → Auto-Planner → TaskPlan; vgl. domains/planning/ für den
+      Planungsalgorithmus. Goal-Status: pending → planning → executing → done.
+      API: GET /goals, POST /goals/{id}/plan für manuellen Re-Plan.
+
+  level_up_10:
+    overview: "Score 10! Tasks sind die Arbeitseinheiten."
+    deep: |
+      Mit Score 10 kennst du das Grundprinzip. Tasks sind die konkreten
+      Arbeitsschritte für Worker. Jeder Task hat einen Typ, Kontext und
+      ein erwartetes Artefakt als Ausgabe.
+    expert: |
+      TaskModel in domains/tasks/models.py; Worker-Routing via
+      services/worker_selection.py:select_worker(). Routing-Entscheidung
+      basiert auf Rolle, Kapazität und Policy-Erlaubnis.
+
+  level_up_20:
+    overview: "Score 20! Artefakte sind alle Ergebnisse."
+    deep: |
+      Bei Score 20 hast du echte Erfahrung gesammelt. Artefakte sind die
+      persistierten Ausgaben von Tasks: Code-Änderungen, Reports, Logs,
+      Cast-Recordings. Artefakte sind die Gedächtnisschicht von Ananta.
+    expert: |
+      Artifact Store: artifacts/ Verzeichnis (lokal) oder Hub-API.
+      API: POST /artifacts, GET /artifacts/{id}. Artefakt-Typen:
+      code_change, report, cast, log, tutorial_step, test_result.
+
+  zone_header:
+    overview: "Header-Zone: Verbindung und Git-Status."
+    deep: |
+      Die Header-Zone zeigt den Verbindungsstatus zum Hub, Git-Branch und
+      Auth-Status. Hier erkennst du auf einen Blick ob alles läuft.
+      Rot = nicht verbunden, Grün = verbunden und authentifiziert.
+    expert: |
+      Header-State aus OperatorState.endpoint, auth_state, terminal_graphics.
+      Hub-Verbindung via services/hub_client.py; Status-Polling alle 5s.
+      Git-Info aus git rev-parse (subprocess), gecacht 30s.
+
+  zone_nav:
+    overview: "Navigation-Zone: Wechsle zwischen Abschnitten."
+    deep: |
+      Die Navigation zeigt alle TUI-Abschnitte. Mit j/k navigierst du,
+      Enter öffnet den Abschnitt, n/p springt zum nächsten/vorherigen.
+      Der aktive Abschnitt ist mit > markiert.
+    expert: |
+      Sections definiert in client_surfaces/operator_tui/sections.py.
+      Section-Wechsel via execute_command(':section <id>').
+      State: OperatorState.section_id, selected_index, focus=FocusPane.NAVIGATION.
+
+  zone_content:
+    overview: "Content-Zone: Die Daten des aktiven Abschnitts."
+    deep: |
+      Die Content-Zone zeigt die Daten des aktuell ausgewählten Abschnitts.
+      Sie lädt Daten vom Hub per API. Mit r aktualisierst du die Ansicht.
+      Bei Verbindungsfehler siehst du den letzten gecachten Stand.
+    expert: |
+      Content-Loading via SectionAdapterRegistry (adapters.py).
+      Jeder Adapter implementiert load(state) → SectionPayload.
+      Refresh via state.refresh_count-Increment → Adapter neu aufgerufen.
+
+  zone_detail:
+    overview: "Detail-Zone: Befehle und Kontext-Infos."
+    deep: |
+      Die Detail-Zone zeigt Hilfe-Befehle und Kontext zum ausgewählten Item.
+      Im Inspect-Modus (Enter auf Content-Item) siehst du alle Details.
+      Mit :inspect öffnest du die Detailansicht für das gewählte Element.
+    expert: |
+      Detail-Rendering in renderer.py:_detail_lines(). Inspect-State via
+      OperatorMode.INSPECT. Artefakt-Details via GET /artifacts/{id}/details.
+      Befehlsreferenz in keymap.py:hints_for_mode().
+
+sections:
+  dashboard:
+    overview: "Dashboard: Alle Agents und Tasks auf einen Blick."
+    deep: |
+      Das Dashboard ist dein Kontrollzentrum. Du siehst alle laufenden
+      Worker, den Task-Queue-Status und eine Übersicht der Goals.
+      Hier erkennst du sofort ob das System unter Last steht.
+    expert: |
+      Dashboard-Adapter in adapters.py liest von GET /system/status.
+      Worker-Status aus GET /workers; Queue-Tiefe aus GET /tasks?status=pending.
+      Render: renderer.py:_content_lines() → DashboardSectionAdapter.render().
+
+  goals:
+    overview: "Goals: Ziele die Ananta für dich erreichen soll."
+    deep: |
+      Im Goals-Abschnitt verwaltest du deine übergeordneten Ziele.
+      Jedes Goal wird in Tasks aufgeteilt. Du siehst Status, Fortschritt
+      und welche Worker gerade an deinen Zielen arbeiten.
+    expert: |
+      Goal-CRUD via POST /goals, PATCH /goals/{id}, DELETE /goals/{id}.
+      Goal-Status: pending → planning → executing → done | failed.
+      Automatischer Plan via POST /goals/{id}/plan (Auto-Planner-Service).
+
+  tasks:
+    overview: "Tasks: Die konkreten Arbeitsschritte der Worker."
+    deep: |
+      Tasks sind die kleinsten Arbeitseinheiten in Ananta. Jeder Task
+      hat einen Typ (code, analysis, test, report), einen zugewiesenen
+      Worker und ein erwartetes Artefakt als Ausgabe.
+    expert: |
+      Task-Schema in domains/tasks/models.py:TaskModel.
+      Worker-Zuweisung via services/worker_selection.py:select_worker().
+      Task-Ausführung: Hub → Worker via POST /worker/tasks; Worker-Loop in
+      worker/loop/ Verzeichnis.
+
+  artifacts:
+    overview: "Artifacts: Alle Ergebnisse der Worker-Ausführung."
+    deep: |
+      Artefakte sind die persistierten Ausgaben der Tasks.
+      Code-Änderungen, Reports, Test-Ergebnisse und Cast-Recordings.
+      Sie bilden das Gedächtnis von Ananta für zukünftige Tasks.
+    expert: |
+      Artifact-Store: lokal in artifacts/ oder Hub-API unter /artifacts.
+      Artefakt-Typen im Enum domains/artifacts/types.py.
+      CodeCompass indexiert Artefakte für Retrieval (rag-helper/out/).
+
+  knowledge:
+    overview: "Knowledge: Das Projektwissen für KI-Worker."
+    deep: |
+      Der Knowledge-Abschnitt zeigt das indexierte Projektwissen.
+      CodeCompass hat Code, Dokumentation und Artefakte analysiert.
+      Worker nutzen dieses Wissen für bessere Entscheidungen.
+    expert: |
+      CodeCompass-Index in rag-helper/out/index.jsonl.
+      Aufgebaut via scripts/build_codecompass.py oder automatisch beim Start.
+      Retrieval-Query via GET /knowledge/search?q=... oder direkt aus index.jsonl.
+
+  config:
+    overview: "Config: Einstellungen für Hub und Worker."
+    deep: |
+      Im Config-Abschnitt änderst du Verbindungseinstellungen, LLM-Profile
+      und Worker-Konfigurationen. Änderungen werden sofort aktiv.
+      Mit Enter kannst du Werte durchklicken (cycle).
+    expert: |
+      Config-Items in header_config.py:CONFIG_ITEMS.
+      Cycle-Handler via cycle_value(state, key) → neuer OperatorState.
+      Persistenz via ~/.config/ananta/snake-config.json.
+
+  system:
+    overview: "System: Hub-Status und Worker-Übersicht."
+    deep: |
+      Der System-Abschnitt zeigt alle laufenden Komponenten: Hub,
+      Worker, Datenbanken und externe Dienste. Hier siehst du
+      Versionsnummern, Uptime und Ressourcenverbrauch.
+    expert: |
+      System-Info via GET /system/info und GET /system/health.
+      Worker-Liste via GET /workers mit Status und letztem Heartbeat.
+      Heartbeat-Intervall: 30s (konfigurierbar via ANANTA_WORKER_HEARTBEAT).
+
+  audit:
+    overview: "Audit: Alle Aktionen und Ereignisse nachvollziehbar."
+    deep: |
+      Das Audit-Log zeigt alle Aktionen im System: Task-Starts,
+      Goal-Änderungen, Policy-Entscheidungen und Fehler.
+      Jeder Eintrag hat Timestamp, Operator und Aktion.
+    expert: |
+      Audit-Events in worker/core/audit_events.py und
+      domains/audit/models.py. API: GET /audit?limit=50&since=...
+      Strukturierte Events via audit_log.write(event) im Hub.
+
+  terminal:
+    overview: "Terminal: Direktes Arbeiten mit dem Hub."
+    deep: |
+      Das Terminal-Panel gibt dir direkten Zugriff auf Hub-Befehle.
+      Du kannst API-Calls absetzen, Worker-Befehle ausführen und
+      Debugging-Informationen abrufen ohne die TUI zu verlassen.
+    expert: |
+      Terminal-Surface in agent/tui_shell_runtime.py.
+      Befehlsausführung via agent/tui_main_pane.py:run_command().
+      Shell-Histotie via ~/.config/ananta/tui_history.json.
+
+  help:
+    overview: "Hilfe: Alle Tastenkürzel und Befehle."
+    deep: |
+      Das Hilfe-Panel zeigt alle verfügbaren Tastenkürzel für den
+      aktuellen Modus. Mit ? togglest du die Hilfe ein und aus.
+      Die Befehle sind nach Modus gruppiert.
+    expert: |
+      Keybinding-Definitionen in keymap.py:hints_for_mode().
+      Befehlsreferenz in commands.py:execute_command().
+      Vollständige Doku in docs/snake_tutor.md.
+
+idle:
+  - overview: "Ich bin tutor-ai. Ctrl+S verlässt den Snake-Modus."
+    deep: |
+      Ich bin die KI-Schlange (tutor-ai) von Ananta. Ich erkläre
+      TUI-Konzepte und beantworte Fragen via :ask. Mit U aktivierst
+      du mich als parallele Erklärungs-Schlange.
+    expert: |
+      tutor-ai snake: ID=s-ai, Rolle=tutor, Backend=worker-propose|LM-Studio.
+      Konfiguration via ANANTA_TUI_SNAKE_AI_* Umgebungsvariablen.
+      Erklärungstiefe: :tutor mode overview|deep|expert.
+
+  - overview: "Hub → Worker: Orchestrierung ist getrennt von Ausführung."
+    deep: |
+      In Ananta orchestriert der Hub, Worker führen aus. Workers
+      kommunizieren nie direkt miteinander – immer über den Hub.
+      Das macht das System übersichtlich und nachvollziehbar.
+    expert: |
+      Control Plane: Hub (services/, domains/). Data Plane: Worker (worker/).
+      Worker-Registration: POST /workers. Task-Assignment: Hub → Worker
+      via worker/core/task_receiver.py. Keine Worker-zu-Worker-Kommunikation.
+
+  - overview: "CodeCompass gibt Workern genau den richtigen Kontext."
+    deep: |
+      Ohne CodeCompass würden Worker den ganzen Repository-Dump bekommen.
+      Mit CodeCompass bekommt jeder Worker nur den Kontext, der für seine
+      Task relevant und policy-konform erlaubt ist.
+    expert: |
+      Context Bundle: rag-helper/ Verzeichnis. Retrieval via
+      _load_rag_helper_context() in interactive.py. Policy-Gate in
+      policies/context_policy.yaml filtert sensible Einträge heraus.
+
+  - overview: "Policies kontrollieren was Worker sehen dürfen."
+    deep: |
+      Policies sind Regeln, die bestimmen welcher Worker welche
+      Informationen sehen darf. Ein externer Cloud-Worker sieht
+      keine internen Credentials oder sensiblen Daten.
+    expert: |
+      Policy-Definitionen in policies/ Verzeichnis (YAML-Format).
+      Enforcement in CodeCompass via PolicyGate-Klasse.
+      least-privilege Prinzip: Worker bekommt minimum notwendigen Kontext.
+
+  - overview: "Tasks haben Artefakte als Ausgabe – immer nachvollziehbar."
+    deep: |
+      Jede Task-Ausführung erzeugt mindestens ein Artefakt.
+      Das kann Code, ein Report, ein Test-Ergebnis oder ein Log sein.
+      Artefakte bilden die nachvollziehbare Geschichte des Projekts.
+    expert: |
+      Artefakt-Erzeugung in worker/loop/ via create_artifact(task_id, payload).
+      Artefakt-Schema: {type, task_id, goal_id, content, created_at, worker_id}.
+      Nachverfolgbarkeit: jeder Code-Change hat task_id und goal_id als Referenz.

@@ -1,0 +1,65 @@
+title: "Einführung"
+description: "Geführte Tour durch die wichtigsten Bereiche der Ananta Operator TUI."
+steps:
+  - id: "welcome"
+    title: "Willkommen"
+    task: "Lies den Willkommenstext und drücke Enter um fortzufahren."
+    hint: "Enter bestätigt jeden Schritt."
+    completion_event: "any_key"
+    section: null
+
+  - id: "navigation"
+    title: "Navigation"
+    task: "Benutze j/k oder die Pfeiltasten um durch die Navigation zu bewegen."
+    hint: "j = runter, k = rauf. Die aktive Zeile ist mit > markiert."
+    completion_event: "navigation_moved"
+    section: "dashboard"
+
+  - id: "section_switch"
+    title: "Abschnitt wechseln"
+    task: "Wechsle zum Goals-Abschnitt mit :section goals oder Enter auf Goals."
+    hint: "Tippe : um den Befehlsmodus zu öffnen."
+    completion_event: "section_changed"
+    section: "goals"
+
+  - id: "goals_view"
+    title: "Goals verstehen"
+    task: "Betrachte die Goals-Ansicht. Was siehst du?"
+    hint: "Goals sind übergeordnete Ziele; Ananta teilt sie in Tasks auf."
+    completion_event: "section_visited"
+    section: "goals"
+
+  - id: "tasks_view"
+    title: "Tasks ansehen"
+    task: "Wechsle zum Tasks-Abschnitt und schau dir die Task-Liste an."
+    hint: ":section tasks oder n für nächste Section."
+    completion_event: "section_changed"
+    section: "tasks"
+
+  - id: "refresh"
+    title: "Daten aktualisieren"
+    task: "Drücke r um die aktuelle Ansicht zu aktualisieren."
+    hint: "r = refresh, alternativ :refresh."
+    completion_event: "refresh_triggered"
+    section: null
+
+  - id: "command_mode"
+    title: "Befehlsmodus"
+    task: "Öffne den Befehlsmodus mit : und tippe help."
+    hint: ": öffnet den Befehlsmodus. Esc schließt ihn wieder."
+    completion_event: "command_executed"
+    section: null
+
+  - id: "snake_intro"
+    title: "Snake-Modus"
+    task: "Aktiviere den Snake-Modus mit Ctrl+S."
+    hint: "Ctrl+S togglet den Snake-Modus an/aus."
+    completion_event: "snake_activated"
+    section: null
+
+  - id: "finish"
+    title: "Fertig!"
+    task: "Du hast die Einführung abgeschlossen. Verlasse Snake mit Ctrl+S."
+    hint: "Mit :tutorial start snake_mode lernst du den Snake-Modus kennen."
+    completion_event: "snake_deactivated"
+    section: null

@@ -98,6 +98,27 @@ class InteractiveOperatorTui:
         self._codecompass_build_output_dir: Path | None = None
         self._tutorial_last_source: str = "local-knowledge"
         self._tutorial_last_target: str = "follow"
+        # E01/E02: new runtime state
+        self._snake_idle_since: float = 0.0
+        self._snake_last_event_fired: str = ""
+        self._tutor_event_session_used: set[str] = set()
+        self._tutor_ask_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tui-tutor-ask")
+        self._tutor_ask_future: Future[str | None] | None = None
+        self._section_first_visit_pending: str = ""
+        # E01: load highscore cache once
+        self._scores_cache: dict[str, Any] = {}
+        try:
+            from client_surfaces.operator_tui.snake_persistence import load_snake_scores
+            self._scores_cache = load_snake_scores()
+        except Exception:
+            pass
+        # E02: tutor depth mode from persistence
+        self._tutor_depth_mode: str = "overview"
+        try:
+            from client_surfaces.operator_tui.snake_persistence import get_tutor_mode
+            self._tutor_depth_mode = get_tutor_mode()
+        except Exception:
+            pass
         self._command_buffer = ""
         self._rendered_text = self._render()
         self._control = FormattedTextControl(text=lambda: ANSI(self._rendered_text))
@@ -274,7 +295,7 @@ class InteractiveOperatorTui:
                 return
             if not self._snake_mode_active():
                 return
-            self._snake_immediate_brake()
+            self._toggle_snake_pause()  # T01.02: Space togglet Pause statt Stopp
 
         @bindings.add("c-s")
         def _(event) -> None:
@@ -921,7 +942,14 @@ class InteractiveOperatorTui:
             return
         if not game or not game.get("active", False) or not game.get("alive", True):
             return
-        tps = max(2, min(60, int(os.environ.get("ANANTA_TUI_HEADER_SNAKE_TPS", "18"))))
+        # T01.02: skip tick when paused
+        if bool(game.get("paused")):
+            self._poll_tutor_ask_result(game)
+            self._set_state(self.state.with_updates(header_logo_game=game))
+            return
+        # T01.04: speed override via :speed command
+        tps_override = game.get("tps_override")
+        tps = max(2, min(60, int(tps_override if tps_override else os.environ.get("ANANTA_TUI_HEADER_SNAKE_TPS", "18"))))
         step = 1.0 / tps
         now = time.monotonic()
         last_move = float(game.get("last_move", now))
@@ -1016,14 +1044,49 @@ class InteractiveOperatorTui:
         game["next_direction"] = game["direction"]
         game["accum_x"] = ax
         game["accum_y"] = ay
-        game["moves"] = int(game.get("moves", 0)) + max(1, moved)
+        moves = int(game.get("moves", 0)) + max(1, moved)
+        game["moves"] = moves
         game["last_move"] = now
         game["free_mode"] = free_mode
+
+        # T01.01: in split-view, restrict board to left portion
+        if free_mode and board_w >= 100:
+            game["board_w"] = max(24, board_w - 42)
+
+        # T01.05: score = moves // 20, cache highscore
+        score = moves // 20
+        game["score"] = score
+        game["_scores_cache"] = self._scores_cache
+
+        # T02.01: fire milestone events into tutor event queue
+        self._fire_score_events(game, score=score)
+        # T02.06: idle comment
+        self._maybe_fire_idle_comment(game, now=now)
+        # T02.03: process pending :ask question
+        self._poll_tutor_ask_result(game)
+        # E04.T04: advance tutorial step if event matches
+        self._process_tutorial_event(game, event=self._snake_last_event_fired)
+        self._snake_last_event_fired = ""
+
+        # T01.05: record section visit for first-visit explanation
+        current_section = str(self.state.section_id or "dashboard")
+        if current_section != getattr(self, "_last_tracked_section", ""):
+            self._last_tracked_section = current_section
+            self._section_first_visit_pending = current_section
+
+        if self._section_first_visit_pending:
+            self._maybe_fire_section_visit_explanation(game, section_id=self._section_first_visit_pending)
+            self._section_first_visit_pending = ""
+
+        # sync tutor depth mode into game state
+        game["tutor_depth_mode"] = self._tutor_depth_mode
+
         self._update_multi_snake_state(game, now=now, board_w=board_w, board_h=board_h)
         mode_label = "fullscreen" if free_mode else "framed"
+        speed_level = int(game.get("speed_level") or 3)
         next_state = self.state.with_updates(
             header_logo_game=game,
-            status_message=f"snake:{mode_label} vx={vx:.1f} vy={vy:.1f}",
+            status_message=f"snake:{mode_label} speed:{speed_level}/5 vx={vx:.1f} vy={vy:.1f}",
         )
         self.state = self._apply_snake_hover_selection_delay(next_state, head=snake[0], now=now)
 
@@ -2215,7 +2278,321 @@ class InteractiveOperatorTui:
         enabled = bool(game.get("tutorial_mode"))
         game["tutorial_mode"] = not enabled
         label = "an" if not enabled else "aus"
+        self._fire_tutorial_event(game, "tutorial_toggled")
         self._set_state(self.state.with_updates(header_logo_game=game, status_message=f"snake tutorial-ai: {label}"))
+
+    # ── T01.02: pause/resume ──────────────────────────────────────────────────
+
+    def _toggle_snake_pause(self) -> None:
+        game = dict(self.state.header_logo_game or {})
+        if not game:
+            return
+        paused = bool(game.get("paused"))
+        game["paused"] = not paused
+        if not paused:
+            # entering pause: zero velocity but keep position
+            game["vel_x"] = 0.0
+            game["vel_y"] = 0.0
+            self._snake_idle_since = time.monotonic()
+            status = "snake: pausiert [ Space zum Fortsetzen ]"
+        else:
+            # resuming
+            game["last_move"] = time.monotonic()
+            self._snake_idle_since = 0.0
+            status = "snake: fortgesetzt"
+        self._fire_tutorial_event(game, "snake_paused" if not paused else "any_key")
+        self._set_state(self.state.with_updates(header_logo_game=game, status_message=status))
+
+    # ── T01.03: terminal size warning exposed via tick (already in renderer) ──
+
+    # ── T02.01: event-driven tutor explanations ───────────────────────────────
+
+    def _fire_score_events(self, game: dict[str, object], *, score: int) -> None:
+        prev_score = int(game.get("_prev_score") or 0)
+        game["_prev_score"] = score
+        milestones = {5: "level_up_5", 10: "level_up_10", 20: "level_up_20"}
+        for threshold, event in milestones.items():
+            if prev_score < threshold <= score and event not in self._tutor_event_session_used:
+                self._queue_tutor_event(game, event)
+
+    def _queue_tutor_event(self, game: dict[str, object], event_key: str) -> None:
+        if event_key in self._tutor_event_session_used:
+            return
+        self._tutor_event_session_used.add(event_key)
+        queue: list[dict[str, object]] = list(game.get("tutor_event_queue") or [])
+        priority = {"collision_wall": 5, "collision_self": 5, "level_up_20": 4,
+                    "level_up_10": 3, "level_up_5": 3, "zone_header": 2,
+                    "zone_nav": 2, "zone_content": 2, "zone_detail": 2,
+                    "food_eaten": 1}.get(event_key, 1)
+        queue.append({"event": event_key, "priority": priority, "at": time.monotonic()})
+        # Keep at most 5 entries, drop lowest priority if full
+        queue.sort(key=lambda e: (-int(e.get("priority") or 0), float(e.get("at") or 0)))
+        game["tutor_event_queue"] = queue[:5]
+
+    def _dequeue_tutor_event(self, game: dict[str, object]) -> str:
+        queue: list[dict[str, object]] = list(game.get("tutor_event_queue") or [])
+        if not queue:
+            return ""
+        queue.sort(key=lambda e: (-int(e.get("priority") or 0), float(e.get("at") or 0)))
+        event_key = str(queue[0].get("event") or "")
+        game["tutor_event_queue"] = queue[1:]
+        return event_key
+
+    def _get_tutor_text(self, event_key: str) -> str:
+        depth = self._tutor_depth_mode
+        try:
+            from pathlib import Path
+            import yaml as _yaml
+            yaml_path = Path(__file__).parent / "snake_tutor_texts.yaml"
+            data = _yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+            # try events first, then sections, then idle
+            for category in ("events", "sections"):
+                bucket = data.get(category, {})
+                if event_key in bucket:
+                    texts = bucket[event_key]
+                    if isinstance(texts, dict):
+                        text = str(texts.get(depth) or texts.get("overview") or "")
+                        return text.strip().replace("\n", " ").replace("  ", " ")
+            return ""
+        except Exception:
+            return ""
+
+    def _get_idle_tutor_text(self) -> str:
+        depth = self._tutor_depth_mode
+        try:
+            from pathlib import Path
+            import yaml as _yaml
+            import random
+            yaml_path = Path(__file__).parent / "snake_tutor_texts.yaml"
+            data = _yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+            idle_list = data.get("idle", [])
+            if not idle_list:
+                return ""
+            entry = random.choice(idle_list)
+            if isinstance(entry, dict):
+                return str(entry.get(depth) or entry.get("overview") or "").strip().replace("\n", " ").replace("  ", " ")
+            return ""
+        except Exception:
+            return ""
+
+    # ── T02.06: idle comments ─────────────────────────────────────────────────
+
+    def _maybe_fire_idle_comment(self, game: dict[str, object], *, now: float) -> None:
+        if bool(game.get("tutor_silent")):
+            return
+        if not bool(game.get("tutorial_mode")):
+            return
+        idle_threshold = 8.0
+        if self._snake_idle_since == 0.0:
+            self._snake_idle_since = now
+        idle_duration = now - self._snake_idle_since
+        last_idle_at = float(game.get("_last_idle_comment_at") or 0.0)
+        if idle_duration >= idle_threshold and (now - last_idle_at) >= 60.0:
+            tip = self._get_idle_tutor_text()
+            if tip:
+                game["_last_idle_comment_at"] = now
+                self._inject_tutor_tip(game, tip, source="idle")
+
+    def _inject_tutor_tip(self, game: dict[str, object], tip: str, *, source: str = "event") -> None:
+        history: list[dict[str, object]] = list(game.get("tutorial_propose_history") or [])
+        history.append({"at": time.monotonic(), "source": source, "target": "content", "text": tip})
+        game["tutorial_propose_history"] = history[-10:]
+        # also update s-ai message if it exists
+        snakes_raw = game.get("snakes")
+        if isinstance(snakes_raw, dict):
+            snakes = dict(snakes_raw)
+            ai = dict(snakes.get("s-ai") or {})
+            if ai:
+                ai["message"] = tip
+                snakes["s-ai"] = ai
+                game["snakes"] = snakes
+
+    # ── T02.07: section first-visit explanations ──────────────────────────────
+
+    def _maybe_fire_section_visit_explanation(self, game: dict[str, object], *, section_id: str) -> None:
+        if not bool(game.get("tutorial_mode")):
+            return
+        try:
+            from client_surfaces.operator_tui.snake_persistence import mark_section_visited
+            is_first = mark_section_visited(section_id)
+        except Exception:
+            is_first = True
+        if not is_first:
+            return
+        tip = self._get_tutor_text(section_id)
+        if not tip:
+            return
+        self._inject_tutor_tip(game, tip, source=f"section:{section_id}")
+        self._fire_tutorial_event(game, "section_visited")
+
+    # ── T02.03: :ask command processing ──────────────────────────────────────
+
+    def _poll_tutor_ask_result(self, game: dict[str, object]) -> None:
+        question = str(game.get("tutor_ask_question") or "")
+        if not question or bool(game.get("tutor_ask_answered")):
+            return
+        # Submit to executor if not already running
+        if self._tutor_ask_future is None or self._tutor_ask_future.done():
+            if not bool(game.get("_ask_submitted")):
+                game["_ask_submitted"] = True
+                depth = self._tutor_depth_mode
+                hints = self._load_codecompass_hints(now=time.monotonic())
+                rag_context = self._load_rag_helper_context(now=time.monotonic())
+                self._tutor_ask_future = self._tutor_ask_executor.submit(
+                    self._resolve_ask_question, question, depth=depth,
+                    hints=hints, rag_context=rag_context,
+                )
+        # Check if done
+        if self._tutor_ask_future is not None and self._tutor_ask_future.done():
+            try:
+                answer = self._tutor_ask_future.result(timeout=0.01) or "Keine Antwort erhalten."
+            except Exception:
+                answer = "Fehler beim Abrufen der Antwort."
+            game["tutor_ask_answered"] = True
+            game["tutor_ask_answer"] = answer
+            game["paused"] = False  # resume after answer
+            game["last_move"] = time.monotonic()
+            game["_ask_submitted"] = False
+            self._tutor_ask_future = None
+            self._inject_tutor_tip(game, f"[ask] {answer}", source="ask")
+            self._fire_tutorial_event(game, "ask_command_used")
+
+    def _resolve_ask_question(self, question: str, *, depth: str, hints: list[str], rag_context: list[str]) -> str:
+        context_parts = hints[:6] + rag_context[:6]
+        context_text = "\n".join(context_parts)
+        # Try worker-propose backend first
+        try:
+            endpoint = str(self.state.endpoint or "http://localhost:5000")
+            import json as _json
+            payload = _json.dumps({"question": question, "context": context_text, "depth": depth}).encode()
+            req = urllib.request.Request(
+                f"{endpoint}/snake/ask",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
+                data = _json.loads(resp.read().decode())
+                answer = str(data.get("answer") or data.get("text") or "")
+                if answer:
+                    return answer[:400]
+        except Exception:
+            pass
+        # Try LLM backend
+        return self._tutorial_ai_llm_ask(question=question, context_text=context_text, depth=depth)
+
+    def _tutorial_ai_llm_ask(self, *, question: str, context_text: str, depth: str) -> str:
+        try:
+            api_base = os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL", "")
+            if not api_base:
+                return self._local_knowledge_answer(question)
+            model = os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "")
+            timeout = float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "3.0"))
+            depth_instruction = {
+                "overview": "Antworte in 1-2 kurzen Sätzen (max 80 Zeichen pro Satz).",
+                "deep": "Antworte in 2-3 Sätzen mit einem konkreten Beispiel.",
+                "expert": "Antworte technisch mit Dateipfaden oder API-Referenzen wenn möglich.",
+            }.get(depth, "Antworte in 1-2 kurzen Sätzen.")
+            import json as _json
+            body = _json.dumps({
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": f"Du bist tutor-ai, ein hilfreicher KI-Assistent für das Ananta Operator TUI. Kontext:\n{context_text[:800]}\n{depth_instruction}"},
+                    {"role": "user", "content": question},
+                ],
+                "max_tokens": 160,
+                "temperature": 0.4,
+            }).encode()
+            req = urllib.request.Request(
+                f"{api_base.rstrip('/')}/chat/completions",
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = _json.loads(resp.read().decode())
+                choices = data.get("choices") or []
+                if choices:
+                    return str(choices[0].get("message", {}).get("content", "")).strip()[:400]
+        except Exception:
+            pass
+        return self._local_knowledge_answer(question)
+
+    def _local_knowledge_answer(self, question: str) -> str:
+        q_lower = question.lower()
+        for fact in _TUTORIAL_AI_KNOWLEDGE:
+            words = question.lower().split()
+            if any(w in fact.lower() for w in words if len(w) > 3):
+                return fact
+        return "Ich bin offline. Versuche :ask erneut wenn der Hub verbunden ist."
+
+    # ── E04.T04: tutorial event processing ───────────────────────────────────
+
+    def _fire_tutorial_event(self, game: dict[str, object], event: str) -> None:
+        self._snake_last_event_fired = event
+        self._snake_idle_since = 0.0  # reset idle on any event
+
+    def _process_tutorial_event(self, game: dict[str, object], event: str) -> None:
+        if not event:
+            return
+        ts_raw = game.get("tutorial_state")
+        if not isinstance(ts_raw, dict) or not ts_raw.get("active"):
+            return
+        try:
+            from client_surfaces.operator_tui.snake_tutorial import get_current_step, advance_step, check_step_completion, make_step_artifact
+            from client_surfaces.operator_tui.snake_persistence import save_tutorial_progress
+            step = get_current_step(ts_raw)
+            if step is None:
+                return
+            if check_step_completion(step, event):
+                # try to post artifact to hub
+                try:
+                    artifact = make_step_artifact(ts_raw, step)
+                    self._post_artifact_async(artifact)
+                except Exception:
+                    pass
+                ts_new = advance_step(ts_raw)
+                game["tutorial_state"] = ts_new
+                name = str(ts_raw.get("name") or "")
+                if name:
+                    save_tutorial_progress(name, int(ts_new.get("current_step") or 0))
+                if not ts_new.get("active"):
+                    # tutorial complete
+                    try:
+                        from client_surfaces.operator_tui.snake_tutorial import make_completion_artifact
+                        comp_art = make_completion_artifact(ts_new)
+                        self._post_artifact_async(comp_art)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    def _post_artifact_async(self, artifact: dict[str, Any]) -> None:
+        try:
+            endpoint = str(self.state.endpoint or "http://localhost:5000")
+            import json as _json
+            body = _json.dumps(artifact).encode()
+            req = urllib.request.Request(
+                f"{endpoint}/artifacts",
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            # fire-and-forget in executor
+            self._tutorial_async_tip_executor.submit(
+                lambda: urllib.request.urlopen(req, timeout=2.0)
+            )
+        except Exception:
+            pass
+
+    # ── E03.T03: snake role handling ──────────────────────────────────────────
+
+    def _snake_role_for(self, snake_id: str, snapshot: dict[str, object]) -> str:
+        if snapshot.get("local"):
+            return str(snapshot.get("role") or "player")
+        if snake_id == "s-ai":
+            return "tutor"
+        return str(snapshot.get("role") or "viewer")
 
     def _snake_cycle_message_style(self) -> None:
         game = dict(self.state.header_logo_game or self._default_header_snake())
