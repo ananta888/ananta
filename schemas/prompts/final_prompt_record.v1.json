@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/prompts/final_prompt_record.v1.json",
+  "title": "Final Prompt Record v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "final_prompt_ref",
+    "prompt_template_ref",
+    "variables_hash",
+    "final_prompt_hash",
+    "redaction_applied",
+    "raw_prompt_stored",
+    "context_hash",
+    "input_usage_refs",
+    "output_schema_ref"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "final_prompt_record.v1"
+    },
+    "final_prompt_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "prompt_template_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "variables_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "final_prompt_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "redaction_applied": {
+      "type": "boolean"
+    },
+    "raw_prompt_stored": {
+      "type": "boolean"
+    },
+    "storage_ref": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "context_hash": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "input_usage_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "uniqueItems": true
+    },
+    "output_schema_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

@@ -102,3 +102,20 @@ def test_prompt_template_snapshot_rejects_missing_template_version() -> None:
         assert "invalid_prompt_template_snapshot" in str(exc)
         return
     raise AssertionError("expected ValueError for missing template_version")
+
+
+def test_final_prompt_record_hashes_and_default_no_raw_storage() -> None:
+    service = PromptSnapshotService()
+    record = service.build_final_prompt_record(
+        prompt_template_ref="prompt:system",
+        variables_payload={"goal": "goal-1"},
+        final_prompt_text="Use API_KEY=supersecret for this run",
+        context_hash="deadbeefcafebabe",
+        input_usage_refs=["usage-1"],
+        output_schema_ref="schema:answer",
+        store_raw_prompt=False,
+    )
+    assert record["schema"] == "final_prompt_record.v1"
+    assert record["raw_prompt_stored"] is False
+    assert bool(record["final_prompt_hash"])
+    assert bool(record["variables_hash"])

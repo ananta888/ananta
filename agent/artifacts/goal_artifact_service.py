@@ -29,6 +29,13 @@ class GoalArtifactService:
     def get_goal_graph(self, goal_id: str) -> dict[str, Any]:
         return self._repository.get_graph(goal_id)
 
+    def get_execution_provenance(self, *, goal_id: str, provenance_id: str) -> dict[str, Any] | None:
+        graph = self.get_goal_graph(goal_id)
+        for item in list(dict(graph.get("extensions") or {}).get("execution_provenance") or []):
+            if isinstance(item, dict) and str(item.get("provenance_id") or "") == str(provenance_id):
+                return dict(item)
+        return None
+
     def create_grant(self, *, goal_id: str, grant: dict[str, Any]) -> dict[str, Any]:
         graph = self.get_goal_graph(goal_id)
         payload = dict(grant)
@@ -136,6 +143,29 @@ class GoalArtifactService:
         self._repository.save_graph(graph)
         return payload
 
+    def upsert_execution_provenance(self, *, goal_id: str, provenance: dict[str, Any]) -> dict[str, Any]:
+        graph = self.get_goal_graph(goal_id)
+        payload = dict(provenance)
+        payload["goal_id"] = goal_id
+        payload.setdefault("schema", "execution_provenance.v1")
+        from .execution_provenance import validate_execution_provenance_payload
+
+        errors = validate_execution_provenance_payload(payload)
+        if errors:
+            raise GoalArtifactServiceError("invalid_execution_provenance", "; ".join(errors))
+        extensions = dict(graph.get("extensions") or {})
+        existing = [
+            item
+            for item in list(extensions.get("execution_provenance") or [])
+            if isinstance(item, dict) and str(item.get("provenance_id") or "") != str(payload.get("provenance_id") or "")
+        ]
+        existing.append(payload)
+        extensions["execution_provenance"] = existing
+        graph["extensions"] = extensions
+        graph["updated_at"] = _now_iso()
+        self._repository.save_graph(graph)
+        return payload
+
     def validate_and_record_context_usages(
         self,
         *,
@@ -194,9 +224,14 @@ class GoalArtifactService:
         worker_id: str | None,
         artifact_refs: list[dict[str, Any]],
         input_usage_refs: list[str] | None = None,
+        execution_provenance: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         from worker.core.artifact_types import map_reference_kind_to_output_artifact_type
 
+        provenance_id = ""
+        if isinstance(execution_provenance, dict) and execution_provenance:
+            saved = self.upsert_execution_provenance(goal_id=goal_id, provenance=execution_provenance)
+            provenance_id = str(saved.get("provenance_id") or "")
         created: list[dict[str, Any]] = []
         for index, ref in enumerate(list(artifact_refs or []), start=1):
             if not isinstance(ref, dict):
@@ -230,6 +265,8 @@ class GoalArtifactService:
                     input_usage_refs=list(input_usage_refs or []),
                 ),
             }
+            if provenance_id:
+                output_payload["provenance_id"] = provenance_id
             created.append(self.record_output_artifact(goal_id=goal_id, output_artifact=output_payload))
         return created
 

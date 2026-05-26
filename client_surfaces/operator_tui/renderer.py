@@ -676,6 +676,8 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
             lines.append("    :goal sources candidates")
             lines.append("    :goal source grant/revoke/detail ...")
             lines.append("    :artifact provenance <output-id>")
+            lines.append("    :artifact prompt <output-id>")
+            lines.append("    :artifact config <output-id>")
 
     return [_clip(line, width) for line in lines]
 
@@ -716,11 +718,13 @@ def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -
         for usage in usages[:5]:
             lines.append(_clip(f"  • usage {_safe(usage.get('usage_id'))} -> {_safe(usage.get('artifact_ref'))}", width))
         for output in outputs[:6]:
+            provenance_note = " provenance-missing" if not _safe(output.get("provenance_id")) else ""
             lines.append(
                 _clip(
                     "  ◦ output "
                     f"{_safe(output.get('output_artifact_id'))} type={_safe(output.get('artifact_type'))} "
-                    f"status={_safe(output.get('status'))} task={_safe(output.get('task_id'))} worker={_safe(output.get('worker_id'))}",
+                    f"status={_safe(output.get('status'))}{provenance_note} "
+                    f"exec={_safe(output.get('execution_summary') or '')}",
                     width,
                 )
             )
@@ -760,14 +764,18 @@ def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -
     if not outputs:
         lines.append("    - none")
     for output in outputs[:10]:
+        provenance_note = "provenance missing" if not _safe(output.get("provenance_id")) else f"prov={_safe(output.get('provenance_id'))}"
         lines.append(
             _clip(
                 f"    {_safe(output.get('output_artifact_id'))} type={_safe(output.get('artifact_type'))} "
                 f"status={_safe(output.get('status'))} task={_safe(output.get('task_id'))} "
-                f"worker={_safe(output.get('worker_id'))} created_at={_safe(output.get('created_at'))}",
+                f"worker={_safe(output.get('worker_id'))} {provenance_note} created_at={_safe(output.get('created_at'))}",
                 width,
             )
         )
+        summary = _safe(output.get("execution_summary"))
+        if summary:
+            lines.append(_clip(f"      exec: {summary}", width))
     return lines
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 
-FILTER_KEYS = ("source_id", "artifact_type", "sensitivity", "status", "worker_id")
+FILTER_KEYS = ("source_id", "artifact_type", "sensitivity", "status", "worker_id", "task_id", "prompt_template_ref", "model_ref")
 
 
 def normalize_goal_artifact_filters(filters: dict[str, Any] | None) -> dict[str, str]:
