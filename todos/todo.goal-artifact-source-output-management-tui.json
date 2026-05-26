@@ -1,0 +1,677 @@
+{
+  "meta": {
+    "project": "ananta",
+    "feature": "goal-artifact-source-output-management-tui",
+    "title": "Goal Artifact Management: Quellartefakte, Sicherheitsfreigaben und Output-Artefakte im TUI",
+    "description": "Plan für eine übersichtliche, testbare Verwaltung aller Artefakte pro Goal: Welche Artefakte wurden als Quelle genutzt, welche Sicherheitsfreigabe galt für diesen Goal, welche Artefakte wurden als Output erzeugt, und wie wird das im Operator TUI/Angular übersichtlich dargestellt und per E2E getestet.",
+    "created": "2026-05-26",
+    "last_updated": "2026-05-26",
+    "version": "1.0",
+    "extends": [
+      "todos/todo.reliable-source-ingestion-keycloak-wikipedia-angular.json",
+      "todos/todo.operator-tui-ai-snake-lurking-prediction-codecompass.json",
+      "docs/architecture/reliable_source_ingestion_and_citation_flow.md"
+    ],
+    "legend": {
+      "priority": "P1 = muss, P2 = soll, P3 = kann",
+      "effort": "XS = <2h, S = 2-4h, M = 4-8h, L = 8-16h, XL = >16h",
+      "status": "open | in_progress | done | blocked"
+    }
+  },
+  "core_goal": "Für jeden Goal soll klar sichtbar sein: welche Quellartefakte für diesen Goal freigegeben wurden, welche davon tatsächlich genutzt wurden, welche Security-/Data-Boundary-Entscheidung galt, welche Output-Artefakte entstanden sind, und wie Quelle -> Worker/Task -> Output nachvollziehbar zusammenhängt.",
+  "principles": [
+    "Goal ist der zentrale Kontext für Artefakt-Freigaben.",
+    "Quellartefakt und Output-Artefakt werden klar getrennt.",
+    "Freigabe bedeutet nicht automatisch Nutzung; Nutzung wird separat protokolliert.",
+    "Jedes genutzte Quellartefakt braucht policy_decision_ref und source_reference/context_reference.",
+    "Jedes Output-Artefakt braucht provenance: goal_id, task_id, worker_id, input_refs, created_at, artifact_type.",
+    "TUI muss die Beziehungen schnell und verständlich anzeigen.",
+    "E2E muss beweisen: Goal erstellen -> Quellen freigeben -> Worker nutzt Quellen -> Output entsteht -> UI zeigt alles korrekt."
+  ],
+  "epics": [
+    {
+      "id": "E01",
+      "title": "Datenmodell für Goal-Artefakt-Beziehungen",
+      "goal": "Ein sauberes Modell trennt SourceArtifactGrant, SourceArtifactUsage und GoalOutputArtifact.",
+      "tasks": [
+        {
+          "id": "T01.01",
+          "title": "GoalArtifactGraph-v1 Schema definieren",
+          "description": "Ein GoalArtifactGraph beschreibt alle Artefaktbeziehungen eines Goals: freigegebene Quellen, genutzte Quellen, erzeugte Outputs und Kanten zwischen ihnen.",
+          "repo": "tui",
+          "files": [
+            "schemas/artifacts/goal_artifact_graph.v1.json",
+            "agent/artifacts/goal_artifact_graph.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema enthält goal_id, graph_id, created_at, updated_at, source_grants, source_usages, output_artifacts und edges.",
+            "source_grants beschreiben freigegebene Artefakte für einen Goal, unabhängig von tatsächlicher Nutzung.",
+            "source_usages beschreiben tatsächliche Nutzung durch Task/Worker/Prompt/ContextEnvelope.",
+            "output_artifacts beschreiben erzeugte Artefakte mit provenance.",
+            "edges verbinden source_usage -> output_artifact oder source_grant -> source_usage.",
+            "Schema enthält extension-Feld, aber keine beliebigen Top-Level-Felder.",
+            "Schema-Tests prüfen gültige und ungültige Graphen."
+          ]
+        },
+        {
+          "id": "T01.02",
+          "title": "SourceArtifactGrant-v1 Schema definieren",
+          "description": "Freigabe eines Quellartefakts für einen konkreten Goal inklusive Sicherheitsgrenze, erlaubter Nutzung und Ablaufzeit.",
+          "repo": "tui",
+          "files": [
+            "schemas/artifacts/source_artifact_grant.v1.json",
+            "agent/artifacts/artifact_grants.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema enthält grant_id, goal_id, artifact_ref, granted_by, granted_at, allowed_usages, data_boundary, sensitivity, expires_at, policy_decision_ref.",
+            "allowed_usages enthält mindestens read, summarize, quote, transform, use_as_context.",
+            "data_boundary enthält local_only, project_private, approved_cloud, public.",
+            "Grant kann revoked werden mit revoked_at und revoke_reason.",
+            "Ohne policy_decision_ref ist Grant ungültig.",
+            "Tests prüfen valid grant, expired grant, revoked grant und missing policy decision."
+          ]
+        },
+        {
+          "id": "T01.03",
+          "title": "SourceArtifactUsage-v1 Schema definieren",
+          "description": "Tatsächliche Nutzung eines freigegebenen Quellartefakts durch Worker, Task oder Prompt.",
+          "repo": "tui",
+          "files": [
+            "schemas/artifacts/source_artifact_usage.v1.json",
+            "agent/artifacts/artifact_usage.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema enthält usage_id, grant_id, goal_id, task_id, worker_id, artifact_ref, usage_kind, used_at, context_hash, prompt_ref, policy_decision_ref.",
+            "usage_kind enthält read, retrieved, quoted, summarized, embedded, transformed.",
+            "Usage ist ungültig, wenn grant_id fehlt oder Grant revoked/expired ist.",
+            "Usage speichert keine unnötigen Rohinhalte, sondern refs/hashes.",
+            "Usage kann source_reference aus externen Quellen tragen.",
+            "Tests prüfen Nutzung mit gültigem Grant, abgelaufenem Grant und fehlendem Grant."
+          ]
+        },
+        {
+          "id": "T01.04",
+          "title": "GoalOutputArtifact-v1 Schema definieren",
+          "description": "Output-Artefakt, das aus einem Goal/Task/Worker entstanden ist, inklusive Input-Refs und Provenance.",
+          "repo": "tui",
+          "files": [
+            "schemas/artifacts/goal_output_artifact.v1.json",
+            "agent/artifacts/output_artifacts.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema enthält output_artifact_id, goal_id, task_id, worker_id, artifact_type, created_at, input_usage_refs, artifact_ref, content_hash, status.",
+            "artifact_type enthält mindestens plan, patch, file, report, test_result, citation_bundle, chat_answer, codecompass_context.",
+            "Output enthält provenance_summary für menschliche Anzeige.",
+            "Output kann verification_status tragen.",
+            "Output ohne goal_id ist ungültig.",
+            "Tests prüfen Output mit und ohne Input-Refs."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E02",
+      "title": "Backend-Services und Policy-Enforcement",
+      "goal": "Freigabe, Nutzung und Output-Erzeugung werden zentral erfasst und policy-geprüft.",
+      "tasks": [
+        {
+          "id": "T02.01",
+          "title": "GoalArtifactService implementieren",
+          "description": "Zentraler Service für Grant, Usage, Output und Graph-Abfrage pro Goal.",
+          "repo": "tui",
+          "files": [
+            "agent/artifacts/goal_artifact_service.py",
+            "agent/artifacts/goal_artifact_repository.py",
+            "tests/test_goal_artifact_service.py"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T01.01", "T01.02", "T01.03", "T01.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Service kann SourceArtifactGrant für goal_id anlegen.",
+            "Service kann Grant revoken.",
+            "Service kann SourceArtifactUsage nur für gültigen Grant erfassen.",
+            "Service kann GoalOutputArtifact mit input_usage_refs erfassen.",
+            "Service kann vollständigen GoalArtifactGraph für goal_id liefern.",
+            "Service erzeugt reason_code bei Policy-/Grant-Verletzung.",
+            "Tests decken happy path, expired grant, revoked grant, missing grant und output provenance ab."
+          ]
+        },
+        {
+          "id": "T02.02",
+          "title": "ArtifactAccessPolicy für Goal-Kontext",
+          "description": "Policy entscheidet, welche Artefakte für welchen Goal, Worker und Provider freigegeben werden dürfen.",
+          "repo": "tui",
+          "files": [
+            "agent/artifacts/artifact_access_policy.py",
+            "tests/test_artifact_access_policy.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Policy prüft goal_id, artifact sensitivity, requested_usage, worker_kind, provider_location und data_boundary.",
+            "Default ist deny für unbekannte Artefakte oder unbekannte Usage.",
+            "local_only Artefakte dürfen nicht an cloud/external Worker freigegeben werden.",
+            "approved_cloud erfordert explizite Policy-Entscheidung.",
+            "Policy liefert decision, reason_code und policy_decision_ref.",
+            "Tests decken local worker, cloud denied, approved cloud, unknown artifact und forbidden usage ab."
+          ]
+        },
+        {
+          "id": "T02.03",
+          "title": "ContextEnvelope um ArtifactGrants erweitern",
+          "description": "Worker/LLM-Kontext darf nur Quellartefakte enthalten, die für den Goal freigegeben wurden.",
+          "repo": "tui",
+          "files": [
+            "worker/core/context_bundle_adapter.py",
+            "agent/artifacts/goal_artifact_service.py",
+            "client_surfaces/operator_tui/ai_snake_context.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T02.01", "T02.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "ContextEnvelope enthält artifact_grant_refs oder source_usage_refs.",
+            "Beim Bauen des Kontextes wird jeder artifact_ref gegen GoalArtifactService geprüft.",
+            "Nicht freigegebene Artefakte werden denied_context_refs zugeordnet.",
+            "Jede tatsächliche Nutzung erzeugt SourceArtifactUsage.",
+            "Context hash berücksichtigt genutzte artifact refs und snapshot/source refs.",
+            "Tests prüfen erlaubtes Artefakt, nicht erlaubtes Artefakt und revoked grant."
+          ]
+        },
+        {
+          "id": "T02.04",
+          "title": "Output-Artefakte automatisch mit Input-Refs registrieren",
+          "description": "Wenn Worker Outputs erzeugen, werden Input-Usage-Refs und Provenance automatisch gespeichert.",
+          "repo": "tui",
+          "files": [
+            "agent/services/task_scoped_execution_service.py",
+            "agent/services/native_worker_runtime_service.py",
+            "worker/core/artifact_types.py",
+            "agent/artifacts/goal_artifact_service.py"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T02.01", "T02.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Worker Result mit artifacts registriert pro Artifact ein GoalOutputArtifact.",
+            "input_usage_refs aus ContextEnvelope werden dem Output zugeordnet.",
+            "Output enthält worker_id, task_id, goal_id und content_hash.",
+            "Fehlende input_usage_refs sind erlaubt, aber im provenance_summary sichtbar.",
+            "Artifact-first Enforcement bleibt erhalten.",
+            "Tests prüfen plan output, patch output, test_result output und output ohne Input."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E03",
+      "title": "Backend API für Goal-Artefakte",
+      "goal": "TUI und Angular können Goal-Artefakte, Freigaben und Outputs übersichtlich laden und ändern.",
+      "tasks": [
+        {
+          "id": "T03.01",
+          "title": "Goal Artifact API erstellen",
+          "description": "REST-Endpunkte für Graph, Source Grants, Usages und Outputs pro Goal.",
+          "repo": "tui",
+          "files": [
+            "agent/routes/goal_artifacts.py",
+            "agent/bootstrap/routes.py",
+            "tests/test_goal_artifacts_api.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T02.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "GET /goals/{goal_id}/artifacts/graph liefert GoalArtifactGraph.",
+            "GET /goals/{goal_id}/artifacts/sources liefert SourceGrants und Usages.",
+            "GET /goals/{goal_id}/artifacts/outputs liefert OutputArtifacts.",
+            "POST /goals/{goal_id}/artifacts/sources/grant legt Freigabe an.",
+            "POST /goals/{goal_id}/artifacts/sources/{grant_id}/revoke revoked Freigabe.",
+            "API validiert goal_id und liefert 404/403/409 sauber.",
+            "Tests decken graph, grant, revoke, list outputs und invalid goal ab."
+          ]
+        },
+        {
+          "id": "T03.02",
+          "title": "Artifact Candidate API für Freigabeauswahl",
+          "description": "UI braucht eine Liste möglicher Quellartefakte, die für einen Goal freigegeben werden könnten.",
+          "repo": "tui",
+          "files": [
+            "agent/routes/goal_artifacts.py",
+            "agent/artifacts/artifact_candidate_service.py",
+            "tests/test_artifact_candidate_service.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T02.02", "T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "GET /goals/{goal_id}/artifacts/source-candidates liefert mögliche Artefakte mit sensitivity, type, origin und suggested_usages.",
+            "Candidates enthalten Keycloak/Wikipedia SourceChunks, CodeCompass-Kontextartefakte, lokale Goal-Artefakte und manuelle Uploads, soweit vorhanden.",
+            "Jeder Candidate zeigt default_policy_decision oder requires_approval.",
+            "Candidates sind filterbar nach artifact_type, sensitivity und source_id.",
+            "Tests prüfen Kandidatenliste mit gemischten Quellen und Policy-Flags."
+          ]
+        },
+        {
+          "id": "T03.03",
+          "title": "Citation Bundle API pro Goal",
+          "description": "Ein Goal kann eine saubere Quellenliste aller tatsächlich genutzten Quellen/Artefakte ausgeben.",
+          "repo": "tui",
+          "files": [
+            "agent/routes/goal_artifacts.py",
+            "agent/artifacts/citation_bundle_service.py",
+            "tests/test_goal_citation_bundle.py"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T02.04", "T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "GET /goals/{goal_id}/artifacts/citations liefert nur tatsächlich genutzte Quellen, nicht nur freigegebene.",
+            "Citation Bundle gruppiert nach source_id und snapshot_id.",
+            "Bundle enthält short und long citation text.",
+            "Bundle enthält output_artifact_refs, die auf diese Quellen zurückgehen.",
+            "Tests prüfen Keycloak/Wikipedia/CodeCompass gemischt."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E04",
+      "title": "Operator TUI Verwaltung",
+      "goal": "Im TUI kann der User pro Goal Quellenfreigaben und Outputs schnell verstehen und verwalten.",
+      "tasks": [
+        {
+          "id": "T04.01",
+          "title": "Neue TUI-Section `Goal Artifacts`",
+          "description": "Operator TUI erhält eine übersichtliche Section für Artefakte des aktiven Goals.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/commands.py"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "TUI hat sichtbare Section `Goal Artifacts` oder erweitert bestehende Artifacts-Section um Goal-Modus.",
+            "Ansicht zeigt drei Spalten/Bereiche: Freigegeben, Genutzt, Erzeugt.",
+            "Aktiver Goal ist im Header sichtbar.",
+            "Freigegebene, aber nicht genutzte Artefakte sind visuell anders markiert als genutzte.",
+            "Output-Artefakte zeigen artifact_type, status, worker/task und created_at.",
+            "Kleine Terminals zeigen kompakte Listenansicht statt breiter Tabelle.",
+            "Kein Render-Crash bei leerem Goal ohne Artefakte."
+          ]
+        },
+        {
+          "id": "T04.02",
+          "title": "TUI-Kommandos für Quellenfreigabe",
+          "description": "User kann im TUI Artefakte für den aktiven Goal freigeben, revoken und Details ansehen.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T03.01", "T03.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:goal artifacts` öffnet Artefaktverwaltung für aktiven Goal.",
+            "`:goal sources candidates` listet freigebbare Quellartefakte.",
+            "`:goal source grant <artifact-ref> --usage use_as_context` legt Freigabe an.",
+            "`:goal source revoke <grant-id>` revoked Freigabe.",
+            "`:goal source detail <grant-id>` zeigt Security-Freigabe, data_boundary, policy_decision_ref und expires_at.",
+            "Kommandos funktionieren mit klaren Fehlermeldungen bei fehlendem aktivem Goal."
+          ]
+        },
+        {
+          "id": "T04.03",
+          "title": "TUI-Detailansicht für Artefakt-Provenance",
+          "description": "Ein Output-Artefakt zeigt, aus welchen Quellartefakten es entstanden ist und welcher Worker beteiligt war.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/commands.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T04.01", "T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:artifact provenance <output-artifact-id>` zeigt input_usage_refs, source artifact refs, worker_id, task_id, goal_id und content_hash.",
+            "Anzeige trennt Quellen, Worker-Ausführung und Output sauber.",
+            "Wenn keine Inputs vorhanden sind, steht klar `no input artifacts recorded`.",
+            "Wenn Quellen revoked wurden, bleibt historische Nutzung sichtbar, aber markiert als revoked-after-use.",
+            "Citation-Refs aus externen Quellen sind sichtbar und kopierbar.",
+            "Ansicht passt in Terminalbreite 100."
+          ]
+        },
+        {
+          "id": "T04.04",
+          "title": "TUI-Filter und Statusanzeigen",
+          "description": "Artefakte können nach Quelle, Status, Sensitivity, Worker und Nutzung gefiltert werden.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T04.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Filter nach source_id, artifact_type, sensitivity, status und worker_id möglich.",
+            "TUI zeigt aktive Filter im Header.",
+            "`:goal artifacts clear-filter` entfernt Filter.",
+            "Filter verändert nicht den Graph-State, nur die Ansicht.",
+            "Tests prüfen Filterlogik unabhängig vom Renderer."
+          ]
+        },
+        {
+          "id": "T04.05",
+          "title": "AI-Snake erklärt Goal-Artefaktgraph",
+          "description": "AI-Snake kann im Chat/TUI erklären, warum ein Output mit bestimmten Quellen entstanden ist.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_context.py",
+            "client_surfaces/operator_tui/chat_state.py",
+            "client_surfaces/operator_tui/commands.py"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T04.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:ai explain artifact-graph` erklärt aktive Goal-Artefaktbeziehungen.",
+            "AI-Kontext enthält nur freigegebene Graph-Metadaten, keine ungeprüften Rohinhalte.",
+            "Antwort nennt freigegeben/genutzt/erzeugt getrennt.",
+            "Antwort zeigt, wenn Output ohne dokumentierte Quellen entstanden ist.",
+            "Tests prüfen, dass nicht freigegebene Artefakte nicht im AI-Kontext landen."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E05",
+      "title": "Angular Verwaltung",
+      "goal": "Angular zeigt Goal-Artefakte komfortabel, besonders für spätere Desktop/Smartphone-Nutzung.",
+      "tasks": [
+        {
+          "id": "T05.01",
+          "title": "Angular Goal Artifact View",
+          "description": "Angular-Frontend erhält eine Goal-Artefaktansicht mit Source Grants, Usages und Outputs.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/angular/src/app/goal-artifacts/",
+            "client_surfaces/angular/src/app/app.routes.ts"
+          ],
+          "priority": "P2",
+          "effort": "XL",
+          "depends_on": ["T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Ansicht zeigt aktiven Goal und drei Bereiche: Sources Granted, Sources Used, Outputs.",
+            "Cards statt breite Tabellen im Smartphone/Android-Layout.",
+            "Output-Card zeigt wichtigste Provenance kompakt.",
+            "Source-Grant-Card zeigt data_boundary, sensitivity und allowed_usages.",
+            "User kann Details öffnen und Citation/SourceRefs kopieren.",
+            "Loading/Empty/Error States sind vorhanden."
+          ]
+        },
+        {
+          "id": "T05.02",
+          "title": "Angular Grant Dialog",
+          "description": "Dialog zum Freigeben eines Quellartefakts für einen Goal mit Security-Optionen.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/angular/src/app/goal-artifacts/"
+          ],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T03.02", "T05.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Dialog listet Artifact Candidates mit Suche/Filter.",
+            "User wählt allowed_usages und sieht resultierende Policy-Entscheidung.",
+            "Cloud-/external-sensitive Warnungen werden deutlich angezeigt.",
+            "Grant wird erst nach erfolgreicher API-Antwort in UI als aktiv angezeigt.",
+            "Dialog funktioniert auf Smartphone ohne horizontales Scrollen."
+          ]
+        },
+        {
+          "id": "T05.03",
+          "title": "Angular Provenance Graph Mini-Visualisierung",
+          "description": "Eine einfache Visualisierung zeigt Quellen -> Tasks/Worker -> Outputs.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/angular/src/app/goal-artifacts/"
+          ],
+          "priority": "P3",
+          "effort": "L",
+          "depends_on": ["T05.01", "T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Graph zeigt SourceArtifactUsage-Knoten und OutputArtifact-Knoten.",
+            "Graph ist optional; Listenansicht bleibt primär.",
+            "Bei vielen Artefakten wird Graph reduziert/geclustert.",
+            "Klick auf Knoten öffnet Detailansicht.",
+            "Mobile Fallback nutzt hierarchische Liste statt komplexem Graph."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E06",
+      "title": "Tests und E2E",
+      "goal": "Die gesamte Kette ist sehr gut testbar: Unit, API, TUI, Angular und E2E.",
+      "tasks": [
+        {
+          "id": "T06.01",
+          "title": "Schema- und Service-Unit-Tests",
+          "description": "Datenmodelle und Services werden isoliert getestet.",
+          "repo": "tui",
+          "files": [
+            "tests/test_goal_artifact_schemas.py",
+            "tests/test_goal_artifact_service.py",
+            "tests/test_artifact_access_policy.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.01", "T02.01", "T02.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Mindestens 30 Unit-Tests für Schemas/Service/Policy.",
+            "Tests decken grant, revoke, usage, output und graph ab.",
+            "Tests decken denied cloud/external sensitive cases ab.",
+            "Tests laufen ohne Netzwerk und ohne echte LLMs.",
+            "Fehlermeldungen enthalten reason_code."
+          ]
+        },
+        {
+          "id": "T06.02",
+          "title": "API-Integrationstests",
+          "description": "REST-Endpunkte werden mit typischen Goal-Artefakt-Flows getestet.",
+          "repo": "tui",
+          "files": [
+            "tests/test_goal_artifacts_api.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T03.01", "T03.02", "T03.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Test erstellt Goal, legt Source Grant an, ruft Graph ab.",
+            "Test revoked Grant und prüft, dass neue Usage blockiert wird.",
+            "Test registriert Output mit input_usage_refs.",
+            "Test ruft Citation Bundle ab.",
+            "Test prüft invalid goal und unknown artifact.",
+            "Tests laufen deterministisch mit Fixtures."
+          ]
+        },
+        {
+          "id": "T06.03",
+          "title": "TUI-Renderer- und Command-Tests",
+          "description": "TUI-Ansicht und Kommandos werden ohne echte UI manuell steuerbar getestet.",
+          "repo": "tui",
+          "files": [
+            "tests/test_tui_goal_artifacts_commands.py",
+            "tests/test_tui_goal_artifacts_renderer.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T04.01", "T04.02", "T04.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Command-Test für `:goal artifacts`.",
+            "Command-Test für source candidates, grant, revoke und detail.",
+            "Renderer-Test für leeren Goal, nur Grants, Grants+Usage+Outputs.",
+            "Renderer-Test für kleine Terminalbreite.",
+            "Renderer zeigt revoked/expired/used/ununsed Status korrekt.",
+            "Tests prüfen keine ANSI-Control-Leaks in Datenfeldern."
+          ]
+        },
+        {
+          "id": "T06.04",
+          "title": "E2E: Goal erstellen, Quellen freigeben, Output erzeugen",
+          "description": "End-to-End-Test beweist den gesamten User-Flow im TUI.",
+          "repo": "tui",
+          "files": [
+            "scripts/e2e/goal_artifact_management_e2e.py",
+            "assets/operator_tui_goal_artifacts.cast"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T02.04", "T03.01", "T04.01", "T04.02", "T04.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "E2E erstellt oder nutzt einen Test-Goal.",
+            "E2E zeigt Source Candidates.",
+            "E2E gibt mindestens ein Quellartefakt für den Goal frei.",
+            "E2E startet eine Worker-/Mock-Worker-Ausführung, die das Quellartefakt nutzt.",
+            "E2E erzeugt mindestens ein Output-Artefakt.",
+            "E2E öffnet Goal Artifacts View und zeigt Freigegeben, Genutzt und Erzeugt.",
+            "E2E öffnet Provenance-Detail eines Outputs.",
+            "Cast bleibt unter 500 KB oder nutzt konfigurierten Grenzwert."
+          ]
+        },
+        {
+          "id": "T06.05",
+          "title": "E2E: Security-Freigabe blockiert ungeeignete Quelle",
+          "description": "Ein negativer E2E-Test zeigt, dass nicht freigegebene oder boundary-verletzende Quellen nicht genutzt werden.",
+          "repo": "tui",
+          "files": [
+            "scripts/e2e/goal_artifact_security_boundary_e2e.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T02.02", "T02.03", "T06.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "E2E versucht, ein nicht freigegebenes Artefakt im Worker-Kontext zu nutzen.",
+            "Nutzung wird blockiert und als denied_context_ref sichtbar.",
+            "TUI zeigt reason_code und keine stille Nutzung.",
+            "Kein Output referenziert blockiertes Artefakt als Input.",
+            "Graph zeigt blockierte Quelle nicht als genutzt."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E07",
+      "title": "Dokumentation und Mermaid-Architektur",
+      "goal": "Flow und Bedienung werden sauber dokumentiert.",
+      "tasks": [
+        {
+          "id": "T07.01",
+          "title": "Architekturdoku Goal Artifact Graph",
+          "description": "Markdown-Doku mit Mermaid erklärt Goal -> Source Grants -> Usage -> Outputs -> Citation.",
+          "repo": "tui",
+          "files": [
+            "docs/architecture/goal_artifact_source_output_management.md"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.01", "T02.01", "T04.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Doku enthält Ist/Soll-Abgleich.",
+            "Doku enthält Mermaid-Flow für Grant-Erstellung.",
+            "Doku enthält Mermaid-Flow für Worker-Nutzung und Output-Registrierung.",
+            "Doku enthält Mermaid-Flow für TUI-Anzeige.",
+            "Doku enthält Security-Invarianten.",
+            "Doku enthält Beispiel-JSON für Grant, Usage und Output."
+          ]
+        },
+        {
+          "id": "T07.02",
+          "title": "User-Doku TUI Goal Artifacts",
+          "description": "Kurze Bedienungsdoku für Operator: welche Kommandos, welche Ansicht, wie Freigabe funktioniert.",
+          "repo": "tui",
+          "files": [
+            "docs/goal_artifacts_tui.md"
+          ],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": ["T04.02", "T04.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Doku erklärt `:goal artifacts`, candidates, grant, revoke, detail und provenance.",
+            "Doku erklärt Unterschied zwischen freigegeben und genutzt.",
+            "Doku erklärt Output-Artefakte und Provenance.",
+            "Doku erklärt Security-Freigaben und boundary warnings.",
+            "Doku enthält kleines Beispiel eines Goal-Flows."
+          ]
+        }
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Für jeden Goal kann ein GoalArtifactGraph geladen werden.",
+    "Quellartefakte können pro Goal explizit freigegeben und revoked werden.",
+    "Tatsächliche Nutzung wird separat als SourceArtifactUsage gespeichert.",
+    "Output-Artefakte werden mit goal_id, task_id, worker_id und input_usage_refs registriert.",
+    "TUI zeigt übersichtlich Freigegeben, Genutzt und Erzeugt.",
+    "Security-Freigabe mit data_boundary/sensitivity/policy_decision_ref ist sichtbar.",
+    "Nicht freigegebene Artefakte können nicht still in Worker-Kontext gelangen.",
+    "Citation Bundle pro Goal listet tatsächlich genutzte Quellen.",
+    "E2E-Test beweist Goal erstellen -> Quelle freigeben -> Quelle nutzen -> Output erzeugen -> UI zeigt Provenance.",
+    "Negativer E2E-Test beweist Blockade nicht freigegebener Quellen."
+  ],
+  "suggested_implementation_order": [
+    "E01 Schemas für Graph, Grant, Usage und Output",
+    "E02 GoalArtifactService und ArtifactAccessPolicy",
+    "E03 Backend API",
+    "E04 Operator TUI Verwaltung",
+    "E06 Unit/API/TUI Tests",
+    "E06 E2E Happy Path und Security Boundary",
+    "E05 Angular Ansicht",
+    "E07 Dokumentation"
+  ]
+}
