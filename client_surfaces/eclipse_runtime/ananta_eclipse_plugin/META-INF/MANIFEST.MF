@@ -24,6 +24,7 @@ Export-Package: io.ananta.eclipse.runtime.core,
  io.ananta.eclipse.runtime.project,
  io.ananta.eclipse.runtime.repair,
  io.ananta.eclipse.runtime.review,
+ io.ananta.eclipse.runtime.snake,
  io.ananta.eclipse.runtime.views.eclipse,
  io.ananta.eclipse.runtime.workspace,
  io.ananta.eclipse.runtime.security

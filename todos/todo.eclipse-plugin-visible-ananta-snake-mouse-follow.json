@@ -30,7 +30,7 @@
         "T01.02",
         "T01.03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M02",
@@ -41,7 +41,7 @@
         "T02.03",
         "T02.04"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M03",
@@ -110,7 +110,7 @@
     {
       "id": "T01.01",
       "title": "Eclipse-Plugin Modulstruktur anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "plugin",
@@ -122,12 +122,13 @@
         "Plugin-Metadaten sind vorhanden: plugin.xml/MANIFEST.MF oder äquivalente Eclipse-RCP-Struktur.",
         "Plugin kann in einer lokalen Eclipse-Entwicklungsinstanz gestartet werden.",
         "README im Plugin-Verzeichnis erklärt Build und Start."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.02",
       "title": "Eclipse Extension Points und Aktivierung definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "plugin",
@@ -141,12 +142,13 @@
         "Aktivieren/Deaktivieren der Snake ist ohne Eclipse-Neustart möglich.",
         "Fehler bei Aktivierung werden im Eclipse Error Log protokolliert, aber crashen die IDE nicht.",
         "Unit-/Plugin-Test prüft, dass Activator/Service initialisiert werden kann."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.03",
       "title": "Snake Runtime Service im Plugin definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "plugin",
@@ -160,12 +162,13 @@
         "Service läuft UI-thread-sicher und blockiert den SWT UI Thread nicht.",
         "Service kann ohne Hub-Verbindung lokal gestartet werden.",
         "Tests prüfen Start/Stop/Restart des Service."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.01",
       "title": "SWT/JFace Overlay für sichtbare Snake implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "ui",
@@ -180,12 +183,13 @@
         "Snake kann mindestens als einfache Segmentlinie mit Kopf dargestellt werden.",
         "Overlay kann deaktiviert werden und entfernt alle Ressourcen sauber.",
         "Plugin-Test oder UI-Test prüft, dass Overlay-Komponente erzeugt und disposed werden kann."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.02",
       "title": "Mausposition und IDE-Koordinaten erfassen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "ui",
@@ -199,7 +203,8 @@
         "Maus-Tracking kann pausiert/deaktiviert werden.",
         "Tracking erzeugt keine spürbare IDE-Verlangsamung.",
         "Tests prüfen Koordinaten-Normalisierung mit Mock-Controls."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.03",
@@ -219,7 +224,8 @@
         "Wenn Maus stillsteht, geht Snake in Lauer-/Idle-Zustand.",
         "Follow-Algorithmus funktioniert lokal deterministisch ohne Ananta-Hub oder LLM.",
         "Unit-Test simuliert Mauspfad und prüft Abstand/Glättung."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T02.04",
@@ -238,7 +244,8 @@
         "Animation stoppt oder reduziert Tickrate, wenn Eclipse-Fenster nicht aktiv ist.",
         "Keine SWT Resource Leaks bei wiederholtem Start/Stop.",
         "Performance-Test oder Profiling-Test dokumentiert Basiswerte."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T03.01",
@@ -257,7 +264,8 @@
         "Unbekannte Zone wird als unknown markiert statt geraten.",
         "Zone-Erkennung funktioniert ohne Zugriff auf Dateiinhalte.",
         "Tests prüfen Zone-Mapping mit Mock-Workbench-Parts."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T03.02",
@@ -277,7 +285,8 @@
         "Lauer-Modus erzeugt keine Chat-/Hub-Anfrage pro Tick.",
         "Lauer-Modus kann lokal einfache Zielvermutung erzeugen: editor_focus, problem_focus, console_focus, diff_focus.",
         "Tests prüfen follow -> lurking -> follow Wechsel."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T03.03",
@@ -296,7 +305,8 @@
         "Vollständiger Dateitext wird nicht ohne explizite Freigabe an Ananta gesendet.",
         "Kontext-Metadaten werden als EclipseContextSnapshot darstellbar.",
         "Tests prüfen, dass Dateiinhalte default nicht im Snapshot enthalten sind."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T03.04",
@@ -316,7 +326,8 @@
         "Mögliche intent_kind: wants_explain_error, wants_review_diff, wants_explain_file, wants_run_tests, unknown.",
         "Confidence bleibt niedrig, wenn nur Mausbewegung ohne stabilen Kontext vorhanden ist.",
         "Tests prüfen Problems-Fokus, Diff-Fokus, Editor-Fokus und unknown."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.01",
@@ -335,7 +346,8 @@
         "Verbindungsstatus ist in Eclipse Preferences oder View sichtbar.",
         "Ungültige Hub-Konfiguration blockiert nicht die IDE.",
         "Tests prüfen Config load/save und invalid config."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.02",
@@ -354,7 +366,8 @@
         "Heartbeat läuft nicht im UI Thread.",
         "Bei Hub offline läuft Snake lokal weiter.",
         "Tests nutzen Mock-Hub und prüfen register/heartbeat/offline fallback."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.03",
@@ -374,7 +387,8 @@
         "ContextEnvelope enthält policy_decision_ref und denied_context_refs.",
         "Worker-Requests sind debounced und werden nicht pro Mausbewegung erzeugt.",
         "Tests prüfen allowed metadata, denied file content und debounced request."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.04",
@@ -393,7 +407,8 @@
         "Antwort wird in einer Eclipse View oder Popup/Panel angezeigt.",
         "Antwort zeigt verwendeten Kontext kompakt an.",
         "Fehler/Timeout erzeugt verständliche Meldung ohne IDE-Blockade."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T05.01",
@@ -413,7 +428,8 @@
         "Freigabeentscheidung wird als policy_decision_ref protokolliert.",
         "Cloud-/external Provider sind default für IDE-Kontext blockiert, sofern nicht explizit erlaubt.",
         "Tests prüfen, dass sensible Inhalte nicht automatisch in Worker-Requests landen."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T05.02",
@@ -432,7 +448,8 @@
         "Systemmeldung nennt reason_code, aber nicht den sensiblen Wert.",
         "Lokale Anzeige im Editor wird nicht verändert.",
         "Regressionstest prüft, dass Worker-Payload keine unbereinigten sensiblen Werte enthält."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T05.03",
@@ -451,7 +468,8 @@
         "User kann letzte ContextEnvelope-Zusammenfassung ansehen.",
         "User kann Freigabe zurücksetzen.",
         "Tests prüfen Statusmodell und Anzeigezustände."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T06.01",
@@ -471,7 +489,8 @@
         "Defaults sind vorsichtig: local-only, keine Dateiübertragung, dezente Animation.",
         "Preferences können zurückgesetzt werden.",
         "Tests prüfen Preference Store read/write."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T06.02",
@@ -491,7 +510,8 @@
         "View funktioniert auch ohne Hub mit local-only Status.",
         "View zeigt keine Rohdateiinhalte, außer User hat diese explizit freigegeben.",
         "UI-Test prüft View-Erzeugung."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T06.03",
@@ -510,7 +530,8 @@
         "Snake wird bei Vollbild/Präsentation oder konfiguriertem Modus deaktiviert/reduziert.",
         "Snake darf keine Editor-Eingabe abfangen.",
         "Tests prüfen Mode-Flags und Input-Passthrough."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.01",
@@ -531,7 +552,8 @@
         "Tests prüfen PredictionEvents für Editor, Problems, Diff und unknown.",
         "Tests laufen ohne echte Eclipse-Workbench, soweit möglich mit isolierter Logik.",
         "Movement-Logik ist deterministisch testbar."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.02",
@@ -552,7 +574,8 @@
         "Test öffnet Ananta Snake View.",
         "Test prüft Dispose ohne SWT Resource Leak.",
         "Test läuft headless/CI-kompatibel, sofern technisch möglich dokumentiert."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.03",
@@ -573,7 +596,8 @@
         "Test prüft, dass Dateitext default nicht gesendet wird.",
         "Test prüft Timeout/Hub offline fallback.",
         "Test prüft reason_code bei denied context."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.04",
@@ -597,7 +621,8 @@
         "E2E löst Ask-Ananta-Snake mit Mock-Hub aus.",
         "Antwort erscheint in View/Panel.",
         "E2E prüft, dass Kontextstatus sichtbar ist und keine automatische Dateivollübertragung erfolgt."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T08.01",
@@ -617,7 +642,8 @@
         "Doku erklärt Datenschutz: default keine Dateiinhalte übertragen.",
         "Doku erklärt Ask-Ananta-Snake Workflow.",
         "Doku enthält Troubleshooting für Hub offline und Overlay-Probleme."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T08.02",
@@ -639,7 +665,8 @@
         "Doku enthält Mermaid-Flow für ContextEnvelope -> Hub -> Worker -> Antwort.",
         "Doku enthält Security-Invarianten und Default-Deny-Kontextfreigabe.",
         "Doku enthält Testmatrix."
-      ]
+      ],
+      "progress_percent": 0.0
     }
   ],
   "critical_path_tasks": [
@@ -661,58 +688,190 @@
   "tasks_status_summary": {
     "total": 27,
     "by_status": {
-      "todo": 27,
+      "todo": 22,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 5
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 18.52,
     "by_priority": {
-      "P1": 20,
-      "P2": 7,
+      "P1": 21,
+      "P2": 6,
       "P3": 0
     },
     "by_risk": {
-      "low": 5,
+      "low": 4,
       "medium": 14,
-      "high": 8
+      "high": 9
     },
     "critical_path": {
       "total": 14,
-      "done": 0,
-      "remaining": 14
+      "done": 5,
+      "remaining": 9
     },
     "milestones": {
       "total": 8,
-      "todo": 8,
-      "in_progress": 0,
+      "todo": 6,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "tasks_type_summary": {
     "total": 27,
     "by_type": {
-      "plugin": 3,
-      "ui": 3,
-      "performance": 1,
-      "context": 4,
-      "integration": 4,
-      "security": 3,
-      "ux": 3,
-      "test": 3,
-      "e2e": 1,
-      "docs": 2
+      "plugin": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "ui": {
+        "total": 3,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 66.7
+      },
+      "performance": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "context": {
+        "total": 4,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "integration": {
+        "total": 4,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "security": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "ux": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "test": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "e2e": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "docs": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
     }
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 27,
+    "todo_remaining": 22,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 5,
+    "count_based_percent": 18.5,
+    "weighted_percent": 22.0
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -755,5 +914,90 @@
         "Doku und Mermaid-Architektur sind vorhanden."
       ]
     }
-  ]
+  ],
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 50.0,
+    "done_weight": 11.0,
+    "remaining_weight": 39.0,
+    "blocked_weight": 0.0,
+    "weighted_percent": 22.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M01": {
+        "total_tasks": 3,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M02": {
+        "total_tasks": 4,
+        "done": 2,
+        "blocked": 0,
+        "count_based_percent": 50.0,
+        "weighted_percent": 55.6,
+        "status": "in_progress"
+      },
+      "M03": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M04": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M05": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M06": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M07": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M08": {
+        "total_tasks": 2,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-05-26T23:14:57.426598Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "16e33bcdd52bbd418e986f174b0a4b74fe1265e2aa2c920d2796c0d872892185",
+    "is_stale": false
+  }
 }
