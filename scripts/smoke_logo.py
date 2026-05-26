@@ -24,6 +24,8 @@ Old 3D wireframe (deprecated):
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import os
 import re
@@ -566,6 +568,39 @@ def check() -> bool:
     return ok
 
 
+def check_header_smoke() -> bool:
+    """CI-safe header smoke: ansi, auto, and logo-off render-once modes."""
+    from agent.cli.main import _run_tui
+
+    combos = [
+        {"ANANTA_TUI_LOGO_RENDERER": "ansi"},
+        {"ANANTA_TUI_LOGO_RENDERER": "auto"},
+        {"ANANTA_TUI_LOGO": "0"},
+    ]
+    for env_patch in combos:
+        old = {k: os.environ.get(k) for k in env_patch.keys()}
+        try:
+            for key, value in env_patch.items():
+                os.environ[key] = value
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = _run_tui(["--render-once", "--skip-splash", "--width", "120", "--height", "32"])
+            if rc != 0:
+                print(f"[smoke_logo] header-smoke failed rc={rc} env={env_patch}", file=sys.stderr)
+                return False
+            if not _ANSI_RE.sub("", buf.getvalue()).strip():
+                print(f"[smoke_logo] header-smoke empty output env={env_patch}", file=sys.stderr)
+                return False
+        finally:
+            for key, previous in old.items():
+                if previous is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = previous
+    print("[smoke_logo] header-smoke ok", file=sys.stderr)
+    return True
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main(argv: list[str] | None = None) -> int:
@@ -576,6 +611,7 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--3d",      dest="mode_3d",   action="store_true", help="3D only")
     mode.add_argument("--record",  dest="mode_rec",  action="store_true", help="record 3D to cast")
     mode.add_argument("--check",   dest="mode_check",action="store_true", help="headless CI check")
+    mode.add_argument("--header-check", dest="mode_header_check", action="store_true", help="CI-safe header render smoke")
 
     ap.add_argument("--preset",      default="rotate_in",
                     choices=["rotate_in", "snake_orbit", "depth_pulse"])
@@ -588,6 +624,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.mode_check:
         return 0 if check() else 1
+
+    if args.mode_header_check:
+        return 0 if check_header_smoke() else 1
 
     if args.mode_rec:
         record(fps=args.fps)

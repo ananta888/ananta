@@ -122,4 +122,30 @@ Symptoms and fallback actions:
 Debug mode:
 
 - `ANANTA_TUI_LOGO_DEBUG=1` (or `ANANTA_TUI_VERBOSE=1`) prints renderer fallback warnings to stderr.
+- `ANANTA_TUI_SPLASH_DEBUG=1` enables splash/header debug file output.
+- `ANANTA_TUI_SPLASH_DEBUG_PATH=/tmp/splash_debug.txt` overrides debug output target path.
 - No debug files are written by default.
+
+## Smoke commands and CI gates
+
+Mandatory text-based CI-safe checks (no kitty/sixel terminal required):
+
+```bash
+ANANTA_TUI_LOGO_RENDERER=ansi ananta tui --render-once --skip-splash --width 120 --height 32
+ANANTA_TUI_LOGO_RENDERER=auto ananta tui --render-once --skip-splash --width 120 --height 32
+ANANTA_TUI_LOGO=0 ananta tui --render-once --skip-splash --width 120 --height 32
+.venv/bin/python scripts/smoke_logo.py --header-check
+```
+
+Optional local smoke checks (protocol support depends on terminal/backend):
+
+```bash
+ANANTA_TUI_LOGO_RENDERER=sixel ananta tui --render-once --width 120 --height 32
+ANANTA_TUI_LOGO_RENDERER=kitty ananta tui --render-once --width 120 --height 32
+```
+
+Gate definition:
+
+- CI requires passing text-only renderer tests and snapshot-safe render-once checks.
+- Local release validation should include at least one real live terminal check (Windows Terminal/WSL2, kitty, wezterm, or ghostty) when available.
+- If a live protocol test is not available in the current environment, document the skipped live step in release notes.

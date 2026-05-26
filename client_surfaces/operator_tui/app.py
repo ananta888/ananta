@@ -185,6 +185,14 @@ def _play_splash_to_terminal(state: OperatorState) -> None:
     tty.flush()
 
     frames = build_splash_frames(w=width, h=height, fps=24)
+    _maybe_write_splash_debug(
+        {
+            "width": width,
+            "height": height,
+            "frames": len(frames),
+            "mode": "splash_live",
+        }
+    )
     if not frames:
         tty.write("\x1b[?25h")
         tty.flush()
@@ -218,6 +226,14 @@ def _handle_render_once(args: argparse.Namespace, splash: SplashMachine | None) 
         from agent.cli.status_snapshot import StatusSnapshot
 
         header = render_compact_header(StatusSnapshot(), terminal_width=width, color=not args.no_3d)
+        _maybe_write_splash_debug(
+            {
+                "width": width,
+                "height": height,
+                "frame": "compact",
+                "mode": "render_once",
+            }
+        )
         print("\n".join(header[:COMPACT_HEADER_LINES]))
         return
 
@@ -255,6 +271,14 @@ def _handle_render_once(args: argparse.Namespace, splash: SplashMachine | None) 
                 "no_ansi": cap.color_mode == "plain_ascii",
             },
         )
+        _maybe_write_splash_debug(
+            {
+                "width": width,
+                "height": height,
+                "frame": frame,
+                "mode": "render_once",
+            }
+        )
         print(result.text)
         return
 
@@ -275,3 +299,16 @@ def _apply_logo_runtime_overrides(args: argparse.Namespace) -> None:
     if bool(getattr(args, "render_once", False)):
         if getattr(args, "logo_animation", None) is None and "ANANTA_TUI_LOGO_ANIMATION" not in os.environ:
             os.environ["ANANTA_TUI_LOGO_ANIMATION"] = "static"
+
+
+def _maybe_write_splash_debug(payload: dict[str, object]) -> None:
+    enabled = os.environ.get("ANANTA_TUI_SPLASH_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
+    if not enabled:
+        return
+    path = os.environ.get("ANANTA_TUI_SPLASH_DEBUG_PATH", "/tmp/splash_debug.txt").strip() or "/tmp/splash_debug.txt"
+    try:
+        with open(path, "w", encoding="utf-8") as handle:
+            for key in sorted(payload.keys()):
+                handle.write(f"{key}={payload[key]}\n")
+    except OSError:
+        return

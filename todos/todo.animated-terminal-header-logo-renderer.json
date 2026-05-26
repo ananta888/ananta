@@ -76,7 +76,7 @@
     {
       "id": "ATHL01",
       "title": "Bestehenden Logo-Pfad bereinigen und Renderer-Abstraktion vorbereiten",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "ATHL001",
         "ATHL002",
@@ -144,7 +144,7 @@
     {
       "id": "ATHL07",
       "title": "Tests, Smoke-Tests und Qualitaets-Gates abschliessen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "ATHL027",
         "ATHL028",
@@ -159,7 +159,7 @@
       "title": "Hardcoded Splash-Debugdatei entfernen oder hinter Debug-Flag verstecken",
       "type": "cleanup",
       "milestone_id": "ATHL01",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "files": [
@@ -647,7 +647,7 @@
       "title": "Unit-Tests fuer Renderer-Detection schreiben",
       "type": "test",
       "milestone_id": "ATHL07",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "files": [
@@ -665,7 +665,7 @@
       "title": "Unit-Tests fuer ANSI-Halfblock-Renderer schreiben",
       "type": "test",
       "milestone_id": "ATHL07",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "files": [
@@ -683,7 +683,7 @@
       "title": "Integrationstests fuer Header-Layout und Animation schreiben",
       "type": "test",
       "milestone_id": "ATHL07",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "files": [
@@ -701,7 +701,7 @@
       "title": "Smoke-Test-Kommandos und CI-Gates definieren",
       "type": "test",
       "milestone_id": "ATHL07",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "files": [
@@ -733,13 +733,13 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 5,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 25
+      "done": 30
     },
-    "progress_percent_done": 83,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 13,
       "P1": 11,
@@ -753,15 +753,15 @@
     },
     "critical_path": {
       "total": 12,
-      "done": 8,
-      "remaining": 4
+      "done": 12,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
-      "todo": 1,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 5
+      "done": 7
     }
   },
   "tasks_type_summary": {
@@ -778,12 +778,12 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 5,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 25
+    "done": 30
   },
   "definition_of_done": [
     "Das kleine Logo links oben kann in der TUI animiert werden, ohne den Statusbereich zu zerstoeren.",

@@ -7,6 +7,7 @@ from client_surfaces.operator_tui.logo_renderer.kitty import KittyRenderer
 from client_surfaces.operator_tui.logo_renderer.sixel import SixelRenderer
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
 from client_surfaces.operator_tui.renderer import render_operator_shell
+from agent.cli.main import _run_tui
 
 _ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
@@ -63,3 +64,33 @@ def test_sixel_frame_sequence_contains_position_and_restore(monkeypatch):
     assert frame.sequence.startswith("\x1b7\x1b[1;1H")
     assert "\x1b[9;1H" in frame.sequence
     assert frame.sequence.endswith("\x1b8")
+
+
+def test_header_small_width_keeps_stable_fallback():
+    state = OperatorState(endpoint="http://localhost:5000", auth_state="token", focus=FocusPane.NAVIGATION)
+    rendered = render_operator_shell(state, width=72, height=24, splash=None)
+    assert len(rendered.splitlines()) >= 10
+
+
+def test_render_once_works_without_interactive_tty(capsys, monkeypatch):
+    monkeypatch.setenv("ANANTA_TUI_LOGO_RENDERER", "ansi")
+    rc = _run_tui(["--render-once", "--skip-splash", "--width", "90", "--height", "20"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert len(out) > 0
+
+
+def test_animation_disabled_uses_single_static_frame(monkeypatch):
+    monkeypatch.setenv("ANANTA_TUI_LOGO_ANIMATION", "static")
+    calls: list[dict[str, object]] = []
+
+    class _FakeCache:
+        def get_ansi_frames(self, **kwargs):
+            calls.append(kwargs)
+            return [["static"]]
+
+    monkeypatch.setattr(animated_header, "_CACHE", _FakeCache())
+    lines = animated_header.render_ansi_header_logo(cols=40, rows=8, color=True, t_now=123.0)
+    assert lines == ["static"]
+    assert len(calls) == 1
+    assert calls[0]["frame_count"] == 1
