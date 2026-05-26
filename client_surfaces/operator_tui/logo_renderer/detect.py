@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 RendererName = Literal["none", "ansi", "sixel", "kitty"]
+GraphicsBackendName = Literal["kitty", "sixel", "iterm2", "halfblock", "ascii"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -12,6 +13,16 @@ class RendererDecision:
     requested: str
     selected: RendererName
     warning: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class GraphicsCapabilities:
+    kitty: bool
+    sixel: bool
+    iterm2_inline: bool
+    truecolor: bool
+    source_term: str
+    source_program: str
 
 
 def is_debug_enabled(env: dict[str, str] | None = None) -> bool:
@@ -31,6 +42,8 @@ def detect_sixel_support(env: dict[str, str] | None = None) -> bool:
         return True
     if "sixel" in term:
         return True
+    if values.get("WT_SESSION", "").strip():
+        return True
     return term_program in {"wezterm", "mintty", "contour"}
 
 
@@ -44,9 +57,59 @@ def detect_kitty_support(env: dict[str, str] | None = None) -> bool:
         return True
     if values.get("KITTY_WINDOW_ID"):
         return True
+    if values.get("WEZTERM_EXECUTABLE", "").strip():
+        return True
     if "kitty" in term:
         return True
     return term_program in {"wezterm", "ghostty", "kitty"}
+
+
+def detect_iterm2_support(env: dict[str, str] | None = None) -> bool:
+    values = env or os.environ
+    term_program = values.get("TERM_PROGRAM", "").lower()
+    return term_program == "iterm.app"
+
+
+def detect_terminal_graphics_capabilities(env: dict[str, str] | None = None) -> GraphicsCapabilities:
+    values = env or os.environ
+    return GraphicsCapabilities(
+        kitty=detect_kitty_support(values),
+        sixel=detect_sixel_support(values),
+        iterm2_inline=detect_iterm2_support(values),
+        truecolor=(
+            "truecolor" in values.get("COLORTERM", "").lower()
+            or values.get("TERM", "").lower().endswith("-direct")
+            or values.get("NO_COLOR", "").strip() == ""
+        ),
+        source_term=values.get("TERM", ""),
+        source_program=values.get("TERM_PROGRAM", ""),
+    )
+
+
+def select_graphics_backend(
+    *,
+    env: dict[str, str] | None = None,
+    capabilities: GraphicsCapabilities | None = None,
+) -> GraphicsBackendName:
+    values = env or os.environ
+    forced = (values.get("ANANTA_TUI_GRAPHICS", "").strip().lower() or values.get("ANANTA_TUI_LOGO_RENDERER", "").strip().lower())
+    if forced in {"kitty", "sixel", "iterm2", "halfblock", "ascii"}:
+        return forced  # explicit override wins
+    if forced == "ansi":
+        return "halfblock"
+    if forced == "none":
+        return "ascii"
+
+    caps = capabilities or detect_terminal_graphics_capabilities(values)
+    if caps.kitty:
+        return "kitty"
+    if caps.sixel:
+        return "sixel"
+    if caps.iterm2_inline:
+        return "iterm2"
+    if caps.truecolor:
+        return "halfblock"
+    return "ascii"
 
 
 def resolve_renderer(

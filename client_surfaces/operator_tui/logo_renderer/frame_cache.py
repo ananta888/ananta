@@ -147,6 +147,17 @@ def _apply_preset(image: Any, *, preset: str, index: int, total: int) -> Any:
     return rgba
 
 
+def _quality_oversampling_factor(quality: str) -> int:
+    value = (quality or "medium").strip().lower()
+    if value == "high":
+        return 4
+    if value == "ultra":
+        return 6
+    if value == "low":
+        return 1
+    return 2
+
+
 def _svg_to_png(svg_path: str, png_path: str, *, width_px: int, height_px: int) -> bool:
     try:
         from cairosvg import svg2png
@@ -230,4 +241,23 @@ def encode_png_bytes(image: Any) -> bytes:
 
 
 def _rasterize_svg_rgba(*, svg_path: str, width_px: int, height_px: int) -> Any | None:
-    return rasterize_svg_rgba(svg_path=svg_path, width_px=width_px, height_px=height_px)
+    quality = os.environ.get("ANANTA_TUI_LOGO_QUALITY", "medium")
+    factor_raw = os.environ.get("ANANTA_TUI_LOGO_OVERSAMPLING", "").strip()
+    try:
+        factor = int(factor_raw) if factor_raw else _quality_oversampling_factor(quality)
+    except ValueError:
+        factor = _quality_oversampling_factor(quality)
+    factor = max(1, min(8, factor))
+
+    target_w = max(2, int(width_px))
+    target_h = max(2, int(height_px))
+    render_w = max(2, target_w * factor)
+    render_h = max(2, target_h * factor)
+
+    rendered = rasterize_svg_rgba(svg_path=svg_path, width_px=render_w, height_px=render_h)
+    if rendered is None:
+        return None
+    if factor <= 1 or Image is None:
+        return rendered
+    lanczos = getattr(getattr(Image, "Resampling", Image), "LANCZOS", Image.LANCZOS)
+    return rendered.resize((target_w, target_h), resample=lanczos)

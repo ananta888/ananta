@@ -96,3 +96,29 @@ def test_static_preset_returns_single_stable_frame(monkeypatch, tmp_path):
     cache = LogoFrameCache()
     frames = cache.get_ansi_frames(svg_path=str(svg), width_cells=20, height_cells=8, preset="static", frame_count=8)
     assert frames == [["stable"]]
+
+
+def test_high_quality_oversampling_renders_larger_then_downsamples(monkeypatch):
+    class _FakeImage:
+        def __init__(self):
+            self.resize_calls: list[tuple[int, int]] = []
+
+        def resize(self, size, resample=None):
+            self.resize_calls.append((int(size[0]), int(size[1])))
+            return self
+
+    calls: list[tuple[int, int]] = []
+    fake = _FakeImage()
+
+    def _fake_rasterize(*, svg_path: str, width_px: int, height_px: int):
+        calls.append((int(width_px), int(height_px)))
+        return fake
+
+    monkeypatch.setenv("ANANTA_TUI_LOGO_QUALITY", "high")
+    monkeypatch.delenv("ANANTA_TUI_LOGO_OVERSAMPLING", raising=False)
+    monkeypatch.setattr(frame_cache, "rasterize_svg_rgba", _fake_rasterize)
+
+    _ = frame_cache._rasterize_svg_rgba(svg_path="logo.svg", width_px=80, height_px=40)
+
+    assert calls == [(320, 160)]
+    assert fake.resize_calls == [(80, 40)]

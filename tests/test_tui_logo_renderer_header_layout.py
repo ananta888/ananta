@@ -66,6 +66,27 @@ def test_sixel_frame_sequence_contains_position_and_restore(monkeypatch):
     assert frame.sequence.endswith("\x1b8")
 
 
+def test_graphics_backends_expose_common_control_methods(monkeypatch):
+    monkeypatch.setattr("client_surfaces.operator_tui.logo_renderer.kitty.rasterize_svg_rgba", lambda **kwargs: object())
+    monkeypatch.setattr("client_surfaces.operator_tui.logo_renderer.kitty.encode_png_bytes", lambda _img: b"abc")
+    monkeypatch.setattr("client_surfaces.operator_tui.logo_renderer.sixel.rasterize_svg_rgba", lambda **kwargs: object())
+
+    kitty = KittyRenderer(image_id=5, placement_id=7)
+    sixel = SixelRenderer()
+    sixel._tool = "/usr/bin/img2sixel"
+    monkeypatch.setattr(sixel, "_encode_sixel_from_image", lambda _image: "\x1bPqFAKE\x1b\\")
+
+    assert kitty.supports_animation() is True
+    assert kitty.supports_truecolor() is True
+    assert kitty.get_capabilities()["renderer"] == "kitty"
+    assert "\x1b_Ga=d" in kitty.clear_region(x=1, y=1, width=10, height=5)
+
+    assert sixel.supports_animation() is True
+    assert sixel.supports_truecolor() is True
+    assert sixel.get_capabilities()["renderer"] == "sixel"
+    assert "\x1b[0J" in sixel.clear_region(x=1, y=1, width=10, height=5)
+
+
 def test_header_small_width_keeps_stable_fallback():
     state = OperatorState(endpoint="http://localhost:5000", auth_state="token", focus=FocusPane.NAVIGATION)
     rendered = render_operator_shell(state, width=72, height=24, splash=None)
