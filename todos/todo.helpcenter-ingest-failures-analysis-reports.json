@@ -53,7 +53,7 @@
         "T03.03",
         "T03.04"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M04",
@@ -64,7 +64,7 @@
         "T04.03",
         "T04.04"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M05",
@@ -308,7 +308,7 @@
     {
       "id": "T03.03",
       "title": "CodeCompass Kontext für Fehleranalyse anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "codecompass",
@@ -323,12 +323,12 @@
         "Fehlender CodeCompass-Kontext erzeugt degraded Hinweis.",
         "Tests nutzen Fixture-CodeCompass-Refs."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T03.04",
       "title": "Analyse mit Planning/Task/TODOs verbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "planning",
@@ -342,12 +342,12 @@
         "Analyse kann related_goal_id oder related_track angeben.",
         "Tests prüfen Mapping von Testdatei zu Track/TODO optional."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T04.01",
       "title": "Markdown Report Writer für helpcenter/reports",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "report",
@@ -362,12 +362,12 @@
         "Report verlinkt optional JSON-Analyse.",
         "Tests prüfen Markdown-Struktur."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T04.02",
       "title": "JSON Analysis Writer für helpcenter/reports",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "report",
@@ -382,12 +382,12 @@
         "JSON enthält no_auto_fix=true.",
         "Tests prüfen Schema-Validität."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T04.03",
       "title": "Helpcenter Index aktualisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "report",
@@ -403,7 +403,7 @@
         "Duplicate message_id wird erkannt und als neue Analyseversion oder duplicate markiert.",
         "Tests prüfen Index-Update."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T04.04",
@@ -710,13 +710,13 @@
   "tasks_status_summary": {
     "total": 29,
     "by_status": {
-      "todo": 19,
+      "todo": 14,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 10
+      "done": 15
     },
-    "progress_percent_done": 34.48,
+    "progress_percent_done": 51.72,
     "by_priority": {
       "P1": 22,
       "P2": 7,
@@ -729,15 +729,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 7,
-      "remaining": 8
+      "done": 10,
+      "remaining": 5
     },
     "milestones": {
       "total": 8,
-      "todo": 5,
+      "todo": 4,
       "in_progress": 1,
       "blocked": 0,
-      "done": 2
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -830,44 +830,44 @@
       "codecompass": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "planning": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "report": {
         "total": 4,
         "by_status": {
-          "todo": 4,
+          "todo": 1,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 75.0
       },
       "tui": {
         "total": 4,
@@ -957,13 +957,13 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 19,
+    "todo_remaining": 14,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 10,
-    "count_based_percent": 34.5,
-    "weighted_percent": 36.2
+    "done": 15,
+    "count_based_percent": 51.7,
+    "weighted_percent": 52.4
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -1008,10 +1008,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 52.5,
-    "done_weight": 19.0,
-    "remaining_weight": 33.5,
+    "done_weight": 27.5,
+    "remaining_weight": 25.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 36.2
+    "weighted_percent": 52.4
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1033,19 +1033,19 @@
       },
       "M03": {
         "total_tasks": 4,
-        "done": 2,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 61.5,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M04": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 75.0,
+        "weighted_percent": 85.7,
+        "status": "in_progress"
       },
       "M05": {
         "total_tasks": 4,
@@ -1084,10 +1084,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T21:50:36.068218Z",
+    "generated_at": "2026-05-26T21:53:09.195568Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "b0a4c5d87228bd64cfab5a7b5195ac4455caf846d5e6168005c5e6ab9a9c2937",
+    "source_hash": "d727016928789b2b7b1140c5b89fe2d0a41a55d8320cafa4922a820c89b65e96",
     "is_stale": false
   }
 }

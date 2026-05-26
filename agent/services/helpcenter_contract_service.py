@@ -178,6 +178,7 @@ def helpcenter_index_schema() -> dict[str, Any]:
                         "source_kind",
                         "created_at",
                         "report_ref",
+                        "json_ref",
                     ],
                     "properties": {
                         "analysis_id": {"type": "string", "minLength": 1},
@@ -187,6 +188,9 @@ def helpcenter_index_schema() -> dict[str, Any]:
                         "source_kind": {"type": "string", "minLength": 1},
                         "created_at": {"type": "string", "minLength": 1},
                         "report_ref": {"type": "string", "minLength": 1},
+                        "json_ref": {"type": "string", "minLength": 1},
+                        "version": {"type": "integer", "minimum": 1},
+                        "duplicate_of_analysis_id": {"type": "string"},
                     },
                 },
             },
@@ -237,6 +241,9 @@ def upsert_helpcenter_index_entry(
     source_kind: str,
     created_at: str,
     report_ref: str,
+    json_ref: str,
+    version: int | None = None,
+    duplicate_of_analysis_id: str = "",
 ) -> dict[str, Any]:
     next_payload = dict(index_payload or default_helpcenter_index())
     reports = [dict(item) for item in list(next_payload.get("reports") or []) if isinstance(item, dict)]
@@ -250,6 +257,9 @@ def upsert_helpcenter_index_entry(
             "source_kind": str(source_kind).strip(),
             "created_at": str(created_at).strip(),
             "report_ref": str(report_ref).strip(),
+            "json_ref": str(json_ref).strip(),
+            "version": int(version) if isinstance(version, int) and version > 0 else 1,
+            "duplicate_of_analysis_id": str(duplicate_of_analysis_id).strip(),
         }
     )
     reports.sort(key=lambda item: (str(item.get("created_at") or ""), str(item.get("analysis_id") or "")))

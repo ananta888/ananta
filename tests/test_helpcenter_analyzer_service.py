@@ -35,3 +35,20 @@ def test_llm_invalid_response_returns_degraded_analysis() -> None:
     assert degraded["status"] == "degraded"
     assert degraded["no_auto_fix"] is True
     assert any(item.get("reason_code") == "llm_analysis_invalid" for item in degraded["machine_readable_findings"])
+
+
+def test_analyzer_adds_codecompass_refs_from_log_paths() -> None:
+    log_text = "FAILURES in tests/test_api.py and agent/services/task_service.py"
+    analysis = analyze_helpcenter_message(_message(), log_text=log_text)
+    refs = list(analysis.get("codecompass_refs") or [])
+    assert refs
+    assert any(str(item.get("ref") or "").startswith("codecompass:file:tests/test_api.py") for item in refs)
+
+
+def test_analyzer_extracts_related_task_track_and_goal_from_logs() -> None:
+    log_text = "related T03.03 from todo.helpcenter-ingest-failures-analysis-reports.json goal-alpha-1 failed"
+    analysis = analyze_helpcenter_message(_message(), log_text=log_text)
+    assert "T03.03" in list(analysis.get("affected_tasks") or [])
+    assert analysis.get("related_track") == "helpcenter-ingest-failures-analysis-reports"
+    assert analysis.get("related_goal_id") == "goal-alpha-1"
+    assert str(analysis.get("suggested_followup_task") or "").strip()
