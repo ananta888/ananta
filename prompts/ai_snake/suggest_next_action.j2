@@ -1,0 +1,25 @@
+CONTROL:
+- Output strict JSON only.
+- Schema: ai_snake_response.v1
+- Keep suggestions actionable and short.
+
+TASK:
+Suggest the next operator action for current TUI state.
+
+OBSERVATION:
+{{ observation_summary }}
+
+CONTEXT:
+{{ context_envelope_ref }}
+
+OUTPUT:
+{
+  "predicted_intent": "suggest_next_action",
+  "confidence": <0..1>,
+  "target_ref": "<ui-target>",
+  "answer_text": "<suggested action>",
+  "context_refs": ["<ref1>"],
+  "follow_mode_update": "lurking",
+  "recommended_action": "<command or key>",
+  "expires_at": <unix_ts_float>
+}

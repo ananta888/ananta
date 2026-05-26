@@ -1,0 +1,41 @@
+{
+  "context_hash": "ctx-operator-tui-snake-v1",
+  "generated_at": "2026-05-26T00:00:00Z",
+  "repository_ref": "ananta888/ananta",
+  "paths": [
+    "client_surfaces/operator_tui/interactive.py",
+    "client_surfaces/operator_tui/renderer.py",
+    "client_surfaces/operator_tui/commands.py",
+    "client_surfaces/operator_tui/chat_state.py",
+    "client_surfaces/operator_tui/ai_snake_context.py",
+    "client_surfaces/operator_tui/ai_snake_observation.py",
+    "client_surfaces/operator_tui/ai_snake_prediction.py",
+    "client_surfaces/operator_tui/ai_snake_worker_client.py"
+  ],
+  "symbols": [
+    "InteractiveOperatorTui._tick_header_snake",
+    "render_operator_shell",
+    "execute_command",
+    "default_chat_state",
+    "build_context_envelope_ref",
+    "quick_predict"
+  ],
+  "refs": [
+    {
+      "ref": "client_surfaces/operator_tui/interactive.py#_tick_header_snake",
+      "reason": "snake runtime loop",
+      "score": 0.98
+    },
+    {
+      "ref": "client_surfaces/operator_tui/renderer.py#_status_line",
+      "reason": "prediction status display",
+      "score": 0.83
+    },
+    {
+      "ref": "client_surfaces/operator_tui/chat_state.py",
+      "reason": "chat channel and message context",
+      "score": 0.79
+    }
+  ],
+  "sensitivity": "none"
+}
