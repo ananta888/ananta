@@ -4,24 +4,117 @@
   "track": "operator-tui-imap-email-client",
   "purpose": "Ein sicherer IMAP-E-Mail-Client soll in den Ananta Operator TUI integriert werden, damit Mails lokal durchsucht, gelesen, als Artefakte referenziert und kontrolliert an Goals/Worker freigegeben werden können.",
   "goal": "Der Operator TUI bekommt einen lokalen IMAP-Client mit Account-Verwaltung, Mailbox-/Folder-Ansicht, Mail-Liste, Mail-Detailansicht, Suche, Anhangs-Metadaten und sicherer Artefakt-/Goal-Freigabe. Default werden keine Mailinhalte an Ananta-Worker oder LLMs weitergegeben; der User muss Mail, Ausschnitt oder Anhang explizit freigeben.",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
   "milestones": [
-    {"id": "M01", "title": "IMAP Modell und Security Policy", "task_ids": ["T01.01", "T01.02", "T01.03", "T01.04"], "status": "todo"},
-    {"id": "M02", "title": "IMAP Connector und Account-Verwaltung", "task_ids": ["T02.01", "T02.02", "T02.03", "T02.04"], "status": "todo"},
-    {"id": "M03", "title": "Mail Store, Index und Suche", "task_ids": ["T03.01", "T03.02", "T03.03", "T03.04"], "status": "todo"},
-    {"id": "M04", "title": "Operator TUI Mail UI", "task_ids": ["T04.01", "T04.02", "T04.03", "T04.04", "T04.05"], "status": "todo"},
-    {"id": "M05", "title": "Goal-/Artifact-/Worker-Integration", "task_ids": ["T05.01", "T05.02", "T05.03", "T05.04"], "status": "todo"},
-    {"id": "M06", "title": "Attachments und Export", "task_ids": ["T06.01", "T06.02", "T06.03"], "status": "todo"},
-    {"id": "M07", "title": "Tests und E2E", "task_ids": ["T07.01", "T07.02", "T07.03", "T07.04", "T07.05"], "status": "todo"},
-    {"id": "M08", "title": "Dokumentation", "task_ids": ["T08.01", "T08.02"], "status": "todo"}
+    {
+      "id": "M01",
+      "title": "IMAP Modell und Security Policy",
+      "task_ids": [
+        "T01.01",
+        "T01.02",
+        "T01.03",
+        "T01.04"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "M02",
+      "title": "IMAP Connector und Account-Verwaltung",
+      "task_ids": [
+        "T02.01",
+        "T02.02",
+        "T02.03",
+        "T02.04"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M03",
+      "title": "Mail Store, Index und Suche",
+      "task_ids": [
+        "T03.01",
+        "T03.02",
+        "T03.03",
+        "T03.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M04",
+      "title": "Operator TUI Mail UI",
+      "task_ids": [
+        "T04.01",
+        "T04.02",
+        "T04.03",
+        "T04.04",
+        "T04.05"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M05",
+      "title": "Goal-/Artifact-/Worker-Integration",
+      "task_ids": [
+        "T05.01",
+        "T05.02",
+        "T05.03",
+        "T05.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M06",
+      "title": "Attachments und Export",
+      "task_ids": [
+        "T06.01",
+        "T06.02",
+        "T06.03"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M07",
+      "title": "Tests und E2E",
+      "task_ids": [
+        "T07.01",
+        "T07.02",
+        "T07.03",
+        "T07.04",
+        "T07.05"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M08",
+      "title": "Dokumentation",
+      "task_ids": [
+        "T08.01",
+        "T08.02"
+      ],
+      "status": "todo"
+    }
   ],
   "tasks": [
     {
       "id": "T01.01",
       "title": "IMAPAccount-v1 Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "schema",
@@ -34,12 +127,13 @@
         "auth_mode erlaubt mindestens password_app_token und oauth2_placeholder.",
         "tls_mode default ist require_tls.",
         "Tests prüfen gültige Config, fehlenden Host und verbotene Klartext-Credentials."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.02",
       "title": "MailMessageRef-v1 und MailArtifact-v1 Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "schema",
@@ -51,12 +145,13 @@
         "MailArtifact enthält redaction_status und policy_decision_ref.",
         "MailArtifact kann als SourceArtifactGrant für Goals verwendet werden.",
         "Tests validieren metadata-only und explizit freigegebenen Body-Auszug."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.03",
       "title": "Mail Security Policy definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security",
@@ -69,34 +164,40 @@
         "Cloud-Worker bekommen Mailkontext default denied, außer Policy erlaubt es ausdrücklich.",
         "Sensitive Inhalte werden vor Worker-Kontext redaction-geprüft.",
         "TUI zeigt klar, ob nur Metadaten, Auszug oder Volltext freigegeben sind."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.04",
       "title": "IMAP Feature Flags und Default-Off Modus",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "config",
       "milestone_id": "M01",
-      "depends_on": ["T01.03"],
+      "depends_on": [
+        "T01.03"
+      ],
       "acceptance_criteria": [
         "IMAP-Client ist per Config/Feature-Flag aktivierbar.",
         "Default ist disabled, solange kein Account konfiguriert ist.",
         "Config kann Sync deaktivieren und nur manuelle Abfrage erlauben.",
         "TUI zeigt disabled/offline/connected/syncing states.",
         "Tests prüfen disabled state und enabled state."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.01",
       "title": "IMAP Connector Service implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
       "milestone_id": "M02",
-      "depends_on": ["T01.01"],
+      "depends_on": [
+        "T01.01"
+      ],
       "acceptance_criteria": [
         "Service verbindet per IMAP over TLS.",
         "Service kann Mailboxen/Folders listen.",
@@ -104,7 +205,8 @@
         "Service kann Body erst auf explizite Anfrage laden.",
         "Timeouts und Login-Fehler liefern reason_code statt Crash.",
         "Tests nutzen Fake-/Mock-IMAP-Server."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.02",
@@ -114,14 +216,17 @@
       "risk": "medium",
       "type": "config",
       "milestone_id": "M02",
-      "depends_on": ["T02.01"],
+      "depends_on": [
+        "T02.01"
+      ],
       "acceptance_criteria": [
         "CLI/TUI kann Accounts listen und Status anzeigen.",
         "Account-Erstellung unterstützt host, port, username und credential_ref.",
         "Passwort-Eingabe wird nicht geloggt und nicht im Klartext gespeichert.",
         "Account kann deaktiviert/gelöscht werden.",
         "Tests prüfen Account create/list/disable ohne echtes Passwort."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T02.03",
@@ -131,13 +236,16 @@
       "risk": "high",
       "type": "security",
       "milestone_id": "M02",
-      "depends_on": ["T02.02"],
+      "depends_on": [
+        "T02.02"
+      ],
       "acceptance_criteria": [
         "Credential wird über credential_ref geladen.",
         "Fallback-Dateispeicher ist optional und muss verschlüsselt oder deutlich als unsicher markiert sein.",
         "Logs enthalten nie Passwort oder Token.",
         "Tests prüfen SecretStore mock und Log-Redaction."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T02.04",
@@ -147,14 +255,17 @@
       "risk": "medium",
       "type": "backend",
       "milestone_id": "M02",
-      "depends_on": ["T02.01"],
+      "depends_on": [
+        "T02.01"
+      ],
       "acceptance_criteria": [
         "Sync Policy unterstützt manual, headers_only und limited_recent.",
         "Default ist headers_only oder manual nach Account-Policy.",
         "Sync begrenzt Anzahl Mails und Zeitfenster.",
         "Body wird nicht automatisch in Volltext synchronisiert.",
         "Tests prüfen Limitierung und no-body-default."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T03.01",
@@ -164,14 +275,18 @@
       "risk": "medium",
       "type": "backend",
       "milestone_id": "M03",
-      "depends_on": ["T02.01", "T01.02"],
+      "depends_on": [
+        "T02.01",
+        "T01.02"
+      ],
       "acceptance_criteria": [
         "Store speichert MailMessageRef und Header-Metadaten lokal.",
         "Store speichert Body nur nach explizitem Laden/Freigabe gemäß Policy.",
         "Store unterstützt mailbox, uid und message_id Lookup.",
         "Store kann gelöschte/verschobene Mails als stale markieren.",
         "Tests prüfen create/update/stale lookup."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T03.02",
@@ -181,13 +296,16 @@
       "risk": "medium",
       "type": "backend",
       "milestone_id": "M03",
-      "depends_on": ["T03.01"],
+      "depends_on": [
+        "T03.01"
+      ],
       "acceptance_criteria": [
         "Suche unterstützt from, to, subject, date range, mailbox und unread/starred sofern verfügbar.",
         "Body-Suche ist nur für lokal gespeicherte/freigegebene Bodies aktiv.",
         "Suchergebnisse zeigen source refs und policy state.",
         "Tests prüfen Header-Suche und keine automatische Body-Suche."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T03.03",
@@ -197,14 +315,17 @@
       "risk": "high",
       "type": "security",
       "milestone_id": "M03",
-      "depends_on": ["T03.01"],
+      "depends_on": [
+        "T03.01"
+      ],
       "acceptance_criteria": [
         "Vor Artefaktfreigabe/Worker-Kontext wird Redaction ausgeführt.",
         "Erkannte Secrets, Tokens und Zugangsdaten werden blockiert oder redacted.",
         "Redaction-Ergebnis erzeugt reason_code und redaction_status.",
         "Original-Mail bleibt unverändert.",
         "Tests prüfen Secret im Body und Attachment-Metadaten."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T03.04",
@@ -214,13 +335,16 @@
       "risk": "low",
       "type": "backend",
       "milestone_id": "M03",
-      "depends_on": ["T03.01"],
+      "depends_on": [
+        "T03.01"
+      ],
       "acceptance_criteria": [
         "Mails können über Message-ID, In-Reply-To und References gruppiert werden.",
         "TUI kann Thread count anzeigen.",
         "Thread-Gruppierung funktioniert auch unvollständig/degraded.",
         "Tests prüfen einfachen Reply-Thread."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.01",
@@ -230,14 +354,18 @@
       "risk": "high",
       "type": "tui",
       "milestone_id": "M04",
-      "depends_on": ["T03.01", "T02.02"],
+      "depends_on": [
+        "T03.01",
+        "T02.02"
+      ],
       "acceptance_criteria": [
         "TUI-Kommando :mail öffnet Mail-Ansicht.",
         "Ansicht zeigt Account, Mailboxes und aktuelle Mail-Liste.",
         "Keine Mail-Bodies werden beim Öffnen automatisch geladen.",
         "TUI bleibt nutzbar, wenn IMAP offline ist.",
         "Renderer-Test prüft leere und gefüllte Mailbox."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.02",
@@ -247,14 +375,17 @@
       "risk": "medium",
       "type": "tui",
       "milestone_id": "M04",
-      "depends_on": ["T04.01"],
+      "depends_on": [
+        "T04.01"
+      ],
       "acceptance_criteria": [
         "User kann Account und Mailbox wechseln.",
         "Mail-Liste zeigt Datum, From, Subject, Flags und Policy-State.",
         "Paging/Scrolling funktioniert für große Mailboxen.",
         "Filter nach unread/from/date/subject möglich oder vorbereitet.",
         "Tests prüfen Navigation und Scrolling."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.03",
@@ -264,14 +395,18 @@
       "risk": "high",
       "type": "tui",
       "milestone_id": "M04",
-      "depends_on": ["T04.02", "T03.03"],
+      "depends_on": [
+        "T04.02",
+        "T03.03"
+      ],
       "acceptance_criteria": [
         "Mail-Detail zeigt Header und Metadaten zuerst.",
         "Body wird erst nach explizitem Befehl geladen.",
         "HTML-Mails werden sicher als Text/vereinfachte Ansicht dargestellt.",
         "Remote Content wird nicht automatisch geladen.",
         "TUI zeigt Redaction/Policy-Hinweise."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.04",
@@ -281,13 +416,16 @@
       "risk": "medium",
       "type": "tui",
       "milestone_id": "M04",
-      "depends_on": ["T03.02"],
+      "depends_on": [
+        "T03.02"
+      ],
       "acceptance_criteria": [
         "Kommando :mail search <query> sucht in Metadaten.",
         "from:, to:, subject:, mailbox:, date: Filter sind unterstützt oder dokumentiert.",
         "Suchergebnisse können geöffnet und als Artefakt referenziert werden.",
         "Tests prüfen Search Command und Ergebnisrenderer."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T04.05",
@@ -297,13 +435,16 @@
       "risk": "medium",
       "type": "tui",
       "milestone_id": "M04",
-      "depends_on": ["T04.03"],
+      "depends_on": [
+        "T04.03"
+      ],
       "acceptance_criteria": [
         "User kann MailRef in Notizblock oder Goal-Kontext kopieren.",
         "MailRef zeigt keine geheimen Inhalte.",
         "User kann kurze lokale Notiz zu Mail speichern.",
         "Notiz kann später als Goal-Quelle freigegeben werden."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T05.01",
@@ -313,14 +454,18 @@
       "risk": "high",
       "type": "artifact",
       "milestone_id": "M05",
-      "depends_on": ["T01.02", "T03.03"],
+      "depends_on": [
+        "T01.02",
+        "T03.03"
+      ],
       "acceptance_criteria": [
         "MailMessageRef kann als SourceArtifact gespeichert werden.",
         "Artifact unterscheidet metadata_only/body_excerpt/full_body.",
         "Artifact enthält policy_decision_ref und redaction_status.",
         "Artifact enthält account_id/mailbox/uid, aber keine Credentials.",
         "Tests prüfen metadata-only Artifact und freigegebenen Excerpt."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T05.02",
@@ -330,14 +475,17 @@
       "risk": "high",
       "type": "artifact",
       "milestone_id": "M05",
-      "depends_on": ["T05.01"],
+      "depends_on": [
+        "T05.01"
+      ],
       "acceptance_criteria": [
         "TUI-Kommando :mail grant-current-to-goal <goal-id> existiert.",
         "Freigabe kann metadata_only, excerpt oder full_body sein.",
         "Full body braucht explizite Bestätigung.",
         "GoalArtifactGraph zeigt Mail als freigegebene Quelle.",
         "Tests prüfen Grant und Revocation."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T05.03",
@@ -347,14 +495,17 @@
       "risk": "high",
       "type": "worker",
       "milestone_id": "M05",
-      "depends_on": ["T05.02"],
+      "depends_on": [
+        "T05.02"
+      ],
       "acceptance_criteria": [
         "ContextEnvelope enthält nur explizit freigegebene MailArtefakte.",
         "Cloud Worker bekommen Mailkontext default denied.",
         "Envelope enthält MailSourceRefs und redaction_status.",
         "Worker Antwort kann MailSourceRef zitieren.",
         "Tests prüfen denied default und local-worker allowed."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T05.04",
@@ -364,13 +515,16 @@
       "risk": "medium",
       "type": "ai",
       "milestone_id": "M05",
-      "depends_on": ["T05.03"],
+      "depends_on": [
+        "T05.03"
+      ],
       "acceptance_criteria": [
         "Snake kann Mail nur erklären, wenn Mail explizit geöffnet/freigegeben wurde.",
         "Snake zeigt verwendete MailSourceRefs.",
         "Keine automatische Zusammenfassung ganzer Inbox.",
         "Tests prüfen Ask über einzelne freigegebene Mail."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T06.01",
@@ -380,14 +534,17 @@
       "risk": "high",
       "type": "attachments",
       "milestone_id": "M06",
-      "depends_on": ["T04.03"],
+      "depends_on": [
+        "T04.03"
+      ],
       "acceptance_criteria": [
         "TUI zeigt Attachment-Name, MIME-Type und Größe.",
         "Attachment wird nicht automatisch heruntergeladen oder geöffnet.",
         "Download braucht explizite User-Aktion.",
         "AttachmentRef kann als Artefakt registriert werden.",
         "Tests prüfen no-auto-download."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T06.02",
@@ -397,14 +554,17 @@
       "risk": "high",
       "type": "attachments",
       "milestone_id": "M06",
-      "depends_on": ["T06.01"],
+      "depends_on": [
+        "T06.01"
+      ],
       "acceptance_criteria": [
         "Download speichert Attachment in konfiguriertem sicheren Verzeichnis.",
         "Dateiname wird sanitisiert.",
         "Hashes werden berechnet.",
         "Ausführbare/gefährliche Dateitypen werden markiert.",
         "Tests prüfen Pfad-Traversal-Schutz."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T06.03",
@@ -414,13 +574,16 @@
       "risk": "medium",
       "type": "export",
       "milestone_id": "M06",
-      "depends_on": ["T04.03"],
+      "depends_on": [
+        "T04.03"
+      ],
       "acceptance_criteria": [
         "User kann einzelne Mail als metadata JSON exportieren.",
         "Body-Export braucht explizite Bestätigung.",
         "Export enthält keine Credentials.",
         "Export kann als GoalOutputArtifact registriert werden."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.01",
@@ -430,12 +593,17 @@
       "risk": "medium",
       "type": "test",
       "milestone_id": "M07",
-      "depends_on": ["T01.01", "T01.02", "T01.03"],
+      "depends_on": [
+        "T01.01",
+        "T01.02",
+        "T01.03"
+      ],
       "acceptance_criteria": [
         "Tests validieren IMAPAccount, MailMessageRef und MailArtifact.",
         "Tests prüfen kein Klartext-Credential.",
         "Tests prüfen default denied Worker-Kontext."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.02",
@@ -445,12 +613,16 @@
       "risk": "high",
       "type": "test",
       "milestone_id": "M07",
-      "depends_on": ["T02.01", "T03.01"],
+      "depends_on": [
+        "T02.01",
+        "T03.01"
+      ],
       "acceptance_criteria": [
         "Mock-IMAP liefert Mailboxen, Header, Body und Attachment-Metadaten.",
         "Tests prüfen Login-Fehler, Timeout und TLS required.",
         "Tests prüfen headers-only Sync ohne Body."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.03",
@@ -460,12 +632,18 @@
       "risk": "medium",
       "type": "test",
       "milestone_id": "M07",
-      "depends_on": ["T04.01", "T04.02", "T04.03", "T04.04"],
+      "depends_on": [
+        "T04.01",
+        "T04.02",
+        "T04.03",
+        "T04.04"
+      ],
       "acceptance_criteria": [
         "Tests prüfen :mail, Mailbox-Liste, Mail-Liste, Detailansicht und Suche.",
         "Tests prüfen, dass Body nicht automatisch geladen wird.",
         "Tests prüfen offline/degraded Anzeige."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.04",
@@ -475,13 +653,18 @@
       "risk": "high",
       "type": "test",
       "milestone_id": "M07",
-      "depends_on": ["T05.01", "T05.02", "T05.03"],
+      "depends_on": [
+        "T05.01",
+        "T05.02",
+        "T05.03"
+      ],
       "acceptance_criteria": [
         "Tests prüfen MailArtifact metadata_only.",
         "Tests prüfen explizite Excerpt-Freigabe.",
         "Tests prüfen Cloud Worker denied default.",
         "Tests prüfen Redaction vor Worker-Kontext."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T07.05",
@@ -491,7 +674,12 @@
       "risk": "high",
       "type": "e2e",
       "milestone_id": "M07",
-      "depends_on": ["T04.03", "T05.02", "T05.03", "T07.02"],
+      "depends_on": [
+        "T04.03",
+        "T05.02",
+        "T05.03",
+        "T07.02"
+      ],
       "acceptance_criteria": [
         "E2E startet Mock-IMAP mit Testmail.",
         "TUI öffnet :mail und zeigt Mailbox/Mail-Liste.",
@@ -499,7 +687,8 @@
         "Mail-Excerpt wird für Test-Goal freigegeben.",
         "GoalArtifactGraph zeigt MailSourceArtifact.",
         "Worker/Mock-Worker sieht nur freigegebenen Excerpt."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T08.01",
@@ -509,13 +698,17 @@
       "risk": "low",
       "type": "docs",
       "milestone_id": "M08",
-      "depends_on": ["T04.01", "T05.02"],
+      "depends_on": [
+        "T04.01",
+        "T05.02"
+      ],
       "acceptance_criteria": [
         "Doku erklärt Account-Setup mit SecretStore.",
         "Doku erklärt :mail, Suche, Body Load und Freigabe an Goal.",
         "Doku erklärt Datenschutz-Defaults.",
         "Doku enthält Troubleshooting für Login/TLS/IMAP-Provider."
-      ]
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "T08.02",
@@ -525,30 +718,267 @@
       "risk": "low",
       "type": "docs",
       "milestone_id": "M08",
-      "depends_on": ["T02.01", "T03.01", "T05.03"],
+      "depends_on": [
+        "T02.01",
+        "T03.01",
+        "T05.03"
+      ],
       "acceptance_criteria": [
         "Doku enthält Mermaid-Flow IMAP -> Metadata Store -> TUI.",
         "Doku enthält Mermaid-Flow Mail -> MailArtifact -> GoalArtifactGraph -> Worker ContextEnvelope.",
         "Doku enthält Security-Invarianten: no auto body, no auto worker, no plaintext credentials.",
         "Doku enthält Testmatrix."
-      ]
+      ],
+      "progress_percent": 0.0
     }
   ],
-  "critical_path_tasks": ["T01.01", "T01.02", "T01.03", "T02.01", "T02.02", "T02.03", "T03.01", "T03.03", "T04.01", "T04.02", "T04.03", "T05.01", "T05.02", "T05.03", "T07.05"],
+  "critical_path_tasks": [
+    "T01.01",
+    "T01.02",
+    "T01.03",
+    "T02.01",
+    "T02.02",
+    "T02.03",
+    "T03.01",
+    "T03.03",
+    "T04.01",
+    "T04.02",
+    "T04.03",
+    "T05.01",
+    "T05.02",
+    "T05.03",
+    "T07.05"
+  ],
   "tasks_status_summary": {
-    "total": 29,
-    "by_status": {"todo": 29, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0,
-    "by_priority": {"P1": 23, "P2": 5, "P3": 1},
-    "by_risk": {"low": 4, "medium": 13, "high": 12},
-    "critical_path": {"total": 15, "done": 0, "remaining": 15},
-    "milestones": {"total": 8, "todo": 8, "in_progress": 0, "blocked": 0, "done": 0}
+    "total": 31,
+    "by_status": {
+      "todo": 26,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 5
+    },
+    "progress_percent_done": 16.13,
+    "by_priority": {
+      "P1": 24,
+      "P2": 6,
+      "P3": 1
+    },
+    "by_risk": {
+      "low": 3,
+      "medium": 13,
+      "high": 15
+    },
+    "critical_path": {
+      "total": 15,
+      "done": 4,
+      "remaining": 11
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 6,
+      "in_progress": 1,
+      "blocked": 0,
+      "done": 1
+    }
   },
   "tasks_type_summary": {
-    "total": 29,
-    "by_type": {"schema": 2, "security": 4, "config": 2, "backend": 6, "tui": 6, "artifact": 2, "worker": 1, "ai": 1, "attachments": 2, "export": 1, "test": 4, "e2e": 1, "docs": 2}
+    "total": 31,
+    "by_type": {
+      "schema": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "security": {
+        "total": 3,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 33.3
+      },
+      "config": {
+        "total": 2,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 50.0
+      },
+      "backend": {
+        "total": 5,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 20.0
+      },
+      "tui": {
+        "total": 5,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "artifact": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "worker": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "ai": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "attachments": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "export": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "test": {
+        "total": 4,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "e2e": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "docs": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
+    }
   },
-  "progress_summary": {"state": "todo", "todo_remaining": 29, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 26,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 5,
+    "count_based_percent": 16.1,
+    "weighted_percent": 18.6
+  },
   "execution_stage_summary": {
     "current_stage": "planning",
     "target_schema": "todos/todo.track.schema.json",
@@ -563,7 +993,114 @@
     "Attachments werden nicht automatisch heruntergeladen oder geöffnet."
   ],
   "end_summaries": [
-    {"summary_id": "target_flow", "title": "Zielablauf", "items": ["User konfiguriert IMAP-Account mit credential_ref.", "TUI :mail zeigt Mailboxen und Header-Metadaten.", "User lädt Mail-Body explizit.", "User gibt Mail-Excerpt für Goal frei.", "GoalArtifactGraph zeigt MailSourceArtifact.", "Worker sieht nur explizit freigegebenen, redacted Kontext."]},
-    {"summary_id": "definition_of_done", "title": "Definition of Done", "items": ["Mock-IMAP Tests laufen.", "TUI zeigt Mailbox/Liste/Detail/Suche.", "Default wird kein Body automatisch geladen.", "Default wird keine Mail an Worker gegeben.", "E2E beweist Mail-Excerpt -> GoalArtifact -> WorkerContext.", "Doku mit Security-Invarianten existiert."]}
-  ]
+    {
+      "summary_id": "target_flow",
+      "title": "Zielablauf",
+      "items": [
+        "User konfiguriert IMAP-Account mit credential_ref.",
+        "TUI :mail zeigt Mailboxen und Header-Metadaten.",
+        "User lädt Mail-Body explizit.",
+        "User gibt Mail-Excerpt für Goal frei.",
+        "GoalArtifactGraph zeigt MailSourceArtifact.",
+        "Worker sieht nur explizit freigegebenen, redacted Kontext."
+      ]
+    },
+    {
+      "summary_id": "definition_of_done",
+      "title": "Definition of Done",
+      "items": [
+        "Mock-IMAP Tests laufen.",
+        "TUI zeigt Mailbox/Liste/Detail/Suche.",
+        "Default wird kein Body automatisch geladen.",
+        "Default wird keine Mail an Worker gegeben.",
+        "E2E beweist Mail-Excerpt -> GoalArtifact -> WorkerContext.",
+        "Doku mit Security-Invarianten existiert."
+      ]
+    }
+  ],
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 59.25,
+    "done_weight": 11.0,
+    "remaining_weight": 48.25,
+    "blocked_weight": 0.0,
+    "weighted_percent": 18.6
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M01": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M02": {
+        "total_tasks": 4,
+        "done": 1,
+        "blocked": 0,
+        "count_based_percent": 25.0,
+        "weighted_percent": 31.2,
+        "status": "in_progress"
+      },
+      "M03": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M04": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M05": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M06": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M07": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M08": {
+        "total_tasks": 2,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-05-26T22:24:39.330878Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "eb400d213384e07b7c6553c9f5669bbd763d1d2d105a9e3b724a18c3f2d3296c",
+    "is_stale": false
+  }
 }
