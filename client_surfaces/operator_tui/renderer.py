@@ -281,7 +281,6 @@ def _render_header_snake_lines(state: OperatorState, width: int) -> list[str]:
     game = dict(state.header_logo_game or {})
     local_id = str(game.get("local_snake_id") or "s1")
     active = bool(game.get("active") and game.get("ui_steering"))
-    score = int(game.get("score", 0))
     status = "running" if game.get("alive", True) else "game over"
     remote_access_raw = game.get("remote_access")
     remote_access = dict(remote_access_raw) if isinstance(remote_access_raw, dict) else {}
@@ -318,10 +317,15 @@ def _render_header_snake_lines(state: OperatorState, width: int) -> list[str]:
     ordered = sorted(snakes.items(), key=lambda kv: (0 if str(kv[0]) == local_id else (1 if str(kv[0]) == "s-ai" else 2), str(kv[0])))
     lines = [_pane_title("SNAKE", state.focus == FocusPane.HEADER)]
     if active:
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} mode=active score={score} status={status}", width))
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} remote: :snake-access <id> cancel|view|full", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-Modus aktiv ({status}).", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} X markiert Start/Ende (Multi-Select).", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} C kopiert Auswahl; U oeffnet Tutorial-Chat.", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} O mouse-follow; Klick bestaetigt Ziel, Scroll waermt Intent.", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Freigaben: :snake-access <id> cancel|view|full", width))
     else:
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Ctrl+S startet Snake-Modus (lokal/KI/remote).", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Im Modus: X markieren, C kopieren, V replace, U Chat.", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Maus: O follow; Klick + Hover aktiviert Kontext-Chat.", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Freigaben: :snake-access <id> cancel|view|full", width))
 
     for sid, snap in ordered:
@@ -344,12 +348,13 @@ def _render_header_config_lines(state: OperatorState, width: int) -> list[str]:
     lines = [_pane_title("CONFIG", True)]
     game = state.header_logo_game or {}
     if game.get("active"):
-        score = int(game.get("score", 0))
         status = "running" if game.get("alive", True) else "game over"
         snakes = game.get("snakes") if isinstance(game.get("snakes"), dict) else {}
         peer_count = len([k for k in snakes.keys() if str(k) != str(game.get("local_snake_id") or "s1")]) if snakes else 0
-        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake  score={score}  {status}", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-Modus aktiv  {status}", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snake-ID: {game.get('local_snake_id', 's1')} · Peers: {peer_count}", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} X=Markieren/Multi, C=Copy, V=Replace, U=Chat", width))
+        lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} O=MouseFollow, Klick=Intent+Chat, Scroll=Intent-Hinweis", width))
         lines.append(_clip(f"{DEFAULT_THEME.muted_prefix} Snakes (OIDC / Farbe / Nachricht):", width))
         if snakes:
             ordered = sorted(snakes.items(), key=lambda kv: (0 if str(kv[0]) == str(game.get("local_snake_id") or "s1") else 1, str(kv[0])))

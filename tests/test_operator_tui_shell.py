@@ -327,7 +327,8 @@ def test_header_focus_hints_show_snake_controls() -> None:
 
     output = render_operator_shell(state, width=100, height=24)
 
-    assert "Snake  score=2  running" in output
+    assert "Snake-Modus aktiv  running" in output
+    assert "X=Markieren/Multi, C=Copy" in output
     assert "[Ctrl+S] Snake" in output
 
 
@@ -498,6 +499,8 @@ def test_inactive_header_without_logo_shows_snake_mode_explanation() -> None:
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
 
     assert "Ctrl+S startet Snake-Modus" in plain
+    assert "Im Modus: X markieren, C kopieren, V replace, U Chat." in plain
+    assert "Maus: O follow; Klick + Hover aktiviert Kontext-Chat." in plain
     assert "Freigaben: :snake-access" in plain
 
 
