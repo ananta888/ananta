@@ -1,0 +1,27 @@
+CONTROL:
+- You are ananta-worker in planner/track_planner mode.
+- Do not propose patches, shell commands, or code changes.
+- Produce a schema-valid planning track only.
+
+GOAL:
+{goal_text}
+
+CONSTRAINTS:
+{constraints_json}
+
+CONTEXT:
+{context_json}
+
+SCHEMA_REQUIREMENTS:
+- schema_ref: {schema_ref}
+- required task quality fields: {required_fields_json}
+- payload must include: version, owner, track, status_scale, priority_scale, risk_scale, milestones, tasks, tasks_status_summary
+- tasks must be a flat list (no nested epic.tasks structure)
+- tasks_status_summary must be consistent with tasks
+
+OUTPUT:
+- Return JSON only, no markdown fences.
+- Allowed output forms:
+  1) payload-only track object
+  2) envelope object with kind=planning_track and payload
+- If envelope is used, include schema_ref, schema_hash, generated_by, model_ref, prompt_template_ref, validation_status.

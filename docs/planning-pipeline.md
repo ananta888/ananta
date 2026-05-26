@@ -43,6 +43,12 @@ Optional extensions (allowed by design) include:
 - `summary_notes`
 - `end_summaries`
 
+Track-planning profile (`track_planner`) requirements:
+- minimum task quality fields: `title`, `risk`, `acceptance_criteria`
+- optional task fields: `depends_on`, `type`, `milestone_id`
+- summary policy validates `tasks_status_summary` against `tasks`
+- prompt template: `prompts/planning/track_planning.j2`
+
 ## Transition to deterministic-first
 
 Deterministic-first is a later policy mode (`deterministic_first`) once metrics and review evidence are sufficient.

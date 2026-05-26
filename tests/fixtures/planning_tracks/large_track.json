@@ -1,0 +1,184 @@
+{
+  "version": "1.0",
+  "owner": "fixture",
+  "track": "large-goal-fixture",
+  "purpose": "Large deterministic planning fixture",
+  "goal": "Deliver end-to-end feature rollout",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Contracts and planning",
+      "task_ids": ["T01", "T02", "T03"],
+      "status": "done"
+    },
+    {
+      "id": "M02",
+      "title": "Execution and integration",
+      "task_ids": ["T04", "T05", "T06", "T07"],
+      "status": "in_progress"
+    },
+    {
+      "id": "M03",
+      "title": "Verification and rollout",
+      "task_ids": ["T08", "T09"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01",
+      "title": "Define API contract",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "type": "analysis",
+      "acceptance_criteria": ["Contract fields are approved."]
+    },
+    {
+      "id": "T02",
+      "title": "Create planning profile",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "schema",
+      "acceptance_criteria": ["Profile defines quality requirements."]
+    },
+    {
+      "id": "T03",
+      "title": "Implement planner envelope",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "worker",
+      "acceptance_criteria": ["Envelope supports payload and metadata."]
+    },
+    {
+      "id": "T04",
+      "title": "Implement role dispatcher",
+      "status": "in_progress",
+      "priority": "P1",
+      "risk": "high",
+      "type": "worker",
+      "acceptance_criteria": ["track_planner route is selected safely."]
+    },
+    {
+      "id": "T05",
+      "title": "Create planning prompt template",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "prompt",
+      "acceptance_criteria": ["Prompt sections are explicit and structured."]
+    },
+    {
+      "id": "T06",
+      "title": "Persist planning artifact",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "artifact",
+      "acceptance_criteria": ["Artifact stores provenance and usage refs."]
+    },
+    {
+      "id": "T07",
+      "title": "Validate and repair summary",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "type": "validation",
+      "acceptance_criteria": ["Summary is deterministic or rejected."]
+    },
+    {
+      "id": "T08",
+      "title": "Run integration tests",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "test",
+      "acceptance_criteria": ["Integration tests pass for planning flow."]
+    },
+    {
+      "id": "T09",
+      "title": "Publish operator documentation",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "low",
+      "type": "docs",
+      "acceptance_criteria": ["Planner mode usage is documented."]
+    }
+  ],
+  "critical_path_tasks": ["T01", "T02", "T03", "T04", "T06", "T08", "T09"],
+  "tasks_status_summary": {
+    "total": 9,
+    "by_status": {
+      "todo": 5,
+      "in_progress": 1,
+      "partial": 0,
+      "blocked": 0,
+      "done": 3
+    },
+    "progress_percent_done": 33.3,
+    "by_priority": {
+      "P1": 6,
+      "P2": 2,
+      "P3": 1
+    },
+    "by_risk": {
+      "low": 2,
+      "medium": 4,
+      "high": 3
+    },
+    "critical_path": {
+      "total": 7,
+      "done": 3,
+      "remaining": 4
+    },
+    "milestones": {
+      "total": 3,
+      "todo": 1,
+      "in_progress": 1,
+      "blocked": 0,
+      "done": 1
+    }
+  },
+  "tasks_type_summary": {
+    "total": 9,
+    "by_type": {
+      "analysis": 1,
+      "schema": 1,
+      "worker": 2,
+      "prompt": 1,
+      "artifact": 1,
+      "validation": 1,
+      "test": 1,
+      "docs": 1
+    }
+  },
+  "progress_summary": {
+    "state": "active",
+    "todo_remaining": 5,
+    "in_progress": 1,
+    "partial": 0,
+    "blocked": 0,
+    "done": 3
+  },
+  "execution_stage_summary": {
+    "planning": "done",
+    "execution": "in_progress",
+    "verification": "todo"
+  },
+  "summary_notes": [
+    "Large-goal fixture keeps deterministic IDs.",
+    "Critical path is explicitly represented."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "S01",
+      "title": "Rollout checkpoint",
+      "items": ["Planner mode stable", "Validation deterministic", "Docs complete"]
+    }
+  ]
+}

@@ -4,8 +4,11 @@ import json
 from pathlib import Path
 
 from agent.services.planning_track_contract_service import (
+    build_planning_track_envelope,
+    planning_track_profile,
     planning_contract_ref,
     required_optional_field_spec,
+    unwrap_planning_track_payload,
     validate_planning_track_payload,
 )
 
@@ -49,3 +52,35 @@ def test_required_optional_field_spec_includes_core_contract() -> None:
     spec = required_optional_field_spec()
     assert "tasks_status_summary" in spec["required"]
     assert "critical_path_tasks" in spec["optional_examples"]
+
+
+def test_planning_track_profile_exposes_quality_and_snapshot() -> None:
+    profile = planning_track_profile(mode="track_planner")
+    assert profile["mode"] == "track_planner"
+    assert profile["minimum_task_quality"]["required_fields"] == ["title", "risk", "acceptance_criteria"]
+    assert profile["summary_policy"]["validate_tasks_status_summary"] is True
+    assert profile["config_snapshot_ref"] == "config:planning_track_profile_v1"
+
+
+def test_planning_track_envelope_roundtrip_keeps_payload() -> None:
+    payload = _todo_track_payload()
+    envelope = build_planning_track_envelope(
+        payload=payload,
+        generated_by="planner-worker",
+        model_ref="model:planner",
+        prompt_template_ref="prompt:planning/track_planning",
+    )
+    unwrapped, envelope_raw = unwrap_planning_track_payload(envelope)
+    assert unwrapped["track"] == payload["track"]
+    assert envelope_raw is not None
+    assert envelope["validation_status"] == "valid"
+
+
+def test_planning_track_fixtures_validate_against_schema() -> None:
+    fixtures = [
+        Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json",
+        Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "large_track.json",
+    ]
+    for fixture in fixtures:
+        payload = json.loads(fixture.read_text(encoding="utf-8"))
+        assert validate_planning_track_payload(payload) == []
