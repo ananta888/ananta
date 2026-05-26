@@ -14,6 +14,7 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.ui.dialogs.PreferencesUtil;
 import org.eclipse.ui.part.ViewPart;
 
 public final class AnantaSnakeViewPart extends ViewPart {
@@ -23,9 +24,12 @@ public final class AnantaSnakeViewPart extends ViewPart {
     private Label statusLabel;
     private Label predictionLabel;
     private Label hubConfigLabel;
+    private Label contextStatusLabel;
     private Label askResultLabel;
     private Button toggleButton;
     private Button askButton;
+    private Button resetContextButton;
+    private Button openSettingsButton;
 
     @Override
     public void createPartControl(Composite parent) {
@@ -47,11 +51,24 @@ public final class AnantaSnakeViewPart extends ViewPart {
         askButton.setText("Ask Ananta Snake");
         askButton.addListener(SWT.Selection, event -> requestAsk());
 
+        resetContextButton = new Button(parent, SWT.PUSH);
+        resetContextButton.setLayoutData(new GridData(SWT.LEFT, SWT.TOP, false, false));
+        resetContextButton.setText("Reset Context");
+        resetContextButton.addListener(SWT.Selection, event -> resetContext());
+
+        openSettingsButton = new Button(parent, SWT.PUSH);
+        openSettingsButton.setLayoutData(new GridData(SWT.LEFT, SWT.TOP, false, false));
+        openSettingsButton.setText("Open Settings");
+        openSettingsButton.addListener(SWT.Selection, event -> openSettings());
+
         predictionLabel = new Label(parent, SWT.WRAP);
         predictionLabel.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
 
         hubConfigLabel = new Label(parent, SWT.WRAP);
         hubConfigLabel.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+
+        contextStatusLabel = new Label(parent, SWT.WRAP);
+        contextStatusLabel.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
 
         askResultLabel = new Label(parent, SWT.WRAP);
         askResultLabel.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
@@ -92,6 +109,20 @@ public final class AnantaSnakeViewPart extends ViewPart {
         thread.start();
     }
 
+    private void resetContext() {
+        AnantaRuntimeBootstrap.snakeService().resetContextAuthorization();
+        refreshUi(AnantaRuntimeBootstrap.snakeService().snapshot());
+    }
+
+    private void openSettings() {
+        PreferencesUtil.createPreferenceDialogOn(
+                getSite().getShell(),
+                "io.ananta.eclipse.preferences",
+                new String[]{"io.ananta.eclipse.preferences"},
+                null
+        ).open();
+    }
+
     private void refreshUi(AnantaSnakeState state) {
         String message = "enabled=" + state.isEnabled()
                 + ", running=" + state.isRunning()
@@ -113,7 +144,11 @@ public final class AnantaSnakeViewPart extends ViewPart {
                 + ", base_url=" + hubConfig.baseUrl()
                 + ", auth_mode=" + hubConfig.authMode()
                 + ", timeout_seconds=" + hubConfig.timeoutSeconds());
+        contextStatusLabel.setText("context=release_mode=" + AnantaRuntimeBootstrap.snakeService().contextReleaseMode()
+                + ", policy_reason=" + AnantaRuntimeBootstrap.snakeService().lastPolicyReasonCode()
+                + ", summary=" + AnantaRuntimeBootstrap.snakeService().lastContextSummary());
         askResultLabel.setText("ask_result=" + AnantaRuntimeBootstrap.snakeService().lastAskResult());
+        overlayCanvas.setOpacityPercent(AnantaRuntimeBootstrap.snakeService().overlayOpacityPercent());
         overlayCanvas.setModel(AnantaSnakeOverlayModel.fromState(state));
     }
 }

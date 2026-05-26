@@ -4,6 +4,8 @@ import io.ananta.eclipse.runtime.core.AnantaApiClient;
 import io.ananta.eclipse.runtime.core.ClientProfile;
 import io.ananta.eclipse.runtime.core.ClientResponse;
 import io.ananta.eclipse.runtime.platform.AnantaRuntimeBootstrap;
+import io.ananta.eclipse.runtime.snake.AnantaSnakePrivacySettings;
+import io.ananta.eclipse.runtime.snake.AnantaSnakeUiPreferences;
 
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.preference.PreferencePage;
@@ -27,7 +29,15 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
     private Text environmentText;
     private Text tokenText;
     private Spinner timeoutSpinner;
+    private Button snakeEnabledCheckbox;
+    private Spinner animationFpsSpinner;
+    private Spinner followDistanceSpinner;
+    private Spinner overlayOpacitySpinner;
+    private Button localOnlyModeCheckbox;
     private Button snakeHubEnabledCheckbox;
+    private Button allowSelectionContentCheckbox;
+    private Button allowFileContentCheckbox;
+    private Button allowExternalProvidersCheckbox;
     private Label connectionStatusLabel;
 
     @Override
@@ -59,9 +69,50 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
         timeoutSpinner.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
         new Label(root, SWT.NONE);
 
+        snakeEnabledCheckbox = new Button(root, SWT.CHECK);
+        snakeEnabledCheckbox.setText("Snake Enabled by Default");
+        snakeEnabledCheckbox.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false, 3, 1));
+
+        new Label(root, SWT.NONE).setText("Animation FPS");
+        animationFpsSpinner = new Spinner(root, SWT.BORDER);
+        animationFpsSpinner.setMinimum(15);
+        animationFpsSpinner.setMaximum(30);
+        animationFpsSpinner.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+        new Label(root, SWT.NONE);
+
+        new Label(root, SWT.NONE).setText("Follow Distance (px)");
+        followDistanceSpinner = new Spinner(root, SWT.BORDER);
+        followDistanceSpinner.setMinimum(4);
+        followDistanceSpinner.setMaximum(120);
+        followDistanceSpinner.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+        new Label(root, SWT.NONE);
+
+        new Label(root, SWT.NONE).setText("Overlay Opacity (%)");
+        overlayOpacitySpinner = new Spinner(root, SWT.BORDER);
+        overlayOpacitySpinner.setMinimum(10);
+        overlayOpacitySpinner.setMaximum(100);
+        overlayOpacitySpinner.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
+        new Label(root, SWT.NONE);
+
         snakeHubEnabledCheckbox = new Button(root, SWT.CHECK);
         snakeHubEnabledCheckbox.setText("Enable Snake Hub Integration");
         snakeHubEnabledCheckbox.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false, 3, 1));
+
+        localOnlyModeCheckbox = new Button(root, SWT.CHECK);
+        localOnlyModeCheckbox.setText("Force Local-only Mode");
+        localOnlyModeCheckbox.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false, 3, 1));
+
+        allowSelectionContentCheckbox = new Button(root, SWT.CHECK);
+        allowSelectionContentCheckbox.setText("Allow Selection Content for Snake Context");
+        allowSelectionContentCheckbox.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false, 3, 1));
+
+        allowFileContentCheckbox = new Button(root, SWT.CHECK);
+        allowFileContentCheckbox.setText("Allow Full File Content for Snake Context");
+        allowFileContentCheckbox.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false, 3, 1));
+
+        allowExternalProvidersCheckbox = new Button(root, SWT.CHECK);
+        allowExternalProvidersCheckbox.setText("Allow External Providers for IDE Context");
+        allowExternalProvidersCheckbox.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false, 3, 1));
 
         Button testConnection = new Button(root, SWT.PUSH);
         testConnection.setText("Test Connection");
@@ -84,7 +135,15 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
         environmentText.setText("local");
         tokenText.setText("");
         timeoutSpinner.setSelection(15);
+        snakeEnabledCheckbox.setSelection(false);
+        animationFpsSpinner.setSelection(20);
+        followDistanceSpinner.setSelection(24);
+        overlayOpacitySpinner.setSelection(60);
+        localOnlyModeCheckbox.setSelection(true);
         snakeHubEnabledCheckbox.setSelection(false);
+        allowSelectionContentCheckbox.setSelection(false);
+        allowFileContentCheckbox.setSelection(false);
+        allowExternalProvidersCheckbox.setSelection(false);
         connectionStatusLabel.setText("");
         super.performDefaults();
     }
@@ -99,8 +158,18 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
         }
         setErrorMessage(null);
         ClientProfile profile = draft.toProfile();
+        AnantaSnakeUiPreferences snakeUiPreferences;
+        try {
+            snakeUiPreferences = buildSnakeUiPreferences();
+        } catch (IllegalArgumentException exc) {
+            setErrorMessage(exc.getMessage());
+            return false;
+        }
         AnantaPreferenceRuntimeStore.saveProfile(profile);
-        AnantaPreferenceRuntimeStore.saveSnakeHubEnabled(snakeHubEnabledCheckbox.getSelection());
+        AnantaPreferenceRuntimeStore.saveSnakeUiPreferences(snakeUiPreferences);
+        AnantaPreferenceRuntimeStore.saveSnakeHubEnabled(
+                snakeHubEnabledCheckbox.getSelection() && !snakeUiPreferences.localOnlyMode()
+        );
         AnantaRuntimeBootstrap.reloadFromPreferences();
         setMessage("Ananta profile saved.");
         return true;
@@ -114,7 +183,18 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
         environmentText.setText(profile.getEnvironment());
         tokenText.setText(profile.getAuthToken());
         timeoutSpinner.setSelection(profile.getTimeoutSeconds());
-        snakeHubEnabledCheckbox.setSelection(AnantaPreferenceRuntimeStore.loadSnakeHubEnabled());
+        AnantaSnakeUiPreferences snakeUiPreferences = AnantaPreferenceRuntimeStore.loadSnakeUiPreferences();
+        snakeEnabledCheckbox.setSelection(snakeUiPreferences.snakeEnabledByDefault());
+        animationFpsSpinner.setSelection(snakeUiPreferences.animationFps());
+        followDistanceSpinner.setSelection(snakeUiPreferences.followDistancePx());
+        overlayOpacitySpinner.setSelection(snakeUiPreferences.overlayOpacityPercent());
+        localOnlyModeCheckbox.setSelection(snakeUiPreferences.localOnlyMode());
+        allowSelectionContentCheckbox.setSelection(snakeUiPreferences.privacySettings().allowSelectionContent());
+        allowFileContentCheckbox.setSelection(snakeUiPreferences.privacySettings().allowFileContent());
+        allowExternalProvidersCheckbox.setSelection(snakeUiPreferences.privacySettings().allowExternalProviders());
+        snakeHubEnabledCheckbox.setSelection(
+                AnantaPreferenceRuntimeStore.loadSnakeHubEnabled() && !snakeUiPreferences.localOnlyMode()
+        );
     }
 
     private AnantaPreferencePage.ProfilePreferenceDraft buildDraft() {
@@ -144,6 +224,22 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
                         + " (status=" + health.getStatusCode() + ")"
                         + "\nCapabilities: " + capabilities.getState().name().toLowerCase()
                         + " (status=" + capabilities.getStatusCode() + ")"
+        );
+    }
+
+    private AnantaSnakeUiPreferences buildSnakeUiPreferences() {
+        AnantaSnakePrivacySettings privacySettings = new AnantaSnakePrivacySettings(
+                allowSelectionContentCheckbox.getSelection(),
+                allowFileContentCheckbox.getSelection(),
+                allowExternalProvidersCheckbox.getSelection()
+        );
+        return new AnantaSnakeUiPreferences(
+                snakeEnabledCheckbox.getSelection(),
+                animationFpsSpinner.getSelection(),
+                followDistanceSpinner.getSelection(),
+                overlayOpacitySpinner.getSelection(),
+                localOnlyModeCheckbox.getSelection(),
+                privacySettings
         );
     }
 

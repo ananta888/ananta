@@ -73,7 +73,7 @@
         "T05.02",
         "T05.03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M06",
@@ -83,7 +83,7 @@
         "T06.02",
         "T06.03"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M07",
@@ -413,7 +413,7 @@
     {
       "id": "T05.01",
       "title": "Least-Privilege Kontextfreigabe",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security",
@@ -429,12 +429,12 @@
         "Cloud-/external Provider sind default für IDE-Kontext blockiert, sofern nicht explizit erlaubt.",
         "Tests prüfen, dass sensible Inhalte nicht automatisch in Worker-Requests landen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T05.02",
       "title": "Redaction und Secret-Schutz vor Worker Request",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security",
@@ -449,12 +449,12 @@
         "Lokale Anzeige im Editor wird nicht verändert.",
         "Regressionstest prüft, dass Worker-Payload keine unbereinigten sensiblen Werte enthält."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T05.03",
       "title": "Transparente Statusanzeige für Kontextfreigabe",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "security",
@@ -469,12 +469,12 @@
         "User kann Freigabe zurücksetzen.",
         "Tests prüfen Statusmodell und Anzeigezustände."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T06.01",
       "title": "Eclipse Preferences Page für Snake",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "ux",
@@ -490,12 +490,12 @@
         "Preferences können zurückgesetzt werden.",
         "Tests prüfen Preference Store read/write."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T06.02",
       "title": "Ananta Snake Eclipse View",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "ux",
@@ -511,7 +511,7 @@
         "View zeigt keine Rohdateiinhalte, außer User hat diese explizit freigegeben.",
         "UI-Test prüft View-Erzeugung."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T06.03",
@@ -688,13 +688,13 @@
   "tasks_status_summary": {
     "total": 27,
     "by_status": {
-      "todo": 12,
+      "todo": 7,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 15
+      "done": 20
     },
-    "progress_percent_done": 55.56,
+    "progress_percent_done": 74.07,
     "by_priority": {
       "P1": 21,
       "P2": 6,
@@ -707,15 +707,15 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 12,
-      "remaining": 2
+      "done": 13,
+      "remaining": 1
     },
     "milestones": {
       "total": 8,
-      "todo": 4,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 4
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -794,30 +794,30 @@
       "security": {
         "total": 3,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "ux": {
         "total": 3,
         "by_status": {
-          "todo": 3,
+          "todo": 1,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 66.7
       },
       "test": {
         "total": 3,
@@ -865,13 +865,13 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 12,
+    "todo_remaining": 7,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 15,
-    "count_based_percent": 55.6,
-    "weighted_percent": 60.0
+    "done": 20,
+    "count_based_percent": 74.1,
+    "weighted_percent": 76.0
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -918,10 +918,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 50.0,
-    "done_weight": 30.0,
-    "remaining_weight": 20.0,
+    "done_weight": 38.0,
+    "remaining_weight": 12.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 60.0
+    "weighted_percent": 76.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -959,19 +959,19 @@
       },
       "M05": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M06": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 66.7,
+        "weighted_percent": 66.7,
+        "status": "in_progress"
       },
       "M07": {
         "total_tasks": 4,
@@ -994,10 +994,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T23:31:23.289813Z",
+    "generated_at": "2026-05-26T23:39:52.510054Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "15a90fbbef18252b5668fa6f29927ec19f34f86a9f24db56af12821e651d6c8e",
+    "source_hash": "ccfb898c4dd9c8b19fbf1d8caa23da11c3c1553f25385b24c335318b9f5fbebc",
     "is_stale": false
   }
 }
