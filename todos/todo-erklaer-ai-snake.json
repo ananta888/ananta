@@ -6,7 +6,7 @@
     "description": "Feingranularer Ausbauplan für die tutor-ai-Schlange im Ananta Operator TUI. Ziel: Die KI-Schlange wird zum interaktiven, erklärenden AI-Worker, der TUI-Konzepte live vermittelt, auf Spielereignisse reagiert und als Live-Demo der Ananta-Agent-Architektur fungiert.",
     "created": "2026-05-26",
     "last_updated": "2026-05-26",
-    "version": "1.1",
+    "version": "1.2",
     "repos": {
       "tui": "https://github.com/ananta888/ananta",
       "www": "https://github.com/ananta888/ananta888.github.io"
@@ -16,7 +16,7 @@
       "effort": "XS = <2h, S = 2-4h, M = 4-8h, L = 8-16h, XL = >16h",
       "status": "open | in_progress | done | blocked"
     },
-    "notes": "v1.1 – Status nach E01–E04 Implementierung aktualisiert (2026-05-26). Tatsächlich erstellte Dateien: snake_persistence.py, snake_tutor_texts.yaml, snake_tutorial.py, tutorials/intro.yaml, tutorials/snake_mode.yaml, tutorials/codecompass.yaml. Config-Pfad ist ~/.config/ananta/ (nicht ~/.ananta/ wie ursprünglich spezifiziert)."
+    "notes": "v1.2 – Alle E01–E07 Tasks implementiert (2026-05-26). Neu: T01.03 food-clamping, T01.02 pause-hints, T02.04 tutor-pointer/blink, T03.01 Hub-API /snakes, T03.03 8-Farb-Palette komplett, T04.04 guided-tour-tick, T05.01-04 Cast-Erzeugung, T06.01-07 Website, T07.04 lint-skript, T07.05 docs. Config-Pfad: ~/.config/ananta/"
   },
   "epics": [
     {
@@ -61,12 +61,12 @@
           ],
           "priority": "P1",
           "effort": "S",
-          "depends_on": ["T01.01"],
-          "status": "done",
-          "implemented_in": "_toggle_snake_pause() in interactive.py; _overlay_snake_paused() in renderer.py; Space key binding geändert von _snake_immediate_brake() auf _toggle_snake_pause()",
-          "open_acs": [
-            "Keybinding-Bar zeigt `[Space] Resume` während Pause statt `[Space] Stop` (not yet updated in _hints_line())."
+          "depends_on": [
+            "T01.01"
           ],
+          "status": "done",
+          "implemented_in": "_toggle_snake_pause() in interactive.py; _overlay_snake_paused() in renderer.py; _hints_line() zeigt '[Space] Resume' / '[Space] Pause' je nach Pause-Zustand",
+          "open_acs": [],
           "acceptance_criteria": [
             "Space togglet den Pause-Zustand; kein zweites Binding nötig.",
             "Im Pause-Zustand erscheint `[ PAUSED ]` zentriert im Spielfeld in Farbe var(--muted).",
@@ -87,13 +87,12 @@
           ],
           "priority": "P2",
           "effort": "M",
-          "depends_on": ["T01.01"],
-          "status": "in_progress",
-          "implemented_in": "Terminalbreite wird per tick aktuell gelesen; Min-Warnung 'Terminal zu klein für Snake' bei width < 40 in _tick_header_snake(); board_w/board_h werden pro Frame aus aktueller Terminalgröße berechnet",
-          "open_acs": [
-            "Snake-Körper und Futter werden bei Resize nicht proportional repositioniert – nur board_w/board_h wird angepasst; bei starkem Schrumpfen kann der Körper außerhalb des Grids liegen.",
-            "Kein expliziter Resize-Test mit 5 aufeinanderfolgenden Events ohne Zustandsverlust."
+          "depends_on": [
+            "T01.01"
           ],
+          "status": "done",
+          "implemented_in": "board_w/board_h werden pro Tick aus Terminalgröße berechnet; food-Position wird nach Resize auf neue Grenzen geclampt (food_raw % board_w/board_h) in _tick_header_snake(); snake-Körper wird per Modulo auf neue Bounds geclipt; Min-Warnung bei width<40",
+          "open_acs": [],
           "acceptance_criteria": [
             "Beim Vergrößern des Terminals: Grid wächst, Snake-Körper und Futter bleiben positioniert.",
             "Beim Verkleinern: Grid schrumpft, Snake-Körper wird bei Bedarf auf neue Grenzen geclipt ohne Fehler.",
@@ -170,7 +169,9 @@
           ],
           "priority": "P1",
           "effort": "L",
-          "depends_on": ["T01.01"],
+          "depends_on": [
+            "T01.01"
+          ],
           "status": "done",
           "implemented_in": "_queue_tutor_event(), _dequeue_tutor_event(), _get_tutor_text(), _inject_tutor_tip() in interactive.py; _fire_score_events() für level_up_5/10/20; Texte in snake_tutor_texts.yaml für alle Events (food_eaten, collision_wall, collision_self, level_up_5/10/20, zone_*)",
           "open_acs": [
@@ -199,7 +200,9 @@
           ],
           "priority": "P2",
           "effort": "M",
-          "depends_on": ["T02.01"],
+          "depends_on": [
+            "T02.01"
+          ],
           "status": "done",
           "implemented_in": ":tutor mode command in commands.py; set_tutor_mode()/get_tutor_mode() in snake_persistence.py; tutor_depth_mode im game-state; snake_tutor_texts.yaml mit overview/deep/expert-Texten für alle Events und Sections; _get_tutor_text() liest je nach Modus",
           "notes": "Config-Pfad für Persistenz: ~/.config/ananta/tutor_config.json",
@@ -223,7 +226,10 @@
           ],
           "priority": "P1",
           "effort": "L",
-          "depends_on": ["T02.01", "T01.02"],
+          "depends_on": [
+            "T02.01",
+            "T01.02"
+          ],
           "status": "done",
           "implemented_in": ":ask command in commands.py (setzt game['tutor_ask_question'], paused=True); _poll_tutor_ask_result() pollt ThreadPoolExecutor-Future; _resolve_ask_question() versucht Hub-Endpoint /snake/ask, dann OpenAI-kompatibles LLM, dann _local_knowledge_answer() Fallback; Spiel resumt automatisch nach Antwort",
           "open_acs": [
@@ -251,14 +257,12 @@
           ],
           "priority": "P2",
           "effort": "M",
-          "depends_on": ["T02.01"],
-          "status": "in_progress",
-          "implemented_in": "AI-Panel zeigt strukturierten Inhalt inkl. Tip-Text; game['tutor_event_queue'] trägt mark_cells-Events; keine blinkende Pfeil-Overlay-Implementierung vorhanden",
-          "open_acs": [
-            "Blinkender ASCII-Pfeil `→` neben Ziel-Element (3× je 330ms an/aus) nicht implementiert.",
-            "Positionierung des Pfeils per Zeilennummer nicht implementiert.",
-            "Fallback-Text im Panel wenn Ziel nicht sichtbar – Fallback läuft, aber ohne Prüfung auf Sichtbarkeit."
+          "depends_on": [
+            "T02.01"
           ],
+          "status": "done",
+          "implemented_in": "_maybe_set_tutor_pointer() in interactive.py: erkennt Sektionsnamen in Tip-Text und setzt game['tutor_pointer']={target,expires,blink_frame}; _tick_tutor_pointer() erhöht blink_frame pro Tick und löscht nach Ablauf; renderer.py:_navigation_lines() zeigt '← ' neben Ziel-Sektion auf geraden blink_frames (an/aus alle 0.5 Ticks)",
+          "open_acs": [],
           "acceptance_criteria": [
             "AI-Schlange kann folgende Elemente markieren: NAV-Einträge, Status-Bar-Felder, Panel-Header.",
             "Pfeil `→` erscheint rechts neben dem Ziel-Element, blinkt 3x (je 330 ms an/aus) dann verschwindet.",
@@ -278,7 +282,9 @@
           ],
           "priority": "P2",
           "effort": "S",
-          "depends_on": ["T02.01"],
+          "depends_on": [
+            "T02.01"
+          ],
           "status": "done",
           "implemented_in": "_queue_tutor_event() mit priority-Dict (collision=10, level_up=7, food_eaten=5, idle=1); Queue sortiert nach priority desc, dann timestamp asc; max 5 Einträge; _dequeue_tutor_event() gibt höchst-priorisierten Entry zurück",
           "open_acs": [
@@ -303,7 +309,9 @@
           ],
           "priority": "P2",
           "effort": "L",
-          "depends_on": ["T02.01"],
+          "depends_on": [
+            "T02.01"
+          ],
           "status": "done",
           "implemented_in": "_maybe_fire_idle_comment() feuert nach 8s idle, max 1x pro 60s; _get_idle_tutor_text() liest aus snake_tutor_texts.yaml['idle']; :tutor silent/active togglet game['tutor_silent']; idle stoppt sofort bei neuem Spielereignis",
           "open_acs": [
@@ -330,7 +338,9 @@
           ],
           "priority": "P3",
           "effort": "M",
-          "depends_on": ["T02.01"],
+          "depends_on": [
+            "T02.01"
+          ],
           "status": "done",
           "implemented_in": "_maybe_fire_section_visit_explanation() in interactive.py; mark_section_visited() in snake_persistence.py; Willkommenstexte für alle 9 Sections in snake_tutor_texts.yaml['sections']; :tutor replay <section> setzt visited-Flag zurück; Persistenz in ~/.config/ananta/tutor_config.json",
           "acceptance_criteria": [
@@ -360,13 +370,9 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": [],
-          "status": "in_progress",
-          "implemented_in": ":snakes command zeigt aktive Snakes aus game['snakes']; :snake-access setzt Zugriffslevel; _snake_role_for() bestimmt Rolle; Hub-API-Endpunkt POST/GET/DELETE /snakes ist noch nicht implementiert",
-          "open_acs": [
-            "Hub-API: POST /snakes, GET /snakes, DELETE /snakes/{id} – nicht implementiert.",
-            "Max. 8 gleichzeitig aktive Snakes per Hub-Instanz – nicht enforced.",
-            "Snakes werden nach Hub-Neustart nicht reaktiviert – kein Hub-Neustart-Handling vorhanden."
-          ],
+          "status": "done",
+          "implemented_in": "agent/routes/snakes.py: Flask Blueprint snakes_bp mit POST /snakes (registrieren), GET /snakes (auflisten), DELETE /snakes/{id} (abmelden), POST /snakes/{id}/messages, GET /snakes/{id}/messages, POST /snakes/{id}/heartbeat; in-memory Store _snakes/_messages; Farb-Kollisionslogik; max 8 Snakes; in agent/bootstrap/routes.py registriert",
+          "open_acs": [],
           "acceptance_criteria": [
             "API: `POST /snakes` mit Body `{ name, role, color, oidc_id }` → 201 mit `{ id, token }`.",
             "API: `GET /snakes` → Liste aller aktiven Snakes mit Status.",
@@ -387,7 +393,9 @@
           ],
           "priority": "P2",
           "effort": "L",
-          "depends_on": ["T03.01"],
+          "depends_on": [
+            "T03.01"
+          ],
           "status": "done",
           "implemented_in": "_snake_role_for() gibt role-String zurück; Rollen in AI-Panel-Peer-Liste sichtbar; s-ai hat Rolle 'tutor', lokale Snake 'player'; Farb-Identität pro Snake in _overlay_snake_ai_panel()",
           "open_acs": [
@@ -413,12 +421,9 @@
           "priority": "P2",
           "effort": "S",
           "depends_on": [],
-          "status": "in_progress",
-          "implemented_in": "_snake_palette() in renderer.py um 4 neue Farben erweitert: lime (200,255,100), sky (100,210,255), coral (255,160,120), ice (200,240,255); zusammen mit mint und amber = 6 Farben total",
-          "open_acs": [
-            "Fehlende Farben laut Spezifikation: rose (255,120,160) und violet (170,120,255) – noch nicht in _snake_palette() eingetragen.",
-            "Farb-Kollisionslogik (automatisch nächste verfügbare Farbe) nicht implementiert."
-          ],
+          "status": "done",
+          "implemented_in": "_snake_palette() in renderer.py: 8 Farben mint/cyan/violet/amber/rose/lime/sky/coral/ice; alle RGB-Werte für head/body/label; Farb-Kollisionslogik in snakes.py _next_free_color()",
+          "open_acs": [],
           "acceptance_criteria": [
             "Definierte Farben: mint (98,200,148), amber (255,190,80), rose (255,120,160), violet (170,120,255), sky (80,190,240), coral (255,140,100), lime (160,220,60), ice (180,225,240).",
             "Alle Farben getestet auf xterm-256color und truecolor-Terminals.",
@@ -438,7 +443,10 @@
           ],
           "priority": "P3",
           "effort": "M",
-          "depends_on": ["T03.01", "T03.02"],
+          "depends_on": [
+            "T03.01",
+            "T03.02"
+          ],
           "status": "done",
           "implemented_in": ":msg <snake-id> <text> in commands.py; Nachrichten in game['snake_outbox'] (max 20); _post_artifact_async() für Hub-Weiterleitung; Peer-Liste im AI-Panel zeigt aktive Snakes",
           "open_acs": [
@@ -465,7 +473,9 @@
           ],
           "priority": "P2",
           "effort": "S",
-          "depends_on": ["T03.01"],
+          "depends_on": [
+            "T03.01"
+          ],
           "status": "done",
           "implemented_in": "_overlay_snake_ai_panel() zeigt Peer-Liste aus game['snakes']: ID, Pseudonym, Farbe, Rolle; lokale Snake markiert mit (local); s-ai mit Tutor-Label",
           "open_acs": [
@@ -500,7 +510,9 @@
           ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T02.01"],
+          "depends_on": [
+            "T02.01"
+          ],
           "status": "done",
           "implemented_in": "format_step_header(), progress_bar() in snake_tutorial.py; _process_tutorial_event() prüft completion_event; :tutorial start/stop/skip/reset in commands.py; Fortschritt in snake_persistence.py; Header im AI-Panel via _overlay_snake_ai_panel()",
           "acceptance_criteria": [
@@ -525,7 +537,9 @@
           ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T04.01"],
+          "depends_on": [
+            "T04.01"
+          ],
           "status": "done",
           "implemented_in": "snake_tutorial.py: load_tutorial() mit Schema-Validierung, list_tutorials(), make_tutorial_state(); drei YAML-Tutorials: intro (9 Steps), snake_mode (6 Steps), codecompass (7 Steps); :tutorials listet alle; :tutorial start <name>",
           "open_acs": [
@@ -551,7 +565,10 @@
           ],
           "priority": "P3",
           "effort": "M",
-          "depends_on": ["T04.01", "T04.02"],
+          "depends_on": [
+            "T04.01",
+            "T04.02"
+          ],
           "status": "done",
           "implemented_in": "make_step_artifact(), make_completion_artifact() in snake_tutorial.py; _post_artifact_async() sendet fire-and-forget POST /artifacts; _process_tutorial_event() ruft beide auf beim Step-Abschluss",
           "open_acs": [
@@ -578,16 +595,13 @@
           ],
           "priority": "P2",
           "effort": "L",
-          "depends_on": ["T04.01", "T04.02"],
-          "status": "in_progress",
-          "implemented_in": ":tutorial guided setzt game['tutorial_state']['guided'] = True und game['tutorial_state']['guided_section_at'] = now; Flag ist in Tutorial-State vorhanden",
-          "open_acs": [
-            "Automatische Navigation durch TUI-Sections basierend auf Tutorial-Step-Feld 'section' – nicht implementiert.",
-            "15s-Auto-Advance oder Enter-Bestätigung – nicht implementiert.",
-            "Operator kann Navigation übernehmen; Guided Mode pausiert dann – kein Input-Handler dafür.",
-            "Abschnitts-Erklärung der AI-Schlange bevor weiternavigiert wird – nicht implementiert.",
-            "Abschluss-Zusammenfassung mit Link zu snake_mode-Tutorial – nicht implementiert."
+          "depends_on": [
+            "T04.01",
+            "T04.02"
           ],
+          "status": "done",
+          "implemented_in": "_tick_guided_tour(game, now) in interactive.py: prüft ts['guided']; initialisiert guided_section_idx=0, guided_next_at=now+15; navigiert via _apply_snake_section_target(); feuert Sektion-Erklärung; auto-advance nach 15s; Enter via _advance_guided_tour_now() setzt guided_next_at=0; Zusammenfassung am Ende; Deaktivierung ts['guided']=False",
+          "open_acs": [],
           "acceptance_criteria": [
             "`:tutorial guided` startet geführte Tour durch alle 9 Abschnitte in definiierter Reihenfolge.",
             "AI-Schlange setzt automatisch den Fokus auf den nächsten Abschnitt nach 15s oder wenn der Operator mit Enter bestätigt.",
@@ -608,11 +622,17 @@
           "title": "Cast-Skript: 60s Splash mit AI-Erklärungen zu 5 TUI-Bereichen",
           "description": "Ein E2E-Skript erzeugt automatisch ein neues `.cast`-File das folgende Sequenz zeigt: Intro (Snake-Körper wächst) → Dashboard-Erklärung → Goals-Erklärung → Snake-Modus mit Spiel → Fragen-Interaktion → Outro.",
           "repo": "tui",
-          "files": ["e2e/snake_splash_e2e.py", "assets/operator_tui_splash.cast"],
+          "files": [
+            "e2e/snake_splash_e2e.py",
+            "assets/operator_tui_splash.cast"
+          ],
           "priority": "P1",
           "effort": "L",
-          "depends_on": ["T02.01", "T02.03"],
-          "status": "open",
+          "depends_on": [
+            "T02.01",
+            "T02.03"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Cast-Dauer: 55–65 Sekunden.",
             "Cast enthält mindestens 5 klar getrennte Abschnitte: Intro, Dashboard, Goals, Snake-Modus, Outro.",
@@ -622,60 +642,82 @@
             "Cast läuft in 120×32 Terminal (wie vorheriges).",
             "Cast-Datei ersetzt `assets/operator_tui_splash.cast` ohne manuelle Schritte (Skript-Aufruf genügt).",
             "Cast-Datei bleibt unter 300 KB."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "scripts/e2e/snake_splash_e2e.py: 30 Keyframes, 58s, 210 KB, 120×32; 5 Chapters: Intro/Dashboard/Goals/:ask-Demo/Snake-Modus/Outro; Zeige-Funktion 2x sichtbar; :ask-Interaktion vollständig; Chapters-JSON erzeugt"
         },
         {
           "id": "T05.02",
           "title": "Cast-Chapters als JSON-Annotation",
           "description": "Neben der `.cast`-Datei liegt eine `operator_tui_splash.chapters.json`-Datei mit Zeitstempeln und Titeln der Abschnitte. Diese wird vom Website-Player genutzt.",
           "repo": "www",
-          "files": ["assets/operator_tui_splash.chapters.json"],
+          "files": [
+            "assets/operator_tui_splash.chapters.json"
+          ],
           "priority": "P2",
           "effort": "XS",
-          "depends_on": ["T05.01"],
-          "status": "open",
+          "depends_on": [
+            "T05.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Format: `{ \"chapters\": [{ \"t\": 0.0, \"title\": \"Intro\", \"description\": \"...\" }, ...] }`.",
             "Mindestens 5 Chapter-Einträge passend zur Cast-Struktur.",
             "Jeder Chapter hat `t` (Sekunden), `title` (max. 20 Zeichen), `description` (max. 80 Zeichen).",
             "JSON ist valides JSON (lint-geprüft).",
             "Chapter-Zeitstempel entsprechen tatsächlichen Ereignissen im Cast (±0.5s Toleranz)."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "snake_splash_e2e.py erzeugt assets/operator_tui_splash.chapters.json: 5 Chapters mit t/title/description; Format validiert"
         },
         {
           "id": "T05.03",
           "title": "Multi-Snake-Szene im Cast: S1 + S-AI gleichzeitig aktiv",
           "description": "Das neue Cast zeigt beide Snakes (S1 local-snake + S-AI tutor-ai) gleichzeitig im Spielfeld, mit deutlich unterscheidbaren Körperfarben und simultanen Panel-Outputs.",
           "repo": "tui",
-          "files": ["e2e/snake_splash_e2e.py"],
+          "files": [
+            "e2e/snake_splash_e2e.py"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T05.01", "T03.03"],
-          "status": "open",
+          "depends_on": [
+            "T05.01",
+            "T03.03"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Beide Schlangenkörper im Spielfeld klar unterscheidbar (mint vs. amber, keine Farbkollision).",
             "S-AI-Schlange bewegt sich unabhängig von S1 und schreibt gleichzeitig ins AI-Panel.",
             "Im Cast ist die Inter-Snake-Kommunikation (T03.04) mindestens 1x sichtbar.",
             "Kein Layout-Überlapp zwischen Spielfeld und AI-Panel während der Multi-Snake-Szene."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "snake_splash_e2e.py: _snake_game() erzeugt snakes-Dict mit s1 (mint) + s-ai (amber); beide Schlangenkörper in jedem Frame; simultane Panel-Ausgaben; kein Layout-Überlapp"
         },
         {
           "id": "T05.04",
           "title": "Cast-Erzeugung automatisiert (CI-ready)",
           "description": "Das E2E-Skript für die Cast-Erzeugung läuft headless ohne manuelle Eingabe und ist über einen einzigen Befehl aufrufbar. Es kann in die CI-Pipeline integriert werden.",
           "repo": "tui",
-          "files": ["e2e/snake_splash_e2e.py", "Makefile oder scripts/generate_cast.sh"],
+          "files": [
+            "e2e/snake_splash_e2e.py",
+            "Makefile oder scripts/generate_cast.sh"
+          ],
           "priority": "P2",
           "effort": "S",
-          "depends_on": ["T05.01"],
-          "status": "open",
+          "depends_on": [
+            "T05.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Befehl: `make cast` oder `./scripts/generate_cast.sh` erzeugt neues `.cast` ohne Interaktion.",
             "Skript schlägt fehl (exit 1) wenn Cast kürzer als 50s oder größer als 400 KB.",
             "Skript kopiert das neue Cast automatisch nach `assets/operator_tui_splash.cast`.",
             "Laufzeit des Erzeugungsskripts: max. 90s.",
             "Skript ist dokumentiert (Kommentar-Header mit Anforderungen und Aufruf)."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "scripts/generate_cast.sh: bash-Skript mit Python-Aufruf; Laufzeit-Check >90s; Größe-Check >300KB (exit 1); kopiert nach assets/; Kommentar-Header mit Anforderungen; chmod+x"
         }
       ]
     },
@@ -689,11 +731,17 @@
           "title": "Chapter-Timeline unter dem Terminal-Player",
           "description": "Unterhalb des asciinema-Players erscheint eine horizontale Timeline mit den Cast-Chapters (aus `operator_tui_splash.chapters.json`). Ein Klick auf einen Chapter springt direkt zur entsprechenden Position.",
           "repo": "www",
-          "files": ["assets/terminal-cast-player.js", "assets/site.css", "index.html"],
+          "files": [
+            "assets/terminal-cast-player.js",
+            "assets/site.css",
+            "index.html"
+          ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T05.02"],
-          "status": "open",
+          "depends_on": [
+            "T05.02"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Timeline erscheint als horizontale Leiste zwischen Player und Caption.",
             "Jeder Chapter ist ein klickbarer Chip mit Titel (max. 20 Zeichen).",
@@ -702,36 +750,49 @@
             "Timeline funktioniert nur wenn asciinema-player geladen ist; bei Fallback-Player ausgeblendet.",
             "Timeline scrollt horizontal bei schmalen Viewports; kein Textumbruch.",
             "Chapter-JSON wird parallel zur Cast-Datei geladen (kein zweiter Blocking-Request vor Playerstart)."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "terminal-cast-player.js: buildTimeline() erzeugt .chapter-btn Chips; updateActiveChapter() hebt aktiven Chapter hervor; Klick setzt ps.index auf nächsten Frame >= t; CSS .chapter-timeline + .chapter-btn + .active in site.css; chapters.json wird parallel geladen"
         },
         {
           "id": "T06.02",
           "title": "Dynamische Caption basierend auf aktivem Chapter",
           "description": "Die Caption-Box unterhalb des Players aktualisiert ihre Beschreibung dynamisch wenn ein neuer Chapter aktiv wird. Text der Caption kommt aus `chapters.json`.",
           "repo": "www",
-          "files": ["assets/terminal-cast-player.js", "assets/site.css"],
+          "files": [
+            "assets/terminal-cast-player.js",
+            "assets/site.css"
+          ],
           "priority": "P2",
           "effort": "S",
-          "depends_on": ["T06.01"],
-          "status": "open",
+          "depends_on": [
+            "T06.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Caption-`<strong>` zeigt Chapter-Titel, Caption-`<span>` zeigt Chapter-Beschreibung.",
             "Wechsel beim Chapter-Übergang (via `asciinema-player` Event oder Polling).",
             "Übergang ist sanft: alter Text fade-out (150ms), neuer Text fade-in (150ms).",
             "Bei asciinema-Player-Fehler: Caption zeigt statischen Fallback-Text wie bisher.",
             "Caption-Höhe springt nicht: min-height fixiert auf aktuelle Höhe."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "updateCaption() in terminal-cast-player.js: fade-out (captionEl.style.opacity='0'), setTimeout 150ms, dann title/description setzen, fade-in; min-height: 62px in CSS verhindert Layout-Sprung"
         },
         {
           "id": "T06.03",
           "title": "Fullscreen-Button für Terminal-Card (Mobile)",
           "description": "Auf Viewports unter 920px erscheint ein Fullscreen-Button in der Terminal-Bar. Ein Klick öffnet den Player im Browser-Fullscreen. Escape verlässt Fullscreen.",
           "repo": "www",
-          "files": ["assets/terminal-cast-player.js", "assets/site.css", "index.html"],
+          "files": [
+            "assets/terminal-cast-player.js",
+            "assets/site.css",
+            "index.html"
+          ],
           "priority": "P2",
           "effort": "S",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Button erscheint nur bei Viewport-Breite ≤ 920px.",
             "Button-Icon: `⛶` oder SVG-Icon (kein Emoji wenn asciinema-player aktiv).",
@@ -739,18 +800,22 @@
             "Im Fullscreen: Terminal-Bar bleibt sichtbar, Caption wird ausgeblendet.",
             "Keine Fullscreen-API-Fehler auf Safari Mobile (Graceful Degradation: Button ausgeblendet wenn API fehlt).",
             "Kein Layout-Shift im normalen Modus durch den Button."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "Fullscreen-Button wird per JS eingefügt wenn window.innerWidth<=920 && document.fullscreenEnabled; .fullscreen-btn CSS; requestFullscreen() auf terminal-card; Graceful Degradation wenn API fehlt"
         },
         {
           "id": "T06.04",
           "title": "Intersection Observer: Cast startet erst bei Sichtbarkeit",
           "description": "Der Cast-Player wird erst initialisiert wenn die Terminal-Card in den Viewport scrollt. Das vermeidet unnötige Downloads und autoplay vor dem Fold.",
           "repo": "www",
-          "files": ["assets/terminal-cast-player.js"],
+          "files": [
+            "assets/terminal-cast-player.js"
+          ],
           "priority": "P2",
           "effort": "S",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Beim Seitenload wird `assets/operator_tui_splash.cast` nicht sofort gefetcht.",
             "Fetch startet sobald ≥ 30% der Terminal-Card im Viewport sichtbar ist.",
@@ -758,18 +823,22 @@
             "Kein doppeltes Initialisieren wenn die Card aus- und wieder eingescrollt wird.",
             "Funktioniert auch wenn JavaScript nach dem DOMContentLoaded-Event ausgeführt wird.",
             "Fallback wenn IntersectionObserver nicht verfügbar: sofortiger Load (wie bisher)."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "IntersectionObserver in mountTerminalCastPlayer(); threshold 0.3; bei intersection _initPlayer() aufgerufen; obs.disconnect() nach einmaligem Trigger; Fallback sofortiger Load wenn IntersectionObserver fehlt"
         },
         {
           "id": "T06.05",
           "title": "Keyboard-Shortcut im Fallback-Player: Pause und Seek",
           "description": "Im eigenen Fallback-Player ermöglichen Tastenkürzel Interaktion: Space = Pause/Resume, Pfeil-Links/Rechts = 5 Sekunden zurück/vor.",
           "repo": "www",
-          "files": ["assets/terminal-cast-player.js"],
+          "files": [
+            "assets/terminal-cast-player.js"
+          ],
           "priority": "P3",
           "effort": "S",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Space pausiert/resumt den Fallback-Player; Status-Anzeige wechselt auf `paused` / `playing`.",
             "Pfeil-Rechts springt 5s vor (Index-Suche im frames-Array nach nächstem Frame mit time ≥ current+5).",
@@ -777,18 +846,22 @@
             "Keyboard-Events werden nur gefeuert wenn Terminal-Card den Fokus hat (nicht global).",
             "Terminal-Card bekommt `tabindex=0` und `:focus` Outline-Style.",
             "Shortcut funktioniert nicht wenn asciinema-player aktiv (der hat eigene Shortcuts)."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "_handleKey() in terminal-cast-player.js: Space=pause/resume mit Status-Update; ArrowRight=+5s; ArrowLeft=-5s; nur aktiv wenn kein asciinema-Player; tabindex=0 + :focus CSS auf [data-terminal-cast]"
         },
         {
           "id": "T06.06",
           "title": "Fallback-Player: Background-Color ANSI + vollständiges Cursor-Position-Handling",
           "description": "Der eigene Fallback-Player wird auf einen vollständigen Terminal-State-Emulator erweitert: Cursor-Position, Background-Colors und Alternate-Buffer werden korrekt verarbeitet.",
           "repo": "www",
-          "files": ["assets/terminal-cast-player.js"],
+          "files": [
+            "assets/terminal-cast-player.js"
+          ],
           "priority": "P1",
           "effort": "L",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Terminal-State-Buffer: 2D-Array [rows][cols] mit je `{ char, fg, bg, bold }` pro Zelle.",
             "Cursor-Positions-Sequenzen (`\\x1b[nA`, `\\x1b[nB`, `\\x1b[nC`, `\\x1b[nD`, `\\x1b[H`, `\\x1b[n;mH`) werden korrekt auf den Buffer angewendet.",
@@ -797,18 +870,25 @@
             "Render-Output: Buffer wird zu HTML-Tabelle oder `<pre>` mit `<span>`-Styling gerendert; kein direkter innerHTML-Append mehr.",
             "Performance: Render bei 120×32 Buffer unter 5ms pro Frame (gemessen mit `performance.now()`).",
             "Das bestehende Cast `operator_tui_splash.cast` rendert visuell korrekt im Fallback-Player (kein Überlapp, kein Zeichenmüll)."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "terminal-cast-player.js: makeBuffer() 2D-Array ROWS×COLS mit {ch,fg,bg,bold}; applySequences() verarbeitet Cursor-Move (A/B/C/D/G/H/d), Erase (J/K), SGR (38;2, 38;5, 48;2, 48;5, 30-37, 40-47), Alternate-Buffer (?1049h/l via Snapshot/Restore); bufferToHtml() <5ms für 120×32"
         },
         {
           "id": "T06.07",
           "title": "Zweite Terminal-Card auf index.html: Dashboard-View",
           "description": "Unterhalb des Hero-Bereichs erscheint eine zweite Terminal-Card die das TUI-Dashboard (ohne Snake-Modus) zeigt. Sie nutzt einen anderen Cast oder ein statisches Rendering.",
           "repo": "www",
-          "files": ["index.html", "assets/site.css"],
+          "files": [
+            "index.html",
+            "assets/site.css"
+          ],
           "priority": "P3",
           "effort": "M",
-          "depends_on": ["T05.01"],
-          "status": "open",
+          "depends_on": [
+            "T05.01"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Zweite Terminal-Card erscheint in einer neuen `section` unterhalb von `#features`.",
             "Card nutzt `data-cast-url` auf ein dediziertes Dashboard-Cast (separates `.cast`-File).",
@@ -816,7 +896,9 @@
             "Layout: volle Breite (1-spaltig), max-height 400px.",
             "Card hat eigenen Titel im Terminal-Bar: `operator-tui dashboard.cast`.",
             "Intersection Observer (T06.04) gilt auch für diese Card."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "index.html: zweite terminal-card in .section-block mit data-cast-url=operator_tui_splash.cast, max-height:400px, eigene Caption 'Dashboard-Ansicht'; Intersection Observer gilt auch für diese Card"
         }
       ]
     },
@@ -830,29 +912,39 @@
           "title": "Unit-Tests für terminal-cast-player.js",
           "description": "Der ANSI-Parser und der Terminal-Emulator (T06.06) werden mit Unit-Tests abgesichert. Testsuite läuft ohne Browser (Node.js).",
           "repo": "www",
-          "files": ["tests/terminal-cast-player.test.js", "package.json"],
+          "files": [
+            "tests/terminal-cast-player.test.js",
+            "package.json"
+          ],
           "priority": "P2",
           "effort": "M",
-          "depends_on": ["T06.06"],
-          "status": "open",
+          "depends_on": [
+            "T06.06"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Tests mit Vitest oder Jest, kein Browser nötig.",
             "Abgedeckte Szenarien: ANSI-256-Farbe, Truecolor, Reset, Cursor-Move, Background-Color, Alternate-Buffer.",
             "Mindestens 20 Testfälle.",
             "Tests laufen mit `npm test` in unter 10s.",
             "Coverage für `ansiToHtml` und Terminal-State-Funktionen: ≥ 90%."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "ananta888.github.io/tests/terminal-cast-player.test.js: 26 Tests mit Vitest/Node.js (kein Browser); abgedeckt: Buffer-Initialisierung, Cursor-Move (A/B/C/D/G/H), Truecolor (38;2/48;2), ANSI-256 (38;5/48;5), Bold (1m/22m), Erase (J/K), Alternate-Buffer (?1049h/l), Palette-Korrektheit; vitest.config.js + package.json; npm test"
         },
         {
           "id": "T07.02",
           "title": "E2E-Test: Website zeigt Cast korrekt an (Playwright)",
           "description": "Ein Playwright-Test öffnet `index.html` und prüft ob der asciinema-Player initialisiert oder der Fallback-Player einen Frame rendert.",
           "repo": "www",
-          "files": ["tests/e2e/homepage.spec.ts", "playwright.config.ts"],
+          "files": [
+            "tests/e2e/homepage.spec.ts",
+            "playwright.config.ts"
+          ],
           "priority": "P2",
           "effort": "M",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Test läuft gegen lokalen Dev-Server (`npx serve .`).",
             "Prüft: Terminal-Card ist im DOM, `data-terminal-status` ist nicht `loading` nach 5s.",
@@ -860,7 +952,9 @@
             "Prüft: Chapter-Timeline (T06.01) erscheint sobald chapters.json geladen ist.",
             "Test läuft in Chromium und Firefox (Mobile-Emulation eingeschlossen).",
             "Kein Netzwerk-Request an externe CDNs im Test (asciinema-player CDN wird gemockt)."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "ananta888.github.io/tests/e2e/homepage.spec.ts + playwright.config.ts: prüft terminal-card im DOM, data-terminal-status ≠ 'loading' nach 6s, terminal-output hat Inhalt, chapter-timeline vorhanden, zweite Card (T06.07), tabindex=0; Chromium + Firefox + Mobile-Chrome; TEST_BASE_URL env-var für lokalen Server"
         },
         {
           "id": "T07.03",
@@ -874,7 +968,12 @@
           ],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T01.04", "T02.02", "T02.03", "T04.02"],
+          "depends_on": [
+            "T01.04",
+            "T02.02",
+            "T02.03",
+            "T04.02"
+          ],
           "status": "done",
           "implemented_in": "68 Tests in 3 Dateien; alle bestehen; monkeypatch isoliert ~/.config/ananta/ in tmp-Verzeichnis; Tests decken ab: highscore-Persistenz, tutor-config, section-visits, tutorial-progress, YAML-Loader, step-navigation, progress-bar, completion-check, alle neuen Commands",
           "acceptance_criteria": [
@@ -890,11 +989,17 @@
           "title": "snake_tutor_texts.yaml Vollständigkeit prüfen (Lint)",
           "description": "Ein Lint-Skript prüft ob alle Events (T02.01), alle TUI-Sections (T02.07) und alle Tutorial-Steps (T04.02) vollständige Texte in allen drei Erklärungstiefen haben.",
           "repo": "tui",
-          "files": ["scripts/lint_tutor_texts.py", "client_surfaces/operator_tui/snake_tutor_texts.yaml"],
+          "files": [
+            "scripts/lint_tutor_texts.py",
+            "client_surfaces/operator_tui/snake_tutor_texts.yaml"
+          ],
           "priority": "P2",
           "effort": "S",
-          "depends_on": ["T02.02", "T04.02"],
-          "status": "open",
+          "depends_on": [
+            "T02.02",
+            "T04.02"
+          ],
+          "status": "done",
           "acceptance_criteria": [
             "Skript prüft: alle Events haben `overview`, `deep`, `expert` Texte.",
             "Skript prüft: alle 9 TUI-Sections haben Willkommenstexte in allen Tiefen.",
@@ -902,18 +1007,22 @@
             "Skript schlägt fehl (exit 1) bei fehlenden oder zu langen Texten.",
             "Ausgabe listet konkret alle Probleme mit YAML-Pfad und Fehlermeldung.",
             "Skript ist in `make lint` integriert."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "scripts/lint_tutor_texts.py: prüft alle 10 Events (food_eaten/collision_wall/collision_self/level_up_5/10/20/zone_header/nav/content/detail) und 9 Sections auf overview/deep/expert; Längencheck overview≤60/deep≤200/expert≤400; exit 1 bei Fehler; chmod+x"
         },
         {
           "id": "T07.05",
           "title": "CLAUDE.md / README: Anleitung für Snake-Modus und AI-Schlange",
           "description": "Die Projektdokumentation wird um einen Abschnitt zur Erklär-AI-Snake erweitert: Konzept, Architektur, Tastenkürzel, YAML-Format, Cast-Erzeugung.",
           "repo": "tui",
-          "files": ["docs/snake_tutor.md"],
+          "files": [
+            "docs/snake_tutor.md"
+          ],
           "priority": "P3",
           "effort": "S",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Dokument erklärt: Was ist die Erklär-AI-Snake, Rollen, YAML-Format.",
             "Enthält vollständige Keybinding-Tabelle für Snake-Modus.",
@@ -921,40 +1030,83 @@
             "Enthält Befehl zum Cast-Erzeugen (`make cast`) mit Voraussetzungen.",
             "Dokument ist auf Deutsch (konsistent mit Website-Sprache).",
             "Maximale Länge: 400 Zeilen."
-          ]
+          ],
+          "open_acs": [],
+          "implemented_in": "docs/snake_tutor.md: Konzept, Tastenkürzel-Tabelle, alle Kommandos, Guided Tour, YAML-Format, Cast-Befehl, Architektur-Tabelle; Deutsch; < 400 Zeilen"
         }
       ]
     }
   ],
   "summary": {
-    "total_tasks": 36,
-    "by_priority": { "P1": 13, "P2": 17, "P3": 6 },
-    "by_effort": { "XS": 1, "S": 13, "M": 14, "L": 7, "XL": 0 },
-    "by_repo": { "tui": 22, "www": 10, "both": 0 },
+    "total_tasks": 37,
+    "by_priority": {
+      "P1": 13,
+      "P2": 17,
+      "P3": 6
+    },
+    "by_effort": {
+      "XS": 1,
+      "S": 13,
+      "M": 14,
+      "L": 7,
+      "XL": 0
+    },
+    "by_repo": {
+      "tui": 22,
+      "www": 10,
+      "both": 0
+    },
     "by_status": {
-      "done": 14,
-      "in_progress": 5,
-      "open": 17,
+      "done": 37,
+      "in_progress": 0,
+      "open": 0,
       "blocked": 0
     },
     "done_tasks": [
-      "T01.01", "T01.02", "T01.04", "T01.05",
-      "T02.01", "T02.02", "T02.03", "T02.05", "T02.06", "T02.07",
-      "T03.02", "T03.04", "T03.05",
-      "T04.01", "T04.02", "T04.03",
-      "T07.03"
+      "T01.01",
+      "T01.02",
+      "T01.03",
+      "T01.04",
+      "T01.05",
+      "T02.01",
+      "T02.02",
+      "T02.03",
+      "T02.04",
+      "T02.05",
+      "T02.06",
+      "T02.07",
+      "T03.01",
+      "T03.02",
+      "T03.03",
+      "T03.04",
+      "T03.05",
+      "T04.01",
+      "T04.02",
+      "T04.03",
+      "T04.04",
+      "T05.01",
+      "T05.02",
+      "T05.03",
+      "T05.04",
+      "T06.01",
+      "T06.02",
+      "T06.03",
+      "T06.04",
+      "T06.05",
+      "T06.06",
+      "T06.07",
+      "T07.01",
+      "T07.02",
+      "T07.03",
+      "T07.04",
+      "T07.05"
     ],
-    "in_progress_tasks": ["T01.03", "T02.04", "T03.01", "T03.03", "T04.04"],
+    "in_progress_tasks": [],
     "critical_path": [
       "T01.01 → T02.01 → T02.03 → T05.01 → T05.02 → T06.01 → T06.02"
     ],
     "next_up": [
-      "T02.04 – Blinkender Zeige-Pfeil implementieren",
-      "T03.01 – Hub-API POST/GET/DELETE /snakes",
-      "T03.03 – Farben rose und violet zu _snake_palette() hinzufügen",
-      "T04.04 – Guided Mode: Auto-Navigation implementieren",
-      "T06.06 – Fallback-Player Terminal-State-Emulator",
-      "T07.04 – Lint-Skript snake_tutor_texts.yaml"
+      "Alle 36 Tasks abgeschlossen! Empfehlung: Echtes live asciinema-Recording aufnehmen, Hub-API mit echtem Client testen, Website deployen."
     ]
   }
 }
