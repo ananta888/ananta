@@ -83,3 +83,28 @@ def test_parse_planner_output_accepts_envelope_and_rejects_prose() -> None:
     invalid = parse_planner_output("please create a plan with 5 steps")
     assert invalid["status"] == "invalid"
     assert invalid["reason_code"] == "non_json_output"
+
+
+def test_parse_planner_output_accepts_fenced_json_payload() -> None:
+    payload = _fixture_payload()
+    fenced = f"```json\n{json.dumps(payload)}\n```"
+    result = parse_planner_output(fenced)
+    assert result["status"] == "valid"
+    assert result["payload"]["track"] == payload["track"]
+
+
+def test_parse_planner_output_rejects_epics_tasks_shape() -> None:
+    invalid = {
+        "version": "1.0",
+        "owner": "planner",
+        "track": "invalid",
+        "status_scale": [],
+        "priority_scale": [],
+        "risk_scale": [],
+        "milestones": [],
+        "epics": [{"id": "E1", "tasks": [{"id": "T1"}]}],
+        "tasks_status_summary": {"total": 0},
+    }
+    result = parse_planner_output(json.dumps(invalid))
+    assert result["status"] == "invalid"
+    assert result["reason_code"] == "schema_validation_failed"

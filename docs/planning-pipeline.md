@@ -56,7 +56,12 @@ Planning track persistence/validation:
 - summary consistency is deterministically recomputed; repair mode can auto-fix summary mismatch
 - JSON repair pipeline is capped to one repair attempt; failed repair remains degraded/failed, never active plan
 - quality gates validate large-goal minimum task count, critical path references, and milestone task references; warnings are surfaced in TUI
-- operator TUI commands: `:plan track`, `:plan track --from-goal <goal-id>`, `:plan track adopt <output-id>`, `:plan track reject <output-id>`, `:plan track diff <left> <right>`
+- operator TUI commands: `:plan track`, `:plan track --from-goal <goal-id>`, `:plan track adopt <output-id>`, `:plan track reject <output-id>`, `:plan track execute-next`, `:plan track sync-status <plan-task-id> <status>`, `:plan track diff <left> <right>`
+- adopted planning tracks materialize stable internal tasks (`plan_task_id -> internal task id`) and persist mapping/source/context refs in output extensions
+
+Planning-track documentation:
+- Contract and execution flow: `docs/architecture/planning-track-contract.md`
+- Planner prompt and worker role: `docs/development/planner-role-prompt-worker.md`
 
 ## Transition to deterministic-first
 

@@ -91,3 +91,11 @@ def test_renderer_shows_plan_diff_summary() -> None:
     output = render_operator_shell(_state(payload), width=170, height=36)
     assert "[Plan diff]" in output
     assert "out-1 -> out-2" in output
+
+
+def test_renderer_shows_repaired_lifecycle_and_new_commands() -> None:
+    payload = _payload()
+    payload["planning_status"] = "degraded"
+    payload["planning_lifecycle"] = ["pending", "validating", "repaired", "degraded"]
+    output = render_operator_shell(_state(payload), width=170, height=36)
+    assert "repaired -> degraded" in output

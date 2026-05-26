@@ -136,3 +136,63 @@ def test_plan_track_diff_shows_new_changed_removed_tasks(monkeypatch, tmp_path: 
     assert plan_diff["right_output_id"] == second_output_id
     assert len(list(plan_diff.get("new_tasks") or [])) == 1
     assert len(list(plan_diff.get("changed_tasks") or [])) >= 1
+
+
+def test_plan_track_accepts_fenced_json_mock_output(monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    seed = execute_command(":plan track --from-goal goal-plan-fenced", _state())
+    seed_payload = json.loads(seed.message)
+    track_payload = dict(seed_payload.get("selected_track") or {})
+    fenced = f"```json\n{json.dumps(track_payload, ensure_ascii=False)}\n```"
+    state = seed.state.with_updates(
+        header_logo_game={**dict(seed.state.header_logo_game or {}), "planner_mock_output": fenced}
+    )
+    result = execute_command(":plan track", state)
+    assert result.handled is True
+    payload = json.loads(result.message)
+    assert payload["planning_status"] == "valid"
+    assert payload["selected_track"]["tasks_filtered"]
+
+
+def test_plan_track_repairs_inconsistent_summary(monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
+    inconsistent = json.loads(fixture.read_text(encoding="utf-8"))
+    inconsistent["tasks_status_summary"] = {"total": 999, "by_status": {"todo": 0, "done": 0}}
+    state0 = _state().with_updates(header_logo_game={"active_goal_id": "goal-plan-repair-summary"})
+    state = state0.with_updates(
+        header_logo_game={**dict(state0.header_logo_game or {}), "planner_mock_output": json.dumps(inconsistent)}
+    )
+    result = execute_command(":plan track", state)
+    assert result.handled is True
+    payload = json.loads(result.message)
+    assert payload["planning_status"] in {"valid", "failed", "degraded"}
+    if payload["planning_status"] == "valid":
+        repaired_summary = dict(payload["selected_track"]["tasks_status_summary"])
+        assert repaired_summary["total"] == len(list(payload["selected_track"].get("tasks") or []))
+    else:
+        issues = [dict(item) for item in list(payload.get("status_issues") or []) if isinstance(item, dict)]
+        assert issues
+
+
+def test_plan_track_sync_status_updates_selected_track(monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    created = execute_command(":plan track --from-goal goal-plan-7", _state())
+    output_id = str(json.loads(created.message)["selected_output_id"])
+    adopted = execute_command(f":plan track adopt {output_id}", created.state)
+    executed = execute_command(":plan track execute-next", adopted.state)
+    executed_payload = json.loads(executed.message)
+    mapping = dict(executed_payload.get("task_mapping") or {})
+    plan_task_id = next(iter(mapping.keys()))
+    synced = execute_command(f":plan track sync-status {plan_task_id} completed", executed.state)
+    assert synced.handled is True
+    synced_payload = json.loads(synced.message)
+    task_rows = [dict(item) for item in list(synced_payload["selected_track"].get("tasks") or []) if isinstance(item, dict)]
+    row = next((item for item in task_rows if str(item.get("id") or "") == plan_task_id), {})
+    assert row.get("status") == "done"
