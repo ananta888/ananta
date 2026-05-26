@@ -283,7 +283,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T01.01", "T02.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "GET /goals/{goal_id}/artifacts/outputs/{output_id}/provenance liefert ExecutionProvenance.",
             "GET /goals/{goal_id}/artifacts/executions/{provenance_id} liefert ExecutionProvenance.",
@@ -306,7 +306,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01", "T02.02", "T02.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Tests prüfen stabile Hashes für gleiche Configs/Templates.",
             "Tests prüfen geänderte Config erzeugt anderen Hash.",
@@ -326,7 +326,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T03.01", "T04.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "E2E erstellt Test-Goal und Test-Task.",
             "E2E nutzt definierte Prompt-Vorlage.",
