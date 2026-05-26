@@ -11,13 +11,18 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Recompute derived planning summaries for todo track files.")
     parser.add_argument("--repo-root", default=".", help="Repository root that contains todos/")
     parser.add_argument("--write", action="store_true", help="Write recomputed summaries back to disk")
+    parser.add_argument("--convert-epics", action="store_true", help="Convert legacy epics.tasks payloads to flat tasks[] preview/apply")
     parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON report")
     return parser.parse_args()
 
 
 def main() -> int:
     args = _parse_args()
-    report = migrate_track_todos(repo_root=Path(args.repo_root), dry_run=not bool(args.write))
+    report = migrate_track_todos(
+        repo_root=Path(args.repo_root),
+        dry_run=not bool(args.write),
+        convert_epics=bool(args.convert_epics),
+    )
     if bool(args.json_output):
         print(json.dumps(report, ensure_ascii=False))
     else:

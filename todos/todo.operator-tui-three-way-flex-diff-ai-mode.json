@@ -30,7 +30,7 @@
         "T01.02",
         "T01.03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M02",
@@ -40,7 +40,7 @@
         "T02.02",
         "T02.03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M03",
@@ -51,7 +51,7 @@
         "T03.03",
         "T03.04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M04",
@@ -63,7 +63,7 @@
         "T04.04",
         "T04.05"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M05",
@@ -73,7 +73,7 @@
         "T05.02",
         "T05.03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M06",
@@ -85,7 +85,7 @@
         "T06.04",
         "T06.05"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M07",
@@ -94,7 +94,7 @@
         "T07.01",
         "T07.02"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -112,7 +112,8 @@
         "Jedes Panel enthält panel_id, panel_type, source_left, source_right, render_mode, filters, scroll_state und selection_state.",
         "Zwei Panels dürfen identische source_left/source_right Kombinationen haben.",
         "Unit-Test validiert vollständige Session, minimal Session und ungültige Panel-Anzahl."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.02",
@@ -127,7 +128,8 @@
         "Schema enthält source_ref_id, source_kind, display_name, locator, content_hash optional und provenance_ref optional.",
         "source_kind erlaubt working_tree, git_ref, git_diff, file_path, artifact_ref, goal_output_artifact, task_output, snapshot und inline_text.",
         "Tests prüfen Git current diff, file vs HEAD, artifact vs artifact und output vs output."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T01.03",
@@ -145,7 +147,8 @@
         "render_mode erlaubt unified, side_by_side, summary, files_only, hunks_only, ai_chat und ai_review.",
         "Filter erlauben path_filter, status_filter, hunk_filter, search_text und only_security_relevant.",
         "Tests prüfen unterschiedliche render_modes bei gleicher DiffSourceRef."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.01",
@@ -164,7 +167,8 @@
         "Resolver kann commit/ref gegen commit/ref vergleichen.",
         "Resolver kann GoalOutputArtifact-Inhalte über artifact_ref laden.",
         "Resolver liefert reason_code statt Traceback bei fehlender Quelle."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.02",
@@ -182,7 +186,8 @@
         "Engine markiert Binärdateien als binary/unsupported.",
         "Engine kann große Diffs begrenzen und truncation sichtbar markieren.",
         "Side-by-side Datenstruktur bleibt unabhängig vom Renderer."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T02.03",
@@ -201,7 +206,8 @@
         "User kann Panel A und B beide auf current-diff setzen.",
         "User kann Panel C auf AI-Modus setzen.",
         "Tests prüfen zwei Panels gleicher current-diff mit unterschiedlichem render_mode."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T03.01",
@@ -220,7 +226,8 @@
         "Jedes Panel hat Header mit Panel-ID, Quelle, Render-Modus und Status.",
         "Bei Breite < 120 wechselt Layout in tabbed mode.",
         "Renderer crasht nicht bei leerem Diff oder fehlender Quelle."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T03.02",
@@ -240,7 +247,8 @@
         "`:diff3 panel B current --mode summary` setzt Panel B auf gleichen Diff als Summary.",
         "`:diff3 panel C ai review` setzt Panel C auf KI-Review-Modus.",
         "Ungültige Panel-ID oder Quelle erzeugt klare Fehlermeldung."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T03.03",
@@ -258,7 +266,8 @@
         "PageUp/PageDown scrollen aktives Panel.",
         "`:diff3 sync on` synchronisiert Scrollen zwischen Diff-Panels mit gleicher Quelle.",
         "Aktive Datei/Hunk-Auswahl kann in KI-Panel als Kontext verwendet werden."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T03.04",
@@ -276,7 +285,8 @@
         "Pfad-/Status-/Suchfilter wirken nur auf das jeweilige Panel.",
         "Filter werden im Panel-Header angezeigt.",
         "Tests prüfen gleiche Quelle mit unterschiedlichen Filtern."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T04.01",
@@ -295,7 +305,8 @@
         "Modi: review, explain, risk, tests, patch, chat.",
         "AI Panel kann Kontext aus Panel A, B oder beiden Panels beziehen.",
         "Tests validieren State und Moduswechsel."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T04.02",
@@ -314,7 +325,8 @@
         "Kontext ist budgetiert; große Diffs werden zusammengefasst oder selektiv übergeben.",
         "Nicht freigegebene Artefakte werden als denied_context_refs markiert.",
         "Tests prüfen selected hunks, full diff summary, denied artifact und large diff truncation."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T04.03",
@@ -332,7 +344,8 @@
         "Prompts trennen CONTROL, TASK, DIFF_CONTEXT, CODECOMPASS_CONTEXT und OUTPUT_SCHEMA.",
         "Response-Schema enthält summary, findings, risks, suggested_tests, patch_suggestions und source_refs.",
         "PromptTemplateSnapshot/FinalPromptRecord werden über ExecutionProvenance erfasst."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T04.04",
@@ -351,7 +364,8 @@
         "Response wird gegen ai_diff_response.v1.json validiert.",
         "Ungültige LLM-Antwort erzeugt degraded result statt Crash.",
         "ExecutionProvenance enthält Task/Config/Prompt/Model für AI-Diff-Aufruf."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T04.05",
@@ -369,7 +383,8 @@
         "Patch wird nicht automatisch angewendet.",
         "Provenance zeigt PromptTemplate und final_prompt_hash.",
         "Tests prüfen Registrierung und Nicht-Anwendung."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T05.01",
@@ -387,7 +402,8 @@
         "Resolver lädt Inhalt/Metadaten des Output-Artefakts.",
         "Provenance des Output-Artefakts wird im Panel-Header oder Detail angezeigt.",
         "Tests prüfen output artifact vs current file und output artifact vs output artifact."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T05.02",
@@ -406,7 +422,8 @@
         "Working-tree-only Diff erzeugt keine Artefaktusage, aber eine diff_source_ref in ExecutionProvenance.",
         "Nicht freigegebene Artefakte werden denied und nicht in KI-Kontext übernommen.",
         "GoalArtifactGraph zeigt KI-Review-Output mit genutzten Diff-/Artefaktquellen."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T05.03",
@@ -424,7 +441,8 @@
         "Provenance enthält prompt_template_ref, final_prompt_hash, model_ref und runtime_target_ref.",
         "Provenance enthält diff_source_refs und selected_hunk_refs.",
         "TUI-Provenance-Detail kann AI-Diff-Execution anzeigen."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T06.01",
@@ -444,7 +462,8 @@
         "Mindestens 30 Tests für State/Sources/Engine.",
         "Tests decken current diff, file-vs-head, commit-vs-commit und artifact-vs-artifact ab.",
         "Tests laufen ohne Netzwerk und ohne echtes LLM."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T06.02",
@@ -464,7 +483,8 @@
         "Command-Test für Panel A current, Panel B current summary, Panel C ai review.",
         "Renderer-Test für breite drei-Spalten-Ansicht und tabbed fallback.",
         "Tests prüfen aktive Panel-Markierung und getrennte Header."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T06.03",
@@ -484,7 +504,8 @@
         "Mock timeout zeigt degraded state.",
         "Invalid JSON wird nicht roh als Erfolg angezeigt.",
         "Denied Artefakt landet nicht im AI-Kontext."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T06.04",
@@ -508,7 +529,8 @@
         "E2E setzt Panel C auf AI review.",
         "E2E zeigt KI-Antwort oder Mock-KI-Antwort im dritten Panel.",
         "E2E öffnet Provenance/Context-Info des KI-Panels."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T06.05",
@@ -528,7 +550,8 @@
         "E2E setzt Panel C auf AI explain.",
         "E2E prüft, dass Header pro Panel korrekte Quelle zeigt.",
         "E2E prüft, dass KI-Kontext nur freigegebene Artefakte nutzt."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T07.01",
@@ -547,7 +570,8 @@
         "Doku enthält Beispiel: Panel A current, Panel B current summary, Panel C ai review.",
         "Doku erklärt KI-Modi review/explain/risk/tests/patch.",
         "Doku erklärt, dass KI-Patch nicht automatisch angewendet wird."
-      ]
+      ],
+      "progress_percent": 100.0
     },
     {
       "id": "T07.02",
@@ -569,7 +593,8 @@
         "Doku enthält Mermaid-Flow für KI-Panel ContextEnvelope -> Worker -> Response.",
         "Doku enthält Mermaid-Flow für GoalArtifact/ExecutionProvenance Integration.",
         "Doku enthält Testmatrix."
-      ]
+      ],
+      "progress_percent": 100.0
     }
   ],
   "critical_path_tasks": [
@@ -588,56 +613,176 @@
   "tasks_status_summary": {
     "total": 25,
     "by_status": {
-      "todo": 25,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 25
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P1": 22,
-      "P2": 3
+      "P2": 3,
+      "P3": 0
     },
     "by_risk": {
+      "low": 2,
       "medium": 12,
-      "high": 11,
-      "low": 2
+      "high": 11
     },
     "critical_path": {
       "total": 11,
-      "done": 0,
-      "remaining": 11
+      "done": 11,
+      "remaining": 0
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 7
     }
   },
   "tasks_type_summary": {
     "total": 25,
     "by_type": {
-      "schema": 3,
-      "backend": 3,
-      "tui": 4,
-      "ai": 5,
-      "artifact": 2,
-      "provenance": 1,
-      "test": 3,
-      "e2e": 2,
-      "docs": 2
+      "schema": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "backend": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "tui": {
+        "total": 4,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 4
+        },
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "ai": {
+        "total": 5,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 5
+        },
+        "done": 5,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "artifact": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "provenance": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "test": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "e2e": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "docs": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 25,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 25,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -675,5 +820,82 @@
         "TUI funktioniert breit als 3-Spalten und schmal als Tab-Fallback"
       ]
     }
-  ]
+  ],
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 48.25,
+    "done_weight": 48.25,
+    "remaining_weight": 0.0,
+    "blocked_weight": 0.0,
+    "weighted_percent": 100.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M01": {
+        "total_tasks": 3,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M02": {
+        "total_tasks": 3,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M03": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M04": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M05": {
+        "total_tasks": 3,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M06": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M07": {
+        "total_tasks": 2,
+        "done": 2,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-05-26T21:37:31.218854Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "d3dca5752628dbc92639189e6bb4b4a126263593920af9b0716b5042d21b728a",
+    "is_stale": false
+  }
 }

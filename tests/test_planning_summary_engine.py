@@ -96,3 +96,35 @@ def test_summary_engine_derives_milestone_status_and_progress() -> None:
     assert computed["milestones"][0]["status"] == "in_progress"
     assert computed["milestone_progress_summary"]["milestones"]["M1"]["status"] == "in_progress"
     assert computed["milestone_progress_summary"]["milestones"]["M1"]["total_tasks"] == 2
+
+
+def test_summary_engine_handles_mixed_statuses_and_reports_breakdowns() -> None:
+    payload = _fixture_payload()
+    payload["tasks"] = [
+        {"id": "T1", "title": "Done", "status": "done", "priority": "P1", "risk": "high", "type": "backend", "acceptance_criteria": ["ok"]},
+        {"id": "T2", "title": "Todo", "status": "todo", "priority": "P2", "risk": "low", "type": "docs", "acceptance_criteria": ["ok"]},
+        {"id": "T3", "title": "Blocked", "status": "blocked", "priority": "P1", "risk": "medium", "type": "test", "acceptance_criteria": ["ok"], "progress_percent": 30},
+        {"id": "T4", "title": "Partial", "status": "partial", "priority": "P3", "risk": "medium", "type": "backend", "acceptance_criteria": ["ok"], "progress_percent": 60},
+    ]
+    payload["critical_path_tasks"] = ["T1", "T4"]
+    payload["milestones"] = [{"id": "M1", "title": "M1", "task_ids": ["T1", "T2", "T3", "T4"], "status": "todo"}]
+
+    computed, _ = PlanningSummaryEngine().recompute(payload)
+
+    summary = computed["tasks_status_summary"]
+    assert summary["by_status"]["done"] == 1
+    assert summary["by_status"]["blocked"] == 1
+    assert summary["by_status"]["partial"] == 1
+    assert summary["critical_path"]["done"] == 1
+    assert computed["tasks_type_summary"]["by_type"]["backend"]["total"] == 2
+    assert computed["weighted_progress_summary"]["blocked_weight"] > 0
+
+
+def test_summary_engine_large_fixture_progress_is_deterministic() -> None:
+    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "large_track.json"
+    payload = json.loads(fixture.read_text(encoding="utf-8"))
+    first, _ = PlanningSummaryEngine().recompute(payload)
+    second, _ = PlanningSummaryEngine().recompute(payload)
+    assert first["tasks_status_summary"] == second["tasks_status_summary"]
+    assert first["progress_summary"] == second["progress_summary"]
+    assert first["derived_summary_metadata"]["source_hash"] == second["derived_summary_metadata"]["source_hash"]
