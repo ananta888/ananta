@@ -94,6 +94,18 @@ class SourceSnapshotStore:
         path = self._path_for(source_id=source_id, snapshot_id=snapshot_id)
         if path.exists():
             raise ValueError("snapshot_immutable")
+        if str(snapshot.get("status") or "") == "indexed":
+            incoming_hash = str(snapshot.get("content_hash") or "")
+            for existing in self.list_snapshots(source_id=source_id):
+                if str(existing.get("status") or "") != "indexed":
+                    continue
+                if str(existing.get("content_hash") or "") != incoming_hash:
+                    continue
+                snapshot = dict(snapshot)
+                snapshot["status"] = "duplicate"
+                snapshot["reason_code"] = "duplicate_content_hash"
+                snapshot["human_message"] = "content hash already indexed"
+                break
         path.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return snapshot
 
@@ -127,4 +139,3 @@ class SourceSnapshotStore:
             path.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             changed += 1
         return changed
-

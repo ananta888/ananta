@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import json
 
+from agent.sources.citation_formatter import format_citation
+from agent.sources.builtin_sources import load_builtin_source_descriptors
+from agent.sources.source_refresh_service import SourceRefreshService
+from agent.sources.source_registry import SourceRegistry
+from agent.sources.source_snapshot_store import SourceSnapshotStore
 from client_surfaces.operator_tui.actions import dispatch_action, parse_action
 from client_surfaces.operator_tui.ai_snake_learning import apply_prediction_feedback, event_for_prediction_feedback
 from client_surfaces.operator_tui.browser import browser_fallback_url
@@ -147,6 +152,69 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             state.with_updates(header_logo_game=game, status_message=f"snake-access {snake_id}={level}"),
             f"snake-access {snake_id}={level}",
         )
+    if command == "sources":
+        action = str(args[0]).lower() if args else "list"
+        registry = SourceRegistry()
+        snapshots = SourceSnapshotStore()
+        for descriptor in load_builtin_source_descriptors():
+            source_id = str(descriptor.get("source_id") or "").strip()
+            if source_id and registry.get_source(source_id) is None:
+                registry.create_source(descriptor)
+        refresh_service = SourceRefreshService(registry=registry, snapshots=snapshots)
+        if action == "list":
+            items = registry.list_sources(include_disabled=True)
+            parts: list[str] = []
+            for item in items:
+                source_id = str(item.get("source_id") or "")
+                latest = snapshots.latest_indexed_snapshot(source_id=source_id) or {}
+                status = str(latest.get("status") or "none")
+                parts.append(f"{source_id}:{status}")
+            msg = "sources: " + (" ".join(parts) if parts else "none")
+            return CommandResult(state.with_updates(status_message=msg[:240]), msg)
+        if action == "refresh":
+            if len(args) < 2:
+                return CommandResult(state, "sources refresh <source-id> [--dry-run]", handled=False)
+            source_id = str(args[1]).strip()
+            dry_run = any(str(x).lower() == "--dry-run" for x in args[2:])
+            report = refresh_service.refresh_source(source_id=source_id, dry_run=dry_run)
+            status = str(report.get("status") or "unknown")
+            reason = str(report.get("reason_code") or "")
+            human = str(report.get("human_message") or "")
+            msg = f"sources refresh {source_id}: {status}"
+            if reason:
+                msg += f" reason={reason}"
+            if human:
+                msg += f" msg={human}"
+            return CommandResult(state.with_updates(status_message=msg[:240]), json.dumps(report, ensure_ascii=False))
+        if action == "snapshots":
+            if len(args) < 2:
+                return CommandResult(state, "sources snapshots <source-id>", handled=False)
+            source_id = str(args[1]).strip()
+            rows = snapshots.list_snapshots(source_id=source_id)
+            if not rows:
+                return CommandResult(state.with_updates(status_message=f"sources snapshots {source_id}: empty"), "[]")
+            preview = " | ".join(
+                f"{str(item.get('snapshot_id') or '')}:{str(item.get('status') or '')}" for item in rows[:5]
+            )
+            return CommandResult(
+                state.with_updates(status_message=f"sources snapshots {source_id}: {preview}"[:240]),
+                json.dumps(rows, ensure_ascii=False),
+            )
+        if action == "cite":
+            if len(args) < 2:
+                return CommandResult(state, "sources cite <source-id>", handled=False)
+            source_id = str(args[1]).strip()
+            source = registry.get_source(source_id)
+            if source is None:
+                return CommandResult(state, f"sources: unknown source_id {source_id}", handled=False)
+            latest = snapshots.latest_indexed_snapshot(source_id=source_id)
+            citation = format_citation(descriptor=source, snapshot=latest, output_format="long")
+            rendered = str(citation.get("rendered") or citation.get("long") or "")
+            return CommandResult(
+                state.with_updates(status_message=f"sources cite {source_id}"[:240]),
+                rendered,
+            )
+        return CommandResult(state, "sources: list | refresh <id> | snapshots <id> | cite <id>", handled=False)
     if command == "ai":
         sub = str(args[0]).lower() if args else "status"
         game = dict(state.header_logo_game or {})

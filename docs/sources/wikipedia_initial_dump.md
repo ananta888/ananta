@@ -28,6 +28,12 @@ Ein kontrollierter Startimport statt Vollimport:
 - Initial: manuell gesteuerter Refresh
 - Danach: geplanter Refresh gemäß `refresh_interval` aus dem SourceDescriptor
 
+## Bedienung im Source Center
+
+- Quelle erscheint als `wikimedia-wikipedia-initial-dump`.
+- UI zeigt Snapshot-Status, Sprache, Lizenz/Attribution und Refresh-Status.
+- Auf Smartphone/Android wird die Quelle als Card dargestellt.
+
 ## Referenzen
 
 - https://dumps.wikimedia.org/

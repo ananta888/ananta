@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, request
@@ -9,10 +7,10 @@ from flask import Blueprint, request
 from agent.auth import check_auth
 from agent.common.errors import BadRequestError, NotFoundError, api_response
 from agent.sources.builtin_sources import load_builtin_source_descriptors
-from agent.sources.keycloak_fetcher import KeycloakDocsFetcher
+from agent.sources.citation_formatter import format_citation
+from agent.sources.source_refresh_service import SourceRefreshService
 from agent.sources.source_registry import SourceRegistry
 from agent.sources.source_snapshot_store import SourceSnapshotStore
-from agent.sources.wikimedia_downloader import WikimediaDownloader
 
 sources_bp = Blueprint("sources", __name__)
 
@@ -23,6 +21,10 @@ def _registry() -> SourceRegistry:
 
 def _snapshots() -> SourceSnapshotStore:
     return SourceSnapshotStore()
+
+
+def _refresh_service() -> SourceRefreshService:
+    return SourceRefreshService(registry=_registry(), snapshots=_snapshots())
 
 
 def _sync_builtin_descriptors() -> None:
@@ -85,15 +87,21 @@ def get_source_citation(source_id: str):
     source = _registry().get_source(source_id)
     if source is None:
         raise NotFoundError("source_not_found")
-    citation = dict(source.get("citation_source") or {})
     latest = _snapshots().latest_indexed_snapshot(source_id=source_id)
-    human = (
-        f"{citation.get('title', '')} — {citation.get('publisher', '')}. "
-        f"{citation.get('canonical_url', '')} (retrieved {citation.get('retrieved_at', '')}). "
-        f"snapshot={latest.get('snapshot_id') if isinstance(latest, dict) else 'none'}; "
-        f"license={citation.get('license_ref', '')}"
-    )
-    return api_response(data={"source_id": source_id, "citation": citation, "latest_snapshot": latest, "human_readable": human.strip()})
+    citation = format_citation(descriptor=source, snapshot=latest, output_format=str(request.args.get("format") or "long"))
+    return api_response(data={"source_id": source_id, "latest_snapshot": latest, **citation})
+
+
+@sources_bp.route("/sources/refresh", methods=["POST"])
+@check_auth
+def refresh_due_sources():
+    _sync_builtin_descriptors()
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        raise BadRequestError("invalid_payload")
+    dry_run = bool(payload.get("dry_run", False))
+    results = _refresh_service().refresh_due_sources(dry_run=dry_run)
+    return api_response(data={"status": "ok", "dry_run": dry_run, "results": results})
 
 
 @sources_bp.route("/sources/<source_id>/refresh", methods=["POST"])
@@ -106,36 +114,10 @@ def refresh_source(source_id: str):
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload, dict):
         raise BadRequestError("invalid_payload")
-    source_type = str(source.get("source_type") or "")
-    if source_type == "keycloak_docs":
-        report = KeycloakDocsFetcher(snapshot_store=_snapshots()).fetch(descriptor=source, dry_run=bool(payload.get("dry_run", False)))
-        if not bool(payload.get("dry_run", False)):
-            _snapshots().mark_superseded(source_id=source_id, keep_snapshot_id=str(report["snapshot"]["snapshot_id"]))
-        return api_response(data={"status": "ok", "report": report})
-    if source_type == "wikimedia_dump":
-        corpus_url = str(payload.get("corpus_url") or "").strip()
-        destination_name = str(payload.get("destination_name") or "").strip()
-        if not corpus_url or not destination_name:
-            queued = _snapshots().build_snapshot(
-                source_id=source_id,
-                descriptor_hash=str((source.get("extensions") or {}).get("descriptor_hash") or "0" * 64),
-                content_payload={"source_id": source_id},
-                metadata_payload={"hint": "provide corpus_url and destination_name for large dump refresh"},
-                status="queued",
-                reason_code="download_parameters_required",
-                human_message="For Wikimedia dump refresh provide corpus_url and destination_name.",
-            )
-            _snapshots().save_snapshot(queued)
-            return api_response(data={"status": "queued", "report": {"snapshot": queued}})
-        destination = Path("data/wiki_corpora") / destination_name
-        report = WikimediaDownloader(snapshot_store=_snapshots()).download(
-            source_id=source_id,
-            descriptor_hash=str((source.get("extensions") or {}).get("descriptor_hash") or "0" * 64),
-            url=corpus_url,
-            destination=destination,
-            max_parallel=1,
-        )
-        _snapshots().mark_superseded(source_id=source_id, keep_snapshot_id=str(report["snapshot"]["snapshot_id"]))
-        return api_response(data={"status": "ok", "report": report})
-    raise BadRequestError("unsupported_source_type")
-
+    report = _refresh_service().refresh_source(
+        source_id=source_id,
+        dry_run=bool(payload.get("dry_run", False)),
+        corpus_url=str(payload.get("corpus_url") or "").strip() or None,
+        destination_name=str(payload.get("destination_name") or "").strip() or None,
+    )
+    return api_response(data=report)

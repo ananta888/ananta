@@ -43,6 +43,7 @@ type SourceItem = {
               </div>
               <p class="muted id">{{ item.source_id }} · {{ item.source_type }}</p>
               <p class="line">URL: <a [href]="item.fetch_source?.url || '#'" target="_blank" rel="noopener noreferrer">{{ item.fetch_source?.url }}</a></p>
+              <p class="line">Citation URL: <a [href]="item.citation_source?.canonical_url || '#'" target="_blank" rel="noopener noreferrer">{{ item.citation_source?.canonical_url }}</a></p>
               <p class="line">Snapshot: <strong>{{ item.latest_snapshot?.status || 'none' }}</strong></p>
               <p class="line">Retrieved: {{ item.latest_snapshot?.retrieved_at || '-' }}</p>
               @if (item.latest_snapshot?.reason_code) {
@@ -53,9 +54,18 @@ type SourceItem = {
                   {{ isRefreshing(item.source_id) ? 'Refreshing ...' : 'Reload' }}
                 </button>
                 <button class="btn btn-secondary" (click)="loadCitation(item.source_id)">Citation</button>
+                <button class="btn btn-secondary" (click)="loadSnapshots(item.source_id)">Snapshots</button>
               </div>
               @if (citations[item.source_id]) {
                 <p class="citation">{{ citations[item.source_id] }}</p>
+                <button class="btn btn-secondary" (click)="copyCitation(item.source_id)">Copy citation</button>
+              }
+              @if (snapshots[item.source_id]?.length) {
+                <div class="history">
+                  @for (snap of snapshots[item.source_id]; track snap.snapshot_id) {
+                    <p class="line">{{ snap.snapshot_id }} · {{ snap.status }} · {{ snap.retrieved_at || '-' }}</p>
+                  }
+                </div>
               }
             </article>
           }
@@ -88,6 +98,7 @@ export class SourcesComponent implements OnInit {
   error = '';
   refreshing = new Set<string>();
   citations: Record<string, string> = {};
+  snapshots: Record<string, Array<{ snapshot_id: string; status: string; retrieved_at?: string }>> = {};
 
   ngOnInit(): void {
     this.loadSources();
@@ -137,5 +148,24 @@ export class SourcesComponent implements OnInit {
       },
     });
   }
-}
 
+  loadSnapshots(sourceId: string): void {
+    this.http.get<any>(`/sources/${encodeURIComponent(sourceId)}/snapshots`).subscribe({
+      next: (payload) => {
+        const rows = Array.isArray(payload?.data) ? payload.data : [];
+        this.snapshots[sourceId] = rows.slice(0, 10);
+      },
+      error: (err) => {
+        this.error = String(err?.error?.error || err?.message || 'snapshots_failed');
+      },
+    });
+  }
+
+  copyCitation(sourceId: string): void {
+    const text = String(this.citations[sourceId] || '');
+    if (!text) return;
+    navigator.clipboard?.writeText(text).catch(() => {
+      this.error = 'copy_failed';
+    });
+  }
+}
