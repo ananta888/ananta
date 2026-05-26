@@ -407,7 +407,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T04.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:ai explain artifact-graph` erklärt aktive Goal-Artefaktbeziehungen.",
             "AI-Kontext enthält nur freigegebene Graph-Metadaten, keine ungeprüften Rohinhalte.",
@@ -435,7 +435,7 @@
           "priority": "P2",
           "effort": "XL",
           "depends_on": ["T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Ansicht zeigt aktiven Goal und drei Bereiche: Sources Granted, Sources Used, Outputs.",
             "Cards statt breite Tabellen im Smartphone/Android-Layout.",
@@ -456,7 +456,7 @@
           "priority": "P2",
           "effort": "L",
           "depends_on": ["T03.02", "T05.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Dialog listet Artifact Candidates mit Suche/Filter.",
             "User wählt allowed_usages und sieht resultierende Policy-Entscheidung.",
@@ -476,7 +476,7 @@
           "priority": "P3",
           "effort": "L",
           "depends_on": ["T05.01", "T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Graph zeigt SourceArtifactUsage-Knoten und OutputArtifact-Knoten.",
             "Graph ist optional; Listenansicht bleibt primär.",
@@ -505,7 +505,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T01.01", "T02.01", "T02.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Mindestens 30 Unit-Tests für Schemas/Service/Policy.",
             "Tests decken grant, revoke, usage, output und graph ab.",
