@@ -334,7 +334,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01", "T03.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält request_id, mode, observation_summary, quick_prediction, context_envelope_ref, output_contract und budget.",
             "mode erlaubt mindestens `predict_intent`, `explain_artifact`, `answer_chat`, `suggest_next_action`.",
@@ -356,7 +356,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T04.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Worker-Dispatch blockiert den TUI-Renderloop nicht.",
             "Pending Requests haben timeout und cancellation_reason.",
@@ -379,7 +379,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T04.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Response-Schema enthält predicted_intent, confidence, target_ref, answer_text, context_refs, follow_mode_update und expires_at.",
             "Ungültiges JSON wird nicht direkt angezeigt, sondern als degraded result behandelt.",
@@ -402,7 +402,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T04.02", "T04.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Worker prediction mit confidence >= 0.65 kann prediction_target aktualisieren.",
             "Worker prediction mit niedriger confidence erzeugt keine visuelle Zielmarkierung.",

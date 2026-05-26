@@ -18,15 +18,15 @@ def test_lm_budget_rate_size_and_reset() -> None:
     assert too_large_reason == "prompt_too_large"
 
 
-def test_parse_worker_response_handles_fenced_and_invalid_json() -> None:
+def test_parse_worker_response_rejects_fenced_and_invalid_json_without_repair() -> None:
     fenced = {
         "response_text": """```json
 {"predicted_intent":"chat","confidence":0.6,"target_ref":"ai:tutor","answer_text":"ok","context_refs":[],"follow_mode_update":"lurking_follow","expires_at":123.0}
 ```"""
     }
     parsed = parse_worker_response(fenced)
-    assert parsed["status"] == "ok"
-    assert parsed["predicted_intent"] == "chat"
+    assert parsed["status"] == "degraded"
+    assert parsed["error"] == "invalid_json_response"
 
     invalid = {"response_text": "not-json"}
     degraded = parse_worker_response(invalid)
@@ -42,3 +42,12 @@ def test_repair_path_runs_once() -> None:
     parsed = repair_and_parse_response(broken, repair_fn=repair)
     assert parsed["status"] == "ok"
     assert parsed["confidence"] == 0.4
+
+
+def test_repair_handles_fenced_json_only_via_repair_step() -> None:
+    fenced = """```json
+{"predicted_intent":"chat","confidence":0.6,"target_ref":"ai:tutor","answer_text":"ok","context_refs":[],"follow_mode_update":"lurking_follow","expires_at":123.0}
+```"""
+
+    parsed = repair_and_parse_response(fenced, repair_fn=lambda text: text)
+    assert parsed["status"] == "ok"
