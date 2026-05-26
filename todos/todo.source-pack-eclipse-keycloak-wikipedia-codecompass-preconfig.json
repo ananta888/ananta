@@ -516,7 +516,7 @@
     {
       "id": "T06.03",
       "title": "Quellenstatus und Provenance im Worker sichtbar machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "provenance",
@@ -536,7 +536,7 @@
     {
       "id": "T07.01",
       "title": "Schema- und Descriptor-Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
@@ -558,7 +558,7 @@
     {
       "id": "T07.02",
       "title": "Fixture Bootstrap Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
@@ -578,7 +578,7 @@
     {
       "id": "T07.03",
       "title": "Retrieval Routing Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
@@ -597,7 +597,7 @@
     {
       "id": "T07.04",
       "title": "E2E: Ananta Dev Default SourcePack aktivieren und nutzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",

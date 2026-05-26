@@ -600,7 +600,16 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 result = pack_service.bootstrap(source_pack_id=source_pack_id, dry_run=dry_run)
                 msg = f"sources pack bootstrap {source_pack_id}: {str(result.get('status') or 'unknown')}"
                 return CommandResult(state.with_updates(status_message=msg[:240]), json.dumps(result, ensure_ascii=False))
-            return CommandResult(state, "sources pack show|bootstrap <source-pack-id> [--dry-run]", handled=False)
+            if sub == "query":
+                if len(args) < 4:
+                    return CommandResult(state, "sources pack query <source-pack-id> <question>", handled=False)
+                source_pack_id = str(args[2]).strip()
+                query = " ".join(args[3:]).strip()
+                result = pack_service.answer_preview(source_pack_id=source_pack_id, query=query)
+                origins = ", ".join(list(result.get("origins") or []))
+                msg = f"sources pack query {source_pack_id}: origins={origins or '-'}"
+                return CommandResult(state.with_updates(status_message=msg[:240]), json.dumps(result, ensure_ascii=False))
+            return CommandResult(state, "sources pack show|bootstrap|query <source-pack-id> [--dry-run|question]", handled=False)
         if action == "list":
             items = registry.list_sources(include_disabled=True)
             parts: list[str] = []
@@ -675,7 +684,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 f"bytes={stats['total_bytes']}"
             )
             return CommandResult(state.with_updates(status_message=msg[:240]), msg)
-        return CommandResult(state, "sources: list | packs | pack show <id> | pack bootstrap <id> [--dry-run] | refresh <id> | snapshots <id> | cite <id> | cache <id> [clear]", handled=False)
+        return CommandResult(state, "sources: list | packs | pack show <id> | pack bootstrap <id> [--dry-run] | pack query <id> <question> | refresh <id> | snapshots <id> | cite <id> | cache <id> [clear]", handled=False)
     if command == "diff3":
         game = dict(state.header_logo_game or {})
         diff3_state = _get_diff3_state(state)

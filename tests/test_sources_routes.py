@@ -86,3 +86,13 @@ def test_sources_refresh_routes(client, admin_auth_header, monkeypatch, tmp_path
     doctor = client.get("/sources/doctor?source_pack_id=ananta-dev-default", headers=admin_auth_header)
     assert doctor.status_code == 200
     assert doctor.json["data"]["source_pack_id"] == "ananta-dev-default"
+
+    query_preview = client.post(
+        "/sources/packs/ananta-dev-default/query-preview",
+        headers=admin_auth_header,
+        json={"query": "How to write eclipse plugin.xml extension?"},
+    )
+    assert query_preview.status_code == 200
+    assert query_preview.json["data"]["status"] == "ok"
+    assert query_preview.json["data"]["source_pack_id"] == "ananta-dev-default"
+    assert isinstance(query_preview.json["data"]["source_references"], list)

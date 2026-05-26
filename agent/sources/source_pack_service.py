@@ -161,6 +161,115 @@ class SourcePackService:
             "items": rows,
         }
 
+    def _latest_bundle_for_pack(self, *, source_pack_id: str) -> dict[str, Any] | None:
+        candidates = sorted(self._bundle_root.glob("ccb-*.json"), reverse=True)
+        for path in candidates:
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if str(dict(payload).get("source_pack_id") or "") != source_pack_id:
+                continue
+            row = dict(payload)
+            row["bundle_path"] = str(path)
+            return row
+        return None
+
+    def build_source_references(
+        self,
+        *,
+        source_pack_id: str,
+        query: str,
+        include_wikipedia: bool = True,
+        include_local_project: bool = True,
+    ) -> dict[str, Any]:
+        source_ids = self.resolve_retrieval_sources(
+            source_pack_id=source_pack_id,
+            query=query,
+            include_wikipedia=include_wikipedia,
+        )
+        bundle = self._latest_bundle_for_pack(source_pack_id=source_pack_id) or {}
+        bundle_id = str(bundle.get("bundle_id") or "")
+        refs: list[dict[str, Any]] = []
+        for source_id in source_ids:
+            descriptor = self.registry.get_source(source_id) or {}
+            latest = self.snapshots.latest_indexed_snapshot(source_id=source_id) or {}
+            refs.append(
+                {
+                    "source_pack_id": source_pack_id,
+                    "source_id": source_id,
+                    "snapshot_id": str(latest.get("snapshot_id") or ""),
+                    "trust_level": str(descriptor.get("trust_level") or ""),
+                    "codecompass_bundle_id": bundle_id,
+                }
+            )
+        if include_local_project:
+            refs.insert(
+                0,
+                {
+                    "source_pack_id": source_pack_id,
+                    "source_id": "local-project-context",
+                    "snapshot_id": "",
+                    "trust_level": "local_project",
+                    "codecompass_bundle_id": bundle_id,
+                },
+            )
+        context_hash = _stable_hash(
+            {
+                "source_pack_id": source_pack_id,
+                "query": query,
+                "source_ids": [str(item.get("source_id") or "") for item in refs],
+                "bundle_id": bundle_id,
+            }
+        )[:32]
+        for row in refs:
+            row["context_hash"] = context_hash
+        return {
+            "source_pack_id": source_pack_id,
+            "query": query,
+            "codecompass_bundle_id": bundle_id,
+            "context_hash": context_hash,
+            "source_references": refs,
+        }
+
+    def answer_preview(
+        self,
+        *,
+        source_pack_id: str,
+        query: str,
+        include_wikipedia: bool = True,
+        include_local_project: bool = True,
+    ) -> dict[str, Any]:
+        refs_payload = self.build_source_references(
+            source_pack_id=source_pack_id,
+            query=query,
+            include_wikipedia=include_wikipedia,
+            include_local_project=include_local_project,
+        )
+        refs = list(refs_payload.get("source_references") or [])
+        origins: list[str] = []
+        for row in refs:
+            source_id = str(dict(row).get("source_id") or "")
+            if source_id == "local-project-context":
+                origins.append("local")
+            elif source_id.startswith("eclipse-"):
+                origins.append("eclipse")
+            elif source_id.startswith("keycloak-"):
+                origins.append("keycloak")
+            elif source_id.startswith("wikimedia-"):
+                origins.append("wikipedia")
+            else:
+                origins.append("other")
+        unique_origins = sorted({item for item in origins if item})
+        return {
+            "status": "ok",
+            "source_pack_id": source_pack_id,
+            "query": query,
+            "origins": unique_origins,
+            "answer_text": f"Mock worker answer for query: {query}",
+            **refs_payload,
+        }
+
     def _create_fixture_snapshot(self, *, source_id: str, descriptor_hash: str) -> dict[str, Any]:
         snapshot = self.snapshots.build_snapshot(
             source_id=source_id,
