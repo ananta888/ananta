@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="t d">
+  <title id="t">Ananta Angular Playwright Demo</title>
+  <desc id="d">Platzhaltergrafik für die Playwright-Aufzeichnung der Angular-App</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="100%" stop-color="#091019"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#70e1c8" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#8ab4ff" stop-opacity="0.24"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <rect x="80" y="80" width="1120" height="560" rx="24" fill="#0f1828" stroke="#2a3c59"/>
+  <rect x="80" y="80" width="1120" height="72" rx="24" fill="url(#shine)"/>
+  <circle cx="126" cy="116" r="10" fill="#cbd5e1" fill-opacity="0.45"/>
+  <circle cx="156" cy="116" r="10" fill="#cbd5e1" fill-opacity="0.45"/>
+  <circle cx="186" cy="116" r="10" fill="#cbd5e1" fill-opacity="0.45"/>
+  <text x="640" y="120" fill="#d6e4ff" font-size="24" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">Playwright Angular Demo</text>
+  <polygon points="620,300 620,420 720,360" fill="#70e1c8"/>
+  <text x="640" y="500" fill="#9dadc2" font-size="32" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">Recording slot ready</text>
+  <text x="640" y="544" fill="#9dadc2" font-size="22" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">Drop assets/angular-playwright-demo.webm or .mp4</text>
+</svg>

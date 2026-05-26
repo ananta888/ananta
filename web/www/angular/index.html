@@ -31,8 +31,34 @@
         <div class="actions">
           <a href="https://github.com/ananta888/ananta/tree/main/frontend-angular">Frontend im Repo</a>
           <a href="../codecompass/">CodeCompass ansehen</a>
+          <a href="#playwright-demo">Playwright-Demo</a>
+        </div>
+        <div class="status-strip" aria-label="Angular Kernpunkte">
+          <span>Angular 21</span>
+          <span>Playwright E2E</span>
+          <span>Capacitor Android</span>
+          <span>Operator Runtime UI</span>
         </div>
       </div>
+    </section>
+
+    <section id="playwright-demo" class="section-block">
+      <p class="eyebrow">Live Evidence</p>
+      <h2>Playwright-Aufzeichnung der Angular-App</h2>
+      <p>
+        Der Bereich ist für eine echte Playwright-Aufzeichnung vorbereitet. Sobald eine WebM/MP4-Datei aus dem
+        E2E-Lauf vorliegt, wird sie hier direkt abgespielt.
+      </p>
+      <div class="video-shell">
+        <video controls preload="metadata" poster="../assets/angular-playwright-demo-poster.svg">
+          <source src="../assets/angular-playwright-demo.webm" type="video/webm">
+          <source src="../assets/angular-playwright-demo.mp4" type="video/mp4">
+        </video>
+      </div>
+      <p class="intro">
+        Erwarteter Dateipfad für die Veröffentlichung: <code>assets/angular-playwright-demo.webm</code>
+        (alternativ <code>.mp4</code>).
+      </p>
     </section>
 
     <section class="grid" aria-label="Angular Kernmodule">
@@ -60,6 +86,38 @@
         <h2>Präsentation statt App-Host</h2>
         <p>www.ananta.de zeigt die Produktstory; das eigentliche Angular-Projekt liegt im Hauptrepo.</p>
       </article>
+    </section>
+
+    <section class="section-block">
+      <p class="eyebrow">Playwright Scope</p>
+      <h2>Was die E2E-Suite im Angular-Projekt abdeckt</h2>
+      <div class="steps">
+        <article>
+          <strong>1</strong>
+          <h3>Auth & Session</h3>
+          <p>Login, Logout, MFA, Lockout und Rollenübergänge.</p>
+        </article>
+        <article>
+          <strong>2</strong>
+          <h3>Goal Lifecycle</h3>
+          <p>Von Planung über Ausführung bis Observability und Statuswechsel.</p>
+        </article>
+        <article>
+          <strong>3</strong>
+          <h3>Planner & Templates</h3>
+          <p>Auto-Planner-Flows, Template-CRUD und AI-Template-Journeys.</p>
+        </article>
+        <article>
+          <strong>4</strong>
+          <h3>Terminal & Assistant</h3>
+          <p>Runtime-Terminal, Assistant-Dock, Konfig- und Interaktionspfade.</p>
+        </article>
+        <article>
+          <strong>5</strong>
+          <h3>Systemqualität</h3>
+          <p>Accessibility, Notifications, Audit-Logs, SSE und Stress-Szenarien.</p>
+        </article>
+      </div>
     </section>
   </main>
 </body>
