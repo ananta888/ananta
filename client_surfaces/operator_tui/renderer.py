@@ -501,6 +501,8 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
         lines.extend(_diff3_content_lines(payload, width=width))
     elif section.id == "artifacts" and bool(payload.get("planning_track_mode")):
         lines.extend(_planning_track_content_lines(payload, width=width, compact=width < 74))
+    elif section.id == "artifacts" and bool(payload.get("helpcenter_mode")):
+        lines.extend(_helpcenter_content_lines(payload, width=width, compact=width < 74))
     elif section.id == "artifacts" and bool(payload.get("goal_artifacts_mode")):
         lines.extend(_goal_artifacts_content_lines(payload, width=width, compact=width < 74))
     else:
@@ -699,6 +701,11 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
             lines.append("    :plan track execute-next | sync-status <plan-task-id> <status>")
             lines.append("    :plan track diff <left-output-id> <right-output-id>")
             lines.append("    :plan summary doctor <file> | fix <file> | recompute")
+        if bool(payload.get("helpcenter_mode")):
+            lines.append("    :helpcenter")
+            lines.append("    :helpcenter ingest github-failures [--repo owner/repo] [--limit N] [--dry-run]")
+            lines.append("    :helpcenter open <analysis-id>")
+            lines.append("    :helpcenter suggest-followup [analysis-id]")
 
     return [_clip(line, width) for line in lines]
 
@@ -865,6 +872,71 @@ def _planning_track_content_lines(payload: dict, *, width: int, compact: bool) -
             f"changed={len(list(diff.get('changed_tasks') or []))} "
             f"removed={len(list(diff.get('removed_tasks') or []))}"
         )
+    return lines
+
+
+def _helpcenter_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
+    rows = [dict(item) for item in list(payload.get("reports") or []) if isinstance(item, dict)]
+    selected_id = str(payload.get("selected_analysis_id") or "")
+    selected_report = dict(payload.get("selected_report") or {})
+    selected_analysis = dict(payload.get("selected_analysis") or {})
+    last_ingest = dict(payload.get("last_ingest") or {})
+    lines = [
+        "  Helpcenter",
+        f"  Reports: {len(rows)} selected={selected_id or '-'}",
+    ]
+    if last_ingest:
+        lines.append(
+            _clip(
+                f"  Last ingest: repo={last_ingest.get('repo') or '-'} found={last_ingest.get('found', 0)} "
+                f"written={last_ingest.get('written', 0)} dry_run={bool(last_ingest.get('dry_run'))}",
+                width,
+            )
+        )
+    if not rows:
+        lines.append("  no helpcenter reports")
+        return lines
+    lines.append("  [Reports]")
+    preview_rows = rows[:12] if not compact else rows[:6]
+    for row in preview_rows:
+        marker = "*" if str(row.get("analysis_id") or "") == selected_id else "-"
+        lines.append(
+            _clip(
+                f"  {marker} {row.get('analysis_id')} [{row.get('status')}] "
+                f"{row.get('severity')} {row.get('source_kind')} at {row.get('created_at')}",
+                width,
+            )
+        )
+    if not selected_report:
+        return lines
+    lines.append("  [Detail]")
+    lines.append(
+        _clip(
+            f"  Source: kind={selected_report.get('source_kind') or '-'} "
+            f"ref={selected_analysis.get('source_refs', ['-'])[0] if isinstance(selected_analysis.get('source_refs'), list) and selected_analysis.get('source_refs') else '-'}",
+            width,
+        )
+    )
+    lines.append(_clip(f"  Summary: {selected_analysis.get('failure_summary') or '-'}", width))
+    lines.append(
+        _clip(
+            f"  no_auto_fix={bool(selected_analysis.get('no_auto_fix'))} "
+            f"md={selected_report.get('report_ref') or '-'} json={selected_report.get('json_ref') or '-'}",
+            width,
+        )
+    )
+    causes = [str(item) for item in list(selected_analysis.get("likely_causes") or []) if str(item).strip()]
+    if causes:
+        lines.append("  Likely causes:")
+        for item in causes[:4]:
+            lines.append(_clip(f"    - {item}", width))
+    next_steps = [str(item) for item in list(selected_analysis.get("next_steps") or []) if str(item).strip()]
+    if next_steps:
+        lines.append("  Next steps:")
+        for item in next_steps[:4]:
+            lines.append(_clip(f"    - {item}", width))
+    followup = str(payload.get("followup_suggestion") or "").strip()
+    lines.append(_clip(f"  Follow-up suggestion: {followup or '-'}", width))
     return lines
 
 

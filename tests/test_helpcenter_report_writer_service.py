@@ -21,6 +21,22 @@ def _analysis(message: dict) -> dict:
     return analyze_helpcenter_message(message, log_text="FAILURES\nAssertionError\ntests/test_api.py")
 
 
+def _github_message() -> dict:
+    return {
+        "message_id": "gh-acme-repo-101-9001",
+        "source_kind": "github_workflow_failure",
+        "source_ref": "github://acme/repo/runs/101/jobs/9001",
+        "received_at": "2026-05-27T00:00:00Z",
+        "title": "CI / tests failed",
+        "severity": "error",
+        "normalized_summary": "workflow=CI branch=main sha=abcdef123456 conclusion=failure",
+        "labels": ["github", "workflow", "failure"],
+        "privacy_class": "internal",
+        "redaction_status": "not_required",
+        "meta": {"run_id": 101, "job_id": 9001},
+    }
+
+
 def test_report_writer_creates_markdown_with_expected_sections(tmp_path: Path) -> None:
     message = _message()
     analysis = _analysis(message)
@@ -56,3 +72,11 @@ def test_report_writer_updates_index_and_duplicate_versioning(tmp_path: Path) ->
     assert rows[-1]["version"] == 2
     assert rows[-1]["duplicate_of_analysis_id"] == first["analysis_id"]
     assert rows[-1]["json_ref"].endswith(".json")
+
+
+def test_report_writer_uses_stable_github_run_job_stem_with_version(tmp_path: Path) -> None:
+    message = _github_message()
+    first = write_helpcenter_report(message=message, analysis=_analysis(message), repo_root=tmp_path)
+    second = write_helpcenter_report(message=message, analysis=_analysis(message), repo_root=tmp_path)
+    assert "github-run-101-job-9001-v1" in first["markdown_ref"]
+    assert "github-run-101-job-9001-v2" in second["markdown_ref"]

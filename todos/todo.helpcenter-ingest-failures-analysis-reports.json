@@ -64,7 +64,7 @@
         "T04.03",
         "T04.04"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M05",
@@ -75,7 +75,7 @@
         "T05.03",
         "T05.04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M06",
@@ -408,7 +408,7 @@
     {
       "id": "T04.04",
       "title": "Report Naming und Dedupe Policy",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "report",
@@ -422,12 +422,12 @@
         "Repeated failures können als neue Version oder duplicate gruppiert werden.",
         "Tests prüfen gleiche GitHub Failure zweimal."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T05.01",
       "title": "TUI Helpcenter Hauptansicht",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "tui",
@@ -441,12 +441,12 @@
         "Ansicht funktioniert auch ohne vorhandene Reports.",
         "Renderer-Test prüft leeren und gefüllten Index."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T05.02",
       "title": "TUI GitHub Failures ingest command",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "tui",
@@ -463,12 +463,12 @@
         "Write-Modus erzeugt Markdown/JSON Reports.",
         "Tests prüfen Command mit Mock-GitHub."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T05.03",
       "title": "TUI Report Detailansicht",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "tui",
@@ -482,12 +482,12 @@
         "TUI kann JSON-Ref und Markdown-Ref anzeigen.",
         "Tests prüfen Detailrenderer."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T05.04",
       "title": "TUI Follow-up Task Vorschlag vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "tui",
@@ -502,7 +502,7 @@
         "User muss explizit bestätigen, wenn später Task-Erzeugung implementiert wird.",
         "Tests prüfen Vorschlagsanzeige ohne Auto-Create."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T06.01",
@@ -710,13 +710,13 @@
   "tasks_status_summary": {
     "total": 29,
     "by_status": {
-      "todo": 14,
+      "todo": 9,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 15
+      "done": 20
     },
-    "progress_percent_done": 51.72,
+    "progress_percent_done": 68.97,
     "by_priority": {
       "P1": 22,
       "P2": 7,
@@ -729,15 +729,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 10,
-      "remaining": 5
+      "done": 12,
+      "remaining": 3
     },
     "milestones": {
       "total": 8,
-      "todo": 4,
-      "in_progress": 1,
+      "todo": 3,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 3
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -858,30 +858,30 @@
       "report": {
         "total": 4,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 3
+          "done": 4
         },
-        "done": 3,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 75.0
+        "progress_percent": 100.0
       },
       "tui": {
         "total": 4,
         "by_status": {
-          "todo": 4,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 4
         },
-        "done": 0,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "security": {
         "total": 2,
@@ -957,13 +957,13 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 14,
+    "todo_remaining": 9,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 15,
-    "count_based_percent": 51.7,
-    "weighted_percent": 52.4
+    "done": 20,
+    "count_based_percent": 69.0,
+    "weighted_percent": 66.7
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -1008,10 +1008,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 52.5,
-    "done_weight": 27.5,
-    "remaining_weight": 25.0,
+    "done_weight": 35.0,
+    "remaining_weight": 17.5,
     "blocked_weight": 0.0,
-    "weighted_percent": 52.4
+    "weighted_percent": 66.7
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1041,19 +1041,19 @@
       },
       "M04": {
         "total_tasks": 4,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 75.0,
-        "weighted_percent": 85.7,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M05": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M06": {
         "total_tasks": 3,
@@ -1084,10 +1084,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T21:53:09.195568Z",
+    "generated_at": "2026-05-26T22:09:46.500082Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "d727016928789b2b7b1140c5b89fe2d0a41a55d8320cafa4922a820c89b65e96",
+    "source_hash": "0b266e95f9d2114121cc523da21a0d36a7898698130d195b9a56c56cbb45128a",
     "is_stale": false
   }
 }

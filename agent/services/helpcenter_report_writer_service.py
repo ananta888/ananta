@@ -79,13 +79,6 @@ def write_helpcenter_report(
     analysis_id = str(analysis_payload.get("analysis_id") or "").strip()
     if not analysis_id:
         raise ValueError("helpcenter_analysis_missing_analysis_id")
-    refs = build_report_paths(analysis_id=analysis_id, repo_root=repo_root)
-    project_root = _project_root(repo_root)
-    markdown_path = project_root / str(refs["markdown_ref"])
-    json_path = project_root / str(refs["json_ref"])
-    markdown_path.parent.mkdir(parents=True, exist_ok=True)
-    json_path.parent.mkdir(parents=True, exist_ok=True)
-
     analysis_payload.setdefault("no_auto_fix", True)
     analysis_payload.setdefault("status", "ready")
     analysis_payload["source_refs"] = [
@@ -98,10 +91,8 @@ def write_helpcenter_report(
     analysis_payload["redaction_status"] = str(message_payload.get("redaction_status") or "pending")
     analysis_payload["source_kind"] = str(message_payload.get("source_kind") or "").strip()
     analysis_payload["severity"] = str(message_payload.get("severity") or "warning").strip()
-
-    json_path.write_text(json.dumps(analysis_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    markdown = _markdown_report(message=message_payload, analysis=analysis_payload, json_ref=refs["json_ref"])
-    markdown_path.write_text(markdown, encoding="utf-8")
+    if isinstance(message_payload.get("meta"), dict):
+        analysis_payload["source_metadata"] = dict(message_payload.get("meta") or {})
 
     index = load_helpcenter_index(repo_root=repo_root)
     message_id = str(message_payload.get("message_id") or "").strip()
@@ -112,6 +103,18 @@ def write_helpcenter_report(
     ]
     version = len(siblings) + 1
     duplicate_of = str(siblings[-1].get("analysis_id") or "").strip() if siblings else ""
+    stem = _report_stem(message_payload, analysis_id=analysis_id, version=version)
+    refs = build_report_paths(analysis_id=analysis_id, report_stem=stem, repo_root=repo_root)
+    project_root = _project_root(repo_root)
+    markdown_path = project_root / str(refs["markdown_ref"])
+    json_path = project_root / str(refs["json_ref"])
+    markdown_path.parent.mkdir(parents=True, exist_ok=True)
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+
+    json_path.write_text(json.dumps(analysis_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    markdown = _markdown_report(message=message_payload, analysis=analysis_payload, json_ref=refs["json_ref"])
+    markdown_path.write_text(markdown, encoding="utf-8")
+
     index = upsert_helpcenter_index_entry(
         index,
         analysis_id=analysis_id,
@@ -135,3 +138,15 @@ def write_helpcenter_report(
         "version": version,
         "duplicate_of_analysis_id": duplicate_of,
     }
+
+
+def _report_stem(message: dict[str, Any], *, analysis_id: str, version: int) -> str:
+    source_kind = str(message.get("source_kind") or "").strip()
+    if source_kind == "github_workflow_failure":
+        meta = dict(message.get("meta") or {})
+        run_id = str(meta.get("run_id") or "").strip()
+        job_id = str(meta.get("job_id") or "").strip()
+        if run_id:
+            job_part = f"-job-{job_id}" if job_id and job_id != "0" else ""
+            return f"github-run-{run_id}{job_part}-v{version}"
+    return f"{analysis_id}-v{version}"
