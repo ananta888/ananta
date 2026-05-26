@@ -42,7 +42,7 @@
         "T02.03",
         "T02.04"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M03",
@@ -53,7 +53,7 @@
         "T03.03",
         "T03.04"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M04",
@@ -208,7 +208,7 @@
     {
       "id": "T02.02",
       "title": "GitHub Workflow Failure Adapter implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "github",
@@ -223,12 +223,12 @@
         "Adapter kann auf letzten N Runs begrenzt werden.",
         "Tests mocken GitHub API und prüfen Normalisierung."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T02.03",
       "title": "GitHub Failure Log Extractor",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "github",
@@ -243,12 +243,12 @@
         "Extractor erkennt typische Muster: pytest failure, npm failure, type error, import error, lint error, timeout.",
         "Tests prüfen Log-Begrenzung, Redaction und Fehlermuster."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T02.04",
       "title": "Manueller Helpcenter Input vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "adapter",
@@ -262,12 +262,12 @@
         "Manueller Input wird ebenfalls analysiert und reportet.",
         "Tests prüfen manuelle Message ohne externe Quelle."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T03.01",
       "title": "Helpcenter Analyzer ohne Auto-Fix implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "analysis",
@@ -283,12 +283,12 @@
         "Analyzer kann rein deterministische Musteranalyse ohne LLM ausführen.",
         "Tests prüfen pytest/npm/import/lint Beispielmeldungen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T03.02",
       "title": "Optionaler Worker/LLM Analysemodus mit Prompt Contract",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "type": "ai",
@@ -303,7 +303,7 @@
         "Antwort wird gegen HelpcenterAnalysis-v1 validiert.",
         "Ungültige LLM-Antwort führt zu degraded report statt Crash."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T03.03",
@@ -710,13 +710,13 @@
   "tasks_status_summary": {
     "total": 29,
     "by_status": {
-      "todo": 24,
+      "todo": 19,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 5
+      "done": 10
     },
-    "progress_percent_done": 17.24,
+    "progress_percent_done": 34.48,
     "by_priority": {
       "P1": 22,
       "P2": 7,
@@ -729,15 +729,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 4,
-      "remaining": 11
+      "done": 7,
+      "remaining": 8
     },
     "milestones": {
       "total": 8,
-      "todo": 6,
+      "todo": 5,
       "in_progress": 1,
       "blocked": 0,
-      "done": 1
+      "done": 2
     }
   },
   "tasks_type_summary": {
@@ -774,7 +774,35 @@
       "adapter": {
         "total": 2,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "github": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "analysis": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
@@ -783,49 +811,21 @@
         "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 50.0
-      },
-      "github": {
-        "total": 2,
-        "by_status": {
-          "todo": 2,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
-      },
-      "analysis": {
-        "total": 1,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "ai": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "codecompass": {
         "total": 1,
@@ -957,13 +957,13 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 24,
+    "todo_remaining": 19,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 5,
-    "count_based_percent": 17.2,
-    "weighted_percent": 17.1
+    "done": 10,
+    "count_based_percent": 34.5,
+    "weighted_percent": 36.2
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -1008,10 +1008,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 52.5,
-    "done_weight": 9.0,
-    "remaining_weight": 43.5,
+    "done_weight": 19.0,
+    "remaining_weight": 33.5,
     "blocked_weight": 0.0,
-    "weighted_percent": 17.1
+    "weighted_percent": 36.2
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1025,19 +1025,19 @@
       },
       "M02": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 25.0,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M03": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 50.0,
+        "weighted_percent": 61.5,
+        "status": "in_progress"
       },
       "M04": {
         "total_tasks": 4,
@@ -1084,10 +1084,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T21:47:08.682357Z",
+    "generated_at": "2026-05-26T21:50:36.068218Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "ef1e1914fd05d0b3f36b87bf12acd8838f2dad5f43907eafcd1d31612bc7b28f",
+    "source_hash": "b0a4c5d87228bd64cfab5a7b5195ac4455caf846d5e6168005c5e6ab9a9c2937",
     "is_stale": false
   }
 }
