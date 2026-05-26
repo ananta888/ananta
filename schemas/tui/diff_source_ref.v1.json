@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/tui/diff_source_ref.v1.json",
+  "title": "DiffSourceRef v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "source_ref_id",
+    "source_kind",
+    "display_name",
+    "locator"
+  ],
+  "properties": {
+    "schema": {
+      "const": "diff_source_ref.v1"
+    },
+    "source_ref_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_kind": {
+      "type": "string",
+      "enum": [
+        "working_tree",
+        "git_ref",
+        "git_diff",
+        "file_path",
+        "artifact_ref",
+        "goal_output_artifact",
+        "task_output",
+        "snapshot",
+        "inline_text"
+      ]
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "locator": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "content_hash": {
+      "type": "string",
+      "minLength": 8
+    },
+    "provenance_ref": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
