@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/config/config_snapshot.v1.json",
+  "title": "Config Snapshot v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "config_snapshot_id",
+    "config_kind",
+    "source_path_or_ref",
+    "scope",
+    "created_at",
+    "config_hash",
+    "redacted_config_hash"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "config_snapshot.v1"
+    },
+    "config_snapshot_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128
+    },
+    "config_kind": {
+      "type": "string",
+      "enum": [
+        "worker_config",
+        "runtime_config",
+        "model_config",
+        "policy_config",
+        "prompt_config"
+      ]
+    },
+    "source_path_or_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "config_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "redacted_config_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "redacted_ref": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

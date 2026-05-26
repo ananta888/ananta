@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/artifacts/execution_provenance.v1.json",
+  "title": "Execution Provenance v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "provenance_id",
+    "goal_id",
+    "task_id",
+    "worker_id",
+    "worker_kind",
+    "runtime_target_ref",
+    "model_ref",
+    "config_refs",
+    "prompt_refs",
+    "input_usage_refs",
+    "output_artifact_refs",
+    "created_at"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "execution_provenance.v1"
+    },
+    "provenance_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "execution_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "worker_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "worker_kind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "runtime_target_ref": {
+      "type": "object",
+      "required": [
+        "runtime_type",
+        "location"
+      ],
+      "properties": {
+        "runtime_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "location": {
+          "type": "string",
+          "enum": [
+            "local",
+            "on_device",
+            "container",
+            "cloud",
+            "external"
+          ]
+        },
+        "sandbox_ref": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "snapshot_id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "runtime_hash": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "additionalProperties": false
+    },
+    "model_ref": {
+      "type": "object",
+      "required": [
+        "provider_id",
+        "model_id"
+      ],
+      "properties": {
+        "provider_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "model_version": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "model_hash": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "additionalProperties": false
+    },
+    "config_refs": {
+      "type": "object",
+      "required": [
+        "worker_config_ref",
+        "runtime_config_ref",
+        "model_config_ref",
+        "policy_config_ref"
+      ],
+      "properties": {
+        "worker_config_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "runtime_config_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "model_config_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "policy_config_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "additionalProperties": false
+    },
+    "prompt_refs": {
+      "type": "object",
+      "properties": {
+        "prompt_template_ref": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "prompt_template_version": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "prompt_template_hash": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "prompt_variables_hash": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "final_prompt_hash": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "redacted_prompt_ref": {
+          "type": "string",
+          "maxLength": 240
+        }
+      },
+      "additionalProperties": false
+    },
+    "input_usage_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "uniqueItems": true
+    },
+    "output_artifact_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "uniqueItems": true
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

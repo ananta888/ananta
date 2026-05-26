@@ -44,7 +44,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält provenance_id, goal_id, task_id, worker_id, worker_kind, runtime_target_ref, model_ref, config_refs, prompt_refs, input_usage_refs, output_artifact_refs, created_at.",
             "task_id ist Pflicht für alle task-basierten Outputs.",
@@ -68,7 +68,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "SourceArtifactUsage enthält task_id, worker_id, execution_id und provenance_id.",
             "SourceArtifactUsage enthält prompt_template_ref oder verweist auf ExecutionProvenance.prompt_refs.",
@@ -89,7 +89,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "GoalOutputArtifact enthält provenance_id als Pflichtfeld für Worker-generierte Outputs.",
             "GoalOutputArtifact enthält zusätzlich task_id, worker_id und execution_id für schnelle UI-Anzeige.",
@@ -117,7 +117,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält config_snapshot_id, config_kind, source_path_or_ref, scope, created_at, config_hash und redacted_config_hash.",
             "config_kind enthält worker_config, runtime_config, model_config, policy_config, prompt_config.",
@@ -139,7 +139,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält prompt_template_ref, template_path, template_version, template_hash, renderer, created_at und expected_output_schema_ref.",
             "Template-Hash ist stabil für identischen Inhalt.",

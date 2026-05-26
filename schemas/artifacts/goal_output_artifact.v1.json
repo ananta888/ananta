@@ -37,6 +37,21 @@
       "type": "string",
       "maxLength": 120
     },
+    "execution_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "provenance_id": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "provenance_kind": {
+      "type": "string",
+      "enum": [
+        "worker_execution",
+        "manual"
+      ]
+    },
     "artifact_type": {
       "type": "string",
       "enum": [
@@ -94,5 +109,24 @@
       "type": "object"
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "provenance_kind": {
+            "const": "worker_execution"
+          }
+        },
+        "required": [
+          "provenance_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "provenance_id"
+        ]
+      }
+    }
+  ],
   "additionalProperties": false
 }

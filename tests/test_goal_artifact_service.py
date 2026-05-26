@@ -93,11 +93,15 @@ def test_service_happy_path_with_output_provenance(tmp_path: Path) -> None:
     goal_id = "goal-happy"
     service.create_grant(goal_id=goal_id, grant=_grant(goal_id))
     usage = service.record_usage(goal_id=goal_id, usage=_usage(goal_id))
-    service.record_output_artifact(goal_id=goal_id, output_artifact=_output(goal_id, input_refs=[usage["usage_id"]]))
+    output = service.record_output_artifact(goal_id=goal_id, output_artifact=_output(goal_id, input_refs=[usage["usage_id"]]))
     graph = service.get_goal_graph(goal_id)
     assert len(graph["source_grants"]) == 1
     assert len(graph["source_usages"]) == 1
     assert len(graph["output_artifacts"]) == 1
+    assert usage["execution_id"].startswith("exec-")
+    assert usage["provenance_id"].startswith("prov-")
+    assert output["provenance_kind"] == "worker_execution"
+    assert output["provenance_id"].startswith("prov-")
     assert any(edge["edge_kind"] == "grant_to_usage" for edge in graph["edges"])
     assert any(edge["edge_kind"] == "usage_to_output" for edge in graph["edges"])
 
