@@ -14,13 +14,22 @@ def _validator(path: Path) -> Draft202012Validator:
 
 def test_source_schemas_validate_examples() -> None:
     descriptor_validator = _validator(Path("schemas/sources/source_descriptor.v1.json"))
+    source_pack_validator = _validator(Path("schemas/sources/source_pack.v1.json"))
     snapshot_validator = _validator(Path("schemas/sources/source_snapshot.v1.json"))
     reference_validator = _validator(Path("schemas/sources/source_reference.v1.json"))
 
+    eclipse_platform = json.loads(Path("sources/eclipse/eclipse-platform.source_descriptor.json").read_text(encoding="utf-8"))
+    eclipse_jdt = json.loads(Path("sources/eclipse/eclipse-jdt-core.source_descriptor.json").read_text(encoding="utf-8"))
+    eclipse_pde = json.loads(Path("sources/eclipse/eclipse-pde.source_descriptor.json").read_text(encoding="utf-8"))
     keycloak = json.loads(Path("sources/keycloak/source_descriptor.json").read_text(encoding="utf-8"))
     wikipedia = json.loads(Path("sources/wikipedia/source_descriptor.json").read_text(encoding="utf-8"))
+    source_pack = json.loads(Path("sources/source-packs/ananta-dev-default.source-pack.json").read_text(encoding="utf-8"))
+    assert list(descriptor_validator.iter_errors(eclipse_platform)) == []
+    assert list(descriptor_validator.iter_errors(eclipse_jdt)) == []
+    assert list(descriptor_validator.iter_errors(eclipse_pde)) == []
     assert list(descriptor_validator.iter_errors(keycloak)) == []
     assert list(descriptor_validator.iter_errors(wikipedia)) == []
+    assert list(source_pack_validator.iter_errors(source_pack)) == []
 
     snapshot = {
         "schema": "source_snapshot.v1",
@@ -72,4 +81,3 @@ def test_source_reference_requires_source_and_snapshot_ids() -> None:
         "retrieved_at": "2026-05-26T00:00:00Z"
     }
     assert list(reference_validator.iter_errors(payload))
-

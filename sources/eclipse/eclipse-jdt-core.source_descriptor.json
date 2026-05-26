@@ -1,0 +1,51 @@
+{
+  "schema": "source_descriptor.v1",
+  "source_id": "eclipse-jdt-core-official-source",
+  "source_type": "web_doc",
+  "display_name": "Eclipse JDT Core (GitHub Mirror)",
+  "enabled": true,
+  "trust_level": "official_project_repository",
+  "fetch_source": {
+    "url": "https://github.com/eclipse-jdt/eclipse.jdt.core",
+    "method": "GET",
+    "refresh_interval": "24h",
+    "cache_policy": "etag_and_commit_hash",
+    "expected_format": "git",
+    "additional_urls": [
+      "https://projects.eclipse.org/projects/eclipse.jdt"
+    ]
+  },
+  "citation_source": {
+    "canonical_url": "https://github.com/eclipse-jdt/eclipse.jdt.core",
+    "title": "Eclipse JDT Core Source Repository",
+    "publisher": "Eclipse JDT Project / Eclipse Foundation",
+    "version_label": "main",
+    "retrieved_at": "2026-05-26T00:00:00Z",
+    "license_ref": "EPL-2.0",
+    "citation_text": "Eclipse JDT Core source repository, Eclipse Foundation, EPL-2.0."
+  },
+  "license": {
+    "name": "Eclipse Public License 2.0",
+    "ref": "EPL-2.0"
+  },
+  "snapshot_policy": {
+    "immutable": true,
+    "dedupe_by_hash": true
+  },
+  "retention_policy": {
+    "keep_latest": 20,
+    "max_age_days": 365
+  },
+  "extensions": {
+    "source_kind": "git_repository",
+    "refresh_policy": "manual_or_scheduled",
+    "tooling_domain": "java_compiler_ast_formatter_search",
+    "codecompass_focus_symbols": [
+      "ASTParser",
+      "JavaCore",
+      "SearchEngine",
+      "CodeFormatter",
+      "org.eclipse.jdt.internal.compiler"
+    ]
+  }
+}

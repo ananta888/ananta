@@ -10,6 +10,9 @@ ROOT = Path(__file__).resolve().parents[2]
 def load_builtin_source_descriptors() -> list[dict[str, Any]]:
     descriptors: list[dict[str, Any]] = []
     for path in (
+        ROOT / "sources" / "eclipse" / "eclipse-platform.source_descriptor.json",
+        ROOT / "sources" / "eclipse" / "eclipse-jdt-core.source_descriptor.json",
+        ROOT / "sources" / "eclipse" / "eclipse-pde.source_descriptor.json",
         ROOT / "sources" / "keycloak" / "source_descriptor.json",
         ROOT / "sources" / "wikipedia" / "source_descriptor.json",
     ):
@@ -19,4 +22,3 @@ def load_builtin_source_descriptors() -> list[dict[str, Any]]:
         if isinstance(payload, dict):
             descriptors.append(payload)
     return descriptors
-
