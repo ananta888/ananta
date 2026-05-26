@@ -20,6 +20,10 @@ Old 2D halfblock (deprecated):
 
 Old 3D wireframe (deprecated):
     .venv/bin/python scripts/smoke_logo.py --3d
+
+Pixel demos (current pipeline):
+    .venv/bin/python scripts/smoke_logo.py --pixel-2d-demo
+    .venv/bin/python scripts/smoke_logo.py --pixel-3d-demo
 """
 from __future__ import annotations
 
@@ -576,6 +580,8 @@ def check_header_smoke() -> bool:
         {"ANANTA_TUI_LOGO_RENDERER": "ansi"},
         {"ANANTA_TUI_LOGO_RENDERER": "auto"},
         {"ANANTA_TUI_LOGO": "0"},
+        {"ANANTA_TUI_GRAPHICS": "kitty", "ANANTA_TUI_LOGO_RENDERER": "kitty"},
+        {"ANANTA_TUI_GRAPHICS": "sixel", "ANANTA_TUI_LOGO_RENDERER": "sixel"},
     ]
     for env_patch in combos:
         old = {k: os.environ.get(k) for k in env_patch.keys()}
@@ -601,6 +607,104 @@ def check_header_smoke() -> bool:
     return True
 
 
+def run_pixel_2d_demo(*, width: int = 120, height: int = 32, backend: str = "auto", quality: str = "high") -> str:
+    """Run a real TUI render-once intro in pixel mode and return output."""
+    from agent.cli.main import _run_tui
+
+    buf = io.StringIO()
+    env_patch = {
+        "ANANTA_TUI_GFX_DEBUG": "1",
+    }
+    old = {k: os.environ.get(k) for k in env_patch.keys()}
+    try:
+        for key, value in env_patch.items():
+            os.environ[key] = value
+        with contextlib.redirect_stdout(buf):
+            rc = _run_tui(
+                [
+                    "--render-once",
+                    "--skip-splash",
+                    "--splash-frame",
+                    "pixel:intro",
+                    "--width",
+                    str(width),
+                    "--height",
+                    str(height),
+                    "--graphics",
+                    backend,
+                    "--quality",
+                    quality,
+                    "--target-fps",
+                    "15",
+                ]
+            )
+        if rc != 0:
+            return ""
+        return buf.getvalue()
+    finally:
+        for key, previous in old.items():
+            if previous is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = previous
+
+
+def run_pixel_3d_demo(
+    *,
+    width: int = 120,
+    height: int = 32,
+    backend: str = "auto",
+    quality: str = "high",
+    renderer_3d: str = "auto",
+    scene: str = "demo-cube",
+) -> str:
+    """Run a real TUI render-once 3D frame and return output."""
+    from agent.cli.main import _run_tui
+
+    buf = io.StringIO()
+    env_patch = {
+        "ANANTA_TUI_GFX_DEBUG": "1",
+    }
+    old = {k: os.environ.get(k) for k in env_patch.keys()}
+    try:
+        for key, value in env_patch.items():
+            os.environ[key] = value
+        with contextlib.redirect_stdout(buf):
+            rc = _run_tui(
+                [
+                    "--render-once",
+                    "--skip-splash",
+                    "--splash-frame",
+                    "pixel:intro",
+                    "--width",
+                    str(width),
+                    "--height",
+                    str(height),
+                    "--graphics",
+                    backend,
+                    "--quality",
+                    quality,
+                    "--enable-3d",
+                    "--3d-renderer",
+                    renderer_3d,
+                    "--scene",
+                    scene,
+                    "--target-fps",
+                    "10",
+                    "--force-pixel-graphics",
+                ]
+            )
+        if rc != 0:
+            return ""
+        return buf.getvalue()
+    finally:
+        for key, previous in old.items():
+            if previous is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = previous
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main(argv: list[str] | None = None) -> int:
@@ -612,6 +716,8 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--record",  dest="mode_rec",  action="store_true", help="record 3D to cast")
     mode.add_argument("--check",   dest="mode_check",action="store_true", help="headless CI check")
     mode.add_argument("--header-check", dest="mode_header_check", action="store_true", help="CI-safe header render smoke")
+    mode.add_argument("--pixel-2d-demo", dest="mode_pixel_2d_demo", action="store_true", help="render-once TUI pixel 2D demo")
+    mode.add_argument("--pixel-3d-demo", dest="mode_pixel_3d_demo", action="store_true", help="render-once TUI pixel 3D demo")
 
     ap.add_argument("--preset",      default="rotate_in",
                     choices=["rotate_in", "snake_orbit", "depth_pulse"])
@@ -627,6 +733,22 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.mode_header_check:
         return 0 if check_header_smoke() else 1
+
+    if args.mode_pixel_2d_demo:
+        out = run_pixel_2d_demo(width=args.width or 120, height=args.height or 32)
+        if not out.strip():
+            print("[smoke_logo] pixel-2d-demo failed", file=sys.stderr)
+            return 1
+        print(out)
+        return 0
+
+    if args.mode_pixel_3d_demo:
+        out = run_pixel_3d_demo(width=args.width or 120, height=args.height or 32)
+        if not out.strip():
+            print("[smoke_logo] pixel-3d-demo failed", file=sys.stderr)
+            return 1
+        print(out)
+        return 0
 
     if args.mode_rec:
         record(fps=args.fps)

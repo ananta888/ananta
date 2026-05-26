@@ -92,6 +92,7 @@ def select_graphics_backend(
     capabilities: GraphicsCapabilities | None = None,
 ) -> GraphicsBackendName:
     values = env or os.environ
+    force_pixel = values.get("ANANTA_TUI_FORCE_PIXEL_GRAPHICS", "").strip().lower() in {"1", "true", "yes", "on"}
     forced = (values.get("ANANTA_TUI_GRAPHICS", "").strip().lower() or values.get("ANANTA_TUI_LOGO_RENDERER", "").strip().lower())
     if forced in {"kitty", "sixel", "iterm2", "halfblock", "ascii"}:
         return forced  # explicit override wins
@@ -108,6 +109,8 @@ def select_graphics_backend(
     if caps.iterm2_inline:
         return "iterm2"
     if caps.truecolor:
+        return "halfblock"
+    if force_pixel:
         return "halfblock"
     return "ascii"
 

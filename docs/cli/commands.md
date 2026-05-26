@@ -164,7 +164,7 @@ ananta tui --open app.py --workspace /path/to/project
 
 Beim Start zeigt die Operator TUI standardmaessig das Ananta-Logo fullscreen an.
 Nach 2 Sekunden geht es fließend in einen kompakten 8-zeiligen Header ueber
-(Logo links, Status rechts).
+(Snake/Status-Header mit optionalem Pixel-Rendering).
 
 | CLI Flag | Default | Beschreibung |
 |----------|---------|-------------|
@@ -173,6 +173,16 @@ Nach 2 Sekunden geht es fließend in einen kompakten 8-zeiligen Header ueber
 | `--logo-renderer` | `auto` | Persistentes Header-Logo: `auto`, `ansi`, `sixel`, `kitty`, `none`. |
 | `--logo-animation` | `pulse` | Header-Animation: `static`, `pulse`, `shimmer`, `rotate_hint`. |
 | `--logo-fps` | `6` | FPS fuer Header-Animation (begrenzt auf `1..16`). |
+| `--graphics` | `auto` | Grafik-Backend: `auto`, `kitty`, `sixel`, `iterm2`, `halfblock`, `ascii`, `none`. |
+| `--quality` | `medium` | Qualitaetsprofil: `low`, `medium`, `high`, `ultra`. |
+| `--frame-width` | auto | Zielbreite in Pixeln fuer Pixel-Frames. |
+| `--frame-height` | auto | Zielhoehe in Pixeln fuer Pixel-Frames. |
+| `--target-fps` | auto | Ziel-FPS fuer animierte Pixel-Ausgabe. |
+| `--oversampling-factor` | auto | SVG-Oversampling-Faktor (`1..8`). |
+| `--force-pixel-graphics` | off | Verhindert ASCII-Fallback wenn moeglich. |
+| `--enable-3d` | off | Aktiviert Offscreen-3D-Headerpfad. |
+| `--scene` | `demo-cube` | 3D-Szenen-ID fuer Offscreen-Render. |
+| `--3d-renderer` | `auto` | 3D-Renderer: `auto`, `moderngl`, `raylib`. |
 | `--no-logo` | off | Persistentes Header-Logo komplett deaktivieren. |
 
 | Umgebungsvariable | Wirkung |
@@ -183,6 +193,16 @@ Nach 2 Sekunden geht es fließend in einen kompakten 8-zeiligen Header ueber
 | `ANANTA_TUI_LOGO_RENDERER=auto|ansi|sixel|kitty|none` | Renderer-Auswahl fuer persistentes Header-Logo. |
 | `ANANTA_TUI_LOGO_ANIMATION=static|pulse|shimmer|rotate_hint` | Animationspreset fuer persistentes Header-Logo. |
 | `ANANTA_TUI_LOGO_FPS=<n>` | FPS-Limit der Header-Animation (`1..16`). |
+| `ANANTA_TUI_GRAPHICS=<mode>` | Erzwingt Grafik-Backend (`auto/kitty/sixel/iterm2/halfblock/ascii/none`). |
+| `ANANTA_TUI_LOGO_QUALITY=<q>` | Qualitaetsprofil (`low/medium/high/ultra`). |
+| `ANANTA_TUI_FRAME_WIDTH=<px>` | Ziel-Framebreite in Pixeln. |
+| `ANANTA_TUI_FRAME_HEIGHT=<px>` | Ziel-Framehoehe in Pixeln. |
+| `ANANTA_TUI_TARGET_FPS=<n>` | Ziel-FPS fuer Pixel-Rendering. |
+| `ANANTA_TUI_LOGO_OVERSAMPLING=<1..8>` | SVG-Oversampling explizit setzen. |
+| `ANANTA_TUI_FORCE_PIXEL_GRAPHICS=1` | Vermeidet ASCII-Fallback wenn moeglich. |
+| `ANANTA_TUI_ENABLE_3D=1` | Offscreen-3D aktivieren. |
+| `ANANTA_TUI_3D_SCENE=<id>` | 3D-Szene setzen. |
+| `ANANTA_TUI_3D_RENDERER=auto|moderngl|raylib` | 3D-Rendererwahl. |
 | `NO_COLOR=1` | Keine ANSI-Farben im Splash/Header. |
 
 Waehrend der Fullscreen-Phase kann jede Taste gedrueckt werden, um sofort
