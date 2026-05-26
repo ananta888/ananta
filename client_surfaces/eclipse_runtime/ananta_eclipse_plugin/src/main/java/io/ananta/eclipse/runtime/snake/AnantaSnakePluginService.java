@@ -74,6 +74,8 @@ public final class AnantaSnakePluginService {
     private String lastContextSummary = "none";
     private String lastAskResult = "not_requested";
     private String lastPolicyReasonCode = "none";
+    private boolean temporarilyHidden;
+    private boolean presentationModeActive;
 
     public AnantaSnakeState snapshot() {
         synchronized (lock) {
@@ -141,6 +143,41 @@ public final class AnantaSnakePluginService {
         }
     }
 
+    public boolean isTemporarilyHidden() {
+        synchronized (lock) {
+            return temporarilyHidden;
+        }
+    }
+
+    public boolean isPresentationModeActive() {
+        synchronized (lock) {
+            return presentationModeActive;
+        }
+    }
+
+    public boolean isDoNotDisturbActive() {
+        synchronized (lock) {
+            return uiPreferences.doNotDisturbMode();
+        }
+    }
+
+    public void toggleTemporarilyHidden() {
+        synchronized (lock) {
+            temporarilyHidden = !temporarilyHidden;
+        }
+    }
+
+    public void setPresentationMode(boolean active) {
+        synchronized (lock) {
+            presentationModeActive = active;
+            if (presentationModeActive) {
+                state = state.withTickRate(INACTIVE_TICK_RATE_FPS).withModes("paused", state.getContextMode());
+            } else {
+                state = state.withTickRate(configuredActiveTickRateFps).withModes("follow_mouse", state.getContextMode());
+            }
+        }
+    }
+
     public void resetContextAuthorization() {
         synchronized (lock) {
             AnantaSnakePrivacySettings reset = AnantaSnakePrivacySettings.safeDefaults();
@@ -150,6 +187,7 @@ public final class AnantaSnakePluginService {
                     uiPreferences.followDistancePx(),
                     uiPreferences.overlayOpacityPercent(),
                     uiPreferences.localOnlyMode(),
+                    uiPreferences.doNotDisturbMode(),
                     reset
             );
             lastPolicyReasonCode = "context_grants_reset";
@@ -170,6 +208,9 @@ public final class AnantaSnakePluginService {
             if (!input.snakeEnabledByDefault()) {
                 stop();
                 state = state.withEnabled(false);
+            }
+            if (input.doNotDisturbMode()) {
+                state = state.withTickRate(INACTIVE_TICK_RATE_FPS);
             }
             return state;
         }
@@ -435,6 +476,10 @@ public final class AnantaSnakePluginService {
             List<String> artifactRefs
     ) {
         synchronized (lock) {
+            if (uiPreferences.doNotDisturbMode() || presentationModeActive) {
+                lastPolicyReasonCode = "do_not_disturb_active";
+                return;
+            }
             queueContextEnvelopeDispatchLocked(policyDecisionRef, deniedContextRefs, artifactRefs);
         }
     }
@@ -456,6 +501,10 @@ public final class AnantaSnakePluginService {
         AnantaApiClient apiClient;
         String normalizedGoal = sanitizeFallback(goalText, "Ask Ananta Snake");
         synchronized (lock) {
+            if (uiPreferences.doNotDisturbMode() || presentationModeActive) {
+                lastAskResult = "do_not_disturb_active";
+                return localOnlyResponse("do_not_disturb_active");
+            }
             envelopeJson = buildContextEnvelopeLocked("policy_default_deny", List.of(), List.of());
             if (!hubConnectionConfig.enabled() || hubApiClient == null) {
                 state = state.withHubConnectionState("local_only");
@@ -515,6 +564,10 @@ public final class AnantaSnakePluginService {
             List<String> deniedContextRefs,
             List<String> artifactRefs
     ) {
+        if (uiPreferences.doNotDisturbMode() || presentationModeActive) {
+            lastPolicyReasonCode = "do_not_disturb_active";
+            return;
+        }
         pendingContextEnvelopeJson = buildContextEnvelopeLocked(policyDecisionRef, deniedContextRefs, artifactRefs);
         if (debouncedDispatchFuture != null) {
             debouncedDispatchFuture.cancel(false);
@@ -555,6 +608,9 @@ public final class AnantaSnakePluginService {
         lastContextSummary = "zone=" + state.getIdeZone()
                 + ", intent=" + latestPredictionEvent.intentKind()
                 + ", release_mode=" + contextReleaseMode()
+                + ", hidden=" + temporarilyHidden
+                + ", dnd=" + uiPreferences.doNotDisturbMode()
+                + ", presentation=" + presentationModeActive
                 + ", denied=" + String.join("|", deniedRefs);
         return lastContextEnvelopeJson;
     }

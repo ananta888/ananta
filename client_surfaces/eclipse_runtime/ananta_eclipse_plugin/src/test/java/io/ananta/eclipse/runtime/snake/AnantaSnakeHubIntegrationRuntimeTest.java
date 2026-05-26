@@ -111,4 +111,18 @@ class AnantaSnakeHubIntegrationRuntimeTest {
             }
         }
     }
+
+    @Test
+    void unreachableHubFallsBackToOfflineState() {
+        AnantaSnakePluginService service = new AnantaSnakePluginService();
+        try {
+            ClientProfile profile = new ClientProfile("snake", "http://127.0.0.1:9", "session_token", "local", "token", 3);
+            service.applyHubProfile(profile, true);
+            ClientResponse registered = service.registerSnakeClient("ws-demo", "Ananta Snake");
+            assertFalse(registered.isOk());
+            assertEquals("offline", service.snapshot().getHubConnectionState());
+        } finally {
+            service.shutdown();
+        }
+    }
 }

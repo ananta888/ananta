@@ -166,6 +166,7 @@ class AnantaSnakePluginServiceTest {
                             40,
                             80,
                             true,
+                            false,
                             new AnantaSnakePrivacySettings(true, false, false)
                     )
             );
@@ -177,6 +178,39 @@ class AnantaSnakePluginServiceTest {
             service.resetContextAuthorization();
             assertEquals("metadata_only", service.contextReleaseMode());
             assertEquals("context_grants_reset", service.lastPolicyReasonCode());
+        } finally {
+            service.shutdown();
+        }
+    }
+
+    @Test
+    void doNotDisturbAndPresentationModesReduceActivityAndKeepFlags() {
+        AnantaSnakePluginService service = new AnantaSnakePluginService();
+        try {
+            service.configureUiPreferences(
+                    new AnantaSnakeUiPreferences(
+                            true,
+                            20,
+                            24,
+                            60,
+                            true,
+                            true,
+                            AnantaSnakePrivacySettings.safeDefaults()
+                    )
+            );
+            assertTrue(service.isDoNotDisturbActive());
+            assertEquals(5, service.snapshot().getTickRateFps());
+
+            service.setPresentationMode(true);
+            assertTrue(service.isPresentationModeActive());
+            assertEquals("paused", service.snapshot().getFollowMode());
+            service.setPresentationMode(false);
+            assertFalse(service.isPresentationModeActive());
+
+            service.toggleTemporarilyHidden();
+            assertTrue(service.isTemporarilyHidden());
+            service.toggleTemporarilyHidden();
+            assertFalse(service.isTemporarilyHidden());
         } finally {
             service.shutdown();
         }

@@ -13,9 +13,12 @@ import io.ananta.eclipse.runtime.views.EclipseArtifactRuntimeView;
 import io.ananta.eclipse.runtime.views.EclipseApprovalRuntimeView;
 import io.ananta.eclipse.runtime.views.EclipseRepairRuntimeView;
 import io.ananta.eclipse.runtime.views.EclipseViewsExtensionRegistry;
+import io.ananta.eclipse.runtime.snake.AnantaSnakeOverlayCanvas;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -26,6 +29,18 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EclipseRuntimeIntegrationUiTest {
+    @Test
+    void snakePluginDescriptorAndOverlayPolicyRemainUiSafeForHeadlessHarness() throws IOException {
+        String pluginXml = Files.readString(Path.of("plugin.xml"));
+        assertTrue(pluginXml.contains("io.ananta.eclipse.command.snake_toggle"));
+        assertTrue(pluginXml.contains("io.ananta.eclipse.command.snake_ask"));
+        assertTrue(pluginXml.contains("io.ananta.eclipse.view.snake"));
+        AnantaSnakeOverlayCanvas overlayCanvas = new AnantaSnakeOverlayCanvas();
+        assertTrue(overlayCanvas.isInputPassthrough());
+        overlayCanvas.setOpacityPercent(42);
+        assertEquals(42, overlayCanvas.opacityPercent());
+    }
+
     @Test
     void commandExecutionAndMainViewsLoadFromRuntime() throws IOException {
         try (StubBackendServer backend = StubBackendServer.start()) {

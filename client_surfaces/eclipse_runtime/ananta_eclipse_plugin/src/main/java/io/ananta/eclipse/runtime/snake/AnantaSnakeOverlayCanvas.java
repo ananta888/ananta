@@ -20,8 +20,9 @@ public final class AnantaSnakeOverlayCanvas {
         if (canvas != null && !canvas.isDisposed()) {
             return;
         }
-        canvas = new Canvas(parent, SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND);
+        canvas = new Canvas(parent, SWT.DOUBLE_BUFFERED | SWT.NO_BACKGROUND | SWT.NO_FOCUS);
         canvas.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+        canvas.setEnabled(false);
         paintListener = this::render;
         canvas.addPaintListener(paintListener);
     }
@@ -49,6 +50,14 @@ public final class AnantaSnakeOverlayCanvas {
         if (canvas != null && !canvas.isDisposed()) {
             canvas.redraw();
         }
+    }
+
+    public int opacityPercent() {
+        return opacityPercent;
+    }
+
+    public boolean isInputPassthrough() {
+        return canvas == null || !canvas.getEnabled();
     }
 
     private void render(PaintEvent event) {
