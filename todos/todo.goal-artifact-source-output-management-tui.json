@@ -640,7 +640,7 @@
           "priority": "P2",
           "effort": "S",
           "depends_on": ["T04.02", "T04.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Doku erklärt `:goal artifacts`, candidates, grant, revoke, detail und provenance.",
             "Doku erklärt Unterschied zwischen freigegeben und genutzt.",

@@ -37,6 +37,26 @@ def _require_goal(goal_id: str) -> None:
         raise NotFoundError("goal_not_found")
 
 
+def _redact_provenance(payload: dict, *, include_raw_prompt: bool) -> dict:
+    data = dict(payload or {})
+    prompt_refs = dict(data.get("prompt_refs") or {})
+    config_refs = dict(data.get("config_refs") or {})
+    data["config_refs"] = {
+        "worker_config_ref": str(config_refs.get("worker_config_ref") or ""),
+        "runtime_config_ref": str(config_refs.get("runtime_config_ref") or ""),
+        "model_config_ref": str(config_refs.get("model_config_ref") or ""),
+        "policy_config_ref": str(config_refs.get("policy_config_ref") or ""),
+    }
+    if include_raw_prompt:
+        data["prompt_access"] = {
+            "raw_prompt": "policy_blocked",
+            "reason_code": "raw_prompt_access_blocked",
+        }
+    prompt_refs.pop("raw_prompt_stored", None)
+    data["prompt_refs"] = prompt_refs
+    return data
+
+
 @goal_artifacts_bp.route("/goals/<goal_id>/artifacts/graph", methods=["GET"])
 @check_auth
 def get_goal_artifact_graph(goal_id: str):
@@ -122,3 +142,32 @@ def get_goal_citation_bundle(goal_id: str):
     _require_goal(goal_id)
     bundle = _citation_bundle_service().build_bundle(goal_id=goal_id)
     return api_response(data=bundle)
+
+
+@goal_artifacts_bp.route("/goals/<goal_id>/artifacts/outputs/<output_id>/provenance", methods=["GET"])
+@check_auth
+def get_goal_output_provenance(goal_id: str, output_id: str):
+    _require_goal(goal_id)
+    graph = _service().get_goal_graph(goal_id)
+    output = next((row for row in list(graph.get("output_artifacts") or []) if str(row.get("output_artifact_id") or "") == str(output_id)), None)
+    if output is None:
+        raise NotFoundError("output_artifact_not_found")
+    provenance_id = str(output.get("provenance_id") or "").strip()
+    if not provenance_id:
+        raise NotFoundError("provenance_not_found")
+    provenance = _service().get_execution_provenance(goal_id=goal_id, provenance_id=provenance_id)
+    if provenance is None:
+        raise NotFoundError("provenance_not_found")
+    include_raw_prompt = str(request.args.get("include_raw_prompt", "")).strip().lower() in {"1", "true", "yes", "on"}
+    return api_response(data=_redact_provenance(provenance, include_raw_prompt=include_raw_prompt))
+
+
+@goal_artifacts_bp.route("/goals/<goal_id>/artifacts/executions/<provenance_id>", methods=["GET"])
+@check_auth
+def get_goal_execution_provenance(goal_id: str, provenance_id: str):
+    _require_goal(goal_id)
+    provenance = _service().get_execution_provenance(goal_id=goal_id, provenance_id=provenance_id)
+    if provenance is None:
+        raise NotFoundError("provenance_not_found")
+    include_raw_prompt = str(request.args.get("include_raw_prompt", "")).strip().lower() in {"1", "true", "yes", "on"}
+    return api_response(data=_redact_provenance(provenance, include_raw_prompt=include_raw_prompt))
