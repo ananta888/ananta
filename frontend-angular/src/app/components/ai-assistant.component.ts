@@ -12,7 +12,7 @@ import { AiAssistantControlsComponent } from './ai-assistant-controls.component'
 import { AiAssistantDomainService } from './ai-assistant-domain.service';
 import { AiAssistantMessageListComponent } from './ai-assistant-message-list.component';
 import { AiAssistantStorageService } from './ai-assistant-storage.service';
-import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from './ai-assistant.types';
+import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSource } from './ai-assistant.types';
 
 @Component({
   standalone: true,
@@ -25,7 +25,7 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
         class="assistant-launcher"
         data-testid="assistant-dock-launcher"
         (click)="showDock()">
-        AI Assistant
+        AI Assistant ({{ chatThreads.length }})
       </button>
     } @else {
       <div class="ai-assistant-container" data-testid="assistant-dock" [class.minimized]="minimized" [attr.data-state]="minimized ? 'minimized' : 'expanded'">
@@ -79,6 +79,29 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
               (cliBackendChange)="setCliBackend($event)">
             </app-ai-assistant-controls>
           </div>
+          <div class="dock-footer" data-testid="assistant-dock-footer">
+            <div class="dock-footer-actions">
+              <button type="button" class="mini-footer-btn" (click)="toggleThreadSwitcher()">
+                Chats {{ threadSwitcherOpen ? 'schliessen' : 'anzeigen' }}
+              </button>
+              <button type="button" class="mini-footer-btn primary" (click)="createThread()">
+                + Neuer Chat
+              </button>
+            </div>
+            @if (threadSwitcherOpen) {
+              <div class="thread-switcher">
+                @for (thread of chatThreads; track thread.id) {
+                  <button
+                    type="button"
+                    class="thread-chip"
+                    [class.active]="thread.id === activeThreadId"
+                    (click)="switchThread(thread.id)">
+                    {{ thread.title }}
+                  </button>
+                }
+              </div>
+            }
+          </div>
         }
       </div>
     }
@@ -87,7 +110,7 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
       .assistant-launcher {
         position: fixed;
         right: 16px;
-        bottom: 16px;
+        bottom: 20px;
         z-index: 1000;
         border: 1px solid var(--border);
         border-radius: 999px;
@@ -111,6 +134,8 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
         flex-direction: column;
         transition: height 0.2s ease;
         color: var(--fg);
+        height: 560px;
+        max-height: 78dvh;
       }
       .ai-assistant-container.minimized {
         height: 40px;
@@ -127,10 +152,60 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
         font-weight: bold;
       }
       .content {
-        height: 450px;
+        flex: 1 1 auto;
+        min-height: 0;
         display: flex;
         flex-direction: column;
         padding: 10px;
+      }
+      .dock-footer {
+        border-top: 1px solid var(--border);
+        padding: 8px 10px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-end;
+        background: color-mix(in srgb, var(--card-bg) 92%, #000 8%);
+      }
+      .dock-footer-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .mini-footer-btn {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 4px 10px;
+        background: transparent;
+        color: var(--fg);
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .mini-footer-btn.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+        font-weight: 600;
+      }
+      .thread-switcher {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: flex-end;
+        max-height: 96px;
+        overflow-y: auto;
+      }
+      .thread-chip {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 3px 10px;
+        background: transparent;
+        color: var(--fg);
+        cursor: pointer;
+        font-size: 11px;
+      }
+      .thread-chip.active {
+        border-color: var(--accent);
+        color: var(--accent);
       }
       .control-btn {
         background: none;
@@ -142,7 +217,7 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
       @media (max-width: 900px) {
         .assistant-launcher {
           right: 12px;
-          bottom: 12px;
+          bottom: 10px;
           z-index: 1090;
         }
         .ai-assistant-container {
@@ -153,13 +228,13 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
           border-radius: 10px 10px 0 0;
         }
         .ai-assistant-container:not(.minimized) {
-          height: min(72dvh, 620px);
+          height: min(78dvh, 680px);
         }
         .ai-assistant-container:not(.minimized) .header {
           border-radius: 10px 10px 0 0;
         }
         .content {
-          height: calc(min(72dvh, 620px) - 56px);
+          min-height: 0;
         }
       }
     </style>
@@ -185,9 +260,14 @@ export class AiAssistantComponent implements OnInit {
   availableCliBackends: CliBackend[] = ['auto', 'sgpt', 'codex', 'opencode', 'aider', 'mistral_code'];
   cliRuntime: Record<string, any> = {};
   chatHistory: ChatMessage[] = [];
+  chatThreads: ChatThread[] = [];
+  activeThreadId = '';
+  threadSwitcherOpen = false;
   lastFailedRequest?: { mode: 'hybrid' | 'chat'; prompt: string };
   private readonly pendingPlanStorageKey = 'ananta.ai-assistant.pending-plan';
   private readonly historyStorageKey = 'ananta.ai-assistant.history.v1';
+  private readonly threadStorageKey = 'ananta.ai-assistant.threads.v1';
+  private readonly activeThreadStorageKey = 'ananta.ai-assistant.active-thread.v1';
   private readonly dockStateStorageKey = 'ananta.ai-assistant.minimized.v1';
   private readonly dockHiddenStorageKey = 'ananta.ai-assistant.hidden.v1';
   runtimeContext: AssistantRuntimeContext = {
@@ -205,11 +285,9 @@ export class AiAssistantComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.restoreChatHistory();
+    this.restoreThreads();
     this.restoreDockState();
-    if (!this.chatHistory.length) {
-      this.chatHistory.push({ role: 'assistant', content: 'Hello. I am your AI assistant.' });
-    }
+    this.ensureThreadSelection();
     this.loadCliBackend();
     this.restorePendingPlan();
     this.refreshRuntimeContext();
@@ -235,6 +313,33 @@ export class AiAssistantComponent implements OnInit {
     this.minimized = false;
     this.persistDockVisibility();
     this.persistDockState();
+  }
+
+  toggleThreadSwitcher() {
+    this.threadSwitcherOpen = !this.threadSwitcherOpen;
+  }
+
+  createThread() {
+    const index = this.chatThreads.length + 1;
+    const thread: ChatThread = {
+      id: `thread-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title: `Chat ${index}`,
+      history: [{ role: 'assistant', content: 'Hello. I am your AI assistant.' }],
+      updatedAt: Date.now(),
+    };
+    this.chatThreads = [...this.chatThreads, thread];
+    this.switchThread(thread.id);
+    this.threadSwitcherOpen = true;
+    this.persistThreads();
+  }
+
+  switchThread(threadId: string) {
+    const found = this.chatThreads.find((thread) => thread.id === threadId);
+    if (!found) return;
+    this.activeThreadId = found.id;
+    this.chatHistory = found.history;
+    this.threadSwitcherOpen = false;
+    this.persistThreads();
   }
 
   refreshRuntimeContext() {
@@ -334,6 +439,7 @@ export class AiAssistantComponent implements OnInit {
     const context = this.buildAssistantRequestContext();
 
     this.chatHistory.push({ role: 'user', content: userMsg });
+    this.updateActiveThreadTitle(userMsg);
     this.persistChatHistory();
     this.chatInput = '';
     this.busy = true;
@@ -792,10 +898,98 @@ export class AiAssistantComponent implements OnInit {
   }
 
   private persistChatHistory() {
+    const threads = Array.isArray(this.chatThreads) ? this.chatThreads : [];
+    const active = threads.find((thread) => thread.id === this.activeThreadId);
+    if (active) {
+      active.history = this.chatHistory.slice(-40).map((msg) => ({ ...msg }));
+      active.updatedAt = Date.now();
+    }
+    this.chatThreads = threads;
+    if (threads.length) this.persistThreads();
     this.domain.persistHistory(this.historyStorageKey, this.chatHistory);
   }
 
   private restoreChatHistory() {
     this.chatHistory = this.domain.restoreHistory(this.historyStorageKey);
+  }
+
+  private persistThreads() {
+    const compactThreads = (Array.isArray(this.chatThreads) ? this.chatThreads : []).map((thread) => ({
+      id: thread.id,
+      title: thread.title,
+      updatedAt: thread.updatedAt,
+      history: thread.history.slice(-40).map((message) => ({ role: message.role, content: message.content })),
+    }));
+    this.storage.persistJson(this.threadStorageKey, compactThreads);
+    this.storage.persistJson(this.activeThreadStorageKey, this.activeThreadId);
+  }
+
+  private restoreThreads() {
+    const stored = this.storage.restoreJson<any[]>(this.threadStorageKey, []);
+    const threads = Array.isArray(stored)
+      ? stored
+          .map((thread: any) => {
+            const rawHistory = Array.isArray(thread?.history) ? thread.history : [];
+            const history = rawHistory
+              .filter((message: any) => (message?.role === 'user' || message?.role === 'assistant') && typeof message?.content === 'string')
+              .map((message: any) => ({ role: message.role, content: message.content } as ChatMessage))
+              .slice(-40);
+            const id = String(thread?.id || '').trim();
+            if (!id) return null;
+            return {
+              id,
+              title: String(thread?.title || '').trim() || 'Chat',
+              history,
+              updatedAt: Number(thread?.updatedAt) || Date.now(),
+            } as ChatThread;
+          })
+          .filter((thread): thread is ChatThread => !!thread)
+      : [];
+
+    if (threads.length) {
+      this.chatThreads = threads;
+      const active = this.storage.restoreJson<string>(this.activeThreadStorageKey, '');
+      this.activeThreadId = typeof active === 'string' ? active : '';
+      return;
+    }
+
+    this.restoreChatHistory();
+    this.chatThreads = [
+      {
+        id: 'thread-default',
+        title: 'Chat 1',
+        history: this.chatHistory.length ? this.chatHistory : [{ role: 'assistant', content: 'Hello. I am your AI assistant.' }],
+        updatedAt: Date.now(),
+      },
+    ];
+    this.activeThreadId = 'thread-default';
+  }
+
+  private ensureThreadSelection() {
+    if (!this.chatThreads.length) {
+      this.chatThreads = [
+        {
+          id: 'thread-default',
+          title: 'Chat 1',
+          history: [{ role: 'assistant', content: 'Hello. I am your AI assistant.' }],
+          updatedAt: Date.now(),
+        },
+      ];
+      this.activeThreadId = 'thread-default';
+    }
+    const active = this.chatThreads.find((thread) => thread.id === this.activeThreadId) || this.chatThreads[0];
+    this.activeThreadId = active.id;
+    this.chatHistory = active.history;
+    this.persistThreads();
+  }
+
+  private updateActiveThreadTitle(prompt: string) {
+    const active = this.chatThreads.find((thread) => thread.id === this.activeThreadId);
+    if (!active) return;
+    const normalized = prompt.replace(/\s+/g, ' ').trim();
+    if (!normalized) return;
+    const isDefaultTitle = /^Chat \d+$/.test(active.title) || active.title === 'Chat';
+    if (!isDefaultTitle) return;
+    active.title = normalized.length > 30 ? `${normalized.slice(0, 30)}...` : normalized;
   }
 }
