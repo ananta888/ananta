@@ -1,0 +1,756 @@
+{
+  "meta": {
+    "project": "ananta",
+    "feature": "erklaer-ai-snake",
+    "title": "Erklär-AI-Snake – Ausbauplan",
+    "description": "Feingranularer Ausbauplan für die tutor-ai-Schlange im Ananta Operator TUI. Ziel: Die KI-Schlange wird zum interaktiven, erklärenden AI-Worker, der TUI-Konzepte live vermittelt, auf Spielereignisse reagiert und als Live-Demo der Ananta-Agent-Architektur fungiert.",
+    "created": "2026-05-26",
+    "version": "1.0",
+    "repos": {
+      "tui": "https://github.com/ananta888/ananta",
+      "www": "https://github.com/ananta888/ananta888.github.io"
+    },
+    "legend": {
+      "priority": "P1 = muss, P2 = soll, P3 = kann",
+      "effort": "XS = <2h, S = 2-4h, M = 4-8h, L = 8-16h, XL = >16h",
+      "status": "open | in_progress | done | blocked"
+    }
+  },
+  "epics": [
+    {
+      "id": "E01",
+      "title": "Snake-Modus – Kern & Layout",
+      "goal": "Das Snake-Spielfeld und sein Layout im TUI werden stabil, skalierbar und klar strukturiert. Basis für alle AI-Snake-Funktionen.",
+      "tasks": [
+        {
+          "id": "T01.01",
+          "title": "Split-View: Spielfeld links, Erklärungs-Panel rechts",
+          "description": "Das Snake-Modus-Layout wird in zwei klar getrennte Hälften aufgeteilt: links das Spielfeld (min. 60 Spalten), rechts ein dediziertes AI-Erklärungs-Panel (min. 40 Spalten). Das Panel zeigt den Output der AI-Schlange strukturiert mit Label, Farbe und Text.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_mode.py", "operator_tui/layout.py"],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Bei Terminalbreite ≥ 100 Spalten: Spielfeld nimmt 60 Spalten links, Panel 38 Spalten rechts, 2 Spalten Trenner.",
+            "Bei Terminalbreite < 100 Spalten: Panel wird ausgeblendet, Spielfeld nutzt volle Breite; kein Layout-Crash.",
+            "Trenner ist eine einfache vertikale Linie `│` ohne Lücken.",
+            "Panel-Inhalt scrollt unabhängig vom Spielfeld.",
+            "Das Layout hält bei TUI-Resize (SIGWINCH) ohne Neustart.",
+            "Neues Cast-Recording nach Implementierung zeigt saubere Trennlinie."
+          ]
+        },
+        {
+          "id": "T01.02",
+          "title": "Pause/Resume mit visueller Anzeige",
+          "description": "Space pausiert das Spiel. Das Spielfeld friert ein, ein Semi-transparentes Overlay `[ PAUSED ]` erscheint mittig über dem Grid. Die AI-Schlange pausiert ihren Output ebenfalls. Ein zweites Space setzt fort.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_mode.py"],
+          "priority": "P1",
+          "effort": "S",
+          "depends_on": ["T01.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Space togglet den Pause-Zustand; kein zweites Binding nötig.",
+            "Im Pause-Zustand erscheint `[ PAUSED ]` zentriert im Spielfeld in Farbe var(--muted).",
+            "Die Schlange bewegt sich nicht weiter während Pause.",
+            "Der AI-Erklärungs-Output stoppt während Pause und setzt fort ohne Textverlust.",
+            "Status-Bar zeigt `mode: snake/paused` während Pause.",
+            "Keybinding-Bar aktualisiert sich: Space zeigt `[Space] Resume` statt `[Space] Stop`."
+          ]
+        },
+        {
+          "id": "T01.03",
+          "title": "Spielfeld-Resize dynamisch an Terminalgröße",
+          "description": "Das Snake-Grid passt seine Größe bei SIGWINCH automatisch an, ohne das Spiel neu zu starten. Scoreboard, Snake-Position und Futter-Position werden proportional skaliert oder in den neuen Bereich projiziert.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_mode.py", "operator_tui/layout.py"],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T01.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Beim Vergrößern des Terminals: Grid wächst, Snake-Körper und Futter bleiben positioniert.",
+            "Beim Verkleinern: Grid schrumpft, Snake-Körper wird bei Bedarf auf neue Grenzen geclipt ohne Fehler.",
+            "Kein Crash oder sichtbarer Flicker bei Resize-Event.",
+            "Min-Größe: 40×18 Zeichen für Spielfeld; darunter erscheint Hinweis `Terminal zu klein für Snake`.",
+            "Resize-Test: 5 Resize-Events in Folge ohne Neustart → kein Zustandsverlust."
+          ]
+        },
+        {
+          "id": "T01.04",
+          "title": "Snake-Geschwindigkeit über Kommandozeile steuerbar",
+          "description": "Der Operator kann mit `:speed <1–5>` die Spielgeschwindigkeit während des Spiels anpassen. Level 1 = sehr langsam (200 ms/tick), Level 5 = sehr schnell (30 ms/tick). Aktuelles Level wird in der Status-Bar angezeigt.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_mode.py", "operator_tui/cmdline.py"],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:speed 1` → 200 ms Tick-Intervall, `:speed 5` → 30 ms Tick-Intervall.",
+            "Ungültige Werte (`:speed 0`, `:speed 9`, `:speed foo`) zeigen Fehlermeldung in der Status-Bar ohne Crash.",
+            "Status-Bar zeigt `speed: 3/5` (Beispiel) dauerhaft während Snake-Modus.",
+            "Geschwindigkeit bleibt auch nach Pause/Resume erhalten.",
+            "AI-Schlange passt ihre Output-Rate automatisch an die Geschwindigkeit an (bei speed 1 mehr Zeit zum Erklären)."
+          ]
+        },
+        {
+          "id": "T01.05",
+          "title": "High-Score-Anzeige und Session-Persistenz",
+          "description": "Der Highscore der aktuellen TUI-Session wird oben im Spielfeld-Panel angezeigt und in einer lokalen JSON-Datei gespeichert. Nach Neustart wird der gespeicherte Highscore wiederhergestellt.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_mode.py", "operator_tui/persistence.py"],
+          "priority": "P3",
+          "effort": "S",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Highscore-Datei unter `~/.ananta/snake_scores.json` gespeichert.",
+            "Format: `{ \"high\": 42, \"last\": 7, \"games\": 13, \"updated\": \"2026-05-26T18:53:00Z\" }`.",
+            "Anzeige im Header: `score: 7  best: 42`.",
+            "Neuer Highscore wird sofort visuell hervorgehoben (Farbe wechselt zu Akzentfarbe für 2s).",
+            "Datei-Lesefehler wird ignoriert (Default: Highscore 0); kein Crash bei korrupter Datei."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E02",
+      "title": "Erklär-AI-Snake – Verhalten & Output",
+      "goal": "Die tutor-ai-Schlange wird von statischem Text-Streaming zu einem reaktiven, kontextbewussten Erklär-Agenten. Sie reagiert auf Ereignisse, wählt Erklärungstiefe und beantwortet Fragen.",
+      "tasks": [
+        {
+          "id": "T02.01",
+          "title": "Ereignis-gebundene Erklärungen (Event-Driven Tutor)",
+          "description": "Die tutor-ai-Schlange abonniert Spielereignisse (Futter gefressen, Kollision, Level-Up, Pause, Sieg) und gibt zu jedem Ereignis eine passende kontextuelle Erklärung aus. Die Erklärungen beziehen sich sowohl auf das Spiel als auch auf Ananta-Konzepte.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_tutor.py", "operator_tui/events.py"],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.01", "E03.T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Event `food_eaten`: Tutor gibt innerhalb 500 ms eine Erklärung aus, die das Ereignis (z.B. 'Futter = ein abgeschlossener Task') mit einem Ananta-Konzept verknüpft.",
+            "Event `collision_wall`: Tutor erklärt Grenzkonzept (z.B. Policy-Grenzen in Ananta).",
+            "Event `collision_self`: Tutor erklärt Rekursion/Deadlock-Analogie.",
+            "Event `level_up` (Score-Meilenstein 5/10/20): Tutor gibt erweiterte Erklärung zu nächstem TUI-Abschnitt.",
+            "Erklärungen sind nicht-wiederholend: pro Session wird jede Erklärung maximal 1x ausgegeben.",
+            "Erklärungen erscheinen als Streaming-Text (Zeichen für Zeichen, 15 ms/Zeichen).",
+            "Alle Erklärungstexte in externem YAML-File, nicht im Code hardcoded (`snake_tutor_texts.yaml`)."
+          ]
+        },
+        {
+          "id": "T02.02",
+          "title": "Erklärungstiefe: drei Modi (overview / deep / expert)",
+          "description": "Der Operator kann mit `:tutor mode <overview|deep|expert>` den Erklärungsstil der AI-Schlange wählen. Overview = kurze Sätze, allgemeine Konzepte. Deep = detaillierter, mit Beispielen. Expert = technisch, mit Code-Referenzen.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_tutor.py", "operator_tui/cmdline.py", "operator_tui/snake_tutor_texts.yaml"],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T02.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:tutor mode overview` → Erklärungen max. 60 Zeichen pro Satz.",
+            "`:tutor mode deep` → Erklärungen mit 2-3 Sätzen, inkl. konkretem Beispiel.",
+            "`:tutor mode expert` → Erklärungen enthalten Code-Referenzen (Dateiname:Zeile oder API-Pfad).",
+            "Modus wird im AI-Panel-Header angezeigt: `tutor-ai [amber] · deep`.",
+            "Modusänderung wird von der AI-Schlange selbst kommentiert ('Wechsle zu deep mode...').",
+            "Default-Modus ist `overview`; wird in `~/.ananta/tutor_config.json` gespeichert."
+          ]
+        },
+        {
+          "id": "T02.03",
+          "title": "`:ask <frage>` – Interaktive Fragen an die AI-Schlange",
+          "description": "Über die TUI-Kommandozeile kann der Operator der AI-Schlange direkte Fragen stellen. Die Antwort erscheint im AI-Panel als Streaming-Text. Das Spiel wird während der Antwort automatisch pausiert.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_tutor.py", "operator_tui/cmdline.py"],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T02.01", "T01.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:ask Was ist ein Context Bundle?` → Spiel pausiert, AI-Schlange antwortet im Panel.",
+            "Antwort beginnt innerhalb 1s nach Eingabe (API-Latenz ausgenommen).",
+            "Frage wird im Panel mit Prefix `? ` farblich hervorgehoben.",
+            "Antwort streamt Zeichen für Zeichen sichtbar.",
+            "Nach vollständiger Antwort: Spiel setzt automatisch fort (Resume).",
+            "Antworten sind auf den aktuellen Erklärungstiefe-Modus (T02.02) abgestimmt.",
+            "Fehler (API nicht erreichbar) → Fallback-Text im Panel ohne Crash.",
+            "`:ask` ohne Text → Hinweis 'Bitte Frage angeben' in Status-Bar."
+          ]
+        },
+        {
+          "id": "T02.04",
+          "title": "Zeige-Funktion: AI-Schlange markiert TUI-Elemente",
+          "description": "Die AI-Schlange kann mit einer Zeige-Geste auf TUI-Elemente außerhalb des Spielfelds aufmerksam machen. Ein temporärer ASCII-Pfeil (`→`) blinkt für 2s neben dem referenzierten Element.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_tutor.py", "operator_tui/overlay.py"],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T02.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "AI-Schlange kann folgende Elemente markieren: NAV-Einträge, Status-Bar-Felder, Panel-Header.",
+            "Pfeil `→` erscheint rechts neben dem Ziel-Element, blinkt 3x (je 330 ms an/aus) dann verschwindet.",
+            "Markierung ist nicht-blockierend: Spiel läuft weiter.",
+            "Keine Pixel-genaue Positionierung nötig; Markierung ist zeilengenau.",
+            "Wenn Ziel-Element nicht im sichtbaren Bereich: kein Pfeil, aber Text-Hinweis im AI-Panel.",
+            "Overlay überschreibt keine permanenten TUI-Elemente dauerhaft."
+          ]
+        },
+        {
+          "id": "T02.05",
+          "title": "Erklärungs-Queue mit Priorität",
+          "description": "Treffen mehrere Erklärungsauslöser gleichzeitig ein (z.B. Futter + Level-Up), werden sie in einer Queue mit Priorität geordnet und nacheinander ausgegeben. Höherpriore Events (Kollision) unterbrechen laufende Erklärungen.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_tutor.py", "operator_tui/events.py"],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": ["T02.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Prioritätslevel: collision > level_up > food_eaten > scheduled > idle.",
+            "Kollisions-Erklärung unterbricht laufende food_eaten-Erklärung sofort (kein Satzabbruch mitten im Zeichen, aber nach nächstem Satzende).",
+            "Queue ist max. 5 Einträge tief; ältere low-priority-Einträge werden verworfen wenn Queue voll.",
+            "Kein visuelles Glitch bei Unterbrechung: Panel zeigt `[...]` als Abbruch-Marker.",
+            "Queue-Tiefe sichtbar im Panel-Header: `tutor-ai [amber] · queue: 2`."
+          ]
+        },
+        {
+          "id": "T02.06",
+          "title": "Idle-Kommentare: AI-Schlange kommentiert TUI-Zustand proaktiv",
+          "description": "Wenn keine Spielereignisse kommen (>8s Stille), beginnt die AI-Schlange proaktiv den aktuellen TUI-Zustand zu kommentieren: laufende Agents, offene Tasks, Hub-Status etc. Sie zieht ihren Kontext direkt aus der Hub-API.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_tutor.py", "operator_tui/hub_client.py"],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T02.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Nach 8s ohne Spielereignis startet ein Idle-Kommentar.",
+            "Idle-Kommentar referenziert echte Daten aus der Hub-API: z.B. 'Aktuell laufen 3 Tasks, davon 1 auf claude-sonnet-4-6'.",
+            "Bei Hub-Verbindungsfehler: generischer Kommentar ohne API-Daten, kein Fehler-Popup.",
+            "Idle-Kommentare wiederholen sich nicht innerhalb einer 60s-Periode.",
+            "`:tutor silent` deaktiviert Idle-Kommentare; `:tutor active` reaktiviert.",
+            "Idle-Kommentare stoppen sofort wenn neues Spielereignis eintrifft."
+          ]
+        },
+        {
+          "id": "T02.07",
+          "title": "Abschnitts-Erklärungen: AI-Schlange erklärt jeden TUI-Bereich einmalig",
+          "description": "Wenn der Operator in der normalen TUI (außerhalb Snake-Modus) einen Abschnitt erstmalig besucht, gibt die AI-Schlange im AI-Panel eine einmalige Willkommenserklärung für diesen Abschnitt aus.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_tutor.py", "operator_tui/nav.py", "operator_tui/persistence.py"],
+          "priority": "P3",
+          "effort": "M",
+          "depends_on": ["T02.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Jeder TUI-Abschnitt (Dashboard, Goals, Tasks, Artifacts, Knowledge, Config, System, Audit, Terminal) hat exakt einen Willkommenstext in `snake_tutor_texts.yaml`.",
+            "Erklärung wird nur beim ersten Besuch der Session ausgegeben; Wiederholung per `:tutor replay <section>` möglich.",
+            "Besuchte Abschnitte werden in `~/.ananta/tutor_config.json` unter `visited_sections` gespeichert.",
+            "Erklärung erscheint max. 500 ms nach Betreten des Abschnitts.",
+            "Erklärung ist in der aktuellen Erklärungstiefe formatiert (T02.02)."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E03",
+      "title": "Multi-Snake-System",
+      "goal": "Mehrere Schlangen mit verschiedenen Rollen, Farben und Identitäten können gleichzeitig im Snake-Modus aktiv sein und miteinander interagieren.",
+      "tasks": [
+        {
+          "id": "T03.01",
+          "title": "Snake-Registrierung über Hub-API",
+          "description": "Snakes registrieren sich beim Ananta-Hub mit einem eindeutigen Namen, Rolle, Farbe und OIDC-Identität. Die TUI zeigt alle aktiven Snakes im Config-Panel.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_registry.py", "hub/api/snakes.py"],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "API: `POST /snakes` mit Body `{ name, role, color, oidc_id }` → 201 mit `{ id, token }`.",
+            "API: `GET /snakes` → Liste aller aktiven Snakes mit Status.",
+            "API: `DELETE /snakes/{id}` → Snake abmelden.",
+            "Config-Panel zeigt: Name, Rolle, Farbe, OIDC-ID, Status (online/offline) für jede Snake.",
+            "Snakes werden nach Hub-Neustart nicht automatisch reaktiviert (explizite Re-Registrierung nötig).",
+            "Max. 8 gleichzeitig aktive Snakes per Hub-Instanz."
+          ]
+        },
+        {
+          "id": "T03.02",
+          "title": "Snake-Rollen: player, tutor, critic, coach",
+          "description": "Jede Snake hat eine Rolle die ihr Verhaltensprofil bestimmt. player = menschlich gesteuert, tutor = erklärt, critic = zeigt Probleme auf, coach = gibt Optimierungshinweise.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_registry.py", "operator_tui/snake_tutor.py", "operator_tui/snake_critic.py", "operator_tui/snake_coach.py"],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Rolle `player`: Snake wird über Tastatur gesteuert, kein automatischer Output.",
+            "Rolle `tutor`: erklärt Konzepte (bestehende E02-Logik).",
+            "Rolle `critic`: kommentiert schlechte Spielzüge und nennt Analogien zu Code-Problemen.",
+            "Rolle `coach`: gibt Optimierungshinweise zur Routen-Wahl und verbindet mit Ananta-Worker-Routing.",
+            "Jede Rolle hat eigene Farb-Identität und eigenen Panel-Header-Prefix.",
+            "`:snakes` listet alle aktiven Snakes mit Rolle und aktuellem Status."
+          ]
+        },
+        {
+          "id": "T03.03",
+          "title": "Erweitertes Farb-Schema für Snakes",
+          "description": "Das Snake-Farbsystem wird von 2 (mint, amber) auf 8 Farben erweitert, mit konsistenten RGB-Werten und Namesgebung. Jede Farbe gilt für Schlangenkörper, Panel-Header und Texte der entsprechenden Snake.",
+          "repo": "tui",
+          "files": ["operator_tui/colors.py"],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Definierte Farben: mint (98,200,148), amber (255,190,80), rose (255,120,160), violet (170,120,255), sky (80,190,240), coral (255,140,100), lime (160,220,60), ice (180,225,240).",
+            "Alle Farben getestet auf xterm-256color und truecolor-Terminals.",
+            "Farb-Zuweisung bei Registrierung: erste verfügbare Farbe aus der Liste; explizite Wahl via `color: mint` in Registrierungs-Body.",
+            "Farb-Kollision (zwei Snakes gleiche Farbe) → automatisch nächste verfügbare Farbe.",
+            "Farbnamen werden in der API und TUI konsistent verwendet (kein Hex, kein RGB nach außen)."
+          ]
+        },
+        {
+          "id": "T03.04",
+          "title": "Inter-Snake-Kommunikation: Nachrichten zwischen Snakes",
+          "description": "Snakes können sich über den Hub Nachrichten schicken. Diese erscheinen im AI-Panel der Ziel-Snake als eingehende Nachricht. Die TUI zeigt einen Hinweis wenn eine Snake eine Nachricht für eine andere sendet.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_registry.py", "hub/api/snakes.py", "operator_tui/snake_tutor.py"],
+          "priority": "P3",
+          "effort": "M",
+          "depends_on": ["T03.01", "T03.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "API: `POST /snakes/{id}/messages` mit Body `{ from_id, text, priority }` → 202.",
+            "Eingehende Nachricht erscheint im Panel mit Prefix `[S1→S-AI]` in Farbe der Sender-Snake.",
+            "Nachrichten sind max. 200 Zeichen lang.",
+            "Nachrichten werden in die Erklärungs-Queue eingereiht (T02.05).",
+            "`:msg <snake-id> <text>` sendet Nachricht aus dem TUI an andere Snake.",
+            "Nachrichten-Log bleibt für die Session-Dauer erhalten; abrufbar mit `:snakes log`."
+          ]
+        },
+        {
+          "id": "T03.05",
+          "title": "Snake-Peers-Anzeige im Config-Panel",
+          "description": "Das Config-Panel des Snake-Modus zeigt alle aktuell registrierten Snakes mit ihrem Status, ihrer Rolle, Farbe und letzter Aktivität. Offline-Snakes werden ausgegraut.",
+          "repo": "tui",
+          "files": ["operator_tui/snake_mode.py", "operator_tui/snake_registry.py"],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": ["T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Config-Panel zeigt für jede Snake: Name, Farb-Punkt, Rolle, Status (online/offline), letzter Heartbeat-Zeitstempel.",
+            "Online-Snakes: helle Farbe. Offline: gedimmt (50% Helligkeit).",
+            "Panel aktualisiert sich alle 5s automatisch (kein :refresh nötig).",
+            "Anzeige skaliert auf max. 8 Snakes ohne Layout-Bruch.",
+            "`:snakes` öffnet detaillierte Snake-Liste in separatem Detail-Panel."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E04",
+      "title": "Tutorial-System",
+      "goal": "Ein geführtes, schrittweises Tutorial führt neue Operator durch die Ananta-TUI, gesteuert von der AI-Schlange. Fortschritt wird gespeichert und ist mit dem Artifact Store verknüpft.",
+      "tasks": [
+        {
+          "id": "T04.01",
+          "title": "Tutorial-Flow: Step N von M Anzeige",
+          "description": "Der Tutorial-Modus zeigt im AI-Panel einen Fortschrittsbalken und die aktuelle Step-Nummer. Jeder Step hat einen Titel, eine Aufgabe und ein Completion-Kriterium, das die AI-Schlange überprüft.",
+          "repo": "tui",
+          "files": ["operator_tui/tutorial.py", "operator_tui/snake_tutor.py"],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T02.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Panel zeigt: `[ Tutorial · Step 3/9 ████░░░░░ ]` als ASCII-Fortschrittsbalken.",
+            "Jeder Step zeigt: Titel, Aufgabe (1 Satz), Hinweis (1 Satz optional).",
+            "Step-Abschluss wird durch Spielereignis oder TUI-Aktion automatisch erkannt.",
+            "`:tutorial skip` überspringt den aktuellen Step; `:tutorial reset` startet von vorn.",
+            "Letzter abgeschlossener Step wird in `~/.ananta/tutor_config.json` gespeichert.",
+            "Tutorial kann jederzeit mit `:tutorial stop` beendet werden ohne TUI-Neustart."
+          ]
+        },
+        {
+          "id": "T04.02",
+          "title": "Tutorial-Skripte als YAML (nicht hardcoded)",
+          "description": "Tutorial-Inhalte (Steps, Texte, Completion-Kriterien, Verweise auf TUI-Abschnitte) werden in einer YAML-Datei definiert. Mehrere Tutorial-Skripte sind möglich (z.B. 'Einführung', 'Snake-Modus', 'CodeCompass-Workflow').",
+          "repo": "tui",
+          "files": ["operator_tui/tutorials/intro.yaml", "operator_tui/tutorials/snake_mode.yaml", "operator_tui/tutorials/codecompass.yaml", "operator_tui/tutorial.py"],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T04.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "YAML-Schema: `{ title, description, steps: [{ id, title, task, hint, completion_event, section }] }`.",
+            "Tutorial-Loader validiert Schema beim Laden; fehlerhafte YAML → Fehlermeldung ohne Crash.",
+            "`:tutorials` listet alle verfügbaren Tutorial-Skripte mit Titel und Step-Anzahl.",
+            "`:tutorial start <name>` startet ein benanntes Tutorial.",
+            "Mindestens 3 Tutorial-Skripte vorhanden: `intro` (9 Steps), `snake_mode` (6 Steps), `codecompass` (7 Steps).",
+            "Neue Tutorials können ohne TUI-Neustart geladen werden (hot-reload via `:tutorials reload`)."
+          ]
+        },
+        {
+          "id": "T04.03",
+          "title": "Checkpoint-System: abgeschlossene Tutorials als Artefakte",
+          "description": "Abgeschlossene Tutorial-Steps und vollständige Tutorial-Läufe werden als Ananta-Artefakte im Hub gespeichert. Damit wird der Lernfortschritt Teil der nachvollziehbaren Operator-Geschichte.",
+          "repo": "tui",
+          "files": ["operator_tui/tutorial.py", "hub/api/artifacts.py"],
+          "priority": "P3",
+          "effort": "M",
+          "depends_on": ["T04.01", "T04.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Beim Abschluss eines Tutorial-Steps: `POST /artifacts` mit `{ type: 'tutorial_step', tutorial, step_id, operator, timestamp, score }`.",
+            "Beim Abschluss eines vollständigen Tutorials: zusätzlich `{ type: 'tutorial_complete', duration_seconds, steps_skipped }`.",
+            "Artefakte erscheinen in der Artifacts-Sektion der TUI.",
+            "Bei Hub-Fehler: Artefakt wird lokal gecacht und beim nächsten Hub-Kontakt nachgereicht.",
+            "`:artifacts tutorial` filtert die Artefakt-Liste auf Tutorial-Einträge."
+          ]
+        },
+        {
+          "id": "T04.04",
+          "title": "Guided Mode: AI-Schlange führt durch TUI-Abschnitte",
+          "description": "Im Guided Mode navigiert die AI-Schlange automatisch durch die TUI-Sections und zeigt dem Operator aktiv jeden Bereich. Der Operator folgt oder übernimmt die Navigation selbst.",
+          "repo": "tui",
+          "files": ["operator_tui/tutorial.py", "operator_tui/snake_tutor.py", "operator_tui/nav.py"],
+          "priority": "P2",
+          "effort": "L",
+          "depends_on": ["T04.01", "T04.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:tutorial guided` startet geführte Tour durch alle 9 Abschnitte in definiierter Reihenfolge.",
+            "AI-Schlange setzt automatisch den Fokus auf den nächsten Abschnitt nach 15s oder wenn der Operator mit Enter bestätigt.",
+            "Operator kann mit Pfeiltasten jederzeit die Navigation übernehmen; Guided Mode pausiert dann.",
+            "Jeder Abschnitt erhält eine 2-3-Satz-Erklärung der AI-Schlange bevor weiternavigiert wird.",
+            "Am Ende: Zusammenfassung mit allen besuchten Abschnitten + Link zu Tutorial `snake_mode`."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E05",
+      "title": "Cast-Produktion – Neues Splash-Recording",
+      "goal": "Ein neues, erweitertes asciinema-Recording zeigt die ausgebaute AI-Snake-Demo vollständig und für die Website überzeugend. Das Recording ist chapter-annotiert und deckt alle wichtigen TUI-Bereiche ab.",
+      "tasks": [
+        {
+          "id": "T05.01",
+          "title": "Cast-Skript: 60s Splash mit AI-Erklärungen zu 5 TUI-Bereichen",
+          "description": "Ein E2E-Skript erzeugt automatisch ein neues `.cast`-File das folgende Sequenz zeigt: Intro (Snake-Körper wächst) → Dashboard-Erklärung → Goals-Erklärung → Snake-Modus mit Spiel → Fragen-Interaktion → Outro.",
+          "repo": "tui",
+          "files": ["e2e/snake_splash_e2e.py", "assets/operator_tui_splash.cast"],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["E02.T02.01", "E02.T02.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Cast-Dauer: 55–65 Sekunden.",
+            "Cast enthält mindestens 5 klar getrennte Abschnitte: Intro, Dashboard, Goals, Snake-Modus, Outro.",
+            "KI-Schlange erklärt in jedem Abschnitt mindestens 1 Ananta-Konzept.",
+            "Die Zeige-Funktion (T02.04) ist mindestens 2x sichtbar.",
+            "`:ask`-Interaktion (T02.03) ist einmal eingebaut und die Antwort vollständig sichtbar.",
+            "Cast läuft in 120×32 Terminal (wie vorheriges).",
+            "Cast-Datei ersetzt `assets/operator_tui_splash.cast` ohne manuelle Schritte (Skript-Aufruf genügt).",
+            "Cast-Datei bleibt unter 300 KB."
+          ]
+        },
+        {
+          "id": "T05.02",
+          "title": "Cast-Chapters als JSON-Annotation",
+          "description": "Neben der `.cast`-Datei liegt eine `operator_tui_splash.chapters.json`-Datei mit Zeitstempeln und Titeln der Abschnitte. Diese wird vom Website-Player genutzt.",
+          "repo": "www",
+          "files": ["assets/operator_tui_splash.chapters.json"],
+          "priority": "P2",
+          "effort": "XS",
+          "depends_on": ["T05.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Format: `{ \"chapters\": [{ \"t\": 0.0, \"title\": \"Intro\", \"description\": \"...\" }, ...] }`.",
+            "Mindestens 5 Chapter-Einträge passend zur Cast-Struktur.",
+            "Jeder Chapter hat `t` (Sekunden), `title` (max. 20 Zeichen), `description` (max. 80 Zeichen).",
+            "JSON ist valides JSON (lint-geprüft).",
+            "Chapter-Zeitstempel entsprechen tatsächlichen Ereignissen im Cast (±0.5s Toleranz)."
+          ]
+        },
+        {
+          "id": "T05.03",
+          "title": "Multi-Snake-Szene im Cast: S1 + S-AI gleichzeitig aktiv",
+          "description": "Das neue Cast zeigt beide Snakes (S1 local-snake + S-AI tutor-ai) gleichzeitig im Spielfeld, mit deutlich unterscheidbaren Körperfarben und simultanen Panel-Outputs.",
+          "repo": "tui",
+          "files": ["e2e/snake_splash_e2e.py"],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T05.01", "E03.T03.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Beide Schlangenkörper im Spielfeld klar unterscheidbar (mint vs. amber, keine Farbkollision).",
+            "S-AI-Schlange bewegt sich unabhängig von S1 und schreibt gleichzeitig ins AI-Panel.",
+            "Im Cast ist die Inter-Snake-Kommunikation (T03.04) mindestens 1x sichtbar.",
+            "Kein Layout-Überlapp zwischen Spielfeld und AI-Panel während der Multi-Snake-Szene."
+          ]
+        },
+        {
+          "id": "T05.04",
+          "title": "Cast-Erzeugung automatisiert (CI-ready)",
+          "description": "Das E2E-Skript für die Cast-Erzeugung läuft headless ohne manuelle Eingabe und ist über einen einzigen Befehl aufrufbar. Es kann in die CI-Pipeline integriert werden.",
+          "repo": "tui",
+          "files": ["e2e/snake_splash_e2e.py", "Makefile oder scripts/generate_cast.sh"],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": ["T05.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Befehl: `make cast` oder `./scripts/generate_cast.sh` erzeugt neues `.cast` ohne Interaktion.",
+            "Skript schlägt fehl (exit 1) wenn Cast kürzer als 50s oder größer als 400 KB.",
+            "Skript kopiert das neue Cast automatisch nach `assets/operator_tui_splash.cast`.",
+            "Laufzeit des Erzeugungsskripts: max. 90s.",
+            "Skript ist dokumentiert (Kommentar-Header mit Anforderungen und Aufruf)."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E06",
+      "title": "Website-Präsentation – ananta888.github.io",
+      "goal": "Die Website präsentiert das ausgebaute Erklär-AI-Snake-Feature überzeugend: interaktiver Player, Chapter-Navigation, mobile-optimiert.",
+      "tasks": [
+        {
+          "id": "T06.01",
+          "title": "Chapter-Timeline unter dem Terminal-Player",
+          "description": "Unterhalb des asciinema-Players erscheint eine horizontale Timeline mit den Cast-Chapters (aus `operator_tui_splash.chapters.json`). Ein Klick auf einen Chapter springt direkt zur entsprechenden Position.",
+          "repo": "www",
+          "files": ["assets/terminal-cast-player.js", "assets/site.css", "index.html"],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["E05.T05.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Timeline erscheint als horizontale Leiste zwischen Player und Caption.",
+            "Jeder Chapter ist ein klickbarer Chip mit Titel (max. 20 Zeichen).",
+            "Aktiver Chapter ist visuell hervorgehoben (Akzentfarbe, kein Fettdruck).",
+            "Klick auf Chapter: asciinema-Player springt zu `t` des Chapters (via `player.seek(t)`).",
+            "Timeline funktioniert nur wenn asciinema-player geladen ist; bei Fallback-Player ausgeblendet.",
+            "Timeline scrollt horizontal bei schmalen Viewports; kein Textumbruch.",
+            "Chapter-JSON wird parallel zur Cast-Datei geladen (kein zweiter Blocking-Request vor Playerstart)."
+          ]
+        },
+        {
+          "id": "T06.02",
+          "title": "Dynamische Caption basierend auf aktivem Chapter",
+          "description": "Die Caption-Box unterhalb des Players aktualisiert ihre Beschreibung dynamisch wenn ein neuer Chapter aktiv wird. Text der Caption kommt aus `chapters.json`.",
+          "repo": "www",
+          "files": ["assets/terminal-cast-player.js", "assets/site.css"],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": ["T06.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Caption-`<strong>` zeigt Chapter-Titel, Caption-`<span>` zeigt Chapter-Beschreibung.",
+            "Wechsel beim Chapter-Übergang (via `asciinema-player` Event oder Polling).",
+            "Übergang ist sanft: alter Text fade-out (150ms), neuer Text fade-in (150ms).",
+            "Bei asciinema-Player-Fehler: Caption zeigt statischen Fallback-Text wie bisher.",
+            "Caption-Höhe springt nicht: min-height fixiert auf aktuelle Höhe."
+          ]
+        },
+        {
+          "id": "T06.03",
+          "title": "Fullscreen-Button für Terminal-Card (Mobile)",
+          "description": "Auf Viewports unter 920px erscheint ein Fullscreen-Button in der Terminal-Bar. Ein Klick öffnet den Player im Browser-Fullscreen. Escape verlässt Fullscreen.",
+          "repo": "www",
+          "files": ["assets/terminal-cast-player.js", "assets/site.css", "index.html"],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Button erscheint nur bei Viewport-Breite ≤ 920px.",
+            "Button-Icon: `⛶` oder SVG-Icon (kein Emoji wenn asciinema-player aktiv).",
+            "Klick ruft `document.documentElement.requestFullscreen()` auf dem Terminal-Card-Element auf.",
+            "Im Fullscreen: Terminal-Bar bleibt sichtbar, Caption wird ausgeblendet.",
+            "Keine Fullscreen-API-Fehler auf Safari Mobile (Graceful Degradation: Button ausgeblendet wenn API fehlt).",
+            "Kein Layout-Shift im normalen Modus durch den Button."
+          ]
+        },
+        {
+          "id": "T06.04",
+          "title": "Intersection Observer: Cast startet erst bei Sichtbarkeit",
+          "description": "Der Cast-Player wird erst initialisiert wenn die Terminal-Card in den Viewport scrollt. Das vermeidet unnötige Downloads und autoplay vor dem Fold.",
+          "repo": "www",
+          "files": ["assets/terminal-cast-player.js"],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Beim Seitenload wird `assets/operator_tui_splash.cast` nicht sofort gefetcht.",
+            "Fetch startet sobald ≥ 30% der Terminal-Card im Viewport sichtbar ist.",
+            "Bei Scroll in den Viewport: Player startet innerhalb 200ms.",
+            "Kein doppeltes Initialisieren wenn die Card aus- und wieder eingescrollt wird.",
+            "Funktioniert auch wenn JavaScript nach dem DOMContentLoaded-Event ausgeführt wird.",
+            "Fallback wenn IntersectionObserver nicht verfügbar: sofortiger Load (wie bisher)."
+          ]
+        },
+        {
+          "id": "T06.05",
+          "title": "Keyboard-Shortcut im Fallback-Player: Pause und Seek",
+          "description": "Im eigenen Fallback-Player ermöglichen Tastenkürzel Interaktion: Space = Pause/Resume, Pfeil-Links/Rechts = 5 Sekunden zurück/vor.",
+          "repo": "www",
+          "files": ["assets/terminal-cast-player.js"],
+          "priority": "P3",
+          "effort": "S",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Space pausiert/resumt den Fallback-Player; Status-Anzeige wechselt auf `paused` / `playing`.",
+            "Pfeil-Rechts springt 5s vor (Index-Suche im frames-Array nach nächstem Frame mit time ≥ current+5).",
+            "Pfeil-Links springt 5s zurück.",
+            "Keyboard-Events werden nur gefeuert wenn Terminal-Card den Fokus hat (nicht global).",
+            "Terminal-Card bekommt `tabindex=0` und `:focus` Outline-Style.",
+            "Shortcut funktioniert nicht wenn asciinema-player aktiv (der hat eigene Shortcuts)."
+          ]
+        },
+        {
+          "id": "T06.06",
+          "title": "Fallback-Player: Background-Color ANSI + vollständiges Cursor-Position-Handling",
+          "description": "Der eigene Fallback-Player wird auf einen vollständigen Terminal-State-Emulator erweitert: Cursor-Position, Background-Colors und Alternate-Buffer werden korrekt verarbeitet.",
+          "repo": "www",
+          "files": ["assets/terminal-cast-player.js"],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Terminal-State-Buffer: 2D-Array [rows][cols] mit je `{ char, fg, bg, bold }` pro Zelle.",
+            "Cursor-Positions-Sequenzen (`\\x1b[nA`, `\\x1b[nB`, `\\x1b[nC`, `\\x1b[nD`, `\\x1b[H`, `\\x1b[n;mH`) werden korrekt auf den Buffer angewendet.",
+            "Background-Color: `\\x1b[48;2;R;G;Bm` und `\\x1b[48;5;Nm` werden als bg-Property im Buffer gespeichert und im HTML als `background: rgb(...)` gerendert.",
+            "Alternate-Buffer (`\\x1b[?1049h/l`): wird simuliert durch Snapshot/Restore des Buffers.",
+            "Render-Output: Buffer wird zu HTML-Tabelle oder `<pre>` mit `<span>`-Styling gerendert; kein direkter innerHTML-Append mehr.",
+            "Performance: Render bei 120×32 Buffer unter 5ms pro Frame (gemessen mit `performance.now()`).",
+            "Das bestehende Cast `operator_tui_splash.cast` rendert visuell korrekt im Fallback-Player (kein Überlapp, kein Zeichenmüll)."
+          ]
+        },
+        {
+          "id": "T06.07",
+          "title": "Zweite Terminal-Card auf index.html: Dashboard-View",
+          "description": "Unterhalb des Hero-Bereichs erscheint eine zweite Terminal-Card die das TUI-Dashboard (ohne Snake-Modus) zeigt. Sie nutzt einen anderen Cast oder ein statisches Rendering.",
+          "repo": "www",
+          "files": ["index.html", "assets/site.css"],
+          "priority": "P3",
+          "effort": "M",
+          "depends_on": ["E05.T05.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Zweite Terminal-Card erscheint in einer neuen `section` unterhalb von `#features`.",
+            "Card nutzt `data-cast-url` auf ein dediziertes Dashboard-Cast (separates `.cast`-File).",
+            "Card hat eigene Caption: 'Ananta Operator TUI – Dashboard-Ansicht'.",
+            "Layout: volle Breite (1-spaltig), max-height 400px.",
+            "Card hat eigenen Titel im Terminal-Bar: `operator-tui dashboard.cast`.",
+            "Intersection Observer (T06.04) gilt auch für diese Card."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E07",
+      "title": "CI / Qualität / Dokumentation",
+      "goal": "Automatisierte Tests und Dokumentation sichern den Ausbau nachhaltig ab.",
+      "tasks": [
+        {
+          "id": "T07.01",
+          "title": "Unit-Tests für terminal-cast-player.js",
+          "description": "Der ANSI-Parser und der Terminal-Emulator (T06.06) werden mit Unit-Tests abgesichert. Testsuite läuft ohne Browser (Node.js).",
+          "repo": "www",
+          "files": ["tests/terminal-cast-player.test.js", "package.json"],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["E06.T06.06"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Tests mit Vitest oder Jest, kein Browser nötig.",
+            "Abgedeckte Szenarien: ANSI-256-Farbe, Truecolor, Reset, Cursor-Move, Background-Color, Alternate-Buffer.",
+            "Mindestens 20 Testfälle.",
+            "Tests laufen mit `npm test` in unter 10s.",
+            "Coverage für `ansiToHtml` und Terminal-State-Funktionen: ≥ 90%."
+          ]
+        },
+        {
+          "id": "T07.02",
+          "title": "E2E-Test: Website zeigt Cast korrekt an (Playwright)",
+          "description": "Ein Playwright-Test öffnet `index.html` und prüft ob der asciinema-Player initialisiert oder der Fallback-Player einen Frame rendert.",
+          "repo": "www",
+          "files": ["tests/e2e/homepage.spec.ts", "playwright.config.ts"],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Test läuft gegen lokalen Dev-Server (`npx serve .`).",
+            "Prüft: Terminal-Card ist im DOM, `data-terminal-status` ist nicht `loading` nach 5s.",
+            "Prüft: `[data-terminal-output]` hat sichtbaren Inhalt (nicht leer).",
+            "Prüft: Chapter-Timeline (T06.01) erscheint sobald chapters.json geladen ist.",
+            "Test läuft in Chromium und Firefox (Mobile-Emulation eingeschlossen).",
+            "Kein Netzwerk-Request an externe CDNs im Test (asciinema-player CDN wird gemockt)."
+          ]
+        },
+        {
+          "id": "T07.03",
+          "title": "snake_tutor_texts.yaml Vollständigkeit prüfen (Lint)",
+          "description": "Ein Lint-Skript prüft ob alle Events (T02.01), alle TUI-Sections (T02.07) und alle Tutorial-Steps (T04.02) vollständige Texte in allen drei Erklärungstiefen haben.",
+          "repo": "tui",
+          "files": ["scripts/lint_tutor_texts.py", "operator_tui/snake_tutor_texts.yaml"],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": ["E02.T02.02", "E04.T04.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Skript prüft: alle Events haben `overview`, `deep`, `expert` Texte.",
+            "Skript prüft: alle 9 TUI-Sections haben Willkommenstexte in allen Tiefen.",
+            "Skript prüft: kein Text ist länger als erlaubt (overview: 60 Zeichen/Satz, deep: 200, expert: 400).",
+            "Skript schlägt fehl (exit 1) bei fehlenden oder zu langen Texten.",
+            "Ausgabe listet konkret alle Probleme mit YAML-Pfad und Fehlermeldung.",
+            "Skript ist in `make lint` integriert."
+          ]
+        },
+        {
+          "id": "T07.04",
+          "title": "CLAUDE.md / README: Anleitung für Snake-Modus und AI-Schlange",
+          "description": "Die Projektdokumentation wird um einen Abschnitt zur Erklär-AI-Snake erweitert: Konzept, Architektur, Tastenkürzel, YAML-Format, Cast-Erzeugung.",
+          "repo": "tui",
+          "files": ["docs/snake_tutor.md"],
+          "priority": "P3",
+          "effort": "S",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Dokument erklärt: Was ist die Erklär-AI-Snake, Rollen, YAML-Format.",
+            "Enthält vollständige Keybinding-Tabelle für Snake-Modus.",
+            "Enthält Beispiel-YAML für einen Tutorial-Step.",
+            "Enthält Befehl zum Cast-Erzeugen (`make cast`) mit Voraussetzungen.",
+            "Dokument ist auf Deutsch (konsistent mit Website-Sprache).",
+            "Maximale Länge: 400 Zeilen."
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_tasks": 30,
+    "by_priority": { "P1": 11, "P2": 14, "P3": 5 },
+    "by_effort": { "XS": 1, "S": 12, "M": 11, "L": 6, "XL": 0 },
+    "by_repo": { "tui": 19, "www": 9, "both": 2 },
+    "critical_path": [
+      "T01.01 → T02.01 → T02.03 → T05.01 → T05.02 → T06.01 → T06.02"
+    ],
+    "recommended_start": ["T01.01", "T06.06", "T03.01", "T05.04"]
+  }
+}
