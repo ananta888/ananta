@@ -107,7 +107,7 @@
         "T08.01",
         "T08.02"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -713,7 +713,7 @@
     {
       "id": "T08.02",
       "title": "Architekturdoku mit Mermaid",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "docs",
@@ -729,7 +729,7 @@
         "Doku enthält Security-Invarianten: no auto body, no auto worker, no plaintext credentials.",
         "Doku enthält Testmatrix."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     }
   ],
   "critical_path_tasks": [
@@ -752,13 +752,13 @@
   "tasks_status_summary": {
     "total": 31,
     "by_status": {
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 30
+      "done": 31
     },
-    "progress_percent_done": 96.77,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P1": 24,
       "P2": 6,
@@ -777,9 +777,9 @@
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 7
+      "done": 8
     }
   },
   "tasks_type_summary": {
@@ -956,28 +956,28 @@
       "docs": {
         "total": 2,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 1
+          "done": 2
         },
-        "done": 1,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 50.0
+        "progress_percent": 100.0
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 1,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 30,
-    "count_based_percent": 96.8,
-    "weighted_percent": 98.3
+    "done": 31,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -1021,10 +1021,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 59.25,
-    "done_weight": 58.25,
-    "remaining_weight": 1.0,
+    "done_weight": 59.25,
+    "remaining_weight": 0.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 98.3
+    "weighted_percent": 100.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1086,21 +1086,21 @@
       },
       "M08": {
         "total_tasks": 2,
-        "done": 1,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 60.0,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T22:57:02.915043Z",
+    "generated_at": "2026-05-26T22:58:53.706357Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "ba47a8eb95b2cd6a607b17234f29b7e42d739309b0d0fe05bdb5b1d2d63a6240",
+    "source_hash": "943f914964a76fcc5b309d776a3352ab9a5f85c94adec061eb2211ddd54155ef",
     "is_stale": false
   }
 }

@@ -77,6 +77,46 @@ Mail-Export:
 - Redaction läuft vor Kontextfreigabe (Secrets werden maskiert).
 - `metadata_only` ist der sichere Standard-Scope.
 
+## Architektur-Flow (Mermaid)
+
+### IMAP -> Metadata Store -> TUI
+
+```mermaid
+flowchart LR
+    A[IMAP Provider] --> B[ImapConnectorService]
+    B --> C[ImapMetadataStore]
+    C --> D[:mail Commands]
+    D --> E[Operator TUI Renderer]
+    D --> F[Explicit load-body only]
+```
+
+### Mail -> Artifact -> GoalGraph -> Worker ContextEnvelope
+
+```mermaid
+flowchart LR
+    A[:mail open/load-body] --> B[Mail Redaction Pipeline]
+    B --> C[MailArtifact metadata_only/excerpt/full_body]
+    C --> D[GoalArtifactGraph Source Grants]
+    D --> E[Mail ContextEnvelope]
+    E --> F[Local Worker Context]
+    E -. default denied .-> G[Cloud Worker]
+```
+
+## Security-Invarianten
+
+- **no auto body**: Body wird nur durch explizites `:mail load-body` geladen.
+- **no auto worker**: Kein Mail-Kontext ohne explizite Grant-Aktion.
+- **no plaintext credentials**: Account-Config nutzt `credential_ref`, nicht Passwortfelder.
+
+## Testmatrix
+
+| Bereich | Tests |
+|---|---|
+| Mock-IMAP Integration, Timeout/Login/TLS, headers-only | `tests/test_imap_mock_integration_flow.py`, `tests/test_imap_connector_service.py` |
+| TUI Mail-View/Commands inkl. offline/degraded und explizites Body-Load | `tests/test_tui_imap_mail_view_commands.py`, `tests/test_tui_imap_mail_integration_commands.py`, `tests/test_tui_imap_account_commands.py` |
+| Artifact/Worker Security, Redaction, Cloud denied default | `tests/test_imap_artifact_worker_security.py`, `tests/test_imap_mail_context_envelope_service.py`, `tests/test_imap_redaction_pipeline_service.py`, `tests/test_imap_schema_policy_unit.py` |
+| E2E Mail lesen + Goal-Freigabe (Excerpt-only) | `tests/test_imap_mail_goal_grant_e2e.py` |
+
 ## Troubleshooting
 
 ### Login schlägt fehl (`imap_login_failed`)
