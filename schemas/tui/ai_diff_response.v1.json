@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/tui/ai_diff_response.v1.json",
+  "title": "AI Diff Response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "status",
+    "artifact_type",
+    "summary",
+    "findings",
+    "risks",
+    "suggested_tests",
+    "patch_suggestions",
+    "source_refs"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ai_diff_response.v1"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "degraded"]
+    },
+    "artifact_type": {
+      "type": "string",
+      "enum": ["review", "explain", "risk", "tests", "patch", "chat"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "suggested_tests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "patch_suggestions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reason_code": {
+      "type": "string"
+    }
+  }
+}

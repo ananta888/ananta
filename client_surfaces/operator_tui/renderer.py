@@ -676,11 +676,12 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
         if bool(payload.get("diff3_mode")):
             lines.append("    :diff3")
             lines.append("    :diff3 panel <A|B|C> current [--mode <mode>]")
+            lines.append("    :diff3 panel <A|B|C> output <output-id>")
             lines.append("    :diff3 panel <A|B|C> ai <review|explain|risk|tests|patch|chat>")
             lines.append("    :diff3 panel <A|B|C> mode <render-mode>")
             lines.append("    :diff3 panel <A|B|C> filter key=value ...")
             lines.append("    :diff3 focus <A|B|C> | :diff3 scroll ...")
-            lines.append("    :diff3 sync on|off | :diff3 ai <mode>")
+            lines.append("    :diff3 sync on|off | :diff3 ai <mode> | :diff3 ai run [mode]")
         if bool(payload.get("goal_artifacts_mode")):
             lines.append("    :goal artifacts [filter ...|clear-filter]")
             lines.append("    :goal sources candidates")
@@ -797,6 +798,15 @@ def _diff3_content_lines(payload: dict, *, width: int) -> list[str]:
     lines = [
         f"  DIFF3: active panel={active_panel} sync={'on' if sync else 'off'}",
     ]
+    ai_state = dict(payload.get("ai_panel_state") or {})
+    if ai_state:
+        lines.append(
+            _clip(
+                f"  AI: mode={ai_state.get('mode')} status={ai_state.get('status')} "
+                f"prompt={ai_state.get('prompt_template_ref')} last={ai_state.get('last_response_ref') or '-'}",
+                width,
+            )
+        )
     if not rows:
         lines.append("  (empty diff3 session)")
         return lines

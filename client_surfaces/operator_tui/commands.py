@@ -46,10 +46,11 @@ from client_surfaces.operator_tui.ai_snake_training_store import (
 )
 from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState, PanelState
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id, section_ids
+from client_surfaces.operator_tui.diff.ai_diff_dispatch import dispatch_ai_diff_request
 from client_surfaces.operator_tui.diff.ai_diff_panel_state import build_ai_diff_panel_state, set_ai_diff_mode
 from client_surfaces.operator_tui.diff.diff_engine import DiffEngine
 from client_surfaces.operator_tui.diff.diff_source_resolver import DiffSourceResolver
-from client_surfaces.operator_tui.diff.diff_sources import build_current_diff_source_ref
+from client_surfaces.operator_tui.diff.diff_sources import build_current_diff_source_ref, build_output_artifact_source_ref
 from client_surfaces.operator_tui.diff.three_way_diff_state import (
     build_current_diff_three_panel_session,
     set_panel_state,
@@ -142,10 +143,17 @@ def _build_diff3_payload(*, state: dict, goal_id: str | None) -> dict:
                 status = "ready"
                 doc = engine.build_document(left=resolved, render_mode=render_mode)
                 stats = dict(doc.get("stats") or {})
+                if str(source.get("source_kind") or "") == "goal_output_artifact":
+                    output_ref = str(resolved.get("output_artifact_id") or "")
+                    prov = str(resolved.get("provenance_id") or "")
+                    source_label = f"{source_label}#{output_ref}" if output_ref else source_label
+                    if prov:
+                        source_label = f"{source_label} prov={prov}"
             else:
                 status = str(resolved.get("reason_code") or "degraded")
         elif panel_type.startswith("ai_"):
-            status = "ready"
+            ai_state = dict(dict(state.get("extensions") or {}).get("ai_panel_state") or {})
+            status = str(ai_state.get("status") or "ready")
         summaries.append(
             {
                 "panel_id": panel_id,
@@ -162,6 +170,7 @@ def _build_diff3_payload(*, state: dict, goal_id: str | None) -> dict:
         "goal_id": goal_id,
         "active_panel": str(state.get("active_panel") or "A"),
         "sync_scroll": bool(dict(state.get("extensions") or {}).get("sync_scroll", False)),
+        "ai_panel_state": dict(dict(state.get("extensions") or {}).get("ai_panel_state") or {}),
         "panel_summaries": summaries,
         "raw_state": state,
     }
@@ -395,7 +404,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         action = str(args[0]).lower()
         if action == "panel":
             if len(args) < 3:
-                return CommandResult(state, "diff3 panel <A|B|C> current|ai|mode|filter ...", handled=False)
+                return CommandResult(state, "diff3 panel <A|B|C> current|output|ai|mode|filter ...", handled=False)
             panel_id = str(args[1]).upper()
             if panel_id not in {"A", "B", "C"}:
                 return CommandResult(state, f"invalid panel id: {panel_id}", handled=False)
@@ -412,6 +421,21 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                     source_left=build_current_diff_source_ref(),
                     source_right=None,
                     render_mode=mode,
+                )
+            elif sub == "output":
+                if len(args) < 4:
+                    return CommandResult(state, "diff3 panel <A|B|C> output <output-artifact-id>", handled=False)
+                output_id = str(args[3]).strip()
+                if not output_id:
+                    return CommandResult(state, "diff3 panel <A|B|C> output <output-artifact-id>", handled=False)
+                goal_id = str(game.get("active_goal_id") or "").strip() or None
+                diff3_state = set_panel_state(
+                    diff3_state,
+                    panel_id=panel_id,
+                    panel_type="diff",
+                    source_left=build_output_artifact_source_ref(output_artifact_id=output_id, goal_id=goal_id),
+                    source_right=None,
+                    render_mode="unified",
                 )
             elif sub == "ai":
                 mode = str(args[3]).lower() if len(args) > 3 else "review"
@@ -469,7 +493,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 panel["filters"] = filters
                 diff3_state["updated_at"] = _now_iso()
             else:
-                return CommandResult(state, "diff3 panel <A|B|C> current|ai|mode|filter ...", handled=False)
+                return CommandResult(state, "diff3 panel <A|B|C> current|output|ai|mode|filter ...", handled=False)
             next_state = _state_with_diff3_payload(state, game=game, diff3_state=diff3_state)
             return CommandResult(next_state.with_updates(status_message=f"diff3 panel {panel_id} updated"), json.dumps(next_state.section_payloads["artifacts"], ensure_ascii=False))
         if action == "focus":
@@ -510,8 +534,46 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             return CommandResult(next_state.with_updates(status_message=f"diff3 scroll {direction}"), f"diff3 scroll {direction}")
         if action == "ai":
             mode = str(args[1]).lower() if len(args) > 1 else ""
+            if mode == "run":
+                extensions = dict(diff3_state.get("extensions") or {})
+                current_ai = dict(extensions.get("ai_panel_state") or {})
+                current_mode = str(current_ai.get("mode") or "review")
+                run_mode = str(args[2]).lower() if len(args) > 2 else current_mode
+                if run_mode not in {"review", "explain", "risk", "tests", "patch", "chat"}:
+                    return CommandResult(state, "diff3 ai run [review|explain|risk|tests|patch|chat]", handled=False)
+                running = (
+                    set_ai_diff_mode(current_ai, mode=run_mode, status="running")
+                    if current_ai
+                    else build_ai_diff_panel_state(mode=run_mode, selected_panels=["A", "B"], status="running")
+                )
+                extensions["ai_panel_state"] = running
+                diff3_state["extensions"] = extensions
+                result = dispatch_ai_diff_request(
+                    goal_id=str(game.get("active_goal_id") or "").strip() or None,
+                    diff3_state=diff3_state,
+                    mode=run_mode,
+                )
+                completed = set_ai_diff_mode(
+                    running,
+                    mode=run_mode,
+                    status="degraded" if str(result.get("status") or "") != "success" else "completed",
+                )
+                completed["last_response_ref"] = str(result.get("output_artifact_id") or result.get("provenance_id") or "")
+                completed["context_refs"] = [f"ctx:{hashlib.sha1(json.dumps(result.get('context_envelope') or {}, sort_keys=True).encode('utf-8')).hexdigest()[:12]}"]
+                completed["selected_hunks"] = list((result.get("context_envelope") or {}).get("selected_hunk_refs") or [])
+                extensions["ai_panel_state"] = completed
+                extensions["ai_last_response"] = dict(result.get("response") or {})
+                extensions["ai_last_context"] = dict(result.get("context_envelope") or {})
+                diff3_state["extensions"] = extensions
+                next_state = _state_with_diff3_payload(state, game=game, diff3_state=diff3_state)
+                status_label = "degraded" if str(result.get("status") or "") != "success" else "completed"
+                return CommandResult(
+                    next_state.with_updates(status_message=f"diff3 ai run {run_mode} {status_label}"),
+                    json.dumps(result, ensure_ascii=False),
+                    handled=True,
+                )
             if mode not in {"review", "explain", "risk", "tests", "patch", "chat"}:
-                return CommandResult(state, "diff3 ai review|explain|risk|tests|patch|chat", handled=False)
+                return CommandResult(state, "diff3 ai review|explain|risk|tests|patch|chat|run [mode]", handled=False)
             extensions = dict(diff3_state.get("extensions") or {})
             current_ai = extensions.get("ai_panel_state")
             if isinstance(current_ai, dict):

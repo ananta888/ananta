@@ -137,7 +137,16 @@ class DiffSourceResolver:
             text = self._resolve_artifact_ref_to_text(artifact_ref)
             if text is None:
                 return {"ok": False, "reason_code": "artifact_content_not_found"}
-            return {"ok": True, "content_type": "text", "text": text, "artifact_ref": artifact_ref}
+            return {
+                "ok": True,
+                "content_type": "text",
+                "text": text,
+                "artifact_ref": artifact_ref,
+                "output_artifact_id": output_artifact_id,
+                "provenance_id": str(output.get("provenance_id") or ""),
+                "task_id": str(output.get("task_id") or ""),
+                "worker_id": str(output.get("worker_id") or ""),
+            }
         artifact_ref = str(locator.get("artifact_ref") or "").strip()
         text = self._resolve_artifact_ref_to_text(artifact_ref)
         if text is None:
@@ -155,4 +164,3 @@ class DiffSourceResolver:
                 return None
             return _read_file(path)
         return None
-

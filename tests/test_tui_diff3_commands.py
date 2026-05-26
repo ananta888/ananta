@@ -66,3 +66,35 @@ def test_diff3_ai_mode_state_switch() -> None:
     assert ai_state["mode"] == "patch"
     assert ai_state["prompt_template_ref"] == "prompt:diff3/patch"
 
+
+def test_diff3_panel_output_source_and_ai_run(monkeypatch) -> None:
+    def _ok(*, goal_id: str | None, diff3_state: dict, mode: str) -> dict:
+        return {
+            "status": "success",
+            "reason_code": "",
+            "response": {
+                "schema": "ai_diff_response.v1",
+                "status": "success",
+                "artifact_type": mode,
+                "summary": "ok",
+                "findings": [],
+                "risks": [],
+                "suggested_tests": [],
+                "patch_suggestions": [],
+                "source_refs": [],
+            },
+            "context_envelope": {"selected_hunk_refs": []},
+            "provenance_id": "prov-1",
+            "output_artifact_id": "out-1",
+        }
+
+    monkeypatch.setattr("client_surfaces.operator_tui.commands.dispatch_ai_diff_request", _ok)
+    state = execute_command(":goal use goal-1", _state()).state
+    output_set = execute_command(":diff3 panel A output out-1", state)
+    assert output_set.handled is True
+    run = execute_command(":diff3 ai run review", output_set.state)
+    assert run.handled is True
+    raw_state = run.state.header_logo_game["diff3_state"]
+    panel_a = next(item for item in raw_state["panels"] if item["panel_id"] == "A")
+    assert panel_a["source_left"]["source_kind"] == "goal_output_artifact"
+    assert panel_a["source_left"]["locator"]["output_artifact_id"] == "out-1"
