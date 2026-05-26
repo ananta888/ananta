@@ -1,0 +1,359 @@
+{
+  "meta": {
+    "project": "ananta",
+    "feature": "goal-artifact-execution-provenance-config-prompts",
+    "title": "Goal Artifact Execution Provenance: Tasks, Configs, Runtime, Modelle und Prompt-Vorlagen",
+    "description": "Ergänzung zu Goal Artifact Management. Für jedes genutzte Quellartefakt und jedes erzeugte Output-Artefakt muss nachvollziehbar sein, welche Task, welche Worker-/Runtime-/Model-Config, welche Prompt-Vorlage und welche konkrete Prompt-Version/Hash verwendet wurde.",
+    "created": "2026-05-26",
+    "last_updated": "2026-05-26",
+    "version": "1.0",
+    "extends": [
+      "todos/todo.goal-artifact-source-output-management-tui.json"
+    ],
+    "legend": {
+      "priority": "P1 = muss, P2 = soll, P3 = kann",
+      "effort": "XS = <2h, S = 2-4h, M = 4-8h, L = 8-16h, XL = >16h",
+      "status": "open | in_progress | done | blocked"
+    }
+  },
+  "core_goal": "Nicht nur Quelle und Output müssen sichtbar sein, sondern auch der exakte Ausführungskontext: welche Task lief, mit welcher Config, welchem Worker, welchem Runtime-Target, welchem Modell, welcher Prompt-Vorlage und welchem finalen Prompt-Hash. Damit kann ein Goal-Output später reproduziert, geprüft und sicherheitlich bewertet werden.",
+  "principles": [
+    "Jeder Output braucht ExecutionProvenance.",
+    "Jede SourceArtifactUsage braucht Task-/Prompt-/Config-Bezug.",
+    "Prompt-Vorlage und finaler Prompt sind getrennt zu behandeln.",
+    "Finale Prompts werden nicht zwingend roh gespeichert; mindestens Hash, Template, Variables-Hash und Redaction-Status müssen vorhanden sein.",
+    "Configs werden als Snapshots/Hashes referenziert, nicht nur als aktuelle Live-Config.",
+    "TUI muss Provenance menschlich lesbar anzeigen können.",
+    "E2E muss beweisen: Output zeigt Task, Config, Prompt Template und Input-Artefakte."
+  ],
+  "epics": [
+    {
+      "id": "E01",
+      "title": "ExecutionProvenance Datenmodell",
+      "goal": "Ein Schema beschreibt vollständig, wie ein Artefakt entstanden ist.",
+      "tasks": [
+        {
+          "id": "T01.01",
+          "title": "ExecutionProvenance-v1 Schema definieren",
+          "description": "Schema für Task-, Worker-, Runtime-, Model-, Config- und Prompt-Provenance eines Artefakts.",
+          "repo": "tui",
+          "files": [
+            "schemas/artifacts/execution_provenance.v1.json",
+            "agent/artifacts/execution_provenance.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema enthält provenance_id, goal_id, task_id, worker_id, worker_kind, runtime_target_ref, model_ref, config_refs, prompt_refs, input_usage_refs, output_artifact_refs, created_at.",
+            "task_id ist Pflicht für alle task-basierten Outputs.",
+            "runtime_target_ref enthält runtime_type, location, sandbox/container/ref und hash/snapshot_id soweit verfügbar.",
+            "model_ref enthält provider_id, model_id, model_version oder model_hash soweit verfügbar.",
+            "config_refs enthält worker_config_ref, runtime_config_ref, model_config_ref und policy_config_ref.",
+            "prompt_refs enthält prompt_template_ref, prompt_template_version, prompt_template_hash, prompt_variables_hash und final_prompt_hash.",
+            "Schema erlaubt redacted_prompt_ref, aber finaler Rohprompt ist optional und default nicht erforderlich.",
+            "Schema-Tests validieren vollständige, minimal zulässige und ungültige Provenance."
+          ]
+        },
+        {
+          "id": "T01.02",
+          "title": "SourceArtifactUsage um Execution-Refs erweitern",
+          "description": "Tatsächliche Nutzung eines Quellartefakts muss Task, Config und Prompt-Kontext referenzieren.",
+          "repo": "tui",
+          "files": [
+            "schemas/artifacts/source_artifact_usage.v1.json",
+            "agent/artifacts/artifact_usage.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "SourceArtifactUsage enthält task_id, worker_id, execution_id und provenance_id.",
+            "SourceArtifactUsage enthält prompt_template_ref oder verweist auf ExecutionProvenance.prompt_refs.",
+            "SourceArtifactUsage enthält config_snapshot_refs oder verweist auf ExecutionProvenance.config_refs.",
+            "Usage ohne task_id ist nur für manuelle UI-Vorschau erlaubt und muss usage_kind `preview` haben.",
+            "Tests prüfen normale Worker-Nutzung, manuelle Preview und fehlende ExecutionProvenance."
+          ]
+        },
+        {
+          "id": "T01.03",
+          "title": "GoalOutputArtifact um ExecutionProvenance erweitern",
+          "description": "Jedes Output-Artefakt verweist auf die ExecutionProvenance, aus der es entstanden ist.",
+          "repo": "tui",
+          "files": [
+            "schemas/artifacts/goal_output_artifact.v1.json",
+            "agent/artifacts/output_artifacts.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "GoalOutputArtifact enthält provenance_id als Pflichtfeld für Worker-generierte Outputs.",
+            "GoalOutputArtifact enthält zusätzlich task_id, worker_id und execution_id für schnelle UI-Anzeige.",
+            "Output zeigt prompt_template_ref und config summary indirekt über provenance_id.",
+            "Manuell angelegte Outputs müssen provenance_kind `manual` tragen.",
+            "Tests prüfen worker output, manual output und missing provenance."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E02",
+      "title": "Config Snapshots und Prompt Snapshots",
+      "goal": "Configs und Prompt-Vorlagen werden nicht nur als aktueller Dateipfad referenziert, sondern als reproduzierbare Snapshots/Hashes.",
+      "tasks": [
+        {
+          "id": "T02.01",
+          "title": "ConfigSnapshot-v1 Schema definieren",
+          "description": "Ausführungsrelevante Configs werden als Snapshot mit Hash und Scope erfasst.",
+          "repo": "tui",
+          "files": [
+            "schemas/config/config_snapshot.v1.json",
+            "agent/config/config_snapshot_service.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema enthält config_snapshot_id, config_kind, source_path_or_ref, scope, created_at, config_hash und redacted_config_hash.",
+            "config_kind enthält worker_config, runtime_config, model_config, policy_config, prompt_config.",
+            "Snapshot speichert keine Secrets im Klartext.",
+            "Sensitive Werte werden vor optionaler Speicherung redacted.",
+            "ExecutionProvenance kann mehrere ConfigSnapshotRefs tragen.",
+            "Tests prüfen Hash-Stabilität, Redaction und fehlende Config."
+          ]
+        },
+        {
+          "id": "T02.02",
+          "title": "PromptTemplateSnapshot-v1 Schema definieren",
+          "description": "Prompt-Vorlagen werden versioniert und gehasht, damit nachvollziehbar ist, welche Vorlage verwendet wurde.",
+          "repo": "tui",
+          "files": [
+            "schemas/prompts/prompt_template_snapshot.v1.json",
+            "agent/prompts/prompt_snapshot_service.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema enthält prompt_template_ref, template_path, template_version, template_hash, renderer, created_at und expected_output_schema_ref.",
+            "Template-Hash ist stabil für identischen Inhalt.",
+            "PromptTemplateSnapshot kann Jinja2-Templates referenzieren.",
+            "Snapshot enthält optional human_description und intended_modes.",
+            "Tests prüfen Template-Hash, Version und missing template."
+          ]
+        },
+        {
+          "id": "T02.03",
+          "title": "FinalPromptRecord-v1 mit Hash und Redaction",
+          "description": "Der finale Prompt wird aus Template + Variablen abgeleitet. Rohspeicherung ist optional, Hash und Redaction-Status sind Pflicht.",
+          "repo": "tui",
+          "files": [
+            "schemas/prompts/final_prompt_record.v1.json",
+            "agent/prompts/prompt_snapshot_service.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T02.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema enthält final_prompt_ref, prompt_template_ref, variables_hash, final_prompt_hash, redaction_applied, raw_prompt_stored und storage_ref optional.",
+            "Rohprompt wird default nicht gespeichert oder nur redacted, je nach Policy.",
+            "FinalPromptRecord enthält context_hash und input_usage_refs.",
+            "FinalPromptRecord enthält output_schema_ref.",
+            "Tests prüfen raw_prompt_stored=false, redacted storage und Hash-Stabilität."
+          ]
+        },
+        {
+          "id": "T02.04",
+          "title": "Snapshot-Erzeugung in Worker-Ausführung einhängen",
+          "description": "Vor Worker-Ausführung werden Config- und Prompt-Snapshots erzeugt und in ExecutionProvenance referenziert.",
+          "repo": "tui",
+          "files": [
+            "agent/services/task_scoped_execution_service.py",
+            "agent/services/native_worker_runtime_service.py",
+            "agent/prompts/prompt_snapshot_service.py",
+            "agent/config/config_snapshot_service.py"
+          ],
+          "priority": "P1",
+          "effort": "XL",
+          "depends_on": ["T02.01", "T02.02", "T02.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Jede Worker-Ausführung erzeugt oder referenziert ConfigSnapshots.",
+            "Jede promptbasierte Worker-Ausführung erzeugt PromptTemplateSnapshot und FinalPromptRecord.",
+            "ExecutionProvenance wird vor Output-Registrierung erzeugt.",
+            "Output-Artefakte referenzieren dieselbe provenance_id.",
+            "Bei promptloser Ausführung wird prompt_refs leer, aber reason `no_prompt_used` gesetzt.",
+            "Tests prüfen LLM/prompt flow, native command flow und degraded missing prompt template."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E03",
+      "title": "TUI Anzeige und Kommandos",
+      "goal": "Der Operator sieht pro Output-Artefakt klar, welche Task, Config und Prompt-Vorlage verwendet wurden.",
+      "tasks": [
+        {
+          "id": "T03.01",
+          "title": "TUI Provenance Detail erweitern",
+          "description": "`:artifact provenance <id>` zeigt Task, Worker, Runtime, Model, Config-Snapshots und Prompt-Vorlagen.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/commands.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.01", "T02.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Provenance-Detail zeigt task_id, task_title/kind falls verfügbar, worker_id und worker_kind.",
+            "Anzeige zeigt runtime_target_ref und model_ref.",
+            "Anzeige zeigt config_refs mit config_kind und kurzem hash.",
+            "Anzeige zeigt prompt_template_ref, template_version und final_prompt_hash.",
+            "Anzeige zeigt input_usage_refs und output_artifact_refs.",
+            "Rohprompt wird nicht automatisch angezeigt; falls verfügbar nur über explizites Detailkommando und Policy.",
+            "Ansicht bleibt bei Terminalbreite 100 lesbar."
+          ]
+        },
+        {
+          "id": "T03.02",
+          "title": "TUI Kommando für Prompt-/Config-Details",
+          "description": "Eigene Kommandos zeigen die verwendeten Prompt- und Config-Snapshots eines Artefakts.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:artifact prompt <output-artifact-id>` zeigt prompt_template_ref, template_path, template_hash, variables_hash und final_prompt_hash.",
+            "`:artifact config <output-artifact-id>` zeigt worker/runtime/model/policy config refs.",
+            "Wenn Rohprompt nicht gespeichert ist, zeigt UI klar `raw prompt not stored`.",
+            "Wenn Zugriff auf Rohprompt policy-blocked ist, zeigt UI reason_code.",
+            "Kommandos funktionieren auch für Outputs ohne Prompt, z. B. native command result."
+          ]
+        },
+        {
+          "id": "T03.03",
+          "title": "Goal Artifacts Liste um Execution-Spalte erweitern",
+          "description": "Die Goal-Artifacts-Übersicht zeigt pro Output eine kompakte Execution-Zusammenfassung.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/renderer.py"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Output-Liste zeigt Task kurz, Worker kurz, Modell/Runtime kurz und Prompt-Template kurz.",
+            "Bei kleinem Terminal wird Execution-Zusammenfassung auf eine Zeile komprimiert.",
+            "Fehlende Provenance wird deutlich als `provenance missing` markiert.",
+            "Filter nach task_id, worker_id, prompt_template_ref und model_ref ist vorbereitet oder implementiert."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E04",
+      "title": "API und Tests",
+      "goal": "ExecutionProvenance kann per API geladen und zuverlässig getestet werden.",
+      "tasks": [
+        {
+          "id": "T04.01",
+          "title": "ExecutionProvenance API ergänzen",
+          "description": "Goal Artifact API liefert ExecutionProvenance für Output-Artefakte.",
+          "repo": "tui",
+          "files": [
+            "agent/routes/goal_artifacts.py",
+            "agent/artifacts/goal_artifact_service.py",
+            "tests/test_goal_artifact_execution_provenance_api.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.01", "T02.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "GET /goals/{goal_id}/artifacts/outputs/{output_id}/provenance liefert ExecutionProvenance.",
+            "GET /goals/{goal_id}/artifacts/executions/{provenance_id} liefert ExecutionProvenance.",
+            "API redacted sensible Config-/Promptteile default.",
+            "API liefert 404 für unbekannte provenance_id.",
+            "API liefert reason_code bei policy-blocked raw prompt access.",
+            "Tests decken success, missing, redacted und policy-blocked ab."
+          ]
+        },
+        {
+          "id": "T04.02",
+          "title": "Unit Tests für Config und Prompt Snapshots",
+          "description": "Hashing, Redaction und Snapshot-Referenzen werden isoliert getestet.",
+          "repo": "tui",
+          "files": [
+            "tests/test_config_snapshot_service.py",
+            "tests/test_prompt_snapshot_service.py",
+            "tests/test_execution_provenance_schema.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T02.01", "T02.02", "T02.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Tests prüfen stabile Hashes für gleiche Configs/Templates.",
+            "Tests prüfen geänderte Config erzeugt anderen Hash.",
+            "Tests prüfen Redaction sensibler Config-Felder.",
+            "Tests prüfen FinalPromptRecord ohne Rohprompt.",
+            "Tests validieren ExecutionProvenance Schema."
+          ]
+        },
+        {
+          "id": "T04.03",
+          "title": "E2E: Output zeigt Task, Config und Prompt",
+          "description": "E2E-Test erzeugt Goal-Output und prüft, dass TUI die genutzte Task, Config und Prompt-Vorlage anzeigt.",
+          "repo": "tui",
+          "files": [
+            "scripts/e2e/goal_artifact_execution_provenance_e2e.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T03.01", "T04.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "E2E erstellt Test-Goal und Test-Task.",
+            "E2E nutzt definierte Prompt-Vorlage.",
+            "E2E nutzt definierte Worker-/Runtime-/Model-Config.",
+            "E2E erzeugt Output-Artefakt.",
+            "E2E öffnet Provenance-Detail im TUI.",
+            "TUI zeigt task_id, worker_id, runtime/model config ref, prompt_template_ref und final_prompt_hash.",
+            "E2E prüft, dass Rohprompt nicht ungefragt angezeigt wird."
+          ]
+        }
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Jedes Worker-generierte Output-Artefakt verweist auf ExecutionProvenance.",
+    "ExecutionProvenance enthält task_id, worker_id, runtime_target_ref, model_ref, config_refs und prompt_refs.",
+    "PromptTemplateSnapshot und FinalPromptRecord sind getrennt modelliert.",
+    "Finaler Prompt wird mindestens über Hash nachweisbar, Rohspeicherung ist optional und policy-gesteuert.",
+    "ConfigSnapshots werden gehasht und sensible Werte redacted.",
+    "TUI zeigt pro Output-Artefakt Task, Config und Prompt-Vorlage übersichtlich an.",
+    "E2E beweist: Goal Output -> Provenance Detail -> Task/Config/Prompt sichtbar."
+  ],
+  "suggested_implementation_order": [
+    "E01 ExecutionProvenance Schema und Erweiterung von Usage/Output",
+    "E02 ConfigSnapshot und PromptSnapshot Services",
+    "E04 API und Unit Tests",
+    "E03 TUI Provenance Detail und Kommandos",
+    "E04 E2E Provenance Test"
+  ]
+}
