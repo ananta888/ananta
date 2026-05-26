@@ -741,7 +741,12 @@ def _planning_track_content_lines(payload: dict, *, width: int, compact: bool) -
     mapping = dict(selected_track.get("task_mapping") or {})
     source_refs = [str(item) for item in list(selected_track.get("source_references") or []) if str(item).strip()]
     context_refs = [str(item) for item in list(selected_track.get("context_references") or []) if str(item).strip()]
-    summary_status = str(selected_track.get("summary_recalculation_status") or "not_needed")
+    raw_summary_status = str(selected_track.get("summary_recalculation_status") or "not_needed")
+    summary_status = (
+        "repaired"
+        if raw_summary_status == "repaired"
+        else ("invalid" if raw_summary_status == "failed" else "fresh")
+    )
     repaired_fields = [str(item) for item in list(selected_track.get("repaired_fields") or []) if str(item).strip()]
     lines.append(f"  Header: owner={owner} track={track} goal={goal}")
     lines.append(

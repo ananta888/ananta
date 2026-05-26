@@ -4,115 +4,983 @@
   "track": "planning-worker-derived-summary-single-source-of-truth",
   "purpose": "Der Ananta Planning-Worker soll tasks[] als Single Source of Truth nutzen. Alle Summaries werden daraus deterministisch abgeleitet.",
   "goal": "tasks[] ist die verbindliche Quelle für Status, Priorität, Risiko, Typ und Fortschritt. tasks_status_summary, tasks_type_summary, progress_summary, weighted_progress_summary und Milestone-Summaries werden beim Validieren/Speichern neu berechnet. Der Worker darf Summaries liefern, aber Hub/Validator berechnen sie neu und speichern nur konsistente Werte.",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
   "milestones": [
-    {"id": "M01", "title": "Summary Policy und Datenmodell", "task_ids": ["T01.01", "T01.02", "T01.03", "T01.04"], "status": "done"},
-    {"id": "M02", "title": "Deterministische Summary Engine", "task_ids": ["T02.01", "T02.02", "T02.03", "T02.04", "T02.05"], "status": "done"},
-    {"id": "M03", "title": "Planning-Worker Contract", "task_ids": ["T03.01", "T03.02", "T03.03"], "status": "done"},
-    {"id": "M04", "title": "Validation und Speicherung", "task_ids": ["T04.01", "T04.02", "T04.03"], "status": "done"},
-    {"id": "M05", "title": "TUI und Developer UX", "task_ids": ["T05.01", "T05.02", "T05.03", "T05.04"], "status": "done"},
-    {"id": "M06", "title": "Migration bestehender TODO-Dateien", "task_ids": ["T06.01", "T06.02", "T06.03"], "status": "done"},
-    {"id": "M07", "title": "Tests und E2E", "task_ids": ["T07.01", "T07.02", "T07.03", "T07.04"], "status": "in_progress"},
-    {"id": "M08", "title": "Dokumentation", "task_ids": ["T08.01", "T08.02"], "status": "todo"}
+    {
+      "id": "M01",
+      "title": "Summary Policy und Datenmodell",
+      "task_ids": [
+        "T01.01",
+        "T01.02",
+        "T01.03",
+        "T01.04"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "M02",
+      "title": "Deterministische Summary Engine",
+      "task_ids": [
+        "T02.01",
+        "T02.02",
+        "T02.03",
+        "T02.04",
+        "T02.05"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "M03",
+      "title": "Planning-Worker Contract",
+      "task_ids": [
+        "T03.01",
+        "T03.02",
+        "T03.03"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "M04",
+      "title": "Validation und Speicherung",
+      "task_ids": [
+        "T04.01",
+        "T04.02",
+        "T04.03"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "M05",
+      "title": "TUI und Developer UX",
+      "task_ids": [
+        "T05.01",
+        "T05.02",
+        "T05.03",
+        "T05.04"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "M06",
+      "title": "Migration bestehender TODO-Dateien",
+      "task_ids": [
+        "T06.01",
+        "T06.02",
+        "T06.03"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "M07",
+      "title": "Tests und E2E",
+      "task_ids": [
+        "T07.01",
+        "T07.02",
+        "T07.03",
+        "T07.04"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "M08",
+      "title": "Dokumentation",
+      "task_ids": [
+        "T08.01",
+        "T08.02"
+      ],
+      "status": "done"
+    }
   ],
   "tasks": [
-    {"id": "T01.01", "title": "Single Source of Truth Policy festlegen", "status": "done", "priority": "P1", "risk": "medium", "type": "policy", "milestone_id": "M01", "depends_on": [], "acceptance_criteria": ["tasks[] ist die einzige verbindliche Quelle.", "Alle Summaries sind derived/cache.", "Manuell gelieferte Summaries vom Worker werden nicht ungeprüft übernommen.", "Policy ist in Doku und Prompt sichtbar."]},
-    {"id": "T01.02", "title": "DerivedSummaryMetadata Modell definieren", "status": "done", "priority": "P1", "risk": "low", "type": "schema", "milestone_id": "M01", "depends_on": ["T01.01"], "acceptance_criteria": ["Modell enthält source_of_truth=tasks, generated_at, generator, generator_version, source_hash und is_stale.", "source_hash wird aus normalisierten tasks[] und milestones[] berechnet.", "Tests prüfen stabile Hashes."]},
-    {"id": "T01.03", "title": "Task Progress Semantik definieren", "status": "done", "priority": "P1", "risk": "medium", "type": "schema", "milestone_id": "M01", "depends_on": ["T01.01"], "acceptance_criteria": ["Task kann optional progress_percent 0..100 tragen.", "done erzwingt 100, todo erzwingt 0.", "in_progress und partial erlauben 1..99.", "blocked behält Fortschritt, wird aber separat gezählt.", "Validator erkennt Status/Fortschritt-Widersprüche."]},
-    {"id": "T01.04", "title": "Gewichtungsmodell festlegen", "status": "done", "priority": "P1", "risk": "medium", "type": "policy", "milestone_id": "M01", "depends_on": ["T01.03"], "acceptance_criteria": ["Basisgewicht pro Task ist 1.", "P1 und high risk erhöhen Gewicht.", "critical_path_tasks erhöhen Gewicht.", "e2e/test können Zusatzgewicht erhalten.", "Count-based und weighted progress werden beide berechnet."]},
-    {"id": "T02.01", "title": "PlanningSummaryEngine implementieren", "status": "done", "priority": "P1", "risk": "high", "type": "backend", "milestone_id": "M02", "depends_on": ["T01.01", "T01.03", "T01.04"], "acceptance_criteria": ["Engine liest tasks[], milestones[] und critical_path_tasks.", "Engine berechnet alle Summary-Blöcke neu.", "Engine ist deterministisch.", "Tests prüfen reproduzierbare Ergebnisse."]},
-    {"id": "T02.02", "title": "tasks_status_summary neu berechnen", "status": "done", "priority": "P1", "risk": "medium", "type": "backend", "milestone_id": "M02", "depends_on": ["T02.01"], "acceptance_criteria": ["total entspricht len(tasks).", "by_status, by_priority und by_risk werden aus tasks[] gezählt.", "critical_path wird aus critical_path_tasks gezählt.", "Milestone-Zählung wird berechnet."]},
-    {"id": "T02.03", "title": "tasks_type_summary mit Fortschritt pro Typ berechnen", "status": "done", "priority": "P1", "risk": "medium", "type": "backend", "milestone_id": "M02", "depends_on": ["T02.01"], "acceptance_criteria": ["by_type enthält pro type total, by_status, done, partial, blocked und progress_percent.", "Fehlender type wird als unspecified gezählt oder gewarnt.", "Tests prüfen schema/backend/tui/test/e2e/docs Typen."]},
-    {"id": "T02.04", "title": "Weighted Progress berechnen", "status": "done", "priority": "P1", "risk": "medium", "type": "backend", "milestone_id": "M02", "depends_on": ["T02.01", "T01.04"], "acceptance_criteria": ["weighted_progress_summary enthält total_weight, done_weight, remaining_weight, blocked_weight und weighted_percent.", "Taskgewicht basiert auf base, priority, risk, critical_path und type.", "Partial-Fortschritt geht anteilig ein.", "Tests prüfen höhere Gewichtung kritischer Tasks."]},
-    {"id": "T02.05", "title": "Milestone-Fortschritt ableiten", "status": "done", "priority": "P2", "risk": "medium", "type": "backend", "milestone_id": "M02", "depends_on": ["T02.01", "T02.04"], "acceptance_criteria": ["Milestone summary enthält total_tasks, done, blocked, count_based_percent und weighted_percent.", "Milestone status kann aus enthaltenen Tasks abgeleitet werden.", "Tests prüfen todo, in_progress, blocked und done Milestones."]},
-    {"id": "T03.01", "title": "Planning-Worker Output-Regel anpassen", "status": "done", "priority": "P1", "risk": "high", "type": "worker", "milestone_id": "M03", "depends_on": ["T01.01", "T02.01"], "acceptance_criteria": ["Planner-Prompt erklärt tasks[] als Single Source of Truth.", "Planner darf Summaries liefern, aber Validator berechnet sie neu.", "Planner erzeugt präzise tasks[] mit status, priority, risk, type und acceptance_criteria."]},
-    {"id": "T03.02", "title": "Prompt Template für Derived Summary aktualisieren", "status": "done", "priority": "P1", "risk": "medium", "type": "prompt", "milestone_id": "M03", "depends_on": ["T03.01"], "acceptance_criteria": ["prompts/planning/track_planning.j2 enthält SUMMARY_POLICY.", "Prompt erklärt progress_percent Semantik.", "Prompt erklärt derived summaries.", "Prompt-Lint-Test prüft SUMMARY_POLICY."]},
-    {"id": "T03.03", "title": "Planning Output Envelope um Summary-Status erweitern", "status": "done", "priority": "P1", "risk": "medium", "type": "worker", "milestone_id": "M03", "depends_on": ["T02.01", "T03.01"], "acceptance_criteria": ["Envelope enthält validation_status und summary_recalculation_status.", "Statuswerte: not_needed, recalculated, repaired, failed.", "Envelope enthält old_summary_hash und new_summary_hash, wenn überschrieben wurde."]},
-    {"id": "T04.01", "title": "Validation Pipeline erweitert um Summary-Recompute", "status": "done", "priority": "P1", "risk": "high", "type": "validation", "milestone_id": "M04", "depends_on": ["T02.01", "T03.03"], "acceptance_criteria": ["Nach JSON-Schema-Validation läuft Summary-Recompute.", "Alte Summaries werden mit berechneten Summaries verglichen.", "Aktiver Plan wird nur mit frischer Summary gespeichert."]},
-    {"id": "T04.02", "title": "Repair Mode für abweichende Summaries", "status": "done", "priority": "P1", "risk": "medium", "type": "validation", "milestone_id": "M04", "depends_on": ["T04.01"], "acceptance_criteria": ["Repair Mode überschreibt Summary-Blöcke deterministisch.", "Repair Mode verändert tasks[] nicht außer definierter progress-Normalisierung.", "Repair Mode protokolliert repaired_fields."]},
-    {"id": "T04.03", "title": "Speicherlogik überschreibt abgeleitete Summaries vor Write", "status": "done", "priority": "P1", "risk": "high", "type": "persistence", "milestone_id": "M04", "depends_on": ["T02.01", "T04.02"], "acceptance_criteria": ["Beim Speichern eines PlanningTrack-Artefakts werden Summaries neu berechnet.", "Beim Schreiben einer TODO-JSON-Datei werden Summaries aktualisiert.", "Gespeicherte Datei enthält keine stale summaries."]},
-    {"id": "T05.01", "title": "TUI zeigt count-based und weighted Progress getrennt", "status": "done", "priority": "P1", "risk": "medium", "type": "tui", "milestone_id": "M05", "depends_on": ["T02.04"], "acceptance_criteria": ["TUI zeigt count_based_percent und weighted_percent getrennt.", "TUI zeigt blocked_count und blocked_weight.", "TUI zeigt critical_path progress separat."]},
-    {"id": "T05.02", "title": "TUI zeigt Summary-Stale/Repair Status", "status": "done", "priority": "P1", "risk": "medium", "type": "tui", "milestone_id": "M05", "depends_on": ["T03.03", "T04.02"], "acceptance_criteria": ["TUI zeigt fresh, stale, repaired oder invalid.", "TUI zeigt source_hash Kurzform.", "TUI zeigt repaired_fields.", "TUI bietet :plan summary recompute."]},
-    {"id": "T05.03", "title": "CLI/TUI Summary Doctor", "status": "done", "priority": "P1", "risk": "medium", "type": "developer-experience", "milestone_id": "M05", "depends_on": ["T04.01", "T04.02"], "acceptance_criteria": ["ananta plan summary doctor <file> berichtet Abweichungen.", "ananta plan summary fix <file> repariert Summaries.", "TUI bietet :plan summary doctor und :plan summary fix.", "JSON-Ausgabe für Automatisierung ist verfügbar."]},
-    {"id": "T05.04", "title": "Progress Breakdown pro Typ/Priorität/Risiko anzeigen", "status": "done", "priority": "P2", "risk": "low", "type": "tui", "milestone_id": "M05", "depends_on": ["T02.03", "T02.04"], "acceptance_criteria": ["TUI zeigt Fortschritt nach type, priority und risk.", "TUI kann kritischen Pfad anzeigen.", "TUI kann offene high-risk P1 Tasks filtern."]},
-    {"id": "T06.01", "title": "Migration bestehender Track-TODOs vorbereiten", "status": "done", "priority": "P1", "risk": "medium", "type": "migration", "milestone_id": "M06", "depends_on": ["T05.03"], "acceptance_criteria": ["Migrationsscript findet TODO-JSON im todos/ Root und ignoriert archive/ und kritis/.", "Script erkennt Track-Dateien mit tasks[].", "Script kann dry-run und write mode."]},
-    {"id": "T06.02", "title": "Alte Epics-Struktur erkennen", "status": "done", "priority": "P2", "risk": "medium", "type": "migration", "milestone_id": "M06", "depends_on": ["T06.01"], "acceptance_criteria": ["Script erkennt alte epics.tasks Struktur.", "Script gibt Warnung aus, dass flache tasks[] Migration nötig ist.", "Optionaler --convert-epics Flag erzeugt Preview."]},
-    {"id": "T06.03", "title": "Bestehende inkonsistente Track-Dateien reparieren", "status": "done", "priority": "P1", "risk": "medium", "type": "migration", "milestone_id": "M06", "depends_on": ["T06.01", "T04.03"], "acceptance_criteria": ["todo.ananta-worker-planning-track-schema-contract.json kann neu berechnete Summary erhalten.", "todo.operator-tui-three-way-flex-diff-ai-mode.json kann neu berechnete Summary erhalten.", "Repair ändert keine Task-Inhalte."]},
-    {"id": "T07.01", "title": "Unit Tests für Summary Engine", "status": "done", "priority": "P1", "risk": "medium", "type": "test", "milestone_id": "M07", "depends_on": ["T02.01", "T02.02", "T02.03", "T02.04", "T02.05"], "acceptance_criteria": ["Tests decken kleinen/großen Plan und gemischte Status ab.", "Tests decken count-based und weighted progress ab.", "Tests decken critical_path und milestones ab."]},
-    {"id": "T07.02", "title": "Validation/Repair Tests für widersprüchliche Summaries", "status": "done", "priority": "P1", "risk": "medium", "type": "test", "milestone_id": "M07", "depends_on": ["T04.01", "T04.02"], "acceptance_criteria": ["tasks alle done, Summary todo wird erkannt und repariert.", "falsche total-Zahl wird repariert.", "stale source_hash wird erkannt."]},
-    {"id": "T07.03", "title": "Planning-Worker Contract Tests", "status": "done", "priority": "P1", "risk": "high", "type": "test", "milestone_id": "M07", "depends_on": ["T03.01", "T03.02", "T03.03"], "acceptance_criteria": ["Mock Planner liefert falsche Summary; Validator überschreibt sie.", "Mock Planner liefert fehlende Summary; Validator ergänzt sie.", "Worker ignoriert stale summary."]},
-    {"id": "T07.04", "title": "E2E: Planner erzeugt Plan und Summary wird abgeleitet", "status": "todo", "priority": "P1", "risk": "high", "type": "e2e", "milestone_id": "M07", "depends_on": ["T03.01", "T04.01", "T04.03", "T05.01", "T05.02"], "acceptance_criteria": ["E2E erstellt Test-Goal.", "Planner liefert Track mit fehlender oder falscher Summary.", "Validation berechnet Summary neu.", "TUI zeigt fresh/repaired derived summary.", "Plan wird nur mit frischer Summary übernommen."]},
-    {"id": "T08.01", "title": "Architekturdoku Derived Summary für Planning", "status": "todo", "priority": "P1", "risk": "low", "type": "docs", "milestone_id": "M08", "depends_on": ["T01.01", "T02.01", "T04.01"], "acceptance_criteria": ["Doku erklärt tasks[] als Single Source of Truth.", "Doku enthält Mermaid-Flow Planner Output -> Validation -> Summary Recompute -> Store -> TUI.", "Doku erklärt count-based vs weighted progress.", "Doku erklärt Repair Mode und source_hash."]},
-    {"id": "T08.02", "title": "Prompt-/Worker-Doku aktualisieren", "status": "todo", "priority": "P2", "risk": "low", "type": "docs", "milestone_id": "M08", "depends_on": ["T03.02"], "acceptance_criteria": ["Doku erklärt, was der Planning Worker liefern soll und was der Validator ableitet.", "Doku enthält Beispiel mit falscher und korrigierter Summary.", "Doku enthält Beispiel für weighted_progress_summary."]}
+    {
+      "id": "T01.01",
+      "title": "Single Source of Truth Policy festlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "policy",
+      "milestone_id": "M01",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "tasks[] ist die einzige verbindliche Quelle.",
+        "Alle Summaries sind derived/cache.",
+        "Manuell gelieferte Summaries vom Worker werden nicht ungeprüft übernommen.",
+        "Policy ist in Doku und Prompt sichtbar."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T01.02",
+      "title": "DerivedSummaryMetadata Modell definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "type": "schema",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.01"
+      ],
+      "acceptance_criteria": [
+        "Modell enthält source_of_truth=tasks, generated_at, generator, generator_version, source_hash und is_stale.",
+        "source_hash wird aus normalisierten tasks[] und milestones[] berechnet.",
+        "Tests prüfen stabile Hashes."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T01.03",
+      "title": "Task Progress Semantik definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "schema",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.01"
+      ],
+      "acceptance_criteria": [
+        "Task kann optional progress_percent 0..100 tragen.",
+        "done erzwingt 100, todo erzwingt 0.",
+        "in_progress und partial erlauben 1..99.",
+        "blocked behält Fortschritt, wird aber separat gezählt.",
+        "Validator erkennt Status/Fortschritt-Widersprüche."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T01.04",
+      "title": "Gewichtungsmodell festlegen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "policy",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.03"
+      ],
+      "acceptance_criteria": [
+        "Basisgewicht pro Task ist 1.",
+        "P1 und high risk erhöhen Gewicht.",
+        "critical_path_tasks erhöhen Gewicht.",
+        "e2e/test können Zusatzgewicht erhalten.",
+        "Count-based und weighted progress werden beide berechnet."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T02.01",
+      "title": "PlanningSummaryEngine implementieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "backend",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T01.01",
+        "T01.03",
+        "T01.04"
+      ],
+      "acceptance_criteria": [
+        "Engine liest tasks[], milestones[] und critical_path_tasks.",
+        "Engine berechnet alle Summary-Blöcke neu.",
+        "Engine ist deterministisch.",
+        "Tests prüfen reproduzierbare Ergebnisse."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T02.02",
+      "title": "tasks_status_summary neu berechnen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "backend",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.01"
+      ],
+      "acceptance_criteria": [
+        "total entspricht len(tasks).",
+        "by_status, by_priority und by_risk werden aus tasks[] gezählt.",
+        "critical_path wird aus critical_path_tasks gezählt.",
+        "Milestone-Zählung wird berechnet."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T02.03",
+      "title": "tasks_type_summary mit Fortschritt pro Typ berechnen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "backend",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.01"
+      ],
+      "acceptance_criteria": [
+        "by_type enthält pro type total, by_status, done, partial, blocked und progress_percent.",
+        "Fehlender type wird als unspecified gezählt oder gewarnt.",
+        "Tests prüfen schema/backend/tui/test/e2e/docs Typen."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T02.04",
+      "title": "Weighted Progress berechnen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "backend",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.01",
+        "T01.04"
+      ],
+      "acceptance_criteria": [
+        "weighted_progress_summary enthält total_weight, done_weight, remaining_weight, blocked_weight und weighted_percent.",
+        "Taskgewicht basiert auf base, priority, risk, critical_path und type.",
+        "Partial-Fortschritt geht anteilig ein.",
+        "Tests prüfen höhere Gewichtung kritischer Tasks."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T02.05",
+      "title": "Milestone-Fortschritt ableiten",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "backend",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.01",
+        "T02.04"
+      ],
+      "acceptance_criteria": [
+        "Milestone summary enthält total_tasks, done, blocked, count_based_percent und weighted_percent.",
+        "Milestone status kann aus enthaltenen Tasks abgeleitet werden.",
+        "Tests prüfen todo, in_progress, blocked und done Milestones."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T03.01",
+      "title": "Planning-Worker Output-Regel anpassen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "worker",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T01.01",
+        "T02.01"
+      ],
+      "acceptance_criteria": [
+        "Planner-Prompt erklärt tasks[] als Single Source of Truth.",
+        "Planner darf Summaries liefern, aber Validator berechnet sie neu.",
+        "Planner erzeugt präzise tasks[] mit status, priority, risk, type und acceptance_criteria."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T03.02",
+      "title": "Prompt Template für Derived Summary aktualisieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "prompt",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.01"
+      ],
+      "acceptance_criteria": [
+        "prompts/planning/track_planning.j2 enthält SUMMARY_POLICY.",
+        "Prompt erklärt progress_percent Semantik.",
+        "Prompt erklärt derived summaries.",
+        "Prompt-Lint-Test prüft SUMMARY_POLICY."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T03.03",
+      "title": "Planning Output Envelope um Summary-Status erweitern",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "worker",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T02.01",
+        "T03.01"
+      ],
+      "acceptance_criteria": [
+        "Envelope enthält validation_status und summary_recalculation_status.",
+        "Statuswerte: not_needed, recalculated, repaired, failed.",
+        "Envelope enthält old_summary_hash und new_summary_hash, wenn überschrieben wurde."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T04.01",
+      "title": "Validation Pipeline erweitert um Summary-Recompute",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "validation",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T02.01",
+        "T03.03"
+      ],
+      "acceptance_criteria": [
+        "Nach JSON-Schema-Validation läuft Summary-Recompute.",
+        "Alte Summaries werden mit berechneten Summaries verglichen.",
+        "Aktiver Plan wird nur mit frischer Summary gespeichert."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T04.02",
+      "title": "Repair Mode für abweichende Summaries",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "validation",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "acceptance_criteria": [
+        "Repair Mode überschreibt Summary-Blöcke deterministisch.",
+        "Repair Mode verändert tasks[] nicht außer definierter progress-Normalisierung.",
+        "Repair Mode protokolliert repaired_fields."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T04.03",
+      "title": "Speicherlogik überschreibt abgeleitete Summaries vor Write",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "persistence",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T02.01",
+        "T04.02"
+      ],
+      "acceptance_criteria": [
+        "Beim Speichern eines PlanningTrack-Artefakts werden Summaries neu berechnet.",
+        "Beim Schreiben einer TODO-JSON-Datei werden Summaries aktualisiert.",
+        "Gespeicherte Datei enthält keine stale summaries."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T05.01",
+      "title": "TUI zeigt count-based und weighted Progress getrennt",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "tui",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T02.04"
+      ],
+      "acceptance_criteria": [
+        "TUI zeigt count_based_percent und weighted_percent getrennt.",
+        "TUI zeigt blocked_count und blocked_weight.",
+        "TUI zeigt critical_path progress separat."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T05.02",
+      "title": "TUI zeigt Summary-Stale/Repair Status",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "tui",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T03.03",
+        "T04.02"
+      ],
+      "acceptance_criteria": [
+        "TUI zeigt fresh, stale, repaired oder invalid.",
+        "TUI zeigt source_hash Kurzform.",
+        "TUI zeigt repaired_fields.",
+        "TUI bietet :plan summary recompute."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T05.03",
+      "title": "CLI/TUI Summary Doctor",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "developer-experience",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T04.01",
+        "T04.02"
+      ],
+      "acceptance_criteria": [
+        "ananta plan summary doctor <file> berichtet Abweichungen.",
+        "ananta plan summary fix <file> repariert Summaries.",
+        "TUI bietet :plan summary doctor und :plan summary fix.",
+        "JSON-Ausgabe für Automatisierung ist verfügbar."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T05.04",
+      "title": "Progress Breakdown pro Typ/Priorität/Risiko anzeigen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "type": "tui",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T02.03",
+        "T02.04"
+      ],
+      "acceptance_criteria": [
+        "TUI zeigt Fortschritt nach type, priority und risk.",
+        "TUI kann kritischen Pfad anzeigen.",
+        "TUI kann offene high-risk P1 Tasks filtern."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T06.01",
+      "title": "Migration bestehender Track-TODOs vorbereiten",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "migration",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T05.03"
+      ],
+      "acceptance_criteria": [
+        "Migrationsscript findet TODO-JSON im todos/ Root und ignoriert archive/ und kritis/.",
+        "Script erkennt Track-Dateien mit tasks[].",
+        "Script kann dry-run und write mode."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T06.02",
+      "title": "Alte Epics-Struktur erkennen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "migration",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T06.01"
+      ],
+      "acceptance_criteria": [
+        "Script erkennt alte epics.tasks Struktur.",
+        "Script gibt Warnung aus, dass flache tasks[] Migration nötig ist.",
+        "Optionaler --convert-epics Flag erzeugt Preview."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T06.03",
+      "title": "Bestehende inkonsistente Track-Dateien reparieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "migration",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T06.01",
+        "T04.03"
+      ],
+      "acceptance_criteria": [
+        "todo.ananta-worker-planning-track-schema-contract.json kann neu berechnete Summary erhalten.",
+        "todo.operator-tui-three-way-flex-diff-ai-mode.json kann neu berechnete Summary erhalten.",
+        "Repair ändert keine Task-Inhalte."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T07.01",
+      "title": "Unit Tests für Summary Engine",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "test",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T02.01",
+        "T02.02",
+        "T02.03",
+        "T02.04",
+        "T02.05"
+      ],
+      "acceptance_criteria": [
+        "Tests decken kleinen/großen Plan und gemischte Status ab.",
+        "Tests decken count-based und weighted progress ab.",
+        "Tests decken critical_path und milestones ab."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T07.02",
+      "title": "Validation/Repair Tests für widersprüchliche Summaries",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "test",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T04.01",
+        "T04.02"
+      ],
+      "acceptance_criteria": [
+        "tasks alle done, Summary todo wird erkannt und repariert.",
+        "falsche total-Zahl wird repariert.",
+        "stale source_hash wird erkannt."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T07.03",
+      "title": "Planning-Worker Contract Tests",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "test",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T03.01",
+        "T03.02",
+        "T03.03"
+      ],
+      "acceptance_criteria": [
+        "Mock Planner liefert falsche Summary; Validator überschreibt sie.",
+        "Mock Planner liefert fehlende Summary; Validator ergänzt sie.",
+        "Worker ignoriert stale summary."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T07.04",
+      "title": "E2E: Planner erzeugt Plan und Summary wird abgeleitet",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "e2e",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T03.01",
+        "T04.01",
+        "T04.03",
+        "T05.01",
+        "T05.02"
+      ],
+      "acceptance_criteria": [
+        "E2E erstellt Test-Goal.",
+        "Planner liefert Track mit fehlender oder falscher Summary.",
+        "Validation berechnet Summary neu.",
+        "TUI zeigt fresh/repaired derived summary.",
+        "Plan wird nur mit frischer Summary übernommen."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T08.01",
+      "title": "Architekturdoku Derived Summary für Planning",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "type": "docs",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T01.01",
+        "T02.01",
+        "T04.01"
+      ],
+      "acceptance_criteria": [
+        "Doku erklärt tasks[] als Single Source of Truth.",
+        "Doku enthält Mermaid-Flow Planner Output -> Validation -> Summary Recompute -> Store -> TUI.",
+        "Doku erklärt count-based vs weighted progress.",
+        "Doku erklärt Repair Mode und source_hash."
+      ],
+      "progress_percent": 100.0
+    },
+    {
+      "id": "T08.02",
+      "title": "Prompt-/Worker-Doku aktualisieren",
+      "status": "done",
+      "priority": "P2",
+      "risk": "low",
+      "type": "docs",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T03.02"
+      ],
+      "acceptance_criteria": [
+        "Doku erklärt, was der Planning Worker liefern soll und was der Validator ableitet.",
+        "Doku enthält Beispiel mit falscher und korrigierter Summary.",
+        "Doku enthält Beispiel für weighted_progress_summary."
+      ],
+      "progress_percent": 100.0
+    }
   ],
-  "critical_path_tasks": ["T01.01", "T01.03", "T01.04", "T02.01", "T02.02", "T02.03", "T02.04", "T03.01", "T03.02", "T04.01", "T04.02", "T04.03", "T05.01", "T05.02", "T07.04"],
+  "critical_path_tasks": [
+    "T01.01",
+    "T01.03",
+    "T01.04",
+    "T02.01",
+    "T02.02",
+    "T02.03",
+    "T02.04",
+    "T03.01",
+    "T03.02",
+    "T04.01",
+    "T04.02",
+    "T04.03",
+    "T05.01",
+    "T05.02",
+    "T07.04"
+  ],
   "tasks_status_summary": {
     "total": 28,
-    "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 25},
-    "progress_percent_done": 89.3,
-    "by_priority": {"P1": 24, "P2": 4, "P3": 0},
-    "by_risk": {"low": 4, "medium": 18, "high": 6},
-    "critical_path": {"total": 15, "done": 14, "remaining": 1},
-    "milestones": {"total": 8, "todo": 1, "in_progress": 1, "blocked": 0, "done": 6}
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 28
+    },
+    "progress_percent_done": 100.0,
+    "by_priority": {
+      "P1": 24,
+      "P2": 4,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 4,
+      "medium": 18,
+      "high": 6
+    },
+    "critical_path": {
+      "total": 15,
+      "done": 15,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 0,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 8
+    }
   },
   "tasks_type_summary": {
     "total": 28,
     "by_type": {
-      "policy": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "schema": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "backend": {"total": 5, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 5}, "done": 5, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "worker": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "prompt": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "validation": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "persistence": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "tui": {"total": 3, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 3}, "done": 3, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "developer-experience": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "migration": {"total": 3, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 3}, "done": 3, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "test": {"total": 3, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 3}, "done": 3, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "e2e": {"total": 1, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0.0},
-      "docs": {"total": 2, "by_status": {"todo": 2, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0.0}
+      "policy": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "schema": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "backend": {
+        "total": 5,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 5
+        },
+        "done": 5,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "worker": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "prompt": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "validation": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "persistence": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "tui": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "developer-experience": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "migration": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "test": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "e2e": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "docs": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 51.5,
-    "done_weight": 46.25,
-    "remaining_weight": 5.25,
+    "done_weight": 51.5,
+    "remaining_weight": 0.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 89.8
+    "weighted_percent": 100.0
   },
   "milestone_progress_summary": {
     "milestones": {
-      "M01": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
-      "M02": {"total_tasks": 5, "done": 5, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
-      "M03": {"total_tasks": 3, "done": 3, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
-      "M04": {"total_tasks": 3, "done": 3, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
-      "M05": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
-      "M06": {"total_tasks": 3, "done": 3, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
-      "M07": {"total_tasks": 4, "done": 3, "blocked": 0, "count_based_percent": 75.0, "weighted_percent": 67.6, "status": "in_progress"},
-      "M08": {"total_tasks": 2, "done": 0, "blocked": 0, "count_based_percent": 0.0, "weighted_percent": 0.0, "status": "todo"}
+      "M01": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M02": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M03": {
+        "total_tasks": 3,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M04": {
+        "total_tasks": 3,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M05": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M06": {
+        "total_tasks": 3,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M07": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M08": {
+        "total_tasks": 2,
+        "done": 2,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T21:38:08.499690Z",
+    "generated_at": "2026-05-26T21:43:05.225236Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "b4a76a53c7ddab8f66bd5af21109fea67c7bca821e0a40fb4092a0d4f07bbbea",
+    "source_hash": "a40245eb9f90d0b5c939afcb34bf6a7480c1f6f1e7d98cf3b6ba517d5b9f4b94",
     "is_stale": false
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 3,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 25,
-    "count_based_percent": 89.3,
-    "weighted_percent": 89.8
+    "done": 28,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
   },
   "execution_stage_summary": {
     "current_stage": "planning",

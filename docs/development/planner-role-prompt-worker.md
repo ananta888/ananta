@@ -29,14 +29,17 @@ Minimum required top-level fields (contract):
 Minimum required task quality fields:
 
 - `title`
+- `status`
+- `priority`
 - `risk`
+- `type`
 - `acceptance_criteria`
 
 Optional but commonly used task fields:
 
 - `depends_on`
-- `type`
 - `milestone_id`
+- `progress_percent`
 
 ## Typical planner output errors
 
@@ -65,6 +68,46 @@ Nested epic structures break deterministic status aggregation and direct task ma
 - `milestones` aggregate
 
 If planner-provided summary is inconsistent, the pipeline recomputes and repairs it before persistence.
+
+## Derived summary policy (single source of truth)
+
+- `tasks[]` is the single source of truth.
+- Planner may output summaries, but hub/validator recalculates and overwrites derived blocks.
+- Persisted envelope/artifact metadata includes:
+  - `summary_recalculation_status`
+  - `old_summary_hash`
+  - `new_summary_hash`
+  - `repaired_fields`
+
+Task progress semantics:
+
+- `todo -> progress_percent=0`
+- `done -> progress_percent=100`
+- `in_progress|partial -> progress_percent=1..99`
+- `blocked -> progress_percent=0..100`
+
+## Incorrect vs corrected summary example
+
+Worker output (incorrect):
+
+```json
+{
+  "tasks": [{"id":"T1","status":"done","priority":"P1","risk":"high","type":"backend","acceptance_criteria":["ok"]}],
+  "tasks_status_summary": {"total": 999}
+}
+```
+
+Persisted output (corrected by validator):
+
+```json
+{
+  "tasks_status_summary": {
+    "total": 1,
+    "by_status": {"todo":0,"in_progress":0,"partial":0,"blocked":0,"done":1}
+  },
+  "summary_recalculation_status": "repaired"
+}
+```
 
 ## Local planning tips (LM Studio / Ollama)
 
