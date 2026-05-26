@@ -91,6 +91,7 @@ def test_helpcenter_index_tracks_latest_report_by_message_and_updates_file(tmp_p
         source_kind="github_workflow_failure",
         created_at="2026-05-26T21:20:00Z",
         report_ref="helpcenter/reports/2026-05-26/analysis-1.md",
+        json_ref="helpcenter/reports/2026-05-26/analysis-1.json",
     )
     updated = upsert_helpcenter_index_entry(
         updated,
@@ -101,9 +102,11 @@ def test_helpcenter_index_tracks_latest_report_by_message_and_updates_file(tmp_p
         source_kind="github_workflow_failure",
         created_at="2026-05-26T21:21:00Z",
         report_ref="helpcenter/reports/2026-05-26/analysis-2.md",
+        json_ref="helpcenter/reports/2026-05-26/analysis-2.json",
     )
     assert validate_helpcenter_index(updated) == []
     assert updated["latest_report_ref"]["msg-1"].endswith("analysis-2.md")
+    assert updated["reports"][-1]["json_ref"].endswith("analysis-2.json")
     path = write_helpcenter_index(updated, repo_root=tmp_path)
     disk = json.loads(path.read_text(encoding="utf-8"))
     assert disk["latest_report_ref"]["msg-1"].endswith("analysis-2.md")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -74,6 +75,8 @@ def analyze_helpcenter_message(message: dict[str, Any], *, log_text: str = "") -
     ).strip()
     source_ref = str(message_payload.get("source_ref") or "").strip()
     source_kind = str(message_payload.get("source_kind") or "").strip()
+    codecompass_refs = _infer_codecompass_refs(log_text)
+    planning_links = _infer_planning_links(log_text)
     analysis = {
         "analysis_id": f"analysis-{uuid4().hex[:12]}",
         "message_id": str(message_payload.get("message_id") or "").strip(),
@@ -94,8 +97,58 @@ def analyze_helpcenter_message(message: dict[str, Any], *, log_text: str = "") -
         "machine_readable_findings": [{"reason_code": item} for item in findings],
         "human_summary": f"Detected patterns: {', '.join(findings)}. Automatic repair remains disabled.",
         "no_auto_fix": True,
+        "codecompass_refs": codecompass_refs,
+        **planning_links,
     }
     issues = validate_helpcenter_analysis(analysis)
     if issues:
         raise ValueError(f"helpcenter_analysis_invalid:{issues[0]['reason_code']}")
     return analysis
+
+
+_TASK_ID_PATTERN = re.compile(r"\bT\d{2}\.\d{2}\b")
+_TRACK_PATTERN = re.compile(r"\btodo\.([a-z0-9._-]+)\.json\b", re.IGNORECASE)
+_GOAL_ID_PATTERN = re.compile(r"\bgoal-[a-z0-9._-]+\b", re.IGNORECASE)
+_FILE_PATTERN = re.compile(r"\b([A-Za-z0-9_/.-]+\.[A-Za-z0-9]+)\b")
+
+
+def _infer_codecompass_refs(log_text: str) -> list[dict[str, str]]:
+    refs: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for match in _FILE_PATTERN.findall(str(log_text or "")):
+        lowered = match.lower()
+        if lowered.startswith(("http://", "https://")):
+            continue
+        if "." not in match or "/" not in match:
+            continue
+        if match in seen:
+            continue
+        seen.add(match)
+        refs.append({"kind": "file", "ref": f"codecompass:file:{match}"})
+        if len(refs) >= 10:
+            break
+    return refs
+
+
+def _infer_planning_links(log_text: str) -> dict[str, Any]:
+    text = str(log_text or "")
+    task_ids = sorted(set(_TASK_ID_PATTERN.findall(text)))
+    related_track = ""
+    track_match = _TRACK_PATTERN.search(text)
+    if track_match:
+        related_track = str(track_match.group(1)).strip()
+    related_goal_id = ""
+    goal_match = _GOAL_ID_PATTERN.search(text)
+    if goal_match:
+        related_goal_id = str(goal_match.group(0)).strip()
+    suggested_followup_task = ""
+    if task_ids:
+        suggested_followup_task = (
+            f"Investigate failing context around {task_ids[0]} and add explicit remediation task."
+        )
+    return {
+        "affected_tasks": task_ids,
+        "related_track": related_track,
+        "related_goal_id": related_goal_id,
+        "suggested_followup_task": suggested_followup_task,
+    }
