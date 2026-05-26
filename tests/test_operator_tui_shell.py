@@ -387,8 +387,8 @@ def test_non_snake_mode_shows_passive_snake_roster_top_left_only() -> None:
     output = render_operator_shell(state, width=120, height=28)
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
 
-    assert "S1 alice [mint]" in plain
-    assert "S-AI tutor-ai [amber]" in plain
+    assert "S1 alice [mint] access=full" in plain
+    assert "S-AI tutor-ai [amber] access=view" in plain
     assert "Snakes (OIDC / Farbe / Nachricht):" not in plain
 
 
@@ -468,6 +468,37 @@ def test_tutorial_ai_tip_uses_codecompass_hints_when_available(monkeypatch) -> N
     assert "CodeCompass:" in tip
     assert "mode=normal" in tip
     assert "section=tasks" in tip
+
+
+def test_snake_access_command_updates_remote_permission_levels() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        header_logo_game={
+            "local_snake_id": "s1",
+            "snakes": {
+                "s1": {"id": "s1", "pseudonym": "alice", "snake_color": "mint"},
+                "s2": {"id": "s2", "pseudonym": "bob", "snake_color": "violet"},
+            },
+        },
+    )
+
+    result = execute_command(":snake-access s2 full", state)
+    game = result.state.header_logo_game or {}
+    access = dict(game.get("remote_access") or {})
+    snakes = dict(game.get("snakes") or {})
+
+    assert result.handled is True
+    assert access.get("s2") == "full"
+    assert dict(snakes.get("s2") or {}).get("access_level") == "full"
+
+
+def test_inactive_header_without_logo_shows_snake_mode_explanation() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={})
+    output = render_operator_shell(state, width=120, height=28)
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+
+    assert "Ctrl+S startet Snake-Modus" in plain
+    assert "Freigaben: :snake-access" in plain
 
 
 def test_tutorial_ai_tip_prefers_llm_when_available(monkeypatch) -> None:

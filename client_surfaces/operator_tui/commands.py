@@ -84,6 +84,36 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             state.with_updates(header_logo_game=game, status_message=f"mouse-follow {label}"),
             f"mouse-follow {label}",
         )
+    if command in {"snake-access", "snake_access"}:
+        if len(args) < 2:
+            return CommandResult(state, "snake-access requires: <snake-id> <cancel|view|full>", handled=False)
+        snake_id = str(args[0]).strip()
+        level = str(args[1]).strip().lower()
+        if not snake_id:
+            return CommandResult(state, "snake-access requires a snake id", handled=False)
+        if level not in {"cancel", "view", "full"}:
+            return CommandResult(state, "snake-access level must be cancel, view, or full", handled=False)
+        game = dict(state.header_logo_game or {})
+        local_id = str(game.get("local_snake_id") or "s1")
+        if snake_id == local_id and level != "full":
+            return CommandResult(state, "local snake must remain full", handled=False)
+        remote_access_raw = game.get("remote_access")
+        remote_access = dict(remote_access_raw) if isinstance(remote_access_raw, dict) else {}
+        remote_access[snake_id] = level
+        game["remote_access"] = remote_access
+
+        snakes_raw = game.get("snakes")
+        if isinstance(snakes_raw, dict):
+            snakes = {str(k): dict(v) for k, v in snakes_raw.items() if isinstance(v, dict)}
+            snap = dict(snakes.get(snake_id, {"id": snake_id}))
+            snap["access_level"] = level
+            snakes[snake_id] = snap
+            game["snakes"] = snakes
+
+        return CommandResult(
+            state.with_updates(header_logo_game=game, status_message=f"snake-access {snake_id}={level}"),
+            f"snake-access {snake_id}={level}",
+        )
     if command == "inspect":
         return CommandResult(state.with_updates(mode=OperatorMode.INSPECT, status_message="inspect current selection"), "inspect current selection")
     if command == "browser":
