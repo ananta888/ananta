@@ -4,21 +4,29 @@ import { ChatMessage } from './ai-assistant.types';
 
 @Injectable({ providedIn: 'root' })
 export class AiAssistantStorageService {
-  persistBoolean(storageKey: string, value: boolean): void {
+  persistJson(storageKey: string, value: unknown): void {
     try {
       localStorage.setItem(storageKey, JSON.stringify(value));
     } catch {}
   }
 
-  restoreBoolean(storageKey: string, fallback: boolean): boolean {
+  restoreJson<T>(storageKey: string, fallback: T): T {
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw === null) return fallback;
-      const parsed = JSON.parse(raw);
-      return typeof parsed === 'boolean' ? parsed : fallback;
+      return JSON.parse(raw) as T;
     } catch {
       return fallback;
     }
+  }
+
+  persistBoolean(storageKey: string, value: boolean): void {
+    this.persistJson(storageKey, value);
+  }
+
+  restoreBoolean(storageKey: string, fallback: boolean): boolean {
+    const parsed = this.restoreJson<unknown>(storageKey, fallback);
+    return typeof parsed === 'boolean' ? parsed : fallback;
   }
 
   persistPendingPlan(storageKey: string, msg: ChatMessage): void {

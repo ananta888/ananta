@@ -48,6 +48,13 @@ export interface ChatMessage {
   recoverableError?: boolean;
 }
 
+export interface ChatThread {
+  id: string;
+  title: string;
+  history: ChatMessage[];
+  updatedAt: number;
+}
+
 export interface AssistantRuntimeContext {
   route: string;
   selectedAgentName?: string;
