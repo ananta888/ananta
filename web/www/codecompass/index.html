@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CodeCompass | Ananta</title>
+  <meta name="description" content="CodeCompass ist das Wissens-, Graph- und Retrieval-Subprojekt von Ananta. Es macht Projektkontext für KI-Worker gezielt, nachvollziehbar und policy-konform nutzbar.">
+  <link rel="canonical" href="https://www.ananta.de/codecompass/">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <main class="page">
+    <nav class="nav" aria-label="Hauptnavigation">
+      <span class="brand">ananta / codecompass</span>
+      <div class="nav-links">
+        <a href="../">Start</a>
+        <a href="https://github.com/ananta888/ananta">GitHub</a>
+      </div>
+    </nav>
+
+    <section class="hero hero-wide">
+      <div class="copy">
+        <p class="eyebrow">Subprojekt · Wissensgraph · Kontextkontrolle</p>
+        <h1>CodeCompass</h1>
+        <p class="claim">Der Kompass, der Ananta sagt, welcher Projektkontext wirklich gebraucht wird.</p>
+        <p class="intro">
+          CodeCompass ist die Knowledge- und Retrieval-Schicht von Ananta. Es soll Quellcode, Dokumentation,
+          Tasks, Artefakte und Beziehungen im Projekt so aufbereiten, dass Worker nicht blind den ganzen
+          Repository-Dump bekommen, sondern genau den geprüften Ausschnitt, der zur Aufgabe passt.
+        </p>
+        <div class="actions">
+          <a href="https://github.com/ananta888/ananta/tree/main/rag_helper">CodeCompass im Repo</a>
+          <a href="#interaction">Zusammenspiel ansehen</a>
+        </div>
+      </div>
+
+      <aside class="terminal-card diagram-card" aria-label="CodeCompass Kurzüberblick">
+        <div class="terminal-bar">
+          <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
+          <span>context pipeline</span>
+          <span>policy aware</span>
+        </div>
+        <div class="diagram-flow">
+          <span>Repo</span>
+          <strong>→</strong>
+          <span>Index</span>
+          <strong>→</strong>
+          <span>Graph</span>
+          <strong>→</strong>
+          <span>Policy</span>
+          <strong>→</strong>
+          <span>Worker</span>
+        </div>
+        <p class="diagram-caption">
+          CodeCompass ist nicht nur Suche. Es ist die Schicht zwischen Projektwissen und KI-Ausführung.
+        </p>
+      </aside>
+    </section>
+
+    <section class="section-block">
+      <p class="eyebrow">Warum das wichtig ist</p>
+      <h2>KI-Agenten brauchen Kontext. Aber nicht jeden Kontext.</h2>
+      <p>
+        Moderne Coding-Agenten scheitern nicht nur daran, dass sie zu wenig wissen. Sie scheitern auch daran,
+        dass sie zu viel, falschen oder sicherheitskritischen Kontext bekommen. CodeCompass soll genau diese
+        Grenze kontrollierbar machen: Welche Dateien, Symbole, Beziehungen, Tasks und Artefakte sind für eine
+        Aufgabe relevant – und welcher Worker darf sie überhaupt sehen?
+      </p>
+    </section>
+
+    <section class="grid" aria-label="CodeCompass Kernaufgaben">
+      <article class="info-card">
+        <h2>Projektwissen indexieren</h2>
+        <p>Code, Dokumentation, TODOs, Testergebnisse und Artefakte werden in suchbare, referenzierbare Einheiten zerlegt.</p>
+      </article>
+      <article class="info-card">
+        <h2>Beziehungen verstehen</h2>
+        <p>Dateien, Klassen, Funktionen, Tasks und Ergebnisse sollen als Graph verbunden werden statt nur als Textblock.</p>
+      </article>
+      <article class="info-card">
+        <h2>Kontext gezielt bündeln</h2>
+        <p>Für jeden Task entsteht ein begrenztes Context Bundle: kompakt, nachvollziehbar und passend zur Aufgabe.</p>
+      </article>
+      <article class="info-card">
+        <h2>Policies respektieren</h2>
+        <p>Lokale Worker, Cloud-Worker und unterschiedliche Rollen bekommen nicht automatisch dieselben Informationen.</p>
+      </article>
+      <article class="info-card">
+        <h2>Quellen sichtbar halten</h2>
+        <p>Antworten und Änderungen sollen auf konkrete Dateien, Artefakte und vorherige Ergebnisse zurückführbar bleiben.</p>
+      </article>
+      <article class="info-card">
+        <h2>Agenten steuerbar machen</h2>
+        <p>Ananta nutzt CodeCompass, um Worker nicht nur zu starten, sondern mit sauberem Aufgabenwissen zu versorgen.</p>
+      </article>
+    </section>
+
+    <section id="interaction" class="section-block">
+      <p class="eyebrow">Zusammenspiel mit Ananta</p>
+      <h2>CodeCompass ist die Navigationsschicht für Hub, Worker und Policies.</h2>
+      <div class="steps">
+        <article>
+          <strong>1</strong>
+          <h3>Ingest</h3>
+          <p>Projektquellen werden gelesen, normalisiert und in kleine Knowledge Units aufgeteilt.</p>
+        </article>
+        <article>
+          <strong>2</strong>
+          <h3>Graph</h3>
+          <p>CodeCompass verbindet Einheiten über Import, Nutzung, Task-Bezug, Artefakte und semantische Nähe.</p>
+        </article>
+        <article>
+          <strong>3</strong>
+          <h3>Policy Gate</h3>
+          <p>Ananta prüft, welcher Worker welchen Kontext sehen darf: lokal, extern, sensibel oder blockiert.</p>
+        </article>
+        <article>
+          <strong>4</strong>
+          <h3>Context Bundle</h3>
+          <p>Der Worker bekommt einen begrenzten, erklärbaren Ausschnitt statt rohem Projektvollzugriff.</p>
+        </article>
+        <article>
+          <strong>5</strong>
+          <h3>Execution & Memory</h3>
+          <p>Ergebnisse, Tests und Artefakte fließen zurück und verbessern spätere Aufgabenentscheidungen.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="split-section">
+      <article class="info-card large-card">
+        <p class="eyebrow">Sicherheitsidee</p>
+        <h2>Least Privilege für Kontext</h2>
+        <p>
+          CodeCompass soll Ananta helfen, Wissen nicht pauschal freizugeben. Ein lokales Modell darf andere
+          Daten bekommen als ein externer Cloud-Worker. Sicherheitskritische Informationen, Credentials,
+          interne Details oder Kundendaten müssen klassifizierbar und blockierbar bleiben.
+        </p>
+      </article>
+      <article class="info-card large-card">
+        <p class="eyebrow">Entwicklernutzen</p>
+        <h2>Weniger Rauschen, bessere Änderungen</h2>
+        <p>
+          Ein Worker soll nicht raten müssen, wo die relevanten Stellen liegen. CodeCompass liefert die passenden
+          Dateien, Nachbarschaften, Tests, alten Task-Ergebnisse und Begründungen. Dadurch werden Änderungen
+          prüfbarer und weniger casino-mäßig.
+        </p>
+      </article>
+    </section>
+
+    <section class="section-block">
+      <p class="eyebrow">Zielbild</p>
+      <h2>Vom Repo-Dump zum kontrollierten Projektgedächtnis</h2>
+      <p>
+        Langfristig wird CodeCompass zum Projektgedächtnis von Ananta: ein mehrschichtiger Graph aus Code,
+        Dokumentation, Tasks, Testergebnissen, Entscheidungen und Berechtigungsgrenzen. Genau daraus entsteht
+        der Unterschied zwischen einem losgelassenen Chatbot und einem steuerbaren Agenten-System.
+      </p>
+      <div class="status-strip">
+        <span>knowledge graph</span>
+        <span>retrieval profiles</span>
+        <span>source provenance</span>
+        <span>policy aware context</span>
+        <span>worker routing support</span>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
