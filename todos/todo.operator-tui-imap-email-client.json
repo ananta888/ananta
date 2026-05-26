@@ -98,7 +98,7 @@
         "T07.04",
         "T07.05"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M08",
@@ -107,7 +107,7 @@
         "T08.01",
         "T08.02"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -608,7 +608,7 @@
     {
       "id": "T07.02",
       "title": "Mock-IMAP Integrationstests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "test",
@@ -622,12 +622,12 @@
         "Tests prüfen Login-Fehler, Timeout und TLS required.",
         "Tests prüfen headers-only Sync ohne Body."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T07.03",
       "title": "TUI Mail Renderer und Command Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
@@ -643,12 +643,12 @@
         "Tests prüfen, dass Body nicht automatisch geladen wird.",
         "Tests prüfen offline/degraded Anzeige."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T07.04",
       "title": "Artifact/Worker Security Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "test",
@@ -664,12 +664,12 @@
         "Tests prüfen Cloud Worker denied default.",
         "Tests prüfen Redaction vor Worker-Kontext."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T07.05",
       "title": "E2E: Mail lesen und für Goal freigeben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -688,12 +688,12 @@
         "GoalArtifactGraph zeigt MailSourceArtifact.",
         "Worker/Mock-Worker sieht nur freigegebenen Excerpt."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T08.01",
       "title": "User-Doku IMAP Mail Client",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -708,7 +708,7 @@
         "Doku erklärt Datenschutz-Defaults.",
         "Doku enthält Troubleshooting für Login/TLS/IMAP-Provider."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T08.02",
@@ -752,13 +752,13 @@
   "tasks_status_summary": {
     "total": 31,
     "by_status": {
-      "todo": 6,
+      "todo": 1,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 25
+      "done": 30
     },
-    "progress_percent_done": 80.65,
+    "progress_percent_done": 96.77,
     "by_priority": {
       "P1": 24,
       "P2": 6,
@@ -771,15 +771,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 14,
-      "remaining": 1
+      "done": 15,
+      "remaining": 0
     },
     "milestones": {
       "total": 8,
-      "todo": 1,
+      "todo": 0,
       "in_progress": 1,
       "blocked": 0,
-      "done": 6
+      "done": 7
     }
   },
   "tasks_type_summary": {
@@ -928,7 +928,21 @@
       "test": {
         "total": 4,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 4
+        },
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "e2e": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
@@ -937,47 +951,33 @@
         "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 25.0
+        "progress_percent": 100.0
       },
-      "e2e": {
-        "total": 1,
+      "docs": {
+        "total": 2,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
-      },
-      "docs": {
-        "total": 2,
-        "by_status": {
-          "todo": 2,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 50.0
       }
     }
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 6,
+    "todo_remaining": 1,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 25,
-    "count_based_percent": 80.6,
-    "weighted_percent": 80.6
+    "done": 30,
+    "count_based_percent": 96.8,
+    "weighted_percent": 98.3
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -1021,10 +1021,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 59.25,
-    "done_weight": 47.75,
-    "remaining_weight": 11.5,
+    "done_weight": 58.25,
+    "remaining_weight": 1.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 80.6
+    "weighted_percent": 98.3
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1078,29 +1078,29 @@
       },
       "M07": {
         "total_tasks": 5,
-        "done": 1,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 20.0,
-        "weighted_percent": 16.3,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M08": {
         "total_tasks": 2,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 50.0,
+        "weighted_percent": 60.0,
+        "status": "in_progress"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T22:49:01.907385Z",
+    "generated_at": "2026-05-26T22:57:02.915043Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "9b633e5c49bf5d6adca2fde72166ef98f3747910f9de1d75d746e5d5d7397bf6",
+    "source_hash": "ba47a8eb95b2cd6a607b17234f29b7e42d739309b0d0fe05bdb5b1d2d63a6240",
     "is_stale": false
   }
 }
