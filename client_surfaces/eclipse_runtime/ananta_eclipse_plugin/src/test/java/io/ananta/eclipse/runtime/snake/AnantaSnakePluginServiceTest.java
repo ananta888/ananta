@@ -62,12 +62,94 @@ class AnantaSnakePluginServiceTest {
             );
             assertEquals(110, tracked.getMouseX());
             assertEquals(55, tracked.getMouseY());
-            assertTrue(tracked.getOverlayX() >= 10);
-            assertTrue(tracked.getOverlayY() >= 10);
+            assertEquals("follow_mouse", tracked.getFollowMode());
 
             assertThrows(IllegalArgumentException.class, () -> service.setFollowMode("warp"));
             assertThrows(IllegalArgumentException.class, () -> service.setContextMode("unknown"));
             assertThrows(IllegalArgumentException.class, () -> service.setHubConnectionState("cloud_auto"));
+        } finally {
+            service.shutdown();
+        }
+    }
+
+    @Test
+    void followAlgorithmKeepsDistanceAndInterpolatesDeterministically() {
+        AnantaSnakePluginService service = new AnantaSnakePluginService();
+        try {
+            service.start();
+            service.setFollowDistancePx(30);
+            service.updateMousePosition(
+                    new AnantaMouseTrackingRuntime.Point(240, 120),
+                    new AnantaMouseTrackingRuntime.Bounds(0, 0, 300, 200),
+                    new AnantaMouseTrackingRuntime.Bounds(0, 0, 300, 200)
+            );
+            AnantaSnakeState before = service.snapshot();
+            AnantaSnakeState afterFirstTick = service.tickNowForTest();
+            AnantaSnakeState afterSecondTick = service.tickNowForTest();
+
+            assertTrue(afterFirstTick.getOverlayX() > before.getOverlayX());
+            assertTrue(afterFirstTick.getOverlayY() > before.getOverlayY());
+            assertTrue(afterSecondTick.getOverlayX() >= afterFirstTick.getOverlayX());
+            assertTrue(afterSecondTick.getOverlayY() >= afterFirstTick.getOverlayY());
+
+            int distanceToMouse = (int) Math.round(Math.hypot(
+                    afterSecondTick.getMouseX() - afterSecondTick.getOverlayX(),
+                    afterSecondTick.getMouseY() - afterSecondTick.getOverlayY()
+            ));
+            assertTrue(distanceToMouse >= 20);
+            assertEquals("follow_mouse", afterSecondTick.getFollowMode());
+        } finally {
+            service.shutdown();
+        }
+    }
+
+    @Test
+    void stillMouseSwitchesToLurkingAndResumesFollowOnMovement() {
+        AnantaSnakePluginService service = new AnantaSnakePluginService();
+        try {
+            service.start();
+            service.recordActiveWorkbenchPart("org.eclipse.ui.editors", "Main.java");
+            for (int idx = 0; idx < 4; idx++) {
+                service.updateMousePosition(
+                        new AnantaMouseTrackingRuntime.Point(80, 40),
+                        new AnantaMouseTrackingRuntime.Bounds(0, 0, 100, 100),
+                        new AnantaMouseTrackingRuntime.Bounds(0, 0, 100, 100)
+                );
+            }
+            AnantaSnakeState lurking = service.snapshot();
+            assertEquals("lurking", lurking.getFollowMode());
+            assertEquals("editor_focus", lurking.getContextMode());
+
+            service.updateMousePosition(
+                    new AnantaMouseTrackingRuntime.Point(120, 60),
+                    new AnantaMouseTrackingRuntime.Bounds(0, 0, 200, 200),
+                    new AnantaMouseTrackingRuntime.Bounds(0, 0, 200, 200)
+            );
+            AnantaSnakeState following = service.snapshot();
+            assertEquals("follow_mouse", following.getFollowMode());
+        } finally {
+            service.shutdown();
+        }
+    }
+
+    @Test
+    void performanceBudgetUsesConfigurableTickRateAndReducesWhenWorkbenchInactive() {
+        AnantaSnakePluginService service = new AnantaSnakePluginService();
+        try {
+            service.start();
+            AnantaSnakeState clampedHigh = service.setTickRateFps(200);
+            assertEquals(30, clampedHigh.getTickRateFps());
+
+            AnantaSnakeState clampedLow = service.setTickRateFps(1);
+            assertEquals(15, clampedLow.getTickRateFps());
+
+            AnantaSnakeState inactive = service.setWorkbenchActive(false);
+            assertFalse(inactive.isWorkbenchActive());
+            assertEquals(5, inactive.getTickRateFps());
+
+            AnantaSnakeState active = service.setWorkbenchActive(true);
+            assertTrue(active.isWorkbenchActive());
+            assertEquals(15, active.getTickRateFps());
         } finally {
             service.shutdown();
         }

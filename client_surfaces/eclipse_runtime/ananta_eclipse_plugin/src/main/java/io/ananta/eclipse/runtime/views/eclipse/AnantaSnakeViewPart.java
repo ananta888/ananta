@@ -67,6 +67,10 @@ public final class AnantaSnakeViewPart extends ViewPart {
                 + ", running=" + state.isRunning()
                 + ", follow_mode=" + state.getFollowMode()
                 + ", context_mode=" + state.getContextMode()
+                + ", zone=" + state.getIdeZone()
+                + ", follow_distance=" + state.getFollowDistancePx()
+                + ", tick_fps=" + state.getTickRateFps()
+                + ", workbench_active=" + state.isWorkbenchActive()
                 + ", hub=" + state.getHubConnectionState();
         statusLabel.setText(message);
         toggleButton.setText(state.isEnabled() ? "Disable Snake" : "Enable Snake");
