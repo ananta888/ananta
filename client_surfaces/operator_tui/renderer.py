@@ -681,6 +681,11 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
 
 
 def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
+    def _safe(value: object) -> str:
+        text = str(value or "")
+        text = _ANSI_STRIP.sub("", text)
+        return text.replace("\r", " ").replace("\n", " ")
+
     goal_id = str(payload.get("goal_id") or "unknown")
     filters = dict(payload.get("filters") or {})
     filtered = filter_goal_artifact_view(
@@ -692,7 +697,7 @@ def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -
     grants = list(filtered.get("source_grants") or [])
     usages = list(filtered.get("source_usages") or [])
     outputs = list(filtered.get("output_artifacts") or [])
-    usage_grant_ids = {str(item.get("grant_id") or "") for item in usages}
+    usage_grant_ids = {_safe(item.get("grant_id") or "") for item in usages}
     lines = [
         f"  Goal Artifacts: {goal_id}",
         f"  Filters: {', '.join([f'{k}={v}' for k, v in filters.items()]) if filters else 'none'}",
@@ -704,18 +709,18 @@ def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -
             marker = "✓" if grant_id in usage_grant_ids else "~"
             lines.append(
                 _clip(
-                    f"  {marker} grant {grant_id} source={str(grant.get('artifact_ref') or '-')}",
+                    f"  {marker} grant {grant_id} source={_safe(grant.get('artifact_ref') or '-')}",
                     width,
                 )
             )
         for usage in usages[:5]:
-            lines.append(_clip(f"  • usage {usage.get('usage_id')} -> {usage.get('artifact_ref')}", width))
+            lines.append(_clip(f"  • usage {_safe(usage.get('usage_id'))} -> {_safe(usage.get('artifact_ref'))}", width))
         for output in outputs[:6]:
             lines.append(
                 _clip(
                     "  ◦ output "
-                    f"{output.get('output_artifact_id')} type={output.get('artifact_type')} "
-                    f"status={output.get('status')} task={output.get('task_id')} worker={output.get('worker_id')}",
+                    f"{_safe(output.get('output_artifact_id'))} type={_safe(output.get('artifact_type'))} "
+                    f"status={_safe(output.get('status'))} task={_safe(output.get('task_id'))} worker={_safe(output.get('worker_id'))}",
                     width,
                 )
             )
@@ -727,13 +732,13 @@ def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -
     if not grants:
         lines.append("    - none")
     for grant in grants[:8]:
-        grant_id = str(grant.get("grant_id") or "?")
+        grant_id = _safe(grant.get("grant_id") or "?")
         used = grant_id in usage_grant_ids
         marker = "used" if used else "granted-not-used"
         lines.append(
             _clip(
-                f"    {grant_id} [{marker}] sensitivity={grant.get('sensitivity')} "
-                f"boundary={grant.get('data_boundary')} ref={grant.get('artifact_ref')}",
+                f"    {grant_id} [{marker}] sensitivity={_safe(grant.get('sensitivity'))} "
+                f"boundary={_safe(grant.get('data_boundary'))} ref={_safe(grant.get('artifact_ref'))}",
                 width,
             )
         )
@@ -744,9 +749,9 @@ def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -
     for usage in usages[:8]:
         lines.append(
             _clip(
-                f"    {usage.get('usage_id')} grant={usage.get('grant_id')} "
-                f"task={usage.get('task_id')} worker={usage.get('worker_id')} "
-                f"ref={usage.get('artifact_ref')}",
+                f"    {_safe(usage.get('usage_id'))} grant={_safe(usage.get('grant_id'))} "
+                f"task={_safe(usage.get('task_id'))} worker={_safe(usage.get('worker_id'))} "
+                f"ref={_safe(usage.get('artifact_ref'))}",
                 width,
             )
         )
@@ -757,9 +762,9 @@ def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -
     for output in outputs[:10]:
         lines.append(
             _clip(
-                f"    {output.get('output_artifact_id')} type={output.get('artifact_type')} "
-                f"status={output.get('status')} task={output.get('task_id')} "
-                f"worker={output.get('worker_id')} created_at={output.get('created_at')}",
+                f"    {_safe(output.get('output_artifact_id'))} type={_safe(output.get('artifact_type'))} "
+                f"status={_safe(output.get('status'))} task={_safe(output.get('task_id'))} "
+                f"worker={_safe(output.get('worker_id'))} created_at={_safe(output.get('created_at'))}",
                 width,
             )
         )
