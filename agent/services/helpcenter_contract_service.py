@@ -284,6 +284,7 @@ def write_helpcenter_index(index_payload: dict[str, Any], *, repo_root: str | Pa
 def build_report_paths(
     *,
     analysis_id: str,
+    report_stem: str | None = None,
     report_date: date | None = None,
     repo_root: str | Path | None = None,
 ) -> dict[str, str]:
@@ -291,8 +292,9 @@ def build_report_paths(
     target_date = report_date or datetime.now(UTC).date()
     day_dir = f"{target_date.year:04d}-{target_date.month:02d}-{target_date.day:02d}"
     base = _root(repo_root)
-    markdown = base / "reports" / day_dir / f"{analysis_id}.md"
-    raw_json = base / "reports" / day_dir / f"{analysis_id}.json"
+    stem = str(report_stem or analysis_id).strip() or str(analysis_id).strip()
+    markdown = base / "reports" / day_dir / f"{stem}.md"
+    raw_json = base / "reports" / day_dir / f"{stem}.json"
     return {
         "markdown_ref": str(markdown.relative_to(base.parent)),
         "json_ref": str(raw_json.relative_to(base.parent)),
