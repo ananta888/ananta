@@ -23,6 +23,7 @@ def test_build_request_contract_contains_required_fields() -> None:
     assert "observation_summary" in payload
     assert "quick_prediction" in payload
     assert "context_envelope_ref" in payload
+    assert "provider_selection" in payload
     assert payload["budget"]["token_budget"] >= 64
     assert payload["mode"] in {"predict_intent", "explain_artifact", "answer_chat", "suggest_next_action"}
 
@@ -112,3 +113,25 @@ def test_context_envelope_and_relevance_refs() -> None:
     refs = relevance_refs_for_intent(intent="artifact_explain", codecompass_artifact=artifact, max_refs=12)
     assert refs
     assert refs[0]["score"] >= refs[-1]["score"]
+
+
+def test_provider_unavailable_returns_degraded_reason() -> None:
+    client = AiSnakeWorkerClient()
+    payload = client.build_request(
+        mode="predict_intent",
+        observation_summary={},
+        quick_prediction={"predicted_intent": "chat", "confidence": 0.5},
+        context_envelope_ref={},
+        provider_selection={"provider_preference": "lmstudio", "simulate_unavailable": True},
+    )
+    task = client.submit(payload)
+    assert task is not None
+    result = None
+    deadline = time.time() + 1.5
+    while result is None and time.time() < deadline:
+        result = client.poll(task, now=time.time())
+        if result is None:
+            time.sleep(0.02)
+    assert result is not None
+    assert result["status"] == "degraded"
+    assert result["error"] == "worker_unavailable"

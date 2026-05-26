@@ -103,6 +103,26 @@ class TestT011ResourceLimits:
         if exec_r:
             assert len(str(exec_r.get("stdout_ref", ""))) <= 32_100  # some slack
 
+    def test_native_service_reads_ai_snake_provider_config(self):
+        from agent.services.native_worker_runtime_service import NativeWorkerRuntimeService
+
+        cfg = {
+            "worker_runtime": {
+                "ai_snake": {
+                    "provider_preference": "lmstudio",
+                    "model": "ananta-smoke",
+                    "max_latency_ms": 1500,
+                    "cloud_allowed": False,
+                }
+            }
+        }
+        svc = NativeWorkerRuntimeService()
+        ai_cfg = svc.ai_snake_provider_config(agent_cfg=cfg)
+        assert ai_cfg.provider_preference == "lmstudio"
+        assert ai_cfg.model == "ananta-smoke"
+        assert ai_cfg.max_latency_ms == 1500
+        assert ai_cfg.cloud_allowed is False
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # AWF-T012 + AWF-T013: Provider selection via registry + policy

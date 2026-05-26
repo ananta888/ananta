@@ -2,6 +2,7 @@
 import pytest
 
 from worker.core.provider_registry import (
+    AiSnakeProviderConfig,
     AuxiliaryPolicy,
     AuxiliaryTaskKind,
     CredentialStore,
@@ -99,6 +100,34 @@ class TestLocalFirstRouting:
         fallback = self.registry.select_local_fallback(
             preferred=None, allowed_providers=["openai"])
         assert fallback is None
+
+    def test_ai_snake_selection_prefers_local_provider(self):
+        from worker.core.provider_registry import ProviderSelectionGate
+
+        gate = ProviderSelectionGate(self.registry)
+        entry, reason = gate.select_for_ai_snake(
+            AiSnakeProviderConfig(
+                provider_preference="lmstudio",
+                model="ananta-smoke",
+                cloud_allowed=False,
+            )
+        )
+        assert entry is not None
+        assert entry.id == "lmstudio"
+        assert "allow" in reason
+
+    def test_ai_snake_cloud_disabled_blocks_cloud_provider(self):
+        from worker.core.provider_registry import ProviderSelectionGate
+
+        gate = ProviderSelectionGate(self.registry)
+        entry, _ = gate.select_for_ai_snake(
+            AiSnakeProviderConfig(
+                provider_preference="openai",
+                model="gpt",
+                cloud_allowed=False,
+            )
+        )
+        assert entry is None or entry.kind != ProviderKind.cloud
 
 
 # ── EW-T023: Credential isolation ────────────────────────────────────────────

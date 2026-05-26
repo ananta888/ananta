@@ -1104,6 +1104,10 @@ class InteractiveOperatorTui:
             "artifact_intent_reason": "",
             "artifact_intent_target": None,
             "ai_snake_mode": "lurking_follow",
+            "ai_snake_provider_preference": os.environ.get("ANANTA_TUI_AI_SNAKE_PROVIDER", "lmstudio"),
+            "ai_snake_provider_model": os.environ.get("ANANTA_TUI_AI_SNAKE_MODEL", "ananta-smoke"),
+            "ai_snake_provider_cloud_allowed": os.environ.get("ANANTA_TUI_AI_SNAKE_CLOUD_ALLOWED", "0").strip().lower() in {"1", "true", "yes", "on"},
+            "ai_snake_provider_max_latency_ms": max(250, int(os.environ.get("ANANTA_TUI_AI_SNAKE_MAX_LATENCY_MS", "2000"))),
             "ai_snake_prediction": {},
             "ai_snake_debug": {},
             "ai_snake_runtime_status": "idle",
@@ -1493,6 +1497,12 @@ class InteractiveOperatorTui:
                 observation_summary=dict(worker_payload.get("observation_summary") or {}),
                 quick_prediction=dict(worker_payload.get("quick_prediction") or {}),
                 context_envelope_ref=dict(worker_payload.get("context_envelope_ref") or {}),
+                provider_selection={
+                    "provider_preference": str(game.get("ai_snake_provider_preference") or "lmstudio"),
+                    "model": str(game.get("ai_snake_provider_model") or "ananta-smoke"),
+                    "cloud_allowed": bool(game.get("ai_snake_provider_cloud_allowed")),
+                },
+                max_latency_ms=max(250, int(game.get("ai_snake_provider_max_latency_ms") or 2000)),
             )
             if budget_allowed:
                 submitted = self._ai_worker_client.submit(request, signature=signature)
@@ -1508,7 +1518,7 @@ class InteractiveOperatorTui:
                 self._ai_worker_task = None
                 game["ai_snake_worker_response"] = worker_result
                 if worker_result.get("status") == "ok":
-                    prediction_trace["provider_ref"] = "worker:default"
+                    prediction_trace["provider_ref"] = str(worker_result.get("provenance_ref") or "worker:default")
                 if (
                     worker_result.get("status") == "degraded"
                     and str(worker_result.get("error") or "") == "timeout"
