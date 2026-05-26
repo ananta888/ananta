@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/artifacts/source_artifact_usage.v1.json",
+  "title": "Source Artifact Usage v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "usage_id",
+    "grant_id",
+    "goal_id",
+    "artifact_ref",
+    "usage_kind",
+    "used_at",
+    "context_hash",
+    "policy_decision_ref"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "source_artifact_usage.v1"
+    },
+    "usage_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128
+    },
+    "grant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "goal_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "task_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "worker_id": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "artifact_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "usage_kind": {
+      "type": "string",
+      "enum": [
+        "read",
+        "retrieved",
+        "quoted",
+        "summarized",
+        "embedded",
+        "transformed",
+        "preview"
+      ]
+    },
+    "used_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "context_hash": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "prompt_ref": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "policy_decision_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "source_reference": {
+      "type": "object"
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

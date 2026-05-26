@@ -46,7 +46,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält goal_id, graph_id, created_at, updated_at, source_grants, source_usages, output_artifacts und edges.",
             "source_grants beschreiben freigegebene Artefakte für einen Goal, unabhängig von tatsächlicher Nutzung.",
@@ -69,7 +69,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält grant_id, goal_id, artifact_ref, granted_by, granted_at, allowed_usages, data_boundary, sensitivity, expires_at, policy_decision_ref.",
             "allowed_usages enthält mindestens read, summarize, quote, transform, use_as_context.",
@@ -91,7 +91,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält usage_id, grant_id, goal_id, task_id, worker_id, artifact_ref, usage_kind, used_at, context_hash, prompt_ref, policy_decision_ref.",
             "usage_kind enthält read, retrieved, quoted, summarized, embedded, transformed.",
@@ -113,7 +113,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält output_artifact_id, goal_id, task_id, worker_id, artifact_type, created_at, input_usage_refs, artifact_ref, content_hash, status.",
             "artifact_type enthält mindestens plan, patch, file, report, test_result, citation_bundle, chat_answer, codecompass_context.",
@@ -143,7 +143,7 @@
           "priority": "P1",
           "effort": "XL",
           "depends_on": ["T01.01", "T01.02", "T01.03", "T01.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Service kann SourceArtifactGrant für goal_id anlegen.",
             "Service kann Grant revoken.",
