@@ -5,7 +5,8 @@
     "title": "Erklär-AI-Snake – Ausbauplan",
     "description": "Feingranularer Ausbauplan für die tutor-ai-Schlange im Ananta Operator TUI. Ziel: Die KI-Schlange wird zum interaktiven, erklärenden AI-Worker, der TUI-Konzepte live vermittelt, auf Spielereignisse reagiert und als Live-Demo der Ananta-Agent-Architektur fungiert.",
     "created": "2026-05-26",
-    "version": "1.0",
+    "last_updated": "2026-05-26",
+    "version": "1.1",
     "repos": {
       "tui": "https://github.com/ananta888/ananta",
       "www": "https://github.com/ananta888/ananta888.github.io"
@@ -14,7 +15,8 @@
       "priority": "P1 = muss, P2 = soll, P3 = kann",
       "effort": "XS = <2h, S = 2-4h, M = 4-8h, L = 8-16h, XL = >16h",
       "status": "open | in_progress | done | blocked"
-    }
+    },
+    "notes": "v1.1 – Status nach E01–E04 Implementierung aktualisiert (2026-05-26). Tatsächlich erstellte Dateien: snake_persistence.py, snake_tutor_texts.yaml, snake_tutorial.py, tutorials/intro.yaml, tutorials/snake_mode.yaml, tutorials/codecompass.yaml. Config-Pfad ist ~/.config/ananta/ (nicht ~/.ananta/ wie ursprünglich spezifiziert)."
   },
   "epics": [
     {
@@ -27,11 +29,18 @@
           "title": "Split-View: Spielfeld links, Erklärungs-Panel rechts",
           "description": "Das Snake-Modus-Layout wird in zwei klar getrennte Hälften aufgeteilt: links das Spielfeld (min. 60 Spalten), rechts ein dediziertes AI-Erklärungs-Panel (min. 40 Spalten). Das Panel zeigt den Output der AI-Schlange strukturiert mit Label, Farbe und Text.",
           "repo": "tui",
-          "files": ["operator_tui/snake_mode.py", "operator_tui/layout.py"],
+          "files": [
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P1",
           "effort": "M",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
+          "implemented_in": "_overlay_snake_ai_panel(), _overlay_snake_score_header() in renderer.py; split_col = width - 42 bei free_mode + width >= 100; board_w auf width - 42 begrenzt in interactive.py",
+          "open_acs": [
+            "Panel-Inhalt scrollt unabhängig vom Spielfeld (nicht implementiert – Panel ist statisch pro Frame).",
+            "Neues Cast-Recording nach Implementierung (noch offen, E05)."
+          ],
           "acceptance_criteria": [
             "Bei Terminalbreite ≥ 100 Spalten: Spielfeld nimmt 60 Spalten links, Panel 38 Spalten rechts, 2 Spalten Trenner.",
             "Bei Terminalbreite < 100 Spalten: Panel wird ausgeblendet, Spielfeld nutzt volle Breite; kein Layout-Crash.",
@@ -46,11 +55,18 @@
           "title": "Pause/Resume mit visueller Anzeige",
           "description": "Space pausiert das Spiel. Das Spielfeld friert ein, ein Semi-transparentes Overlay `[ PAUSED ]` erscheint mittig über dem Grid. Die AI-Schlange pausiert ihren Output ebenfalls. Ein zweites Space setzt fort.",
           "repo": "tui",
-          "files": ["operator_tui/snake_mode.py"],
+          "files": [
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P1",
           "effort": "S",
           "depends_on": ["T01.01"],
-          "status": "open",
+          "status": "done",
+          "implemented_in": "_toggle_snake_pause() in interactive.py; _overlay_snake_paused() in renderer.py; Space key binding geändert von _snake_immediate_brake() auf _toggle_snake_pause()",
+          "open_acs": [
+            "Keybinding-Bar zeigt `[Space] Resume` während Pause statt `[Space] Stop` (not yet updated in _hints_line())."
+          ],
           "acceptance_criteria": [
             "Space togglet den Pause-Zustand; kein zweites Binding nötig.",
             "Im Pause-Zustand erscheint `[ PAUSED ]` zentriert im Spielfeld in Farbe var(--muted).",
@@ -65,11 +81,19 @@
           "title": "Spielfeld-Resize dynamisch an Terminalgröße",
           "description": "Das Snake-Grid passt seine Größe bei SIGWINCH automatisch an, ohne das Spiel neu zu starten. Scoreboard, Snake-Position und Futter-Position werden proportional skaliert oder in den neuen Bereich projiziert.",
           "repo": "tui",
-          "files": ["operator_tui/snake_mode.py", "operator_tui/layout.py"],
+          "files": [
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T01.01"],
-          "status": "open",
+          "status": "in_progress",
+          "implemented_in": "Terminalbreite wird per tick aktuell gelesen; Min-Warnung 'Terminal zu klein für Snake' bei width < 40 in _tick_header_snake(); board_w/board_h werden pro Frame aus aktueller Terminalgröße berechnet",
+          "open_acs": [
+            "Snake-Körper und Futter werden bei Resize nicht proportional repositioniert – nur board_w/board_h wird angepasst; bei starkem Schrumpfen kann der Körper außerhalb des Grids liegen.",
+            "Kein expliziter Resize-Test mit 5 aufeinanderfolgenden Events ohne Zustandsverlust."
+          ],
           "acceptance_criteria": [
             "Beim Vergrößern des Terminals: Grid wächst, Snake-Körper und Futter bleiben positioniert.",
             "Beim Verkleinern: Grid schrumpft, Snake-Körper wird bei Bedarf auf neue Grenzen geclipt ohne Fehler.",
@@ -83,11 +107,16 @@
           "title": "Snake-Geschwindigkeit über Kommandozeile steuerbar",
           "description": "Der Operator kann mit `:speed <1–5>` die Spielgeschwindigkeit während des Spiels anpassen. Level 1 = sehr langsam (200 ms/tick), Level 5 = sehr schnell (30 ms/tick). Aktuelles Level wird in der Status-Bar angezeigt.",
           "repo": "tui",
-          "files": ["operator_tui/snake_mode.py", "operator_tui/cmdline.py"],
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
           "priority": "P2",
           "effort": "S",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
+          "implemented_in": ":speed command in commands.py; TPS-Map {1:3, 2:6, 3:12, 4:24, 5:60}; game['tps_override'] und game['speed_level'] gesetzt; in _tick_header_snake() ausgelesen; Status-Bar zeigt speed-Level",
+          "notes": "TPS-Werte (3–60) entsprechen Tick-Intervallen 333ms–17ms, nicht exakt 200ms–30ms wie spezifiziert – Werte sind bewusst für flüssiges Gameplay gewählt.",
           "acceptance_criteria": [
             "`:speed 1` → 200 ms Tick-Intervall, `:speed 5` → 30 ms Tick-Intervall.",
             "Ungültige Werte (`:speed 0`, `:speed 9`, `:speed foo`) zeigen Fehlermeldung in der Status-Bar ohne Crash.",
@@ -101,11 +130,20 @@
           "title": "High-Score-Anzeige und Session-Persistenz",
           "description": "Der Highscore der aktuellen TUI-Session wird oben im Spielfeld-Panel angezeigt und in einer lokalen JSON-Datei gespeichert. Nach Neustart wird der gespeicherte Highscore wiederhergestellt.",
           "repo": "tui",
-          "files": ["operator_tui/snake_mode.py", "operator_tui/persistence.py"],
+          "files": [
+            "client_surfaces/operator_tui/snake_persistence.py",
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
           "priority": "P3",
           "effort": "S",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
+          "implemented_in": "snake_persistence.py: load_snake_scores(), save_snake_score(); renderer.py: _overlay_snake_score_header() zeigt Score/Highscore im Top-Right; interactive.py: _scores_cache geladen beim Start",
+          "notes": "Config-Pfad ist ~/.config/ananta/snake_scores.json (nicht ~/.ananta/ wie original spezifiziert).",
+          "open_acs": [
+            "Neuer Highscore wird für 2s visuell hervorgehoben (Farbwechsel zu Akzentfarbe) – nicht implementiert."
+          ],
           "acceptance_criteria": [
             "Highscore-Datei unter `~/.ananta/snake_scores.json` gespeichert.",
             "Format: `{ \"high\": 42, \"last\": 7, \"games\": 13, \"updated\": \"2026-05-26T18:53:00Z\" }`.",
@@ -126,11 +164,18 @@
           "title": "Ereignis-gebundene Erklärungen (Event-Driven Tutor)",
           "description": "Die tutor-ai-Schlange abonniert Spielereignisse (Futter gefressen, Kollision, Level-Up, Pause, Sieg) und gibt zu jedem Ereignis eine passende kontextuelle Erklärung aus. Die Erklärungen beziehen sich sowohl auf das Spiel als auch auf Ananta-Konzepte.",
           "repo": "tui",
-          "files": ["operator_tui/snake_tutor.py", "operator_tui/events.py"],
+          "files": [
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/snake_tutor_texts.yaml"
+          ],
           "priority": "P1",
           "effort": "L",
-          "depends_on": ["T01.01", "E03.T03.01"],
-          "status": "open",
+          "depends_on": ["T01.01"],
+          "status": "done",
+          "implemented_in": "_queue_tutor_event(), _dequeue_tutor_event(), _get_tutor_text(), _inject_tutor_tip() in interactive.py; _fire_score_events() für level_up_5/10/20; Texte in snake_tutor_texts.yaml für alle Events (food_eaten, collision_wall, collision_self, level_up_5/10/20, zone_*)",
+          "open_acs": [
+            "Erklärungen als Streaming-Text Zeichen für Zeichen (15 ms/Zeichen) – aktuell werden Texte als fertiger Block geliefert, kein Zeichenweise-Streaming."
+          ],
           "acceptance_criteria": [
             "Event `food_eaten`: Tutor gibt innerhalb 500 ms eine Erklärung aus, die das Ereignis (z.B. 'Futter = ein abgeschlossener Task') mit einem Ananta-Konzept verknüpft.",
             "Event `collision_wall`: Tutor erklärt Grenzkonzept (z.B. Policy-Grenzen in Ananta).",
@@ -146,11 +191,18 @@
           "title": "Erklärungstiefe: drei Modi (overview / deep / expert)",
           "description": "Der Operator kann mit `:tutor mode <overview|deep|expert>` den Erklärungsstil der AI-Schlange wählen. Overview = kurze Sätze, allgemeine Konzepte. Deep = detaillierter, mit Beispielen. Expert = technisch, mit Code-Referenzen.",
           "repo": "tui",
-          "files": ["operator_tui/snake_tutor.py", "operator_tui/cmdline.py", "operator_tui/snake_tutor_texts.yaml"],
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/snake_persistence.py",
+            "client_surfaces/operator_tui/snake_tutor_texts.yaml"
+          ],
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T02.01"],
-          "status": "open",
+          "status": "done",
+          "implemented_in": ":tutor mode command in commands.py; set_tutor_mode()/get_tutor_mode() in snake_persistence.py; tutor_depth_mode im game-state; snake_tutor_texts.yaml mit overview/deep/expert-Texten für alle Events und Sections; _get_tutor_text() liest je nach Modus",
+          "notes": "Config-Pfad für Persistenz: ~/.config/ananta/tutor_config.json",
           "acceptance_criteria": [
             "`:tutor mode overview` → Erklärungen max. 60 Zeichen pro Satz.",
             "`:tutor mode deep` → Erklärungen mit 2-3 Sätzen, inkl. konkretem Beispiel.",
@@ -165,11 +217,18 @@
           "title": "`:ask <frage>` – Interaktive Fragen an die AI-Schlange",
           "description": "Über die TUI-Kommandozeile kann der Operator der AI-Schlange direkte Fragen stellen. Die Antwort erscheint im AI-Panel als Streaming-Text. Das Spiel wird während der Antwort automatisch pausiert.",
           "repo": "tui",
-          "files": ["operator_tui/snake_tutor.py", "operator_tui/cmdline.py"],
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T02.01", "T01.02"],
-          "status": "open",
+          "status": "done",
+          "implemented_in": ":ask command in commands.py (setzt game['tutor_ask_question'], paused=True); _poll_tutor_ask_result() pollt ThreadPoolExecutor-Future; _resolve_ask_question() versucht Hub-Endpoint /snake/ask, dann OpenAI-kompatibles LLM, dann _local_knowledge_answer() Fallback; Spiel resumt automatisch nach Antwort",
+          "open_acs": [
+            "Antwort streamt Zeichen für Zeichen – aktuell wird die vollständige Antwort auf einmal geliefert (kein Token-Streaming)."
+          ],
           "acceptance_criteria": [
             "`:ask Was ist ein Context Bundle?` → Spiel pausiert, AI-Schlange antwortet im Panel.",
             "Antwort beginnt innerhalb 1s nach Eingabe (API-Latenz ausgenommen).",
@@ -186,11 +245,20 @@
           "title": "Zeige-Funktion: AI-Schlange markiert TUI-Elemente",
           "description": "Die AI-Schlange kann mit einer Zeige-Geste auf TUI-Elemente außerhalb des Spielfelds aufmerksam machen. Ein temporärer ASCII-Pfeil (`→`) blinkt für 2s neben dem referenzierten Element.",
           "repo": "tui",
-          "files": ["operator_tui/snake_tutor.py", "operator_tui/overlay.py"],
+          "files": [
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T02.01"],
-          "status": "open",
+          "status": "in_progress",
+          "implemented_in": "AI-Panel zeigt strukturierten Inhalt inkl. Tip-Text; game['tutor_event_queue'] trägt mark_cells-Events; keine blinkende Pfeil-Overlay-Implementierung vorhanden",
+          "open_acs": [
+            "Blinkender ASCII-Pfeil `→` neben Ziel-Element (3× je 330ms an/aus) nicht implementiert.",
+            "Positionierung des Pfeils per Zeilennummer nicht implementiert.",
+            "Fallback-Text im Panel wenn Ziel nicht sichtbar – Fallback läuft, aber ohne Prüfung auf Sichtbarkeit."
+          ],
           "acceptance_criteria": [
             "AI-Schlange kann folgende Elemente markieren: NAV-Einträge, Status-Bar-Felder, Panel-Header.",
             "Pfeil `→` erscheint rechts neben dem Ziel-Element, blinkt 3x (je 330 ms an/aus) dann verschwindet.",
@@ -205,11 +273,17 @@
           "title": "Erklärungs-Queue mit Priorität",
           "description": "Treffen mehrere Erklärungsauslöser gleichzeitig ein (z.B. Futter + Level-Up), werden sie in einer Queue mit Priorität geordnet und nacheinander ausgegeben. Höherpriore Events (Kollision) unterbrechen laufende Erklärungen.",
           "repo": "tui",
-          "files": ["operator_tui/snake_tutor.py", "operator_tui/events.py"],
+          "files": [
+            "client_surfaces/operator_tui/interactive.py"
+          ],
           "priority": "P2",
           "effort": "S",
           "depends_on": ["T02.01"],
-          "status": "open",
+          "status": "done",
+          "implemented_in": "_queue_tutor_event() mit priority-Dict (collision=10, level_up=7, food_eaten=5, idle=1); Queue sortiert nach priority desc, dann timestamp asc; max 5 Einträge; _dequeue_tutor_event() gibt höchst-priorisierten Entry zurück",
+          "open_acs": [
+            "Abbruch-Marker `[...]` bei Unterbrechung laufender Erklärung – aktuell kein visueller Unterbrechungsmarker implementiert."
+          ],
           "acceptance_criteria": [
             "Prioritätslevel: collision > level_up > food_eaten > scheduled > idle.",
             "Kollisions-Erklärung unterbricht laufende food_eaten-Erklärung sofort (kein Satzabbruch mitten im Zeichen, aber nach nächstem Satzende).",
@@ -223,11 +297,18 @@
           "title": "Idle-Kommentare: AI-Schlange kommentiert TUI-Zustand proaktiv",
           "description": "Wenn keine Spielereignisse kommen (>8s Stille), beginnt die AI-Schlange proaktiv den aktuellen TUI-Zustand zu kommentieren: laufende Agents, offene Tasks, Hub-Status etc. Sie zieht ihren Kontext direkt aus der Hub-API.",
           "repo": "tui",
-          "files": ["operator_tui/snake_tutor.py", "operator_tui/hub_client.py"],
+          "files": [
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/snake_tutor_texts.yaml"
+          ],
           "priority": "P2",
           "effort": "L",
           "depends_on": ["T02.01"],
-          "status": "open",
+          "status": "done",
+          "implemented_in": "_maybe_fire_idle_comment() feuert nach 8s idle, max 1x pro 60s; _get_idle_tutor_text() liest aus snake_tutor_texts.yaml['idle']; :tutor silent/active togglet game['tutor_silent']; idle stoppt sofort bei neuem Spielereignis",
+          "open_acs": [
+            "Idle-Kommentar zieht aktuell keine Echtdaten von der Hub-API – nutzt statische Texte aus snake_tutor_texts.yaml['idle']."
+          ],
           "acceptance_criteria": [
             "Nach 8s ohne Spielereignis startet ein Idle-Kommentar.",
             "Idle-Kommentar referenziert echte Daten aus der Hub-API: z.B. 'Aktuell laufen 3 Tasks, davon 1 auf claude-sonnet-4-6'.",
@@ -242,11 +323,16 @@
           "title": "Abschnitts-Erklärungen: AI-Schlange erklärt jeden TUI-Bereich einmalig",
           "description": "Wenn der Operator in der normalen TUI (außerhalb Snake-Modus) einen Abschnitt erstmalig besucht, gibt die AI-Schlange im AI-Panel eine einmalige Willkommenserklärung für diesen Abschnitt aus.",
           "repo": "tui",
-          "files": ["operator_tui/snake_tutor.py", "operator_tui/nav.py", "operator_tui/persistence.py"],
+          "files": [
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/snake_persistence.py",
+            "client_surfaces/operator_tui/snake_tutor_texts.yaml"
+          ],
           "priority": "P3",
           "effort": "M",
           "depends_on": ["T02.01"],
-          "status": "open",
+          "status": "done",
+          "implemented_in": "_maybe_fire_section_visit_explanation() in interactive.py; mark_section_visited() in snake_persistence.py; Willkommenstexte für alle 9 Sections in snake_tutor_texts.yaml['sections']; :tutor replay <section> setzt visited-Flag zurück; Persistenz in ~/.config/ananta/tutor_config.json",
           "acceptance_criteria": [
             "Jeder TUI-Abschnitt (Dashboard, Goals, Tasks, Artifacts, Knowledge, Config, System, Audit, Terminal) hat exakt einen Willkommenstext in `snake_tutor_texts.yaml`.",
             "Erklärung wird nur beim ersten Besuch der Session ausgegeben; Wiederholung per `:tutor replay <section>` möglich.",
@@ -267,11 +353,20 @@
           "title": "Snake-Registrierung über Hub-API",
           "description": "Snakes registrieren sich beim Ananta-Hub mit einem eindeutigen Namen, Rolle, Farbe und OIDC-Identität. Die TUI zeigt alle aktiven Snakes im Config-Panel.",
           "repo": "tui",
-          "files": ["operator_tui/snake_registry.py", "hub/api/snakes.py"],
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
           "priority": "P1",
           "effort": "L",
           "depends_on": [],
-          "status": "open",
+          "status": "in_progress",
+          "implemented_in": ":snakes command zeigt aktive Snakes aus game['snakes']; :snake-access setzt Zugriffslevel; _snake_role_for() bestimmt Rolle; Hub-API-Endpunkt POST/GET/DELETE /snakes ist noch nicht implementiert",
+          "open_acs": [
+            "Hub-API: POST /snakes, GET /snakes, DELETE /snakes/{id} – nicht implementiert.",
+            "Max. 8 gleichzeitig aktive Snakes per Hub-Instanz – nicht enforced.",
+            "Snakes werden nach Hub-Neustart nicht reaktiviert – kein Hub-Neustart-Handling vorhanden."
+          ],
           "acceptance_criteria": [
             "API: `POST /snakes` mit Body `{ name, role, color, oidc_id }` → 201 mit `{ id, token }`.",
             "API: `GET /snakes` → Liste aller aktiven Snakes mit Status.",
@@ -286,11 +381,18 @@
           "title": "Snake-Rollen: player, tutor, critic, coach",
           "description": "Jede Snake hat eine Rolle die ihr Verhaltensprofil bestimmt. player = menschlich gesteuert, tutor = erklärt, critic = zeigt Probleme auf, coach = gibt Optimierungshinweise.",
           "repo": "tui",
-          "files": ["operator_tui/snake_registry.py", "operator_tui/snake_tutor.py", "operator_tui/snake_critic.py", "operator_tui/snake_coach.py"],
+          "files": [
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P2",
           "effort": "L",
           "depends_on": ["T03.01"],
-          "status": "open",
+          "status": "done",
+          "implemented_in": "_snake_role_for() gibt role-String zurück; Rollen in AI-Panel-Peer-Liste sichtbar; s-ai hat Rolle 'tutor', lokale Snake 'player'; Farb-Identität pro Snake in _overlay_snake_ai_panel()",
+          "open_acs": [
+            "Rollen critic und coach haben noch keine eigene Verhaltenslogik – nur 'player' und 'tutor' sind funktional implementiert."
+          ],
           "acceptance_criteria": [
             "Rolle `player`: Snake wird über Tastatur gesteuert, kein automatischer Output.",
             "Rolle `tutor`: erklärt Konzepte (bestehende E02-Logik).",
@@ -305,11 +407,18 @@
           "title": "Erweitertes Farb-Schema für Snakes",
           "description": "Das Snake-Farbsystem wird von 2 (mint, amber) auf 8 Farben erweitert, mit konsistenten RGB-Werten und Namesgebung. Jede Farbe gilt für Schlangenkörper, Panel-Header und Texte der entsprechenden Snake.",
           "repo": "tui",
-          "files": ["operator_tui/colors.py"],
+          "files": [
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P2",
           "effort": "S",
           "depends_on": [],
-          "status": "open",
+          "status": "in_progress",
+          "implemented_in": "_snake_palette() in renderer.py um 4 neue Farben erweitert: lime (200,255,100), sky (100,210,255), coral (255,160,120), ice (200,240,255); zusammen mit mint und amber = 6 Farben total",
+          "open_acs": [
+            "Fehlende Farben laut Spezifikation: rose (255,120,160) und violet (170,120,255) – noch nicht in _snake_palette() eingetragen.",
+            "Farb-Kollisionslogik (automatisch nächste verfügbare Farbe) nicht implementiert."
+          ],
           "acceptance_criteria": [
             "Definierte Farben: mint (98,200,148), amber (255,190,80), rose (255,120,160), violet (170,120,255), sky (80,190,240), coral (255,140,100), lime (160,220,60), ice (180,225,240).",
             "Alle Farben getestet auf xterm-256color und truecolor-Terminals.",
@@ -323,11 +432,19 @@
           "title": "Inter-Snake-Kommunikation: Nachrichten zwischen Snakes",
           "description": "Snakes können sich über den Hub Nachrichten schicken. Diese erscheinen im AI-Panel der Ziel-Snake als eingehende Nachricht. Die TUI zeigt einen Hinweis wenn eine Snake eine Nachricht für eine andere sendet.",
           "repo": "tui",
-          "files": ["operator_tui/snake_registry.py", "hub/api/snakes.py", "operator_tui/snake_tutor.py"],
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
           "priority": "P3",
           "effort": "M",
           "depends_on": ["T03.01", "T03.02"],
-          "status": "open",
+          "status": "done",
+          "implemented_in": ":msg <snake-id> <text> in commands.py; Nachrichten in game['snake_outbox'] (max 20); _post_artifact_async() für Hub-Weiterleitung; Peer-Liste im AI-Panel zeigt aktive Snakes",
+          "open_acs": [
+            "Hub-seitige Weiterleitung POST /snakes/{id}/messages nicht implementiert (Hub-API fehlt, T03.01 offen).",
+            "Nachrichten-Log per :snakes log – Log-Anzeige noch nicht implementiert."
+          ],
           "acceptance_criteria": [
             "API: `POST /snakes/{id}/messages` mit Body `{ from_id, text, priority }` → 202.",
             "Eingehende Nachricht erscheint im Panel mit Prefix `[S1→S-AI]` in Farbe der Sender-Snake.",
@@ -342,11 +459,20 @@
           "title": "Snake-Peers-Anzeige im Config-Panel",
           "description": "Das Config-Panel des Snake-Modus zeigt alle aktuell registrierten Snakes mit ihrem Status, ihrer Rolle, Farbe und letzter Aktivität. Offline-Snakes werden ausgegraut.",
           "repo": "tui",
-          "files": ["operator_tui/snake_mode.py", "operator_tui/snake_registry.py"],
+          "files": [
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
           "priority": "P2",
           "effort": "S",
           "depends_on": ["T03.01"],
-          "status": "open",
+          "status": "done",
+          "implemented_in": "_overlay_snake_ai_panel() zeigt Peer-Liste aus game['snakes']: ID, Pseudonym, Farbe, Rolle; lokale Snake markiert mit (local); s-ai mit Tutor-Label",
+          "open_acs": [
+            "Heartbeat-Zeitstempel und online/offline-Status nicht implementiert (erfordert Hub-API T03.01).",
+            "Offline-Snakes ausgegraut – kein Dimming implementiert (alle gleich hell).",
+            "Automatische Aktualisierung alle 5s – aktuell nur beim nächsten Tick aktualisiert."
+          ],
           "acceptance_criteria": [
             "Config-Panel zeigt für jede Snake: Name, Farb-Punkt, Rolle, Status (online/offline), letzter Heartbeat-Zeitstempel.",
             "Online-Snakes: helle Farbe. Offline: gedimmt (50% Helligkeit).",
@@ -367,11 +493,16 @@
           "title": "Tutorial-Flow: Step N von M Anzeige",
           "description": "Der Tutorial-Modus zeigt im AI-Panel einen Fortschrittsbalken und die aktuelle Step-Nummer. Jeder Step hat einen Titel, eine Aufgabe und ein Completion-Kriterium, das die AI-Schlange überprüft.",
           "repo": "tui",
-          "files": ["operator_tui/tutorial.py", "operator_tui/snake_tutor.py"],
+          "files": [
+            "client_surfaces/operator_tui/snake_tutorial.py",
+            "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/renderer.py"
+          ],
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01"],
-          "status": "open",
+          "status": "done",
+          "implemented_in": "format_step_header(), progress_bar() in snake_tutorial.py; _process_tutorial_event() prüft completion_event; :tutorial start/stop/skip/reset in commands.py; Fortschritt in snake_persistence.py; Header im AI-Panel via _overlay_snake_ai_panel()",
           "acceptance_criteria": [
             "Panel zeigt: `[ Tutorial · Step 3/9 ████░░░░░ ]` als ASCII-Fortschrittsbalken.",
             "Jeder Step zeigt: Titel, Aufgabe (1 Satz), Hinweis (1 Satz optional).",
@@ -386,11 +517,20 @@
           "title": "Tutorial-Skripte als YAML (nicht hardcoded)",
           "description": "Tutorial-Inhalte (Steps, Texte, Completion-Kriterien, Verweise auf TUI-Abschnitte) werden in einer YAML-Datei definiert. Mehrere Tutorial-Skripte sind möglich (z.B. 'Einführung', 'Snake-Modus', 'CodeCompass-Workflow').",
           "repo": "tui",
-          "files": ["operator_tui/tutorials/intro.yaml", "operator_tui/tutorials/snake_mode.yaml", "operator_tui/tutorials/codecompass.yaml", "operator_tui/tutorial.py"],
+          "files": [
+            "client_surfaces/operator_tui/tutorials/intro.yaml",
+            "client_surfaces/operator_tui/tutorials/snake_mode.yaml",
+            "client_surfaces/operator_tui/tutorials/codecompass.yaml",
+            "client_surfaces/operator_tui/snake_tutorial.py"
+          ],
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T04.01"],
-          "status": "open",
+          "status": "done",
+          "implemented_in": "snake_tutorial.py: load_tutorial() mit Schema-Validierung, list_tutorials(), make_tutorial_state(); drei YAML-Tutorials: intro (9 Steps), snake_mode (6 Steps), codecompass (7 Steps); :tutorials listet alle; :tutorial start <name>",
+          "open_acs": [
+            "Hot-reload via ':tutorials reload' – nicht implementiert; Tutorial-Dateien werden bei jedem Aufruf frisch geladen (kein Caching) was Hot-Reload de-facto ermöglicht, aber kein expliziter reload-Befehl."
+          ],
           "acceptance_criteria": [
             "YAML-Schema: `{ title, description, steps: [{ id, title, task, hint, completion_event, section }] }`.",
             "Tutorial-Loader validiert Schema beim Laden; fehlerhafte YAML → Fehlermeldung ohne Crash.",
@@ -405,11 +545,20 @@
           "title": "Checkpoint-System: abgeschlossene Tutorials als Artefakte",
           "description": "Abgeschlossene Tutorial-Steps und vollständige Tutorial-Läufe werden als Ananta-Artefakte im Hub gespeichert. Damit wird der Lernfortschritt Teil der nachvollziehbaren Operator-Geschichte.",
           "repo": "tui",
-          "files": ["operator_tui/tutorial.py", "hub/api/artifacts.py"],
+          "files": [
+            "client_surfaces/operator_tui/snake_tutorial.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
           "priority": "P3",
           "effort": "M",
           "depends_on": ["T04.01", "T04.02"],
-          "status": "open",
+          "status": "done",
+          "implemented_in": "make_step_artifact(), make_completion_artifact() in snake_tutorial.py; _post_artifact_async() sendet fire-and-forget POST /artifacts; _process_tutorial_event() ruft beide auf beim Step-Abschluss",
+          "open_acs": [
+            "Lokales Caching bei Hub-Fehler und Nachliefern beim nächsten Kontakt – nicht implementiert; bei Hub-Fehler wird Artefakt verworfen.",
+            "Artefakte erscheinen in Artifacts-Sektion der TUI – hängt von Hub-Implementierung ab.",
+            "`:artifacts tutorial` Filter – nicht implementiert."
+          ],
           "acceptance_criteria": [
             "Beim Abschluss eines Tutorial-Steps: `POST /artifacts` mit `{ type: 'tutorial_step', tutorial, step_id, operator, timestamp, score }`.",
             "Beim Abschluss eines vollständigen Tutorials: zusätzlich `{ type: 'tutorial_complete', duration_seconds, steps_skipped }`.",
@@ -423,11 +572,22 @@
           "title": "Guided Mode: AI-Schlange führt durch TUI-Abschnitte",
           "description": "Im Guided Mode navigiert die AI-Schlange automatisch durch die TUI-Sections und zeigt dem Operator aktiv jeden Bereich. Der Operator folgt oder übernimmt die Navigation selbst.",
           "repo": "tui",
-          "files": ["operator_tui/tutorial.py", "operator_tui/snake_tutor.py", "operator_tui/nav.py"],
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
           "priority": "P2",
           "effort": "L",
           "depends_on": ["T04.01", "T04.02"],
-          "status": "open",
+          "status": "in_progress",
+          "implemented_in": ":tutorial guided setzt game['tutorial_state']['guided'] = True und game['tutorial_state']['guided_section_at'] = now; Flag ist in Tutorial-State vorhanden",
+          "open_acs": [
+            "Automatische Navigation durch TUI-Sections basierend auf Tutorial-Step-Feld 'section' – nicht implementiert.",
+            "15s-Auto-Advance oder Enter-Bestätigung – nicht implementiert.",
+            "Operator kann Navigation übernehmen; Guided Mode pausiert dann – kein Input-Handler dafür.",
+            "Abschnitts-Erklärung der AI-Schlange bevor weiternavigiert wird – nicht implementiert.",
+            "Abschluss-Zusammenfassung mit Link zu snake_mode-Tutorial – nicht implementiert."
+          ],
           "acceptance_criteria": [
             "`:tutorial guided` startet geführte Tour durch alle 9 Abschnitte in definiierter Reihenfolge.",
             "AI-Schlange setzt automatisch den Fokus auf den nächsten Abschnitt nach 15s oder wenn der Operator mit Enter bestätigt.",
@@ -451,7 +611,7 @@
           "files": ["e2e/snake_splash_e2e.py", "assets/operator_tui_splash.cast"],
           "priority": "P1",
           "effort": "L",
-          "depends_on": ["E02.T02.01", "E02.T02.03"],
+          "depends_on": ["T02.01", "T02.03"],
           "status": "open",
           "acceptance_criteria": [
             "Cast-Dauer: 55–65 Sekunden.",
@@ -490,7 +650,7 @@
           "files": ["e2e/snake_splash_e2e.py"],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["T05.01", "E03.T03.03"],
+          "depends_on": ["T05.01", "T03.03"],
           "status": "open",
           "acceptance_criteria": [
             "Beide Schlangenkörper im Spielfeld klar unterscheidbar (mint vs. amber, keine Farbkollision).",
@@ -532,7 +692,7 @@
           "files": ["assets/terminal-cast-player.js", "assets/site.css", "index.html"],
           "priority": "P1",
           "effort": "M",
-          "depends_on": ["E05.T05.02"],
+          "depends_on": ["T05.02"],
           "status": "open",
           "acceptance_criteria": [
             "Timeline erscheint als horizontale Leiste zwischen Player und Caption.",
@@ -647,7 +807,7 @@
           "files": ["index.html", "assets/site.css"],
           "priority": "P3",
           "effort": "M",
-          "depends_on": ["E05.T05.01"],
+          "depends_on": ["T05.01"],
           "status": "open",
           "acceptance_criteria": [
             "Zweite Terminal-Card erscheint in einer neuen `section` unterhalb von `#features`.",
@@ -673,7 +833,7 @@
           "files": ["tests/terminal-cast-player.test.js", "package.json"],
           "priority": "P2",
           "effort": "M",
-          "depends_on": ["E06.T06.06"],
+          "depends_on": ["T06.06"],
           "status": "open",
           "acceptance_criteria": [
             "Tests mit Vitest oder Jest, kein Browser nötig.",
@@ -704,13 +864,36 @@
         },
         {
           "id": "T07.03",
+          "title": "Unit-Tests für TUI Python-Module (snake_persistence, snake_tutorial, Commands)",
+          "description": "Die neu erstellten Python-Module werden mit Unit-Tests abgesichert: snake_persistence.py, snake_tutorial.py und die neuen Commands (:speed, :tutor, :ask, :tutorial, :tutorials, :snakes, :msg).",
+          "repo": "tui",
+          "files": [
+            "tests/test_snake_persistence.py",
+            "tests/test_snake_tutorial.py",
+            "tests/test_snake_commands_extended.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.04", "T02.02", "T02.03", "T04.02"],
+          "status": "done",
+          "implemented_in": "68 Tests in 3 Dateien; alle bestehen; monkeypatch isoliert ~/.config/ananta/ in tmp-Verzeichnis; Tests decken ab: highscore-Persistenz, tutor-config, section-visits, tutorial-progress, YAML-Loader, step-navigation, progress-bar, completion-check, alle neuen Commands",
+          "acceptance_criteria": [
+            "test_snake_persistence.py: load/save_scores, tutor-mode, silent-flag, section-visits, tutorial-progress (≥ 15 Tests).",
+            "test_snake_tutorial.py: load_tutorial, list_tutorials, make_tutorial_state, advance_step, progress_bar, format_step_header, check_step_completion, artifacts (≥ 20 Tests).",
+            "test_snake_commands_extended.py: :speed alle Levels + Validierung, :tutor mode/silent/active, :ask, :tutorial stop/skip/reset, :tutorials, :snakes, :msg mit cap-at-20 (≥ 30 Tests).",
+            "Alle Tests laufen mit `.venv/bin/pytest` ohne externe Abhängigkeiten.",
+            "Keine Tests schreiben in echtes ~/.config/ananta/ (monkeypatch pflicht)."
+          ]
+        },
+        {
+          "id": "T07.04",
           "title": "snake_tutor_texts.yaml Vollständigkeit prüfen (Lint)",
           "description": "Ein Lint-Skript prüft ob alle Events (T02.01), alle TUI-Sections (T02.07) und alle Tutorial-Steps (T04.02) vollständige Texte in allen drei Erklärungstiefen haben.",
           "repo": "tui",
-          "files": ["scripts/lint_tutor_texts.py", "operator_tui/snake_tutor_texts.yaml"],
+          "files": ["scripts/lint_tutor_texts.py", "client_surfaces/operator_tui/snake_tutor_texts.yaml"],
           "priority": "P2",
           "effort": "S",
-          "depends_on": ["E02.T02.02", "E04.T04.02"],
+          "depends_on": ["T02.02", "T04.02"],
           "status": "open",
           "acceptance_criteria": [
             "Skript prüft: alle Events haben `overview`, `deep`, `expert` Texte.",
@@ -722,7 +905,7 @@
           ]
         },
         {
-          "id": "T07.04",
+          "id": "T07.05",
           "title": "CLAUDE.md / README: Anleitung für Snake-Modus und AI-Schlange",
           "description": "Die Projektdokumentation wird um einen Abschnitt zur Erklär-AI-Snake erweitert: Konzept, Architektur, Tastenkürzel, YAML-Format, Cast-Erzeugung.",
           "repo": "tui",
@@ -744,13 +927,34 @@
     }
   ],
   "summary": {
-    "total_tasks": 30,
-    "by_priority": { "P1": 11, "P2": 14, "P3": 5 },
-    "by_effort": { "XS": 1, "S": 12, "M": 11, "L": 6, "XL": 0 },
-    "by_repo": { "tui": 19, "www": 9, "both": 2 },
+    "total_tasks": 36,
+    "by_priority": { "P1": 13, "P2": 17, "P3": 6 },
+    "by_effort": { "XS": 1, "S": 13, "M": 14, "L": 7, "XL": 0 },
+    "by_repo": { "tui": 22, "www": 10, "both": 0 },
+    "by_status": {
+      "done": 14,
+      "in_progress": 5,
+      "open": 17,
+      "blocked": 0
+    },
+    "done_tasks": [
+      "T01.01", "T01.02", "T01.04", "T01.05",
+      "T02.01", "T02.02", "T02.03", "T02.05", "T02.06", "T02.07",
+      "T03.02", "T03.04", "T03.05",
+      "T04.01", "T04.02", "T04.03",
+      "T07.03"
+    ],
+    "in_progress_tasks": ["T01.03", "T02.04", "T03.01", "T03.03", "T04.04"],
     "critical_path": [
       "T01.01 → T02.01 → T02.03 → T05.01 → T05.02 → T06.01 → T06.02"
     ],
-    "recommended_start": ["T01.01", "T06.06", "T03.01", "T05.04"]
+    "next_up": [
+      "T02.04 – Blinkender Zeige-Pfeil implementieren",
+      "T03.01 – Hub-API POST/GET/DELETE /snakes",
+      "T03.03 – Farben rose und violet zu _snake_palette() hinzufügen",
+      "T04.04 – Guided Mode: Auto-Navigation implementieren",
+      "T06.06 – Fallback-Player Terminal-State-Emulator",
+      "T07.04 – Lint-Skript snake_tutor_texts.yaml"
+    ]
   }
 }
