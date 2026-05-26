@@ -121,3 +121,18 @@ def test_compact_event_log_creates_backup_and_limits_size(tmp_path) -> None:
     assert result["before_bytes"] > result["after_bytes"]
     assert result["after_bytes"] <= 1024
     assert log.with_suffix(".jsonl.bak").exists()
+
+
+def test_private_notes_content_not_written_into_pattern_evidence() -> None:
+    secret = "super-secret-note-content"
+    events = [
+        {"event_id": "evt-1", "event_type": "section_change", "normalized_value": "notes", "refs": {"section_ref": "section:notes"}},
+        {"event_id": "evt-2", "event_type": "notes_state", "normalized_value": "notes_active", "refs": {"section_ref": "section:notes"}},
+        {"event_id": "evt-3", "event_type": "artifact_selected", "normalized_value": "README.md", "refs": {"artifact_ref": "README.md"}},
+        {"event_id": "evt-4", "event_type": "artifact_selected", "normalized_value": "README.md", "refs": {"artifact_ref": "README.md"}},
+        {"event_id": "evt-5", "event_type": "artifact_selected", "normalized_value": "README.md", "refs": {"artifact_ref": "README.md"}},
+        {"event_id": "evt-6", "event_type": "custom:note_raw", "normalized_value": secret, "refs": {"section_ref": "section:notes"}},
+    ]
+    patterns = mine_patterns_from_events(events=events, min_cases=3)
+    dumped = json.dumps(patterns, ensure_ascii=False)
+    assert secret not in dumped

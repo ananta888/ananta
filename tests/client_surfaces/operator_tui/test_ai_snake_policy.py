@@ -38,3 +38,51 @@ def test_artifact_denied_blocks_worker_payload() -> None:
     )
     assert decision.allowed is False
     assert payload["blocked"] is True
+
+
+def test_training_context_removed_when_not_released() -> None:
+    payload, decision = apply_policy_to_payload(
+        {
+            "context_envelope_ref": {
+                "training_profile_ref": {"profile_id": "p1"},
+                "active_pattern_refs": [{"pattern_id": "pat-1"}],
+            }
+        },
+        boundary="worker_request",
+        notes_released=True,
+        training_context_allowed=False,
+    )
+    assert decision.allowed is True
+    env = payload["context_envelope_ref"]
+    assert "training_profile_ref" not in env
+    assert "active_pattern_refs" not in env
+
+
+def test_training_context_cloud_denied_by_default() -> None:
+    decision = evaluate_policy(
+        boundary="worker_request",
+        notes_released=True,
+        selected_artifact_allowed=True,
+        external_provider=True,
+        training_context_allowed=False,
+    )
+    assert decision.allowed is False
+    assert decision.reason_code == "training_context_cloud_denied"
+
+
+def test_training_context_kept_when_released() -> None:
+    payload, decision = apply_policy_to_payload(
+        {
+            "context_envelope_ref": {
+                "training_profile_ref": {"profile_id": "p1"},
+                "active_pattern_refs": [{"pattern_id": "pat-1"}],
+            }
+        },
+        boundary="worker_request",
+        notes_released=True,
+        training_context_allowed=True,
+    )
+    assert decision.allowed is True
+    env = payload["context_envelope_ref"]
+    assert "training_profile_ref" in env
+    assert "active_pattern_refs" in env

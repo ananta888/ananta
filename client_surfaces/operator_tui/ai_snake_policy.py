@@ -29,6 +29,7 @@ def evaluate_policy(
     notes_released: bool,
     selected_artifact_allowed: bool = True,
     external_provider: bool = False,
+    training_context_allowed: bool = False,
 ) -> PolicyDecision:
     boundary_key = str(boundary or "").strip().lower() or "local_observation"
     allowed = True
@@ -36,6 +37,9 @@ def evaluate_policy(
     if boundary_key == "external_provider" and external_provider:
         allowed = False
         reason = "external_provider_denied"
+    elif boundary_key in {"worker_request", "lmstudio_prompt", "external_provider"} and external_provider and not training_context_allowed:
+        allowed = False
+        reason = "training_context_cloud_denied"
     elif boundary_key in {"worker_request", "lmstudio_prompt"} and not selected_artifact_allowed:
         allowed = False
         reason = "artifact_denied"
@@ -52,12 +56,14 @@ def apply_policy_to_payload(
     notes_released: bool,
     selected_artifact_allowed: bool = True,
     external_provider: bool = False,
+    training_context_allowed: bool = False,
 ) -> tuple[dict[str, Any], PolicyDecision]:
     decision = evaluate_policy(
         boundary=boundary,
         notes_released=notes_released,
         selected_artifact_allowed=selected_artifact_allowed,
         external_provider=external_provider,
+        training_context_allowed=training_context_allowed,
     )
     sanitized = redact_payload(payload)
     if not decision.allowed:
@@ -75,6 +81,11 @@ def apply_policy_to_payload(
             summary = sanitized.get("observation_summary")
             if isinstance(summary, dict):
                 summary["notes_active"] = bool(summary.get("notes_active"))
+    if not training_context_allowed and isinstance(sanitized, dict):
+        env = sanitized.get("context_envelope_ref")
+        if isinstance(env, dict):
+            env.pop("training_profile_ref", None)
+            env.pop("active_pattern_refs", None)
     return sanitized, decision
 
 

@@ -1,0 +1,30 @@
+{
+  "pattern_id": "pat-fixture-1",
+  "pattern_type": "sequence_rule",
+  "conditions": {
+    "all": [
+      {
+        "field": "section_is",
+        "op": "eq",
+        "value": "artifacts"
+      }
+    ]
+  },
+  "predicted_intent": "artifact_explain",
+  "confidence": 0.71,
+  "evidence": {
+    "source_event_ids": ["ev-fixture-1", "ev-fixture-2", "ev-fixture-3"],
+    "sample_size": 3
+  },
+  "counters": {
+    "hits": 5,
+    "misses": 1,
+    "positives": 4,
+    "negatives": 1
+  },
+  "last_seen_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2026-02-01T00:00:00Z",
+  "status": "active",
+  "human_explanation": "Artifacts werden wiederholt zur Erklärung geöffnet.",
+  "ai_hint": "Erkläre zuerst den aktiven Artefaktkontext."
+}
