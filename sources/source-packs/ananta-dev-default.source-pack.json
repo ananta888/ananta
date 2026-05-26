@@ -1,0 +1,139 @@
+{
+  "schema": "source_pack.v1",
+  "source_pack_id": "ananta-dev-default",
+  "display_name": "Ananta Dev Default Source Pack",
+  "version": "1.0.0",
+  "enabled": true,
+  "sources": [
+    {
+      "source_id": "eclipse-platform-official-source",
+      "descriptor_path": "sources/eclipse/eclipse-platform.source_descriptor.json",
+      "source_type": "web_doc",
+      "trust_level": "official_project_repository",
+      "fetch_source": {
+        "url": "https://github.com/eclipse-platform/eclipse.platform",
+        "method": "GET"
+      },
+      "citation_source": {
+        "canonical_url": "https://github.com/eclipse-platform/eclipse.platform",
+        "license_ref": "EPL-2.0"
+      },
+      "enabled": true
+    },
+    {
+      "source_id": "eclipse-jdt-core-official-source",
+      "descriptor_path": "sources/eclipse/eclipse-jdt-core.source_descriptor.json",
+      "source_type": "web_doc",
+      "trust_level": "official_project_repository",
+      "fetch_source": {
+        "url": "https://github.com/eclipse-jdt/eclipse.jdt.core",
+        "method": "GET"
+      },
+      "citation_source": {
+        "canonical_url": "https://github.com/eclipse-jdt/eclipse.jdt.core",
+        "license_ref": "EPL-2.0"
+      },
+      "enabled": true
+    },
+    {
+      "source_id": "eclipse-pde-official-source",
+      "descriptor_path": "sources/eclipse/eclipse-pde.source_descriptor.json",
+      "source_type": "web_doc",
+      "trust_level": "official_project_repository",
+      "fetch_source": {
+        "url": "https://github.com/eclipse-pde/eclipse.pde",
+        "method": "GET"
+      },
+      "citation_source": {
+        "canonical_url": "https://github.com/eclipse-pde/eclipse.pde",
+        "license_ref": "EPL-2.0"
+      },
+      "enabled": true
+    },
+    {
+      "source_id": "keycloak-official-docs",
+      "descriptor_path": "sources/keycloak/source_descriptor.json",
+      "source_type": "keycloak_docs",
+      "trust_level": "official_vendor_project",
+      "fetch_source": {
+        "url": "https://www.keycloak.org/documentation",
+        "method": "GET"
+      },
+      "citation_source": {
+        "canonical_url": "https://www.keycloak.org/documentation",
+        "license_ref": "license_unknown"
+      },
+      "enabled": true
+    },
+    {
+      "source_id": "wikimedia-wikipedia-initial-dump",
+      "descriptor_path": "sources/wikipedia/source_descriptor.json",
+      "source_type": "wikimedia_dump",
+      "trust_level": "official_foundation_dump",
+      "fetch_source": {
+        "url": "https://dumps.wikimedia.org/",
+        "method": "GET"
+      },
+      "citation_source": {
+        "canonical_url": "https://dumps.wikimedia.org/",
+        "license_ref": "CC BY-SA 4.0"
+      },
+      "enabled": true
+    }
+  ],
+  "codecompass_profiles": [
+    {
+      "profile_id": "default-dev-priority",
+      "source_ids": [
+        "eclipse-platform-official-source",
+        "eclipse-jdt-core-official-source",
+        "eclipse-pde-official-source",
+        "keycloak-official-docs",
+        "wikimedia-wikipedia-initial-dump"
+      ],
+      "priority": 10
+    }
+  ],
+  "bootstrap_steps": [
+    {
+      "step_id": "download-default-pack",
+      "action": "download",
+      "source_ids": [
+        "eclipse-platform-official-source",
+        "eclipse-jdt-core-official-source",
+        "eclipse-pde-official-source",
+        "keycloak-official-docs",
+        "wikimedia-wikipedia-initial-dump"
+      ],
+      "required": true
+    },
+    {
+      "step_id": "verify-default-pack",
+      "action": "verify",
+      "required": true
+    },
+    {
+      "step_id": "index-default-pack",
+      "action": "index",
+      "required": true
+    },
+    {
+      "step_id": "validate-default-pack",
+      "action": "validate",
+      "required": true
+    }
+  ],
+  "license_policy": {
+    "require_license_ref": true,
+    "block_on_missing_license": false,
+    "allowed_licenses": [
+      "EPL-2.0",
+      "CC BY-SA 4.0",
+      "license_unknown"
+    ]
+  },
+  "extensions": {
+    "activation_mode": "bootstrap_or_manual",
+    "notes": "Default dev source pack for Eclipse + Keycloak + Wikipedia."
+  }
+}

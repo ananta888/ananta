@@ -1,0 +1,50 @@
+{
+  "schema": "source_descriptor.v1",
+  "source_id": "eclipse-platform-official-source",
+  "source_type": "web_doc",
+  "display_name": "Eclipse Platform (GitHub Mirror)",
+  "enabled": true,
+  "trust_level": "official_project_repository",
+  "fetch_source": {
+    "url": "https://github.com/eclipse-platform/eclipse.platform",
+    "method": "GET",
+    "refresh_interval": "24h",
+    "cache_policy": "etag_and_commit_hash",
+    "expected_format": "git",
+    "additional_urls": [
+      "https://projects.eclipse.org/projects/eclipse.platform"
+    ]
+  },
+  "citation_source": {
+    "canonical_url": "https://github.com/eclipse-platform/eclipse.platform",
+    "title": "Eclipse Platform Source Repository",
+    "publisher": "Eclipse Platform Project / Eclipse Foundation",
+    "version_label": "main",
+    "retrieved_at": "2026-05-26T00:00:00Z",
+    "license_ref": "EPL-2.0",
+    "citation_text": "Eclipse Platform source repository, Eclipse Foundation, EPL-2.0."
+  },
+  "license": {
+    "name": "Eclipse Public License 2.0",
+    "ref": "EPL-2.0"
+  },
+  "snapshot_policy": {
+    "immutable": true,
+    "dedupe_by_hash": true
+  },
+  "retention_policy": {
+    "keep_latest": 20,
+    "max_age_days": 365
+  },
+  "extensions": {
+    "source_kind": "git_repository",
+    "refresh_policy": "manual_or_scheduled",
+    "recommended_paths": [
+      "bundles/org.eclipse.core.runtime",
+      "bundles/org.eclipse.core.resources",
+      "bundles/org.eclipse.team.core",
+      "bundles/org.eclipse.update.core",
+      "bundles/org.eclipse.terminal.view.core"
+    ]
+  }
+}

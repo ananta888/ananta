@@ -110,7 +110,7 @@
     {
       "id": "T01.01",
       "title": "SourcePack-v1 Schema definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "schema",
@@ -128,7 +128,7 @@
     {
       "id": "T01.02",
       "title": "Default Source Pack anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "config",
@@ -147,7 +147,7 @@
     {
       "id": "T01.03",
       "title": "Source Pack Registry erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "backend",
@@ -167,7 +167,7 @@
     {
       "id": "T02.01",
       "title": "Eclipse Platform SourceDescriptor anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "source",
@@ -188,7 +188,7 @@
     {
       "id": "T02.02",
       "title": "Eclipse JDT Core SourceDescriptor anlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "source",

@@ -1,0 +1,45 @@
+{
+  "schema": "source_descriptor.v1",
+  "source_id": "eclipse-pde-official-source",
+  "source_type": "web_doc",
+  "display_name": "Eclipse PDE (GitHub Mirror)",
+  "enabled": true,
+  "trust_level": "official_project_repository",
+  "fetch_source": {
+    "url": "https://github.com/eclipse-pde/eclipse.pde",
+    "method": "GET",
+    "refresh_interval": "24h",
+    "cache_policy": "etag_and_commit_hash",
+    "expected_format": "git",
+    "additional_urls": [
+      "https://projects.eclipse.org/projects/eclipse.pde"
+    ]
+  },
+  "citation_source": {
+    "canonical_url": "https://github.com/eclipse-pde/eclipse.pde",
+    "title": "Eclipse PDE Source Repository",
+    "publisher": "Eclipse PDE Project / Eclipse Foundation",
+    "version_label": "main",
+    "retrieved_at": "2026-05-26T00:00:00Z",
+    "license_ref": "EPL-2.0",
+    "citation_text": "Eclipse PDE source repository, Eclipse Foundation, EPL-2.0."
+  },
+  "license": {
+    "name": "Eclipse Public License 2.0",
+    "ref": "EPL-2.0"
+  },
+  "snapshot_policy": {
+    "immutable": true,
+    "dedupe_by_hash": true
+  },
+  "retention_policy": {
+    "keep_latest": 20,
+    "max_age_days": 365
+  },
+  "extensions": {
+    "source_kind": "git_repository",
+    "refresh_policy": "manual_or_scheduled",
+    "tooling_domain": "plugin_osgi_bundle_tooling",
+    "build_hint": "mvn clean verify"
+  }
+}

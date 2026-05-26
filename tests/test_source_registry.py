@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent.sources.source_registry import SourceRegistry, validate_source_descriptor_payload
+from agent.sources.source_registry import (
+    SourceRegistry,
+    validate_source_descriptor_payload,
+    validate_source_pack_payload,
+)
 from agent.sources.source_snapshot_store import SourceSnapshotStore, validate_source_snapshot_payload
 
 
@@ -94,3 +98,43 @@ def test_snapshot_store_save_latest_and_immutable_behavior(tmp_path: Path) -> No
     else:
         raise AssertionError("expected immutable snapshot write to fail")
 
+
+def test_source_pack_schema_accepts_default_example() -> None:
+    payload = json.loads(Path("sources/source-packs/ananta-dev-default.source-pack.json").read_text(encoding="utf-8"))
+    assert validate_source_pack_payload(payload) == []
+
+
+def test_source_pack_schema_rejects_missing_sources() -> None:
+    payload = json.loads(Path("sources/source-packs/ananta-dev-default.source-pack.json").read_text(encoding="utf-8"))
+    payload.pop("sources", None)
+    assert validate_source_pack_payload(payload)
+
+
+def test_registry_lists_and_registers_source_pack(tmp_path: Path) -> None:
+    registry = SourceRegistry(root=tmp_path)
+    listed = registry.list_source_packs()
+    assert any(str(item.get("source_pack_id") or "") == "ananta-dev-default" for item in listed)
+
+    result = registry.register_source_pack(source_pack_id="ananta-dev-default")
+    assert result["count"] >= 5
+    sources = registry.list_sources()
+    assert any(str(item.get("source_id") or "") == "eclipse-platform-official-source" for item in sources)
+    eclipse = next(item for item in sources if str(item.get("source_id") or "") == "eclipse-platform-official-source")
+    assert str(dict(eclipse.get("extensions") or {}).get("source_pack_id") or "") == "ananta-dev-default"
+
+
+def test_registry_rejects_duplicate_source_ids_inside_pack(tmp_path: Path) -> None:
+    registry = SourceRegistry(root=tmp_path)
+    pack = json.loads(Path("sources/source-packs/ananta-dev-default.source-pack.json").read_text(encoding="utf-8"))
+    first = dict(pack["sources"][0])
+    duplicate = dict(pack["sources"][1])
+    duplicate["source_id"] = str(first["source_id"])
+    pack["source_pack_id"] = "duplicate-pack"
+    pack["sources"] = [first, duplicate]
+    registry.create_source_pack(pack)
+    try:
+        registry.register_source_pack(source_pack_id="duplicate-pack")
+    except ValueError as exc:
+        assert "duplicate_source_id_in_pack" in str(exc)
+    else:
+        raise AssertionError("expected duplicate source ids in pack to fail")
