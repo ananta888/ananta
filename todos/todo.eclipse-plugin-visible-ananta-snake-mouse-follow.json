@@ -1,0 +1,759 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "eclipse-plugin-visible-ananta-snake-mouse-follow",
+  "purpose": "Erweiterung für ein Eclipse-Plugin, das die Ananta-Snake sichtbar im Eclipse-IDE-Kontext darstellt und ähnlich wie im Operator TUI der Maus bzw. Nutzeraktivität folgt.",
+  "goal": "Ein Eclipse-Plugin zeigt eine sichtbare Ananta-Snake als dezentes IDE-Overlay. Die Snake folgt der Maus mit Abstand, kann in einen Lauer-/Beobachtungsmodus wechseln, erkennt grob relevante IDE-Zonen wie Editor, Problems, Console, Package Explorer und Diff/Compare, und kann optional mit Ananta-Hub/Worker verbunden werden, ohne die IDE zu blockieren oder Code/Dateien ohne Freigabe zu übertragen.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Plugin-Grundstruktur und Eclipse/SWT Basis",
+      "task_ids": [
+        "T01.01",
+        "T01.02",
+        "T01.03"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M02",
+      "title": "Snake Rendering und Maus-Following",
+      "task_ids": [
+        "T02.01",
+        "T02.02",
+        "T02.03",
+        "T02.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M03",
+      "title": "IDE-Kontext und Lauer-Modus",
+      "task_ids": [
+        "T03.01",
+        "T03.02",
+        "T03.03",
+        "T03.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M04",
+      "title": "Ananta-Hub/Worker Integration",
+      "task_ids": [
+        "T04.01",
+        "T04.02",
+        "T04.03",
+        "T04.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M05",
+      "title": "Sicherheit, Datenschutz und Freigabegrenzen",
+      "task_ids": [
+        "T05.01",
+        "T05.02",
+        "T05.03"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M06",
+      "title": "UI/UX und Bedienung",
+      "task_ids": [
+        "T06.01",
+        "T06.02",
+        "T06.03"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M07",
+      "title": "Tests und E2E",
+      "task_ids": [
+        "T07.01",
+        "T07.02",
+        "T07.03",
+        "T07.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M08",
+      "title": "Dokumentation",
+      "task_ids": [
+        "T08.01",
+        "T08.02"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01.01",
+      "title": "Eclipse-Plugin Modulstruktur anlegen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "plugin",
+      "milestone_id": "M01",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Neues Modul oder Verzeichnis für Eclipse-Plugin ist definiert, z. B. plugins/eclipse/ananta-snake-eclipse/.",
+        "Build-System ist festgelegt: Maven/Tycho, Gradle oder PDE-kompatibel.",
+        "Plugin-Metadaten sind vorhanden: plugin.xml/MANIFEST.MF oder äquivalente Eclipse-RCP-Struktur.",
+        "Plugin kann in einer lokalen Eclipse-Entwicklungsinstanz gestartet werden.",
+        "README im Plugin-Verzeichnis erklärt Build und Start."
+      ]
+    },
+    {
+      "id": "T01.02",
+      "title": "Eclipse Extension Points und Aktivierung definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "plugin",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.01"
+      ],
+      "acceptance_criteria": [
+        "Plugin wird beim Eclipse-Start lazy aktiviert oder über Kommando explizit gestartet.",
+        "Es gibt einen Menü-/Toolbar-Eintrag `Ananta Snake` oder vergleichbar.",
+        "Aktivieren/Deaktivieren der Snake ist ohne Eclipse-Neustart möglich.",
+        "Fehler bei Aktivierung werden im Eclipse Error Log protokolliert, aber crashen die IDE nicht.",
+        "Unit-/Plugin-Test prüft, dass Activator/Service initialisiert werden kann."
+      ]
+    },
+    {
+      "id": "T01.03",
+      "title": "Snake Runtime Service im Plugin definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "plugin",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.01"
+      ],
+      "acceptance_criteria": [
+        "Es gibt einen zentralen AnantaSnakePluginService oder ähnlich.",
+        "Service verwaltet enabled/disabled, snake state, follow mode, context mode und hub connection state.",
+        "Service läuft UI-thread-sicher und blockiert den SWT UI Thread nicht.",
+        "Service kann ohne Hub-Verbindung lokal gestartet werden.",
+        "Tests prüfen Start/Stop/Restart des Service."
+      ]
+    },
+    {
+      "id": "T02.01",
+      "title": "SWT/JFace Overlay für sichtbare Snake implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "ui",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T01.03"
+      ],
+      "acceptance_criteria": [
+        "Snake wird als dezentes Overlay innerhalb der Eclipse Workbench sichtbar dargestellt.",
+        "Overlay verdeckt Editorinhalt nicht dauerhaft und kann transparent/dezent konfiguriert werden.",
+        "Rendering nutzt SWT/JFace-kompatible Mechanismen und keine blockierende Endlosschleife im UI Thread.",
+        "Snake kann mindestens als einfache Segmentlinie mit Kopf dargestellt werden.",
+        "Overlay kann deaktiviert werden und entfernt alle Ressourcen sauber.",
+        "Plugin-Test oder UI-Test prüft, dass Overlay-Komponente erzeugt und disposed werden kann."
+      ]
+    },
+    {
+      "id": "T02.02",
+      "title": "Mausposition und IDE-Koordinaten erfassen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "ui",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.01"
+      ],
+      "acceptance_criteria": [
+        "Plugin erfasst Mausbewegungen innerhalb relevanter Eclipse Controls.",
+        "Koordinaten werden in ein einheitliches Workbench-/Overlay-Koordinatensystem normalisiert.",
+        "Maus-Tracking kann pausiert/deaktiviert werden.",
+        "Tracking erzeugt keine spürbare IDE-Verlangsamung.",
+        "Tests prüfen Koordinaten-Normalisierung mit Mock-Controls."
+      ]
+    },
+    {
+      "id": "T02.03",
+      "title": "Langsames Folgen mit Abstand wie im TUI",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "ui",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.02"
+      ],
+      "acceptance_criteria": [
+        "Snake folgt der Maus langsam und nicht direkt klebend.",
+        "Default-Abstand ist konfigurierbar und optisch klar erkennbar.",
+        "Bei schneller Mausbewegung interpoliert die Snake weich statt zu springen.",
+        "Wenn Maus stillsteht, geht Snake in Lauer-/Idle-Zustand.",
+        "Follow-Algorithmus funktioniert lokal deterministisch ohne Ananta-Hub oder LLM.",
+        "Unit-Test simuliert Mauspfad und prüft Abstand/Glättung."
+      ]
+    },
+    {
+      "id": "T02.04",
+      "title": "Performance Budget für Animation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "performance",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.03"
+      ],
+      "acceptance_criteria": [
+        "Animation nutzt begrenzte Tickrate, z. B. 15-30 FPS konfigurierbar.",
+        "CPU-Last im Idle ist gering und messbar dokumentiert.",
+        "Animation stoppt oder reduziert Tickrate, wenn Eclipse-Fenster nicht aktiv ist.",
+        "Keine SWT Resource Leaks bei wiederholtem Start/Stop.",
+        "Performance-Test oder Profiling-Test dokumentiert Basiswerte."
+      ]
+    },
+    {
+      "id": "T03.01",
+      "title": "IDE-Zonen erkennen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "context",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T02.02"
+      ],
+      "acceptance_criteria": [
+        "Plugin erkennt grobe Workbench-Zonen: Editor, Package Explorer, Problems, Console, Search, Git/Compare soweit vorhanden.",
+        "Aktive Zone wird als normalisiertes IDEContextEvent gespeichert.",
+        "Unbekannte Zone wird als unknown markiert statt geraten.",
+        "Zone-Erkennung funktioniert ohne Zugriff auf Dateiinhalte.",
+        "Tests prüfen Zone-Mapping mit Mock-Workbench-Parts."
+      ]
+    },
+    {
+      "id": "T03.02",
+      "title": "Lauer-Modus für Eclipse-Snake",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "context",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.01",
+        "T02.03"
+      ],
+      "acceptance_criteria": [
+        "Snake wechselt in Lauer-Modus, wenn Maus nahe relevanter IDE-Zone stoppt.",
+        "Lauer-Modus zeigt subtil anderen Status, z. B. Kopfzeichen, Farbe oder Statuszeile.",
+        "Lauer-Modus erzeugt keine Chat-/Hub-Anfrage pro Tick.",
+        "Lauer-Modus kann lokal einfache Zielvermutung erzeugen: editor_focus, problem_focus, console_focus, diff_focus.",
+        "Tests prüfen follow -> lurking -> follow Wechsel."
+      ]
+    },
+    {
+      "id": "T03.03",
+      "title": "Aktive Editor-/Dateikontext-Metadaten erfassen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "context",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.01"
+      ],
+      "acceptance_criteria": [
+        "Plugin kann aktive Datei/Editor-ID als Metadaten erfassen, ohne automatisch Inhalt zu übertragen.",
+        "Erfasst werden dürfen default nur Projektname, Pfad-Ref/Hash, Editor-Typ und Auswahlbereich-Metadaten.",
+        "Vollständiger Dateitext wird nicht ohne explizite Freigabe an Ananta gesendet.",
+        "Kontext-Metadaten werden als EclipseContextSnapshot darstellbar.",
+        "Tests prüfen, dass Dateiinhalte default nicht im Snapshot enthalten sind."
+      ]
+    },
+    {
+      "id": "T03.04",
+      "title": "Lokale Prediction aus IDE-Verhalten vorbereiten",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "context",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.02",
+        "T03.03"
+      ],
+      "acceptance_criteria": [
+        "Plugin erzeugt lokale, einfache PredictionEvents ohne LLM.",
+        "PredictionEvents enthalten intent_kind, confidence, evidence und expires_at.",
+        "Mögliche intent_kind: wants_explain_error, wants_review_diff, wants_explain_file, wants_run_tests, unknown.",
+        "Confidence bleibt niedrig, wenn nur Mausbewegung ohne stabilen Kontext vorhanden ist.",
+        "Tests prüfen Problems-Fokus, Diff-Fokus, Editor-Fokus und unknown."
+      ]
+    },
+    {
+      "id": "T04.01",
+      "title": "Ananta Hub Connection Config",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "integration",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T01.03"
+      ],
+      "acceptance_criteria": [
+        "Plugin hat Einstellungen für Hub URL, Token/Auth-Modus, Connect Timeout und enabled flag.",
+        "Default ist offline/local-only, solange keine Verbindung konfiguriert ist.",
+        "Verbindungsstatus ist in Eclipse Preferences oder View sichtbar.",
+        "Ungültige Hub-Konfiguration blockiert nicht die IDE.",
+        "Tests prüfen Config load/save und invalid config."
+      ]
+    },
+    {
+      "id": "T04.02",
+      "title": "Snake Registration beim Ananta Hub",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "integration",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01"
+      ],
+      "acceptance_criteria": [
+        "Plugin kann sich als snake client beim Hub registrieren, wenn Hub verfügbar ist.",
+        "Registrierung enthält client_kind=eclipse_plugin, workspace_id, display_name und capabilities.",
+        "Heartbeat läuft nicht im UI Thread.",
+        "Bei Hub offline läuft Snake lokal weiter.",
+        "Tests nutzen Mock-Hub und prüfen register/heartbeat/offline fallback."
+      ]
+    },
+    {
+      "id": "T04.03",
+      "title": "ContextEnvelope für Eclipse-Snake an Worker",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "integration",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T03.03",
+        "T04.02"
+      ],
+      "acceptance_criteria": [
+        "ContextEnvelope enthält IDE-Zone, aktive Datei-Metadaten, Auswahl-Metadaten, PredictionEvent und explizit freigegebene Artefaktrefs.",
+        "Dateiinhalte sind default nicht enthalten.",
+        "ContextEnvelope enthält policy_decision_ref und denied_context_refs.",
+        "Worker-Requests sind debounced und werden nicht pro Mausbewegung erzeugt.",
+        "Tests prüfen allowed metadata, denied file content und debounced request."
+      ]
+    },
+    {
+      "id": "T04.04",
+      "title": "AI-Snake Chat/Explain Aktion aus Eclipse",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "integration",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.03"
+      ],
+      "acceptance_criteria": [
+        "User kann per Kontextmenü oder Shortcut `Ask Ananta Snake` auslösen.",
+        "Aktion nutzt aktuellen EclipseContextSnapshot und optional ausgewählte Textfreigabe.",
+        "Antwort wird in einer Eclipse View oder Popup/Panel angezeigt.",
+        "Antwort zeigt verwendeten Kontext kompakt an.",
+        "Fehler/Timeout erzeugt verständliche Meldung ohne IDE-Blockade."
+      ]
+    },
+    {
+      "id": "T05.01",
+      "title": "Least-Privilege Kontextfreigabe",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "security",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T03.03",
+        "T04.03"
+      ],
+      "acceptance_criteria": [
+        "Default wird nur Metadatenkontext übertragen, kein vollständiger Dateitext.",
+        "Freigabe vollständiger Datei oder Auswahl braucht explizite User-Aktion.",
+        "Freigabeentscheidung wird als policy_decision_ref protokolliert.",
+        "Cloud-/external Provider sind default für IDE-Kontext blockiert, sofern nicht explizit erlaubt.",
+        "Tests prüfen, dass sensible Inhalte nicht automatisch in Worker-Requests landen."
+      ]
+    },
+    {
+      "id": "T05.02",
+      "title": "Redaction und Secret-Schutz vor Worker Request",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "security",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T05.01"
+      ],
+      "acceptance_criteria": [
+        "Vor Versand an Hub/Worker wird Kontext redaction-geprüft.",
+        "Erkannte sensible Werte werden blockiert oder redacted gemäß Policy.",
+        "Systemmeldung nennt reason_code, aber nicht den sensiblen Wert.",
+        "Lokale Anzeige im Editor wird nicht verändert.",
+        "Regressionstest prüft, dass Worker-Payload keine unbereinigten sensiblen Werte enthält."
+      ]
+    },
+    {
+      "id": "T05.03",
+      "title": "Transparente Statusanzeige für Kontextfreigabe",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "security",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T05.01"
+      ],
+      "acceptance_criteria": [
+        "Eclipse UI zeigt, ob Snake offline, local-only, hub-connected oder ai-active ist.",
+        "UI zeigt, ob nur Metadaten oder auch Auswahl/Datei freigegeben wurden.",
+        "User kann letzte ContextEnvelope-Zusammenfassung ansehen.",
+        "User kann Freigabe zurücksetzen.",
+        "Tests prüfen Statusmodell und Anzeigezustände."
+      ]
+    },
+    {
+      "id": "T06.01",
+      "title": "Eclipse Preferences Page für Snake",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "ux",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T04.01",
+        "T05.03"
+      ],
+      "acceptance_criteria": [
+        "Preferences enthalten enabled, animation speed, follow distance, opacity, hub url, local-only mode und privacy defaults.",
+        "Änderungen werden ohne Neustart angewendet, soweit technisch möglich.",
+        "Defaults sind vorsichtig: local-only, keine Dateiübertragung, dezente Animation.",
+        "Preferences können zurückgesetzt werden.",
+        "Tests prüfen Preference Store read/write."
+      ]
+    },
+    {
+      "id": "T06.02",
+      "title": "Ananta Snake Eclipse View",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "ux",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T04.04",
+        "T05.03"
+      ],
+      "acceptance_criteria": [
+        "View zeigt Status, letzte Prediction, letzte Antwort, Kontextstatus und Hub-Verbindung.",
+        "View bietet Buttons: Enable/Disable, Ask, Reset Context, Open Settings.",
+        "View funktioniert auch ohne Hub mit local-only Status.",
+        "View zeigt keine Rohdateiinhalte, außer User hat diese explizit freigegeben.",
+        "UI-Test prüft View-Erzeugung."
+      ]
+    },
+    {
+      "id": "T06.03",
+      "title": "Dezente UX und Nicht-Stören-Modus",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "ux",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T02.04"
+      ],
+      "acceptance_criteria": [
+        "User kann Snake temporär ausblenden.",
+        "Nicht-Stören-Modus reduziert Animation und proaktive Hinweise.",
+        "Snake wird bei Vollbild/Präsentation oder konfiguriertem Modus deaktiviert/reduziert.",
+        "Snake darf keine Editor-Eingabe abfangen.",
+        "Tests prüfen Mode-Flags und Input-Passthrough."
+      ]
+    },
+    {
+      "id": "T07.01",
+      "title": "Unit Tests für Movement und Prediction",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "test",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T02.03",
+        "T03.02",
+        "T03.04"
+      ],
+      "acceptance_criteria": [
+        "Tests simulieren Mauspfade und prüfen langsames Folgen mit Abstand.",
+        "Tests prüfen Lauer-Modus bei stabiler Mausposition.",
+        "Tests prüfen PredictionEvents für Editor, Problems, Diff und unknown.",
+        "Tests laufen ohne echte Eclipse-Workbench, soweit möglich mit isolierter Logik.",
+        "Movement-Logik ist deterministisch testbar."
+      ]
+    },
+    {
+      "id": "T07.02",
+      "title": "Plugin-/SWT-Integrationstests",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "test",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T01.02",
+        "T02.01",
+        "T06.02"
+      ],
+      "acceptance_criteria": [
+        "Test startet Plugin in Eclipse/PDE-Testumgebung oder äquivalentem UI-Test-Harness.",
+        "Test aktiviert und deaktiviert Overlay.",
+        "Test öffnet Ananta Snake View.",
+        "Test prüft Dispose ohne SWT Resource Leak.",
+        "Test läuft headless/CI-kompatibel, sofern technisch möglich dokumentiert."
+      ]
+    },
+    {
+      "id": "T07.03",
+      "title": "Mock-Hub Integrationstests",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "test",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T04.02",
+        "T04.03",
+        "T05.01"
+      ],
+      "acceptance_criteria": [
+        "Mock-Hub nimmt Registrierung und Heartbeat entgegen.",
+        "Test sendet ContextEnvelope mit nur Metadaten.",
+        "Test prüft, dass Dateitext default nicht gesendet wird.",
+        "Test prüft Timeout/Hub offline fallback.",
+        "Test prüft reason_code bei denied context."
+      ]
+    },
+    {
+      "id": "T07.04",
+      "title": "E2E: Eclipse Snake folgt Maus und fragt Ananta",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "e2e",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T02.03",
+        "T04.04",
+        "T05.03",
+        "T07.02"
+      ],
+      "acceptance_criteria": [
+        "E2E startet Eclipse-Testinstanz mit Plugin.",
+        "E2E aktiviert Snake-Overlay.",
+        "E2E simuliert Mausbewegung im Editorbereich.",
+        "Snake folgt sichtbar mit Abstand oder State bestätigt Follow-Position.",
+        "E2E löst Ask-Ananta-Snake mit Mock-Hub aus.",
+        "Antwort erscheint in View/Panel.",
+        "E2E prüft, dass Kontextstatus sichtbar ist und keine automatische Dateivollübertragung erfolgt."
+      ]
+    },
+    {
+      "id": "T08.01",
+      "title": "User-Doku Eclipse Ananta Snake",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "docs",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T06.01",
+        "T06.02"
+      ],
+      "acceptance_criteria": [
+        "Doku erklärt Installation/Start des Eclipse-Plugins.",
+        "Doku erklärt Snake sichtbar machen, deaktivieren, Follow-Abstand, Local-only und Hub-Verbindung.",
+        "Doku erklärt Datenschutz: default keine Dateiinhalte übertragen.",
+        "Doku erklärt Ask-Ananta-Snake Workflow.",
+        "Doku enthält Troubleshooting für Hub offline und Overlay-Probleme."
+      ]
+    },
+    {
+      "id": "T08.02",
+      "title": "Architekturdoku mit Mermaid",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "docs",
+      "milestone_id": "M08",
+      "depends_on": [
+        "T01.03",
+        "T02.03",
+        "T04.03",
+        "T05.01"
+      ],
+      "acceptance_criteria": [
+        "Doku enthält Mermaid-Flow für Eclipse UI -> Snake Overlay -> Movement State.",
+        "Doku enthält Mermaid-Flow für Mausposition -> Lauer-Modus -> lokale Prediction.",
+        "Doku enthält Mermaid-Flow für ContextEnvelope -> Hub -> Worker -> Antwort.",
+        "Doku enthält Security-Invarianten und Default-Deny-Kontextfreigabe.",
+        "Doku enthält Testmatrix."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "T01.01",
+    "T01.02",
+    "T01.03",
+    "T02.01",
+    "T02.02",
+    "T02.03",
+    "T03.01",
+    "T03.02",
+    "T03.03",
+    "T04.01",
+    "T04.02",
+    "T04.03",
+    "T05.01",
+    "T07.04"
+  ],
+  "tasks_status_summary": {
+    "total": 27,
+    "by_status": {
+      "todo": 27,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P1": 20,
+      "P2": 7,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 5,
+      "medium": 14,
+      "high": 8
+    },
+    "critical_path": {
+      "total": 14,
+      "done": 0,
+      "remaining": 14
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 8,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 27,
+    "by_type": {
+      "plugin": 3,
+      "ui": 3,
+      "performance": 1,
+      "context": 4,
+      "integration": 4,
+      "security": 3,
+      "ux": 3,
+      "test": 3,
+      "e2e": 1,
+      "docs": 2
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 27,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "execution_stage_summary": {
+    "current_stage": "planning",
+    "target_schema": "todos/todo.track.schema.json",
+    "plugin_target": "Eclipse/SWT/JFace",
+    "default_mode": "local-only snake follow"
+  },
+  "summary_notes": [
+    "Es existiert aktuell keine gefundene Eclipse-Plugin-Basis im Repo; die TODO plant daher ein neues Plugin-Modul.",
+    "Die Snake muss lokal sichtbar und lokal animierbar sein, auch ohne Hub/Worker.",
+    "Maus-Following und Lauer-Modus orientieren sich an der TUI-Snake, aber mit Eclipse/SWT-Koordinaten.",
+    "Dateiinhalte werden default nicht übertragen; nur Metadatenkontext ist erlaubt.",
+    "Hub-/Worker-Integration ist optional und muss UI-thread-sicher und debounced sein."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "target_flow",
+      "title": "Zielablauf",
+      "items": [
+        "User installiert oder startet Eclipse mit Ananta-Snake-Plugin.",
+        "User aktiviert die Snake über Menü, Toolbar oder Preferences.",
+        "Snake erscheint als dezentes Overlay und folgt der Maus mit Abstand.",
+        "Bei stabiler Mausposition nahe Editor/Problems/Diff wechselt Snake in Lauer-Modus.",
+        "Optional verbindet sich Plugin mit Ananta Hub.",
+        "User fragt über Ask Ananta Snake gezielt nach Hilfe.",
+        "Nur freigegebener Kontext wird an Hub/Worker gesendet.",
+        "Antwort erscheint in Eclipse View/Panel mit Kontextstatus."
+      ]
+    },
+    {
+      "summary_id": "definition_of_done",
+      "title": "Definition of Done",
+      "items": [
+        "Plugin kann in Eclipse gestartet werden.",
+        "Snake ist sichtbar und folgt Maus mit Abstand.",
+        "Lauer-Modus funktioniert lokal deterministisch.",
+        "Hub-Integration funktioniert mit Mock-Hub.",
+        "Default werden keine Dateiinhalte übertragen.",
+        "E2E beweist Follow + Ask + Kontextstatus.",
+        "Doku und Mermaid-Architektur sind vorhanden."
+      ]
+    }
+  ]
+}
