@@ -77,6 +77,7 @@ class AiSnakeWorkerClient:
         observation_summary: dict[str, Any],
         quick_prediction: dict[str, Any],
         context_envelope_ref: dict[str, Any],
+        provider_selection: dict[str, Any] | None = None,
         output_contract: str = "ai_snake_response.v1",
         token_budget: int = 1024,
         max_latency_ms: int = 2000,
@@ -87,6 +88,7 @@ class AiSnakeWorkerClient:
             "observation_summary": dict(observation_summary or {}),
             "quick_prediction": dict(quick_prediction or {}),
             "context_envelope_ref": dict(context_envelope_ref or {}),
+            "provider_selection": dict(provider_selection or {}),
             "output_contract": str(output_contract),
             "budget": {
                 "token_budget": int(max(64, token_budget)),
@@ -191,6 +193,7 @@ def parse_worker_response(raw: dict[str, Any]) -> dict[str, Any]:
         "follow_mode_update": str(payload.get("follow_mode_update") or ""),
         "expires_at": float(payload.get("expires_at")),
         "recommended_action": str(payload.get("recommended_action") or ""),
+        "provenance_ref": str(payload.get("provenance_ref") or "provider:local_quick"),
     }
 
 
@@ -230,6 +233,10 @@ def _parse_json_payload(raw_text: str, *, allow_fenced: bool) -> dict[str, Any] 
 def _default_dispatch(payload: dict[str, Any]) -> dict[str, Any]:
     now = time.time()
     quick = payload.get("quick_prediction") if isinstance(payload.get("quick_prediction"), dict) else {}
+    provider_selection = payload.get("provider_selection") if isinstance(payload.get("provider_selection"), dict) else {}
+    provider_ref = str(provider_selection.get("provider_preference") or "lmstudio")
+    if bool(provider_selection.get("simulate_unavailable")):
+        raise RuntimeError("connection refused")
     return {
         "predicted_intent": str(quick.get("predicted_intent") or "unknown"),
         "confidence": float(quick.get("confidence") or 0.4),
@@ -238,5 +245,6 @@ def _default_dispatch(payload: dict[str, Any]) -> dict[str, Any]:
         "context_refs": [],
         "follow_mode_update": "lurking_follow",
         "recommended_action": "",
+        "provenance_ref": f"provider:{provider_ref}",
         "expires_at": now + 20.0,
     }

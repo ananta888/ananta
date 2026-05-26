@@ -8,6 +8,7 @@ from typing import Any
 from worker.core.degraded import build_degraded_state
 from worker.core.execution_profile import normalize_execution_profile
 from worker.core.provider_registry import (
+    AiSnakeProviderConfig,
     ProviderProvenanceRef,
     ProviderSelectionGate,
     build_default_provider_registry,
@@ -80,6 +81,11 @@ class NativeWorkerRuntimeService:
             "approval_required_commands": sorted(set(approval_required)),
             "denylist_tokens": sorted(set(denylist_tokens)),
         }
+
+    def ai_snake_provider_config(self, *, agent_cfg: dict[str, Any] | None) -> AiSnakeProviderConfig:
+        runtime_cfg = (agent_cfg or {}).get("worker_runtime") if isinstance((agent_cfg or {}).get("worker_runtime"), dict) else {}
+        ai_cfg = runtime_cfg.get("ai_snake") if isinstance(runtime_cfg.get("ai_snake"), dict) else {}
+        return AiSnakeProviderConfig.from_mapping(ai_cfg)
 
     def prepare_native_command_plan(
         self,

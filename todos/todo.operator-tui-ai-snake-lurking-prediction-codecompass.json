@@ -522,7 +522,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T04.02", "T05.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Config enthält eigenen Abschnitt `ai_snake` mit provider_preference, model, max_latency_ms und budgets.",
             "Default bevorzugt lokalen Provider, wenn verfügbar.",

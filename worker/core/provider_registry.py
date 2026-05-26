@@ -335,6 +335,29 @@ class ModelPolicy:
         return provider_id.lower() in {p.lower() for p in self.allowed_providers}
 
 
+@dataclass(frozen=True)
+class AiSnakeProviderConfig:
+    provider_preference: str = "lmstudio"
+    model: str = "ananta-smoke"
+    max_latency_ms: int = 2000
+    budgets: dict[str, Any] = field(default_factory=lambda: {"predict_window_seconds": 3, "max_predict_in_window": 1})
+    cloud_allowed: bool = False
+    allowed_providers: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_mapping(cls, payload: dict[str, Any] | None) -> "AiSnakeProviderConfig":
+        source = dict(payload or {})
+        budgets = source.get("budgets") if isinstance(source.get("budgets"), dict) else {}
+        return cls(
+            provider_preference=str(source.get("provider_preference") or "lmstudio").strip() or "lmstudio",
+            model=str(source.get("model") or "ananta-smoke").strip() or "ananta-smoke",
+            max_latency_ms=max(250, int(source.get("max_latency_ms") or 2000)),
+            budgets=dict(budgets),
+            cloud_allowed=bool(source.get("cloud_allowed", False)),
+            allowed_providers=[str(item).strip() for item in list(source.get("allowed_providers") or []) if str(item).strip()],
+        )
+
+
 class ProviderSelectionGate:
     """Selects a provider from the registry based on Hub-issued ModelPolicy. AWF-T012, T013.
 
@@ -394,6 +417,14 @@ class ProviderSelectionGate:
             policy=ModelPolicy(cloud_allowed=cloud_allowed, allowed_providers=allowed_providers),
             preferred_provider=preferred_provider,
         )
+
+    def select_for_ai_snake(self, cfg: AiSnakeProviderConfig) -> tuple[ProviderEntry | None, str]:
+        allowed = list(cfg.allowed_providers)
+        cloud_allowed = bool(cfg.cloud_allowed)
+        if not allowed and not cloud_allowed:
+            allowed = [entry.id for entry in self._registry.local_providers_by_priority()]
+        policy = ModelPolicy(cloud_allowed=cloud_allowed, allowed_providers=allowed)
+        return self.select(policy=policy, preferred_provider=cfg.provider_preference)
 
 
 # ── CredentialIsolationProof (AWF-T014) ───────────────────────────────────────

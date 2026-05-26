@@ -1,0 +1,12 @@
+worker_runtime:
+  ai_snake:
+    provider_preference: lmstudio
+    model: ananta-smoke
+    max_latency_ms: 2000
+    cloud_allowed: false
+    allowed_providers:
+      - lmstudio
+      - ollama
+    budgets:
+      predict_window_seconds: 3
+      max_predict_in_window: 1
