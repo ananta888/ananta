@@ -289,7 +289,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T02.04", "T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "GET /goals/{goal_id}/artifacts/citations liefert nur tatsächlich genutzte Quellen, nicht nur freigegebene.",
             "Citation Bundle gruppiert nach source_id und snapshot_id.",
@@ -318,7 +318,7 @@
           "priority": "P1",
           "effort": "XL",
           "depends_on": ["T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "TUI hat sichtbare Section `Goal Artifacts` oder erweitert bestehende Artifacts-Section um Goal-Modus.",
             "Ansicht zeigt drei Spalten/Bereiche: Freigegeben, Genutzt, Erzeugt.",
@@ -341,7 +341,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T03.01", "T03.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:goal artifacts` öffnet Artefaktverwaltung für aktiven Goal.",
             "`:goal sources candidates` listet freigebbare Quellartefakte.",
@@ -363,7 +363,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T04.01", "T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:artifact provenance <output-artifact-id>` zeigt input_usage_refs, source artifact refs, worker_id, task_id, goal_id und content_hash.",
             "Anzeige trennt Quellen, Worker-Ausführung und Output sauber.",
@@ -385,7 +385,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T04.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Filter nach source_id, artifact_type, sensitivity, status und worker_id möglich.",
             "TUI zeigt aktive Filter im Header.",

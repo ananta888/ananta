@@ -52,6 +52,11 @@ def test_goal_artifacts_api_graph_grant_revoke_outputs_and_invalid_goal(client, 
     assert outputs.status_code == 200
     assert isinstance(outputs.json["data"]["output_artifacts"], list)
 
+    citations = client.get("/goals/goal-1/artifacts/citations", headers=admin_auth_header)
+    assert citations.status_code == 200
+    assert citations.json["data"]["goal_id"] == "goal-1"
+    assert "citations" in citations.json["data"]
+
     invalid = client.get("/goals/missing-goal/artifacts/graph", headers=admin_auth_header)
     assert invalid.status_code == 404
 
