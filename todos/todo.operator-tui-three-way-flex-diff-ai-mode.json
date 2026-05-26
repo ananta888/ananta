@@ -1,652 +1,679 @@
 {
-  "meta": {
-    "project": "ananta",
-    "feature": "operator-tui-three-way-flex-diff-ai-mode",
-    "title": "Operator TUI Drei-Spalten-Diff: flexible Vergleichspanels plus KI-Modus",
-    "description": "Plan für einen flexiblen Dreier-Diff-Modus im Operator TUI. Der User kann pro Panel frei wählen, was verglichen wird: aktueller Git-Diff, Datei gegen HEAD, zwei Commits, zwei Artefakte, zwei Worker-Outputs, zwei Task-Ergebnisse oder beliebige Snapshots. Zwei Panels können z. B. denselben aktuellen Diff zeigen, während das dritte Panel als KI-Modus Erklärung, Review, Risikoanalyse oder Patch-Vorschlag liefert.",
-    "created": "2026-05-26",
-    "last_updated": "2026-05-26",
-    "version": "1.0",
-    "extends": [
-      "todos/todo.goal-artifact-source-output-management-tui.json",
-      "todos/todo.goal-artifact-execution-provenance-config-prompts.json"
-    ],
-    "legend": {
-      "priority": "P1 = muss, P2 = soll, P3 = kann",
-      "effort": "XS = <2h, S = 2-4h, M = 4-8h, L = 8-16h, XL = >16h",
-      "status": "open | in_progress | done | blocked"
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "operator-tui-three-way-flex-diff-ai-mode",
+  "purpose": "Schema-konformer Track für den flexiblen Drei-Spalten-Diff-Modus im Operator TUI.",
+  "goal": "Der Operator kann im TUI drei flexible Panels belegen: z. B. Panel A aktueller Diff, Panel B derselbe aktuelle Diff in anderer Darstellung und Panel C KI-Review/Erklärung mit kontrolliertem Kontext und Provenance.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Schemas und State",
+      "task_ids": [
+        "T01.01",
+        "T01.02",
+        "T01.03"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M02",
+      "title": "DiffSourceResolver und DiffEngine",
+      "task_ids": [
+        "T02.01",
+        "T02.02",
+        "T02.03"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M03",
+      "title": "TUI Drei-Panel-Layout und Kommandos",
+      "task_ids": [
+        "T03.01",
+        "T03.02",
+        "T03.03",
+        "T03.04"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M04",
+      "title": "KI-Diff-Panel",
+      "task_ids": [
+        "T04.01",
+        "T04.02",
+        "T04.03",
+        "T04.04",
+        "T04.05"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M05",
+      "title": "Goal-/Artifact-/Provenance-Integration",
+      "task_ids": [
+        "T05.01",
+        "T05.02",
+        "T05.03"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M06",
+      "title": "Tests und E2E",
+      "task_ids": [
+        "T06.01",
+        "T06.02",
+        "T06.03",
+        "T06.04",
+        "T06.05"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M07",
+      "title": "Dokumentation",
+      "task_ids": [
+        "T07.01",
+        "T07.02"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01.01",
+      "title": "ThreeWayDiffSession-v1 Schema definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "schema",
+      "milestone_id": "M01",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Schema enthält session_id, goal_id optional, panels[3], active_panel, layout_mode, created_at, updated_at.",
+        "Jedes Panel enthält panel_id, panel_type, source_left, source_right, render_mode, filters, scroll_state und selection_state.",
+        "Zwei Panels dürfen identische source_left/source_right Kombinationen haben.",
+        "Unit-Test validiert vollständige Session, minimal Session und ungültige Panel-Anzahl."
+      ]
+    },
+    {
+      "id": "T01.02",
+      "title": "DiffSourceRef-v1 Schema definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "schema",
+      "milestone_id": "M01",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Schema enthält source_ref_id, source_kind, display_name, locator, content_hash optional und provenance_ref optional.",
+        "source_kind erlaubt working_tree, git_ref, git_diff, file_path, artifact_ref, goal_output_artifact, task_output, snapshot und inline_text.",
+        "Tests prüfen Git current diff, file vs HEAD, artifact vs artifact und output vs output."
+      ]
+    },
+    {
+      "id": "T01.03",
+      "title": "DiffPanelConfig-v1 definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "schema",
+      "milestone_id": "M01",
+      "depends_on": [
+        "T01.01",
+        "T01.02"
+      ],
+      "acceptance_criteria": [
+        "render_mode erlaubt unified, side_by_side, summary, files_only, hunks_only, ai_chat und ai_review.",
+        "Filter erlauben path_filter, status_filter, hunk_filter, search_text und only_security_relevant.",
+        "Tests prüfen unterschiedliche render_modes bei gleicher DiffSourceRef."
+      ]
+    },
+    {
+      "id": "T02.01",
+      "title": "DiffSourceResolver implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "backend",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T01.02"
+      ],
+      "acceptance_criteria": [
+        "Resolver kann current working tree diff als Quelle laden.",
+        "Resolver kann Datei gegen HEAD laden.",
+        "Resolver kann commit/ref gegen commit/ref vergleichen.",
+        "Resolver kann GoalOutputArtifact-Inhalte über artifact_ref laden.",
+        "Resolver liefert reason_code statt Traceback bei fehlender Quelle."
+      ]
+    },
+    {
+      "id": "T02.02",
+      "title": "DiffEngine für Unified und Side-by-Side",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "backend",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.01"
+      ],
+      "acceptance_criteria": [
+        "Engine erzeugt DiffDocument mit files, hunks, old_lines, new_lines, status und stats.",
+        "Engine markiert Binärdateien als binary/unsupported.",
+        "Engine kann große Diffs begrenzen und truncation sichtbar markieren.",
+        "Side-by-side Datenstruktur bleibt unabhängig vom Renderer."
+      ]
+    },
+    {
+      "id": "T02.03",
+      "title": "Current-Diff Preset und frei wählbare Quellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "backend",
+      "milestone_id": "M02",
+      "depends_on": [
+        "T02.01",
+        "T02.02"
+      ],
+      "acceptance_criteria": [
+        "Preset current-diff erzeugt DiffSourceRef für working tree/index gegen HEAD.",
+        "User kann Panel A und B beide auf current-diff setzen.",
+        "User kann Panel C auf AI-Modus setzen.",
+        "Tests prüfen zwei Panels gleicher current-diff mit unterschiedlichem render_mode."
+      ]
+    },
+    {
+      "id": "T03.01",
+      "title": "Drei-Spalten-Layout Renderer",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "tui",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T01.01",
+        "T02.02"
+      ],
+      "acceptance_criteria": [
+        "Bei Terminalbreite >= 150 werden drei Panels nebeneinander angezeigt.",
+        "Jedes Panel hat Header mit Panel-ID, Quelle, Render-Modus und Status.",
+        "Bei Breite < 120 wechselt Layout in tabbed mode.",
+        "Renderer crasht nicht bei leerem Diff oder fehlender Quelle."
+      ]
+    },
+    {
+      "id": "T03.02",
+      "title": "Panel-Auswahl und Kommandos",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "tui",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.01",
+        "T02.03"
+      ],
+      "acceptance_criteria": [
+        "`:diff3` öffnet Drei-Spalten-Diff-Modus.",
+        "`:diff3 panel A current` setzt Panel A auf aktuellen Diff.",
+        "`:diff3 panel B current --mode summary` setzt Panel B auf gleichen Diff als Summary.",
+        "`:diff3 panel C ai review` setzt Panel C auf KI-Review-Modus.",
+        "Ungültige Panel-ID oder Quelle erzeugt klare Fehlermeldung."
+      ]
+    },
+    {
+      "id": "T03.03",
+      "title": "Navigation, Sync-Scroll und Fokus",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "tui",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.01"
+      ],
+      "acceptance_criteria": [
+        "Tab oder definierte Shortcuts wechseln aktives Panel A/B/C.",
+        "PageUp/PageDown scrollen aktives Panel.",
+        "`:diff3 sync on` synchronisiert Scrollen zwischen Diff-Panels mit gleicher Quelle.",
+        "Aktive Datei/Hunk-Auswahl kann in KI-Panel als Kontext verwendet werden."
+      ]
+    },
+    {
+      "id": "T03.04",
+      "title": "Filter und Ansichtsmodi pro Panel",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "tui",
+      "milestone_id": "M03",
+      "depends_on": [
+        "T03.02"
+      ],
+      "acceptance_criteria": [
+        "Panel-Modus kann pro Panel geändert werden.",
+        "Pfad-/Status-/Suchfilter wirken nur auf das jeweilige Panel.",
+        "Filter werden im Panel-Header angezeigt.",
+        "Tests prüfen gleiche Quelle mit unterschiedlichen Filtern."
+      ]
+    },
+    {
+      "id": "T04.01",
+      "title": "AI Diff Panel State und Modi",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "ai",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T01.01",
+        "T03.02"
+      ],
+      "acceptance_criteria": [
+        "AI Panel State enthält mode, selected_panels, selected_hunks, context_refs, prompt_template_ref, status und last_response_ref.",
+        "Modi: review, explain, risk, tests, patch, chat.",
+        "AI Panel kann Kontext aus Panel A, B oder beiden Panels beziehen.",
+        "Tests validieren State und Moduswechsel."
+      ]
+    },
+    {
+      "id": "T04.02",
+      "title": "ContextEnvelope für KI-Diff-Modus",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "ai",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.01",
+        "T02.02"
+      ],
+      "acceptance_criteria": [
+        "ContextEnvelope enthält diff_source_refs, selected_file_refs, selected_hunk_refs, goal_id optional und artifact_refs optional.",
+        "Kontext ist budgetiert; große Diffs werden zusammengefasst oder selektiv übergeben.",
+        "Nicht freigegebene Artefakte werden als denied_context_refs markiert.",
+        "Tests prüfen selected hunks, full diff summary, denied artifact und large diff truncation."
+      ]
+    },
+    {
+      "id": "T04.03",
+      "title": "Prompt Templates für AI Diff Panel",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "ai",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.02"
+      ],
+      "acceptance_criteria": [
+        "Jeder Modus hat eigenes Prompt-Template.",
+        "Prompts trennen CONTROL, TASK, DIFF_CONTEXT, CODECOMPASS_CONTEXT und OUTPUT_SCHEMA.",
+        "Response-Schema enthält summary, findings, risks, suggested_tests, patch_suggestions und source_refs.",
+        "PromptTemplateSnapshot/FinalPromptRecord werden über ExecutionProvenance erfasst."
+      ]
+    },
+    {
+      "id": "T04.04",
+      "title": "AI Diff Worker Dispatch",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "ai",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.02",
+        "T04.03"
+      ],
+      "acceptance_criteria": [
+        "AI-Request blockiert TUI-Rendering nicht.",
+        "Response wird gegen ai_diff_response.v1.json validiert.",
+        "Ungültige LLM-Antwort erzeugt degraded result statt Crash.",
+        "ExecutionProvenance enthält Task/Config/Prompt/Model für AI-Diff-Aufruf."
+      ]
+    },
+    {
+      "id": "T04.05",
+      "title": "KI-Patch-Vorschläge als Output-Artefakt registrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "ai",
+      "milestone_id": "M04",
+      "depends_on": [
+        "T04.04"
+      ],
+      "acceptance_criteria": [
+        "Patch-Vorschlag wird als GoalOutputArtifact artifact_type patch_suggestion registriert, wenn goal_id vorhanden ist.",
+        "Patch wird nicht automatisch angewendet.",
+        "Provenance zeigt PromptTemplate und final_prompt_hash.",
+        "Tests prüfen Registrierung und Nicht-Anwendung."
+      ]
+    },
+    {
+      "id": "T05.01",
+      "title": "DiffSourceRef aus GoalOutputArtifact erzeugen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "artifact",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T02.01"
+      ],
+      "acceptance_criteria": [
+        "DiffSourceRef kann output_artifact_id referenzieren.",
+        "Resolver lädt Inhalt/Metadaten des Output-Artefakts.",
+        "Provenance des Output-Artefakts wird im Panel-Header oder Detail angezeigt.",
+        "Tests prüfen output artifact vs current file und output artifact vs output artifact."
+      ]
+    },
+    {
+      "id": "T05.02",
+      "title": "Diff-Kontext als SourceArtifactUsage erfassen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "artifact",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T04.02",
+        "T05.01"
+      ],
+      "acceptance_criteria": [
+        "Bei vorhandener goal_id erzeugt KI-Diff-Kontext SourceArtifactUsage für genutzte Artefakte.",
+        "Working-tree-only Diff erzeugt keine Artefaktusage, aber eine diff_source_ref in ExecutionProvenance.",
+        "Nicht freigegebene Artefakte werden denied und nicht in KI-Kontext übernommen.",
+        "GoalArtifactGraph zeigt KI-Review-Output mit genutzten Diff-/Artefaktquellen."
+      ]
+    },
+    {
+      "id": "T05.03",
+      "title": "ExecutionProvenance für AI-Diff Antworten",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "provenance",
+      "milestone_id": "M05",
+      "depends_on": [
+        "T04.04"
+      ],
+      "acceptance_criteria": [
+        "Jede AI-Diff-Antwort enthält provenance_id.",
+        "Provenance enthält prompt_template_ref, final_prompt_hash, model_ref und runtime_target_ref.",
+        "Provenance enthält diff_source_refs und selected_hunk_refs.",
+        "TUI-Provenance-Detail kann AI-Diff-Execution anzeigen."
+      ]
+    },
+    {
+      "id": "T06.01",
+      "title": "Unit Tests für State, Sources und Engine",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "test",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T01.01",
+        "T01.02",
+        "T02.01",
+        "T02.02"
+      ],
+      "acceptance_criteria": [
+        "Mindestens 30 Tests für State/Sources/Engine.",
+        "Tests decken current diff, file-vs-head, commit-vs-commit und artifact-vs-artifact ab.",
+        "Tests laufen ohne Netzwerk und ohne echtes LLM."
+      ]
+    },
+    {
+      "id": "T06.02",
+      "title": "TUI Command und Renderer Tests",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "test",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T03.01",
+        "T03.02",
+        "T03.03"
+      ],
+      "acceptance_criteria": [
+        "Command-Test für :diff3.",
+        "Command-Test für Panel A current, Panel B current summary, Panel C ai review.",
+        "Renderer-Test für breite drei-Spalten-Ansicht und tabbed fallback.",
+        "Tests prüfen aktive Panel-Markierung und getrennte Header."
+      ]
+    },
+    {
+      "id": "T06.03",
+      "title": "AI-Diff Mock Tests",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "test",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T04.01",
+        "T04.02",
+        "T04.04"
+      ],
+      "acceptance_criteria": [
+        "Mock success zeigt strukturierte Findings im AI-Panel.",
+        "Mock timeout zeigt degraded state.",
+        "Invalid JSON wird nicht roh als Erfolg angezeigt.",
+        "Denied Artefakt landet nicht im AI-Kontext."
+      ]
+    },
+    {
+      "id": "T06.04",
+      "title": "E2E: Zwei aktuelle Diffs plus KI-Panel",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "e2e",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T03.02",
+        "T04.04",
+        "T06.02",
+        "T06.03"
+      ],
+      "acceptance_criteria": [
+        "E2E erzeugt deterministisch einen kleinen Test-Diff im Workspace.",
+        "E2E öffnet :diff3.",
+        "E2E setzt Panel A auf current diff unified.",
+        "E2E setzt Panel B auf current diff summary oder side-by-side.",
+        "E2E setzt Panel C auf AI review.",
+        "E2E zeigt KI-Antwort oder Mock-KI-Antwort im dritten Panel.",
+        "E2E öffnet Provenance/Context-Info des KI-Panels."
+      ]
+    },
+    {
+      "id": "T06.05",
+      "title": "E2E: Flexible Quellen auswählen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "e2e",
+      "milestone_id": "M06",
+      "depends_on": [
+        "T05.01",
+        "T06.04"
+      ],
+      "acceptance_criteria": [
+        "E2E setzt Panel A auf current diff.",
+        "E2E setzt Panel B auf GoalOutputArtifact oder Fixture-Artefakt.",
+        "E2E setzt Panel C auf AI explain.",
+        "E2E prüft, dass Header pro Panel korrekte Quelle zeigt.",
+        "E2E prüft, dass KI-Kontext nur freigegebene Artefakte nutzt."
+      ]
+    },
+    {
+      "id": "T07.01",
+      "title": "User-Doku für Drei-Wege-Diff",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "type": "docs",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T03.02",
+        "T04.01"
+      ],
+      "acceptance_criteria": [
+        "Doku erklärt :diff3 und Panel A/B/C.",
+        "Doku enthält Beispiel: Panel A current, Panel B current summary, Panel C ai review.",
+        "Doku erklärt KI-Modi review/explain/risk/tests/patch.",
+        "Doku erklärt, dass KI-Patch nicht automatisch angewendet wird."
+      ]
+    },
+    {
+      "id": "T07.02",
+      "title": "Architekturdoku mit Mermaid",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "type": "docs",
+      "milestone_id": "M07",
+      "depends_on": [
+        "T01.01",
+        "T02.02",
+        "T04.02",
+        "T05.03"
+      ],
+      "acceptance_criteria": [
+        "Doku enthält Mermaid-Flow für Panel-Quellenauswahl.",
+        "Doku enthält Mermaid-Flow für DiffSourceResolver -> DiffEngine -> Renderer.",
+        "Doku enthält Mermaid-Flow für KI-Panel ContextEnvelope -> Worker -> Response.",
+        "Doku enthält Mermaid-Flow für GoalArtifact/ExecutionProvenance Integration.",
+        "Doku enthält Testmatrix."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "T01.01",
+    "T01.02",
+    "T02.01",
+    "T02.02",
+    "T02.03",
+    "T03.01",
+    "T03.02",
+    "T04.01",
+    "T04.02",
+    "T04.04",
+    "T06.04"
+  ],
+  "tasks_status_summary": {
+    "total": 25,
+    "by_status": {
+      "todo": 25,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P1": 22,
+      "P2": 3
+    },
+    "by_risk": {
+      "medium": 12,
+      "high": 11,
+      "low": 2
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 0,
+      "remaining": 11
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
     }
   },
-  "core_goal": "Im TUI gibt es einen dreispaltigen Diff-Modus. Panel A, B und C sind frei belegbar. Der User kann z. B. links den aktuellen Git-Diff, in der Mitte denselben Diff mit anderer Ansicht/Filterung und rechts einen KI-Modus anzeigen lassen. Der KI-Modus nutzt den ausgewählten Diff-Kontext, CodeCompass/Artefakt-Provenance und Prompt-/Config-Provenance kontrolliert und sichtbar.",
-  "principles": [
-    "Drei Panels sind unabhängig konfigurierbar.",
-    "Panel-Inhalte sind Quellen mit stabiler DiffSourceRef, nicht ad-hoc Strings.",
-    "Zwei Panels dürfen dieselbe Quelle mit unterschiedlicher Darstellung zeigen.",
-    "KI-Panel ist kein Sonderhack, sondern ein Panel-Typ mit eigenem ContextEnvelope und Policy.",
-    "Diff-Berechnung muss ohne LLM deterministisch funktionieren.",
-    "KI darf nur freigegebene Diff-/Artefakt-/CodeCompass-Kontexte sehen.",
-    "TUI muss auch bei kleiner Terminalbreite sauber degradieren."
+  "tasks_type_summary": {
+    "total": 25,
+    "by_type": {
+      "schema": 3,
+      "backend": 3,
+      "tui": 4,
+      "ai": 5,
+      "artifact": 2,
+      "provenance": 1,
+      "test": 3,
+      "e2e": 2,
+      "docs": 2
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 25,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "execution_stage_summary": {
+    "current_stage": "planning",
+    "schema": "todos/todo.track.schema.json",
+    "notes": "Diese Datei ersetzt die vorherige epics-basierte Struktur durch das Track-Schema."
+  },
+  "summary_notes": [
+    "Panel A/B/C sind frei belegbar.",
+    "Panel A und B können dieselbe DiffSourceRef mit unterschiedlichem render_mode anzeigen.",
+    "Panel C kann KI-Modus review/explain/risk/tests/patch/chat ausführen.",
+    "KI-Kontext muss budgetiert, policy-geprüft und mit Provenance versehen sein.",
+    "Patch-Vorschläge werden als Output-Artefakt registriert und nicht automatisch angewendet."
   ],
-  "epics": [
+  "end_summaries": [
     {
-      "id": "E01",
-      "title": "Diff-Datenmodell und Panel-Konfiguration",
-      "goal": "Ein flexibles Modell beschreibt drei Panels, deren Quellen, Vergleichsmodus und Darstellung.",
-      "tasks": [
-        {
-          "id": "T01.01",
-          "title": "ThreeWayDiffSession-v1 Schema definieren",
-          "description": "Eine Diff-Session speichert Layout, Panels, aktive Auswahl, Scrollpositionen, Filter und KI-Modus-Kontext.",
-          "repo": "tui",
-          "files": [
-            "schemas/tui/three_way_diff_session.v1.json",
-            "client_surfaces/operator_tui/diff/three_way_diff_state.py"
-          ],
-          "priority": "P1",
-          "effort": "L",
-          "depends_on": [],
-          "status": "open",
-          "acceptance_criteria": [
-            "Schema enthält session_id, goal_id optional, panels[3], active_panel, layout_mode, created_at, updated_at.",
-            "Jedes Panel enthält panel_id, panel_type, source_left, source_right, render_mode, filters, scroll_state und selection_state.",
-            "panel_type erlaubt mindestens `diff`, `file`, `artifact`, `ai_review`, `ai_explain`, `ai_patch`, `empty`.",
-            "Zwei Panels dürfen identische source_left/source_right Kombinationen haben.",
-            "Schema enthält extension-Feld, aber keine beliebigen Top-Level-Felder.",
-            "Unit-Test validiert vollständige Session, minimal Session und ungültige Panel-Anzahl."
-          ]
-        },
-        {
-          "id": "T01.02",
-          "title": "DiffSourceRef-v1 Schema definieren",
-          "description": "Eine Quelle für einen Diff kann Git, Datei, Artefakt, Goal-Output, Task-Output, Snapshot oder Working Tree sein.",
-          "repo": "tui",
-          "files": [
-            "schemas/tui/diff_source_ref.v1.json",
-            "client_surfaces/operator_tui/diff/diff_sources.py"
-          ],
-          "priority": "P1",
-          "effort": "L",
-          "depends_on": [],
-          "status": "open",
-          "acceptance_criteria": [
-            "Schema enthält source_ref_id, source_kind, display_name, locator, content_hash optional, provenance_ref optional.",
-            "source_kind erlaubt `working_tree`, `git_ref`, `git_diff`, `file_path`, `artifact_ref`, `goal_output_artifact`, `task_output`, `snapshot`, `inline_text`.",
-            "Git-Quelle kann branch, commit, HEAD, index, working_tree und pathspec abbilden.",
-            "Artefakt-Quelle kann artifact_ref, output_artifact_id und source_snapshot_id referenzieren.",
-            "Inline-Text ist nur für Tests/Preview erlaubt und klar markiert.",
-            "Tests prüfen Git current diff, file vs HEAD, artifact vs artifact und output vs output."
-          ]
-        },
-        {
-          "id": "T01.03",
-          "title": "DiffPanelConfig-v1 definieren",
-          "description": "Panel-Konfiguration regelt Darstellung: unified, side-by-side, summary, hunks-only, files-only, AI-Modus.",
-          "repo": "tui",
-          "files": [
-            "schemas/tui/diff_panel_config.v1.json",
-            "client_surfaces/operator_tui/diff/three_way_diff_state.py"
-          ],
-          "priority": "P1",
-          "effort": "M",
-          "depends_on": ["T01.01", "T01.02"],
-          "status": "open",
-          "acceptance_criteria": [
-            "render_mode erlaubt `unified`, `side_by_side`, `summary`, `files_only`, `hunks_only`, `ai_chat`, `ai_review`.",
-            "Filter erlauben path_filter, status_filter, hunk_filter, search_text, only_generated_outputs und only_security_relevant.",
-            "PanelConfig enthält title_template und compact_title.",
-            "PanelConfig kann follow_active_file true/false setzen.",
-            "Tests prüfen unterschiedliche render_modes bei gleicher DiffSourceRef."
-          ]
-        }
+      "summary_id": "target_flow",
+      "title": "Zielablauf",
+      "items": [
+        ":diff3 öffnen",
+        "Panel A auf current diff unified setzen",
+        "Panel B auf current diff summary oder side-by-side setzen",
+        "Panel C auf AI review setzen",
+        "KI-Panel nutzt ausgewählte DiffSourceRefs kontrolliert",
+        "Provenance zeigt Diff-Kontext, Prompt, Config und Output"
       ]
     },
     {
-      "id": "E02",
-      "title": "Diff-Quellenauflösung und Engine",
-      "goal": "TUI kann flexible Quellen deterministisch laden und vergleichen.",
-      "tasks": [
-        {
-          "id": "T02.01",
-          "title": "DiffSourceResolver implementieren",
-          "description": "Resolver wandelt DiffSourceRefs in konkrete Inhalte, Git-Diffs oder Artefaktinhalte um.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/diff_sources.py",
-            "client_surfaces/operator_tui/diff/diff_source_resolver.py",
-            "tests/test_tui_diff_source_resolver.py"
-          ],
-          "priority": "P1",
-          "effort": "XL",
-          "depends_on": ["T01.02"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Resolver kann current working tree diff als Quelle laden.",
-            "Resolver kann Datei gegen HEAD laden.",
-            "Resolver kann commit/ref gegen commit/ref vergleichen.",
-            "Resolver kann GoalOutputArtifact-Inhalte über artifact_ref laden.",
-            "Resolver kann Source/Output-Artefakt-Provenance als Metadaten mitgeben.",
-            "Resolver liefert reason_code statt Traceback bei fehlender Quelle.",
-            "Tests laufen ohne Netzwerk und nutzen Git-Fixtures/Temp-Repos."
-          ]
-        },
-        {
-          "id": "T02.02",
-          "title": "DiffEngine für Unified und Side-by-Side",
-          "description": "Eine zentrale Engine erzeugt normalisierte Diff-Hunks unabhängig von der späteren TUI-Darstellung.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/diff_engine.py",
-            "tests/test_tui_diff_engine.py"
-          ],
-          "priority": "P1",
-          "effort": "L",
-          "depends_on": ["T02.01"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Engine erzeugt DiffDocument mit files, hunks, old_lines, new_lines, status und stats.",
-            "Engine unterstützt Textdateien und markiert Binärdateien als binary/unsupported.",
-            "Engine kann whitespace-ignore optional anwenden.",
-            "Engine kann große Diffs begrenzen und truncation sichtbar markieren.",
-            "Side-by-side Datenstruktur bleibt unabhängig vom Renderer.",
-            "Tests prüfen added, removed, modified, renamed soweit Git-Fixture es abbildet, binary und large diff truncation."
-          ]
-        },
-        {
-          "id": "T02.03",
-          "title": "Current Diff Shortcut und frei wählbare Quellen",
-          "description": "Der Standardfall `aktueller Diff` ist schnell erreichbar, aber nicht fest verdrahtet.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/diff_presets.py",
-            "client_surfaces/operator_tui/commands.py"
-          ],
-          "priority": "P1",
-          "effort": "M",
-          "depends_on": ["T02.01", "T02.02"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Preset `current-diff` erzeugt DiffSourceRef für working tree/index gegen HEAD.",
-            "User kann Panel A und B beide auf `current-diff` setzen.",
-            "User kann Panel C auf AI-Modus setzen.",
-            "Preset kann mit path_filter kombiniert werden.",
-            "Tests prüfen zwei Panels gleicher current-diff mit unterschiedlichem render_mode."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "E03",
-      "title": "TUI Layout und Interaktion",
-      "goal": "Drei Panels sind im Terminal bedienbar, scroll-/filterbar und frei belegbar.",
-      "tasks": [
-        {
-          "id": "T03.01",
-          "title": "Drei-Spalten-Layout Renderer",
-          "description": "Renderer zeigt drei vertikale Panels nebeneinander mit Header, Status und Scrollbereich.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/three_way_diff_renderer.py",
-            "client_surfaces/operator_tui/renderer.py"
-          ],
-          "priority": "P1",
-          "effort": "XL",
-          "depends_on": ["T01.01", "T02.02"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Bei Terminalbreite >= 150 werden drei Panels nebeneinander angezeigt.",
-            "Jedes Panel hat Header mit Panel-ID, Quelle, Render-Modus und Status.",
-            "Aktives Panel ist sichtbar markiert.",
-            "Panels haben getrennte Scrollpositionen.",
-            "Bei Breite < 120 wechselt Layout in tabbed mode mit drei Tabs.",
-            "Bei Höhe < 24 wird kompakte Summary statt voller Hunks angezeigt.",
-            "Renderer crasht nicht bei leerem Diff oder fehlender Quelle."
-          ]
-        },
-        {
-          "id": "T03.02",
-          "title": "Panel-Auswahl und Kommandos",
-          "description": "User kann flexibel festlegen, was Panel A/B/C anzeigen sollen.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/commands.py",
-            "client_surfaces/operator_tui/diff/three_way_diff_controller.py"
-          ],
-          "priority": "P1",
-          "effort": "L",
-          "depends_on": ["T03.01", "T02.03"],
-          "status": "open",
-          "acceptance_criteria": [
-            "`:diff3` öffnet Drei-Spalten-Diff-Modus.",
-            "`:diff3 panel A current` setzt Panel A auf aktuellen Diff.",
-            "`:diff3 panel B current --mode summary` setzt Panel B auf gleichen Diff als Summary.",
-            "`:diff3 panel C ai review` setzt Panel C auf KI-Review-Modus.",
-            "`:diff3 panel A file <path> --against HEAD` setzt Datei-vs-HEAD.",
-            "`:diff3 panel B artifact <artifact-id>` setzt Artefaktquelle.",
-            "Ungültige Panel-ID oder Quelle erzeugt klare Fehlermeldung."
-          ]
-        },
-        {
-          "id": "T03.03",
-          "title": "Navigation, Sync-Scroll und Fokus",
-          "description": "User kann Panels fokussieren, scrollen und optional Scrollpositionen synchronisieren.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/three_way_diff_controller.py",
-            "client_surfaces/operator_tui/interactive.py"
-          ],
-          "priority": "P1",
-          "effort": "L",
-          "depends_on": ["T03.01"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Tab oder definierte Shortcuts wechseln aktives Panel A/B/C.",
-            "PageUp/PageDown scrollen aktives Panel.",
-            "`:diff3 sync on` synchronisiert Scrollen zwischen Diff-Panels mit gleicher Quelle.",
-            "`:diff3 sync off` trennt Scrollpositionen wieder.",
-            "Aktive Datei/Hunk-Auswahl kann in KI-Panel als Kontext verwendet werden.",
-            "Tests prüfen Fokuswechsel, getrenntes Scrollen und Sync-Scroll."
-          ]
-        },
-        {
-          "id": "T03.04",
-          "title": "Filter und Ansichtsmodi pro Panel",
-          "description": "Jedes Panel kann eigene Filter und Darstellung haben, auch bei gleicher Quelle.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/three_way_diff_controller.py",
-            "client_surfaces/operator_tui/diff/diff_filters.py"
-          ],
-          "priority": "P2",
-          "effort": "M",
-          "depends_on": ["T03.02"],
-          "status": "open",
-          "acceptance_criteria": [
-            "`:diff3 panel A mode unified|side|summary|files` ändert Darstellung.",
-            "`:diff3 panel B filter path <glob>` setzt Pfadfilter nur für Panel B.",
-            "`:diff3 panel A filter status modified` filtert Status.",
-            "Filter werden im Panel-Header angezeigt.",
-            "Filter ändern nicht die zugrunde liegende DiffSourceRef.",
-            "Tests prüfen gleiche Quelle mit unterschiedlichen Filtern."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "E04",
-      "title": "KI-Modus als drittes Panel",
-      "goal": "Panel C oder jedes beliebige Panel kann KI-Erklärung, Review oder Patch-Vorschlag anzeigen.",
-      "tasks": [
-        {
-          "id": "T04.01",
-          "title": "AI Diff Panel State und Modi",
-          "description": "KI-Panel kann review, explain, risk, tests, patch oder chat anzeigen.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/ai_diff_panel.py",
-            "schemas/tui/ai_diff_panel_state.v1.json"
-          ],
-          "priority": "P1",
-          "effort": "L",
-          "depends_on": ["T01.01", "T03.02"],
-          "status": "open",
-          "acceptance_criteria": [
-            "AI Panel State enthält mode, selected_panels, selected_hunks, context_refs, prompt_template_ref, status und last_response_ref.",
-            "Modi: `review`, `explain`, `risk`, `tests`, `patch`, `chat`.",
-            "AI Panel kann Kontext aus Panel A, B oder beiden Panels beziehen.",
-            "AI Panel zeigt klar, welcher Diff-Kontext verwendet wurde.",
-            "AI Panel kann pending/thinking/error/degraded anzeigen.",
-            "Tests validieren State und Moduswechsel."
-          ]
-        },
-        {
-          "id": "T04.02",
-          "title": "ContextEnvelope für KI-Diff-Modus",
-          "description": "KI erhält nur ausgewählte Diff-Hunks, Artefaktrefs und CodeCompass-Kontext, nicht blind den gesamten Workspace.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/ai_diff_context.py",
-            "worker/core/context_bundle_adapter.py"
-          ],
-          "priority": "P1",
-          "effort": "L",
-          "depends_on": ["T04.01", "T02.02"],
-          "status": "open",
-          "acceptance_criteria": [
-            "ContextEnvelope enthält diff_source_refs, selected_file_refs, selected_hunk_refs, goal_id optional und artifact_refs optional.",
-            "Kontext ist budgetiert: große Diffs werden zusammengefasst oder selektiv übergeben.",
-            "Nicht freigegebene Artefakte werden als denied_context_refs markiert.",
-            "Context hash berücksichtigt DiffSourceRefs und Hunk-Auswahl.",
-            "KI-Panel zeigt `ctx: panel A current-diff + selected hunks` oder ähnlich.",
-            "Tests prüfen selected hunks, full diff summary, denied artifact und large diff truncation."
-          ]
-        },
-        {
-          "id": "T04.03",
-          "title": "Prompt Templates für AI Diff Panel",
-          "description": "KI-Diff-Modi verwenden eigene Prompt-Vorlagen mit strukturiertem Output.",
-          "repo": "tui",
-          "files": [
-            "prompts/diff/review.j2",
-            "prompts/diff/explain.j2",
-            "prompts/diff/risk.j2",
-            "prompts/diff/tests.j2",
-            "prompts/diff/patch.j2",
-            "schemas/worker/ai_diff_response.v1.json"
-          ],
-          "priority": "P1",
-          "effort": "M",
-          "depends_on": ["T04.02"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Jeder Modus hat eigenes Prompt-Template.",
-            "Prompts trennen CONTROL, TASK, DIFF_CONTEXT, CODECOMPASS_CONTEXT und OUTPUT_SCHEMA.",
-            "Response-Schema enthält summary, findings, risks, suggested_tests, patch_suggestions, source_refs.",
-            "PromptTemplateSnapshot/FinalPromptRecord werden über ExecutionProvenance erfasst.",
-            "Prompt-Lint-Test prüft, dass jedes Template das Output-Schema referenziert.",
-            "Tests decken Template Rendering mit kleinem Diff-Kontext ab."
-          ]
-        },
-        {
-          "id": "T04.04",
-          "title": "AI Diff Worker Dispatch",
-          "description": "KI-Panel ruft Ananta-Worker asynchron auf und rendert strukturierte Ergebnisse.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/ai_diff_panel.py",
-            "client_surfaces/operator_tui/diff/ai_diff_worker_client.py",
-            "agent/services/task_scoped_execution_service.py"
-          ],
-          "priority": "P1",
-          "effort": "XL",
-          "depends_on": ["T04.02", "T04.03"],
-          "status": "open",
-          "acceptance_criteria": [
-            "AI-Request blockiert TUI-Rendering nicht.",
-            "Nur ein aktiver AI-Diff-Request pro Session im Default.",
-            "Neuer Kontext kann laufenden Request abbrechen oder als stale markieren.",
-            "Response wird gegen ai_diff_response.v1.json validiert.",
-            "Ungültige LLM-Antwort erzeugt degraded result statt Crash.",
-            "ExecutionProvenance enthält Task/Config/Prompt/Model für AI-Diff-Aufruf.",
-            "Tests simulieren success, timeout, invalid-json und stale response."
-          ]
-        },
-        {
-          "id": "T04.05",
-          "title": "KI-Patch-Vorschläge als Output-Artefakt registrieren",
-          "description": "Wenn KI einen Patch vorschlägt, wird dieser als Output-Artefakt mit Provenance gespeichert, nicht direkt blind angewendet.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/ai_diff_panel.py",
-            "agent/artifacts/goal_artifact_service.py"
-          ],
-          "priority": "P1",
-          "effort": "L",
-          "depends_on": ["T04.04"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Patch-Vorschlag wird als GoalOutputArtifact artifact_type `patch_suggestion` registriert, wenn goal_id vorhanden ist.",
-            "Patch-Vorschlag enthält input_usage_refs oder diff_source_refs.",
-            "Patch wird nicht automatisch angewendet.",
-            "TUI zeigt Apply nur als separaten expliziten Schritt, falls überhaupt implementiert.",
-            "Provenance zeigt PromptTemplate und final_prompt_hash.",
-            "Tests prüfen Registrierung und Nicht-Anwendung."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "E05",
-      "title": "Goal-/Artifact-/Provenance-Integration",
-      "goal": "Drei-Wege-Diff ist mit Goal-Artefakten, Quellenfreigaben und Execution-Provenance verbunden.",
-      "tasks": [
-        {
-          "id": "T05.01",
-          "title": "DiffSourceRef aus GoalOutputArtifact erzeugen",
-          "description": "Outputs eines Goals können direkt als Diff-Quelle ausgewählt werden.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/diff_sources.py",
-            "agent/artifacts/goal_artifact_service.py"
-          ],
-          "priority": "P1",
-          "effort": "M",
-          "depends_on": ["T02.01"],
-          "status": "open",
-          "acceptance_criteria": [
-            "DiffSourceRef kann output_artifact_id referenzieren.",
-            "Resolver lädt Inhalt/Metadaten des Output-Artefakts.",
-            "Provenance des Output-Artefakts wird im Panel-Header oder Detail angezeigt.",
-            "Fehlende/gelöschte Artefakte erzeugen degraded source, kein Crash.",
-            "Tests prüfen output artifact vs current file und output artifact vs output artifact."
-          ]
-        },
-        {
-          "id": "T05.02",
-          "title": "Diff-Kontext als SourceArtifactUsage erfassen",
-          "description": "Wenn KI-Panel Diff-/Artefaktkontext nutzt, wird diese Nutzung im GoalArtifactGraph protokolliert.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/ai_diff_context.py",
-            "agent/artifacts/goal_artifact_service.py"
-          ],
-          "priority": "P1",
-          "effort": "M",
-          "depends_on": ["T04.02", "T05.01"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Bei vorhandener goal_id erzeugt KI-Diff-Kontext SourceArtifactUsage für genutzte Artefakte.",
-            "Working-tree-only Diff erzeugt keine Artefaktusage, aber eine diff_source_ref in ExecutionProvenance.",
-            "Nicht freigegebene Artefakte werden denied und nicht in KI-Kontext übernommen.",
-            "GoalArtifactGraph zeigt KI-Review-Output mit genutzten Diff-/Artefaktquellen.",
-            "Tests prüfen erlaubte Artefaktquelle und denied Artefaktquelle."
-          ]
-        },
-        {
-          "id": "T05.03",
-          "title": "ExecutionProvenance für AI-Diff Antworten",
-          "description": "AI-Diff-Antworten speichern Task, Config, PromptTemplate, FinalPromptHash, Model und Runtime.",
-          "repo": "tui",
-          "files": [
-            "client_surfaces/operator_tui/diff/ai_diff_worker_client.py",
-            "agent/artifacts/execution_provenance.py"
-          ],
-          "priority": "P1",
-          "effort": "M",
-          "depends_on": ["T04.04"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Jede AI-Diff-Antwort enthält provenance_id.",
-            "Provenance enthält prompt_template_ref und final_prompt_hash.",
-            "Provenance enthält model_ref und runtime_target_ref.",
-            "Provenance enthält diff_source_refs und selected_hunk_refs.",
-            "TUI-Provenance-Detail kann AI-Diff-Execution anzeigen.",
-            "Tests prüfen vollständige Provenance bei AI-Review."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "E06",
-      "title": "Tests und E2E",
-      "goal": "Der dreier Diff-Modus ist mit Unit-, Renderer-, Command- und E2E-Tests abgesichert.",
-      "tasks": [
-        {
-          "id": "T06.01",
-          "title": "Unit Tests für State, Sources und Engine",
-          "description": "Datenmodell, Quellenauflösung und DiffEngine werden isoliert getestet.",
-          "repo": "tui",
-          "files": [
-            "tests/test_tui_three_way_diff_state.py",
-            "tests/test_tui_diff_source_resolver.py",
-            "tests/test_tui_diff_engine.py"
-          ],
-          "priority": "P1",
-          "effort": "L",
-          "depends_on": ["T01.01", "T01.02", "T02.01", "T02.02"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Mindestens 30 Tests für State/Sources/Engine.",
-            "Tests decken current diff, file-vs-head, commit-vs-commit und artifact-vs-artifact ab.",
-            "Tests decken große Diffs, Binärdateien und fehlende Quellen ab.",
-            "Tests laufen ohne Netzwerk und ohne echtes LLM."
-          ]
-        },
-        {
-          "id": "T06.02",
-          "title": "TUI Command und Renderer Tests",
-          "description": "Kommandos und Darstellung werden ohne echtes Terminal zuverlässig getestet.",
-          "repo": "tui",
-          "files": [
-            "tests/test_tui_three_way_diff_commands.py",
-            "tests/test_tui_three_way_diff_renderer.py"
-          ],
-          "priority": "P1",
-          "effort": "L",
-          "depends_on": ["T03.01", "T03.02", "T03.03"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Command-Test für `:diff3`.",
-            "Command-Test für Panel A current, Panel B current summary, Panel C ai review.",
-            "Renderer-Test für breite drei-Spalten-Ansicht.",
-            "Renderer-Test für tabbed fallback bei kleiner Breite.",
-            "Tests prüfen aktive Panel-Markierung und getrennte Header."
-          ]
-        },
-        {
-          "id": "T06.03",
-          "title": "AI-Diff Mock Tests",
-          "description": "KI-Modus wird mit Mock-Worker getestet.",
-          "repo": "tui",
-          "files": [
-            "tests/test_tui_ai_diff_panel.py",
-            "tests/test_tui_ai_diff_context.py"
-          ],
-          "priority": "P1",
-          "effort": "M",
-          "depends_on": ["T04.01", "T04.02", "T04.04"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Mock success zeigt strukturierte Findings im AI-Panel.",
-            "Mock timeout zeigt degraded state.",
-            "Invalid JSON wird nicht roh als Erfolg angezeigt.",
-            "Großer Diff wird zusammengefasst.",
-            "Denied Artefakt landet nicht im AI-Kontext."
-          ]
-        },
-        {
-          "id": "T06.04",
-          "title": "E2E: Zwei aktuelle Diffs plus KI-Panel",
-          "description": "E2E beweist exakt den gewünschten Use Case: zwei Panels zeigen aktuellen Diff, drittes Panel ist KI-Modus.",
-          "repo": "tui",
-          "files": [
-            "scripts/e2e/three_way_diff_ai_mode_e2e.py",
-            "assets/operator_tui_three_way_diff_ai.cast"
-          ],
-          "priority": "P1",
-          "effort": "XL",
-          "depends_on": ["T03.02", "T04.04", "T06.02", "T06.03"],
-          "status": "open",
-          "acceptance_criteria": [
-            "E2E erzeugt deterministisch einen kleinen Test-Diff im Workspace.",
-            "E2E öffnet `:diff3`.",
-            "E2E setzt Panel A auf current diff unified.",
-            "E2E setzt Panel B auf current diff summary oder side-by-side.",
-            "E2E setzt Panel C auf AI review.",
-            "E2E zeigt, dass Panel A und B dieselbe Diff-Quelle mit anderer Darstellung nutzen.",
-            "E2E zeigt KI-Antwort oder Mock-KI-Antwort im dritten Panel.",
-            "E2E öffnet Provenance/Context-Info des KI-Panels.",
-            "Cast bleibt unter 500 KB oder nutzt konfigurierten Grenzwert."
-          ]
-        },
-        {
-          "id": "T06.05",
-          "title": "E2E: Flexible Quellen auswählen",
-          "description": "E2E zeigt, dass Panelquellen frei gewählt werden können, z. B. current diff, Artefakt und KI-Modus.",
-          "repo": "tui",
-          "files": [
-            "scripts/e2e/three_way_diff_flexible_sources_e2e.py"
-          ],
-          "priority": "P2",
-          "effort": "L",
-          "depends_on": ["T05.01", "T06.04"],
-          "status": "open",
-          "acceptance_criteria": [
-            "E2E setzt Panel A auf current diff.",
-            "E2E setzt Panel B auf GoalOutputArtifact oder Fixture-Artefakt.",
-            "E2E setzt Panel C auf AI explain.",
-            "E2E prüft, dass Header pro Panel korrekte Quelle zeigt.",
-            "E2E prüft, dass KI-Kontext nur freigegebene Artefakte nutzt."
-          ]
-        }
-      ]
-    },
-    {
-      "id": "E07",
-      "title": "Dokumentation",
-      "goal": "Bedienung und Architektur sind dokumentiert.",
-      "tasks": [
-        {
-          "id": "T07.01",
-          "title": "User-Doku für Drei-Wege-Diff",
-          "description": "Kurze Bedienungsdoku mit Beispielen für current/current/ai und flexible Quellen.",
-          "repo": "tui",
-          "files": [
-            "docs/operator_tui_three_way_diff.md"
-          ],
-          "priority": "P1",
-          "effort": "M",
-          "depends_on": ["T03.02", "T04.01"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Doku erklärt `:diff3` und Panel A/B/C.",
-            "Doku enthält Beispiel: Panel A current, Panel B current summary, Panel C ai review.",
-            "Doku erklärt Quellenarten: current, file, git ref, artifact, goal output.",
-            "Doku erklärt KI-Modi review/explain/risk/tests/patch.",
-            "Doku erklärt, dass KI-Patch nicht automatisch angewendet wird."
-          ]
-        },
-        {
-          "id": "T07.02",
-          "title": "Architekturdoku mit Mermaid",
-          "description": "Technische Doku erklärt DiffSourceRef, DiffEngine, TUI Panels, KI-Kontext und Provenance.",
-          "repo": "tui",
-          "files": [
-            "docs/architecture/operator_tui_three_way_diff_ai_mode.md"
-          ],
-          "priority": "P2",
-          "effort": "M",
-          "depends_on": ["T01.01", "T02.02", "T04.02", "T05.03"],
-          "status": "open",
-          "acceptance_criteria": [
-            "Doku enthält Mermaid-Flow für Panel-Quellenauswahl.",
-            "Doku enthält Mermaid-Flow für DiffSourceResolver -> DiffEngine -> Renderer.",
-            "Doku enthält Mermaid-Flow für KI-Panel ContextEnvelope -> Worker -> Response.",
-            "Doku enthält Mermaid-Flow für GoalArtifact/ExecutionProvenance Integration.",
-            "Doku enthält Testmatrix."
-          ]
-        }
+      "summary_id": "done_definition",
+      "title": "Definition of Done",
+      "items": [
+        "Schema validiert gegen todo.track.schema.json",
+        "Unit-, Command-, Renderer- und E2E-Tests vorhanden",
+        "E2E beweist current diff + current diff + AI review",
+        "AI-Patch wird nicht automatisch angewendet",
+        "TUI funktioniert breit als 3-Spalten und schmal als Tab-Fallback"
       ]
     }
-  ],
-  "global_acceptance_criteria": [
-    "`:diff3` öffnet einen Drei-Panel-Diff-Modus im Operator TUI.",
-    "User kann Panel A, B und C flexibel mit Quellen belegen.",
-    "Panel A und B können beide den aktuellen Diff anzeigen, aber mit unterschiedlicher Darstellung.",
-    "Panel C kann als KI-Modus Review/Explain/Risk/Tests/Patch laufen.",
-    "Diff-Berechnung funktioniert deterministisch ohne LLM.",
-    "KI-Kontext ist budgetiert, policy-geprüft und zeigt verwendete DiffSourceRefs.",
-    "KI-Antworten und Patch-Vorschläge werden nicht blind angewendet, sondern mit Provenance erfasst.",
-    "TUI unterstützt breite Drei-Spalten-Ansicht und kleinen tabbed fallback.",
-    "E2E beweist den Kernfall: current diff + current diff + AI review."
-  ],
-  "suggested_implementation_order": [
-    "E01 Schemas und State",
-    "E02 DiffSourceResolver und DiffEngine",
-    "E03 Renderer, Panel-Kommandos und Navigation",
-    "E04 KI-Panel mit Mock-Worker",
-    "E06 Unit/Renderer/Command Tests",
-    "E06 E2E current/current/ai",
-    "E05 Goal/Artifact/Provenance Integration",
-    "E07 Dokumentation"
   ]
 }
