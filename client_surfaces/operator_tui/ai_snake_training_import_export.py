@@ -100,6 +100,7 @@ def import_training_bundle(
     if disabled:
         for item in imported_patterns:
             item["status"] = "disabled"
+    _mark_imported_patterns(imported_patterns, edited_by_user=True)
 
     existing_patterns = read_patterns()
     merged, report = _merge_patterns_with_conflicts(
@@ -130,6 +131,13 @@ def import_training_bundle(
     return result
 
 
+def _mark_imported_patterns(patterns: list[dict[str, Any]], *, edited_by_user: bool) -> None:
+    for item in patterns:
+        meta = dict(item.get("extensions") or {})
+        meta["edited_by_user"] = bool(edited_by_user)
+        item["extensions"] = meta
+
+
 def _read_bundle(path: str) -> dict[str, Any]:
     target = Path(path).expanduser()
     if not target.is_absolute():
@@ -154,7 +162,18 @@ def _merge_patterns_with_conflicts(
     incoming: list[dict[str, Any]],
     strategy: str,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    valid_strategy = strategy if strategy in {"keep_higher_confidence", "overwrite", "keep_local", "merge_counters"} else "keep_higher_confidence"
+    aliases = {
+        "keep-existing": "keep_local",
+        "replace": "overwrite",
+        "merge-counters": "merge_counters",
+        "import-disabled-copy": "import_disabled_copy",
+    }
+    normalized_strategy = aliases.get(strategy, strategy)
+    valid_strategy = (
+        normalized_strategy
+        if normalized_strategy in {"keep_higher_confidence", "overwrite", "keep_local", "merge_counters", "import_disabled_copy"}
+        else "keep_higher_confidence"
+    )
     result_by_id: dict[str, dict[str, Any]] = {}
     fingerprint_index: dict[str, str] = {}
     for item in existing:
@@ -191,6 +210,13 @@ def _merge_patterns_with_conflicts(
             chosen = local
         elif valid_strategy == "merge_counters":
             chosen = _merge_counter_fields(local=local, remote=remote)
+        elif valid_strategy == "import_disabled_copy":
+            copy = dict(remote)
+            base_id = str(copy.get("pattern_id") or target_id)
+            copy["pattern_id"] = f"{base_id}__imported"
+            copy["status"] = "disabled"
+            result_by_id[str(copy["pattern_id"])] = copy
+            chosen = local
         else:
             chosen = remote if float(remote.get("confidence") or 0.0) > float(local.get("confidence") or 0.0) else local
 

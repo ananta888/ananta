@@ -527,7 +527,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T05.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "ContextEnvelope kann `training_profile_ref` und `active_pattern_refs` enthalten.",
             "Nur aktive, nicht expired Patterns werden übergeben.",
@@ -549,7 +549,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T02.03", "T04.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Script `scripts/ai_snake_training_data.py validate <path>` validiert Bundle/Profile/Patterns.",
             "Script `... export --stdout` gibt JSON ohne TUI-Abhängigkeit aus.",
@@ -578,7 +578,7 @@
           "priority": "P1",
           "effort": "S",
           "depends_on": ["T02.02", "T03.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:ai pattern disable <id>` deaktiviert Pattern.",
             "`:ai pattern enable <id>` aktiviert Pattern, wenn Schema gültig ist.",
@@ -600,7 +600,7 @@
           "priority": "P2",
           "effort": "S",
           "depends_on": ["T04.01", "T04.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Doku beschreibt Workflow: export -> edit JSON -> validate -> import preview -> import.",
             "Import validiert manuell geänderte Patterns vollständig.",
@@ -621,7 +621,7 @@
           "priority": "P2",
           "effort": "S",
           "depends_on": ["T03.02", "T05.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Panel zeigt kompakt `learned: yes/no`, `patterns: N`, `last_pattern: <id>`.",
             "Bei Prediction aus Pattern wird Pattern-ID im Debug/Status sichtbar.",
