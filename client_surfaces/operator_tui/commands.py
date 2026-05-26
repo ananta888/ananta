@@ -73,6 +73,8 @@ from agent.services.imap_account_service import (
     list_imap_accounts,
 )
 from agent.services.imap_feature_flag_service import resolve_imap_runtime_state
+from agent.services.imap_mail_artifact_service import get_mail_artifact, list_mail_artifacts, register_mail_artifact
+from agent.services.imap_mail_context_envelope_service import build_mail_context_envelope
 from agent.services.imap_metadata_store_service import ImapMetadataStore
 from agent.services.imap_redaction_pipeline_service import redact_mail_for_worker_context
 from agent.services.imap_search_service import search_mail_metadata
@@ -623,6 +625,10 @@ def _build_mail_payload(*, game: dict[str, object], repo_root: Path) -> dict[str
         "body_loaded": bool(game.get("mail_detail_body_loaded", False)),
         "body_text": str(game.get("mail_detail_body") or "") if bool(game.get("mail_detail_body_loaded", False)) else "",
     }
+    current_artifact = get_mail_artifact(
+        artifact_ref=str(game.get("mail_current_artifact_ref") or ""),
+        repo_root=repo_root,
+    )
     return {
         "mail_mode": True,
         "accounts": account_status_rows,
@@ -636,6 +642,13 @@ def _build_mail_payload(*, game: dict[str, object], repo_root: Path) -> dict[str
         "messages": page_rows,
         "selected_message_key": _mail_message_key(selected_row) if selected_row else "",
         "selected_detail": selected_detail,
+        "last_search_query": str(game.get("mail_last_search_query") or ""),
+        "search_result_refs": [str(item) for item in list(game.get("mail_search_result_refs") or []) if str(item).strip()],
+        "notes": [dict(item) for item in list(game.get("mail_notes") or []) if isinstance(item, dict)],
+        "linked_goal_refs": [str(item) for item in list(game.get("mail_linked_goal_refs") or []) if str(item).strip()],
+        "current_artifact_ref": str(game.get("mail_current_artifact_ref") or ""),
+        "current_artifact": dict(current_artifact or {}) if isinstance(current_artifact, dict) else {},
+        "artifact_count": len(list_mail_artifacts(repo_root=repo_root)),
     }
 
 
@@ -1376,9 +1389,261 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 ),
                 json.dumps({"payload": payload, "redaction": redacted}, ensure_ascii=False),
             )
+        if sub == "search":
+            query = " ".join(args[1:]).strip()
+            if not query:
+                return CommandResult(state, "mail search <query>", handled=False)
+            filters = dict(game.get("mail_filters") or {})
+            filters.clear()
+            for token in query.split():
+                lowered = token.lower()
+                if lowered.startswith("from:"):
+                    filters["from"] = token.split(":", 1)[1]
+                elif lowered.startswith("to:"):
+                    filters["to"] = token.split(":", 1)[1]
+                elif lowered.startswith("subject:"):
+                    filters["subject"] = token.split(":", 1)[1]
+                elif lowered.startswith("mailbox:"):
+                    filters["mailbox"] = token.split(":", 1)[1]
+                elif lowered.startswith("date:"):
+                    value = token.split(":", 1)[1]
+                    if ".." in value:
+                        start, end = value.split("..", 1)
+                        filters["date_from"] = start
+                        filters["date_to"] = end
+                elif lowered.startswith("unread:"):
+                    value = token.split(":", 1)[1]
+                    filters["unread"] = value.lower() in {"1", "true", "yes", "on"}
+                else:
+                    filters["subject"] = f"{filters.get('subject', '')} {token}".strip()
+            game["mail_filters"] = filters
+            game["mail_list_offset"] = 0
+            game["mail_last_search_query"] = query
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            refs = []
+            for row in list(payload.get("messages") or []):
+                if not isinstance(row, dict):
+                    continue
+                ref = dict(row.get("message_ref") or {})
+                refs.append(f"mail://{ref.get('account_id')}/{ref.get('mailbox')}/{ref.get('uid')}")
+            game["mail_search_result_refs"] = refs
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"mail search results={len(refs)}",
+                ),
+                json.dumps(payload, ensure_ascii=False),
+            )
+        if sub == "note":
+            if len(args) < 3 or str(args[1]).lower() != "add":
+                return CommandResult(state, "mail note add <text>", handled=False)
+            text = " ".join(args[2:]).strip()
+            if not text:
+                return CommandResult(state, "mail note add <text>", handled=False)
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            selected = dict(payload.get("selected_detail") or {}).get("message_ref") or {}
+            ref = dict(selected)
+            note = {
+                "message_ref": {
+                    "account_id": str(ref.get("account_id") or ""),
+                    "mailbox": str(ref.get("mailbox") or ""),
+                    "uid": int(ref.get("uid") or 0),
+                    "message_id": str(ref.get("message_id") or ""),
+                },
+                "note": text,
+                "created_at": _now_iso(),
+            }
+            notes = [dict(item) for item in list(game.get("mail_notes") or []) if isinstance(item, dict)]
+            notes.append(note)
+            game["mail_notes"] = notes
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message="mail note added",
+                ),
+                json.dumps(payload, ensure_ascii=False),
+            )
+        if sub == "link-current-to-goal":
+            if len(args) < 2:
+                return CommandResult(state, "mail link-current-to-goal <goal-id>", handled=False)
+            goal_id = str(args[1]).strip()
+            if not goal_id:
+                return CommandResult(state, "mail link-current-to-goal <goal-id>", handled=False)
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            selected = dict(payload.get("selected_detail") or {}).get("message_ref") or {}
+            if not dict(selected):
+                return CommandResult(state, "mail link failed: no selected message", handled=False)
+            links = [str(item) for item in list(game.get("mail_linked_goal_refs") or []) if str(item).strip()]
+            source_ref = f"mail://{selected.get('account_id')}/{selected.get('mailbox')}/{selected.get('uid')}"
+            entry = f"{goal_id}:{source_ref}"
+            if entry not in links:
+                links.append(entry)
+            game["mail_linked_goal_refs"] = links
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"mail linked to goal {goal_id}",
+                ),
+                json.dumps(payload, ensure_ascii=False),
+            )
+        if sub == "artifact":
+            if len(args) < 2:
+                return CommandResult(state, "mail artifact register-current [--scope metadata_only|excerpt|full_body]", handled=False)
+            action = str(args[1]).lower()
+            if action != "register-current":
+                return CommandResult(state, "mail artifact register-current [--scope metadata_only|excerpt|full_body]", handled=False)
+            scope = "metadata_only"
+            for idx, token in enumerate(args[2:], start=2):
+                if str(token).lower() == "--scope" and idx + 1 < len(args):
+                    requested = str(args[idx + 1]).strip().lower()
+                    if requested == "body_excerpt":
+                        requested = "excerpt"
+                    scope = requested
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            detail = dict(payload.get("selected_detail") or {})
+            message_ref = dict(detail.get("message_ref") or {})
+            if not message_ref:
+                return CommandResult(state, "mail artifact failed: no selected message", handled=False)
+            excerpt = str(detail.get("body_text") or "")
+            if scope == "full_body" and "--confirm-full-body" not in [str(item).lower() for item in args[2:]]:
+                return CommandResult(state, "mail artifact full_body requires --confirm-full-body", handled=False)
+            artifact = register_mail_artifact(
+                message_ref=message_ref,
+                scope=scope,
+                redaction_status=str(detail.get("redaction_status") or "not_required"),
+                policy_decision_ref=f"policy:mail:{scope}",
+                excerpt=excerpt,
+                repo_root=repo_root,
+            )
+            game["mail_current_artifact_ref"] = str(artifact.get("artifact_ref") or "")
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"mail artifact registered {artifact.get('artifact_ref')}",
+                ),
+                json.dumps({"artifact": artifact, "payload": payload}, ensure_ascii=False),
+            )
+        if sub == "grant-current-to-goal":
+            if len(args) < 2:
+                return CommandResult(state, "mail grant-current-to-goal <goal-id> [--scope metadata_only|excerpt|full_body] [--confirm-full-body]", handled=False)
+            goal_id = str(args[1]).strip()
+            scope = "metadata_only"
+            for idx, token in enumerate(args[2:], start=2):
+                if str(token).lower() == "--scope" and idx + 1 < len(args):
+                    requested = str(args[idx + 1]).strip().lower()
+                    if requested == "body_excerpt":
+                        requested = "excerpt"
+                    scope = requested
+            if scope == "full_body" and "--confirm-full-body" not in [str(item).lower() for item in args[2:]]:
+                return CommandResult(state, "mail grant full_body requires --confirm-full-body", handled=False)
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            detail = dict(payload.get("selected_detail") or {})
+            message_ref = dict(detail.get("message_ref") or {})
+            if not message_ref:
+                return CommandResult(state, "mail grant failed: no selected message", handled=False)
+            artifact = register_mail_artifact(
+                message_ref=message_ref,
+                scope=scope,
+                redaction_status=str(detail.get("redaction_status") or "not_required"),
+                policy_decision_ref=f"policy:mail:{scope}",
+                excerpt=str(detail.get("body_text") or ""),
+                repo_root=repo_root,
+            )
+            service = GoalArtifactService()
+            artifact_ref = str(artifact.get("artifact_ref") or "")
+            grant_id = f"grant-{hashlib.sha1(f'{goal_id}:{artifact_ref}:{scope}'.encode('utf-8')).hexdigest()[:10]}"
+            grant_payload = {
+                "schema": "source_artifact_grant.v1",
+                "grant_id": grant_id,
+                "goal_id": goal_id,
+                "artifact_ref": artifact_ref,
+                "granted_by": "operator_tui_mail",
+                "granted_at": _now_iso(),
+                "allowed_usages": sorted(set(["read", "use_as_context"])),
+                "data_boundary": "project_private",
+                "sensitivity": "internal",
+                "policy_decision_ref": f"policy:mail:{scope}",
+            }
+            try:
+                created = service.create_grant(goal_id=goal_id, grant=grant_payload)
+            except GoalArtifactServiceError as exc:
+                return CommandResult(state, f"mail grant failed: {exc.reason_code}", handled=False)
+            game["mail_current_artifact_ref"] = artifact_ref
+            payload = _build_mail_payload(game=game, repo_root=repo_root)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"mail granted to goal {goal_id}",
+                ),
+                json.dumps({"grant": created, "artifact": artifact, "payload": payload}, ensure_ascii=False),
+            )
+        if sub == "revoke-grant":
+            if len(args) < 3:
+                return CommandResult(state, "mail revoke-grant <goal-id> <grant-id>", handled=False)
+            goal_id = str(args[1]).strip()
+            grant_id = str(args[2]).strip()
+            try:
+                revoked = GoalArtifactService().revoke_grant(goal_id=goal_id, grant_id=grant_id, revoke_reason="mail_revoke")
+            except GoalArtifactServiceError as exc:
+                return CommandResult(state, f"mail revoke failed: {exc.reason_code}", handled=False)
+            return CommandResult(state.with_updates(status_message=f"mail grant revoked {grant_id}"), json.dumps(revoked, ensure_ascii=False))
+        if sub == "context-envelope":
+            if len(args) < 2:
+                return CommandResult(state, "mail context-envelope <goal-id> [--target cloud_worker|local_worker]", handled=False)
+            goal_id = str(args[1]).strip()
+            target = "local_worker"
+            for idx, token in enumerate(args[2:], start=2):
+                if str(token).lower() == "--target" and idx + 1 < len(args):
+                    target = str(args[idx + 1]).strip()
+            envelope = build_mail_context_envelope(goal_id=goal_id, worker_target=target, repo_root=str(repo_root))
+            return CommandResult(state.with_updates(status_message=f"mail context-envelope {goal_id} target={target}"), json.dumps(envelope, ensure_ascii=False))
         return CommandResult(
             state,
-            "mail | mail account list|status|create|use|disable|delete | mail mailbox <name> | mail open <message-id|uid> | mail load-body [message-id|uid] | mail scroll <delta> | mail filter key=value ...",
+            "mail | mail account list|status|create|use|disable|delete | mail mailbox <name> | mail open <message-id|uid> | mail load-body [message-id|uid] | mail search <query> | mail filter key=value ... | mail note add <text> | mail link-current-to-goal <goal-id> | mail artifact register-current [--scope ...] | mail grant-current-to-goal <goal-id> [--scope ...] [--confirm-full-body] | mail revoke-grant <goal-id> <grant-id> | mail context-envelope <goal-id> [--target ...] | mail scroll <delta>",
             handled=False,
         )
     if command == "diff3":
