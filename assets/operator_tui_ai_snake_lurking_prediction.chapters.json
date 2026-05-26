@@ -1,0 +1,18 @@
+[
+  {
+    "ts": 0.0,
+    "title": "Intro: Lurking mode aktiv"
+  },
+  {
+    "ts": 12.0,
+    "title": "Follow: User bewegt sich zu Artifacts"
+  },
+  {
+    "ts": 32.0,
+    "title": "Prediction-Kommentar + ContextEnvelope"
+  },
+  {
+    "ts": 50.0,
+    "title": "Quiet mode und manuelles Explain"
+  }
+]

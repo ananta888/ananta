@@ -233,3 +233,39 @@ def sanitize_text(text: str) -> str:
 
 def unread_total(chat: dict[str, Any]) -> int:
     return sum(int(ch.get("unread") or 0) for ch in (chat.get("channels") or {}).values())
+
+
+def maybe_add_prediction_comment(
+    chat: dict[str, Any],
+    *,
+    prediction: dict[str, Any],
+    now: float,
+    quiet: bool,
+    forced: bool = False,
+    cooldown_seconds: int = 20,
+) -> bool:
+    """Add a compact proactive AI comment only when policy gates allow it."""
+    if quiet and not forced:
+        return False
+    confidence = float(prediction.get("confidence") or 0.0)
+    if confidence < 0.65 and not forced:
+        return False
+    last_comment_at = float(chat.get("ai_last_proactive_comment_at") or 0.0)
+    if (now - last_comment_at) < max(5, int(cooldown_seconds)) and not forced:
+        return False
+    intent = str(prediction.get("predicted_intent") or "unknown")
+    target_ref = str(prediction.get("target_ref") or "").strip()
+    if not target_ref:
+        target_ref = "aktuellen Bereich"
+    text = f"Ich glaube, du willst zu {target_ref} ({intent}, conf={confidence:.2f})."
+    msg = make_message(
+        channel_id="ai:tutor",
+        channel_type=ChannelType.AI,
+        sender_id="s-ai",
+        sender_kind=SenderKind.AI,
+        text=text,
+        delivery_state=DeliveryState.RECEIVED,
+    )
+    append_message(chat, msg)
+    chat["ai_last_proactive_comment_at"] = float(now)
+    return True

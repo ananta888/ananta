@@ -137,6 +137,8 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             }
             ai_mode = mapping[sub]
             game["ai_snake_mode"] = ai_mode
+            if sub == "explain":
+                game["ai_force_question"] = True
             return CommandResult(
                 state.with_updates(header_logo_game=game, status_message=f"ai mode: {ai_mode}"),
                 f"ai mode {ai_mode}",
@@ -161,8 +163,9 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             prediction = game.get("ai_snake_prediction") if isinstance(game.get("ai_snake_prediction"), dict) else {}
             pred_intent = str(prediction.get("predicted_intent") or "unknown")
             pred_conf = float(prediction.get("confidence") or 0.0)
+            runtime = str(game.get("ai_snake_runtime_status") or "idle")
             return CommandResult(
-                state.with_updates(header_logo_game=game, status_message=f"ai:{ai_mode} pred={pred_intent} conf={pred_conf:.2f}"),
+                state.with_updates(header_logo_game=game, status_message=f"ai:{ai_mode}/{runtime} pred={pred_intent} conf={pred_conf:.2f}"),
                 "ai status",
             )
         return CommandResult(

@@ -50,7 +50,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Es gibt ein eigenes Modul `ai_snake_follow.py` ohne harte LLM-Abhängigkeit.",
             "State enthält mindestens mode, ai_position, target_position, follow_distance, speed_factor, last_user_positions und updated_at.",
@@ -73,7 +73,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "AI-Snake folgt der User-Snake sichtbar langsamer als die User-Snake.",
             "Default-Abstand ist mindestens 4 Zellen Manhattan-Distanz.",
@@ -95,7 +95,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Mode `lurking` wird gesetzt, wenn User-Snake stabil in eine Richtung oder UI-Zone navigiert.",
             "Im Lauer-Modus bewegt sich die AI-Snake maximal jeden zweiten oder dritten Tick.",
@@ -117,7 +117,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T01.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Prediction-Target kann als Koordinate oder UI-Zone gespeichert werden.",
             "Renderer zeigt Zielmarker nur bei confidence >= konfiguriertem Schwellwert.",
@@ -146,7 +146,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Observation-Buffer speichert maximal die letzten 100 Events.",
             "Events enthalten timestamp, kind, normalized_value und optional ref_id.",
@@ -167,7 +167,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Quick-Prediction läuft ohne LLM und ohne Hub.",
             "Output enthält predicted_intent, target_ref, confidence, evidence_event_ids und expires_at.",
@@ -189,7 +189,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Kein Worker-Request häufiger als alle 3 Sekunden pro User-Session im Default.",
             "Kein Worker-Request bei confidence < 0.35, außer User fragt aktiv im Chat.",
@@ -210,7 +210,7 @@
           "priority": "P1",
           "effort": "S",
           "depends_on": ["T02.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Cache-Key basiert auf normalisierter Section, target_ref, intent_kind und context_hash.",
             "Default-TTL liegt zwischen 15s und 60s.",
@@ -240,7 +240,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Artefakt enthält relevante Pfade für TUI renderer, interactive, commands, snake tutor, chat notes und worker client.",
             "Artefakt enthält Symbol-/Funktionsnamen, soweit CodeCompass sie ermitteln kann.",
@@ -262,7 +262,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "ContextEnvelope enthält context_bundle_id, context_hash, retrieval_refs und sensitivity.",
             "Aktive Artefaktselektion wird als retrieval_ref ergänzt.",
@@ -284,7 +284,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T03.01", "T02.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Bei predicted_intent `artifact_explain` werden Artifact-/TUI-Dateien bevorzugt.",
             "Bei predicted_intent `chat` werden Chat-State/Transport/Renderer-Dateien bevorzugt.",
@@ -306,7 +306,7 @@
           "priority": "P2",
           "effort": "S",
           "depends_on": ["T03.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "AI-Antwort zeigt kompakt `ctx: codecompass:<hash>` oder gekürzte ref-Liste.",
             "Bei mehreren refs werden maximal 3 sichtbar angezeigt, Rest als `+N`.",
@@ -551,7 +551,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.02", "T04.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Prediction unter confidence 0.65 erzeugt keine proaktive Chatnachricht.",
             "Proaktive AI-Kommentare haben Default-Cooldown mindestens 20 Sekunden.",
@@ -573,7 +573,7 @@
           "priority": "P2",
           "effort": "S",
           "depends_on": ["T01.03", "T04.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Statuswerte: `following`, `lurking`, `predicting`, `thinking`, `context-ready`, `degraded`.",
             "Status wird in AI-Panel oder Chat-Header sichtbar.",
@@ -594,7 +594,7 @@
           "priority": "P1",
           "effort": "S",
           "depends_on": ["T01.01", "T06.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:ai follow` aktiviert langsames Folgen.",
             "`:ai lurk` aktiviert Lauer-Modus.",
@@ -623,7 +623,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01", "T03.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Policy unterscheidet local_observation, worker_request, lmstudio_prompt und external_provider.",
             "Private Notes sind default nur local_observation als boolean/metadata, nicht Inhalt.",
@@ -645,7 +645,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T07.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Promptbau bricht ab oder redacted, wenn sensible Inhalte für die Zielboundary nicht erlaubt sind.",
             "Reason_code wird im Chat/Systemstatus sichtbar.",
@@ -693,7 +693,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.01", "T01.02", "T01.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Tests für initial state, follow, linger, lurking und off.",
             "Test prüft Mindestabstand über 30 Ticks.",
@@ -714,7 +714,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01", "T02.02", "T02.03", "T02.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Tests für Artifacts/Chat/Notes/Config/unknown Intents.",
             "Tests für confidence-Erhöhung bei stabilen Signalen.",
@@ -734,7 +734,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T03.01", "T03.02", "T04.01", "T04.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Test erzeugt oder lädt CodeCompass-Kontextartefakt.",
             "Test baut AI-Snake Worker Request mit context_hash.",
@@ -754,7 +754,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T05.01", "T05.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Mock valid-json wird akzeptiert.",
             "Mock prose-only führt zu degraded result nach maximal einem Repair.",
@@ -775,7 +775,7 @@
           "priority": "P2",
           "effort": "L",
           "depends_on": ["T01.04", "T04.04", "T06.01", "T03.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Cast zeigt AI-Snake mit Abstand hinter User-Snake.",
             "Cast zeigt Wechsel in Lauer-Modus.",
@@ -804,7 +804,7 @@
           "priority": "P1",
           "effort": "S",
           "depends_on": ["T06.03", "T07.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Doku erklärt `:ai follow`, `:ai lurk`, `:ai quiet`, `:ai explain`, `:ai off`, `:ai status`.",
             "Doku erklärt, dass AI-Snake lokal folgt und LLM nicht pro Tick gefragt wird.",
@@ -824,7 +824,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T02.03", "T03.02", "T04.02", "T05.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Doku enthält Mermaid-Flow für lokale Prediction ohne LLM.",
             "Doku enthält Mermaid-Flow für Worker-/LM-Studio Anfrage.",
