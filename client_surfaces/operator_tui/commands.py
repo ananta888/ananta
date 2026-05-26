@@ -66,6 +66,13 @@ from agent.services.planning_track_planner_service import build_planner_context_
 from agent.services.planning_track_task_integration_service import PlanningTrackTaskIntegrationService
 from agent.services.helpcenter_contract_service import load_helpcenter_index
 from agent.services.helpcenter_ingest_service import ingest_github_failures, StaticGithubWorkflowApiClient
+from agent.services.imap_account_service import (
+    create_imap_account,
+    delete_imap_account,
+    disable_imap_account,
+    list_imap_accounts,
+)
+from agent.services.imap_feature_flag_service import resolve_imap_runtime_state
 
 
 def _now_iso() -> str:
@@ -899,6 +906,120 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             "helpcenter | helpcenter open <analysis-id> | helpcenter ingest github-failures [--repo owner/repo] [--limit N] [--dry-run] | helpcenter suggest-followup [analysis-id]",
             handled=False,
         )
+    if command == "mail":
+        if not args:
+            return CommandResult(
+                state,
+                "mail account list|status|create --display-name <name> --host <host> --port <port> --username <username_ref> --credential-ref <ref> [--sync-policy manual|headers_only|limited_recent] | disable <account-id> | delete <account-id>",
+                handled=False,
+            )
+        sub = str(args[0]).lower()
+        if sub != "account":
+            return CommandResult(state, "mail supports only `mail account ...` currently", handled=False)
+        if len(args) < 2:
+            return CommandResult(state, "mail account list|status|create|disable|delete", handled=False)
+        action = str(args[1]).lower()
+        repo_root = Path.cwd()
+
+        def _option(tokens: list[str], name: str) -> str:
+            key = f"--{name}"
+            for idx, token in enumerate(tokens):
+                if str(token).strip().lower() == key and idx + 1 < len(tokens):
+                    return str(tokens[idx + 1]).strip()
+            return ""
+
+        if action == "list":
+            accounts = list_imap_accounts(repo_root=repo_root)
+            return CommandResult(state.with_updates(status_message=f"mail accounts={len(accounts)}"), json.dumps({"accounts": accounts}, ensure_ascii=False))
+        if action == "status":
+            game = dict(state.header_logo_game or {})
+            cfg = dict(game.get("imap_config") or {"imap": {"enabled": True}})
+            connected = {str(item) for item in list(game.get("imap_connected_account_ids") or []) if str(item).strip()}
+            syncing = {str(item) for item in list(game.get("imap_syncing_account_ids") or []) if str(item).strip()}
+            accounts = list_imap_accounts(repo_root=repo_root)
+            status_rows: list[dict[str, object]] = []
+            for account in accounts:
+                account_id = str(account.get("account_id") or "")
+                if not bool(account.get("enabled", True)):
+                    state_row = {"state": "disabled", "reason_code": "account_disabled"}
+                else:
+                    state_row = resolve_imap_runtime_state(
+                        cfg,
+                        has_account=True,
+                        connected=account_id in connected,
+                        syncing=account_id in syncing,
+                    )
+                status_rows.append(
+                    {
+                        "account_id": account_id,
+                        "display_name": str(account.get("display_name") or ""),
+                        "enabled": bool(account.get("enabled", True)),
+                        **state_row,
+                    }
+                )
+            return CommandResult(
+                state.with_updates(status_message=f"mail account status rows={len(status_rows)}"),
+                json.dumps({"accounts": status_rows}, ensure_ascii=False),
+            )
+        if action == "create":
+            tokens = list(args[2:])
+            if any(str(token).strip().lower() in {"--password", "--token"} for token in tokens):
+                return CommandResult(state, "mail account create requires credential_ref, not password/token", handled=False)
+            display_name = _option(tokens, "display-name")
+            host = _option(tokens, "host")
+            port_text = _option(tokens, "port")
+            username = _option(tokens, "username")
+            credential_ref = _option(tokens, "credential-ref")
+            sync_policy = _option(tokens, "sync-policy") or "headers_only"
+            if not (display_name and host and port_text and username and credential_ref):
+                return CommandResult(
+                    state,
+                    "mail account create --display-name <name> --host <host> --port <port> --username <username_ref> --credential-ref <ref>",
+                    handled=False,
+                )
+            try:
+                port = int(port_text)
+            except ValueError:
+                return CommandResult(state, "mail account create --port must be integer", handled=False)
+            try:
+                account = create_imap_account(
+                    repo_root=repo_root,
+                    display_name=display_name,
+                    host=host,
+                    port=port,
+                    username_ref=username,
+                    credential_ref=credential_ref,
+                    sync_policy=sync_policy,
+                )
+            except ValueError as exc:
+                return CommandResult(state, f"mail account create failed: {exc}", handled=False)
+            return CommandResult(
+                state.with_updates(status_message=f"mail account created {account.get('account_id')}"),
+                json.dumps({"account": account}, ensure_ascii=False),
+            )
+        if action == "disable":
+            if len(args) < 3:
+                return CommandResult(state, "mail account disable <account-id>", handled=False)
+            try:
+                account = disable_imap_account(account_id=str(args[2]).strip(), repo_root=repo_root)
+            except ValueError:
+                return CommandResult(state, "mail account disable failed: imap_account_not_found", handled=False)
+            return CommandResult(
+                state.with_updates(status_message=f"mail account disabled {account.get('account_id')}"),
+                json.dumps({"account": account}, ensure_ascii=False),
+            )
+        if action == "delete":
+            if len(args) < 3:
+                return CommandResult(state, "mail account delete <account-id>", handled=False)
+            try:
+                account = delete_imap_account(account_id=str(args[2]).strip(), repo_root=repo_root)
+            except ValueError:
+                return CommandResult(state, "mail account delete failed: imap_account_not_found", handled=False)
+            return CommandResult(
+                state.with_updates(status_message=f"mail account deleted {account.get('account_id')}"),
+                json.dumps({"deleted_account_id": account.get("account_id")}, ensure_ascii=False),
+            )
+        return CommandResult(state, "mail account list|status|create|disable|delete", handled=False)
     if command == "diff3":
         game = dict(state.header_logo_game or {})
         diff3_state = _get_diff3_state(state)

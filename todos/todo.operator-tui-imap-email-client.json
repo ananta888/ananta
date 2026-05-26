@@ -42,7 +42,7 @@
         "T02.03",
         "T02.04"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M03",
@@ -53,7 +53,7 @@
         "T03.03",
         "T03.04"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M04",
@@ -211,7 +211,7 @@
     {
       "id": "T02.02",
       "title": "Account Verwaltung im TUI/CLI vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "config",
@@ -226,12 +226,12 @@
         "Account kann deaktiviert/gelöscht werden.",
         "Tests prüfen Account create/list/disable ohne echtes Passwort."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T02.03",
       "title": "SecretStore/Keyring Adapter für IMAP Credentials",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security",
@@ -245,12 +245,12 @@
         "Logs enthalten nie Passwort oder Token.",
         "Tests prüfen SecretStore mock und Log-Redaction."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T02.04",
       "title": "IMAP Sync Policy implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "backend",
@@ -265,12 +265,12 @@
         "Body wird nicht automatisch in Volltext synchronisiert.",
         "Tests prüfen Limitierung und no-body-default."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T03.01",
       "title": "Lokalen Mail Metadata Store implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "backend",
@@ -286,12 +286,12 @@
         "Store kann gelöschte/verschobene Mails als stale markieren.",
         "Tests prüfen create/update/stale lookup."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T03.02",
       "title": "Mail Suche über Header und lokale Metadaten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "backend",
@@ -305,7 +305,7 @@
         "Suchergebnisse zeigen source refs und policy state.",
         "Tests prüfen Header-Suche und keine automatische Body-Suche."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T03.03",
@@ -752,13 +752,13 @@
   "tasks_status_summary": {
     "total": 31,
     "by_status": {
-      "todo": 26,
+      "todo": 21,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 5
+      "done": 10
     },
-    "progress_percent_done": 16.13,
+    "progress_percent_done": 32.26,
     "by_priority": {
       "P1": 24,
       "P2": 6,
@@ -771,15 +771,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 4,
-      "remaining": 11
+      "done": 7,
+      "remaining": 8
     },
     "milestones": {
       "total": 8,
-      "todo": 6,
+      "todo": 5,
       "in_progress": 1,
       "blocked": 0,
-      "done": 1
+      "done": 2
     }
   },
   "tasks_type_summary": {
@@ -802,44 +802,44 @@
       "security": {
         "total": 3,
         "by_status": {
-          "todo": 2,
+          "todo": 1,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 1
+          "done": 2
         },
-        "done": 1,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 33.3
+        "progress_percent": 66.7
       },
       "config": {
         "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "backend": {
+        "total": 5,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 1
+          "done": 4
         },
-        "done": 1,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 50.0
-      },
-      "backend": {
-        "total": 5,
-        "by_status": {
-          "todo": 4,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 20.0
+        "progress_percent": 80.0
       },
       "tui": {
         "total": 5,
@@ -971,13 +971,13 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 26,
+    "todo_remaining": 21,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 5,
-    "count_based_percent": 16.1,
-    "weighted_percent": 18.6
+    "done": 10,
+    "count_based_percent": 32.3,
+    "weighted_percent": 33.8
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -1021,10 +1021,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 59.25,
-    "done_weight": 11.0,
-    "remaining_weight": 48.25,
+    "done_weight": 20.0,
+    "remaining_weight": 39.25,
     "blocked_weight": 0.0,
-    "weighted_percent": 18.6
+    "weighted_percent": 33.8
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1038,19 +1038,19 @@
       },
       "M02": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 31.2,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M03": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 50.0,
+        "weighted_percent": 50.0,
+        "status": "in_progress"
       },
       "M04": {
         "total_tasks": 5,
@@ -1097,10 +1097,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T22:24:39.330878Z",
+    "generated_at": "2026-05-26T22:32:53.077127Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "eb400d213384e07b7c6553c9f5669bbd763d1d2d105a9e3b724a18c3f2d3296c",
+    "source_hash": "592b5b6853cc87534a736627d81cc03524f1aed3cfe95499eb414b48f1b41e12",
     "is_stale": false
   }
 }
