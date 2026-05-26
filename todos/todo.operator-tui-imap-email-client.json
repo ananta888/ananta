@@ -76,7 +76,7 @@
         "T05.03",
         "T05.04"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M06",
@@ -86,7 +86,7 @@
         "T06.02",
         "T06.03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M07",
@@ -98,7 +98,7 @@
         "T07.04",
         "T07.05"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M08",
@@ -510,7 +510,7 @@
     {
       "id": "T05.04",
       "title": "AI-Snake Mail Explain/Assist Modus vorbereiten",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "ai",
@@ -524,12 +524,12 @@
         "Keine automatische Zusammenfassung ganzer Inbox.",
         "Tests prüfen Ask über einzelne freigegebene Mail."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T06.01",
       "title": "Attachment Metadata Handling",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "attachments",
@@ -544,12 +544,12 @@
         "AttachmentRef kann als Artefakt registriert werden.",
         "Tests prüfen no-auto-download."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T06.02",
       "title": "Attachment Download und sichere Ablage",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "type": "attachments",
@@ -564,12 +564,12 @@
         "Ausführbare/gefährliche Dateitypen werden markiert.",
         "Tests prüfen Pfad-Traversal-Schutz."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T06.03",
       "title": "Mail Export als EML/Text/JSON",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "medium",
       "type": "export",
@@ -583,12 +583,12 @@
         "Export enthält keine Credentials.",
         "Export kann als GoalOutputArtifact registriert werden."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T07.01",
       "title": "Unit Tests für Schemas und Policy",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
@@ -603,7 +603,7 @@
         "Tests prüfen kein Klartext-Credential.",
         "Tests prüfen default denied Worker-Kontext."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T07.02",
@@ -752,13 +752,13 @@
   "tasks_status_summary": {
     "total": 31,
     "by_status": {
-      "todo": 11,
+      "todo": 6,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 20
+      "done": 25
     },
-    "progress_percent_done": 64.52,
+    "progress_percent_done": 80.65,
     "by_priority": {
       "P1": 24,
       "P2": 6,
@@ -776,10 +776,10 @@
     },
     "milestones": {
       "total": 8,
-      "todo": 3,
+      "todo": 1,
       "in_progress": 1,
       "blocked": 0,
-      "done": 4
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -886,58 +886,58 @@
       "ai": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "attachments": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "export": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "test": {
         "total": 4,
         "by_status": {
-          "todo": 4,
+          "todo": 3,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 25.0
       },
       "e2e": {
         "total": 1,
@@ -971,13 +971,13 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 11,
+    "todo_remaining": 6,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 20,
-    "count_based_percent": 64.5,
-    "weighted_percent": 68.4
+    "done": 25,
+    "count_based_percent": 80.6,
+    "weighted_percent": 80.6
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -1021,10 +1021,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 59.25,
-    "done_weight": 40.5,
-    "remaining_weight": 18.75,
+    "done_weight": 47.75,
+    "remaining_weight": 11.5,
     "blocked_weight": 0.0,
-    "weighted_percent": 68.4
+    "weighted_percent": 80.6
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1062,27 +1062,27 @@
       },
       "M05": {
         "total_tasks": 4,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 75.0,
-        "weighted_percent": 88.2,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M06": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M07": {
         "total_tasks": 5,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 20.0,
+        "weighted_percent": 16.3,
+        "status": "in_progress"
       },
       "M08": {
         "total_tasks": 2,
@@ -1097,10 +1097,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T22:42:25.180044Z",
+    "generated_at": "2026-05-26T22:49:01.907385Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "c0a526cc813e537fceeaa7e5bcd0f8f0e83f9b1585212f2be798dace98cf503e",
+    "source_hash": "9b633e5c49bf5d6adca2fde72166ef98f3747910f9de1d75d746e5d5d7397bf6",
     "is_stale": false
   }
 }

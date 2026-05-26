@@ -716,8 +716,11 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
             lines.append("    :mail filter key=value ... | :mail scroll <delta>")
             lines.append("    :mail note add <text> | :mail link-current-to-goal <goal-id>")
             lines.append("    :mail artifact register-current [--scope metadata_only|excerpt|full_body]")
+            lines.append("    :mail attachment list|download <filename>|register <filename>")
+            lines.append("    :mail export current --format json|text|eml [--include-body --confirm-body] [--goal <goal-id>]")
             lines.append("    :mail grant-current-to-goal <goal-id> [--scope ...] [--confirm-full-body]")
             lines.append("    :mail revoke-grant <goal-id> <grant-id> | :mail context-envelope <goal-id> [--target ...]")
+            lines.append("    :mail snake-explain")
 
     return [_clip(line, width) for line in lines]
 
@@ -1028,6 +1031,28 @@ def _mail_content_lines(payload: dict, *, width: int, compact: bool) -> list[str
     lines.append(_clip(f"  Artifact: {current_artifact_ref or '-'}", width))
     body_text = str(detail.get("body_text") or "").strip()
     lines.append(_clip(f"  Body preview: {body_text[:200] if body_text else '(not loaded)'}", width))
+    attachments = [dict(item) for item in list(detail.get("attachments") or []) if isinstance(item, dict)]
+    lines.append(f"  Attachments: {len(attachments)}")
+    for attachment in attachments[:4]:
+        lines.append(
+            _clip(
+                f"    - {attachment.get('filename') or '-'} "
+                f"type={attachment.get('content_type') or '-'} "
+                f"size={attachment.get('size') or 0} "
+                f"danger={bool(attachment.get('danger'))}",
+                width,
+            )
+        )
+    downloaded = dict(detail.get("attachment_downloaded") or {})
+    if downloaded:
+        lines.append(
+            _clip(
+                f"  Last download: {downloaded.get('filename') or '-'} "
+                f"sha256={str(downloaded.get('sha256') or '')[:16]}... "
+                f"danger={bool(downloaded.get('dangerous'))}",
+                width,
+            )
+        )
     return lines
 
 
