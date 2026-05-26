@@ -13,6 +13,7 @@ class AnantaSnakeUiPreferencesTest {
         AnantaSnakeUiPreferences defaults = AnantaSnakeUiPreferences.defaults();
         assertFalse(defaults.snakeEnabledByDefault());
         assertTrue(defaults.localOnlyMode());
+        assertFalse(defaults.doNotDisturbMode());
         assertFalse(defaults.privacySettings().allowSelectionContent());
         assertFalse(defaults.privacySettings().allowFileContent());
         assertFalse(defaults.privacySettings().allowExternalProviders());
@@ -25,6 +26,7 @@ class AnantaSnakeUiPreferencesTest {
                 100,
                 300,
                 2,
+                false,
                 false,
                 new AnantaSnakePrivacySettings(true, true, true)
         );

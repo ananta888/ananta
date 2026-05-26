@@ -34,6 +34,7 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
     private Spinner followDistanceSpinner;
     private Spinner overlayOpacitySpinner;
     private Button localOnlyModeCheckbox;
+    private Button doNotDisturbModeCheckbox;
     private Button snakeHubEnabledCheckbox;
     private Button allowSelectionContentCheckbox;
     private Button allowFileContentCheckbox;
@@ -102,6 +103,10 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
         localOnlyModeCheckbox.setText("Force Local-only Mode");
         localOnlyModeCheckbox.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false, 3, 1));
 
+        doNotDisturbModeCheckbox = new Button(root, SWT.CHECK);
+        doNotDisturbModeCheckbox.setText("Enable Do-Not-Disturb Mode");
+        doNotDisturbModeCheckbox.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false, 3, 1));
+
         allowSelectionContentCheckbox = new Button(root, SWT.CHECK);
         allowSelectionContentCheckbox.setText("Allow Selection Content for Snake Context");
         allowSelectionContentCheckbox.setLayoutData(new GridData(SWT.LEFT, SWT.CENTER, false, false, 3, 1));
@@ -140,6 +145,7 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
         followDistanceSpinner.setSelection(24);
         overlayOpacitySpinner.setSelection(60);
         localOnlyModeCheckbox.setSelection(true);
+        doNotDisturbModeCheckbox.setSelection(false);
         snakeHubEnabledCheckbox.setSelection(false);
         allowSelectionContentCheckbox.setSelection(false);
         allowFileContentCheckbox.setSelection(false);
@@ -189,6 +195,7 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
         followDistanceSpinner.setSelection(snakeUiPreferences.followDistancePx());
         overlayOpacitySpinner.setSelection(snakeUiPreferences.overlayOpacityPercent());
         localOnlyModeCheckbox.setSelection(snakeUiPreferences.localOnlyMode());
+        doNotDisturbModeCheckbox.setSelection(snakeUiPreferences.doNotDisturbMode());
         allowSelectionContentCheckbox.setSelection(snakeUiPreferences.privacySettings().allowSelectionContent());
         allowFileContentCheckbox.setSelection(snakeUiPreferences.privacySettings().allowFileContent());
         allowExternalProvidersCheckbox.setSelection(snakeUiPreferences.privacySettings().allowExternalProviders());
@@ -239,6 +246,7 @@ public final class AnantaWorkbenchPreferencePage extends PreferencePage implemen
                 followDistanceSpinner.getSelection(),
                 overlayOpacitySpinner.getSelection(),
                 localOnlyModeCheckbox.getSelection(),
+                doNotDisturbModeCheckbox.getSelection(),
                 privacySettings
         );
     }

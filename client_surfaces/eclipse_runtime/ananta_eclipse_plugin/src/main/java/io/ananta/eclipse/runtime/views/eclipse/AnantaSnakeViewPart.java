@@ -26,10 +26,13 @@ public final class AnantaSnakeViewPart extends ViewPart {
     private Label hubConfigLabel;
     private Label contextStatusLabel;
     private Label askResultLabel;
+    private Label modeStatusLabel;
     private Button toggleButton;
     private Button askButton;
     private Button resetContextButton;
     private Button openSettingsButton;
+    private Button hideButton;
+    private Button presentationButton;
 
     @Override
     public void createPartControl(Composite parent) {
@@ -61,6 +64,16 @@ public final class AnantaSnakeViewPart extends ViewPart {
         openSettingsButton.setText("Open Settings");
         openSettingsButton.addListener(SWT.Selection, event -> openSettings());
 
+        hideButton = new Button(parent, SWT.PUSH);
+        hideButton.setLayoutData(new GridData(SWT.LEFT, SWT.TOP, false, false));
+        hideButton.setText("Hide (Temporary)");
+        hideButton.addListener(SWT.Selection, event -> toggleTemporaryHide());
+
+        presentationButton = new Button(parent, SWT.PUSH);
+        presentationButton.setLayoutData(new GridData(SWT.LEFT, SWT.TOP, false, false));
+        presentationButton.setText("Toggle Presentation Mode");
+        presentationButton.addListener(SWT.Selection, event -> togglePresentationMode());
+
         predictionLabel = new Label(parent, SWT.WRAP);
         predictionLabel.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
 
@@ -72,6 +85,9 @@ public final class AnantaSnakeViewPart extends ViewPart {
 
         askResultLabel = new Label(parent, SWT.WRAP);
         askResultLabel.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+
+        modeStatusLabel = new Label(parent, SWT.WRAP);
+        modeStatusLabel.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
 
         Composite overlayContainer = new Composite(parent, SWT.BORDER);
         overlayContainer.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
@@ -123,6 +139,17 @@ public final class AnantaSnakeViewPart extends ViewPart {
         ).open();
     }
 
+    private void toggleTemporaryHide() {
+        AnantaRuntimeBootstrap.snakeService().toggleTemporarilyHidden();
+        refreshUi(AnantaRuntimeBootstrap.snakeService().snapshot());
+    }
+
+    private void togglePresentationMode() {
+        boolean next = !AnantaRuntimeBootstrap.snakeService().isPresentationModeActive();
+        AnantaRuntimeBootstrap.snakeService().setPresentationMode(next);
+        refreshUi(AnantaRuntimeBootstrap.snakeService().snapshot());
+    }
+
     private void refreshUi(AnantaSnakeState state) {
         String message = "enabled=" + state.isEnabled()
                 + ", running=" + state.isRunning()
@@ -148,7 +175,14 @@ public final class AnantaSnakeViewPart extends ViewPart {
                 + ", policy_reason=" + AnantaRuntimeBootstrap.snakeService().lastPolicyReasonCode()
                 + ", summary=" + AnantaRuntimeBootstrap.snakeService().lastContextSummary());
         askResultLabel.setText("ask_result=" + AnantaRuntimeBootstrap.snakeService().lastAskResult());
+        modeStatusLabel.setText("mode=temporary_hidden=" + AnantaRuntimeBootstrap.snakeService().isTemporarilyHidden()
+                + ", do_not_disturb=" + AnantaRuntimeBootstrap.snakeService().isDoNotDisturbActive()
+                + ", presentation=" + AnantaRuntimeBootstrap.snakeService().isPresentationModeActive());
         overlayCanvas.setOpacityPercent(AnantaRuntimeBootstrap.snakeService().overlayOpacityPercent());
-        overlayCanvas.setModel(AnantaSnakeOverlayModel.fromState(state));
+        if (AnantaRuntimeBootstrap.snakeService().isTemporarilyHidden() || AnantaRuntimeBootstrap.snakeService().isPresentationModeActive()) {
+            overlayCanvas.setModel(AnantaSnakeOverlayModel.fromState(AnantaSnakeState.initial()));
+        } else {
+            overlayCanvas.setModel(AnantaSnakeOverlayModel.fromState(state));
+        }
     }
 }

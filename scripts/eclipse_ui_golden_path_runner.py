@@ -27,7 +27,10 @@ def _jar_contains_plugin_metadata(plugin_jar: Path) -> bool:
 def _jar_declares_golden_path_surfaces(plugin_jar: Path) -> tuple[bool, list[str]]:
     required_markers = [
         "io.ananta.eclipse.command.chat",
+        "io.ananta.eclipse.command.snake_toggle",
+        "io.ananta.eclipse.command.snake_ask",
         "io.ananta.eclipse.view.chat",
+        "io.ananta.eclipse.view.snake",
         "io.ananta.eclipse.view.task_list",
         "io.ananta.eclipse.view.artifact",
         "io.ananta.eclipse.view.approval_queue",

@@ -6,6 +6,7 @@ public record AnantaSnakeUiPreferences(
         int followDistancePx,
         int overlayOpacityPercent,
         boolean localOnlyMode,
+        boolean doNotDisturbMode,
         AnantaSnakePrivacySettings privacySettings
 ) {
     public AnantaSnakeUiPreferences {
@@ -22,6 +23,7 @@ public record AnantaSnakeUiPreferences(
                 24,
                 60,
                 true,
+                false,
                 AnantaSnakePrivacySettings.safeDefaults()
         );
     }

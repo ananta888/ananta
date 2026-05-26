@@ -29,6 +29,7 @@ public final class AnantaPreferenceRuntimeStore {
     private static final String KEY_SNAKE_FOLLOW_DISTANCE_PX = "snake_follow_distance_px";
     private static final String KEY_SNAKE_OVERLAY_OPACITY_PERCENT = "snake_overlay_opacity_percent";
     private static final String KEY_SNAKE_LOCAL_ONLY_MODE = "snake_local_only_mode";
+    private static final String KEY_SNAKE_DO_NOT_DISTURB_MODE = "snake_do_not_disturb_mode";
     private static final String KEY_SNAKE_ALLOW_SELECTION_CONTENT = "snake_allow_selection_content";
     private static final String KEY_SNAKE_ALLOW_FILE_CONTENT = "snake_allow_file_content";
     private static final String KEY_SNAKE_ALLOW_EXTERNAL_PROVIDERS = "snake_allow_external_providers";
@@ -86,6 +87,7 @@ public final class AnantaPreferenceRuntimeStore {
                 node.getInt(KEY_SNAKE_FOLLOW_DISTANCE_PX, AnantaSnakeUiPreferences.defaults().followDistancePx()),
                 node.getInt(KEY_SNAKE_OVERLAY_OPACITY_PERCENT, AnantaSnakeUiPreferences.defaults().overlayOpacityPercent()),
                 node.getBoolean(KEY_SNAKE_LOCAL_ONLY_MODE, AnantaSnakeUiPreferences.defaults().localOnlyMode()),
+                node.getBoolean(KEY_SNAKE_DO_NOT_DISTURB_MODE, AnantaSnakeUiPreferences.defaults().doNotDisturbMode()),
                 new AnantaSnakePrivacySettings(
                         node.getBoolean(
                                 KEY_SNAKE_ALLOW_SELECTION_CONTENT,
@@ -111,6 +113,7 @@ public final class AnantaPreferenceRuntimeStore {
         node.putInt(KEY_SNAKE_FOLLOW_DISTANCE_PX, input.followDistancePx());
         node.putInt(KEY_SNAKE_OVERLAY_OPACITY_PERCENT, input.overlayOpacityPercent());
         node.putBoolean(KEY_SNAKE_LOCAL_ONLY_MODE, input.localOnlyMode());
+        node.putBoolean(KEY_SNAKE_DO_NOT_DISTURB_MODE, input.doNotDisturbMode());
         node.putBoolean(KEY_SNAKE_ALLOW_SELECTION_CONTENT, input.privacySettings().allowSelectionContent());
         node.putBoolean(KEY_SNAKE_ALLOW_FILE_CONTENT, input.privacySettings().allowFileContent());
         node.putBoolean(KEY_SNAKE_ALLOW_EXTERNAL_PROVIDERS, input.privacySettings().allowExternalProviders());
