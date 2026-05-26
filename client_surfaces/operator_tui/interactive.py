@@ -198,6 +198,11 @@ class InteractiveOperatorTui:
                 self._snake_commit_message()
                 return
             if self._snake_mode_active():
+                # T04.04: Enter advances guided tour immediately
+                game = self.state.header_logo_game or {}
+                ts_raw = game.get("tutorial_state")
+                if isinstance(ts_raw, dict) and ts_raw.get("guided"):
+                    self._advance_guided_tour_now()
                 return
             if self.state.mode is OperatorMode.COMMAND:
                 self._run_command(self._command_buffer)
@@ -967,6 +972,12 @@ class InteractiveOperatorTui:
             board_h = max(6, int(game.get("board_h", 6)))
         game["board_w"] = board_w
         game["board_h"] = board_h
+        # T01.03: clamp food to new board boundaries after resize
+        food_raw = game.get("food")
+        if isinstance(food_raw, (list, tuple)) and len(food_raw) == 2:
+            fx, fy = int(food_raw[0]), int(food_raw[1])
+            if fx >= board_w or fy >= board_h:
+                game["food"] = (fx % board_w, fy % board_h)
         snake_raw = game.get("snake") or []
         snake = [(int(p[0]), int(p[1])) for p in snake_raw if isinstance(p, (list, tuple)) and len(p) == 2]
         if not snake:
@@ -1064,9 +1075,13 @@ class InteractiveOperatorTui:
         self._maybe_fire_idle_comment(game, now=now)
         # T02.03: process pending :ask question
         self._poll_tutor_ask_result(game)
+        # T02.04: advance pointer blink frame
+        self._tick_tutor_pointer(game, now=now)
         # E04.T04: advance tutorial step if event matches
         self._process_tutorial_event(game, event=self._snake_last_event_fired)
         self._snake_last_event_fired = ""
+        # T04.04: guided tour auto-advance
+        self._tick_guided_tour(game, now=now)
 
         # T01.05: record section visit for first-visit explanation
         current_section = str(self.state.section_id or "dashboard")
@@ -2397,6 +2412,8 @@ class InteractiveOperatorTui:
         history: list[dict[str, object]] = list(game.get("tutorial_propose_history") or [])
         history.append({"at": time.monotonic(), "source": source, "target": "content", "text": tip})
         game["tutorial_propose_history"] = history[-10:]
+        # T02.04: detect section references and set tutor pointer
+        self._maybe_set_tutor_pointer(game, tip)
         # also update s-ai message if it exists
         snakes_raw = game.get("snakes")
         if isinstance(snakes_raw, dict):
@@ -2406,6 +2423,31 @@ class InteractiveOperatorTui:
                 ai["message"] = tip
                 snakes["s-ai"] = ai
                 game["snakes"] = snakes
+
+    def _maybe_set_tutor_pointer(self, game: dict[str, object], tip: str) -> None:
+        """T02.04: wenn ein Sektionsname im Tip vorkommt, Pointer darauf setzen."""
+        from client_surfaces.operator_tui.sections import SECTIONS
+        tip_lower = tip.lower()
+        for section in SECTIONS:
+            if section.id in tip_lower or section.title.lower() in tip_lower:
+                game["tutor_pointer"] = {
+                    "target": section.id,
+                    "expires": time.monotonic() + 2.0,
+                    "blink_frame": 0,
+                }
+                return
+
+    def _tick_tutor_pointer(self, game: dict[str, object], now: float) -> None:
+        """T02.04: Pointer-Blink-Frame erhöhen und nach Ablauf löschen."""
+        ptr = game.get("tutor_pointer")
+        if not isinstance(ptr, dict):
+            return
+        if now >= float(ptr.get("expires", 0)):
+            game.pop("tutor_pointer", None)
+            return
+        ptr = dict(ptr)
+        ptr["blink_frame"] = (int(ptr.get("blink_frame", 0)) + 1) % 6
+        game["tutor_pointer"] = ptr
 
     # ── T02.07: section first-visit explanations ──────────────────────────────
 
@@ -2584,6 +2626,73 @@ class InteractiveOperatorTui:
             )
         except Exception:
             pass
+
+    # ── T04.04: Guided Tour auto-advance ─────────────────────────────────────
+
+    def _tick_guided_tour(self, game: dict[str, object], *, now: float) -> None:
+        """T04.04: Guided Mode – navigiert automatisch alle 15s zur nächsten Sektion."""
+        ts_raw = game.get("tutorial_state")
+        if not isinstance(ts_raw, dict) or not ts_raw.get("guided"):
+            return
+        ts = dict(ts_raw)
+        from client_surfaces.operator_tui.sections import SECTIONS
+        section_ids = [s.id for s in SECTIONS]
+        guided_idx = int(ts.get("guided_section_idx") or 0)
+        guided_next_at = float(ts.get("guided_next_at") or 0.0)
+
+        # initialise on first call
+        if guided_next_at == 0.0:
+            ts["guided_section_idx"] = guided_idx
+            ts["guided_next_at"] = now + 15.0
+            ts["guided_visited"] = []
+            game["tutorial_state"] = ts
+            # navigate immediately to first section and explain
+            section_id = section_ids[guided_idx % len(section_ids)]
+            self._apply_snake_section_target(game, section_id=section_id, now=now)
+            tip = self._get_tutor_text(section_id)
+            if tip:
+                self._inject_tutor_tip(game, tip, source=f"guided:{section_id}")
+            return
+
+        if now < guided_next_at:
+            return
+
+        guided_visited = list(ts.get("guided_visited") or [])
+        current_id = section_ids[guided_idx % len(section_ids)]
+        if current_id not in guided_visited:
+            guided_visited.append(current_id)
+
+        guided_idx += 1
+        if guided_idx >= len(section_ids):
+            # tour complete – show summary and disable guided
+            ts["guided"] = False
+            visited_names = ", ".join(guided_visited)
+            summary = f"Tour abgeschlossen! Besuchte Sektionen: {visited_names}. Starte ':tutorial start snake_mode' für den Snake-Modus."
+            self._inject_tutor_tip(game, summary, source="guided:summary")
+            game["tutorial_state"] = ts
+            return
+
+        next_id = section_ids[guided_idx]
+        ts["guided_section_idx"] = guided_idx
+        ts["guided_next_at"] = now + 15.0
+        ts["guided_visited"] = guided_visited
+        game["tutorial_state"] = ts
+        self._apply_snake_section_target(game, section_id=next_id, now=now)
+        tip = self._get_tutor_text(next_id)
+        if tip:
+            self._inject_tutor_tip(game, tip, source=f"guided:{next_id}")
+
+    def _advance_guided_tour_now(self) -> None:
+        """T04.04: Enter-Taste übernimmt – Guided Tour sofort weiterschalten."""
+        game = dict(self.state.header_logo_game or {})
+        ts_raw = game.get("tutorial_state")
+        if not isinstance(ts_raw, dict) or not ts_raw.get("guided"):
+            return
+        ts = dict(ts_raw)
+        ts["guided_next_at"] = 0.0
+        game["tutorial_state"] = ts
+        self._tick_guided_tour(game, now=time.monotonic())
+        self._set_state(self.state.with_updates(header_logo_game=game))
 
     # ── E03.T03: snake role handling ──────────────────────────────────────────
 

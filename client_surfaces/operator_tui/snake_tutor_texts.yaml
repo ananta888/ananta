@@ -19,9 +19,9 @@ events:
   collision_wall:
     overview: "Grenze erreicht – wie eine Policy, die blockiert!"
     deep: |
-      Die Schlange hat die Spielfeldgrenze berührt. In Ananta entspricht das
-      einer Policy-Grenze: ein Worker versucht auf Daten zuzugreifen, die
-      ihm laut Policy nicht erlaubt sind. Der Request wird blockiert.
+      Die Schlange hat die Spielfeldgrenze berührt. In Ananta ist das wie
+      eine Policy-Grenze: ein Worker greift auf unerlaubte Daten zu.
+      Der Request wird blockiert (least-privilege).
     expert: |
       Policy-Gate in CodeCompass: policies/ Verzeichnis definiert Zugriffsregeln.
       Worker mit Rolle 'external' sehen sensible Artefakte nicht (least-privilege).
@@ -107,9 +107,9 @@ events:
   zone_detail:
     overview: "Detail-Zone: Befehle und Kontext-Infos."
     deep: |
-      Die Detail-Zone zeigt Hilfe-Befehle und Kontext zum ausgewählten Item.
-      Im Inspect-Modus (Enter auf Content-Item) siehst du alle Details.
-      Mit :inspect öffnest du die Detailansicht für das gewählte Element.
+      Die Detail-Zone zeigt Kontext zum ausgewählten Item.
+      Im Inspect-Modus (Enter) siehst du alle Details.
+      Mit :inspect öffnest du die Detailansicht.
     expert: |
       Detail-Rendering in renderer.py:_detail_lines(). Inspect-State via
       OperatorMode.INSPECT. Artefakt-Details via GET /artifacts/{id}/details.

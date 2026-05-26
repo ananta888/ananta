@@ -421,6 +421,12 @@ def _render_splash_header(splash: SplashMachine, state: OperatorState, width: in
 def _navigation_lines(state: OperatorState) -> list[str]:
     lines = [_pane_title("NAV", state.focus == FocusPane.NAVIGATION)]
     nav_focused = state.focus == FocusPane.NAVIGATION
+    # T02.04: tutor pointer – blink marker next to target section
+    game = state.header_logo_game or {}
+    ptr = game.get("tutor_pointer") if isinstance(game.get("tutor_pointer"), dict) else {}
+    ptr_target = str(ptr.get("target") or "") if ptr else ""
+    ptr_blink = int(ptr.get("blink_frame", 0)) if ptr else 0
+    ptr_visible = ptr_blink % 2 == 0  # blink: visible on even frames
     for i, section in enumerate(SECTIONS):
         panel_state = (state.panel_states or {}).get(section.id)
         if nav_focused:
@@ -433,7 +439,10 @@ def _navigation_lines(state: OperatorState) -> list[str]:
                 cursor = DEFAULT_THEME.idle_prefix
         else:
             cursor = DEFAULT_THEME.selected_prefix if section.id == state.section_id else DEFAULT_THEME.idle_prefix
-        lines.append(f"{cursor}{state_prefix(panel_state)} {section.title}")
+        pointer_suffix = ""
+        if ptr_target == section.id and ptr_visible:
+            pointer_suffix = " \x1b[38;2;255;205;130m←\x1b[0m"
+        lines.append(f"{cursor}{state_prefix(panel_state)} {section.title}{pointer_suffix}")
     return lines
 
 
@@ -735,7 +744,10 @@ def _hints_line(state: OperatorState, width: int) -> str:
     hints = hints_for_mode(state.mode)
     game = state.header_logo_game or {}
     if game.get("active") and (state.focus is FocusPane.HEADER or game.get("ui_steering")):
-        hints = "[Ctrl+S] Snake  [U] Tutorial-AI  [O] MouseFollow  [B] Frame  [X/C/V] Select/Copy/Replace  [Z] Clear"
+        if game.get("paused"):
+            hints = "[Space] Resume  [U] Tutorial-AI  [O] MouseFollow  [B] Frame  [X/C/V] Select/Copy/Replace  [Z] Clear"
+        else:
+            hints = "[Ctrl+S] Snake  [Space] Pause  [U] Tutorial-AI  [O] MouseFollow  [B] Frame  [X/C/V] Select/Copy/Replace  [Z] Clear"
     return _clip(hints, width)
 
 
@@ -1082,7 +1094,8 @@ def _overlay_snake_ai_panel(
             pcol = divider_col + 2
             raw = _ANSI_STRIP.sub("", panel_lines[row_idx])
             visible = panel_lines[row_idx]
-            if pcol < width and raw:
+            total_width = split_col + panel_width + 4
+            if pcol < total_width and raw:
                 # pad to panel width
                 pad = max(0, panel_width - len(raw))
                 padded = visible + (" " * pad)
