@@ -6,6 +6,10 @@
 
 @Sponsored by www.ananta.de
 
+**ANANTA** steht fuer **Autonomous Networked Agents Navigate Trusted Artifacts**.
+
+Ananta ist eine offene, local-first Multi-Agenten-Plattform fuer sichere KI-gestuetzte Softwareentwicklung. Sie verbindet Hub-Worker-Orchestrierung, deterministischen Projektkontext, CodeCompass-Artefakte, rollenbasierte Ausfuehrung und Least-Privilege-Policies, damit KI-Agenten produktiv arbeiten koennen, ohne blind Zugriff auf Code, Secrets oder Infrastruktur zu bekommen.
+
 Ananta ist eine kontrollierte Hub-Worker-Plattform fuer goal-basierte Agentenarbeit. Du beschreibst ein Ziel; der Hub plant, priorisiert und delegiert Aufgaben, Worker fuehren die Arbeit in getrennten Laufzeitkontexten aus, und Ergebnisse werden ueber Pruefung und Artefakte nachvollziehbar gemacht.
 
 Der Kern ist bewusst nicht "ein Chatbot mit Tools", sondern ein steuerbares System fuer:
@@ -256,342 +260,101 @@ Kernaussage:
 - Hermes Adapter Architekturgrenze: `docs/architecture/hermes-worker-adapter.md`
 - Hermes Worker Setup und Rollout: `docs/setup/hermes-worker.md`, `docs/release/hermes-rollout-checklist.md`
 - Specialized Worker Guidance: `docs/ml-intern-fit-assessment.md`, `docs/ml-intern-adapter-boundary.md`, `docs/ml-intern-capability-profile.md`, `docs/ml-intern-backend-spike.md`, `docs/specialized-worker-guidance.md`
-- Backend API: `agent/README.md`, `docs/backend.md`, `api-spec.md`
-- Frontend Entwicklung: `frontend-angular/README.md`
-- CLI fuer Goals, Diagnose und Artefakte: `ananta --help`
-- Bootstrap installer + update: `docs/setup/bootstrap-install.md`, `docs/setup/ananta_update.md`
-- Runtime-Setup-Wizard: `ananta init --help`
-- CLI Quickstart: `docs/setup/quickstart.md`
-- CLI Befehlsuebersicht (Nutzerpfad): `docs/cli/commands.md`
-- Developer-Fallback Entry Points: `docs/cli/developer_entrypoints.md`
-- Terminal Banner (ANSI Logo): `docs/development/terminal-logo.md` — zeigt das SVG-basierte Logo auf `ananta status` und der Willkommensseite; steuerbar via `ANANTA_NO_BANNER` und `NO_COLOR`.
+- Backend API: `agent/README.md`, `docs/api/openapi.yaml`, `docs/hub-api.md`
+- CLI/API Golden Path: `docs/golden-path-cli.md`, `docs/cli/commands.md`, `docs/setup/bootstrap-install.md`
+- Domain Events und Audit: `docs/domain-events.md`, `docs/audit-log.md`
+- Integrations- und Connector-Governance: `docs/connector-governance.md`, `docs/integration-governance.md`, `docs/mcp-future-integration-plan.md`
+- Kontext und RAG: `docs/codecompass.md`, `docs/rag-helper.md`, `docs/context-source-prioritization-rules.md`, `docs/context-segmentation-and-pointer-model.md`
+- Prompt-/LLM-Steuerung: `docs/llm-routing.md`, `docs/llm-provider-config.md`, `docs/strict-output-contracts.md`, `docs/prompt-golden-tests.md`
+- Security und Rechte: `docs/security/README.md`, `docs/security/default-deny.md`, `docs/security/least-privilege-policy.md`, `docs/security/cloud-worker-policy.md`
+- Agenten- und Worker-Betrieb: `docs/agent-runtime.md`, `docs/worker-contract.md`, `docs/worker-directory.md`
+- Strategie-/Game-Demo: `docs/ananta-game/README.md`, `docs/ananta-game/rules.md`, `docs/ananta-game/development-plan.md`
+- TUI: `docs/tui/README.md`, `docs/tui/e2e-recording.md`, `docs/tui/terminal-rendering.md`
+- Produkt- und Website-Erklaerung: `docs/product-story.md`, `docs/website-content.md`
+- Roadmap/TODO: `todos/README.md`
+
+## Architektur
+
+```mermaid
+flowchart TD
+    User[User oder Team] --> Goal[Goal]
+    Goal --> Hub[Hub]
+    Hub --> Plan[Plan]
+    Plan --> Task[Task]
+    Task --> Worker[Worker]
+    Worker --> Evidence[Evidence]
+    Evidence --> Artifact[Artifact]
+    Artifact --> Verification[Verification]
+    Verification --> Hub
+```
+
+Die wichtigste Regel: Der Hub bleibt Kontrollpunkt. Worker koennen Aufgaben ausfuehren, aber sie sollen nicht unkontrolliert neue Ziele, Berechtigungen oder Seiteneffekte erzeugen.
+
+## Repository-Struktur
+
+```text
+agent/                 Hub-/Worker-Laufzeit, Services, API
+frontend-angular/      Angular UI
+cli/                   CLI-Einstieg und Kommandos
+docs/                  Architektur, Setup, Governance, Use-Cases
+tests/                 Pytest-, Contract-, Golden- und Integrationsnahes
+todos/                 Strukturierte Aufgabenplaene
+examples/              Beispiele und Demo-Flows
+```
 
 ## Einfache CLI- und API-Beispiele
 
-CLI-Kurzbefehle fuer typische Einstiege:
+Goal per CLI:
 
 ```bash
-ananta init --yes --runtime-mode local-dev --llm-backend ollama --model ananta-default
-ananta first-run
+ananta plan "Analysiere dieses Repository und schlage testbare naechste Schritte vor"
+```
+
+Systemstatus:
+
+```bash
 ananta status
-ananta ask "Was sollte ich als naechstes pruefen?"
-ananta plan "Bereite den Release-Abschluss vor"
-ananta analyze "Analysiere dieses Repository"
-ananta review "Pruefe die Login-Aenderungen"
-ananta diagnose "Frontend erreicht den Hub nicht"
-ananta patch "Plane einen kleinen Fix fuer die Validierung"
-ananta repair-admin "Service restart loop nach Paketupdate"
-ananta new-project "Baue ein kleines Release-Check-Tool fuer Maintainer"
-ananta evolve-project "Erweitere den Dashboard-Flow um einen Projektstartmodus"
-ananta update --help
-ananta tui --help
-ananta doctor
-ananta web
 ```
 
-Die beiden Produkt-Shortcuts nutzen dieselben Kernmodi wie der UI-Wizard: `new_software_project` fuer neue Projekte und `project_evolution` fuer aktive Weiterentwicklung bestehender Projekte.
-
-Dev-Fallback (nur intern/kompatibilitaet): `python -m agent.cli_goals ...` bleibt verfuegbar, ist aber nicht der normale Nutzerpfad.
-
-Minimaler API-Start:
+API-Beispiel:
 
 ```bash
-TOKEN=$(curl -s http://localhost:5000/login -H 'Content-Type: application/json' -d '{"username":"admin","password":"<password>"}' | jq -r '.data.access_token')
-curl -s http://localhost:5000/goals -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"goal":"Analysiere dieses Repository","create_tasks":true}'
+curl http://localhost:5000/api/goals
 ```
 
-Weitere Beispiele stehen in `api-spec.md`.
+## Python-Kompatibilitaet
 
-## Welche Startvariante passt?
+- Unterstuetzt: Python 3.10, 3.11, 3.12
+- Empfohlen lokal: Python 3.11
+- CI prueft Python 3.10, 3.11 und 3.12.
+- Hinweis: Python 3.13 wird derzeit nicht als primare Zielversion behandelt.
 
-| Ziel | Empfohlen | Befehl |
-| --- | --- | --- |
-| Schnell ausprobieren oder Demo ansehen | Profil `demo`, Lite-Stack | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build` |
-| Alltagliche lokale Nutzung | Profil `local-first` oder `developer-local`, Lite-Stack mit `.env` aus `setup.ps1` | `.\setup.ps1`, dann Lite-Stack starten |
-| Ein Image fuer Fullstack (ohne Ollama) | Single-image Quickstart + Fullstack-Overlay | `docker compose -f docker-compose.base.yml -f docker-compose.quickstart-no-ollama.yml -f docker-compose.single-image-fullstack.yml up -d --build` |
-| Frontend/Backend live entwickeln | Profil `developer-local`, Live-Code-Stack | `scripts/compose-test-stack.sh up-live` |
-| Kontrollierte Team-Nutzung | Profil `team-controlled` oder `review-first`, Lite-/Compose-Stack | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build` |
-| Lokale LLM-Runtime mit WSL2/Vulkan nutzen | Profil `local-first`, Lite + Ollama-WSL Overlay | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build` |
-| Mehrere Worker-Nodes testen | Profil `secure-enterprise` oder `distributed-strict`, Distributed Stack | `docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build` |
+## Tests
 
-Neue Nutzer sollten mit dem Lite-Stack starten. Die anderen Varianten sind fuer konkrete Entwicklungs- oder Betriebsziele gedacht.
-
-## Governance-Modi und Produktprofile
-
-- Governance-Modi (safe/balanced/strict): `docs/governance-modes.md`
-- Produktprofile (demo/local-first/developer-local/review-first/team-controlled/secure-enterprise): `docs/product-profiles.md`
-- Effektives Policy-Profil fuer Betreiber: `GET /config` -> `effective_policy_profile`
-- Benchmarks fuer Produkt- und Release-Bewertung: `docs/product-benchmark-suite.md`
-
-## Kanal- und Erweiterungsstrategie (Core First)
-
-- Kernzugang zuerst: Web UI, CLI und API/Webhook sind die priorisierten Nutzflaechen.
-- Externe Messaging-/Kanaladapter werden erst nach stabilem Kernzugang erweitert.
-- Erweiterungen bleiben capability-gebunden und muessen Governance, Policy und Audit respektieren.
-- Tool-Contracts und Worker-Capability-Profile: `docs/tool-contracts.md`, `docs/worker-capability-profiles.md`
-- Backend-/Provider-Contracts und Drittintegrationsregeln: `docs/backend-provider-contracts.md`, `docs/third-party-integration-guidelines.md`
-- Oekosystem-/Marktplatz-Ideen sind bewusst nachgelagert und setzen reife Kern-Contracts voraus.
-
-## Client Surface Runtime Status (aktueller Stand)
-
-- TUI: `runtime_mvp` (Start: `python -m client_surfaces.tui_runtime.ananta_tui --fixture`)
-- Neovim: `runtime_mvp` (Smoke: `python3 scripts/smoke_nvim_runtime.py`)
-- Vim: `deferred` bis Neovim-Runtime-Stabilisierung
-- Eclipse Plugin/Views: `runtime_mvp` inklusive Command-/View-Runtime und Hardening-/CI-Gates (M9+M10)
-
-## Architektur
-- Angular Frontend fuer Visualisierung und Steuerung
-- Hub-Agent fuer Orchestrierung (Tasks, Teams, Role Templates)
-- Team-Konfiguration blueprint-first: wiederverwendbare Blueprints, Team-Instanzen und Advanced-Verwaltung
-- Worker-Agenten fuer LLM-gestuetzte Ausfuehrung
-- Explizite Runtime-Pipelines fuer `sgpt_execute`, `task_propose` und `task_execute`
-- Lokale OpenAI-kompatible Backends wie Ollama oder LM Studio ueber gemeinsames Adaptermodell
-- Persistenz via PostgreSQL (Standard) oder SQLite
-
-Details: `docs/backend.md` und `architektur/README.md`.
-
-## Quickstart (Docker)
-Der kuerzeste Pfad ist der Lite-Stack aus dem Schnellstart oben. Die folgenden Varianten sind fuer Entwicklung, lokale LLM-Runtimes oder verteilte Worker gedacht.
-
-1. Automatisches Setup:
-```powershell
-.\setup.ps1
-```
-Dieses Script prueft Dependencies, generiert `.env` mit sicheren Passwoertern und installiert alle Dependencies automatisch.
-
-Alternativ manuell:
 ```bash
-cp .env.example .env
-# Bearbeiten Sie .env und ersetzen Sie alle Platzhalter-Passwörter
+python -m pytest
 ```
-`.env.example` deckt die Lite-/Compose-Defaults bereits weitgehend ab; `.env.template` ist die kompaktere Vorlage, wenn Werte bewusst neu gesetzt werden sollen. Fuer die Distributed-Variante sollten zusaetzlich `AGENT_TOKEN_GAMMA`, `AGENT_TOKEN_DELTA`, `GAMMA_PORT` und `DELTA_PORT` gesetzt werden.
 
-2. Standard-Start:
+Fokussierte Testsets:
+
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d
+python -m pytest tests/test_goals_api.py tests/test_task_scoped_execution_service.py
+python -m pytest tests/test_artifact_first_completion.py tests/test_artifact_traceability.py
+python -m pytest tests/test_context_source_prioritization.py tests/test_context_segmentation_pointer_model.py
+python -m pytest tests/test_worker_contract.py tests/test_domain_events.py tests/test_audit_log.py
+python -m pytest tests/test_cli_commands.py tests/test_ci_offline_quality.py
+python -m pytest tests/test_connector_governance.py tests/test_integration_governance.py
 ```
-WSL2 mit AMD/Vulkan fuer den Compose-Ollama-Service:
+
+## CI / Quality
+
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
-```
-Distributed mit zusaetzlichen Worker-Nodes:
-```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build
-```
-Windows PowerShell (bei Volume- oder Pfadfehlern):
-```powershell
-$env:COMPOSE_CONVERT_WINDOWS_PATHS=1
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
-```
-Sauberer Neustart:
-```bash
-scripts/compose-test-stack.sh down
-scripts/compose-test-stack.sh up
-```
-Mit WSL2/Vulkan-Overlay:
-```bash
-scripts/compose-test-stack.sh down
-scripts/compose-test-stack.sh up
-```
-Sicheres Cleanup (inkl. Volumes ausser `ollama_data`):
-```bash
-scripts/compose-test-stack.sh clean
-```
-3. Zugriff:
-- Frontend: `http://localhost:4200`
-- Hub API: `http://localhost:5000`
-
-Hinweis zum Test-Compose-Stack:
-- `docker-compose.test.yml` entfernt Host-Port-Mappings absichtlich (`ports: !reset []`), damit Tests intern ueber Compose-DNS laufen.
-- Wenn Sie danach wieder lokal im Browser auf `http://localhost:4200` zugreifen wollen, starten Sie den Frontend-Service wieder mit `docker-compose.base.yml` + `docker-compose-lite.yml` (ohne `docker-compose.test.yml`).
-- Bei Docker in einer nativen WSL2-Distro (ohne Docker-Desktop-Loopback) kann unter Windows zusaetzlich ein `portproxy` noetig sein. Dafuer ist `setup_host_services.ps1` vorbereitet (inkl. Port `4200`).
-
-Live-Modus mit Quellcode-Hot-Reload und Firefox/noVNC:
-```bash
-scripts/compose-test-stack.sh up-live
-scripts/start-firefox-vnc.sh start
-```
-- `up-live` aktiviert automatisch `docker-compose.live-code.yml`.
-- Python-Hub/Worker nutzen dann den lokalen Quellcode per Bind-Mount von `.` nach `/app` und laufen mit `FLASK_DEBUG=1`.
-- Das Angular-Frontend laeuft weiter mit `ng serve --poll 2000` und sieht Aenderungen in `./frontend-angular` direkt.
-- noVNC: `http://localhost:7900` (Passwort im Selenium-Container: `secret`)
-- Im Firefox-Container oeffnen: `http://angular-frontend:4200`
-- Stoppen:
-```bash
-scripts/start-firefox-vnc.sh stop
-scripts/compose-test-stack.sh down
+python -m compileall agent cli tests
+python -m pytest tests/test_ci_offline_quality.py
 ```
 
+Die CI ist bewusst auf reproduzierbare Offline-Pruefungen, Smoke-Flows und Dokumentations-Gates ausgelegt. Live-LLM-Flows bleiben getrennt und optional.
 
-```bashDev-Compose mit WSL2/Vulkan fuer Ollama und Live-Code-Reload fuer Python + Angular:
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.dev-vulkan-live.yml up --build
-```
-- Das Overlay `docker-compose.dev-vulkan-live.yml` kombiniert den bisherigen Live-Code-Modus mit dem WSL2/Vulkan-Ollama-Setup.
-- Python-Container mounten den Projektcode nach `/app` und laufen mit `FLASK_DEBUG=1`, sodass Aenderungen automatisch neu geladen werden.
-- Das Angular-Frontend mountet `./frontend-angular` und nutzt weiter `ng serve --poll 2000`.
+## Lizenz
 
-Frontend waehrend laufender Test-Instanz ansehen (empfohlen):
-- Browser-in-Container im gleichen Compose-Netz starten:
-  `scripts/start-firefox-vnc.sh start`
-- Dann auf dem Host oeffnen: `http://localhost:7900`
-- Im Firefox-Container aufrufen: `http://angular-frontend:4200`
-
-Alternative fuer dauerhaftes Windows-`localhost` (WSL2 ohne Docker Desktop):
-- Administrator-PowerShell:
-  `.\setup_wsl_localhost_portproxy.ps1 -Distro Ubuntu -Ports 4200,7900`
-- Danach sind `http://localhost:4200` und `http://localhost:7900` nach WSL weitergeleitet.
-
-## Entwicklung und Qualitaet
-### Check-Pipeline und Quality-Gates
-Das Projekt nutzt eine vereinheitlichte Check-Pipeline fuer lokale Entwicklung und CI:
-- **Standard Check:** `make check` (fuehrt Formatierung, Linting, Type-Checks, Architektur-Regeln und schnelle Tests aus)
-- **Fast Check:** `make check-fast` (nur Formatierung und Linting)
-- **Deep Check:** `make check-deep` (alle Checks + die gesamte Test-Suite ohne Live-Compose-Tests)
-- **Formatierung:** `make format` (nutzt ruff)
-
-**Verbindliche Quality-Gates:**
-- **Pre-Push Hook:** Ein Git-Hook (`git-hooks/pre-push`) stellt sicher, dass der `Standard Check` erfolgreich durchlaeuft, bevor Code gepusht werden kann. Zur Einrichtung: `git config core.hooksPath git-hooks`.
-- **CI-Enforcement:** Die GitHub Actions Pipeline führt bei jedem Push und Pull Request dieselben Checks aus. Ein Merge ist nur bei erfolgreichem `Standard Check` möglich.
-
-### Architektur-Guardrails (BND-010)
-Um Schichtverletzungen zu vermeiden, werden Import-Regeln automatisch geprueft (`scripts/check_imports.py`):
-- `agent.routes` -> darf nur `services`, `common`, `models`, `auth`, `config`, `utils` importieren.
-- `agent.services` -> darf nur `repositories`, `common`, `models`, `config`, `utils`, `auth` importieren.
-- Direkte Importe von `repositories` in `routes` sind verboten.
-
-### Contract-Tests (CNT-030)
-Zentrale API-Schnittstellen werden durch Contract-Tests (`tests/test_api_contract_tasks.py`) gegen Regressionen geschuetzt. Diese Tests validieren die Response-Struktur gegen Pydantic-Modelle.
-
-### Weitere Tests
-- Backend lokal: `pytest`
-- Frontend lokal: `cd frontend-angular && npm run lint`
-- Frontend E2E: `cd frontend-angular && npm run test:e2e`
-- Frontend E2E gegen laufenden Docker-Stack:
-  `cd frontend-angular && npm run test:e2e:compose`
-- Standard fuer Live-LLM-Tests:
-  `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm frontend-live-llm-test`
-- Alternative ohne WSL2/Vulkan-Overlay:
-  `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-live-llm-test`
-- Die wichtigsten Test-/Overlay-Variablen (`RUN_LIVE_LLM_TESTS`, `LIVE_LLM_MODEL`, `LIVE_LLM_TIMEOUT_SEC`, `E2E_OLLAMA_URL`, `E2E_LMSTUDIO_URL`, `E2E_ADMIN_PASSWORD`) sind jetzt ebenfalls in `.env.example` und `.env.template` vorgemerkt.
-- Live-Backend-Tests gegen Ollama nutzen standardmaessig das schnellere Modell `ananta-smoke`; Timeout/Modell bleiben per Compose-Env uebersteuerbar.
-- Echten Agent-Chain-Live-Test ohne Mock starten:
-  `env RUN_LIVE_LLM_TESTS=1 RUN_LIVE_AGENT_CHAIN_E2E=1 .venv/bin/pytest -q tests/test_live_agent_chain_e2e.py -rs`
-- Falls `ollama` aus der Shell nicht per Docker-DNS aufloesbar ist, nutzt der Live-Agent-Chain-Test nacheinander `OLLAMA_URL`, `E2E_OLLAMA_URL`, `http://ollama:11434`, `http://localhost:11434`, `http://127.0.0.1:11434` und `http://host.docker.internal:11434`.
-- Die konsolidierte Matrix fuer Compose-/Host-/WSL-Erreichbarkeit steht in [docs/container-networking-matrix.md](docs/container-networking-matrix.md).
-
-Wichtige Runtime-Checks:
-- `GET /providers/catalog` fuer verfuegbare Provider/Modelle inklusive `local_openai_backends`
-- `GET /api/sgpt/backends` fuer CLI-Preflight, `verify_command` und lokale Runtime-Ziele
-- `POST /llm/generate` fuer benchmark-basierte Modellwahl ohne explizite Provider-/Modellvorgabe
-- `GET /v1/ananta/capabilities` fuer aktive OpenAI-Compat-Funktionen und effektive Exposure-Policy
-- OpenAI-Compat Self-Loop-/Hop-Guards basieren auf `X-Ananta-Instance-ID` und `X-Ananta-Hop-Count`
-
-Wichtige Security-Policy:
-- OpenAI-Compat und zukuenftige MCP-Exposition werden ueber `exposure_policy` in `/config` explizit gesteuert.
-- Remote-Hub-Ziele koennen additiv ueber `remote_ananta_backends` konfiguriert werden und sind im Provider-Katalog sichtbar.
-- Template-Variablen bleiben standardmaessig warn-only; bei Bedarf kann Admin-CRUD ueber `template_variable_validation.strict=true` in `/config` oder `config.json` unbekannte oder kontext-ungueltige `{{variablen}}` mit 4xx blockieren (optional mit `template_variable_validation.context_scope`).
-- Template-Namen sind eindeutig; API und Datenbank antworten bei Konflikten mit `409 template_name_exists`.
-- Seed-Blueprints werden beim Lesen deterministisch reconciled; referenzierte Blueprints koennen nicht geloescht werden und antworten mit `409 blueprint_in_use`.
-- Der Blueprint-Standardmodus nutzt einen kompakten Katalog (`GET /teams/blueprints/catalog`) mit Work-Profile-Hinweisen und trennt klar zwischen Standard- und Admin-/Studio-Sicht.
-- Public model und Standard-Blueprints: `docs/blueprint-product-model.md`, `docs/standard-blueprints.md`
-- Admin-/Rollout-Details fuer Blueprints und Role-Template-Interna: `docs/blueprint-admin.md`, `docs/blueprint-migration-rollout.md`
-
-Hinweis Redis (Host-Tuning):
-- Falls Redis `vm.overcommit_memory=0` meldet, unter Windows/WSL einmalig setzen:
-  `wsl -d docker-desktop sysctl -w vm.overcommit_memory=1`
-  Details: `docs/DOCKER_WINDOWS.md`, `docs/compose-profiles.md`
-
-Hinweis Ollama unter WSL2/Vulkan:
-- Das optionale Overlay `docker-compose.ollama-wsl.yml` erweitert nur den `ollama`-Service und laesst Hub/Worker unveraendert.
-- Voraussetzung ist WSL2 mit verfuegbarem `/dev/dxg`; das Overlay bindet zusaetzlich `/usr/lib/wsl` read-only in den Container ein.
-- Fuer E2E-/Klicktests ist dieser Weg jetzt Standard ueber `scripts/compose-test-stack.sh` (Overlay standardmaessig aktiv, Opt-out via `ANANTA_USE_WSL_VULKAN=0`).
-- E2E-/Live-Klicktests verwenden dabei fuer Hub/Worker explizit das vereinfachte Auslieferungs-Image aus `Dockerfile.quickstart-no-ollama`.
-- `scripts/compose-test-stack.sh clean` loescht bewusst **nicht** das Volume `ollama_data` (LLM-Modelle bleiben erhalten).
-
-Linting:
-- Backend: `python -m flake8 agent tests`
-- Security-Lint (zusaetzlich in separatem CI-Job): `ruff check agent/ --select=E,F,W,S603,S607`
-- Frontend: `cd frontend-angular && npm run lint`
-
-## Weiterfuehrende Dokumentation
-- `docs/INSTALL_TEST_BETRIEB.md`
-- `docs/local-llm-cli-strategy.md`
-- `docs/ollama-model-routing.md`
-- `docs/deerflow-integration.md`
-- `docs/testing.md`
-- `docs/operator-tui-mouse-snake.md`
-- `README_VERGLEICHSPROJEKTE.md`
-- `api-spec.md`
-- `docs/backend.md`
-- `docs/extensions.md`
-- `docs/hybrid-context-pipeline.md`
-- `docs/coding-conventions.md`
-- `docs/e2e-mock-strategy.md`
-- `docs/smart-dumb-components-guide.md`
-- `docs/blueprint-admin.md`
-- `docs/blueprint-migration-rollout.md`
-- `docs/template-authoring-guide.md`
-- `docs/template-variable-registry.md`
-- `docs/template-variable-migration-notes.md`
-- `docs/responsible-agent-development-manifesto.md`
-
-## Optional Workflow Automation Adapters
-
-Workflow automation (n8n/generic webhook/mock) is optional and disabled by default. Hub policy/approval/audit remain authoritative.
-
-## Controlled Parallelism (Operator Kurzreferenz)
-
-Sichere Parallelitaet wird in Ananta immer begrenzt und policy-gesteuert berechnet.
-
-Wichtige Operator-Knobs:
-
-- `autopilot_security_policies.<level>.max_concurrency_cap`
-- `worker_parallelism.*` (Worker-/Runtime-Kapazitaet)
-- `proposal_budget.max_total_seconds`
-- `proposal_budget.max_llm_calls`
-- `proposal_budget.max_strategy_attempts`
-- `sgpt_routing.backend_parallel_limits.*`
-- `workspace.output_dir_locking_enabled`
-- `output_dir_policy.unsafe_shared` (Default: `false`)
-
-Liveness-Semantik:
-
-- `online`: erreichbar und routbar
-- `busy`: erreichbar, aber Lastlimit erreicht (nicht routbar)
-- `degraded`: erreichbar, temporare Probleme
-- `offline`: nicht erreichbar / wiederholte harte Fehler
-
-Grundregel:
-
-- Concurrency nie direkt "hochdrehen" ohne Messung von p50/p95, Queue-Zeit und Fehlerraten.
-
-### Ollama Parallel Tuning (konservativ)
-
-Empfohlene Startwerte in Compose:
-
-- `OLLAMA_NUM_PARALLEL=2`
-- `OLLAMA_MAX_LOADED_MODELS=1`
-- `OLLAMA_KEEP_ALIVE=5m`
-
-VRAM-orientierte Richtwerte (Startpunkt, dann messen):
-
-| GPU VRAM | NUM_PARALLEL | MAX_LOADED_MODELS |
-| --- | --- | --- |
-| 8 GB | 1 | 1 |
-| 12-16 GB | 2 | 1 |
-| 24 GB+ | 2-4 | 1-2 |
-
-Rollback-Hinweis: Bei steigender p95-Latenz, OOM oder Retry-Stuerme zuerst `OLLAMA_NUM_PARALLEL` wieder reduzieren.
-
-## Source-Grounded Answers
-
-Ananta enforces deterministic source-grounding for factual responses:
-- Only provided `SRC_*` / `RUN_*` identifiers may be cited.
-- Factual claims without valid citations fail verification.
-- Tool-result claims require `RUN_*` evidence.
-- Retrieval provenance anchors include `retrieval_trace_id`, `retrieval_context_hash`, and `retrieval_manifest_hash`.
-
-Architecture details and examples:
-- `docs/architecture/source_grounded_answers.md`
-- `tests/fixtures/bitcoin_mining_demo/`
-- `scripts/run_bitcoin_mining_citation_evidence.py`
+Siehe `LICENSE`.
