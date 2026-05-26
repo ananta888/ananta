@@ -3,8 +3,8 @@
   "version": "1.0",
   "owner": "Peter Stuiber",
   "track": "animated-terminal-header-logo-renderer",
-  "purpose": "Plan fuer ein animiertes, hochqualitatives Ananta-Logo links oben im TUI-Header mit Renderer-Kaskade fuer Kitty Graphics, Sixel und ANSI TrueColor Halfblocks.",
-  "goal": "Das persistente Logo im linken oberen TUI-Header soll nicht nur statisch als ASCII/ANSI-Text erscheinen, sondern optional animiert und in bestmoeglicher Terminal-Bildqualitaet dargestellt werden. Der Renderer muss terminalfaehigkeitsbasiert automatisch den besten verfuegbaren Modus waehlen und robust auf einfache ANSI-Ausgabe zurueckfallen.",
+  "purpose": "Plan fuer ein animiertes, hochqualitatives Ananta-Logo im normalen TUI-Headermodus mit Renderer-Kaskade fuer Kitty Graphics, Sixel und ANSI TrueColor Halfblocks. Im aktiven Snake-Modus bleibt der Snake-Header logo-frei.",
+  "goal": "Das persistente Logo im linken oberen TUI-Header soll nur im normalen Modus optional animiert und in bestmoeglicher Terminal-Bildqualitaet dargestellt werden. Im aktiven Snake-Modus bleibt die snake-zentrierte Anzeige ohne Logo. Der Renderer muss terminalfaehigkeitsbasiert automatisch den besten verfuegbaren Modus waehlen und robust auf einfache ANSI-Ausgabe zurueckfallen.",
   "status_scale": [
     "todo",
     "in_progress",
@@ -25,7 +25,7 @@
   ],
   "scope": {
     "in_scope": [
-      "Animiertes Logo links oben im kompakten TUI-Header",
+      "Animiertes Logo links oben im kompakten TUI-Header nur im normalen Modus",
       "SVG/PNG-basierte Frame-Erzeugung aus ananta.svg",
       "Renderer-Kaskade: Kitty Graphics, Sixel, ANSI TrueColor Halfblocks, optional ASCII-Fallback",
       "Terminal-Faehigkeitserkennung und manuelle Overrides per Env/CLI",
@@ -464,8 +464,8 @@
         "client_surfaces/operator_tui/logo_renderer/animated_header.py"
       ],
       "acceptance_criteria": [
-        "Das Header-Layout kennt eine reservierte Logo-Zone links oben mit Breite/Hoehe.",
-        "Statuszeilen werden rechts neben der Logo-Zone gerendert, unabhaengig vom konkreten Renderer.",
+        "Das Header-Layout kennt eine reservierte Logo-Zone links oben mit Breite/Hoehe im normalen Modus.",
+        "Statuszeilen werden rechts neben der Logo-Zone gerendert, unabhaengig vom konkreten Renderer; im aktiven Snake-Modus ersetzt die Snake-Zone den Logo-Bereich.",
         "Textbasierte ANSI-Renderer koennen weiterhin als normale Zeilen in das Layout einfliessen.",
         "Bildprotokoll-Renderer koennen die reservierte Zone direkt zeichnen, ohne Status-Text zu vermischen."
       ]
@@ -786,7 +786,7 @@
     "done": 30
   },
   "definition_of_done": [
-    "Das kleine Logo links oben kann in der TUI animiert werden, ohne den Statusbereich zu zerstoeren.",
+    "Das kleine Logo links oben kann in der TUI im normalen Modus animiert werden, ohne den Statusbereich zu zerstoeren; im aktiven Snake-Modus wird kein Logo angezeigt.",
     "Auto-Renderer waehlt deterministisch den besten verfuegbaren Modus: Kitty, Sixel, ANSI, Fallback.",
     "ANSI-Fallback funktioniert ohne optionale Bildprotokolle und ohne interaktives Spezialterminal.",
     "Sixel und Kitty sind optional und brechen den Start nicht, wenn sie nicht verfuegbar sind.",
@@ -795,7 +795,7 @@
     "Dokumentation beschreibt Windows 11 WSL2, Windows Terminal und alternative Terminals knapp und praktisch."
   ],
   "summary_notes": [
-    "Fokus liegt nur auf dem persistenten Header-Logo links oben, nicht auf Vollbild-Splash oder kompletter 3D-Engine.",
+    "Fokus liegt auf dem persistenten Header-Logo links oben im normalen Modus; im aktiven Snake-Modus bleibt der Header logo-frei. Kein Fokus auf Vollbild-Splash oder komplette 3D-Engine.",
     "Die bestehende SVG zu PNG zu ANSI-Pipeline soll nicht weggeworfen, sondern als robuster Baseline-Renderer extrahiert werden.",
     "Bildprotokoll-Renderer muessen als Overlay/Zeichenbereich gedacht werden; der Statusbereich darf nicht direkt mit Bild-Escape-Sequenzen vermischt werden."
   ]

@@ -1,5 +1,10 @@
 # Terminal Header Logo Renderer
 
+Mode rule:
+
+- Normal mode: compact header can render the Ananta logo (animated/static depending on renderer settings).
+- Active snake mode: header switches to snake panel and does not render the logo in the top-left area.
+
 ## Current baseline path (before protocol-specific renderers)
 
 The compact TUI header logo currently uses this deterministic path:
