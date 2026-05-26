@@ -7,6 +7,7 @@ from pathlib import Path
 from agent.services.planning_track_pipeline_service import compute_tasks_status_summary
 from client_surfaces.operator_tui.commands import execute_command
 from client_surfaces.operator_tui.models import OperatorState
+from client_surfaces.operator_tui.renderer import render_operator_shell
 
 
 def _state() -> OperatorState:
@@ -232,3 +233,40 @@ def test_plan_summary_recompute_updates_selected_output(monkeypatch, tmp_path: P
     assert result.handled is True
     payload = json.loads(result.message)
     assert payload["summary_recalculation_status"] in {"not_needed", "recalculated"}
+
+
+def test_plan_track_e2e_repair_then_adopt(monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
+    inconsistent = json.loads(fixture.read_text(encoding="utf-8"))
+    inconsistent.pop("tasks_status_summary", None)
+    inconsistent.pop("tasks_type_summary", None)
+    inconsistent.pop("progress_summary", None)
+    inconsistent.pop("weighted_progress_summary", None)
+    inconsistent.pop("milestone_progress_summary", None)
+    inconsistent.pop("derived_summary_metadata", None)
+
+    state = _state().with_updates(
+        header_logo_game={
+            "active_goal_id": "goal-plan-e2e-repair",
+            "planner_mock_output": json.dumps(inconsistent, ensure_ascii=False),
+        }
+    )
+    planned = execute_command(":plan track", state)
+    assert planned.handled is True
+    payload = json.loads(planned.message)
+    assert payload["planning_status"] == "valid"
+    selected_track = dict(payload.get("selected_track") or {})
+    assert selected_track["tasks_status_summary"]["total"] == len(list(selected_track.get("tasks") or []))
+    assert selected_track.get("summary_recalculation_status") in {"recalculated", "not_needed"}
+
+    rendered = render_operator_shell(planned.state.with_updates(section_id="artifacts"), width=170, height=44)
+    assert "Derived summary: status=fresh" in rendered or "Derived summary: status=repaired" in rendered
+
+    output_id = str(payload["selected_output_id"])
+    adopted = execute_command(f":plan track adopt {output_id}", planned.state)
+    assert adopted.handled is True
+    adopted_payload = json.loads(adopted.message)
+    assert adopted_payload["active_output_id"] == output_id

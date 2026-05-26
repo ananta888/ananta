@@ -32,12 +32,40 @@ The artifact is the planning truth source; executable tasks are runtime projecti
 
 1. Extract JSON payload from planner output (including fenced JSON).
 1. Validate payload against `todo.track.schema.json`.
-1. Recompute `tasks_status_summary` deterministically and repair summary mismatch when possible.
+1. Recompute derived summary blocks deterministically from `tasks[]` and repair summary mismatch when possible.
 1. Apply planning quality gates (critical path/milestone integrity, large-goal constraints).
 1. Persist output artifact + execution provenance.
 1. Mark invalid or degraded outputs as non-adoptable.
 
 Repair is bounded (single repair attempt) and cannot silently promote invalid outputs to active plans.
+
+Derived summary set:
+
+- `tasks_status_summary`
+- `tasks_type_summary`
+- `progress_summary`
+- `weighted_progress_summary`
+- `milestone_progress_summary`
+- `derived_summary_metadata`
+
+`derived_summary_metadata.source_hash` is recomputed from normalized `tasks[]`, `milestones[]`, and `critical_path_tasks`.
+Mismatch indicates stale or planner-provided summary content and triggers recomputation/repair before persistence.
+
+## Count-based vs weighted progress
+
+- **Count-based** (`progress_summary.count_based_percent`) uses done task count over total tasks.
+- **Weighted** (`weighted_progress_summary.weighted_percent`) uses deterministic task weights (priority, risk, critical path, task type).
+- Both are shown in TUI and both are derived from `tasks[]` (never trusted from raw planner output).
+
+## Recalculation status and adoption safety
+
+Planning outputs carry summary recompute metadata:
+
+- `summary_recalculation_status`: `not_needed | recalculated | repaired | failed`
+- `old_summary_hash`, `new_summary_hash`
+- `repaired_fields`
+
+Only valid outputs with fresh derived summaries are adoptable. Invalid/degraded outputs remain non-adoptable.
 
 ## Example planning track JSON
 
