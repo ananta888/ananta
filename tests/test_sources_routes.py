@@ -57,3 +57,11 @@ def test_sources_refresh_routes(client, admin_auth_header, monkeypatch, tmp_path
     due_refresh = client.post("/sources/refresh", headers=admin_auth_header, json={"dry_run": True})
     assert due_refresh.status_code == 200
     assert due_refresh.json["data"]["dry_run"] is True
+
+    cache_status = client.get("/sources/keycloak-official-docs/cache", headers=admin_auth_header)
+    assert cache_status.status_code == 200
+    assert "total_bytes" in cache_status.json["data"]
+
+    cache_clear = client.post("/sources/keycloak-official-docs/cache/clear", headers=admin_auth_header, json={})
+    assert cache_clear.status_code == 200
+    assert "removed_files" in cache_clear.json["data"]

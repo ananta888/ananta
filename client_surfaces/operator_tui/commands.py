@@ -156,11 +156,13 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         action = str(args[0]).lower() if args else "list"
         registry = SourceRegistry()
         snapshots = SourceSnapshotStore()
+        cache = refresh_service = None
         for descriptor in load_builtin_source_descriptors():
             source_id = str(descriptor.get("source_id") or "").strip()
             if source_id and registry.get_source(source_id) is None:
                 registry.create_source(descriptor)
         refresh_service = SourceRefreshService(registry=registry, snapshots=snapshots)
+        cache = refresh_service.cache
         if action == "list":
             items = registry.list_sources(include_disabled=True)
             parts: list[str] = []
@@ -214,7 +216,28 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 state.with_updates(status_message=f"sources cite {source_id}"[:240]),
                 rendered,
             )
-        return CommandResult(state, "sources: list | refresh <id> | snapshots <id> | cite <id>", handled=False)
+        if action == "cache":
+            if len(args) < 2:
+                return CommandResult(state, "sources cache <source-id> [clear]", handled=False)
+            source_id = str(args[1]).strip()
+            if registry.get_source(source_id) is None:
+                return CommandResult(state, f"sources: unknown source_id {source_id}", handled=False)
+            op = str(args[2]).lower() if len(args) > 2 else "status"
+            if op == "clear":
+                removed = int(cache.clear_source(source_id=source_id))
+                stats = cache.stats_for_source(source_id=source_id)
+                msg = (
+                    f"sources cache {source_id} cleared removed={removed} "
+                    f"raw={stats['raw_files']} extracted={stats['extracted_files']} bytes={stats['total_bytes']}"
+                )
+                return CommandResult(state.with_updates(status_message=msg[:240]), msg)
+            stats = cache.stats_for_source(source_id=source_id)
+            msg = (
+                f"sources cache {source_id} raw={stats['raw_files']} extracted={stats['extracted_files']} "
+                f"bytes={stats['total_bytes']}"
+            )
+            return CommandResult(state.with_updates(status_message=msg[:240]), msg)
+        return CommandResult(state, "sources: list | refresh <id> | snapshots <id> | cite <id> | cache <id> [clear]", handled=False)
     if command == "ai":
         sub = str(args[0]).lower() if args else "status"
         game = dict(state.header_logo_game or {})

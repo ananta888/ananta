@@ -46,10 +46,25 @@ class SourceCache:
                 removed += 1
         return removed
 
+    def stats_for_source(self, *, source_id: str) -> dict[str, int]:
+        base = self._source_dir(source_id)
+        raw_dir = base / "raw"
+        extracted_dir = base / "extracted"
+        raw_files = [p for p in raw_dir.glob("*") if p.is_file()] if raw_dir.exists() else []
+        extracted_files = [p for p in extracted_dir.glob("*") if p.is_file()] if extracted_dir.exists() else []
+        raw_bytes = sum(p.stat().st_size for p in raw_files)
+        extracted_bytes = sum(p.stat().st_size for p in extracted_files)
+        return {
+            "raw_files": len(raw_files),
+            "raw_bytes": raw_bytes,
+            "extracted_files": len(extracted_files),
+            "extracted_bytes": extracted_bytes,
+            "total_bytes": raw_bytes + extracted_bytes,
+        }
+
     def total_size_bytes(self) -> int:
         total = 0
         for path in self._root.rglob("*"):
             if path.is_file():
                 total += path.stat().st_size
         return total
-

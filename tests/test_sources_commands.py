@@ -70,3 +70,10 @@ def test_sources_commands_list_refresh_snapshots_cite(monkeypatch, tmp_path) -> 
     assert cite.handled is True
     assert "snapshot_id=" in cite.message
 
+    cache = execute_command(":sources cache keycloak-official-docs", cite.state)
+    assert cache.handled is True
+    assert "sources cache keycloak-official-docs" in cache.message
+
+    cache_clear = execute_command(":sources cache keycloak-official-docs clear", cache.state)
+    assert cache_clear.handled is True
+    assert "cleared removed=" in cache_clear.message

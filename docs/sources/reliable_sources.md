@@ -33,3 +33,10 @@ flowchart LR
 - Zeigt pro Quelle: Typ, Trust-Level, latest Snapshot, Refresh-Aktion, Citation.
 - Smartphone/Android: Card-Layout statt breiter Tabellen; kein horizontales Scrollen nötig.
 
+## Betrieb / Operator-TUI
+
+- `:sources list`
+- `:sources refresh <source-id> [--dry-run]`
+- `:sources snapshots <source-id>`
+- `:sources cite <source-id>`
+- `:sources cache <source-id> [clear]`
