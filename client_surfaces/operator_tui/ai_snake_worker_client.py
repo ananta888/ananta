@@ -21,6 +21,7 @@ class WorkerTask:
     submitted_at: float
     timeout_seconds: float
     future: Future[dict[str, Any]]
+    signature: str = ""
     cancellation_reason: str = ""
 
 
@@ -63,7 +64,7 @@ class AiSnakeWorkerClient:
             },
         }
 
-    def submit(self, payload: dict[str, Any]) -> WorkerTask | None:
+    def submit(self, payload: dict[str, Any], *, signature: str = "") -> WorkerTask | None:
         mode = str(payload.get("mode") or "")
         timeout_seconds = max(self._timeout_seconds, float(payload.get("budget", {}).get("max_latency_ms", 2000)) / 1000.0)
         task = WorkerTask(
@@ -71,6 +72,7 @@ class AiSnakeWorkerClient:
             mode=mode,
             submitted_at=time.time(),
             timeout_seconds=timeout_seconds,
+            signature=str(signature or ""),
             future=self._executor.submit(self._dispatch, dict(payload)),
         )
         with self._lock:
@@ -80,6 +82,9 @@ class AiSnakeWorkerClient:
                     return None
                 self._active_predict = task
             elif mode in {"explain_artifact", "answer_chat"}:
+                if self._active_predict and not self._active_predict.future.done():
+                    self._active_predict.cancellation_reason = "cancelled_by_chat_priority"
+                    self._active_predict.future.cancel()
                 if self._active_explain_chat and not self._active_explain_chat.future.done():
                     task.future.cancel()
                     return None
@@ -94,20 +99,37 @@ class AiSnakeWorkerClient:
             task.cancellation_reason = str(reason)
             return task.future.cancel()
 
-    def poll(self, task: WorkerTask, *, now: float | None = None) -> dict[str, Any] | None:
+    def poll(self, task: WorkerTask, *, now: float | None = None, current_signature: str = "") -> dict[str, Any] | None:
         ts = time.time() if now is None else float(now)
+        if current_signature and task.signature and task.signature != current_signature:
+            task.future.cancel()
+            return {"status": "degraded", "error": "stale_result", "request_id": task.request_id}
         if task.future.done():
             try:
                 raw = task.future.result()
             except Exception as exc:
-                return {"status": "degraded", "error": str(exc), "request_id": task.request_id}
+                error_text = str(exc)
+                lowered = error_text.lower()
+                if "refused" in lowered or "unavailable" in lowered or "connection" in lowered:
+                    error_text = "worker_unavailable"
+                return {"status": "degraded", "error": error_text, "request_id": task.request_id}
             parsed = parse_worker_response(raw)
             parsed["request_id"] = task.request_id
+            parsed["signature"] = task.signature
+            self._clear_active_task(task)
             return parsed
         if (ts - task.submitted_at) > task.timeout_seconds:
             task.future.cancel()
+            self._clear_active_task(task)
             return {"status": "degraded", "error": "timeout", "request_id": task.request_id}
         return None
+
+    def _clear_active_task(self, task: WorkerTask) -> None:
+        with self._lock:
+            if self._active_predict is task:
+                self._active_predict = None
+            if self._active_explain_chat is task:
+                self._active_explain_chat = None
 
 
 def parse_worker_response(raw: dict[str, Any]) -> dict[str, Any]:
@@ -116,7 +138,7 @@ def parse_worker_response(raw: dict[str, Any]) -> dict[str, Any]:
 
     payload = raw
     if "response_text" in raw and isinstance(raw.get("response_text"), str):
-        payload = _parse_json_payload(raw.get("response_text", ""))
+        payload = _parse_json_payload(raw.get("response_text", ""), allow_fenced=False)
         if not isinstance(payload, dict):
             return {"status": "degraded", "error": "invalid_json_response"}
 
@@ -143,19 +165,19 @@ def parse_worker_response(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def repair_and_parse_response(raw_text: str, *, repair_fn: Callable[[str], str] | None = None) -> dict[str, Any]:
-    parsed = _parse_json_payload(raw_text)
+    parsed = _parse_json_payload(raw_text, allow_fenced=False)
     if isinstance(parsed, dict):
         return parse_worker_response(parsed)
     if repair_fn is None:
         return {"status": "degraded", "error": "invalid_json_response"}
     repaired = repair_fn(raw_text)
-    second = _parse_json_payload(repaired)
+    second = _parse_json_payload(repaired, allow_fenced=True)
     if not isinstance(second, dict):
         return {"status": "degraded", "error": "invalid_json_after_repair"}
     return parse_worker_response(second)
 
 
-def _parse_json_payload(raw_text: str) -> dict[str, Any] | None:
+def _parse_json_payload(raw_text: str, *, allow_fenced: bool) -> dict[str, Any] | None:
     text = str(raw_text or "").strip()
     if not text:
         return None
@@ -163,6 +185,8 @@ def _parse_json_payload(raw_text: str) -> dict[str, Any] | None:
         parsed = json.loads(text)
         return parsed if isinstance(parsed, dict) else None
     except json.JSONDecodeError:
+        if not allow_fenced:
+            return None
         match = _FENCE_RX.search(text)
         if not match:
             return None

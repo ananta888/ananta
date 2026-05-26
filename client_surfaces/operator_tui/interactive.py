@@ -42,6 +42,7 @@ from client_surfaces.operator_tui.ai_snake_policy import apply_policy_to_payload
 from client_surfaces.operator_tui.ai_snake_observation import ObservationBuffer
 from client_surfaces.operator_tui.ai_snake_prediction import PredictionGate, quick_predict
 from client_surfaces.operator_tui.ai_snake_prediction_cache import PredictionCache
+from client_surfaces.operator_tui.ai_snake_worker_client import AiSnakeWorkerClient, WorkerTask
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, ArtifactIntentDetector, IntentConfidence
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
@@ -118,6 +119,9 @@ class InteractiveOperatorTui:
         self._ai_observation = ObservationBuffer(max_events=100)
         self._ai_prediction_gate = PredictionGate(min_interval_seconds=3.0, min_confidence=0.35, stable_ms=500)
         self._ai_prediction_cache = PredictionCache(ttl_seconds=30)
+        self._ai_worker_client = AiSnakeWorkerClient()
+        self._ai_worker_task: WorkerTask | None = None
+        self._ai_last_signature = ""
         # E01/E02: new runtime state
         self._snake_idle_since: float = 0.0
         self._snake_last_event_fired: str = ""
@@ -1411,6 +1415,9 @@ class InteractiveOperatorTui:
             max_refs=12,
         )
         signature = f"{prediction.get('predicted_intent')}|{prediction.get('target_ref')}|{section}"
+        if signature != self._ai_last_signature:
+            self._ai_worker_client.cancel_pending_predict(reason="local_signature_changed")
+            self._ai_last_signature = signature
         cache_key = self._ai_prediction_cache.make_key(
             section=section,
             target_ref=str(prediction.get("target_ref") or ""),
@@ -1453,6 +1460,53 @@ class InteractiveOperatorTui:
             selected_artifact_allowed=selected_allowed,
             external_provider=False,
         )
+        if (
+            gate_decision.allow_worker_request
+            and not cache_hit
+            and worker_policy.allowed
+            and str(game.get("ai_snake_mode") or "lurking_follow") != "off"
+            and isinstance(worker_payload, dict)
+            and not bool(worker_payload.get("blocked"))
+        ):
+            request = self._ai_worker_client.build_request(
+                mode="predict_intent",
+                observation_summary=dict(worker_payload.get("observation_summary") or {}),
+                quick_prediction=dict(worker_payload.get("quick_prediction") or {}),
+                context_envelope_ref=dict(worker_payload.get("context_envelope_ref") or {}),
+            )
+            submitted = self._ai_worker_client.submit(request, signature=signature)
+            if submitted is not None:
+                self._ai_worker_task = submitted
+
+        worker_result: dict[str, Any] | None = None
+        if self._ai_worker_task is not None:
+            worker_result = self._ai_worker_client.poll(self._ai_worker_task, now=now, current_signature=signature)
+            if worker_result is not None:
+                self._ai_worker_task = None
+                game["ai_snake_worker_response"] = worker_result
+                if (
+                    worker_result.get("status") == "degraded"
+                    and str(worker_result.get("error") or "") == "timeout"
+                    and isinstance(game.get("chat_state"), dict)
+                ):
+                    from client_surfaces.operator_tui.chat_state import (
+                        ChannelType,
+                        DeliveryState,
+                        SenderKind,
+                        append_message,
+                        make_message,
+                    )
+
+                    msg = make_message(
+                        channel_id="ai:tutor",
+                        channel_type=ChannelType.AI,
+                        sender_id="system",
+                        sender_kind=SenderKind.SYSTEM,
+                        text="* [system] AI worker timeout – nutze lokale Prediction.",
+                        delivery_state=DeliveryState.RECEIVED,
+                    )
+                    append_message(cast(dict[str, Any], game["chat_state"]), msg)
+
         ai_mode = str(game.get("ai_snake_mode") or "lurking_follow")
         follow_state_raw = game.get("ai_snake_follow_state")
         follow_state = dict(follow_state_raw) if isinstance(follow_state_raw, dict) else make_follow_state(mode=ai_mode)
@@ -1468,21 +1522,39 @@ class InteractiveOperatorTui:
                     board_h=max(1, int(game.get("board_h") or 6)),
                 )
         response = game.get("ai_snake_worker_response")
-        if isinstance(response, dict):
-            follow_state = apply_worker_follow_update(
-                follow_state,
-                follow_mode_update=str(response.get("follow_mode_update") or ""),
-                prediction_target=str(response.get("target_ref") or ""),
-                confidence=float(response.get("confidence") or 0.0),
-            )
+        if isinstance(response, dict) and str(response.get("status") or "ok") == "ok":
+            if float(response.get("expires_at") or 0.0) < now:
+                response = {"status": "degraded", "error": "stale_result"}
+                game["ai_snake_worker_response"] = response
+            elif float(response.get("confidence") or 0.0) >= 0.65:
+                prediction = {
+                    **prediction,
+                    "predicted_intent": str(response.get("predicted_intent") or prediction.get("predicted_intent") or "unknown"),
+                    "target_ref": str(response.get("target_ref") or prediction.get("target_ref") or ""),
+                    "confidence": float(response.get("confidence") or prediction.get("confidence") or 0.0),
+                    "expires_at": float(response.get("expires_at") or prediction.get("expires_at") or now + 20.0),
+                }
+                follow_state = apply_worker_follow_update(
+                    follow_state,
+                    follow_mode_update=str(response.get("follow_mode_update") or ""),
+                    prediction_target=str(response.get("target_ref") or ""),
+                    confidence=float(response.get("confidence") or 0.0),
+                )
 
         runtime_status = "idle"
+        worker_response = game.get("ai_snake_worker_response") if isinstance(game.get("ai_snake_worker_response"), dict) else {}
         if ai_mode == "off":
             runtime_status = "off"
+        elif str(worker_response.get("status") or "") == "degraded":
+            runtime_status = "degraded"
+        elif self._ai_worker_task is not None:
+            runtime_status = "thinking"
+        elif cache_hit:
+            runtime_status = "context-ready"
+        elif gate_decision.reason in {"prediction_not_stable", "rate_limited"}:
+            runtime_status = "predicting"
         elif ai_mode == "quiet":
             runtime_status = "quiet"
-        elif ai_mode == "point_to_target":
-            runtime_status = "pointing"
         elif str(follow_state.get("mode") or "") == "follow":
             runtime_status = "following"
         elif str(follow_state.get("mode") or "") == "lurking":
@@ -1525,6 +1597,9 @@ class InteractiveOperatorTui:
                 "lmstudio_prompt": prompt_payload,
             },
             "allow_proactive_comment": allow_proactive_comment,
+            "worker_result_status": str((game.get("ai_snake_worker_response") or {}).get("status") or ""),
+            "worker_result_error": str((game.get("ai_snake_worker_response") or {}).get("error") or ""),
+            "pending_worker_request": self._ai_worker_task is not None,
         }
 
     def _update_multi_snake_state(
