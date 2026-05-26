@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 import json
+import hashlib
+from datetime import UTC, datetime
 
+from agent.artifacts.artifact_access_policy import ArtifactAccessPolicy
+from agent.artifacts.artifact_candidate_service import ArtifactCandidateService
+from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
 from agent.sources.citation_formatter import format_citation
 from agent.sources.builtin_sources import load_builtin_source_descriptors
 from agent.sources.source_refresh_service import SourceRefreshService
@@ -11,6 +16,10 @@ from client_surfaces.operator_tui.actions import dispatch_action, parse_action
 from client_surfaces.operator_tui.ai_snake_learning import apply_prediction_feedback, event_for_prediction_feedback
 from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.ai_snake_context import get_ai_context
+from client_surfaces.operator_tui.goal_artifact_filters import (
+    filter_goal_artifact_view,
+    normalize_goal_artifact_filters,
+)
 from client_surfaces.operator_tui.ai_snake_training_import_export import (
     export_training_bundle_to_path,
     export_training_markdown,
@@ -32,8 +41,42 @@ from client_surfaces.operator_tui.ai_snake_training_store import (
     save_patterns,
     save_active_profile,
 )
-from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState
+from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState, PanelState
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id, section_ids
+
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _active_goal_id(state: OperatorState) -> str:
+    game = dict(state.header_logo_game or {})
+    return str(game.get("active_goal_id") or "").strip()
+
+
+def _require_active_goal(state: OperatorState) -> tuple[str | None, CommandResult | None]:
+    goal_id = _active_goal_id(state)
+    if goal_id:
+        return goal_id, None
+    return None, CommandResult(state, "goal command requires active goal (:goal use <goal-id>)", handled=False)
+
+
+def _load_goal_artifact_payload(*, state: OperatorState, goal_id: str) -> dict:
+    service = GoalArtifactService()
+    graph = service.get_goal_graph(goal_id)
+    filters = normalize_goal_artifact_filters(dict((state.header_logo_game or {}).get("goal_artifact_filters") or {}))
+    filtered = filter_goal_artifact_view(
+        source_grants=list(graph.get("source_grants") or []),
+        source_usages=list(graph.get("source_usages") or []),
+        output_artifacts=list(graph.get("output_artifacts") or []),
+        filters=filters,
+    )
+    return {
+        "goal_artifacts_mode": True,
+        "goal_id": goal_id,
+        "filters": filters,
+        **filtered,
+    }
 
 
 def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
@@ -238,6 +281,204 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             )
             return CommandResult(state.with_updates(status_message=msg[:240]), msg)
         return CommandResult(state, "sources: list | refresh <id> | snapshots <id> | cite <id> | cache <id> [clear]", handled=False)
+    if command == "goal":
+        if not args:
+            return CommandResult(state, "goal: use <goal-id> | artifacts [filter ...|clear-filter] | sources candidates", handled=False)
+        action = str(args[0]).lower()
+        game = dict(state.header_logo_game or {})
+        service = GoalArtifactService()
+        if action == "use":
+            if len(args) < 2:
+                return CommandResult(state, "goal use <goal-id>", handled=False)
+            goal_id = str(args[1]).strip()
+            if not goal_id:
+                return CommandResult(state, "goal use <goal-id>", handled=False)
+            game["active_goal_id"] = goal_id
+            payload = _load_goal_artifact_payload(state=state.with_updates(header_logo_game=game), goal_id=goal_id)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"active goal {goal_id}",
+                ),
+                f"goal {goal_id} active",
+            )
+        goal_id, error = _require_active_goal(state)
+        if error is not None or goal_id is None:
+            return error or CommandResult(state, "active goal required", handled=False)
+        if action == "artifacts":
+            filters = dict(game.get("goal_artifact_filters") or {})
+            if len(args) >= 2 and str(args[1]).lower() == "clear-filter":
+                filters = {}
+                game["goal_artifact_filters"] = {}
+            elif len(args) >= 2 and str(args[1]).lower() == "filter":
+                for token in args[2:]:
+                    text = str(token).strip()
+                    if "=" not in text:
+                        continue
+                    key, value = text.split("=", 1)
+                    if key.strip() in {"source_id", "artifact_type", "sensitivity", "status", "worker_id"}:
+                        if value.strip():
+                            filters[key.strip()] = value.strip()
+                game["goal_artifact_filters"] = normalize_goal_artifact_filters(filters)
+            payload = _load_goal_artifact_payload(state=state.with_updates(header_logo_game=game), goal_id=goal_id)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            active_filters = payload.get("filters") or {}
+            filter_label = ", ".join(f"{k}={v}" for k, v in active_filters.items()) if active_filters else "none"
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"goal artifacts {goal_id} filters={filter_label}",
+                ),
+                json.dumps(payload, ensure_ascii=False),
+            )
+        if action == "sources":
+            if len(args) < 2:
+                return CommandResult(state, "goal sources candidates", handled=False)
+            sub = str(args[1]).lower()
+            if sub != "candidates":
+                return CommandResult(state, "goal sources candidates", handled=False)
+            rows = ArtifactCandidateService(goal_artifact_service=service).list_candidates(goal_id=goal_id)
+            return CommandResult(
+                state.with_updates(status_message=f"goal sources candidates {goal_id}: {len(rows)}"),
+                json.dumps({"goal_id": goal_id, "candidates": rows}, ensure_ascii=False),
+            )
+        if action == "source":
+            if len(args) < 2:
+                return CommandResult(state, "goal source grant|revoke|detail ...", handled=False)
+            sub = str(args[1]).lower()
+            if sub == "grant":
+                if len(args) < 3:
+                    return CommandResult(state, "goal source grant <artifact-ref> --usage use_as_context", handled=False)
+                artifact_ref = str(args[2]).strip()
+                usage = "use_as_context"
+                for idx, token in enumerate(args[3:], start=3):
+                    if str(token).lower() == "--usage" and idx + 1 < len(args):
+                        usage = str(args[idx + 1]).strip()
+                policy = ArtifactAccessPolicy().evaluate(
+                    goal_id=goal_id,
+                    artifact_sensitivity="internal",
+                    requested_usage=usage,
+                    worker_kind="general",
+                    provider_location="local",
+                    data_boundary="project_private",
+                )
+                if policy.decision != "allow":
+                    return CommandResult(state, f"grant denied reason={policy.reason_code}", handled=False)
+                grant_id = f"grant-{hashlib.sha1(f'{goal_id}:{artifact_ref}:{usage}'.encode('utf-8')).hexdigest()[:10]}"
+                grant_payload = {
+                    "schema": "source_artifact_grant.v1",
+                    "grant_id": grant_id,
+                    "goal_id": goal_id,
+                    "artifact_ref": artifact_ref,
+                    "granted_by": "operator_tui",
+                    "granted_at": _now_iso(),
+                    "allowed_usages": sorted(set(["read", usage])),
+                    "data_boundary": "project_private",
+                    "sensitivity": "internal",
+                    "policy_decision_ref": policy.policy_decision_ref,
+                }
+                try:
+                    created = service.create_grant(goal_id=goal_id, grant=grant_payload)
+                except GoalArtifactServiceError as exc:
+                    return CommandResult(state, f"grant failed reason={exc.reason_code}", handled=False)
+                return CommandResult(
+                    state.with_updates(status_message=f"goal source granted {grant_id}"),
+                    json.dumps(created, ensure_ascii=False),
+                )
+            if sub == "revoke":
+                if len(args) < 3:
+                    return CommandResult(state, "goal source revoke <grant-id>", handled=False)
+                grant_id = str(args[2]).strip()
+                try:
+                    revoked = service.revoke_grant(goal_id=goal_id, grant_id=grant_id, revoke_reason="operator_tui_revoke")
+                except GoalArtifactServiceError as exc:
+                    return CommandResult(state, f"revoke failed reason={exc.reason_code}", handled=False)
+                return CommandResult(
+                    state.with_updates(status_message=f"goal source revoked {grant_id}"),
+                    json.dumps(revoked, ensure_ascii=False),
+                )
+            if sub == "detail":
+                if len(args) < 3:
+                    return CommandResult(state, "goal source detail <grant-id>", handled=False)
+                grant_id = str(args[2]).strip()
+                graph = service.get_goal_graph(goal_id)
+                for grant in list(graph.get("source_grants") or []):
+                    if str(grant.get("grant_id") or "") != grant_id:
+                        continue
+                    detail = {
+                        "grant_id": grant_id,
+                        "artifact_ref": grant.get("artifact_ref"),
+                        "data_boundary": grant.get("data_boundary"),
+                        "sensitivity": grant.get("sensitivity"),
+                        "allowed_usages": grant.get("allowed_usages"),
+                        "policy_decision_ref": grant.get("policy_decision_ref"),
+                        "expires_at": grant.get("expires_at"),
+                        "revoked_at": grant.get("revoked_at"),
+                    }
+                    return CommandResult(state.with_updates(status_message=f"goal source detail {grant_id}"), json.dumps(detail, ensure_ascii=False))
+                return CommandResult(state, f"grant not found: {grant_id}", handled=False)
+            return CommandResult(state, "goal source grant|revoke|detail ...", handled=False)
+        return CommandResult(state, "goal: use <goal-id> | artifacts [filter ...|clear-filter] | sources candidates", handled=False)
+    if command == "artifact":
+        if len(args) < 2:
+            return CommandResult(state, "artifact provenance <output-artifact-id>", handled=False)
+        action = str(args[0]).lower()
+        if action != "provenance":
+            return CommandResult(state, "artifact provenance <output-artifact-id>", handled=False)
+        goal_id, error = _require_active_goal(state)
+        if error is not None or goal_id is None:
+            return error or CommandResult(state, "active goal required", handled=False)
+        output_id = str(args[1]).strip()
+        graph = GoalArtifactService().get_goal_graph(goal_id)
+        outputs = list(graph.get("output_artifacts") or [])
+        output = next((row for row in outputs if str(row.get("output_artifact_id") or "") == output_id), None)
+        if output is None:
+            return CommandResult(state, f"output artifact not found: {output_id}", handled=False)
+        usages = list(graph.get("source_usages") or [])
+        grants_by_id = {str(row.get("grant_id") or ""): row for row in list(graph.get("source_grants") or [])}
+        usage_rows = [row for row in usages if str(row.get("usage_id") or "") in set(list(output.get("input_usage_refs") or []))]
+        sources: list[dict[str, object]] = []
+        for row in usage_rows:
+            grant = grants_by_id.get(str(row.get("grant_id") or ""), {})
+            revoked_after_use = bool(grant and grant.get("revoked_at"))
+            sources.append(
+                {
+                    "usage_id": row.get("usage_id"),
+                    "artifact_ref": row.get("artifact_ref"),
+                    "grant_id": row.get("grant_id"),
+                    "revoked_after_use": revoked_after_use,
+                    "source_reference": row.get("source_reference"),
+                }
+            )
+        detail = {
+            "output_artifact_id": output.get("output_artifact_id"),
+            "goal_id": output.get("goal_id"),
+            "task_id": output.get("task_id"),
+            "worker_id": output.get("worker_id"),
+            "content_hash": output.get("content_hash"),
+            "input_usage_refs": output.get("input_usage_refs") or [],
+            "sources": sources,
+            "note": "no input artifacts recorded" if not usage_rows else "",
+        }
+        return CommandResult(
+            state.with_updates(status_message=f"artifact provenance {output_id}"),
+            json.dumps(detail, ensure_ascii=False),
+        )
     if command == "ai":
         sub = str(args[0]).lower() if args else "status"
         game = dict(state.header_logo_game or {})
