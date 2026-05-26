@@ -29,6 +29,7 @@ from agent.routes.voice import voice_bp
 from agent.routes.tasks import register_tasks_blueprints, tasks_bp
 from agent.routes.teams import teams_bp
 from agent.routes.webhooks import webhooks_bp
+from agent.routes.sources import sources_bp
 from agent.routes.debug.prompt_traces import prompt_traces_bp
 from agent.routes.debug.prompt_render import prompt_render_bp
 from agent.routes.debug.backend_observability import backend_observability_bp
@@ -66,6 +67,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(freecad_client_surface_bp, url_prefix="/api/client-surfaces/freecad")
     app.register_blueprint(integrations_workflows_bp)
     app.register_blueprint(webhooks_bp)
+    app.register_blueprint(sources_bp)
     app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
     app.register_blueprint(prompt_traces_bp)
     app.register_blueprint(prompt_render_bp)

@@ -1,0 +1,49 @@
+{
+  "schema": "source_descriptor.v1",
+  "source_id": "wikimedia-wikipedia-initial-dump",
+  "source_type": "wikimedia_dump",
+  "display_name": "Wikimedia Wikipedia Initial Dump",
+  "enabled": true,
+  "trust_level": "official_foundation_dump",
+  "fetch_source": {
+    "url": "https://dumps.wikimedia.org/",
+    "method": "GET",
+    "refresh_interval": "7d",
+    "cache_policy": "cache_by_snapshot_url",
+    "expected_format": "xml.bz2",
+    "additional_urls": [
+      "https://meta.wikimedia.org/wiki/Data_dumps"
+    ]
+  },
+  "citation_source": {
+    "canonical_url": "https://dumps.wikimedia.org/",
+    "title": "Wikimedia Dumps",
+    "publisher": "Wikimedia Foundation",
+    "version_label": "dewiki-initial-mvp",
+    "retrieved_at": "2026-05-26T00:00:00Z",
+    "license_ref": "CC BY-SA 4.0",
+    "citation_text": "Wikipedia/Wikimedia dump import. Attribution according to Wikimedia licensing terms."
+  },
+  "license": {
+    "name": "CC BY-SA 4.0",
+    "ref": "https://creativecommons.org/licenses/by-sa/4.0/"
+  },
+  "snapshot_policy": {
+    "immutable": true,
+    "dedupe_by_hash": true
+  },
+  "retention_policy": {
+    "keep_latest": 12,
+    "max_age_days": 730
+  },
+  "extensions": {
+    "language_default": "de",
+    "language_optional": [
+      "en"
+    ],
+    "dump_type_default": "pages-articles-multistream",
+    "large_source": true,
+    "streaming_required": true,
+    "attribution_required": true
+  }
+}

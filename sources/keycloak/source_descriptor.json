@@ -1,0 +1,43 @@
+{
+  "schema": "source_descriptor.v1",
+  "source_id": "keycloak-official-docs",
+  "source_type": "keycloak_docs",
+  "display_name": "Keycloak Official Documentation",
+  "enabled": true,
+  "trust_level": "official_vendor_project",
+  "fetch_source": {
+    "url": "https://www.keycloak.org/documentation",
+    "method": "GET",
+    "refresh_interval": "24h",
+    "cache_policy": "respect_http_cache_headers",
+    "expected_format": "html",
+    "additional_urls": [
+      "https://www.keycloak.org/guides",
+      "https://www.keycloak.org/documentation-api"
+    ]
+  },
+  "citation_source": {
+    "canonical_url": "https://www.keycloak.org/documentation",
+    "title": "Keycloak Documentation",
+    "publisher": "Keycloak Authors / keycloak.org",
+    "version_label": "latest",
+    "retrieved_at": "2026-05-26T00:00:00Z",
+    "license_ref": "license_unknown",
+    "citation_text": "Keycloak Documentation, keycloak.org, retrieved 2026-05-26."
+  },
+  "license": {
+    "name": "Unknown (check upstream pages)",
+    "ref": "license_unknown"
+  },
+  "snapshot_policy": {
+    "immutable": true,
+    "dedupe_by_hash": true
+  },
+  "retention_policy": {
+    "keep_latest": 20,
+    "max_age_days": 365
+  },
+  "extensions": {
+    "version_policy": "extract version from documentation page if available"
+  }
+}

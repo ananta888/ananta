@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/sources/source_descriptor.v1.json",
+  "title": "Source Descriptor v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "source_id",
+    "source_type",
+    "display_name",
+    "trust_level",
+    "fetch_source",
+    "citation_source",
+    "license",
+    "snapshot_policy",
+    "retention_policy"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "source_descriptor.v1"
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,120}$"
+    },
+    "source_type": {
+      "type": "string",
+      "enum": [
+        "keycloak_docs",
+        "wikimedia_dump",
+        "web_doc",
+        "local_dump"
+      ]
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "trust_level": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "fetch_source": {
+      "type": "object",
+      "required": [
+        "url",
+        "method",
+        "refresh_interval",
+        "cache_policy",
+        "expected_format"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "GET"
+          ]
+        },
+        "refresh_interval": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "cache_policy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "expected_format": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "additional_urls": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "maxItems": 100
+        }
+      },
+      "additionalProperties": false
+    },
+    "citation_source": {
+      "type": "object",
+      "required": [
+        "canonical_url",
+        "title",
+        "publisher",
+        "version_label",
+        "retrieved_at",
+        "license_ref",
+        "citation_text"
+      ],
+      "properties": {
+        "canonical_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "publisher": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "version_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "retrieved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "license_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "citation_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        }
+      },
+      "additionalProperties": false
+    },
+    "license": {
+      "type": "object",
+      "required": [
+        "name",
+        "ref"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      },
+      "additionalProperties": false
+    },
+    "snapshot_policy": {
+      "type": "object",
+      "required": [
+        "immutable"
+      ],
+      "properties": {
+        "immutable": {
+          "type": "boolean"
+        },
+        "dedupe_by_hash": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "retention_policy": {
+      "type": "object",
+      "required": [
+        "keep_latest"
+      ],
+      "properties": {
+        "keep_latest": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "max_age_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3650
+        }
+      },
+      "additionalProperties": false
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

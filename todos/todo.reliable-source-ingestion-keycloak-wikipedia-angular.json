@@ -47,7 +47,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält source_id, source_type, display_name, trust_level, fetch_source, citation_source, license, snapshot_policy und retention_policy.",
             "fetch_source enthält url, method, refresh_interval, cache_policy und expected_format.",
@@ -70,7 +70,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Snapshot enthält snapshot_id, source_id, created_at, retrieved_at, content_hash, metadata_hash, byte_size, item_count und status.",
             "status erlaubt queued, downloading, validating, indexed, failed, superseded.",
@@ -93,7 +93,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T01.01", "T01.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Registry kann Quellen anlegen, aktualisieren, deaktivieren und listen.",
             "Store kann Snapshots pro source_id speichern und latest indexed snapshot ermitteln.",
@@ -116,7 +116,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T01.01", "T01.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "SourceReference enthält source_id, snapshot_id, chunk_id, canonical_url, title, license_ref und retrieved_at.",
             "Jeder RAG-Chunk aus Keycloak/Wikipedia hat eine SourceReference.",
@@ -144,7 +144,7 @@
           "priority": "P1",
           "effort": "S",
           "depends_on": ["T01.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "source_id ist `keycloak-official-docs`.",
             "fetch_source nutzt offizielle URLs von keycloak.org.",
@@ -166,7 +166,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01", "T01.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Fetcher lädt mindestens Documentation Landing Page, Guides Landing Page und Admin/API-Referenzlinks aus Descriptor.",
             "Fetcher respektiert HTTP Cache Header, soweit vorhanden.",
@@ -188,7 +188,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T02.02", "T01.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Chunk enthält doc_title, section_title, canonical_url und source_reference.",
             "Chunkgröße ist konfigurierbar, Default 800-1600 Wörter oder äquivalentes Tokenbudget.",
@@ -210,7 +210,7 @@
           "priority": "P2",
           "effort": "L",
           "depends_on": ["T02.01", "T02.02", "T01.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Angular-Frontend hat eine Sources-Ansicht oder erweitert bestehende Knowledge/CodeCompass-Ansicht.",
             "Keycloak-Quelle zeigt Name, trust_level, canonical URL, latest snapshot status und retrieved_at.",
@@ -239,7 +239,7 @@
           "priority": "P1",
           "effort": "S",
           "depends_on": ["T01.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "source_id ist `wikimedia-wikipedia-initial-dump`.",
             "Descriptor verweist auf offizielle Wikimedia Downloads / Dumps.",
@@ -261,7 +261,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Dokumentiert ist eine Default-Strategie für Start: z. B. dewiki pages-articles/content export oder kleinerer Abstract/Subset-Modus.",
             "Dokument enthält Pro/Contra für full pages-articles, abstracts, Kiwix/OpenZIM und Wikimedia Enterprise HTML dumps.",
@@ -283,7 +283,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T03.01", "T01.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Downloader lädt große Dateien streamend in Chunks.",
             "Downloader unterstützt Resume, wenn Server/Datei es zulässt.",
@@ -305,7 +305,7 @@
           "priority": "P1",
           "effort": "XL",
           "depends_on": ["T03.03", "T01.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Parser verarbeitet gewählte MVP-Dump-Art streamend oder chunkweise.",
             "Jeder Artikel/Chunk enthält title, page_id sofern vorhanden, revision/timestamp sofern vorhanden und SourceReference.",
@@ -328,7 +328,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T03.01", "T03.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Jeder Wikipedia-Chunk enthält license_ref und attribution_text.",
             "Attribution nennt Wikipedia/Wikimedia, Artikeltitel, Snapshot/Dump und canonical URL soweit möglich.",
@@ -350,7 +350,7 @@
           "priority": "P2",
           "effort": "L",
           "depends_on": ["T03.01", "T03.03", "T03.05"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "UI zeigt Sprache, Dump-Art, byte_size, item_count, retrieved_at und latest status.",
             "UI zeigt Attribution/Lizenz-Hinweis gut sichtbar.",

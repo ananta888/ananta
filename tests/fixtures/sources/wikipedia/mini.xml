@@ -1,0 +1,32 @@
+<mediawiki>
+  <page>
+    <title>Ananta</title>
+    <ns>0</ns>
+    <id>1</id>
+    <revision>
+      <id>11</id>
+      <timestamp>2026-05-26T00:00:00Z</timestamp>
+      <text>Ananta is a fictional project. It provides source ingestion and citation tracking. This article is intentionally short but has enough words to become at least one chunk for tests. Ananta supports Keycloak and Wikimedia imports.</text>
+    </revision>
+  </page>
+  <page>
+    <title>Ananta (Begriffsklärung)</title>
+    <ns>0</ns>
+    <id>2</id>
+    <revision>
+      <id>22</id>
+      <timestamp>2026-05-26T00:00:00Z</timestamp>
+      <text>Ananta may refer to several topics.</text>
+    </revision>
+  </page>
+  <page>
+    <title>RedirectTarget</title>
+    <ns>0</ns>
+    <redirect title="Ananta"/>
+    <revision>
+      <id>33</id>
+      <timestamp>2026-05-26T00:00:00Z</timestamp>
+      <text>#REDIRECT [[Ananta]]</text>
+    </revision>
+  </page>
+</mediawiki>
