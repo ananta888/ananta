@@ -152,20 +152,44 @@ def append_behavior_event(
 ) -> bool:
     paths = ensure_training_layout()
     refs_list = [str(item).strip() for item in (refs or []) if str(item).strip()][:8]
+    mapped_type = {
+        "section_visit": "section_change",
+        "movement_vector": "movement",
+        "artifact_focus": "artifact_selected",
+        "notes_usage": "notes_state",
+    }.get(str(event_type or "").strip(), str(event_type or "").strip())
+    mapped_retention = {
+        "ephemeral": "ephemeral",
+        "rolling_7d": "standard",
+        "rolling_30d": "long",
+        "short": "short",
+        "standard": "standard",
+        "long": "long",
+    }.get(str(retention_hint or "").strip(), "standard")
+    refs_obj: dict[str, str] = {}
+    for value in refs_list:
+        if value.startswith("section:"):
+            refs_obj["section_ref"] = value
+        elif "/" in value or "." in value:
+            refs_obj["artifact_ref"] = value
+        elif value.startswith("cmd:"):
+            refs_obj["command_ref"] = value
+    normalized_value = str(value_norm or "").strip()[:200]
+    if str(privacy_class or "") == "private_local":
+        normalized_value = "notes_active" if normalized_value else "private_event"
     payload = {
-        "schema_version": "ai_snake_behavior_event.v1",
         "event_id": f"evt_{datetime.now(UTC).strftime('%Y%m%d%H%M%S%f')}",
-        "event_type": str(event_type or "").strip()[:40],
-        "occurred_at": _now_iso(),
-        "context_ref": "operator_tui",
-        "target_ref": refs_list[0] if refs_list else "",
-        "value_norm": str(value_norm or "").strip()[:200],
-        "refs": refs_list,
+        "created_at": _now_iso(),
+        "event_type": mapped_type,
+        "source": "feedback" if mapped_type == "prediction_feedback" else "tui",
+        "normalized_value": normalized_value or "-",
+        "refs": refs_obj,
         "privacy_class": str(privacy_class or "workspace"),
-        "retention_hint": retention_hint if retention_hint in {"ephemeral", "rolling_7d", "rolling_30d"} else "rolling_30d",
-        "source": {"component": "operator_tui", "mode": "training"},
-        "extensions": {"reason": str(reason or "")[:160]} if reason else {},
+        "retention_hint": mapped_retention,
+        "human_label": str(reason or "")[:160] if reason else None,
     }
+    if payload["human_label"] is None:
+        payload.pop("human_label")
     errors = validate_payload(payload, schema_filename=BEHAVIOR_EVENT_SCHEMA_FILE)
     if errors:
         return False
