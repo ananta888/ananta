@@ -328,6 +328,7 @@ def test_header_focus_hints_show_snake_controls() -> None:
     output = render_operator_shell(state, width=100, height=24)
 
     assert "Snake-Modus aktiv  running" in output
+    assert "[SNAKE]" in output
     assert "X=Markieren/Multi, C=Copy" in output
     assert "[Ctrl+S] Snake" in output
 
@@ -370,7 +371,7 @@ def test_header_lists_snakes_with_oidc_pseudonym_color_and_message() -> None:
     assert "\x1b[38;2;96;215;165mhello\x1b[0m" in output
 
 
-def test_non_snake_mode_shows_passive_snake_roster_top_left_only() -> None:
+def test_non_snake_mode_uses_logo_header_instead_of_snake_panel() -> None:
     game = {
         "active": False,
         "ui_steering": False,
@@ -387,10 +388,11 @@ def test_non_snake_mode_shows_passive_snake_roster_top_left_only() -> None:
 
     output = render_operator_shell(state, width=120, height=28)
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+    header = "\n".join(plain.splitlines()[:8])
 
-    assert "S1 alice [mint] access=full" in plain
-    assert "S-AI tutor-ai [amber] access=view" in plain
-    assert "Snakes (OIDC / Farbe / Nachricht):" not in plain
+    assert "Ctrl+S startet Snake-Modus" not in header
+    assert "S1 alice [mint] access=full" not in header
+    assert "S-AI tutor-ai [amber] access=view" not in header
 
 
 def test_snake_mode_toggle_enables_and_disables_frame_mode() -> None:
@@ -493,15 +495,14 @@ def test_snake_access_command_updates_remote_permission_levels() -> None:
     assert dict(snakes.get("s2") or {}).get("access_level") == "full"
 
 
-def test_inactive_header_without_logo_shows_snake_mode_explanation() -> None:
+def test_inactive_header_shows_logo_and_hides_snake_explanation() -> None:
     state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.NAVIGATION, header_logo_game={})
     output = render_operator_shell(state, width=120, height=28)
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
+    header = "\n".join(plain.splitlines()[:8])
 
-    assert "Ctrl+S startet Snake-Modus" in plain
-    assert "Im Modus: X markieren, C kopieren, V replace, U Chat." in plain
-    assert "Maus: O follow; Klick + Hover aktiviert Kontext-Chat." in plain
-    assert "Freigaben: :snake-access" in plain
+    assert "Ctrl+S startet Snake-Modus" not in header
+    assert "Freigaben: :snake-access" not in header
 
 
 def test_tutorial_ai_tip_prefers_llm_when_available(monkeypatch) -> None:
