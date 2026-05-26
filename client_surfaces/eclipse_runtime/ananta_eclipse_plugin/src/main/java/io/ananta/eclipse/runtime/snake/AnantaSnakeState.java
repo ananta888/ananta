@@ -8,8 +8,11 @@ public final class AnantaSnakeState {
     private final boolean overlayVisible;
     private final String followMode;
     private final String contextMode;
+    private final String ideZone;
     private final String hubConnectionState;
     private final int tickRateFps;
+    private final int followDistancePx;
+    private final boolean workbenchActive;
     private final int mouseX;
     private final int mouseY;
     private final int overlayX;
@@ -21,8 +24,11 @@ public final class AnantaSnakeState {
             boolean overlayVisible,
             String followMode,
             String contextMode,
+            String ideZone,
             String hubConnectionState,
             int tickRateFps,
+            int followDistancePx,
+            boolean workbenchActive,
             int mouseX,
             int mouseY,
             int overlayX,
@@ -33,8 +39,11 @@ public final class AnantaSnakeState {
         this.overlayVisible = overlayVisible;
         this.followMode = Objects.requireNonNull(followMode, "followMode");
         this.contextMode = Objects.requireNonNull(contextMode, "contextMode");
+        this.ideZone = Objects.requireNonNull(ideZone, "ideZone");
         this.hubConnectionState = Objects.requireNonNull(hubConnectionState, "hubConnectionState");
         this.tickRateFps = Math.max(1, tickRateFps);
+        this.followDistancePx = Math.max(1, followDistancePx);
+        this.workbenchActive = workbenchActive;
         this.mouseX = mouseX;
         this.mouseY = mouseY;
         this.overlayX = overlayX;
@@ -48,8 +57,11 @@ public final class AnantaSnakeState {
                 false,
                 "follow_mouse",
                 "idle",
+                "unknown",
                 "offline",
                 20,
+                24,
+                true,
                 0,
                 0,
                 0,
@@ -77,12 +89,24 @@ public final class AnantaSnakeState {
         return contextMode;
     }
 
+    public String getIdeZone() {
+        return ideZone;
+    }
+
     public String getHubConnectionState() {
         return hubConnectionState;
     }
 
     public int getTickRateFps() {
         return tickRateFps;
+    }
+
+    public int getFollowDistancePx() {
+        return followDistancePx;
+    }
+
+    public boolean isWorkbenchActive() {
+        return workbenchActive;
     }
 
     public int getMouseX() {
@@ -109,8 +133,11 @@ public final class AnantaSnakeState {
                 visible,
                 followMode,
                 contextMode,
+                ideZone,
                 hubConnectionState,
                 tickRateFps,
+                followDistancePx,
+                workbenchActive,
                 mouseX,
                 mouseY,
                 overlayX,
@@ -126,8 +153,11 @@ public final class AnantaSnakeState {
                 visible,
                 followMode,
                 contextMode,
+                ideZone,
                 hubConnectionState,
                 tickRateFps,
+                followDistancePx,
+                workbenchActive,
                 mouseX,
                 mouseY,
                 overlayX,
@@ -142,8 +172,30 @@ public final class AnantaSnakeState {
                 overlayVisible,
                 nextFollowMode,
                 nextContextMode,
+                ideZone,
                 hubConnectionState,
                 tickRateFps,
+                followDistancePx,
+                workbenchActive,
+                mouseX,
+                mouseY,
+                overlayX,
+                overlayY
+        );
+    }
+
+    public AnantaSnakeState withIdeZone(String nextIdeZone) {
+        return new AnantaSnakeState(
+                enabled,
+                running,
+                overlayVisible,
+                followMode,
+                contextMode,
+                nextIdeZone,
+                hubConnectionState,
+                tickRateFps,
+                followDistancePx,
+                workbenchActive,
                 mouseX,
                 mouseY,
                 overlayX,
@@ -158,8 +210,11 @@ public final class AnantaSnakeState {
                 overlayVisible,
                 followMode,
                 contextMode,
+                ideZone,
                 nextHubConnectionState,
                 tickRateFps,
+                followDistancePx,
+                workbenchActive,
                 mouseX,
                 mouseY,
                 overlayX,
@@ -174,8 +229,49 @@ public final class AnantaSnakeState {
                 overlayVisible,
                 followMode,
                 contextMode,
+                ideZone,
                 hubConnectionState,
                 nextTickRateFps,
+                followDistancePx,
+                workbenchActive,
+                mouseX,
+                mouseY,
+                overlayX,
+                overlayY
+        );
+    }
+
+    public AnantaSnakeState withFollowDistance(int nextFollowDistancePx) {
+        return new AnantaSnakeState(
+                enabled,
+                running,
+                overlayVisible,
+                followMode,
+                contextMode,
+                ideZone,
+                hubConnectionState,
+                tickRateFps,
+                nextFollowDistancePx,
+                workbenchActive,
+                mouseX,
+                mouseY,
+                overlayX,
+                overlayY
+        );
+    }
+
+    public AnantaSnakeState withWorkbenchActive(boolean nextWorkbenchActive) {
+        return new AnantaSnakeState(
+                enabled,
+                running,
+                overlayVisible,
+                followMode,
+                contextMode,
+                ideZone,
+                hubConnectionState,
+                tickRateFps,
+                followDistancePx,
+                nextWorkbenchActive,
                 mouseX,
                 mouseY,
                 overlayX,
@@ -190,8 +286,11 @@ public final class AnantaSnakeState {
                 overlayVisible,
                 followMode,
                 contextMode,
+                ideZone,
                 hubConnectionState,
                 tickRateFps,
+                followDistancePx,
+                workbenchActive,
                 nextMouseX,
                 nextMouseY,
                 nextOverlayX,

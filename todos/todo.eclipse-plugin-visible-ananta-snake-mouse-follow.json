@@ -41,7 +41,7 @@
         "T02.03",
         "T02.04"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M03",
@@ -52,7 +52,7 @@
         "T03.03",
         "T03.04"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M04",
@@ -209,7 +209,7 @@
     {
       "id": "T02.03",
       "title": "Langsames Folgen mit Abstand wie im TUI",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "ui",
@@ -225,12 +225,12 @@
         "Follow-Algorithmus funktioniert lokal deterministisch ohne Ananta-Hub oder LLM.",
         "Unit-Test simuliert Mauspfad und prüft Abstand/Glättung."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T02.04",
       "title": "Performance Budget für Animation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "performance",
@@ -245,12 +245,12 @@
         "Keine SWT Resource Leaks bei wiederholtem Start/Stop.",
         "Performance-Test oder Profiling-Test dokumentiert Basiswerte."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T03.01",
       "title": "IDE-Zonen erkennen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "context",
@@ -265,12 +265,12 @@
         "Zone-Erkennung funktioniert ohne Zugriff auf Dateiinhalte.",
         "Tests prüfen Zone-Mapping mit Mock-Workbench-Parts."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T03.02",
       "title": "Lauer-Modus für Eclipse-Snake",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "context",
@@ -286,12 +286,12 @@
         "Lauer-Modus kann lokal einfache Zielvermutung erzeugen: editor_focus, problem_focus, console_focus, diff_focus.",
         "Tests prüfen follow -> lurking -> follow Wechsel."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T03.03",
       "title": "Aktive Editor-/Dateikontext-Metadaten erfassen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "context",
@@ -306,7 +306,7 @@
         "Kontext-Metadaten werden als EclipseContextSnapshot darstellbar.",
         "Tests prüfen, dass Dateiinhalte default nicht im Snapshot enthalten sind."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T03.04",
@@ -688,13 +688,13 @@
   "tasks_status_summary": {
     "total": 27,
     "by_status": {
-      "todo": 22,
+      "todo": 17,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 5
+      "done": 10
     },
-    "progress_percent_done": 18.52,
+    "progress_percent_done": 37.04,
     "by_priority": {
       "P1": 21,
       "P2": 6,
@@ -707,15 +707,15 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 5,
-      "remaining": 9
+      "done": 9,
+      "remaining": 5
     },
     "milestones": {
       "total": 8,
-      "todo": 6,
+      "todo": 5,
       "in_progress": 1,
       "blocked": 0,
-      "done": 1
+      "done": 2
     }
   },
   "tasks_type_summary": {
@@ -738,44 +738,44 @@
       "ui": {
         "total": 3,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 2
+          "done": 3
         },
-        "done": 2,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 66.7
+        "progress_percent": 100.0
       },
       "performance": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "context": {
         "total": 4,
         "by_status": {
-          "todo": 4,
+          "todo": 1,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
+        "done": 3,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 75.0
       },
       "integration": {
         "total": 4,
@@ -865,13 +865,13 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 22,
+    "todo_remaining": 17,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 5,
-    "count_based_percent": 18.5,
-    "weighted_percent": 22.0
+    "done": 10,
+    "count_based_percent": 37.0,
+    "weighted_percent": 43.0
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -918,10 +918,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 50.0,
-    "done_weight": 11.0,
-    "remaining_weight": 39.0,
+    "done_weight": 21.5,
+    "remaining_weight": 28.5,
     "blocked_weight": 0.0,
-    "weighted_percent": 22.0
+    "weighted_percent": 43.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -935,19 +935,19 @@
       },
       "M02": {
         "total_tasks": 4,
-        "done": 2,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 55.6,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M03": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 75.0,
+        "weighted_percent": 86.7,
+        "status": "in_progress"
       },
       "M04": {
         "total_tasks": 4,
@@ -994,10 +994,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T23:14:57.426598Z",
+    "generated_at": "2026-05-26T23:22:33.485197Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "16e33bcdd52bbd418e986f174b0a4b74fe1265e2aa2c920d2796c0d872892185",
+    "source_hash": "46e791be7f4007c5ff39ce6af831aacd94a28d76e4bf2ba1fcd7b3e15d81c094",
     "is_stale": false
   }
 }
