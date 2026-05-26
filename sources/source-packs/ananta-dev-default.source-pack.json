@@ -12,6 +12,7 @@
       "trust_level": "official_project_repository",
       "source_priority": 300,
       "knowledge_domain": "source_code",
+      "abstraction_profile": "repo_code",
       "bootstrap_mode": "auto",
       "fetch_source": {
         "url": "https://github.com/eclipse-platform/eclipse.platform",
@@ -30,6 +31,7 @@
       "trust_level": "official_project_repository",
       "source_priority": 310,
       "knowledge_domain": "source_code",
+      "abstraction_profile": "repo_code",
       "bootstrap_mode": "auto",
       "fetch_source": {
         "url": "https://github.com/eclipse-jdt/eclipse.jdt.core",
@@ -48,6 +50,7 @@
       "trust_level": "official_project_repository",
       "source_priority": 320,
       "knowledge_domain": "plugin_development_knowledge",
+      "abstraction_profile": "repo_code",
       "bootstrap_mode": "auto",
       "fetch_source": {
         "url": "https://github.com/eclipse-pde/eclipse.pde",
@@ -66,6 +69,7 @@
       "trust_level": "official_vendor_project",
       "source_priority": 220,
       "knowledge_domain": "technical_docs",
+      "abstraction_profile": "api_docs",
       "bootstrap_mode": "auto",
       "fetch_source": {
         "url": "https://www.keycloak.org/guides",
@@ -84,6 +88,7 @@
       "trust_level": "official_foundation_dump",
       "source_priority": 80,
       "knowledge_domain": "general_knowledge",
+      "abstraction_profile": "general_encyclopedia",
       "bootstrap_mode": "subset",
       "fetch_source": {
         "url": "https://dumps.wikimedia.org/",
@@ -102,6 +107,7 @@
       "trust_level": "official_project_repository",
       "source_priority": 205,
       "knowledge_domain": "plugin_development_knowledge",
+      "abstraction_profile": "repo_code",
       "bootstrap_mode": "manual",
       "fetch_source": {
         "url": "https://github.com/eclipse-platform/eclipse.platform.swt",
@@ -121,6 +127,7 @@
       "trust_level": "official_project_repository",
       "source_priority": 200,
       "knowledge_domain": "plugin_development_knowledge",
+      "abstraction_profile": "repo_code",
       "bootstrap_mode": "manual",
       "fetch_source": {
         "url": "https://github.com/eclipse-equinox/equinox",
@@ -168,6 +175,54 @@
         "token",
         "admin api",
         "authorization"
+      ]
+    },
+    {
+      "profile_id": "eclipse-plugin-index-focus",
+      "source_ids": [
+        "eclipse-platform-official-source",
+        "eclipse-jdt-core-official-source",
+        "eclipse-pde-official-source"
+      ],
+      "priority": 30,
+      "query_terms": [
+        "plugin.xml",
+        "manifest.mf",
+        "osgi",
+        "bundle",
+        "extension-point",
+        "java package"
+      ]
+    }
+  ],
+  "retrieval_rules": [
+    {
+      "rule_id": "technical-eclipse-primary",
+      "match_mode": "technical_eclipse",
+      "include_source_ids": [
+        "eclipse-platform-official-source",
+        "eclipse-jdt-core-official-source",
+        "eclipse-pde-official-source"
+      ],
+      "exclude_source_ids": [
+        "wikimedia-wikipedia-initial-dump"
+      ]
+    },
+    {
+      "rule_id": "technical-keycloak-primary",
+      "match_mode": "technical_keycloak",
+      "include_source_ids": [
+        "keycloak-official-docs"
+      ],
+      "exclude_source_ids": [
+        "wikimedia-wikipedia-initial-dump"
+      ]
+    },
+    {
+      "rule_id": "general-fallback",
+      "match_mode": "general_fallback",
+      "include_source_ids": [
+        "wikimedia-wikipedia-initial-dump"
       ]
     }
   ],

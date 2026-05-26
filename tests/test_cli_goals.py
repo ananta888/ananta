@@ -302,3 +302,31 @@ def test_submit_goal_passes_rag_sources_in_execution_preferences(monkeypatch):
     rag = payload["execution_preferences"]["rag_sources"]
     assert rag["knowledge_collection_ids"] == ["my-collection"]
     assert rag["artifact_ids"] == ["my-artifact"]
+
+
+def test_sources_bootstrap_command_dry_run(monkeypatch, capsys, tmp_path):
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    try:
+        cli_goals.main(["sources", "bootstrap", "ananta-dev-default", "--dry-run", "--skip-source", "wikimedia-wikipedia-initial-dump"])
+    except SystemExit as exc:
+        assert int(exc.code) == 0
+    out = capsys.readouterr().out
+    assert "status: planned" in out
+    assert "source_pack_id: ananta-dev-default" in out
+    assert "skipped: wikimedia-wikipedia-initial-dump" in out
+
+
+def test_sources_bootstrap_command_writes_bundle(monkeypatch, capsys, tmp_path):
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    try:
+        cli_goals.main(["sources", "bootstrap", "ananta-dev-default", "--skip-source", "wikimedia-wikipedia-initial-dump"])
+    except SystemExit as exc:
+        assert int(exc.code) == 0
+    out = capsys.readouterr().out
+    assert "status: ok" in out
+    assert "bundle_id:" in out
+    assert "bundle_path:" in out
