@@ -122,6 +122,80 @@ def is_policy_blocked(ctx: dict[str, Any], source: str) -> bool:
     return source in (ctx.get("denied_context_refs") or [])
 
 
+def build_goal_artifact_graph_context(graph: dict[str, Any]) -> dict[str, Any]:
+    """Return metadata-only graph context for AI explanations (no raw content)."""
+    grants = [
+        {
+            "grant_id": str(item.get("grant_id") or ""),
+            "artifact_ref": str(item.get("artifact_ref") or ""),
+            "data_boundary": str(item.get("data_boundary") or ""),
+            "sensitivity": str(item.get("sensitivity") or ""),
+            "allowed_usages": list(item.get("allowed_usages") or []),
+            "revoked_at": str(item.get("revoked_at") or ""),
+        }
+        for item in list(graph.get("source_grants") or [])
+        if isinstance(item, dict)
+    ]
+    usages = [
+        {
+            "usage_id": str(item.get("usage_id") or ""),
+            "grant_id": str(item.get("grant_id") or ""),
+            "artifact_ref": str(item.get("artifact_ref") or ""),
+            "task_id": str(item.get("task_id") or ""),
+            "worker_id": str(item.get("worker_id") or ""),
+        }
+        for item in list(graph.get("source_usages") or [])
+        if isinstance(item, dict)
+    ]
+    outputs = [
+        {
+            "output_artifact_id": str(item.get("output_artifact_id") or ""),
+            "artifact_type": str(item.get("artifact_type") or ""),
+            "status": str(item.get("status") or ""),
+            "task_id": str(item.get("task_id") or ""),
+            "worker_id": str(item.get("worker_id") or ""),
+            "input_usage_refs": list(item.get("input_usage_refs") or []),
+        }
+        for item in list(graph.get("output_artifacts") or [])
+        if isinstance(item, dict)
+    ]
+    return {
+        "goal_id": str(graph.get("goal_id") or ""),
+        "source_grants": grants,
+        "source_usages": usages,
+        "output_artifacts": outputs,
+    }
+
+
+def explain_goal_artifact_graph(graph: dict[str, Any]) -> str:
+    context = build_goal_artifact_graph_context(graph)
+    grants = list(context.get("source_grants") or [])
+    usages = list(context.get("source_usages") or [])
+    outputs = list(context.get("output_artifacts") or [])
+    usage_grant_ids = {str(item.get("grant_id") or "") for item in usages}
+    granted_not_used = [item for item in grants if str(item.get("grant_id") or "") not in usage_grant_ids]
+    lines = [
+        f"Goal {context.get('goal_id')}:",
+        f"- Freigegeben: {len(grants)}",
+        f"- Genutzt: {len(usages)}",
+        f"- Erzeugt: {len(outputs)}",
+    ]
+    if granted_not_used:
+        preview = ", ".join(str(item.get("grant_id") or "") for item in granted_not_used[:3])
+        lines.append(f"- Freigegeben aber nicht genutzt: {preview}")
+    outputs_without_inputs = [item for item in outputs if not list(item.get("input_usage_refs") or [])]
+    if outputs_without_inputs:
+        preview = ", ".join(str(item.get("output_artifact_id") or "") for item in outputs_without_inputs[:3])
+        lines.append(f"- Output ohne dokumentierte Quellen: {preview}")
+    if usages:
+        sample = usages[0]
+        lines.append(
+            f"- Beispiel Nutzung: {sample.get('usage_id')} via grant={sample.get('grant_id')} "
+            f"(task={sample.get('task_id')}, worker={sample.get('worker_id')})"
+        )
+    return "\n".join(lines)
+
+
 def load_codecompass_artifact(
     path: str | Path = "artifacts/codecompass/operator_tui_snake_context.json",
 ) -> dict[str, Any] | None:

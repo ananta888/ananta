@@ -269,3 +269,20 @@ def maybe_add_prediction_comment(
     append_message(chat, msg)
     chat["ai_last_proactive_comment_at"] = float(now)
     return True
+
+
+def append_artifact_graph_explanation(chat: dict[str, Any], *, text: str, goal_id: str) -> None:
+    """Persist AI artifact-graph explanation in ai channel and keep it metadata-only."""
+    sanitized = sanitize_text(text)
+    if not sanitized:
+        return
+    msg = make_message(
+        channel_id="ai:tutor",
+        channel_type=ChannelType.AI,
+        sender_id="s-ai",
+        sender_kind=SenderKind.AI,
+        text=f"[artifact-graph:{goal_id}] {sanitized}",
+        delivery_state=DeliveryState.RECEIVED,
+        visibility=Visibility.AI_CONTEXT,
+    )
+    append_message(chat, msg)

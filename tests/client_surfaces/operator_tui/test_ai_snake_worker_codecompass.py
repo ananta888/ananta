@@ -3,8 +3,10 @@ from __future__ import annotations
 import time
 
 from client_surfaces.operator_tui.ai_snake_context import (
+    build_goal_artifact_graph_context,
     build_context_envelope_ref,
     default_ai_context,
+    explain_goal_artifact_graph,
     relevance_refs_for_intent,
 )
 from client_surfaces.operator_tui.ai_snake_worker_client import AiSnakeWorkerClient
@@ -150,3 +152,32 @@ def test_provider_unavailable_returns_degraded_reason() -> None:
     assert result is not None
     assert result["status"] == "degraded"
     assert result["error"] == "worker_unavailable"
+
+
+def test_goal_artifact_graph_context_uses_metadata_only() -> None:
+    context = build_goal_artifact_graph_context(
+        {
+            "goal_id": "goal-graph",
+            "source_grants": [{"grant_id": "g1", "artifact_ref": "sources:keycloak:s1", "allowed_usages": ["read"]}],
+            "source_usages": [{"usage_id": "u1", "grant_id": "g1", "artifact_ref": "sources:keycloak:s1"}],
+            "output_artifacts": [{"output_artifact_id": "o1", "artifact_type": "report", "input_usage_refs": ["u1"]}],
+        }
+    )
+    assert context["goal_id"] == "goal-graph"
+    assert context["source_grants"][0]["artifact_ref"] == "sources:keycloak:s1"
+    assert "raw_content" not in str(context)
+
+
+def test_explain_goal_artifact_graph_mentions_counts_and_missing_inputs() -> None:
+    text = explain_goal_artifact_graph(
+        {
+            "goal_id": "goal-graph",
+            "source_grants": [{"grant_id": "g1", "artifact_ref": "sources:keycloak:s1", "allowed_usages": ["read"]}],
+            "source_usages": [],
+            "output_artifacts": [{"output_artifact_id": "o1", "artifact_type": "report", "input_usage_refs": []}],
+        }
+    )
+    assert "Freigegeben: 1" in text
+    assert "Genutzt: 0" in text
+    assert "Erzeugt: 1" in text
+    assert "ohne dokumentierte Quellen" in text

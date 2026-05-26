@@ -20,11 +20,13 @@ from client_surfaces.operator_tui.goal_artifact_filters import (
     filter_goal_artifact_view,
     normalize_goal_artifact_filters,
 )
+from client_surfaces.operator_tui.ai_snake_context import explain_goal_artifact_graph
 from client_surfaces.operator_tui.ai_snake_training_import_export import (
     export_training_bundle_to_path,
     export_training_markdown,
     import_training_bundle,
 )
+from client_surfaces.operator_tui import chat_state as chat_state_utils
 from client_surfaces.operator_tui.ai_snake_training_store import (
     append_behavior_event,
     build_training_bundle,
@@ -483,6 +485,19 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         sub = str(args[0]).lower() if args else "status"
         game = dict(state.header_logo_game or {})
         ai_mode = str(game.get("ai_snake_mode") or "lurking_follow")
+        if sub == "explain" and len(args) > 1 and str(args[1]).lower() == "artifact-graph":
+            goal_id = str(game.get("active_goal_id") or "").strip()
+            if not goal_id:
+                return CommandResult(state, "ai explain artifact-graph requires active goal", handled=False)
+            graph = GoalArtifactService().get_goal_graph(goal_id)
+            text = explain_goal_artifact_graph(graph)
+            chat = chat_state_utils.get_chat_state(game)
+            chat_state_utils.append_artifact_graph_explanation(chat, text=text, goal_id=goal_id)
+            game["chat_state"] = chat
+            return CommandResult(
+                state.with_updates(header_logo_game=game, status_message=f"ai explain artifact-graph {goal_id}"),
+                text,
+            )
         if sub in {"follow", "lurk", "quiet", "explain", "off"}:
             mapping = {
                 "follow": "follow",

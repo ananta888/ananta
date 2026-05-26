@@ -125,3 +125,65 @@ def test_goal_artifact_filter_logic_independent_from_renderer() -> None:
     )
     assert len(result["source_grants"]) == 1
     assert len(result["source_usages"]) == 0
+
+
+def test_ai_explain_artifact_graph_requires_active_goal() -> None:
+    result = execute_command(":ai explain artifact-graph", _state())
+    assert result.handled is False
+    assert "requires active goal" in result.message
+
+
+def test_ai_explain_artifact_graph_shows_counts_without_denied_refs(monkeypatch, tmp_path: Path) -> None:
+    from agent.artifacts.goal_artifact_service import GoalArtifactService
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    service = GoalArtifactService()
+    goal_id = "goal-explain"
+    service.create_grant(
+        goal_id=goal_id,
+        grant={
+            "schema": "source_artifact_grant.v1",
+            "grant_id": "grant-explain",
+            "goal_id": goal_id,
+            "artifact_ref": "sources:keycloak:snap_9",
+            "granted_by": "operator",
+            "granted_at": "2026-05-26T00:00:00Z",
+            "allowed_usages": ["read", "use_as_context"],
+            "data_boundary": "project_private",
+            "sensitivity": "internal",
+            "policy_decision_ref": "policy:explain",
+        },
+    )
+    tracking = service.validate_and_record_context_usages(
+        goal_id=goal_id,
+        artifact_refs=["sources:keycloak:snap_9", "sources:wikipedia:snap_404"],
+        task_id="task-explain",
+        worker_id="worker-explain",
+        context_hash="ctx-explain-1",
+    )
+    service.record_output_artifact(
+        goal_id=goal_id,
+        output_artifact={
+            "schema": "goal_output_artifact.v1",
+            "output_artifact_id": "out-explain",
+            "goal_id": goal_id,
+            "task_id": "task-explain",
+            "worker_id": "worker-explain",
+            "artifact_type": "report",
+            "created_at": "2026-05-26T00:00:00Z",
+            "input_usage_refs": tracking["source_usage_refs"],
+            "artifact_ref": "artifacts:report:explain",
+            "content_hash": "f" * 64,
+            "status": "created",
+            "provenance_summary": "explain",
+        },
+    )
+
+    state = execute_command(f":goal use {goal_id}", _state()).state
+    explained = execute_command(":ai explain artifact-graph", state)
+    assert explained.handled is True
+    assert "Freigegeben: 1" in explained.message
+    assert "Genutzt: 1" in explained.message
+    assert "Erzeugt: 1" in explained.message
+    assert "wikipedia" not in explained.message

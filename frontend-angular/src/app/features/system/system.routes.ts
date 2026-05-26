@@ -13,6 +13,7 @@ export const systemRoutes: Routes = [
   { path: 'agents', data: routeDataFor('agents'), loadComponent: () => import('../../components/agents-list.component').then(m => m.AgentsListComponent) },
   { path: 'worker-pool', data: routeDataFor('worker-pool'), loadComponent: () => import('../../components/worker-pool-dashboard.component').then(m => m.WorkerPoolDashboardComponent) },
   { path: 'sources', data: routeDataFor('sources'), loadComponent: () => import('../../components/sources.component').then(m => m.SourcesComponent) },
+  { path: 'goal-artifacts', data: routeDataFor('goal-artifacts'), loadComponent: () => import('../../components/goal-artifacts.component').then(m => m.GoalArtifactsComponent) },
   { path: 'panel/:name', data: routeDataFor('panel'), loadComponent: () => import('../../components/agent-panel.component').then(m => m.AgentPanelComponent) },
   { path: 'webhooks', data: routeDataFor('webhooks'), loadComponent: () => import('../../components/webhooks.component').then(m => m.WebhooksComponent) },
 ];
