@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 _ANSI_STRIP = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 from client_surfaces.operator_tui.diagrams import detect_diagram_blocks, render_diagram_fallback
+from client_surfaces.operator_tui.goal_artifact_filters import filter_goal_artifact_view
 from client_surfaces.operator_tui.keymap import bindings_for_mode, hints_for_mode
 from client_surfaces.operator_tui.markdown_renderer import render_markdown_lines
 from client_surfaces.operator_tui.models import FocusPane, OperatorState, PanelState
@@ -496,6 +497,8 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
     elif section.id == "help":
         lines.append("")
         lines.extend(_binding_lines(state, width))
+    elif section.id == "artifacts" and bool(payload.get("goal_artifacts_mode")):
+        lines.extend(_goal_artifacts_content_lines(payload, width=width, compact=width < 74))
     else:
         items = payload.get("items") or []
         if panel_state == PanelState.EMPTY or not items:
@@ -666,8 +669,101 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
     if section.id in {"goals", "tasks"}:
         lines.append("    :inspect        show selected")
         lines.append("    :action <n> <r> dispatch action")
+    if section.id == "artifacts":
+        payload = (state.section_payloads or {}).get(section.id, {})
+        if bool(payload.get("goal_artifacts_mode")):
+            lines.append("    :goal artifacts [filter ...|clear-filter]")
+            lines.append("    :goal sources candidates")
+            lines.append("    :goal source grant/revoke/detail ...")
+            lines.append("    :artifact provenance <output-id>")
 
     return [_clip(line, width) for line in lines]
+
+
+def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
+    goal_id = str(payload.get("goal_id") or "unknown")
+    filters = dict(payload.get("filters") or {})
+    filtered = filter_goal_artifact_view(
+        source_grants=list(payload.get("source_grants") or []),
+        source_usages=list(payload.get("source_usages") or []),
+        output_artifacts=list(payload.get("output_artifacts") or []),
+        filters=filters,
+    )
+    grants = list(filtered.get("source_grants") or [])
+    usages = list(filtered.get("source_usages") or [])
+    outputs = list(filtered.get("output_artifacts") or [])
+    usage_grant_ids = {str(item.get("grant_id") or "") for item in usages}
+    lines = [
+        f"  Goal Artifacts: {goal_id}",
+        f"  Filters: {', '.join([f'{k}={v}' for k, v in filters.items()]) if filters else 'none'}",
+    ]
+    if compact:
+        lines.append("  --- compact view ---")
+        for grant in grants[:5]:
+            grant_id = str(grant.get("grant_id") or "?")
+            marker = "✓" if grant_id in usage_grant_ids else "~"
+            lines.append(
+                _clip(
+                    f"  {marker} grant {grant_id} source={str(grant.get('artifact_ref') or '-')}",
+                    width,
+                )
+            )
+        for usage in usages[:5]:
+            lines.append(_clip(f"  • usage {usage.get('usage_id')} -> {usage.get('artifact_ref')}", width))
+        for output in outputs[:6]:
+            lines.append(
+                _clip(
+                    "  ◦ output "
+                    f"{output.get('output_artifact_id')} type={output.get('artifact_type')} "
+                    f"status={output.get('status')} task={output.get('task_id')} worker={output.get('worker_id')}",
+                    width,
+                )
+            )
+        if not grants and not usages and not outputs:
+            lines.append("  (empty goal artifact graph)")
+        return lines
+
+    lines.append("  [Freigegeben]")
+    if not grants:
+        lines.append("    - none")
+    for grant in grants[:8]:
+        grant_id = str(grant.get("grant_id") or "?")
+        used = grant_id in usage_grant_ids
+        marker = "used" if used else "granted-not-used"
+        lines.append(
+            _clip(
+                f"    {grant_id} [{marker}] sensitivity={grant.get('sensitivity')} "
+                f"boundary={grant.get('data_boundary')} ref={grant.get('artifact_ref')}",
+                width,
+            )
+        )
+
+    lines.append("  [Genutzt]")
+    if not usages:
+        lines.append("    - none")
+    for usage in usages[:8]:
+        lines.append(
+            _clip(
+                f"    {usage.get('usage_id')} grant={usage.get('grant_id')} "
+                f"task={usage.get('task_id')} worker={usage.get('worker_id')} "
+                f"ref={usage.get('artifact_ref')}",
+                width,
+            )
+        )
+
+    lines.append("  [Erzeugt]")
+    if not outputs:
+        lines.append("    - none")
+    for output in outputs[:10]:
+        lines.append(
+            _clip(
+                f"    {output.get('output_artifact_id')} type={output.get('artifact_type')} "
+                f"status={output.get('status')} task={output.get('task_id')} "
+                f"worker={output.get('worker_id')} created_at={output.get('created_at')}",
+                width,
+            )
+        )
+    return lines
 
 
 def _help_overlay(state: OperatorState, width: int) -> list[str]:
@@ -710,6 +806,13 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
         parts.append(f"term={mouse_caps.get('term')}")
     if isinstance(mouse_state, dict) and mouse_state.get("active"):
         parts.append(f"mouse={int(mouse_state.get('x', 0))},{int(mouse_state.get('y', 0))}")
+    active_goal_id = str(game.get("active_goal_id") or "").strip()
+    if active_goal_id:
+        parts.append(f"goal={active_goal_id}")
+        goal_filters = dict(game.get("goal_artifact_filters") or {})
+        if goal_filters:
+            compact_filters = ",".join(f"{k}:{v}" for k, v in goal_filters.items())
+            parts.append(f"goal_filters={compact_filters}")
     ai_mode = str(game.get("ai_snake_mode") or "").strip()
     if ai_mode:
         runtime = str(game.get("ai_snake_runtime_status") or "idle")
