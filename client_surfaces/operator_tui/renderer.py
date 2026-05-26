@@ -246,7 +246,7 @@ def _assemble_header_lines(logo_lines: list[str], right_lines: list[str], n_rows
 
 
 def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
-    """Snake-focused header (left: snake roster/help, right: status/config)."""
+    """Hybrid header: logo in normal mode, snake panel in active snake mode."""
     from agent.cli.logo_layout import COMPACT_HEADER_LINES
     from agent.cli.status_snapshot import collect_status
 
@@ -254,7 +254,12 @@ def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
     color = not no_color
     left_cols = max(34, min(56, _logo_cols_for_width(width)))
     right_width = max(20, width - left_cols - len(_LOGO_SEP))
-    left_lines = _render_header_snake_lines(state, left_cols)
+    game = state.header_logo_game or {}
+    snake_mode_active = bool(game.get("active"))
+    if snake_mode_active:
+        left_lines = _render_header_snake_lines(state, left_cols)
+    else:
+        left_lines = _load_logo_lines(cols=left_cols, color=color, state=state)
 
     if state.focus == FocusPane.HEADER or bool((state.header_logo_game or {}).get("active")):
         right_lines = _render_header_config_lines(state, right_width)
@@ -280,7 +285,7 @@ def _render_persistent_header(state: OperatorState, width: int) -> list[str]:
 def _render_header_snake_lines(state: OperatorState, width: int) -> list[str]:
     game = dict(state.header_logo_game or {})
     local_id = str(game.get("local_snake_id") or "s1")
-    active = bool(game.get("active") and game.get("ui_steering"))
+    active = bool(game.get("active"))
     status = "running" if game.get("alive", True) else "game over"
     remote_access_raw = game.get("remote_access")
     remote_access = dict(remote_access_raw) if isinstance(remote_access_raw, dict) else {}
