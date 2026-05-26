@@ -1,0 +1,871 @@
+{
+  "meta": {
+    "project": "ananta",
+    "feature": "operator-tui-ai-snake-prediction-training-data",
+    "title": "AI-Snake Prediction Training Data: transparente Nutzerverhaltensdaten, Import/Export und JSON-Schema",
+    "description": "Erweiterungsplan für den AI-Snake Lauer-/Prediction-Modus. Die Vorhersage soll aus Nutzerverhalten lernen, aber alle Trainings-/Lern-/Preference-Daten müssen transparent, lokal auffindbar, importierbar, exportierbar, versioniert, schema-validiert und sowohl menschlich verständlich als auch KI-optimiert nutzbar sein.",
+    "created": "2026-05-26",
+    "last_updated": "2026-05-26",
+    "version": "1.0",
+    "extends": [
+      "todos/todo.operator-tui-ai-snake-lurking-prediction-codecompass.json",
+      "todos/todo.operator-tui-multisnake-chat-notes.json"
+    ],
+    "legend": {
+      "priority": "P1 = muss, P2 = soll, P3 = kann",
+      "effort": "XS = <2h, S = 2-4h, M = 4-8h, L = 8-16h, XL = >16h",
+      "status": "open | in_progress | done | blocked"
+    }
+  },
+  "core_goal": "Prediction-Daten der AI-Snake werden nicht versteckt in irgendeinem Cache vergraben. Der User kann jederzeit sehen, welche Muster gelernt wurden, woraus sie entstanden sind, wie sicher sie sind, wann sie zuletzt genutzt wurden, sie bearbeiten, löschen, importieren, exportieren und für KI/Automatisierung als JSON nutzen.",
+  "data_principles": [
+    "User owns the behavior data.",
+    "Local-first: keine automatische externe Übertragung.",
+    "Human-readable summary plus machine-readable JSON in derselben Datenstruktur.",
+    "Schema ist streng genug für Validierung, aber offen genug für künftige Prediction-Features.",
+    "Jeder gelernte Eintrag hat Herkunft, Evidence, Confidence, Gültigkeit und Privacy-Klasse.",
+    "Import ist validiert, previewbar und konfliktbewusst.",
+    "Export ist vollständig, reproduzierbar und leicht auffindbar."
+  ],
+  "recommended_paths": {
+    "base_dir": "~/.config/ananta/ai_snake/",
+    "active_profile": "~/.config/ananta/ai_snake/prediction_profile.active.json",
+    "events_log": "~/.config/ananta/ai_snake/prediction_events.jsonl",
+    "learned_patterns": "~/.config/ananta/ai_snake/learned_patterns.json",
+    "exports_dir": "~/.config/ananta/ai_snake/exports/",
+    "schemas": [
+      "schemas/tui/ai_snake_prediction_profile.v1.json",
+      "schemas/tui/ai_snake_behavior_event.v1.json",
+      "schemas/tui/ai_snake_learned_pattern.v1.json",
+      "schemas/tui/ai_snake_training_bundle.v1.json"
+    ]
+  },
+  "epics": [
+    {
+      "id": "E01",
+      "title": "Datenmodell und JSON-Schemas",
+      "goal": "Ein stabiles, versioniertes, nicht zu enges und nicht zu offenes JSON-Datenmodell für Verhalten, Muster und Profile.",
+      "tasks": [
+        {
+          "id": "T01.01",
+          "title": "PredictionProfile-v1 Schema definieren",
+          "description": "Profil-Schema für den aktiven User/Workspace: globale Einstellungen, gelernte Muster-Refs, Privacy-Defaults, Modell-/Worker-Konfiguration und menschenlesbare Zusammenfassung.",
+          "repo": "tui",
+          "files": [
+            "schemas/tui/ai_snake_prediction_profile.v1.json",
+            "client_surfaces/operator_tui/ai_snake_training_data.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema enthält schema_version, profile_id, display_name, created_at, updated_at, workspace_ref, privacy_defaults, learning_settings und pattern_refs.",
+            "Schema erlaubt extension-Feld `x_ananta` für spätere Erweiterungen, aber keine beliebigen Top-Level-Felder außer definierter Extension.",
+            "Schema enthält `human_summary` mit kurzer Beschreibung des Profils.",
+            "Schema enthält `ai_summary` als kompakte, für LLM/Worker geeignete Zusammenfassung.",
+            "Schema enthält `export_policy` mit allowed_targets und default_local_only.",
+            "JSON-Schema validiert mindestens drei Beispielprofile: leer, normal, erweitert.",
+            "Schema ist Draft 2020-12 kompatibel."
+          ]
+        },
+        {
+          "id": "T01.02",
+          "title": "BehaviorEvent-v1 Schema definieren",
+          "description": "Ein Event-Schema für normalisierte Nutzerverhaltenssignale: Section-Wechsel, Snake-Bewegung, Artefakt-Auswahl, Chatmodus, Commands, Prediction-Feedback.",
+          "repo": "tui",
+          "files": [
+            "schemas/tui/ai_snake_behavior_event.v1.json",
+            "client_surfaces/operator_tui/ai_snake_observation.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": [],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema enthält event_id, created_at, event_type, source, normalized_value, refs, privacy_class und retention_hint.",
+            "event_type ist kontrolliert, aber erweiterbar über `custom:<name>` Pattern.",
+            "normalized_value erlaubt kurze strukturierte Daten, aber begrenzt Textlänge.",
+            "Private Notes-Inhalte dürfen nicht als normalized_value gespeichert werden; nur Metadaten wie notes_active oder note_count.",
+            "refs können artifact_ref, section_ref, command_ref, context_hash enthalten.",
+            "Schema erlaubt optional `human_label` für lesbare Anzeige.",
+            "Tests validieren gültige Events und blockieren zu große/unspezifische Payloads."
+          ]
+        },
+        {
+          "id": "T01.03",
+          "title": "LearnedPattern-v1 Schema definieren",
+          "description": "Schema für gelernte Verhaltensmuster, z. B. 'wenn User in Artifacts scrollt und Chat AI öffnet, will er vermutlich Artefakt erklären lassen'.",
+          "repo": "tui",
+          "files": [
+            "schemas/tui/ai_snake_learned_pattern.v1.json",
+            "client_surfaces/operator_tui/ai_snake_learning.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Schema enthält pattern_id, pattern_type, conditions, predicted_intent, confidence, evidence, counters, last_seen_at, expires_at und status.",
+            "conditions unterstützen einfache, nachvollziehbare Regeln: section_is, recent_event, selected_ref_kind, movement_trend, command_prefix, channel_is.",
+            "conditions erlauben eine begrenzte logische Struktur mit all/any/not, aber keine freie Programmiersprache.",
+            "predicted_intent ist enum plus `custom:<name>` Erweiterung.",
+            "Jedes Pattern enthält human_explanation in natürlicher Sprache.",
+            "Jedes Pattern enthält ai_hint als kompakte maschinen-/LLM-freundliche Kurzform.",
+            "Evidence verweist auf Event-IDs oder aggregierte Counter, nicht auf rohe private Inhalte.",
+            "Schema validiert Beispiele für artifact_explain, chat_help, notes_resume und unknown/low-confidence."
+          ]
+        },
+        {
+          "id": "T01.04",
+          "title": "TrainingBundle-v1 Schema für Import/Export definieren",
+          "description": "Ein Bundle-Schema fasst Profile, Patterns, optional Events, Metadaten und Signaturen/Hashes für Import/Export zusammen.",
+          "repo": "tui",
+          "files": [
+            "schemas/tui/ai_snake_training_bundle.v1.json"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.01", "T01.02", "T01.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Bundle enthält bundle_id, schema_version, exported_at, source, profile, patterns, optional events_sample und checksums.",
+            "Bundle enthält human_readme mit kurzer Erklärung für den User.",
+            "Bundle enthält ai_readme mit kompakter Beschreibung für Automatisierung/Worker.",
+            "events_sample ist optional und muss per export flag aktivierbar sein.",
+            "Bundle enthält privacy_manifest mit Zählung nach privacy_class.",
+            "Import kann Bundle ohne events_sample vollständig verwenden.",
+            "Schema verhindert unbekannte kritische Top-Level-Felder, erlaubt aber `extensions`."
+          ]
+        },
+        {
+          "id": "T01.05",
+          "title": "Schema-Kompatibilität und Migration vorbereiten",
+          "description": "Da die Daten langfristig wichtig sind, braucht es Versionierung und Migration zwischen Schema-Versionen.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_training_migration.py",
+            "tests/test_ai_snake_training_schema_migration.py"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T01.01", "T01.03", "T01.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Jedes gespeicherte Objekt enthält schema_version.",
+            "Migration-Registry kann v1 -> aktuelle Version registrieren.",
+            "Unbekannte neuere Version wird nicht überschrieben, sondern read-only/degraded behandelt.",
+            "Migration erzeugt Backup vor Schreiboperation.",
+            "Tests prüfen no-op v1, unknown future version und backup creation."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E02",
+      "title": "Transparente lokale Speicherung und Auffindbarkeit",
+      "goal": "Der User findet die Daten leicht, versteht sie und kann sie ohne Spezialwissen sichern oder prüfen.",
+      "tasks": [
+        {
+          "id": "T02.01",
+          "title": "Klaren lokalen Speicherort einführen",
+          "description": "Alle AI-Snake-Prediction-Daten liegen gesammelt unter `~/.config/ananta/ai_snake/` mit sprechenden Dateinamen.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_training_store.py",
+            "docs/ai_snake_lurking_prediction.md"
+          ],
+          "priority": "P1",
+          "effort": "S",
+          "depends_on": ["T01.01", "T01.02", "T01.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Basisordner ist `~/.config/ananta/ai_snake/`.",
+            "Aktives Profil liegt in `prediction_profile.active.json`.",
+            "Events liegen optional in `prediction_events.jsonl`.",
+            "Gelernte Patterns liegen in `learned_patterns.json`.",
+            "Exports liegen in `exports/`.",
+            "`:ai data path` zeigt diese Pfade direkt im TUI an.",
+            "Doku nennt die Pfade exakt und erklärt ihren Zweck."
+          ]
+        },
+        {
+          "id": "T02.02",
+          "title": "Human-readable Datenansicht im TUI",
+          "description": "Der User kann im TUI sehen, welche Muster gelernt wurden, ohne JSON lesen zu müssen.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/ai_snake_training_store.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T02.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:ai data show` zeigt Profilname, Anzahl Patterns, Events, letzte Aktualisierung und Speicherpfad.",
+            "`:ai patterns` listet gelernte Patterns mit human_explanation, confidence und status.",
+            "`:ai pattern <id>` zeigt Details inklusive Evidence-Zusammenfassung und ai_hint.",
+            "Anzeige ist auch bei leerem Profil verständlich.",
+            "Lange Patterntexte werden gekürzt, aber Details bleiben per Einzelansicht erreichbar.",
+            "Keine privaten Rohinhalte werden versehentlich in der Übersicht angezeigt."
+          ]
+        },
+        {
+          "id": "T02.03",
+          "title": "Machine-readable Datenansicht für Automatisierung",
+          "description": "Neben der menschlichen Ansicht gibt es Kommandos, die valide JSON-Ausgaben für Scripts und Worker liefern.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/ai_snake_training_store.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T02.01", "T01.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:ai data export --stdout --format json` gibt valides TrainingBundle-v1 JSON aus.",
+            "Ausgabe enthält keine ANSI-Farbcodes.",
+            "Command kann in Scripts verwendet werden und liefert Exit-Code != 0 bei Validierungsfehler.",
+            "Optional `--include-events` exportiert Event-Sample oder Eventlog nur nach expliziter Auswahl.",
+            "JSON-Ausgabe wird vor Ausgabe gegen Schema validiert.",
+            "Tests prüfen stdout-json und invalid-state exit behavior."
+          ]
+        },
+        {
+          "id": "T02.04",
+          "title": "Lesbare README im Datenordner erzeugen",
+          "description": "Im Datenordner liegt eine kleine README, damit der User auch außerhalb der TUI versteht, was die Dateien sind.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_training_store.py"
+          ],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": ["T02.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Beim ersten Anlegen des Datenordners wird `README.md` erzeugt.",
+            "README erklärt profile, events, learned_patterns und exports.",
+            "README nennt Kommandos für show/export/import/delete.",
+            "README warnt klar, dass Exportdateien Nutzungsverhalten enthalten können.",
+            "README wird nicht überschrieben, wenn User sie manuell verändert hat, außer mit explizitem refresh."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E03",
+      "title": "Learning Pipeline aus Nutzerverhalten",
+      "goal": "Aus Verhalten werden nachvollziehbare Patterns gelernt, nicht undurchsichtige Magie.",
+      "tasks": [
+        {
+          "id": "T03.01",
+          "title": "BehaviorEvent Recorder mit Privacy-Klassen",
+          "description": "Relevante Nutzeraktionen werden als normalisierte BehaviorEvents aufgezeichnet, wenn Learning aktiv ist.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_training_recorder.py",
+            "client_surfaces/operator_tui/interactive.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.02", "T02.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Recorder ist per Config/Command aktivierbar und deaktivierbar.",
+            "Default zeichnet nur normalisierte, kurze Events auf, keine vollständigen privaten Texte.",
+            "Jedes Event bekommt privacy_class: public_ui, workspace, private_local, sensitive_blocked.",
+            "Private Notes erzeugen maximal Metadaten-Events, keine Inhalte.",
+            "Recorder schreibt JSONL append-only mit rotationsfähiger Größe.",
+            "Tests prüfen, dass erlaubte Events geschrieben und private Rohinhalte nicht geschrieben werden."
+          ]
+        },
+        {
+          "id": "T03.02",
+          "title": "Pattern Miner für einfache transparente Regeln",
+          "description": "Aus Eventsequenzen werden einfache LearnedPatterns abgeleitet, die der User lesen und verstehen kann.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_learning.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T03.01", "T01.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Miner erzeugt nur Patterns mit human_explanation.",
+            "Patterns basieren auf aggregierten Eventsequenzen und Countern.",
+            "Mindestanzahl Evidence-Events ist konfigurierbar, Default mindestens 3 ähnliche Fälle.",
+            "Confidence steigt mit Wiederholung und sinkt bei Widerspruch.",
+            "Pattern status ist draft, active, disabled oder expired.",
+            "Neue Patterns starten default als draft oder low-confidence, bis genug Evidence vorhanden ist.",
+            "Tests prüfen Pattern-Erzeugung aus wiederholter Artifacts-Navigation und keine Erzeugung bei Zufallsrauschen."
+          ]
+        },
+        {
+          "id": "T03.03",
+          "title": "Feedback-Schleife für Prediction-Erfolg",
+          "description": "User-Feedback und tatsächliche Folgeaktionen verbessern oder schwächen Patterns.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_learning.py",
+            "client_surfaces/operator_tui/commands.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T03.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:ai prediction good` verstärkt letzte Prediction.",
+            "`:ai prediction bad` schwächt letzte Prediction und speichert Korrekturgrund optional.",
+            "Wenn User das vorhergesagte Ziel tatsächlich erreicht, kann Pattern automatisch leicht verstärkt werden.",
+            "Wenn User entgegengesetzt navigiert, wird Confidence nicht verstärkt.",
+            "Feedback erzeugt BehaviorEvent vom Typ prediction_feedback.",
+            "Tests prüfen positive, negative und implizite Feedbackfälle."
+          ]
+        },
+        {
+          "id": "T03.04",
+          "title": "Training Data Compaction und Retention",
+          "description": "Roh-Events dürfen nicht endlos wachsen; sie werden optional aggregiert und rotiert.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_training_store.py",
+            "client_surfaces/operator_tui/ai_snake_learning.py"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T03.01", "T03.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Eventlog hat konfigurierbare Maximalgröße, Default z. B. 5 MB.",
+            "Alte Events können in Pattern-Counter aggregiert werden.",
+            "Compaction erzeugt vorher optional Backup.",
+            "User kann `:ai data compact` ausführen.",
+            "Compaction verändert active Patterns nur deterministisch.",
+            "Tests prüfen Größenlimit, Aggregation und Backup."
+          ]
+        },
+        {
+          "id": "T03.05",
+          "title": "Learning Off/Paused/Delete vollständig unterstützen",
+          "description": "Der User muss Lernen stoppen, pausieren und Daten löschen können.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/ai_snake_training_store.py"
+          ],
+          "priority": "P1",
+          "effort": "S",
+          "depends_on": ["T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:ai learning off` stoppt neue Eventaufzeichnung und Pattern-Mining.",
+            "`:ai learning pause` pausiert nur temporär für aktuelle Session.",
+            "`:ai data delete events` löscht Eventlog nach explizitem Command.",
+            "`:ai data delete patterns` löscht gelernte Patterns nach explizitem Command.",
+            "`:ai data reset` setzt Profil auf leeren Zustand zurück und legt Backup an.",
+            "Statusanzeige zeigt learning on/off/paused klar sichtbar."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E04",
+      "title": "Import und Export",
+      "goal": "Trainingsdaten sind transparent portierbar und sicher importierbar.",
+      "tasks": [
+        {
+          "id": "T04.01",
+          "title": "Export als TrainingBundle JSON",
+          "description": "Der User kann Profil und Patterns als valides TrainingBundle-v1 exportieren.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/ai_snake_training_import_export.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.04", "T02.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:ai data export <path>` schreibt TrainingBundle-v1 JSON.",
+            "Export wird gegen Schema validiert, bevor Datei final geschrieben wird.",
+            "Export enthält human_readme und ai_readme.",
+            "Default exportiert keine vollständigen Eventlogs, sondern Profile + Patterns.",
+            "`--include-events` muss explizit gesetzt werden, um Event-Sample/Eventlog aufzunehmen.",
+            "Exportdatei enthält privacy_manifest.",
+            "Exportpfad wird in Statusmeldung angezeigt."
+          ]
+        },
+        {
+          "id": "T04.02",
+          "title": "Export als Markdown Report",
+          "description": "Zusätzlich zu JSON kann der User einen menschlich lesbaren Markdown-Report exportieren.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_training_import_export.py"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T04.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:ai data export-md <path>` schreibt Markdown.",
+            "Report enthält Profilzusammenfassung, aktive Patterns, deaktivierte Patterns und Datenschutz-Hinweis.",
+            "Jedes Pattern wird mit human_explanation, confidence und letzter Nutzung angezeigt.",
+            "Report enthält keine privaten Roh-Notes.",
+            "Report enthält Verweis auf zugehörigen JSON-Export, wenn gemeinsam erzeugt.",
+            "Markdown ist ohne Spezialtool lesbar."
+          ]
+        },
+        {
+          "id": "T04.03",
+          "title": "Import mit Validierung und Preview",
+          "description": "Importierte Bundles werden nicht blind übernommen, sondern validiert und dem User als Preview angezeigt.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/ai_snake_training_import_export.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T01.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:ai data import <path> --preview` zeigt Anzahl Patterns, Profilname, Schema-Version und privacy_manifest ohne Änderung am aktiven Profil.",
+            "Import ohne Preview validiert Schema und erzeugt Backup des aktuellen Profils.",
+            "Ungültiges Schema wird abgelehnt mit klarer Fehlermeldung.",
+            "Future schema_version wird read-only/degraded behandelt, nicht blind migriert.",
+            "Import kann Patterns als disabled importieren, wenn `--disabled` gesetzt ist.",
+            "Import protokolliert Konflikte, überschreibt aber nicht still bestehende Patterns."
+          ]
+        },
+        {
+          "id": "T04.04",
+          "title": "Konfliktstrategie beim Import",
+          "description": "Wenn importierte Patterns vorhandene Patterns überschneiden, gibt es nachvollziehbare Konfliktregeln.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_training_import_export.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T04.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Konflikt wird erkannt über pattern_id oder semantischen fingerprint der conditions + predicted_intent.",
+            "Default-Strategie ist `keep_existing_and_import_as_disabled_copy`.",
+            "Optionen: keep-existing, replace, merge-counters, import-disabled-copy.",
+            "Konfliktpreview zeigt betroffene Pattern-IDs und human_explanation.",
+            "Merge verändert confidence nur nach deterministischer Formel.",
+            "Tests prüfen alle Konfliktstrategien."
+          ]
+        },
+        {
+          "id": "T04.05",
+          "title": "Roundtrip-Test Import/Export",
+          "description": "Exportierte Daten müssen wieder importierbar sein, ohne Informationen zu verlieren, außer explizit ausgelassene Eventlogs.",
+          "repo": "tui",
+          "files": [
+            "tests/test_ai_snake_training_import_export.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T04.01", "T04.03", "T04.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Test exportiert Profil + Patterns und importiert in leeren Store.",
+            "Pattern-Anzahl, IDs, human_explanation, ai_hint und confidence bleiben erhalten.",
+            "Export ohne Events importiert trotzdem vollständig nutzbare Patterns.",
+            "Import erzeugt Backup, wenn bestehende Daten vorhanden sind.",
+            "Invalid JSON und schema-invalid Bundle werden sauber abgelehnt."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E05",
+      "title": "KI-optimierte Repräsentation",
+      "goal": "Die Daten sind nicht nur für Menschen lesbar, sondern auch ideal als kompakter Kontext für Worker/LLM nutzbar.",
+      "tasks": [
+        {
+          "id": "T05.01",
+          "title": "ai_summary und ai_hint Standard definieren",
+          "description": "Profile und Patterns enthalten KI-optimierte Kurzformen, damit Worker/LLM nicht das ganze Eventlog lesen müssen.",
+          "repo": "tui",
+          "files": [
+            "schemas/tui/ai_snake_prediction_profile.v1.json",
+            "schemas/tui/ai_snake_learned_pattern.v1.json",
+            "client_surfaces/operator_tui/ai_snake_learning.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.01", "T01.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Jedes aktive Pattern hat `ai_hint` mit maximal konfigurierbarer Länge, Default 300 Zeichen.",
+            "Profil hat `ai_summary` mit Top-Patterns und Learning-Status.",
+            "ai_hint enthält keine privaten Rohinhalte.",
+            "ai_hint ist deterministisch aus Pattern-Feldern generierbar.",
+            "Worker-Kontext nutzt ai_hint bevorzugt vor Langtext.",
+            "Tests prüfen Länge, Inhalt und Datenschutzgrenzen."
+          ]
+        },
+        {
+          "id": "T05.02",
+          "title": "TrainingProfile ContextEnvelope für Worker",
+          "description": "Prediction-Worker bekommt optional einen kompakten Verweis auf aktive Lernmuster.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_context.py",
+            "client_surfaces/operator_tui/ai_snake_training_store.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T05.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "ContextEnvelope kann `training_profile_ref` und `active_pattern_refs` enthalten.",
+            "Nur aktive, nicht expired Patterns werden übergeben.",
+            "Maximal N Patterns werden in Worker-Kontext aufgenommen, Default N=8.",
+            "Auswahl priorisiert hohe confidence, recent use und passenden intent_kind.",
+            "Worker-Kontext enthält ai_hint und pattern_id, nicht Eventrohlog.",
+            "Tests prüfen Auswahl und Budgetbegrenzung."
+          ]
+        },
+        {
+          "id": "T05.03",
+          "title": "Automatisierbares JSON CLI Interface",
+          "description": "Scripts und Agenten können Trainingsdaten ohne TUI-Rendering lesen, validieren und exportieren.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "scripts/ai_snake_training_data.py"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T02.03", "T04.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Script `scripts/ai_snake_training_data.py validate <path>` validiert Bundle/Profile/Patterns.",
+            "Script `... export --stdout` gibt JSON ohne TUI-Abhängigkeit aus.",
+            "Script `... summarize <path>` gibt human-readable Kurzbericht aus.",
+            "Exit-Codes sind CI-tauglich: 0 valid, !=0 invalid.",
+            "Script nutzt dieselben Schemas wie TUI.",
+            "Tests prüfen CLI validate/export/summarize."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E06",
+      "title": "UI-Kontrolle, Bearbeitung und Löschung",
+      "goal": "User kann gelernte Daten prüfen, deaktivieren, löschen und korrigieren.",
+      "tasks": [
+        {
+          "id": "T06.01",
+          "title": "Pattern aktivieren/deaktivieren/löschen",
+          "description": "Gelernte Patterns sind nicht sakrosankt; User kann sie steuern.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/ai_snake_training_store.py"
+          ],
+          "priority": "P1",
+          "effort": "S",
+          "depends_on": ["T02.02", "T03.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "`:ai pattern disable <id>` deaktiviert Pattern.",
+            "`:ai pattern enable <id>` aktiviert Pattern, wenn Schema gültig ist.",
+            "`:ai pattern delete <id>` löscht oder tombstoned Pattern nach exakter ID.",
+            "`:ai pattern explain <id>` zeigt human_explanation, ai_hint, evidence summary und confidence.",
+            "Deaktivierte Patterns werden nicht an Worker-Kontext übergeben.",
+            "Aktion erzeugt Backup oder Änderungslog."
+          ]
+        },
+        {
+          "id": "T06.02",
+          "title": "Pattern manuell korrigieren über Export/Edit/Import",
+          "description": "Manuelle Bearbeitung soll möglich sein, aber immer validiert werden.",
+          "repo": "tui",
+          "files": [
+            "docs/ai_snake_training_data.md",
+            "client_surfaces/operator_tui/ai_snake_training_import_export.py"
+          ],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": ["T04.01", "T04.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Doku beschreibt Workflow: export -> edit JSON -> validate -> import preview -> import.",
+            "Import validiert manuell geänderte Patterns vollständig.",
+            "Fehlerausgabe nennt JSON-Pfad zum fehlerhaften Feld.",
+            "Manuell geänderte Patterns bekommen metadata `edited_by_user=true`.",
+            "Edited Patterns behalten human_explanation und ai_hint Pflichtfelder."
+          ]
+        },
+        {
+          "id": "T06.03",
+          "title": "Transparenzstatus im AI-Snake Panel",
+          "description": "AI-Snake zeigt kurz, ob sie aus gelerntem Verhalten, Quick-Prediction oder Worker-Kontext handelt.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/renderer.py",
+            "client_surfaces/operator_tui/ai_snake_prediction.py"
+          ],
+          "priority": "P2",
+          "effort": "S",
+          "depends_on": ["T03.02", "T05.02"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Panel zeigt kompakt `learned: yes/no`, `patterns: N`, `last_pattern: <id>`.",
+            "Bei Prediction aus Pattern wird Pattern-ID im Debug/Status sichtbar.",
+            "User kann mit `:ai why` letzte Prediction erklären lassen.",
+            "Erklärung nennt menschlich verständliche Evidence, keine Rohlogs.",
+            "Wenn keine Lernbasis vorhanden ist, sagt Status klar `no learned profile yet`."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E07",
+      "title": "Datenschutz, Sicherheit und Integrität",
+      "goal": "Trainingsdaten sind wichtig, aber dürfen nicht heimlich sensible Inhalte sammeln oder importierte Daten blind vertrauen.",
+      "tasks": [
+        {
+          "id": "T07.01",
+          "title": "Privacy-Klassen und Export-Warnungen",
+          "description": "Jedes Objekt bekommt Privacy-Klasse und Exporte zeigen verständliche Hinweise.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_training_store.py",
+            "client_surfaces/operator_tui/ai_snake_training_import_export.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.02", "T01.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Objekte nutzen privacy_class: public_ui, workspace, private_local, sensitive_blocked.",
+            "Export erzeugt privacy_manifest mit Anzahl je Klasse.",
+            "Export mit private_local Daten zeigt Warnung im TUI.",
+            "Default-Export enthält keine sensitive_blocked Objekte.",
+            "Import-Preview zeigt privacy_manifest vor Übernahme.",
+            "Tests prüfen Manifest und Warnpfade."
+          ]
+        },
+        {
+          "id": "T07.02",
+          "title": "Integritäts-Checks und Checksums",
+          "description": "TrainingBundle enthält Checksums, damit beschädigte oder manipulierte Dateien erkannt werden.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_training_import_export.py"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T04.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Bundle enthält checksum über profile und patterns.",
+            "Import prüft checksum, wenn vorhanden.",
+            "Checksum-Fehler verhindert Import, außer User nutzt expliziten unsafe/ignore Modus.",
+            "Unsafe/ignore Modus erzeugt sichtbare Warnung und Audit/Log-Eintrag.",
+            "Tests prüfen valid checksum, missing checksum und mismatch."
+          ]
+        },
+        {
+          "id": "T07.03",
+          "title": "Keine automatische Cloud- oder Repo-Übertragung",
+          "description": "Trainingdaten bleiben lokal, außer User exportiert oder erlaubt gezielt Worker-Kontextnutzung.",
+          "repo": "tui",
+          "files": [
+            "client_surfaces/operator_tui/ai_snake_policy.py",
+            "client_surfaces/operator_tui/ai_snake_context.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T05.02", "T07.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Trainingdaten werden nicht automatisch an Hub, GitHub, Cloud-LLM oder andere Snakes gesendet.",
+            "Worker-Kontext erhält nur ai_summary/ai_hint und pattern_refs, wenn Policy es erlaubt.",
+            "Cloud-Provider erhalten Trainingsdaten default nicht.",
+            "Export ist expliziter User-Command.",
+            "Tests prüfen no-auto-send und cloud-deny default."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E08",
+      "title": "Tests und Qualitätssicherung",
+      "goal": "Schemas, Store, Import/Export und Learning sind robust getestet.",
+      "tasks": [
+        {
+          "id": "T08.01",
+          "title": "Schema-Validation Tests",
+          "description": "Alle neuen JSON-Schemas werden mit positiven und negativen Beispielen getestet.",
+          "repo": "tui",
+          "files": [
+            "tests/test_ai_snake_training_schemas.py",
+            "tests/fixtures/ai_snake_training/"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T01.01", "T01.02", "T01.03", "T01.04"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Tests validieren PredictionProfile-v1 Beispiele.",
+            "Tests validieren BehaviorEvent-v1 Beispiele.",
+            "Tests validieren LearnedPattern-v1 Beispiele.",
+            "Tests validieren TrainingBundle-v1 Beispiele.",
+            "Negative Tests prüfen unbekannte Top-Level-Felder, fehlende Pflichtfelder und zu große Textfelder.",
+            "Fixtures sind im Repo und dokumentiert."
+          ]
+        },
+        {
+          "id": "T08.02",
+          "title": "Store- und Persistence-Tests",
+          "description": "Lokaler Store wird gegen korrupte Dateien, leere Profile und Backups getestet.",
+          "repo": "tui",
+          "files": [
+            "tests/test_ai_snake_training_store.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T02.01", "T03.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Tests prüfen initiale Ordneranlage.",
+            "Tests prüfen README-Erzeugung.",
+            "Tests prüfen Laden leerer und vorhandener Profile.",
+            "Tests prüfen Umgang mit korrupter JSONL-Zeile.",
+            "Tests prüfen Backup vor reset/import.",
+            "Tests prüfen Learning off/paused."
+          ]
+        },
+        {
+          "id": "T08.03",
+          "title": "Import/Export Roundtrip Tests",
+          "description": "Exportierte Bundles müssen importierbar und reproduzierbar sein.",
+          "repo": "tui",
+          "files": [
+            "tests/test_ai_snake_training_import_export.py"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T04.01", "T04.03", "T04.05"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Roundtrip Profil + Patterns ohne Events.",
+            "Roundtrip mit optionalem Event-Sample.",
+            "Import preview verändert Store nicht.",
+            "Konfliktstrategie wird deterministisch getestet.",
+            "Invalid Bundle wird abgelehnt.",
+            "Markdown-Export enthält alle aktiven human_explanations."
+          ]
+        },
+        {
+          "id": "T08.04",
+          "title": "Learning Pipeline Tests",
+          "description": "Aus Beispiel-Eventsequenzen entstehen nachvollziehbare Patterns.",
+          "repo": "tui",
+          "files": [
+            "tests/test_ai_snake_learning_pipeline.py"
+          ],
+          "priority": "P1",
+          "effort": "L",
+          "depends_on": ["T03.01", "T03.02", "T03.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Wiederholte Artifacts-Sequenz erzeugt artifact_explain Pattern.",
+            "Rauschdaten erzeugen kein aktives Pattern.",
+            "Negatives Feedback senkt confidence.",
+            "Positives Feedback erhöht confidence.",
+            "Expired Pattern wird nicht für Worker-Kontext ausgewählt.",
+            "Private Notes-Inhalt landet in keinem Pattern-Evidence-Rohfeld."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "E09",
+      "title": "Dokumentation und Mermaid-Architektur",
+      "goal": "Datenformat, Speicherort, Import/Export und Learning sind für User und Entwickler verständlich dokumentiert.",
+      "tasks": [
+        {
+          "id": "T09.01",
+          "title": "User-Doku Training Data Transparenz",
+          "description": "Doku erklärt, welche Daten gespeichert werden, wo sie liegen und wie man sie exportiert/importiert/löscht.",
+          "repo": "tui",
+          "files": [
+            "docs/ai_snake_training_data.md",
+            "docs/ai_snake_lurking_prediction.md"
+          ],
+          "priority": "P1",
+          "effort": "M",
+          "depends_on": ["T02.01", "T04.01", "T06.01"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Doku nennt alle Speicherpfade exakt.",
+            "Doku erklärt alle relevanten Kommandos: show, patterns, export, import, validate, delete, reset.",
+            "Doku erklärt Privacy-Klassen verständlich.",
+            "Doku enthält Beispiel für JSON-Export und Markdown-Report.",
+            "Doku erklärt, dass Daten local-first sind und nicht automatisch übertragen werden.",
+            "Doku enthält Recovery-Hinweise bei kaputtem Profil."
+          ]
+        },
+        {
+          "id": "T09.02",
+          "title": "Entwicklerdoku mit Mermaid-Flows",
+          "description": "Architekturdoku beschreibt BehaviorEvent -> Pattern Mining -> Profile -> Worker Context -> Prediction.",
+          "repo": "tui",
+          "files": [
+            "docs/architecture/ai_snake_training_data_architecture.md"
+          ],
+          "priority": "P2",
+          "effort": "M",
+          "depends_on": ["T03.02", "T05.02", "T07.03"],
+          "status": "open",
+          "acceptance_criteria": [
+            "Doku enthält Mermaid-Flow für Event-Aufzeichnung.",
+            "Doku enthält Mermaid-Flow für Pattern-Mining.",
+            "Doku enthält Mermaid-Flow für Import/Export mit Validierung.",
+            "Doku enthält Mermaid-Flow für Worker-Kontext mit ai_hint.",
+            "Doku benennt Module und Schemas.",
+            "Doku enthält Security-/Privacy-Invarianten."
+          ]
+        }
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Alle Prediction-Trainingsdaten liegen transparent unter `~/.config/ananta/ai_snake/` oder einem klar konfigurierten Pfad.",
+    "User kann Pfade und Status im TUI mit `:ai data show` und `:ai data path` sehen.",
+    "Profile, Events, Patterns und Bundles haben versionierte JSON-Schemas.",
+    "Export als valides JSON-Bundle ist möglich und schema-validiert.",
+    "Export als menschlich lesbarer Markdown-Report ist möglich.",
+    "Import ist previewbar, validiert und konfliktbewusst.",
+    "Gelernte Patterns enthalten human_explanation und ai_hint.",
+    "Private Notes und sensible Inhalte werden nicht als Rohdaten in Trainingsdaten übernommen.",
+    "User kann Learning pausieren, deaktivieren, Patterns löschen/deaktivieren und Daten resetten.",
+    "Automatisierung kann JSON validieren, exportieren und zusammenfassen, ohne TUI-Rendering zu benötigen."
+  ],
+  "suggested_implementation_order": [
+    "E01 JSON-Schemas definieren",
+    "E02 lokalen Store und Transparenzkommandos bauen",
+    "E03 Recorder und Pattern-Mining implementieren",
+    "E04 Import/Export mit Preview und Konflikten",
+    "E05 KI-optimierte ai_summary/ai_hint und Worker-Kontext",
+    "E06 User-Kontrolle für Patterns und Daten",
+    "E07 Privacy/Integrität absichern",
+    "E08 Tests",
+    "E09 Doku"
+  ]
+}
