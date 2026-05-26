@@ -158,6 +158,34 @@ public final class AnantaApiClient {
         return submitGoal(goalText, contextPayloadJson, "project_evolution", "io.ananta.eclipse.command.evolve_project", null);
     }
 
+    public ClientResponse registerSnakeClient(String workspaceId, String displayName, List<String> capabilities) {
+        String safeWorkspaceId = Objects.toString(workspaceId, "").trim();
+        String safeDisplayName = Objects.toString(displayName, "").trim();
+        if (safeWorkspaceId.isBlank() || safeDisplayName.isBlank()) {
+            throw new IllegalArgumentException("snake_registration_fields_required");
+        }
+        String body = "{"
+                + "\"client_kind\":\"eclipse_plugin\","
+                + "\"workspace_id\":\"" + escapeJson(safeWorkspaceId) + "\","
+                + "\"display_name\":\"" + escapeJson(safeDisplayName) + "\","
+                + "\"capabilities\":" + jsonStringArray(capabilities)
+                + "}";
+        return request("POST", "/v1/snake/register", body);
+    }
+
+    public ClientResponse snakeHeartbeat(String clientId, String workspaceId) {
+        String safeClientId = Objects.toString(clientId, "").trim();
+        String safeWorkspaceId = Objects.toString(workspaceId, "").trim();
+        if (safeClientId.isBlank() || safeWorkspaceId.isBlank()) {
+            throw new IllegalArgumentException("snake_heartbeat_fields_required");
+        }
+        String body = "{"
+                + "\"client_id\":\"" + escapeJson(safeClientId) + "\","
+                + "\"workspace_id\":\"" + escapeJson(safeWorkspaceId) + "\""
+                + "}";
+        return request("POST", "/v1/snake/heartbeat", body);
+    }
+
     private static String wrapContextPayload(String contextPayloadJson) {
         return "{\"context\":" + ensureJsonObject(contextPayloadJson) + "}";
     }
@@ -215,6 +243,18 @@ public final class AnantaApiClient {
             return;
         }
         builder.append(",\"").append(key).append("\":\"").append(escapeJson(normalized)).append("\"");
+    }
+
+    private static String jsonStringArray(List<String> values) {
+        List<String> normalized = values == null ? List.of() : values;
+        List<String> entries = new ArrayList<>();
+        for (String value : normalized) {
+            String safe = Objects.toString(value, "").trim();
+            if (!safe.isBlank()) {
+                entries.add("\"" + escapeJson(safe) + "\"");
+            }
+        }
+        return "[" + String.join(",", entries) + "]";
     }
 
     private ClientResponse request(String method, String path, String bodyJson) {

@@ -3,6 +3,7 @@ package io.ananta.eclipse.runtime.views.eclipse;
 import io.ananta.eclipse.runtime.platform.AnantaRuntimeBootstrap;
 import io.ananta.eclipse.runtime.snake.AnantaSnakeOverlayCanvas;
 import io.ananta.eclipse.runtime.snake.AnantaSnakeOverlayModel;
+import io.ananta.eclipse.runtime.snake.AnantaSnakePredictionEvent;
 import io.ananta.eclipse.runtime.snake.AnantaSnakeState;
 
 import org.eclipse.swt.SWT;
@@ -11,6 +12,7 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.ui.part.ViewPart;
 
@@ -19,7 +21,11 @@ public final class AnantaSnakeViewPart extends ViewPart {
 
     private final AnantaSnakeOverlayCanvas overlayCanvas = new AnantaSnakeOverlayCanvas();
     private Label statusLabel;
+    private Label predictionLabel;
+    private Label hubConfigLabel;
+    private Label askResultLabel;
     private Button toggleButton;
+    private Button askButton;
 
     @Override
     public void createPartControl(Composite parent) {
@@ -35,6 +41,20 @@ public final class AnantaSnakeViewPart extends ViewPart {
         toggleButton = new Button(parent, SWT.PUSH);
         toggleButton.setLayoutData(new GridData(SWT.LEFT, SWT.TOP, false, false));
         toggleButton.addListener(SWT.Selection, event -> toggleSnake());
+
+        askButton = new Button(parent, SWT.PUSH);
+        askButton.setLayoutData(new GridData(SWT.LEFT, SWT.TOP, false, false));
+        askButton.setText("Ask Ananta Snake");
+        askButton.addListener(SWT.Selection, event -> requestAsk());
+
+        predictionLabel = new Label(parent, SWT.WRAP);
+        predictionLabel.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+
+        hubConfigLabel = new Label(parent, SWT.WRAP);
+        hubConfigLabel.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
+
+        askResultLabel = new Label(parent, SWT.WRAP);
+        askResultLabel.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
 
         Composite overlayContainer = new Composite(parent, SWT.BORDER);
         overlayContainer.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
@@ -62,6 +82,16 @@ public final class AnantaSnakeViewPart extends ViewPart {
         refreshUi(state);
     }
 
+    private void requestAsk() {
+        askResultLabel.setText("ask=running");
+        Thread thread = new Thread(() -> {
+            AnantaRuntimeBootstrap.snakeService().askAnantaSnakeNow("Explain current IDE context");
+            Display.getDefault().asyncExec(() -> refreshUi(AnantaRuntimeBootstrap.snakeService().snapshot()));
+        }, "ananta-snake-ask-action");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     private void refreshUi(AnantaSnakeState state) {
         String message = "enabled=" + state.isEnabled()
                 + ", running=" + state.isRunning()
@@ -74,6 +104,16 @@ public final class AnantaSnakeViewPart extends ViewPart {
                 + ", hub=" + state.getHubConnectionState();
         statusLabel.setText(message);
         toggleButton.setText(state.isEnabled() ? "Disable Snake" : "Enable Snake");
+        AnantaSnakePredictionEvent prediction = AnantaRuntimeBootstrap.snakeService().latestPredictionEvent();
+        predictionLabel.setText("prediction=intent=" + prediction.intentKind()
+                + ", confidence=" + prediction.confidence()
+                + ", evidence=" + String.join("|", prediction.evidence()));
+        var hubConfig = AnantaRuntimeBootstrap.snakeService().hubConnectionConfig();
+        hubConfigLabel.setText("hub_config=enabled=" + hubConfig.enabled()
+                + ", base_url=" + hubConfig.baseUrl()
+                + ", auth_mode=" + hubConfig.authMode()
+                + ", timeout_seconds=" + hubConfig.timeoutSeconds());
+        askResultLabel.setText("ask_result=" + AnantaRuntimeBootstrap.snakeService().lastAskResult());
         overlayCanvas.setModel(AnantaSnakeOverlayModel.fromState(state));
     }
 }

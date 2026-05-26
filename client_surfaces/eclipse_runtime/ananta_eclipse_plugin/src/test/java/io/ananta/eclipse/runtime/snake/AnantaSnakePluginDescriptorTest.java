@@ -13,6 +13,7 @@ class AnantaSnakePluginDescriptorTest {
     void pluginDescriptorContainsSnakeCommandViewAndMenuEntries() throws IOException {
         String pluginXml = Files.readString(Path.of("plugin.xml"));
         assertTrue(pluginXml.contains("io.ananta.eclipse.command.snake_toggle"));
+        assertTrue(pluginXml.contains("io.ananta.eclipse.command.snake_ask"));
         assertTrue(pluginXml.contains("io.ananta.eclipse.view.snake"));
         assertTrue(pluginXml.contains("io.ananta.eclipse.menu.snake"));
         assertTrue(pluginXml.contains("io.ananta.eclipse.toolbar.snake"));

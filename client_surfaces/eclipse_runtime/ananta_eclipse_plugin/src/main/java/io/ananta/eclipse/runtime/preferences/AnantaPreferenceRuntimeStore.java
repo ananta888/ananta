@@ -21,6 +21,7 @@ public final class AnantaPreferenceRuntimeStore {
     private static final String KEY_ENVIRONMENT = "environment";
     private static final String KEY_TIMEOUT_SECONDS = "timeout_seconds";
     private static final String KEY_AUTH_TOKEN = "auth_token";
+    private static final String KEY_SNAKE_HUB_ENABLED = "snake_hub_enabled";
 
     private AnantaPreferenceRuntimeStore() {
     }
@@ -50,6 +51,21 @@ public final class AnantaPreferenceRuntimeStore {
             throw new IllegalStateException("failed_to_store_profile_preferences", exc);
         }
         saveToken(input.getProfileId(), input.getAuthToken());
+    }
+
+    public static boolean loadSnakeHubEnabled() {
+        IEclipsePreferences node = InstanceScope.INSTANCE.getNode(PREF_NODE);
+        return node.getBoolean(KEY_SNAKE_HUB_ENABLED, false);
+    }
+
+    public static void saveSnakeHubEnabled(boolean enabled) {
+        IEclipsePreferences node = InstanceScope.INSTANCE.getNode(PREF_NODE);
+        node.putBoolean(KEY_SNAKE_HUB_ENABLED, enabled);
+        try {
+            node.flush();
+        } catch (BackingStoreException exc) {
+            throw new IllegalStateException("failed_to_store_snake_hub_enabled", exc);
+        }
     }
 
     private static String loadToken(String profileId) {
