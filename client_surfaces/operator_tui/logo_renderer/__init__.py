@@ -5,7 +5,11 @@ from client_surfaces.operator_tui.logo_renderer.ansi_halfblock import (
     render_halfblock_text,
 )
 from client_surfaces.operator_tui.logo_renderer.animation_loop import AnimationLoop, FrameTiming
-from client_surfaces.operator_tui.logo_renderer.animated_header import render_ansi_header_logo, render_header_logo
+from client_surfaces.operator_tui.logo_renderer.animated_header import (
+    get_last_render_metrics,
+    render_ansi_header_logo,
+    render_header_logo,
+)
 from client_surfaces.operator_tui.logo_renderer.base import (
     LogoFrame,
     LogoRenderer,
@@ -75,6 +79,7 @@ __all__ = [
     "header_logo_target_pixels",
     "render_ansi_header_logo",
     "render_header_logo",
+    "get_last_render_metrics",
     "render_halfblock_image",
     "render_halfblock_text",
 ]

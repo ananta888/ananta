@@ -163,3 +163,13 @@ def test_render_header_logo_3d_stream_mode_uses_offscreen_frame(monkeypatch):
     lines = animated_header.render_header_logo(cols=40, rows=8, color=True, t_now=1.0)
     assert lines is not None
     assert lines[0].startswith("\x1b7")
+
+
+def test_render_header_logo_records_performance_metrics(monkeypatch):
+    monkeypatch.setenv("ANANTA_TUI_LOGO_RENDERER", "ansi")
+    lines = animated_header.render_header_logo(cols=40, rows=8, color=True, t_now=1.0)
+    metrics = animated_header.get_last_render_metrics()
+    assert lines is not None
+    assert metrics.get("backend") in {"halfblock", "ascii", "ansi", "kitty", "sixel", "none", "kitty-3d", "sixel-3d"}
+    assert "render_ms" in metrics
+    assert "fps" in metrics

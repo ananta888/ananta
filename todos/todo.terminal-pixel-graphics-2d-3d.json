@@ -1,7 +1,7 @@
 {
   "id": "todo.terminal-pixel-graphics-2d-3d",
   "title": "Terminal Pixel Graphics: hochwertige 2D-Grafik und Echtzeit-3D in der Ananta-TUI",
-  "status": "in_progress",
+  "status": "done",
   "priority": "high",
   "goal": "Die Ananta-TUI soll nicht nur ASCII-Grafik anzeigen, sondern echte Pixelgrafik im Terminal rendern können. Ziel ist zuerst hochwertige 2D-Grafik, danach Echtzeit-3D über Offscreen-Rendering mit Ausgabe über moderne Terminal-Grafikprotokolle.",
   "context": {
@@ -473,6 +473,7 @@
     },
     {
       "id": "TUI-GFX-016",
+      "status": "done",
       "title": "Performance-Budget definieren und messen",
       "type": "quality",
       "priority": "high",
@@ -494,6 +495,7 @@
     },
     {
       "id": "TUI-GFX-017",
+      "status": "done",
       "title": "Konfiguration erweitern",
       "type": "configuration",
       "priority": "high",
@@ -517,6 +519,7 @@
     },
     {
       "id": "TUI-GFX-018",
+      "status": "done",
       "title": "E2E-Demo für hochwertige 2D-Grafik erstellen",
       "type": "test",
       "priority": "high",
@@ -539,6 +542,7 @@
     },
     {
       "id": "TUI-GFX-019",
+      "status": "done",
       "title": "E2E-Demo für 3D-Rendering erstellen",
       "type": "test",
       "priority": "medium",
@@ -560,6 +564,7 @@
     },
     {
       "id": "TUI-GFX-020",
+      "status": "done",
       "title": "Dokumentation schreiben",
       "type": "documentation",
       "priority": "medium",

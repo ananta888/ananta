@@ -696,6 +696,26 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
         parts.append(f"term={mouse_caps.get('term')}")
     if isinstance(mouse_state, dict) and mouse_state.get("active"):
         parts.append(f"mouse={int(mouse_state.get('x', 0))},{int(mouse_state.get('y', 0))}")
+    if os.environ.get("ANANTA_TUI_GFX_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}:
+        try:
+            from client_surfaces.operator_tui.logo_renderer.animated_header import get_last_render_metrics
+
+            metrics = get_last_render_metrics()
+        except Exception:
+            metrics = {}
+        if metrics:
+            parts.append(
+                "gfx="
+                f"{metrics.get('backend','?')}:"
+                f"{metrics.get('render_ms','?')}/"
+                f"{metrics.get('encode_ms','?')}/"
+                f"{metrics.get('output_ms','?')}ms"
+            )
+            parts.append(f"gfx_fps={metrics.get('fps','?')}")
+            frame_w = metrics.get("frame_w")
+            frame_h = metrics.get("frame_h")
+            if frame_w and frame_h:
+                parts.append(f"gfx_frame={frame_w}x{frame_h}")
     if splash_state:
         parts.append(f"splash={splash_state}")
     return _clip(" ".join(parts), width)

@@ -82,6 +82,35 @@ def test_parse_args_offscreen_3d_flags():
     assert getattr(args, "3d_renderer") == "raylib"
 
 
+def test_parse_args_graphics_quality_flags():
+    from client_surfaces.operator_tui.app import _parse_args
+
+    args = _parse_args(
+        [
+            "--graphics",
+            "sixel",
+            "--quality",
+            "high",
+            "--frame-width",
+            "640",
+            "--frame-height",
+            "360",
+            "--target-fps",
+            "12",
+            "--oversampling-factor",
+            "4",
+            "--force-pixel-graphics",
+        ]
+    )
+    assert args.graphics == "sixel"
+    assert args.quality == "high"
+    assert args.frame_width == 640
+    assert args.frame_height == 360
+    assert args.target_fps == 12
+    assert args.oversampling_factor == 4
+    assert args.force_pixel_graphics is True
+
+
 def test_apply_logo_runtime_overrides_sets_env_for_render_once(monkeypatch):
     from client_surfaces.operator_tui.app import _apply_logo_runtime_overrides, _parse_args
 
@@ -103,6 +132,47 @@ def test_apply_logo_runtime_overrides_sets_offscreen_3d_env(monkeypatch):
     assert os.environ.get("ANANTA_TUI_ENABLE_3D") == "1"
     assert os.environ.get("ANANTA_TUI_3D_SCENE") == "demo-cube"
     assert os.environ.get("ANANTA_TUI_3D_RENDERER") == "moderngl"
+
+
+def test_apply_logo_runtime_overrides_sets_graphics_quality_env(monkeypatch):
+    from client_surfaces.operator_tui.app import _apply_logo_runtime_overrides, _parse_args
+
+    for key in (
+        "ANANTA_TUI_GRAPHICS",
+        "ANANTA_TUI_LOGO_QUALITY",
+        "ANANTA_TUI_FRAME_WIDTH",
+        "ANANTA_TUI_FRAME_HEIGHT",
+        "ANANTA_TUI_TARGET_FPS",
+        "ANANTA_TUI_LOGO_OVERSAMPLING",
+        "ANANTA_TUI_FORCE_PIXEL_GRAPHICS",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    args = _parse_args(
+        [
+            "--graphics",
+            "halfblock",
+            "--quality",
+            "ultra",
+            "--frame-width",
+            "700",
+            "--frame-height",
+            "380",
+            "--target-fps",
+            "9",
+            "--oversampling-factor",
+            "5",
+            "--force-pixel-graphics",
+        ]
+    )
+    _apply_logo_runtime_overrides(args)
+    assert os.environ.get("ANANTA_TUI_GRAPHICS") == "halfblock"
+    assert os.environ.get("ANANTA_TUI_LOGO_RENDERER") == "ansi"
+    assert os.environ.get("ANANTA_TUI_LOGO_QUALITY") == "ultra"
+    assert os.environ.get("ANANTA_TUI_FRAME_WIDTH") == "700"
+    assert os.environ.get("ANANTA_TUI_FRAME_HEIGHT") == "380"
+    assert os.environ.get("ANANTA_TUI_TARGET_FPS") == "9"
+    assert os.environ.get("ANANTA_TUI_LOGO_OVERSAMPLING") == "5"
+    assert os.environ.get("ANANTA_TUI_FORCE_PIXEL_GRAPHICS") == "1"
 
 
 def test_splash_debug_file_not_written_without_flag(tmp_path, monkeypatch):

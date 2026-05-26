@@ -48,6 +48,23 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--splash-frame", default="",
                         help="Render a specific splash frame: 3d:0, 3d:mid, 3d:last, compact, pixel:intro")
     parser.add_argument(
+        "--graphics",
+        choices=["auto", "kitty", "sixel", "iterm2", "halfblock", "ascii", "none"],
+        default=None,
+        help="Terminal graphics backend selection.",
+    )
+    parser.add_argument(
+        "--quality",
+        choices=["low", "medium", "high", "ultra"],
+        default=None,
+        help="Rendering quality profile for logo/pixel path.",
+    )
+    parser.add_argument("--frame-width", type=int, default=None, help="Target frame width in pixels.")
+    parser.add_argument("--frame-height", type=int, default=None, help="Target frame height in pixels.")
+    parser.add_argument("--target-fps", type=int, default=None, help="Target FPS for animated pixel rendering.")
+    parser.add_argument("--oversampling-factor", type=int, default=None, help="SVG oversampling factor (1..8).")
+    parser.add_argument("--force-pixel-graphics", action="store_true", help="Avoid ASCII fallback when possible.")
+    parser.add_argument(
         "--logo-renderer",
         choices=["auto", "ansi", "sixel", "kitty", "none"],
         default=None,
@@ -313,6 +330,28 @@ def _apply_logo_runtime_overrides(args: argparse.Namespace) -> None:
         os.environ["ANANTA_TUI_LOGO"] = "0"
     if getattr(args, "logo_renderer", None):
         os.environ["ANANTA_TUI_LOGO_RENDERER"] = str(args.logo_renderer)
+    if getattr(args, "graphics", None):
+        os.environ["ANANTA_TUI_GRAPHICS"] = str(args.graphics)
+        # Keep legacy logo renderer in sync for existing selection flow.
+        graphics = str(args.graphics)
+        if graphics in {"kitty", "sixel", "none"}:
+            os.environ["ANANTA_TUI_LOGO_RENDERER"] = graphics
+        elif graphics in {"halfblock", "ascii", "iterm2"}:
+            os.environ["ANANTA_TUI_LOGO_RENDERER"] = "ansi"
+        elif graphics == "auto":
+            os.environ["ANANTA_TUI_LOGO_RENDERER"] = "auto"
+    if getattr(args, "quality", None):
+        os.environ["ANANTA_TUI_LOGO_QUALITY"] = str(args.quality)
+    if getattr(args, "frame_width", None) is not None:
+        os.environ["ANANTA_TUI_FRAME_WIDTH"] = str(max(32, int(args.frame_width)))
+    if getattr(args, "frame_height", None) is not None:
+        os.environ["ANANTA_TUI_FRAME_HEIGHT"] = str(max(24, int(args.frame_height)))
+    if getattr(args, "target_fps", None) is not None:
+        os.environ["ANANTA_TUI_TARGET_FPS"] = str(max(1, min(60, int(args.target_fps))))
+    if getattr(args, "oversampling_factor", None) is not None:
+        os.environ["ANANTA_TUI_LOGO_OVERSAMPLING"] = str(max(1, min(8, int(args.oversampling_factor))))
+    if bool(getattr(args, "force_pixel_graphics", False)):
+        os.environ["ANANTA_TUI_FORCE_PIXEL_GRAPHICS"] = "1"
     if getattr(args, "logo_animation", None):
         os.environ["ANANTA_TUI_LOGO_ANIMATION"] = str(args.logo_animation)
     if getattr(args, "logo_fps", None) is not None:

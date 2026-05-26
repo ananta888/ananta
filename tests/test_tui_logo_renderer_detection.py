@@ -72,3 +72,8 @@ def test_select_graphics_backend_unknown_terminal_falls_back_safely():
 
 def test_select_graphics_backend_respects_forced_override():
     assert select_graphics_backend(env={"ANANTA_TUI_GRAPHICS": "halfblock"}) == "halfblock"
+
+
+def test_select_graphics_backend_force_pixel_avoids_ascii():
+    env = {"TERM": "dumb", "NO_COLOR": "1", "ANANTA_TUI_FORCE_PIXEL_GRAPHICS": "1"}
+    assert select_graphics_backend(env=env) == "halfblock"
