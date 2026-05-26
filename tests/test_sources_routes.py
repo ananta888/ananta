@@ -30,11 +30,14 @@ def test_sources_routes_list_get_citation_and_snapshots(client, admin_auth_heade
 
     res_cite = client.get("/sources/keycloak-official-docs/citation", headers=admin_auth_header)
     assert res_cite.status_code == 200
-    assert "keycloak" in str(res_cite.json["data"]["human_readable"]).lower()
+    assert "keycloak" in str(res_cite.json["data"]["long"]).lower()
 
     res_snapshots = client.get("/sources/keycloak-official-docs/snapshots", headers=admin_auth_header)
     assert res_snapshots.status_code == 200
     assert isinstance(res_snapshots.json["data"], list)
+
+    res_unknown = client.get("/sources/does-not-exist", headers=admin_auth_header)
+    assert res_unknown.status_code == 404
 
 
 def test_sources_refresh_routes(client, admin_auth_header, monkeypatch, tmp_path) -> None:
@@ -50,3 +53,7 @@ def test_sources_refresh_routes(client, admin_auth_header, monkeypatch, tmp_path
     wiki_refresh = client.post("/sources/wikimedia-wikipedia-initial-dump/refresh", headers=admin_auth_header, json={})
     assert wiki_refresh.status_code == 200
     assert wiki_refresh.json["data"]["status"] == "queued"
+
+    due_refresh = client.post("/sources/refresh", headers=admin_auth_header, json={"dry_run": True})
+    assert due_refresh.status_code == 200
+    assert due_refresh.json["data"]["dry_run"] is True

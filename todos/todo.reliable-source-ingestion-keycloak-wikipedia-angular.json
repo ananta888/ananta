@@ -379,7 +379,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T01.03", "T02.02", "T03.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Service kann einzelne Quelle per source_id refreshen.",
             "Service kann alle due sources refreshen.",
@@ -401,7 +401,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T04.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "`:sources list` zeigt alle Quellen mit Status.",
             "`:sources refresh keycloak-official-docs` startet Keycloak Refresh.",
@@ -423,7 +423,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.02", "T04.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Identischer content_hash erzeugt keinen neuen indexed Snapshot oder markiert Snapshot als duplicate.",
             "Raw cache und extracted cache sind getrennt.",
@@ -451,7 +451,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.01", "T01.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Formatter erzeugt Kurzform und Langform.",
             "Langform enthält title, publisher, canonical_url, retrieved_at, snapshot_id/hash und license_ref.",
@@ -473,7 +473,7 @@
           "priority": "P1",
           "effort": "XL",
           "depends_on": ["T01.03", "T04.01", "T05.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Route/Ansicht `Sources` oder `Knowledge Sources` existiert.",
             "Liste zeigt Keycloak und Wikipedia mit Status, trust_level, latest snapshot und refresh action.",
@@ -497,7 +497,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T01.03", "T04.01", "T05.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "GET /sources liefert Quellenliste.",
             "GET /sources/{id} liefert Descriptor und latest snapshot.",
@@ -526,7 +526,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.02", "T02.03", "T05.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Test erzeugt SourceSnapshot aus Fixture.",
             "Test erzeugt mindestens einen RAG-Chunk mit SourceReference.",
@@ -547,7 +547,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T03.04", "T03.05", "T05.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Test verarbeitet kleinen Fixture-Dump ohne hohen Speicherbedarf.",
             "Test erzeugt Chunks mit Artikeltitel und SourceReference.",
@@ -569,7 +569,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.01", "T02.01", "T03.01", "T05.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Doku erklärt fetch_source vs citation_source.",
             "Doku erklärt Keycloak-Quelle mit offiziellen URLs.",
