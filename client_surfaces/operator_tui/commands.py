@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from client_surfaces.operator_tui.actions import dispatch_action, parse_action
 from client_surfaces.operator_tui.browser import browser_fallback_url
+from client_surfaces.operator_tui.ai_snake_context import get_ai_context
 from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id, section_ids
 
@@ -121,6 +122,53 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
         return CommandResult(
             state.with_updates(header_logo_game=game, status_message=f"snake-access {snake_id}={level}"),
             f"snake-access {snake_id}={level}",
+        )
+    if command == "ai":
+        sub = str(args[0]).lower() if args else "status"
+        game = dict(state.header_logo_game or {})
+        ai_mode = str(game.get("ai_snake_mode") or "lurking_follow")
+        if sub in {"follow", "lurk", "quiet", "explain", "off"}:
+            mapping = {
+                "follow": "follow",
+                "lurk": "lurking",
+                "quiet": "quiet",
+                "explain": "point_to_target",
+                "off": "off",
+            }
+            ai_mode = mapping[sub]
+            game["ai_snake_mode"] = ai_mode
+            return CommandResult(
+                state.with_updates(header_logo_game=game, status_message=f"ai mode: {ai_mode}"),
+                f"ai mode {ai_mode}",
+            )
+        if sub == "ctx":
+            ctx = get_ai_context(game)
+            env = game.get("ai_snake_context_envelope")
+            ctx_hash = str((env or {}).get("context_hash") or "missing")
+            refs = list((env or {}).get("retrieval_refs") or [])
+            preview = ", ".join(str(item.get("ref") or "") for item in refs[:3] if isinstance(item, dict))
+            if len(refs) > 3:
+                preview += f" +{len(refs) - 3}"
+            detail = preview or "degraded/missing"
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    status_message=f"ctx: codecompass:{ctx_hash} {detail} src={ctx.get('context_sources_display') or 'none'}",
+                ),
+                "ai ctx",
+            )
+        if sub == "status":
+            prediction = game.get("ai_snake_prediction") if isinstance(game.get("ai_snake_prediction"), dict) else {}
+            pred_intent = str(prediction.get("predicted_intent") or "unknown")
+            pred_conf = float(prediction.get("confidence") or 0.0)
+            return CommandResult(
+                state.with_updates(header_logo_game=game, status_message=f"ai:{ai_mode} pred={pred_intent} conf={pred_conf:.2f}"),
+                "ai status",
+            )
+        return CommandResult(
+            state,
+            "ai: follow | lurk | quiet | explain | off | status | ctx",
+            handled=False,
         )
     if command == "inspect":
         return CommandResult(state.with_updates(mode=OperatorMode.INSPECT, status_message="inspect current selection"), "inspect current selection")

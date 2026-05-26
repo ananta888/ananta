@@ -1,0 +1,25 @@
+CONTROL:
+- Output strict JSON only.
+- Schema: ai_snake_response.v1
+- Keep answer compact.
+
+TASK:
+Explain the selected artifact for operator TUI usage.
+
+OBSERVATION:
+{{ observation_summary }}
+
+CONTEXT:
+{{ context_envelope_ref }}
+
+OUTPUT:
+{
+  "predicted_intent": "artifact_explain",
+  "confidence": <0..1>,
+  "target_ref": "<artifact-ref>",
+  "answer_text": "<artifact explanation>",
+  "context_refs": ["<ref1>"],
+  "follow_mode_update": "point_to_target",
+  "recommended_action": "<next step>",
+  "expires_at": <unix_ts_float>
+}

@@ -10,6 +10,8 @@ AI-Kontext-Modell:
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 
@@ -114,3 +116,91 @@ def artifact_ref_from_game(game: dict[str, Any]) -> dict[str, Any] | None:
 
 def is_policy_blocked(ctx: dict[str, Any], source: str) -> bool:
     return source in (ctx.get("denied_context_refs") or [])
+
+
+def load_codecompass_artifact(
+    path: str | Path = "artifacts/codecompass/operator_tui_snake_context.json",
+) -> dict[str, Any] | None:
+    p = Path(path)
+    if not p.exists() or not p.is_file():
+        return None
+    try:
+        payload = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def build_context_envelope_ref(
+    ctx: dict[str, Any],
+    *,
+    codecompass_artifact: dict[str, Any] | None,
+    selected_artifact_ref: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    degraded = codecompass_artifact is None
+    refs = []
+    if isinstance(selected_artifact_ref, dict) and selected_artifact_ref:
+        refs.append(
+            {
+                "ref_type": "selected_artifact",
+                "ref": str(selected_artifact_ref.get("path") or selected_artifact_ref.get("label") or "artifact"),
+                "reason": "active selection",
+                "score": 1.0,
+            }
+        )
+    if isinstance(codecompass_artifact, dict):
+        for item in list(codecompass_artifact.get("refs") or [])[:12]:
+            if not isinstance(item, dict):
+                continue
+            refs.append(
+                {
+                    "ref_type": "codecompass",
+                    "ref": str(item.get("ref") or ""),
+                    "reason": str(item.get("reason") or "context"),
+                    "score": float(item.get("score") or 0.5),
+                }
+            )
+    return {
+        "context_bundle_id": "operator_tui_snake_context",
+        "context_hash": str((codecompass_artifact or {}).get("context_hash") or "missing"),
+        "retrieval_refs": refs[:12],
+        "sensitivity": str(ctx.get("sensitivity") or "none"),
+        "degraded_state": "missing_artifact" if degraded else "",
+    }
+
+
+def relevance_refs_for_intent(
+    *,
+    intent: str,
+    codecompass_artifact: dict[str, Any] | None,
+    max_refs: int = 12,
+) -> list[dict[str, Any]]:
+    refs = list((codecompass_artifact or {}).get("refs") or [])
+    if not refs:
+        return [
+            {
+                "ref": "client_surfaces/operator_tui/interactive.py",
+                "reason": "fallback runtime context",
+                "score": 0.4,
+            }
+        ]
+    intent_key = str(intent or "unknown").lower()
+    ranked: list[dict[str, Any]] = []
+    for item in refs:
+        if not isinstance(item, dict):
+            continue
+        ref = str(item.get("ref") or "")
+        reason = str(item.get("reason") or "context")
+        score = float(item.get("score") or 0.5)
+        lowered = f"{ref} {reason}".lower()
+        if intent_key == "artifact_explain" and ("artifact" in lowered or "renderer" in lowered):
+            score += 0.2
+        if intent_key == "chat" and ("chat" in lowered or "transport" in lowered):
+            score += 0.2
+        if intent_key == "notes" and ("notes" in lowered or "policy" in lowered):
+            score += 0.2
+        ranked.append({"ref": ref, "reason": reason, "score": round(score, 3)})
+    ranked.sort(key=lambda row: row["score"], reverse=True)
+    return ranked[: max(1, min(20, int(max_refs)))]

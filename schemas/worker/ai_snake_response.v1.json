@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI Snake Worker Response v1",
+  "type": "object",
+  "required": [
+    "predicted_intent",
+    "confidence",
+    "target_ref",
+    "answer_text",
+    "context_refs",
+    "follow_mode_update",
+    "expires_at"
+  ],
+  "properties": {
+    "predicted_intent": { "type": "string" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "target_ref": { "type": "string" },
+    "answer_text": { "type": "string" },
+    "context_refs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "maxItems": 12
+    },
+    "follow_mode_update": {
+      "type": "string",
+      "enum": ["follow", "lurking", "point_to_target", "lurking_follow", ""]
+    },
+    "recommended_action": { "type": "string" },
+    "expires_at": { "type": "number" }
+  },
+  "additionalProperties": false
+}

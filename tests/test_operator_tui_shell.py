@@ -80,6 +80,17 @@ def test_operator_tui_mouse_command_toggles_follow_mode() -> None:
     assert bool((off.state.header_logo_game or {}).get("mouse_follow_enabled")) is False
 
 
+def test_operator_tui_ai_command_controls_mode_and_status() -> None:
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game={"ai_snake_mode": "lurking_follow"})
+
+    follow = execute_command(":ai follow", state)
+    status = execute_command(":ai status", follow.state)
+
+    assert follow.handled is True
+    assert (follow.state.header_logo_game or {}).get("ai_snake_mode") == "follow"
+    assert "ai:follow" in status.state.status_message
+
+
 def test_operator_tui_section_aliases_and_navigation() -> None:
     assert normalize_section_id("task") == "tasks"
     assert normalize_section_id("?") == "help"

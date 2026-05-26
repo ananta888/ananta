@@ -25,6 +25,17 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.output.color_depth import ColorDepth
 
 from client_surfaces.operator_tui.adapters import SectionAdapterRegistry
+from client_surfaces.operator_tui.ai_snake_context import (
+    artifact_ref_from_game,
+    build_context_envelope_ref,
+    default_ai_context,
+    load_codecompass_artifact,
+    relevance_refs_for_intent,
+    set_ai_context,
+)
+from client_surfaces.operator_tui.ai_snake_observation import ObservationBuffer
+from client_surfaces.operator_tui.ai_snake_prediction import PredictionGate, quick_predict
+from client_surfaces.operator_tui.ai_snake_prediction_cache import PredictionCache
 from client_surfaces.operator_tui.artifact_intent import ArtifactIntent, ArtifactIntentDetector, IntentConfidence
 from client_surfaces.operator_tui.app import load_active_section
 from client_surfaces.operator_tui.commands import execute_command
@@ -98,6 +109,9 @@ class InteractiveOperatorTui:
         self._codecompass_build_output_dir: Path | None = None
         self._tutorial_last_source: str = "local-knowledge"
         self._tutorial_last_target: str = "follow"
+        self._ai_observation = ObservationBuffer(max_events=100)
+        self._ai_prediction_gate = PredictionGate(min_interval_seconds=3.0, min_confidence=0.35, stable_ms=500)
+        self._ai_prediction_cache = PredictionCache(ttl_seconds=30)
         # E01/E02: new runtime state
         self._snake_idle_since: float = 0.0
         self._snake_last_event_fired: str = ""
@@ -1076,6 +1090,9 @@ class InteractiveOperatorTui:
             "artifact_intent_score": 0.0,
             "artifact_intent_reason": "",
             "artifact_intent_target": None,
+            "ai_snake_mode": "lurking_follow",
+            "ai_snake_prediction": {},
+            "ai_snake_debug": {},
             "artifact_target_cell": None,
             "tutorial_ai_target_mode": "follow_user",
             "tutorial_ai_target_hint": "follow",
@@ -1334,6 +1351,8 @@ class InteractiveOperatorTui:
             self._maybe_fire_section_visit_explanation(game, section_id=self._section_first_visit_pending)
             self._section_first_visit_pending = ""
 
+        self._tick_ai_snake_prediction(game, now=now)
+
         # sync tutor depth mode into game state
         game["tutor_depth_mode"] = self._tutor_depth_mode
 
@@ -1345,6 +1364,69 @@ class InteractiveOperatorTui:
             status_message=f"snake:{mode_label} speed:{speed_level}/5 vx={vx:.1f} vy={vy:.1f}",
         )
         self.state = self._apply_snake_hover_selection_delay(next_state, head=snake[0], now=now)
+
+    def _tick_ai_snake_prediction(self, game: dict[str, object], *, now: float) -> None:
+        section = str(self.state.section_id or "dashboard")
+        self._ai_observation.add_event(kind="section", value=section, timestamp=now)
+        if bool(game.get("tutorial_mode")):
+            self._ai_observation.add_event(kind="chat_channel", value="ai:tutor", timestamp=now)
+        artifact_ref = artifact_ref_from_game(game)
+        if isinstance(artifact_ref, dict):
+            self._ai_observation.add_event(
+                kind="artifact",
+                value=str(artifact_ref.get("path") or artifact_ref.get("label") or "artifact"),
+                ref_id=str(artifact_ref.get("path") or ""),
+                timestamp=now,
+            )
+        vx = float(game.get("vel_x") or 0.0)
+        vy = float(game.get("vel_y") or 0.0)
+        if abs(vx) >= abs(vy):
+            movement = "right" if vx > 0.25 else ("left" if vx < -0.25 else "idle")
+        else:
+            movement = "down" if vy > 0.25 else ("up" if vy < -0.25 else "idle")
+        self._ai_observation.add_event(kind="movement", value=movement, timestamp=now)
+        self._ai_observation.add_event(
+            kind="notes_active",
+            value=bool((game.get("chat_state") or {}).get("notes_context_released")) if isinstance(game.get("chat_state"), dict) else False,
+            timestamp=now,
+        )
+        summary = self._ai_observation.compact_summary(max_facts=20)
+        prediction = quick_predict(self._ai_observation.events(), now=now).as_dict()
+        codecompass = load_codecompass_artifact()
+        ai_ctx = default_ai_context()
+        set_ai_context(game, ai_ctx)
+        envelope = build_context_envelope_ref(ai_ctx, codecompass_artifact=codecompass, selected_artifact_ref=artifact_ref)
+        envelope["retrieval_refs"] = relevance_refs_for_intent(
+            intent=str(prediction.get("predicted_intent") or "unknown"),
+            codecompass_artifact=codecompass,
+            max_refs=12,
+        )
+        signature = f"{prediction.get('predicted_intent')}|{prediction.get('target_ref')}|{section}"
+        cache_key = self._ai_prediction_cache.make_key(
+            section=section,
+            target_ref=str(prediction.get("target_ref") or ""),
+            intent_kind=str(prediction.get("predicted_intent") or "unknown"),
+            context_hash=str(envelope.get("context_hash") or "missing"),
+        )
+        cached = self._ai_prediction_cache.get(cache_key, now=now)
+        cache_hit = cached is not None
+        if not cache_hit:
+            self._ai_prediction_cache.set(cache_key, prediction, now=now)
+        gate_decision = self._ai_prediction_gate.evaluate(
+            prediction=quick_predict(self._ai_observation.events(), now=now),
+            signature=signature,
+            now=now,
+            selected_artifact=isinstance(artifact_ref, dict),
+        )
+        game["ai_snake_prediction"] = prediction
+        game["ai_snake_context_envelope"] = envelope
+        game["ai_snake_debug"] = {
+            "observation_summary": summary,
+            "cache_hit": cache_hit,
+            "gate_reason": gate_decision.reason,
+            "skipped_worker_requests": gate_decision.skipped_worker_requests,
+            "allow_worker_request": gate_decision.allow_worker_request,
+        }
 
     def _update_multi_snake_state(
         self,

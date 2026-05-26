@@ -710,6 +710,17 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
         parts.append(f"term={mouse_caps.get('term')}")
     if isinstance(mouse_state, dict) and mouse_state.get("active"):
         parts.append(f"mouse={int(mouse_state.get('x', 0))},{int(mouse_state.get('y', 0))}")
+    ai_mode = str(game.get("ai_snake_mode") or "").strip()
+    if ai_mode:
+        parts.append(f"ai={ai_mode}")
+        prediction = game.get("ai_snake_prediction")
+        if isinstance(prediction, dict):
+            pred_intent = str(prediction.get("predicted_intent") or "unknown")
+            pred_conf = float(prediction.get("confidence") or 0.0)
+            parts.append(f"pred={pred_intent}:{pred_conf:.2f}")
+        envelope = game.get("ai_snake_context_envelope")
+        if isinstance(envelope, dict):
+            parts.append(f"ctx={str(envelope.get('context_hash') or 'missing')}")
     if os.environ.get("ANANTA_TUI_GFX_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}:
         try:
             from client_surfaces.operator_tui.logo_renderer.animated_header import get_last_render_metrics

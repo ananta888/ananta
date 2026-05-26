@@ -1,0 +1,25 @@
+CONTROL:
+- Output strict JSON only.
+- Schema: ai_snake_response.v1
+- No markdown fences.
+
+TASK:
+Answer the chat question with repository-grounded context references.
+
+OBSERVATION:
+{{ observation_summary }}
+
+CONTEXT:
+{{ context_envelope_ref }}
+
+OUTPUT:
+{
+  "predicted_intent": "chat",
+  "confidence": <0..1>,
+  "target_ref": "<chat-channel>",
+  "answer_text": "<answer>",
+  "context_refs": ["<ref1>"],
+  "follow_mode_update": "lurking_follow",
+  "recommended_action": "<optional>",
+  "expires_at": <unix_ts_float>
+}

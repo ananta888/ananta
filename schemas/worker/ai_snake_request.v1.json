@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI Snake Worker Request v1",
+  "type": "object",
+  "required": [
+    "request_id",
+    "mode",
+    "observation_summary",
+    "quick_prediction",
+    "context_envelope_ref",
+    "output_contract",
+    "budget"
+  ],
+  "properties": {
+    "request_id": { "type": "string", "minLength": 8 },
+    "mode": {
+      "type": "string",
+      "enum": ["predict_intent", "explain_artifact", "answer_chat", "suggest_next_action"]
+    },
+    "observation_summary": { "type": "object" },
+    "quick_prediction": { "type": "object" },
+    "context_envelope_ref": { "type": "object" },
+    "output_contract": { "type": "string" },
+    "budget": {
+      "type": "object",
+      "required": ["token_budget", "max_latency_ms"],
+      "properties": {
+        "token_budget": { "type": "integer", "minimum": 64 },
+        "max_latency_ms": { "type": "integer", "minimum": 250 }
+      }
+    }
+  },
+  "additionalProperties": false
+}
