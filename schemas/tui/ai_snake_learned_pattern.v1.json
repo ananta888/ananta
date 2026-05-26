@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI Snake Learned Pattern v1",
+  "type": "object",
+  "required": [
+    "pattern_id",
+    "pattern_type",
+    "conditions",
+    "predicted_intent",
+    "confidence",
+    "evidence",
+    "counters",
+    "last_seen_at",
+    "expires_at",
+    "status",
+    "human_explanation",
+    "ai_hint"
+  ],
+  "properties": {
+    "pattern_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "pattern_type": {
+      "type": "string",
+      "enum": [
+        "sequence_rule",
+        "association_rule",
+        "feedback_rule",
+        "heuristic"
+      ]
+    },
+    "conditions": {
+      "$ref": "#/$defs/conditionNode"
+    },
+    "predicted_intent": {
+      "type": "string",
+      "anyOf": [
+        {
+          "enum": [
+            "artifact_explain",
+            "chat_help",
+            "notes_resume",
+            "config_edit",
+            "navigate",
+            "unknown"
+          ]
+        },
+        {
+          "pattern": "^custom:[a-z0-9_:-]{1,48}$"
+        }
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "source_event_ids",
+        "sample_size"
+      ],
+      "properties": {
+        "source_event_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "maxItems": 200
+        },
+        "sample_size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "counter_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 120
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "counters": {
+      "type": "object",
+      "required": [
+        "hits",
+        "misses",
+        "positives",
+        "negatives"
+      ],
+      "properties": {
+        "hits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "misses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "positives": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "negatives": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "last_seen_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "disabled",
+        "expired"
+      ]
+    },
+    "human_explanation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "ai_hint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "x_ananta": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "conditionLeaf": {
+      "type": "object",
+      "required": [
+        "field",
+        "op"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "enum": [
+            "section_is",
+            "recent_event",
+            "selected_ref_kind",
+            "movement_trend",
+            "command_prefix",
+            "channel_is",
+            "privacy_class"
+          ]
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "eq",
+            "neq",
+            "in",
+            "contains",
+            "prefix",
+            "exists"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "array",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "conditionNode": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/conditionLeaf"
+        },
+        {
+          "type": "object",
+          "required": [
+            "all"
+          ],
+          "properties": {
+            "all": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/conditionNode"
+              },
+              "minItems": 1,
+              "maxItems": 8
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "any"
+          ],
+          "properties": {
+            "any": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/conditionNode"
+              },
+              "minItems": 1,
+              "maxItems": 8
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "not"
+          ],
+          "properties": {
+            "not": {
+              "$ref": "#/$defs/conditionNode"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

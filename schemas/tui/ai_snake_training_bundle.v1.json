@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI Snake Training Bundle v1",
+  "type": "object",
+  "required": [
+    "bundle_id",
+    "schema_version",
+    "exported_at",
+    "source",
+    "profile",
+    "patterns",
+    "checksums",
+    "human_readme",
+    "ai_readme",
+    "privacy_manifest"
+  ],
+  "properties": {
+    "bundle_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^ai_snake_training_bundle\\.v1$"
+    },
+    "exported_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "app",
+        "version"
+      ],
+      "properties": {
+        "app": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "host": {
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "additionalProperties": false
+    },
+    "profile": {
+      "type": "object"
+    },
+    "patterns": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "events_sample": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "checksums": {
+      "type": "object",
+      "required": [
+        "profile_sha256",
+        "patterns_sha256"
+      ],
+      "properties": {
+        "profile_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "patterns_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "events_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "human_readme": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "ai_readme": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "privacy_manifest": {
+      "type": "object",
+      "required": [
+        "public_ui",
+        "workspace",
+        "private_local",
+        "sensitive_blocked"
+      ],
+      "properties": {
+        "public_ui": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workspace": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "private_local": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sensitive_blocked": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

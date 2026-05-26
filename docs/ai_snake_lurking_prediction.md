@@ -46,3 +46,12 @@ Im `header_logo_game.ai_snake_debug` stehen:
 - `allow_proactive_comment`
 
 Damit ist transparent, warum eine Anfrage gesendet oder unterdrückt wurde.
+
+## Training-Daten Speicherort (local-first)
+
+Mit `:ai data path` zeigt die TUI den lokalen Pfadbaum:
+
+- `~/.config/ananta/ai_snake/prediction_profile.active.json`
+- `~/.config/ananta/ai_snake/prediction_events.jsonl`
+- `~/.config/ananta/ai_snake/learned_patterns.json`
+- `~/.config/ananta/ai_snake/exports/`
