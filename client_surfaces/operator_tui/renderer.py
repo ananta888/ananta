@@ -698,6 +698,7 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
             lines.append("    :plan track adopt <output-id> | reject <output-id>")
             lines.append("    :plan track execute-next | sync-status <plan-task-id> <status>")
             lines.append("    :plan track diff <left-output-id> <right-output-id>")
+            lines.append("    :plan summary doctor <file> | fix <file> | recompute")
 
     return [_clip(line, width) for line in lines]
 
@@ -733,16 +734,49 @@ def _planning_track_content_lines(payload: dict, *, width: int, compact: bool) -
     goal = str(selected_track.get("goal") or goal_id)
     progress = dict(selected_track.get("progress_summary") or {})
     summary = dict(selected_track.get("tasks_status_summary") or {})
+    weighted = dict(selected_track.get("weighted_progress_summary") or {})
+    metadata = dict(selected_track.get("derived_summary_metadata") or {})
+    type_summary = dict(selected_track.get("tasks_type_summary") or {})
     provenance = dict(selected_track.get("provenance") or {})
     mapping = dict(selected_track.get("task_mapping") or {})
     source_refs = [str(item) for item in list(selected_track.get("source_references") or []) if str(item).strip()]
     context_refs = [str(item) for item in list(selected_track.get("context_references") or []) if str(item).strip()]
+    summary_status = str(selected_track.get("summary_recalculation_status") or "not_needed")
+    repaired_fields = [str(item) for item in list(selected_track.get("repaired_fields") or []) if str(item).strip()]
     lines.append(f"  Header: owner={owner} track={track} goal={goal}")
     lines.append(
         _clip(
             "  Summary: "
             f"state={progress.get('state') or '-'} done={summary.get('by_status', {}).get('done', 0)} "
             f"todo={summary.get('by_status', {}).get('todo', 0)} total={summary.get('total', 0)}",
+            width,
+        )
+    )
+    lines.append(
+        _clip(
+            "  Progress: "
+            f"count_based={progress.get('count_based_percent', '-')}% "
+            f"weighted={progress.get('weighted_percent', '-')}% "
+            f"blocked_count={summary.get('by_status', {}).get('blocked', 0)} "
+            f"blocked_weight={weighted.get('blocked_weight', 0)}",
+            width,
+        )
+    )
+    lines.append(
+        _clip(
+            "  Critical path: "
+            f"done={summary.get('critical_path', {}).get('done', 0)}/"
+            f"{summary.get('critical_path', {}).get('total', 0)} "
+            f"remaining={summary.get('critical_path', {}).get('remaining', 0)}",
+            width,
+        )
+    )
+    lines.append(
+        _clip(
+            "  Derived summary: "
+            f"status={summary_status} "
+            f"source_hash={str(metadata.get('source_hash') or '-')[:12]} "
+            f"repaired_fields={','.join(repaired_fields) if repaired_fields else '-'}",
             width,
         )
     )
@@ -774,7 +808,26 @@ def _planning_track_content_lines(payload: dict, *, width: int, compact: bool) -
         )
 
     critical = [str(item) for item in list(selected_track.get("critical_path_tasks") or []) if str(item).strip()]
-    lines.append(f"  Critical path: {', '.join(critical) if critical else 'none'}")
+    lines.append(f"  Critical path tasks: {', '.join(critical) if critical else 'none'}")
+    by_priority = dict(summary.get("by_priority") or {})
+    by_risk = dict(summary.get("by_risk") or {})
+    if by_priority:
+        lines.append(_clip(f"  Priority breakdown: {', '.join([f'{k}={v}' for k, v in by_priority.items()])}", width))
+    if by_risk:
+        lines.append(_clip(f"  Risk breakdown: {', '.join([f'{k}={v}' for k, v in by_risk.items()])}", width))
+    by_type = dict(type_summary.get("by_type") or {})
+    if by_type:
+        lines.append("  [Type progress]")
+        for key in sorted(by_type.keys())[:8]:
+            bucket = dict(by_type.get(key) or {})
+            lines.append(
+                _clip(
+                    f"    {key}: total={bucket.get('total', 0)} done={bucket.get('done', 0)} "
+                    f"partial={bucket.get('partial', 0)} blocked={bucket.get('blocked', 0)} "
+                    f"progress={bucket.get('progress_percent', 0)}%",
+                    width,
+                )
+            )
     if provenance:
         lines.append(
             _clip(

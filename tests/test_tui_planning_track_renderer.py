@@ -40,7 +40,12 @@ def _payload() -> dict:
             "goal": "Renderer Goal",
             "milestones": [{"id": "M01", "title": "Setup", "status": "todo", "task_ids": ["T01"]}],
             "tasks_status_summary": {"total": 1, "by_status": {"todo": 1, "done": 0}},
-            "progress_summary": {"state": "todo"},
+            "progress_summary": {"state": "todo", "count_based_percent": 0, "weighted_percent": 0},
+            "weighted_progress_summary": {"blocked_weight": 0},
+            "tasks_type_summary": {"by_type": {"test": {"total": 1, "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0}}},
+            "derived_summary_metadata": {"source_hash": "abcdef1234567890"},
+            "summary_recalculation_status": "repaired",
+            "repaired_fields": ["tasks_status_summary"],
             "tasks_filtered": [
                 {
                     "id": "T01",
@@ -68,9 +73,12 @@ def test_renderer_shows_planning_track_header_and_sections() -> None:
     assert "Header: owner=operator_tui" in output
     assert "[Milestones]" in output
     assert "[Tasks]" in output
-    assert "Critical path: T01" in output
+    assert "Critical path tasks: T01" in output
     assert "Provenance: prov-1" in output
     assert "[Quality warnings]" in output
+    assert "Progress: count_based=0%" in output
+    assert "Derived summary: status=repaired" in output
+    assert "[Type progress]" in output
 
 
 def test_renderer_shows_compact_planning_track_view_on_small_width() -> None:
@@ -88,7 +96,7 @@ def test_renderer_shows_plan_diff_summary() -> None:
         "changed_tasks": [{"id": "T01"}],
         "removed_tasks": [],
     }
-    output = render_operator_shell(_state(payload), width=170, height=36)
+    output = render_operator_shell(_state(payload), width=170, height=44)
     assert "[Plan diff]" in output
     assert "out-1 -> out-2" in output
 

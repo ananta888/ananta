@@ -196,3 +196,39 @@ def test_plan_track_sync_status_updates_selected_track(monkeypatch, tmp_path: Pa
     task_rows = [dict(item) for item in list(synced_payload["selected_track"].get("tasks") or []) if isinstance(item, dict)]
     row = next((item for item in task_rows if str(item.get("id") or "") == plan_task_id), {})
     assert row.get("status") == "done"
+
+
+def test_plan_summary_doctor_and_fix_file(monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
+    target = tmp_path / "todo.track.json"
+    target.write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["tasks_status_summary"]["total"] = 999
+    target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    diagnosed = execute_command(f":plan summary doctor {target}", _state())
+    assert diagnosed.handled is True
+    doctor_payload = json.loads(diagnosed.message)
+    assert doctor_payload["format"] == "planning_track"
+    assert doctor_payload["valid"] is False
+
+    fixed = execute_command(f":plan summary fix {target}", diagnosed.state)
+    assert fixed.handled is True
+    fixed_payload = json.loads(fixed.message)
+    assert fixed_payload["changed"] is True
+    repaired_file = json.loads(target.read_text(encoding="utf-8"))
+    assert repaired_file["tasks_status_summary"]["total"] == len(list(repaired_file.get("tasks") or []))
+
+
+def test_plan_summary_recompute_updates_selected_output(monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    created = execute_command(":plan track --from-goal goal-plan-summary-recompute", _state())
+    result = execute_command(":plan summary recompute", created.state)
+    assert result.handled is True
+    payload = json.loads(result.message)
+    assert payload["summary_recalculation_status"] in {"not_needed", "recalculated"}

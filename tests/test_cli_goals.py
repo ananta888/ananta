@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 from agent import cli_goals
 
 
@@ -361,3 +364,45 @@ def test_sources_query_command_prints_source_refs(monkeypatch, capsys, tmp_path)
     out = capsys.readouterr().out
     assert "source_pack_id: ananta-dev-default" in out
     assert "source_ref:" in out
+
+
+def test_plan_summary_doctor_and_fix_commands(capsys, tmp_path):
+    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
+    target = tmp_path / "todo.plan.json"
+    target.write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["tasks_status_summary"]["total"] = 999
+    target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    try:
+        cli_goals.main(["plan", "summary", "doctor", str(target), "--json"])
+    except SystemExit as exc:
+        assert int(exc.code) == 1
+    out = capsys.readouterr().out
+    assert "\"format\": \"planning_track\"" in out
+    assert "\"valid\": false" in out.lower()
+
+    try:
+        cli_goals.main(["plan", "summary", "fix", str(target), "--write", "--json"])
+    except SystemExit as exc:
+        assert int(exc.code) == 0
+    repaired = json.loads(target.read_text(encoding="utf-8"))
+    assert repaired["tasks_status_summary"]["total"] == len(list(repaired.get("tasks") or []))
+
+
+def test_plan_summary_migrate_ignores_archive_and_kritis(capsys, tmp_path):
+    todos = tmp_path / "todos"
+    (todos / "archive").mkdir(parents=True)
+    (todos / "kritis").mkdir(parents=True)
+    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
+    (todos / "todo.track.json").write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+    (todos / "archive" / "todo.archived.json").write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+    (todos / "kritis" / "todo.kritis.json").write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+
+    try:
+        cli_goals.main(["plan", "summary", "migrate", str(tmp_path), "--json"])
+    except SystemExit as exc:
+        assert int(exc.code) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["track_files"] == 1
+    assert report["scanned"] == 1
