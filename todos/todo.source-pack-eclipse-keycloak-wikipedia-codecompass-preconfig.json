@@ -30,7 +30,7 @@
         "T01.02",
         "T01.03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M02",
@@ -41,7 +41,7 @@
         "T02.03",
         "T02.04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M03",
@@ -51,7 +51,7 @@
         "T03.02",
         "T03.03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M04",
@@ -62,7 +62,7 @@
         "T04.03",
         "T04.04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M05",
@@ -73,7 +73,7 @@
         "T05.03",
         "T05.04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M06",
@@ -83,7 +83,7 @@
         "T06.02",
         "T06.03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M07",
@@ -94,7 +94,7 @@
         "T07.03",
         "T07.04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M08",
@@ -103,7 +103,7 @@
         "T08.01",
         "T08.02"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -620,7 +620,7 @@
     {
       "id": "T08.01",
       "title": "User-Doku SourcePack Ananta Dev Default",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -640,7 +640,7 @@
     {
       "id": "T08.02",
       "title": "Architekturdoku mit Mermaid für SourcePack und CodeCompass",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "docs",
@@ -678,13 +678,13 @@
   "tasks_status_summary": {
     "total": 27,
     "by_status": {
-      "todo": 27,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 27
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P1": 21,
       "P2": 6,
@@ -697,15 +697,15 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 0,
-      "remaining": 14
+      "done": 14,
+      "remaining": 0
     },
     "milestones": {
       "total": 8,
-      "todo": 8,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 8
     }
   },
   "tasks_type_summary": {
@@ -729,12 +729,12 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 27,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 27
   },
   "execution_stage_summary": {
     "current_stage": "planning",
