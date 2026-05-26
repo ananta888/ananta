@@ -22,6 +22,7 @@ SCHEMA_REQUIREMENTS:
 SUMMARY_POLICY:
 - tasks[] is the single source of truth.
 - Any summary blocks are derived caches and will be deterministically recomputed by the validator/hub.
+- Planner output should prioritize precise task rows with: id, title, status, priority, risk, type, acceptance_criteria (and milestone_id where applicable).
 - Optional task progress_percent semantics:
   - status=todo -> progress_percent must be 0
   - status=done -> progress_percent must be 100
