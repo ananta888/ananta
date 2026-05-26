@@ -126,7 +126,7 @@
     {
       "id": "ASG-001",
       "title": "Game-Konzeptdokument finalisieren",
-      "status": "open",
+      "status": "done",
       "files": [
         "docs/ananta-game/README.md",
         "docs/ananta-game/rules.md",
@@ -148,7 +148,7 @@
     {
       "id": "ASG-002",
       "title": "Game-Domain-Modell definieren",
-      "status": "open",
+      "status": "done",
       "files": [
         "docs/ananta-game/domain-model.md",
         "agent/game/__init__.py",
@@ -171,7 +171,7 @@
     {
       "id": "ASG-003",
       "title": "CodeCompass-zu-GameMap Adapter planen",
-      "status": "open",
+      "status": "done",
       "files": [
         "docs/ananta-game/codecompass-adapter.md",
         "agent/game/codecompass_adapter.py",
