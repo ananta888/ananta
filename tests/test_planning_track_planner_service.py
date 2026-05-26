@@ -56,6 +56,7 @@ def test_render_track_planning_prompt_contains_required_sections() -> None:
     assert "CONTROL:" in prompt
     assert "GOAL:" in prompt
     assert "SCHEMA_REQUIREMENTS:" in prompt
+    assert "SUMMARY_POLICY:" in prompt
     assert "OUTPUT:" in prompt
     assert "no markdown fences" in prompt.lower()
 

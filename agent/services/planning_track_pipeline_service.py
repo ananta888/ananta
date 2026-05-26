@@ -14,6 +14,7 @@ from agent.services.planning_track_contract_service import (
     planning_contract_ref,
     unwrap_planning_track_payload,
 )
+from agent.services.planning_summary_engine import PlanningSummaryEngine
 from agent.services.planning_utils import extract_json_payload
 
 _ROOT = Path(__file__).resolve().parents[2]
@@ -27,16 +28,6 @@ def _now_iso() -> str:
 def _stable_hash(payload: Any) -> str:
     rendered = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
-
-
-def _summary_count(values: list[str]) -> dict[str, int]:
-    result: dict[str, int] = {}
-    for value in values:
-        token = str(value or "").strip()
-        if not token:
-            continue
-        result[token] = int(result.get(token, 0)) + 1
-    return result
 
 
 def load_track_schema(*, schema_ref: str | None = None, schema_store: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
@@ -79,71 +70,71 @@ def validate_planning_track_with_details(
 
 
 def compute_tasks_status_summary(payload: dict[str, Any]) -> dict[str, Any]:
-    tasks = [dict(item) for item in list(payload.get("tasks") or []) if isinstance(item, dict)]
-    milestones = [dict(item) for item in list(payload.get("milestones") or []) if isinstance(item, dict)]
-    statuses = [str(item.get("status") or "").strip() for item in tasks]
-    by_status = {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
-    for status in statuses:
-        if status in by_status:
-            by_status[status] += 1
-    by_priority = _summary_count([str(item.get("priority") or "").strip() for item in tasks])
-    by_risk = _summary_count([str(item.get("risk") or "").strip() for item in tasks])
-    total = len(tasks)
-    done = by_status["done"]
-    progress = round((done / total) * 100, 1) if total else 0.0
-
-    critical_task_ids = [str(item).strip() for item in list(payload.get("critical_path_tasks") or []) if str(item).strip()]
-    task_by_id = {str(item.get("id") or "").strip(): item for item in tasks}
-    critical_done = 0
-    for task_id in critical_task_ids:
-        task = task_by_id.get(task_id)
-        if isinstance(task, dict) and str(task.get("status") or "").strip() == "done":
-            critical_done += 1
-
-    milestone_statuses = [str(item.get("status") or "").strip() for item in milestones]
-    milestone_summary = {"total": len(milestones), "todo": 0, "in_progress": 0, "blocked": 0, "done": 0}
-    for status in milestone_statuses:
-        if status in milestone_summary:
-            milestone_summary[status] += 1
-
-    return {
-        "total": total,
-        "by_status": by_status,
-        "progress_percent_done": progress,
-        "by_priority": by_priority,
-        "by_risk": by_risk,
-        "critical_path": {
-            "total": len(critical_task_ids),
-            "done": critical_done,
-            "remaining": max(0, len(critical_task_ids) - critical_done),
-        },
-        "milestones": milestone_summary,
-    }
+    computed, _ = PlanningSummaryEngine().recompute(dict(payload or {}))
+    return dict(computed.get("tasks_status_summary") or {})
 
 
 def validate_summary_consistency(payload: dict[str, Any], *, repair_mode: bool = False) -> dict[str, Any]:
-    candidate = dict(payload)
-    provided = dict(candidate.get("tasks_status_summary") or {})
-    computed = compute_tasks_status_summary(candidate)
+    candidate = dict(payload or {})
+    provided_status = dict(candidate.get("tasks_status_summary") or {})
+    provided_types = dict(candidate.get("tasks_type_summary") or {})
+    provided_progress = dict(candidate.get("progress_summary") or {})
+    provided_weighted = dict(candidate.get("weighted_progress_summary") or {})
+    provided_metadata = dict(candidate.get("derived_summary_metadata") or {})
+
+    computed_candidate, progress_issues = PlanningSummaryEngine().recompute(candidate)
+    computed_status = dict(computed_candidate.get("tasks_status_summary") or {})
+    computed_types = dict(computed_candidate.get("tasks_type_summary") or {})
+    computed_progress = dict(computed_candidate.get("progress_summary") or {})
+    computed_weighted = dict(computed_candidate.get("weighted_progress_summary") or {})
+    computed_metadata = dict(computed_candidate.get("derived_summary_metadata") or {})
+
     issues: list[dict[str, str]] = []
 
-    def _append(reason_code: str, message: str) -> None:
-        issues.append({"path": "tasks_status_summary", "reason_code": reason_code, "human_message": message})
-
-    if provided.get("total") != computed.get("total"):
-        _append("summary_total_mismatch", "tasks_status_summary.total does not match tasks length.")
-    if dict(provided.get("by_priority") or {}) != dict(computed.get("by_priority") or {}):
-        _append("summary_by_priority_mismatch", "tasks_status_summary.by_priority is inconsistent with tasks.")
-    if dict(provided.get("by_risk") or {}) != dict(computed.get("by_risk") or {}):
-        _append("summary_by_risk_mismatch", "tasks_status_summary.by_risk is inconsistent with tasks.")
-    if dict(provided.get("by_status") or {}) != dict(computed.get("by_status") or {}):
-        _append("summary_by_status_mismatch", "tasks_status_summary.by_status is inconsistent with tasks.")
-    if dict(provided.get("critical_path") or {}) != dict(computed.get("critical_path") or {}):
-        _append("summary_critical_path_mismatch", "tasks_status_summary.critical_path is inconsistent with tasks.")
+    if provided_status and provided_status != computed_status:
+        issues.append(
+            {
+                "path": "tasks_status_summary",
+                "reason_code": "summary_status_mismatch",
+                "human_message": "tasks_status_summary is inconsistent with tasks and milestones.",
+            }
+        )
+    if provided_types and provided_types != computed_types:
+        issues.append(
+            {
+                "path": "tasks_type_summary",
+                "reason_code": "summary_type_mismatch",
+                "human_message": "tasks_type_summary is inconsistent with tasks.",
+            }
+        )
+    if provided_progress and provided_progress != computed_progress:
+        issues.append(
+            {
+                "path": "progress_summary",
+                "reason_code": "summary_progress_mismatch",
+                "human_message": "progress_summary is inconsistent with tasks-derived summaries.",
+            }
+        )
+    if provided_weighted and provided_weighted != computed_weighted:
+        issues.append(
+            {
+                "path": "weighted_progress_summary",
+                "reason_code": "summary_weighted_mismatch",
+                "human_message": "weighted_progress_summary is inconsistent with tasks.",
+            }
+        )
+    if provided_metadata and provided_metadata.get("source_hash") != computed_metadata.get("source_hash"):
+        issues.append(
+            {
+                "path": "derived_summary_metadata/source_hash",
+                "reason_code": "summary_source_hash_stale",
+                "human_message": "derived_summary_metadata.source_hash is stale for current tasks/milestones.",
+            }
+        )
+    issues.extend(list(progress_issues or []))
 
     if issues and repair_mode:
-        candidate["tasks_status_summary"] = computed
-        return {"valid": True, "issues": issues, "repaired_payload": candidate, "repaired": True}
+        return {"valid": True, "issues": issues, "repaired_payload": computed_candidate, "repaired": True}
     return {"valid": not issues, "issues": issues, "repaired_payload": candidate, "repaired": False}
 
 
@@ -313,7 +304,8 @@ def persist_planning_track_result(
         summary_result = validate_summary_consistency(payload, repair_mode=True)
         if summary_result.get("repaired"):
             payload = dict(summary_result.get("repaired_payload") or payload)
-        validation_issues.extend(list(summary_result.get("issues") or []))
+        else:
+            validation_issues.extend(list(summary_result.get("issues") or []))
         quality_result = evaluate_planning_quality_gates(
             payload,
             large_goal_mode=bool(payload.get("large_goal_mode")),
