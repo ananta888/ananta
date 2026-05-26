@@ -11,31 +11,44 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: pages-www
   cancel-in-progress: false
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v6
+      - name: Sync web/www to ananta888.github.io
+        env:
+          DEPLOY_TOKEN: ${{ secrets.ANANTA888_GH_IO_TOKEN }}
+          TARGET_REPO: ananta888/ananta888.github.io
+        run: |
+          set -euo pipefail
+          if [[ -z "${DEPLOY_TOKEN:-}" ]]; then
+            echo "Missing secret ANANTA888_GH_IO_TOKEN" >&2
+            exit 1
+          fi
 
-      - name: Upload static site
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: web/www
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          git clone --depth 1 "https://x-access-token:${DEPLOY_TOKEN}@github.com/${TARGET_REPO}.git" "$workdir"
+          rsync -a --delete web/www/ "$workdir"/
+
+          cd "$workdir"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "No website changes to deploy."
+            exit 0
+          fi
+
+          git add -A
+          git commit -m "deploy(www): sync from ananta@${GITHUB_SHA}"
+          git push origin main
