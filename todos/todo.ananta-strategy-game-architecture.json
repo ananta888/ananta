@@ -1,0 +1,433 @@
+{
+  "id": "todo.ananta-strategy-game-architecture",
+  "title": "Ananta Strategy Game als spielbare Architektur- und Code-Verbindung integrieren",
+  "status": "open",
+  "priority": "high",
+  "type": "architecture-plan",
+  "summary": "Das Ananta Strategy Game soll reale Ananta-Konzepte spielbar machen: Hub/Worker-Orchestrierung, CodeCompass, ContextAegis, ArtifactGuard, TrustWeave, CodeAegis und NagaCore werden als konkrete Game-Mechaniken mit direkter Verbindung zur Code- und Agentenarchitektur modelliert.",
+  "goals": [
+    "Spielmechaniken direkt aus Ananta-Architekturbegriffen ableiten",
+    "Code- und Repository-Strukturen als Spielkarte/Territorien abbilden",
+    "Agenten, Policies, Kontextzugriff und Artefakte als Spielressourcen modellieren",
+    "Ananta Strategy Game als erklaerbare Demo fuer sichere KI-Softwareentwicklung nutzbar machen",
+    "Game-Konzept so dokumentieren, dass spaeter TUI, Web/Angular und Tests darauf aufbauen koennen"
+  ],
+  "non_goals": [
+    "Kein vollstaendiges Spiel in diesem Schritt implementieren",
+    "Keine irreversible Umbenennung von Ananta",
+    "Keine Cloud-Pflicht oder externe Spielserver-Abhaengigkeit",
+    "Keine heuristische Sicherheitsentscheidung ohne explizite Regelbasis"
+  ],
+  "source_documents": [
+    "docs/ananta-game/README.md",
+    "README.md",
+    "docs/codecompass.md",
+    "docs/rag-helper.md",
+    "docs/context-source-prioritization-rules.md",
+    "docs/security/least-privilege-policy.md",
+    "docs/security/cloud-worker-policy.md",
+    "docs/worker-contract.md"
+  ],
+  "concept_mapping": {
+    "CodeAegis": {
+      "game_role": "Schutzschild fuer Code-Territorien",
+      "architecture_role": "Sichere KI-Entwicklung, Code-Schutz, Guardrails",
+      "mechanics": [
+        "riskante Schreibzugriffe blockieren",
+        "Tests oder Reviews vor Gebietseroberung verlangen",
+        "Security-Status von Codebereichen visualisieren"
+      ]
+    },
+    "AegisFlow": {
+      "game_role": "Aktions- und Workflow-System",
+      "architecture_role": "Goal -> Plan -> Task -> Execution -> Verification -> Artifact",
+      "mechanics": [
+        "Ziele in Tasks umwandeln",
+        "Abhaengigkeiten und Reihenfolgen erzwingen",
+        "ungepruefte Abkuerzungen sanktionieren"
+      ]
+    },
+    "AegisHub": {
+      "game_role": "Hauptbasis und Kontrollzentrum",
+      "architecture_role": "Hub-Orchestrierung, Delegation, Approval",
+      "mechanics": [
+        "Agenten steuern",
+        "Kontextzugriff vergeben",
+        "Evidence auswerten",
+        "Approval, Retry oder Rollback entscheiden"
+      ]
+    },
+    "AgentAegis": {
+      "game_role": "Schutz- und Kontrollschicht fuer Agenten",
+      "architecture_role": "Worker-Rechte, Rollen, sichere Ausfuehrung",
+      "mechanics": [
+        "Agentenfaehigkeiten pro Rolle begrenzen",
+        "Default-Deny erzwingen",
+        "Worker-zu-Worker-Eskalation verhindern"
+      ]
+    },
+    "DevAegis": {
+      "game_role": "Entwicklungs-Verteidigungssystem",
+      "architecture_role": "CI, Tests, Branch-Schutz, Deploy-Sicherheit",
+      "mechanics": [
+        "CI-Festungen darstellen",
+        "Review-Tore modellieren",
+        "kaputte Deployments als Risikoereignis behandeln"
+      ]
+    },
+    "ContextAegis": {
+      "game_role": "Kontext-Barriere und Wissensschild",
+      "architecture_role": "RAG, CodeCompass, Secrets, Cloud-Grenzen, Least Privilege",
+      "mechanics": [
+        "Sichtrechte auf Codekarten steuern",
+        "Secrets-Leaks verhindern",
+        "lokale und Cloud-Agenten trennen",
+        "Kontextfreigabe als Ressource modellieren"
+      ]
+    },
+    "ArtifactGuard": {
+      "game_role": "Artefakt-Waechter und Evidence-System",
+      "architecture_role": "Verification, Evidence, reproduzierbare Ergebnisse",
+      "mechanics": [
+        "abgeschlossene Tasks nur mit Evidence akzeptieren",
+        "Fake-Completion verhindern",
+        "Siegbedingungen an reproduzierbare Artefakte koppeln"
+      ]
+    },
+    "TrustWeave": {
+      "game_role": "Vertrauensnetz zwischen Einheiten",
+      "architecture_role": "Policy-Graph, Kontextgraph, Beziehungen, Freigaben",
+      "mechanics": [
+        "Graph aus Agenten, Codebereichen, Artefakten und Policies darstellen",
+        "Trust durch erfolgreiche Evidence erhoehen",
+        "Trust durch riskante Aktionen senken"
+      ]
+    },
+    "CodeCompass": {
+      "game_role": "Navigation und Aufklaerung im Code-Territorium",
+      "architecture_role": "Codeanalyse, Repository-Verstaendnis, Kontextnavigation",
+      "mechanics": [
+        "Codebereiche scannen",
+        "Abhaengigkeiten entdecken",
+        "relevante Kontextpfade fuer Agenten sichtbar machen"
+      ]
+    },
+    "NagaCore": {
+      "game_role": "Mythischer Kern, Energiequelle und KI-Snake-Identitaet",
+      "architecture_role": "Ananta-nahe Mythologie, Kernsystem, Snake-/Infinity-Motiv",
+      "mechanics": [
+        "Tutorial-Guide oder KI-Snake darstellen",
+        "Stabilitaet/Energie des Systems repraesentieren",
+        "Spielidentitaet mit Ananta verbinden"
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "ASG-001",
+      "title": "Game-Konzeptdokument finalisieren",
+      "status": "open",
+      "files": [
+        "docs/ananta-game/README.md",
+        "docs/ananta-game/rules.md",
+        "docs/ananta-game/architecture.md"
+      ],
+      "steps": [
+        "Bestehendes Mapping aus docs/ananta-game/README.md in rules.md und architecture.md aufteilen",
+        "README als Einstieg kurz halten",
+        "rules.md fuer Spielregeln und architecture.md fuer technische Abbildung verwenden",
+        "Alle Begriffe CodeAegis, AegisFlow, AegisHub, AgentAegis, DevAegis, ContextAegis, ArtifactGuard, TrustWeave, CodeCompass und NagaCore konsistent beschreiben"
+      ],
+      "acceptance_criteria": [
+        "docs/ananta-game/README.md enthaelt eine kurze Uebersicht und Links auf rules.md und architecture.md",
+        "rules.md beschreibt jede Spielmechanik ohne reine Marketing-Sprache",
+        "architecture.md beschreibt die Verbindung zu Hub, Worker, CodeCompass, Context, Policy, Evidence und Artifact",
+        "Keine Bezeichnung widerspricht der bestehenden Ananta-Architektur"
+      ]
+    },
+    {
+      "id": "ASG-002",
+      "title": "Game-Domain-Modell definieren",
+      "status": "open",
+      "files": [
+        "docs/ananta-game/domain-model.md",
+        "agent/game/__init__.py",
+        "agent/game/models.py"
+      ],
+      "steps": [
+        "Domain-Objekte fuer GameMap, CodeTerritory, AgentUnit, PolicyNode, ContextGate, ArtifactObjective und TrustEdge definieren",
+        "Keine Spiellogik direkt mit UI vermischen",
+        "Modelle so halten, dass sie spaeter aus Repository-/CodeCompass-Daten befuellt werden koennen",
+        "Jedes Modell mit stabilen IDs und serialisierbaren Feldern ausstatten"
+      ],
+      "acceptance_criteria": [
+        "Modelle koennen als JSON serialisiert werden",
+        "CodeTerritory kann auf Repository-Pfade oder Module zeigen",
+        "AgentUnit kann Rolle, Faehigkeiten, erlaubten Kontext und Risk-Level abbilden",
+        "TrustEdge kann Beziehung, Richtung und Trust-Wert beschreiben",
+        "Keine Modellklasse benoetigt externe Services im Konstruktor"
+      ]
+    },
+    {
+      "id": "ASG-003",
+      "title": "CodeCompass-zu-GameMap Adapter planen",
+      "status": "open",
+      "files": [
+        "docs/ananta-game/codecompass-adapter.md",
+        "agent/game/codecompass_adapter.py",
+        "tests/test_ananta_game_codecompass_adapter.py"
+      ],
+      "steps": [
+        "Mapping von CodeCompass-Knoten auf CodeTerritory dokumentieren",
+        "Abhaengigkeiten als TrustWeave- oder Dependency-Kanten modellieren",
+        "Risk- und Kontextinformationen aus vorhandenen Quellen nur explizit uebernehmen",
+        "Fallback definieren, wenn CodeCompass-Daten fehlen"
+      ],
+      "acceptance_criteria": [
+        "Adapter erzeugt aus minimalen Repository-Metadaten eine gueltige GameMap",
+        "Fehlende CodeCompass-Daten fuehren zu klarer degraded map, nicht zu Fehler oder Halluzination",
+        "Tests pruefen Pfad-zu-Territorium-Mapping",
+        "Tests pruefen Abhaengigkeitskanten",
+        "Keine Secrets oder Dateiinhalte werden ohne explizite Freigabe in die GameMap geschrieben"
+      ]
+    },
+    {
+      "id": "ASG-004",
+      "title": "ContextAegis als Fog-of-War und Zugriffsschicht modellieren",
+      "status": "open",
+      "files": [
+        "docs/ananta-game/context-aegis.md",
+        "agent/game/context_aegis.py",
+        "tests/test_ananta_game_context_aegis.py"
+      ],
+      "steps": [
+        "Sichtbarkeit von CodeTerritories pro AgentUnit definieren",
+        "Unterschied zwischen lokalem Worker und Cloud-Worker als Spielregel abbilden",
+        "Secrets und gesperrte Bereiche als blocked territories darstellen",
+        "Keine heuristische Freigabe ohne Policy erlauben"
+      ],
+      "acceptance_criteria": [
+        "Agent mit lokaler Rolle sieht nur explizit erlaubte Territorien",
+        "Cloud-Agent sieht keine als secret oder local-only markierten Territorien",
+        "Default fuer unbekannte Territorien ist deny/hidden",
+        "Tests decken allow, deny, hidden und redacted ab"
+      ]
+    },
+    {
+      "id": "ASG-005",
+      "title": "ArtifactGuard als Completion- und Siegbedingung modellieren",
+      "status": "open",
+      "files": [
+        "docs/ananta-game/artifact-guard.md",
+        "agent/game/artifact_guard.py",
+        "tests/test_ananta_game_artifact_guard.py"
+      ],
+      "steps": [
+        "Task-Abschluss an Evidence und Artefakte koppeln",
+        "Unterschied zwischen behauptetem Fortschritt und verifiziertem Fortschritt modellieren",
+        "Spielpunkte nur fuer verifizierte Artefakte vergeben",
+        "Fake-Completion als expliziten Negativfall testen"
+      ],
+      "acceptance_criteria": [
+        "Ein Task ohne Evidence kann nicht als verified abgeschlossen werden",
+        "Ein Task mit fehlgeschlagener Verification bleibt offen oder failed",
+        "ArtifactGuard erzeugt nachvollziehbare Begruendung fuer Entscheidungen",
+        "Tests pruefen successful, missing-evidence, failed-verification und stale-artifact"
+      ]
+    },
+    {
+      "id": "ASG-006",
+      "title": "AegisHub und AegisFlow als Spielzug-Orchestrierung planen",
+      "status": "open",
+      "files": [
+        "docs/ananta-game/aegis-hub-flow.md",
+        "agent/game/aegis_hub.py",
+        "agent/game/aegis_flow.py",
+        "tests/test_ananta_game_aegis_flow.py"
+      ],
+      "steps": [
+        "Spielzug als Goal -> Plan -> Task -> Action -> Verification -> Artifact modellieren",
+        "AegisHub als einziger Kontrollpunkt fuer Delegation festlegen",
+        "Worker-zu-Worker-Automation im Spiel regelbasiert verhindern",
+        "Retry/Rollback/Approval als Spielzugausgaenge modellieren"
+      ],
+      "acceptance_criteria": [
+        "Spielzuege koennen deterministisch simuliert werden",
+        "AegisHub bleibt Owner von Goals, Tasks und Approval",
+        "Worker duerfen keine neuen privilegierten Spielziele erzeugen",
+        "Tests pruefen erfolgreichen Flow, blockierten Flow, Retry und Rollback"
+      ]
+    },
+    {
+      "id": "ASG-007",
+      "title": "TrustWeave Graph-Regeln definieren",
+      "status": "open",
+      "files": [
+        "docs/ananta-game/trustweave.md",
+        "agent/game/trustweave.py",
+        "tests/test_ananta_game_trustweave.py"
+      ],
+      "steps": [
+        "Trust-Kanten zwischen Agenten, CodeTerritories, Artefakten und Policies definieren",
+        "Trust-Aenderungen an Evidence und Fehlversuche koppeln",
+        "Keine willkuerliche Trust-Erhoehung ohne Ereignis erlauben",
+        "Graph-Ausgabe fuer TUI/Web vorbereiten"
+      ],
+      "acceptance_criteria": [
+        "Trust steigt nur durch definierte positive Events",
+        "Trust sinkt bei fehlgeschlagener Verification oder Policy-Verletzung",
+        "TrustWeave kann als JSON Graph exportiert werden",
+        "Tests pruefen positive, negative und neutrale Events"
+      ]
+    },
+    {
+      "id": "ASG-008",
+      "title": "NagaCore als Tutorial-/Snake-Guide definieren",
+      "status": "open",
+      "files": [
+        "docs/ananta-game/naga-core.md",
+        "docs/tui/terminal-rendering.md",
+        "agent/game/naga_core.py"
+      ],
+      "steps": [
+        "NagaCore als spielerische Identitaet und Guide dokumentieren",
+        "Verbindung zur bestehenden TUI-Snake-Idee beschreiben",
+        "Tutorial-Dialoge fuer AegisHub, ContextAegis, ArtifactGuard und CodeCompass skizzieren",
+        "Keine sicherheitskritischen Entscheidungen durch die Snake selbst erlauben"
+      ],
+      "acceptance_criteria": [
+        "NagaCore ist Guide/Visualisierung, nicht Policy-Authority",
+        "Tutorial erklaert mindestens Hub-Kontrolle, Kontextgrenzen, Evidence und CodeCompass",
+        "TUI/Web koennen NagaCore spaeter unabhaengig rendern",
+        "Dokumentation grenzt Spielmetapher und echte Sicherheitslogik sauber ab"
+      ]
+    },
+    {
+      "id": "ASG-009",
+      "title": "Angular/Web-Visualisierung fuer GameMap vorbereiten",
+      "status": "open",
+      "files": [
+        "docs/ananta-game/web-ui.md",
+        "frontend-angular/src/app/",
+        "tests/"
+      ],
+      "steps": [
+        "GameMap-JSON als UI-Vertrag dokumentieren",
+        "Darstellung fuer Territorien, Agenten, Policies, Context Gates und Artifacts skizzieren",
+        "Kein direktes UI-Hardcoding ohne API-/Model-Vertrag",
+        "Barrierearme einfache 2D-Ansicht als erste Ausbaustufe definieren"
+      ],
+      "acceptance_criteria": [
+        "web-ui.md beschreibt minimalen UI-Vertrag",
+        "GameMap kann ohne echte Agentenausfuehrung als Demo gerendert werden",
+        "UI zeigt sichtbare/gesperrte/gefährdete Territorien unterscheidbar an",
+        "UI erzeugt keine eigenen Policy-Entscheidungen"
+      ]
+    },
+    {
+      "id": "ASG-010",
+      "title": "TUI-Visualisierung fuer Strategy Game planen",
+      "status": "open",
+      "files": [
+        "docs/ananta-game/tui.md",
+        "docs/tui/README.md",
+        "docs/tui/terminal-rendering.md"
+      ],
+      "steps": [
+        "Terminal-taugliche Darstellung der GameMap definieren",
+        "CodeTerritories als Raster/Graph/Listenansicht vergleichbar machen",
+        "NagaCore/Snake als Guide neben Statusinformationen einplanen",
+        "Sixel/Kitty/ANSI-Fallbacks nur als Darstellungsschicht behandeln"
+      ],
+      "acceptance_criteria": [
+        "TUI-Konzept funktioniert auch ohne Grafikbeschleunigung",
+        "High-quality Terminal Rendering bleibt optionaler Enhancement-Pfad",
+        "GameMap kann textuell nachvollziehbar angezeigt werden",
+        "Snake-Animation beeinflusst keine Sicherheitsentscheidung"
+      ]
+    },
+    {
+      "id": "ASG-011",
+      "title": "Integrations- und Golden-Tests definieren",
+      "status": "open",
+      "files": [
+        "tests/test_ananta_game_*.py",
+        "tests/golden/ananta-game/",
+        "docs/ananta-game/testing.md"
+      ],
+      "steps": [
+        "Golden GameMap fuer kleines Demo-Repository definieren",
+        "Tests fuer ContextAegis, ArtifactGuard, AegisFlow und TrustWeave priorisieren",
+        "Snapshot-Tests fuer JSON-Exports vorbereiten",
+        "Negativtests fuer unerlaubten Kontextzugriff und Fake-Completion aufnehmen"
+      ],
+      "acceptance_criteria": [
+        "Mindestens ein Golden-JSON fuer eine Demo-GameMap existiert",
+        "Tests pruefen, dass Cloud-Agenten keine local-only/secret Territorien sehen",
+        "Tests pruefen, dass unverified Tasks keine Siegbedingung erfuellen",
+        "Tests pruefen, dass Trust nur durch definierte Events veraendert wird"
+      ]
+    },
+    {
+      "id": "ASG-012",
+      "title": "README und Einstiegspunkte konsistent verlinken",
+      "status": "open",
+      "files": [
+        "README.md",
+        "docs/ananta-game/README.md",
+        "todos/README.md"
+      ],
+      "steps": [
+        "README-Link auf docs/ananta-game/README.md pruefen",
+        "todos/README.md um diese TODO-Datei ergaenzen",
+        "Game-Docs als Demo-/Learning-Schicht von Ananta beschreiben",
+        "Keine Haupt-README mit zu vielen Spieldetails ueberladen"
+      ],
+      "acceptance_criteria": [
+        "README verweist korrekt auf Game-Dokumentation",
+        "todos/README.md listet todo.ananta-strategy-game-architecture.json",
+        "Game wird als Architektur-/Learning-Demo beschrieben, nicht als abgetrenntes Fremdprojekt"
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Alle zehn Begriffe CodeAegis, AegisFlow, AegisHub, AgentAegis, DevAegis, ContextAegis, ArtifactGuard, TrustWeave, CodeCompass und NagaCore sind dokumentiert und im Game-Konzept verankert",
+    "Das Strategy Game erklaert echte Ananta-Konzepte statt nur dekoratives Branding zu sein",
+    "Kontextzugriff, Policy, Evidence und Verification bleiben deterministisch und Default-Deny-orientiert",
+    "Game-Modelle sind serialisierbar und UI-unabhaengig",
+    "Mindestens ContextAegis, ArtifactGuard, AegisFlow und TrustWeave haben eigene Testplaene",
+    "Es gibt eine klare Trennung zwischen Spielmetapher, UI-Darstellung und echter Sicherheits-/Policy-Logik"
+  ],
+  "risks": [
+    {
+      "risk": "Zu viel Branding ohne echte Funktion",
+      "mitigation": "Jeder Name muss eine konkrete Spielmechanik und einen Architekturbezug haben."
+    },
+    {
+      "risk": "Spielmetapher verwaessert Sicherheitsmodell",
+      "mitigation": "Dokumentation muss klar trennen: NagaCore/UI erklaert, AegisHub/Policy entscheidet."
+    },
+    {
+      "risk": "Kontextdaten oder Secrets landen versehentlich in GameMap-Exports",
+      "mitigation": "ContextAegis muss Redaction/Hidden/Denied als explizite Zustände besitzen und Tests dafuer haben."
+    },
+    {
+      "risk": "Zu frueh komplexe Grafik statt Kernmodell",
+      "mitigation": "Erste Umsetzung priorisiert Domain-Modell, JSON-Export und Tests; TUI/Web sind Darstellungsschichten."
+    }
+  ],
+  "suggested_implementation_order": [
+    "ASG-001",
+    "ASG-002",
+    "ASG-003",
+    "ASG-004",
+    "ASG-005",
+    "ASG-006",
+    "ASG-007",
+    "ASG-011",
+    "ASG-008",
+    "ASG-009",
+    "ASG-010",
+    "ASG-012"
+  ]
+}
