@@ -1,0 +1,99 @@
+{
+  "version": "1.0",
+  "owner": "fixture",
+  "track": "small-goal-fixture",
+  "purpose": "Small deterministic planning fixture",
+  "goal": "Implement a tiny feature safely",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high"],
+  "milestones": [
+    {
+      "id": "M01",
+      "title": "Small milestone",
+      "task_ids": ["T01", "T02", "T03"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01",
+      "title": "Analyze requirement",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "acceptance_criteria": ["Requirement is captured and testable."]
+    },
+    {
+      "id": "T02",
+      "title": "Implement endpoint",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "acceptance_criteria": ["Endpoint exists and returns expected schema."]
+    },
+    {
+      "id": "T03",
+      "title": "Verify behavior",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "acceptance_criteria": ["Tests validate endpoint behavior."]
+    }
+  ],
+  "critical_path_tasks": ["T01", "T02", "T03"],
+  "tasks_status_summary": {
+    "total": 3,
+    "by_status": {
+      "todo": 3,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P1": 2,
+      "P2": 1
+    },
+    "by_risk": {
+      "low": 2,
+      "medium": 1
+    },
+    "critical_path": {
+      "total": 3,
+      "done": 0,
+      "remaining": 3
+    },
+    "milestones": {
+      "total": 1,
+      "todo": 1,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 3,
+    "by_type": {
+      "analysis": 1,
+      "coding": 1,
+      "test": 1
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 3,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "end_summaries": [
+    {
+      "summary_id": "S01",
+      "title": "Small handoff",
+      "items": ["Feature delivered", "Tests green"]
+    }
+  ]
+}
