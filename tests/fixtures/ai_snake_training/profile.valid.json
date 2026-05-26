@@ -1,0 +1,24 @@
+{
+  "schema_version": "ai_snake_prediction_profile.v1",
+  "profile_id": "fixture-profile",
+  "display_name": "Fixture Profile",
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "workspace_ref": "workspace:fixture",
+  "privacy_defaults": {
+    "default_privacy_class": "workspace",
+    "local_only": true
+  },
+  "learning_settings": {
+    "enabled": true,
+    "paused": false,
+    "evidence_min_cases": 3
+  },
+  "pattern_refs": ["pat-fixture-1"],
+  "human_summary": "Fixture profile for schema tests.",
+  "ai_summary": "learning=on; patterns=1; top=artifact_explain",
+  "export_policy": {
+    "allowed_targets": ["local_file", "stdout_json"],
+    "default_local_only": true
+  }
+}

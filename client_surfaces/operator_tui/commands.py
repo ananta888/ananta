@@ -183,6 +183,18 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 ),
                 "ai ctx",
             )
+        if sub == "context":
+            scope = str(args[1]).lower() if len(args) > 1 else ""
+            opt = str(args[2]).lower() if len(args) > 2 else ""
+            if scope == "training":
+                released = opt == "on"
+                game["ai_training_context_released"] = released
+                label = "on" if released else "off"
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, status_message=f"ai context training {label}"),
+                    f"ai context training {label}",
+                )
+            return CommandResult(state, "ai context training on|off", handled=False)
         if sub == "status":
             prediction = game.get("ai_snake_prediction") if isinstance(game.get("ai_snake_prediction"), dict) else {}
             debug = game.get("ai_snake_debug") if isinstance(game.get("ai_snake_debug"), dict) else {}
@@ -274,8 +286,15 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 try:
                     if "--stdout" in options or not export_target:
                         bundle = build_training_bundle(include_events=include_events)
+                        manifest = bundle.get("privacy_manifest") if isinstance(bundle.get("privacy_manifest"), dict) else {}
+                        warn = ""
+                        if int(manifest.get("private_local") or 0) > 0:
+                            warn = " warning=private_local_data"
                         return CommandResult(
-                            state.with_updates(header_logo_game=game, status_message="ai data export stdout"),
+                            state.with_updates(
+                                header_logo_game=game,
+                                status_message=f"ai data export stdout{warn}",
+                            ),
                             json.dumps(bundle, ensure_ascii=False),
                         )
                     target = export_training_bundle_to_path(output_path=export_target, include_events=include_events)
@@ -307,7 +326,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 if len(args) < 3:
                     return CommandResult(
                         state,
-                        "ai data import <path> [--preview] [--disabled] [--conflict keep_higher_confidence|overwrite|keep_local|merge_counters|import_disabled_copy]",
+                        "ai data import <path> [--preview] [--disabled] [--conflict keep_higher_confidence|overwrite|keep_local|merge_counters|import_disabled_copy] [--ignore-checksum]",
                         handled=False,
                     )
                 source = str(args[2]).strip()
@@ -315,6 +334,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 lowered = [x.lower() for x in flags]
                 preview = "--preview" in lowered
                 disabled = "--disabled" in lowered
+                ignore_checksum = "--ignore-checksum" in lowered or "--unsafe" in lowered
                 strategy = "keep_higher_confidence"
                 if "--conflict" in lowered:
                     idx = lowered.index("--conflict")
@@ -325,6 +345,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                         preview=preview,
                         disabled=disabled,
                         conflict_strategy=strategy,
+                        ignore_checksum=ignore_checksum,
                     )
                 except ValueError as exc:
                     return CommandResult(
@@ -345,13 +366,16 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                         handled=False,
                     )
                 mode = "preview" if preview else "applied"
+                checksum = result.get("checksum_state") if isinstance(result.get("checksum_state"), dict) else {}
+                warning = str(checksum.get("warning") or "")
+                warning_suffix = f" warning={warning}" if warning else ""
                 return CommandResult(
                     state.with_updates(
                         header_logo_game=game,
                         status_message=(
                             f"ai data import {mode} profile={result.get('profile_name')} "
                             f"patterns={result.get('patterns_result')} conflicts={result.get('conflicts')} "
-                            f"strategy={result.get('conflict_resolution')}"
+                            f"strategy={result.get('conflict_resolution')}{warning_suffix}"
                         ),
                     ),
                     json.dumps(result, ensure_ascii=False),
@@ -511,7 +535,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             return CommandResult(state, "ai learning: on | off | pause | status", handled=False)
         return CommandResult(
             state,
-            "ai: follow | lurk | quiet | explain | off | status | why | ctx | data ... | patterns | pattern ... | prediction ... | learning ...",
+            "ai: follow | lurk | quiet | explain | off | status | why | ctx | context training on|off | data ... | patterns | pattern ... | prediction ... | learning ...",
             handled=False,
         )
     if command == "inspect":

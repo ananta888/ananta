@@ -120,3 +120,54 @@ def test_training_bundle_schema_allows_bundle_without_events_sample() -> None:
     assert list(validator.iter_errors(bundle)) == []
     # ensure json-serializable stable output
     json.dumps(bundle, ensure_ascii=False)
+
+
+def test_schema_fixtures_validate() -> None:
+    base = Path("tests/fixtures/ai_snake_training")
+    profile = json.loads((base / "profile.valid.json").read_text(encoding="utf-8"))
+    event = json.loads((base / "event.valid.json").read_text(encoding="utf-8"))
+    pattern = json.loads((base / "pattern.valid.json").read_text(encoding="utf-8"))
+    bundle = json.loads((base / "bundle.valid.json").read_text(encoding="utf-8"))
+
+    assert validate_payload(profile, schema_filename=PROFILE_SCHEMA_FILE) == []
+    assert validate_payload(event, schema_filename=BEHAVIOR_EVENT_SCHEMA_FILE) == []
+    assert validate_payload(pattern, schema_filename=LEARNED_PATTERN_SCHEMA_FILE) == []
+    assert validate_payload(bundle, schema_filename=TRAINING_BUNDLE_SCHEMA_FILE) == []
+
+
+def test_negative_schema_cases_missing_required_and_large_text() -> None:
+    missing_required = profile_examples()[0]
+    missing_required.pop("display_name", None)
+    errs = validate_payload(missing_required, schema_filename=PROFILE_SCHEMA_FILE)
+    assert errs
+
+    unknown_field_bundle = {
+        "bundle_id": "b-unknown",
+        "schema_version": "ai_snake_training_bundle.v1",
+        "exported_at": "2026-05-26T10:00:00Z",
+        "source": {"app": "ananta-tui", "version": "1.0"},
+        "profile": profile_examples()[0],
+        "patterns": [],
+        "checksums": {"profile_sha256": "a" * 64, "patterns_sha256": "b" * 64},
+        "human_readme": "ok",
+        "ai_readme": "ok",
+        "privacy_manifest": {"public_ui": 0, "workspace": 0, "private_local": 0, "sensitive_blocked": 0},
+        "unknown_top_level": True,
+    }
+    assert validate_payload(unknown_field_bundle, schema_filename=TRAINING_BUNDLE_SCHEMA_FILE)
+
+    too_large = {
+        "pattern_id": "p-overflow",
+        "pattern_type": "heuristic",
+        "conditions": {"field": "section_is", "op": "eq", "value": "dashboard"},
+        "predicted_intent": "navigate",
+        "confidence": 0.2,
+        "evidence": {"source_event_ids": [], "sample_size": 0},
+        "counters": {"hits": 0, "misses": 0, "positives": 0, "negatives": 0},
+        "last_seen_at": "2026-05-26T10:00:00Z",
+        "expires_at": "2026-05-27T10:00:00Z",
+        "status": "draft",
+        "human_explanation": "x" * 700,
+        "ai_hint": "y" * 400,
+    }
+    assert validate_payload(too_large, schema_filename=LEARNED_PATTERN_SCHEMA_FILE)

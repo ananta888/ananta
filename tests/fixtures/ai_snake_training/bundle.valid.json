@@ -1,0 +1,77 @@
+{
+  "bundle_id": "bundle-fixture-1",
+  "schema_version": "ai_snake_training_bundle.v1",
+  "exported_at": "2026-01-01T00:00:00Z",
+  "source": {
+    "app": "ananta-tui",
+    "version": "1.0"
+  },
+  "profile": {
+    "schema_version": "ai_snake_prediction_profile.v1",
+    "profile_id": "fixture-profile",
+    "display_name": "Fixture Profile",
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-01-01T00:00:00Z",
+    "workspace_ref": "workspace:fixture",
+    "privacy_defaults": {
+      "default_privacy_class": "workspace",
+      "local_only": true
+    },
+    "learning_settings": {
+      "enabled": true,
+      "paused": false,
+      "evidence_min_cases": 3
+    },
+    "pattern_refs": ["pat-fixture-1"],
+    "human_summary": "Fixture profile for schema tests.",
+    "ai_summary": "learning=on; patterns=1; top=artifact_explain",
+    "export_policy": {
+      "allowed_targets": ["local_file", "stdout_json"],
+      "default_local_only": true
+    }
+  },
+  "patterns": [
+    {
+      "pattern_id": "pat-fixture-1",
+      "pattern_type": "sequence_rule",
+      "conditions": {
+        "all": [
+          {
+            "field": "section_is",
+            "op": "eq",
+            "value": "artifacts"
+          }
+        ]
+      },
+      "predicted_intent": "artifact_explain",
+      "confidence": 0.71,
+      "evidence": {
+        "source_event_ids": ["ev-fixture-1", "ev-fixture-2", "ev-fixture-3"],
+        "sample_size": 3
+      },
+      "counters": {
+        "hits": 5,
+        "misses": 1,
+        "positives": 4,
+        "negatives": 1
+      },
+      "last_seen_at": "2026-01-01T00:00:00Z",
+      "expires_at": "2026-02-01T00:00:00Z",
+      "status": "active",
+      "human_explanation": "Artifacts werden wiederholt zur Erklärung geöffnet.",
+      "ai_hint": "Erkläre zuerst den aktiven Artefaktkontext."
+    }
+  ],
+  "checksums": {
+    "profile_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "patterns_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "human_readme": "Fixture bundle.",
+  "ai_readme": "Use profile and pattern references.",
+  "privacy_manifest": {
+    "public_ui": 1,
+    "workspace": 1,
+    "private_local": 0,
+    "sensitive_blocked": 0
+  }
+}

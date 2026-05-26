@@ -69,3 +69,5 @@ Weitere Trainings-Kommandos:
 - `:ai data delete events|patterns` und `:ai data reset`
 - `:ai learning on|off|pause|status` (Recorder/Profil-Steuerung)
 - `:ai prediction good|bad [reason]` (Feedback für letztes Target)
+- `:ai why` (letzte Prediction begründen: Quelle, Pattern-Refs, Confidence)
+- `:ai context training on|off` (Freigabe von Training-ContextEnvelope-Refs für Worker)

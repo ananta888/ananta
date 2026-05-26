@@ -95,6 +95,57 @@ def test_ai_data_export_stdout_json(monkeypatch, tmp_path) -> None:
     assert direct["schema_version"] == "ai_snake_training_bundle.v1"
 
 
+def test_ai_data_export_status_warns_private_local(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    save_patterns(
+        [
+            {
+                "pattern_id": "pat-private",
+                "pattern_type": "heuristic",
+                "conditions": {"field": "privacy_class", "op": "eq", "value": "private_local"},
+                "predicted_intent": "notes_resume",
+                "confidence": 0.3,
+                "evidence": {"source_event_ids": ["evt-1"], "sample_size": 1, "counter_refs": [], "privacy_class": "private_local"},
+                "counters": {"hits": 1, "misses": 0, "positives": 1, "negatives": 0},
+                "last_seen_at": "2026-01-01T00:00:00Z",
+                "expires_at": "2030-01-01T00:00:00Z",
+                "status": "active",
+                "human_explanation": "private",
+                "ai_hint": "hint",
+            }
+        ]
+    )
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game={})
+    result = execute_command(":ai data export --stdout --format json", state)
+    assert result.handled is True
+    assert "warning=private_local_data" in str(result.state.status_message or "")
+
+
+def test_default_export_excludes_sensitive_blocked_patterns(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    save_patterns(
+        [
+            {
+                "pattern_id": "pat-sensitive",
+                "pattern_type": "heuristic",
+                "conditions": {"field": "privacy_class", "op": "eq", "value": "sensitive_blocked"},
+                "predicted_intent": "unknown",
+                "confidence": 0.1,
+                "evidence": {"source_event_ids": ["evt-1"], "sample_size": 1, "counter_refs": [], "privacy_class": "sensitive_blocked"},
+                "counters": {"hits": 1, "misses": 0, "positives": 0, "negatives": 1},
+                "last_seen_at": "2026-01-01T00:00:00Z",
+                "expires_at": "2030-01-01T00:00:00Z",
+                "status": "active",
+                "human_explanation": "sensitive",
+                "ai_hint": "sensitive",
+            }
+        ]
+    )
+    payload = json.loads(execute_command(":ai data export --stdout --format json", OperatorState(endpoint="http://localhost:5000", header_logo_game={})).message)
+    assert payload["patterns"] == []
+    assert int(payload["privacy_manifest"]["sensitive_blocked"]) == 0
+
+
 def test_ai_learning_command_updates_profile(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     state = OperatorState(endpoint="http://localhost:5000", header_logo_game={})
@@ -268,3 +319,34 @@ def test_ai_why_command_shows_prediction_explanation() -> None:
     assert result.handled is True
     assert "source=learned_profile" in result.message
     assert "pattern=pat-1" in result.message
+
+
+def test_ai_context_training_toggle() -> None:
+    s = OperatorState(endpoint="http://localhost:5000", header_logo_game={})
+    on = execute_command(":ai context training on", s)
+    off = execute_command(":ai context training off", on.state)
+    assert on.handled is True
+    assert off.handled is True
+    assert bool((on.state.header_logo_game or {}).get("ai_training_context_released")) is True
+    assert bool((off.state.header_logo_game or {}).get("ai_training_context_released")) is False
+
+
+def test_read_profile_and_events_handle_corrupt_files(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    paths = ensure_training_layout()
+    paths["active_profile"].write_text("{broken", encoding="utf-8")
+    # should not raise and should fall back to default profile
+    result = execute_command(":ai data show", OperatorState(endpoint="http://localhost:5000", header_logo_game={}))
+    assert result.handled is True
+    paths["events_log"].write_text("{not-json}\n", encoding="utf-8")
+    compact = execute_command(":ai data compact", result.state)
+    assert compact.handled is True
+
+
+def test_learning_status_reports_paused(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game={})
+    paused = execute_command(":ai learning pause", state)
+    status = execute_command(":ai learning status", paused.state)
+    assert paused.handled is True
+    assert "mode=paused" in status.message

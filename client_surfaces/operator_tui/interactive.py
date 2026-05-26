@@ -1127,6 +1127,7 @@ class InteractiveOperatorTui:
             "ai_snake_prediction": {},
             "ai_snake_debug": {},
             "ai_snake_runtime_status": "idle",
+            "ai_training_context_released": False,
             "ai_snake_follow_state": make_follow_state(ai_position=(3, 3), mode="lurking_follow"),
             "artifact_target_cell": None,
             "tutorial_ai_target_mode": "follow_user",
@@ -1517,6 +1518,7 @@ class InteractiveOperatorTui:
             notes_released=notes_released,
             selected_artifact_allowed=selected_allowed,
             external_provider=False,
+            training_context_allowed=bool(game.get("ai_training_context_released")),
         )
         prompt_payload, prompt_policy = apply_policy_to_payload(
             {
@@ -1528,6 +1530,7 @@ class InteractiveOperatorTui:
             notes_released=notes_released,
             selected_artifact_allowed=selected_allowed,
             external_provider=False,
+            training_context_allowed=bool(game.get("ai_training_context_released")),
         )
         if (
             gate_decision.allow_worker_request

@@ -649,7 +649,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.02", "T01.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Objekte nutzen privacy_class: public_ui, workspace, private_local, sensitive_blocked.",
             "Export erzeugt privacy_manifest mit Anzahl je Klasse.",
@@ -670,7 +670,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T04.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Bundle enthält checksum über profile und patterns.",
             "Import prüft checksum, wenn vorhanden.",
@@ -691,7 +691,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T05.02", "T07.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Trainingdaten werden nicht automatisch an Hub, GitHub, Cloud-LLM oder andere Snakes gesendet.",
             "Worker-Kontext erhält nur ai_summary/ai_hint und pattern_refs, wenn Policy es erlaubt.",
@@ -719,7 +719,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.01", "T01.02", "T01.03", "T01.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Tests validieren PredictionProfile-v1 Beispiele.",
             "Tests validieren BehaviorEvent-v1 Beispiele.",
@@ -740,7 +740,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01", "T03.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Tests prüfen initiale Ordneranlage.",
             "Tests prüfen README-Erzeugung.",
@@ -761,7 +761,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T04.01", "T04.03", "T04.05"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Roundtrip Profil + Patterns ohne Events.",
             "Roundtrip mit optionalem Event-Sample.",
@@ -782,7 +782,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T03.01", "T03.02", "T03.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Wiederholte Artifacts-Sequenz erzeugt artifact_explain Pattern.",
             "Rauschdaten erzeugen kein aktives Pattern.",
@@ -811,7 +811,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T02.01", "T04.01", "T06.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Doku nennt alle Speicherpfade exakt.",
             "Doku erklärt alle relevanten Kommandos: show, patterns, export, import, validate, delete, reset.",
@@ -832,7 +832,7 @@
           "priority": "P2",
           "effort": "M",
           "depends_on": ["T03.02", "T05.02", "T07.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Doku enthält Mermaid-Flow für Event-Aufzeichnung.",
             "Doku enthält Mermaid-Flow für Pattern-Mining.",

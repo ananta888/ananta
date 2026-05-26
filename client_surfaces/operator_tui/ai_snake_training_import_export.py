@@ -8,7 +8,9 @@ from typing import Any
 
 from client_surfaces.operator_tui.ai_snake_training_data import TRAINING_BUNDLE_SCHEMA_FILE, validate_payload
 from client_surfaces.operator_tui.ai_snake_training_store import (
+    append_training_audit_log,
     build_training_bundle,
+    payload_sha256,
     read_active_profile,
     read_patterns,
     save_active_profile,
@@ -80,6 +82,7 @@ def import_training_bundle(
     preview: bool = False,
     disabled: bool = False,
     conflict_strategy: str = "keep_higher_confidence",
+    ignore_checksum: bool = False,
 ) -> dict[str, Any]:
     payload = _read_bundle(input_path)
     schema_version = str(payload.get("schema_version") or "")
@@ -97,6 +100,7 @@ def import_training_bundle(
 
     imported_profile = dict(payload.get("profile") or {})
     imported_patterns = [dict(item) for item in (payload.get("patterns") or []) if isinstance(item, dict)]
+    checksum_state = _verify_bundle_checksums(payload, ignore_checksum=ignore_checksum)
     if disabled:
         for item in imported_patterns:
             item["status"] = "disabled"
@@ -120,6 +124,7 @@ def import_training_bundle(
         "conflict_resolution": report["resolution"],
         "conflict_examples": report["examples"][:5],
         "privacy_manifest": dict(payload.get("privacy_manifest") or {}),
+        "checksum_state": checksum_state,
     }
     if preview:
         return result
@@ -128,6 +133,16 @@ def import_training_bundle(
     profile_to_save.update(imported_profile)
     save_active_profile(profile_to_save, backup=True)
     save_patterns(merged, backup=True)
+    if checksum_state.get("warning"):
+        append_training_audit_log(
+            {
+                "event": "training_bundle_import",
+                "status": "warning",
+                "warning": checksum_state["warning"],
+                "source": str(input_path),
+                "schema_version": schema_version,
+            }
+        )
     return result
 
 
@@ -272,3 +287,19 @@ def _pattern_fingerprint(pattern: dict[str, Any]) -> str:
     }
     digest = hashlib.sha1(json.dumps(key, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
     return digest
+
+
+def _verify_bundle_checksums(payload: dict[str, Any], *, ignore_checksum: bool) -> dict[str, Any]:
+    checksums = payload.get("checksums") if isinstance(payload.get("checksums"), dict) else {}
+    expected_profile = str(checksums.get("profile_sha256") or "")
+    expected_patterns = str(checksums.get("patterns_sha256") or "")
+    if not expected_profile or not expected_patterns:
+        return {"valid": True, "warning": "checksums_missing"}
+    actual_profile = payload_sha256(payload.get("profile") or {})
+    actual_patterns = payload_sha256(payload.get("patterns") or [])
+    ok = actual_profile == expected_profile and actual_patterns == expected_patterns
+    if ok:
+        return {"valid": True, "warning": ""}
+    if ignore_checksum:
+        return {"valid": True, "warning": "checksum_mismatch_ignored"}
+    raise ValueError("invalid bundle: checksum mismatch")

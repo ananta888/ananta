@@ -30,6 +30,7 @@ def training_paths() -> dict[str, Path]:
         "learned_patterns": base / "learned_patterns.json",
         "exports_dir": base / "exports",
         "readme": base / "README.md",
+        "audit_log": base / "training_import_audit.log",
     }
 
 
@@ -52,7 +53,10 @@ def ensure_training_layout() -> dict[str, Path]:
 
 def read_active_profile() -> dict[str, Any]:
     paths = ensure_training_layout()
-    payload = json.loads(paths["active_profile"].read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(paths["active_profile"].read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        payload = default_profile()
     return payload if isinstance(payload, dict) else default_profile()
 
 
@@ -106,7 +110,10 @@ def save_active_profile(profile: dict[str, Any], *, backup: bool = False) -> Non
 
 def read_patterns() -> list[dict[str, Any]]:
     paths = ensure_training_layout()
-    payload = json.loads(paths["learned_patterns"].read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(paths["learned_patterns"].read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
     if not isinstance(payload, dict):
         return []
     patterns = payload.get("patterns")
@@ -214,7 +221,7 @@ def count_event_lines() -> int:
 def build_training_bundle(*, include_events: bool = False) -> dict[str, Any]:
     paths = ensure_training_layout()
     profile = read_active_profile()
-    patterns = read_patterns()
+    patterns = _bundle_safe_patterns(read_patterns())
     events_sample: list[dict[str, Any]] = []
     privacy_manifest = {"public_ui": 0, "workspace": 0, "private_local": 0, "sensitive_blocked": 0}
     if include_events and paths["events_log"].exists():
@@ -250,6 +257,8 @@ def build_training_bundle(*, include_events: bool = False) -> dict[str, Any]:
         "privacy_manifest": privacy_manifest,
         "extensions": {},
     }
+    if privacy_manifest.get("private_local", 0) > 0:
+        bundle["extensions"]["export_warning"] = "private_local data included by explicit configuration"
     if include_events:
         bundle["events_sample"] = events_sample
         bundle["checksums"]["events_sha256"] = _sha256_json(events_sample)
@@ -364,6 +373,17 @@ def _sha256_json(payload: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def payload_sha256(payload: Any) -> str:
+    return _sha256_json(payload)
+
+
+def append_training_audit_log(entry: dict[str, Any]) -> None:
+    paths = ensure_training_layout()
+    line = json.dumps(entry, ensure_ascii=False)
+    with paths["audit_log"].open("a", encoding="utf-8") as fh:
+        fh.write(line + "\n")
+
+
 def _sync_profile_summaries(*, patterns: list[dict[str, Any]]) -> None:
     profile = read_active_profile()
     learning = dict(profile.get("learning_settings") or {})
@@ -394,6 +414,16 @@ def _normalize_pattern(item: dict[str, Any]) -> dict[str, Any]:
     if not str(out.get("ai_hint") or "").strip():
         out["ai_hint"] = _standard_ai_hint(predicted_intent=intent, target_ref=str(out.get("target_ref") or ""))
     return out
+
+
+def _bundle_safe_patterns(patterns: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    safe: list[dict[str, Any]] = []
+    for item in patterns:
+        evidence = item.get("evidence") if isinstance(item.get("evidence"), dict) else {}
+        if str(evidence.get("privacy_class") or "") == "sensitive_blocked":
+            continue
+        safe.append(item)
+    return safe
 
 
 def _standard_ai_hint(*, predicted_intent: str, target_ref: str) -> str:
