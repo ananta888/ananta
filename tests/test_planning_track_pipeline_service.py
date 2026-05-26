@@ -8,6 +8,7 @@ from agent.artifacts.goal_artifact_repository import GoalArtifactRepository
 from agent.artifacts.goal_artifact_service import GoalArtifactService
 from agent.services.planning_track_pipeline_service import (
     compute_tasks_status_summary,
+    evaluate_planning_quality_gates,
     persist_planning_track_result,
     validate_planning_track_with_details,
     validate_summary_consistency,
@@ -67,6 +68,20 @@ def test_summary_consistency_detects_and_repairs_mismatch() -> None:
     assert repaired["repaired_payload"]["tasks_status_summary"] == compute_tasks_status_summary(payload)
 
 
+def test_quality_gates_flag_invalid_refs_and_allow_non_blocking_warnings() -> None:
+    payload = _fixture_payload()
+    payload["critical_path_tasks"] = ["T01", "T404"]
+    payload["milestones"][0]["task_ids"] = ["T01", "T404"]
+    payload["tasks"][0]["acceptance_criteria"] = ["Looks good"]
+    result = evaluate_planning_quality_gates(payload, large_goal_mode=True, small_goal_mode=False, min_tasks_large_goal=5)
+    assert result["ok"] is False
+    reason_codes = {item["reason_code"] for item in list(result["blocking_issues"] or [])}
+    assert "quality_critical_path_missing_task" in reason_codes
+    assert "quality_milestone_missing_task" in reason_codes
+    warning_codes = {item["reason_code"] for item in list(result["warnings"] or [])}
+    assert "quality_p1_acceptance_not_testable" in warning_codes
+
+
 def test_persist_planning_track_result_saves_valid_artifact_and_provenance(tmp_path: Path) -> None:
     goal_id = "goal-planning-valid"
     service = _artifact_service(tmp_path)
@@ -98,6 +113,7 @@ def test_persist_planning_track_result_saves_valid_artifact_and_provenance(tmp_p
     assert provenance is not None
     assert provenance["prompt_refs"]["prompt_template_ref"] == "prompt:planning/track_planning"
     assert provenance["extensions"]["schema_ref"] == "todos/todo.track.schema.json"
+    assert result["output_artifact"]["extensions"]["quality_gate_warnings"] == []
 
 
 def test_persist_planning_track_result_repair_pipeline_runs_once_and_degrades(tmp_path: Path) -> None:
@@ -131,4 +147,3 @@ def test_persist_planning_track_result_repair_pipeline_runs_once_and_degrades(tm
     assert result["status"] == "degraded"
     assert result["output_artifact"]["status"] == "failed"
     assert result["output_artifact"]["extensions"]["active_plan_candidate"] is False
-

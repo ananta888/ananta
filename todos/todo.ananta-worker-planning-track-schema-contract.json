@@ -315,7 +315,7 @@
     {
       "id": "T03.04",
       "title": "Plan Quality Gates definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "validation",
@@ -334,7 +334,7 @@
     {
       "id": "T04.01",
       "title": "TUI Command für Planner Track erzeugen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "tui",
@@ -354,7 +354,7 @@
     {
       "id": "T04.02",
       "title": "TUI Anzeige für Planning Track",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "tui",
@@ -373,7 +373,7 @@
     {
       "id": "T04.03",
       "title": "TUI Plan übernehmen oder verwerfen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "tui",
@@ -393,7 +393,7 @@
     {
       "id": "T04.04",
       "title": "TUI Plan Diff / Plan Revision View",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "tui",

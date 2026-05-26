@@ -56,6 +56,8 @@ from client_surfaces.operator_tui.diff.three_way_diff_state import (
     set_panel_state,
     validate_three_way_diff_session,
 )
+from agent.services.planning_track_pipeline_service import compute_tasks_status_summary, persist_planning_track_result
+from agent.services.planning_track_planner_service import build_planner_context_envelope, render_track_planning_prompt
 
 
 def _now_iso() -> str:
@@ -191,6 +193,198 @@ def _state_with_diff3_payload(state: OperatorState, *, game: dict, diff3_state: 
         section_payloads=section_payloads,
         panel_states=panel_states,
     )
+
+
+def _build_mock_planning_track_payload(goal_id: str) -> dict[str, object]:
+    tasks = [
+        {
+            "id": "T01",
+            "title": "Analyse Ziel und Grenzen",
+            "status": "todo",
+            "priority": "P1",
+            "risk": "medium",
+            "type": "analysis",
+            "acceptance_criteria": ["Anforderungen sind präzise und testbar erfasst."],
+        },
+        {
+            "id": "T02",
+            "title": "Implementiere Kernänderung",
+            "status": "todo",
+            "priority": "P1",
+            "risk": "medium",
+            "type": "coding",
+            "acceptance_criteria": ["Kernfunktion ist implementiert und liefert erwartetes Ergebnis."],
+        },
+        {
+            "id": "T03",
+            "title": "Führe Verifikation aus",
+            "status": "todo",
+            "priority": "P1",
+            "risk": "low",
+            "type": "test",
+            "acceptance_criteria": ["Tests/Checks laufen erfolgreich."],
+        },
+        {
+            "id": "T04",
+            "title": "Review und Übergabe",
+            "status": "todo",
+            "priority": "P2",
+            "risk": "low",
+            "type": "review",
+            "acceptance_criteria": ["Änderungen sind dokumentiert und übergabefähig."],
+        },
+        {
+            "id": "T05",
+            "title": "Plan zusammenfassen",
+            "status": "todo",
+            "priority": "P2",
+            "risk": "low",
+            "type": "docs",
+            "acceptance_criteria": ["Track-Status ist konsistent und nachvollziehbar."],
+        },
+    ]
+    payload = {
+        "version": "1.0",
+        "owner": "operator_tui",
+        "track": f"goal-{goal_id}-planning-track",
+        "goal": f"Goal {goal_id}",
+        "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+        "priority_scale": ["P1", "P2", "P3"],
+        "risk_scale": ["low", "medium", "high"],
+        "milestones": [
+            {"id": "M01", "title": "Planung", "task_ids": ["T01", "T02"], "status": "todo"},
+            {"id": "M02", "title": "Umsetzung", "task_ids": ["T03", "T04", "T05"], "status": "todo"},
+        ],
+        "tasks": tasks,
+        "critical_path_tasks": ["T01", "T02", "T03", "T04"],
+    }
+    payload["tasks_status_summary"] = compute_tasks_status_summary(payload)
+    payload["progress_summary"] = {
+        "state": "todo",
+        "todo_remaining": len(tasks),
+        "in_progress": 0,
+        "partial": 0,
+        "blocked": 0,
+        "done": 0,
+    }
+    return payload
+
+
+def _task_matches_filters(task: dict[str, object], filters: dict[str, str]) -> bool:
+    if filters.get("status") and str(task.get("status") or "") != str(filters.get("status") or ""):
+        return False
+    if filters.get("priority") and str(task.get("priority") or "") != str(filters.get("priority") or ""):
+        return False
+    if filters.get("risk") and str(task.get("risk") or "") != str(filters.get("risk") or ""):
+        return False
+    if filters.get("type") and str(task.get("type") or "") != str(filters.get("type") or ""):
+        return False
+    return True
+
+
+def _build_plan_task_diff(left_payload: dict[str, object], right_payload: dict[str, object]) -> dict[str, object]:
+    left_tasks = {
+        str(item.get("id") or "").strip(): dict(item)
+        for item in list(left_payload.get("tasks") or [])
+        if isinstance(item, dict) and str(item.get("id") or "").strip()
+    }
+    right_tasks = {
+        str(item.get("id") or "").strip(): dict(item)
+        for item in list(right_payload.get("tasks") or [])
+        if isinstance(item, dict) and str(item.get("id") or "").strip()
+    }
+    new_ids = sorted([task_id for task_id in right_tasks if task_id not in left_tasks])
+    removed_ids = sorted([task_id for task_id in left_tasks if task_id not in right_tasks])
+    changed_ids = sorted(
+        [
+            task_id
+            for task_id in right_tasks
+            if task_id in left_tasks and left_tasks[task_id] != right_tasks[task_id]
+        ]
+    )
+    return {
+        "new_tasks": [{"id": task_id, "title": str(right_tasks[task_id].get("title") or "")} for task_id in new_ids],
+        "removed_tasks": [{"id": task_id, "title": str(left_tasks[task_id].get("title") or "")} for task_id in removed_ids],
+        "changed_tasks": [
+            {
+                "id": task_id,
+                "before": {
+                    "title": str(left_tasks[task_id].get("title") or ""),
+                    "status": str(left_tasks[task_id].get("status") or ""),
+                    "priority": str(left_tasks[task_id].get("priority") or ""),
+                },
+                "after": {
+                    "title": str(right_tasks[task_id].get("title") or ""),
+                    "status": str(right_tasks[task_id].get("status") or ""),
+                    "priority": str(right_tasks[task_id].get("priority") or ""),
+                },
+            }
+            for task_id in changed_ids
+        ],
+    }
+
+
+def _build_planning_track_payload(*, goal_id: str, game: dict[str, object]) -> dict[str, object]:
+    service = GoalArtifactService()
+    graph = service.get_goal_graph(goal_id)
+    outputs = [dict(item) for item in list(graph.get("output_artifacts") or []) if isinstance(item, dict)]
+    planning_outputs = [item for item in outputs if str(item.get("artifact_type") or "") == "planning_track"]
+    planning_outputs.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
+
+    rows: list[dict[str, object]] = []
+    for output in planning_outputs:
+        ext = dict(output.get("extensions") or {})
+        payload = dict(ext.get("payload") or {}) if isinstance(ext.get("payload"), dict) else {}
+        rows.append(
+            {
+                "output_artifact_id": str(output.get("output_artifact_id") or ""),
+                "created_at": str(output.get("created_at") or ""),
+                "status": str(output.get("status") or ""),
+                "verification_status": str(output.get("verification_status") or ""),
+                "provenance_id": str(output.get("provenance_id") or ""),
+                "active_plan_candidate": bool(ext.get("active_plan_candidate", False)),
+                "quality_gate_warnings": list(ext.get("quality_gate_warnings") or []),
+                "validation_issues": list(ext.get("validation_issues") or []),
+                "repair_attempt_count": int(ext.get("repair_attempt_count") or 0),
+                "payload": payload,
+            }
+        )
+
+    selected_output_id = str(game.get("planning_track_selected_output_id") or "")
+    if not selected_output_id and rows:
+        selected_output_id = str(rows[0].get("output_artifact_id") or "")
+    selected_row = next((item for item in rows if str(item.get("output_artifact_id") or "") == selected_output_id), rows[0] if rows else None)
+    selected_payload = dict(selected_row.get("payload") or {}) if isinstance(selected_row, dict) else {}
+
+    task_filters = dict(game.get("planning_track_filters") or {}) if isinstance(game.get("planning_track_filters"), dict) else {}
+    filtered_tasks = [
+        dict(task)
+        for task in list(selected_payload.get("tasks") or [])
+        if isinstance(task, dict) and _task_matches_filters(task, {k: str(v) for k, v in task_filters.items()})
+    ]
+    selected_payload_with_filters = dict(selected_payload)
+    selected_payload_with_filters["tasks_filtered"] = filtered_tasks
+    if isinstance(selected_row, dict):
+        selected_payload_with_filters["quality_gate_warnings"] = list(selected_row.get("quality_gate_warnings") or [])
+        selected_payload_with_filters["validation_issues"] = list(selected_row.get("validation_issues") or [])
+        selected_payload_with_filters["verification_status"] = str(selected_row.get("verification_status") or "")
+
+    diff_state = dict(game.get("planning_track_diff") or {}) if isinstance(game.get("planning_track_diff"), dict) else {}
+    return {
+        "planning_track_mode": True,
+        "goal_id": goal_id,
+        "planning_status": str(game.get("planning_track_status") or "idle"),
+        "planning_lifecycle": list(game.get("planning_track_lifecycle") or []),
+        "status_hint": str(game.get("planning_track_status_hint") or ""),
+        "status_issues": list(game.get("planning_track_status_issues") or []),
+        "track_rows": rows,
+        "selected_output_id": selected_output_id,
+        "selected_track": selected_payload_with_filters,
+        "task_filters": task_filters,
+        "active_output_id": str(game.get("active_planning_track_output_id") or ""),
+        "rejected_output_ids": list(game.get("rejected_planning_track_output_ids") or []),
+        "plan_diff": diff_state,
+    }
 
 
 def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
@@ -626,6 +820,262 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             next_state = _state_with_diff3_payload(state, game=game, diff3_state=diff3_state)
             return CommandResult(next_state.with_updates(status_message=f"diff3 ai {mode}"), f"diff3 ai {mode}")
         return CommandResult(state, "diff3: panel ... | focus <A|B|C> | scroll ... | sync on|off | ai ...", handled=False)
+    if command == "plan":
+        if not args or str(args[0]).lower() != "track":
+            return CommandResult(state, "plan track [--from-goal <goal-id>]", handled=False)
+        game = dict(state.header_logo_game or {})
+        tail = list(args[1:])
+        explicit_goal_id = ""
+        if "--from-goal" in [str(item).lower() for item in tail]:
+            lowered = [str(item).lower() for item in tail]
+            idx = lowered.index("--from-goal")
+            explicit_goal_id = str(tail[idx + 1]).strip() if idx + 1 < len(tail) else ""
+        goal_id = explicit_goal_id or str(game.get("active_goal_id") or "").strip()
+        if not goal_id:
+            return CommandResult(state, "plan track requires active goal or --from-goal <goal-id>", handled=False)
+        if explicit_goal_id:
+            game["active_goal_id"] = goal_id
+
+        sub = str(tail[0]).lower() if tail and not str(tail[0]).startswith("--") else ""
+        service = GoalArtifactService()
+
+        if sub == "filter":
+            filters = dict(game.get("planning_track_filters") or {})
+            for token in tail[1:]:
+                text = str(token).strip()
+                if "=" not in text:
+                    continue
+                key, value = text.split("=", 1)
+                if key.strip() in {"status", "priority", "risk", "type"}:
+                    if value.strip():
+                        filters[key.strip()] = value.strip()
+            game["planning_track_filters"] = filters
+            payload = _build_planning_track_payload(goal_id=goal_id, game=game)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"plan track filter {goal_id}",
+                ),
+                json.dumps(payload, ensure_ascii=False),
+            )
+        if sub == "clear-filter":
+            game["planning_track_filters"] = {}
+            payload = _build_planning_track_payload(goal_id=goal_id, game=game)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"plan track clear-filter {goal_id}",
+                ),
+                json.dumps(payload, ensure_ascii=False),
+            )
+        if sub == "adopt":
+            if len(tail) < 2:
+                return CommandResult(state, "plan track adopt <output-artifact-id>", handled=False)
+            output_id = str(tail[1]).strip()
+            graph = service.get_goal_graph(goal_id)
+            row = next(
+                (
+                    dict(item)
+                    for item in list(graph.get("output_artifacts") or [])
+                    if isinstance(item, dict) and str(item.get("output_artifact_id") or "") == output_id
+                ),
+                None,
+            )
+            if row is None:
+                return CommandResult(state, f"plan track adopt failed output-not-found={output_id}", handled=False)
+            ext = dict(row.get("extensions") or {})
+            is_valid_candidate = (
+                bool(ext.get("active_plan_candidate"))
+                and str(row.get("status") or "") == "created"
+                and str(row.get("verification_status") or "") == "valid"
+            )
+            if not is_valid_candidate:
+                return CommandResult(state, f"plan track adopt blocked output={output_id} status=invalid_or_failed", handled=False)
+            game["active_planning_track_output_id"] = output_id
+            game["planning_track_selected_output_id"] = output_id
+            service.upsert_execution_provenance(
+                goal_id=goal_id,
+                provenance={
+                    "schema": "execution_provenance.v1",
+                    "provenance_id": f"prov-{hashlib.sha1(f'{goal_id}:{output_id}:adopt'.encode('utf-8')).hexdigest()[:16]}",
+                    "goal_id": goal_id,
+                    "task_id": f"plan-adopt:{output_id}",
+                    "execution_id": f"exec-{hashlib.sha1(f'{goal_id}:{output_id}:adopt:exec'.encode('utf-8')).hexdigest()[:14]}",
+                    "worker_id": "operator_tui",
+                    "worker_kind": "operator",
+                    "runtime_target_ref": {"runtime_type": "operator-tui", "location": "local"},
+                    "model_ref": {"provider_id": "none", "model_id": "manual"},
+                    "config_refs": {
+                        "worker_config_ref": "cfg:operator_tui",
+                        "runtime_config_ref": "cfg:operator_tui",
+                        "model_config_ref": "cfg:none",
+                        "policy_config_ref": "cfg:operator_tui_policy",
+                    },
+                    "prompt_refs": {"no_prompt_reason": "manual_plan_adopt"},
+                    "input_usage_refs": [],
+                    "output_artifact_refs": [output_id],
+                    "created_at": _now_iso(),
+                },
+            )
+            payload = _build_planning_track_payload(goal_id=goal_id, game=game)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"plan track adopted {output_id}",
+                ),
+                json.dumps(payload, ensure_ascii=False),
+            )
+        if sub == "reject":
+            if len(tail) < 2:
+                return CommandResult(state, "plan track reject <output-artifact-id>", handled=False)
+            output_id = str(tail[1]).strip()
+            rejected = [str(item) for item in list(game.get("rejected_planning_track_output_ids") or []) if str(item).strip()]
+            if output_id not in rejected:
+                rejected.append(output_id)
+            game["rejected_planning_track_output_ids"] = rejected
+            if str(game.get("active_planning_track_output_id") or "") == output_id:
+                game["active_planning_track_output_id"] = ""
+            payload = _build_planning_track_payload(goal_id=goal_id, game=game)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = payload
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"plan track rejected {output_id}",
+                ),
+                json.dumps(payload, ensure_ascii=False),
+            )
+        if sub == "diff":
+            if len(tail) < 3:
+                return CommandResult(state, "plan track diff <left-output-id> <right-output-id>", handled=False)
+            left_id = str(tail[1]).strip()
+            right_id = str(tail[2]).strip()
+            payload = _build_planning_track_payload(goal_id=goal_id, game=game)
+            rows = list(payload.get("track_rows") or [])
+            left_row = next((item for item in rows if str(item.get("output_artifact_id") or "") == left_id), None)
+            right_row = next((item for item in rows if str(item.get("output_artifact_id") or "") == right_id), None)
+            if not isinstance(left_row, dict) or not isinstance(right_row, dict):
+                return CommandResult(state, "plan track diff requires two existing planning track outputs", handled=False)
+            left_payload = dict(left_row.get("payload") or {})
+            right_payload = dict(right_row.get("payload") or {})
+            diff = _build_plan_task_diff(left_payload, right_payload)
+            game["planning_track_diff"] = {"left_output_id": left_id, "right_output_id": right_id, **diff}
+            refreshed = _build_planning_track_payload(goal_id=goal_id, game=game)
+            section_payloads = dict(state.section_payloads or {})
+            section_payloads["artifacts"] = refreshed
+            panel_states = dict(state.panel_states or {})
+            panel_states["artifacts"] = PanelState.HEALTHY
+            return CommandResult(
+                state.with_updates(
+                    header_logo_game=game,
+                    section_id="artifacts",
+                    selected_index=0,
+                    section_payloads=section_payloads,
+                    panel_states=panel_states,
+                    status_message=f"plan track diff {left_id}->{right_id}",
+                ),
+                json.dumps(refreshed, ensure_ascii=False),
+            )
+
+        # Default: run planner track generation (mock worker path in tests/dev).
+        graph = service.get_goal_graph(goal_id)
+        source_grants = [dict(item) for item in list(graph.get("source_grants") or []) if isinstance(item, dict)]
+        available_artifacts = [{"source_ref": str(item.get("artifact_ref") or "").strip()} for item in source_grants if str(item.get("artifact_ref") or "").strip()]
+        allowed_source_refs = [str(item.get("artifact_ref") or "").strip() for item in source_grants if str(item.get("artifact_ref") or "").strip()]
+        context_envelope = build_planner_context_envelope(
+            goal_id=goal_id,
+            goal_text=f"Goal {goal_id}",
+            constraints=[],
+            available_artifacts=available_artifacts,
+            allowed_source_refs=allowed_source_refs,
+            codecompass_refs=[],
+        )
+        final_prompt = render_track_planning_prompt(goal_text=f"Goal {goal_id}", context_envelope=context_envelope)
+        raw_output = str(game.get("planner_mock_output") or "").strip()
+        if not raw_output:
+            raw_output = json.dumps(_build_mock_planning_track_payload(goal_id), ensure_ascii=False)
+        game["planning_track_status"] = "pending"
+        lifecycle = ["pending", "validating"]
+        result = persist_planning_track_result(
+            goal_id=goal_id,
+            task_id=f"plan-track:{goal_id}",
+            worker_id="ananta-worker/planner-mock",
+            raw_output=raw_output,
+            prompt_template_ref="prompt:planning/track_planning",
+            final_prompt=final_prompt,
+            model_ref={"provider_id": "mock", "model_id": "planner-track-mock"},
+            config_refs={
+                "worker_config_ref": "cfg:planning-track",
+                "runtime_config_ref": "cfg:planning-track",
+                "model_config_ref": "cfg:planning-track",
+                "policy_config_ref": "cfg:planning-track",
+            },
+            available_artifacts=available_artifacts,
+            goal_artifact_service=service,
+        )
+        if int(result.get("repair_attempt_count") or 0) > 0:
+            lifecycle.append("repaired")
+        lifecycle.append(str(result.get("status") or "failed"))
+        game["planning_track_status"] = str(result.get("status") or "failed")
+        game["planning_track_lifecycle"] = lifecycle
+        game["planning_track_status_hint"] = f"source_usage_refs={len(list(result.get('source_usage_refs') or []))}"
+        game["planning_track_status_issues"] = list(result.get("issues") or [])
+        output_artifact = dict(result.get("output_artifact") or {})
+        selected_output_id = str(output_artifact.get("output_artifact_id") or "")
+        if selected_output_id:
+            game["planning_track_selected_output_id"] = selected_output_id
+        refreshed = _build_planning_track_payload(goal_id=goal_id, game=game)
+        section_payloads = dict(state.section_payloads or {})
+        section_payloads["artifacts"] = refreshed
+        panel_states = dict(state.panel_states or {})
+        panel_states["artifacts"] = PanelState.HEALTHY
+        issue_preview = list(result.get("issues") or [])[:3]
+        issue_label = (
+            "; ".join(f"{item.get('path')}:{item.get('reason_code')}" for item in issue_preview if isinstance(item, dict))
+            if issue_preview
+            else "none"
+        )
+        return CommandResult(
+            state.with_updates(
+                header_logo_game=game,
+                section_id="artifacts",
+                selected_index=0,
+                section_payloads=section_payloads,
+                panel_states=panel_states,
+                status_message=f"plan track {goal_id} {result.get('status')} issues={issue_label}",
+            ),
+            json.dumps(refreshed, ensure_ascii=False),
+        )
     if command == "goal":
         if not args:
             return CommandResult(state, "goal: use <goal-id> | artifacts [filter ...|clear-filter] | sources candidates", handled=False)

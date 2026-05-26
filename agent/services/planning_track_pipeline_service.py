@@ -147,6 +147,71 @@ def validate_summary_consistency(payload: dict[str, Any], *, repair_mode: bool =
     return {"valid": not issues, "issues": issues, "repaired_payload": candidate, "repaired": False}
 
 
+def evaluate_planning_quality_gates(
+    payload: dict[str, Any],
+    *,
+    large_goal_mode: bool = False,
+    small_goal_mode: bool = False,
+    min_tasks_large_goal: int = 5,
+) -> dict[str, Any]:
+    tasks = [dict(item) for item in list(payload.get("tasks") or []) if isinstance(item, dict)]
+    milestones = [dict(item) for item in list(payload.get("milestones") or []) if isinstance(item, dict)]
+    task_ids = {str(item.get("id") or "").strip() for item in tasks if str(item.get("id") or "").strip()}
+
+    warnings: list[dict[str, str]] = []
+    blocking_issues: list[dict[str, str]] = []
+
+    def _warn(reason_code: str, message: str, path: str = "$") -> None:
+        warnings.append({"path": path, "reason_code": reason_code, "human_message": message})
+
+    def _block(reason_code: str, message: str, path: str = "$") -> None:
+        blocking_issues.append({"path": path, "reason_code": reason_code, "human_message": message})
+
+    if large_goal_mode and not small_goal_mode and len(tasks) < int(min_tasks_large_goal):
+        _block(
+            "quality_too_few_tasks_large_goal",
+            f"Large-goal planning requires at least {min_tasks_large_goal} tasks unless small_goal_mode is enabled.",
+            "tasks",
+        )
+
+    for index, task in enumerate(tasks):
+        if str(task.get("priority") or "").strip() != "P1":
+            continue
+        acceptance = [str(item).strip() for item in list(task.get("acceptance_criteria") or []) if str(item).strip()]
+        acceptance_text = " ".join(acceptance).lower()
+        testable_tokens = ("test", "assert", "verify", "check", "must", "should", "command", "endpoint", "file", "artifact")
+        if not acceptance or not any(token in acceptance_text for token in testable_tokens):
+            _warn(
+                "quality_p1_acceptance_not_testable",
+                "P1 task acceptance criteria should be testable and concrete.",
+                f"tasks/{index}/acceptance_criteria",
+            )
+
+    for task_id in [str(item).strip() for item in list(payload.get("critical_path_tasks") or []) if str(item).strip()]:
+        if task_id not in task_ids:
+            _block(
+                "quality_critical_path_missing_task",
+                f"critical_path_tasks references unknown task id '{task_id}'.",
+                "critical_path_tasks",
+            )
+
+    for milestone_index, milestone in enumerate(milestones):
+        for task_id in [str(item).strip() for item in list(milestone.get("task_ids") or []) if str(item).strip()]:
+            if task_id not in task_ids:
+                _block(
+                    "quality_milestone_missing_task",
+                    f"milestone references unknown task id '{task_id}'.",
+                    f"milestones/{milestone_index}/task_ids",
+                )
+
+    return {
+        "ok": not blocking_issues,
+        "warnings": warnings,
+        "blocking_issues": blocking_issues,
+        "small_goal_mode": bool(small_goal_mode),
+    }
+
+
 def build_planning_repair_prompt(*, raw_output: str, issues: list[dict[str, str]]) -> str:
     issue_lines = "\n".join(
         f"- path={item.get('path')} reason_code={item.get('reason_code')} message={item.get('human_message')}"
@@ -240,6 +305,8 @@ def persist_planning_track_result(
     validation_issues: list[dict[str, str]] = []
     payload: dict[str, Any] = {}
     envelope: dict[str, Any] | None = None
+    quality_warnings: list[dict[str, str]] = []
+    quality_blocks: list[dict[str, str]] = []
     if not parse_errors and isinstance(candidate, dict):
         payload, envelope = unwrap_planning_track_payload(candidate)
         validation_issues = validate_planning_track_with_details(payload, schema_store=schema_store)
@@ -247,9 +314,16 @@ def persist_planning_track_result(
         if summary_result.get("repaired"):
             payload = dict(summary_result.get("repaired_payload") or payload)
         validation_issues.extend(list(summary_result.get("issues") or []))
+        quality_result = evaluate_planning_quality_gates(
+            payload,
+            large_goal_mode=bool(payload.get("large_goal_mode")),
+            small_goal_mode=bool(payload.get("small_goal_mode")),
+        )
+        quality_warnings = list(quality_result.get("warnings") or [])
+        quality_blocks = list(quality_result.get("blocking_issues") or [])
 
-    all_issues = parse_errors + validation_issues
-    valid = not (parse_errors or validation_issues)
+    all_issues = parse_errors + validation_issues + quality_blocks
+    valid = not (parse_errors or validation_issues or quality_blocks)
     status = "valid" if valid else ("degraded" if repair_attempt_count > 0 else "failed")
     artifact_status = "created" if valid else "failed"
     output_id = f"out-{hashlib.sha1(f'{goal_id}:{task_id}:{raw_output}'.encode('utf-8')).hexdigest()[:14]}"
@@ -311,6 +385,7 @@ def persist_planning_track_result(
             "extensions": {
                 "active_plan_candidate": bool(valid),
                 "validation_issues": all_issues[:20],
+                "quality_gate_warnings": quality_warnings[:20],
                 "schema_ref": planning_contract_ref()["schema_ref"],
                 "schema_hash": planning_contract_hash(),
                 "repair_attempt_count": repair_attempt_count,
@@ -330,4 +405,3 @@ def persist_planning_track_result(
         "source_usage_refs": usage_tracking.get("source_usage_refs") or [],
         "denied_context_refs": usage_tracking.get("denied_context_refs") or [],
     }
-
