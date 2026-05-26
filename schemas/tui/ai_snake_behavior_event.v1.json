@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI Snake Behavior Event v1",
+  "type": "object",
+  "required": [
+    "event_id",
+    "created_at",
+    "event_type",
+    "source",
+    "normalized_value",
+    "refs",
+    "privacy_class",
+    "retention_hint"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "event_type": {
+      "type": "string",
+      "anyOf": [
+        {
+          "enum": [
+            "section_change",
+            "movement",
+            "artifact_selected",
+            "chat_mode",
+            "command",
+            "prediction_feedback",
+            "notes_state"
+          ]
+        },
+        {
+          "pattern": "^custom:[a-z0-9_:-]{1,48}$"
+        }
+      ]
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "tui",
+        "import",
+        "feedback",
+        "system",
+        "worker"
+      ]
+    },
+    "normalized_value": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 280
+        },
+        {
+          "type": "object",
+          "maxProperties": 24,
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      ]
+    },
+    "refs": {
+      "type": "object",
+      "properties": {
+        "artifact_ref": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "section_ref": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "command_ref": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "context_hash": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "prediction_id": {
+          "type": "string",
+          "maxLength": 120
+        }
+      },
+      "additionalProperties": false
+    },
+    "privacy_class": {
+      "type": "string",
+      "enum": [
+        "public_ui",
+        "workspace",
+        "private_local",
+        "sensitive_blocked"
+      ]
+    },
+    "retention_hint": {
+      "type": "string",
+      "enum": [
+        "ephemeral",
+        "short",
+        "standard",
+        "long"
+      ]
+    },
+    "human_label": {
+      "type": "string",
+      "maxLength": 160
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "privacy_class": {
+            "const": "private_local"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "normalized_value": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "string",
+                "pattern": "^(notes_active|note_count|private_[a-z0-9_:-]{1,48})$"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

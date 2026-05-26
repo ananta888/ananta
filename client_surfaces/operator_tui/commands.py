@@ -3,6 +3,7 @@ from __future__ import annotations
 from client_surfaces.operator_tui.actions import dispatch_action, parse_action
 from client_surfaces.operator_tui.browser import browser_fallback_url
 from client_surfaces.operator_tui.ai_snake_context import get_ai_context
+from client_surfaces.operator_tui.ai_snake_training_store import data_path_status
 from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.sections import move_section, normalize_section_id, section_ids
 
@@ -176,9 +177,21 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 ),
                 "ai status",
             )
+        if sub == "data":
+            action = str(args[1]).lower() if len(args) > 1 else "path"
+            if action == "path":
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, status_message=data_path_status()),
+                    "ai data path",
+                )
+            return CommandResult(
+                state,
+                "ai data: path",
+                handled=False,
+            )
         return CommandResult(
             state,
-            "ai: follow | lurk | quiet | explain | off | status | ctx",
+            "ai: follow | lurk | quiet | explain | off | status | ctx | data path",
             handled=False,
         )
     if command == "inspect":

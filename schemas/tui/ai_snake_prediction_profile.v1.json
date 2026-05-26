@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI Snake Prediction Profile v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "profile_id",
+    "display_name",
+    "created_at",
+    "updated_at",
+    "workspace_ref",
+    "privacy_defaults",
+    "learning_settings",
+    "pattern_refs",
+    "human_summary",
+    "ai_summary",
+    "export_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^ai_snake_prediction_profile\\.v1$"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "workspace_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "privacy_defaults": {
+      "type": "object",
+      "required": [
+        "default_privacy_class",
+        "local_only"
+      ],
+      "properties": {
+        "default_privacy_class": {
+          "type": "string",
+          "enum": [
+            "public_ui",
+            "workspace",
+            "private_local",
+            "sensitive_blocked"
+          ]
+        },
+        "local_only": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "learning_settings": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "paused",
+        "evidence_min_cases"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "evidence_min_cases": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "additionalProperties": false
+    },
+    "pattern_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "uniqueItems": true
+    },
+    "human_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "ai_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "export_policy": {
+      "type": "object",
+      "required": [
+        "allowed_targets",
+        "default_local_only"
+      ],
+      "properties": {
+        "allowed_targets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "local_file",
+              "stdout_json",
+              "manual_transfer"
+            ]
+          },
+          "minItems": 1
+        },
+        "default_local_only": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "x_ananta": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

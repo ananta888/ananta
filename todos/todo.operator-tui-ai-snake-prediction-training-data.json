@@ -58,7 +58,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält schema_version, profile_id, display_name, created_at, updated_at, workspace_ref, privacy_defaults, learning_settings und pattern_refs.",
             "Schema erlaubt extension-Feld `x_ananta` für spätere Erweiterungen, aber keine beliebigen Top-Level-Felder außer definierter Extension.",
@@ -81,7 +81,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": [],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält event_id, created_at, event_type, source, normalized_value, refs, privacy_class und retention_hint.",
             "event_type ist kontrolliert, aber erweiterbar über `custom:<name>` Pattern.",
@@ -104,7 +104,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T01.02"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Schema enthält pattern_id, pattern_type, conditions, predicted_intent, confidence, evidence, counters, last_seen_at, expires_at und status.",
             "conditions unterstützen einfache, nachvollziehbare Regeln: section_is, recent_event, selected_ref_kind, movement_trend, command_prefix, channel_is.",
@@ -127,7 +127,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.01", "T01.02", "T01.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Bundle enthält bundle_id, schema_version, exported_at, source, profile, patterns, optional events_sample und checksums.",
             "Bundle enthält human_readme mit kurzer Erklärung für den User.",
@@ -178,7 +178,7 @@
           "priority": "P1",
           "effort": "S",
           "depends_on": ["T01.01", "T01.02", "T01.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Basisordner ist `~/.config/ananta/ai_snake/`.",
             "Aktives Profil liegt in `prediction_profile.active.json`.",
