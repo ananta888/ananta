@@ -3,12 +3,18 @@ from __future__ import annotations
 import json
 
 from client_surfaces.operator_tui.ai_snake_training_store import (
+    append_behavior_event,
     build_training_bundle,
+    compact_training_data,
     data_path_status,
     data_show_status,
+    delete_events,
+    delete_patterns,
     ensure_training_layout,
     pattern_detail,
     patterns_status_lines,
+    read_patterns,
+    reset_training_data,
     save_patterns,
     training_paths,
 )
@@ -109,3 +115,86 @@ def test_training_layout_creates_readme_without_overwrite(monkeypatch, tmp_path)
     readme.write_text("custom", encoding="utf-8")
     ensure_training_layout()
     assert readme.read_text(encoding="utf-8") == "custom"
+
+
+def test_ai_data_export_to_file_and_compact(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game={})
+    out = tmp_path / "bundle.json"
+    export = execute_command(f":ai data export {out} --format json", state)
+    assert export.handled is True
+    assert out.exists()
+    compact = execute_command(":ai data compact", export.state)
+    assert compact.handled is True
+    assert "compact" in (compact.state.status_message or "")
+    direct = compact_training_data()
+    assert "patterns_total" in direct
+
+
+def test_ai_data_delete_and_reset_commands(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    paths = ensure_training_layout()
+    append_behavior_event(event_type="section_visit", value_norm="dashboard", refs=["section:dashboard"], privacy_class="public_ui")
+    save_patterns(
+        [
+            {
+                "pattern_id": "pat-x",
+                "pattern_type": "heuristic",
+                "conditions": {"field": "section_is", "op": "eq", "value": "dashboard"},
+                "predicted_intent": "navigate",
+                "confidence": 0.2,
+                "evidence": {"source_event_ids": [], "sample_size": 0, "counter_refs": []},
+                "counters": {"hits": 0, "misses": 0, "positives": 0, "negatives": 0},
+                "last_seen_at": "2026-01-01T00:00:00Z",
+                "expires_at": "2026-01-02T00:00:00Z",
+                "status": "draft",
+                "human_explanation": "x",
+                "ai_hint": "y",
+            }
+        ]
+    )
+    state = OperatorState(endpoint="http://localhost:5000", header_logo_game={})
+    delete_ev = execute_command(":ai data delete events", state)
+    assert delete_ev.handled is True
+    assert paths["events_log"].read_text(encoding="utf-8") == ""
+    delete_pat = execute_command(":ai data delete patterns", delete_ev.state)
+    assert delete_pat.handled is True
+    assert read_patterns() == []
+    reset = execute_command(":ai data reset", delete_pat.state)
+    assert reset.handled is True
+    assert "reset" in reset.message
+    assert reset_training_data()
+    assert delete_events()
+    assert delete_patterns()
+
+
+def test_ai_prediction_feedback_command_records_event(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    save_patterns(
+        [
+            {
+                "pattern_id": "pat-feedback",
+                "pattern_type": "sequence_rule",
+                "conditions": {"all": [{"field": "recent_event", "op": "contains", "value": "artifact:README.md"}]},
+                "predicted_intent": "artifact_explain",
+                "confidence": 0.5,
+                "evidence": {"source_event_ids": ["evt-1"], "sample_size": 1, "counter_refs": ["counter:pat-feedback"]},
+                "counters": {"hits": 1, "misses": 0, "positives": 1, "negatives": 0},
+                "last_seen_at": "2026-01-01T00:00:00Z",
+                "expires_at": "2026-02-01T00:00:00Z",
+                "status": "draft",
+                "human_explanation": "x",
+                "ai_hint": "y",
+            }
+        ]
+    )
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        header_logo_game={"ai_snake_prediction": {"target_ref": "README.md"}},
+    )
+    good = execute_command(":ai prediction good", state)
+    bad = execute_command(":ai prediction bad wrong-target", good.state)
+    assert good.handled is True
+    assert bad.handled is True
+    events_content = ensure_training_layout()["events_log"].read_text(encoding="utf-8")
+    assert "prediction_feedback" in events_content
