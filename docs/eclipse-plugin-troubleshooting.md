@@ -12,6 +12,19 @@
 - Run **Test Connection**.
 - Confirm token/auth mode is valid.
 
+## Snake view shows offline/local-only
+
+- Open **Window -> Preferences -> Ananta** and re-check Hub base URL and timeout.
+- Re-test token/auth mode and profile.
+- If governance requires local-only, this is expected; verify `hub_connection` and `policy_reason` in Snake view.
+
+## Snake overlay is not visible or appears frozen
+
+- Ensure **Snake enabled by default** is on.
+- Disable **Do-Not-Disturb Mode** for normal animation.
+- Ensure **Toggle Presentation Mode** is off and **Hide (Temporary)** is not active.
+- Raise overlay opacity and verify follow distance/FPS settings.
+
 ## p2 install dependency collection errors
 
 - Disable **Contact all update sites during install to find required software**.

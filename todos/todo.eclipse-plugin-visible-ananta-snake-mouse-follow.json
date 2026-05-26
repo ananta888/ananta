@@ -103,7 +103,7 @@
         "T08.01",
         "T08.02"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -627,7 +627,7 @@
     {
       "id": "T08.01",
       "title": "User-Doku Eclipse Ananta Snake",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -643,12 +643,12 @@
         "Doku erklärt Ask-Ananta-Snake Workflow.",
         "Doku enthält Troubleshooting für Hub offline und Overlay-Probleme."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T08.02",
       "title": "Architekturdoku mit Mermaid",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "docs",
@@ -666,7 +666,7 @@
         "Doku enthält Security-Invarianten und Default-Deny-Kontextfreigabe.",
         "Doku enthält Testmatrix."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     }
   ],
   "critical_path_tasks": [
@@ -688,13 +688,13 @@
   "tasks_status_summary": {
     "total": 27,
     "by_status": {
-      "todo": 2,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 25
+      "done": 27
     },
-    "progress_percent_done": 92.6,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P1": 21,
       "P2": 6,
@@ -712,10 +712,10 @@
     },
     "milestones": {
       "total": 8,
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 7
+      "done": 8
     }
   },
   "tasks_type_summary": {
@@ -850,28 +850,28 @@
       "docs": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 2,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 25,
-    "count_based_percent": 92.6,
-    "weighted_percent": 95.0
+    "done": 27,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -918,10 +918,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 50.0,
-    "done_weight": 47.5,
-    "remaining_weight": 2.5,
+    "done_weight": 50.0,
+    "remaining_weight": 0.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 95.0
+    "weighted_percent": 100.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -983,21 +983,21 @@
       },
       "M08": {
         "total_tasks": 2,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T23:46:46.620716Z",
+    "generated_at": "2026-05-26T23:51:28.101478Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "819b4ab975057b28d37396fa249fe06756db61d72ee2ebb9584a97218e6bf967",
+    "source_hash": "be14309196bd0fc033a488987e1fb778ea43c37329555f3d546b25081ebd4ab5",
     "is_stale": false
   }
 }
