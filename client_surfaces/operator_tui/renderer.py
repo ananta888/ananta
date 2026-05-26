@@ -501,6 +501,8 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
         lines.extend(_diff3_content_lines(payload, width=width))
     elif section.id == "artifacts" and bool(payload.get("planning_track_mode")):
         lines.extend(_planning_track_content_lines(payload, width=width, compact=width < 74))
+    elif section.id == "artifacts" and bool(payload.get("mail_mode")):
+        lines.extend(_mail_content_lines(payload, width=width, compact=width < 74))
     elif section.id == "artifacts" and bool(payload.get("helpcenter_mode")):
         lines.extend(_helpcenter_content_lines(payload, width=width, compact=width < 74))
     elif section.id == "artifacts" and bool(payload.get("goal_artifacts_mode")):
@@ -706,6 +708,12 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
             lines.append("    :helpcenter ingest github-failures [--repo owner/repo] [--limit N] [--dry-run]")
             lines.append("    :helpcenter open <analysis-id>")
             lines.append("    :helpcenter suggest-followup [analysis-id]")
+        if bool(payload.get("mail_mode")):
+            lines.append("    :mail")
+            lines.append("    :mail account list|status|create|use|disable|delete")
+            lines.append("    :mail mailbox <name> | :mail open <message-id|uid>")
+            lines.append("    :mail load-body [message-id|uid] | :mail scroll <delta>")
+            lines.append("    :mail filter from=... subject=... unread=true mailbox=...")
 
     return [_clip(line, width) for line in lines]
 
@@ -937,6 +945,77 @@ def _helpcenter_content_lines(payload: dict, *, width: int, compact: bool) -> li
             lines.append(_clip(f"    - {item}", width))
     followup = str(payload.get("followup_suggestion") or "").strip()
     lines.append(_clip(f"  Follow-up suggestion: {followup or '-'}", width))
+    return lines
+
+
+def _mail_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
+    accounts = [dict(item) for item in list(payload.get("accounts") or []) if isinstance(item, dict)]
+    selected_account_id = str(payload.get("selected_account_id") or "")
+    mailboxes = [str(item) for item in list(payload.get("mailboxes") or []) if str(item).strip()]
+    selected_mailbox = str(payload.get("selected_mailbox") or "")
+    filters = dict(payload.get("filters") or {})
+    rows = [dict(item) for item in list(payload.get("messages") or []) if isinstance(item, dict)]
+    total_messages = int(payload.get("total_messages") or 0)
+    selected_key = str(payload.get("selected_message_key") or "")
+    detail = dict(payload.get("selected_detail") or {})
+    lines = [
+        "  Mail",
+        f"  Accounts: {len(accounts)} selected={selected_account_id or '-'} mailbox={selected_mailbox or '-'}",
+        f"  Mailboxes: {', '.join(mailboxes) if mailboxes else '-'}",
+        f"  Filters: {', '.join([f'{k}={v}' for k, v in filters.items()]) if filters else 'none'}",
+        f"  Messages: showing={len(rows)} total={total_messages} offset={int(payload.get('list_offset') or 0)}",
+    ]
+    if accounts:
+        lines.append("  [Accounts]")
+        for row in accounts[:6]:
+            marker = "*" if str(row.get("account_id") or "") == selected_account_id else "-"
+            lines.append(
+                _clip(
+                    f"  {marker} {row.get('display_name') or row.get('account_id')} "
+                    f"state={row.get('state')} enabled={bool(row.get('enabled'))}",
+                    width,
+                )
+            )
+    if not rows:
+        lines.append("  no mail messages")
+        return lines
+    lines.append("  [Mailbox list]")
+    preview = rows[:8] if compact else rows[:14]
+    for row in preview:
+        ref = dict(row.get("message_ref") or {})
+        header = dict(row.get("header_meta") or {})
+        marker = "*" if str(ref.get("message_id") or "") == selected_key else "-"
+        flags = []
+        if bool(header.get("unread")):
+            flags.append("unread")
+        if bool(header.get("starred")):
+            flags.append("starred")
+        flags_text = ",".join(flags) or "-"
+        lines.append(
+            _clip(
+                f"  {marker} uid={ref.get('uid')} date={ref.get('date')} from={ref.get('from')} "
+                f"subject={header.get('subject') or '-'} flags={flags_text} "
+                f"policy={row.get('body_scope') or 'metadata_only'} thread={row.get('thread_count') or 1}",
+                width,
+            )
+        )
+    if not detail:
+        return lines
+    lines.append("  [Detail]")
+    detail_ref = dict(detail.get("message_ref") or {})
+    detail_header = dict(detail.get("header_meta") or {})
+    lines.append(_clip(f"  Message: id={detail_ref.get('message_id') or '-'} uid={detail_ref.get('uid') or '-'}", width))
+    lines.append(_clip(f"  Subject: {detail_header.get('subject') or '-'}", width))
+    lines.append(
+        _clip(
+            f"  Body loaded={bool(detail.get('body_loaded'))} "
+            f"scope={detail.get('body_scope') or 'metadata_only'} "
+            f"redaction={detail.get('redaction_status') or '-'}",
+            width,
+        )
+    )
+    body_text = str(detail.get("body_text") or "").strip()
+    lines.append(_clip(f"  Body preview: {body_text[:200] if body_text else '(not loaded)'}", width))
     return lines
 
 
