@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,22 @@ def _now_iso() -> str:
 
 def _project_root(repo_root: str | Path | None = None) -> Path:
     return Path(repo_root).resolve() if repo_root else Path(__file__).resolve().parents[2]
+
+
+def _helpcenter_root(repo_root: str | Path | None = None) -> Path:
+    return _project_root(repo_root) / "helpcenter"
+
+
+def _content_hash(message: dict[str, Any]) -> str:
+    payload = {
+        "message_id": str(message.get("message_id") or ""),
+        "source_kind": str(message.get("source_kind") or ""),
+        "source_ref": str(message.get("source_ref") or ""),
+        "title": str(message.get("title") or ""),
+        "normalized_summary": str(message.get("normalized_summary") or ""),
+    }
+    rendered = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
 
 
 def _markdown_report(*, message: dict[str, Any], analysis: dict[str, Any], json_ref: str) -> str:
@@ -54,6 +71,13 @@ def _markdown_report(*, message: dict[str, Any], analysis: dict[str, Any], json_
         "",
         "## Provenance",
         *(f"- {item}" for item in provenance or ["- n/a"]),
+        f"- fetched_at: {analysis.get('fetched_at') or '-'}",
+        f"- workflow_run_id: {analysis.get('workflow_run_id') or '-'}",
+        f"- job_id: {analysis.get('job_id') or '-'}",
+        f"- commit_sha: {analysis.get('commit_sha') or '-'}",
+        f"- analyzer_version: {analysis.get('analyzer_version') or '-'}",
+        f"- prompt_template_ref: {analysis.get('prompt_template_ref') or '-'}",
+        f"- content_hash: {analysis.get('content_hash') or '-'}",
         "",
         f"JSON ref: {json_ref}",
     ]
@@ -88,11 +112,26 @@ def write_helpcenter_report(
         str(item) for item in list(analysis_payload.get("provenance_refs") or []) if str(item).strip()
     ]
     analysis_payload.setdefault("generated_at", _now_iso())
-    analysis_payload["redaction_status"] = str(message_payload.get("redaction_status") or "pending")
+    analysis_payload["redaction_status"] = str(
+        analysis_payload.get("redaction_status")
+        or message_payload.get("redaction_status")
+        or "pending"
+    )
     analysis_payload["source_kind"] = str(message_payload.get("source_kind") or "").strip()
     analysis_payload["severity"] = str(message_payload.get("severity") or "warning").strip()
     if isinstance(message_payload.get("meta"), dict):
         analysis_payload["source_metadata"] = dict(message_payload.get("meta") or {})
+    source_meta = dict(analysis_payload.get("source_metadata") or {})
+    analysis_payload["fetched_at"] = str(message_payload.get("received_at") or analysis_payload.get("generated_at") or _now_iso())
+    analysis_payload["source_url"] = str(message_payload.get("raw_ref") or source_meta.get("url") or "")
+    analysis_payload["workflow_run_id"] = int(source_meta.get("run_id") or 0)
+    analysis_payload["job_id"] = int(source_meta.get("job_id") or 0)
+    analysis_payload["commit_sha"] = str(source_meta.get("commit_sha") or "")
+    analysis_payload.setdefault("analyzer_version", "helpcenter-analyzer.v1")
+    analysis_payload.setdefault("prompt_template_ref", "prompt:helpcenter/analysis.v1")
+    analysis_payload["content_hash"] = _content_hash(message_payload)
+    if bool(analysis_payload.get("no_auto_fix")) is not True:
+        raise ValueError("helpcenter_report_requires_no_auto_fix")
 
     index = load_helpcenter_index(repo_root=repo_root)
     message_id = str(message_payload.get("message_id") or "").strip()
@@ -106,8 +145,13 @@ def write_helpcenter_report(
     stem = _report_stem(message_payload, analysis_id=analysis_id, version=version)
     refs = build_report_paths(analysis_id=analysis_id, report_stem=stem, repo_root=repo_root)
     project_root = _project_root(repo_root)
+    helpcenter_root = _helpcenter_root(repo_root).resolve()
     markdown_path = project_root / str(refs["markdown_ref"])
     json_path = project_root / str(refs["json_ref"])
+    if not str(markdown_path.resolve()).startswith(str(helpcenter_root)):
+        raise ValueError("helpcenter_report_path_outside_helpcenter")
+    if not str(json_path.resolve()).startswith(str(helpcenter_root)):
+        raise ValueError("helpcenter_report_path_outside_helpcenter")
     markdown_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.parent.mkdir(parents=True, exist_ok=True)
 

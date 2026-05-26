@@ -25,6 +25,7 @@ def build_helpcenter_analysis_prompt(*, message: dict[str, Any], log_excerpt_lin
         "message": dict(message or {}),
         "log_excerpt_lines": [str(item) for item in list(log_excerpt_lines or [])],
         "response_schema": "helpcenter-analysis-v1",
+        "prompt_template_ref": "prompt:helpcenter/analysis.v1",
     }
     return json.dumps(payload, ensure_ascii=False)
 
@@ -97,6 +98,9 @@ def analyze_helpcenter_message(message: dict[str, Any], *, log_text: str = "") -
         "machine_readable_findings": [{"reason_code": item} for item in findings],
         "human_summary": f"Detected patterns: {', '.join(findings)}. Automatic repair remains disabled.",
         "no_auto_fix": True,
+        "redaction_status": str(log_insights.get("redaction_status") or "not_required"),
+        "analyzer_version": "helpcenter-analyzer.v1",
+        "prompt_template_ref": "prompt:helpcenter/analysis.v1",
         "codecompass_refs": codecompass_refs,
         **planning_links,
     }

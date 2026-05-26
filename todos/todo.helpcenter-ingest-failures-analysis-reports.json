@@ -85,7 +85,7 @@
         "T06.02",
         "T06.03"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M07",
@@ -96,7 +96,7 @@
         "T07.03",
         "T07.04"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M08",
@@ -507,7 +507,7 @@
     {
       "id": "T06.01",
       "title": "Secret Redaction für eingehende Logs",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security",
@@ -521,12 +521,12 @@
         "Report enthält redaction_status.",
         "Tests prüfen typische Secret-Muster."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T06.02",
       "title": "Source Provenance für Helpcenter Reports",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "provenance",
@@ -541,12 +541,12 @@
         "Report enthält content_hash für normalisierte Message.",
         "Tests prüfen Provenance-Felder."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T06.03",
       "title": "No-Auto-Fix Guardrail",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "security",
@@ -560,12 +560,12 @@
         "Report enthält no_auto_fix=true.",
         "Tests prüfen, dass keine Dateien außerhalb helpcenter/ geschrieben werden."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T07.01",
       "title": "Schema und Writer Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
@@ -582,12 +582,12 @@
         "Tests prüfen Index Update.",
         "Tests laufen ohne Netzwerk."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T07.02",
       "title": "Mock GitHub Adapter Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "test",
@@ -603,7 +603,7 @@
         "Secrets werden redacted.",
         "Tests prüfen Limit und dry-run."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T07.03",
@@ -710,13 +710,13 @@
   "tasks_status_summary": {
     "total": 29,
     "by_status": {
-      "todo": 9,
+      "todo": 4,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 20
+      "done": 25
     },
-    "progress_percent_done": 68.97,
+    "progress_percent_done": 86.2,
     "by_priority": {
       "P1": 22,
       "P2": 7,
@@ -729,15 +729,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 12,
-      "remaining": 3
+      "done": 14,
+      "remaining": 1
     },
     "milestones": {
       "total": 8,
-      "todo": 3,
-      "in_progress": 0,
+      "todo": 1,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 5
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -886,44 +886,44 @@
       "security": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "provenance": {
         "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "test": {
+        "total": 3,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
-      },
-      "test": {
-        "total": 3,
-        "by_status": {
-          "todo": 3,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 66.7
       },
       "e2e": {
         "total": 1,
@@ -957,13 +957,13 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 9,
+    "todo_remaining": 4,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 20,
-    "count_based_percent": 69.0,
-    "weighted_percent": 66.7
+    "done": 25,
+    "count_based_percent": 86.2,
+    "weighted_percent": 86.7
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -1008,10 +1008,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 52.5,
-    "done_weight": 35.0,
-    "remaining_weight": 17.5,
+    "done_weight": 45.5,
+    "remaining_weight": 7.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 66.7
+    "weighted_percent": 86.7
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1057,19 +1057,19 @@
       },
       "M06": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M07": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 50.0,
+        "weighted_percent": 47.1,
+        "status": "in_progress"
       },
       "M08": {
         "total_tasks": 2,
@@ -1084,10 +1084,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T22:09:46.500082Z",
+    "generated_at": "2026-05-26T22:17:03.154612Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "0b266e95f9d2114121cc523da21a0d36a7898698130d195b9a56c56cbb45128a",
+    "source_hash": "8847aa5d9afa9a5826f71d075b460ae9fd090af6cca72d9980abf0e8db37d4b4",
     "is_stale": false
   }
 }
