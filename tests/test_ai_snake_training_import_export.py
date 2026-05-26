@@ -78,6 +78,7 @@ def test_import_conflict_strategies(monkeypatch, tmp_path) -> None:
     assert keep_best["conflicts"] >= 1
     assert "keep_higher_confidence" in keep_best["conflict_resolution"]
     assert abs(float(read_patterns()[0]["confidence"]) - 0.9) < 1e-9
+    assert bool((read_patterns()[0].get("extensions") or {}).get("edited_by_user")) is True
 
     save_patterns([_pattern("pat-shared", 0.2, explanation="local")])
     keep_local = import_training_bundle(input_path=str(src), preview=False, conflict_strategy="keep_local")
@@ -122,6 +123,27 @@ def test_roundtrip_export_import_restores_patterns(monkeypatch, tmp_path) -> Non
     assert any(str(item.get("pattern_id") or "") == "pat-rt" for item in read_patterns())
     preview = preview_training_bundle(str(exported))
     assert preview["patterns"] >= 1
+
+
+def test_import_rejects_invalid_json_and_schema(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    invalid_json = tmp_path / "broken.json"
+    invalid_json.write_text("{invalid", encoding="utf-8")
+    try:
+        import_training_bundle(input_path=str(invalid_json), preview=False)
+    except json.JSONDecodeError:
+        pass
+    else:
+        raise AssertionError("expected JSONDecodeError")
+
+    invalid_schema = tmp_path / "invalid-schema.json"
+    invalid_schema.write_text(json.dumps({"schema_version": "ai_snake_training_bundle.v1", "bundle_id": "x"}), encoding="utf-8")
+    try:
+        import_training_bundle(input_path=str(invalid_schema), preview=False)
+    except ValueError as exc:
+        assert "invalid bundle" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
 
 
 def test_save_patterns_updates_profile_ai_summary_and_hint_standard(monkeypatch, tmp_path) -> None:

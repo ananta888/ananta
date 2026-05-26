@@ -187,6 +187,12 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             prediction = game.get("ai_snake_prediction") if isinstance(game.get("ai_snake_prediction"), dict) else {}
             debug = game.get("ai_snake_debug") if isinstance(game.get("ai_snake_debug"), dict) else {}
             trace = debug.get("last_prediction_trace") if isinstance(debug.get("last_prediction_trace"), dict) else {}
+            active_patterns = list(debug.get("active_pattern_refs") or []) if isinstance(debug.get("active_pattern_refs"), list) else []
+            learned = "yes" if active_patterns else "no"
+            last_pattern = "-"
+            if active_patterns and isinstance(active_patterns[0], dict):
+                last_pattern = str(active_patterns[0].get("pattern_id") or "-")
+            source = str(debug.get("prediction_source") or "quick")
             pred_intent = str(prediction.get("predicted_intent") or "unknown")
             pred_conf = float(prediction.get("confidence") or 0.0)
             runtime = str(game.get("ai_snake_runtime_status") or "idle")
@@ -196,9 +202,39 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             return CommandResult(
                 state.with_updates(
                     header_logo_game=game,
-                    status_message=f"ai:{ai_mode}/{runtime} pred={pred_intent} conf={pred_conf:.2f} trace={trace_id} cache={cache_state} provider={provider_ref}",
+                    status_message=(
+                        f"ai:{ai_mode}/{runtime} pred={pred_intent} conf={pred_conf:.2f} source={source} "
+                        f"learned={learned} patterns={len(active_patterns)} last_pattern={last_pattern} "
+                        f"trace={trace_id} cache={cache_state} provider={provider_ref}"
+                    ),
                 ),
                 "ai status",
+            )
+        if sub == "why":
+            prediction = game.get("ai_snake_prediction") if isinstance(game.get("ai_snake_prediction"), dict) else {}
+            debug = game.get("ai_snake_debug") if isinstance(game.get("ai_snake_debug"), dict) else {}
+            trace = debug.get("last_prediction_trace") if isinstance(debug.get("last_prediction_trace"), dict) else {}
+            refs = list(trace.get("used_refs") or []) if isinstance(trace, dict) else []
+            source = str(debug.get("prediction_source") or "quick")
+            active = list(debug.get("active_pattern_refs") or []) if isinstance(debug.get("active_pattern_refs"), list) else []
+            matched = str(debug.get("matched_pattern_id") or "")
+            evidence = []
+            if matched:
+                for item in active:
+                    if isinstance(item, dict) and str(item.get("pattern_id") or "") == matched:
+                        evidence.append(str(item.get("ai_hint") or "")[:160])
+                        break
+            ref_preview = ", ".join(str(x) for x in refs[:3]) if refs else "none"
+            msg = (
+                f"why: source={source} intent={prediction.get('predicted_intent') or 'unknown'} "
+                f"conf={float(prediction.get('confidence') or 0.0):.2f} "
+                f"pattern={matched or '-'} refs={ref_preview}"
+            )
+            if evidence:
+                msg += f" evidence={evidence[0]}"
+            return CommandResult(
+                state.with_updates(header_logo_game=game, status_message=msg[:240]),
+                msg,
             )
         if sub == "data":
             action = str(args[1]).lower() if len(args) > 1 else "path"
@@ -271,7 +307,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
                 if len(args) < 3:
                     return CommandResult(
                         state,
-                        "ai data import <path> [--preview] [--disabled] [--conflict keep_higher_confidence|overwrite|keep_local|merge_counters]",
+                        "ai data import <path> [--preview] [--disabled] [--conflict keep_higher_confidence|overwrite|keep_local|merge_counters|import_disabled_copy]",
                         handled=False,
                     )
                 source = str(args[2]).strip()
@@ -399,11 +435,40 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             )
         if sub == "pattern":
             if len(args) < 2:
-                return CommandResult(state, "ai pattern requires an id", handled=False)
-            detail = pattern_detail(args[1])
+                return CommandResult(state, "ai pattern: <id> | explain <id> | enable <id> | disable <id> | delete <id>", handled=False)
+            op = str(args[1]).lower()
+            if op in {"explain", "enable", "disable", "delete"}:
+                if len(args) < 3:
+                    return CommandResult(state, f"ai pattern {op} requires an id", handled=False)
+                pattern_id = str(args[2]).strip()
+            else:
+                pattern_id = str(args[1]).strip()
+                op = "show"
+            if op in {"show", "explain"}:
+                detail = pattern_detail(pattern_id)
+                return CommandResult(
+                    state.with_updates(header_logo_game=game, status_message=detail[:240]),
+                    detail,
+                )
+            patterns = read_patterns()
+            found = False
+            updated: list[dict[str, object]] = []
+            for item in patterns:
+                copied = dict(item)
+                if str(copied.get("pattern_id") or "") != pattern_id:
+                    updated.append(copied)
+                    continue
+                found = True
+                if op == "delete":
+                    continue
+                copied["status"] = "active" if op == "enable" else "disabled"
+                updated.append(copied)
+            if not found:
+                return CommandResult(state, f"pattern not found: {pattern_id}", handled=False)
+            save_patterns(updated, backup=True)
             return CommandResult(
-                state.with_updates(header_logo_game=game, status_message=detail[:240]),
-                detail,
+                state.with_updates(header_logo_game=game, status_message=f"ai pattern {op} {pattern_id}"),
+                f"ai pattern {op} {pattern_id}",
             )
         if sub == "learning":
             action = str(args[1]).lower() if len(args) > 1 else "status"
@@ -446,7 +511,7 @@ def execute_command(raw_command: str, state: OperatorState) -> CommandResult:
             return CommandResult(state, "ai learning: on | off | pause | status", handled=False)
         return CommandResult(
             state,
-            "ai: follow | lurk | quiet | explain | off | status | ctx | data ... | patterns | pattern <id> | prediction ... | learning ...",
+            "ai: follow | lurk | quiet | explain | off | status | why | ctx | data ... | patterns | pattern ... | prediction ... | learning ...",
             handled=False,
         )
     if command == "inspect":

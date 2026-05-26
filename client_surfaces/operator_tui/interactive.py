@@ -33,6 +33,7 @@ from client_surfaces.operator_tui.ai_snake_context import (
     load_codecompass_artifact,
     relevance_refs_for_intent,
     set_ai_context,
+    training_profile_envelope,
 )
 from client_surfaces.operator_tui.ai_snake_follow import (
     apply_worker_follow_update,
@@ -1467,6 +1468,12 @@ class InteractiveOperatorTui:
             codecompass_artifact=codecompass,
             max_refs=12,
         )
+        training_ctx = training_profile_envelope(
+            intent=str(prediction.get("predicted_intent") or "unknown"),
+            max_patterns=int(game.get("ai_snake_training_max_patterns") or 8),
+        )
+        envelope["training_profile_ref"] = training_ctx.get("training_profile_ref")
+        envelope["active_pattern_refs"] = training_ctx.get("active_pattern_refs")
         signature = f"{prediction.get('predicted_intent')}|{prediction.get('target_ref')}|{section}"
         if signature != self._ai_last_signature:
             self._ai_worker_client.cancel_pending_predict(reason="local_signature_changed")
@@ -1646,6 +1653,21 @@ class InteractiveOperatorTui:
             and ai_mode != "off"
             and prompt_policy.allowed
         )
+        active_pattern_refs = list(envelope.get("active_pattern_refs") or [])
+        matched_pattern_id = ""
+        for item in active_pattern_refs:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("predicted_intent") or "").strip().lower() == str(prediction.get("predicted_intent") or "").strip().lower():
+                matched_pattern_id = str(item.get("pattern_id") or "")
+                break
+        if not matched_pattern_id and active_pattern_refs and isinstance(active_pattern_refs[0], dict):
+            matched_pattern_id = str(active_pattern_refs[0].get("pattern_id") or "")
+        prediction_source = "local_quick"
+        if matched_pattern_id:
+            prediction_source = "learned_profile"
+        if isinstance(worker_response, dict) and str(worker_response.get("status") or "") == "ok":
+            prediction_source = "worker_context"
         if isinstance(game.get("chat_state"), dict):
             from client_surfaces.operator_tui.chat_state import maybe_add_prediction_comment
 
@@ -1722,6 +1744,10 @@ class InteractiveOperatorTui:
             "worker_result_error": str((game.get("ai_snake_worker_response") or {}).get("error") or ""),
             "pending_worker_request": self._ai_worker_task is not None,
             "last_prediction_trace": prediction_trace,
+            "training_profile_ref": envelope.get("training_profile_ref"),
+            "active_pattern_refs": active_pattern_refs,
+            "matched_pattern_id": matched_pattern_id,
+            "prediction_source": prediction_source,
         }
 
     def _update_multi_snake_state(

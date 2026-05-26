@@ -11,8 +11,11 @@ AI-Kontext-Modell:
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from client_surfaces.operator_tui.ai_snake_training_store import read_active_profile, read_patterns
 
 
 def default_ai_context() -> dict[str, Any]:
@@ -171,6 +174,52 @@ def build_context_envelope_ref(
     }
 
 
+def training_profile_envelope(
+    *,
+    intent: str,
+    max_patterns: int = 8,
+) -> dict[str, Any]:
+    profile = read_active_profile()
+    patterns = [item for item in read_patterns() if isinstance(item, dict)]
+    active = [
+        item
+        for item in patterns
+        if str(item.get("status") or "") == "active" and not _is_expired(item.get("expires_at"))
+    ]
+    intent_key = str(intent or "").strip().lower()
+
+    def _score(item: dict[str, Any]) -> tuple[float, float]:
+        base = float(item.get("confidence") or 0.0)
+        bonus = 0.0
+        if intent_key and str(item.get("predicted_intent") or "").strip().lower() == intent_key:
+            bonus += 0.20
+        recency = _recency_score(item.get("last_seen_at"))
+        return (base + bonus + recency, base)
+
+    ranked = sorted(active, key=_score, reverse=True)[: max(1, int(max_patterns))]
+    selected = [
+        {
+            "pattern_id": str(item.get("pattern_id") or ""),
+            "predicted_intent": str(item.get("predicted_intent") or "unknown"),
+            "confidence": round(float(item.get("confidence") or 0.0), 3),
+            "ai_hint": str(item.get("ai_hint") or "")[:300],
+            "status": str(item.get("status") or "active"),
+            "last_seen_at": str(item.get("last_seen_at") or ""),
+        }
+        for item in ranked
+        if str(item.get("pattern_id") or "")
+    ]
+    return {
+        "training_profile_ref": {
+            "profile_id": str(profile.get("profile_id") or "default"),
+            "display_name": str(profile.get("display_name") or "unknown"),
+            "ai_summary": str(profile.get("ai_summary") or ""),
+            "workspace_ref": str(profile.get("workspace_ref") or "local"),
+        },
+        "active_pattern_refs": selected,
+    }
+
+
 def relevance_refs_for_intent(
     *,
     intent: str,
@@ -222,3 +271,30 @@ def compact_observation_summary(summary: dict[str, Any], *, max_facts: int = 20)
         "notes_active": bool(summary.get("notes_active")),
         "event_count": int(summary.get("event_count") or 0),
     }
+
+
+def _is_expired(value: Any) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return dt <= datetime.now(UTC)
+
+
+def _recency_score(value: Any) -> float:
+    text = str(value or "").strip()
+    if not text:
+        return 0.0
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return 0.0
+    delta = max(0.0, (datetime.now(UTC) - dt).total_seconds())
+    if delta <= 3600:
+        return 0.10
+    if delta <= 86400:
+        return 0.05
+    return 0.0

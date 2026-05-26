@@ -724,6 +724,17 @@ def _status_line(state: OperatorState, width: int, splash_state: str = "") -> st
             reason = str(debug.get("gate_reason") or "")
             if reason:
                 parts.append(f"gate={reason}")
+            active_refs = debug.get("active_pattern_refs")
+            if isinstance(active_refs, list):
+                parts.append(f"patterns={len(active_refs)}")
+                if active_refs and isinstance(active_refs[0], dict):
+                    parts.append(f"last_pattern={str(active_refs[0].get('pattern_id') or '-')}")
+                parts.append("learned=yes" if active_refs else "learned=no")
+                if not active_refs:
+                    parts.append("no_learned_profile_yet")
+            source = str(debug.get("prediction_source") or "")
+            if source:
+                parts.append(f"src={source}")
         envelope = game.get("ai_snake_context_envelope")
         if isinstance(envelope, dict):
             parts.append(f"ctx={str(envelope.get('context_hash') or 'missing')}")

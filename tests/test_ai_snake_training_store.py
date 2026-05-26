@@ -214,3 +214,57 @@ def test_ai_data_export_md_and_import_preview_commands(monkeypatch, tmp_path) ->
     assert preview.handled is True
     payload = json.loads(preview.message)
     assert payload["status"] == "preview"
+
+
+def test_pattern_enable_disable_delete_and_explain_commands(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    save_patterns(
+        [
+            {
+                "pattern_id": "pat-control",
+                "pattern_type": "heuristic",
+                "conditions": {"field": "section_is", "op": "eq", "value": "dashboard"},
+                "predicted_intent": "navigate",
+                "confidence": 0.4,
+                "evidence": {"source_event_ids": [], "sample_size": 0, "counter_refs": []},
+                "counters": {"hits": 0, "misses": 0, "positives": 0, "negatives": 0},
+                "last_seen_at": "2026-01-01T00:00:00Z",
+                "expires_at": "2030-01-01T00:00:00Z",
+                "status": "active",
+                "human_explanation": "x",
+                "ai_hint": "y",
+            }
+        ]
+    )
+    s = OperatorState(endpoint="http://localhost:5000", header_logo_game={})
+    dis = execute_command(":ai pattern disable pat-control", s)
+    assert dis.handled is True
+    assert read_patterns()[0]["status"] == "disabled"
+    ena = execute_command(":ai pattern enable pat-control", dis.state)
+    assert ena.handled is True
+    assert read_patterns()[0]["status"] == "active"
+    explain = execute_command(":ai pattern explain pat-control", ena.state)
+    assert explain.handled is True
+    assert "pattern=pat-control" in explain.message
+    dele = execute_command(":ai pattern delete pat-control", explain.state)
+    assert dele.handled is True
+    assert read_patterns() == []
+
+
+def test_ai_why_command_shows_prediction_explanation() -> None:
+    state = OperatorState(
+        endpoint="http://localhost:5000",
+        header_logo_game={
+            "ai_snake_prediction": {"predicted_intent": "artifact_explain", "confidence": 0.77},
+            "ai_snake_debug": {
+                "prediction_source": "learned_profile",
+                "matched_pattern_id": "pat-1",
+                "active_pattern_refs": [{"pattern_id": "pat-1", "ai_hint": "explain file"}],
+                "last_prediction_trace": {"used_refs": ["README.md"]},
+            },
+        },
+    )
+    result = execute_command(":ai why", state)
+    assert result.handled is True
+    assert "source=learned_profile" in result.message
+    assert "pattern=pat-1" in result.message
