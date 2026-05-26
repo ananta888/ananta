@@ -83,6 +83,29 @@ def test_apply_logo_runtime_overrides_sets_env_for_render_once(monkeypatch):
     assert os.environ.get("ANANTA_TUI_LOGO_ANIMATION") == "static"
 
 
+def test_splash_debug_file_not_written_without_flag(tmp_path, monkeypatch):
+    from client_surfaces.operator_tui.app import _maybe_write_splash_debug
+
+    debug_path = tmp_path / "splash_debug.txt"
+    monkeypatch.delenv("ANANTA_TUI_SPLASH_DEBUG", raising=False)
+    monkeypatch.setenv("ANANTA_TUI_SPLASH_DEBUG_PATH", str(debug_path))
+    _maybe_write_splash_debug({"mode": "test"})
+    assert debug_path.exists() is False
+
+
+def test_splash_debug_file_written_with_flag(tmp_path, monkeypatch):
+    from client_surfaces.operator_tui.app import _maybe_write_splash_debug
+
+    debug_path = tmp_path / "splash_debug.txt"
+    monkeypatch.setenv("ANANTA_TUI_SPLASH_DEBUG", "1")
+    monkeypatch.setenv("ANANTA_TUI_SPLASH_DEBUG_PATH", str(debug_path))
+    _maybe_write_splash_debug({"mode": "test", "frames": 3})
+    assert debug_path.exists() is True
+    body = debug_path.read_text(encoding="utf-8")
+    assert "mode=test" in body
+    assert "frames=3" in body
+
+
 def test_render_once_without_splash():
     from client_surfaces.operator_tui.models import OperatorState, OperatorMode, FocusPane
     from client_surfaces.operator_tui.renderer import render_operator_shell
