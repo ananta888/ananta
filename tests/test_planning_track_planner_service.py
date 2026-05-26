@@ -41,6 +41,7 @@ def test_build_planner_context_envelope_filters_denied_artifacts() -> None:
     assert envelope["available_artifacts"][0]["source_ref"] == "artifact:a"
     assert envelope["denied_source_refs"] == ["artifact:b"]
     assert envelope["codecompass_refs"] == ["ctx:module:planner"]
+    assert envelope["context_summary"]["source_refs"] == ["artifact:a"]
 
 
 def test_render_track_planning_prompt_contains_required_sections() -> None:
@@ -82,4 +83,3 @@ def test_parse_planner_output_accepts_envelope_and_rejects_prose() -> None:
     invalid = parse_planner_output("please create a plan with 5 steps")
     assert invalid["status"] == "invalid"
     assert invalid["reason_code"] == "non_json_output"
-

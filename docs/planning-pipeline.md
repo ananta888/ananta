@@ -49,6 +49,13 @@ Track-planning profile (`track_planner`) requirements:
 - summary policy validates `tasks_status_summary` against `tasks`
 - prompt template: `prompts/planning/track_planning.j2`
 
+Planning track persistence/validation:
+- planner context envelope filters `available_artifacts` by `allowed_source_refs` and records denied refs
+- planning track output is persisted as `artifact_type=planning_track` with execution provenance
+- schema validation returns structured issues (`path`, `reason_code`, `human_message`)
+- summary consistency is deterministically recomputed; repair mode can auto-fix summary mismatch
+- JSON repair pipeline is capped to one repair attempt; failed repair remains degraded/failed, never active plan
+
 ## Transition to deterministic-first
 
 Deterministic-first is a later policy mode (`deterministic_first`) once metrics and review evidence are sufficient.

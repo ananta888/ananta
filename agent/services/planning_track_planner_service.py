@@ -54,6 +54,16 @@ def build_planner_context_envelope(
             denied_refs.append(source_ref)
             continue
         accepted_artifacts.append(dict(item))
+    artifact_source_refs = [
+        _normalize_source_ref(item)
+        for item in accepted_artifacts
+        if _normalize_source_ref(item)
+    ]
+    context_summary = {
+        "artifact_count": len(accepted_artifacts),
+        "source_refs": artifact_source_refs[:20],
+        "truncated": len(artifact_source_refs) > 20,
+    }
     return {
         "goal_id": str(goal_id or "").strip(),
         "goal_text": str(goal_text or "").strip(),
@@ -62,6 +72,7 @@ def build_planner_context_envelope(
         "allowed_source_refs": sorted(allowed),
         "denied_source_refs": sorted(set(denied_refs)),
         "codecompass_refs": [str(item).strip() for item in list(codecompass_refs or []) if str(item).strip()],
+        "context_summary": context_summary,
         "schema_ref": planning_contract_ref()["schema_ref"],
         "schema_hash": planning_contract_hash(),
     }
@@ -106,4 +117,3 @@ def parse_planner_output(raw_output: str) -> dict[str, Any]:
             "envelope": envelope,
         }
     return {"status": "valid", "reason_code": "ok", "errors": [], "payload": payload, "envelope": envelope}
-
