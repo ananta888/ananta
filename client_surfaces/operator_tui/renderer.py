@@ -499,6 +499,8 @@ def _content_lines(state: OperatorState, width: int) -> list[str]:
         lines.extend(_binding_lines(state, width))
     elif section.id == "artifacts" and bool(payload.get("diff3_mode")):
         lines.extend(_diff3_content_lines(payload, width=width))
+    elif section.id == "artifacts" and bool(payload.get("planning_track_mode")):
+        lines.extend(_planning_track_content_lines(payload, width=width, compact=width < 74))
     elif section.id == "artifacts" and bool(payload.get("goal_artifacts_mode")):
         lines.extend(_goal_artifacts_content_lines(payload, width=width, compact=width < 74))
     else:
@@ -689,8 +691,109 @@ def _detail_lines(state: OperatorState, width: int) -> list[str]:
             lines.append("    :artifact provenance <output-id>")
             lines.append("    :artifact prompt <output-id>")
             lines.append("    :artifact config <output-id>")
+        if bool(payload.get("planning_track_mode")):
+            lines.append("    :plan track [--from-goal <goal-id>]")
+            lines.append("    :plan track filter status=... priority=... risk=... type=...")
+            lines.append("    :plan track clear-filter")
+            lines.append("    :plan track adopt <output-id> | reject <output-id>")
+            lines.append("    :plan track diff <left-output-id> <right-output-id>")
 
     return [_clip(line, width) for line in lines]
+
+
+def _planning_track_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
+    goal_id = str(payload.get("goal_id") or "unknown")
+    status = str(payload.get("planning_status") or "idle")
+    lifecycle = [str(item) for item in list(payload.get("planning_lifecycle") or []) if str(item).strip()]
+    selected_track = dict(payload.get("selected_track") or {})
+    selected_output = str(payload.get("selected_output_id") or "")
+    active_output = str(payload.get("active_output_id") or "")
+    filters = dict(payload.get("task_filters") or {})
+    warnings = list(selected_track.get("quality_gate_warnings") or [])
+    rows = list(payload.get("track_rows") or [])
+
+    lines = [
+        f"  Planning Track: {goal_id}",
+        f"  Status: {status}  lifecycle={' -> '.join(lifecycle) if lifecycle else '-'}",
+        f"  Selected output: {selected_output or '-'}  active={active_output or '-'}",
+        f"  Filters: {', '.join([f'{k}={v}' for k, v in filters.items()]) if filters else 'none'}",
+    ]
+    if compact:
+        lines.append("  --- compact view ---")
+    if not selected_track:
+        if rows:
+            lines.append("  planning outputs available, but selected track payload missing")
+        else:
+            lines.append("  no planning track outputs")
+        return lines
+
+    owner = str(selected_track.get("owner") or "-")
+    track = str(selected_track.get("track") or "-")
+    goal = str(selected_track.get("goal") or goal_id)
+    progress = dict(selected_track.get("progress_summary") or {})
+    summary = dict(selected_track.get("tasks_status_summary") or {})
+    lines.append(f"  Header: owner={owner} track={track} goal={goal}")
+    lines.append(
+        _clip(
+            "  Summary: "
+            f"state={progress.get('state') or '-'} done={summary.get('by_status', {}).get('done', 0)} "
+            f"todo={summary.get('by_status', {}).get('todo', 0)} total={summary.get('total', 0)}",
+            width,
+        )
+    )
+
+    milestones = [dict(item) for item in list(selected_track.get("milestones") or []) if isinstance(item, dict)]
+    lines.append("  [Milestones]")
+    if not milestones:
+        lines.append("    - none")
+    for milestone in milestones[:8]:
+        lines.append(
+            _clip(
+                f"    {milestone.get('id')} [{milestone.get('status')}] "
+                f"{milestone.get('title')} tasks={','.join([str(x) for x in list(milestone.get('task_ids') or [])])}",
+                width,
+            )
+        )
+
+    tasks = [dict(item) for item in list(selected_track.get("tasks_filtered") or []) if isinstance(item, dict)]
+    lines.append("  [Tasks]")
+    if not tasks:
+        lines.append("    - none (filtered)")
+    for task in tasks[:16]:
+        lines.append(
+            _clip(
+                f"    {task.get('id')} [{task.get('status')}] {task.get('priority')}/{task.get('risk')} "
+                f"type={task.get('type') or '-'} {task.get('title')}",
+                width,
+            )
+        )
+
+    critical = [str(item) for item in list(selected_track.get("critical_path_tasks") or []) if str(item).strip()]
+    lines.append(f"  Critical path: {', '.join(critical) if critical else 'none'}")
+
+    if warnings:
+        lines.append("  [Quality warnings]")
+        for warning in warnings[:5]:
+            if not isinstance(warning, dict):
+                continue
+            lines.append(_clip(f"    {warning.get('path')}: {warning.get('reason_code')}", width))
+
+    status_issues = [dict(item) for item in list(payload.get("status_issues") or []) if isinstance(item, dict)]
+    if status_issues:
+        lines.append("  [Validation issues]")
+        for issue in status_issues[:5]:
+            lines.append(_clip(f"    {issue.get('path')}: {issue.get('reason_code')}", width))
+
+    diff = dict(payload.get("plan_diff") or {})
+    if diff:
+        lines.append("  [Plan diff]")
+        lines.append(
+            f"    {diff.get('left_output_id')} -> {diff.get('right_output_id')} "
+            f"new={len(list(diff.get('new_tasks') or []))} "
+            f"changed={len(list(diff.get('changed_tasks') or []))} "
+            f"removed={len(list(diff.get('removed_tasks') or []))}"
+        )
+    return lines
 
 
 def _goal_artifacts_content_lines(payload: dict, *, width: int, compact: bool) -> list[str]:
