@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/sources/source_snapshot.v1.json",
+  "title": "Source Snapshot v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "snapshot_id",
+    "source_id",
+    "created_at",
+    "retrieved_at",
+    "content_hash",
+    "metadata_hash",
+    "descriptor_hash",
+    "byte_size",
+    "item_count",
+    "status"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "source_snapshot.v1"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^snap_[a-f0-9]{12,40}$"
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,120}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "retrieved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "metadata_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "descriptor_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "byte_size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "item_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "downloading",
+        "validating",
+        "indexed",
+        "failed",
+        "superseded",
+        "duplicate"
+      ]
+    },
+    "reason_code": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "human_message": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.dev/schemas/sources/source_reference.v1.json",
+  "title": "Source Reference v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "source_id",
+    "snapshot_id",
+    "chunk_id",
+    "canonical_url",
+    "title",
+    "license_ref",
+    "retrieved_at"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "source_reference.v1"
+    },
+    "source_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,120}$"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^snap_[a-f0-9]{12,40}$"
+    },
+    "chunk_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "canonical_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "license_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "retrieved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "attribution_text": {
+      "type": "string",
+      "maxLength": 1200
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}
