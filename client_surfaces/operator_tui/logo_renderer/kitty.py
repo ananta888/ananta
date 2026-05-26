@@ -13,7 +13,6 @@ _DEFAULT_SVG = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 class KittyRenderer:
     name = "kitty"
     quality_rank = 300
-    supports_animation = True
     kind = "stream_sequences"
 
     def __init__(self, *, image_id: int = 1337, placement_id: int = 7331) -> None:
@@ -22,6 +21,26 @@ class KittyRenderer:
 
     def detect(self, probe: LogoRendererProbe) -> bool:
         return probe.is_tty and detect_kitty_support(probe.env)
+
+    def supports_animation(self) -> bool:
+        return True
+
+    def supports_truecolor(self) -> bool:
+        return True
+
+    def get_capabilities(self) -> dict[str, str | int | float | bool]:
+        return {
+            "renderer": self.name,
+            "protocol": "kitty_graphics",
+            "supports_animation": True,
+            "supports_truecolor": True,
+        }
+
+    def clear_region(self, *, x: int, y: int, width: int, height: int, writer=None) -> str:
+        sequence = f"\x1b7\x1b[{max(1, y)};{max(1, x)}H\x1b_Ga=d,d=A\x1b\\\x1b8"
+        if writer is not None:
+            writer.write(sequence)
+        return sequence
 
     def render_frame(
         self,

@@ -1,7 +1,7 @@
 {
   "id": "todo.terminal-pixel-graphics-2d-3d",
   "title": "Terminal Pixel Graphics: hochwertige 2D-Grafik und Echtzeit-3D in der Ananta-TUI",
-  "status": "planned",
+  "status": "in_progress",
   "priority": "high",
   "goal": "Die Ananta-TUI soll nicht nur ASCII-Grafik anzeigen, sondern echte Pixelgrafik im Terminal rendern können. Ziel ist zuerst hochwertige 2D-Grafik, danach Echtzeit-3D über Offscreen-Rendering mit Ausgabe über moderne Terminal-Grafikprotokolle.",
   "context": {
@@ -156,6 +156,7 @@
   "tasks": [
     {
       "id": "TUI-GFX-001",
+      "status": "done",
       "title": "TerminalGraphicsBackend Interface definieren",
       "type": "implementation",
       "priority": "high",
@@ -177,6 +178,7 @@
     },
     {
       "id": "TUI-GFX-002",
+      "status": "done",
       "title": "Capability Detection für Terminal-Grafik implementieren",
       "type": "implementation",
       "priority": "high",
@@ -197,6 +199,7 @@
     },
     {
       "id": "TUI-GFX-003",
+      "status": "done",
       "title": "Hochwertige 2D-SVG-Rendering-Pipeline bauen",
       "type": "implementation",
       "priority": "high",
@@ -218,6 +221,7 @@
     },
     {
       "id": "TUI-GFX-004",
+      "status": "done",
       "title": "SixelBackend implementieren",
       "type": "implementation",
       "priority": "high",
@@ -239,6 +243,7 @@
     },
     {
       "id": "TUI-GFX-005",
+      "status": "done",
       "title": "KittyGraphicsBackend implementieren",
       "type": "implementation",
       "priority": "high",
