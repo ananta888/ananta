@@ -96,7 +96,7 @@
         "T07.03",
         "T07.04"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M08",
@@ -105,7 +105,7 @@
         "T08.01",
         "T08.02"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -608,7 +608,7 @@
     {
       "id": "T07.03",
       "title": "Analyzer Tests",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
@@ -623,12 +623,12 @@
         "Tests prüfen timeout Analyse.",
         "Analyse schreibt keine Reparaturdateien."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T07.04",
       "title": "E2E: GitHub Failure aufnehmen und Report schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "e2e",
@@ -646,12 +646,12 @@
         "Keine Datei außerhalb helpcenter/ wird verändert.",
         "TUI zeigt Report in Helpcenter-Ansicht."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T08.01",
       "title": "User-Doku Helpcenter Ingestion",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
       "type": "docs",
@@ -666,12 +666,12 @@
         "Doku erklärt no-auto-fix ersten Schritt.",
         "Doku erklärt Reports und Index."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "T08.02",
       "title": "Architekturdoku mit Mermaid",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
       "type": "docs",
@@ -687,7 +687,7 @@
         "Doku enthält Security-Invarianten für Redaction und no-auto-fix.",
         "Doku enthält Testmatrix."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     }
   ],
   "critical_path_tasks": [
@@ -710,13 +710,13 @@
   "tasks_status_summary": {
     "total": 29,
     "by_status": {
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 25
+      "done": 29
     },
-    "progress_percent_done": 86.2,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P1": 22,
       "P2": 7,
@@ -729,15 +729,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 14,
-      "remaining": 1
+      "done": 15,
+      "remaining": 0
     },
     "milestones": {
       "total": 8,
-      "todo": 1,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 6
+      "done": 8
     }
   },
   "tasks_type_summary": {
@@ -914,7 +914,35 @@
       "test": {
         "total": 3,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "e2e": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "docs": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
@@ -923,47 +951,19 @@
         "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 66.7
-      },
-      "e2e": {
-        "total": 1,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
-      },
-      "docs": {
-        "total": 2,
-        "by_status": {
-          "todo": 2,
-          "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 4,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 25,
-    "count_based_percent": 86.2,
-    "weighted_percent": 86.7
+    "done": 29,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -1008,10 +1008,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 52.5,
-    "done_weight": 45.5,
-    "remaining_weight": 7.0,
+    "done_weight": 52.5,
+    "remaining_weight": 0.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 86.7
+    "weighted_percent": 100.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1065,29 +1065,29 @@
       },
       "M07": {
         "total_tasks": 4,
-        "done": 2,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 47.1,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M08": {
         "total_tasks": 2,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-05-26T22:17:03.154612Z",
+    "generated_at": "2026-05-26T22:21:16.379089Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "8847aa5d9afa9a5826f71d075b460ae9fd090af6cca72d9980abf0e8db37d4b4",
+    "source_hash": "025a5ba80189af8cbb292a1a280565e483f008729ff0bb67483b36603d124210",
     "is_stale": false
   }
 }

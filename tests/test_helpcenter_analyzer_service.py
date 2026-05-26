@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from agent.services.helpcenter_analyzer_service import (
     analyze_helpcenter_message,
     build_helpcenter_analysis_prompt,
@@ -52,3 +54,30 @@ def test_analyzer_extracts_related_task_track_and_goal_from_logs() -> None:
     assert analysis.get("related_track") == "helpcenter-ingest-failures-analysis-reports"
     assert analysis.get("related_goal_id") == "goal-alpha-1"
     assert str(analysis.get("suggested_followup_task") or "").strip()
+
+
+def test_analyzer_detects_npm_failure() -> None:
+    analysis = analyze_helpcenter_message(_message(), log_text="npm ERR! missing script: test")
+    codes = [str(item.get("reason_code") or "") for item in list(analysis.get("machine_readable_findings") or [])]
+    assert "npm_failure" in codes
+
+
+def test_analyzer_detects_import_error() -> None:
+    analysis = analyze_helpcenter_message(_message(), log_text="ModuleNotFoundError: No module named 'foo'")
+    codes = [str(item.get("reason_code") or "") for item in list(analysis.get("machine_readable_findings") or [])]
+    assert "import_error" in codes
+
+
+def test_analyzer_detects_timeout() -> None:
+    analysis = analyze_helpcenter_message(_message(), log_text="process timed out after 300s")
+    codes = [str(item.get("reason_code") or "") for item in list(analysis.get("machine_readable_findings") or [])]
+    assert "timeout" in codes
+
+
+def test_analyzer_does_not_write_files(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    before = sorted(str(path.relative_to(tmp_path)) for path in tmp_path.rglob("*") if path.is_file())
+    analysis = analyze_helpcenter_message(_message(), log_text="FAILURES\nAssertionError")
+    after = sorted(str(path.relative_to(tmp_path)) for path in tmp_path.rglob("*") if path.is_file())
+    assert analysis["no_auto_fix"] is True
+    assert before == after
