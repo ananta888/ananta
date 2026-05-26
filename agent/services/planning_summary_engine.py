@@ -30,7 +30,7 @@ class PlanningSummaryEngine:
     def recompute(self, payload: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
         candidate = dict(payload or {})
         tasks = [dict(item) for item in list(candidate.get("tasks") or []) if isinstance(item, dict)]
-        milestones = [dict(item) for item in list(candidate.get("milestones") or []) if isinstance(item, dict)]
+        raw_milestones = [dict(item) for item in list(candidate.get("milestones") or []) if isinstance(item, dict)]
         critical_path_ids = [str(item).strip() for item in list(candidate.get("critical_path_tasks") or []) if str(item).strip()]
         critical_path_set = set(critical_path_ids)
 
@@ -41,22 +41,26 @@ class PlanningSummaryEngine:
             normalized_tasks.append(normalized)
             issues.extend(task_issues)
 
+        milestones, milestone_progress_summary = self._derive_milestones(
+            tasks=normalized_tasks,
+            milestones=raw_milestones,
+            critical_path_set=critical_path_set,
+        )
         candidate["tasks"] = normalized_tasks
+        candidate["milestones"] = milestones
         candidate["tasks_status_summary"] = self._compute_tasks_status_summary(
             tasks=normalized_tasks,
             milestones=milestones,
             critical_path_ids=critical_path_ids,
+            priority_scale=[str(item).strip() for item in list(candidate.get("priority_scale") or []) if str(item).strip()],
+            risk_scale=[str(item).strip() for item in list(candidate.get("risk_scale") or []) if str(item).strip()],
         )
         candidate["tasks_type_summary"] = self._compute_tasks_type_summary(normalized_tasks)
         candidate["weighted_progress_summary"] = self._compute_weighted_progress_summary(
             tasks=normalized_tasks,
             critical_path_set=critical_path_set,
         )
-        candidate["milestone_progress_summary"] = self._compute_milestone_progress_summary(
-            tasks=normalized_tasks,
-            milestones=milestones,
-            critical_path_set=critical_path_set,
-        )
+        candidate["milestone_progress_summary"] = milestone_progress_summary
         candidate["progress_summary"] = self._compute_progress_summary(
             tasks_status_summary=dict(candidate.get("tasks_status_summary") or {}),
             weighted_progress_summary=dict(candidate.get("weighted_progress_summary") or {}),
@@ -141,10 +145,12 @@ class PlanningSummaryEngine:
         tasks: list[dict[str, Any]],
         milestones: list[dict[str, Any]],
         critical_path_ids: list[str],
+        priority_scale: list[str],
+        risk_scale: list[str],
     ) -> dict[str, Any]:
         by_status = {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
-        by_priority: dict[str, int] = {}
-        by_risk: dict[str, int] = {}
+        by_priority: dict[str, int] = {token: 0 for token in priority_scale}
+        by_risk: dict[str, int] = {token: 0 for token in risk_scale}
         for task in tasks:
             status = str(task.get("status") or "").strip()
             if status in by_status:
@@ -301,6 +307,50 @@ class PlanningSummaryEngine:
                 "weighted_percent": float(weighted.get("weighted_percent") or 0.0),
             }
         return {"milestones": summaries}
+
+    def _derive_milestones(
+        self,
+        *,
+        tasks: list[dict[str, Any]],
+        milestones: list[dict[str, Any]],
+        critical_path_set: set[str],
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        milestone_progress_summary = self._compute_milestone_progress_summary(
+            tasks=tasks,
+            milestones=milestones,
+            critical_path_set=critical_path_set,
+        )
+        progress_by_milestone = dict(milestone_progress_summary.get("milestones") or {})
+        task_by_id = {str(item.get("id") or "").strip(): item for item in tasks}
+        normalized_milestones: list[dict[str, Any]] = []
+        for milestone in milestones:
+            normalized = dict(milestone or {})
+            milestone_id = str(normalized.get("id") or "").strip()
+            scoped_task_ids = [str(item).strip() for item in list(normalized.get("task_ids") or []) if str(item).strip()]
+            scoped_tasks = [task_by_id[task_id] for task_id in scoped_task_ids if task_id in task_by_id]
+            if not scoped_tasks:
+                normalized["status"] = "todo"
+                normalized_milestones.append(normalized)
+                continue
+            status_counts = {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+            for task in scoped_tasks:
+                status = str(task.get("status") or "").strip()
+                if status in status_counts:
+                    status_counts[status] = int(status_counts[status]) + 1
+            total = len(scoped_tasks)
+            if status_counts["done"] == total:
+                derived_status = "done"
+            elif status_counts["in_progress"] > 0 or status_counts["partial"] > 0 or status_counts["done"] > 0:
+                derived_status = "in_progress"
+            elif status_counts["blocked"] > 0 and status_counts["todo"] == 0:
+                derived_status = "blocked"
+            else:
+                derived_status = "todo"
+            normalized["status"] = derived_status
+            if milestone_id and isinstance(progress_by_milestone.get(milestone_id), dict):
+                progress_by_milestone[milestone_id]["status"] = derived_status
+            normalized_milestones.append(normalized)
+        return normalized_milestones, {"milestones": progress_by_milestone}
 
     def _compute_progress_summary(self, *, tasks_status_summary: dict[str, Any], weighted_progress_summary: dict[str, Any]) -> dict[str, Any]:
         by_status = dict(tasks_status_summary.get("by_status") or {})

@@ -74,8 +74,8 @@ def planning_track_profile(*, mode: str = "track_planner") -> dict[str, Any]:
         "priority_scale_default": ["P1", "P2", "P3"],
         "risk_scale_default": ["low", "medium", "high"],
         "minimum_task_quality": {
-            "required_fields": ["title", "risk", "acceptance_criteria"],
-            "optional_fields": ["depends_on", "type", "milestone_id"],
+            "required_fields": ["title", "status", "priority", "risk", "type", "acceptance_criteria"],
+            "optional_fields": ["depends_on", "milestone_id", "progress_percent"],
         },
         "summary_policy": {
             "validate_tasks_status_summary": True,

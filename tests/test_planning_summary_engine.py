@@ -66,3 +66,33 @@ def test_summary_engine_weighted_progress_prioritizes_critical_high_risk() -> No
     computed, _ = PlanningSummaryEngine().recompute(payload)
     assert computed["progress_summary"]["count_based_percent"] == 50.0
     assert computed["weighted_progress_summary"]["weighted_percent"] > 50.0
+
+
+def test_summary_engine_derives_milestone_status_and_progress() -> None:
+    payload = _fixture_payload()
+    payload["tasks"] = [
+        {
+            "id": "T1",
+            "title": "Done task",
+            "status": "done",
+            "priority": "P1",
+            "risk": "high",
+            "type": "backend",
+            "acceptance_criteria": ["ok"],
+        },
+        {
+            "id": "T2",
+            "title": "In progress task",
+            "status": "in_progress",
+            "priority": "P2",
+            "risk": "medium",
+            "type": "test",
+            "acceptance_criteria": ["ok"],
+            "progress_percent": 40,
+        },
+    ]
+    payload["milestones"] = [{"id": "M1", "title": "M1", "task_ids": ["T1", "T2"], "status": "todo"}]
+    computed, _ = PlanningSummaryEngine().recompute(payload)
+    assert computed["milestones"][0]["status"] == "in_progress"
+    assert computed["milestone_progress_summary"]["milestones"]["M1"]["status"] == "in_progress"
+    assert computed["milestone_progress_summary"]["milestones"]["M1"]["total_tasks"] == 2

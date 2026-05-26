@@ -57,7 +57,14 @@ def test_required_optional_field_spec_includes_core_contract() -> None:
 def test_planning_track_profile_exposes_quality_and_snapshot() -> None:
     profile = planning_track_profile(mode="track_planner")
     assert profile["mode"] == "track_planner"
-    assert profile["minimum_task_quality"]["required_fields"] == ["title", "risk", "acceptance_criteria"]
+    assert profile["minimum_task_quality"]["required_fields"] == [
+        "title",
+        "status",
+        "priority",
+        "risk",
+        "type",
+        "acceptance_criteria",
+    ]
     assert profile["summary_policy"]["validate_tasks_status_summary"] is True
     assert profile["config_snapshot_ref"] == "config:planning_track_profile_v1"
 
