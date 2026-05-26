@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+
+import pytest
 
 
 def _grant_payload(goal_id: str = "goal-1", grant_id: str = "grant-1") -> dict:
@@ -18,11 +21,46 @@ def _grant_payload(goal_id: str = "goal-1", grant_id: str = "grant-1") -> dict:
     }
 
 
+def _usage_payload(goal_id: str = "goal-1", *, grant_id: str = "grant-1", usage_id: str = "usage-1") -> dict:
+    return {
+        "schema": "source_artifact_usage.v1",
+        "usage_id": usage_id,
+        "grant_id": grant_id,
+        "goal_id": goal_id,
+        "task_id": "task-1",
+        "worker_id": "worker-1",
+        "artifact_ref": "sources:keycloak:snap_1",
+        "usage_kind": "embedded",
+        "used_at": "2026-05-26T00:01:00Z",
+        "context_hash": "cafebabe00112233",
+        "policy_decision_ref": "policy:abc",
+    }
+
+
+def _output_payload(goal_id: str = "goal-1", *, usage_refs: list[str]) -> dict:
+    return {
+        "schema": "goal_output_artifact.v1",
+        "output_artifact_id": "out-1",
+        "goal_id": goal_id,
+        "task_id": "task-1",
+        "worker_id": "worker-1",
+        "artifact_type": "report",
+        "created_at": "2026-05-26T00:02:00Z",
+        "input_usage_refs": usage_refs,
+        "artifact_ref": "artifacts:report:1",
+        "content_hash": "a" * 64,
+        "status": "created",
+        "provenance_summary": "generated from source usage",
+    }
+
+
 def test_goal_artifacts_api_graph_grant_revoke_outputs_and_invalid_goal(client, admin_auth_header, monkeypatch, tmp_path: Path) -> None:
     from agent.config import settings
+    from agent.artifacts.goal_artifact_service import GoalArtifactService, GoalArtifactServiceError
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
     monkeypatch.setattr("agent.routes.goal_artifacts._goal_exists", lambda goal_id: goal_id != "missing-goal")
+    service = GoalArtifactService()
 
     graph = client.get("/goals/goal-1/artifacts/graph", headers=admin_auth_header)
     assert graph.status_code == 200
@@ -36,9 +74,13 @@ def test_goal_artifacts_api_graph_grant_revoke_outputs_and_invalid_goal(client, 
     assert grant.status_code == 201
     assert grant.json["data"]["grant_id"] == "grant-1"
 
+    usage = service.record_usage(goal_id="goal-1", usage=_usage_payload())
+    service.record_output_artifact(goal_id="goal-1", output_artifact=_output_payload(goal_id="goal-1", usage_refs=[usage["usage_id"]]))
+
     sources = client.get("/goals/goal-1/artifacts/sources", headers=admin_auth_header)
     assert sources.status_code == 200
     assert len(sources.json["data"]["source_grants"]) == 1
+    assert len(sources.json["data"]["source_usages"]) == 1
 
     revoked = client.post(
         "/goals/goal-1/artifacts/sources/grant-1/revoke",
@@ -48,9 +90,13 @@ def test_goal_artifacts_api_graph_grant_revoke_outputs_and_invalid_goal(client, 
     assert revoked.status_code == 200
     assert revoked.json["data"]["revoke_reason"] == "manual"
 
+    with pytest.raises(GoalArtifactServiceError) as exc:
+        service.record_usage(goal_id="goal-1", usage=_usage_payload(usage_id="usage-2"))
+    assert exc.value.reason_code == "grant_revoked"
+
     outputs = client.get("/goals/goal-1/artifacts/outputs", headers=admin_auth_header)
     assert outputs.status_code == 200
-    assert isinstance(outputs.json["data"]["output_artifacts"], list)
+    assert outputs.json["data"]["output_artifacts"][0]["input_usage_refs"] == ["usage-1"]
 
     citations = client.get("/goals/goal-1/artifacts/citations", headers=admin_auth_header)
     assert citations.status_code == 200
@@ -59,6 +105,20 @@ def test_goal_artifacts_api_graph_grant_revoke_outputs_and_invalid_goal(client, 
 
     invalid = client.get("/goals/missing-goal/artifacts/graph", headers=admin_auth_header)
     assert invalid.status_code == 404
+
+
+def test_goal_artifacts_api_rejects_invalid_grant_payload(client, admin_auth_header, monkeypatch, tmp_path: Path) -> None:
+    from agent.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    monkeypatch.setattr("agent.routes.goal_artifacts._goal_exists", lambda _goal_id: True)
+    payload = _grant_payload()
+    payload.pop("policy_decision_ref", None)
+
+    response = client.post("/goals/goal-1/artifacts/sources/grant", headers=admin_auth_header, json=payload)
+    assert response.status_code == 400
+    body = response.json if isinstance(response.json, dict) else {}
+    assert "invalid_source_grant" in json.dumps(body)
 
 
 def test_goal_artifacts_api_source_candidates(client, admin_auth_header, monkeypatch, tmp_path: Path) -> None:
@@ -108,3 +168,10 @@ def test_goal_artifacts_api_source_candidates(client, admin_auth_header, monkeyp
     rows = candidates.json["data"]["candidates"]
     assert rows
     assert all(item["artifact_type"] == "source_snapshot" for item in rows)
+
+    none = client.get(
+        "/goals/goal-2/artifacts/source-candidates?artifact_type=source_snapshot&sensitivity=secret&source_id=does-not-exist",
+        headers=admin_auth_header,
+    )
+    assert none.status_code == 200
+    assert none.json["data"]["candidates"] == []

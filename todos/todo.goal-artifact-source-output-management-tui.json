@@ -525,7 +525,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T03.01", "T03.02", "T03.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Test erstellt Goal, legt Source Grant an, ruft Graph ab.",
             "Test revoked Grant und prüft, dass neue Usage blockiert wird.",
@@ -547,7 +547,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T04.01", "T04.02", "T04.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Command-Test für `:goal artifacts`.",
             "Command-Test für source candidates, grant, revoke und detail.",
@@ -569,7 +569,7 @@
           "priority": "P1",
           "effort": "XL",
           "depends_on": ["T02.04", "T03.01", "T04.01", "T04.02", "T04.03"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "E2E erstellt oder nutzt einen Test-Goal.",
             "E2E zeigt Source Candidates.",
@@ -592,7 +592,7 @@
           "priority": "P1",
           "effort": "L",
           "depends_on": ["T02.02", "T02.03", "T06.04"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "E2E versucht, ein nicht freigegebenes Artefakt im Worker-Kontext zu nutzen.",
             "Nutzung wird blockiert und als denied_context_ref sichtbar.",
@@ -619,7 +619,7 @@
           "priority": "P1",
           "effort": "M",
           "depends_on": ["T01.01", "T02.01", "T04.01"],
-          "status": "open",
+          "status": "done",
           "acceptance_criteria": [
             "Doku enthält Ist/Soll-Abgleich.",
             "Doku enthält Mermaid-Flow für Grant-Erstellung.",
